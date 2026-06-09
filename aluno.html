@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal do Educador - Avaliacao</title>
+<style>
+  :root{
+    --navy:#0F2C4A; --navy-2:#143a61; --cyan:#37B1DA; --green:#1A6B2A;
+    --bg:#eef3f8; --ink:#0F2C4A; --muted:#5b7088; --line:#dce4ed;
+    --white:#fff; --danger:#c0392b; --radius:16px;
+    --shadow:0 18px 50px -22px rgba(15,44,74,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{ font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; padding:20px;
+    background-image: radial-gradient(circle at 15% 15%, rgba(55,177,218,.10), transparent 45%), radial-gradient(circle at 85% 85%, rgba(26,107,42,.08), transparent 45%); }
+  .wrap{ max-width:720px; margin:0 auto; }
+  .topo{ display:flex;align-items:center;gap:13px;justify-content:center;padding:24px 0 28px; }
+  .topo .mark{ width:46px;height:46px;border-radius:12px; background:linear-gradient(135deg,var(--cyan),#2b8fb3); display:flex;align-items:center;justify-content:center; font-weight:800;font-size:21px;color:#fff; box-shadow:0 8px 20px -8px rgba(55,177,218,.7); }
+  .topo .t{ font-size:18px;font-weight:800;color:var(--navy);line-height:1.15 }
+  .topo .t small{ display:block;font-size:12px;font-weight:600;color:var(--muted) }
+  .card{ background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); border:1px solid var(--line); overflow:hidden; }
+  .card .ch{ background:linear-gradient(135deg,var(--navy),var(--navy-2)); color:#fff; padding:26px 30px; position:relative; }
+  .card .ch::after{ content:""; position:absolute;left:0;right:0;bottom:0;height:4px; background:linear-gradient(90deg,var(--cyan),var(--green)); }
+  .card .ch h1{ font-size:21px;font-weight:700;margin-bottom:5px }
+  .card .ch p{ font-size:13.5px;opacity:.85 }
+  .card .cb{ padding:30px; }
+  .field{ margin-bottom:18px }
+  .field label{ display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:8px }
+  .field input{ width:100%;padding:15px 16px;border:1.5px solid var(--line);border-radius:11px; font-size:18px;color:var(--ink);background:#fbfcfe;text-align:center;letter-spacing:3px;font-weight:700;text-transform:uppercase; }
+  .field input:focus{ outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(55,177,218,.15);background:#fff }
+  .btn{ width:100%;padding:15px;border:none;border-radius:11px;font-size:15.5px;font-weight:700;cursor:pointer;transition:transform .08s, box-shadow .15s; }
+  .btn:active{ transform:translateY(1px) }
+  .btn-primary{ background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;box-shadow:0 8px 20px -10px rgba(15,44,74,.8) }
+  .btn-green{ background:linear-gradient(135deg,var(--green),#15571f);color:#fff;box-shadow:0 8px 20px -10px rgba(26,107,42,.8) }
+  .btn:disabled{ opacity:.6;cursor:default }
+  .msg{ margin-top:16px;padding:12px 15px;border-radius:10px;font-size:13.5px;display:none;line-height:1.45 }
+  .msg.error{ display:block;background:#fdecea;color:var(--danger);border:1px solid #f5c6c2 }
+  .msg.info{ display:block;background:#eaf6fb;color:#1d6f8f;border:1px solid #c5e7f3 }
+  .nomes{ display:grid;gap:10px;max-height:340px;overflow-y:auto;margin-bottom:8px }
+  .nome-op{ padding:14px 16px;border:1.5px solid var(--line);border-radius:11px;font-size:15px;font-weight:600;cursor:pointer;background:#fbfcfe;transition:border-color .12s,background .12s;text-align:left }
+  .nome-op:hover{ border-color:var(--cyan);background:#fbfdff }
+  .nome-op.sel{ border-color:var(--cyan);background:#eaf6fb;color:#1d6f8f }
+  .qcard{ border:1.5px solid var(--line);border-radius:13px;padding:22px;margin-bottom:16px;background:#fff }
+  .qcard .qnum{ font-size:12px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px }
+  .qcard .qenun{ font-size:15.5px;font-weight:600;line-height:1.5;margin-bottom:16px;color:var(--ink) }
+  .qcard .qpts{ font-size:11.5px;color:var(--muted);font-weight:600 }
+  .alt{ display:flex;align-items:center;gap:11px;padding:13px 15px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:9px;cursor:pointer;transition:border-color .12s,background .12s;font-size:14.5px }
+  .alt:hover{ border-color:var(--cyan);background:#fbfdff }
+  .alt.sel{ border-color:var(--cyan);background:#eaf6fb }
+  .alt .letra{ width:30px;height:30px;border-radius:8px;background:#eef3f8;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--navy);flex-shrink:0 }
+  .alt.sel .letra{ background:var(--cyan);color:#fff }
+  .alt input{ display:none }
+  .qcard textarea{ width:100%;min-height:90px;padding:13px;border:1.5px solid var(--line);border-radius:10px;font-size:14.5px;font-family:inherit;resize:vertical }
+  .qcard textarea:focus{ outline:none;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(55,177,218,.15) }
+  .barra-aluno{ background:#eaf6fb;border-radius:11px;padding:13px 17px;margin-bottom:20px;font-size:13.5px;color:#1d6f8f }
+  .barra-aluno b{ color:var(--navy) }
+  .fim{ text-align:center;padding:20px 10px }
+  .fim .big{ font-size:54px;margin-bottom:14px }
+  .fim h2{ font-size:22px;margin-bottom:10px;color:var(--navy) }
+  .fim p{ font-size:14.5px;color:var(--muted);line-height:1.6;max-width:420px;margin:0 auto 8px }
+  .fim .nota{ display:inline-block;margin-top:14px;padding:12px 26px;background:#e8f5ec;color:var(--green);border-radius:12px;font-size:16px;font-weight:800 }
+  .rodape{ text-align:center;padding:22px 0;font-size:12px;color:var(--muted) }
+  .loading{ text-align:center;padding:40px;color:var(--muted);font-size:14px }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topo">
+    <div class="mark">PE</div>
+    <div class="t">Portal do Educador<small>Avaliacao online</small></div>
+  </div>
+
+  <!-- ETAPA 1: codigo -->
+  <div class="card" id="etapaCodigo">
+    <div class="ch"><h1>Entrar na avaliacao</h1><p>Digite o codigo que o professor passou.</p></div>
+    <div class="cb">
+      <div class="field">
+        <label for="codigo">Codigo da avaliacao</label>
+        <input type="text" id="codigo" placeholder="EX: MAT5A89" maxlength="12" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" id="btnEntrar">Entrar</button>
+      <div class="msg" id="msgCodigo"></div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2: escolher nome -->
+  <div class="card" id="etapaNome" style="display:none">
+    <div class="ch"><h1 id="nomeTitulo">Quem e voce?</h1><p>Selecione o seu nome na lista.</p></div>
+    <div class="cb">
+      <div class="nomes" id="listaNomes"></div>
+      <div class="msg" id="msgNome"></div>
+    </div>
+  </div>
+
+  <!-- ETAPA 3: prova -->
+  <div class="card" id="etapaProva" style="display:none">
+    <div class="ch"><h1 id="provaTitulo">Avaliacao</h1><p id="provaSub">Responda com calma.</p></div>
+    <div class="cb">
+      <div class="barra-aluno" id="barraAluno"></div>
+      <div id="questoesAluno"></div>
+      <button class="btn btn-green" id="btnEnviar">Enviar respostas</button>
+      <div class="msg" id="msgProva"></div>
+    </div>
+  </div>
+
+  <!-- ETAPA 4: fim -->
+  <div class="card" id="etapaFim" style="display:none">
+    <div class="cb">
+      <div class="fim">
+        <div class="big">&#10004;</div>
+        <h2>Prova enviada!</h2>
+        <p>Suas respostas foram registradas com sucesso. Voce ja pode fechar esta pagina.</p>
+        <div id="notaBox"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rodape">Portal do Educador - NEWPC Tecnologia</div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, query, where, getDocs, addDoc, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0",
+    authDomain: "portal-educador-5.firebaseapp.com",
+    projectId: "portal-educador-5",
+    storageBucket: "portal-educador-5.firebasestorage.app",
+    messagingSenderId: "725103866385",
+    appId: "1:725103866385:web:f38b8f3cf0a912ed3bf7b0"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const $ = (id) => document.getElementById(id);
+
+  let avaliacao = null;     // a avaliacao encontrada (com gabarito, mas NUNCA exibido)
+  let alunoEscolhido = null;
+  let respostasAluno = {};  // { numeroQuestao: "A" ou texto }
+
+  function msg(el, txt, tipo){ const e=$(el); e.className="msg "+tipo; e.textContent=txt; }
+  function limpaMsg(el){ const e=$(el); e.className="msg"; e.textContent=""; }
+  function esc(s){ return String(s||"").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // ===== ETAPA 1: entrar com codigo =====
+  $("btnEntrar").addEventListener("click", entrarComCodigo);
+  $("codigo").addEventListener("keydown", e => { if(e.key==="Enter") entrarComCodigo(); });
+
+  async function entrarComCodigo(){
+    const codigo = $("codigo").value.trim().toUpperCase();
+    if(!codigo){ msg("msgCodigo","Digite o codigo da avaliacao.","error"); return; }
+    limpaMsg("msgCodigo");
+    $("btnEntrar").disabled = true; $("btnEntrar").textContent = "Procurando...";
+    try{
+      const q = query(collection(db,"avaliacoes"), where("codigo_acesso","==",codigo));
+      const snap = await getDocs(q);
+      if(snap.empty){ msg("msgCodigo","Codigo nao encontrado. Confira com o professor.","error"); resetBtn(); return; }
+      let encontrada = null;
+      snap.forEach(d => { encontrada = { id:d.id, ...d.data() }; });
+      if(encontrada.status !== "liberada"){
+        msg("msgCodigo","Esta avaliacao nao esta disponivel no momento.","error"); resetBtn(); return;
+      }
+      avaliacao = encontrada;
+      await carregarNomes();
+    }catch(e){
+      console.warn(e);
+      msg("msgCodigo","Erro ao buscar ("+e.code+"). Verifique a internet.","error"); resetBtn();
+    }
+  }
+  function resetBtn(){ $("btnEntrar").disabled=false; $("btnEntrar").textContent="Entrar"; }
+
+  // ===== ETAPA 2: escolher nome =====
+  async function carregarNomes(){
+    $("etapaCodigo").style.display="none";
+    $("etapaNome").style.display="block";
+    $("nomeTitulo").textContent = "Quem e voce?";
+    $("listaNomes").innerHTML = '<div class="loading">Carregando lista de alunos...</div>';
+    try{
+      const q = query(collection(db,"alunos"), where("turma_id","==",avaliacao.turma_id));
+      const snap = await getDocs(q);
+      const alunos = [];
+      snap.forEach(d => { const a=d.data(); if(a.status!=="inativo") alunos.push({ id:d.id, ...a }); });
+      alunos.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
+      if(alunos.length===0){ $("listaNomes").innerHTML = '<div class="loading">Nenhum aluno cadastrado nesta turma. Avise o professor.</div>'; return; }
+      $("listaNomes").innerHTML = "";
+      alunos.forEach(al => {
+        const div = document.createElement("div");
+        div.className = "nome-op";
+        div.textContent = al.nome;
+        div.addEventListener("click", () => {
+          alunoEscolhido = al;
+          document.querySelectorAll(".nome-op").forEach(n=>n.classList.remove("sel"));
+          div.classList.add("sel");
+          setTimeout(iniciarProva, 200);
+        });
+        $("listaNomes").appendChild(div);
+      });
+    }catch(e){ console.warn(e); $("listaNomes").innerHTML = '<div class="loading">Erro ao carregar ('+e.code+').</div>'; }
+  }
+
+  // ===== ETAPA 3: prova =====
+  function iniciarProva(){
+    $("etapaNome").style.display="none";
+    $("etapaProva").style.display="block";
+    $("provaTitulo").textContent = avaliacao.titulo || "Avaliacao";
+    $("provaSub").textContent = (avaliacao.disciplina||"") + " - " + (avaliacao.total_pontos||0) + " pontos";
+    $("barraAluno").innerHTML = "Aluno: <b>"+esc(alunoEscolhido.nome)+"</b> - Turma: <b>"+esc(avaliacao.turma_nome||"")+"</b>";
+    respostasAluno = {};
+    const cont = $("questoesAluno");
+    cont.innerHTML = "";
+    (avaliacao.questoes||[]).forEach(q => {
+      const div = document.createElement("div");
+      div.className = "qcard";
+      let corpo = '<div class="qnum">Questao '+q.numero+' - '+(q.tipo==="multipla"?"Multipla escolha":"Dissertativa")+'</div>'+
+                  '<div class="qenun">'+esc(q.enunciado)+'</div>'+
+                  '<div class="qpts">Vale '+q.pontos+' ponto(s)</div><div style="height:12px"></div>';
+      if(q.tipo==="multipla"){
+        // IMPORTANTE: nunca exibir qual e a correta
+        (q.alternativas||[]).forEach(alt => {
+          corpo += '<label class="alt" data-q="'+q.numero+'" data-letra="'+esc(alt.letra)+'">'+
+                   '<span class="letra">'+esc(alt.letra)+'</span>'+
+                   '<span>'+esc(alt.texto)+'</span>'+
+                   '<input type="radio" name="q'+q.numero+'" value="'+esc(alt.letra)+'"></label>';
+        });
+      } else {
+        corpo += '<textarea data-q="'+q.numero+'" placeholder="Escreva sua resposta aqui..."></textarea>';
+      }
+      div.innerHTML = corpo;
+      cont.appendChild(div);
+    });
+    // listeners
+    cont.querySelectorAll(".alt").forEach(el => el.addEventListener("click", () => {
+      const qn = el.dataset.q;
+      cont.querySelectorAll('.alt[data-q="'+qn+'"]').forEach(a=>a.classList.remove("sel"));
+      el.classList.add("sel");
+      el.querySelector("input").checked = true;
+      respostasAluno[qn] = el.dataset.letra;
+    }));
+    cont.querySelectorAll("textarea").forEach(el => el.addEventListener("input", () => {
+      respostasAluno[el.dataset.q] = el.value;
+    }));
+    window.scrollTo(0,0);
+  }
+
+  // ===== ENVIAR =====
+  $("btnEnviar").addEventListener("click", enviarRespostas);
+
+  async function enviarRespostas(){
+    // monta as respostas e corrige as objetivas
+    const respostas = [];
+    let temObjetiva = false, temDissertativaPendente = false;
+    let notaObjetivas = 0;
+    (avaliacao.questoes||[]).forEach(q => {
+      const r = respostasAluno[q.numero];
+      if(q.tipo==="multipla"){
+        temObjetiva = true;
+        respostas.push({ numero:q.numero, tipo:"multipla", escolhida: r || null });
+        // corrige comparando com o gabarito (que so existe aqui no cliente, mas a comparacao e local)
+        const correta = (q.alternativas||[]).find(a=>a.correta);
+        if(correta && r === correta.letra){ notaObjetivas += (q.pontos||0); }
+      } else {
+        if(r && r.trim()) { /* respondeu */ } else { /* em branco */ }
+        respostas.push({ numero:q.numero, tipo:"dissertativa", texto: r || "" });
+        temDissertativaPendente = true;
+      }
+    });
+
+    $("btnEnviar").disabled=true; $("btnEnviar").textContent="Enviando...";
+    try{
+      await addDoc(collection(db,"respostas"), {
+        avaliacao_id: avaliacao.id,
+        avaliacao_titulo: avaliacao.titulo || "",
+        turma_id: avaliacao.turma_id || "",
+        turma_nome: avaliacao.turma_nome || "",
+        escola_id: avaliacao.escola_id || "",
+        municipio_id: avaliacao.municipio_id || "",
+        aluno_id: alunoEscolhido.id,
+        aluno_nome: alunoEscolhido.nome,
+        respostas: respostas,
+        nota_objetivas: notaObjetivas,
+        nota_final: temDissertativaPendente ? null : notaObjetivas,
+        dissertativa_pendente: temDissertativaPendente,
+        status: "enviada",
+        enviada_em: serverTimestamp(),
+        criado_em: serverTimestamp()
+      });
+      mostrarFim(notaObjetivas, temDissertativaPendente, temObjetiva);
+    }catch(e){
+      console.warn(e);
+      msg("msgProva","Erro ao enviar ("+e.code+"). Tente de novo.","error");
+      $("btnEnviar").disabled=false; $("btnEnviar").textContent="Enviar respostas";
+    }
+  }
+
+  function mostrarFim(notaObj, pendente, temObjetiva){
+    $("etapaProva").style.display="none";
+    $("etapaFim").style.display="block";
+    let html = "";
+    if(pendente){
+      html = '<p style="margin-top:6px">Algumas questoes serao corrigidas pelo professor.</p>';
+      if(temObjetiva){ html += '<div class="nota">Parcial (objetivas): '+notaObj+' ponto(s)</div>'; }
+    } else {
+      html = '<div class="nota">Sua nota: '+notaObj+' ponto(s)</div>';
+    }
+    $("notaBox").innerHTML = html;
+    window.scrollTo(0,0);
+  }
+</script>
+</body>
+</html>
