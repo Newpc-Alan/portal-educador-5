@@ -400,6 +400,7 @@
       if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
     }
     if(usuarioAtual.perfil === "professor"){
+      if(item.id === "turmas"){ renderMinhasTurmas(); return; }
       if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
     }
     $("conteudo").innerHTML =
@@ -973,6 +974,65 @@
       toast("Correcao salva! Nota final: "+notaFinal);
       await listarRespostas();
     }catch(e){ console.warn(e); toast("Erro ao salvar correcao ("+e.code+").", true); }
+  }
+
+  // ===================== MINHAS TURMAS (professor) =====================
+  async function renderMinhasTurmas(){
+    const ids = Array.isArray(usuarioAtual.turmas_ids) ? usuarioAtual.turmas_ids : [];
+    if(ids.length === 0){
+      $("conteudo").innerHTML =
+        '<div class="panel"><div class="pico">\u{1F4DA}</div><h3>Nenhuma turma vinculada</h3>'+
+        '<p>Voce ainda nao foi designado a nenhuma turma. Procure o gestor da escola ou o administrador para vincular suas turmas.</p></div>';
+      return;
+    }
+    $("conteudo").innerHTML = '<div class="tablewrap" id="mtTabela"><div class="empty">Carregando suas turmas...</div></div>';
+    try{
+      const snap = await getDocs(collection(db,"turmas"));
+      const minhas = [];
+      snap.forEach(d => { if(ids.includes(d.id)){ const t=d.data(); if(t.status!=="inativa") minhas.push({ id:d.id, ...t }); } });
+      minhas.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
+      if(minhas.length === 0){
+        $("conteudo").innerHTML = '<div class="empty"><div class="ei">\u{1F4DA}</div>Suas turmas nao foram encontradas.</div>';
+        return;
+      }
+      let html = '<div class="sectionbar"><span class="count">'+minhas.length+' turma(s) sob sua responsabilidade</span></div>';
+      html += '<div class="tablewrap"><table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano</th><th>Acao</th></tr></thead><tbody>';
+      minhas.forEach(t => {
+        html += '<tr><td><b>'+escapeHtml(t.nome)+'</b></td>'+
+                '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td>'+
+                '<td>'+escapeHtml(t.turno||"-")+'</td>'+
+                '<td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
+                '<td><button class="btn-mini btn-result" data-turma="'+t.id+'" data-nome="'+escapeAttr(t.nome)+'">Ver alunos</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      $("conteudo").innerHTML = html;
+      $("conteudo").querySelectorAll(".btn-result").forEach(b =>
+        b.addEventListener("click", () => verAlunosDaTurma(b.dataset.turma, b.dataset.nome)));
+    }catch(e){ console.warn(e); $("conteudo").innerHTML = '<div class="empty">Erro ao carregar turmas ('+e.code+').</div>'; }
+  }
+
+  async function verAlunosDaTurma(turmaId, turmaNome){
+    $("conteudo").innerHTML =
+      '<button class="voltar" id="btnVoltarMT">\u2190 Voltar para minhas turmas</button>'+
+      '<div class="resumo-aval"><h3>Turma: '+escapeHtml(turmaNome)+'</h3><div class="meta">Alunos matriculados</div></div>'+
+      '<div id="mtAlunos"><div class="empty">Carregando alunos...</div></div>';
+    $("btnVoltarMT").addEventListener("click", renderMinhasTurmas);
+    try{
+      const q = query(collection(db,"alunos"), where("turma_id","==",turmaId));
+      const snap = await getDocs(q);
+      const alunos = [];
+      snap.forEach(d => { const a=d.data(); if(a.status!=="inativo") alunos.push({ id:d.id, ...a }); });
+      alunos.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
+      if(alunos.length === 0){
+        $("mtAlunos").innerHTML = '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno matriculado nesta turma ainda.</div>';
+        return;
+      }
+      let html = '<div class="sectionbar"><span class="count">'+alunos.length+' aluno(s)</span></div>';
+      html += '<div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matricula</th></tr></thead><tbody>';
+      alunos.forEach(a => { html += '<tr><td><b>'+escapeHtml(a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td></tr>'; });
+      html += '</tbody></table></div>';
+      $("mtAlunos").innerHTML = html;
+    }catch(e){ console.warn(e); $("mtAlunos").innerHTML = '<div class="empty">Erro ao carregar alunos ('+e.code+').</div>'; }
   }
 
   function traduzErro(code){
