@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal do Educador</title>
+<style>
+  :root{
+    --navy:#0F2C4A; --navy-2:#143a61; --cyan:#37B1DA; --green:#1A6B2A;
+    --bg:#f4f7fa; --ink:#0F2C4A; --muted:#5b7088; --line:#dce4ed;
+    --white:#fff; --danger:#c0392b; --radius:14px;
+    --shadow:0 18px 50px -22px rgba(15,44,74,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{ font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh; }
+  #loginView{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+    background-image: radial-gradient(circle at 12% 18%, rgba(55,177,218,.10), transparent 42%), radial-gradient(circle at 88% 82%, rgba(26,107,42,.08), transparent 45%); }
+  .card{ width:100%; max-width:430px; background:var(--white); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; border:1px solid var(--line); }
+  .head{ background:linear-gradient(135deg,var(--navy),var(--navy-2)); color:#fff; padding:34px 34px 30px; position:relative; }
+  .head::after{ content:""; position:absolute; left:0;right:0;bottom:0;height:4px; background:linear-gradient(90deg,var(--cyan),var(--green)); }
+  .brand{ display:flex; align-items:center; gap:12px; margin-bottom:18px; }
+  .brand .mark{ width:42px;height:42px;border-radius:11px; background:linear-gradient(135deg,var(--cyan),#2b8fb3); display:flex;align-items:center;justify-content:center; font-weight:800;font-size:20px;color:#fff; box-shadow:0 6px 16px -6px rgba(55,177,218,.7); }
+  .brand .name{ font-size:15px;font-weight:700;letter-spacing:.3px }
+  .brand .name small{ display:block;font-size:11px;font-weight:500;opacity:.7;letter-spacing:.5px }
+  .head h1{ font-size:22px;font-weight:700;margin-bottom:6px }
+  .head p{ font-size:13.5px;opacity:.82;line-height:1.5 }
+  .body{ padding:30px 34px 34px }
+  .field{ margin-bottom:16px }
+  .field label{ display:block;font-size:12.5px;font-weight:600;color:var(--muted); margin-bottom:7px;letter-spacing:.2px }
+  .field input, .field select{ width:100%;padding:12px 14px;border:1.5px solid var(--line); border-radius:10px;font-size:14.5px;color:var(--ink); background:#fbfcfe; transition:border-color .15s, box-shadow .15s; }
+  .field input:focus, .field select:focus{ outline:none;border-color:var(--cyan); box-shadow:0 0 0 3px rgba(55,177,218,.15); background:#fff; }
+  .row2{ display:flex;gap:12px } .row2 .field{ flex:1 }
+  .btn{ width:100%;padding:13px;border:none;border-radius:10px; font-size:14.5px;font-weight:700;cursor:pointer; transition:transform .08s, box-shadow .15s, background .15s; }
+  .btn:active{ transform:translateY(1px) }
+  .btn-primary{ background:linear-gradient(135deg,var(--navy),var(--navy-2)); color:#fff; box-shadow:0 8px 20px -10px rgba(15,44,74,.8); }
+  .btn-primary:hover{ box-shadow:0 10px 26px -10px rgba(15,44,74,.9) }
+  .divider{ display:flex;align-items:center;gap:12px; margin:20px 0;color:var(--muted);font-size:12px; }
+  .divider::before,.divider::after{ content:"";flex:1;height:1px;background:var(--line) }
+  .btn-google{ background:#fff;color:var(--ink);border:1.5px solid var(--line); display:flex;align-items:center;justify-content:center;gap:10px; }
+  .btn-google:hover{ border-color:var(--cyan);background:#fbfdff }
+  .btn-google svg{ width:18px;height:18px }
+  .msg{ margin-top:16px;padding:11px 14px;border-radius:9px; font-size:13px;line-height:1.45;display:none; }
+  .msg.error{ display:block;background:#fdecea;color:var(--danger);border:1px solid #f5c6c2 }
+  .foot{ text-align:center;margin-top:22px;font-size:11.5px;color:var(--muted) }
+  #appView{ display:none; min-height:100vh; }
+  .layout{ display:flex; min-height:100vh; }
+  .sidebar{ width:248px; background:linear-gradient(180deg,var(--navy),var(--navy-2)); color:#fff; padding:24px 0; display:flex; flex-direction:column; flex-shrink:0; }
+  .sidebar .logo{ display:flex;align-items:center;gap:11px;padding:0 22px 22px; border-bottom:1px solid rgba(255,255,255,.1); margin-bottom:14px; }
+  .sidebar .logo .mark{ width:38px;height:38px;border-radius:10px; background:linear-gradient(135deg,var(--cyan),#2b8fb3); display:flex;align-items:center;justify-content:center; font-weight:800;font-size:17px; }
+  .sidebar .logo .t{ font-size:14px;font-weight:700;line-height:1.2 }
+  .sidebar .logo .t small{ display:block;font-size:10.5px;opacity:.65;font-weight:500 }
+  .nav{ flex:1; padding:0 12px; }
+  .nav a{ display:flex;align-items:center;gap:11px; padding:11px 14px;margin-bottom:4px;border-radius:9px; color:rgba(255,255,255,.82);text-decoration:none; font-size:13.5px;font-weight:600;cursor:pointer; transition:background .12s,color .12s; }
+  .nav a:hover{ background:rgba(255,255,255,.08);color:#fff }
+  .nav a.active{ background:var(--cyan);color:#fff; box-shadow:0 6px 16px -8px rgba(55,177,218,.8); }
+  .nav a .ico{ width:18px;text-align:center;font-size:15px }
+  .userbox{ padding:14px 18px;border-top:1px solid rgba(255,255,255,.1); }
+  .userbox .who{ display:flex;align-items:center;gap:10px;margin-bottom:12px }
+  .userbox .av{ width:34px;height:34px;border-radius:50%; background:linear-gradient(135deg,var(--cyan),var(--green)); display:flex;align-items:center;justify-content:center; font-weight:800;font-size:14px;flex-shrink:0; }
+  .userbox .nm{ font-size:12.5px;font-weight:700;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+  .userbox .pf{ font-size:10.5px;opacity:.65;text-transform:uppercase;letter-spacing:.5px }
+  .userbox .out{ width:100%;padding:9px;border:1px solid rgba(255,255,255,.2); background:transparent;color:#fff;border-radius:8px; font-size:12.5px;font-weight:600;cursor:pointer;transition:background .12s; }
+  .userbox .out:hover{ background:rgba(255,255,255,.1) }
+  .main{ flex:1; padding:32px 40px; overflow-y:auto; }
+  .topbar{ display:flex;align-items:center;justify-content:space-between; margin-bottom:28px; }
+  .topbar h1{ font-size:23px;font-weight:700 }
+  .topbar .badge{ font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px; padding:5px 13px;border-radius:20px; background:#eaf6fb;color:#1d6f8f; }
+  .panel{ background:#fff;border:1px solid var(--line);border-radius:var(--radius); padding:40px;text-align:center;color:var(--muted); }
+  .panel .pico{ font-size:40px;margin-bottom:14px;opacity:.5 }
+  .panel h3{ color:var(--ink);font-size:17px;margin-bottom:8px }
+  .panel p{ font-size:13.5px;line-height:1.6;max-width:380px;margin:0 auto }
+  .sectionbar{ display:flex;align-items:center;justify-content:space-between;margin-bottom:18px }
+  .sectionbar .count{ font-size:13px;color:var(--muted) }
+  .btn-add{ width:auto;padding:10px 18px;font-size:13.5px;display:inline-flex;align-items:center;gap:8px }
+  .tablewrap{ background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden }
+  table{ width:100%;border-collapse:collapse }
+  thead th{ text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted); padding:14px 20px;border-bottom:1px solid var(--line);font-weight:700 }
+  tbody td{ padding:15px 20px;border-bottom:1px solid var(--line);font-size:14px }
+  tbody tr:last-child td{ border-bottom:none }
+  tbody tr:hover{ background:#fbfdff }
+  .pill{ font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:4px 10px;border-radius:20px }
+  .pill.piloto{ background:#fff4e0;color:#9a6700 }
+  .pill.ativo, .pill.ativa{ background:#e8f5ec;color:var(--green) }
+  .pill.inativo, .pill.inativa{ background:#f0f0f0;color:#888 }
+  .empty{ padding:50px 20px;text-align:center;color:var(--muted) }
+  .empty .ei{ font-size:38px;opacity:.4;margin-bottom:10px }
+  .modal-bg{ display:none;position:fixed;inset:0;background:rgba(15,44,74,.45); align-items:center;justify-content:center;z-index:50;padding:20px }
+  .modal-bg.show{ display:flex }
+  .modal{ background:#fff;border-radius:var(--radius);width:100%;max-width:460px;overflow:hidden;box-shadow:var(--shadow) }
+  .modal .mh{ background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:20px 24px }
+  .modal .mh h3{ font-size:17px;font-weight:700 }
+  .modal .mh p{ font-size:12.5px;opacity:.8;margin-top:3px }
+  .modal .mb{ padding:24px }
+  .modal .mf{ padding:0 24px 24px;display:flex;gap:10px }
+  .modal .mf .btn{ flex:1 }
+  .btn-ghost{ background:#fff;color:var(--muted);border:1.5px solid var(--line) }
+  .btn-ghost:hover{ border-color:var(--muted) }
+  .toast{ position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:12px 22px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow);z-index:60;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none }
+  .toast.show{ opacity:1;transform:translateX(-50%) translateY(-4px) }
+  .toast.err{ background:var(--danger) }
+  .muni-tag{ font-size:12px;color:var(--muted) }
+  /* Avaliacao - construtor */
+  .modal.big{ max-width:680px }
+  .qbox{ border:1.5px solid var(--line);border-radius:10px;padding:16px;margin-bottom:12px;background:#fbfcfe }
+  .qbox .qhead{ display:flex;align-items:center;justify-content:space-between;margin-bottom:10px }
+  .qbox .qhead .qn{ font-size:12.5px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:.5px }
+  .qbox .qhead .qdel{ background:none;border:none;color:var(--danger);cursor:pointer;font-size:12.5px;font-weight:600 }
+  .alt-row{ display:flex;align-items:center;gap:8px;margin-bottom:7px }
+  .alt-row input[type=text]{ flex:1;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px }
+  .alt-row .corr{ display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);white-space:nowrap;cursor:pointer }
+  .alt-row .corr input{ width:auto;cursor:pointer }
+  .addq{ display:flex;gap:8px;margin:14px 0 }
+  .addq button{ flex:1;padding:11px;border:1.5px dashed var(--line);background:#fff;border-radius:9px;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer }
+  .addq button:hover{ border-color:var(--cyan);color:var(--cyan) }
+  .qmeta{ display:flex;gap:10px;margin-bottom:10px }
+  .qmeta .field{ margin-bottom:0 }
+  .qmeta .field.f-pts{ width:90px;flex:none }
+  .codebox{ font-family:monospace;font-size:13px;background:#eaf6fb;color:#1d6f8f;padding:3px 9px;border-radius:6px;font-weight:700 }
+  .btn-mini{ padding:6px 14px;border:none;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;color:#fff }
+  .btn-liberar{ background:var(--green) }
+  .btn-liberar:hover{ filter:brightness(1.1) }
+  .btn-encerrar{ background:#b5651d }
+  .btn-encerrar:hover{ filter:brightness(1.1) }
+  .btn-result{ background:var(--cyan) }
+  .btn-result:hover{ filter:brightness(1.1) }
+  /* tela de resultados / correcao */
+  .voltar{ display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--cyan);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:16px;padding:0 }
+  .resumo-aval{ background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin-bottom:20px }
+  .resumo-aval h3{ font-size:17px;margin-bottom:4px }
+  .resumo-aval .meta{ font-size:13px;color:var(--muted) }
+  .resp-card{ background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:13px }
+  .resp-head{ display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px }
+  .resp-head .alunoNome{ font-size:15px;font-weight:700 }
+  .resp-head .notas{ display:flex;gap:8px;align-items:center }
+  .nota-tag{ font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px }
+  .nota-tag.ok{ background:#e8f5ec;color:var(--green) }
+  .nota-tag.pend{ background:#fff4e0;color:#9a6700 }
+  .diss-bloco{ margin-top:14px;border-top:1px dashed var(--line);padding-top:14px }
+  .diss-q{ margin-bottom:14px }
+  .diss-q .enun{ font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:6px }
+  .diss-q .resp-aluno{ background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:13.5px;color:var(--muted);margin-bottom:8px;line-height:1.5;white-space:pre-wrap }
+  .diss-q .nota-input{ display:flex;align-items:center;gap:8px }
+  .diss-q .nota-input input{ width:80px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:14px;text-align:center }
+  .diss-q .nota-input span{ font-size:12.5px;color:var(--muted) }
+  .btn-salvar-nota{ padding:9px 18px;border:none;border-radius:8px;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px }
+  .btn-salvar-nota:hover{ filter:brightness(1.1) }
+</style>
+</head>
+<body>
+
+<div id="loginView">
+  <div class="card">
+    <div class="head">
+      <div class="brand"><div class="mark">PE</div><div class="name">Portal do Educador<small>NEWPC Tecnologia</small></div></div>
+      <h1>Acesse sua conta</h1>
+      <p>Plataforma de gestao e avaliacao educacional.</p>
+    </div>
+    <div class="body">
+      <div class="field"><label for="email">E-mail</label><input type="email" id="email" placeholder="seu@email.com" autocomplete="email"></div>
+      <div class="field"><label for="senha">Senha</label><input type="password" id="senha" placeholder="********" autocomplete="current-password"></div>
+      <button class="btn btn-primary" id="btnEntrar">Entrar</button>
+      <div class="divider">ou</div>
+      <button class="btn btn-google" id="btnGoogle">
+        <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.6 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C39.9 36.5 44 31 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>
+        Entrar com Google
+      </button>
+      <div class="msg" id="msg"></div>
+      <div class="foot">Acesso restrito - Secretarias, escolas e professores</div>
+    </div>
+  </div>
+</div>
+
+<div id="appView">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo"><div class="mark">PE</div><div class="t">Portal do Educador<small>NEWPC</small></div></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="userbox">
+        <div class="who"><div class="av" id="uAv">?</div><div style="overflow:hidden"><div class="nm" id="uNome">-</div><div class="pf" id="uPerfil">-</div></div></div>
+        <button class="out" id="btnSair">Sair</button>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="topbar"><h1 id="secTitulo">-</h1><span class="badge" id="secBadge">-</span></div>
+      <div id="conteudo"></div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal Novo Municipio -->
+<div class="modal-bg" id="modalMunicipio">
+  <div class="modal">
+    <div class="mh"><h3>Novo Municipio</h3><p>Cadastre um novo cliente da plataforma.</p></div>
+    <div class="mb">
+      <div class="field"><label for="muniNome">Nome do municipio</label><input type="text" id="muniNome" placeholder="Ex: Sao Gabriel do Oeste"></div>
+      <div class="field"><label for="muniUf">Estado (UF)</label>
+        <select id="muniUf">
+          <option value="">Selecione...</option>
+          <option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option selected>MS</option><option>MT</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option>
+        </select>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" id="muniCancelar">Cancelar</button><button class="btn btn-primary" id="muniSalvar">Salvar municipio</button></div>
+  </div>
+</div>
+
+<!-- Modal Nova Escola -->
+<div class="modal-bg" id="modalEscola">
+  <div class="modal">
+    <div class="mh"><h3>Nova Escola</h3><p>Cadastre uma escola vinculada a um municipio.</p></div>
+    <div class="mb">
+      <div class="field"><label for="escNome">Nome da escola</label><input type="text" id="escNome" placeholder="Ex: Escola Municipal Centro"></div>
+      <div class="field"><label for="escMuni">Municipio</label><select id="escMuni"><option value="">Carregando...</option></select></div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" id="escCancelar">Cancelar</button><button class="btn btn-primary" id="escSalvar">Salvar escola</button></div>
+  </div>
+</div>
+
+<!-- Modal Nova Turma -->
+<div class="modal-bg" id="modalTurma">
+  <div class="modal">
+    <div class="mh"><h3>Nova Turma</h3><p>Cadastre uma turma vinculada a uma escola.</p></div>
+    <div class="mb">
+      <div class="field"><label for="turNome">Nome da turma</label><input type="text" id="turNome" placeholder="Ex: 5o Ano A"></div>
+      <div class="field"><label for="turEscola">Escola</label><select id="turEscola"><option value="">Carregando...</option></select></div>
+      <div class="row2">
+        <div class="field"><label for="turSerie">Ano / Serie</label>
+          <select id="turSerie">
+            <option value="">--</option>
+            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option>
+          </select>
+        </div>
+        <div class="field"><label for="turTurno">Turno</label>
+          <select id="turTurno"><option>Matutino</option><option>Vespertino</option><option>Integral</option><option>Noturno</option></select>
+        </div>
+        <div class="field"><label for="turAno">Ano letivo</label><input type="number" id="turAno" value="2026"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" id="turCancelar">Cancelar</button><button class="btn btn-primary" id="turSalvar">Salvar turma</button></div>
+  </div>
+</div>
+
+<!-- Modal Novo Aluno -->
+<div class="modal-bg" id="modalAluno">
+  <div class="modal">
+    <div class="mh"><h3>Novo Aluno</h3><p>Cadastre um aluno vinculado a uma turma.</p></div>
+    <div class="mb">
+      <div class="field"><label for="aluNome">Nome do aluno</label><input type="text" id="aluNome" placeholder="Ex: Joao da Silva"></div>
+      <div class="field"><label for="aluTurma">Turma</label><select id="aluTurma"><option value="">Carregando...</option></select></div>
+      <div class="field"><label for="aluMatricula">Matricula (opcional)</label><input type="text" id="aluMatricula" placeholder="Deixe em branco para gerar automatico"></div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" id="aluCancelar">Cancelar</button><button class="btn btn-primary" id="aluSalvar">Salvar aluno</button></div>
+  </div>
+</div>
+
+<!-- Modal Nova Avaliacao -->
+<div class="modal-bg" id="modalAval">
+  <div class="modal big">
+    <div class="mh"><h3>Nova Avaliacao</h3><p>Monte a prova com questoes. Salva como rascunho.</p></div>
+    <div class="mb" style="max-height:65vh;overflow-y:auto">
+      <div class="field"><label for="avTitulo">Titulo da avaliacao</label><input type="text" id="avTitulo" placeholder="Ex: Avaliacao de Matematica - 1o Bimestre"></div>
+      <div class="row2">
+        <div class="field"><label for="avTurma">Turma</label><select id="avTurma"><option value="">Carregando...</option></select></div>
+        <div class="field"><label for="avDisciplina">Disciplina</label><input type="text" id="avDisciplina" placeholder="Ex: Matematica"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="avBimestre">Bimestre</label>
+          <select id="avBimestre"><option value="1">1o Bimestre</option><option value="2">2o Bimestre</option><option value="3">3o Bimestre</option><option value="4">4o Bimestre</option></select>
+        </div>
+        <div class="field"><label>Total de pontos</label><input type="text" id="avTotalPts" value="0" readonly style="background:#f0f4f8"></div>
+      </div>
+      <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
+      <div id="qLista"></div>
+      <div class="addq">
+        <button type="button" id="btnAddMultipla">+ Questao de multipla escolha</button>
+        <button type="button" id="btnAddDiss">+ Questao dissertativa</button>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-ghost" id="avCancelar">Cancelar</button><button class="btn btn-primary" id="avSalvar">Salvar rascunho</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0",
+    authDomain: "portal-educador-5.firebaseapp.com",
+    projectId: "portal-educador-5",
+    storageBucket: "portal-educador-5.firebasestorage.app",
+    messagingSenderId: "725103866385",
+    appId: "1:725103866385:web:f38b8f3cf0a912ed3bf7b0"
+  };
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const $ = (id) => document.getElementById(id);
+
+  const MENUS = {
+    admin: { itens: [
+      { id:"municipios", ico:"\u{1F3DB}\u{FE0F}", label:"Municipios" },
+      { id:"escolas",    ico:"\u{1F3EB}", label:"Escolas" },
+      { id:"turmas",     ico:"\u{1F4DA}", label:"Turmas" },
+      { id:"alunos",     ico:"\u{1F9D2}", label:"Alunos" },
+      { id:"avaliacoes", ico:"\u{1F4DD}", label:"Avaliacoes" },
+      { id:"usuarios",   ico:"\u{1F465}", label:"Usuarios" } ] },
+    secretaria: { itens: [
+      { id:"escolas",   ico:"\u{1F3EB}", label:"Escolas" },
+      { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" } ] },
+    gestor: { itens: [
+      { id:"turmas",      ico:"\u{1F4DA}", label:"Turmas da Escola" },
+      { id:"professores", ico:"\u{1F469}\u200D\u{1F3EB}", label:"Professores" },
+      { id:"avaliacoes",  ico:"\u{1F4DD}", label:"Avaliacoes da Escola" } ] },
+    professor: { itens: [
+      { id:"turmas",     ico:"\u{1F4DA}", label:"Minhas Turmas" },
+      { id:"avaliacoes", ico:"\u{1F4DD}", label:"Avaliacoes" } ] }
+  };
+  const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria", gestor:"Gestor", professor:"Professor" };
+  let usuarioAtual = null;
+  let cacheMunicipios = [];
+  let cacheEscolas = [];
+  let cacheTurmas = [];
+
+  function showMsg(t,tipo){ $("msg").className="msg "+tipo; $("msg").textContent=t; }
+  function clearMsg(){ $("msg").className="msg"; $("msg").textContent=""; }
+  function toast(t,err){ const el=$("toast"); el.textContent=t; el.className="toast show"+(err?" err":""); setTimeout(()=>el.className="toast",2600); }
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  $("btnEntrar").addEventListener("click", async () => {
+    const email=$("email").value.trim(), senha=$("senha").value;
+    if(!email||!senha){ showMsg("Preencha e-mail e senha.","error"); return; }
+    clearMsg();
+    try{ await signInWithEmailAndPassword(auth,email,senha); }
+    catch(e){ showMsg(traduzErro(e.code),"error"); }
+  });
+  $("btnGoogle").addEventListener("click", async () => {
+    clearMsg();
+    try{ await signInWithPopup(auth,new GoogleAuthProvider()); }
+    catch(e){ showMsg(traduzErro(e.code),"error"); }
+  });
+  $("btnSair").addEventListener("click", () => signOut(auth));
+
+  onAuthStateChanged(auth, async (user) => {
+    if(user){ await carregarUsuario(user); abrirApp(); }
+    else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null; }
+  });
+
+  async function carregarUsuario(user){
+    const ref = doc(db,"usuarios",user.uid);
+    let dados = { uid:user.uid, nome:user.displayName||(user.email?user.email.split("@")[0]:"Usuario"),
+                  email:user.email||"", perfil:"professor", municipio_id:null, escola_id:null };
+    try{
+      const snap = await getDoc(ref);
+      if(snap.exists()){ dados = { ...dados, ...snap.data() }; }
+      else{
+        await setDoc(ref, { uid:user.uid, nome:dados.nome, email:dados.email, perfil:"professor",
+          status:"ativo", municipio_id:null, escola_id:null, turmas_ids:[],
+          criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid });
+      }
+    }catch(e){ console.warn("Firestore:", e.code, e.message); }
+    usuarioAtual = dados;
+  }
+
+  function abrirApp(){
+    $("loginView").style.display="none";
+    $("appView").style.display="block";
+    const perfil = usuarioAtual.perfil || "professor";
+    const nome = usuarioAtual.nome || "Usuario";
+    $("uAv").textContent = (nome[0]||"?").toUpperCase();
+    $("uNome").textContent = nome;
+    $("uPerfil").textContent = LABELS_PERFIL[perfil] || perfil;
+    const menu = MENUS[perfil] || MENUS.professor;
+    const nav = $("nav"); nav.innerHTML = "";
+    menu.itens.forEach((item, i) => {
+      const a = document.createElement("a");
+      a.dataset.sec = item.id;
+      a.innerHTML = '<span class="ico">'+item.ico+'</span>'+item.label;
+      if(i===0) a.classList.add("active");
+      a.addEventListener("click", () => selecionar(item));
+      nav.appendChild(a);
+    });
+    $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
+    selecionar(menu.itens[0]);
+  }
+
+  function selecionar(item){
+    document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.sec === item.id));
+    $("secTitulo").textContent = item.label;
+    if(usuarioAtual.perfil === "admin"){
+      if(item.id === "municipios"){ renderMunicipios(); return; }
+      if(item.id === "escolas"){ renderEscolas(); return; }
+      if(item.id === "turmas"){ renderTurmas(); return; }
+      if(item.id === "alunos"){ renderAlunos(); return; }
+      if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
+    }
+    if(usuarioAtual.perfil === "professor"){
+      if(item.id === "turmas"){ renderMinhasTurmas(); return; }
+      if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
+    }
+    $("conteudo").innerHTML =
+      '<div class="panel"><div class="pico">'+item.ico+'</div><h3>'+item.label+'</h3>'+
+      '<p>Esta area esta pronta na estrutura e sera ativada nas proximas etapas. '+
+      'Aqui voce vai gerenciar '+item.label.toLowerCase()+'.</p></div>';
+  }
+
+  // caches compartilhados
+  async function carregarCacheMunicipios(){
+    const q = query(collection(db,"municipios"), orderBy("nome"));
+    const snap = await getDocs(q);
+    cacheMunicipios = [];
+    snap.forEach(d => { const m=d.data(); if(m.status!=="inativo") cacheMunicipios.push({ id:d.id, ...m }); });
+    return cacheMunicipios;
+  }
+  async function carregarCacheEscolas(){
+    const q = query(collection(db,"escolas"), orderBy("nome"));
+    const snap = await getDocs(q);
+    cacheEscolas = [];
+    snap.forEach(d => { const e=d.data(); if(e.status!=="inativa") cacheEscolas.push({ id:d.id, ...e }); });
+    return cacheEscolas;
+  }
+  async function carregarCacheTurmas(){
+    const q = query(collection(db,"turmas"), orderBy("nome"));
+    const snap = await getDocs(q);
+    cacheTurmas = [];
+    snap.forEach(d => { const t=d.data(); if(t.status!=="inativa") cacheTurmas.push({ id:d.id, ...t }); });
+    return cacheTurmas;
+  }
+
+  // ===================== MUNICIPIOS =====================
+  async function renderMunicipios(){
+    $("conteudo").innerHTML =
+      '<div class="sectionbar"><span class="count" id="muniCount">Carregando...</span>'+
+      '<button class="btn btn-primary btn-add" id="btnNovoMuni">+ Novo Municipio</button></div>'+
+      '<div class="tablewrap" id="muniTabela"><div class="empty"><div class="ei">\u{1F3DB}\u{FE0F}</div>Carregando...</div></div>';
+    $("btnNovoMuni").addEventListener("click", abrirModalMunicipio);
+    await listarMunicipios();
+  }
+  async function listarMunicipios(){
+    try{
+      await carregarCacheMunicipios();
+      $("muniCount").textContent = cacheMunicipios.length+" municipio(s) cadastrado(s)";
+      if(cacheMunicipios.length===0){ $("muniTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3DB}\u{FE0F}</div>Nenhum municipio cadastrado ainda.</div>'; return; }
+      let html = '<table><thead><tr><th>Municipio</th><th>UF</th><th>Status</th></tr></thead><tbody>';
+      cacheMunicipios.forEach(m => { const st=m.status||"piloto"; html += '<tr><td><b>'+escapeHtml(m.nome)+'</b></td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+st+'</span></td></tr>'; });
+      html += '</tbody></table>'; $("muniTabela").innerHTML = html;
+    }catch(e){ console.warn(e); $("muniTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
+  }
+  function abrirModalMunicipio(){ $("muniNome").value=""; $("muniUf").value="MS"; $("modalMunicipio").classList.add("show"); $("muniNome").focus(); }
+  function fecharModalMunicipio(){ $("modalMunicipio").classList.remove("show"); }
+  $("muniCancelar").addEventListener("click", fecharModalMunicipio);
+  $("modalMunicipio").addEventListener("click", (e)=>{ if(e.target.id==="modalMunicipio") fecharModalMunicipio(); });
+  $("muniSalvar").addEventListener("click", async () => {
+    const nome=$("muniNome").value.trim(), uf=$("muniUf").value;
+    if(!nome){ toast("Informe o nome do municipio.", true); return; }
+    if(!uf){ toast("Selecione o estado (UF).", true); return; }
+    $("muniSalvar").disabled=true; $("muniSalvar").textContent="Salvando...";
+    try{
+      await addDoc(collection(db,"municipios"), { nome, uf, status:"piloto",
+        criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      fecharModalMunicipio(); toast("Municipio cadastrado!"); await listarMunicipios();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
+    finally{ $("muniSalvar").disabled=false; $("muniSalvar").textContent="Salvar municipio"; }
+  });
+
+  // ===================== ESCOLAS =====================
+  async function renderEscolas(){
+    $("conteudo").innerHTML =
+      '<div class="sectionbar"><span class="count" id="escCount">Carregando...</span>'+
+      '<button class="btn btn-primary btn-add" id="btnNovaEsc">+ Nova Escola</button></div>'+
+      '<div class="tablewrap" id="escTabela"><div class="empty"><div class="ei">\u{1F3EB}</div>Carregando...</div></div>';
+    $("btnNovaEsc").addEventListener("click", abrirModalEscola);
+    await listarEscolas();
+  }
+  async function listarEscolas(){
+    try{
+      await carregarCacheEscolas();
+      $("escCount").textContent = cacheEscolas.length+" escola(s) cadastrada(s)";
+      if(cacheEscolas.length===0){ $("escTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3EB}</div>Nenhuma escola cadastrada ainda.</div>'; return; }
+      let html = '<table><thead><tr><th>Escola</th><th>Municipio</th><th>Status</th></tr></thead><tbody>';
+      cacheEscolas.forEach(e => { const st=e.status||"ativa"; html += '<tr><td><b>'+escapeHtml(e.nome)+'</b></td><td><span class="muni-tag">'+escapeHtml(e.municipio_nome||"-")+' / '+escapeHtml(e.municipio_uf||"")+'</span></td><td><span class="pill '+st+'">'+st+'</span></td></tr>'; });
+      html += '</tbody></table>'; $("escTabela").innerHTML = html;
+    }catch(e){ console.warn(e); $("escTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
+  }
+  async function abrirModalEscola(){
+    $("escNome").value = "";
+    const sel = $("escMuni"); sel.innerHTML = '<option value="">Carregando...</option>';
+    $("modalEscola").classList.add("show");
+    try{
+      const lista = cacheMunicipios.length ? cacheMunicipios : await carregarCacheMunicipios();
+      if(lista.length===0){ sel.innerHTML = '<option value="">Nenhum municipio. Cadastre primeiro.</option>'; return; }
+      sel.innerHTML = '<option value="">Selecione o municipio...</option>';
+      lista.forEach(m => { const o=document.createElement("option"); o.value=m.id; o.textContent=m.nome+" / "+(m.uf||""); o.dataset.nome=m.nome; o.dataset.uf=m.uf||""; sel.appendChild(o); });
+      $("escNome").focus();
+    }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
+  }
+  function fecharModalEscola(){ $("modalEscola").classList.remove("show"); }
+  $("escCancelar").addEventListener("click", fecharModalEscola);
+  $("modalEscola").addEventListener("click", (e)=>{ if(e.target.id==="modalEscola") fecharModalEscola(); });
+  $("escSalvar").addEventListener("click", async () => {
+    const nome=$("escNome").value.trim(); const sel=$("escMuni"); const muniId=sel.value; const opt=sel.options[sel.selectedIndex];
+    if(!nome){ toast("Informe o nome da escola.", true); return; }
+    if(!muniId){ toast("Selecione o municipio.", true); return; }
+    $("escSalvar").disabled=true; $("escSalvar").textContent="Salvando...";
+    try{
+      await addDoc(collection(db,"escolas"), { nome, municipio_id:muniId, municipio_nome:opt.dataset.nome||"", municipio_uf:opt.dataset.uf||"",
+        status:"ativa", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      fecharModalEscola(); toast("Escola cadastrada!"); await listarEscolas();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
+    finally{ $("escSalvar").disabled=false; $("escSalvar").textContent="Salvar escola"; }
+  });
+
+  // ===================== TURMAS =====================
+  async function renderTurmas(){
+    $("conteudo").innerHTML =
+      '<div class="sectionbar"><span class="count" id="turCount">Carregando...</span>'+
+      '<button class="btn btn-primary btn-add" id="btnNovaTur">+ Nova Turma</button></div>'+
+      '<div class="tablewrap" id="turTabela"><div class="empty"><div class="ei">\u{1F4DA}</div>Carregando...</div></div>';
+    $("btnNovaTur").addEventListener("click", abrirModalTurma);
+    await listarTurmas();
+  }
+  async function listarTurmas(){
+    try{
+      const q = query(collection(db,"turmas"), orderBy("nome"));
+      const snap = await getDocs(q);
+      const ativas = [];
+      snap.forEach(d => { const t=d.data(); if(t.status!=="inativa") ativas.push({ id:d.id, ...t }); });
+      $("turCount").textContent = ativas.length+" turma(s) cadastrada(s)";
+      if(ativas.length===0){ $("turTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F4DA}</div>Nenhuma turma cadastrada ainda.<br>Clique em "Nova Turma" para comecar.</div>'; return; }
+      let html = '<table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano letivo</th></tr></thead><tbody>';
+      ativas.forEach(t => {
+        html += '<tr><td><b>'+escapeHtml(t.nome)+'</b></td>'+
+                '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td>'+
+                '<td>'+escapeHtml(t.turno||"-")+'</td>'+
+                '<td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td></tr>';
+      });
+      html += '</tbody></table>'; $("turTabela").innerHTML = html;
+    }catch(e){ console.warn(e); $("turTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
+  }
+  async function abrirModalTurma(){
+    $("turNome").value=""; $("turSerie").value=""; $("turTurno").value="Matutino"; $("turAno").value="2026";
+    const sel = $("turEscola"); sel.innerHTML = '<option value="">Carregando...</option>';
+    $("modalTurma").classList.add("show");
+    try{
+      const lista = cacheEscolas.length ? cacheEscolas : await carregarCacheEscolas();
+      if(lista.length===0){ sel.innerHTML = '<option value="">Nenhuma escola. Cadastre primeiro.</option>'; return; }
+      sel.innerHTML = '<option value="">Selecione a escola...</option>';
+      lista.forEach(e => {
+        const o=document.createElement("option");
+        o.value=e.id; o.textContent=e.nome+" ("+(e.municipio_nome||"")+")";
+        o.dataset.nome=e.nome; o.dataset.muniId=e.municipio_id||""; o.dataset.muniNome=e.municipio_nome||""; o.dataset.muniUf=e.municipio_uf||"";
+        sel.appendChild(o);
+      });
+      $("turNome").focus();
+    }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
+  }
+  function fecharModalTurma(){ $("modalTurma").classList.remove("show"); }
+  $("turCancelar").addEventListener("click", fecharModalTurma);
+  $("modalTurma").addEventListener("click", (e)=>{ if(e.target.id==="modalTurma") fecharModalTurma(); });
+  $("turSalvar").addEventListener("click", async () => {
+    const nome=$("turNome").value.trim();
+    const sel=$("turEscola"); const escId=sel.value; const opt=sel.options[sel.selectedIndex];
+    const serie=$("turSerie").value; const turno=$("turTurno").value; const ano=parseInt($("turAno").value,10);
+    if(!nome){ toast("Informe o nome da turma.", true); return; }
+    if(!escId){ toast("Selecione a escola.", true); return; }
+    if(!ano){ toast("Informe o ano letivo.", true); return; }
+    $("turSalvar").disabled=true; $("turSalvar").textContent="Salvando...";
+    try{
+      await addDoc(collection(db,"turmas"), {
+        nome,
+        escola_id: escId,
+        escola_nome: opt.dataset.nome || "",
+        municipio_id: opt.dataset.muniId || "",     // herda da escola
+        municipio_nome: opt.dataset.muniNome || "",
+        ano_serie: serie || "",
+        turno: turno,
+        ano_letivo: ano,
+        status: "ativa",
+        criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid
+      });
+      fecharModalTurma(); toast("Turma cadastrada!"); await listarTurmas();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
+    finally{ $("turSalvar").disabled=false; $("turSalvar").textContent="Salvar turma"; }
+  });
+
+  // ===================== ALUNOS =====================
+  async function renderAlunos(){
+    $("conteudo").innerHTML =
+      '<div class="sectionbar"><span class="count" id="aluCount">Carregando...</span>'+
+      '<button class="btn btn-primary btn-add" id="btnNovoAlu">+ Novo Aluno</button></div>'+
+      '<div class="tablewrap" id="aluTabela"><div class="empty"><div class="ei">\u{1F9D2}</div>Carregando...</div></div>';
+    $("btnNovoAlu").addEventListener("click", abrirModalAluno);
+    await listarAlunos();
+  }
+  async function listarAlunos(){
+    try{
+      const q = query(collection(db,"alunos"), orderBy("nome"));
+      const snap = await getDocs(q);
+      const ativos = [];
+      snap.forEach(d => { const a=d.data(); if(a.status!=="inativo") ativos.push({ id:d.id, ...a }); });
+      $("aluCount").textContent = ativos.length+" aluno(s) cadastrado(s)";
+      if(ativos.length===0){ $("aluTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno cadastrado ainda.<br>Clique em "Novo Aluno" para comecar.</div>'; return; }
+      let html = '<table><thead><tr><th>Aluno</th><th>Matricula</th><th>Turma</th><th>Escola</th></tr></thead><tbody>';
+      ativos.forEach(a => {
+        html += '<tr><td><b>'+escapeHtml(a.nome)+'</b></td>'+
+                '<td>'+escapeHtml(a.matricula||"-")+'</td>'+
+                '<td>'+escapeHtml(a.turma_nome||"-")+'</td>'+
+                '<td><span class="muni-tag">'+escapeHtml(a.escola_nome||"-")+'</span></td></tr>';
+      });
+      html += '</tbody></table>'; $("aluTabela").innerHTML = html;
+    }catch(e){ console.warn(e); $("aluTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
+  }
+  async function abrirModalAluno(){
+    $("aluNome").value=""; $("aluMatricula").value="";
+    const sel = $("aluTurma"); sel.innerHTML = '<option value="">Carregando...</option>';
+    $("modalAluno").classList.add("show");
+    try{
+      const lista = cacheTurmas.length ? cacheTurmas : await carregarCacheTurmas();
+      if(lista.length===0){ sel.innerHTML = '<option value="">Nenhuma turma. Cadastre primeiro.</option>'; return; }
+      sel.innerHTML = '<option value="">Selecione a turma...</option>';
+      lista.forEach(t => {
+        const o=document.createElement("option");
+        o.value=t.id; o.textContent=t.nome+" ("+(t.escola_nome||"")+")";
+        o.dataset.nome=t.nome; o.dataset.escId=t.escola_id||""; o.dataset.escNome=t.escola_nome||"";
+        o.dataset.muniId=t.municipio_id||""; o.dataset.muniNome=t.municipio_nome||""; o.dataset.anoLetivo=t.ano_letivo||"";
+        sel.appendChild(o);
+      });
+      $("aluNome").focus();
+    }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
+  }
+  function fecharModalAluno(){ $("modalAluno").classList.remove("show"); }
+  $("aluCancelar").addEventListener("click", fecharModalAluno);
+  $("modalAluno").addEventListener("click", (e)=>{ if(e.target.id==="modalAluno") fecharModalAluno(); });
+  $("aluSalvar").addEventListener("click", async () => {
+    const nome=$("aluNome").value.trim();
+    const sel=$("aluTurma"); const turId=sel.value; const opt=sel.options[sel.selectedIndex];
+    let matricula=$("aluMatricula").value.trim();
+    if(!nome){ toast("Informe o nome do aluno.", true); return; }
+    if(!turId){ toast("Selecione a turma.", true); return; }
+    const anoLetivo = parseInt(opt.dataset.anoLetivo,10) || new Date().getFullYear();
+    if(!matricula){ matricula = anoLetivo + "-" + Date.now().toString().slice(-5); }
+    $("aluSalvar").disabled=true; $("aluSalvar").textContent="Salvando...";
+    try{
+      await addDoc(collection(db,"alunos"), {
+        nome, matricula,
+        turma_id: turId, turma_nome: opt.dataset.nome || "",
+        escola_id: opt.dataset.escId || "", escola_nome: opt.dataset.escNome || "",
+        municipio_id: opt.dataset.muniId || "", municipio_nome: opt.dataset.muniNome || "",
+        ano_letivo: anoLetivo, status: "ativo",
+        criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid
+      });
+      fecharModalAluno(); toast("Aluno cadastrado!"); await listarAlunos();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
+    finally{ $("aluSalvar").disabled=false; $("aluSalvar").textContent="Salvar aluno"; }
+  });
+
+  // ===================== AVALIACOES =====================
+  let questoesTmp = []; // questoes em construcao no modal
+  let qSeq = 0;
+
+  async function renderAvaliacoes(){
+    $("conteudo").innerHTML =
+      '<div class="sectionbar"><span class="count" id="avCount">Carregando...</span>'+
+      '<button class="btn btn-primary btn-add" id="btnNovaAval">+ Nova Avaliacao</button></div>'+
+      '<div class="tablewrap" id="avTabela"><div class="empty"><div class="ei">\u{1F4DD}</div>Carregando...</div></div>';
+    $("btnNovaAval").addEventListener("click", abrirModalAval);
+    await listarAvaliacoes();
+  }
+
+  async function listarAvaliacoes(){
+    try{
+      const q = query(collection(db,"avaliacoes"), orderBy("criado_em","desc"));
+      const snap = await getDocs(q);
+      const lista = [];
+      snap.forEach(d => { const a=d.data(); if(a.status!=="excluida"){
+        if(usuarioAtual.perfil==="professor" && a.professor_uid!==usuarioAtual.uid) return;
+        lista.push({ id:d.id, ...a });
+      }});
+      $("avCount").textContent = lista.length+" avaliacao(oes)";
+      if(lista.length===0){ $("avTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F4DD}</div>Nenhuma avaliacao ainda.<br>Clique em "Nova Avaliacao" para comecar.</div>'; return; }
+      let html = '<table><thead><tr><th>Avaliacao</th><th>Turma</th><th>Questoes</th><th>Codigo</th><th>Status</th><th>Acao</th></tr></thead><tbody>';
+      lista.forEach(a => {
+        const st = a.status || "rascunho";
+        const nq = Array.isArray(a.questoes) ? a.questoes.length : 0;
+        const pillClass = st==="rascunho"?"piloto":st==="liberada"?"ativa":"inativa";
+        const codigo = a.codigo_acesso ? '<span class="codebox">'+escapeHtml(a.codigo_acesso)+'</span>' : '<span class="muni-tag">-</span>';
+        let acao = '';
+        if(st==="rascunho"){ acao = '<button class="btn-mini btn-liberar" data-id="'+a.id+'">Liberar</button>'; }
+        else if(st==="liberada"){ acao = '<button class="btn-mini btn-result" data-id="'+a.id+'">Resultados</button> <button class="btn-mini btn-encerrar" data-id="'+a.id+'">Encerrar</button>'; }
+        else { acao = '<button class="btn-mini btn-result" data-id="'+a.id+'">Resultados</button>'; }
+        html += '<tr><td><b>'+escapeHtml(a.titulo)+'</b><br><span class="muni-tag">'+escapeHtml(a.disciplina||"")+' - '+nq+' questoes - '+escapeHtml(String(a.total_pontos||0))+' pts</span></td>'+
+                '<td>'+escapeHtml(a.turma_nome||"-")+'</td>'+
+                '<td>'+nq+'</td>'+
+                '<td>'+codigo+'</td>'+
+                '<td><span class="pill '+pillClass+'">'+st+'</span></td>'+
+                '<td>'+acao+'</td></tr>';
+      });
+      html += '</tbody></table>'; $("avTabela").innerHTML = html;
+      // listeners de acao
+      $("avTabela").querySelectorAll(".btn-liberar").forEach(b => b.addEventListener("click", () => liberarAvaliacao(b.dataset.id)));
+      $("avTabela").querySelectorAll(".btn-encerrar").forEach(b => b.addEventListener("click", () => encerrarAvaliacao(b.dataset.id)));
+      $("avTabela").querySelectorAll(".btn-result").forEach(b => b.addEventListener("click", () => verResultados(b.dataset.id)));
+    }catch(e){ console.warn(e); $("avTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
+  }
+
+  // gera um codigo curto e legivel a partir da disciplina + turma + numero
+  function gerarCodigo(disciplina, turmaNome){
+    const limpa = s => (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+    const d = limpa(disciplina).slice(0,3) || "AVA";
+    const t = limpa(turmaNome).slice(0,2) || "T";
+    const n = Math.floor(10 + Math.random()*90); // 2 digitos
+    return d + t + n;
+  }
+
+  async function liberarAvaliacao(id){
+    try{
+      // busca os dados para gerar o codigo
+      const ref = doc(db,"avaliacoes",id);
+      const snap = await getDoc(ref);
+      if(!snap.exists()){ toast("Avaliacao nao encontrada.", true); return; }
+      const a = snap.data();
+      const codigo = gerarCodigo(a.disciplina, a.turma_nome);
+      // horario atual em UTC-4 (Campo Grande). serverTimestamp grava em UTC;
+      // guardamos tambem o fuso para exibir corretamente depois.
+      await updateDoc(ref, {
+        status: "liberada",
+        codigo_acesso: codigo,
+        liberada_em: serverTimestamp(),
+        fuso_horario: "America/Campo_Grande (UTC-4)",
+        atualizado_em: serverTimestamp(),
+        atualizado_por: usuarioAtual.uid
+      });
+      toast("Avaliacao liberada! Codigo: " + codigo);
+      await listarAvaliacoes();
+    }catch(e){ console.warn(e); toast("Erro ao liberar ("+e.code+").", true); }
+  }
+
+  async function encerrarAvaliacao(id){
+    try{
+      const ref = doc(db,"avaliacoes",id);
+      await updateDoc(ref, {
+        status: "encerrada",
+        encerra_em: serverTimestamp(),
+        atualizado_em: serverTimestamp(),
+        atualizado_por: usuarioAtual.uid
+      });
+      toast("Avaliacao encerrada.");
+      await listarAvaliacoes();
+    }catch(e){ console.warn(e); toast("Erro ao encerrar ("+e.code+").", true); }
+  }
+
+
+  async function abrirModalAval(){
+    $("avTitulo").value=""; $("avDisciplina").value=""; $("avBimestre").value="1";
+    questoesTmp = []; qSeq = 0; renderQuestoes();
+    const sel = $("avTurma"); sel.innerHTML = '<option value="">Carregando...</option>';
+    $("modalAval").classList.add("show");
+    try{
+      const lista = cacheTurmas.length ? cacheTurmas : await carregarCacheTurmas();
+      if(lista.length===0){ sel.innerHTML = '<option value="">Nenhuma turma. Cadastre primeiro.</option>'; return; }
+      sel.innerHTML = '<option value="">Selecione a turma...</option>';
+      lista.forEach(t => {
+        const o=document.createElement("option");
+        o.value=t.id; o.textContent=t.nome+" ("+(t.escola_nome||"")+")";
+        o.dataset.nome=t.nome; o.dataset.escId=t.escola_id||""; o.dataset.escNome=t.escola_nome||"";
+        o.dataset.muniId=t.municipio_id||""; o.dataset.anoLetivo=t.ano_letivo||"";
+        sel.appendChild(o);
+      });
+      $("avTitulo").focus();
+    }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
+  }
+  function fecharModalAval(){ $("modalAval").classList.remove("show"); }
+  $("avCancelar").addEventListener("click", fecharModalAval);
+  $("modalAval").addEventListener("click", (e)=>{ if(e.target.id==="modalAval") fecharModalAval(); });
+
+  $("btnAddMultipla").addEventListener("click", () => {
+    qSeq++;
+    questoesTmp.push({ _id:qSeq, tipo:"multipla", enunciado:"", pontos:1, bncc:"",
+      alternativas:[ {letra:"A",texto:"",correta:true}, {letra:"B",texto:"",correta:false}, {letra:"C",texto:"",correta:false}, {letra:"D",texto:"",correta:false} ] });
+    renderQuestoes();
+  });
+  $("btnAddDiss").addEventListener("click", () => {
+    qSeq++;
+    questoesTmp.push({ _id:qSeq, tipo:"dissertativa", enunciado:"", pontos:1, bncc:"", alternativas:[] });
+    renderQuestoes();
+  });
+
+  function renderQuestoes(){
+    const box = $("qLista");
+    if(questoesTmp.length===0){ box.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:10px 0">Nenhuma questao ainda. Adicione abaixo.</div>'; atualizaTotal(); return; }
+    box.innerHTML = "";
+    questoesTmp.forEach((q, idx) => {
+      const div = document.createElement("div");
+      div.className = "qbox";
+      let alts = "";
+      if(q.tipo==="multipla"){
+        q.alternativas.forEach((alt, ai) => {
+          alts += '<div class="alt-row">'+
+            '<input type="text" data-q="'+idx+'" data-alt="'+ai+'" class="altTxt" placeholder="Alternativa '+alt.letra+'" value="'+escapeAttr(alt.texto)+'">'+
+            '<label class="corr"><input type="radio" name="corr-'+idx+'" data-q="'+idx+'" data-alt="'+ai+'" class="altCorr" '+(alt.correta?"checked":"")+'> correta</label>'+
+            '</div>';
+        });
+      }
+      div.innerHTML =
+        '<div class="qhead"><span class="qn">Questao '+(idx+1)+' - '+(q.tipo==="multipla"?"Multipla escolha":"Dissertativa")+'</span>'+
+          '<button type="button" class="qdel" data-del="'+idx+'">remover</button></div>'+
+        '<div class="qmeta">'+
+          '<div class="field" style="flex:1"><textarea data-q="'+idx+'" class="qEnun" placeholder="Enunciado da questao" style="width:100%;min-height:54px;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical">'+escapeHtml(q.enunciado)+'</textarea></div>'+
+          '<div class="field f-pts"><label style="font-size:11px">Pontos</label><input type="number" data-q="'+idx+'" class="qPts" value="'+q.pontos+'" min="0" step="0.5"></div>'+
+        '</div>'+ alts;
+      box.appendChild(div);
+    });
+    // listeners
+    box.querySelectorAll(".qEnun").forEach(el => el.addEventListener("input", e => { questoesTmp[+e.target.dataset.q].enunciado = e.target.value; }));
+    box.querySelectorAll(".qPts").forEach(el => el.addEventListener("input", e => { questoesTmp[+e.target.dataset.q].pontos = parseFloat(e.target.value)||0; atualizaTotal(); }));
+    box.querySelectorAll(".altTxt").forEach(el => el.addEventListener("input", e => { questoesTmp[+e.target.dataset.q].alternativas[+e.target.dataset.alt].texto = e.target.value; }));
+    box.querySelectorAll(".altCorr").forEach(el => el.addEventListener("change", e => {
+      const qi=+e.target.dataset.q, ai=+e.target.dataset.alt;
+      questoesTmp[qi].alternativas.forEach((a,i)=> a.correta = (i===ai));
+    }));
+    box.querySelectorAll(".qdel").forEach(el => el.addEventListener("click", e => { questoesTmp.splice(+e.target.dataset.del,1); renderQuestoes(); }));
+    atualizaTotal();
+  }
+  function atualizaTotal(){
+    const total = questoesTmp.reduce((s,q)=> s+(parseFloat(q.pontos)||0), 0);
+    $("avTotalPts").value = total;
+  }
+  function escapeAttr(s){ return String(s).replace(/"/g,"&quot;"); }
+
+  $("avSalvar").addEventListener("click", async () => {
+    const titulo=$("avTitulo").value.trim();
+    const sel=$("avTurma"); const turId=sel.value; const opt=sel.options[sel.selectedIndex];
+    const disciplina=$("avDisciplina").value.trim();
+    const bimestre=parseInt($("avBimestre").value,10);
+    if(!titulo){ toast("Informe o titulo da avaliacao.", true); return; }
+    if(!turId){ toast("Selecione a turma.", true); return; }
+    if(questoesTmp.length===0){ toast("Adicione pelo menos uma questao.", true); return; }
+    // validacao das questoes
+    for(let i=0;i<questoesTmp.length;i++){
+      const q=questoesTmp[i];
+      if(!q.enunciado.trim()){ toast("Questao "+(i+1)+": preencha o enunciado.", true); return; }
+      if(q.tipo==="multipla"){
+        const semTexto = q.alternativas.some(a=>!a.texto.trim());
+        if(semTexto){ toast("Questao "+(i+1)+": preencha todas as alternativas.", true); return; }
+        if(!q.alternativas.some(a=>a.correta)){ toast("Questao "+(i+1)+": marque a alternativa correta.", true); return; }
+      }
+    }
+    // monta as questoes como ARRAY DE OBJETOS NATIVO (sem _id interno)
+    const questoes = questoesTmp.map((q,idx) => {
+      const base = { numero:idx+1, tipo:q.tipo, enunciado:q.enunciado.trim(), pontos:parseFloat(q.pontos)||0, bncc:q.bncc||"" };
+      if(q.tipo==="multipla"){ base.alternativas = q.alternativas.map(a=>({ letra:a.letra, texto:a.texto.trim(), correta:!!a.correta })); }
+      else { base.alternativas = []; }
+      return base;
+    });
+    const totalPts = questoes.reduce((s,q)=>s+q.pontos,0);
+    $("avSalvar").disabled=true; $("avSalvar").textContent="Salvando...";
+    try{
+      await addDoc(collection(db,"avaliacoes"), {
+        titulo, disciplina, bimestre,
+        turma_id: turId, turma_nome: opt.dataset.nome||"",
+        escola_id: opt.dataset.escId||"", escola_nome: opt.dataset.escNome||"",
+        municipio_id: opt.dataset.muniId||"",
+        ano_letivo: parseInt(opt.dataset.anoLetivo,10) || new Date().getFullYear(),
+        professor_uid: usuarioAtual.uid,
+        questoes: questoes,              // array de objetos nativo
+        total_pontos: totalPts,
+        status: "rascunho",
+        codigo_acesso: null, liberada_em: null, encerra_em: null,
+        criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid
+      });
+      fecharModalAval(); toast("Avaliacao salva como rascunho!"); await listarAvaliacoes();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
+    finally{ $("avSalvar").disabled=false; $("avSalvar").textContent="Salvar rascunho"; }
+  });
+
+  // ===================== RESULTADOS / CORRECAO =====================
+  let avalAtual = null;
+
+  async function verResultados(avalId){
+    try{
+      // carrega a avaliacao
+      const ref = doc(db,"avaliacoes",avalId);
+      const snap = await getDoc(ref);
+      if(!snap.exists()){ toast("Avaliacao nao encontrada.", true); return; }
+      avalAtual = { id:avalId, ...snap.data() };
+
+      $("conteudo").innerHTML =
+        '<button class="voltar" id="btnVoltarAval">\u2190 Voltar para avaliacoes</button>'+
+        '<div class="resumo-aval"><h3>'+escapeHtml(avalAtual.titulo)+'</h3>'+
+        '<div class="meta">'+escapeHtml(avalAtual.disciplina||"")+' - Turma '+escapeHtml(avalAtual.turma_nome||"")+' - '+escapeHtml(String(avalAtual.total_pontos||0))+' pontos - Codigo '+escapeHtml(avalAtual.codigo_acesso||"-")+'</div></div>'+
+        '<div id="respLista"><div class="empty">Carregando respostas...</div></div>';
+      $("btnVoltarAval").addEventListener("click", renderAvaliacoes);
+      await listarRespostas();
+    }catch(e){ console.warn(e); toast("Erro ao abrir resultados ("+e.code+").", true); }
+  }
+
+  async function listarRespostas(){
+    try{
+      const q = query(collection(db,"respostas"), where("avaliacao_id","==",avalAtual.id));
+      const snap = await getDocs(q);
+      const respostas = [];
+      snap.forEach(d => respostas.push({ id:d.id, ...d.data() }));
+      respostas.sort((a,b)=> (a.aluno_nome||"").localeCompare(b.aluno_nome||""));
+      if(respostas.length===0){ $("respLista").innerHTML = '<div class="empty"><div class="ei">\u{1F4ED}</div>Nenhum aluno respondeu ainda.</div>'; return; }
+
+      let html = '<div class="sectionbar"><span class="count">'+respostas.length+' aluno(s) responderam</span></div>';
+      respostas.forEach(r => {
+        const pend = r.dissertativa_pendente && r.nota_final===null;
+        const notaLabel = (r.nota_final!==null && r.nota_final!==undefined)
+          ? '<span class="nota-tag ok">Nota final: '+r.nota_final+'</span>'
+          : '<span class="nota-tag pend">Aguardando correcao</span>';
+        const objLabel = '<span class="nota-tag ok">Objetivas: '+(r.nota_objetivas||0)+'</span>';
+        html += '<div class="resp-card">'+
+          '<div class="resp-head"><span class="alunoNome">'+escapeHtml(r.aluno_nome||"-")+'</span>'+
+          '<span class="notas">'+objLabel+notaLabel+'</span></div>';
+        // bloco de dissertativas, se houver pendencia
+        if(pend){
+          html += '<div class="diss-bloco" id="diss-'+r.id+'">';
+          (avalAtual.questoes||[]).forEach(q => {
+            if(q.tipo==="dissertativa"){
+              const respAluno = (r.respostas||[]).find(x=>x.numero===q.numero);
+              const texto = respAluno && respAluno.texto ? respAluno.texto : "(em branco)";
+              html += '<div class="diss-q">'+
+                '<div class="enun">Questao '+q.numero+': '+escapeHtml(q.enunciado)+' (vale '+q.pontos+')</div>'+
+                '<div class="resp-aluno">'+escapeHtml(texto)+'</div>'+
+                '<div class="nota-input"><input type="number" min="0" max="'+q.pontos+'" step="0.5" '+
+                  'data-resp="'+r.id+'" data-q="'+q.numero+'" data-max="'+q.pontos+'" class="notaDiss" placeholder="0"> '+
+                  '<span>de '+q.pontos+' ponto(s)</span></div>'+
+                '</div>';
+            }
+          });
+          html += '<button class="btn-salvar-nota" data-resp="'+r.id+'">Salvar correcao</button></div>';
+        }
+        html += '</div>';
+      });
+      $("respLista").innerHTML = html;
+      // listeners de salvar correcao
+      $("respLista").querySelectorAll(".btn-salvar-nota").forEach(b =>
+        b.addEventListener("click", () => salvarCorrecao(b.dataset.resp, respostas.find(r=>r.id===b.dataset.resp)))
+      );
+    }catch(e){ console.warn(e); $("respLista").innerHTML = '<div class="empty">Erro ao carregar respostas ('+e.code+').</div>'; }
+  }
+
+  async function salvarCorrecao(respId, respObj){
+    // coleta as notas digitadas para cada dissertativa
+    const inputs = $("diss-"+respId).querySelectorAll(".notaDiss");
+    let somaDiss = 0;
+    let faltou = false;
+    inputs.forEach(inp => {
+      const v = inp.value.trim();
+      if(v===""){ faltou = true; return; }
+      const max = parseFloat(inp.dataset.max);
+      let n = parseFloat(v);
+      if(isNaN(n) || n<0) n=0;
+      if(n>max) n=max;
+      somaDiss += n;
+    });
+    if(faltou){ toast("Preencha a nota de todas as dissertativas.", true); return; }
+    const notaFinal = (respObj.nota_objetivas||0) + somaDiss;
+    try{
+      await updateDoc(doc(db,"respostas",respId), {
+        nota_dissertativas: somaDiss,
+        nota_final: notaFinal,
+        dissertativa_pendente: false,
+        status: "corrigida",
+        corrigida_em: serverTimestamp(),
+        corrigida_por: usuarioAtual.uid
+      });
+      toast("Correcao salva! Nota final: "+notaFinal);
+      await listarRespostas();
+    }catch(e){ console.warn(e); toast("Erro ao salvar correcao ("+e.code+").", true); }
+  }
+
+  // ===================== MINHAS TURMAS (professor) =====================
+  async function renderMinhasTurmas(){
+    const ids = Array.isArray(usuarioAtual.turmas_ids) ? usuarioAtual.turmas_ids : [];
+    if(ids.length === 0){
+      $("conteudo").innerHTML =
+        '<div class="panel"><div class="pico">\u{1F4DA}</div><h3>Nenhuma turma vinculada</h3>'+
+        '<p>Voce ainda nao foi designado a nenhuma turma. Procure o gestor da escola ou o administrador para vincular suas turmas.</p></div>';
+      return;
+    }
+    $("conteudo").innerHTML = '<div class="tablewrap" id="mtTabela"><div class="empty">Carregando suas turmas...</div></div>';
+    try{
+      const idsLimpos = ids.map(x => String(x).trim());
+      const snap = await getDocs(collection(db,"turmas"));
+      const minhas = [];
+      snap.forEach(d => { if(idsLimpos.includes(d.id.trim())){ const t=d.data(); if(t.status!=="inativa") minhas.push({ id:d.id, ...t }); } });
+      minhas.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
+      if(minhas.length === 0){
+        $("conteudo").innerHTML = '<div class="empty"><div class="ei">\u{1F4DA}</div>Suas turmas nao foram encontradas.</div>';
+        return;
+      }
+      let html = '<div class="sectionbar"><span class="count">'+minhas.length+' turma(s) sob sua responsabilidade</span></div>';
+      html += '<div class="tablewrap"><table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano</th><th>Acao</th></tr></thead><tbody>';
+      minhas.forEach(t => {
+        html += '<tr><td><b>'+escapeHtml(t.nome)+'</b></td>'+
+                '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td>'+
+                '<td>'+escapeHtml(t.turno||"-")+'</td>'+
+                '<td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
+                '<td><button class="btn-mini btn-result" data-turma="'+t.id+'" data-nome="'+escapeAttr(t.nome)+'">Ver alunos</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      $("conteudo").innerHTML = html;
+      $("conteudo").querySelectorAll(".btn-result").forEach(b =>
+        b.addEventListener("click", () => verAlunosDaTurma(b.dataset.turma, b.dataset.nome)));
+    }catch(e){ console.warn(e); $("conteudo").innerHTML = '<div class="empty">Erro ao carregar turmas ('+e.code+').</div>'; }
+  }
+
+  async function verAlunosDaTurma(turmaId, turmaNome){
+    $("conteudo").innerHTML =
+      '<button class="voltar" id="btnVoltarMT">\u2190 Voltar para minhas turmas</button>'+
+      '<div class="resumo-aval"><h3>Turma: '+escapeHtml(turmaNome)+'</h3><div class="meta">Alunos matriculados</div></div>'+
+      '<div id="mtAlunos"><div class="empty">Carregando alunos...</div></div>';
+    $("btnVoltarMT").addEventListener("click", renderMinhasTurmas);
+    try{
+      const q = query(collection(db,"alunos"), where("turma_id","==",turmaId));
+      const snap = await getDocs(q);
+      const alunos = [];
+      snap.forEach(d => { const a=d.data(); if(a.status!=="inativo") alunos.push({ id:d.id, ...a }); });
+      alunos.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
+      if(alunos.length === 0){
+        $("mtAlunos").innerHTML = '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno matriculado nesta turma ainda.</div>';
+        return;
+      }
+      let html = '<div class="sectionbar"><span class="count">'+alunos.length+' aluno(s)</span></div>';
+      html += '<div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matricula</th></tr></thead><tbody>';
+      alunos.forEach(a => { html += '<tr><td><b>'+escapeHtml(a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td></tr>'; });
+      html += '</tbody></table></div>';
+      $("mtAlunos").innerHTML = html;
+    }catch(e){ console.warn(e); $("mtAlunos").innerHTML = '<div class="empty">Erro ao carregar alunos ('+e.code+').</div>'; }
+  }
+
+  function traduzErro(code){
+    const m = {
+      "auth/invalid-email":"E-mail invalido.", "auth/user-not-found":"Usuario nao encontrado.",
+      "auth/wrong-password":"Senha incorreta.", "auth/invalid-credential":"E-mail ou senha incorretos.",
+      "auth/too-many-requests":"Muitas tentativas. Aguarde um momento.",
+      "auth/popup-closed-by-user":"Login do Google cancelado.",
+      "auth/network-request-failed":"Falha de conexao. Verifique a internet."
+    };
+    return m[code] || ("Erro ao entrar ("+code+").");
+  }
+</script>
+</body>
+</html>
