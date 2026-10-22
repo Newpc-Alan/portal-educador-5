@@ -69,7 +69,7 @@ service cloud.firestore {
       // o proprio usuario so altera dados pessoais; licenca, vinculo, perfil e situacao so o administrador
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "atualizado_em", "atualizado_por"]));
+             ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "ultimo_acesso", "atualizado_em", "atualizado_por"]));
       allow delete: if admin();
     }
 
@@ -77,6 +77,13 @@ service cloud.firestore {
     match /pre_cadastros/{email} {
       allow read: if admin() || (emailVerificado() && meuEmail() == email);
       allow write: if admin();
+    }
+
+    // registro de uso: 1 documento por pessoa por dia (alimenta o Painel do administrador)
+    match /acessos_dia/{id} {
+      allow read: if admin();
+      allow create, update: if logado() && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.dia + "_" + request.auth.uid;
     }
 
     // configuracao do Portal (ex.: quais botoes estao liberados)
