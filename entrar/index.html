@@ -317,7 +317,9 @@
   #lsFab{ position:fixed;right:20px;bottom:20px;z-index:70;width:64px;height:64px;border:none;border-radius:18px;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#fff;font:700 11px 'Segoe UI',sans-serif;
     background:linear-gradient(145deg,var(--pde-escuro),#163a5f);box-shadow:0 10px 24px rgba(7,22,33,.4),inset 0 0 0 1.5px rgba(46,155,214,.45) }
-  #lsFab svg{ width:28px;height:28px }
+  #lsFab svg{ width:28px;height:28px;pointer-events:none }
+  #lsFab{ touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab }
+  #lsFab.arrastando{ cursor:grabbing;opacity:.92;box-shadow:0 16px 34px rgba(7,22,33,.5) }
   #lsFab em{ display:none;position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;font-style:normal;font-size:10px;font-weight:800;background:var(--pde-lima);color:var(--pde-escuro);padding:3px 8px;border-radius:20px }
   #lsFab.ativa{ background:linear-gradient(145deg,#1a6b2a,#23883a) }
   #lsFab.ativa em{ display:block }
@@ -2010,8 +2012,10 @@
     const fab = document.createElement("button");
     fab.type = "button"; fab.id = "lsFab"; fab.dataset.action = "lousa-abrir";
     fab.setAttribute("aria-label", "Abrir a Lousa Interativa");
+    fab.title = "Abrir a Lousa (arraste para mudar de lugar)";
     fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="13" rx="1.8"/><path d="M7 20.5l2-4M17 20.5l-2-4"/><path d="M6.5 8h7M6.5 11.5h10" stroke="#8DC63F"/></svg><span>Lousa</span><em id="lsSelo">Continuar</em>';
     document.body.appendChild(fab);
+    arrastavel(fab);
     const ov = document.createElement("div");
     ov.id = "lsOverlay"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-label","Lousa Interativa");
     ov.innerHTML = '<div id="lsBarra"><b>Lousa Interativa</b><div>'+
@@ -2029,6 +2033,56 @@
       else if(d.tipo === "pde-lousa-encerrada"){ lousa.ativa = false; lousa.paginas = 0; minimizarLousa(); }
     });
     document.addEventListener("keydown", (e) => { if(e.key === "Escape" && lousaAberta() && !document.fullscreenElement) minimizarLousa(); });
+  }
+  // botao da Lousa: o professor arrasta para onde preferir; a posicao fica guardada neste navegador
+  const CHAVE_POS_LOUSA = "pde_lousa_fab_pos";
+  function arrastavel(fab){
+    const limitar = (x, y) => {
+      const w = fab.offsetWidth || 64, h = fab.offsetHeight || 64;
+      return { x: Math.min(Math.max(6, x), window.innerWidth - w - 6), y: Math.min(Math.max(6, y), window.innerHeight - h - 18) };
+    };
+    const aplicar = (x, y) => { const p = limitar(x, y); fab.style.left = p.x+"px"; fab.style.top = p.y+"px"; fab.style.right = "auto"; fab.style.bottom = "auto"; };
+    const restaurar = () => {
+      let s = null; try{ s = JSON.parse(localStorage.getItem(CHAVE_POS_LOUSA) || "null"); }catch(e){}
+      if(s && typeof s.x === "number" && typeof s.y === "number") aplicar(s.x, s.y);
+      else { fab.style.left = ""; fab.style.top = ""; fab.style.right = ""; fab.style.bottom = ""; }
+    };
+    restaurar();
+    window.addEventListener("resize", restaurar);
+    let ini = null, moveu = false;
+    fab.addEventListener("pointerdown", (e) => {
+      if(e.button !== 0) return;
+      const r = fab.getBoundingClientRect();
+      ini = { px:e.clientX, py:e.clientY, ox:e.clientX - r.left, oy:e.clientY - r.top }; moveu = false;
+      try{ fab.setPointerCapture(e.pointerId); }catch(err){}
+    });
+    fab.addEventListener("pointermove", (e) => {
+      if(!ini) return;
+      if(!moveu && Math.hypot(e.clientX - ini.px, e.clientY - ini.py) < 6) return;
+      moveu = true; fab.classList.add("arrastando");
+      aplicar(e.clientX - ini.ox, e.clientY - ini.oy);
+      e.preventDefault();
+    });
+    const soltar = () => {
+      if(!ini) return; ini = null;
+      fab.classList.remove("arrastando");
+      if(moveu){
+        fab.dataset.arrastou = "1";
+        setTimeout(() => { delete fab.dataset.arrastou; }, 400);
+        try{ localStorage.setItem(CHAVE_POS_LOUSA, JSON.stringify({ x:parseInt(fab.style.left,10), y:parseInt(fab.style.top,10) })); }catch(err){}
+      }
+    };
+    fab.addEventListener("pointerup", soltar);
+    fab.addEventListener("pointercancel", soltar);
+    // teclado: Alt + setas move o botao; Alt + 0 volta ao canto
+    fab.addEventListener("keydown", (e) => {
+      if(!e.altKey) return;
+      const r = fab.getBoundingClientRect(), passo = 24;
+      const mov = { ArrowLeft:[-passo,0], ArrowRight:[passo,0], ArrowUp:[0,-passo], ArrowDown:[0,passo] }[e.key];
+      if(mov){ e.preventDefault(); aplicar(r.left + mov[0], r.top + mov[1]);
+        try{ localStorage.setItem(CHAVE_POS_LOUSA, JSON.stringify({ x:parseInt(fab.style.left,10), y:parseInt(fab.style.top,10) })); }catch(err){} }
+      if(e.key === "0"){ e.preventDefault(); try{ localStorage.removeItem(CHAVE_POS_LOUSA); }catch(err){} restaurar(); }
+    });
   }
   function lousaAberta(){ const o = $("lsOverlay"); return !!(o && o.classList.contains("aberto")); }
   function attSeloLousa(){
@@ -2614,7 +2668,9 @@
     else if(acao === "mod-salvar"){ salvarModulos(); }
     else if(acao === "ini-abrir"){ registrarModulo(el.dataset.mod); }
     else if(acao === "painel-atualizar"){ renderPainel(); }
-    else if(acao === "lousa-abrir"){ abrirLousa(el.dataset.id || ""); }
+    else if(acao === "lousa-abrir"){
+      if(el.dataset.arrastou){ delete el.dataset.arrastou; return; }   // terminou de arrastar: nao abre
+      abrirLousa(el.dataset.id || ""); }
     else if(acao === "lousa-min"){ minimizarLousa(); }
     else if(acao === "lousa-tela"){ alternarTelaCheia(); }
     else if(acao === "lousa-fim"){ pedirEncerrarLousa(); }
