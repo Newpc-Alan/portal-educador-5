@@ -43,6 +43,10 @@
   .btn-google:hover{ border-color:var(--cyan);background:#fbfdff }
   .btn-google svg{ width:18px;height:18px }
   .msg{ margin-top:16px;padding:11px 14px;border-radius:9px; font-size:13px;line-height:1.45;display:none; }
+  .inapp{ margin-top:16px;padding:14px 16px;border-radius:12px;background:#fff8e6;border:1px solid #f3d48a;color:#7a5200;font-size:13.5px;line-height:1.5 }
+  .inapp b{ display:block;font-size:14.5px;margin-bottom:4px }
+  .inapp .btn{ margin-top:10px }
+  .inapp[hidden]{ display:none }
   .msg.error{ display:block;background:#fdecea;color:var(--danger);border:1px solid #f5c6c2 }
   .foot{ text-align:center;margin-top:22px;font-size:11.5px;color:var(--muted) }
   #appView{ display:none; min-height:100vh; }
@@ -521,6 +525,11 @@
         Entrar com Google
       </button>
       <div class="msg" id="msg"></div>
+      <div class="inapp" id="inapp" hidden>
+        <b>Abra no Safari ou no Chrome</b>
+        <p>Você abriu o Portal dentro de outro aplicativo. Por segurança, o Google não permite entrar com a conta Google por aqui. Copie o link e abra no navegador do celular.</p>
+        <button type="button" class="btn btn-ghost" id="btnCopiarLink">Copiar link</button>
+      </div>
       <div class="foot">Acesso restrito a secretarias, escolas e professores<br><a href="/" style="color:var(--pde-azul);font-weight:700;text-decoration:none;display:inline-block;margin-top:8px">Conhecer o Portal do Educador</a></div>
     </div>
   </div>
@@ -729,11 +738,12 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+  if(location.protocol === "http:" && /portaldoeducador\.com\.br$/.test(location.hostname)){ location.replace("https://" + location.host + location.pathname + location.search); }
   const firebaseConfig = {
     apiKey: "AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0",
     authDomain: "portal-educador-5.firebaseapp.com",
@@ -801,11 +811,47 @@
     try{ await signInWithEmailAndPassword(auth,email,senha); }
     catch(e){ showMsg(traduzErro(e.code),"error"); }
   });
+  // navegador embutido de outro app (WhatsApp, Instagram, Facebook etc.): o Google bloqueia o login
+  function navegadorEmbutido(){
+    const ua = navigator.userAgent || "";
+    if(/FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|musical_ly|Bytedance|LinkedInApp|Pinterest|WhatsApp/i.test(ua)) return true;
+    if(/Android/i.test(ua) && /; wv\)/.test(ua)) return true;                       // WebView do Android
+    if(/iPhone|iPad|iPod/i.test(ua) && !/Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)) return true;   // WKWebView no iOS
+    return false;
+  }
+  function avisoEmbutido(){
+    $("inapp").hidden = false;
+    $("inapp").scrollIntoView({ block:"nearest" });
+  }
+  if(navegadorEmbutido()) avisoEmbutido();
+  $("btnCopiarLink").addEventListener("click", async () => {
+    const url = location.origin + "/entrar/";
+    try{ await navigator.clipboard.writeText(url); $("btnCopiarLink").textContent = "Link copiado! Cole no Safari ou Chrome"; }
+    catch(e){ prompt("Copie o link e abra no Safari ou Chrome:", url); }
+  });
+  const ERROS_DE_POPUP = ["auth/popup-blocked","auth/operation-not-supported-in-this-environment","auth/web-storage-unsupported","auth/cancelled-popup-request"];
   $("btnGoogle").addEventListener("click", async () => {
     clearMsg();
-    try{ await signInWithPopup(auth,new GoogleAuthProvider()); }
-    catch(e){ showMsg(traduzErro(e.code),"error"); }
+    if(navegadorEmbutido()){ avisoEmbutido(); return; }
+    const provedor = new GoogleAuthProvider();
+    provedor.setCustomParameters({ prompt:"select_account" });
+    const btn = $("btnGoogle"); btn.disabled = true;
+    try{ await signInWithPopup(auth, provedor); }
+    catch(e){
+      console.warn("login Google:", e.code);
+      if(ERROS_DE_POPUP.includes(e.code)){
+        // o celular bloqueou a janela: faz o login na propria pagina
+        try{ sessionStorage.setItem("pde_login_redirect","1"); }catch(err){}
+        try{ await signInWithRedirect(auth, provedor); return; }
+        catch(e2){ showMsg(traduzErro(e2.code),"error"); }
+      }else if(e.code !== "auth/popup-closed-by-user"){ showMsg(traduzErro(e.code),"error"); }
+    }finally{ btn.disabled = false; }
   });
+  // volta do login feito na propria pagina
+  getRedirectResult(auth).catch((e) => {
+    console.warn("retorno do login:", e.code);
+    showMsg(traduzErro(e.code), "error");
+  }).finally(() => { try{ sessionStorage.removeItem("pde_login_redirect"); }catch(err){} });
   $("btnSair").addEventListener("click", () => signOut(auth));
 
   onAuthStateChanged(auth, async (user) => {
@@ -3423,7 +3469,13 @@
       "auth/wrong-password":"Senha incorreta.", "auth/invalid-credential":"E-mail ou senha incorretos.",
       "auth/too-many-requests":"Muitas tentativas. Aguarde um momento.",
       "auth/popup-closed-by-user":"Login do Google cancelado.",
-      "auth/network-request-failed":"Falha de conexao. Verifique a internet."
+      "auth/network-request-failed":"Falha de conexão. Verifique a internet.",
+      "auth/popup-blocked":"O navegador bloqueou a janela do Google. Tente de novo ou libere pop-ups para este site.",
+      "auth/unauthorized-domain":"Este endereço ainda não está autorizado para login. Avise o suporte do Portal.",
+      "auth/operation-not-supported-in-this-environment":"Este navegador não permite o login do Google. Abra no Safari ou no Chrome.",
+      "auth/web-storage-unsupported":"O navegador está bloqueando o armazenamento do site (modo privado?). Abra no Safari ou no Chrome normal.",
+      "auth/account-exists-with-different-credential":"Este e-mail já entra por outro método. Use e-mail e senha.",
+      "auth/user-disabled":"Esta conta foi desativada. Fale com o suporte."
     };
     return m[code] || ("Erro ao entrar ("+code+").");
   }
