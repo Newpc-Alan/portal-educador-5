@@ -144,6 +144,44 @@
   .diss-q .nota-input span{ font-size:12.5px;color:var(--muted) }
   .btn-salvar-nota{ padding:9px 18px;border:none;border-radius:8px;background:var(--green);color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-top:6px }
   .btn-salvar-nota:hover{ filter:brightness(1.1) }
+  /* ===== Usuarios (aprovacao e vinculo) ===== */
+  .pill.pendente{ background:#fff4e0;color:#9a6700 }
+  .pill.semvinculo{ background:#eaf6fb;color:#1d6f8f }
+  .usr-top{ display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px }
+  .usr-tabs{ display:flex;flex-wrap:wrap;gap:6px }
+  .usr-tab{ border:1.5px solid var(--line);background:#fff;color:var(--muted);border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer }
+  .usr-tab b{ display:inline-block;min-width:20px;margin-left:6px;padding:1px 6px;border-radius:10px;background:#eef2f6;color:var(--ink);font-size:11px }
+  .usr-tab.on{ background:var(--navy);border-color:var(--navy);color:#fff }
+  .usr-tab.on b{ background:rgba(255,255,255,.2);color:#fff }
+  .usr-tab.alerta b{ background:#f5a623;color:#fff }
+  .usr-busca{ padding:9px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:13.5px;min-width:240px;background:#fbfcfe }
+  .usr-busca:focus{ outline:none;border-color:var(--cyan) }
+  .usr-nome b{ display:block }
+  .usr-nome small{ color:var(--muted);font-size:12px }
+  .usr-vinc{ font-size:12.5px;color:var(--muted);line-height:1.45 }
+  .usr-acoes{ display:flex;gap:6px;flex-wrap:wrap }
+  .btn-gerenciar{ background:var(--navy) }
+  .btn-recusar{ background:#fff;color:var(--danger);border:1.5px solid #f0c4bf }
+  .btn-recusar:hover{ background:#fdecea }
+  .modal.usr{ max-width:620px }
+  .usr-sec{ margin-top:18px }
+  .usr-sec h4{ font-size:12.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center }
+  .usr-sec h4 span{ text-transform:none;letter-spacing:0;font-weight:600 }
+  .chk-lista{ border:1.5px solid var(--line);border-radius:10px;max-height:190px;overflow-y:auto;background:#fbfcfe }
+  .chk-lista .vazio{ padding:14px;font-size:13px;color:var(--muted) }
+  .chk-grupo{ padding:8px 12px 2px;font-size:11.5px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.4px }
+  .chk{ display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid #eef2f6;font-size:13.5px;cursor:pointer }
+  .chk:last-child{ border-bottom:none }
+  .chk input{ width:16px;height:16px;flex:none;accent-color:var(--green) }
+  .chk small{ color:var(--muted);font-size:12px }
+  .usr-aviso{ margin-top:14px;padding:10px 13px;border-radius:9px;font-size:12.5px;line-height:1.5;background:#eaf6fb;color:#1d6f8f }
+  .usr-aviso.alerta{ background:#fff4e0;color:#8a5a00 }
+  .usr-status-row{ display:flex;gap:8px;flex-wrap:wrap }
+  .usr-status-row label{ flex:1;min-width:130px;display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;font-weight:600;cursor:pointer }
+  .usr-status-row input{ accent-color:var(--green) }
+  .usr-status-row label.on{ border-color:var(--cyan);background:#f2fafd }
+  .modal .mf.usr-mf{ flex-wrap:wrap }
+  .espera{ max-width:520px;margin:40px auto }
 </style>
 </head>
 <body>
@@ -280,6 +318,42 @@
   </div>
 </div>
 
+<!-- Modal Gerenciar Usuario -->
+<div class="modal-bg" id="modalUsuario">
+  <div class="modal usr" role="dialog" aria-modal="true" aria-labelledby="usrTitulo">
+    <div class="mh"><h3 id="usrTitulo">Gerenciar cadastro</h3><p id="usrSub">-</p></div>
+    <div class="mb" style="max-height:66vh;overflow-y:auto">
+      <div class="usr-sec" style="margin-top:0">
+        <h4>Situação do cadastro</h4>
+        <div class="usr-status-row" id="usrStatus">
+          <label><input type="radio" name="usrStatus" value="ativo"> Aprovado</label>
+          <label><input type="radio" name="usrStatus" value="pendente"> Em análise</label>
+          <label><input type="radio" name="usrStatus" value="inativo"> Recusado / desativado</label>
+        </div>
+      </div>
+      <div class="row2 usr-sec">
+        <div class="field"><label for="usrPerfil">Perfil</label>
+          <select id="usrPerfil"><option value="professor">Professor</option><option value="admin">Administrador</option></select>
+        </div>
+        <div class="field"><label for="usrMuni">Município</label><select id="usrMuni"><option value="">Carregando...</option></select></div>
+      </div>
+      <div class="usr-sec">
+        <h4>Escolas onde ministra aulas <span id="usrEscCont"></span></h4>
+        <div class="chk-lista" id="usrEscolas"><div class="vazio">Selecione o município.</div></div>
+      </div>
+      <div class="usr-sec">
+        <h4>Turmas <span id="usrTurCont"></span></h4>
+        <div class="chk-lista" id="usrTurmas"><div class="vazio">Marque ao menos uma escola.</div></div>
+      </div>
+      <div class="usr-aviso" id="usrAviso"></div>
+    </div>
+    <div class="mf usr-mf">
+      <button class="btn btn-ghost" data-action="usr-cancelar">Cancelar</button>
+      <button class="btn btn-primary" data-action="usr-salvar" id="usrSalvar">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -360,8 +434,10 @@
       const snap = await getDoc(ref);
       if(snap.exists()){ dados = { ...dados, ...snap.data() }; }
       else{
+        // primeiro acesso: entra como "pendente" e aguarda aprovacao do administrador
+        dados.status = "pendente"; dados.turmas_ids = []; dados.escolas_ids = [];
         await setDoc(ref, { uid:user.uid, nome:dados.nome, email:dados.email, perfil:"professor",
-          status:"ativo", municipio_id:null, escola_id:null, turmas_ids:[],
+          status:"pendente", municipio_id:null, escola_id:null, escolas_ids:[], turmas_ids:[],
           criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid });
       }
     }catch(e){ console.warn("Firestore:", e.code, e.message); }
@@ -376,6 +452,10 @@
     $("uAv").textContent = (nome[0]||"?").toUpperCase();
     $("uNome").textContent = nome;
     $("uPerfil").textContent = LABELS_PERFIL[perfil] || perfil;
+    // professor so entra depois de aprovado e vinculado a uma escola
+    if(perfil !== "admin" && (usuarioAtual.status !== "ativo" || !usuarioAtual.escola_id)){
+      mostrarEspera(); return;
+    }
     const menu = MENUS[perfil] || MENUS.professor;
     const nav = $("nav"); nav.innerHTML = "";
     menu.itens.forEach((item, i) => {
@@ -388,6 +468,17 @@
     });
     $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
     selecionar(menu.itens[0]);
+    if(perfil === "admin") contarPendentesEmSegundoPlano();
+  }
+
+  // mostra no menu quantos cadastros aguardam aprovacao
+  async function contarPendentesEmSegundoPlano(){
+    try{
+      const snap = await getDocs(collection(db,"usuarios"));
+      const lista = []; snap.forEach(d => lista.push({ id:d.id, ...d.data() }));
+      if(!usr.carregado) usr.lista = lista;
+      atualizarBadgeMenu();
+    }catch(e){ console.warn("contagem de pendentes:", e.code); }
   }
 
   function selecionar(item){
@@ -399,6 +490,7 @@
       if(item.id === "turmas"){ renderTurmas(); return; }
       if(item.id === "alunos"){ renderAlunos(); return; }
       if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
+      if(item.id === "usuarios"){ renderUsuarios(); return; }
     }
     if(usuarioAtual.perfil === "professor"){
       if(item.id === "turmas"){ renderMinhasTurmas(); return; }
@@ -1090,6 +1182,279 @@
     }
     $("btnGerarPlano").disabled = false;
   }
+
+  // ===================== ESPERA (professor ainda nao aprovado) =====================
+  function mostrarEspera(){
+    $("nav").innerHTML = "";
+    const inativo = usuarioAtual.status === "inativo";
+    $("secTitulo").textContent = inativo ? "Acesso desativado" : "Cadastro em análise";
+    $("secBadge").textContent = inativo ? "Desativado" : "Aguardando aprovação";
+    $("conteudo").innerHTML =
+      '<div class="panel espera"><div class="pico">'+(inativo ? "\u{1F512}" : "⏳")+'</div>'+
+      (inativo
+        ? '<h3>Seu acesso está desativado</h3><p>Se acha que isso é um engano, fale com a coordenação da sua escola ou com a equipe do Portal do Educador.</p>'
+        : '<h3>Recebemos seu cadastro</h3><p>Agora o administrador vai aprovar seu acesso e vincular o município, as escolas e as turmas em que você dá aula. Quando isso acontecer, é só tocar em "Verificar novamente".</p>'+
+          '<p style="margin-top:10px"><b>'+escapeHtml(usuarioAtual.email||"")+'</b></p>')+
+      '<div style="margin-top:20px"><button class="btn btn-primary btn-add" data-action="espera-verificar">Verificar novamente</button></div></div>';
+  }
+
+  // ===================== USUARIOS (aprovacao e vinculo) =====================
+  const ROTULO_SITUACAO = { pendente:"Em análise", semvinculo:"Sem vínculo", ativo:"Aprovado", inativo:"Desativado" };
+  const usr = { lista:[], filtro:"aguardando", busca:"", editando:null, carregado:false };
+
+  function situacao(u){
+    if(u.status === "inativo") return "inativo";
+    if(u.status === "pendente") return "pendente";
+    if(u.perfil !== "admin" && !u.escola_id) return "semvinculo";
+    return "ativo";
+  }
+  function semAcento(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase(); }
+  function dataCurta(ts){
+    try{ const d = ts && ts.toDate ? ts.toDate() : null; return d ? d.toLocaleDateString("pt-BR") : "-"; }catch(e){ return "-"; }
+  }
+
+  async function renderUsuarios(){
+    $("conteudo").innerHTML =
+      '<div class="usr-top">'+
+        '<div class="usr-tabs" id="usrTabs"></div>'+
+        '<input class="usr-busca" id="usrBusca" type="search" placeholder="Buscar por nome ou e-mail" aria-label="Buscar usuário">'+
+      '</div>'+
+      '<div class="tablewrap" id="usrTabela"><div class="empty"><div class="ei">\u{1F465}</div>Carregando cadastros...</div></div>';
+    $("usrBusca").value = usr.busca;
+    $("usrBusca").addEventListener("input", (e) => { usr.busca = e.target.value; desenharUsuarios(); });
+    await carregarUsuarios();
+  }
+
+  async function carregarUsuarios(){
+    try{
+      const [snap] = await Promise.all([
+        getDocs(collection(db,"usuarios")),
+        cacheMunicipios.length ? Promise.resolve() : carregarCacheMunicipios(),
+        cacheEscolas.length ? Promise.resolve() : carregarCacheEscolas(),
+        cacheTurmas.length ? Promise.resolve() : carregarCacheTurmas()
+      ]);
+      usr.lista = [];
+      snap.forEach(d => usr.lista.push({ id:d.id, ...d.data() }));
+      // em analise primeiro, depois os mais recentes
+      const ordem = { pendente:0, semvinculo:1, ativo:2, inativo:3 };
+      usr.lista.sort((a,b) => {
+        const s = ordem[situacao(a)] - ordem[situacao(b)]; if(s) return s;
+        const ta = a.criado_em && a.criado_em.toMillis ? a.criado_em.toMillis() : 0;
+        const tb = b.criado_em && b.criado_em.toMillis ? b.criado_em.toMillis() : 0;
+        return tb - ta;
+      });
+      usr.carregado = true;
+      atualizarBadgeMenu();
+      desenharUsuarios();
+    }catch(e){
+      console.warn(e);
+      $("usrTabela").innerHTML = '<div class="empty">Não foi possível carregar os cadastros ('+escapeHtml(e.code||"erro")+'). Verifique a internet e tente de novo.</div>';
+    }
+  }
+
+  function contarAguardando(){ return usr.lista.filter(u => ["pendente","semvinculo"].includes(situacao(u))).length; }
+  function atualizarBadgeMenu(){
+    const a = document.querySelector('#nav a[data-sec="usuarios"]'); if(!a) return;
+    let b = a.querySelector(".nbadge");
+    const n = contarAguardando();
+    if(!n){ if(b) b.remove(); return; }
+    if(!b){ b = document.createElement("span"); b.className = "nbadge";
+      b.style.cssText = "margin-left:auto;background:#f5a623;color:#fff;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:800";
+      a.appendChild(b); }
+    b.textContent = n;
+  }
+
+  function desenharUsuarios(){
+    if(!usr.carregado) return;
+    const cont = { aguardando:0, ativo:0, inativo:0, todos:usr.lista.length };
+    usr.lista.forEach(u => { const s=situacao(u); if(s==="pendente"||s==="semvinculo") cont.aguardando++; else cont[s]++; });
+    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Aprovados"], ["inativo","Desativados"], ["todos","Todos"] ];
+    $("usrTabs").innerHTML = abas.map(([k,l]) =>
+      '<button class="usr-tab'+(usr.filtro===k?" on":"")+(k==="aguardando"&&cont.aguardando?" alerta":"")+'" data-action="usr-filtro" data-filtro="'+k+'">'+l+'<b>'+cont[k]+'</b></button>').join("");
+
+    const termo = semAcento(usr.busca.trim());
+    const visiveis = usr.lista.filter(u => {
+      const s = situacao(u);
+      if(usr.filtro==="aguardando" && !(s==="pendente"||s==="semvinculo")) return false;
+      if(usr.filtro==="ativo" && s!=="ativo") return false;
+      if(usr.filtro==="inativo" && s!=="inativo") return false;
+      if(termo && !semAcento((u.nome||"")+" "+(u.email||"")).includes(termo)) return false;
+      return true;
+    });
+
+    if(visiveis.length === 0){
+      const msg = usr.filtro==="aguardando" && !termo ? "Nenhum cadastro aguardando aprovação." : "Nenhum cadastro encontrado.";
+      $("usrTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F465}</div>'+msg+'</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Usuário</th><th>Situação</th><th>Vínculo</th><th>Cadastro</th><th>Ações</th></tr></thead><tbody>';
+    visiveis.forEach(u => {
+      const s = situacao(u);
+      const escolas = Array.isArray(u.escolas_nomes) && u.escolas_nomes.length ? u.escolas_nomes
+        : (u.escola_id ? [ (cacheEscolas.find(e=>e.id===u.escola_id)||{}).nome || "1 escola" ] : []);
+      const nTur = Array.isArray(u.turmas_ids) ? u.turmas_ids.length : 0;
+      const vinc = u.perfil==="admin" && !escolas.length ? "Acesso total (administrador)"
+        : (escolas.length
+            ? escapeHtml(u.municipio_nome||"")+(u.municipio_nome?" · ":"")+escolas.length+" escola(s), "+nTur+" turma(s)<br>"+escapeHtml(escolas.slice(0,2).join(", "))+(escolas.length>2?" e mais "+(escolas.length-2):"")
+            : "Nenhum vínculo ainda");
+      const ehEu = u.id === usuarioAtual.uid;
+      let acoes = '<button class="btn-mini btn-gerenciar" data-action="usr-abrir" data-uid="'+escapeAttr(u.id)+'">'+(s==="pendente"||s==="semvinculo" ? "Aprovar e vincular" : "Gerenciar")+'</button>';
+      if(s==="pendente" && !ehEu) acoes += '<button class="btn-mini btn-recusar" data-action="usr-recusar" data-uid="'+escapeAttr(u.id)+'">Recusar</button>';
+      html += '<tr>'+
+        '<td class="usr-nome"><b>'+escapeHtml(u.nome||"Sem nome")+(ehEu?' <small>(você)</small>':'')+'</b><small>'+escapeHtml(u.email||"-")+' · '+escapeHtml(LABELS_PERFIL[u.perfil]||u.perfil||"-")+'</small></td>'+
+        '<td><span class="pill '+s+'">'+ROTULO_SITUACAO[s]+'</span></td>'+
+        '<td class="usr-vinc">'+vinc+'</td>'+
+        '<td class="usr-vinc">'+dataCurta(u.criado_em)+'</td>'+
+        '<td><div class="usr-acoes">'+acoes+'</div></td></tr>';
+    });
+    html += '</tbody></table>';
+    $("usrTabela").innerHTML = html;
+  }
+
+  // ---------- modal ----------
+  function abrirModalUsuario(uid){
+    const u = usr.lista.find(x => x.id === uid); if(!u) return;
+    const ehEu = uid === usuarioAtual.uid;
+    usr.editando = {
+      uid, ehEu,
+      status: (situacao(u)==="semvinculo" || u.status==="pendente") ? "ativo" : (u.status||"pendente"),
+      statusOriginal: u.status||"pendente",
+      perfil: u.perfil || "professor",
+      municipio_id: u.municipio_id || "",
+      escolas: new Set(Array.isArray(u.escolas_ids) && u.escolas_ids.length ? u.escolas_ids : (u.escola_id ? [u.escola_id] : [])),
+      turmas: new Set(Array.isArray(u.turmas_ids) ? u.turmas_ids.map(x=>String(x).trim()) : [])
+    };
+    // sem municipio salvo: herda da primeira escola marcada
+    if(!usr.editando.municipio_id && usr.editando.escolas.size){
+      const e = cacheEscolas.find(x => usr.editando.escolas.has(x.id)); if(e) usr.editando.municipio_id = e.municipio_id || "";
+    }
+    $("usrTitulo").textContent = (situacao(u)==="pendente"||situacao(u)==="semvinculo") ? "Aprovar e vincular" : "Gerenciar cadastro";
+    $("usrSub").textContent = (u.nome||"Sem nome")+" · "+(u.email||"");
+    const sel = $("usrMuni");
+    sel.innerHTML = '<option value="">Selecione o município...</option>' +
+      cacheMunicipios.map(m => '<option value="'+escapeAttr(m.id)+'">'+escapeHtml(m.nome)+' / '+escapeHtml(m.uf||"")+'</option>').join("");
+    sel.value = usr.editando.municipio_id;
+    $("usrPerfil").value = usr.editando.perfil;
+    $("usrPerfil").disabled = ehEu;
+    document.querySelectorAll('#usrStatus input').forEach(r => { r.disabled = ehEu; });
+    desenharModalUsuario();
+    $("modalUsuario").classList.add("show");
+  }
+  function fecharModalUsuario(){ $("modalUsuario").classList.remove("show"); usr.editando = null; }
+
+  function desenharModalUsuario(){
+    const ed = usr.editando; if(!ed) return;
+    document.querySelectorAll('#usrStatus input').forEach(r => { r.checked = r.value === ed.status; r.parentElement.classList.toggle("on", r.checked); });
+    // escolas do municipio
+    const escolas = cacheEscolas.filter(e => e.municipio_id === ed.municipio_id);
+    // descarta escolas de outro municipio
+    [...ed.escolas].forEach(id => { if(!escolas.some(e=>e.id===id)) ed.escolas.delete(id); });
+    $("usrEscolas").innerHTML = !ed.municipio_id ? '<div class="vazio">Selecione o município.</div>'
+      : (!escolas.length ? '<div class="vazio">Este município ainda não tem escolas cadastradas. Cadastre em "Escolas".</div>'
+      : escolas.map(e => '<label class="chk"><input type="checkbox" data-action="usr-escola" value="'+escapeAttr(e.id)+'"'+(ed.escolas.has(e.id)?" checked":"")+'> '+escapeHtml(e.nome)+'</label>').join(""));
+    $("usrEscCont").textContent = ed.escolas.size ? ed.escolas.size+" marcada(s)" : "";
+    // turmas das escolas marcadas
+    const turmas = cacheTurmas.filter(t => ed.escolas.has(t.escola_id));
+    [...ed.turmas].forEach(id => { if(!turmas.some(t=>t.id.trim()===id)) ed.turmas.delete(id); });
+    if(!ed.escolas.size){ $("usrTurmas").innerHTML = '<div class="vazio">Marque ao menos uma escola.</div>'; }
+    else if(!turmas.length){ $("usrTurmas").innerHTML = '<div class="vazio">As escolas marcadas ainda não têm turmas. Você pode aprovar agora e vincular as turmas depois.</div>'; }
+    else{
+      let h = "";
+      [...ed.escolas].forEach(eid => {
+        const esc = cacheEscolas.find(e=>e.id===eid); const ts = turmas.filter(t=>t.escola_id===eid);
+        if(!ts.length) return;
+        h += '<div class="chk-grupo">'+escapeHtml(esc ? esc.nome : "Escola")+'</div>';
+        h += ts.map(t => '<label class="chk"><input type="checkbox" data-action="usr-turma" value="'+escapeAttr(t.id.trim())+'"'+(ed.turmas.has(t.id.trim())?" checked":"")+'> '+escapeHtml(t.nome)+' <small>'+escapeHtml([t.turno, t.ano_letivo].filter(Boolean).join(" · "))+'</small></label>').join("");
+      });
+      $("usrTurmas").innerHTML = h;
+    }
+    $("usrTurCont").textContent = ed.turmas.size ? ed.turmas.size+" marcada(s)" : "";
+    // aviso do que vai acontecer
+    const av = $("usrAviso"); av.className = "usr-aviso";
+    if(ed.ehEu){ av.textContent = "Este é o seu próprio cadastro: perfil e situação ficam travados para você não perder o acesso de administrador."; }
+    else if(ed.status === "inativo"){ av.className += " alerta"; av.textContent = "O usuário perde o acesso ao Portal na próxima vez que abrir uma tela. Os vínculos ficam guardados, caso você reative depois."; }
+    else if(ed.status === "pendente"){ av.textContent = "O cadastro continua em análise e o usuário segue vendo a tela de espera."; }
+    else if(ed.perfil === "admin"){ av.className += " alerta"; av.textContent = "Administrador vê e altera todos os municípios, escolas, alunos e cadastros. Use só para a equipe NEWPC."; }
+    else if(!ed.escolas.size){ av.className += " alerta"; av.textContent = "Para aprovar um professor, marque o município e pelo menos uma escola."; }
+    else{ av.textContent = "Ao salvar, o professor passa a ver "+ed.turmas.size+" turma(s) em "+ed.escolas.size+" escola(s). Ele só precisa entrar de novo ou tocar em “Verificar novamente”."; }
+    $("usrSalvar").textContent = ed.status==="ativo" && ed.statusOriginal!=="ativo" ? "Aprovar e salvar" : "Salvar";
+  }
+
+  async function salvarUsuario(){
+    const ed = usr.editando; if(!ed) return;
+    if(ed.status==="ativo" && ed.perfil==="professor" && (!ed.municipio_id || !ed.escolas.size)){
+      toast("Marque o município e pelo menos uma escola.", true); return;
+    }
+    const muni = cacheMunicipios.find(m => m.id === ed.municipio_id);
+    const escolasIds = cacheEscolas.filter(e => ed.escolas.has(e.id)).map(e => e.id);
+    const dados = {
+      municipio_id: ed.municipio_id || null,
+      municipio_nome: muni ? muni.nome : "",
+      escolas_ids: escolasIds,
+      escolas_nomes: escolasIds.map(id => (cacheEscolas.find(e=>e.id===id)||{}).nome || ""),
+      escola_id: escolasIds[0] || null,       // escola principal (usada pelas regras de acesso)
+      turmas_ids: [...ed.turmas],
+      atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
+    };
+    if(!ed.ehEu){ dados.perfil = ed.perfil; dados.status = ed.status; }
+    if(!ed.ehEu && ed.status==="ativo" && ed.statusOriginal!=="ativo"){ dados.aprovado_em = serverTimestamp(); dados.aprovado_por = usuarioAtual.uid; }
+    if(!ed.ehEu && ed.status==="inativo" && ed.statusOriginal!=="inativo"){ dados.desativado_em = serverTimestamp(); dados.desativado_por = usuarioAtual.uid; }
+    const btn = $("usrSalvar"); btn.disabled = true; btn.setAttribute("aria-busy","true"); btn.textContent = "Salvando...";
+    try{
+      await updateDoc(doc(db,"usuarios",ed.uid), dados);
+      const nome = (usr.lista.find(x=>x.id===ed.uid)||{}).nome || "Cadastro";
+      toast(ed.status==="ativo" && ed.statusOriginal!=="ativo" ? nome+" aprovado(a)!" : "Cadastro atualizado.");
+      if(ed.ehEu){ Object.assign(usuarioAtual, dados); }
+      fecharModalUsuario();
+      await carregarUsuarios();
+    }catch(e){
+      console.warn(e);
+      toast(e.code==="permission-denied" ? "Sem permissão para alterar este cadastro." : "Erro ao salvar ("+(e.code||"erro")+").", true);
+    }finally{ btn.disabled = false; btn.removeAttribute("aria-busy"); if(usr.editando) desenharModalUsuario(); }
+  }
+
+  async function recusarUsuario(uid, botao){
+    const u = usr.lista.find(x => x.id === uid); if(!u || uid === usuarioAtual.uid) return;
+    // confirmacao em dois toques, sem janela do navegador
+    if(botao.dataset.confirmar !== "1"){
+      botao.dataset.confirmar = "1"; botao.textContent = "Confirmar recusa";
+      setTimeout(() => { if(botao.isConnected){ botao.dataset.confirmar = ""; botao.textContent = "Recusar"; } }, 4000);
+      return;
+    }
+    botao.disabled = true; botao.textContent = "Recusando...";
+    try{
+      await updateDoc(doc(db,"usuarios",uid), { status:"inativo", desativado_em:serverTimestamp(), desativado_por:usuarioAtual.uid,
+        atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      toast("Cadastro recusado.");
+      await carregarUsuarios();
+    }catch(e){ console.warn(e); toast("Erro ao recusar ("+(e.code||"erro")+").", true); botao.disabled = false; botao.textContent = "Recusar"; }
+  }
+
+  // delegacao de eventos (Regra 9)
+  document.addEventListener("click", async (ev) => {
+    const el = ev.target.closest("[data-action]"); if(!el) return;
+    const acao = el.dataset.action;
+    if(acao === "usr-filtro"){ usr.filtro = el.dataset.filtro; desenharUsuarios(); }
+    else if(acao === "usr-abrir"){ abrirModalUsuario(el.dataset.uid); }
+    else if(acao === "usr-recusar"){ recusarUsuario(el.dataset.uid, el); }
+    else if(acao === "usr-cancelar"){ fecharModalUsuario(); }
+    else if(acao === "usr-salvar"){ salvarUsuario(); }
+    else if(acao === "espera-verificar"){
+      el.disabled = true; el.textContent = "Verificando...";
+      if(auth.currentUser){ await carregarUsuario(auth.currentUser); abrirApp(); }
+    }
+  });
+  document.addEventListener("change", (ev) => {
+    const ed = usr.editando; if(!ed) return;
+    const t = ev.target;
+    if(t.name === "usrStatus"){ ed.status = t.value; desenharModalUsuario(); }
+    else if(t.id === "usrPerfil"){ ed.perfil = t.value; desenharModalUsuario(); }
+    else if(t.id === "usrMuni"){ ed.municipio_id = t.value; desenharModalUsuario(); }
+    else if(t.dataset && t.dataset.action === "usr-escola"){ t.checked ? ed.escolas.add(t.value) : ed.escolas.delete(t.value); desenharModalUsuario(); }
+    else if(t.dataset && t.dataset.action === "usr-turma"){ t.checked ? ed.turmas.add(t.value) : ed.turmas.delete(t.value); $("usrTurCont").textContent = ed.turmas.size ? ed.turmas.size+" marcada(s)" : ""; desenharModalUsuario(); }
+  });
+  $("modalUsuario").addEventListener("click", (e) => { if(e.target.id === "modalUsuario") fecharModalUsuario(); });
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && usr.editando) fecharModalUsuario(); });
 
   function traduzErro(code){
     const m = {
