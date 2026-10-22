@@ -1,0 +1,31 @@
+rules_version = '2';
+// Storage do Portal 5.0: arquivos gerados por cada professor.
+// O acervo (atividades, colorir, biblioteca) fica no Cloudflare R2, fora daqui.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function eu() { return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data; }
+    function admin() { return request.auth != null && eu().perfil == "admin" && eu().status == "ativo"; }
+    // mesma regra de licenca do Firestore: institucional (contrato vigente) ou avulsa/teste/cortesia no prazo
+    function licenciado() {
+      return request.auth != null && eu().status == "ativo" && (eu().perfil == "admin" ||
+        (eu().get("licenca_tipo", "institucional") == "institucional" && eu().get("escola_id", null) != null) ||
+        (eu().get("licenca_tipo", "institucional") != "institucional" && eu().get("licenca_fim", null) != null && eu().licenca_fim > request.time));
+    }
+    // ate 20 MB por arquivo; PDF, imagens, Word, Excel, PowerPoint e audio
+    function arquivoValido() {
+      return request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/.*|audio/.*|application/vnd\\.openxmlformats-officedocument\\..*|application/msword|application/vnd\\.ms-excel|application/vnd\\.ms-powerpoint');
+    }
+
+    // pasta de cada professor: so ele (e o administrador) acessa
+    match /professores/{uid}/{arquivo=**} {
+      allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
+      allow create, update: if request.auth != null && request.auth.uid == uid && licenciado() && arquivoValido();
+      allow delete: if (request.auth != null && request.auth.uid == uid) || admin();
+    }
+
+    // qualquer outro caminho continua bloqueado
+    match /{tudo=**} { allow read, write: if false; }
+  }
+}
