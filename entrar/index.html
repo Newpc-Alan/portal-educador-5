@@ -209,6 +209,24 @@
   .ini-selo{ position:absolute;top:10px;right:10px;background:rgba(15,44,74,.88);color:#fff;font-size:11px;font-weight:800;padding:5px 10px;border-radius:20px;letter-spacing:.3px }
   .ini-selo.ok{ background:var(--green) }
   .ini-selo.plano{ background:#9a6700 }
+  /* ===== Faixa Iniciar aula (Maestro) ===== */
+  .ini-aula{ display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px;padding:18px 22px;border-radius:16px;color:#fff;
+    background:radial-gradient(600px 200px at 0% 0%, rgba(46,155,214,.35), transparent 60%), linear-gradient(135deg,var(--pde-escuro),#123556);
+    border-left:5px solid var(--pde-lima);box-shadow:0 14px 32px -18px rgba(7,22,33,.7) }
+  .ini-aula-txt{ display:flex;gap:14px;align-items:center;min-width:0;flex:1 1 320px }
+  .ini-aula-ico{ font-size:34px;flex:none }
+  .ini-aula h3{ font-size:19px;color:#fff;margin-bottom:3px }
+  .ini-aula p{ font-size:13.5px;color:rgba(255,255,255,.8);line-height:1.45 }
+  .ini-aula-acoes{ display:flex;gap:10px;flex-wrap:wrap }
+  .ini-aula-btn{ display:inline-flex;align-items:center;height:46px;padding:0 24px;border-radius:999px;background:var(--pde-lima);color:var(--pde-escuro);
+    font-weight:800;font-size:15.5px;text-decoration:none;box-shadow:0 8px 20px -8px rgba(141,198,63,.8) }
+  .ini-aula-btn:hover{ filter:brightness(1.06) }
+  .ini-aula-sec{ height:46px;padding:0 18px;border-radius:999px;border:1.5px solid rgba(255,255,255,.4);background:transparent;color:#fff;font:700 14.5px inherit;cursor:pointer }
+  .ini-aula-sec:hover{ border-color:#fff }
+  .ini-aula-btn:focus-visible, .ini-aula-sec:focus-visible{ outline:3px solid #fff;outline-offset:3px }
+  .nav a.nav-aula{ color:#fff;background:rgba(141,198,63,.16);box-shadow:inset 3px 0 0 var(--pde-lima) }
+  .nav a.nav-aula:hover{ background:rgba(141,198,63,.26) }
+
   /* ===== Modulos (admin) ===== */
   .modadm td{ vertical-align:middle }
   .modadm input[type=text]{ width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:12.5px;background:#fbfcfe }
@@ -419,6 +437,8 @@
     .acv-fl small{ display:none }
     #lsFab{ right:14px;bottom:14px;width:56px;height:56px }
     #lsBarra b{ display:none }
+    .ini-aula{ padding:16px }
+    .ini-aula-acoes{ width:100% } .ini-aula-btn{ flex:1;justify-content:center } .ini-aula-sec{ flex:1 }
   }
   @media (max-width: 560px){
     .ini-grid{ grid-template-columns:repeat(2,minmax(0,1fr));gap:10px }
@@ -868,6 +888,7 @@
     $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
     selecionar(menu.itens[0]);
     registrarAcesso();
+    atalhoAulaNoMenu();
     if(perfil === "admin") contarPendentesEmSegundoPlano();
     montarLousa();
   }
@@ -2954,6 +2975,7 @@
       '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial do professor" : "Olá, "+escapeHtml(primeiro)+"!")+'</h2>'+
       '<p>'+(admin ? "Assim o professor vê os botões. Os que estão \u201cEm breve\u201d você libera em Módulos do Portal." : escapeHtml(local || "Bem-vindo ao Portal do Educador"))+'</p></div>'+
       '<div class="ini-leg"><span class="l1">Liberado</span><span class="l2">Em breve</span></div></div>'+
+      '<div id="iniAula"></div>'+
       '<div class="ini-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div>';
     await carregarCfgModulos();
     // plano do municipio: so vale quando o administrador ja configurou a lista
@@ -2964,7 +2986,11 @@
         if(Array.isArray(lista) && lista.length) doPlano = new Set(lista);
       }catch(e){ console.warn("plano:", e.code); }
     }
+    // Maestro em destaque: o professor comeca a aula por ele
+    const aula = maestroDisponivel(doPlano, admin);
+    $("iniAula").innerHTML = aula ? faixaAula(aula, admin) : "";
     const cards = MODULOS.map(md => {
+      if(md.id === "maestro" && aula) return "";
       const c = cfgDe(md.id);
       if(c.status === "oculto" && !admin) return "";
       let estado = c.status === "liberado" && c.url ? "ok" : "breve";
@@ -2985,6 +3011,40 @@
         : '<div class="ini-card trava" aria-disabled="true" title="'+(estado==="plano" ? "Não incluído no plano do seu município" : "Em breve")+'">'+corpo+'</div>';
     }).join("");
     $("iniGrid").innerHTML = cards || '<div class="empty" style="grid-column:1/-1">Nenhum módulo disponível ainda.</div>';
+  }
+
+  // ---------- Maestro: atalho de aula ----------
+  // devolve a URL do Maestro quando ele esta liberado para este usuario (ou "previa" para o admin)
+  function maestroDisponivel(doPlano, admin){
+    const c = cfgDe("maestro");
+    if(!c.url) return null;
+    if(admin) return { url:c.url, previa:c.status !== "liberado" };
+    if(c.status !== "liberado") return null;
+    if(doPlano && !doPlano.has("maestro")) return null;
+    return { url:c.url, previa:false };
+  }
+  function faixaAula(aula, admin){
+    return '<section class="ini-aula" aria-label="Iniciar aula">'+
+      '<div class="ini-aula-txt"><span class="ini-aula-ico" aria-hidden="true">\u{1F3BC}</span><div><h3>Pronto para a aula?</h3>'+
+      '<p>Abra a turma no Portal Maestro: os alunos entram com um código de 6 dígitos e você conduz as telas.'+(admin && aula.previa ? ' <b>(prévia: o Maestro ainda não está liberado para os professores)</b>' : '')+'</p></div></div>'+
+      '<div class="ini-aula-acoes"><a class="ini-aula-btn" href="'+escapeAttr(aula.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="maestro">Iniciar aula</a>'+
+      '<button type="button" class="ini-aula-sec" data-action="lousa-abrir">Abrir a Lousa</button></div></section>';
+  }
+  // item "Iniciar aula" no menu lateral, logo abaixo de Inicio
+  async function atalhoAulaNoMenu(){
+    if(usuarioAtual.perfil === "admin") return;
+    await carregarCfgModulos();
+    let doPlano = null;
+    const m = usuarioAtual._muni;
+    if(m && Array.isArray(m.modulos_professor) && m.modulos_professor.length) doPlano = new Set(m.modulos_professor);
+    const aula = maestroDisponivel(doPlano, false);
+    const nav = $("nav"); if(!aula || !nav || nav.querySelector('[data-sec="aula"]')) return;
+    const a = document.createElement("a");
+    a.dataset.sec = "aula"; a.href = aula.url; a.target = "_blank"; a.rel = "noopener"; a.className = "nav-aula";
+    a.dataset.action = "ini-abrir"; a.dataset.mod = "maestro";
+    a.innerHTML = '<span class="ico">\u{1F3BC}</span>Iniciar aula';
+    const inicio = nav.querySelector('[data-sec="inicio"]');
+    if(inicio && inicio.nextSibling) nav.insertBefore(a, inicio.nextSibling); else nav.appendChild(a);
   }
 
   // ---------- admin: liberar modulos ----------
