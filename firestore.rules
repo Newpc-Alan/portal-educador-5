@@ -24,6 +24,8 @@ service cloud.firestore {
         && tipoLic() != "institucional" && eu().get("licenca_fim", null) != null && eu().licenca_fim > request.time);
     }
     function professor() { return vinculado(); }
+    // escolas em que o professor da aula (cadastros antigos so tem escola_id)
+    function minhasEscolas() { return eu().get("escolas_ids", [eu().get("escola_id", "")]); }
 
     // e-mail verificado (conta Google) que foi importado pelo administrador
     function meuEmail() { return request.auth.token.email.lower(); }
@@ -32,6 +34,18 @@ service cloud.firestore {
     function pre() { return get(/databases/$(database)/documents/pre_cadastros/$(meuEmail())).data; }
 
     function novo() { return request.resource.data; }
+    // escolas escolhidas pelo proprio professor: 1 a 5, todas do municipio dele
+    function escolaDoMeuMuni(lista, i) {
+      return lista.size() <= i || get(/databases/$(database)/documents/escolas/$(lista[i])).data.municipio_id == resource.data.municipio_id;
+    }
+    function escolasValidas() {
+      let l = request.resource.data.escolas_ids;
+      return resource.data.get("licenca_tipo", "institucional") == "institucional"
+        && resource.data.get("municipio_id", null) != null
+        && l.size() >= 1 && l.size() <= 5 && request.resource.data.escola_id == l[0]
+        && request.resource.data.vinculo_alterado_por == request.auth.uid
+        && escolaDoMeuMuni(l, 0) && escolaDoMeuMuni(l, 1) && escolaDoMeuMuni(l, 2) && escolaDoMeuMuni(l, 3) && escolaDoMeuMuni(l, 4);
+    }
     function semVinculoDeRede() {
       return novo().escola_id == null && novo().municipio_id == null
         && novo().turmas_ids.size() == 0 && novo().escolas_ids.size() == 0;
@@ -39,8 +53,20 @@ service cloud.firestore {
 
     // municipio: nome, plano e vigencia (lido por quem tem cadastro, para saber a licenca)
     match /municipios/{id} { allow read: if temCadastro(); allow write: if admin(); }
-    match /escolas/{id}    { allow read: if professor(); allow write: if admin(); }
-    match /turmas/{id}     { allow read: if professor(); allow write: if admin(); }
+    // professor ve as escolas do proprio municipio (para escolher onde da aula)
+    match /escolas/{id} {
+      allow read: if admin() || (temCadastro() && resource.data.municipio_id == eu().get("municipio_id", "-"));
+      allow write: if admin();
+    }
+    // turmas: o professor ve as das suas escolas e cria/edita as proprias
+    match /turmas/{id} {
+      allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas());
+      allow create: if admin() || (vinculado() && novo().criado_por == request.auth.uid
+        && novo().escola_id in minhasEscolas() && novo().municipio_id == eu().municipio_id);
+      allow update: if admin() || (vinculado() && resource.data.get("criado_por", "") == request.auth.uid
+        && novo().criado_por == request.auth.uid && novo().escola_id in minhasEscolas());
+      allow delete: if admin();
+    }
 
     match /usuarios/{uid} {
       allow read: if logado() && (request.auth.uid == uid || admin());
@@ -66,10 +92,13 @@ service cloud.firestore {
           && novo().escolas_ids == pre().escolas_ids
           && novo().turmas_ids == pre().turmas_ids )
       );
-      // o proprio usuario so altera dados pessoais; licenca, vinculo, perfil e situacao so o administrador
+      // o proprio usuario altera dados pessoais, suas escolas (so do proprio municipio, ate 5) e sua lista de turmas;
+      // licenca, municipio, perfil e situacao so o administrador
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
-             ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "ultimo_acesso", "atualizado_em", "atualizado_por"]));
+             ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "ultimo_acesso", "atualizado_em", "atualizado_por",
+              "escolas_ids", "escolas_nomes", "escola_id", "turmas_ids", "vinculo_alterado_em", "vinculo_alterado_por"])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["escolas_ids", "escola_id"]) || escolasValidas()));
       allow delete: if admin();
     }
 
@@ -101,8 +130,16 @@ service cloud.firestore {
     // configuracao do Portal (ex.: quais botoes estao liberados)
     match /config/{id} { allow read: if licenciado(); allow write: if admin(); }
 
-    // dados de alunos: so professores vinculados a rede leem (LGPD)
-    match /alunos/{id} { allow read: if professor(); allow write: if admin(); }
+    // dados de alunos (LGPD): so professores das mesmas escolas leem; o professor cadastra alunos nas turmas que criou
+    match /alunos/{id} {
+      allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas());
+      allow create: if admin() || (vinculado() && novo().criado_por == request.auth.uid
+        && novo().escola_id in minhasEscolas()
+        && get(/databases/$(database)/documents/turmas/$(novo().turma_id)).data.criado_por == request.auth.uid);
+      allow update: if admin() || (vinculado() && resource.data.get("criado_por", "") == request.auth.uid
+        && novo().criado_por == request.auth.uid && novo().escola_id == resource.data.escola_id && novo().turma_id == resource.data.turma_id);
+      allow delete: if admin();
+    }
 
     match /avaliacoes/{id} {
       allow read: if true; // o aluno abre a prova pelo codigo de acesso

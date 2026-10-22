@@ -313,6 +313,15 @@
   .acv-est{ font-style:normal;font-weight:700;font-size:12px;color:var(--pde-azul);text-align:right }
   .acv-est.ok{ color:#4a7a12 } .acv-est.erro{ color:var(--danger) }
 
+  /* ===== Turmas e cadastro do professor ===== */
+  .mt-outras{ display:flex;flex-direction:column;gap:6px }
+  .mt-outra{ display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:9px 12px }
+  .mt-outra b{ display:block;font-size:14px } .mt-outra small{ font-size:12px;color:var(--muted) }
+  .al-novos{ width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;resize:vertical }
+  .al-campo{ width:100%;padding:7px 9px;border:1.5px solid var(--cyan);border-radius:8px;font-size:13.5px }
+  .btn-ghost.btn-mini{ color:var(--muted) }
+  .imp-card .field input, .imp-card .field select{ width:100% }
+
   /* ===== Lousa ===== */
   #lsFab{ position:fixed;right:20px;bottom:20px;z-index:70;width:64px;height:64px;border:none;border-radius:18px;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#fff;font:700 11px 'Segoe UI',sans-serif;
@@ -912,7 +921,18 @@
     snap.forEach(d => { const m=d.data(); if(m.status!=="inativo") cacheMunicipios.push({ id:d.id, ...m }); });
     return cacheMunicipios;
   }
+  // professor so enxerga escolas do proprio municipio e turmas das proprias escolas (regras do banco)
+  function ehProfessor(){ return usuarioAtual && usuarioAtual.perfil !== "admin"; }
+  function minhasEscolasIds(){ const u = usuarioAtual || {}; return (Array.isArray(u.escolas_ids) && u.escolas_ids.length) ? u.escolas_ids : (u.escola_id ? [u.escola_id] : []); }
+  const porNome = (a,b) => String(a.nome||"").localeCompare(String(b.nome||""));
   async function carregarCacheEscolas(){
+    if(ehProfessor()){
+      cacheEscolas = [];
+      if(!usuarioAtual.municipio_id) return cacheEscolas;
+      const sn = await getDocs(query(collection(db,"escolas"), where("municipio_id","==",usuarioAtual.municipio_id)));
+      sn.forEach(d => { const e=d.data(); if(e.status!=="inativa") cacheEscolas.push({ id:d.id, ...e }); });
+      cacheEscolas.sort(porNome); return cacheEscolas;
+    }
     const q = query(collection(db,"escolas"), orderBy("nome"));
     const snap = await getDocs(q);
     cacheEscolas = [];
@@ -920,6 +940,14 @@
     return cacheEscolas;
   }
   async function carregarCacheTurmas(){
+    if(ehProfessor()){
+      cacheTurmas = [];
+      const ids = minhasEscolasIds().slice(0, 10);
+      if(!ids.length) return cacheTurmas;
+      const sn = await getDocs(query(collection(db,"turmas"), where("escola_id","in",ids)));
+      sn.forEach(d => { const t=d.data(); if(t.status!=="inativa") cacheTurmas.push({ id:d.id, ...t }); });
+      cacheTurmas.sort(porNome); return cacheTurmas;
+    }
     const q = query(collection(db,"turmas"), orderBy("nome"));
     const snap = await getDocs(q);
     cacheTurmas = [];
@@ -1478,64 +1506,155 @@
     }catch(e){ console.warn(e); toast("Erro ao salvar correcao ("+e.code+").", true); }
   }
 
-  // ===================== MINHAS TURMAS (professor) =====================
+  // ===================== MINHAS TURMAS (professor monta as proprias turmas) =====================
+  const mt = { editando:null };
+  function minhasTurmasIds(){ return (usuarioAtual.turmas_ids||[]).map(x => String(x).trim()); }
   async function renderMinhasTurmas(){
-    const ids = Array.isArray(usuarioAtual.turmas_ids) ? usuarioAtual.turmas_ids : [];
-    if(ids.length === 0){
-      $("conteudo").innerHTML =
-        '<div class="panel"><div class="pico">\u{1F4DA}</div><h3>Nenhuma turma vinculada</h3>'+
-        '<p>Voce ainda nao foi designado a nenhuma turma. Procure o gestor da escola ou o administrador para vincular suas turmas.</p></div>';
+    $("conteudo").innerHTML = '<div class="sectionbar"><span class="count" id="mtCont">Carregando...</span>'+
+      '<button class="btn btn-primary btn-add" data-action="mt-nova">+ Nova turma</button></div>'+
+      '<div id="mtForm"></div><div id="mtLista"></div><div id="mtOutras"></div>';
+    if(!minhasEscolasIds().length){
+      $("mtCont").textContent = "";
+      $("mtLista").innerHTML = '<div class="panel"><div class="pico">\u{1F3EB}</div><h3>Escolha suas escolas primeiro</h3><p>Em <b>Meu cadastro</b>, marque as escolas onde você dá aula. Depois volte aqui para montar suas turmas.</p></div>';
       return;
     }
-    $("conteudo").innerHTML = '<div class="tablewrap" id="mtTabela"><div class="empty">Carregando suas turmas...</div></div>';
     try{
-      const idsLimpos = ids.map(x => String(x).trim());
-      const snap = await getDocs(collection(db,"turmas"));
-      const minhas = [];
-      snap.forEach(d => { if(idsLimpos.includes(d.id.trim())){ const t=d.data(); if(t.status!=="inativa") minhas.push({ id:d.id, ...t }); } });
-      minhas.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
-      if(minhas.length === 0){
-        $("conteudo").innerHTML = '<div class="empty"><div class="ei">\u{1F4DA}</div>Voce ainda nao tem turmas vinculadas. Procure o administrador.</div>';
-        return;
+      await Promise.all([ carregarCacheTurmas(), carregarCacheEscolas() ]);
+      const meus = new Set(minhasTurmasIds());
+      const minhas = cacheTurmas.filter(t => meus.has(t.id.trim()) || t.criado_por === usuarioAtual.uid);
+      const outras = cacheTurmas.filter(t => !meus.has(t.id.trim()) && t.criado_por !== usuarioAtual.uid);
+      $("mtCont").textContent = minhas.length+" turma(s) sob sua responsabilidade";
+      $("mtLista").innerHTML = !minhas.length
+        ? '<div class="empty"><div class="ei">\u{1F4DA}</div>Você ainda não tem turmas. Crie uma em "+ Nova turma" ou adicione uma turma que já existe na sua escola, logo abaixo.</div>'
+        : '<div class="tablewrap"><table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano</th><th>Ações</th></tr></thead><tbody>'+
+          minhas.map(t => { const dono = t.criado_por === usuarioAtual.uid;
+            return '<tr><td><b>'+escapeHtml(t.nome)+'</b>'+(t.ano_serie ? '<br><small class="muni-tag">'+escapeHtml(t.ano_serie)+'º ano</small>' : '')+'</td>'+
+            '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td><td>'+escapeHtml(t.turno||"-")+'</td><td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
+            '<td><div class="usr-acoes"><button class="btn-mini btn-result" data-action="mt-alunos" data-id="'+escapeAttr(t.id)+'">Alunos</button>'+
+            (dono ? '<button class="btn-mini btn-gerenciar" data-action="mt-editar" data-id="'+escapeAttr(t.id)+'">Editar</button>' : '')+
+            '<button class="btn-mini btn-recusar" data-action="'+(dono ? "mt-excluir" : "mt-tirar")+'" data-id="'+escapeAttr(t.id)+'">'+(dono ? "Excluir" : "Tirar da lista")+'</button></div></td></tr>'; }).join("")+
+          '</tbody></table></div>';
+      $("mtOutras").innerHTML = outras.length
+        ? '<div class="imp-card" style="margin-top:16px"><h3>Turmas que já existem nas suas escolas</h3><p class="d">Se a turma já foi cadastrada pela escola ou por outro professor, é só adicionar à sua lista.</p>'+
+          '<div class="mt-outras">'+outras.map(t => '<div class="mt-outra"><span><b>'+escapeHtml(t.nome)+'</b><small>'+escapeHtml([t.escola_nome, t.turno, t.ano_letivo].filter(Boolean).join(" · "))+'</small></span>'+
+          '<button class="btn-mini btn-gerenciar" data-action="mt-adicionar" data-id="'+escapeAttr(t.id)+'">Adicionar</button></div>').join("")+'</div></div>'
+        : "";
+    }catch(e){ console.warn(e); $("mtLista").innerHTML = '<div class="empty">Erro ao carregar turmas ('+escapeHtml(e.code||"erro")+').</div>'; }
+  }
+  function formTurma(t){
+    mt.editando = t ? t.id : null;
+    const escolas = cacheEscolas.filter(e => minhasEscolasIds().includes(e.id));
+    $("mtForm").innerHTML = '<div class="imp-card"><h3>'+(t ? "Editar turma" : "Nova turma")+'</h3>'+
+      '<div class="row2"><div class="field"><label for="mtNome">Nome da turma</label><input type="text" id="mtNome" maxlength="40" placeholder="Ex: 5º Ano A" value="'+escapeAttr(t ? t.nome : "")+'"></div>'+
+      '<div class="field"><label for="mtEscola">Escola</label><select id="mtEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(t && t.escola_id===e.id ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></div></div>'+
+      '<div class="row2"><div class="field"><label for="mtSerie">Ano / série</label><select id="mtSerie"><option value="">--</option>'+["1","2","3","4","5","6","7","8","9"].map(n => '<option'+(t && t.ano_serie===n ? " selected" : "")+'>'+n+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label for="mtTurno">Turno</label><select id="mtTurno">'+["Matutino","Vespertino","Integral","Noturno"].map(n => '<option'+(t && t.turno===n ? " selected" : "")+'>'+n+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label for="mtAno">Ano letivo</label><input type="number" id="mtAno" min="2020" max="2100" value="'+(t ? t.ano_letivo : new Date().getFullYear())+'"></div></div>'+
+      '<div class="imp-acoes"><button class="btn btn-primary" data-action="mt-salvar" id="mtSalvar">Salvar turma</button><button class="btn btn-ghost" data-action="mt-cancelar">Cancelar</button></div></div>';
+    $("mtNome").focus();
+  }
+  async function salvarTurma(){
+    const nome = $("mtNome").value.trim(), escId = $("mtEscola").value, ano = parseInt($("mtAno").value,10);
+    if(nome.length < 2){ toast("Informe o nome da turma.", true); return; }
+    if(!escId){ toast("Escolha a escola.", true); return; }
+    if(!ano || ano < 2020){ toast("Informe o ano letivo.", true); return; }
+    const esc = cacheEscolas.find(e => e.id === escId) || {};
+    const dados = { nome, escola_id:escId, escola_nome:esc.nome||"", municipio_id:usuarioAtual.municipio_id, municipio_nome:usuarioAtual.municipio_nome||"",
+      ano_serie:$("mtSerie").value, turno:$("mtTurno").value, ano_letivo:ano, status:"ativa", atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    const btn = $("mtSalvar"); btn.disabled = true; btn.textContent = "Salvando...";
+    try{
+      if(mt.editando){ await updateDoc(doc(db,"turmas",mt.editando), dados); toast("Turma atualizada."); }
+      else{
+        const r = await addDoc(collection(db,"turmas"), { ...dados, criado_por:usuarioAtual.uid, criado_em:serverTimestamp() });
+        const ids = [...new Set([...minhasTurmasIds(), r.id])];
+        await updateDoc(doc(db,"usuarios",usuarioAtual.uid), { turmas_ids:ids, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+        usuarioAtual.turmas_ids = ids; toast("Turma criada.");
       }
-      let html = '<div class="sectionbar"><span class="count">'+minhas.length+' turma(s) sob sua responsabilidade</span></div>';
-      html += '<div class="tablewrap"><table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano</th><th>Acao</th></tr></thead><tbody>';
-      minhas.forEach(t => {
-        html += '<tr><td><b>'+escapeHtml(t.nome)+'</b></td>'+
-                '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td>'+
-                '<td>'+escapeHtml(t.turno||"-")+'</td>'+
-                '<td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
-                '<td><button class="btn-mini btn-result" data-turma="'+t.id+'" data-nome="'+escapeAttr(t.nome)+'">Ver alunos</button></td></tr>';
-      });
-      html += '</tbody></table></div>';
-      $("conteudo").innerHTML = html;
-      $("conteudo").querySelectorAll(".btn-result").forEach(b =>
-        b.addEventListener("click", () => verAlunosDaTurma(b.dataset.turma, b.dataset.nome)));
-    }catch(e){ console.warn(e); $("conteudo").innerHTML = '<div class="empty">Erro ao carregar turmas ('+e.code+').</div>'; }
+      mt.editando = null; await renderMinhasTurmas();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+(e.code||"erro")+").", true); btn.disabled = false; btn.textContent = "Salvar turma"; }
+  }
+  async function mudarMinhaLista(id, incluir){
+    const set = new Set(minhasTurmasIds()); incluir ? set.add(id) : set.delete(id);
+    const ids = [...set];
+    try{ await updateDoc(doc(db,"usuarios",usuarioAtual.uid), { turmas_ids:ids, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      usuarioAtual.turmas_ids = ids; toast(incluir ? "Turma adicionada." : "Turma tirada da sua lista."); renderMinhasTurmas(); }
+    catch(e){ console.warn(e); toast("Erro ("+(e.code||"erro")+").", true); }
+  }
+  async function excluirTurma(id, btn){
+    if(btn.dataset.confirmar !== "1"){ btn.dataset.confirmar = "1"; btn.textContent = "Confirmar";
+      setTimeout(() => { if(btn.isConnected){ btn.dataset.confirmar = ""; btn.textContent = "Excluir"; } }, 4000); return; }
+    btn.disabled = true;
+    try{
+      await updateDoc(doc(db,"turmas",id), { status:"inativa", atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      await mudarMinhaLista(id, false);
+    }catch(e){ console.warn(e); toast("Erro ao excluir ("+(e.code||"erro")+").", true); btn.disabled = false; }
   }
 
-  async function verAlunosDaTurma(turmaId, turmaNome){
+  // ---------- alunos da turma ----------
+  const al = { turma:null, lista:[] };
+  async function verAlunosDaTurma(turmaId){
+    const t = cacheTurmas.find(x => x.id === turmaId); if(!t) return;
+    al.turma = t; const dono = t.criado_por === usuarioAtual.uid;
     $("conteudo").innerHTML =
-      '<button class="voltar" id="btnVoltarMT">\u2190 Voltar para minhas turmas</button>'+
-      '<div class="resumo-aval"><h3>Turma: '+escapeHtml(turmaNome)+'</h3><div class="meta">Alunos matriculados</div></div>'+
-      '<div id="mtAlunos"><div class="empty">Carregando alunos...</div></div>';
-    $("btnVoltarMT").addEventListener("click", renderMinhasTurmas);
+      '<button class="voltar" data-action="mt-voltar">← Voltar para minhas turmas</button>'+
+      '<div class="resumo-aval"><h3>Turma: '+escapeHtml(t.nome)+'</h3><div class="meta">'+escapeHtml([t.escola_nome, t.turno, t.ano_letivo].filter(Boolean).join(" · "))+'</div></div>'+
+      (dono ? '<div class="imp-card"><h3>Adicionar alunos</h3><p class="d">Digite um aluno por linha. Se quiser, coloque a matrícula depois de um ponto e vírgula (ex: Ana Souza; 2026-0012).</p>'+
+        '<textarea id="alNovos" class="al-novos" rows="4" placeholder="Ana Souza&#10;Bruno Lima; 2026-0013"></textarea>'+
+        '<div class="imp-acoes"><button class="btn btn-primary" data-action="al-adicionar" id="alAdd">Adicionar à turma</button></div></div>' : '')+
+      '<div id="alLista"><div class="empty">Carregando alunos...</div></div>';
+    await listarAlunosTurma();
+  }
+  async function listarAlunosTurma(){
+    const t = al.turma, dono = t.criado_por === usuarioAtual.uid;
     try{
-      const q = query(collection(db,"alunos"), where("turma_id","==",turmaId));
-      const snap = await getDocs(q);
-      const alunos = [];
-      snap.forEach(d => { const a=d.data(); if(a.status!=="inativo") alunos.push({ id:d.id, ...a }); });
-      alunos.sort((a,b)=> (a.nome||"").localeCompare(b.nome||""));
-      if(alunos.length === 0){
-        $("mtAlunos").innerHTML = '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno matriculado nesta turma ainda.</div>';
-        return;
-      }
-      let html = '<div class="sectionbar"><span class="count">'+alunos.length+' aluno(s)</span></div>';
-      html += '<div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matricula</th></tr></thead><tbody>';
-      alunos.forEach(a => { html += '<tr><td><b>'+escapeHtml(a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td></tr>'; });
-      html += '</tbody></table></div>';
-      $("mtAlunos").innerHTML = html;
-    }catch(e){ console.warn(e); $("mtAlunos").innerHTML = '<div class="empty">Erro ao carregar alunos ('+e.code+').</div>'; }
+      const sn = await getDocs(query(collection(db,"alunos"), where("turma_id","==",t.id), where("escola_id","==",t.escola_id)));
+      al.lista = []; sn.forEach(d => { const a = d.data(); if(a.status !== "inativo") al.lista.push({ id:d.id, ...a }); });
+      al.lista.sort(porNome);
+      $("alLista").innerHTML = !al.lista.length ? '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno nesta turma ainda.</div>' :
+        '<div class="sectionbar"><span class="count">'+al.lista.length+' aluno(s)</span></div><div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matrícula</th>'+(dono ? '<th></th>' : '')+'</tr></thead><tbody>'+
+        al.lista.map(a => '<tr><td><b>'+escapeHtml(a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td>'+
+          (dono ? '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="al-editar" data-id="'+escapeAttr(a.id)+'">Corrigir</button><button class="btn-mini btn-recusar" data-action="al-remover" data-id="'+escapeAttr(a.id)+'">Remover</button></div></td>' : '')+'</tr>').join("")+
+        '</tbody></table></div>';
+    }catch(e){ console.warn(e); $("alLista").innerHTML = '<div class="empty">Erro ao carregar alunos ('+escapeHtml(e.code||"erro")+').</div>'; }
+  }
+  async function adicionarAlunos(){
+    const t = al.turma;
+    const linhas = $("alNovos").value.split("\n").map(l => l.trim()).filter(Boolean);
+    if(!linhas.length){ toast("Digite ao menos um nome.", true); return; }
+    if(linhas.length > 60){ toast("Adicione até 60 alunos por vez.", true); return; }
+    const btn = $("alAdd"); btn.disabled = true; btn.textContent = "Adicionando...";
+    try{
+      const lote = writeBatch(db);
+      linhas.forEach(l => { const [nome, mat] = l.split(";").map(x => (x||"").trim());
+        if(nome.length < 2) return;
+        lote.set(doc(collection(db,"alunos")), { nome, matricula: mat || "", turma_id:t.id, turma_nome:t.nome, escola_id:t.escola_id, escola_nome:t.escola_nome||"",
+          municipio_id:t.municipio_id||"", municipio_nome:t.municipio_nome||"", ano_letivo:t.ano_letivo||new Date().getFullYear(), status:"ativo",
+          criado_por:usuarioAtual.uid, criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }); });
+      await lote.commit();
+      $("alNovos").value = ""; toast(linhas.length+" aluno(s) adicionado(s).");
+      await listarAlunosTurma();
+    }catch(e){ console.warn(e); toast("Erro ao adicionar ("+(e.code||"erro")+").", true); }
+    finally{ btn.disabled = false; btn.textContent = "Adicionar à turma"; }
+  }
+  function editarAluno(id){
+    const a = al.lista.find(x => x.id === id); if(!a) return;
+    const tr = document.querySelector('[data-action="al-editar"][data-id="'+CSS.escape(id)+'"]').closest("tr");
+    tr.innerHTML = '<td><input type="text" class="al-campo" id="alNome" value="'+escapeAttr(a.nome)+'" maxlength="80"></td><td><input type="text" class="al-campo" id="alMat" value="'+escapeAttr(a.matricula||"")+'" maxlength="30"></td>'+
+      '<td><div class="usr-acoes"><button class="btn-mini btn-liberar" data-action="al-gravar" data-id="'+escapeAttr(id)+'">Salvar</button><button class="btn-mini btn-ghost" data-action="al-cancelar">Cancelar</button></div></td>';
+    $("alNome").focus();
+  }
+  async function gravarAluno(id){
+    const nome = $("alNome").value.trim(); if(nome.length < 2){ toast("Nome muito curto.", true); return; }
+    try{ await updateDoc(doc(db,"alunos",id), { nome, matricula:$("alMat").value.trim(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      toast("Aluno atualizado."); listarAlunosTurma(); }
+    catch(e){ toast("Erro ("+(e.code||"erro")+").", true); }
+  }
+  async function removerAluno(id, btn){
+    if(btn.dataset.confirmar !== "1"){ btn.dataset.confirmar = "1"; btn.textContent = "Confirmar";
+      setTimeout(() => { if(btn.isConnected){ btn.dataset.confirmar = ""; btn.textContent = "Remover"; } }, 4000); return; }
+    try{ await updateDoc(doc(db,"alunos",id), { status:"inativo", atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      toast("Aluno removido da turma."); listarAlunosTurma(); }
+    catch(e){ toast("Erro ("+(e.code||"erro")+").", true); }
   }
 
   // ===================== PLANO DE AULA IA =====================
@@ -2286,18 +2405,66 @@
   function renderMeuCadastro(){
     const u = usuarioAtual; const lic = licencaDe(u, u._muni);
     const linha = (r, v) => v ? '<div class="mc-l"><span>'+r+'</span><b>'+escapeHtml(String(v))+'</b></div>' : "";
-    const local = lic.tipo === "institucional"
-      ? linha("Município", u.municipio_nome) + linha("Escolas", (u.escolas_nomes||[]).join(", "))
-      : linha("Município", [u.municipio_cad, u.uf].filter(Boolean).join(" / ")) + linha("Escola", u.escola_texto) + linha("Rede", u.rede);
+    const inst = lic.tipo === "institucional";
+    const etapasMarc = new Set(u.etapas || []);
     $("conteudo").innerHTML =
       '<div class="mc-grid">'+
-      '<div class="imp-card"><h3>Meus dados</h3>'+linha("Nome", u.nome)+linha("E-mail", u.email)+linha("WhatsApp", u.whatsapp)+linha("Função", u.funcao)+local+linha("Etapas", (u.etapas||[]).join(", "))+'</div>'+
+      '<div class="imp-card"><h3>Meus dados</h3>'+
+        '<div class="field"><label for="mcNome">Nome completo</label><input type="text" id="mcNome" maxlength="80" value="'+escapeAttr(u.nome||"")+'"></div>'+
+        '<div class="row2"><div class="field"><label for="mcWhats">WhatsApp</label><input type="tel" id="mcWhats" value="'+escapeAttr(u.whatsapp||"")+'" placeholder="(67) 99999-9999"></div>'+
+        '<div class="field"><label for="mcFuncao">Função</label><select id="mcFuncao">'+["","Professor(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Técnico(a) da Secretaria","Outra"].map(f => '<option'+((u.funcao||"")===f ? " selected" : "")+'>'+f+'</option>').join("")+'</select></div></div>'+
+        (inst ? "" : '<div class="row2"><div class="field"><label for="mcEscola">Escola</label><input type="text" id="mcEscola" value="'+escapeAttr(u.escola_texto||"")+'"></div>'+
+          '<div class="field"><label for="mcInep">INEP <small>(opcional)</small></label><input type="text" id="mcInep" maxlength="8" value="'+escapeAttr(u.escola_inep||"")+'"></div></div>')+
+        '<div class="field"><label>Etapas em que atua</label><div class="cad-etapas">'+ETAPAS.map(e => '<label><input type="checkbox" name="mcEtapa" value="'+escapeAttr(e)+'"'+(etapasMarc.has(e) ? " checked" : "")+'> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
+        linha("E-mail", u.email)+
+        '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button></div></div>'+
+      '<div>'+
+      (inst ? '<div class="imp-card"><h3>Escolas onde dou aula</h3><p class="d">Município: <b>'+escapeHtml(u.municipio_nome||"-")+'</b>. Marque até 5 escolas. Você passa a ver as turmas dessas escolas.</p><div id="mcEscolas" class="chk-lista"><div class="vazio">Carregando escolas...</div></div>'+
+        '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-escolas" id="mcSalvarEsc">Salvar escolas</button></div></div>' : '')+
       '<div class="imp-card"><h3>Minha licença</h3>'+
         linha("Tipo", ROTULO_TIPO[lic.tipo] || lic.tipo)+linha("Plano", ROTULO_PLANO[lic.plano] || "")+
         linha("Válida até", lic.semFim ? "Conforme contrato do município" : dataDeMs(lic.fim))+
         (lic.dias !== null && !lic.semFim ? linha("Dias restantes", Math.max(0, lic.dias)) : "")+
-        (lic.tipo === "institucional" ? "" : '<a class="btn btn-primary btn-add" style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
-      '</div></div>';
+        (inst ? "" : '<a class="btn btn-primary btn-add" style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
+      '</div></div></div>';
+    if(inst) carregarEscolasCadastro();
+  }
+  async function carregarEscolasCadastro(){
+    try{
+      await carregarCacheEscolas();
+      const minhas = new Set(minhasEscolasIds());
+      $("mcEscolas").innerHTML = !cacheEscolas.length ? '<div class="vazio">Seu município ainda não tem escolas cadastradas.</div>' :
+        cacheEscolas.map(e => '<label class="chk"><input type="checkbox" name="mcEsc" value="'+escapeAttr(e.id)+'"'+(minhas.has(e.id) ? " checked" : "")+'> '+escapeHtml(e.nome)+'</label>').join("");
+    }catch(e){ console.warn(e); $("mcEscolas").innerHTML = '<div class="vazio">Não foi possível carregar as escolas ('+escapeHtml(e.code||"erro")+').</div>'; }
+  }
+  async function salvarMeusDados(){
+    const g = (id) => ($(id) ? $(id).value.trim() : undefined);
+    const nome = g("mcNome"), whats = (g("mcWhats")||"").replace(/\D/g,"");
+    if(!nome || nome.length < 5){ toast("Informe o nome completo.", true); return; }
+    if(whats && (whats.length < 10 || whats.length > 11)){ toast("WhatsApp com DDD, só números.", true); return; }
+    const dados = { nome, whatsapp:whats, funcao:g("mcFuncao")||"", etapas:[...document.querySelectorAll('input[name="mcEtapa"]:checked')].map(i => i.value),
+      atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    if($("mcEscola")){ dados.escola_texto = g("mcEscola"); const inep = g("mcInep"); if(inep && !/^\d{8}$/.test(inep)){ toast("INEP com 8 números.", true); return; } dados.escola_inep = inep || ""; }
+    const btn = $("mcSalvar"); btn.disabled = true;
+    try{ await updateDoc(doc(db,"usuarios",usuarioAtual.uid), dados); Object.assign(usuarioAtual, dados);
+      $("uNome").textContent = nome; $("uAv").textContent = (nome[0]||"?").toUpperCase(); toast("Dados salvos."); }
+    catch(e){ console.warn(e); toast("Erro ao salvar ("+(e.code||"erro")+").", true); }
+    finally{ btn.disabled = false; }
+  }
+  async function salvarMinhasEscolas(){
+    const ids = [...document.querySelectorAll('input[name="mcEsc"]:checked')].map(i => i.value);
+    if(!ids.length){ toast("Marque pelo menos uma escola.", true); return; }
+    if(ids.length > 5){ toast("Marque no máximo 5 escolas.", true); return; }
+    const nomes = ids.map(id => (cacheEscolas.find(e => e.id === id)||{}).nome || "");
+    // turmas de escolas desmarcadas saem da lista
+    const turmas = minhasTurmasIds().filter(tid => { const t = cacheTurmas.find(x => x.id.trim() === tid); return !t || ids.includes(t.escola_id); });
+    const dados = { escolas_ids:ids, escolas_nomes:nomes, escola_id:ids[0], turmas_ids:turmas,
+      vinculo_alterado_em:serverTimestamp(), vinculo_alterado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    const btn = $("mcSalvarEsc"); btn.disabled = true;
+    try{ await updateDoc(doc(db,"usuarios",usuarioAtual.uid), dados); Object.assign(usuarioAtual, dados); cacheTurmas = [];
+      toast("Escolas atualizadas."); }
+    catch(e){ console.warn(e); toast(e.code === "permission-denied" ? "Só é possível marcar escolas do seu município." : "Erro ao salvar ("+(e.code||"erro")+").", true); }
+    finally{ btn.disabled = false; }
   }
 
   // ===================== ESPERA (professor ainda nao aprovado) =====================
@@ -2449,7 +2616,8 @@
             (cli ? '<br><span class="tag-cliente">Município atendido: '+escapeHtml(cli.nome)+'</span>' : "")
         : (escolas.length
             ? escapeHtml(u.municipio_nome||"")+(u.municipio_nome?" · ":"")+escolas.length+" escola(s), "+nTur+" turma(s)<br>"+escapeHtml(escolas.slice(0,2).join(", "))+(escolas.length>2?" e mais "+(escolas.length-2):"")
-            : "Nenhum vínculo ainda") + (lic.tipo==="institucional" && u.perfil!=="admin" && escolas.length ? ate : "");
+            : "Nenhum vínculo ainda") + (lic.tipo==="institucional" && u.perfil!=="admin" && escolas.length ? ate : "")
+          + (u.vinculo_alterado_por && u.vinculo_alterado_por === u.id ? '<br><span class="tag-cliente" style="background:#fff4e0;color:#8a5a00">Escolas alteradas pelo professor em '+dataCurta(u.vinculo_alterado_em)+'</span>' : "");
       const ehEu = u.id === usuarioAtual.uid;
       let acoes = '<button class="btn-mini btn-gerenciar" data-action="usr-abrir" data-uid="'+escapeAttr(u.id)+'">'+(s==="pendente"||s==="semvinculo" ? "Aprovar e vincular" : "Gerenciar")+'</button>';
       if(s==="pendente" && !ehEu) acoes += '<button class="btn-mini btn-recusar" data-action="usr-recusar" data-uid="'+escapeAttr(u.id)+'">Recusar</button>';
@@ -2668,6 +2836,22 @@
     else if(acao === "mod-salvar"){ salvarModulos(); }
     else if(acao === "ini-abrir"){ registrarModulo(el.dataset.mod); }
     else if(acao === "painel-atualizar"){ renderPainel(); }
+    else if(acao === "mt-nova"){ formTurma(null); }
+    else if(acao === "mt-editar"){ formTurma(cacheTurmas.find(t => t.id === el.dataset.id)); }
+    else if(acao === "mt-cancelar"){ mt.editando = null; $("mtForm").innerHTML = ""; }
+    else if(acao === "mt-salvar"){ salvarTurma(); }
+    else if(acao === "mt-adicionar"){ mudarMinhaLista(el.dataset.id, true); }
+    else if(acao === "mt-tirar"){ mudarMinhaLista(el.dataset.id, false); }
+    else if(acao === "mt-excluir"){ excluirTurma(el.dataset.id, el); }
+    else if(acao === "mt-alunos"){ verAlunosDaTurma(el.dataset.id); }
+    else if(acao === "mt-voltar"){ renderMinhasTurmas(); }
+    else if(acao === "al-adicionar"){ adicionarAlunos(); }
+    else if(acao === "al-editar"){ editarAluno(el.dataset.id); }
+    else if(acao === "al-gravar"){ gravarAluno(el.dataset.id); }
+    else if(acao === "al-cancelar"){ listarAlunosTurma(); }
+    else if(acao === "al-remover"){ removerAluno(el.dataset.id, el); }
+    else if(acao === "mc-salvar"){ salvarMeusDados(); }
+    else if(acao === "mc-escolas"){ salvarMinhasEscolas(); }
     else if(acao === "lousa-abrir"){
       if(el.dataset.arrastou){ delete el.dataset.arrastou; return; }   // terminou de arrastar: nao abre
       abrirLousa(el.dataset.id || ""); }
