@@ -182,6 +182,44 @@
   .usr-status-row label.on{ border-color:var(--cyan);background:#f2fafd }
   .modal .mf.usr-mf{ flex-wrap:wrap }
   .espera{ max-width:520px;margin:40px auto }
+  .pill.precad{ background:#efeafc;color:#5b3fb0 }
+  /* ===== Plano e modulos ===== */
+  .mod-tab{ width:100%;border-collapse:collapse }
+  .mod-tab th{ font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line) }
+  .mod-tab th.c, .mod-tab td.c{ text-align:center;width:96px }
+  .mod-tab td{ padding:8px 10px;border-bottom:1px solid #eef2f6;font-size:13.5px }
+  .mod-tab td small{ display:block;color:var(--muted);font-size:11.5px }
+  .mod-tab input{ width:17px;height:17px;accent-color:var(--green);cursor:pointer }
+  .mod-tab input:disabled{ cursor:not-allowed;opacity:.35 }
+  .mod-atalhos{ display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px }
+  .mod-atalhos button{ border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer }
+  .mod-atalhos button:hover{ border-color:var(--cyan) }
+  /* ===== Importacao ===== */
+  .imp-card{ background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:18px }
+  .imp-card h3{ font-size:15px;margin-bottom:4px }
+  .imp-card p.d{ font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px }
+  .imp-tipos{ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px }
+  .imp-tipos label{ flex:1;min-width:200px;border:1.5px solid var(--line);border-radius:11px;padding:12px 14px;cursor:pointer;font-size:13.5px;font-weight:700;display:flex;gap:10px;align-items:flex-start }
+  .imp-tipos label small{ display:block;font-weight:500;color:var(--muted);font-size:12px;margin-top:2px }
+  .imp-tipos label.on{ border-color:var(--cyan);background:#f2fafd }
+  .imp-tipos input{ margin-top:3px;accent-color:var(--green) }
+  .imp-cols{ font-family:monospace;font-size:12.5px;background:#f4f7fa;border:1px dashed var(--line);border-radius:8px;padding:9px 12px;color:var(--navy);margin-bottom:12px;overflow-x:auto;white-space:nowrap }
+  #impTexto{ width:100%;min-height:150px;padding:12px;border:1.5px solid var(--line);border-radius:10px;font-family:monospace;font-size:12.5px;background:#fbfcfe;resize:vertical }
+  #impTexto:focus{ outline:none;border-color:var(--cyan) }
+  .imp-acoes{ display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px }
+  .imp-acoes .btn{ width:auto;padding:10px 18px;font-size:13.5px }
+  .imp-arquivo{ font-size:13px;font-weight:700;color:var(--navy);cursor:pointer;border:1.5px solid var(--line);border-radius:10px;padding:9px 14px;background:#fff }
+  .imp-arquivo input{ display:none }
+  .imp-resumo{ display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px }
+  .imp-resumo span{ font-size:12.5px;font-weight:700;padding:5px 11px;border-radius:20px;background:#eef2f6 }
+  .imp-resumo .r-novo{ background:#e8f5ec;color:var(--green) }
+  .imp-resumo .r-atu{ background:#eaf6fb;color:#1d6f8f }
+  .imp-resumo .r-ign{ background:#f0f0f0;color:#777 }
+  .imp-resumo .r-erro{ background:#fdecea;color:var(--danger) }
+  .imp-prev{ max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:10px }
+  .imp-prev table td, .imp-prev table th{ padding:8px 12px;font-size:12.5px }
+  .imp-prev tr.erro td{ background:#fff7f6 }
+  .st-novo{ color:var(--green);font-weight:700 } .st-atu{ color:#1d6f8f;font-weight:700 } .st-ign{ color:#888;font-weight:700 } .st-erro{ color:var(--danger);font-weight:700 }
 </style>
 </head>
 <body>
@@ -318,6 +356,36 @@
   </div>
 </div>
 
+<!-- Modal Plano e modulos do municipio -->
+<div class="modal-bg" id="modalPlano">
+  <div class="modal usr" role="dialog" aria-modal="true" aria-labelledby="planoTitulo">
+    <div class="mh"><h3 id="planoTitulo">Plano e módulos</h3><p id="planoSub">-</p></div>
+    <div class="mb" style="max-height:66vh;overflow-y:auto">
+      <div class="row2">
+        <div class="field"><label for="planoContrato">Nº do contrato / ata</label><input type="text" id="planoContrato" placeholder="Ex: 045/2026"></div>
+        <div class="field"><label for="planoVigencia">Vigência até</label><input type="date" id="planoVigencia"></div>
+      </div>
+      <div class="field"><label for="planoStatus">Situação do município</label>
+        <select id="planoStatus"><option value="piloto">Piloto</option><option value="ativo">Ativo (contrato vigente)</option><option value="inativo">Inativo</option></select>
+      </div>
+      <div class="usr-sec">
+        <h4>O que fica liberado <span id="planoCont"></span></h4>
+        <div class="mod-atalhos">
+          <button type="button" data-action="plano-todos">Liberar tudo</button>
+          <button type="button" data-action="plano-nenhum">Limpar</button>
+          <button type="button" data-action="plano-alunos">Aluno igual ao professor</button>
+        </div>
+        <table class="mod-tab"><thead><tr><th>Módulo</th><th class="c">Professor</th><th class="c">Aluno</th></tr></thead><tbody id="planoModulos"></tbody></table>
+      </div>
+      <div class="usr-aviso">A liberação vale para todos os professores e alunos aprovados deste município. Os módulos marcados só para professor não aparecem no Portal do Aluno.</div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" data-action="plano-cancelar">Cancelar</button>
+      <button class="btn btn-primary" data-action="plano-salvar" id="planoSalvar">Salvar plano</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Gerenciar Usuario -->
 <div class="modal-bg" id="modalUsuario">
   <div class="modal usr" role="dialog" aria-modal="true" aria-labelledby="usrTitulo">
@@ -360,7 +428,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp }
+  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -383,7 +451,8 @@
       { id:"turmas",     ico:"\u{1F4DA}", label:"Turmas" },
       { id:"alunos",     ico:"\u{1F9D2}", label:"Alunos" },
       { id:"avaliacoes", ico:"\u{1F4DD}", label:"Avaliacoes" },
-      { id:"usuarios",   ico:"\u{1F465}", label:"Usuarios" } ] },
+      { id:"usuarios",   ico:"\u{1F465}", label:"Usuarios" },
+      { id:"importar",   ico:"\u{1F4E5}", label:"Importar cadastros" } ] },
     secretaria: { itens: [
       { id:"escolas",   ico:"\u{1F3EB}", label:"Escolas" },
       { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" } ] },
@@ -433,6 +502,9 @@
     try{
       const snap = await getDoc(ref);
       if(snap.exists()){ dados = { ...dados, ...snap.data() }; }
+      else if(await aplicarPreCadastro(user, ref, dados)){
+        // professor importado pela secretaria/NEWPC: entra ja aprovado e vinculado
+      }
       else{
         // primeiro acesso: entra como "pendente" e aguarda aprovacao do administrador
         dados.status = "pendente"; dados.turmas_ids = []; dados.escolas_ids = [];
@@ -442,6 +514,24 @@
       }
     }catch(e){ console.warn("Firestore:", e.code, e.message); }
     usuarioAtual = dados;
+  }
+
+  // primeiro login de quem foi importado: copia o vinculo do pre-cadastro (so e-mail verificado, ex.: Google)
+  async function aplicarPreCadastro(user, ref, dados){
+    if(!user.email || !user.emailVerified) return false;
+    try{
+      const pre = await getDoc(doc(db,"pre_cadastros",user.email.toLowerCase()));
+      if(!pre.exists()) return false;
+      const p = pre.data();
+      if(p.perfil !== "professor" || p.status !== "ativo") return false;
+      const novo = { uid:user.uid, nome:p.nome || dados.nome, email:user.email.toLowerCase(), perfil:"professor", status:"ativo",
+        municipio_id:p.municipio_id, municipio_nome:p.municipio_nome||"", escola_id:p.escola_id,
+        escolas_ids:p.escolas_ids, escolas_nomes:p.escolas_nomes||[], turmas_ids:p.turmas_ids||[], origem:"pre_cadastro",
+        criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid };
+      await setDoc(ref, novo);
+      Object.assign(dados, novo);
+      return true;
+    }catch(e){ console.warn("pre-cadastro:", e.code); return false; }
   }
 
   function abrirApp(){
@@ -491,6 +581,7 @@
       if(item.id === "alunos"){ renderAlunos(); return; }
       if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
       if(item.id === "usuarios"){ renderUsuarios(); return; }
+      if(item.id === "importar"){ renderImportar(); return; }
     }
     if(usuarioAtual.perfil === "professor"){
       if(item.id === "turmas"){ renderMinhasTurmas(); return; }
@@ -540,8 +631,14 @@
       await carregarCacheMunicipios();
       $("muniCount").textContent = cacheMunicipios.length+" municipio(s) cadastrado(s)";
       if(cacheMunicipios.length===0){ $("muniTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3DB}\u{FE0F}</div>Nenhum municipio cadastrado ainda.</div>'; return; }
-      let html = '<table><thead><tr><th>Municipio</th><th>UF</th><th>Status</th></tr></thead><tbody>';
-      cacheMunicipios.forEach(m => { const st=m.status||"piloto"; html += '<tr><td><b>'+escapeHtml(m.nome)+'</b></td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+st+'</span></td></tr>'; });
+      let html = '<table><thead><tr><th>Municipio</th><th>UF</th><th>Status</th><th>Módulos liberados</th><th>Contrato</th><th></th></tr></thead><tbody>';
+      cacheMunicipios.forEach(m => { const st=m.status||"piloto";
+        const np = Array.isArray(m.modulos_professor) ? m.modulos_professor.length : 0;
+        const na = Array.isArray(m.modulos_aluno) ? m.modulos_aluno.length : 0;
+        const ctr = m.contrato_numero ? escapeHtml(m.contrato_numero)+(m.vigencia_fim ? '<br><small>até '+escapeHtml(dataBR(m.vigencia_fim))+'</small>' : '') : '<span class="muni-tag">-</span>';
+        html += '<tr><td><b>'+escapeHtml(m.nome)+'</b></td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+st+'</span></td>'+
+          '<td class="usr-vinc">'+(np||na ? np+' p/ professor · '+na+' p/ aluno' : 'Nenhum ainda')+'</td><td class="usr-vinc">'+ctr+'</td>'+
+          '<td><button class="btn-mini btn-gerenciar" data-action="muni-plano" data-id="'+escapeAttr(m.id)+'">Plano e módulos</button></td></tr>'; });
       html += '</tbody></table>'; $("muniTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("muniTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
@@ -1200,7 +1297,7 @@
 
   // ===================== USUARIOS (aprovacao e vinculo) =====================
   const ROTULO_SITUACAO = { pendente:"Em análise", semvinculo:"Sem vínculo", ativo:"Aprovado", inativo:"Desativado" };
-  const usr = { lista:[], filtro:"aguardando", busca:"", editando:null, carregado:false };
+  const usr = { lista:[], pre:[], filtro:"aguardando", busca:"", editando:null, carregado:false };
 
   function situacao(u){
     if(u.status === "inativo") return "inativo";
@@ -1227,14 +1324,20 @@
 
   async function carregarUsuarios(){
     try{
-      const [snap] = await Promise.all([
+      const [snap, snapPre] = await Promise.all([
         getDocs(collection(db,"usuarios")),
+        getDocs(collection(db,"pre_cadastros")).catch(e => { console.warn("pre_cadastros:", e.code); return null; }),
         cacheMunicipios.length ? Promise.resolve() : carregarCacheMunicipios(),
         cacheEscolas.length ? Promise.resolve() : carregarCacheEscolas(),
         cacheTurmas.length ? Promise.resolve() : carregarCacheTurmas()
       ]);
       usr.lista = [];
       snap.forEach(d => usr.lista.push({ id:d.id, ...d.data() }));
+      // pre-cadastrados que ainda nao fizeram o primeiro acesso
+      const emails = new Set(usr.lista.map(u => String(u.email||"").toLowerCase()));
+      usr.pre = [];
+      if(snapPre) snapPre.forEach(d => { if(!emails.has(d.id)) usr.pre.push({ id:d.id, ...d.data() }); });
+      usr.pre.sort((a,b) => (a.nome||"").localeCompare(b.nome||""));
       // em analise primeiro, depois os mais recentes
       const ordem = { pendente:0, semvinculo:1, ativo:2, inativo:3 };
       usr.lista.sort((a,b) => {
@@ -1266,13 +1369,14 @@
 
   function desenharUsuarios(){
     if(!usr.carregado) return;
-    const cont = { aguardando:0, ativo:0, inativo:0, todos:usr.lista.length };
+    const cont = { aguardando:0, ativo:0, inativo:0, todos:usr.lista.length, precad:usr.pre.length };
     usr.lista.forEach(u => { const s=situacao(u); if(s==="pendente"||s==="semvinculo") cont.aguardando++; else cont[s]++; });
-    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Aprovados"], ["inativo","Desativados"], ["todos","Todos"] ];
+    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Aprovados"], ["inativo","Desativados"], ["todos","Todos"], ["precad","Pré-cadastrados"] ];
     $("usrTabs").innerHTML = abas.map(([k,l]) =>
       '<button class="usr-tab'+(usr.filtro===k?" on":"")+(k==="aguardando"&&cont.aguardando?" alerta":"")+'" data-action="usr-filtro" data-filtro="'+k+'">'+l+'<b>'+cont[k]+'</b></button>').join("");
 
     const termo = semAcento(usr.busca.trim());
+    if(usr.filtro === "precad"){ desenharPreCadastros(termo); return; }
     const visiveis = usr.lista.filter(u => {
       const s = situacao(u);
       if(usr.filtro==="aguardando" && !(s==="pendente"||s==="semvinculo")) return false;
@@ -1309,6 +1413,35 @@
     });
     html += '</tbody></table>';
     $("usrTabela").innerHTML = html;
+  }
+
+  function desenharPreCadastros(termo){
+    const lista = usr.pre.filter(p => !termo || semAcento((p.nome||"")+" "+p.id).includes(termo));
+    if(!lista.length){
+      $("usrTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F4E5}</div>'+(usr.pre.length ? "Nenhum pré-cadastro encontrado." : "Nenhum pré-cadastro pendente. Use \u201cImportar cadastros\u201d para trazer a planilha de professores.")+'</div>';
+      return;
+    }
+    let html = '<table><thead><tr><th>Professor</th><th>Situação</th><th>Vínculo</th><th>Ações</th></tr></thead><tbody>';
+    lista.forEach(p => {
+      const esc = Array.isArray(p.escolas_nomes) ? p.escolas_nomes : [];
+      html += '<tr><td class="usr-nome"><b>'+escapeHtml(p.nome||"Sem nome")+'</b><small>'+escapeHtml(p.id)+'</small></td>'+
+        '<td><span class="pill precad">Aguardando 1º acesso</span></td>'+
+        '<td class="usr-vinc">'+escapeHtml(p.municipio_nome||"")+' · '+esc.length+' escola(s)<br>'+escapeHtml(esc.slice(0,2).join(", "))+(esc.length>2?" e mais "+(esc.length-2):"")+'</td>'+
+        '<td><button class="btn-mini btn-recusar" data-action="pre-remover" data-id="'+escapeAttr(p.id)+'">Remover</button></td></tr>';
+    });
+    html += '</tbody></table>';
+    $("usrTabela").innerHTML = html;
+  }
+
+  async function removerPreCadastro(id, botao){
+    if(botao.dataset.confirmar !== "1"){
+      botao.dataset.confirmar = "1"; botao.textContent = "Confirmar";
+      setTimeout(() => { if(botao.isConnected){ botao.dataset.confirmar = ""; botao.textContent = "Remover"; } }, 4000);
+      return;
+    }
+    botao.disabled = true;
+    try{ await deleteDoc(doc(db,"pre_cadastros",id)); toast("Pré-cadastro removido."); await carregarUsuarios(); }
+    catch(e){ console.warn(e); toast("Erro ao remover ("+(e.code||"erro")+").", true); botao.disabled = false; }
   }
 
   // ---------- modal ----------
@@ -1437,6 +1570,16 @@
     if(acao === "usr-filtro"){ usr.filtro = el.dataset.filtro; desenharUsuarios(); }
     else if(acao === "usr-abrir"){ abrirModalUsuario(el.dataset.uid); }
     else if(acao === "usr-recusar"){ recusarUsuario(el.dataset.uid, el); }
+    else if(acao === "pre-remover"){ removerPreCadastro(el.dataset.id, el); }
+    else if(acao === "muni-plano"){ abrirModalPlano(el.dataset.id); }
+    else if(acao === "plano-cancelar"){ fecharModalPlano(); }
+    else if(acao === "plano-salvar"){ salvarPlano(); }
+    else if(acao === "plano-todos" || acao === "plano-nenhum" || acao === "plano-alunos"){ atalhoPlano(acao); }
+    else if(acao === "imp-tipo"){ /* tratado no change */ }
+    else if(acao === "imp-modelo"){ baixarModelo(); }
+    else if(acao === "imp-previa"){ gerarPrevia(); }
+    else if(acao === "imp-confirmar"){ confirmarImportacao(); }
+    else if(acao === "imp-limpar"){ imp.linhas = []; $("impTexto").value = ""; $("impPrevia").innerHTML = ""; }
     else if(acao === "usr-cancelar"){ fecharModalUsuario(); }
     else if(acao === "usr-salvar"){ salvarUsuario(); }
     else if(acao === "espera-verificar"){
@@ -1455,6 +1598,350 @@
   });
   $("modalUsuario").addEventListener("click", (e) => { if(e.target.id === "modalUsuario") fecharModalUsuario(); });
   document.addEventListener("keydown", (e) => { if(e.key === "Escape" && usr.editando) fecharModalUsuario(); });
+
+  // ===================== PLANO E MODULOS POR MUNICIPIO =====================
+  // catalogo dos botoes mestres do Portal (id fixo: e o que fica gravado no contrato)
+  const MODULOS = [
+    { id:"videos",       nome:"Vídeos Educativos",     aluno:true },
+    { id:"jogos",        nome:"Jogos Educacionais",    aluno:true },
+    { id:"ia",           nome:"Dicas de IA",           aluno:false, obs:"inclui o IA Studio" },
+    { id:"provas",       nome:"Gerador de Provas",     aluno:false },
+    { id:"interativas",  nome:"Atividades Interativas", aluno:true, obs:"inclui os apps 3D" },
+    { id:"atividades",   nome:"Atividades",            aluno:true },
+    { id:"relatorios",   nome:"Central de Relatórios", aluno:false },
+    { id:"datas",        nome:"Datas Comemorativas",   aluno:true },
+    { id:"colorir",      nome:"Desenhos para Colorir", aluno:true },
+    { id:"historias",    nome:"Histórias Educativas",  aluno:true },
+    { id:"biblioteca",   nome:"Biblioteca",            aluno:true },
+    { id:"formacao",     nome:"Formação Continuada",   aluno:false },
+    { id:"museus",       nome:"Museus Virtuais",       aluno:true },
+    { id:"dicas",        nome:"Dicas do Professor",    aluno:false },
+    { id:"apps",         nome:"Aplicativos Úteis",     aluno:true },
+    { id:"maestro",      nome:"Portal Maestro",        aluno:false, obs:"gestão da sala de aula" }
+  ];
+  const plano = { muniId:null, prof:new Set(), alu:new Set() };
+
+  function dataBR(iso){ const m = String(iso||"").match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3]+"/"+m[2]+"/"+m[1] : String(iso||""); }
+
+  function abrirModalPlano(id){
+    const m = cacheMunicipios.find(x => x.id === id); if(!m) return;
+    plano.muniId = id;
+    plano.prof = new Set(Array.isArray(m.modulos_professor) ? m.modulos_professor : []);
+    plano.alu  = new Set(Array.isArray(m.modulos_aluno) ? m.modulos_aluno : []);
+    $("planoSub").textContent = m.nome+" / "+(m.uf||"");
+    $("planoContrato").value = m.contrato_numero || "";
+    $("planoVigencia").value = m.vigencia_fim || "";
+    $("planoStatus").value = m.status || "piloto";
+    desenharPlano();
+    $("modalPlano").classList.add("show");
+  }
+  function fecharModalPlano(){ $("modalPlano").classList.remove("show"); plano.muniId = null; }
+  function desenharPlano(){
+    $("planoModulos").innerHTML = MODULOS.map(md =>
+      '<tr><td>'+escapeHtml(md.nome)+(md.obs ? '<small>'+escapeHtml(md.obs)+'</small>' : '')+'</td>'+
+      '<td class="c"><input type="checkbox" data-plano="prof" value="'+md.id+'"'+(plano.prof.has(md.id)?" checked":"")+' aria-label="'+escapeAttr(md.nome)+' para professor"></td>'+
+      '<td class="c">'+(md.aluno
+        ? '<input type="checkbox" data-plano="alu" value="'+md.id+'"'+(plano.alu.has(md.id)?" checked":"")+' aria-label="'+escapeAttr(md.nome)+' para aluno">'
+        : '<input type="checkbox" disabled title="Exclusivo do professor" aria-label="Exclusivo do professor">')+'</td></tr>').join("");
+    $("planoCont").textContent = plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno";
+  }
+  function atalhoPlano(acao){
+    if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); }
+    else if(acao === "plano-nenhum"){ plano.prof.clear(); plano.alu.clear(); }
+    else if(acao === "plano-alunos"){ plano.alu = new Set(MODULOS.filter(m => m.aluno && plano.prof.has(m.id)).map(m => m.id)); }
+    desenharPlano();
+  }
+  async function salvarPlano(){
+    if(!plano.muniId) return;
+    const btn = $("planoSalvar"); btn.disabled = true; btn.textContent = "Salvando...";
+    const dados = {
+      contrato_numero: $("planoContrato").value.trim(),
+      vigencia_fim: $("planoVigencia").value || "",
+      status: $("planoStatus").value,
+      modulos_professor: MODULOS.filter(m => plano.prof.has(m.id)).map(m => m.id),
+      modulos_aluno: MODULOS.filter(m => m.aluno && plano.alu.has(m.id)).map(m => m.id),
+      atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
+    };
+    try{
+      await updateDoc(doc(db,"municipios",plano.muniId), dados);
+      toast("Plano salvo.");
+      fecharModalPlano();
+      await listarMunicipios();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+(e.code||"erro")+").", true); }
+    finally{ btn.disabled = false; btn.textContent = "Salvar plano"; }
+  }
+  document.addEventListener("change", (ev) => {
+    const t = ev.target;
+    if(t.dataset && t.dataset.plano && plano.muniId){
+      const alvo = t.dataset.plano === "prof" ? plano.prof : plano.alu;
+      t.checked ? alvo.add(t.value) : alvo.delete(t.value);
+      $("planoCont").textContent = plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno";
+    }
+    if(t.name === "impTipo"){ imp.tipo = t.value; imp.linhas = []; desenharImportar(); }
+    if(t.id === "impArquivo" && t.files && t.files[0]){ lerArquivo(t.files[0]); t.value = ""; }
+  });
+  $("modalPlano").addEventListener("click", (e) => { if(e.target.id === "modalPlano") fecharModalPlano(); });
+
+  // ===================== IMPORTAR CADASTROS =====================
+  const imp = { tipo:"escolas", linhas:[], gravando:false };
+  const LAYOUT = {
+    escolas:     { cols:"municipio ; uf ; escola ; inep", exemplo:"municipio;uf;escola;inep\nRibas do Rio Pardo;MS;EM Centro;50012345\nRibas do Rio Pardo;MS;EM Vila Nova;" },
+    professores: { cols:"nome ; email ; municipio ; escolas", exemplo:"nome;email;municipio;escolas\nMaria Souza;maria.souza@rede.ms.gov.br;Ribas do Rio Pardo;EM Centro | EM Vila Nova\nJoao Lima;joao.lima@rede.ms.gov.br;Ribas do Rio Pardo;50012345" }
+  };
+  const ALIAS = {
+    municipio:["municipio","cidade","municipios"], uf:["uf","estado"], escola:["escola","unidade","nome da escola","unidade escolar"],
+    inep:["inep","codigo inep","cod inep","código inep"], nome:["nome","professor","nome do professor","nome completo"],
+    email:["email","e mail","e-mail","email institucional"], escolas:["escolas","escola","unidades","unidade","escolas onde atua"]
+  };
+  function norm(s){ return semAcento(s).replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim(); }
+
+  function renderImportar(){
+    $("conteudo").innerHTML =
+      '<div class="imp-card"><h3>1. O que você vai importar</h3>'+
+      '<p class="d">Importe primeiro as escolas (o município é criado se ainda não existir) e depois os professores. O professor importado entra no Portal já aprovado e vinculado no primeiro login com a conta Google desse e-mail.</p>'+
+      '<div class="imp-tipos">'+
+        '<label><input type="radio" name="impTipo" value="escolas"> <span>Escolas<small>município, UF, escola e código INEP</small></span></label>'+
+        '<label><input type="radio" name="impTipo" value="professores"> <span>Professores<small>nome, e-mail, município e escolas onde dá aula</small></span></label>'+
+      '</div></div>'+
+      '<div class="imp-card"><h3>2. Cole a planilha ou envie o arquivo</h3>'+
+      '<p class="d">Selecione as linhas no Excel ou Google Planilhas (com o cabeçalho), copie e cole aqui. Também aceita CSV e XLSX. Mais de uma escola na mesma célula: separe com <b>|</b>. O professor também pode aparecer em várias linhas, uma por escola.</p>'+
+      '<div class="imp-cols" id="impCols"></div>'+
+      '<textarea id="impTexto" spellcheck="false" placeholder="Cole aqui..."></textarea>'+
+      '<div class="imp-acoes">'+
+        '<button class="btn btn-primary" data-action="imp-previa">Conferir antes de gravar</button>'+
+        '<label class="imp-arquivo">Enviar arquivo<input type="file" id="impArquivo" accept=".csv,.txt,.xlsx,.xls"></label>'+
+        '<button class="btn btn-ghost" data-action="imp-modelo">Baixar modelo</button>'+
+        '<button class="btn btn-ghost" data-action="imp-limpar">Limpar</button>'+
+      '</div></div>'+
+      '<div id="impPrevia"></div>';
+    imp.linhas = [];
+    desenharImportar();
+    Promise.all([ cacheMunicipios.length ? 0 : carregarCacheMunicipios(), carregarCacheEscolas() ]).catch(e => console.warn(e));
+  }
+  function desenharImportar(){
+    document.querySelectorAll('input[name="impTipo"]').forEach(r => { r.checked = r.value === imp.tipo; r.closest("label").classList.toggle("on", r.checked); });
+    $("impCols").textContent = "Colunas: " + LAYOUT[imp.tipo].cols;
+    $("impPrevia").innerHTML = "";
+  }
+  function baixarModelo(){
+    const blob = new Blob(["﻿"+LAYOUT[imp.tipo].exemplo+"\n"], { type:"text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "modelo-"+imp.tipo+".csv";
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  async function lerArquivo(arq){
+    try{
+      if(/\.xlsx?$/i.test(arq.name)){
+        if(!window.XLSX){
+          await new Promise((ok, falha) => { const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = ok; s.onerror = falha; document.head.appendChild(s); });
+        }
+        const wb = window.XLSX.read(await arq.arrayBuffer(), { type:"array" });
+        $("impTexto").value = window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS:"\t" });
+      }else{
+        const buf = await arq.arrayBuffer();
+        let txt; try{ txt = new TextDecoder("utf-8", { fatal:true }).decode(buf); }catch(e){ txt = new TextDecoder("windows-1252").decode(buf); }
+        $("impTexto").value = txt.replace(/^﻿/, "");
+      }
+      toast("Arquivo carregado. Confira a prévia.");
+      gerarPrevia();
+    }catch(e){ console.warn(e); toast("Não consegui ler o arquivo. Tente salvar como CSV.", true); }
+  }
+
+  function lerTabela(texto){
+    const linhas = texto.replace(/\r/g,"").split("\n").filter(l => l.trim());
+    if(linhas.length < 2) return null;
+    const cab = linhas[0];
+    const sep = cab.includes("\t") ? "\t" : ((cab.split(";").length >= cab.split(",").length) ? ";" : ",");
+    const quebrar = (l) => { const out = []; let cur = "", q = false;
+      for(let i=0;i<l.length;i++){ const c = l[i];
+        if(c === '"'){ if(q && l[i+1] === '"'){ cur += '"'; i++; } else q = !q; }
+        else if(c === sep && !q){ out.push(cur); cur = ""; }
+        else cur += c; }
+      out.push(cur); return out.map(x => x.trim()); };
+    const nomes = quebrar(cab).map(norm);
+    const idx = {};
+    Object.keys(ALIAS).forEach(k => { const i = nomes.findIndex(n => ALIAS[k].map(norm).includes(n)); if(i >= 0) idx[k] = i; });
+    const dados = linhas.slice(1).map((l, i) => { const c = quebrar(l); const o = { _linha:i+2 };
+      Object.keys(idx).forEach(k => o[k] = (c[idx[k]] || "").trim()); return o; });
+    return { idx, dados };
+  }
+
+  function acharMunicipio(nome, uf){
+    const n = norm(nome); const cands = cacheMunicipios.filter(m => norm(m.nome) === n);
+    if(cands.length <= 1) return cands[0] || null;
+    return cands.find(m => (m.uf||"").toUpperCase() === String(uf||"").toUpperCase()) || cands[0];
+  }
+  function acharEscola(termo, muniId){
+    const t = String(termo||"").trim(); if(!t) return null;
+    if(/^\d{8}$/.test(t)) return cacheEscolas.find(e => String(e.inep||"") === t) || null;
+    const n = norm(t);
+    return cacheEscolas.find(e => e.municipio_id === muniId && norm(e.nome) === n) || null;
+  }
+
+  async function gerarPrevia(){
+    const tab = lerTabela($("impTexto").value);
+    if(!tab){ toast("Cole o cabeçalho e pelo menos uma linha.", true); return; }
+    const precisa = imp.tipo === "escolas" ? ["municipio","escola"] : ["nome","email","municipio","escolas"];
+    const falta = precisa.filter(k => tab.idx[k] === undefined);
+    if(falta.length){ toast("Coluna não encontrada: "+falta.join(", ")+". Use o modelo.", true); return; }
+    $("impPrevia").innerHTML = '<div class="imp-card"><div class="empty">Conferindo...</div></div>';
+    try{
+      await Promise.all([ carregarCacheMunicipios(), carregarCacheEscolas() ]);
+      imp.linhas = imp.tipo === "escolas" ? previaEscolas(tab.dados) : await previaProfessores(tab.dados);
+      desenharPrevia();
+    }catch(e){ console.warn(e); $("impPrevia").innerHTML = '<div class="imp-card"><div class="empty">Erro ao conferir ('+escapeHtml(e.code||"erro")+').</div></div>'; }
+  }
+
+  function previaEscolas(dados){
+    const novasCidades = {}; const vistas = new Set();
+    return dados.map(d => {
+      const r = { linha:d._linha, col1:d.municipio+(d.uf ? " / "+d.uf.toUpperCase() : ""), col2:d.escola, col3:d.inep||"", st:"novo", msg:"" };
+      if(!d.municipio || !d.escola){ r.st = "erro"; r.msg = "Falta município ou escola"; return r; }
+      if(d.inep && !/^\d{8}$/.test(d.inep)){ r.st = "erro"; r.msg = "INEP deve ter 8 números"; return r; }
+      let muni = acharMunicipio(d.municipio, d.uf);
+      const chaveMuni = norm(d.municipio);
+      if(!muni){
+        if(!novasCidades[chaveMuni]) novasCidades[chaveMuni] = { novo:true, nome:d.municipio.trim(), uf:(d.uf||"MS").toUpperCase().slice(0,2) };
+        r.muniNovo = novasCidades[chaveMuni]; r.msg = "Cria o município "+r.muniNovo.nome+" / "+r.muniNovo.uf;
+      }else r.muni = muni;
+      const chave = d.inep ? "i:"+d.inep : "n:"+chaveMuni+"|"+norm(d.escola);
+      if(vistas.has(chave)){ r.st = "ign"; r.msg = "Repetida na planilha"; return r; }
+      vistas.add(chave);
+      const existe = d.inep ? cacheEscolas.find(e => String(e.inep||"") === d.inep) : null;
+      const mesma = existe || (muni ? cacheEscolas.find(e => e.municipio_id === muni.id && norm(e.nome) === norm(d.escola)) : null);
+      if(mesma){
+        if(d.inep && !mesma.inep){ r.st = "atu"; r.msg = "Já existe: completa o INEP"; r.escolaId = mesma.id; }
+        else { r.st = "ign"; r.msg = "Já cadastrada"; }
+      }
+      r.escola = d.escola.trim(); r.inep = d.inep || "";
+      if(r.st === "novo" && !r.msg) r.msg = "Nova escola";
+      return r;
+    });
+  }
+
+  async function previaProfessores(dados){
+    const snapU = await getDocs(collection(db,"usuarios"));
+    const porEmail = {}; snapU.forEach(d => { const u = d.data(); if(u.email) porEmail[String(u.email).toLowerCase()] = { id:d.id, ...u }; });
+    let preExist = new Set();
+    try{ const sp = await getDocs(collection(db,"pre_cadastros")); sp.forEach(d => preExist.add(d.id)); }catch(e){}
+    // agrupa por e-mail (uma linha por escola tambem vale)
+    const grupos = new Map(); const erros = [];
+    dados.forEach(d => {
+      const email = String(d.email||"").trim().toLowerCase();
+      const r = { linha:d._linha, col1:d.nome, col2:email, col3:"", st:"erro", msg:"" };
+      if(!d.nome){ r.msg = "Falta o nome"; erros.push(r); return; }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ r.msg = "E-mail inválido"; erros.push(r); return; }
+      const muni = acharMunicipio(d.municipio);
+      if(!muni){ r.msg = "Município “"+d.municipio+"” não cadastrado. Importe as escolas primeiro."; erros.push(r); return; }
+      const termos = String(d.escolas||"").split(/[|;]/).map(x => x.trim()).filter(Boolean);
+      if(!termos.length){ r.msg = "Falta a escola"; erros.push(r); return; }
+      const achadas = [], faltando = [];
+      termos.forEach(t => { const e = acharEscola(t, muni.id); e ? achadas.push(e) : faltando.push(t); });
+      if(faltando.length){ r.msg = "Escola não encontrada: "+faltando.join(", "); erros.push(r); return; }
+      const g = grupos.get(email);
+      if(g){
+        if(g.muni.id !== muni.id){ r.msg = "Mesmo e-mail em outro município (linha "+g.linha+")"; erros.push(r); return; }
+        achadas.forEach(e => g.escolas.set(e.id, e)); g.linhas.push(d._linha);
+      }else grupos.set(email, { linha:d._linha, linhas:[d._linha], nome:d.nome.trim(), email, muni, escolas:new Map(achadas.map(e => [e.id, e])) });
+    });
+    const out = [];
+    grupos.forEach(g => {
+      const nomesEsc = [...g.escolas.values()].map(e => e.nome);
+      const r = { linha:g.linhas.join(", "), col1:g.nome, col2:g.email, col3:g.muni.nome+" · "+nomesEsc.join(", "), grupo:g, st:"novo", msg:"" };
+      const u = porEmail[g.email];
+      if(u){
+        if(u.perfil === "admin"){ r.st = "ign"; r.msg = "É administrador, não alterado"; }
+        else if(u.status === "inativo"){ r.st = "ign"; r.msg = "Cadastro desativado, não alterado"; }
+        else { r.st = "atu"; r.msg = "Já entrou no Portal: aprova e vincula agora"; r.usuarioId = u.id; r.usuario = u; }
+      }else if(preExist.has(g.email)){ r.st = "atu"; r.msg = "Atualiza pré-cadastro"; }
+      else r.msg = "Pré-cadastro novo";
+      out.push(r);
+    });
+    return out.concat(erros).sort((a,b) => parseInt(a.linha,10) - parseInt(b.linha,10));
+  }
+
+  function desenharPrevia(){
+    const c = { novo:0, atu:0, ign:0, erro:0 }; imp.linhas.forEach(r => c[r.st]++);
+    const gravar = c.novo + c.atu;
+    const cab = imp.tipo === "escolas" ? ["Linha","Município","Escola","INEP","Resultado"] : ["Linha","Professor","E-mail","Vínculo","Resultado"];
+    const rot = { novo:"Novo", atu:"Atualiza", ign:"Ignorado", erro:"Erro" };
+    let html = '<div class="imp-card"><h3>3. Confira e grave</h3>'+
+      '<div class="imp-resumo"><span class="r-novo">'+c.novo+' novo(s)</span><span class="r-atu">'+c.atu+' atualização(ões)</span><span class="r-ign">'+c.ign+' ignorado(s)</span><span class="r-erro">'+c.erro+' com erro</span></div>'+
+      (c.erro ? '<p class="d">As linhas com erro não serão gravadas. Corrija na planilha e confira de novo, ou grave as demais agora.</p>' : '')+
+      '<div class="imp-prev"><table><thead><tr>'+cab.map(h => '<th>'+h+'</th>').join("")+'</tr></thead><tbody>'+
+      imp.linhas.map(r => '<tr class="'+(r.st==="erro"?"erro":"")+'"><td>'+escapeHtml(String(r.linha))+'</td><td>'+escapeHtml(r.col1||"")+'</td><td>'+escapeHtml(r.col2||"")+'</td><td class="usr-vinc">'+escapeHtml(r.col3||"")+'</td>'+
+        '<td><span class="st-'+r.st+'">'+rot[r.st]+'</span> <span class="usr-vinc">'+escapeHtml(r.msg)+'</span></td></tr>').join("")+
+      '</tbody></table></div>'+
+      '<div class="imp-acoes"><button class="btn btn-primary" data-action="imp-confirmar" id="impGravar"'+(gravar?"":" disabled")+'>'+(gravar ? "Gravar "+gravar+" registro(s)" : "Nada para gravar")+'</button></div></div>';
+    $("impPrevia").innerHTML = html;
+  }
+
+  async function confirmarImportacao(){
+    if(imp.gravando) return;
+    const validas = imp.linhas.filter(r => r.st === "novo" || r.st === "atu");
+    if(!validas.length) return;
+    imp.gravando = true;
+    const btn = $("impGravar"); btn.disabled = true; btn.setAttribute("aria-busy","true"); btn.textContent = "Gravando...";
+    const ops = []; // [ref, dados, "set"|"update"]
+    const quem = { atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    try{
+      if(imp.tipo === "escolas"){
+        const idMuni = new Map();
+        validas.forEach(r => {
+          let muniId, muniNome, muniUf;
+          if(r.muniNovo){
+            if(!idMuni.has(r.muniNovo)){
+              const ref = doc(collection(db,"municipios"));
+              idMuni.set(r.muniNovo, ref.id);
+              ops.push([ref, { nome:r.muniNovo.nome, uf:r.muniNovo.uf, status:"piloto", modulos_professor:[], modulos_aluno:[],
+                criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, ...quem }, "set"]);
+            }
+            muniId = idMuni.get(r.muniNovo); muniNome = r.muniNovo.nome; muniUf = r.muniNovo.uf;
+          }else{ muniId = r.muni.id; muniNome = r.muni.nome; muniUf = r.muni.uf || ""; }
+          if(r.st === "atu") ops.push([doc(db,"escolas",r.escolaId), { inep:r.inep, ...quem }, "update"]);
+          else ops.push([doc(collection(db,"escolas")), { nome:r.escola, inep:r.inep, municipio_id:muniId, municipio_nome:muniNome, municipio_uf:muniUf,
+            status:"ativa", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, ...quem }, "set"]);
+        });
+      }else{
+        validas.forEach(r => {
+          const g = r.grupo; const esc = [...g.escolas.values()];
+          if(r.usuarioId){
+            // ja entrou no Portal: soma as escolas novas as que ele ja tinha e aprova
+            const u = r.usuario;
+            const ids = new Set(Array.isArray(u.escolas_ids) ? u.escolas_ids : (u.escola_id ? [u.escola_id] : []));
+            const mesmoMuni = !u.municipio_id || u.municipio_id === g.muni.id;
+            if(!mesmoMuni) ids.clear();
+            esc.forEach(e => ids.add(e.id));
+            const lista = [...ids];
+            ops.push([doc(db,"usuarios",r.usuarioId), { status:"ativo", municipio_id:g.muni.id, municipio_nome:g.muni.nome,
+              escolas_ids:lista, escolas_nomes:lista.map(id => (cacheEscolas.find(e=>e.id===id)||{}).nome || ""), escola_id:lista[0],
+              aprovado_em:serverTimestamp(), aprovado_por:usuarioAtual.uid, origem_vinculo:"importacao", ...quem }, "update"]);
+          }else{
+            ops.push([doc(db,"pre_cadastros",g.email), { nome:g.nome, email:g.email, perfil:"professor", status:"ativo",
+              municipio_id:g.muni.id, municipio_nome:g.muni.nome, escolas_ids:esc.map(e=>e.id), escolas_nomes:esc.map(e=>e.nome),
+              escola_id:esc[0].id, turmas_ids:[], importado_em:serverTimestamp(), importado_por:usuarioAtual.uid, ...quem }, "set"]);
+          }
+        });
+      }
+      // grava em lotes de ate 400 operacoes
+      for(let i = 0; i < ops.length; i += 400){
+        const lote = writeBatch(db);
+        ops.slice(i, i+400).forEach(([ref, dados, tipo]) => tipo === "update" ? lote.update(ref, dados) : lote.set(ref, dados));
+        await lote.commit();
+        btn.textContent = "Gravando... "+Math.min(i+400, ops.length)+"/"+ops.length;
+      }
+      cacheMunicipios = []; cacheEscolas = [];
+      toast(validas.length+" registro(s) gravado(s).");
+      $("impPrevia").innerHTML = '<div class="imp-card"><h3>Importação concluída</h3><p class="d" style="margin:0">'+validas.length+' registro(s) gravado(s)'+
+        (imp.tipo === "professores" ? '. Os professores pré-cadastrados aparecem em <b>Usuarios › Pré-cadastrados</b> até fazerem o primeiro login.' : '. Agora você pode importar os professores ou ajustar o plano de cada município em <b>Municipios</b>.')+'</p></div>';
+      imp.linhas = []; $("impTexto").value = "";
+    }catch(e){
+      console.warn(e);
+      toast("Erro ao gravar ("+(e.code||"erro")+"). Parte pode ter sido gravada: clique em Conferir de novo antes de repetir.", true);
+      btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "Tentar de novo";
+    }finally{ imp.gravando = false; }
+  }
 
   function traduzErro(code){
     const m = {

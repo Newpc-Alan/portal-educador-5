@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- quem e quem ----------
+    function logado() { return request.auth != null; }
+    function temCadastro() { return logado() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)); }
+    function eu() { return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data; }
+    function admin() { return temCadastro() && eu().perfil == "admin" && eu().status == "ativo"; }
+    // professor so vale depois de aprovado e vinculado a uma escola
+    function professor() { return temCadastro() && eu().status == "ativo" && (eu().perfil == "admin" || (eu().perfil == "professor" && eu().escola_id != null)); }
+
+    // e-mail verificado (conta Google) que foi importado pelo administrador
+    function meuEmail() { return request.auth.token.email.lower(); }
+    function emailVerificado() { return logado() && request.auth.token.email != null && request.auth.token.email_verified == true; }
+    function temPreCadastro() { return emailVerificado() && exists(/databases/$(database)/documents/pre_cadastros/$(meuEmail())); }
+    function pre() { return get(/databases/$(database)/documents/pre_cadastros/$(meuEmail())).data; }
+
+    match /municipios/{id} { allow read: if professor(); allow write: if admin(); }
+    match /escolas/{id}    { allow read: if professor(); allow write: if admin(); }
+    match /turmas/{id}     { allow read: if professor(); allow write: if admin(); }
+
+    match /usuarios/{uid} {
+      allow read: if logado() && (request.auth.uid == uid || admin());
+      allow create: if logado() && request.auth.uid == uid && (
+        // 1) primeiro login comum: nasce "pendente", sem vinculo
+        ( request.resource.data.perfil == "professor"
+          && request.resource.data.status == "pendente"
+          && request.resource.data.escola_id == null
+          && request.resource.data.municipio_id == null
+          && request.resource.data.turmas_ids.size() == 0
+          && request.resource.data.escolas_ids.size() == 0 )
+        ||
+        // 2) professor importado: nasce aprovado, com exatamente o vinculo do pre-cadastro
+        ( temPreCadastro()
+          && pre().perfil == "professor" && pre().status == "ativo"
+          && request.resource.data.perfil == "professor"
+          && request.resource.data.status == "ativo"
+          && request.resource.data.email == meuEmail()
+          && request.resource.data.municipio_id == pre().municipio_id
+          && request.resource.data.escola_id == pre().escola_id
+          && request.resource.data.escolas_ids == pre().escolas_ids
+          && request.resource.data.turmas_ids == pre().turmas_ids )
+      );
+      // o proprio usuario so altera o nome; vinculo, perfil e situacao so o administrador
+      allow update: if admin() || (logado() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["nome", "atualizado_em", "atualizado_por"]));
+      allow delete: if admin();
+    }
+
+    // lista importada de professores (chave = e-mail em minusculas)
+    match /pre_cadastros/{email} {
+      allow read: if admin() || (emailVerificado() && meuEmail() == email);
+      allow write: if admin();
+    }
+
+    // dados de alunos: so professores vinculados leem (LGPD)
+    match /alunos/{id} { allow read: if professor(); allow write: if admin(); }
+
+    match /avaliacoes/{id} {
+      allow read: if true; // o aluno abre a prova pelo codigo de acesso
+      allow create: if professor() && request.resource.data.professor_uid == request.auth.uid;
+      allow update, delete: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
+    }
+
+    match /respostas/{id} {
+      allow create: if true; // o aluno responde sem login
+      allow read, update, delete: if professor();
+    }
+
+    // ---------- Portal Maestro: historico das aulas ----------
+    match /maestro_aulas/{id} {
+      allow create: if professor() && request.resource.data.professor_uid == request.auth.uid;
+      allow read: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
+      allow update, delete: if admin();
+    }
+  }
+}
