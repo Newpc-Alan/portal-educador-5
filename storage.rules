@@ -18,6 +18,15 @@ service firebase.storage {
         && request.resource.contentType.matches('application/pdf|image/.*|audio/.*|application/vnd\\.openxmlformats-officedocument\\..*|application/msword|application/vnd\\.ms-excel|application/vnd\\.ms-powerpoint');
     }
 
+    // aulas da Lousa (JSON compactado), ate 50 MB
+    match /professores/{uid}/lousa/{arquivo} {
+      allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
+      allow create, update: if request.auth != null && request.auth.uid == uid && licenciado()
+        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('application/gzip|application/json');
+      allow delete: if (request.auth != null && request.auth.uid == uid) || admin();
+    }
+
     // pasta de cada professor: so ele (e o administrador) acessa
     match /professores/{uid}/{arquivo=**} {
       allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
