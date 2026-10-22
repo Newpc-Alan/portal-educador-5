@@ -203,7 +203,7 @@
   .ini-txt b{ display:block;font-size:14px;line-height:1.3 }
   .ini-txt small{ display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4 }
   .ini-card.trava{ cursor:default }
-  .ini-card.trava .ini-img{ filter:grayscale(1) brightness(.75) }
+  .ini-card.trava .ini-img{ filter:grayscale(.9) brightness(.85) }
   .ini-card.trava .ini-txt{ border-top-color:#c3ccd6 }
   .ini-card.trava .ini-txt b{ color:#61758a }
   .ini-selo{ position:absolute;top:10px;right:10px;background:rgba(15,44,74,.88);color:#fff;font-size:11px;font-weight:800;padding:5px 10px;border-radius:20px;letter-spacing:.3px }
@@ -247,9 +247,11 @@
   .topbar .badge{ background:#e6f3fb;color:var(--pde-azul) }
   .modal .mh{ background:linear-gradient(160deg,var(--pde-escuro),var(--pde-escuro-2));border-bottom:3px solid var(--pde-lima) }
   .usr-tab.on{ background:var(--pde-escuro);border-color:var(--pde-escuro) }
-  .ini-img{ background:radial-gradient(circle at 30% 25%, #15406a, var(--pde-escuro) 75%) }
+  .ini-img{ background-color:var(--pde-escuro);background-image:radial-gradient(circle at 30% 25%, #15406a, var(--pde-escuro) 75%);background-size:cover;background-position:center }
   .ini-txt{ border-top-color:var(--pde-lima) }
   .ini-selo.ok{ background:#5f9b1f }
+  .ini-img{ position:relative }
+  .ini-selo-marca{ position:absolute;left:10px;bottom:10px;width:40px;height:40px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.6)) }
   .ini-leg .l1::before{ background:var(--pde-lima) }
   /* ===== Plano e modulos ===== */
   .mod-tab{ width:100%;border-collapse:collapse }
@@ -1706,7 +1708,8 @@
     return cfgModulos;
   }
   function cfgDe(id){ const c = (cfgModulos||{})[id] || {}; const md = MODULOS.find(m => m.id === id) || {};
-    return { status:c.status || "em_breve", url:c.url || md.urlPadrao || "", imagem:c.imagem || "" }; }
+    const comFoto = ["videos","jogos","ia","atividades","relatorios","datas","colorir","biblioteca","formacao","museus","dicas","maestro","portal360"];
+    return { status:c.status || "em_breve", url:c.url || md.urlPadrao || "", imagem:c.imagem || (comFoto.includes(id) ? "assets/cards/"+id+".webp" : "") }; }
 
   async function renderInicio(){
     const admin = usuarioAtual.perfil === "admin";
@@ -1736,7 +1739,9 @@
       const selo = estado === "ok" ? (admin ? '<span class="ini-selo ok">Liberado</span>' : "")
         : estado === "plano" ? '<span class="ini-selo plano">\u{1F512} Fora do plano</span>'
         : '<span class="ini-selo">\u{1F512} '+(admin && c.status === "oculto" ? "Oculto" : "Em breve")+'</span>';
-      const corpo = '<div class="ini-img"'+img+'>'+(c.imagem ? "" : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
+      const corpo = '<div class="ini-img"'+img+'>'+(c.imagem
+          ? (md.logo ? '<img class="ini-selo-marca" src="'+escapeAttr(md.logo)+'" alt="">' : "")
+          : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
         '<div class="ini-txt"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(md.desc)+'</small></div>'+selo;
       return abre
         ? '<a class="ini-card'+(estado==="ok"?"":" trava")+'" href="'+escapeAttr(c.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="'+md.id+'">'+corpo+'</a>'
@@ -1770,7 +1775,7 @@
     const n = MODULOS.filter(m => modAdm.rasc[m.id].status === "liberado").length;
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
-  function urlOk(u){ return !u || /^https:\/\/[^\s]+$/i.test(u); }
+  function urlOk(u){ return !u || /^https:\/\/[^\s]+$/i.test(u) || /^assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;
     modAdm.rasc[t.dataset.mod][t.dataset.campo] = t.value.trim();
