@@ -1646,7 +1646,8 @@
     { id:"jogos",       nome:"Jogos Educacionais",     aluno:true,  ico:"\u{1F3AE}", desc:"Aprender brincando, com jogos para a turma" },
     { id:"ia",          nome:"Dicas de IA",            aluno:false, ico:"\u{1F916}", desc:"IA a favor do professor, com o IA Studio", obs:"inclui o IA Studio" },
     { id:"provas",      nome:"Gerador de Provas",      aluno:false, ico:"\u{1F4DD}", desc:"Monte avaliações prontas em poucos minutos" },
-    { id:"interativas", nome:"Atividades Interativas", aluno:true,  ico:"\u{1F9EA}", desc:"Experiências interativas e apps em 3D", obs:"inclui os apps 3D" },
+    { id:"portal360",   nome:"Portal 360º VR",         aluno:true,  ico:"\u{1F97D}", desc:"Experiências imersivas em 3D e realidade virtual", obs:"catálogo imersivo 3D e VR",
+      urlPadrao:"https://portal360.portaldoeducador.com.br/", logo:"https://portal360.portaldoeducador.com.br/assets/marca/p360-simbolo-animado.svg" },
     { id:"atividades",  nome:"Atividades",             aluno:true,  ico:"\u{1F4DA}", desc:"Atividades prontas alinhadas à BNCC" },
     { id:"relatorios",  nome:"Central de Relatórios",  aluno:false, ico:"\u{1F4CA}", desc:"Registros, pareceres e acompanhamento" },
     { id:"datas",       nome:"Datas Comemorativas",    aluno:true,  ico:"\u{1F4C5}", desc:"Conteúdos para cada data do calendário" },
@@ -1657,7 +1658,8 @@
     { id:"museus",      nome:"Museus Virtuais",        aluno:true,  ico:"\u{1F5BC}\u{FE0F}", desc:"Visitas a museus do Brasil e do mundo" },
     { id:"dicas",       nome:"Dicas do Professor",     aluno:false, ico:"\u{1F4A1}", desc:"Ideias e práticas para o dia a dia da sala" },
     { id:"apps",        nome:"Aplicativos Úteis",      aluno:true,  ico:"\u{1F4F1}", desc:"Ferramentas digitais selecionadas" },
-    { id:"maestro",     nome:"Portal Maestro",         aluno:false, ico:"\u{1F3BC}", desc:"Conduza a turma nos dispositivos em tempo real", obs:"gestão da sala de aula" }
+    { id:"maestro",     nome:"Portal Maestro",         aluno:false, ico:"\u{1F3BC}", desc:"Conduza a turma nos dispositivos em tempo real", obs:"gestão da sala de aula",
+      urlPadrao:"https://sala.portaldoeducador.com.br/" }
   ];
   const plano = { muniId:null, prof:new Set(), alu:new Set() };
 
@@ -1669,7 +1671,8 @@
     catch(e){ console.warn("config/modulos:", e.code); cfgModulos = {}; }
     return cfgModulos;
   }
-  function cfgDe(id){ const c = (cfgModulos||{})[id] || {}; return { status:c.status || "em_breve", url:c.url || "", imagem:c.imagem || "" }; }
+  function cfgDe(id){ const c = (cfgModulos||{})[id] || {}; const md = MODULOS.find(m => m.id === id) || {};
+    return { status:c.status || "em_breve", url:c.url || md.urlPadrao || "", imagem:c.imagem || "" }; }
 
   async function renderInicio(){
     const admin = usuarioAtual.perfil === "admin";
@@ -1699,7 +1702,7 @@
       const selo = estado === "ok" ? (admin ? '<span class="ini-selo ok">Liberado</span>' : "")
         : estado === "plano" ? '<span class="ini-selo plano">\u{1F512} Fora do plano</span>'
         : '<span class="ini-selo">\u{1F512} '+(admin && c.status === "oculto" ? "Oculto" : "Em breve")+'</span>';
-      const corpo = '<div class="ini-img"'+img+'>'+(c.imagem ? "" : md.ico)+'</div>'+
+      const corpo = '<div class="ini-img"'+img+'>'+(c.imagem ? "" : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
         '<div class="ini-txt"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(md.desc)+'</small></div>'+selo;
       return abre
         ? '<a class="ini-card'+(estado==="ok"?"":" trava")+'" href="'+escapeAttr(c.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="'+md.id+'">'+corpo+'</a>'
