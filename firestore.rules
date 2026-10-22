@@ -7,8 +7,23 @@ service cloud.firestore {
     function temCadastro() { return logado() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)); }
     function eu() { return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data; }
     function admin() { return temCadastro() && eu().perfil == "admin" && eu().status == "ativo"; }
-    // professor so vale depois de aprovado e vinculado a uma escola
-    function professor() { return temCadastro() && eu().status == "ativo" && (eu().perfil == "admin" || (eu().perfil == "professor" && eu().escola_id != null)); }
+
+    // ---------- licenca ----------
+    function tipoLic() { return eu().get("licenca_tipo", "institucional"); }
+    function meuMuni() { return get(/databases/$(database)/documents/municipios/$(eu().municipio_id)).data; }
+    // contrato do municipio sem data de fim = sem vencimento
+    function contratoOk() { return meuMuni().get("vigencia_fim_ts", null) == null || meuMuni().vigencia_fim_ts > request.time; }
+    // professor da rede atendida: vinculado a escola e contrato vigente
+    function vinculado() {
+      return temCadastro() && eu().status == "ativo" && (eu().perfil == "admin" ||
+        (eu().perfil == "professor" && tipoLic() == "institucional" && eu().get("escola_id", null) != null && contratoOk()));
+    }
+    // qualquer licenca valida (institucional, avulsa, teste ou cortesia)
+    function licenciado() {
+      return vinculado() || (temCadastro() && eu().status == "ativo" && eu().perfil == "professor"
+        && tipoLic() != "institucional" && eu().get("licenca_fim", null) != null && eu().licenca_fim > request.time);
+    }
+    function professor() { return vinculado(); }
 
     // e-mail verificado (conta Google) que foi importado pelo administrador
     function meuEmail() { return request.auth.token.email.lower(); }
@@ -16,35 +31,45 @@ service cloud.firestore {
     function temPreCadastro() { return emailVerificado() && exists(/databases/$(database)/documents/pre_cadastros/$(meuEmail())); }
     function pre() { return get(/databases/$(database)/documents/pre_cadastros/$(meuEmail())).data; }
 
-    match /municipios/{id} { allow read: if professor(); allow write: if admin(); }
+    function novo() { return request.resource.data; }
+    function semVinculoDeRede() {
+      return novo().escola_id == null && novo().municipio_id == null
+        && novo().turmas_ids.size() == 0 && novo().escolas_ids.size() == 0;
+    }
+
+    // municipio: nome, plano e vigencia (lido por quem tem cadastro, para saber a licenca)
+    match /municipios/{id} { allow read: if temCadastro(); allow write: if admin(); }
     match /escolas/{id}    { allow read: if professor(); allow write: if admin(); }
     match /turmas/{id}     { allow read: if professor(); allow write: if admin(); }
 
     match /usuarios/{uid} {
       allow read: if logado() && (request.auth.uid == uid || admin());
       allow create: if logado() && request.auth.uid == uid && (
-        // 1) primeiro login comum: nasce "pendente", sem vinculo
-        ( request.resource.data.perfil == "professor"
-          && request.resource.data.status == "pendente"
-          && request.resource.data.escola_id == null
-          && request.resource.data.municipio_id == null
-          && request.resource.data.turmas_ids.size() == 0
-          && request.resource.data.escolas_ids.size() == 0 )
+        // 1) autocadastro: professor ganha 7 dias de teste, sem vinculo com rede
+        ( novo().perfil == "professor" && novo().status == "ativo"
+          && novo().licenca_tipo == "teste"
+          && novo().licenca_fim is timestamp
+          && novo().licenca_fim < request.time + duration.value(8, "d")
+          && semVinculoDeRede() )
         ||
-        // 2) professor importado: nasce aprovado, com exatamente o vinculo do pre-cadastro
+        // 2) legado: nasce "pendente", sem vinculo
+        ( novo().perfil == "professor" && novo().status == "pendente" && semVinculoDeRede() )
+        ||
+        // 3) professor importado: nasce aprovado, com exatamente o vinculo do pre-cadastro
         ( temPreCadastro()
           && pre().perfil == "professor" && pre().status == "ativo"
-          && request.resource.data.perfil == "professor"
-          && request.resource.data.status == "ativo"
-          && request.resource.data.email == meuEmail()
-          && request.resource.data.municipio_id == pre().municipio_id
-          && request.resource.data.escola_id == pre().escola_id
-          && request.resource.data.escolas_ids == pre().escolas_ids
-          && request.resource.data.turmas_ids == pre().turmas_ids )
+          && novo().perfil == "professor" && novo().status == "ativo"
+          && novo().get("licenca_tipo", "institucional") == "institucional"
+          && novo().email == meuEmail()
+          && novo().municipio_id == pre().municipio_id
+          && novo().escola_id == pre().escola_id
+          && novo().escolas_ids == pre().escolas_ids
+          && novo().turmas_ids == pre().turmas_ids )
       );
-      // o proprio usuario so altera o nome; vinculo, perfil e situacao so o administrador
+      // o proprio usuario so altera dados pessoais; licenca, vinculo, perfil e situacao so o administrador
       allow update: if admin() || (logado() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["nome", "atualizado_em", "atualizado_por"]));
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+             ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "atualizado_em", "atualizado_por"]));
       allow delete: if admin();
     }
 
@@ -55,9 +80,9 @@ service cloud.firestore {
     }
 
     // configuracao do Portal (ex.: quais botoes estao liberados)
-    match /config/{id} { allow read: if professor(); allow write: if admin(); }
+    match /config/{id} { allow read: if licenciado(); allow write: if admin(); }
 
-    // dados de alunos: so professores vinculados leem (LGPD)
+    // dados de alunos: so professores vinculados a rede leem (LGPD)
     match /alunos/{id} { allow read: if professor(); allow write: if admin(); }
 
     match /avaliacoes/{id} {
