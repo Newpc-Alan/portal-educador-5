@@ -790,6 +790,7 @@
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getStorage, ref as stRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   if(location.protocol === "http:" && /portaldoeducador\.com\.br$/.test(location.hostname)){ location.replace("https://" + location.host + location.pathname + location.search); }
   const firebaseConfig = {
@@ -3646,7 +3647,8 @@
         '<p class="acv-status" id="jgFxPrevia" style="margin:-8px 0 14px"></p>'+
         '<div class="row2"><div class="field"><label for="jgComp2">Componente</label><select id="jgComp2"><option value="">Escolha...</option>'+DISCIPLINAS.map(d => '<option'+(x.componente===d?" selected":"")+'>'+d+'</option>').join("")+'</select></div>'+
           '<div class="field"><label for="jgTema">Tema</label><input type="text" id="jgTema" maxlength="80" placeholder="Ex: alfabetização" value="'+escapeAttr(x.tema||"")+'"></div></div>'+
-        '<div class="row2"><div class="field"><label for="jgCapa">Capa <small>(URL da imagem, opcional)</small></label><input type="text" id="jgCapa" placeholder="https://..." value="'+escapeAttr(x.capa||"")+'"></div>'+
+        '<div class="row2"><div class="field"><label for="jgCapa">Capa <small>(envie a imagem ou cole o link)</small></label><div class="vd-link"><input type="text" id="jgCapa" placeholder="https://..." value="'+escapeAttr(x.capa||"")+'">'+
+          '<label class="btn btn-ghost btn-add" style="cursor:pointer;margin:0;display:inline-flex;align-items:center" id="jgCapaRot">Enviar imagem<input type="file" id="jgCapaArq" accept="image/*" hidden></label></div></div>'+
           '<div class="field" style="max-width:130px"><label for="jgIcone">Ícone</label><input type="text" id="jgIcone" maxlength="4" value="'+escapeAttr(x.icone||"\u{1F3AE}")+'"></div></div>'+
         '<div class="field"><label for="jgBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="jgBncc" placeholder="EF01LP06, EF01LP07" value="'+escapeAttr((x.bncc||[]).join(", "))+'"></div>'+
         '<div class="field"><label>Quem pode ver</label><div class="vd-checks">'+
@@ -3671,6 +3673,27 @@
   function atualizarPreviaJogo(){
     const p = $("jgPrevia"); if(!p) return;
     p.innerHTML = capaJogo({ capa:$("jgCapa").value.trim(), url:$("jgUrl").value.trim(), icone:$("jgIcone").value.trim(), destaque:$("jgDestaque").checked });
+  }
+  // capa enviada no cadastro: a imagem e recortada em 16:10 (800x500), convertida para WebP e vai para o Storage
+  async function enviarCapaJogo(arq){
+    if(!arq || !/^image\//.test(arq.type)){ toast("Escolha um arquivo de imagem.", true); return; }
+    if(arq.size > 15*1024*1024){ toast("Imagem muito grande (máx. 15 MB).", true); return; }
+    const rot = $("jgCapaRot"); rot.firstChild.textContent = "Enviando...";
+    try{
+      const bmp = await createImageBitmap(arq);
+      const W = 800, H = 500, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+      const r = Math.max(W / bmp.width, H / bmp.height), w = bmp.width * r, hh = bmp.height * r;
+      cv.getContext("2d").drawImage(bmp, (W - w) / 2, (H - hh) / 2, w, hh);
+      let blob = await new Promise(ok => cv.toBlob(ok, "image/webp", 0.8));
+      if(!blob || blob.type !== "image/webp") blob = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.85));
+      const ext = blob.type === "image/webp" ? ".webp" : ".jpg";
+      const caminho = "capas/jogos/"+Date.now().toString(36)+"-"+slug($("jgTitulo").value || arq.name)+ext;
+      const alvo = stRef(getStorage(app), caminho);
+      await uploadBytes(alvo, blob, { contentType:blob.type, cacheControl:"public, max-age=31536000" });
+      $("jgCapa").value = await getDownloadURL(alvo);
+      atualizarPreviaJogo(); toast("Capa enviada. Salve o jogo para gravar.");
+    }catch(e){ console.warn(e); toast("Não foi possível enviar a capa ("+(e.code||e.message||"erro")+").", true); }
+    finally{ if($("jgCapaRot")) $("jgCapaRot").firstChild.textContent = "Enviar imagem"; }
   }
   async function salvarJogo(){
     const url = $("jgUrl").value.trim();
@@ -3777,6 +3800,7 @@
     else if(id === "jgComp"){ jgs.comp = ev.target.value; desenharJogos(); }
     else if(id === "jgDe" || id === "jgAte"){ previaFaixaJogo(); }
     else if(id === "jgDestaque"){ atualizarPreviaJogo(); }
+    else if(id === "jgCapaArq"){ const f = ev.target.files && ev.target.files[0]; ev.target.value = ""; enviarCapaJogo(f); }
   });
 
   // ---------- admin: liberar modulos ----------

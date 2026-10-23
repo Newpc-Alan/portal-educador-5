@@ -34,6 +34,13 @@ service firebase.storage {
       allow delete: if (request.auth != null && request.auth.uid == uid) || admin();
     }
 
+    // capas dos catalogos (jogos etc.): so o administrador envia; a leitura e pelo link com token gerado no envio
+    match /capas/{tipo}/{arquivo} {
+      allow read: if request.auth != null;
+      allow create, update: if admin() && request.resource.size < 3 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+      allow delete: if admin();
+    }
+
     // qualquer outro caminho continua bloqueado
     match /{tudo=**} { allow read, write: if false; }
   }
