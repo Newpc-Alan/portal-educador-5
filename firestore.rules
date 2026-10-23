@@ -206,5 +206,61 @@ service cloud.firestore {
       allow read: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
       allow update, delete: if admin();
     }
+    // ================= FORMAÇÃO CONTINUADA (ex-Academia do Educador) =================
+    // Papéis editoriais vêm de custom claims (papel: admin | editor); o administrador do Portal também edita.
+    function fPapel() { return logado() ? request.auth.token.get('papel', '') : ''; }
+    function fDono(uid) { return logado() && request.auth.uid == uid; }
+    function fAdmin() { return fPapel() == 'admin' || admin(); }
+    function fEditor() { return fPapel() in ['admin', 'editor'] || admin(); }
+    function fCurso(cid) { return get(/databases/$(database)/documents/cursos/$(cid)).data; }
+    function fPublicado(cid) { return fCurso(cid).status == 'publicado'; }
+    function fEditavel(d) { return d.status != 'publicado' && !d.get('historicoPublicado', false) && !('publicadoEm' in d); }
+    function fEditarConteudo(cid) { return fEditor() && fEditavel(fCurso(cid)); }
+    match /equipe/{uid} { allow read: if fEditor(); allow write: if false; }
+    match /auditoria/{id} { allow read: if fAdmin(); allow write: if false; }
+    match /cursos/{cid} {
+      allow read: if resource.data.status == 'publicado' || fEditor();
+      allow create: if fEditor() && request.resource.data.status == 'rascunho'
+        && !('historicoPublicado' in request.resource.data) && !('publicadoEm' in request.resource.data);
+      // Publicação e congelamento apenas via publicarCurso (função no servidor).
+      allow update: if fEditor() && fEditavel(resource.data)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'historicoPublicado', 'publicadoEm']);
+      allow delete: if false;
+      match /modulos/{id} { allow read: if fPublicado(cid) || fEditor(); allow write: if fEditarConteudo(cid); }
+      match /aulas/{id} { allow read: if fPublicado(cid) || fEditor(); allow write: if fEditarConteudo(cid); }
+      match /questoes/{id} { allow read: if fEditor(); allow write: if fEditarConteudo(cid); }
+      match /gabarito/{id} { allow read: if false; allow write: if fEditarConteudo(cid); }
+    }
+    match /trilhas/{id} {
+      allow read: if resource.data.status == 'publicado' || fEditor();
+      allow create: if fEditor() && (request.resource.data.status != 'publicado' || fAdmin());
+      allow update: if fAdmin() || (fEditor() && resource.data.status != 'publicado' && request.resource.data.status != 'publicado');
+      allow delete: if fAdmin();
+    }
+    match /users/{uid} {
+      allow read: if fDono(uid);
+      allow create, update: if fDono(uid)
+        && request.resource.data.keys().hasOnly(['nome', 'email', 'fotoURL', 'municipio', 'escola', 'cargo', 'cpf', 'aceiteTermos', 'criadoEm', 'ultimoAcesso'])
+        && request.resource.data.get('nome', '') is string && request.resource.data.get('nome', '').size() <= 160
+        && request.resource.data.get('cpf', '') is string && request.resource.data.get('cpf', '').size() <= 20
+        && request.resource.data.get('municipio', '') is string && request.resource.data.get('municipio', '').size() <= 160
+        && request.resource.data.get('escola', '') is string && request.resource.data.get('escola', '').size() <= 240
+        && request.resource.data.get('email', '') == request.auth.token.get('email', '');
+      allow delete: if false;
+      match /progresso/{cid} { allow read: if fDono(uid); allow write: if false; }
+      match /tentativas/{cid} { allow read: if fDono(uid); allow write: if false; }
+      match /anotacoes/{aid} {
+        allow read, delete: if fDono(uid);
+        allow create, update: if fDono(uid) && request.resource.data.keys().hasOnly(['texto', 'atualizadoEm'])
+          && request.resource.data.texto is string && request.resource.data.texto.size() <= 12000
+          && request.resource.data.atualizadoEm == request.time;
+      }
+      match /provas/{id} { allow read, write: if false; }
+      match /sessoes/{id} { allow read, write: if false; }
+      match /emissoes/{id} { allow read, write: if false; }
+    }
+    // Certificado completo só para o titular e o administrador; a consulta pública passa pela função consultarCertificado.
+    match /certificados/{codigo} { allow read: if fAdmin() || (logado() && resource.data.uid == request.auth.uid); allow write: if false; }
+    match /cpfs/{cpf} { allow read, write: if false; }
   }
 }

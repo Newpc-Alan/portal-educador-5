@@ -50,6 +50,27 @@ service firebase.storage {
       allow delete: if admin();
     }
 
+    // Formação Continuada: capas e materiais dos cursos (somente criação; versões antigas preservadas)
+    function fEditor() { return request.auth != null && (request.auth.token.get('papel', '') in ['admin', 'editor'] || admin()); }
+    function fImagem() { return request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'image/gif']; }
+    function fPermitido() {
+      return fImagem() || request.resource.contentType in [
+        'application/pdf', 'application/msword', 'application/vnd.ms-powerpoint', 'application/vnd.ms-excel', 'text/plain',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    }
+    match /materiais/{cursoId}/{arquivo} {
+      allow read: if true;
+      allow create: if resource == null && fEditor() && request.resource.size < 40 * 1024 * 1024 && fPermitido();
+      allow update, delete: if false;
+    }
+    match /capas/{arquivo} {
+      allow read: if true;
+      allow create: if resource == null && fEditor() && request.resource.size < 3 * 1024 * 1024 && fImagem();
+      allow update, delete: if false;
+    }
+
     // qualquer outro caminho continua bloqueado
     match /{tudo=**} { allow read, write: if false; }
   }
