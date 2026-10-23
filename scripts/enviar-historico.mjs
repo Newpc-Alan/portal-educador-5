@@ -5,7 +5,7 @@ import { initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import nodemailer from 'nodemailer';
 
-const USUARIO = 'suporteportaldoeducador@gmail.com';
+const USUARIO = 'newpc.educacao@gmail.com';
 const PARA = ['alan@newpc.com.br', 'leonardo@newpc.com.br', 'stefano@newpc.com.br', 'suporte@newpc.com.br'];
 if (!process.env.SMTP_SENHA) { console.error('Defina SMTP_SENHA (veja o comentário no topo).'); process.exit(1); }
 const db = getFirestore(initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' }));
