@@ -1,4 +1,4 @@
-// Dicas do Professor: cada envio novo em dicas_envios dispara um e-mail para a equipe do Portal.
+// Avisos por e-mail para a equipe: novos cadastros (usuarios) e Dicas do Professor (dicas_envios).
 // A senha de app do remetente fica no Secret Manager (SMTP_SENHA), nunca no código.
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { defineSecret, defineString } from 'firebase-functions/params';
@@ -9,11 +9,13 @@ import nodemailer from 'nodemailer';
 const SMTP_SENHA = defineSecret('SMTP_SENHA');
 const SMTP_USUARIO = defineString('SMTP_USUARIO', { default: 'suporte@portaldoeducador.com.br' });
 const SMTP_HOST = defineString('SMTP_HOST', { default: 'smtp.gmail.com' });
-const DESTINO = defineString('DICAS_DESTINO', { default: 'suporte@portaldoeducador.com.br' });
+const DESTINO = defineString('NOTIFICAR_EMAILS', { default: 'alan@newpc.com.br,leonardo@newpc.com.br,stefano@newpc.com.br,suporte@newpc.com.br' });
 const REGIAO_FIRESTORE = 'southamerica-east1';
 
 const TIPOS = { dica: 'Dica de aula', app: 'Aplicativo ou site', material: 'Material', atividade: 'Atividade' };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const destinos = () => DESTINO.value().split(',').map(x => x.trim()).filter(Boolean);
+const transporte = () => nodemailer.createTransport({ host: SMTP_HOST.value(), port: 465, secure: true, auth: { user: SMTP_USUARIO.value(), pass: SMTP_SENHA.value() } });
 const tam = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
 export const emailDicaProfessor = onDocumentCreated(
@@ -48,10 +50,9 @@ ${fora.length ? `<p style="margin:0 0 14px;color:#9a5b00">${fora.length} arquivo
 <a href="https://app.portaldoeducador.com.br/dicas/#recebidas" style="display:inline-block;background:#5A9420;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Revisar e publicar no Portal</a>
 <p style="font-size:12px;color:#6b7c90;margin:16px 0 0">Responda este e-mail para falar direto com o professor.</p>
 </div></div>`;
-      const t = nodemailer.createTransport({ host: SMTP_HOST.value(), port: 465, secure: true, auth: { user: SMTP_USUARIO.value(), pass: SMTP_SENHA.value() } });
-      await t.sendMail({
+      await transporte().sendMail({
         from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`,
-        to: DESTINO.value(),
+        to: destinos(),
         replyTo: d.autor_email ? `"${String(d.autor_nome || '').replace(/["\r\n]/g, '')}" <${d.autor_email}>` : undefined,
         subject: `Nova dica do professor: ${String(d.titulo || '').replace(/[\r\n]/g, ' ').slice(0, 120)}`,
         html, attachments: anexos
@@ -60,6 +61,47 @@ ${fora.length ? `<p style="margin:0 0 14px;color:#9a5b00">${fora.length} arquivo
     } catch (e) {
       console.error('emailDicaProfessor', id, e);
       await ref.update({ email_status: 'falhou', email_erro: String(e && e.message || e).slice(0, 300) }).catch(() => {});
+    }
+  }
+);
+
+const ORIGENS = { autocadastro: 'Teste grátis (cadastro pelo site)', pre_cadastro: 'Primeiro acesso de importado pela rede' };
+const linha = (k, v) => v ? `<tr><td style="color:#6b7c90;padding:3px 14px 3px 0;vertical-align:top">${esc(k)}</td><td>${esc(v)}</td></tr>` : '';
+const dataBR = v => v && typeof v.toDate === 'function' ? v.toDate().toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' }) : '';
+
+export const emailNovoCadastro = onDocumentCreated(
+  { document: 'usuarios/{uid}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async (event) => {
+    const snap = event.data; if (!snap) return;
+    const u = snap.data(), uid = event.params.uid;
+    const ref = getFirestore().doc(`usuarios/${uid}`);
+    const whats = String(u.whatsapp || '').replace(/\D/g, '');
+    const local = [u.municipio_nome || u.municipio_cad, u.uf].filter(Boolean).join('/');
+    const escola = (u.escolas_nomes && u.escolas_nomes.length ? u.escolas_nomes.join(', ') : u.escola_texto) || '';
+    try {
+      const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0c2338;max-width:640px">
+<div style="background:#0c2338;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><b style="font-size:16px">Novo cadastro no Portal</b><br><span style="color:#8DC63F;font-size:12px">Portal do Educador 5.0</span></div>
+<div style="border:1px solid #dce4ed;border-top:0;padding:18px 20px;border-radius:0 0 12px 12px">
+<p style="font-size:18px;margin:0 0 12px"><b>${esc(u.nome || '(sem nome)')}</b></p>
+<table style="font-size:13px;border-collapse:collapse;margin:0 0 16px">
+${linha('E-mail', u.email)}${linha('WhatsApp', whats)}${linha('Perfil', u.perfil)}${linha('Função', u.funcao)}
+${linha('Rede', u.rede)}${linha('Município', local)}${linha('Escola', escola)}${linha('INEP', u.escola_inep)}
+${linha('Etapas', (u.etapas || []).join(', '))}${linha('Origem', ORIGENS[u.origem] || u.origem)}
+${linha('Licença', [u.licenca_tipo, u.licenca_fim ? 'até ' + dataBR(u.licenca_fim) : ''].filter(Boolean).join(' · '))}${linha('Situação', u.status)}
+</table>
+${whats ? `<a href="https://wa.me/55${esc(whats)}" style="display:inline-block;background:#5A9420;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;margin-right:8px">Chamar no WhatsApp</a>` : ''}
+<a href="https://app.portaldoeducador.com.br/entrar/" style="display:inline-block;background:#2671AB;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Abrir Usuários no Portal</a>
+</div></div>`;
+      await transporte().sendMail({
+        from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: destinos(),
+        replyTo: u.email || undefined,
+        subject: `Novo cadastro no Portal: ${String(u.nome || u.email || uid).replace(/[\r\n]/g, ' ').slice(0, 100)}${local ? ' (' + local + ')' : ''}`,
+        html
+      });
+      await ref.update({ aviso_email: 'enviado' }).catch(() => {});
+    } catch (e) {
+      console.error('emailNovoCadastro', uid, e);
+      await ref.update({ aviso_email: 'falhou' }).catch(() => {});
     }
   }
 );
