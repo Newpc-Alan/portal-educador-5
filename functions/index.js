@@ -6,6 +6,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { randomBytes, randomInt } from 'node:crypto';
 import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario } from './dicas.js';
+export { importarBiblioteca } from './biblioteca.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });
