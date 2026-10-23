@@ -576,6 +576,17 @@
   .aluno-aviso .pico{ font-size:46px }
   .aluno-aviso code{ background:#eef3f8;border-radius:6px;padding:2px 6px;font-size:13px }
   .ini-previa{ display:flex;gap:6px;flex-wrap:wrap;margin-top:8px }
+  .sim-escolha{ max-width:860px;margin:10px auto }
+  .sim-sub{ color:var(--muted);margin:0 0 16px }
+  .sim-ops{ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px }
+  .sim-op{ display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:20px;cursor:pointer;font:inherit;color:var(--ink);transition:border-color .15s,box-shadow .15s }
+  .sim-op:hover,.sim-op:focus-visible{ border-color:#2E9BD6;box-shadow:0 0 0 3px rgba(46,155,214,.18) }
+  .sim-op span{ font-size:30px } .sim-op b{ font-size:17px } .sim-op small{ color:var(--muted);font-size:13px;line-height:1.4 }
+  .sim-muni{ margin-top:18px;max-width:420px }
+  .sim-faixa{ display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#fff7e6;border:1px solid #f3d9a4;color:#6b4a00;border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:13.5px }
+  .sim-acoes{ display:flex;gap:6px }
+  .sim-acoes button{ border:1px solid #e3c27d;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-weight:700;cursor:pointer;color:#6b4a00 }
+  @media (max-width:700px){ .sim-ops{ grid-template-columns:1fr } }
 </style>
 <div id="loginView">
   <div class="card">
@@ -862,7 +873,8 @@
       { id:"jogosadm",   ico:"\u{1F3AE}", label:"Jogos" },
       { id:"iaadm",      ico:"\u{1F916}", label:"Dicas de IA" },
       { id:"formacaoLink", ico:"\u{1F393}", label:"Formação Continuada" },
-      { id:"dicasLink", ico:"\u{1F4A1}", label:"Dicas recebidas" } ] },
+      { id:"dicasLink", ico:"\u{1F4A1}", label:"Dicas recebidas" },
+      { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
       { id:"escolas",   ico:"\u{1F3EB}", label:"Escolas" },
       { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" },
@@ -972,7 +984,7 @@
 
   onAuthStateChanged(auth, async (user) => {
     if(user){ await carregarUsuario(user); abrirApp(); }
-    else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null;
+    else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null; usuarioReal=null; guardarVerComo(null);
       ["lsFab","lsOverlay"].forEach(id => { const el = $(id); if(el) el.remove(); });
       lousa.montada = false; lousa.carregada = false; document.documentElement.style.overflow = ""; }
   });
@@ -1066,9 +1078,64 @@
       (tipo === "semacesso" ? '<button class="btn btn-ghost btn-add" data-action="aluno-sou-professor">Na verdade, sou professor</button>' : '')+'</div></div>';
   }
 
+  // ===================== ADMINISTRADOR: ENTRAR COMO (testes e homologacao) =====================
+  // O administrador escolhe ver o Portal como administrador, professor ou aluno de um municipio.
+  // A simulacao e so na tela: as regras do banco continuam tratando a conta como administrador.
+  let usuarioReal = null;
+  function verComo(){ try{ return JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); }catch(e){ return null; } }
+  function guardarVerComo(v){ try{ v ? sessionStorage.setItem("pde_ver_como", JSON.stringify(v)) : sessionStorage.removeItem("pde_ver_como"); }catch(e){} }
+  const ROT_SIM = { admin:"Administrador", professor:"Professor", aluno:"Aluno" };
+  async function mostrarEscolhaAdmin(){
+    $("loginView").style.display="none"; $("appView").style.display="block";
+    $("nav").innerHTML = ""; $("avisoLicenca").innerHTML = "";
+    $("secTitulo").textContent = "Como você quer entrar?"; $("secBadge").textContent = "Administrador";
+    $("uNome").textContent = usuarioAtual.nome || "Administrador"; $("uPerfil").textContent = "Administrador";
+    $("uAv").textContent = (String(usuarioAtual.nome || "A")[0] || "A").toUpperCase();
+    $("conteudo").innerHTML = '<div class="sim-escolha"><p class="sim-sub">Para testes e homologação: veja o Portal exatamente como cada perfil vê. Você pode trocar a qualquer momento.</p>'+
+      '<div class="sim-ops">'+
+        '<button class="sim-op" data-action="sim-entrar" data-arg="admin"><span>🛡️</span><b>Administrador</b><small>Gestão completa: municípios, usuários, módulos e conteúdos</small></button>'+
+        '<button class="sim-op" data-action="sim-entrar" data-arg="professor"><span>👩‍🏫</span><b>Professor</b><small>Tela e módulos de um professor da rede escolhida</small></button>'+
+        '<button class="sim-op" data-action="sim-entrar" data-arg="aluno"><span>🎒</span><b>Aluno</b><small>Tela e módulos de um aluno da rede escolhida</small></button>'+
+      '</div><div class="field sim-muni"><label for="simMuni">Rede usada no teste de professor e aluno</label><select id="simMuni"><option value="">Carregando...</option></select></div></div>';
+    try{
+      const ms = cacheMunicipios.length ? cacheMunicipios : await carregarCacheMunicipios();
+      const ult = (verComo() || {}).muni || "";
+      $("simMuni").innerHTML = ms.length ? ms.map(m => '<option value="'+escapeAttr(m.id)+'"'+(m.id === ult ? " selected" : "")+'>'+escapeHtml(m.nome+(m.uf ? "/"+m.uf : ""))+'</option>').join("") : '<option value="">Nenhum município cadastrado</option>';
+    }catch(e){ $("simMuni").innerHTML = '<option value="">Não foi possível carregar</option>'; }
+  }
+  async function prepararSimulacao(v){
+    const real = usuarioReal || usuarioAtual;
+    const sim = { ...real, perfil:v.perfil, _sim:true, status:"ativo", licenca_tipo:"institucional", licenca_fim:null, turmas_ids:[], semCadastro:false };
+    if(v.muni){
+      try{
+        const m = await getDoc(doc(db,"municipios",v.muni));
+        if(m.exists()){ sim._muni = { id:m.id, ...m.data() }; sim.municipio_id = m.id; sim.municipio_nome = m.data().nome || ""; }
+        const es = await getDocs(query(collection(db,"escolas"), where("municipio_id","==",v.muni)));
+        const lista = []; es.forEach(d => { if(d.data().status !== "inativa") lista.push({ id:d.id, nome:d.data().nome || "" }); });
+        lista.sort((a,b) => a.nome.localeCompare(b.nome));
+        sim.escolas_ids = lista.slice(0, 5).map(e => e.id); sim.escolas_nomes = lista.slice(0, 5).map(e => e.nome);
+        sim.escola_id = lista[0] ? lista[0].id : null; sim.escola_nome = lista[0] ? lista[0].nome : "";
+      }catch(e){ console.warn("simulacao:", e.code); }
+    }
+    usuarioReal = real; usuarioAtual = sim;
+  }
+  function faixaSimulacao(){
+    if(!usuarioAtual || !usuarioAtual._sim) return;
+    const el = document.createElement("div"); el.className = "sim-faixa";
+    el.innerHTML = '<span>🧪 Modo de teste: você está vendo como <b>'+ROT_SIM[usuarioAtual.perfil]+'</b>'+(usuarioAtual.municipio_nome ? ' · '+escapeHtml(usuarioAtual.municipio_nome) : '')+
+      '. O que você gravar é real.</span><span class="sim-acoes"><button data-action="sim-trocar">Trocar</button><button data-action="sim-sair">Voltar a administrador</button></span>';
+    $("avisoLicenca").prepend(el);
+  }
+
   function abrirApp(){
     $("loginView").style.display="none";
     $("appView").style.display="block";
+    // administrador: pergunta como quer entrar (uma vez por sessao do navegador)
+    if(usuarioAtual.perfil === "admin" && !usuarioAtual._sim){
+      const v = verComo();
+      if(!v){ mostrarEscolhaAdmin(); return; }
+      if(v.perfil !== "admin"){ prepararSimulacao(v).then(abrirApp); return; }
+    }
     const perfil = usuarioAtual.perfil || "professor";
     const nome = usuarioAtual.nome || "Usuario";
     $("uAv").textContent = (nome[0]||"?").toUpperCase();
@@ -1101,6 +1168,7 @@
     });
     $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
     selecionar(menu.itens[0]);
+    faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
     atalhoAulaNoMenu();
@@ -1119,6 +1187,7 @@
   }
 
   function selecionar(item){
+    if(item.id === "vercomo"){ guardarVerComo(null); mostrarEscolhaAdmin(); return; }
     if(item.id === "relatoriosLink"){ location.href = "/relatorios/"; return; }
     if(item.id === "formacaoLink"){ location.href = "/formacao/admin/"; return; }
     if(item.id === "dicasLink"){ location.href = "/dicas/#recebidas"; return; }
@@ -1998,7 +2067,7 @@
   let batimento = null;
   function hojeISO(){ return isoDe(Date.now()); }
   async function registrarAcesso(){
-    const u = usuarioAtual; if(!u || u.semCadastro || !auth.currentUser) return;
+    const u = usuarioAtual; if(!u || u.semCadastro || u._sim || !auth.currentUser) return;
     const dia = hojeISO();
     try{
       await updateDoc(doc(db,"usuarios",u.uid), { ultimo_acesso:serverTimestamp() });
@@ -2015,7 +2084,7 @@
     }, 180000);
   }
   function registrarModulo(id){
-    const u = usuarioAtual; if(!u || !auth.currentUser || !id) return;
+    const u = usuarioAtual; if(!u || u._sim || !auth.currentUser || !id) return;
     setDoc(doc(db,"acessos_dia",hojeISO()+"_"+u.uid), { dia:hojeISO(), uid:u.uid, modulos:arrayUnion(id), ultimo:serverTimestamp() }, { merge:true })
       .catch(e => console.warn("registro de modulo:", e.code));
   }
@@ -3274,6 +3343,15 @@
     else if(acao === "imp-limpar"){ imp.linhas = []; $("impTexto").value = ""; $("impPrevia").innerHTML = ""; }
     else if(acao === "usr-cancelar"){ fecharModalUsuario(); }
     else if(acao === "usr-salvar"){ salvarUsuario(); }
+    else if(acao === "sim-entrar"){
+      const muni = $("simMuni") ? $("simMuni").value : "";
+      if(el.dataset.arg !== "admin" && !muni){ toast("Escolha a rede do teste.", true); return; }
+      guardarVerComo({ perfil:el.dataset.arg, muni });
+      if(usuarioReal){ usuarioAtual = usuarioReal; }
+      el.disabled = true; abrirApp();
+    }
+    else if(acao === "sim-trocar"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo(null); mostrarEscolhaAdmin(); }
+    else if(acao === "sim-sair"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo({ perfil:"admin" }); abrirApp(); }
     else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} signOut(auth); }
     else if(acao === "aluno-sou-professor"){ try{ sessionStorage.setItem("pde_como","professor"); }catch(e){} usuarioAtual.alunoSemAcesso = false; abrirApp(); }
     else if(acao === "ini-previa"){ ini.previa = el.dataset.arg === "aluno" ? "aluno" : "professor"; renderInicio(); }

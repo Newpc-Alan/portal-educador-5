@@ -571,9 +571,11 @@ onAuthStateChanged(auth, async user => {
   let u = null;
   try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
-  E.user = user; E.u = u; E.admin = u.perfil === "admin";
+  // administrador testando "como professor/aluno" (escolha feita na entrada do Portal)
+  const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
+  E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   // aluno sempre no modo aluno; o administrador alterna com ?aluno=1
-  E.aluno = u.perfil === "aluno" || (E.admin && new URLSearchParams(location.search).has("aluno"));
+  E.aluno = u.perfil === "aluno" || sim === "aluno" || (E.admin && new URLSearchParams(location.search).has("aluno"));
   E.muniId = u.municipio_id || "";
   if(E.aluno) aplicarModoAluno();
   try{

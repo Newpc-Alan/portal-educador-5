@@ -638,7 +638,9 @@ onAuthStateChanged(auth, async user => {
   let u = null;
   try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
-  E.user = user; E.u = u; E.admin = u.perfil === "admin";
+  // administrador testando "como professor/aluno" (escolha feita na entrada do Portal)
+  const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
+  E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   try{
     if(u.municipio_id){ const s = await getDoc(doc(db, "municipios", u.municipio_id)); if(s.exists()) E.muni = s.data(); }
     if(u.escola_id){ const s = await getDoc(doc(db, "escolas", u.escola_id)); if(s.exists()) E.escola = s.data().nome || null; }
