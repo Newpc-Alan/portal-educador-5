@@ -147,9 +147,10 @@ def montar_pdf(livro, destino, pasta):
     story = fitz.Story(html=html, user_css=CSS, archive=fitz.Archive(pasta))
     W, H = fitz.paper_size("a5"); area = fitz.Rect(42, 46, W - 42, H - 50)
     wr = fitz.DocumentWriter(corpo_tmp); mais = 1; n = 0
-    while mais and n < 1500:
+    while mais and n < 1200:
         dev = wr.begin_page(fitz.Rect(0, 0, W, H)); mais, _ = story.place(area); story.draw(dev); wr.end_page(); n += 1
     wr.close()
+    if mais: raise ValueError("diagramação não terminou em 1200 páginas (revisar)")
     miolo = fitz.open(corpo_tmp); doc.insert_pdf(miolo)
     total = len(doc)
     for i in range(1, total):  # rodapé com título e número da página
