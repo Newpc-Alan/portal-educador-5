@@ -24,7 +24,8 @@ async function baixarStream(id) {
   for (let t = 0; t < 3; t++) {
     for (const u of fontes) {
       try {
-        const r = await fetch(u, { headers: { Referer: REFERER }, redirect: 'follow' });
+        const ac = new AbortController(), limite = setTimeout(() => ac.abort(), 60000); // só para a conexão; o download em si pode demorar
+        const r = await fetch(u, { headers: { Referer: REFERER }, redirect: 'follow', signal: ac.signal }).finally(() => clearTimeout(limite));
         const tipo = r.headers.get('content-type') || '';
         if (r.ok && !tipo.startsWith('text/html')) return r;
       } catch (e) {}
