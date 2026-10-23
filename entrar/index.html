@@ -370,6 +370,10 @@
   .vd-tab-nome{ display:flex;gap:10px;align-items:center }
   .vd-prog{ font-size:13px;color:var(--muted);margin:-4px 0 12px }
   @media (max-width: 760px){ .vd-form{ grid-template-columns:1fr } }
+  .logo-cel{ display:flex;align-items:center;gap:8px }
+  .logo-cel img{ width:40px;height:40px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--line) }
+  .logo-vazio{ font-size:11px;color:var(--muted);width:40px;line-height:1.1 }
+  .logo-env{ cursor:pointer;display:inline-flex;align-items:center }
   /* ===== Jogos ===== */
   .jg-capa{ position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#0f2c4a,#2671AB) center/cover no-repeat;display:grid;place-items:center;font-size:54px }
   .jg-capa.tem{ font-size:0 }
@@ -1096,18 +1100,46 @@
       await carregarCacheMunicipios();
       $("muniCount").textContent = cacheMunicipios.length+" municipio(s) cadastrado(s)";
       if(cacheMunicipios.length===0){ $("muniTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3DB}\u{FE0F}</div>Nenhum municipio cadastrado ainda.</div>'; return; }
-      let html = '<table><thead><tr><th>Municipio</th><th>UF</th><th>Status</th><th>Módulos liberados</th><th>Contrato</th><th></th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>Logo</th><th>Municipio</th><th>UF</th><th>Status</th><th>Módulos liberados</th><th>Contrato</th><th></th></tr></thead><tbody>';
       cacheMunicipios.forEach(m => { const st=m.status||"piloto";
         const np = Array.isArray(m.modulos_professor) ? m.modulos_professor.length : 0;
         const na = Array.isArray(m.modulos_aluno) ? m.modulos_aluno.length : 0;
         const venceu = m.vigencia_fim && msDe(m.vigencia_fim) < Date.now();
         const ctr = (m.contrato_numero ? escapeHtml(m.contrato_numero) : '<span class="muni-tag">sem nº</span>')+(m.vigencia_fim ? '<br><small>até '+escapeHtml(dataBR(m.vigencia_fim))+'</small>'+(venceu ? ' <span class="pill expirado">vencido</span>' : '') : '');
-        html += '<tr><td><b>'+escapeHtml(m.nome)+'</b></td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+st+'</span></td>'+
+        html += '<tr><td>'+logoCelula("municipios", m)+'</td><td><b>'+escapeHtml(m.nome)+'</b></td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+st+'</span></td>'+
           '<td class="usr-vinc">'+(np||na ? np+' p/ professor · '+na+' p/ aluno' : 'Nenhum ainda')+'</td><td class="usr-vinc">'+ctr+'</td>'+
           '<td><button class="btn-mini btn-gerenciar" data-action="muni-plano" data-id="'+escapeAttr(m.id)+'">Plano e módulos</button></td></tr>'; });
       html += '</tbody></table>'; $("muniTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("muniTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
+  // ---------- logos (municipio e escola): vao no cabecalho das provas ----------
+  function logoCelula(tipo, x){
+    return '<div class="logo-cel">'+(x.logo_url ? '<img src="'+escapeAttr(x.logo_url)+'" alt="">' : '<span class="logo-vazio">sem logo</span>')+
+      '<label class="btn-mini btn-gerenciar logo-env" title="'+(tipo === "municipios" ? "Brasão ou logo da prefeitura" : "Logo da escola (opcional; se não houver, usa o do município)")+'">'+(x.logo_url ? "Trocar" : "Enviar")+
+      '<input type="file" accept="image/*" hidden data-logo-tipo="'+tipo+'" data-id="'+escapeAttr(x.id)+'"></label></div>';
+  }
+  async function enviarLogo(tipo, idDoc, arq){
+    if(!arq || !/^image\//.test(arq.type)){ toast("Escolha um arquivo de imagem.", true); return; }
+    try{
+      toast("Enviando o logo...");
+      const bmp = await createImageBitmap(arq);
+      const T = 400, cv = document.createElement("canvas"); cv.width = T; cv.height = T;
+      const r = Math.min(T / bmp.width, T / bmp.height), w = bmp.width * r, hh = bmp.height * r;
+      cv.getContext("2d").drawImage(bmp, (T - w) / 2, (T - hh) / 2, w, hh);   // inteiro, fundo transparente
+      let blob = await new Promise(ok => cv.toBlob(ok, "image/webp", 0.9));
+      if(!blob || blob.type !== "image/webp") blob = await new Promise(ok => cv.toBlob(ok, "image/png"));
+      const alvo = stRef(getStorage(app), "capas/"+tipo+"/"+idDoc+"-"+Date.now().toString(36)+(blob.type === "image/webp" ? ".webp" : ".png"));
+      await uploadBytes(alvo, blob, { contentType:blob.type, cacheControl:"public, max-age=31536000" });
+      const url = await getDownloadURL(alvo);
+      await updateDoc(doc(db, tipo, idDoc), { logo_url:url, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      toast("Logo salvo. Já aparece nas provas.");
+      if(tipo === "municipios"){ cacheMunicipios = []; await listarMunicipios(); } else { cacheEscolas = []; await listarEscolas(); }
+    }catch(e){ console.warn(e); toast("Não foi possível salvar o logo ("+(e.code||e.message||"erro")+").", true); }
+  }
+  document.addEventListener("change", (ev) => {
+    const t = ev.target; if(!t.dataset || !t.dataset.logoTipo) return;
+    const f = t.files && t.files[0]; t.value = ""; enviarLogo(t.dataset.logoTipo, t.dataset.id, f);
+  });
   function abrirModalMunicipio(){ $("muniNome").value=""; $("muniUf").value="MS"; $("modalMunicipio").classList.add("show"); $("muniNome").focus(); }
   function fecharModalMunicipio(){ $("modalMunicipio").classList.remove("show"); }
   $("muniCancelar").addEventListener("click", fecharModalMunicipio);
@@ -1139,8 +1171,8 @@
       await carregarCacheEscolas();
       $("escCount").textContent = cacheEscolas.length+" escola(s) cadastrada(s)";
       if(cacheEscolas.length===0){ $("escTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3EB}</div>Nenhuma escola cadastrada ainda.</div>'; return; }
-      let html = '<table><thead><tr><th>Escola</th><th>Municipio</th><th>Status</th></tr></thead><tbody>';
-      cacheEscolas.forEach(e => { const st=e.status||"ativa"; html += '<tr><td><b>'+escapeHtml(e.nome)+'</b></td><td><span class="muni-tag">'+escapeHtml(e.municipio_nome||"-")+' / '+escapeHtml(e.municipio_uf||"")+'</span></td><td><span class="pill '+st+'">'+st+'</span></td></tr>'; });
+      let html = '<table><thead><tr><th>Logo</th><th>Escola</th><th>Municipio</th><th>Status</th></tr></thead><tbody>';
+      cacheEscolas.forEach(e => { const st=e.status||"ativa"; html += '<tr><td>'+logoCelula("escolas", e)+'</td><td><b>'+escapeHtml(e.nome)+'</b></td><td><span class="muni-tag">'+escapeHtml(e.municipio_nome||"-")+' / '+escapeHtml(e.municipio_uf||"")+'</span></td><td><span class="pill '+st+'">'+st+'</span></td></tr>'; });
       html += '</tbody></table>'; $("escTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("escTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
@@ -2999,6 +3031,7 @@
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
+    else if(acao === "ini-provas"){ registrarModulo(el.dataset.mod); location.href = "/provas/"; }
     else if(acao === "ini-ia"){ registrarModulo(el.dataset.mod); renderIa(); }
     else if(acao === "ia-abrir"){ abrirIa(el.dataset.id); }
     else if(acao === "ia-grupo"){ ias.grupo = el.dataset.grupo; desenharIa(); }
@@ -3145,7 +3178,7 @@
           ? (md.logo ? '<img class="ini-selo-marca" src="'+escapeAttr(md.logo)+'" alt="">' : "")
           : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
         '<div class="ini-txt"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(md.desc)+'</small></div>'+selo;
-      const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia" };
+      const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia", "#provas":"ini-provas" };
       if(abre && ROTA_INTERNA[c.url])
         return '<button type="button" class="ini-card'+(estado==="ok"?"":" trava")+'" data-action="'+ROTA_INTERNA[c.url]+'" data-mod="'+md.id+'">'+corpo+'</button>';
       return abre
@@ -3980,8 +4013,8 @@
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="modCount">Carregando...</span>'+
       '<button class="btn btn-primary btn-add" data-action="mod-salvar" id="modSalvar">Salvar alterações</button></div>'+
-      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos do Portal use <b>#videos</b> (Vídeos), <b>#jogos</b> (Jogos) e <b>#ia</b> (Dicas de IA / IA Studio).</div>'+
-      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://... ou #acervo, #videos, #jogos, #ia)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
+      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos do Portal use <b>#videos</b> (Vídeos), <b>#jogos</b> (Jogos) e <b>#ia</b> (Dicas de IA / IA Studio). O <b>Gerador de Provas</b> integrado ao cadastro do professor usa <b>#provas</b>.</div>'+
+      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://... ou #acervo, #videos, #jogos, #ia, #provas)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
     await carregarCfgModulos();
     modAdm.rasc = {};
     MODULOS.forEach(md => { modAdm.rasc[md.id] = cfgDe(md.id); });
@@ -3999,7 +4032,7 @@
     const n = MODULOS.filter(m => modAdm.rasc[m.id].status === "liberado").length;
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
-  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || u === "#ia" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
+  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || u === "#ia" || u === "#provas" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;
     modAdm.rasc[t.dataset.mod][t.dataset.campo] = t.value.trim();
