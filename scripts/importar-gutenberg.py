@@ -97,6 +97,11 @@ def limpar_html(bruto, id_):
     for el in s.select("#pg-header, #pg-footer, #pg-machine-header, #pg-start-separator, #pg-end-separator, .pg-boilerplate, script, style, link, meta"):
         el.decompose()
     corpo = s.body or s
+    # livros antigos: linhas soltas como "This Project Gutenberg Etext prepared by..." ou "End of Project Gutenberg's..."
+    for el in list(corpo.find_all(["p", "div", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "span", "td"])):
+        if el.decomposed: continue
+        t = el.get_text(" ", strip=True)
+        if re.search(r"gutenberg", t, re.I) and len(t) < 400: el.decompose()
     for a in corpo.find_all("a"):
         a.unwrap()
     texto = corpo.get_text(" ", strip=True)
