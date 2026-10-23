@@ -370,6 +370,18 @@
   .vd-tab-nome{ display:flex;gap:10px;align-items:center }
   .vd-prog{ font-size:13px;color:var(--muted);margin:-4px 0 12px }
   @media (max-width: 760px){ .vd-form{ grid-template-columns:1fr } }
+  /* ===== Jogos ===== */
+  .jg-capa{ position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#0f2c4a,#2671AB) center/cover no-repeat;display:grid;place-items:center;font-size:54px }
+  .jg-capa.tem{ font-size:0 }
+  .jg-capa .jg-tag{ position:absolute;left:8px;top:8px;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#8DC63F;color:#071621 }
+  .jg-palco{ position:fixed;inset:0;z-index:90;background:#071621;display:none;flex-direction:column }
+  .jg-palco.show{ display:flex }
+  .jg-barra{ display:flex;align-items:center;gap:8px;padding:8px 12px;background:#0c2338;color:#fff;flex:none }
+  .jg-barra b{ flex:1;min-width:0;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .jg-barra button{ border:1px solid rgba(255,255,255,.22);background:transparent;color:#fff;border-radius:9px;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap }
+  .jg-barra button.pri{ background:#8DC63F;border-color:#8DC63F;color:#071621 }
+  .jg-palco iframe{ flex:1;width:100%;border:0;background:#fff }
+  @media (max-width: 600px){ .jg-barra .so-largo{ display:none } }
 
   /* ===== Turmas e cadastro do professor ===== */
   .mt-outras{ display:flex;flex-direction:column;gap:6px }
@@ -806,7 +818,8 @@
       { id:"usuarios",   ico:"\u{1F465}", label:"Usuarios" },
       { id:"importar",   ico:"\u{1F4E5}", label:"Importar cadastros" },
       { id:"acervoadm",  ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
-      { id:"videosadm",  ico:"\u{1F3AC}", label:"Vídeos" } ] },
+      { id:"videosadm",  ico:"\u{1F3AC}", label:"Vídeos" },
+      { id:"jogosadm",   ico:"\u{1F3AE}", label:"Jogos" } ] },
     secretaria: { itens: [
       { id:"escolas",   ico:"\u{1F3EB}", label:"Escolas" },
       { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" } ] },
@@ -1001,6 +1014,7 @@
       if(item.id === "painel"){ renderPainel(); return; }
       if(item.id === "acervoadm"){ renderAcervoAdmin(); return; }
       if(item.id === "videosadm"){ renderVideosAdmin(); return; }
+      if(item.id === "jogosadm"){ renderJogosAdmin(); return; }
     }
     if(item.id === "inicio"){ renderInicio(); return; }
     if(item.id === "meucadastro"){ renderMeuCadastro(); return; }
@@ -1987,7 +2001,7 @@
   })();
 
   // ===================== ACERVO (arquivos no Cloudflare R2) =====================
-  const DISCIPLINAS = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Língua Inglesa","Ensino Religioso","Computação","Educação Infantil","Interdisciplinar"];
+  const DISCIPLINAS = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Língua Inglesa","Ensino Religioso","Computação","Educação Infantil","Educação Especial","Interdisciplinar"];
   const ETAPAS_CURTAS = ["Educação Infantil","Anos Iniciais","Anos Finais","Ensino Médio","EJA","Educação Especial"];
   const MODULOS_ACERVO = ["atividades","colorir","biblioteca","datas","historias","dicas","provas","relatorios","formacao","apps"];
   let apiAcervo = null;
@@ -2977,6 +2991,19 @@
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
+    else if(acao === "ini-jogos"){ registrarModulo(el.dataset.mod); renderJogos(); }
+    else if(acao === "jg-abrir"){ abrirJogo(el.dataset.id); }
+    else if(acao === "jg-fechar"){ fecharJogo(); }
+    else if(acao === "jg-tela"){ telaCheiaJogo(); }
+    else if(acao === "jg-aba"){ abrirJogoEmAba(); }
+    else if(acao === "jg-serie"){ jgs.serie = el.dataset.serie; const s = $("jgSerie"); if(s) s.value = jgs.serie; desenharJogos(); }
+    else if(acao === "jgadm-salvar"){ salvarJogo(); }
+    else if(acao === "jgadm-limpar"){ formJogo(null); }
+    else if(acao === "jgadm-editar"){ formJogo(jgAdm.itens.find(v => v.id === el.dataset.id)); window.scrollTo({ top:0, behavior:"smooth" }); }
+    else if(acao === "jgadm-pub"){ alternarJogoPublicado(el.dataset.id); }
+    else if(acao === "jgadm-del"){ excluirJogo(el.dataset.id, el); }
+    else if(acao === "jgadm-filtro"){ jgAdm.filtro = el.dataset.filtro; desenharJogosAdmin(); }
+    else if(acao === "jgadm-importar"){ importarJogosRepo(el); }
     else if(acao === "vdadm-filtro"){ vdAdm.filtro = el.dataset.filtro; desenharVideosAdmin(); }
     else if(acao === "acv-mod"){ acv.mod = el.dataset.mod; desenharAcervo(); }
     else if(acao === "acvadm-api"){ salvarApiAcervo(); }
@@ -3101,8 +3128,8 @@
           ? (md.logo ? '<img class="ini-selo-marca" src="'+escapeAttr(md.logo)+'" alt="">' : "")
           : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
         '<div class="ini-txt"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(md.desc)+'</small></div>'+selo;
-      if(abre && (c.url === "#acervo" || c.url === "#videos"))
-        return '<button type="button" class="ini-card'+(estado==="ok"?"":" trava")+'" data-action="'+(c.url === "#videos" ? "ini-videos" : "ini-acervo")+'" data-mod="'+md.id+'">'+corpo+'</button>';
+      if(abre && (c.url === "#acervo" || c.url === "#videos" || c.url === "#jogos"))
+        return '<button type="button" class="ini-card'+(estado==="ok"?"":" trava")+'" data-action="'+(c.url === "#videos" ? "ini-videos" : c.url === "#jogos" ? "ini-jogos" : "ini-acervo")+'" data-mod="'+md.id+'">'+corpo+'</button>';
       return abre
         ? '<a class="ini-card'+(estado==="ok"?"":" trava")+'" href="'+escapeAttr(c.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="'+md.id+'">'+corpo+'</a>'
         : '<div class="ini-card trava" aria-disabled="true" title="'+(estado==="plano" ? "Não incluído no plano do seu município" : "Em breve")+'">'+corpo+'</div>';
@@ -3447,14 +3474,311 @@
     else if(id === "vdLink"){ if(idYoutube(ev.target.value) && idYoutube(ev.target.value) !== vdAdm.ytid) buscarDadosVideo(); }
   });
 
+  // ================= JOGOS =================
+  // Os jogos continuam publicados em jogos.portaldoeducador.com.br (ou em sites externos); o Portal guarda o catalogo.
+  const JOGOS_BASE = "https://jogos.portaldoeducador.com.br/";
+  // classificacao SUGERIDA dos jogos do repositorio (entram como rascunho para o administrador revisar um a um)
+  const JOGOS_REPO = [
+    ["adivinhe-o-animal","Quem é Esse? Adivinhe o Animal","Ciências","cp","3","","🐾"],
+    ["aprendendo-alfabeto","Aprendendo o Alfabeto","Língua Portuguesa","cp","1","","🔤"],
+    ["atelie-de-cores","Ateliê de Cores","Arte","cp","2","","🎨"],
+    ["batalha-matematica","Batalha Matemática","Matemática","1","9","","⚔️"],
+    ["batalha-portugues","Batalha de Português","Língua Portuguesa","1","5","","📘"],
+    ["caca-palavras","Caça-Palavras","Língua Portuguesa","1","9","","🔎"],
+    ["cadeia-alimentar","Cadeia Alimentar","Ciências","3","5","","🌿"],
+    ["ciclo-de-vida","Ciclo de Vida","Ciências","1","3","","🐛"],
+    ["construtor-de-frases","Construtor de Frases","Língua Portuguesa","1","3","","🧱"],
+    ["copa-conhecimento","Copa do Conhecimento","Interdisciplinar","3","9","","⚽"],
+    ["corpo-humano","Corpo Humano em Camadas","Ciências","1","5","","🫀"],
+    ["detetive-do-som-inicial","Detetive do Som Inicial","Língua Portuguesa","cp","1","","🕵️"],
+    ["estados-e-capitais","Brasil em Missão","Geografia","4","5","EF04GE01, EF04GE05, EF04GE06, EF04GE09, EF04GE10, EF04GE11, EF05GE08","🗺️"],
+    ["explorando-habitats","Explorando Habitats","Ciências","1","3","","🌳"],
+    ["familia-silabica","Família Silábica","Língua Portuguesa","1","2","","🧩"],
+    ["fazendinha-das-letras","Fazendinha das Letras","Língua Portuguesa","cp","1","","🐄"],
+    ["formas-geometricas","Castelo das Formas","Matemática","cp","2","EI03ET01, EF01MA11, EF01MA13, EF01MA14, EF02MA12, EF02MA14, EF02MA15","🏰"],
+    ["fracao-magica","Fração Mágica","Matemática","3","6","","🍕"],
+    ["jogo-da-forca","Jogo da Forca","Língua Portuguesa","2","9","","🔡"],
+    ["letrinha-magica","Letrinha Mágica","Língua Portuguesa","1","3","EF01LP06, EF01LP07, EF01LP08, EF01LP09, EF01LP13, EF02LP02, EF02LP04, EF03LP01","✨"],
+    ["maestro-do-ritmo","Maestro do Ritmo · A Bandinha","Arte","cp","5","","🥁"],
+    ["maos-em-acao","Mãos em Ação · Coordenação Motora","Educação Especial","cp","2","","✋"],
+    ["memoria-animais-brasil","Memória dos Animais Brasileiros","Ciências","2","3","EF02CI04, EF03CI04, EF03CI06","🦜"],
+    ["memoria-das-rimas","Memória das Rimas","Língua Portuguesa","1","2","EF01LP09, EF12LP07, EF01LP19, EF02LP02","🐸"],
+    ["missao-dengue-zero-3d","Missão Dengue Zero 3D","Ciências","3","9","","🦟"],
+    ["mouse-e-teclado","Prática de Mouse e Teclado","Computação","1","5","","⌨️"],
+    ["que-horas-sao","Que Horas São?","Matemática","1","3","","🕒"],
+    ["quiz-bandeiras","Expedição pelos Estados do Brasil","Geografia","3","5","","🏳️"],
+    ["racha-cuca","Racha Cuca","Matemática","2","9","","🐢"],
+    ["resta-um","Resta 1","Matemática","3","9","","🎯"],
+    ["roleta-verbos","Roleta dos Verbos","Língua Portuguesa","3","5","","🦊"],
+    ["sistema-solar","Sistema Solar · Missão Saturnino","Ciências","3","5","","🪐"],
+    ["soletrando","Soletrando","Língua Portuguesa","1","3","","🦉"],
+    ["sorteio","Sorteio e Desafios","Interdisciplinar","1","9","","🎲"],
+    ["stop-educativo","Stop! Adedonha Educativo","Língua Portuguesa","2","9","","🛑"],
+    ["tabuada","Tabuada Simplificada","Matemática","2","5","","✖️"],
+    ["trilha-do-conhecimento","Trilha do Conhecimento","Interdisciplinar","1","5","","🧭"],
+    ["velha-matematica","Jogo da Velha Matemático","Matemática","1","5","","⭕"]
+  ];
+  const urlJogoOk = (u) => /^https:\/\/[^\s"'<>]+$/i.test(u || "");
+  const ehDoPortal = (u) => String(u || "").startsWith(JOGOS_BASE);
+  function capaJogo(j, extra){
+    const tags = (j.destaque ? '<span class="jg-tag">★ Destaque</span>' : '')+(extra || "");
+    if(j.capa && urlJogoOk(j.capa)) return '<div class="jg-capa tem" style="background-image:url(\''+escapeAttr(j.capa.replace(/'/g,"%27"))+'\')">'+tags+'</div>';
+    return '<div class="jg-capa">'+escapeHtml(j.icone || "\u{1F3AE}")+tags+'</div>';
+  }
+
+  // ---------- professor: catalogo ----------
+  const jgs = { itens:[], serie:"", comp:"", busca:"", aberto:null };
+  async function renderJogos(){
+    jgs.serie = ""; jgs.comp = ""; jgs.busca = "";
+    document.querySelectorAll("#nav a").forEach(a => a.classList.remove("active"));
+    $("secTitulo").textContent = "Jogos Educacionais";
+    $("conteudo").innerHTML =
+      '<div class="acv-filtros">'+
+        '<input type="search" id="jgBusca" class="usr-busca" placeholder="Buscar por nome, tema ou habilidade (ex: EF01LP06)" aria-label="Buscar jogos">'+
+        '<select id="jgSerie" aria-label="Ano ou faixa etária">'+opcoesFaixa("", "Todas as séries e idades")+'</select>'+
+        '<select id="jgComp" aria-label="Componente"><option value="">Todos os componentes</option>'+DISCIPLINAS.map(d => '<option>'+d+'</option>').join("")+'</select>'+
+      '</div><div class="vd-atalhos" id="jgAtalhos"></div><div id="jgLista"><div class="empty">Carregando os jogos...</div></div>';
+    if(!cacheTurmas.length && (usuarioAtual.turmas_ids || []).length && ehProfessor()){ try{ await carregarCacheTurmas(); }catch(e){ console.warn("turmas:", e.code); } }
+    if(!$("jgAtalhos")) return;
+    const meus = [...new Set((cacheTurmas || []).filter(t => (usuarioAtual.turmas_ids || []).includes(t.id)).map(t => String(t.ano_serie || "")).filter(c => idxFaixa(c) >= 0))]
+      .sort((a,b) => idxFaixa(a) - idxFaixa(b));
+    if(meus.length) $("jgAtalhos").innerHTML = 'Minhas turmas: '+meus.map(c => '<button class="usr-tab" data-action="jg-serie" data-serie="'+c+'">'+escapeHtml(FAIXAS[idxFaixa(c)].curto)+'</button>').join("")+
+      '<button class="usr-tab" data-action="jg-serie" data-serie="">Todas</button>';
+    try{
+      const snap = await getDocs(query(collection(db,"jogos"), where("publicado","==",true)));
+      jgs.itens = []; snap.forEach(d => jgs.itens.push({ id:d.id, ...d.data() }));
+      jgs.itens.sort((a,b) => (!!b.destaque - !!a.destaque) || (a.titulo||"").localeCompare(b.titulo||""));
+      desenharJogos();
+    }catch(e){ console.warn(e); $("jgLista").innerHTML = '<div class="empty">Não foi possível carregar os jogos ('+escapeHtml(e.code||"erro")+').</div>'; }
+  }
+  function desenharJogos(){
+    if(!$("jgLista")) return;
+    document.querySelectorAll('#jgAtalhos [data-serie]').forEach(b => b.classList.toggle("on", b.dataset.serie === jgs.serie));
+    const t = semAcento(jgs.busca.trim());
+    const lista = jgs.itens.filter(j => j.para_professores !== false && (!jgs.serie || (j.series || []).includes(jgs.serie))
+      && (!jgs.comp || j.componente === jgs.comp)
+      && (!t || semAcento([j.titulo, j.tema, j.descricao, (j.bncc||[]).join(" ")].join(" ")).includes(t)));
+    if(!lista.length){
+      $("jgLista").innerHTML = '<div class="empty"><div class="ei">\u{1F3AE}</div>'+(jgs.itens.length ? "Nenhum jogo com esses filtros." : "Os jogos estão sendo organizados. Volte em breve.")+'</div>';
+      return;
+    }
+    $("jgLista").innerHTML = '<p class="acv-cont">'+lista.length+' jogo(s)</p><div class="vd-grade">'+lista.map(j =>
+      '<button type="button" class="vd-card" data-action="jg-abrir" data-id="'+escapeAttr(j.id)+'">'+capaJogo(j)+
+        '<div class="vd-corpo"><h4>'+escapeHtml(j.titulo || "")+'</h4>'+(j.descricao ? '<p style="font-size:12.5px;color:var(--muted);line-height:1.4">'+escapeHtml(j.descricao)+'</p>' : '')+selosVideo(j, false)+'</div></button>').join("")+'</div>';
+  }
+  // o jogo abre em tela inteira dentro do Portal (com barra para sair, tela cheia ou nova aba)
+  function abrirJogo(id){
+    const j = jgs.itens.find(x => x.id === id) || jgAdm.itens.find(x => x.id === id); if(!j || !urlJogoOk(j.url)) return;
+    if(j.abrir_em_aba){ window.open(j.url, "_blank", "noopener"); if(usuarioAtual.perfil !== "admin") registrarJogo(j.id); return; }
+    let p = $("jgPalco");
+    if(!p){
+      p = document.createElement("div"); p.id = "jgPalco"; p.className = "jg-palco";
+      p.setAttribute("role","dialog"); p.setAttribute("aria-modal","true"); p.setAttribute("aria-label","Jogo");
+      p.innerHTML = '<div class="jg-barra"><b id="jgTit"></b>'+
+        '<button type="button" class="pri" data-action="jg-tela">Tela cheia</button>'+
+        '<button type="button" class="so-largo" data-action="jg-aba">Abrir em nova aba</button>'+
+        '<button type="button" data-action="jg-fechar">Fechar ✕</button></div><div id="jgFrame" style="flex:1;display:flex"></div>';
+      document.body.appendChild(p);
+    }
+    jgs.aberto = j;
+    const fr = document.createElement("iframe");
+    fr.src = j.url; fr.title = j.titulo || "Jogo";
+    fr.allow = "fullscreen; autoplay; accelerometer; gyroscope; clipboard-write";
+    fr.allowFullscreen = true;
+    $("jgFrame").innerHTML = ""; $("jgFrame").appendChild(fr);
+    $("jgTit").textContent = j.titulo || "";
+    p.classList.add("show"); document.documentElement.style.overflow = "hidden";
+    if(usuarioAtual.perfil !== "admin") registrarJogo(j.id);
+  }
+  function fecharJogo(){
+    const p = $("jgPalco"); if(!p) return;
+    if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    $("jgFrame").innerHTML = ""; p.classList.remove("show"); document.documentElement.style.overflow = ""; jgs.aberto = null;
+  }
+  function telaCheiaJogo(){
+    const p = $("jgPalco"); if(!p) return;
+    const f = p.requestFullscreen || p.webkitRequestFullscreen;
+    if(f) f.call(p); else toast("Use o botão de tela cheia do próprio jogo.");
+  }
+  function abrirJogoEmAba(){ if(jgs.aberto){ window.open(jgs.aberto.url, "_blank", "noopener"); fecharJogo(); } }
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && !document.fullscreenElement && $("jgPalco") && $("jgPalco").classList.contains("show")) fecharJogo(); });
+  function registrarJogo(id){
+    const u = usuarioAtual; if(!u || !auth.currentUser) return;
+    setDoc(doc(db,"acessos_dia",hojeISO()+"_"+u.uid), { dia:hojeISO(), uid:u.uid, jogos:arrayUnion(id), ultimo:serverTimestamp() }, { merge:true })
+      .catch(e => console.warn("registro de jogo:", e.code));
+  }
+
+  // ---------- admin: catalogo de jogos ----------
+  const jgAdm = { itens:[], editando:null, filtro:"todos", busca:"" };
+  async function renderJogosAdmin(){
+    $("conteudo").innerHTML =
+      '<div class="imp-card"><h3 id="jgFormTit">Cadastrar jogo</h3><p class="d">Informe o link do jogo (os nossos ficam em jogos.portaldoeducador.com.br). Indique a série ou idade, o componente e, se quiser, a BNCC. Salve como rascunho e publique quando revisar.</p>'+
+        '<div id="jgForm"></div></div>'+
+      '<div class="imp-card"><h3>Jogos cadastrados</h3><p class="vd-prog" id="jgProg"></p>'+
+        '<div id="jgImport"></div>'+
+        '<div class="usr-tabs" id="jgAdmTabs" style="margin-bottom:10px"></div>'+
+        '<div class="acv-filtros"><input type="search" id="jgAdmBusca" class="usr-busca" placeholder="Buscar por nome, tema ou BNCC"></div>'+
+        '<div id="jgAdmLista"><div class="empty">Carregando...</div></div></div>';
+    formJogo(null);
+    await listarJogosAdmin();
+  }
+  function formJogo(j){
+    jgAdm.editando = j ? j.id : null;
+    if($("jgFormTit")) $("jgFormTit").textContent = j ? "Editar jogo" : "Cadastrar jogo";
+    const x = j || {};
+    $("jgForm").innerHTML =
+      '<div class="vd-form"><div><div id="jgPrevia">'+capaJogo(x)+'</div>'+
+        (x.url ? '<p class="acv-status"><a href="'+escapeAttr(x.url)+'" target="_blank" rel="noopener">Abrir o jogo</a> para conferir antes de classificar</p>' : '')+'</div>'+
+      '<div>'+
+        '<div class="field"><label for="jgUrl">Link do jogo</label><input type="text" id="jgUrl" placeholder="https://jogos.portaldoeducador.com.br/nome-do-jogo/" value="'+escapeAttr(x.url||"")+'"></div>'+
+        '<div class="field"><label for="jgTitulo">Nome do jogo</label><input type="text" id="jgTitulo" maxlength="100" value="'+escapeAttr(x.titulo||"")+'"></div>'+
+        '<div class="field"><label for="jgDesc">Descrição curta <small>(aparece no card)</small></label><input type="text" id="jgDesc" maxlength="140" placeholder="Ex: quiz por equipes com placar na lousa" value="'+escapeAttr(x.descricao||"")+'"></div>'+
+        '<div class="row2"><div class="field"><label for="jgDe">Serve a partir de</label><select id="jgDe">'+opcoesFaixa(x.faixa_de||"", "Escolha...")+'</select></div>'+
+          '<div class="field"><label for="jgAte">Até</label><select id="jgAte">'+opcoesFaixa(x.faixa_ate||"", "Mesma série")+'</select></div></div>'+
+        '<p class="acv-status" id="jgFxPrevia" style="margin:-8px 0 14px"></p>'+
+        '<div class="row2"><div class="field"><label for="jgComp2">Componente</label><select id="jgComp2"><option value="">Escolha...</option>'+DISCIPLINAS.map(d => '<option'+(x.componente===d?" selected":"")+'>'+d+'</option>').join("")+'</select></div>'+
+          '<div class="field"><label for="jgTema">Tema</label><input type="text" id="jgTema" maxlength="80" placeholder="Ex: alfabetização" value="'+escapeAttr(x.tema||"")+'"></div></div>'+
+        '<div class="row2"><div class="field"><label for="jgCapa">Capa <small>(URL da imagem, opcional)</small></label><input type="text" id="jgCapa" placeholder="https://..." value="'+escapeAttr(x.capa||"")+'"></div>'+
+          '<div class="field" style="max-width:130px"><label for="jgIcone">Ícone</label><input type="text" id="jgIcone" maxlength="4" value="'+escapeAttr(x.icone||"\u{1F3AE}")+'"></div></div>'+
+        '<div class="field"><label for="jgBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="jgBncc" placeholder="EF01LP06, EF01LP07" value="'+escapeAttr((x.bncc||[]).join(", "))+'"></div>'+
+        '<div class="field"><label>Quem pode ver</label><div class="vd-checks">'+
+          '<label class="vd-check"><input type="checkbox" id="jgParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
+          '<label class="vd-check"><input type="checkbox" id="jgParaAluno"'+(x.para_alunos !== false ? " checked" : "")+'> Alunos</label></div></div>'+
+        '<div class="field"><label>Opções</label><div class="vd-checks">'+
+          '<label class="vd-check"><input type="checkbox" id="jgDestaque"'+(x.destaque ? " checked" : "")+'> Destaque (aparece primeiro)</label>'+
+          '<label class="vd-check"><input type="checkbox" id="jgAba"'+(x.abrir_em_aba ? " checked" : "")+'> Abrir em nova aba</label></div></div>'+
+        '<label class="vd-check" style="margin-bottom:16px"><input type="checkbox" id="jgPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label>'+
+        '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="jgadm-salvar" id="jgSalvar">'+(j ? "Salvar alterações" : "Salvar jogo")+'</button>'+
+          '<button type="button" class="btn btn-ghost" data-action="jgadm-limpar">'+(j ? "Cancelar edição" : "Limpar")+'</button></div>'+
+      '</div></div>';
+    previaFaixaJogo();
+  }
+  function previaFaixaJogo(){
+    const el = $("jgFxPrevia"); if(!el) return;
+    const de = $("jgDe").value, ate = $("jgAte").value || de;
+    if(!de){ el.textContent = ""; return; }
+    if(idxFaixa(ate) < idxFaixa(de)){ el.innerHTML = '<span style="color:var(--danger)">O "até" vem antes do "a partir de".</span>'; return; }
+    el.innerHTML = 'O professor verá: <b>'+escapeHtml(rotuloFaixa(de, ate))+'</b>';
+  }
+  function atualizarPreviaJogo(){
+    const p = $("jgPrevia"); if(!p) return;
+    p.innerHTML = capaJogo({ capa:$("jgCapa").value.trim(), icone:$("jgIcone").value.trim(), destaque:$("jgDestaque").checked });
+  }
+  async function salvarJogo(){
+    const url = $("jgUrl").value.trim();
+    if(!urlJogoOk(url)){ toast("Informe o link do jogo começando com https://", true); return; }
+    if(jgAdm.itens.find(j => j.url === url && j.id !== jgAdm.editando)){ toast("Este jogo já está cadastrado.", true); return; }
+    const titulo = $("jgTitulo").value.trim();
+    const de = $("jgDe").value, ate = $("jgAte").value || de;
+    if(!titulo){ toast("Informe o nome do jogo.", true); return; }
+    if(!de){ toast("Indique a série ou faixa de idade.", true); return; }
+    const i = idxFaixa(de), k = idxFaixa(ate);
+    if(k < i){ toast('O "até" vem antes do "a partir de".', true); return; }
+    const capa = $("jgCapa").value.trim();
+    if(capa && !urlJogoOk(capa)){ toast("A capa precisa ser um link https://", true); return; }
+    const bncc = $("jgBncc").value.split(/[,;\s]+/).map(c => c.trim().toUpperCase()).filter(Boolean);
+    const ruins = bncc.filter(c => !/^E[FIM]\d{2}[A-Z]{2}\d{2,3}[A-Z]?$/.test(c));
+    if(ruins.length){ toast("Código BNCC fora do padrão: "+ruins.join(", "), true); return; }
+    const paraProf = $("jgParaProf").checked, paraAluno = $("jgParaAluno").checked;
+    if(!paraProf && !paraAluno){ toast("Marque se o jogo é para professores, alunos ou ambos.", true); return; }
+    const faixa = FAIXAS.slice(i, k+1);
+    const dados = { url, titulo, descricao:$("jgDesc").value.trim(), faixa_de:de, faixa_ate:ate, series:faixa.map(f => f.c), etapas:[...new Set(faixa.map(f => f.etapa))],
+      componente:$("jgComp2").value, tema:$("jgTema").value.trim(), capa, icone:$("jgIcone").value.trim() || "\u{1F3AE}", bncc,
+      origem: ehDoPortal(url) ? "portal" : "externo", para_professores:paraProf, para_alunos:paraAluno,
+      destaque:$("jgDestaque").checked, abrir_em_aba:$("jgAba").checked, publicado:$("jgPub").checked,
+      atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    const btn = $("jgSalvar"); btn.disabled = true;
+    try{
+      if(jgAdm.editando) await updateDoc(doc(db,"jogos",jgAdm.editando), dados);
+      else await addDoc(collection(db,"jogos"), { ...dados, criado_em:serverTimestamp(), criado_por:usuarioAtual.uid });
+      toast(jgAdm.editando ? "Jogo atualizado." : "Jogo salvo"+(dados.publicado ? " e publicado." : " como rascunho."));
+      formJogo(null); await listarJogosAdmin();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+(e.code||"erro")+").", true); btn.disabled = false; }
+  }
+  async function listarJogosAdmin(){
+    try{
+      const snap = await getDocs(collection(db,"jogos"));
+      jgAdm.itens = []; snap.forEach(d => jgAdm.itens.push({ id:d.id, ...d.data() }));
+      jgAdm.itens.sort((a,b) => (a.titulo||"").localeCompare(b.titulo||""));
+      desenharJogosAdmin();
+    }catch(e){ console.warn(e); $("jgAdmLista").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code||"erro")+'). As regras do banco precisam estar publicadas.</div>'; }
+  }
+  function desenharJogosAdmin(){
+    if(!$("jgAdmLista")) return;
+    const tot = jgAdm.itens.length, pub = jgAdm.itens.filter(j => j.publicado).length;
+    $("jgProg").textContent = tot ? tot+" jogo(s) · "+pub+" publicado(s) · "+(tot-pub)+" rascunho(s)" : "";
+    const faltam = JOGOS_REPO.filter(r => !jgAdm.itens.some(j => j.url === JOGOS_BASE+r[0]+"/")).length;
+    $("jgImport").innerHTML = faltam ? '<div class="usr-aviso" style="margin:0 0 12px">'+faltam+' jogo(s) do nosso site de jogos ainda não estão no catálogo. '+
+      '<button class="btn-mini btn-gerenciar" data-action="jgadm-importar">Trazer como rascunho</button><br><small>Eles entram com nome, série e componente sugeridos, sem publicar. Você revisa um a um e publica.</small></div>' : "";
+    $("jgAdmTabs").innerHTML = [["todos","Todos"],["pub","Publicados"],["rasc","Rascunhos"],["dest","Destaques"],["ext","Externos"]].map(([k,n]) =>
+      '<button class="usr-tab'+(jgAdm.filtro===k?" on":"")+'" data-action="jgadm-filtro" data-filtro="'+k+'">'+n+'</button>').join("");
+    const t = semAcento(jgAdm.busca), f = jgAdm.filtro;
+    const l = jgAdm.itens.filter(j => (f === "todos" || (f === "pub" && j.publicado) || (f === "rasc" && !j.publicado) || (f === "dest" && j.destaque) || (f === "ext" && j.origem === "externo"))
+      && (!t || semAcento([j.titulo, j.tema, j.url, (j.bncc||[]).join(" ")].join(" ")).includes(t)));
+    $("jgAdmLista").innerHTML = !l.length ? '<div class="empty">'+(tot ? "Nenhum jogo neste filtro." : "Nenhum jogo cadastrado ainda.")+'</div>' :
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Jogo</th><th>Faixa</th><th>Componente</th><th>Situação</th><th></th></tr></thead><tbody>'+
+      l.map(j => '<tr><td><div class="vd-tab-nome"><span class="vd-tab-capa" style="display:grid;place-items:center;font-size:24px;'+(j.capa ? "background-image:url('"+escapeAttr(j.capa.replace(/'/g,"%27"))+"')" : "background:#e9f1f8")+'">'+(j.capa ? "" : escapeHtml(j.icone||"\u{1F3AE}"))+'</span><div class="usr-nome"><b>'+(j.destaque ? "★ " : "")+escapeHtml(j.titulo||"")+'</b><small>'+escapeHtml([j.origem === "externo" ? "Externo" : "Portal", (j.bncc||[]).slice(0,3).join(", ")].filter(Boolean).join(" · "))+'</small></div></div></td>'+
+        '<td class="usr-vinc">'+escapeHtml(rotuloFaixa(j.faixa_de, j.faixa_ate) || "-")+'</td>'+
+        '<td class="usr-vinc">'+escapeHtml(j.componente || "-")+'</td>'+
+        '<td><span class="pill '+(j.publicado ? "ativo" : "pendente")+'">'+(j.publicado ? "Publicado" : "Rascunho")+'</span></td>'+
+        '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="jg-abrir" data-id="'+escapeAttr(j.id)+'">Jogar</button>'+
+        '<button class="btn-mini btn-gerenciar" data-action="jgadm-editar" data-id="'+escapeAttr(j.id)+'">Editar</button>'+
+        '<button class="btn-mini btn-gerenciar" data-action="jgadm-pub" data-id="'+escapeAttr(j.id)+'">'+(j.publicado ? "Ocultar" : "Publicar")+'</button>'+
+        '<button class="btn-mini btn-recusar" data-action="jgadm-del" data-id="'+escapeAttr(j.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
+  }
+  async function importarJogosRepo(btn){
+    const novos = JOGOS_REPO.filter(r => !jgAdm.itens.some(j => j.url === JOGOS_BASE+r[0]+"/"));
+    if(!novos.length) return;
+    btn.disabled = true; btn.textContent = "Trazendo...";
+    try{
+      const lote = writeBatch(db);
+      novos.forEach(([pasta, titulo, comp, de, ate, bncc, ico]) => {
+        const i = idxFaixa(de), k = Math.max(i, idxFaixa(ate)), faixa = FAIXAS.slice(i, k+1);
+        lote.set(doc(collection(db,"jogos")), { url:JOGOS_BASE+pasta+"/", titulo, descricao:"", faixa_de:de, faixa_ate:FAIXAS[k].c,
+          series:faixa.map(f => f.c), etapas:[...new Set(faixa.map(f => f.etapa))], componente:comp, tema:"", capa:"", icone:ico,
+          bncc: bncc ? bncc.split(/,\s*/) : [], origem:"portal", para_professores:true, para_alunos:true, destaque:false, abrir_em_aba:false,
+          publicado:false, sugerido:true, criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      });
+      await lote.commit();
+      toast(novos.length+" jogo(s) trazidos como rascunho.");
+      await listarJogosAdmin();
+    }catch(e){ console.warn(e); toast("Erro ao trazer ("+(e.code||"erro")+").", true); btn.disabled = false; btn.textContent = "Trazer como rascunho"; }
+  }
+  async function alternarJogoPublicado(id){
+    const j = jgAdm.itens.find(x => x.id === id); if(!j) return;
+    try{ await updateDoc(doc(db,"jogos",id), { publicado:!j.publicado, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      j.publicado = !j.publicado; desenharJogosAdmin(); toast(j.publicado ? "Publicado." : "Ocultado dos professores."); }
+    catch(e){ console.warn(e); toast("Erro ("+(e.code||"erro")+").", true); }
+  }
+  async function excluirJogo(id, btn){
+    const j = jgAdm.itens.find(x => x.id === id); if(!j) return;
+    if(!btn.dataset.confirma){ btn.dataset.confirma = "1"; btn.textContent = "Confirmar"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "Excluir"; } }, 4000); return; }
+    try{ await deleteDoc(doc(db,"jogos",id)); jgAdm.itens = jgAdm.itens.filter(x => x.id !== id);
+      if(jgAdm.editando === id) formJogo(null); desenharJogosAdmin(); toast("Jogo tirado do catálogo (o jogo continua no site)."); }
+    catch(e){ console.warn(e); toast("Erro ao excluir ("+(e.code||"erro")+").", true); }
+  }
+  document.addEventListener("input", (ev) => {
+    const id = ev.target.id;
+    if(id === "jgBusca"){ jgs.busca = ev.target.value; desenharJogos(); }
+    else if(id === "jgAdmBusca"){ jgAdm.busca = ev.target.value; desenharJogosAdmin(); }
+    else if(id === "jgCapa" || id === "jgIcone"){ atualizarPreviaJogo(); }
+  });
+  document.addEventListener("change", (ev) => {
+    const id = ev.target.id;
+    if(id === "jgSerie"){ jgs.serie = ev.target.value; desenharJogos(); }
+    else if(id === "jgComp"){ jgs.comp = ev.target.value; desenharJogos(); }
+    else if(id === "jgDe" || id === "jgAte"){ previaFaixaJogo(); }
+    else if(id === "jgDestaque"){ atualizarPreviaJogo(); }
+  });
+
   // ---------- admin: liberar modulos ----------
   const modAdm = { rasc:{} };
   async function renderModulosAdmin(){
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="modCount">Carregando...</span>'+
       '<button class="btn btn-primary btn-add" data-action="mod-salvar" id="modSalvar">Salvar alterações</button></div>'+
-      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para o catálogo de <b>Vídeos</b> cadastrados no Portal, use <b>#videos</b>.</div>'+
-      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://..., #acervo ou #videos)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
+      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos de <b>Vídeos</b> e <b>Jogos</b> cadastrados no Portal, use <b>#videos</b> e <b>#jogos</b>.</div>'+
+      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://..., #acervo, #videos ou #jogos)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
     await carregarCfgModulos();
     modAdm.rasc = {};
     MODULOS.forEach(md => { modAdm.rasc[md.id] = cfgDe(md.id); });
@@ -3472,7 +3796,7 @@
     const n = MODULOS.filter(m => modAdm.rasc[m.id].status === "liberado").length;
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
-  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
+  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;
     modAdm.rasc[t.dataset.mod][t.dataset.campo] = t.value.trim();
