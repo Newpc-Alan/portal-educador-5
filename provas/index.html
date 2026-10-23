@@ -616,6 +616,8 @@ html, body { background: #f4f7fa !important; }
 #pde-painel .pde-portal-txt b { font-size: .92rem; color: #0c2338; }
 #pde-painel .pde-portal-txt span { font-size: .78rem; color: var(--muted); }
 #pde-painel #pde-portal-escola { max-width: 280px; }
+#pde-painel #pde-portal-muni { max-width: 240px; }
+#pde-painel .pde-portal select[hidden] { display: none !important; }
 @media (max-width: 640px) { #pde-painel .pde-topbar { padding: 10px 14px; } #pde-painel #pde-portal-escola { max-width: none; width: 100%; } }
 /* ═══ Você sabia, IA, guia ═══ */
 #pde-painel .pde-sabia { background: #fff; border: 1px solid #dce4ed; border-left: 4px solid #8DC63F; border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
@@ -723,6 +725,7 @@ html, body { background: #f4f7fa !important; }
     <div class="pde-portal" id="pde-portal" hidden>
       <div class="pde-portal-ico" id="pde-portal-logo">🏫</div>
       <div class="pde-portal-txt"><b id="pde-portal-t">Dados do seu cadastro</b><span id="pde-portal-s"></span></div>
+      <select id="pde-portal-muni" class="pde-select" aria-label="Município (prévia do administrador)" hidden></select>
       <select id="pde-portal-escola" class="pde-select" aria-label="Escola da prova" hidden></select>
       <button class="pde-btn pde-btn-primary pde-btn-sm" data-action="usarDadosPortal">Usar no cabeçalho</button>
     </div>
@@ -3404,6 +3407,16 @@ const $ = (i) => document.getElementById(i);
 const P = { prof:"", escolas:[], muni:null, turmas:[] };
 const ler = async (c, i) => { try{ const d = await getDoc(doc(db, c, i)); return d.exists() ? { id:d.id, ...d.data() } : null; }catch(e){ console.warn(c, e.code); return null; } };
 
+async function escolasDoMuni(){
+  P.escolas = [];
+  if(!P.muni) return;
+  try{
+    const se = await getDocs(query(collection(db, "escolas"), where("municipio_id", "==", P.muni.id)));
+    se.forEach(d => { const e = d.data(); P.escolas.push({ id:d.id, nome:e.nome || "", logo_url:e.logo_url || "" }); });
+    P.escolas.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }catch(e){ console.warn("escolas:", e.code); }
+  const s = $("pde-portal-escola"); if(s) s.value = "";
+}
 function escolaAtual(){ const s = $("pde-portal-escola"); return P.escolas.find(e => e.id === (s && s.value)) || P.escolas[0] || null; }
 function logoAtual(){ const e = escolaAtual(); return (e && e.logo_url) || (P.muni && P.muni.logo_url) || ""; }
 function disparar(i){ const el = $(i); if(el) el.dispatchEvent(new Event("input", { bubbles:true })); }
@@ -3434,9 +3447,9 @@ function desenharFaixa(){
   if(P.escolas.length > 1){
     const atual = s.value;
     s.innerHTML = P.escolas.map(x => '<option value="'+x.id+'">'+x.nome.replace(/</g,"&lt;")+'</option>').join("");
-    if(atual) s.value = atual;
+    if(atual && P.escolas.some(x => x.id === atual)) s.value = atual;
     s.hidden = false;
-  }
+  } else s.hidden = true;
   $("pde-portal").hidden = false;
   $("pde-turmas-portal").innerHTML = P.turmas.map(t => '<option value="'+t.replace(/"/g,"&quot;")+'"></option>').join("");
 }
@@ -3445,11 +3458,29 @@ onAuthStateChanged(auth, async (user) => {
   const u = await ler("usuarios", user.uid);
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
   P.prof = u.nome || user.displayName || "";
+  P.admin = u.perfil === "admin";
   $("pde-quem").textContent = "Conectado como " + (P.prof || user.email) + " · salva neste aparelho";
   if(u.municipio_id) P.muni = await ler("municipios", u.municipio_id);
+  else if(P.admin){
+    // administrador nao tem municipio: escolhe um para ver a prova como o professor daquela rede
+    try{
+      const sm = await getDocs(collection(db, "municipios")); const lista = []; sm.forEach(d => lista.push({ id:d.id, ...d.data() }));
+      lista.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+      if(lista.length){
+        const sel = $("pde-portal-muni");
+        sel.innerHTML = lista.map(m => '<option value="'+m.id+'">'+String(m.nome || "").replace(/</g,"&lt;")+(m.uf ? "/"+m.uf : "")+'</option>').join("");
+        sel.hidden = false; P.munis = lista; P.muni = lista[0];
+        sel.addEventListener("change", async () => {
+          P.muni = P.munis.find(m => m.id === sel.value) || null;
+          await escolasDoMuni(); desenharFaixa(); aplicar(true);
+        });
+      }
+    }catch(e){ console.warn("municipios:", e.code); }
+  }
   const ids = (u.escolas_ids && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean).slice(0, 10);
   P.escolas = (await Promise.all(ids.map(i => ler("escolas", i)))).filter(Boolean).map(e => ({ id:e.id, nome:e.nome || "", logo_url:e.logo_url || "" }));
   if(!P.escolas.length && u.escola_texto) P.escolas = [{ id:"", nome:u.escola_texto, logo_url:"" }];
+  if(P.admin && !ids.length && P.muni) await escolasDoMuni();
   if(ids.length){
     try{
       const sn = await getDocs(query(collection(db, "turmas"), where("escola_id", "in", ids)));
