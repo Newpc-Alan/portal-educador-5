@@ -45,7 +45,7 @@ async function salvar(bucket, caminho, resposta, tipo) {
 async function capa(bucket, id, base) {
   for (const u of [`https://drive.google.com/thumbnail?id=${id}&sz=w600`, `https://lh3.googleusercontent.com/d/${id}=w600`]) {
     try {
-      const r = await fetch(u, { headers: { Referer: REFERER } });
+      const r = await fetch(u, { headers: { Referer: REFERER }, signal: AbortSignal.timeout(30000) });
       const tipo = r.headers.get('content-type') || '';
       if (r.ok && tipo.startsWith('image/')) return (await salvar(bucket, base + '-capa.' + (tipo.includes('png') ? 'png' : 'jpg'), r, tipo)).url;
     } catch (e) {}
