@@ -50,6 +50,17 @@ service firebase.storage {
       allow delete: if admin();
     }
 
+    // Dicas do Professor: anexos do envio (ate 10 MB cada). Publicados ficam visiveis para a rede.
+    match /dicas/{uid}/{envio}/{arquivo} {
+      allow create: if request.auth != null && request.auth.uid == uid && eu().status == "ativo"
+        && arquivoValido() && request.resource.size < 10 * 1024 * 1024;
+      allow read: if (request.auth != null && request.auth.uid == uid) || admin()
+        || (request.auth != null && eu().status == "ativo"
+            && firestore.get(/databases/(default)/documents/dicas_envios/$(envio)).data.status == "publicado");
+      allow update: if false;
+      allow delete: if admin();
+    }
+
     // Formação Continuada: capas e materiais dos cursos (somente criação; versões antigas preservadas)
     function fEditor() { return request.auth != null && (request.auth.token.get('papel', '') in ['admin', 'editor'] || admin()); }
     function fImagem() { return request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp', 'image/gif']; }

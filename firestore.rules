@@ -206,6 +206,23 @@ service cloud.firestore {
       allow read: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
       allow update, delete: if admin();
     }
+    // ================= DICAS DO PROFESSOR =================
+    // Professor ativo envia; a equipe (admin) revisa e publica. Publicadas aparecem para toda a rede.
+    match /dicas_envios/{id} {
+      allow read: if admin() || (logado() && resource.data.autor_uid == request.auth.uid) || (ativo() && resource.data.status == "publicado");
+      allow create: if ativo() && request.resource.data.autor_uid == request.auth.uid && request.resource.data.status == "novo"
+        && request.resource.data.keys().hasOnly(["tipo", "titulo", "texto", "disciplina", "etapa", "links", "arquivos", "credito",
+             "autor_uid", "autor_nome", "autor_email", "escola_nome", "municipio_nome", "status", "criado_em"])
+        && request.resource.data.tipo in ["dica", "app", "material", "atividade"]
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() >= 4 && request.resource.data.titulo.size() <= 120
+        && request.resource.data.texto is string && request.resource.data.texto.size() <= 4000
+        && request.resource.data.links is list && request.resource.data.links.size() <= 5
+        && request.resource.data.arquivos is list && request.resource.data.arquivos.size() <= 5
+        && request.resource.data.autor_email == request.auth.token.get("email", "")
+        && request.resource.data.criado_em == request.time;
+      allow update: if admin();
+      allow delete: if admin() || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status == "novo");
+    }
     // ================= FORMAÇÃO CONTINUADA (ex-Academia do Educador) =================
     // Papéis editoriais vêm de custom claims (papel: admin | editor); o administrador do Portal também edita.
     function fPapel() { return logado() ? request.auth.token.get('papel', '') : ''; }
