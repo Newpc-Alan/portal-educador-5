@@ -186,6 +186,9 @@ if "--teste" in ARGS:
     sys.exit(0)
 
 if "--gravar" in ARGS:
+    import signal
+    def _tempo(*_): raise TimeoutError("passou de 4 minutos (revisar)")
+    signal.signal(signal.SIGALRM, _tempo)
     import firebase_admin
     from firebase_admin import credentials, firestore, storage
     app = firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": "portal-educador-5", "storageBucket": "portal-educador-5.firebasestorage.app"})
@@ -201,7 +204,9 @@ if "--gravar" in ARGS:
         if ref.get().exists or norm(l["titulo"]) in existentes: pulados += 1; continue
         try:
             pdf = f"/tmp/gut/gut-{l['id']}.pdf"
-            n, capa = montar_pdf(l, pdf, f"/tmp/gut/{l['id']}")
+            signal.alarm(240)  # livro que demora mais de 4 minutos fica para revisão
+            try: n, capa = montar_pdf(l, pdf, f"/tmp/gut/{l['id']}")
+            finally: signal.alarm(0)
             urls = {}
             for local, remoto, tipo in [(pdf, f"biblioteca/livros/gut-{l['id']}.pdf", "application/pdf"), (capa, f"biblioteca/livros/gut-{l['id']}-capa.png", "image/png")]:
                 tok = str(uuid.uuid4()); b = bucket.blob(remoto)
