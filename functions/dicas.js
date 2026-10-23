@@ -105,3 +105,107 @@ ${whats ? `<a href="https://wa.me/55${esc(whats)}" style="display:inline-block;b
     }
   }
 );
+
+/* ======================= mais avisos ======================= */
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { Timestamp } from 'firebase-admin/firestore';
+
+const caixa = (titulo, sub, corpo) => `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0c2338;max-width:640px">
+<div style="background:#0c2338;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><b style="font-size:16px">${titulo}</b><br><span style="color:#8DC63F;font-size:12px">${sub || 'Portal do Educador 5.0'}</span></div>
+<div style="border:1px solid #dce4ed;border-top:0;padding:18px 20px;border-radius:0 0 12px 12px">${corpo}</div></div>`;
+const botao = (href, txt, cor) => `<a href="${href}" style="display:inline-block;background:${cor || '#2671AB'};color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;margin:4px 8px 0 0">${esc(txt)}</a>`;
+const enviar = (assunto, html, extra) => transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: destinos(), subject: String(assunto).replace(/[\r\n]/g, ' ').slice(0, 150), html, ...(extra || {}) });
+
+// Certificado emitido na Formação Continuada
+export const emailCertificadoEmitido = onDocumentCreated(
+  { document: 'certificados/{codigo}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async (event) => {
+    const c = event.data && event.data.data(); if (!c) return;
+    const codigo = event.params.codigo;
+    try {
+      await enviar(`Certificado emitido: ${c.nome || ''} · ${c.cursoTitulo || ''}`, caixa('Certificado emitido na Formação Continuada', '', `
+<p style="font-size:18px;margin:0 0 12px"><b>${esc(c.nome)}</b></p>
+<table style="font-size:13px;border-collapse:collapse;margin:0 0 16px">
+${linha('Curso', c.cursoTitulo)}${linha('Carga horária', c.cargaHoraria ? c.cargaHoraria + ' h' : '')}${linha('Nota final', c.notaFinal != null ? String(c.notaFinal) : '')}
+${linha('Escola', c.escola)}${linha('Município', c.municipio)}${linha('E-mail', c.email)}${linha('Código', codigo)}
+</table>${botao('https://app.portaldoeducador.com.br/validar/?c=' + encodeURIComponent(codigo), 'Ver validação do certificado', '#5A9420')}`),
+        { replyTo: c.email || undefined });
+    } catch (e) { console.error('emailCertificadoEmitido', codigo, e); }
+  }
+);
+
+// Relatório enviado para aprovação na Central de Relatórios.
+// LGPD: o e-mail não leva nome de aluno nem o conteúdo do relatório, só o registro do envio.
+export const emailRelatorioEnviado = onDocumentWritten(
+  { document: 'relatorios/{id}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async (event) => {
+    const antes = event.data.before.exists ? event.data.before.data() : null;
+    const r = event.data.after.exists ? event.data.after.data() : null;
+    if (!r || r.status !== 'enviado' || (antes && antes.status === 'enviado')) return;
+    try {
+      let muni = '';
+      if (r.municipio_id) { const m = (await getFirestore().doc(`municipios/${r.municipio_id}`).get()).data() || {}; muni = [m.nome, m.uf].filter(Boolean).join('/'); }
+      await enviar(`Relatório enviado: ${r.titulo || r.modelo || ''} · ${r.autor_nome || ''}`, caixa('Relatório enviado para aprovação', 'Central de Relatórios · Portal do Educador 5.0', `
+<p style="font-size:17px;margin:0 0 12px"><b>${esc(r.titulo || r.modelo)}</b></p>
+<table style="font-size:13px;border-collapse:collapse;margin:0 0 12px">
+${linha('Enviado por', r.autor_nome)}${linha('Escola', r.escola_nome)}${linha('Município', muni)}${linha('Turma', r.turma_nome)}${linha('Período', r.periodo)}${linha('Modelo', r.modelo)}
+</table>
+<p style="font-size:12px;color:#6b7c90;margin:0 0 12px">Por proteção de dados (LGPD), nomes de alunos e o conteúdo do relatório ficam só no Portal.</p>
+${botao('https://app.portaldoeducador.com.br/relatorios/', 'Abrir a Central de Relatórios')}`));
+    } catch (e) { console.error('emailRelatorioEnviado', event.params.id, e); }
+  }
+);
+
+// Pré-cadastros importados pela rede: junta tudo em UM e-mail a cada 15 minutos
+// (uma importação de 300 professores vira 1 e-mail com a lista, não 300 e-mails, e não estoura o limite diário do Gmail).
+export const emailPreCadastros = onSchedule(
+  { schedule: 'every 15 minutes', timeZone: 'America/Campo_Grande', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async () => {
+    const db = getFirestore(), marca = db.doc('config/avisos_email');
+    const ult = ((await marca.get()).data() || {}).pre_cadastros_ate;
+    const agora = Timestamp.now();
+    if (!ult) { await marca.set({ pre_cadastros_ate: agora }, { merge: true }); return; } // primeira execução: só marca o ponto de partida
+    const s = await db.collection('pre_cadastros').where('importado_em', '>', ult).where('importado_em', '<=', agora).get();
+    if (s.empty) { await marca.set({ pre_cadastros_ate: agora }, { merge: true }); return; }
+    const lista = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.municipio_nome || '').localeCompare(String(b.municipio_nome || '')) || String(a.nome || '').localeCompare(String(b.nome || '')));
+    const munis = [...new Set(lista.map(p => p.municipio_nome).filter(Boolean))];
+    const linhas = lista.map(p => `<tr><td style="padding:4px 10px 4px 0;border-bottom:1px solid #eef2f6">${esc(p.nome)}</td><td style="padding:4px 10px 4px 0;border-bottom:1px solid #eef2f6">${esc(p.email || p.id)}</td><td style="padding:4px 0;border-bottom:1px solid #eef2f6">${esc((p.escolas_nomes || []).join(', ') || p.municipio_nome || '')}</td></tr>`).join('');
+    const csv = '﻿Nome;E-mail;Município;Escolas\r\n' + lista.map(p => [p.nome, p.email || p.id, p.municipio_nome, (p.escolas_nomes || []).join(', ')].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
+    await enviar(`${lista.length} pré-cadastro(s) importado(s)${munis.length ? ' · ' + munis.join(', ') : ''}`, caixa(`${lista.length} professor(es) importado(s) pela rede`, '', `
+<p style="margin:0 0 12px">Eles recebem acesso quando entrarem pela primeira vez com o e-mail cadastrado.</p>
+<table style="font-size:12px;border-collapse:collapse;margin:0 0 12px;width:100%"><tr style="color:#6b7c90;text-align:left"><th style="padding:4px 10px 4px 0">Nome</th><th style="padding:4px 10px 4px 0">E-mail</th><th>Escola</th></tr>${linhas}</table>
+<p style="font-size:12px;color:#6b7c90">A lista completa também vai em planilha anexa.</p>`),
+      { attachments: [{ filename: 'pre-cadastros-importados.csv', content: csv, contentType: 'text/csv; charset=utf-8' }] });
+    await marca.set({ pre_cadastros_ate: agora }, { merge: true });
+  }
+);
+
+// Resumo diário às 7h (horário de MS) com o movimento das últimas 24 horas
+export const emailResumoDiario = onSchedule(
+  { schedule: '0 7 * * *', timeZone: 'America/Campo_Grande', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async () => {
+    const db = getFirestore();
+    const desde = Timestamp.fromMillis(Date.now() - 24 * 3600 * 1000);
+    const ontem = new Date(Date.now() - 24 * 3600 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Campo_Grande' });
+    const conta = async (q) => { try { return (await q.count().get()).data().count; } catch (e) { console.warn('conta', e.message); return '–'; } };
+    const [novos, pre, dicas, relCriados, relPend, certs, acessos, totalUs] = await Promise.all([
+      conta(db.collection('usuarios').where('criado_em', '>=', desde)),
+      conta(db.collection('pre_cadastros').where('importado_em', '>=', desde)),
+      conta(db.collection('dicas_envios').where('criado_em', '>=', desde)),
+      conta(db.collection('relatorios').where('criado_em', '>=', desde)),
+      conta(db.collection('relatorios').where('status', '==', 'enviado')),
+      conta(db.collection('certificados').where('emitidoEm', '>=', desde)),
+      conta(db.collection('acessos_dia').where('dia', '==', ontem)),
+      conta(db.collection('usuarios'))
+    ]);
+    const dicasPend = await conta(db.collection('dicas_envios').where('status', '==', 'novo'));
+    const kpi = (n, t) => `<td style="padding:10px;border:1px solid #dce4ed;border-radius:10px;text-align:center;width:25%"><b style="font-size:22px;color:#0c2338">${n}</b><br><span style="font-size:11px;color:#6b7c90">${t}</span></td>`;
+    const dataBRhoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' });
+    await enviar(`Resumo do Portal · ${dataBRhoje}`, caixa(`Resumo das últimas 24 horas`, `Portal do Educador 5.0 · ${dataBRhoje}`, `
+<table style="border-collapse:separate;border-spacing:6px;width:100%;margin:0 0 10px"><tr>${kpi(acessos, 'professores que usaram ontem')}${kpi(novos, 'novos cadastros')}${kpi(pre, 'pré-cadastros importados')}${kpi(totalUs, 'usuários no total')}</tr>
+<tr>${kpi(relCriados, 'relatórios criados')}${kpi(relPend, 'relatórios aguardando aprovação')}${kpi(dicas, 'dicas enviadas')}${kpi(certs, 'certificados emitidos')}</tr></table>
+${typeof dicasPend === 'number' && dicasPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasPend}</b> dica(s) esperando revisão.</p>` : ''}
+${botao('https://app.portaldoeducador.com.br/entrar/', 'Abrir o Portal')}${typeof dicasPend === 'number' && dicasPend > 0 ? botao('https://app.portaldoeducador.com.br/dicas/#recebidas', 'Revisar dicas', '#5A9420') : ''}`));
+  }
+);
