@@ -382,6 +382,11 @@
   .jg-barra button.pri{ background:#8DC63F;border-color:#8DC63F;color:#071621 }
   .jg-palco iframe{ flex:1;width:100%;border:0;background:#fff }
   @media (max-width: 600px){ .jg-barra .so-largo{ display:none } }
+  /* ===== Dicas de IA (IA Studio) ===== */
+  .ia-capa{ aspect-ratio:440/215;background:#0f2c4a center/cover no-repeat;display:grid;place-items:center;font-size:44px;position:relative }
+  .ia-capa .jg-tag{ position:absolute;left:8px;top:8px;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#8DC63F;color:#071621 }
+  .ia-grupo{ margin:22px 0 10px;font-size:16px;color:var(--ink) }
+  .ia-grupo:first-of-type{ margin-top:4px }
 
   /* ===== Turmas e cadastro do professor ===== */
   .mt-outras{ display:flex;flex-direction:column;gap:6px }
@@ -820,7 +825,8 @@
       { id:"importar",   ico:"\u{1F4E5}", label:"Importar cadastros" },
       { id:"acervoadm",  ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"videosadm",  ico:"\u{1F3AC}", label:"Vídeos" },
-      { id:"jogosadm",   ico:"\u{1F3AE}", label:"Jogos" } ] },
+      { id:"jogosadm",   ico:"\u{1F3AE}", label:"Jogos" },
+      { id:"iaadm",      ico:"\u{1F916}", label:"Dicas de IA" } ] },
     secretaria: { itens: [
       { id:"escolas",   ico:"\u{1F3EB}", label:"Escolas" },
       { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" } ] },
@@ -1016,6 +1022,7 @@
       if(item.id === "acervoadm"){ renderAcervoAdmin(); return; }
       if(item.id === "videosadm"){ renderVideosAdmin(); return; }
       if(item.id === "jogosadm"){ renderJogosAdmin(); return; }
+      if(item.id === "iaadm"){ renderIaAdmin(); return; }
     }
     if(item.id === "inicio"){ renderInicio(); return; }
     if(item.id === "meucadastro"){ renderMeuCadastro(); return; }
@@ -2992,6 +2999,15 @@
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
+    else if(acao === "ini-ia"){ registrarModulo(el.dataset.mod); renderIa(); }
+    else if(acao === "ia-abrir"){ abrirIa(el.dataset.id); }
+    else if(acao === "ia-grupo"){ ias.grupo = el.dataset.grupo; desenharIa(); }
+    else if(acao === "iaadm-importar"){ importarIaStudio(el); }
+    else if(acao === "iaadm-salvar"){ salvarIa(); }
+    else if(acao === "iaadm-limpar"){ formIa(null); }
+    else if(acao === "iaadm-editar"){ formIa(iaAdm.itens.find(v => v.id === el.dataset.id)); window.scrollTo({ top:0, behavior:"smooth" }); }
+    else if(acao === "iaadm-pub"){ alternarIaPublicado(el.dataset.id); }
+    else if(acao === "iaadm-del"){ excluirIa(el.dataset.id, el); }
     else if(acao === "ini-jogos"){ registrarModulo(el.dataset.mod); renderJogos(); }
     else if(acao === "jg-abrir"){ abrirJogo(el.dataset.id); }
     else if(acao === "jg-fechar"){ fecharJogo(); }
@@ -3129,8 +3145,9 @@
           ? (md.logo ? '<img class="ini-selo-marca" src="'+escapeAttr(md.logo)+'" alt="">' : "")
           : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
         '<div class="ini-txt"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(md.desc)+'</small></div>'+selo;
-      if(abre && (c.url === "#acervo" || c.url === "#videos" || c.url === "#jogos"))
-        return '<button type="button" class="ini-card'+(estado==="ok"?"":" trava")+'" data-action="'+(c.url === "#videos" ? "ini-videos" : c.url === "#jogos" ? "ini-jogos" : "ini-acervo")+'" data-mod="'+md.id+'">'+corpo+'</button>';
+      const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia" };
+      if(abre && ROTA_INTERNA[c.url])
+        return '<button type="button" class="ini-card'+(estado==="ok"?"":" trava")+'" data-action="'+ROTA_INTERNA[c.url]+'" data-mod="'+md.id+'">'+corpo+'</button>';
       return abre
         ? '<a class="ini-card'+(estado==="ok"?"":" trava")+'" href="'+escapeAttr(c.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="'+md.id+'">'+corpo+'</a>'
         : '<div class="ini-card trava" aria-disabled="true" title="'+(estado==="plano" ? "Não incluído no plano do seu município" : "Em breve")+'">'+corpo+'</div>';
@@ -3579,6 +3596,11 @@
   function abrirJogo(id){
     const j = jgs.itens.find(x => x.id === id) || jgAdm.itens.find(x => x.id === id); if(!j || !urlJogoOk(j.url)) return;
     if(j.abrir_em_aba){ window.open(j.url, "_blank", "noopener"); if(usuarioAtual.perfil !== "admin") registrarJogo(j.id); return; }
+    abrirPalco(j.titulo, j.url);
+    if(usuarioAtual.perfil !== "admin") registrarJogo(j.id);
+  }
+  // palco de tela inteira (jogos e aplicacoes do IA Studio)
+  function abrirPalco(titulo, url){
     let p = $("jgPalco");
     if(!p){
       p = document.createElement("div"); p.id = "jgPalco"; p.className = "jg-palco";
@@ -3589,15 +3611,14 @@
         '<button type="button" data-action="jg-fechar">Fechar ✕</button></div><div id="jgFrame" style="flex:1;display:flex"></div>';
       document.body.appendChild(p);
     }
-    jgs.aberto = j;
+    jgs.aberto = { titulo, url };
     const fr = document.createElement("iframe");
-    fr.src = j.url; fr.title = j.titulo || "Jogo";
+    fr.src = url; fr.title = titulo || "Aplicação";
     fr.allow = "fullscreen; autoplay; accelerometer; gyroscope; clipboard-write";
     fr.allowFullscreen = true;
     $("jgFrame").innerHTML = ""; $("jgFrame").appendChild(fr);
-    $("jgTit").textContent = j.titulo || "";
+    $("jgTit").textContent = titulo || "";
     p.classList.add("show"); document.documentElement.style.overflow = "hidden";
-    if(usuarioAtual.perfil !== "admin") registrarJogo(j.id);
   }
   function fecharJogo(){
     const p = $("jgPalco"); if(!p) return;
@@ -3803,14 +3824,164 @@
     else if(id === "jgCapaArq"){ const f = ev.target.files && ev.target.files[0]; ev.target.value = ""; enviarCapaJogo(f); }
   });
 
+  // ================= DICAS DE IA (IA Studio) =================
+  // As 46 aplicacoes ficam em studio.portaldoeducador.com.br/<pasta>/ (repositorio ia-studio); o Portal guarda o catalogo.
+  const IA_BASE = "https://studio.portaldoeducador.com.br/";
+  const IA_GRUPOS = ["Planejar e organizar","Atividades e avaliações","Alfabetizar e trabalhar textos","Ensinar por disciplina","Jogos, descobertas e tecnologia","Temas do cotidiano","Imagens e comunicação"];
+  const IA_STUDIO = [["planejamento-de-aulas", "Planejamento de Aulas", "Prepare planos de aula, sequências didáticas, relatórios e adaptações.", "Planejar e organizar"], ["kit-de-materiais-da-aula", "Kit de Materiais da Aula", "Informe o tema uma vez e prepare os comandos dos materiais selecionados.", "Planejar e organizar"], ["slides-para-aulas-e-reunioes", "Slides para Aulas e Reuniões", "Organize o conteúdo e prepare sua apresentação para gerar no Gamma.", "Planejar e organizar"], ["projetos-escolares", "Projetos Escolares", "Planeje projetos, feiras e eventos com etapas, cronograma e participação das turmas.", "Planejar e organizar"], ["banco-de-atividades", "Banco de Atividades", "Escolha uma proposta do acervo, ajuste à turma e prepare a geração do material.", "Atividades e avaliações"], ["atividades-para-imprimir", "Atividades para Imprimir", "Monte fichas com suas questões ou peça novas questões sobre o tema.", "Atividades e avaliações"], ["provas-e-avaliacoes", "Provas e Avaliações", "Prepare avaliações por conteúdo, turma e tipo de questão.", "Atividades e avaliações"], ["avaliacao-diagnostica", "Avaliação Diagnóstica", "Prepare sondagens de leitura, escrita e matemática e mapas da turma.", "Atividades e avaliações"], ["preparacao-para-o-saeb", "Preparação para o SAEB", "Prepare simulados, aulas, revisões e intervenções por habilidade.", "Atividades e avaliações"], ["revisao-para-o-enem", "Revisão para o ENEM", "Prepare resumos, questões comentadas, redação e trilhas de estudo.", "Atividades e avaliações"], ["alfabetizacao-leitura-e-escrita", "Alfabetização: Leitura e Escrita", "Prepare jogos, leituras, escrita e kits conforme o nível da turma.", "Alfabetizar e trabalhar textos"], ["fichas-de-alfabetizacao", "Fichas de Alfabetização", "Escolha entre 28 tipos de ficha para trabalhar letras, sílabas e palavras.", "Alfabetizar e trabalhar textos"], ["interpretacao-de-texto", "Interpretação de Texto", "Prepare textos com perguntas de compreensão para a turma.", "Alfabetizar e trabalhar textos"], ["historias-poemas-e-teatro", "Histórias, Poemas e Teatro", "Prepare contos, cordéis, lendas, poemas e peças para trabalhar em aula.", "Alfabetizar e trabalhar textos"], ["quadrinhos-para-completar", "Quadrinhos para Completar", "Prepare histórias ilustradas com balões vazios para os alunos escreverem.", "Alfabetizar e trabalhar textos"], ["atividades-de-portugues", "Atividades de Português", "Prepare materiais de leitura, gramática, ortografia e produção de texto.", "Ensinar por disciplina"], ["atividades-de-matematica", "Atividades de Matemática", "Prepare problemas, tabuadas, frações, geometria e jogos matemáticos.", "Ensinar por disciplina"], ["atividades-de-ciencias", "Atividades de Ciências", "Prepare experimentos, atividades do corpo humano, ciclos e astronomia.", "Ensinar por disciplina"], ["atividades-de-historia", "Atividades de História", "Prepare linhas do tempo, biografias e investigações do passado.", "Ensinar por disciplina"], ["atividades-de-geografia", "Atividades de Geografia", "Prepare mapas, fichas de lugares e estudos de paisagens e territórios.", "Ensinar por disciplina"], ["atividades-de-biologia", "Atividades de Biologia", "Prepare esquemas, atividades e práticas sobre células, genética e ecologia.", "Ensinar por disciplina"], ["atividades-de-fisica", "Atividades de Física", "Prepare explicações, problemas resolvidos, gráficos e experimentos.", "Ensinar por disciplina"], ["atividades-de-quimica", "Atividades de Química", "Prepare exercícios, equações, modelos de moléculas e experimentos.", "Ensinar por disciplina"], ["atividades-de-ingles", "Atividades de Inglês", "Prepare vocabulário, diálogos, cartões e jogos para a turma.", "Ensinar por disciplina"], ["atividades-de-espanhol", "Atividades de Espanhol", "Prepare vocabulário, leitura, diálogos e atividades de espanhol.", "Ensinar por disciplina"], ["atividades-de-arte", "Atividades de Arte", "Prepare oficinas de artes visuais, teatro, música e dança.", "Ensinar por disciplina"], ["atividades-de-educacao-fisica", "Atividades de Educação Física", "Prepare brincadeiras, circuitos, esportes e jogos cooperativos.", "Ensinar por disciplina"], ["musica-e-brincadeiras-musicais", "Música e Brincadeiras Musicais", "Prepare atividades de sons, cantigas, ritmo e instrumentos.", "Jogos, descobertas e tecnologia"], ["jogos-e-brincadeiras-para-a-aula", "Jogos e Brincadeiras para a Aula", "Prepare jogos, regras e peças para ensinar o conteúdo escolhido.", "Jogos, descobertas e tecnologia"], ["animais-fichas-e-paineis", "Animais: Fichas e Painéis", "Prepare fichas, painéis e comparações sobre animais e seus habitats.", "Jogos, descobertas e tecnologia"], ["fosseis-e-vida-pre-historica", "Fósseis e Vida Pré-histórica", "Prepare materiais sobre dinossauros, fósseis, evolução e vida antiga.", "Jogos, descobertas e tecnologia"], ["como-as-coisas-funcionam", "Como as Coisas Funcionam", "Prepare painéis que explicam objetos, invenções e fenômenos.", "Jogos, descobertas e tecnologia"], ["feira-de-ciencias", "Feira de Ciências", "Prepare o projeto da equipe, banner, registros e apresentação.", "Jogos, descobertas e tecnologia"], ["computacao-e-programacao", "Computação e Programação", "Prepare atividades de lógica, programação e cidadania digital, com ou sem computador.", "Jogos, descobertas e tecnologia"], ["robotica-na-escola", "Robótica na Escola", "Prepare desafios de construção e robótica com sucata ou kits.", "Jogos, descobertas e tecnologia"], ["informatica-e-celular-para-iniciantes", "Informática e Celular para Iniciantes", "Prepare aulas passo a passo de computador, celular, internet e aplicativos.", "Jogos, descobertas e tecnologia"], ["educacao-ambiental", "Educação Ambiental", "Prepare atividades sobre reciclagem, água, horta e natureza da região.", "Temas do cotidiano"], ["educacao-para-o-transito", "Educação para o Trânsito", "Prepare atividades sobre travessia, placas, bicicleta e transporte escolar.", "Temas do cotidiano"], ["educacao-financeira", "Educação Financeira", "Prepare atividades sobre dinheiro, troco, consumo e orçamento.", "Temas do cotidiano"], ["saude-e-bem-estar", "Saúde e Bem-estar", "Prepare atividades sobre alimentação, higiene, emoções e hábitos saudáveis.", "Temas do cotidiano"], ["imagens-didaticas", "Imagens Didáticas", "Transforme um tema em uma explicação ilustrada para usar na aula.", "Imagens e comunicação"], ["mapas-mentais-e-resumos", "Mapas Mentais e Resumos", "Prepare mapas mentais, resumos, infográficos e cartões de estudo.", "Imagens e comunicação"], ["imagens-por-tema", "Imagens por Tema", "Escolha um tema do catálogo para preparar imagens ou coleções didáticas.", "Imagens e comunicação"], ["cartazes-para-a-escola", "Cartazes para a Escola", "Prepare cartazes de higiene, cuidado e convivência para os espaços escolares.", "Imagens e comunicação"], ["cartazes-e-comunicados", "Cartazes e Comunicados", "Prepare avisos, convites e comunicados com os dados da escola.", "Imagens e comunicação"], ["rotina-e-combinados", "Rotina e Combinados", "Prepare quadros de rotina em casa e acordos de convivência da turma.", "Imagens e comunicação"]];   // [pasta, nome, descricao, grupo]
+  function capaIa(a){
+    const c = a.capa && urlJogoOk(a.capa) ? a.capa : "";
+    const tag = a.destaque ? '<span class="jg-tag">★ Destaque</span>' : '';
+    return c ? '<div class="ia-capa" style="background-image:url(\''+escapeAttr(c.replace(/'/g,"%27"))+'\')">'+tag+'</div>' : '<div class="ia-capa">\u{1F916}'+tag+'</div>';
+  }
+  // ---------- professor ----------
+  const ias = { itens:[], grupo:"", busca:"" };
+  async function renderIa(){
+    ias.grupo = ""; ias.busca = "";
+    document.querySelectorAll("#nav a").forEach(a => a.classList.remove("active"));
+    $("secTitulo").textContent = "Dicas de IA · IA Studio";
+    $("conteudo").innerHTML =
+      '<div class="acv-filtros"><input type="search" id="iaBusca" class="usr-busca" placeholder="O que você quer preparar? (ex: prova, cartaz, alfabetização)" aria-label="Buscar aplicações"></div>'+
+      '<div class="acv-mods" id="iaGrupos"></div><div id="iaLista"><div class="empty">Carregando...</div></div>'+
+      '<p class="acv-status" style="margin-top:18px">Você ensina. A IA prepara. Revise conteúdo, adequação à turma e acessibilidade antes de aplicar.</p>';
+    try{
+      const snap = await getDocs(query(collection(db,"ia_apps"), where("publicado","==",true)));
+      ias.itens = []; snap.forEach(d => ias.itens.push({ id:d.id, ...d.data() }));
+      ias.itens.sort((a,b) => (a.ordem||999) - (b.ordem||999));
+      desenharIa();
+    }catch(e){ console.warn(e); $("iaLista").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code||"erro")+').</div>'; }
+  }
+  function desenharIa(){
+    if(!$("iaLista")) return;
+    const grupos = IA_GRUPOS.filter(g => ias.itens.some(a => a.grupo === g));
+    $("iaGrupos").innerHTML = ['', ...grupos].map(g => '<button class="usr-tab'+(ias.grupo===g?" on":"")+'" data-action="ia-grupo" data-grupo="'+escapeAttr(g)+'">'+(g ? escapeHtml(g) : "Todas")+'</button>').join("");
+    const t = semAcento(ias.busca.trim());
+    const l = ias.itens.filter(a => (!ias.grupo || a.grupo === ias.grupo) && (!t || semAcento([a.titulo, a.descricao, a.grupo].join(" ")).includes(t)));
+    if(!l.length){ $("iaLista").innerHTML = '<div class="empty"><div class="ei">\u{1F916}</div>'+(ias.itens.length ? "Nenhuma aplicação com essa busca." : "As aplicações estão sendo organizadas. Volte em breve.")+'</div>'; return; }
+    const card = (a) => '<button type="button" class="vd-card" data-action="ia-abrir" data-id="'+escapeAttr(a.id)+'">'+capaIa(a)+
+      '<div class="vd-corpo"><h4>'+escapeHtml(a.titulo||"")+'</h4><p style="font-size:12.5px;color:var(--muted);line-height:1.4">'+escapeHtml(a.descricao||"")+'</p></div></button>';
+    const dest = l.filter(a => a.destaque);
+    let html = '';
+    if(dest.length && !ias.grupo && !t) html += '<h3 class="ia-grupo">Em destaque</h3><div class="vd-grade">'+dest.map(card).join("")+'</div>';
+    (ias.grupo ? [ias.grupo] : [...grupos, ""]).forEach(g => {
+      const doGrupo = l.filter(a => (a.grupo || "") === g); if(!doGrupo.length) return;
+      html += '<h3 class="ia-grupo">'+escapeHtml(g || "Outras")+'</h3><div class="vd-grade">'+doGrupo.map(card).join("")+'</div>';
+    });
+    $("iaLista").innerHTML = html;
+  }
+  function abrirIa(id){
+    const a = ias.itens.find(x => x.id === id) || iaAdm.itens.find(x => x.id === id); if(!a || !urlJogoOk(a.url)) return;
+    abrirPalco(a.titulo, a.url);
+    const u = usuarioAtual; if(!u || u.perfil === "admin" || !auth.currentUser) return;
+    setDoc(doc(db,"acessos_dia",hojeISO()+"_"+u.uid), { dia:hojeISO(), uid:u.uid, ia:arrayUnion(id), ultimo:serverTimestamp() }, { merge:true })
+      .catch(e => console.warn("registro de IA:", e.code));
+  }
+  // ---------- admin ----------
+  const iaAdm = { itens:[], editando:null, busca:"" };
+  async function renderIaAdmin(){
+    $("conteudo").innerHTML =
+      '<div class="imp-card"><h3 id="iaFormTit">Cadastrar aplicação</h3><p class="d">As aplicações do IA Studio ficam em studio.portaldoeducador.com.br. Aqui você organiza o que o professor vê: nome, descrição, grupo, capa e destaque.</p><div id="iaForm"></div></div>'+
+      '<div class="imp-card"><h3>Aplicações cadastradas</h3><p class="vd-prog" id="iaProg"></p><div id="iaImport"></div>'+
+        '<div class="acv-filtros"><input type="search" id="iaAdmBusca" class="usr-busca" placeholder="Buscar"></div><div id="iaAdmLista"><div class="empty">Carregando...</div></div></div>';
+    formIa(null);
+    await listarIaAdmin();
+  }
+  function formIa(a){
+    iaAdm.editando = a ? a.id : null;
+    if($("iaFormTit")) $("iaFormTit").textContent = a ? "Editar aplicação" : "Cadastrar aplicação";
+    const x = a || {};
+    $("iaForm").innerHTML = '<div class="vd-form"><div id="iaPrevia">'+capaIa(x)+'</div><div>'+
+      '<div class="field"><label for="iaUrl">Link da aplicação</label><input type="text" id="iaUrl" placeholder="https://studio.portaldoeducador.com.br/..." value="'+escapeAttr(x.url||"")+'"></div>'+
+      '<div class="field"><label for="iaTitulo">Nome</label><input type="text" id="iaTitulo" maxlength="80" value="'+escapeAttr(x.titulo||"")+'"></div>'+
+      '<div class="field"><label for="iaDesc">Descrição curta</label><input type="text" id="iaDesc" maxlength="160" value="'+escapeAttr(x.descricao||"")+'"></div>'+
+      '<div class="row2"><div class="field"><label for="iaGrupo">Grupo</label><select id="iaGrupo">'+IA_GRUPOS.map(g => '<option'+(x.grupo===g?" selected":"")+'>'+escapeHtml(g)+'</option>').join("")+'</select></div>'+
+        '<div class="field" style="max-width:130px"><label for="iaOrdem">Ordem</label><input type="text" id="iaOrdem" inputmode="numeric" value="'+escapeAttr(String(x.ordem||""))+'"></div></div>'+
+      '<div class="field"><label for="iaCapa">Capa <small>(link da imagem)</small></label><input type="text" id="iaCapa" placeholder="https://..." value="'+escapeAttr(x.capa||"")+'"></div>'+
+      '<div class="field"><label>Opções</label><div class="vd-checks"><label class="vd-check"><input type="checkbox" id="iaDestaque"'+(x.destaque?" checked":"")+'> Destaque</label>'+
+        '<label class="vd-check"><input type="checkbox" id="iaPub"'+(x.publicado?" checked":"")+'> Publicar</label></div></div>'+
+      '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="iaadm-salvar" id="iaSalvar">'+(a ? "Salvar alterações" : "Salvar aplicação")+'</button>'+
+        '<button type="button" class="btn btn-ghost" data-action="iaadm-limpar">'+(a ? "Cancelar edição" : "Limpar")+'</button></div></div></div>';
+  }
+  async function salvarIa(){
+    const url = $("iaUrl").value.trim(), titulo = $("iaTitulo").value.trim(), capa = $("iaCapa").value.trim();
+    if(!urlJogoOk(url)){ toast("Informe o link começando com https://", true); return; }
+    if(!titulo){ toast("Informe o nome.", true); return; }
+    if(capa && !urlJogoOk(capa)){ toast("A capa precisa ser um link https://", true); return; }
+    if(iaAdm.itens.find(a => a.url === url && a.id !== iaAdm.editando)){ toast("Esta aplicação já está cadastrada.", true); return; }
+    const dados = { url, titulo, descricao:$("iaDesc").value.trim(), grupo:$("iaGrupo").value, ordem:parseInt($("iaOrdem").value,10) || 999, capa,
+      destaque:$("iaDestaque").checked, publicado:$("iaPub").checked, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    const btn = $("iaSalvar"); btn.disabled = true;
+    try{
+      if(iaAdm.editando) await updateDoc(doc(db,"ia_apps",iaAdm.editando), dados);
+      else await addDoc(collection(db,"ia_apps"), { ...dados, criado_em:serverTimestamp(), criado_por:usuarioAtual.uid });
+      toast("Aplicação salva."); formIa(null); await listarIaAdmin();
+    }catch(e){ console.warn(e); toast("Erro ao salvar ("+(e.code||"erro")+").", true); btn.disabled = false; }
+  }
+  async function listarIaAdmin(){
+    try{
+      const snap = await getDocs(collection(db,"ia_apps"));
+      iaAdm.itens = []; snap.forEach(d => iaAdm.itens.push({ id:d.id, ...d.data() }));
+      iaAdm.itens.sort((a,b) => (a.ordem||999) - (b.ordem||999));
+      desenharIaAdmin();
+    }catch(e){ console.warn(e); $("iaAdmLista").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code||"erro")+'). As regras do banco precisam estar publicadas.</div>'; }
+  }
+  function desenharIaAdmin(){
+    if(!$("iaAdmLista")) return;
+    const tot = iaAdm.itens.length, pub = iaAdm.itens.filter(a => a.publicado).length;
+    $("iaProg").textContent = tot ? tot+" aplicação(ões) · "+pub+" publicada(s)" : "";
+    const faltam = IA_STUDIO.filter(r => !iaAdm.itens.some(a => a.url === IA_BASE+r[0]+"/")).length;
+    $("iaImport").innerHTML = faltam ? '<div class="usr-aviso" style="margin:0 0 12px">'+faltam+' aplicação(ões) do IA Studio ainda não estão no catálogo. '+
+      '<button class="btn-mini btn-gerenciar" data-action="iaadm-importar">Trazer e publicar</button><br><small>Entram com nome, descrição, grupo e capa do IA Studio. Depois você pode ocultar ou editar qualquer uma.</small></div>' : "";
+    const t = semAcento(iaAdm.busca);
+    const l = iaAdm.itens.filter(a => !t || semAcento([a.titulo, a.grupo, a.descricao].join(" ")).includes(t));
+    $("iaAdmLista").innerHTML = !l.length ? '<div class="empty">'+(tot ? "Nada encontrado." : "Nenhuma aplicação cadastrada ainda.")+'</div>' :
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Aplicação</th><th>Grupo</th><th>Situação</th><th></th></tr></thead><tbody>'+
+      l.map(a => '<tr><td><div class="vd-tab-nome"><span class="vd-tab-capa" style="'+(a.capa ? "background-image:url('"+escapeAttr(a.capa.replace(/'/g,"%27"))+"')" : "background:#e9f1f8")+'"></span><div class="usr-nome"><b>'+(a.destaque ? "★ " : "")+escapeHtml(a.titulo||"")+'</b><small>'+escapeHtml(a.descricao||"")+'</small></div></div></td>'+
+        '<td class="usr-vinc">'+escapeHtml(a.grupo||"-")+'</td>'+
+        '<td><span class="pill '+(a.publicado ? "ativo" : "pendente")+'">'+(a.publicado ? "Publicada" : "Oculta")+'</span></td>'+
+        '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="ia-abrir" data-id="'+escapeAttr(a.id)+'">Abrir</button>'+
+        '<button class="btn-mini btn-gerenciar" data-action="iaadm-editar" data-id="'+escapeAttr(a.id)+'">Editar</button>'+
+        '<button class="btn-mini btn-gerenciar" data-action="iaadm-pub" data-id="'+escapeAttr(a.id)+'">'+(a.publicado ? "Ocultar" : "Publicar")+'</button>'+
+        '<button class="btn-mini btn-recusar" data-action="iaadm-del" data-id="'+escapeAttr(a.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
+  }
+  async function importarIaStudio(btn){
+    const novos = IA_STUDIO.map((r, i) => [...r, i+1]).filter(r => !iaAdm.itens.some(a => a.url === IA_BASE+r[0]+"/"));
+    if(!novos.length) return;
+    btn.disabled = true; btn.textContent = "Trazendo...";
+    try{
+      const lote = writeBatch(db);
+      novos.forEach(([pasta, titulo, descricao, grupo, ordem]) => lote.set(doc(collection(db,"ia_apps")), {
+        url:IA_BASE+pasta+"/", titulo, descricao, grupo, ordem, capa:IA_BASE+"capas/"+pasta+".webp", destaque:false, publicado:true,
+        criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }));
+      await lote.commit();
+      toast(novos.length+" aplicação(ões) trazidas e publicadas."); await listarIaAdmin();
+    }catch(e){ console.warn(e); toast("Erro ao trazer ("+(e.code||"erro")+").", true); btn.disabled = false; btn.textContent = "Trazer e publicar"; }
+  }
+  async function alternarIaPublicado(id){
+    const a = iaAdm.itens.find(x => x.id === id); if(!a) return;
+    try{ await updateDoc(doc(db,"ia_apps",id), { publicado:!a.publicado, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      a.publicado = !a.publicado; desenharIaAdmin(); toast(a.publicado ? "Publicada." : "Oculta dos professores."); }
+    catch(e){ console.warn(e); toast("Erro ("+(e.code||"erro")+").", true); }
+  }
+  async function excluirIa(id, btn){
+    if(!btn.dataset.confirma){ btn.dataset.confirma = "1"; btn.textContent = "Confirmar"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "Excluir"; } }, 4000); return; }
+    try{ await deleteDoc(doc(db,"ia_apps",id)); iaAdm.itens = iaAdm.itens.filter(x => x.id !== id); if(iaAdm.editando === id) formIa(null); desenharIaAdmin(); toast("Tirada do catálogo (continua no IA Studio)."); }
+    catch(e){ console.warn(e); toast("Erro ao excluir ("+(e.code||"erro")+").", true); }
+  }
+  document.addEventListener("input", (ev) => {
+    if(ev.target.id === "iaBusca"){ ias.busca = ev.target.value; desenharIa(); }
+    else if(ev.target.id === "iaAdmBusca"){ iaAdm.busca = ev.target.value; desenharIaAdmin(); }
+    else if(ev.target.id === "iaCapa"){ const p = $("iaPrevia"); if(p) p.innerHTML = capaIa({ capa:ev.target.value.trim() }); }
+  });
+
   // ---------- admin: liberar modulos ----------
   const modAdm = { rasc:{} };
   async function renderModulosAdmin(){
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="modCount">Carregando...</span>'+
       '<button class="btn btn-primary btn-add" data-action="mod-salvar" id="modSalvar">Salvar alterações</button></div>'+
-      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos de <b>Vídeos</b> e <b>Jogos</b> cadastrados no Portal, use <b>#videos</b> e <b>#jogos</b>.</div>'+
-      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://..., #acervo, #videos ou #jogos)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
+      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos do Portal use <b>#videos</b> (Vídeos), <b>#jogos</b> (Jogos) e <b>#ia</b> (Dicas de IA / IA Studio).</div>'+
+      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://... ou #acervo, #videos, #jogos, #ia)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
     await carregarCfgModulos();
     modAdm.rasc = {};
     MODULOS.forEach(md => { modAdm.rasc[md.id] = cfgDe(md.id); });
@@ -3828,7 +3999,7 @@
     const n = MODULOS.filter(m => modAdm.rasc[m.id].status === "liberado").length;
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
-  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
+  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || u === "#ia" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;
     modAdm.rasc[t.dataset.mod][t.dataset.campo] = t.value.trim();
