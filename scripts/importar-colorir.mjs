@@ -59,6 +59,24 @@ async function listar() {
   return todos;
 }
 
+// baixa a imagem: primeiro pela CDN de imagens do Google (sem cota da API), depois pela API com novas tentativas
+const espera = ms => new Promise(r => setTimeout(r, ms));
+async function baixar(id) {
+  const fontes = [`https://lh3.googleusercontent.com/d/${id}=s0`, `https://drive.google.com/thumbnail?id=${id}&sz=w2000`,
+    `https://www.googleapis.com/drive/v3/files/${id}?alt=media&key=${CHAVE}`];
+  for (let tentativa = 0; tentativa < 4; tentativa++) {
+    for (const u of fontes) {
+      try {
+        const r = await fetch(u, { headers: { Referer: REFERER } });
+        const tipo = r.headers.get('content-type') || '';
+        if (r.ok && tipo.startsWith('image/')) { const b = Buffer.from(await r.arrayBuffer()); if (b.length > 2000) return b; }
+      } catch (e) {}
+    }
+    await espera(3000 * (tentativa + 1));
+  }
+  throw new Error('não foi possível baixar');
+}
+
 async function subir(caminho, buf) {
   const token = randomUUID();
   await bucket.file(caminho).save(buf, { contentType: 'image/webp', resumable: false,
@@ -70,9 +88,7 @@ async function importar(f) {
   const ref = db.doc(`colorir/${f.id}`);
   if ((await ref.get()).exists) return 'existe';
   const info = classificar(f.name);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media&key=${CHAVE}`, { headers: { Referer: REFERER } });
-  if (!r.ok) throw new Error('download ' + r.status);
-  const original = Buffer.from(await r.arrayBuffer());
+  const original = await baixar(f.id);
   const img = sharp(original).flatten({ background: '#ffffff' }).rotate();
   const grande = await img.clone().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).webp({ quality: 90 }).toBuffer({ resolveWithObject: true });
   const mini = await img.clone().resize({ width: 360, height: 360, fit: 'inside' }).webp({ quality: 72 }).toBuffer();
