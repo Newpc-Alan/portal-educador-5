@@ -154,6 +154,7 @@ a{color:var(--azul)}
   .grade{grid-template-columns:1fr}
   .kv{grid-template-columns:1fr}
 }
+.aviso{background:#fff7e6;border:1px solid #f3d9a4;color:#7a5200;border-radius:12px;padding:10px 14px;font-size:.88rem}
 </style>
 </head>
 <body>
@@ -181,7 +182,7 @@ a{color:var(--azul)}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
@@ -193,16 +194,26 @@ const TIPOS = [
   { id:"material",  e:"📎", nome:"Material",           d:"Arquivo pronto: slides, ficha, plano, jogo impresso" },
   { id:"atividade", e:"✏️", nome:"Atividade",          d:"Proposta de atividade para os alunos com passo a passo" }
 ];
+// Dica do Aluno: mesmo app, outro modo (coleções, tipos e regras próprias; sem arquivo, máx. 2 links)
+const TIPOS_ALUNO = [
+  { id:"estudo",      e:"📚", nome:"Dica de estudo", d:"Um jeito de estudar ou lembrar a matéria que funciona" },
+  { id:"app",         e:"📱", nome:"Site ou app",    d:"Algo que te ajuda a aprender" },
+  { id:"curiosidade", e:"🔎", nome:"Curiosidade",    d:"Uma descoberta legal sobre ciência, história, o mundo" },
+  { id:"desafio",     e:"🧩", nome:"Desafio",        d:"Uma charada, enigma ou desafio para a galera" }
+];
+const MODO_ALUNO = { col:"dicas_alunos", pub:"dicas_alunos_pub", maxLinks:2, maxTexto:1500, maxTitulo:100 };
+const primeiroNome = n => String(n || "").trim().split(/\s+/)[0] || "Aluno(a)";
 const DISCIPLINAS = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Língua Inglesa","Ensino Religioso","Computação","Educação Infantil","Educação Especial","Interdisciplinar"];
 const ETAPAS = ["Educação Infantil","Anos iniciais (1º ao 5º)","Anos finais (6º ao 9º)","Ensino Médio","EJA","Todas as etapas"];
 const MAX_ARQ = 5, MAX_MB = 10, MAX_TOTAL_MB = 20, MAX_LINKS = 5;
 const ACEITOS = /^(application\/pdf|image\/.*|application\/vnd\.openxmlformats-officedocument\..*|application\/msword|application\/vnd\.ms-excel|application\/vnd\.ms-powerpoint)$/;
 
-const E = { user:null, u:null, admin:false, escola:"", muni:"", tela:"dicas", publicadas:null, meus:null, recebidas:null,
+const E = { user:null, u:null, admin:false, aluno:false, muniId:"", escola:"", muni:"", tela:"dicas", publicadas:null, meus:null, recebidas:null,
   filtroTipo:"todos", filtroDisc:"", busca:"", filtroSt:"novo", form:null, enviando:false };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-const tipoDe = id => TIPOS.find(t => t.id === id) || TIPOS[0];
+const tiposAtivos = () => E.aluno ? TIPOS_ALUNO : TIPOS;
+const tipoDe = id => tiposAtivos().find(t => t.id === id) || tiposAtivos()[0];
 const tam = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " KB";
 const quando = ts => { const ms = ts && ts.toMillis ? ts.toMillis() : (ts && ts.__ms) || 0; return ms ? new Date(ms).toLocaleDateString("pt-BR") : "agora"; };
 const ms = ts => ts && ts.toMillis ? ts.toMillis() : (ts && ts.__ms) || 0;
@@ -226,7 +237,7 @@ function ir(t){
 /* ---------- dicas publicadas ---------- */
 async function carregarPublicadas(forcar){
   if(E.publicadas && !forcar) return;
-  const s = await getDocs(query(collection(db, "dicas_envios"), where("status", "==", "publicado")));
+  const s = await getDocs(E.aluno ? collection(db, MODO_ALUNO.pub) : query(collection(db, "dicas_envios"), where("status", "==", "publicado")));
   E.publicadas = []; s.forEach(d => E.publicadas.push({ id:d.id, ...d.data() }));
   E.publicadas.sort((a, b) => ms(b.publicado_em || b.criado_em) - ms(a.publicado_em || a.criado_em));
 }
@@ -236,12 +247,15 @@ async function telaDicas(){
   try{ await carregarPublicadas(); }catch(e){ tela.innerHTML = '<div class="vazio">Não foi possível carregar as dicas agora.</div>'; return; }
   const n = E.publicadas.length;
   tela.innerHTML =
-    '<div class="destaque"><div class="destaque-ico">💡</div><div class="destaque-txt"><b>Ideias que funcionam, de professor para professor</b>' +
-    '<span>Dicas de aula, aplicativos, materiais e atividades enviados por educadores da rede e revisados pela equipe do Portal.</span></div>' +
+    (E.aluno
+      ? '<div class="destaque"><div class="destaque-ico">💬</div><div class="destaque-txt"><b>Dicas de aluno para aluno</b>' +
+        '<span>Jeitos de estudar, sites, curiosidades e desafios enviados pela galera e revisados pela equipe do Portal.</span></div>'
+      : '<div class="destaque"><div class="destaque-ico">💡</div><div class="destaque-txt"><b>Ideias que funcionam, de professor para professor</b>' +
+        '<span>Dicas de aula, aplicativos, materiais e atividades enviados por educadores da rede e revisados pela equipe do Portal.</span></div>') +
     '<button class="btn btn-ok" data-action="ir" data-arg="enviar">✉️ Compartilhar uma dica</button></div>' +
     '<div class="filtros"><input id="fBusca" type="search" placeholder="Buscar por título, assunto ou autor" value="' + esc(E.busca) + '">' +
     '<select id="fDisc"><option value="">Todas as disciplinas</option>' + DISCIPLINAS.map(d => '<option' + (d === E.filtroDisc ? " selected" : "") + '>' + esc(d) + '</option>').join("") + '</select></div>' +
-    '<div class="chips" style="margin-bottom:14px">' + [{ id:"todos", e:"", nome:"Todas" }].concat(TIPOS).map(t => '<button class="chip' + (E.filtroTipo === t.id ? " on" : "") + '" data-action="filtro-tipo" data-arg="' + t.id + '">' + (t.e ? t.e + " " : "") + esc(t.nome) + '</button>').join("") + '</div>' +
+    '<div class="chips" style="margin-bottom:14px">' + [{ id:"todos", e:"", nome:"Todas" }].concat(tiposAtivos()).map(t => '<button class="chip' + (E.filtroTipo === t.id ? " on" : "") + '" data-action="filtro-tipo" data-arg="' + t.id + '">' + (t.e ? t.e + " " : "") + esc(t.nome) + '</button>').join("") + '</div>' +
     '<div class="grade" id="grade"></div>';
   $("fBusca").addEventListener("input", e => { E.busca = e.target.value; desenharGrade(); });
   $("fDisc").addEventListener("change", e => { E.filtroDisc = e.target.value; desenharGrade(); });
@@ -259,7 +273,9 @@ function cartaoDica(d){
   const t = tipoDe(d.tipo);
   const links = (d.links || []).map(u => '<a class="anexo" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">🔗 <span>' + esc(u.replace(/^https?:\/\//, "")) + '</span></a>').join("");
   const arqs = (d.arquivos || []).map((a, i) => '<button class="anexo" data-action="baixar" data-arg="' + esc(d.id) + '" data-i="' + i + '">📄 <span>' + esc(a.nome) + '</span><small>' + tam(a.tamanho || 0) + '</small></button>').join("");
-  const credito = d.credito !== false
+  const credito = E.aluno
+    ? '<div class="credito">Dica de <b>' + esc(d.autor_primeiro || "um(a) aluno(a)") + '</b>' + (d.escola_nome ? " · " + esc(d.escola_nome) : "") + '</div>'
+    : d.credito !== false
     ? '<div class="credito">Enviada por <b>' + esc(d.autor_nome || "Professor(a)") + '</b>' + (d.escola_nome ? " · " + esc(d.escola_nome) : "") + (d.municipio_nome ? " · " + esc(d.municipio_nome) : "") + '</div>'
     : '<div class="credito">Enviada por um(a) professor(a) da rede</div>';
   const longa = (d.texto || "").length > 320;
@@ -276,9 +292,56 @@ async function baixar(id, i){
 }
 
 /* ---------- formulario ---------- */
-function novoForm(){ return { tipo:"dica", titulo:"", texto:"", disciplina:"", etapa:"", links:[""], arquivos:[], credito:true }; }
+function novoForm(){ return { tipo:E.aluno ? "estudo" : "dica", titulo:"", texto:"", disciplina:"", etapa:"", links:[""], arquivos:[], credito:true }; }
+function telaEnviarAluno(){
+  const f = E.form;
+  $("tela").innerHTML =
+    '<div class="card"><div class="h2">Compartilhe uma dica com a galera</div><p class="sub">A equipe do Portal lê, confere e publica em <b>Dicas da galera</b> só com o seu <b>primeiro nome</b> e a escola. Você acompanha em <b>Meus envios</b>.</p></div>' +
+    '<div class="aviso" style="margin-bottom:14px">🔒 Não escreva telefone, endereço, @ de rede social nem dados de outras pessoas.</div>' +
+    '<form class="card form" id="form" novalidate>' +
+    '<div class="campo"><label>Que tipo de dica?</label><div class="tipos">' +
+      TIPOS_ALUNO.map(t => '<button type="button" class="tipo-op' + (f.tipo === t.id ? " on" : "") + '" data-action="tipo" data-arg="' + t.id + '"><span class="e">' + t.e + '</span><b>' + esc(t.nome) + '</b><small>' + esc(t.d) + '</small></button>').join("") +
+    '</div></div>' +
+    '<div class="campos">' +
+      '<div class="campo l2"><label for="fTit">Título *</label><input id="fTit" maxlength="' + MODO_ALUNO.maxTitulo + '" placeholder="Ex.: Como eu decorei a tabuada do 7" value="' + esc(f.titulo) + '"></div>' +
+      '<div class="campo"><label for="fDis">Matéria</label><select id="fDis"><option value="">Selecione</option>' + DISCIPLINAS.filter(d => !/Educação (Infantil|Especial)/.test(d)).map(d => '<option' + (d === f.disciplina ? " selected" : "") + '>' + esc(d) + '</option>').join("") + '</select></div>' +
+      '<div class="campo l2"><label for="fTxt">Explique a dica *</label><textarea id="fTxt" maxlength="' + MODO_ALUNO.maxTexto + '" placeholder="Conte como funciona e por que ajuda.">' + esc(f.texto) + '</textarea><span class="ajuda"><span id="fCont">' + f.texto.length + '</span>/' + MODO_ALUNO.maxTexto + '</span></div>' +
+    '</div>' +
+    '<div class="campo"><label>Links (até ' + MODO_ALUNO.maxLinks + ': site, vídeo, app)</label><div class="links" id="fLinks">' +
+      f.links.map((l, i) => '<div class="link-l"><input type="url" data-link="' + i + '" placeholder="https://" value="' + esc(l) + '">' + (f.links.length > 1 ? '<button type="button" class="btn btn-gh btn-sm" data-action="link-rem" data-arg="' + i + '" aria-label="Remover link">×</button>' : "") + '</div>').join("") +
+    '</div>' + (f.links.length < MODO_ALUNO.maxLinks ? '<button type="button" class="btn btn-gh btn-sm" style="align-self:flex-start;margin-top:6px" data-action="link-add">+ Adicionar link</button>' : "") + '</div>' +
+    '<div class="form-acoes"><button type="submit" class="btn btn-ok" id="fEnviar">✉️ Enviar dica</button><span class="progresso" id="fProg"></span></div>' +
+    '</form>';
+  const ler = () => { f.titulo = $("fTit").value; f.texto = $("fTxt").value; f.disciplina = $("fDis").value; f.links = [...document.querySelectorAll("[data-link]")].map(x => x.value); };
+  $("form").addEventListener("input", () => { ler(); $("fCont").textContent = f.texto.length; });
+  $("form").addEventListener("change", ler);
+  $("form").addEventListener("submit", e => { e.preventDefault(); ler(); enviarAluno(); });
+}
+async function enviarAluno(){
+  if(E.enviando) return;
+  const f = E.form;
+  const titulo = f.titulo.trim(), texto = f.texto.trim();
+  const links = f.links.map(l => l.trim()).filter(Boolean).slice(0, MODO_ALUNO.maxLinks);
+  if(titulo.length < 4){ toast("Dê um título para a sua dica.", true); $("fTit").focus(); return; }
+  if(texto.length < 10){ toast("Explique um pouco mais a dica.", true); $("fTxt").focus(); return; }
+  const ruim = links.find(l => !linkOk(l)); if(ruim){ toast("Confira o link: " + ruim, true); return; }
+  E.enviando = true; $("fEnviar").disabled = true;
+  try{
+    await setDoc(doc(collection(db, MODO_ALUNO.col)), {
+      tipo:f.tipo, titulo:titulo.slice(0, MODO_ALUNO.maxTitulo), texto:texto.slice(0, MODO_ALUNO.maxTexto), disciplina:f.disciplina, links,
+      autor_uid:E.user.uid, autor_nome:(E.u.nome || E.user.displayName || "").slice(0, 120), autor_email:E.user.email || "",
+      escola_nome:E.escola.slice(0, 160), municipio_id:E.muniId, municipio_nome:E.muni.slice(0, 160),
+      status:"novo", criado_em:serverTimestamp()
+    });
+    E.form = null; E.meus = null;
+    toast("Dica enviada! A equipe vai ler e te avisa em Meus envios.");
+    ir("meus");
+  }catch(e){ console.error(e); toast("Não foi possível enviar agora. Tente de novo.", true); }
+  finally{ E.enviando = false; const b = $("fEnviar"); if(b) b.disabled = false; }
+}
 function telaEnviar(){
   if(!E.form) E.form = novoForm();
+  if(E.aluno){ telaEnviarAluno(); return; }
   const f = E.form;
   $("tela").innerHTML =
     '<div class="card"><div class="h2">Compartilhe uma dica com a rede</div><p class="sub">A equipe do Portal recebe por e-mail, revisa e publica em <b>Dicas da rede</b>' + (f.credito ? ", com o seu nome" : "") + '. Você acompanha em <b>Meus envios</b>.</p></div>' +
@@ -316,7 +379,7 @@ function telaEnviar(){
   drop.addEventListener("dragleave", () => drop.classList.remove("sobre"));
   drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("sobre"); addArquivos(e.dataTransfer.files); });
 }
-function lerForm(){ const f = E.form; if(!$("fTit")) return; f.titulo = $("fTit").value; f.texto = $("fTxt").value; f.disciplina = $("fDis").value; f.etapa = $("fEta").value; f.credito = $("fCred").checked; f.links = [...document.querySelectorAll("[data-link]")].map(x => x.value); }
+function lerForm(){ const f = E.form; if(!$("fTit")) return; f.titulo = $("fTit").value; f.texto = $("fTxt").value; f.disciplina = $("fDis").value; if($("fEta")) f.etapa = $("fEta").value; if($("fCred")) f.credito = $("fCred").checked; f.links = [...document.querySelectorAll("[data-link]")].map(x => x.value); }
 function addArquivos(lista){
   const f = E.form;
   for(const a of lista){
@@ -372,7 +435,7 @@ async function telaMeus(){
   tela.innerHTML = '<div class="carregando">Carregando seus envios...</div>';
   try{
     if(!E.meus){
-      const s = await getDocs(query(collection(db, "dicas_envios"), where("autor_uid", "==", E.user.uid)));
+      const s = await getDocs(query(collection(db, E.aluno ? MODO_ALUNO.col : "dicas_envios"), where("autor_uid", "==", E.user.uid)));
       E.meus = []; s.forEach(d => E.meus.push({ id:d.id, ...d.data() }));
       E.meus.sort((a, b) => ms(b.criado_em) - ms(a.criado_em));
     }
@@ -389,7 +452,7 @@ async function telaMeus(){
 /* ---------- recebidas (admin) ---------- */
 async function carregarRecebidas(forcar){
   if(E.recebidas && !forcar) return;
-  const s = await getDocs(collection(db, "dicas_envios"));
+  const s = await getDocs(collection(db, E.aluno ? MODO_ALUNO.col : "dicas_envios"));
   E.recebidas = []; s.forEach(d => E.recebidas.push({ id:d.id, ...d.data() }));
   E.recebidas.sort((a, b) => ms(b.criado_em) - ms(a.criado_em));
   contarNovas();
@@ -401,7 +464,9 @@ async function telaRecebidas(){
   try{ await carregarRecebidas(true); }catch(e){ tela.innerHTML = '<div class="vazio">Não foi possível carregar.</div>'; return; }
   const cont = s => E.recebidas.filter(d => s === "todos" || d.status === s).length;
   const lista = E.recebidas.filter(d => E.filtroSt === "todos" || d.status === E.filtroSt);
-  tela.innerHTML = '<div class="card"><div class="h2">Dicas recebidas</div><p class="sub">Cada envio também chega por e-mail para a equipe NEWPC. Publique para aparecer em Dicas da rede.</p></div>' +
+  tela.innerHTML = '<div class="card"><div class="h2">' + (E.aluno ? "Dicas recebidas dos alunos" : "Dicas recebidas") + '</div><p class="sub">Cada envio também chega por e-mail para a equipe NEWPC. ' +
+    (E.aluno ? 'Ao publicar, aparece só o primeiro nome do aluno e a escola.' : 'Publique para aparecer em Dicas da rede.') +
+    ' <a href="/dicas/' + (E.aluno ? "" : "?aluno=1") + '#recebidas">Ver as dicas ' + (E.aluno ? "dos professores" : "dos alunos") + ' →</a></p></div>' +
     '<div class="chips" style="margin-bottom:12px">' + [["novo","Novas"],["publicado","Publicadas"],["recusado","Recusadas"],["todos","Todas"]].map(([id, n]) => '<button class="chip' + (E.filtroSt === id ? " on" : "") + '" data-action="filtro-st" data-arg="' + id + '">' + n + ' · ' + cont(id) + '</button>').join("") + '</div>' +
     (lista.length ? '<div class="lista">' + lista.map(d => '<div class="item"><div class="item-ico">' + tipoDe(d.tipo).e + '</div><div style="min-width:0"><b>' + esc(d.titulo) + '<span class="st ' + esc(d.status) + '">' + esc(d.status) + '</span>' +
       (d.email_status === "enviado" ? '<span class="st email-ok">e-mail ok</span>' : d.email_status === "falhou" ? '<span class="st email-falhou">e-mail falhou</span>' : "") + '</b>' +
@@ -421,12 +486,12 @@ function ver(id){
     (d.disciplina ? '<dt>Disciplina</dt><dd>' + esc(d.disciplina) + '</dd>' : "") + (d.etapa ? '<dt>Etapa</dt><dd>' + esc(d.etapa) + '</dd>' : "") +
     '<dt>Enviada por</dt><dd>' + esc(d.autor_nome) + (E.admin ? ' · ' + esc(d.autor_email) : "") + '</dd>' +
     (d.escola_nome || d.municipio_nome ? '<dt>Escola</dt><dd>' + esc([d.escola_nome, d.municipio_nome].filter(Boolean).join(" · ")) + '</dd>' : "") +
-    '<dt>Publicar com nome</dt><dd>' + (d.credito !== false ? "Sim" : "Não") + '</dd>' +
+    (E.aluno ? '<dt>Aparece como</dt><dd>' + esc(primeiroNome(d.autor_nome)) + (d.escola_nome ? " · " + esc(d.escola_nome) : "") + '</dd>' : '<dt>Publicar com nome</dt><dd>' + (d.credito !== false ? "Sim" : "Não") + '</dd>') +
     '<dt>Descrição</dt><dd>' + esc(d.texto) + '</dd></dl>' +
     ((d.links || []).length || (d.arquivos || []).length ? '<div class="anexos">' +
       (d.links || []).map(u => '<a class="anexo" href="' + esc(u) + '" target="_blank" rel="noopener noreferrer">🔗 <span>' + esc(u) + '</span></a>').join("") +
       (d.arquivos || []).map((a, i) => '<button class="anexo" data-action="baixar" data-arg="' + esc(d.id) + '" data-i="' + i + '">📄 <span>' + esc(a.nome) + '</span><small>' + tam(a.tamanho || 0) + '</small></button>').join("") + '</div>' : "") +
-    (E.admin ? '<div class="campo"><label for="mRet">Retorno para o professor (aparece em Meus envios)</label><input id="mRet" maxlength="300" value="' + esc(d.retorno || "") + '"></div>' : "");
+    (E.admin ? '<div class="campo"><label for="mRet">Retorno para ' + (E.aluno ? "o aluno" : "o professor") + ' (aparece em Meus envios)</label><input id="mRet" maxlength="300" value="' + esc(d.retorno || "") + '"></div>' : "");
   $("mPe").innerHTML = E.admin
     ? '<button class="btn btn-red btn-sm" data-action="excluir" data-arg="' + esc(d.id) + '">Excluir</button>' +
       (d.status !== "recusado" ? '<button class="btn btn-gh btn-sm" data-action="recusar" data-arg="' + esc(d.id) + '">Não publicar</button>' : "") +
@@ -442,17 +507,26 @@ async function mudarStatus(id, status){
   const dados = { status, retorno:ret, revisado_em:serverTimestamp(), revisado_por:E.user.uid };
   if(status === "publicado") dados.publicado_em = serverTimestamp();
   try{
-    await updateDoc(doc(db, "dicas_envios", id), dados);
+    if(E.aluno){
+      // so o que pode ficar publico vai para dicas_alunos_pub (sem nome completo nem e-mail do aluno)
+      const lote = writeBatch(db);
+      lote.update(doc(db, MODO_ALUNO.col, id), dados);
+      if(status === "publicado") lote.set(doc(db, MODO_ALUNO.pub, id), { tipo:d.tipo, titulo:d.titulo, texto:d.texto, disciplina:d.disciplina || "", links:d.links || [],
+        autor_primeiro:primeiroNome(d.autor_nome), escola_nome:d.escola_nome || "", municipio_nome:d.municipio_nome || "", publicado_em:serverTimestamp() });
+      else lote.delete(doc(db, MODO_ALUNO.pub, id));
+      await lote.commit();
+    }else await updateDoc(doc(db, "dicas_envios", id), dados);
     Object.assign(d, { status, retorno:ret });
     E.publicadas = null; fechar();
-    toast(status === "publicado" ? "Dica publicada em Dicas da rede." : status === "recusado" ? "Marcada como não publicada." : "Dica despublicada.");
+    toast(status === "publicado" ? (E.aluno ? "Dica publicada em Dicas da galera." : "Dica publicada em Dicas da rede.") : status === "recusado" ? "Marcada como não publicada." : "Dica despublicada.");
     if(E.tela === "recebidas") telaRecebidas(); else contarNovas();
   }catch(e){ toast("Não foi possível salvar.", true); }
 }
 async function excluir(id, meu){
   if(!confirm(meu ? "Excluir este envio? A equipe não vai mais vê-lo no Portal." : "Excluir este envio de vez?")) return;
   try{
-    await deleteDoc(doc(db, "dicas_envios", id));
+    if(E.aluno){ const lote = writeBatch(db); lote.delete(doc(db, MODO_ALUNO.col, id)); if(!meu) lote.delete(doc(db, MODO_ALUNO.pub, id)); await lote.commit(); }
+    else await deleteDoc(doc(db, "dicas_envios", id));
     if(E.meus) E.meus = E.meus.filter(x => x.id !== id);
     if(E.recebidas) E.recebidas = E.recebidas.filter(x => x.id !== id);
     E.publicadas = null; fechar(); toast("Envio excluído.");
@@ -469,7 +543,7 @@ document.addEventListener("click", e => {
   else if(a === "filtro-st"){ E.filtroSt = arg; telaRecebidas(); }
   else if(a === "mais"){ const c = $("d-" + arg); if(c){ c.classList.remove("curta"); el.remove(); } }
   else if(a === "tipo"){ lerForm(); E.form.tipo = arg; telaEnviar(); }
-  else if(a === "link-add"){ lerForm(); if(E.form.links.length < MAX_LINKS) E.form.links.push(""); telaEnviar(); }
+  else if(a === "link-add"){ lerForm(); if(E.form.links.length < (E.aluno ? MODO_ALUNO.maxLinks : MAX_LINKS)) E.form.links.push(""); telaEnviar(); }
   else if(a === "link-rem"){ lerForm(); E.form.links.splice(+arg, 1); telaEnviar(); }
   else if(a === "arq-rem"){ lerForm(); E.form.arquivos.splice(+arg, 1); telaEnviar(); }
   else if(a === "baixar"){ e.preventDefault(); baixar(arg, +el.dataset.i); }
@@ -484,6 +558,13 @@ document.addEventListener("click", e => {
 $("mb").addEventListener("click", e => { if(e.target === $("mb")) fechar(); });
 document.addEventListener("keydown", e => { if(e.key === "Escape") fechar(); });
 
+function aplicarModoAluno(){
+  document.title = "Dica do Aluno · Portal do Educador";
+  const b = document.querySelector(".marca b"); if(b) b.textContent = "Dica do Aluno";
+  const rot = { dicas:"💬 Dicas da galera", enviar:"✉️ Enviar minha dica", meus:"📁 Meus envios" };
+  document.querySelectorAll(".topo-acoes .tb[data-arg]").forEach(x => { if(rot[x.dataset.arg]) x.textContent = rot[x.dataset.arg]; });
+}
+
 /* ---------- entrada ---------- */
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
@@ -491,7 +572,12 @@ onAuthStateChanged(auth, async user => {
   try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
   E.user = user; E.u = u; E.admin = u.perfil === "admin";
+  // aluno sempre no modo aluno; o administrador alterna com ?aluno=1
+  E.aluno = u.perfil === "aluno" || (E.admin && new URLSearchParams(location.search).has("aluno"));
+  E.muniId = u.municipio_id || "";
+  if(E.aluno) aplicarModoAluno();
   try{
+    if(!u.escola_id && u.escola_nome) E.escola = u.escola_nome;
     if(u.escola_id){ const s = await getDoc(doc(db, "escolas", u.escola_id)); if(s.exists()) E.escola = s.data().nome || ""; }
     if(u.municipio_id){ const s = await getDoc(doc(db, "municipios", u.municipio_id)); if(s.exists()){ const m = s.data(); E.muni = [m.nome, m.uf].filter(Boolean).join("/"); } }
   }catch(e){}

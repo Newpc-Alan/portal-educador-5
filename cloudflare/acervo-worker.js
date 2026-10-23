@@ -42,6 +42,8 @@ export default {
 
       if (url.pathname === "/link" && req.method === "GET") {
         if (!(await licencaValida(usuario, token))) return json({ erro: "licenca expirada ou sem acesso" }, 403, cors);
+        // aluno: so arquivos dos modulos liberados para alunos (a chave comeca pelo modulo, ex.: datas/...)
+        if (usuario.perfil === "aluno" && !(await alunoPodeChave(usuario, key, token))) return json({ erro: "arquivo nao liberado para alunos" }, 403, cors);
         const exp = Math.floor(Date.now() / 1000) + VALIDADE_LINK;
         const sig = await assinar(env.SEGREDO, key + "|" + exp);
         const link = url.origin + "/baixar?key=" + encodeURIComponent(key) + "&exp=" + exp + "&sig=" + sig;
@@ -89,9 +91,23 @@ async function baixar(url, env) {
 
 // ---------- licenca (mesma logica do Portal e das regras do Firestore) ----------
 function ehAdmin(u) { return u.perfil === "admin" && u.status === "ativo"; }
+const MODULOS_ACERVO_ALUNO = ["datas", "historias"];
+async function alunoPodeChave(u, key, token) {
+  const mod = String(key).split("/")[0];
+  if (!MODULOS_ACERVO_ALUNO.includes(mod)) return false;
+  const m = await lerDoc("municipios/" + u.municipio_id, token);
+  const lista = m && Array.isArray(m.modulos_aluno) ? m.modulos_aluno : [];
+  return !lista.length || lista.includes(mod);
+}
 async function licencaValida(u, token) {
   if (u.status !== "ativo") return false;
   if (u.perfil === "admin") return true;
+  if (u.perfil === "aluno") {
+    if (!u.municipio_id) return false;
+    const m = await lerDoc("municipios/" + u.municipio_id, token);
+    if (!m) return false;
+    return !m.vigencia_fim_ts || new Date(m.vigencia_fim_ts).getTime() > Date.now();
+  }
   const tipo = u.licenca_tipo || "institucional";
   if (tipo === "institucional") {
     if (!u.escola_id || !u.municipio_id) return false;
