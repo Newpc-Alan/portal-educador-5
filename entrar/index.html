@@ -631,10 +631,18 @@
 <!-- Modal Nova Escola -->
 <div class="modal-bg" id="modalEscola">
   <div class="modal">
-    <div class="mh"><h3>Nova Escola</h3><p>Cadastre uma escola vinculada a um municipio.</p></div>
-    <div class="mb">
+    <div class="mh"><h3 id="escTit">Nova Escola</h3><p>Os dados abaixo saem no cabeçalho dos relatórios, declarações e provas.</p></div>
+    <div class="mb" style="max-height:62vh;overflow:auto">
       <div class="field"><label for="escNome">Nome da escola</label><input type="text" id="escNome" placeholder="Ex: Escola Municipal Centro"></div>
       <div class="field"><label for="escMuni">Municipio</label><select id="escMuni"><option value="">Carregando...</option></select></div>
+      <div class="row2"><div class="field"><label for="escInep">Código INEP</label><input type="text" id="escInep" inputmode="numeric" maxlength="8" placeholder="8 dígitos"></div>
+        <div class="field"><label for="escTel">Telefone</label><input type="text" id="escTel" placeholder="(67) 3000-0000"></div></div>
+      <div class="field"><label for="escEnd">Endereço</label><input type="text" id="escEnd" placeholder="Rua, número, bairro"></div>
+      <div class="row2"><div class="field"><label for="escCep">CEP</label><input type="text" id="escCep" placeholder="79000-000"></div>
+        <div class="field"><label for="escEmail">E-mail</label><input type="email" id="escEmail" placeholder="escola@semed.gov.br"></div></div>
+      <div class="row2"><div class="field"><label for="escDir">Diretor(a)</label><input type="text" id="escDir"></div>
+        <div class="field"><label for="escCoord">Coordenador(a) pedagógico(a)</label><input type="text" id="escCoord"></div></div>
+      <div class="field"><label for="escAto">Ato de autorização / criação <small>(opcional)</small></label><input type="text" id="escAto" placeholder="Ex.: Decreto nº 123/1998"></div>
     </div>
     <div class="mf"><button class="btn btn-ghost" id="escCancelar">Cancelar</button><button class="btn btn-primary" id="escSalvar">Salvar escola</button></div>
   </div>
@@ -1174,13 +1182,21 @@
       await carregarCacheEscolas();
       $("escCount").textContent = cacheEscolas.length+" escola(s) cadastrada(s)";
       if(cacheEscolas.length===0){ $("escTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3EB}</div>Nenhuma escola cadastrada ainda.</div>'; return; }
-      let html = '<table><thead><tr><th>Logo</th><th>Escola</th><th>Municipio</th><th>Status</th></tr></thead><tbody>';
-      cacheEscolas.forEach(e => { const st=e.status||"ativa"; html += '<tr><td>'+logoCelula("escolas", e)+'</td><td><b>'+escapeHtml(e.nome)+'</b></td><td><span class="muni-tag">'+escapeHtml(e.municipio_nome||"-")+' / '+escapeHtml(e.municipio_uf||"")+'</span></td><td><span class="pill '+st+'">'+st+'</span></td></tr>'; });
+      let html = '<table><thead><tr><th>Logo</th><th>Escola</th><th>Municipio</th><th>Status</th><th></th></tr></thead><tbody>';
+      cacheEscolas.forEach(e => { const st=e.status||"ativa"; const falta = ["inep","endereco","telefone","diretor"].filter(k => !e[k]).length;
+        html += '<tr><td>'+logoCelula("escolas", e)+'</td><td><b>'+escapeHtml(e.nome)+'</b><br><small style="color:'+(falta ? "#9a5b00" : "var(--muted)")+'">'+(falta ? "Dados incompletos para os documentos" : "INEP "+escapeHtml(e.inep)+" · "+escapeHtml(e.diretor))+'</small></td><td><span class="muni-tag">'+escapeHtml(e.municipio_nome||"-")+' / '+escapeHtml(e.municipio_uf||"")+'</span></td><td><span class="pill '+st+'">'+st+'</span></td>'+
+          '<td><button class="btn-mini btn-gerenciar" data-action="esc-dados" data-id="'+escapeAttr(e.id)+'">Dados da escola</button></td></tr>'; });
       html += '</tbody></table>'; $("escTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("escTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
-  async function abrirModalEscola(){
-    $("escNome").value = "";
+  let escEditando = null;
+  const ESC_CAMPOS = { escInep:"inep", escTel:"telefone", escEnd:"endereco", escCep:"cep", escEmail:"email", escDir:"diretor", escCoord:"coordenador", escAto:"ato" };
+  async function abrirModalEscola(ev, esc){
+    escEditando = esc && esc.id ? esc : null;
+    $("escTit").textContent = escEditando ? "Dados da escola" : "Nova Escola";
+    $("escSalvar").textContent = escEditando ? "Salvar dados" : "Salvar escola";
+    $("escNome").value = escEditando ? (escEditando.nome || "") : "";
+    Object.entries(ESC_CAMPOS).forEach(([i, k]) => { $(i).value = escEditando ? (escEditando[k] || "") : ""; });
     const sel = $("escMuni"); sel.innerHTML = '<option value="">Carregando...</option>';
     $("modalEscola").classList.add("show");
     try{
@@ -1188,6 +1204,7 @@
       if(lista.length===0){ sel.innerHTML = '<option value="">Nenhum municipio. Cadastre primeiro.</option>'; return; }
       sel.innerHTML = '<option value="">Selecione o municipio...</option>';
       lista.forEach(m => { const o=document.createElement("option"); o.value=m.id; o.textContent=m.nome+" / "+(m.uf||""); o.dataset.nome=m.nome; o.dataset.uf=m.uf||""; sel.appendChild(o); });
+      if(escEditando) sel.value = escEditando.municipio_id || "";
       $("escNome").focus();
     }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
   }
@@ -1198,13 +1215,17 @@
     const nome=$("escNome").value.trim(); const sel=$("escMuni"); const muniId=sel.value; const opt=sel.options[sel.selectedIndex];
     if(!nome){ toast("Informe o nome da escola.", true); return; }
     if(!muniId){ toast("Selecione o municipio.", true); return; }
+    const inep = $("escInep").value.trim();
+    if(inep && !/^\d{8}$/.test(inep)){ toast("O código INEP tem 8 dígitos.", true); return; }
+    const extra = {}; Object.entries(ESC_CAMPOS).forEach(([i, k]) => { extra[k] = $(i).value.trim(); });
     $("escSalvar").disabled=true; $("escSalvar").textContent="Salvando...";
     try{
-      await addDoc(collection(db,"escolas"), { nome, municipio_id:muniId, municipio_nome:opt.dataset.nome||"", municipio_uf:opt.dataset.uf||"",
-        status:"ativa", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
-      fecharModalEscola(); toast("Escola cadastrada!"); await listarEscolas();
+      const base = { nome, municipio_id:muniId, municipio_nome:opt.dataset.nome||"", municipio_uf:opt.dataset.uf||"", ...extra, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      if(escEditando) await updateDoc(doc(db,"escolas",escEditando.id), base);
+      else await addDoc(collection(db,"escolas"), { ...base, status:"ativa", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid });
+      fecharModalEscola(); toast(escEditando ? "Dados da escola salvos." : "Escola cadastrada!"); cacheEscolas = []; await listarEscolas();
     }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
-    finally{ $("escSalvar").disabled=false; $("escSalvar").textContent="Salvar escola"; }
+    finally{ $("escSalvar").disabled=false; $("escSalvar").textContent = escEditando ? "Salvar dados" : "Salvar escola"; }
   });
 
   // ===================== TURMAS =====================
@@ -3034,6 +3055,7 @@
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
+    else if(acao === "esc-dados"){ abrirModalEscola(null, cacheEscolas.find(x => x.id === el.dataset.id)); }
     else if(acao === "ini-relatorios"){ registrarModulo(el.dataset.mod); location.href = "/relatorios/"; }
     else if(acao === "ini-provas"){ registrarModulo(el.dataset.mod); location.href = "/provas/"; }
     else if(acao === "ini-ia"){ registrarModulo(el.dataset.mod); renderIa(); }

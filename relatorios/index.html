@@ -185,6 +185,8 @@ button{cursor:pointer}
   <div class="faixa" id="faixa" hidden>
     <div class="faixa-ico" id="faixa-logo">🏫</div>
     <div class="faixa-txt"><b id="faixa-t"></b><span id="faixa-s"></span></div>
+    <select id="faixa-muni" hidden aria-label="Ver os documentos como a rede de" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;max-width:240px"></select>
+    <select id="faixa-escola" hidden aria-label="Escola" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;max-width:260px"></select>
   </div>
   <main id="tela"><div class="carregando">Carregando a Central...</div></main>
 </div>
@@ -370,17 +372,40 @@ onAuthStateChanged(auth, async (user) => {
       S.turmas = (todas.some(t => t.minha) ? todas.filter(t => t.minha) : todas).sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
     }catch(e){ console.warn("turmas:", e.code); }
   }
+  if(S.perfil === "admin" && !u.municipio_id) await prepararAdmin();
   if(ehGestor() || ehSecretaria()) $("tb-painel").hidden = false;
   S.grupo = S.perfil === "gestor" ? "aee" : "prof";
   desenharFaixa();
   await carregarRelatorios();
   ir(S.perfil === "secretaria" ? "painel" : "inicio");
 });
+// administrador nao tem municipio: escolhe a rede para ver os documentos como ela
+async function prepararAdmin(){
+  try{
+    const sm = await getDocs(collection(db, "municipios")); const munis = []; sm.forEach(d => munis.push({ id:d.id, ...d.data() }));
+    munis.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+    if(!munis.length) return;
+    S.munis = munis;
+    const sel = $("faixa-muni");
+    sel.innerHTML = munis.map(m => '<option value="'+m.id+'">'+esc(m.nome)+(m.uf ? "/" + esc(m.uf) : "")+'</option>').join("");
+    sel.hidden = false;
+    await trocarMuni(munis[0].id);
+  }catch(e){ console.warn("municipios:", e.code); }
+}
+async function trocarMuni(id){
+  S.muni = (S.munis || []).find(m => m.id === id) || null;
+  S.escolas = [];
+  if(S.muni){ try{ const se = await getDocs(query(collection(db, "escolas"), where("municipio_id", "==", S.muni.id))); se.forEach(d => S.escolas.push({ id:d.id, ...d.data() })); }catch(e){ console.warn(e.code); } }
+  S.escolas.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+  const se = $("faixa-escola");
+  se.innerHTML = S.escolas.map(e => '<option value="'+e.id+'">'+esc(e.nome)+'</option>').join(""); se.hidden = S.escolas.length < 2;
+}
 function logoRede(escolaId){ const e = S.escolas.find(x => x.id === escolaId) || S.escolas[0]; return (e && e.logo_url) || (S.muni && S.muni.logo_url) || ""; }
 function desenharFaixa(){
   const e = S.escolas[0], logo = logoRede(e && e.id);
   $("faixa-logo").innerHTML = logo ? '<img alt="" src="'+esc(logo)+'">' : "🏫";
-  $("faixa-t").textContent = S.perfil === "secretaria" ? "Secretaria Municipal de Educação" + (S.muni ? " · " + S.muni.nome : "") : (e ? e.nome : (S.u.escola_texto || "Seu cadastro"));
+  if(S.perfil === "admin" && S.muni) $("faixa-t").textContent = "Prévia do administrador · " + (e ? e.nome : "sem escolas cadastradas");
+  else $("faixa-t").textContent = S.perfil === "secretaria" ? "Secretaria Municipal de Educação" + (S.muni ? " · " + S.muni.nome : "") : (e ? e.nome : (S.u.escola_texto || "Seu cadastro"));
   $("faixa-s").textContent = S.muni ? "Secretaria Municipal de Educação de " + S.muni.nome + (S.muni.uf ? "/" + S.muni.uf : "") + " · os documentos saem com o brasão e os dados da escola" : "Os documentos saem com os dados do seu cadastro";
   $("faixa").hidden = false;
 }
@@ -534,6 +559,7 @@ function docHTML(r, mini){
   const publica = !!S.muni;
   const linhaRede = publica ? "Prefeitura Municipal de " + S.muni.nome + (S.muni.uf ? "/" + S.muni.uf : "") + " · Secretaria Municipal de Educação" : "";
   const escNome = e.nome || r.escola_nome || S.u.escola_texto || "";
+  const dadosEsc = [e.inep ? "INEP " + e.inep : "", e.endereco ? e.endereco + (e.cep ? ", CEP " + e.cep : "") : "", (S.muni ? S.muni.nome + (S.muni.uf ? "/" + S.muni.uf : "") : ""), e.telefone, e.email].filter(Boolean).join(" · ");
   const meta = [];
   if(r.aluno_nome) meta.push(["Estudante", r.aluno_nome]);
   if(r.turma_nome) meta.push(["Turma", r.turma_nome]);
@@ -547,9 +573,11 @@ function docHTML(r, mini){
       return c[2] === "a" ? '<div class="d-campo"><b>'+esc(c[1])+'</b><p>'+esc(v).replace(/\n/g, "<br>")+'</p></div>' : '<div class="d-campo d-linha"><b>'+esc(c[1])+':</b> '+esc(v)+'</div>';
     }).join("") : '<div class="d-vazio">Preencha os campos ao lado.</div>') + '</div>';
   }).join("");
-  const assin = m.grupo === "gestao" ? ["Direção","Secretaria escolar"] : m.grupo === "aee" ? ["Professor(a) do AEE","Coordenação pedagógica","Família / responsável"] : m.alvo === "aluno" ? ["Professor(a)","Coordenação pedagógica","Família / responsável"] : ["Professor(a)","Coordenação pedagógica"];
+  const dir = e.diretor ? "Direção · " + e.diretor : "Direção", coord = e.coordenador ? "Coordenação · " + e.coordenador : "Coordenação pedagógica";
+  const assin = m.grupo === "gestao" ? [dir,"Secretaria escolar"] : m.grupo === "aee" ? ["Professor(a) do AEE",coord,"Família / responsável"] : m.alvo === "aluno" ? ["Professor(a)",coord,"Família / responsável"] : ["Professor(a)",coord];
   return '<div class="d">' +
-    '<div class="d-cab">' + (logo ? '<img src="'+esc(logo)+'" alt="">' : '') + '<div>' + (linhaRede ? '<div class="d-rede">'+esc(linhaRede)+'</div>' : '') + '<div class="d-esc">'+esc(escNome)+'</div></div></div>' +
+    '<div class="d-cab">' + (logo ? '<img src="'+esc(logo)+'" alt="">' : '') + '<div>' + (linhaRede ? '<div class="d-rede">'+esc(linhaRede)+'</div>' : '') + '<div class="d-esc">'+esc(escNome)+'</div>' +
+      (dadosEsc ? '<div class="d-dados">'+esc(dadosEsc)+'</div>' : '') + '</div></div>' +
     '<div class="d-tit">'+esc(m.nome.replace(/ \(.*\)$/, ""))+'</div>' +
     '<table class="d-meta">' + meta.map(([k, v]) => '<tr><td>'+esc(k)+'</td><td>'+esc(v)+'</td></tr>').join("") + '</table>' +
     corpo +
@@ -577,6 +605,7 @@ const CSS_DOC = `
 .d-cab img{max-height:64px;max-width:80px;object-fit:contain}
 .d-rede{font-size:8.5pt;color:#445;text-transform:uppercase;letter-spacing:.03em}
 .d-esc{font-size:13pt;font-weight:800;color:#0c2338}
+.d-dados{font-size:8pt;color:#556;margin-top:2px}
 .d-tit{font-size:13.5pt;font-weight:800;color:#0c2338;text-align:center;margin:6px 0 12px}
 .d-meta{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:9.5pt}
 .d-meta td{border:1px solid #c8d2dd;padding:5px 8px}
@@ -876,6 +905,8 @@ document.addEventListener("input", (e) => {
 document.addEventListener("change", async (e) => {
   const t = e.target;
   if(t.id === "f-turma"){ S.filtroTurma = t.value; desenharLista(); }
+  else if(t.id === "faixa-muni"){ await trocarMuni(t.value); desenharFaixa(); ir(S.tela === "painel" ? "painel" : "inicio"); }
+  else if(t.id === "faixa-escola"){ const i = S.escolas.findIndex(e => e.id === t.value); if(i > 0) S.escolas.unshift(S.escolas.splice(i, 1)[0]); desenharFaixa(); if(S.ed){ S.ed.escola_id = S.escolas[0].id; previa(); } }
   else if(t.id === "ed-escola"){ lerEditor(); S.ed.turma_id = ""; S.ed.aluno_id = ""; telaEditor(); }
   else if(t.id === "ed-turma"){ lerEditor(); S.ed.aluno_id = ""; S.ed.aluno_nome = ""; await preencherAlunos(); previa(); }
   else if(t.id === "ed-aluno" || t.id === "ed-periodo" || (t.dataset && t.dataset.campo !== undefined)) previa();
