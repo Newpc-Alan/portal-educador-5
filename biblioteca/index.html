@@ -218,9 +218,21 @@ async function carregar(){
   const s = await getDocs(q); E.livros = []; s.forEach(d => E.livros.push({ id:d.id, ...d.data() }));
   E.livros.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR", { numeric:true }));
 }
+const semAc = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 function filtrados(){
-  const b = E.busca.trim().toLowerCase();
-  return E.livros.filter(l => (E.secao === "todas" || l.secao === E.secao) && (!E.soFav || E.favs.has(l.id)) && (!b || [l.titulo, l.autor].join(" ").toLowerCase().includes(b)));
+  const b = semAc(E.busca.trim());
+  const lista = E.livros.filter(l => (E.secao === "todas" || l.secao === E.secao) && (!E.soFav || E.favs.has(l.id))
+    && (!E.autor || (l.autor || "") === E.autor) && (!b || semAc([l.titulo, l.autor].join(" ")).includes(b)));
+  if(E.ordem === "recentes") return lista.slice().sort((a, c) => ms(c.criado_em) - ms(a.criado_em));
+  if(E.ordem === "autor") return lista.slice().sort((a, c) => (a.autor || "~").localeCompare(c.autor || "~", "pt-BR") || (a.titulo || "").localeCompare(c.titulo || "", "pt-BR", { numeric:true }));
+  return lista;
+}
+const ms = t => t && t.toMillis ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0);
+// autores com 2 ou mais títulos na seção atual (para o filtro)
+function autoresDaSecao(){
+  const c = {};
+  E.livros.filter(l => (E.secao === "todas" || l.secao === E.secao) && l.autor).forEach(l => { c[l.autor] = (c[l.autor] || 0) + 1; });
+  return Object.entries(c).filter(([, n]) => n >= 2).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
 }
 function telaAcervo(){
   const n = s => E.livros.filter(l => l.secao === s).length;
@@ -230,9 +242,13 @@ function telaAcervo(){
       : '<div class="destaque"><div class="destaque-ico">📚</div><div class="destaque-txt"><b>Leitura para a sala de aula</b><span>Livros, audiolivros e gibis para projetar na lousa, ler no Chromebook ou ouvir com a turma. A Biblioteca lembra onde você parou.</span></div></div>') +
     '<div class="secoes"' + (E.aluno ? ' style="grid-template-columns:1fr 1fr"' : '') + '>' + secoesVis().map(([id, s]) => '<button class="secao' + (E.secao === id ? " on" : "") + '" data-action="secao" data-arg="' + id + '"><span class="e">' + s.e + '</span><span><b>' + esc(s.nome) + '</b><small>' + n(id) + ' título' + (n(id) === 1 ? "" : "s") + '</small></span></button>').join("") + '</div>' +
     '<div class="filtros"><input id="fBusca" type="search" placeholder="Buscar por título ou autor" value="' + esc(E.busca) + '">' +
+    (autoresDaSecao().length ? '<select id="fAutor" aria-label="Autor"><option value="">Todos os autores</option>' + autoresDaSecao().map(([a, q]) => '<option value="' + esc(a) + '"' + (E.autor === a ? " selected" : "") + '>' + esc(a) + ' (' + q + ')</option>').join("") + '</select>' : "") +
+    '<select id="fOrdem" aria-label="Ordenar"><option value="titulo">Título (A a Z)</option><option value="autor"' + (E.ordem === "autor" ? " selected" : "") + '>Autor</option><option value="recentes"' + (E.ordem === "recentes" ? " selected" : "") + '>Chegaram agora</option></select>' +
     '<button class="btn ' + (E.soFav ? "btn-pri" : "btn-gh") + '" data-action="so-fav">⭐ Favoritos</button>' + (E.secao !== "todas" ? '<button class="btn btn-gh" data-action="secao" data-arg="todas">Ver todas as seções</button>' : "") + '</div>' +
     '<p class="contagem" id="contagem"></p><div class="grade" id="grade"></div><div class="mais-wrap" id="mais"></div>';
   $("fBusca").addEventListener("input", e => { E.busca = e.target.value; E.mostrar = LOTE; clearTimeout(E._t); E._t = setTimeout(desenharGrade, 200); });
+  if($("fAutor")) $("fAutor").addEventListener("change", e => { E.autor = e.target.value; E.mostrar = LOTE; desenharGrade(); });
+  $("fOrdem").addEventListener("change", e => { E.ordem = e.target.value; E.mostrar = LOTE; desenharGrade(); });
   desenharGrade();
 }
 function desenharGrade(){
@@ -427,7 +443,7 @@ document.addEventListener("click", async e => {
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "fav"){ e.stopPropagation(); if(E.favs.has(arg)) E.favs.delete(arg); else E.favs.add(arg); ls.set("pde_bib_favs_" + E.user.uid, [...E.favs]); el.textContent = E.favs.has(arg) ? "⭐" : "☆"; return; }
   if(a === "ir") ir(arg);
-  else if(a === "secao"){ E.secao = E.secao === arg ? "todas" : arg; E.mostrar = LOTE; telaAcervo(); }
+  else if(a === "secao"){ E.secao = E.secao === arg ? "todas" : arg; E.autor = ""; E.mostrar = LOTE; telaAcervo(); }
   else if(a === "so-fav"){ E.soFav = !E.soFav; telaAcervo(); }
   else if(a === "mais"){ E.mostrar += LOTE * 2; desenharGrade(); }
   else if(a === "abrir") abrir(arg);
