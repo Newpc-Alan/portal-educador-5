@@ -291,6 +291,13 @@
   .pn-graficos{ display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px }
   .pn-card{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px }
   .pn-card.pn-largo{ grid-column:1 / -1 }
+  .pn-abas{ display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px }
+  .pn-sec{ font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 10px }
+  .pn-pend{ list-style:none;padding:0;margin:0;display:grid;gap:8px } .pn-pend a{ margin-left:6px;font-weight:700;color:#2671AB;text-decoration:none }
+  .pn-atalhos{ display:flex;flex-wrap:wrap;gap:8px } .pn-atalhos a{ background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-weight:700;font-size:13px;text-decoration:none;color:var(--pde-escuro) }
+  .pn-atalhos a:hover{ border-color:#2E9BD6 }
+  .pn-cf{ font-size:14px;line-height:1.5;color:var(--ink) }
+  .pn-nota{ font-size:12.5px;color:var(--muted);margin:14px 0 0 }
   .pn-card h3{ font-size:15px;margin-bottom:10px;color:var(--pde-escuro) }
   .pn-leg{ display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px }
   .pn-leg i{ display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px }
@@ -2096,9 +2103,15 @@
   function fmt(n){ return Number(n||0).toLocaleString("pt-BR"); }
   function pct(a, b){ return b ? Math.round(a*100/b)+"%" : "-"; }
 
+  // Painel em 3 abas: pessoas e uso (o que ja existia), conteudo do Portal, infraestrutura (Firebase e Cloudflare)
+  const pn = { aba:"geral" };
   async function renderPainel(){
-    $("conteudo").innerHTML = '<div class="pn-topo"><span class="count" id="pnAtual">Carregando dados da plataforma...</span>'+
+    const abas = [["geral","Pessoas e uso"],["conteudo","Conteúdo e participação"],["infra","Infraestrutura e custos"]];
+    $("conteudo").innerHTML = '<div class="pn-abas" role="tablist">'+abas.map(([k,l]) => '<button class="usr-tab'+(pn.aba===k?" on":"")+'" role="tab" aria-selected="'+(pn.aba===k)+'" data-action="painel-aba" data-arg="'+k+'">'+l+'</button>').join("")+'</div>'+
+      '<div class="pn-topo"><span class="count" id="pnAtual">Carregando dados da plataforma...</span>'+
       '<button class="btn btn-ghost btn-add" data-action="painel-atualizar">Atualizar</button></div><div id="pnCorpo"><div class="empty">Carregando...</div></div>';
+    if(pn.aba === "conteudo"){ renderPnConteudo(); return; }
+    if(pn.aba === "infra"){ renderPnInfra(); return; }
     try{
       const inicio = diasAtras(29);
       // alunos ficam fora da lista (podem ser milhares): so a contagem
@@ -2203,6 +2216,118 @@
       '</tbody></table></div></div>';
     h += '</div>';
     $("pnCorpo").innerHTML = h;
+  }
+
+  // ---------- aba Conteudo e participacao: contagens direto do banco ----------
+  async function renderPnConteudo(){
+    const conta = (col, ...f) => getCountFromServer(f.length ? query(collection(db,col), ...f) : collection(db,col)).then(r => r.data().count).catch(e => { console.warn("contagem", col, e.code); return null; });
+    const pub = (col) => conta(col, where("publicado","==",true));
+    const d30 = Timestamp.fromMillis(Date.now() - 30*DIA);
+    const P = {
+      municipios:conta("municipios"), escolas:conta("escolas"), turmas:conta("turmas"),
+      professores:conta("usuarios", where("perfil","==","professor")), alunos:conta("usuarios", where("perfil","==","aluno")),
+      preProf:conta("pre_cadastros", where("perfil","==","professor")), preAlu:conta("pre_cadastros", where("perfil","==","aluno")),
+      videos:pub("videos"), videosAlu:conta("videos", where("publicado","==",true), where("para_alunos","==",true)), jogos:pub("jogos"),
+      colorir:pub("colorir"), biblioteca:pub("biblioteca"), acervo:pub("acervo"), iaApps:pub("ia_apps"),
+      cursos:conta("cursos", where("status","==","publicado")), cursistas:conta("users"),
+      certTotal:conta("certificados"), cert30:conta("certificados", where("emitidoEm",">=",d30)),
+      dicasNovas:conta("dicas_envios", where("status","==","novo")), dicasPub:conta("dicas_envios", where("status","==","publicado")),
+      dicasAluNovas:conta("dicas_alunos", where("status","==","novo")), dicasAluPub:conta("dicas_alunos_pub"),
+      relTotal:conta("relatorios"), relPend:conta("relatorios", where("status","==","enviado")), relAprov:conta("relatorios", where("status","==","aprovado")),
+      avaliacoes:conta("avaliacoes"), respostas:conta("respostas"), maestro:conta("maestro_aulas"),
+      triPend:conta("biblioteca_triagem", where("status","==","pendente"))
+    };
+    const ks = Object.keys(P), vs = await Promise.all(Object.values(P));
+    if(pn.aba !== "conteudo" || !$("pnCorpo")) return;
+    const n = {}; ks.forEach((k, i) => n[k] = vs[i]);
+    const v = (x) => x === null ? "-" : fmt(x);
+    const tile = (rot, val, sub, cls) => '<div class="pn-tile'+(cls?" "+cls:"")+'"><span class="pn-rot">'+rot+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
+    const alerta = (x) => x ? "pn-alerta" : "";
+    let h = '<h3 class="pn-sec">Rede atendida</h3><div class="pn-tiles pn-tiles-2">'+
+      tile("Municípios", v(n.municipios)) + tile("Escolas", v(n.escolas)) + tile("Turmas", v(n.turmas)) +
+      tile("Professores", v(n.professores), v(n.preProf)+" aguardando 1º acesso") + tile("Alunos", v(n.alunos), v(n.preAlu)+" aguardando 1º acesso") +
+      tile("Cursistas da Formação", v(n.cursistas)) + '</div>';
+    h += '<h3 class="pn-sec">Conteúdo publicado</h3><div class="pn-tiles pn-tiles-2">'+
+      tile("Vídeos", v(n.videos), v(n.videosAlu)+" liberados para alunos", n.videos && n.videosAlu < n.videos/4 ? "pn-alerta" : "") + tile("Jogos", v(n.jogos)) +
+      tile("Desenhos para colorir", v(n.colorir)) + tile("Biblioteca", v(n.biblioteca), v(n.triPend)+" na triagem") +
+      tile("Cursos da Formação", v(n.cursos)) + tile("Acervo (R2)", v(n.acervo), "atividades, datas, histórias") + '</div>';
+    h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
+      tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados") +
+      tile("Avaliações criadas", v(n.avaliacoes), v(n.respostas)+" respostas de alunos") + tile("Aulas no Maestro", v(n.maestro)) +
+      tile("Dicas do Professor publicadas", v(n.dicasPub)) + tile("Dicas do Aluno publicadas", v(n.dicasAluPub)) + '</div>';
+    const pend = [
+      [n.dicasNovas, "dica(s) de professor para revisar", "/dicas/#recebidas"], [n.dicasAluNovas, "dica(s) de aluno para revisar", "/dicas/?aluno=1#recebidas"],
+      [n.relPend, "relatório(s) aguardando aprovação da escola", "/relatorios/"], [n.triPend, "título(s) da Biblioteca na triagem de licença", "/biblioteca/#triagem"]
+    ].filter(x => x[0]);
+    h += '<h3 class="pn-sec">Pendências</h3><div class="pn-card">'+(pend.length
+      ? '<ul class="pn-pend">'+pend.map(([q, t, url]) => '<li><b>'+fmt(q)+'</b> '+t+' <a href="'+url+'">Abrir</a></li>').join("")+'</ul>'
+      : '<div class="empty" style="padding:6px 0">Nada pendente. 👏</div>')+'</div>';
+    $("pnCorpo").innerHTML = h;
+    $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · contagem direta do banco";
+  }
+
+  // ---------- aba Infraestrutura: metricas oficiais do Google Cloud (funcao painelUso) ----------
+  // Cotas gratuitas diarias do Firestore (por projeto): acima disso o Google cobra no plano Blaze.
+  const COTA = { leituras:50000, gravacoes:20000, exclusoes:20000, bancoBytes:1024**3 };
+  const tamB = (b) => b == null ? "-" : b >= 1024**3 ? (b/1024**3).toFixed(2).replace(".",",")+" GB" : b >= 1024**2 ? (b/1024**2).toFixed(1).replace(".",",")+" MB" : Math.round(b/1024)+" KB";
+  const NOMES_FUNCAO = { emaildicaprofessor:"E-mail: Dica do Professor", emaildicaaluno:"E-mail: Dica do Aluno", emailnovocadastro:"E-mail: novo cadastro", emailcertificadoemitido:"E-mail: certificado",
+    emailrelatorioenviado:"E-mail: relatório enviado", emailprecadastros:"E-mail: pré-cadastros (a cada 15 min)", emailresumodiario:"E-mail: resumo diário", importarbiblioteca:"Biblioteca: importar título",
+    painelUso:"Painel de uso", paineluso:"Painel de uso", emitircertificado:"Formação: emitir certificado", corrigirquiz:"Formação: corrigir quiz" };
+  async function renderPnInfra(){
+    const atalhos = '<h3 class="pn-sec">Atalhos de gestão</h3><div class="pn-atalhos">'+[
+      ["Uso e faturamento do Firebase","https://console.firebase.google.com/project/portal-educador-5/usage"],
+      ["Faturamento (Google Cloud)","https://console.cloud.google.com/billing/linkedaccount?project=portal-educador-5"],
+      ["Orçamento e alertas de gasto","https://console.cloud.google.com/billing/budgets"],
+      ["Banco (Firestore)","https://console.firebase.google.com/project/portal-educador-5/firestore/databases/-default-/usage"],
+      ["Arquivos (Storage)","https://console.firebase.google.com/project/portal-educador-5/storage"],
+      ["Funções e erros","https://console.cloud.google.com/run?project=portal-educador-5"],
+      ["Cloudflare (R2 e Workers)","https://dash.cloudflare.com/"]
+    ].map(([t, u]) => '<a href="'+u+'" target="_blank" rel="noopener">'+t+' ↗</a>').join("")+'</div>';
+    let dados;
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = await httpsCallable(getFunctions(app, "southamerica-east1"), "painelUso", { timeout:70000 })({ forcar:!!pn.forcar });
+      dados = r.data; pn.forcar = false;
+    }catch(e){
+      console.warn("painelUso:", e.code, e.message);
+      if(pn.aba !== "infra" || !$("pnCorpo")) return;
+      $("pnCorpo").innerHTML = '<div class="pn-card"><div class="empty">Não foi possível ler as métricas agora ('+escapeHtml(e.code || "erro")+'). Use os atalhos abaixo.</div></div>'+atalhos;
+      $("pnAtual").textContent = "Métricas indisponíveis"; return;
+    }
+    if(pn.aba !== "infra" || !$("pnCorpo")) return;
+    const fs = dados.firestore || {}, st = dados.storage || {}, fn = dados.funcoes || {};
+    const dias = []; for(let i = 29; i >= 0; i--) dias.push(diasAtras(i));
+    const hoje = hojeISO(), ontem = diasAtras(1);
+    const media = (o) => { const vs = dias.map(d => o[d] || 0); return Math.round(vs.reduce((a,b) => a+b, 0) / 30); };
+    const pico = (o) => Math.max(0, ...dias.map(d => o[d] || 0));
+    const pctCota = (x, cota) => Math.round((x||0) * 100 / cota);
+    const tile = (rot, val, sub, cls) => '<div class="pn-tile'+(cls?" "+cls:"")+'"><span class="pn-rot">'+rot+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
+    const cotaTile = (rot, o, cota) => { const p = pico(o); const pc = pctCota(p, cota);
+      return tile(rot+" (pico/dia)", fmt(p), pc+"% da cota grátis de "+fmt(cota)+" · média "+fmt(media(o))+"/dia", pc >= 80 ? "pn-alerta" : ""); };
+    const stTotal = Object.values(st.bytes || {}).reduce((a,b) => a+b, 0), stObjs = Object.values(st.objetos || {}).reduce((a,b) => a+b, 0);
+    const saida30 = Object.values(st.saida || {}).reduce((a,b) => a+b, 0);
+    const fnLista = Object.entries(fn).map(([k, x]) => ({ nome:NOMES_FUNCAO[k] || NOMES_FUNCAO[k.toLowerCase()] || k, ...x })).sort((a,b) => b.total - a.total);
+    const fnTotal = fnLista.reduce((a,x) => a + x.total, 0), fnErros = fnLista.reduce((a,x) => a + x.erros, 0);
+    let h = '<h3 class="pn-sec">Firebase · banco de dados (Firestore)</h3><div class="pn-tiles">'+
+      cotaTile("Leituras", fs.leituras || {}, COTA.leituras) + cotaTile("Gravações", fs.gravacoes || {}, COTA.gravacoes) +
+      cotaTile("Exclusões", fs.exclusoes || {}, COTA.exclusoes) +
+      tile("Tamanho do banco", tamB(fs.bytes), fs.bytes != null ? pctCota(fs.bytes, COTA.bancoBytes)+"% de 1 GB grátis" : "", fs.bytes > COTA.bancoBytes*0.8 ? "pn-alerta" : "") + '</div>';
+    h += '<div class="pn-graficos"><div class="pn-card pn-largo"><h3>Leituras e gravações por dia</h3><div class="pn-leg"><span><i style="background:'+COR_A+'"></i>Leituras</span><span><i style="background:'+COR_B+'"></i>Gravações</span></div>'+
+      barrasEmpilhadas(dias, fs.leituras || {}, fs.gravacoes || {}).replace(/ teste, /g," leituras, ").replace(/ rede"/g," gravações\"")+'</div></div>';
+    h += '<h3 class="pn-sec">Firebase · arquivos (Storage) e funções</h3><div class="pn-tiles">'+
+      tile("Espaço no Storage", tamB(stTotal), fmt(stObjs)+" arquivo(s)") + tile("Download (saída) em 30 dias", tamB(saida30), "desenhos, biblioteca, anexos") +
+      tile("Execuções de funções (30 dias)", fmt(fnTotal), "2 milhões/mês grátis") + tile("Execuções com erro", fmt(fnErros), fnTotal ? pctCota(fnErros, fnTotal)+"% do total" : "", fnErros ? "pn-alerta" : "") + '</div>';
+    h += '<div class="pn-graficos"><div class="pn-card"><h3>Espaço por bucket</h3>'+barrasHorizontais(Object.fromEntries(Object.entries(st.bytes || {}).map(([k, b]) => [k.replace(/\.firebasestorage\.app$|\.appspot\.com$/, "")+" ("+tamB(b)+")", Math.round(b/1024**2)])), 6, "MB")+'</div>'+
+      '<div class="pn-card"><h3>Funções mais usadas (30 dias)</h3>'+(fnLista.length
+        ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Função</th><th>Execuções</th><th>Erros</th></tr></thead><tbody>'+
+          fnLista.slice(0, 12).map(x => '<tr><td class="usr-vinc">'+escapeHtml(x.nome)+'</td><td>'+fmt(x.total)+'</td><td'+(x.erros ? ' style="color:#b3261e;font-weight:700"' : '')+'>'+fmt(x.erros)+'</td></tr>').join("")+'</tbody></table></div>'
+        : '<div class="empty">Sem execuções registradas.</div>')+'</div></div>';
+    h += '<h3 class="pn-sec">Cloudflare · Acervo (R2)</h3><div class="pn-card pn-cf"><b>Ainda não ativado.</b> A conta Cloudflare ligada ao Portal não tem o R2 habilitado nem o Worker do Acervo publicado, e o Portal não tem o endereço do Acervo configurado. '+
+      'Quando o Acervo for ativado, este quadro passa a mostrar o espaço usado, o número de arquivos e as operações do mês (com um token só de leitura).</div>';
+    h += '<p class="pn-nota">Fonte: Google Cloud Monitoring (dados oficiais, atraso de alguns minutos). As cotas grátis são do plano Blaze do Firebase; o valor cobrado de fato está em Faturamento. Ontem: '+fmt((fs.leituras||{})[ontem]||0)+' leituras e '+fmt((fs.gravacoes||{})[ontem]||0)+' gravações.'+
+      ((dados.erros || []).length ? ' Métricas sem resposta: '+escapeHtml(dados.erros.map(x => x.split(":")[0]).join(", "))+'.' : '')+'</p>';
+    $("pnCorpo").innerHTML = h + atalhos;
+    $("pnAtual").textContent = "Atualizado às "+new Date(dados.gerado_em).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · últimos 30 dias";
   }
 
   // barras verticais por dia (1 ou 2 series empilhadas, 2px de respiro entre segmentos)
@@ -3251,7 +3376,8 @@
     else if(acao === "usr-recusar"){ recusarUsuario(el.dataset.uid, el); }
     else if(acao === "mod-salvar"){ salvarModulos(); }
     else if(acao === "ini-abrir"){ registrarModulo(el.dataset.mod); }
-    else if(acao === "painel-atualizar"){ renderPainel(); }
+    else if(acao === "painel-atualizar"){ pn.forcar = true; renderPainel(); }
+    else if(acao === "painel-aba"){ pn.aba = el.dataset.arg; renderPainel(); }
     else if(acao === "mt-nova"){ formTurma(null); }
     else if(acao === "mt-editar"){ formTurma(cacheTurmas.find(t => t.id === el.dataset.id)); }
     else if(acao === "mt-cancelar"){ mt.editando = null; $("mtForm").innerHTML = ""; }
