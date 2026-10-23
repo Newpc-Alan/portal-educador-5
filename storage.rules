@@ -50,6 +50,13 @@ service firebase.storage {
       allow delete: if admin();
     }
 
+    // Desenhos para Colorir: imagens do acervo (leitura com login; envio so do administrador)
+    match /colorir/{caminho=**} {
+      allow read: if request.auth != null;
+      allow create, update: if admin() && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+      allow delete: if admin();
+    }
+
     // Dicas do Professor: anexos do envio (ate 10 MB cada). Publicados ficam visiveis para a rede.
     match /dicas/{uid}/{envio}/{arquivo} {
       allow create: if request.auth != null && request.auth.uid == uid && eu().status == "ativo"
