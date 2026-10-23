@@ -17,7 +17,7 @@
 #   curl -s -o /tmp/pg_catalog.csv https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv
 #   python3 importar-gutenberg.py --listar            -> resumo, grava /tmp/gutenberg-lista.csv
 #   python3 importar-gutenberg.py --teste 3           -> gera 3 PDFs em /tmp/gut/ (não publica)
-#   python3 importar-gutenberg.py --gravar [--max N]  -> publica (pode rodar de novo: pula o que já existe)
+#   python3 importar-gutenberg.py --gravar [--max N] [--parte 1/3]  -> publica (pode rodar de novo: pula o que já existe)
 import csv, re, sys, os, time, json, uuid, datetime, unicodedata, urllib.request, urllib.parse
 from collections import Counter
 
@@ -192,6 +192,8 @@ if "--gravar" in ARGS:
     existentes = {norm(d.to_dict().get("titulo", "")) for d in db.collection("biblioteca").stream()}
     so = arg("--ids")  # opcional: só estes IDs (separados por vírgula)
     alvo = [l for l in livres if not so or l["id"] in so.split(",")][: int(arg("--max", "100000"))]
+    if arg("--parte"):  # --parte 2/3 -> só um terço da lista (para rodar 3 em paralelo)
+        k, n = [int(x) for x in arg("--parte").split("/")]; alvo = alvo[k - 1::n]
     ok = pulados = erros = 0
     for i, l in enumerate(alvo):
         ref = db.document(f"biblioteca/gut-{l['id']}")
