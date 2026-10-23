@@ -112,6 +112,9 @@ if (!GRAVAR) { console.log('SIMULAÇÃO: nada foi gravado. Rode com --gravar par
 
 let ok = 0, existe = 0, erro = 0, i = 0;
 const fila = [...lista];
+// para acelerar dá para rodar mais de um ao mesmo tempo: --inverso começa do fim, --meio começa do meio
+if (process.argv.includes('--inverso')) fila.reverse();
+if (process.argv.includes('--meio')) fila.push(...fila.splice(0, Math.floor(fila.length / 2)));
 async function trabalhador() {
   while (fila.length) {
     const f = fila.shift();
@@ -120,5 +123,5 @@ async function trabalhador() {
     if (++i % 50 === 0) console.log(`${i}/${lista.length}...`);
   }
 }
-await Promise.all(Array.from({ length: 6 }, trabalhador));
+await Promise.all(Array.from({ length: 10 }, trabalhador));
 console.log(`PRONTO: ${ok} importados, ${existe} já existiam, ${erro} com erro.`);
