@@ -5,7 +5,7 @@ import { getFirestore, FieldValue, FieldPath } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomBytes, randomInt } from 'node:crypto';
 import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
-export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario } from './dicas.js';
+export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
 export { importarBiblioteca } from './biblioteca.js';
 initializeApp();
 const db = getFirestore();

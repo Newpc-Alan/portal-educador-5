@@ -74,6 +74,8 @@ export const emailNovoCadastro = onDocumentCreated(
   async (event) => {
     const snap = event.data; if (!snap) return;
     const u = snap.data(), uid = event.params.uid;
+    // aluno nao gera e-mail individual (podem ser milhares no inicio do ano): entra no resumo diario
+    if (u.perfil === 'aluno') return;
     const ref = getFirestore().doc(`usuarios/${uid}`);
     const whats = String(u.whatsapp || '').replace(/\D/g, '');
     const local = [u.municipio_nome || u.municipio_cad, u.uf].filter(Boolean).join('/');
@@ -168,7 +170,19 @@ export const emailPreCadastros = onSchedule(
     if (!ult) { await marca.set({ pre_cadastros_ate: agora }, { merge: true }); return; } // primeira execução: só marca o ponto de partida
     const s = await db.collection('pre_cadastros').where('importado_em', '>', ult).where('importado_em', '<=', agora).get();
     if (s.empty) { await marca.set({ pre_cadastros_ate: agora }, { merge: true }); return; }
-    const lista = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => String(a.municipio_nome || '').localeCompare(String(b.municipio_nome || '')) || String(a.nome || '').localeCompare(String(b.nome || '')));
+    const todos = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    // alunos (menores de idade): o e-mail leva so a contagem por municipio e escola, sem nomes
+    const alunosPre = todos.filter(p => p.perfil === 'aluno');
+    if (alunosPre.length) {
+      const porLocal = {};
+      alunosPre.forEach(p => { const k = [p.municipio_nome || 'Sem município', p.escola_nome || 'sem escola informada'].join(' · '); porLocal[k] = (porLocal[k] || 0) + 1; });
+      await enviar(`${alunosPre.length} aluno(s) importado(s) pela rede`, caixa(`${alunosPre.length} aluno(s) importado(s)`, '', `
+<p style="margin:0 0 12px">Eles entram no Portal com a conta Google do e-mail cadastrado.</p>
+<table style="font-size:13px;border-collapse:collapse;margin:0 0 12px">${Object.entries(porLocal).map(([k, n]) => linha(k, String(n))).join('')}</table>
+<p style="font-size:12px;color:#6b7c90">Por proteção de dados (LGPD), a lista com nomes fica só no Portal, em Usuários › Alunos.</p>`));
+    }
+    const lista = todos.filter(p => p.perfil !== 'aluno').sort((a, b) => String(a.municipio_nome || '').localeCompare(String(b.municipio_nome || '')) || String(a.nome || '').localeCompare(String(b.nome || '')));
+    if (!lista.length) { await marca.set({ pre_cadastros_ate: agora }, { merge: true }); return; }
     const munis = [...new Set(lista.map(p => p.municipio_nome).filter(Boolean))];
     const linhas = lista.map(p => `<tr><td style="padding:4px 10px 4px 0;border-bottom:1px solid #eef2f6">${esc(p.nome)}</td><td style="padding:4px 10px 4px 0;border-bottom:1px solid #eef2f6">${esc(p.email || p.id)}</td><td style="padding:4px 0;border-bottom:1px solid #eef2f6">${esc((p.escolas_nomes || []).join(', ') || p.municipio_nome || '')}</td></tr>`).join('');
     const csv = '﻿Nome;E-mail;Município;Escolas\r\n' + lista.map(p => [p.nome, p.email || p.id, p.municipio_nome, (p.escolas_nomes || []).join(', ')].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(';')).join('\r\n');
@@ -200,12 +214,54 @@ export const emailResumoDiario = onSchedule(
       conta(db.collection('usuarios'))
     ]);
     const dicasPend = await conta(db.collection('dicas_envios').where('status', '==', 'novo'));
+    const [alNovos, alTotal, alAcessos, dicasAl, dicasAlPend] = await Promise.all([
+      conta(db.collection('usuarios').where('perfil', '==', 'aluno').where('criado_em', '>=', desde)),
+      conta(db.collection('usuarios').where('perfil', '==', 'aluno')),
+      conta(db.collection('acessos_dia').where('dia', '==', ontem).where('perfil', '==', 'aluno')),
+      conta(db.collection('dicas_alunos').where('criado_em', '>=', desde)),
+      conta(db.collection('dicas_alunos').where('status', '==', 'novo'))
+    ]);
     const kpi = (n, t) => `<td style="padding:10px;border:1px solid #dce4ed;border-radius:10px;text-align:center;width:25%"><b style="font-size:22px;color:#0c2338">${n}</b><br><span style="font-size:11px;color:#6b7c90">${t}</span></td>`;
     const dataBRhoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' });
     await enviar(`Resumo do Portal · ${dataBRhoje}`, caixa(`Resumo das últimas 24 horas`, `Portal do Educador 5.0 · ${dataBRhoje}`, `
-<table style="border-collapse:separate;border-spacing:6px;width:100%;margin:0 0 10px"><tr>${kpi(acessos, 'professores que usaram ontem')}${kpi(novos, 'novos cadastros')}${kpi(pre, 'pré-cadastros importados')}${kpi(totalUs, 'usuários no total')}</tr>
-<tr>${kpi(relCriados, 'relatórios criados')}${kpi(relPend, 'relatórios aguardando aprovação')}${kpi(dicas, 'dicas enviadas')}${kpi(certs, 'certificados emitidos')}</tr></table>
+<table style="border-collapse:separate;border-spacing:6px;width:100%;margin:0 0 10px"><tr>${kpi(typeof acessos === 'number' && typeof alAcessos === 'number' ? acessos - alAcessos : acessos, 'professores que usaram ontem')}${kpi(novos, 'novos cadastros')}${kpi(pre, 'pré-cadastros importados')}${kpi(totalUs, 'usuários no total')}</tr>
+<tr>${kpi(relCriados, 'relatórios criados')}${kpi(relPend, 'relatórios aguardando aprovação')}${kpi(dicas, 'dicas enviadas')}${kpi(certs, 'certificados emitidos')}</tr>
+<tr>${kpi(alAcessos, 'alunos que usaram ontem')}${kpi(alNovos, 'alunos novos')}${kpi(alTotal, 'alunos no total')}${kpi(dicasAl, 'dicas de alunos')}</tr></table>
+${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasAlPend}</b> dica(s) de aluno esperando revisão.</p>` : ''}
 ${typeof dicasPend === 'number' && dicasPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasPend}</b> dica(s) esperando revisão.</p>` : ''}
-${botao('https://app.portaldoeducador.com.br/entrar/', 'Abrir o Portal')}${typeof dicasPend === 'number' && dicasPend > 0 ? botao('https://app.portaldoeducador.com.br/dicas/#recebidas', 'Revisar dicas', '#5A9420') : ''}`));
+${botao('https://app.portaldoeducador.com.br/entrar/', 'Abrir o Portal')}${typeof dicasPend === 'number' && dicasPend > 0 ? botao('https://app.portaldoeducador.com.br/dicas/#recebidas', 'Revisar dicas', '#5A9420') : ''}${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? botao('https://app.portaldoeducador.com.br/dicas/?aluno=1#recebidas', 'Revisar dicas de alunos', '#5A9420') : ''}`));
+  }
+);
+
+// Dica do Aluno: cada envio chega por e-mail para a equipe. Trava contra excesso: mais de 3 envios
+// do mesmo aluno em 24 horas não gera novo e-mail (fica no Portal e no resumo diário).
+const TIPOS_ALUNO = { estudo: 'Dica de estudo', app: 'Site ou app', curiosidade: 'Curiosidade', desafio: 'Desafio' };
+export const emailDicaAluno = onDocumentCreated(
+  { document: 'dicas_alunos/{id}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async (event) => {
+    const snap = event.data; if (!snap) return;
+    const d = snap.data(), id = event.params.id;
+    const db = getFirestore(), ref = db.doc(`dicas_alunos/${id}`);
+    try {
+      const desde = Date.now() - 24 * 3600 * 1000;
+      const meus = await db.collection('dicas_alunos').where('autor_uid', '==', d.autor_uid).get();
+      const recentes = meus.docs.filter(x => { const t = x.data().criado_em; return t && t.toMillis && t.toMillis() >= desde; }).length;
+      if (recentes > 3) { await ref.update({ email_status: 'limitado' }); return; }
+      const links = (d.links || []).map(u => `<li><a href="${esc(u)}">${esc(u)}</a></li>`).join('');
+      await enviar(`Nova dica de aluno: ${String(d.titulo || '').slice(0, 100)}`, caixa('Nova Dica do Aluno', 'Portal do Educador 5.0', `
+<p style="font-size:18px;margin:0 0 6px"><b>${esc(d.titulo)}</b></p>
+<p style="margin:0 0 14px;color:#6b7c90">${esc(TIPOS_ALUNO[d.tipo] || d.tipo)}${d.disciplina ? ' · ' + esc(d.disciplina) : ''}</p>
+<p style="white-space:pre-line;margin:0 0 14px">${esc(d.texto)}</p>
+${links ? `<p style="margin:0 0 4px"><b>Links</b> (confira antes de publicar)</p><ul style="margin:0 0 14px">${links}</ul>` : ''}
+<table style="font-size:13px;border-collapse:collapse;margin:0 0 16px">
+${linha('Aluno(a)', d.autor_nome)}${linha('E-mail', d.autor_email)}${linha('Escola', [d.escola_nome, d.municipio_nome].filter(Boolean).join(' · ') || 'não informada')}
+${linha('Se publicada aparece como', String(d.autor_nome || '').trim().split(/\s+/)[0] + (d.escola_nome ? ' · ' + d.escola_nome : ''))}
+</table>${botao('https://app.portaldoeducador.com.br/dicas/?aluno=1#recebidas', 'Revisar e publicar no Portal', '#5A9420')}
+<p style="font-size:12px;color:#6b7c90;margin:14px 0 0">Aluno é menor de idade: responda pela escola, não direto para o e-mail do aluno.</p>`));
+      await ref.update({ email_status: 'enviado', email_em: FieldValue.serverTimestamp() });
+    } catch (e) {
+      console.error('emailDicaAluno', id, e);
+      await ref.update({ email_status: 'falhou', email_erro: String(e && e.message || e).slice(0, 300) }).catch(() => {});
+    }
   }
 );

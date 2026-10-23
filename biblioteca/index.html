@@ -208,8 +208,13 @@ function ir(t){
 }
 
 /* ---------- acervo ---------- */
+// aluno: só as estantes Aprender brincando e Gibiteca (as regras do banco também exigem isso)
+const SECOES_ALUNO = ["aprender", "gibiteca"];
+const secoesVis = () => Object.entries(SECOES).filter(([id]) => !E.aluno || SECOES_ALUNO.includes(id));
 async function carregar(){
-  const q = E.admin ? collection(db, "biblioteca") : query(collection(db, "biblioteca"), where("publicado", "==", true));
+  const q = E.admin ? collection(db, "biblioteca")
+    : E.aluno ? query(collection(db, "biblioteca"), where("publicado", "==", true), where("secao", "in", SECOES_ALUNO))
+    : query(collection(db, "biblioteca"), where("publicado", "==", true));
   const s = await getDocs(q); E.livros = []; s.forEach(d => E.livros.push({ id:d.id, ...d.data() }));
   E.livros.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || "", "pt-BR", { numeric:true }));
 }
@@ -220,8 +225,10 @@ function filtrados(){
 function telaAcervo(){
   const n = s => E.livros.filter(l => l.secao === s).length;
   $("tela").innerHTML =
-    '<div class="destaque"><div class="destaque-ico">📚</div><div class="destaque-txt"><b>Leitura para a sala de aula</b><span>Livros, audiolivros e gibis para projetar na lousa, ler no Chromebook ou ouvir com a turma. A Biblioteca lembra onde você parou.</span></div></div>' +
-    '<div class="secoes">' + Object.entries(SECOES).map(([id, s]) => '<button class="secao' + (E.secao === id ? " on" : "") + '" data-action="secao" data-arg="' + id + '"><span class="e">' + s.e + '</span><span><b>' + esc(s.nome) + '</b><small>' + n(id) + ' título' + (n(id) === 1 ? "" : "s") + '</small></span></button>').join("") + '</div>' +
+    (E.aluno
+      ? '<div class="destaque"><div class="destaque-ico">📚</div><div class="destaque-txt"><b>Ler e aprender brincando</b><span>Livros com atividades e gibis para ler no Chromebook ou no celular. A Biblioteca lembra onde você parou.</span></div></div>'
+      : '<div class="destaque"><div class="destaque-ico">📚</div><div class="destaque-txt"><b>Leitura para a sala de aula</b><span>Livros, audiolivros e gibis para projetar na lousa, ler no Chromebook ou ouvir com a turma. A Biblioteca lembra onde você parou.</span></div></div>') +
+    '<div class="secoes"' + (E.aluno ? ' style="grid-template-columns:1fr 1fr"' : '') + '>' + secoesVis().map(([id, s]) => '<button class="secao' + (E.secao === id ? " on" : "") + '" data-action="secao" data-arg="' + id + '"><span class="e">' + s.e + '</span><span><b>' + esc(s.nome) + '</b><small>' + n(id) + ' título' + (n(id) === 1 ? "" : "s") + '</small></span></button>').join("") + '</div>' +
     '<div class="filtros"><input id="fBusca" type="search" placeholder="Buscar por título ou autor" value="' + esc(E.busca) + '">' +
     '<button class="btn ' + (E.soFav ? "btn-pri" : "btn-gh") + '" data-action="so-fav">⭐ Favoritos</button>' + (E.secao !== "todas" ? '<button class="btn btn-gh" data-action="secao" data-arg="todas">Ver todas as seções</button>' : "") + '</div>' +
     '<p class="contagem" id="contagem"></p><div class="grade" id="grade"></div><div class="mais-wrap" id="mais"></div>';
@@ -462,7 +469,7 @@ onAuthStateChanged(auth, async user => {
   let u = null;
   try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
-  E.user = user; E.u = u; E.admin = u.perfil === "admin";
+  E.user = user; E.u = u; E.admin = u.perfil === "admin"; E.aluno = u.perfil === "aluno";
   E.favs = new Set(ls.get("pde_bib_favs_" + user.uid, []));
   $("quem").textContent = u.nome || user.email;
   if(E.admin){ $("tbTri").hidden = false; carregarTriagem().catch(() => {}); }

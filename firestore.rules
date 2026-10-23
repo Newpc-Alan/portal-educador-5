@@ -34,6 +34,21 @@ service cloud.firestore {
     function pre() { return get(/databases/$(database)/documents/pre_cadastros/$(meuEmail())).data; }
 
     function novo() { return request.resource.data; }
+
+    // ---------- aluno ----------
+    // e-mail do token (Google), mesmo sem verificacao: usado para BLOQUEAR teste de professor em dominio de aluno
+    function temEmail() { return logado() && request.auth.token.get("email", "") is string && request.auth.token.get("email", "").matches("^[^@]+@[^@]+$"); }
+    function meuDominio() { return request.auth.token.email.lower().split("@")[1]; }
+    function dominioDeAluno() { return temEmail() && exists(/databases/$(database)/documents/dominios_aluno/$(meuDominio())); }
+    function domAluno() { return get(/databases/$(database)/documents/dominios_aluno/$(meuDominio())).data; }
+    function camposAluno() {
+      return novo().keys().hasOnly(["uid", "nome", "email", "perfil", "status", "licenca_tipo", "municipio_id", "municipio_nome",
+        "escola_id", "escola_nome", "turma_nome", "origem", "criado_em", "criado_por", "atualizado_em", "atualizado_por"]);
+    }
+    // aluno da rede: so enxerga os modulos liberados para alunos no plano do municipio (lista vazia = todos os de aluno)
+    function aluno() { return ativo() && eu().perfil == "aluno" && eu().get("municipio_id", null) != null && contratoOk(); }
+    function alunoPode(m) { return aluno() && (meuMuni().get("modulos_aluno", []).size() == 0 || m in meuMuni().get("modulos_aluno", [])); }
+    function naoAluno() { return ativo() && eu().perfil != "aluno"; }
     // escolas escolhidas pelo proprio professor: 1 a 5, todas do municipio dele
     function escolaDoMeuMuni(lista, i) {
       return lista.size() <= i || get(/databases/$(database)/documents/escolas/$(lista[i])).data.municipio_id == resource.data.municipio_id;
@@ -76,10 +91,10 @@ service cloud.firestore {
           && novo().licenca_tipo == "teste"
           && novo().licenca_fim is timestamp
           && novo().licenca_fim < request.time + duration.value(8, "d")
-          && semVinculoDeRede() )
+          && semVinculoDeRede() && !dominioDeAluno() )
         ||
         // 2) legado: nasce "pendente", sem vinculo
-        ( novo().perfil == "professor" && novo().status == "pendente" && semVinculoDeRede() )
+        ( novo().perfil == "professor" && novo().status == "pendente" && semVinculoDeRede() && !dominioDeAluno() )
         ||
         // 3) professor importado: nasce aprovado, com exatamente o vinculo do pre-cadastro
         ( temPreCadastro()
@@ -91,6 +106,18 @@ service cloud.firestore {
           && novo().escola_id == pre().escola_id
           && novo().escolas_ids == pre().escolas_ids
           && novo().turmas_ids == pre().turmas_ids )
+        ||
+        // 4) aluno da rede pelo dominio do e-mail (conta Google da escola): nasce ativo, so com o municipio do dominio
+        ( emailVerificado() && dominioDeAluno() && domAluno().get("ativo", true) == true
+          && novo().perfil == "aluno" && novo().status == "ativo" && novo().email == meuEmail()
+          && novo().municipio_id == domAluno().municipio_id && novo().get("escola_id", null) == null
+          && novo().get("licenca_tipo", "institucional") == "institucional" && camposAluno() )
+        ||
+        // 5) aluno importado pela rede (lista com e-mail)
+        ( temPreCadastro() && pre().perfil == "aluno" && pre().status == "ativo"
+          && novo().perfil == "aluno" && novo().status == "ativo" && novo().email == meuEmail()
+          && novo().municipio_id == pre().municipio_id && novo().get("escola_id", null) == pre().get("escola_id", null)
+          && novo().get("licenca_tipo", "institucional") == "institucional" && camposAluno() )
       );
       // o proprio usuario altera dados pessoais, suas escolas (so do proprio municipio, ate 5) e sua lista de turmas;
       // licenca, municipio, perfil e situacao so o administrador
@@ -153,19 +180,22 @@ service cloud.firestore {
 
     // acervo: metadados dos arquivos (os arquivos ficam no Cloudflare R2)
     match /acervo/{id} {
-      allow read: if admin() || (licenciado() && resource.data.publicado == true);
+      allow read: if admin() || (licenciado() && resource.data.publicado == true)
+        || (aluno() && resource.data.publicado == true && resource.data.modulo in ["datas", "historias"] && alunoPode(resource.data.modulo));
       allow write: if admin();
     }
 
     // videos: catalogo (os videos ficam no YouTube); o professor so ve os publicados
     match /videos/{id} {
-      allow read: if admin() || (licenciado() && resource.data.publicado == true);
+      allow read: if admin() || (licenciado() && resource.data.publicado == true)
+        || (alunoPode("videos") && resource.data.publicado == true && resource.data.get("para_alunos", false) == true);
       allow write: if admin();
     }
 
     // jogos: catalogo (os jogos ficam em jogos.portaldoeducador.com.br ou em sites externos)
     match /jogos/{id} {
-      allow read: if admin() || (licenciado() && resource.data.publicado == true);
+      allow read: if admin() || (licenciado() && resource.data.publicado == true)
+        || (alunoPode("jogos") && resource.data.publicado == true && resource.data.get("para_alunos", false) == true);
       allow write: if admin();
     }
 
@@ -176,7 +206,12 @@ service cloud.firestore {
     }
 
     // configuracao do Portal (ex.: quais botoes estao liberados)
-    match /config/{id} { allow read: if licenciado(); allow write: if admin(); }
+    match /config/{id} { allow read: if licenciado() || aluno(); allow write: if admin(); }
+    // dominios de e-mail dos alunos de cada rede (chave = dominio). O aluno so consulta o proprio dominio.
+    match /dominios_aluno/{dominio} {
+      allow get: if admin() || (temEmail() && meuDominio() == dominio);
+      allow list, write: if admin();
+    }
 
     // dados de alunos (LGPD): so professores das mesmas escolas leem; o professor cadastra alunos nas turmas que criou
     match /alunos/{id} {
@@ -208,21 +243,23 @@ service cloud.firestore {
     }
     // ================= BIBLIOTECA =================
     // Acervo publicado: professor ativo lê. A triagem (lista do Drive antigo e decisões de licença) é só do administrador.
+    // Aluno: só as estantes Aprender brincando e Gibiteca.
     match /biblioteca/{id} {
-      allow read: if admin() || (ativo() && resource.data.publicado == true);
+      allow read: if admin() || (naoAluno() && resource.data.publicado == true)
+        || (alunoPode("biblioteca") && resource.data.publicado == true && resource.data.secao in ["aprender", "gibiteca"]);
       allow write: if admin();
     }
     match /biblioteca_triagem/{id} { allow read, write: if admin(); }
     // ================= DESENHOS PARA COLORIR =================
     match /colorir/{id} {
-      allow read: if admin() || (ativo() && resource.data.publicado == true);
+      allow read: if admin() || (naoAluno() && resource.data.publicado == true) || (alunoPode("colorir") && resource.data.publicado == true);
       allow write: if admin();
     }
     // ================= DICAS DO PROFESSOR =================
     // Professor ativo envia; a equipe (admin) revisa e publica. Publicadas aparecem para toda a rede.
     match /dicas_envios/{id} {
-      allow read: if admin() || (logado() && resource.data.autor_uid == request.auth.uid) || (ativo() && resource.data.status == "publicado");
-      allow create: if ativo() && request.resource.data.autor_uid == request.auth.uid && request.resource.data.status == "novo"
+      allow read: if admin() || (logado() && resource.data.autor_uid == request.auth.uid) || (naoAluno() && resource.data.status == "publicado");
+      allow create: if naoAluno() && request.resource.data.autor_uid == request.auth.uid && request.resource.data.status == "novo"
         && request.resource.data.keys().hasOnly(["tipo", "titulo", "texto", "disciplina", "etapa", "links", "arquivos", "credito",
              "autor_uid", "autor_nome", "autor_email", "escola_nome", "municipio_nome", "status", "criado_em"])
         && request.resource.data.tipo in ["dica", "app", "material", "atividade"]
@@ -235,6 +272,25 @@ service cloud.firestore {
       allow update: if admin();
       allow delete: if admin() || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status == "novo");
     }
+    // ================= DICA DO ALUNO =================
+    // Aluno envia texto e até 2 links (sem arquivo). A equipe revisa; ao publicar, copia só o que pode aparecer
+    // (primeiro nome e escola) para dicas_alunos_pub. Nome completo e e-mail do aluno nunca ficam públicos.
+    match /dicas_alunos/{id} {
+      allow read: if admin() || (logado() && resource.data.autor_uid == request.auth.uid);
+      allow create: if alunoPode("dicasaluno") && request.resource.data.autor_uid == request.auth.uid && request.resource.data.status == "novo"
+        && request.resource.data.keys().hasOnly(["tipo", "titulo", "texto", "disciplina", "links", "autor_uid", "autor_nome", "autor_email",
+             "escola_nome", "municipio_id", "municipio_nome", "status", "criado_em"])
+        && request.resource.data.tipo in ["estudo", "app", "curiosidade", "desafio"]
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() >= 4 && request.resource.data.titulo.size() <= 100
+        && request.resource.data.texto is string && request.resource.data.texto.size() >= 10 && request.resource.data.texto.size() <= 1500
+        && request.resource.data.links is list && request.resource.data.links.size() <= 2
+        && request.resource.data.autor_email == request.auth.token.get("email", "")
+        && request.resource.data.municipio_id == eu().municipio_id
+        && request.resource.data.criado_em == request.time;
+      allow update: if admin();
+      allow delete: if admin() || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status == "novo");
+    }
+    match /dicas_alunos_pub/{id} { allow read: if ativo(); allow write: if admin(); }
     // ================= FORMAÇÃO CONTINUADA (ex-Academia do Educador) =================
     // Papéis editoriais vêm de custom claims (papel: admin | editor); o administrador do Portal também edita.
     function fPapel() { return logado() ? request.auth.token.get('papel', '') : ''; }
