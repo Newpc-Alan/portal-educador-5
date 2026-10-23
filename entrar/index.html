@@ -3520,9 +3520,17 @@
   ];
   const urlJogoOk = (u) => /^https:\/\/[^\s"'<>]+$/i.test(u || "");
   const ehDoPortal = (u) => String(u || "").startsWith(JOGOS_BASE);
+  // capas tiradas das ilustracoes dos proprios jogos (assets/jogos/<pasta>.webp); a capa informada no cadastro tem prioridade
+  const JOGOS_COM_CAPA = "adivinhe-o-animal aprendendo-alfabeto atelie-de-cores batalha-matematica batalha-portugues caca-palavras cadeia-alimentar ciclo-de-vida construtor-de-frases copa-conhecimento detetive-do-som-inicial estados-e-capitais familia-silabica fazendinha-das-letras formas-geometricas jogo-da-forca letrinha-magica maestro-do-ritmo memoria-animais-brasil memoria-das-rimas missao-dengue-zero-3d quiz-bandeiras racha-cuca resta-um roleta-verbos soletrando stop-educativo velha-matematica".split(" ");
+  function urlCapaJogo(j){
+    if(j.capa && urlJogoOk(j.capa)) return j.capa;
+    const m = String(j.url || "").match(/^https:\/\/jogos\.portaldoeducador\.com\.br\/([\w-]+)\/?$/);
+    return m && JOGOS_COM_CAPA.includes(m[1]) ? "/assets/jogos/"+m[1]+".webp" : "";
+  }
   function capaJogo(j, extra){
     const tags = (j.destaque ? '<span class="jg-tag">★ Destaque</span>' : '')+(extra || "");
-    if(j.capa && urlJogoOk(j.capa)) return '<div class="jg-capa tem" style="background-image:url(\''+escapeAttr(j.capa.replace(/'/g,"%27"))+'\')">'+tags+'</div>';
+    const c = urlCapaJogo(j);
+    if(c) return '<div class="jg-capa tem" style="background-image:url(\''+escapeAttr(c.replace(/'/g,"%27"))+'\')">'+tags+'</div>';
     return '<div class="jg-capa">'+escapeHtml(j.icone || "\u{1F3AE}")+tags+'</div>';
   }
 
@@ -3662,7 +3670,7 @@
   }
   function atualizarPreviaJogo(){
     const p = $("jgPrevia"); if(!p) return;
-    p.innerHTML = capaJogo({ capa:$("jgCapa").value.trim(), icone:$("jgIcone").value.trim(), destaque:$("jgDestaque").checked });
+    p.innerHTML = capaJogo({ capa:$("jgCapa").value.trim(), url:$("jgUrl").value.trim(), icone:$("jgIcone").value.trim(), destaque:$("jgDestaque").checked });
   }
   async function salvarJogo(){
     const url = $("jgUrl").value.trim();
@@ -3717,7 +3725,7 @@
       && (!t || semAcento([j.titulo, j.tema, j.url, (j.bncc||[]).join(" ")].join(" ")).includes(t)));
     $("jgAdmLista").innerHTML = !l.length ? '<div class="empty">'+(tot ? "Nenhum jogo neste filtro." : "Nenhum jogo cadastrado ainda.")+'</div>' :
       '<div class="tablewrap" style="border:0"><table><thead><tr><th>Jogo</th><th>Faixa</th><th>Componente</th><th>Situação</th><th></th></tr></thead><tbody>'+
-      l.map(j => '<tr><td><div class="vd-tab-nome"><span class="vd-tab-capa" style="display:grid;place-items:center;font-size:24px;'+(j.capa ? "background-image:url('"+escapeAttr(j.capa.replace(/'/g,"%27"))+"')" : "background:#e9f1f8")+'">'+(j.capa ? "" : escapeHtml(j.icone||"\u{1F3AE}"))+'</span><div class="usr-nome"><b>'+(j.destaque ? "★ " : "")+escapeHtml(j.titulo||"")+'</b><small>'+escapeHtml([j.origem === "externo" ? "Externo" : "Portal", (j.bncc||[]).slice(0,3).join(", ")].filter(Boolean).join(" · "))+'</small></div></div></td>'+
+      l.map(j => '<tr><td><div class="vd-tab-nome"><span class="vd-tab-capa" style="display:grid;place-items:center;font-size:24px;'+(urlCapaJogo(j) ? "background-image:url('"+escapeAttr(urlCapaJogo(j).replace(/'/g,"%27"))+"')" : "background:#e9f1f8")+'">'+(urlCapaJogo(j) ? "" : escapeHtml(j.icone||"\u{1F3AE}"))+'</span><div class="usr-nome"><b>'+(j.destaque ? "★ " : "")+escapeHtml(j.titulo||"")+'</b><small>'+escapeHtml([j.origem === "externo" ? "Externo" : "Portal", (j.bncc||[]).slice(0,3).join(", ")].filter(Boolean).join(" · "))+'</small></div></div></td>'+
         '<td class="usr-vinc">'+escapeHtml(rotuloFaixa(j.faixa_de, j.faixa_ate) || "-")+'</td>'+
         '<td class="usr-vinc">'+escapeHtml(j.componente || "-")+'</td>'+
         '<td><span class="pill '+(j.publicado ? "ativo" : "pendente")+'">'+(j.publicado ? "Publicado" : "Rascunho")+'</span></td>'+
