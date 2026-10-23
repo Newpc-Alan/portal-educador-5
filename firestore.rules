@@ -118,6 +118,26 @@ service cloud.firestore {
       allow create, update: if logado() && request.auth.uid == uid && licenciado();
     }
 
+    // Central de Relatorios: o autor edita; a gestao da escola confere (aprova/devolve); a secretaria municipal acompanha
+    function ativo() { return temCadastro() && eu().status == "ativo"; }
+    function gestorDaEscola(esc) { return ativo() && eu().perfil == "gestor" && esc in minhasEscolas(); }
+    function secretariaDoMuni(m) { return ativo() && eu().perfil == "secretaria" && eu().get("municipio_id", "") == m; }
+    match /relatorios/{id} {
+      allow read: if admin() || (logado() && resource.data.autor_uid == request.auth.uid)
+        || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id);
+      allow create: if logado() && novo().autor_uid == request.auth.uid && ativo()
+        && (licenciado() || eu().perfil in ["gestor", "secretaria"])
+        && (novo().escola_id == "" || novo().escola_id in minhasEscolas() || eu().perfil == "secretaria")
+        && novo().status in ["rascunho", "enviado"];
+      allow update: if admin()
+        || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status != "aprovado"
+            && novo().autor_uid == request.auth.uid && novo().status in ["rascunho", "enviado", "devolvido"]
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["revisado_por", "revisado_em"]))
+        || (gestorDaEscola(resource.data.escola_id) && novo().status in ["aprovado", "devolvido"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "comentario", "revisado_por", "revisado_nome", "revisado_em"]));
+      allow delete: if admin() || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status != "aprovado");
+    }
+
     // lista importada de professores (chave = e-mail em minusculas)
     match /pre_cadastros/{email} {
       allow read: if admin() || (emailVerificado() && meuEmail() == email);

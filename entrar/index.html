@@ -833,11 +833,13 @@
       { id:"iaadm",      ico:"\u{1F916}", label:"Dicas de IA" } ] },
     secretaria: { itens: [
       { id:"escolas",   ico:"\u{1F3EB}", label:"Escolas" },
-      { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" } ] },
+      { id:"municipio", ico:"\u{1F4CA}", label:"Visao do Municipio" },
+      { id:"relatoriosLink", ico:"\u{1F4CB}", label:"Central de Relatórios" } ] },
     gestor: { itens: [
       { id:"turmas",      ico:"\u{1F4DA}", label:"Turmas da Escola" },
       { id:"professores", ico:"\u{1F469}\u200D\u{1F3EB}", label:"Professores" },
-      { id:"avaliacoes",  ico:"\u{1F4DD}", label:"Avaliacoes da Escola" } ] },
+      { id:"avaliacoes",  ico:"\u{1F4DD}", label:"Avaliacoes da Escola" },
+      { id:"relatoriosLink", ico:"\u{1F4CB}", label:"Central de Relatórios" } ] },
     professor: { itens: [
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início" },
       { id:"turmas",     ico:"\u{1F4DA}", label:"Minhas Turmas" },
@@ -1011,6 +1013,7 @@
   }
 
   function selecionar(item){
+    if(item.id === "relatoriosLink"){ location.href = "/relatorios/"; return; }
     document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.sec === item.id));
     $("secTitulo").textContent = item.label;
     if(usuarioAtual.perfil === "admin"){
@@ -3031,6 +3034,7 @@
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
+    else if(acao === "ini-relatorios"){ registrarModulo(el.dataset.mod); location.href = "/relatorios/"; }
     else if(acao === "ini-provas"){ registrarModulo(el.dataset.mod); location.href = "/provas/"; }
     else if(acao === "ini-ia"){ registrarModulo(el.dataset.mod); renderIa(); }
     else if(acao === "ia-abrir"){ abrirIa(el.dataset.id); }
@@ -3178,7 +3182,7 @@
           ? (md.logo ? '<img class="ini-selo-marca" src="'+escapeAttr(md.logo)+'" alt="">' : "")
           : (md.logo ? '<img src="'+escapeAttr(md.logo)+'" alt="" style="width:46%;max-height:70%;object-fit:contain">' : md.ico))+'</div>'+
         '<div class="ini-txt"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(md.desc)+'</small></div>'+selo;
-      const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia", "#provas":"ini-provas" };
+      const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia", "#provas":"ini-provas", "#relatorios":"ini-relatorios" };
       if(abre && ROTA_INTERNA[c.url])
         return '<button type="button" class="ini-card'+(estado==="ok"?"":" trava")+'" data-action="'+ROTA_INTERNA[c.url]+'" data-mod="'+md.id+'">'+corpo+'</button>';
       return abre
@@ -4013,8 +4017,8 @@
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="modCount">Carregando...</span>'+
       '<button class="btn btn-primary btn-add" data-action="mod-salvar" id="modSalvar">Salvar alterações</button></div>'+
-      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos do Portal use <b>#videos</b> (Vídeos), <b>#jogos</b> (Jogos) e <b>#ia</b> (Dicas de IA / IA Studio). O <b>Gerador de Provas</b> integrado ao cadastro do professor usa <b>#provas</b>.</div>'+
-      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://... ou #acervo, #videos, #jogos, #ia, #provas)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
+      '<div class="usr-aviso" style="margin:0 0 14px">Cada botão aparece para os professores como <b>Em breve</b> (com cadeado) até você mudar para <b>Liberado</b> e informar o link. <b>Oculto</b> tira o botão da tela. O link e a imagem podem ser os mesmos usados hoje no site. Para abrir os arquivos do <b>Acervo</b> daquele botão dentro do Portal, use o link <b>#acervo</b>. Para os catálogos do Portal use <b>#videos</b> (Vídeos), <b>#jogos</b> (Jogos) e <b>#ia</b> (Dicas de IA / IA Studio). O <b>Gerador de Provas</b> integrado ao cadastro do professor usa <b>#provas</b> e a <b>Central de Relatórios</b> usa <b>#relatorios</b>.</div>'+
+      '<div class="tablewrap"><table class="modadm"><thead><tr><th>Botão</th><th>Situação</th><th>Link (https://... ou #acervo, #videos, #jogos, #ia, #provas, #relatorios)</th><th>Imagem do card (URL, opcional)</th></tr></thead><tbody id="modLinhas"></tbody></table></div>';
     await carregarCfgModulos();
     modAdm.rasc = {};
     MODULOS.forEach(md => { modAdm.rasc[md.id] = cfgDe(md.id); });
@@ -4032,7 +4036,7 @@
     const n = MODULOS.filter(m => modAdm.rasc[m.id].status === "liberado").length;
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
-  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || u === "#ia" || u === "#provas" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
+  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || u === "#ia" || u === "#provas" || u === "#relatorios" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;
     modAdm.rasc[t.dataset.mod][t.dataset.campo] = t.value.trim();
