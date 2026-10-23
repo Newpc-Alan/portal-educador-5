@@ -67,7 +67,7 @@ async function baixar(id) {
   for (let tentativa = 0; tentativa < 4; tentativa++) {
     for (const u of fontes) {
       try {
-        const r = await fetch(u, { headers: { Referer: REFERER } });
+        const r = await fetch(u, { headers: { Referer: REFERER }, signal: AbortSignal.timeout(30000) });
         const tipo = r.headers.get('content-type') || '';
         if (r.ok && tipo.startsWith('image/')) { const b = Buffer.from(await r.arrayBuffer()); if (b.length > 2000) return b; }
       } catch (e) {}
