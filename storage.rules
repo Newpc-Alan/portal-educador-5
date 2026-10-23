@@ -27,6 +27,15 @@ service firebase.storage {
       allow delete: if (request.auth != null && request.auth.uid == uid) || admin();
     }
 
+    // Minhas provas e banco de questoes do Gerador de Provas (JSON compactado), ate 50 MB
+    match /professores/{uid}/provas/{arquivo} {
+      allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
+      allow create, update: if request.auth != null && request.auth.uid == uid && licenciado()
+        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('application/gzip|application/json');
+      allow delete: if (request.auth != null && request.auth.uid == uid) || admin();
+    }
+
     // pasta de cada professor: so ele (e o administrador) acessa
     match /professores/{uid}/{arquivo=**} {
       allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
