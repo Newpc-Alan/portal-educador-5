@@ -3233,7 +3233,7 @@
     if(!$("vdLista")) return;
     document.querySelectorAll('#vdAtalhos [data-serie]').forEach(b => b.classList.toggle("on", b.dataset.serie === vds.serie));
     const t = semAcento(vds.busca.trim());
-    const lista = vds.itens.filter(v => (!vds.serie || (v.series || []).includes(vds.serie))
+    const lista = vds.itens.filter(v => v.para_professores !== false && (!vds.serie || (v.series || []).includes(vds.serie))
       && (!vds.comp || v.componente === vds.comp)
       && (!t || semAcento([v.titulo, v.tema, v.descricao, v.canal, (v.bncc||[]).join(" ")].join(" ")).includes(t)));
     if(!lista.length){
@@ -3322,7 +3322,10 @@
           '<div class="field"><label for="vdCanal">Canal / créditos</label><input type="text" id="vdCanal" maxlength="80" value="'+escapeAttr(x.canal||"")+'"></div></div>'+
         '<div class="field"><label for="vdBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="vdBncc" placeholder="EF05CI11, EF05CI12" value="'+escapeAttr((x.bncc||[]).join(", "))+'"></div>'+
         '<div class="field"><label for="vdDesc2">Sugestão de uso em aula <small>(opcional)</small></label><textarea id="vdDesc2" rows="2" maxlength="400" placeholder="Ex: use na abertura da aula e peça hipóteses antes da explicação">'+escapeHtml(x.descricao||"")+'</textarea></div>'+
-        '<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:14px"><input type="checkbox" id="vdPub"'+(x.publicado ? " checked" : "")+'> Publicar para os professores</label>'+
+        '<div class="field"><label>Quem pode ver</label><div style="display:flex;gap:18px;flex-wrap:wrap;font-size:14px">'+
+          '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vdParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
+          '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="vdParaAluno"'+(x.para_alunos ? " checked" : "")+'> Alunos</label></div></div>'+
+        '<label style="display:flex;gap:8px;align-items:center;font-size:14px;margin-bottom:14px"><input type="checkbox" id="vdPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label>'+
         '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="vdadm-salvar" id="vdSalvar">'+(v ? "Salvar alterações" : "Salvar vídeo")+'</button>'+
           '<button type="button" class="btn btn-ghost" data-action="vdadm-limpar">'+(v ? "Cancelar edição" : "Limpar")+'</button></div>'+
       '</div></div>';
@@ -3370,10 +3373,12 @@
     const bncc = $("vdBncc").value.split(/[,;\s]+/).map(c => c.trim().toUpperCase()).filter(Boolean);
     const ruins = bncc.filter(c => !/^E[FIM]\d{2}[A-Z]{2}\d{2,3}[A-Z]?$/.test(c));
     if(ruins.length){ toast("Código BNCC fora do padrão: "+ruins.join(", "), true); return; }
+    const paraProf = $("vdParaProf").checked, paraAluno = $("vdParaAluno").checked;
+    if(!paraProf && !paraAluno){ toast("Marque se o vídeo é para professores, alunos ou ambos.", true); return; }
     const faixa = FAIXAS.slice(i, j+1);
     const dados = { youtube_id:id, titulo, faixa_de:de, faixa_ate:ate, series:faixa.map(f => f.c), etapas:[...new Set(faixa.map(f => f.etapa))],
       componente:$("vdComp2").value, tema:$("vdTema").value.trim(), canal:$("vdCanal").value.trim(), bncc, duracao_seg:dur,
-      descricao:$("vdDesc2").value.trim(), publicado:$("vdPub").checked, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      descricao:$("vdDesc2").value.trim(), para_professores:paraProf, para_alunos:paraAluno, publicado:$("vdPub").checked, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     const btn = $("vdSalvar"); btn.disabled = true;
     try{
       if(vdAdm.editando) await updateDoc(doc(db,"videos",vdAdm.editando), dados);
@@ -3394,16 +3399,19 @@
     if(!$("vdAdmLista")) return;
     const tot = vdAdm.itens.length, pub = vdAdm.itens.filter(v => v.publicado).length;
     $("vdProg").textContent = tot ? tot+" vídeo(s) · "+pub+" publicado(s) · "+(tot-pub)+" rascunho(s)" : "";
-    $("vdAdmTabs").innerHTML = [["todos","Todos"],["pub","Publicados"],["rasc","Rascunhos"]].map(([k,n]) =>
+    $("vdAdmTabs").innerHTML = [["todos","Todos"],["pub","Publicados"],["rasc","Rascunhos"],["prof","Para professores"],["aluno","Para alunos"]].map(([k,n]) =>
       '<button class="usr-tab'+(vdAdm.filtro===k?" on":"")+'" data-action="vdadm-filtro" data-filtro="'+k+'">'+n+'</button>').join("");
     const t = semAcento(vdAdm.busca);
-    const l = vdAdm.itens.filter(v => (vdAdm.filtro === "todos" || (vdAdm.filtro === "pub") === !!v.publicado)
+    const f = vdAdm.filtro;
+    const l = vdAdm.itens.filter(v => (f === "todos" || (f === "pub" && v.publicado) || (f === "rasc" && !v.publicado)
+        || (f === "prof" && v.para_professores !== false) || (f === "aluno" && !!v.para_alunos))
       && (!t || semAcento([v.titulo, v.tema, v.canal, (v.bncc||[]).join(" ")].join(" ")).includes(t)));
     $("vdAdmLista").innerHTML = !l.length ? '<div class="empty">'+(tot ? "Nenhum vídeo neste filtro." : "Nenhum vídeo cadastrado ainda. Comece colando o primeiro link acima.")+'</div>' :
-      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Vídeo</th><th>Faixa</th><th>Componente</th><th>Situação</th><th></th></tr></thead><tbody>'+
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Vídeo</th><th>Faixa</th><th>Componente</th><th>Para</th><th>Situação</th><th></th></tr></thead><tbody>'+
       l.map(v => '<tr><td><div class="vd-tab-nome"><span class="vd-tab-capa" style="background-image:url(\''+capaVideo(v.youtube_id)+'\')"></span><div class="usr-nome"><b>'+escapeHtml(v.titulo||"")+'</b><small>'+escapeHtml([v.canal, mostrarDuracao(v.duracao_seg), (v.bncc||[]).join(", ")].filter(Boolean).join(" · "))+'</small></div></div></td>'+
         '<td class="usr-vinc">'+escapeHtml(rotuloFaixa(v.faixa_de, v.faixa_ate) || "-")+'</td>'+
         '<td class="usr-vinc">'+escapeHtml(v.componente || "-")+'</td>'+
+        '<td class="usr-vinc">'+escapeHtml([v.para_professores !== false ? "Professores" : "", v.para_alunos ? "Alunos" : ""].filter(Boolean).join(" e "))+'</td>'+
         '<td><span class="pill '+(v.publicado ? "ativo" : "pendente")+'">'+(v.publicado ? "Publicado" : "Rascunho")+'</span></td>'+
         '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">Ver</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="vdadm-editar" data-id="'+escapeAttr(v.id)+'">Editar</button>'+
