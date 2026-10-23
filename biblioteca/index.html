@@ -381,7 +381,7 @@ function modalAprovar(ids){
   const um = itens.length === 1 ? itens[0] : null, temCom = itens.some(t => t.sugestao === "comercial");
   $("mTit").textContent = um ? "Aprovar título" : "Aprovar " + itens.length + " títulos";
   $("mCorpo").innerHTML = (um ? '<div class="campo"><label for="aTit">Título</label><input id="aTit" maxlength="160" value="' + esc(um.titulo) + '"></div><div class="campo"><label for="aAut">Autor (opcional)</label><input id="aAut" maxlength="120"></div>' : '<p class="sub">' + itens.slice(0, 6).map(t => esc(t.titulo)).join(", ") + (itens.length > 6 ? " e mais " + (itens.length - 6) : "") + '.</p>') +
-    '<div class="campo"><label for="aLic">Tipo de licença</label><select id="aLic">' + Object.entries(LIC).map(([id, n]) => '<option value="' + id + '"' + ((temCom && id === "licenciada") || (!temCom && itens.every(t => t.sugestao === "dominio-publico") && id === "dominio-publico") ? " selected" : "") + '>' + n + '</option>').join("") + '</select></div>' +
+    '<div class="campo"><label for="aLic">Tipo de licença</label><select id="aLic"><option value="">Escolha a licença...</option>' + Object.entries(LIC).map(([id, n]) => '<option value="' + id + '"' + ((temCom && id === "licenciada") || (!temCom && itens.every(t => t.sugestao === "dominio-publico") && id === "dominio-publico") ? " selected" : "") + '>' + n + '</option>').join("") + '</select></div>' +
     '<div class="campo"><label for="aObs">Comprovação (nº do contrato, autorização, link da licença ou observação)</label><textarea id="aObs" maxlength="400"></textarea></div>' +
     (temCom ? '<div class="aviso" style="margin:0">Há obra marcada como comercial: só aprove como <b>licenciada</b> e informe o contrato ou a autorização.</div>' : "") +
     '<label class="check"><input type="checkbox" id="aDecl"><span>Declaro que a NEWPC pode distribuir ' + (um ? "esta obra" : "estas obras") + ' no Portal do Educador com a licença informada.</span></label>';
@@ -391,7 +391,8 @@ function modalAprovar(ids){
 async function confirmarAprovacao(ids){
   const lic = $("aLic").value, obs = $("aObs").value.trim();
   if(!$("aDecl").checked){ toast("Marque a declaração para continuar.", true); return; }
-  if(lic === "licenciada" && obs.length < 4){ toast("Informe o contrato ou a autorização.", true); return; }
+  if(!lic){ toast("Escolha o tipo de licença.", true); return; }
+  if(obs.length < 10){ toast("Informe a comprovação: autor e ano de falecimento, link da licença, contrato ou autorização.", true); return; }
   const extra = ids.length === 1 ? { titulo:$("aTit").value.trim(), autor:$("aAut").value.trim() } : {};
   fecharModal();
   const fn = httpsCallable(fns, "importarBiblioteca", { timeout:560000 });

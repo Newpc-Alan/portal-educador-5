@@ -63,6 +63,7 @@ export async function importarTitulo(dados, quem) {
   const { id, licenca, obs, titulo, autor, etapa } = dados;
   if (typeof id !== 'string' || !/^[\w-]{10,80}$/.test(id)) throw new HttpsError('invalid-argument', 'Título inválido.');
   if (!LICENCAS.includes(licenca)) throw new HttpsError('invalid-argument', 'Informe o tipo de licença.');
+  if (String(obs || '').trim().length < 10) throw new HttpsError('invalid-argument', 'Informe a comprovação da licença.');
   const db = getFirestore(), tref = db.doc(`biblioteca_triagem/${id}`);
   const t = (await tref.get()).data();
   if (!t) throw new HttpsError('not-found', 'Título não está na triagem.');
