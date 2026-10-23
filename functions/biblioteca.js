@@ -54,7 +54,12 @@ async function capa(bucket, id, base) {
 
 export const importarBiblioteca = onCall({ region: 'southamerica-east1', timeoutSeconds: 540, memory: '1GiB' }, async (req) => {
   const adm = await exigirAdmin(req);
-  const { id, licenca, obs, titulo, autor, etapa } = req.data || {};
+  return importarTitulo(req.data || {}, { uid: req.auth.uid, nome: adm.nome || '' });
+});
+
+// Também usada pelo script scripts/aprovar-biblioteca.mjs (aprovação feita pelo administrador fora do painel).
+export async function importarTitulo(dados, quem) {
+  const { id, licenca, obs, titulo, autor, etapa } = dados;
   if (typeof id !== 'string' || !/^[\w-]{10,80}$/.test(id)) throw new HttpsError('invalid-argument', 'Título inválido.');
   if (!LICENCAS.includes(licenca)) throw new HttpsError('invalid-argument', 'Informe o tipo de licença.');
   const db = getFirestore(), tref = db.doc(`biblioteca_triagem/${id}`);
@@ -83,7 +88,7 @@ export const importarBiblioteca = onCall({ region: 'southamerica-east1', timeout
       titulo: String(titulo || t.titulo || '').slice(0, 160), autor: String(autor || '').slice(0, 120), etapa: String(etapa || '').slice(0, 60),
       secao: t.secao, tipo: t.tipo, url: arquivo.url || '', paginas, capa_url, tamanho: arquivo.tamanho || t.tamanho || 0,
       publicado: true, drive_id: id,
-      licenca: { tipo: licenca, obs: String(obs || '').slice(0, 400), aprovado_por: req.auth.uid, aprovado_nome: adm.nome || '', aprovado_em: FieldValue.serverTimestamp() },
+      licenca: { tipo: licenca, obs: String(obs || '').slice(0, 400), aprovado_por: quem.uid, aprovado_nome: quem.nome || '', aprovado_em: FieldValue.serverTimestamp() },
       criado_em: FieldValue.serverTimestamp()
     };
     const lref = db.doc(`biblioteca/${id}`);
@@ -95,4 +100,4 @@ export const importarBiblioteca = onCall({ region: 'southamerica-east1', timeout
     if (e instanceof HttpsError) throw e;
     throw new HttpsError('internal', 'Não foi possível importar: ' + String(e.message || e).slice(0, 200));
   }
-});
+}
