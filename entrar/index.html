@@ -828,7 +828,7 @@
       </div>
       <div class="row2 usr-sec">
         <div class="field"><label for="usrPerfil">Perfil</label>
-          <select id="usrPerfil"><option value="professor">Professor</option><option value="admin">Administrador</option></select>
+          <select id="usrPerfil"><option value="professor">Professor</option><option value="gestor">Gestor da escola (diretor ou coordenador)</option><option value="secretaria">Secretaria de Educação</option><option value="admin">Administrador (equipe NEWPC)</option></select>
         </div>
         <div class="field"><label for="usrMuni">Município</label><select id="usrMuni"><option value="">Carregando...</option></select></div>
       </div>
@@ -854,7 +854,7 @@
         </div>
       </div>
       <div class="usr-sec" id="usrBlocoEscolas">
-        <h4>Escolas onde ministra aulas <span id="usrEscCont"></span></h4>
+        <h4><span id="usrEscTit">Escolas onde ministra aulas</span> <span id="usrEscCont"></span></h4>
         <div class="chk-lista" id="usrEscolas"><div class="vazio">Selecione o município.</div></div>
       </div>
       <div class="usr-sec" id="usrBlocoTurmas">
@@ -943,7 +943,7 @@
       { id:"trabalhos",   ico:"\u{1F4C1}", label:"Meus trabalhos" },
       { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] }
   };
-  const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria", gestor:"Gestor", professor:"Professor", aluno:"Aluno" };
+  const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria de Educação", gestor:"Gestor da escola", professor:"Professor", aluno:"Aluno" };
   let usuarioAtual = null;
   let cacheMunicipios = [];
   let cacheEscolas = [];
@@ -3108,7 +3108,7 @@
     if(u.perfil === "admin") return "ativo";
     const lic = licencaDe(u, muniDe(u));
     if(lic.tipo === "institucional"){
-      if(!u.escola_id) return "semvinculo";
+      if(u.perfil === "secretaria" ? !u.municipio_id : !u.escola_id) return "semvinculo";
       return lic.vencida ? "expirado" : "ativo";
     }
     if(lic.vencida) return "expirado";
@@ -3193,13 +3193,13 @@
 
   function desenharUsuarios(){
     if(!usr.carregado) return;
-    const cont = { aguardando:0, ativo:0, avulsos:0, vencendo:0, inativo:0, todos:usr.lista.length, precad:usr.pre.length, alunos:(usr.nAlunos||0) + (usr.preAlunos||[]).length };
+    const cont = { aguardando:0, ativo:0, avulsos:0, vencendo:0, inativo:0, gestao:0, todos:usr.lista.length, precad:usr.pre.length, alunos:(usr.nAlunos||0) + (usr.preAlunos||[]).length };
     usr.lista.forEach(u => { const s=situacao(u);
       if(s==="pendente"||s==="semvinculo") cont.aguardando++;
       else if(s==="teste"||s==="avulso") cont.avulsos++;
       else if(s==="ativo"||s==="inativo") cont[s]++;
-      if(venceEmBreve(u)) cont.vencendo++; });
-    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Institucionais"], ["avulsos","Avulsos e teste"], ["vencendo","Vencendo / vencidas"], ["inativo","Desativados"], ["todos","Todos"], ["precad","Pré-cadastrados"], ["alunos","Alunos"] ];
+      if(venceEmBreve(u)) cont.vencendo++; if(u.perfil === "gestor" || u.perfil === "secretaria") cont.gestao++; });
+    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Institucionais"], ["avulsos","Avulsos e teste"], ["vencendo","Vencendo / vencidas"], ["inativo","Desativados"], ["gestao","Gestores e secretarias"], ["todos","Todos"], ["precad","Pré-cadastrados"], ["alunos","Alunos"] ];
     $("usrTabs").innerHTML = abas.map(([k,l]) =>
       '<button class="usr-tab'+(usr.filtro===k?" on":"")+((k==="aguardando"||k==="vencendo")&&cont[k]?" alerta":"")+'" data-action="usr-filtro" data-filtro="'+k+'">'+l+'<b>'+cont[k]+'</b></button>').join("");
 
@@ -3213,6 +3213,7 @@
       if(usr.filtro==="avulsos" && !(s==="teste"||s==="avulso")) return false;
       if(usr.filtro==="vencendo" && !venceEmBreve(u)) return false;
       if(usr.filtro==="inativo" && s!=="inativo") return false;
+      if(usr.filtro==="gestao" && u.perfil!=="gestor" && u.perfil!=="secretaria") return false;
       if(termo && !semAcento((u.nome||"")+" "+(u.email||"")).includes(termo)) return false;
       return true;
     });
@@ -3242,7 +3243,7 @@
       let acoes = '<button class="btn-mini btn-gerenciar" data-action="usr-abrir" data-uid="'+escapeAttr(u.id)+'">'+(s==="pendente"||s==="semvinculo" ? "Aprovar e vincular" : "Gerenciar")+'</button>';
       if(s==="pendente" && !ehEu) acoes += '<button class="btn-mini btn-recusar" data-action="usr-recusar" data-uid="'+escapeAttr(u.id)+'">Recusar</button>';
       html += '<tr>'+
-        '<td class="usr-nome"><b>'+escapeHtml(u.nome||"Sem nome")+(ehEu?' <small>(você)</small>':'')+'</b><small>'+escapeHtml(u.email||"-")+' · '+escapeHtml(LABELS_PERFIL[u.perfil]||u.perfil||"-")+'</small></td>'+
+        '<td class="usr-nome"><b>'+escapeHtml(u.nome||"Sem nome")+(ehEu?' <small>(você)</small>':'')+'</b><small>'+escapeHtml(u.email||"-")+' · '+(u.perfil==="gestor"||u.perfil==="secretaria" ? '<b style="color:var(--pde-azul,#2671AB)">'+escapeHtml(LABELS_PERFIL[u.perfil])+'</b>' : escapeHtml(LABELS_PERFIL[u.perfil]||u.perfil||"-"))+'</small></td>'+
         '<td><span class="pill '+s+'">'+ROTULO_SITUACAO[s]+'</span></td>'+
         '<td class="usr-vinc">'+vinc+'</td>'+
         '<td class="usr-vinc">'+dataCurta(u.criado_em)+'</td>'+
@@ -3373,12 +3374,16 @@
   function desenharModalUsuario(){
     const ed = usr.editando; if(!ed) return;
     document.querySelectorAll('#usrStatus input').forEach(r => { r.checked = r.value === ed.status; r.parentElement.classList.toggle("on", r.checked); });
-    const L = ed.lic; const inst = L.tipo === "institucional"; const adm = ed.perfil === "admin";
+    // gestor e secretaria são sempre da rede (institucional): sem licença avulsa
+    if(ed.perfil === "gestor" || ed.perfil === "secretaria"){ ed.lic.tipo = "institucional"; $("usrLicTipo").value = "institucional"; }
+    const L = ed.lic; const inst = L.tipo === "institucional"; const adm = ed.perfil === "admin", gest = ed.perfil === "gestor", sec = ed.perfil === "secretaria";
+    $("usrLicTipo").disabled = gest || sec;
     $("usrLicAvulsa").style.display = inst || adm ? "none" : "";
     $("usrLicPlanoBox").style.visibility = inst || adm ? "hidden" : "visible";
     $("usrLicPacoteBox").style.display = L.plano === "pacote" ? "" : "none";
-    $("usrBlocoEscolas").style.display = inst || adm ? "" : "none";
-    $("usrBlocoTurmas").style.display = inst || adm ? "" : "none";
+    $("usrBlocoEscolas").style.display = (inst || adm) && !sec ? "" : "none";
+    $("usrBlocoTurmas").style.display = (inst || adm) && !sec ? "" : "none";
+    $("usrEscTit").textContent = gest ? "Escolas que ele(a) gere (até 5)" : "Escolas onde ministra aulas";
     const muniSel = cacheMunicipios.find(m => m.id === ed.municipio_id);
     $("usrLicResumo").textContent = adm ? "não se aplica a administrador"
       : inst ? (muniSel && muniSel.vigencia_fim ? "vale até "+dataBR(muniSel.vigencia_fim)+" (vigência do município)" : "segue a vigência do município")
@@ -3419,6 +3424,10 @@
     else if(ed.status === "inativo"){ av.className += " alerta"; av.textContent = "O usuário perde o acesso ao Portal na próxima vez que abrir uma tela. Os vínculos ficam guardados, caso você reative depois."; }
     else if(ed.status === "pendente"){ av.textContent = "O cadastro continua em análise e o usuário segue vendo a tela de espera."; }
     else if(ed.perfil === "admin"){ av.className += " alerta"; av.textContent = "Administrador vê e altera todos os municípios, escolas, alunos e cadastros. Use só para a equipe NEWPC."; }
+    else if(sec && !ed.municipio_id){ av.className += " alerta"; av.textContent = "Para a Secretaria de Educação, escolha o município."; }
+    else if(sec){ av.textContent = "Secretaria de Educação de "+((muniSel||{}).nome||"")+": vê todas as escolas do município, o Painel da Rede (se estiver no plano), o calendário letivo, os relatórios e os chamados técnicos da rede. Não vê turmas nem notas individuais."; }
+    else if(gest && !ed.escolas.size){ av.className += " alerta"; av.textContent = "Para o gestor, marque o município e a(s) escola(s) que ele(a) dirige ou coordena."; }
+    else if(gest){ av.textContent = "Gestor de "+ed.escolas.size+" escola(s): vê as turmas, professores, avaliações e relatórios da escola, ajusta o calendário da escola, cuida dos equipamentos e chamados e das TVs. Se também dá aula, marque as turmas abaixo."; }
     else if(!inst && !L.fim){ av.className += " alerta"; av.textContent = "Informe até quando a licença vale."; }
     else if(!inst){ av.textContent = "Licença "+(ROTULO_TIPO[L.tipo]||L.tipo).toLowerCase()+" até "+dataBR(L.fim)+". O professor vê os botões liberados do Portal; turmas e alunos da rede ficam fora."; }
     else if(!ed.escolas.size){ av.className += " alerta"; av.textContent = "Para aprovar um professor, marque o município e pelo menos uma escola."; }
@@ -3433,6 +3442,9 @@
       toast("Marque o município e pelo menos uma escola.", true); return;
     }
     if(ed.status==="ativo" && ed.perfil==="professor" && !inst && !L.fim){ toast("Informe até quando a licença vale.", true); return; }
+    if(ed.status==="ativo" && ed.perfil==="gestor" && (!ed.municipio_id || !ed.escolas.size)){ toast("Marque o município e a(s) escola(s) do gestor.", true); return; }
+    if(ed.status==="ativo" && ed.perfil==="gestor" && ed.escolas.size > 5){ toast("O gestor pode ter até 5 escolas.", true); return; }
+    if(ed.status==="ativo" && ed.perfil==="secretaria" && !ed.municipio_id){ toast("Escolha o município da Secretaria.", true); return; }
     const muni = cacheMunicipios.find(m => m.id === ed.municipio_id);
     const escolasIds = cacheEscolas.filter(e => ed.escolas.has(e.id)).map(e => e.id);
     const dados = {
@@ -3444,6 +3456,8 @@
       turmas_ids: [...ed.turmas],
       atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
     };
+    if(ed.perfil === "secretaria"){ Object.assign(dados, { escolas_ids:[], escolas_nomes:[], escola_id:null, turmas_ids:[], licenca_tipo:"institucional" }); }
+    if(ed.perfil === "gestor"){ dados.licenca_tipo = "institucional"; }   // turmas marcadas: se o gestor também dá aula
     if(ed.perfil === "professor"){
       Object.assign(dados, { licenca_tipo:L.tipo, licenca_plano: inst ? "" : L.plano,
         licenca_inicio: inst ? null : (L.ini || ""), licenca_fim: inst ? null : Timestamp.fromMillis(msDe(L.fim)),
