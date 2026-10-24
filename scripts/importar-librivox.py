@@ -51,8 +51,23 @@ from firebase_admin import credentials, firestore
 firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": "portal-educador-5"})
 db = firestore.client()
 lusofonos = [set(norm(d.to_dict().get("autor", ""))) for d in db.collection("biblioteca").where("origem", "==", "gutenberg").stream()]
+# autores clássicos de língua portuguesa (Brasil e Portugal) que escreveram em português: texto original, sem tradução
+CLASSICOS = """Machado de Assis; José de Alencar; Lima Barreto; Raul Pompeia; Joaquim Manuel de Macedo; Manuel Antônio de Almeida;
+Bernardo Guimarães; Visconde de Taunay; Gonçalves Dias; Monteiro Lobato; Júlia Lopes de Almeida; Artur Azevedo; Aluísio Azevedo;
+Coelho Neto; Afonso Arinos; Simões Lopes Neto; Raimundo Correia; Alberto de Oliveira; Fagundes Varela; Junqueira Freire;
+Tomás Antônio Gonzaga; Cláudio Manuel da Costa; Basílio da Gama; Santa Rita Durão; Franklin Távora; Inglês de Sousa; Adolfo Caminha;
+Domingos Olímpio; Joaquim Nabuco; Rui Barbosa; Sousândrade; Olavo Bilac; João do Rio; Euclides da Cunha; Antônio Vieira; Mário de Andrade;
+Maria Firmina dos Reis; Martins Pena; Leandro Gomes de Barros; Graça Aranha; Campos Leão; Cruz e Sousa; Gregório de Matos;
+Casimiro de Abreu; Auta de Souza; Augusto dos Anjos; Castro Alves; Álvares de Azevedo; Francisca Júlia; Emílio de Menezes;
+Eça de Queirós; Camilo Castelo Branco; Almeida Garrett; Alexandre Herculano; Antero de Quental; Cesário Verde; Florbela Espanca;
+Fernando Pessoa; Luís de Camões; Gil Vicente; Bocage; Júlio Dinis; Fialho de Almeida; Teixeira de Pascoaes; Raul Brandão;
+Camilo Pessanha; António Nobre; Guerra Junqueiro; Ramalho Ortigão; Oliveira Martins; Sá-Carneiro; Augusto Gil; Bernardim Ribeiro; Sá de Miranda"""
+LIGA = {"de", "da", "do", "dos", "das", "e"}
+classicos = [set(norm(n)) - LIGA for n in CLASSICOS.replace("\n", " ").split(";") if n.strip()]
 def lusofono(a):
+    nome = set(norm((a.get("first_name") or "") + " " + (a.get("last_name") or "")))
     sob = norm(a.get("last_name")); pre = norm(a.get("first_name"))
+    if any(c and c <= nome for c in classicos): return True
     return any(sob and set(sob) <= s and (not pre or pre[0] in s) for s in lusofonos)
 
 def avaliar(b):
