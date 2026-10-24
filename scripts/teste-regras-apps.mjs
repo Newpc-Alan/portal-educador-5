@@ -146,7 +146,8 @@ await t('anonimo nao lista campanhas', assertFails(getDocs(collection(anon, 'tv_
 
 // ---------- Recursos da escola
 const QA = 'Rr1Ss2Tt3Uu4Vv5Ww6Xx', QB = 'Hh1Jj2Kk3Mm4Nn5Pp6Qq';
-const item = (esc, m, qr, extra = {}) => ({ escola_id: esc, municipio_id: m, nome: 'Carrinho 1', tipo: 'carrinho', local: 'Sala 3', patrimonio: 'NPC-2500', reservavel: true, ativo: true, qr, criado_em: serverTimestamp(), criado_por: 'gest', atualizado_em: serverTimestamp(), ...extra });
+const item = (esc, m, qr, extra = {}) => ({ escola_id: esc, municipio_id: m, nome: 'Carrinho 1', tipo: 'carrinho', local: 'Sala 3', patrimonio: 'NPC-2500', serie: '', marca: 'Samsung', modelo: 'XE310',
+  origem: 'prefeitura', contrato_id: '', entregue_em: '', garantia_ate: '2027-01-31', situacao: 'em_uso', reservavel: true, obs: '', qr, criado_em: serverTimestamp(), criado_por: 'gest', atualizado_em: serverTimestamp(), atualizado_por: 'gest', ...extra });
 const qrDoc = (esc, m, it) => ({ item_id: it, escola_id: esc, municipio_id: m, escola_nome: 'EM Vila', nome: 'Carrinho 1', tipo: 'carrinho', local: 'Sala 3', patrimonio: 'NPC-2500', chamado_aberto: null, chamado_status: '', chamado_conf: 0 });
 async function criarItem(db, id, qr, esc = 'e2', m = 'm1', extra) { const b = writeBatch(db); b.set(doc(db, `rec_itens/${id}`), item(esc, m, qr, extra)); b.set(doc(db, `rec_qr/${qr}`), qrDoc(esc, m, id)); return b.commit(); }
 await t('gestor cadastra recurso com etiqueta', assertSucceeds(criarItem(gest, 'i1', QA)));
@@ -154,13 +155,47 @@ await t('professor nao cadastra recurso', assertFails(criarItem(prof, 'i2', QB, 
 await t('gestor nao cadastra em outra escola', assertFails(criarItem(gest, 'i2', QB, 'e1')));
 await t('municipio errado no recurso', assertFails(criarItem(gest, 'i2', QB, 'e2', 'm2')));
 await t('etiqueta apontando para outro recurso', assertFails(setDoc(doc(gest, `rec_qr/${QB}`), qrDoc('e2', 'm1', 'i1'))));
-await t('administrador cadastra recurso', assertSucceeds(criarItem(ctx('adm'), 'i3', QB, 'e1', 'm1', { reservavel: false, nome: 'Chromebook 01' })));
+await t('gestor nao liga recurso a contrato', assertFails(criarItem(gest, 'i2', QB, 'e2', 'm1', { contrato_id: 'ct1' })));
+await t('situacao invalida', assertFails(criarItem(gest, 'i2', QB, 'e2', 'm1', { situacao: 'sumiu' })));
+await t('administrador cadastra recurso com contrato', assertSucceeds(criarItem(ctx('adm'), 'i3', QB, 'e1', 'm1', { reservavel: false, nome: 'Chromebook 01', origem: 'newpc', contrato_id: 'ct1' })));
 await t('qualquer um le a etiqueta', assertSucceeds(getDoc(doc(anon, `rec_qr/${QA}`))));
 await t('anonimo nao lista etiquetas', assertFails(getDocs(collection(anon, 'rec_qr'))));
 await t('professor da escola lista recursos', assertSucceeds(getDocs(query(collection(prof, 'rec_itens'), where('escola_id', '==', 'e1')))));
 await t('professor de fora nao lista recursos', assertFails(getDocs(query(collection(prof2, 'rec_itens'), where('escola_id', '==', 'e1')))));
 await t('gestor edita recurso', assertSucceeds(updateDoc(doc(gest, 'rec_itens/i1'), { local: 'Biblioteca', atualizado_em: serverTimestamp() })));
 await t('gestor nao troca a etiqueta do recurso', assertFails(updateDoc(doc(gest, 'rec_itens/i1'), { qr: QB })));
+await t('gestor muda situacao', assertSucceeds(updateDoc(doc(gest, 'rec_itens/i1'), { situacao: 'manutencao' })));
+await t('gestor nao transfere de escola', assertFails(updateDoc(doc(gest, 'rec_itens/i1'), { escola_id: 'e1' })));
+await t('gestor nao muda contrato', assertFails(updateDoc(doc(gest, 'rec_itens/i1'), { contrato_id: 'ct1' })));
+const mov = (uid, extra = {}) => ({ tipo: 'situacao', de: 'Em uso', para: 'Em manutenção', obs: '', por: uid, por_nome: 'G', em: serverTimestamp(), ...extra });
+await t('gestor registra movimentacao', assertSucceeds(addDoc(collection(gest, 'rec_itens/i1/mov'), mov('gest'))));
+await t('movimentacao em nome de outro', assertFails(addDoc(collection(gest, 'rec_itens/i1/mov'), mov('adm'))));
+await t('professor nao registra movimentacao', assertFails(addDoc(collection(prof, 'rec_itens/i3/mov'), mov('prof'))));
+await t('ninguem edita movimentacao', assertFails((async () => { const r = await addDoc(collection(gest, 'rec_itens/i1/mov'), mov('gest')); await updateDoc(r, { obs: 'x' }); })()));
+await t('gestor le movimentacao', assertSucceeds(getDocs(collection(gest, 'rec_itens/i1/mov'))));
+await t('professor de fora nao le movimentacao', assertFails(getDocs(collection(prof2, 'rec_itens/i1/mov'))));
+// contratos
+const contrato = { municipio_id: 'm1', numero: '012/2025', tipo: 'locacao', processo: '', objeto: 'Chromebooks', inicio: '2025-01-01', fim: '2026-12-31', sla_atendimento_h: 24, sla_solucao_h: 72, renovacoes: [], obs: '', criado_em: serverTimestamp(), atualizado_em: serverTimestamp() };
+await t('administrador cria contrato', assertSucceeds(setDoc(doc(ctx('adm'), 'rec_contratos/ct1'), contrato)));
+await t('gestor nao cria contrato', assertFails(setDoc(doc(gest, 'rec_contratos/ct2'), contrato)));
+await t('secretaria nao edita contrato', assertFails(updateDoc(doc(sec, 'rec_contratos/ct1'), { fim: '2030-01-01' })));
+await t('gestor do municipio le contratos', assertSucceeds(getDocs(query(collection(gest, 'rec_contratos'), where('municipio_id', '==', 'm1')))));
+await t('professor de outro municipio nao le contratos', assertFails(getDocs(query(collection(prof2, 'rec_contratos'), where('municipio_id', '==', 'm1')))));
+await t('anonimo nao le contratos', assertFails(getDoc(doc(anon, 'rec_contratos/ct1'))));
+// transferencia pela NEWPC
+{ const a = ctx('adm'), b = writeBatch(a); b.update(doc(a, 'rec_itens/i3'), { escola_id: 'e2', municipio_id: 'm1', local: 'Sala 1' }); b.update(doc(a, `rec_qr/${QB}`), { escola_id: 'e2', escola_nome: 'EM Vila' });
+  await t('administrador transfere de escola', assertSucceeds(b.commit())); }
+await t('transferencia com municipio errado', assertFails(updateDoc(doc(ctx('adm'), 'rec_itens/i3'), { escola_id: 'e9', municipio_id: 'm1' })));
+// cartaz da escola
+const PUB = 'Pp1Pp2Pp3Pp4Pp5Pp6Pp';
+async function cartaz(db, esc, chave) { const b = writeBatch(db); b.set(doc(db, `rec_config/${esc}`), { chave_pub: chave, atualizado_em: serverTimestamp(), atualizado_por: 'x' }, { merge: true });
+  b.set(doc(db, `rec_pub/${chave}`), { escola_id: esc, municipio_id: 'm1', escola_nome: 'EM Vila', itens: [{ q: QA, n: 'Carrinho 1', l: 'Sala 3', p: 'NPC-2500', t: 'carrinho' }], atualizado_em: serverTimestamp() }); return b.commit(); }
+await t('professor nao publica cartaz', assertFails(cartaz(prof, 'e1', 'Zz9Zz8Zz7Zz6Zz5Zz4Zz')));
+await t('gestor publica cartaz da escola', assertSucceeds(cartaz(gest, 'e2', PUB)));
+await t('cartaz com chave diferente da escola', assertFails(setDoc(doc(gest, 'rec_pub/Qq9Qq8Qq7Qq6Qq5Qq4Qq'), { escola_id: 'e2', municipio_id: 'm1', escola_nome: 'x', itens: [], atualizado_em: serverTimestamp() })));
+await t('qualquer um le o cartaz', assertSucceeds(getDoc(doc(anon, `rec_pub/${PUB}`))));
+await t('anonimo nao lista cartazes', assertFails(getDocs(collection(anon, 'rec_pub'))));
+await t('anonimo nao altera cartaz', assertFails(updateDoc(doc(anon, `rec_pub/${PUB}`), { itens: [] })));
 // chamado sem login
 const ch = (qr, it, esc = 'e2', extra = {}) => ({ qr, item_id: it, escola_id: esc, municipio_id: 'm1', item_nome: 'Carrinho 1', patrimonio: 'NPC-2500', local: 'Sala 3', problema: 'Não liga', descricao: 'tela preta', nome: 'Ana', funcao: 'Professor(a)', contato: '', status: 'aberto', criado_em: serverTimestamp(), ...extra });
 async function abrir(db, id, qr, it, esc, extra) { const b = writeBatch(db); b.set(doc(db, `rec_chamados/${id}`), ch(qr, it, esc, extra)); b.update(doc(db, `rec_qr/${qr}`), { chamado_aberto: id, chamado_status: 'aberto', chamado_desde: serverTimestamp(), chamado_conf: 1 }); return b.commit(); }
@@ -177,7 +212,7 @@ await t('anonimo nao le chamados', assertFails(getDoc(doc(anon, 'rec_chamados/c1
 await t('gestor lista chamados da escola', assertSucceeds(getDocs(query(collection(gest, 'rec_chamados'), where('escola_id', '==', 'e2')))));
 await t('secretaria lista chamados do municipio', assertSucceeds(getDocs(query(collection(sec, 'rec_chamados'), where('municipio_id', '==', 'm1')))));
 await t('professor nao atende chamado de outra escola', assertFails(updateDoc(doc(prof, 'rec_chamados/c1'), { status: 'resolvido' })));
-{ const b = writeBatch(gest); b.update(doc(gest, 'rec_chamados/c1'), { status: 'resolvido', resposta: 'trocado carregador', confirmacoes: 2, atendido_por: 'gest', atendido_nome: 'G', atualizado_em: serverTimestamp(), resolvido_em: serverTimestamp() });
+{ const b = writeBatch(gest); b.update(doc(gest, 'rec_chamados/c1'), { status: 'resolvido', resposta: 'trocado carregador', confirmacoes: 2, atendido_por: 'gest', atendido_nome: 'G', atualizado_em: serverTimestamp(), atendimento_em: serverTimestamp(), resolvido_em: serverTimestamp() });
   b.update(doc(gest, `rec_qr/${QA}`), { chamado_aberto: null, chamado_status: '', chamado_conf: 0 });
   await t('gestor resolve e libera a etiqueta', assertSucceeds(b.commit())); }
 await t('depois de resolvido abre novo chamado', assertSucceeds(abrir(anon, 'c3', QA, 'i1')));
@@ -196,7 +231,7 @@ await t('professor lista reservas do dia', assertSucceeds(getDocs(query(collecti
 await t('professor lista as proprias reservas', assertSucceeds(getDocs(query(collection(prof, 'rec_reservas'), where('uid', '==', 'prof')))));
 await t('outro professor nao cancela', assertFails(deleteDoc(doc(prof2, 'rec_reservas/i4_2026-11-03_M_2'))));
 await t('dono cancela a reserva', assertSucceeds(deleteDoc(doc(prof, 'rec_reservas/i4_2026-11-03_M_2'))));
-await t('gestor configura horarios', assertSucceeds(setDoc(doc(gest, 'rec_config/e2'), { turnos: [{ id: 'M', n: 5, horarios: [] }], atualizado_em: serverTimestamp(), atualizado_por: 'gest' })));
+await t('gestor configura horarios', assertSucceeds(setDoc(doc(gest, 'rec_config/e2'), { turnos: [{ id: 'M', n: 5, horarios: [] }], atualizado_em: serverTimestamp(), atualizado_por: 'gest' }, { merge: true })));
 await t('professor nao configura horarios', assertFails(setDoc(doc(prof, 'rec_config/e1'), { turnos: [] })));
 await t('professor le horarios da escola', assertSucceeds(getDoc(doc(prof, 'rec_config/e1'))));
 await t('gestor exclui recurso', assertSucceeds((async () => { const b = writeBatch(gest); b.delete(doc(gest, 'rec_itens/i1')); b.delete(doc(gest, `rec_qr/${QA}`)); await b.commit(); })()));

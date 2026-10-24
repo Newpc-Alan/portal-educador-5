@@ -57,6 +57,12 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--azul-2)}
 .aviso b{display:block;color:var(--ink);font-size:1.15rem;margin-bottom:6px}
 .giro{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--azul);border-radius:50%;animation:g .8s linear infinite;margin:0 auto 10px}
 @keyframes g{to{transform:rotate(360deg)}}
+.lista-eq{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.lista-eq a{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;text-decoration:none;color:var(--ink);font-weight:700;font-size:.92rem}
+.lista-eq a span{font-size:1.25rem}
+.lista-eq a small{display:block;color:var(--muted);font-weight:600;font-size:.76rem}
+.lista-eq h4{font-size:.72rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:10px 2px 2px}
+.voltar{display:inline-block;margin:0 0 12px;color:var(--azul);font-weight:700;font-size:.88rem;text-decoration:none}
 .rodape{text-align:center;font-size:.74rem;color:var(--muted);padding:6px 16px}
 </style>
 </head>
@@ -69,6 +75,13 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--azul-2)}
   <main>
     <div class="aviso" id="carregando"><div class="giro"></div>Carregando o equipamento...</div>
     <div class="aviso" id="invalido" hidden><b>Etiqueta não encontrada</b>Este código não está cadastrado ou foi removido. Avise a direção da escola.</div>
+
+    <section id="telaEscola" hidden>
+      <div class="card"><h2>Qual equipamento está com problema?</h2><p class="sub">Toque no equipamento para abrir o chamado. Não precisa de login.</p>
+        <input type="text" id="buscaEq" placeholder="Buscar por nome, sala ou patrimônio" aria-label="Buscar equipamento">
+        <div class="lista-eq" id="listaEq"></div></div>
+    </section>
+    <a class="voltar" id="voltar" hidden>← Escolher outro equipamento</a>
 
     <section id="telaStatus" hidden>
       <div class="status" id="stBox"><div class="ico" id="stIco"></div><b id="stTit"></b><p id="stTxt"></p><span class="prot" id="stProt" hidden></span></div>
@@ -105,7 +118,29 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&l
 const PROBLEMAS = [["Não liga","🔌"],["Tela ou imagem","🖥️"],["Internet ou Wi-Fi","📶"],["Teclado, mouse ou toque","⌨️"],["Som","🔊"],["Bateria ou carregador","🔋"],["Lento ou travando","🐢"],["Programa ou conta","🔑"],["Quebrado ou danificado","💥"],["Outro","❓"]];
 const limpa = v => String(v || "").replace(/[^A-Za-z0-9]/g, "");
 let chave = ""; try{ chave = limpa(new URLSearchParams(location.search).get("k")); }catch(e){}
-if(chave.length !== 20) chave = limpa(location.hash.slice(1));
+if(chave.length !== 20) chave = limpa(location.hash.slice(1)).length === 20 ? limpa(location.hash.slice(1)) : "";
+let escolaK = ""; try{ escolaK = limpa(new URLSearchParams(location.search).get("e")); }catch(e){}
+if(escolaK.length !== 20) escolaK = "";
+const TIPO_ICO = { carrinho:"🛒", laboratorio:"🖥️", lousa:"🧑‍🏫", vr:"🥽", projetor:"📽️", chromebook:"💻", tablet:"📱", computador:"🖥️", tv:"📺", impressora:"🖨️", rede:"📶", outro:"📦" };
+const normz = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+let PUB = null;
+async function carregarEscola(){
+  try{
+    const s = await getDoc(doc(db, "rec_pub", escolaK));
+    $("carregando").hidden = true;
+    if(!s.exists()){ $("invalido").hidden = false; $("invalido").innerHTML = "<b>Cartaz não encontrado</b>Este código não está ativo. Avise a direção da escola."; return; }
+    PUB = s.data();
+    $("equip").hidden = false; $("eNome").textContent = PUB.escola_nome || "Escola"; $("eLocal").textContent = (PUB.itens || []).length + " equipamentos cadastrados";
+    $("telaEscola").hidden = false; listarEq();
+  }catch(e){ $("carregando").hidden = true; $("invalido").hidden = false; $("invalido").innerHTML = "<b>Sem conexão</b>Confira a internet do celular e escaneie de novo."; }
+}
+function listarEq(){
+  const t = normz($("buscaEq").value), l = (PUB.itens || []).filter(i => !t || normz([i.n, i.l, i.p].join(" ")).includes(t));
+  const grupos = {}; l.forEach(i => (grupos[i.l || "Outros"] = grupos[i.l || "Outros"] || []).push(i));
+  $("listaEq").innerHTML = l.length ? Object.keys(grupos).sort((a, b) => a.localeCompare(b, "pt-BR")).map(g => "<h4>" + esc(g) + "</h4>" +
+    grupos[g].map(i => '<a href="?k=' + esc(i.q) + "&e=" + escolaK + '"><span>' + (TIPO_ICO[i.t] || "📦") + "</span><div>" + esc(i.n) + (i.p ? "<small>Patrimônio " + esc(i.p) + "</small>" : "") + "</div></a>").join("")).join("")
+    : '<p class="sub" style="margin-top:10px">Nenhum equipamento encontrado.</p>';
+}
 const E = { q:null, problema:"", enviando:false };
 const protocolo = id => String(id || "").slice(-6).toUpperCase();
 const quando = ts => ts && ts.toDate ? ts.toDate().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "";
@@ -191,8 +226,11 @@ $("form").addEventListener("submit", enviar);
 $("desc").addEventListener("input", () => $("nDesc").textContent = $("desc").value.length);
 try{ const n = localStorage.getItem("pde_chamado_nome"); if(n) $("nome").value = n; }catch(e){}
 $("nome").addEventListener("change", () => { try{ localStorage.setItem("pde_chamado_nome", $("nome").value.trim()); }catch(e){} });
-if(location.search || location.hash){ try{ history.replaceState(null, "", location.pathname + "?k=" + chave); }catch(e){} }
-carregar();
+if(escolaK){ $("voltar").href = "?e=" + escolaK; }
+$("buscaEq").addEventListener("input", () => PUB && listarEq());
+if(chave){ if(escolaK) $("voltar").hidden = false; carregar(); }
+else if(escolaK) carregarEscola();
+else carregar();
 </script>
 </body>
 </html>
