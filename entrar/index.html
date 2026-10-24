@@ -3530,7 +3530,7 @@
     { id:"dicas",       nome:"Dicas do Professor",     aluno:false, ico:"\u{1F4A1}", desc:"Ideias e práticas para o dia a dia da sala" },
     { id:"dicasaluno",  nome:"Dica do Aluno",          aluno:true,  soAluno:true, ico:"\u{1F4AC}", desc:"Compartilhe uma dica de estudo com a galera", obs:"só para alunos" },
     { id:"apps",        nome:"Aplicativos Úteis",      aluno:false, ico:"\u{1F4F1}", desc:"Ferramentas digitais selecionadas" },
-    { id:"gestao",      nome:"Gestão Escolar",         aluno:false, ico:"\u{1F3EB}", desc:"Notas e médias, recursos e chamados técnicos da escola", urlPadrao:"#gestao" },
+    { id:"gestao",      nome:"Gestão Escolar",         aluno:false, ico:"\u{1F3EB}", desc:"Notas, relatórios, recursos e chamados técnicos da escola", urlPadrao:"#gestao" },
     { id:"maestro",     nome:"Portal Maestro",         aluno:false, ico:"\u{1F3BC}", desc:"Conduza a turma nos dispositivos em tempo real", obs:"gestão da sala de aula",
       urlPadrao:"https://sala.portaldoeducador.com.br/" }
   ];
@@ -3577,13 +3577,16 @@
     // Maestro em destaque: o professor comeca a aula por ele
     const aula = ehAluno ? null : maestroDisponivel(doPlano, admin);
     $("iniAula").innerHTML = aula ? faixaAula(aula, admin) : "";
+    // a Central de Relatorios fica dentro do Gestao Escolar quando ele esta liberado (o card proprio sai do Inicio)
+    const gestaoAtiva = cfgDe("gestao").status === "liberado";
     const cards = MODULOS.map(md => {
       if(md.id === "maestro" && aula) return "";
+      if(md.id === "relatorios" && gestaoAtiva && !ehAluno) return "";
       if(ehAluno ? !md.aluno : md.soAluno) return "";
       const c = cfgDe(md.id);
       if(c.status === "oculto" && !admin) return "";
       let estado = c.status === "liberado" && c.url ? "ok" : "breve";
-      if(estado === "ok" && doPlano && !doPlano.has(md.id)) estado = "plano";
+      if(estado === "ok" && doPlano && !doPlano.has(md.id) && !(md.id === "gestao" && doPlano.has("relatorios"))) estado = "plano";
       if(ehAluno && !admin && doPlano && !doPlano.has(md.id)) return ""; // aluno nao ve o que esta fora do plano
       const abre = estado === "ok" || (admin && c.url);
       const img = c.imagem ? ' style="background-image:url(\''+escapeAttr(c.imagem.replace(/'/g,"%27"))+'\')"' : "";

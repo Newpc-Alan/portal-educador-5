@@ -37,23 +37,32 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
 .selo{position:absolute;top:10px;right:10px;background:rgba(7,22,33,.6);color:#fff;font-size:.7rem;font-weight:800;border-radius:999px;padding:3px 9px}
 .breve{opacity:.78}
 .breve .app-btn{background:#e8eef4;color:var(--muted)}
+.fora{opacity:.6;pointer-events:none}
+.fora .app-btn{background:#e8eef4;color:var(--muted)}
+.selo-plano{position:absolute;top:10px;right:10px;background:#F9A825;color:#071621;font-size:.72rem;font-weight:800;border-radius:999px;padding:3px 10px}
 </style>
 </head>
 <body>
 <div class="app">
   <header class="topo">
-    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Gestão Escolar</b><span>Notas, recursos e suporte técnico da escola, em um só lugar</span></div></div>
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Gestão Escolar</b><span>Notas, relatórios, recursos e suporte técnico da escola, em um só lugar</span></div></div>
     <a class="tb" href="/entrar/">← Portal</a>
   </header>
   <div class="grade">
-    <a class="app-card" href="/apps/notas/">
+    <a class="app-card" href="/apps/notas/" data-mod="gestao">
       <div class="app-capa" style="background:linear-gradient(135deg,#0c2338,#2E9BD6)">📊</div>
       <div class="app-corpo"><b>Notas e Médias</b>
         <p>Planilha de notas da turma com média, recuperação, exame final, conselho e frequência, seguindo a regra da sua rede.</p>
         <ul><li>Mostra "quanto falta" para cada aluno passar</li><li>Puxa as notas das Avaliações feitas no Portal</li><li>Exporta para digitar no sistema oficial da rede</li></ul>
         <span class="app-btn">Abrir</span></div>
     </a>
-    <a class="app-card" href="/apps/recursos/">
+    <a class="app-card" href="/relatorios/" data-mod="relatorios">
+      <div class="app-capa" style="background-image:url(/assets/cards/relatorios.webp);background-size:cover;background-position:center 35%"></div>
+      <div class="app-corpo"><b>Central de Relatórios</b>
+        <p>Registros, pareceres e acompanhamento de cada aluno, com relatórios prontos para a escola e a família.</p>
+        <span class="app-btn">Abrir</span></div>
+    </a>
+    <a class="app-card" href="/apps/recursos/" data-mod="gestao">
       <div class="app-capa" style="background-image:url(/assets/apps/capas/recursos.webp);background-position:center 15%"></div>
       <div class="app-corpo"><b>Recursos da Escola</b>
         <p>Reserva do carrinho de Chromebooks, laboratório e sala de VR, e chamado técnico pela etiqueta QR do equipamento.</p>
@@ -73,8 +82,26 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-onAuthStateChanged(getAuth(app), user => { if(!user) location.replace("/entrar/"); });
+const db = getFirestore(app);
+// cada card segue o plano do município: Notas e Recursos pelo módulo "gestao", a Central de Relatórios pelo módulo "relatorios"
+onAuthStateChanged(getAuth(app), async user => {
+  if(!user){ location.replace("/entrar/"); return; }
+  try{
+    const u = (await getDoc(doc(db, "usuarios", user.uid))).data() || {};
+    if(u.perfil === "admin" || !u.municipio_id) return;
+    const m = (await getDoc(doc(db, "municipios", u.municipio_id))).data() || {};
+    const plano = Array.isArray(m.modulos_professor) && m.modulos_professor.length ? new Set(m.modulos_professor) : null;
+    if(!plano) return;
+    document.querySelectorAll("[data-mod]").forEach(a => {
+      if(plano.has(a.dataset.mod)) return;
+      a.classList.add("fora"); a.removeAttribute("href"); a.setAttribute("aria-disabled", "true");
+      a.querySelector(".app-capa").insertAdjacentHTML("beforeend", '<span class="selo-plano">🔒 Fora do plano</span>');
+      a.querySelector(".app-btn").textContent = "Fora do plano";
+    });
+  }catch(e){ console.warn("plano:", e.code || e); }
+});
 </script>
 </body>
 </html>
