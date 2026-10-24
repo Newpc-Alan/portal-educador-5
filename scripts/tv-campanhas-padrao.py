@@ -8,12 +8,13 @@ from firebase_admin import credentials, firestore
 firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": "portal-educador-5"})
 db = firestore.client()
 VERDE, AMARELO, ROSA = "#43A047", "#F9A825", "#E91E63"
+IMG = "https://app.portaldoeducador.com.br/assets/tv/campanhas/"
 CAMPANHAS = [
-  dict(id="dengue-1", categoria="Combate à dengue", cor=VERDE, meses=[], titulo="10 minutos por semana contra a dengue",
+  dict(id="dengue-1", imagem_url=IMG + "dengue.webp", categoria="Combate à dengue", cor=VERDE, meses=[], titulo="10 minutos por semana contra a dengue",
        texto="Uma vez por semana, elimine a água parada: vire garrafas e baldes, tampe a caixa-d'água, limpe as calhas e coloque areia nos pratinhos das plantas. O mesmo mosquito transmite zika e chikungunya."),
-  dict(id="transito-1", categoria="Educação no trânsito", cor=AMARELO, meses=[], titulo="Atravesse com segurança",
+  dict(id="transito-1", imagem_url=IMG + "transito.webp", categoria="Educação no trânsito", cor=AMARELO, meses=[], titulo="Atravesse com segurança",
        texto="Use sempre a faixa de pedestres, olhe para os dois lados e espere os carros pararem. Na entrada e na saída da escola, segure a mão das crianças."),
-  dict(id="outubro-rosa-1", categoria="Outubro Rosa", cor=ROSA, meses=[10], titulo="Cuidar de si é um ato de amor",
+  dict(id="outubro-rosa-1", imagem_url=IMG + "outubro-rosa.webp", categoria="Outubro Rosa", cor=ROSA, meses=[10], titulo="Cuidar de si é um ato de amor",
        texto="O diagnóstico precoce aumenta muito as chances de cura do câncer de mama. Converse com a equipe da unidade de saúde sobre a mamografia e os exames indicados para a sua idade."),
   dict(id="dengue-2", categoria="Combate à dengue", cor=VERDE, meses=[], titulo="Febre alta e dor no corpo?",
        texto="Febre, dor atrás dos olhos, dor no corpo e manchas na pele podem ser dengue. Procure a unidade de saúde, beba bastante água e não tome remédio por conta própria."),
@@ -26,7 +27,7 @@ ref = db.document("tv_campanhas/padrao")
 snap = ref.get()
 atuais = (snap.to_dict() or {}).get("itens", []) if snap.exists else []
 ids = {c.get("id") for c in atuais}
-novas = [{**c, "duracao": 15, "layout": "split", "ativo": True, "imagem_url": "", "path": ""} for c in CAMPANHAS if c["id"] not in ids]
+novas = [{"imagem_url": "", **c, "duracao": 15, "layout": "split", "ativo": True, "path": ""} for c in CAMPANHAS if c["id"] not in ids]
 if not novas:
     print("CAMPANHAS: nada a criar, já existem", len(atuais)); raise SystemExit
 ref.set({"itens": atuais + novas, "atualizado_em": firestore.SERVER_TIMESTAMP, "atualizado_por": "script-campanhas-padrao"}, merge=True)
