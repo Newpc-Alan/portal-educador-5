@@ -212,7 +212,9 @@ if "--gravar" in ARGS:
     from firebase_admin import credentials, firestore, storage
     app = firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": "portal-educador-5", "storageBucket": "portal-educador-5.firebasestorage.app"})
     db, bucket = firestore.client(), storage.bucket()
-    existentes = {norm(d.to_dict().get("titulo", "")) for d in db.collection("biblioteca").stream()}
+    # livro publicado com diagramação quebrada (versão antiga do script, 1.200+ páginas) é refeito
+    quebrado = lambda d: (d.get("num_paginas") or 0) >= 1200
+    existentes = {norm(d.to_dict().get("titulo", "")) for d in db.collection("biblioteca").stream() if not quebrado(d.to_dict())}
     so = arg("--ids")  # opcional: só estes IDs (separados por vírgula)
     alvo = [l for l in livres if not so or l["id"] in so.split(",")][: int(arg("--max", "100000"))]
     if arg("--parte"):  # --parte 2/3 -> só um terço da lista (para rodar 3 em paralelo)
@@ -220,7 +222,8 @@ if "--gravar" in ARGS:
     ok = pulados = erros = 0
     for i, l in enumerate(alvo):
         ref = db.document(f"biblioteca/gut-{l['id']}")
-        if ref.get().exists or norm(l["titulo"]) in existentes: pulados += 1; continue
+        atual = ref.get()
+        if (atual.exists and not quebrado(atual.to_dict())) or norm(l["titulo"]) in existentes: pulados += 1; continue
         try:
             pdf = f"/tmp/gut/gut-{l['id']}.pdf"
             signal.alarm(240)  # livro que demora mais de 4 minutos fica para revisão
