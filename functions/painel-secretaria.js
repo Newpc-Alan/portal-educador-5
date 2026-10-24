@@ -24,6 +24,11 @@ export const painelSecretaria = onCall({ region: 'southamerica-east1', timeoutSe
   else if (u.perfil === 'secretaria') m = String(u.municipio_id || '');
   else throw new HttpsError('permission-denied', 'O Painel da Rede é da Secretaria de Educação.');
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a um município.');
+  // o Painel da Rede é um módulo do plano: o administrador libera em Municípios › Plano e módulos
+  if (u.perfil === 'secretaria') {
+    const mu = (await db.doc(`municipios/${m}`).get()).data() || {};
+    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O Painel da Rede ainda não faz parte do plano do seu município. Fale com a equipe NEWPC.');
+  }
   const c = cache.get(m);
   if (c && Date.now() - c.em < 20 * 60 * 1000 && !(req.data && req.data.forcar)) return c.dados;
   const dados = await montar(db, m);
