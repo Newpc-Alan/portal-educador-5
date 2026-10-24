@@ -123,11 +123,30 @@ def capa_pdf(fitz, titulo, autor, ano):
     pg.insert_textbox(fitz.Rect(36, H - 70, W - 36, H - 24), "Obra em domínio público" + (f" · autor falecido em {ano}" if ano and ano > 0 else ""), fontsize=8, fontname="helv", color=(0.6, 0.68, 0.76))
     return doc
 
-def montar_pdf(livro, destino, pasta):
+def simplificar(html):
+    """2ª tentativa: tira imagens, desfaz tabelas e blocos pré-formatados, que às vezes travam a diagramação."""
+    from bs4 import BeautifulSoup
+    s = BeautifulSoup(html, "html.parser")
+    for el in s.find_all(["img", "svg", "figure"]): el.decompose()
+    for t in s.find_all("table"):
+        p = s.new_tag("div")
+        for tr in t.find_all("tr"):
+            linha = s.new_tag("p"); linha.string = " ".join(td.get_text(" ", strip=True) for td in tr.find_all(["td", "th"])); p.append(linha)
+        t.replace_with(p)
+    for pre in s.find_all("pre"):
+        d = s.new_tag("div")
+        for linha in pre.get_text().split("\n"):
+            q = s.new_tag("p"); q.string = linha; d.append(q)
+        pre.replace_with(d)
+    for el in s.find_all(style=True): del el["style"]
+    return str(s)
+
+def montar_pdf(livro, destino, pasta, simples=False):
     import fitz
     base = BASE.format(id=livro["id"])
     bruto = baixar(base + f"pg{livro['id']}-images.html").decode("utf-8", "replace")
     html, imgs = limpar_html(bruto, livro["id"])
+    if simples: html, imgs = simplificar(html), []
     # tradução sem tradutor identificado: a tradução tem direito próprio, então fica para revisão humana
     inicio = re.sub(r"<[^>]+>", " ", html)[:4000]
     if re.search(r"tradu[cçz]|traduzid|traduct|vertid[oa]s? (em|para|do)|vers[aã]o (portugu|livre|do)", inicio, re.I) and not any(p["papel"] == "Translator" for p in livro["pessoas"]):
@@ -205,7 +224,11 @@ if "--gravar" in ARGS:
         try:
             pdf = f"/tmp/gut/gut-{l['id']}.pdf"
             signal.alarm(240)  # livro que demora mais de 4 minutos fica para revisão
-            try: n, capa = montar_pdf(l, pdf, f"/tmp/gut/{l['id']}")
+            try:
+                try: n, capa = montar_pdf(l, pdf, f"/tmp/gut/{l['id']}")
+                except ValueError as e1:
+                    if "diagramação" not in str(e1): raise
+                    signal.alarm(240); n, capa = montar_pdf(l, pdf, f"/tmp/gut/{l['id']}", simples=True)
             finally: signal.alarm(0)
             urls = {}
             for local, remoto, tipo in [(pdf, f"biblioteca/livros/gut-{l['id']}.pdf", "application/pdf"), (capa, f"biblioteca/livros/gut-{l['id']}-capa.png", "image/png")]:
