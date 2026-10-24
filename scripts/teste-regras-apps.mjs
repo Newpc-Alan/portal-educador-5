@@ -25,6 +25,8 @@ await env.withSecurityRulesDisabled(async (c) => {
   await s('tv_canais/c1', { municipio_id: 'm1', avisos: [] });
   await s('tv_pareamentos/ABC234', { chave: CH2, criado_em: Timestamp.now() });
   await s('usuarios/prof/roteiros/r0', { titulo: 'x', texto: 'y', markers: [] });
+  await s('usuarios/adm', { perfil: 'admin', status: 'ativo' });
+  await s('tv_campanhas/padrao', { itens: [] });
 });
 
 let ok = 0, falhas = 0;
@@ -110,6 +112,13 @@ await t('canal ja nasce com aviso', assertFails(addDoc(collection(prof, 'tv_cana
 await t('canal de outro municipio', assertFails(addDoc(collection(prof, 'tv_canais'), { municipio_id: 'm2', avisos: [] })));
 await t('professor lista canal do municipio', assertSucceeds(getDocs(query(collection(prof, 'tv_canais'), where('municipio_id', '==', 'm1')))));
 await t('mais de 30 comunicados', assertFails(updateDoc(doc(sec, 'tv_canais/c1'), { avisos: Array.from({ length: 31 }, (_, i) => ({ id: 'a' + i })) })));
+
+// ---------- TV: campanhas do Portal do Educador
+await t('tv le campanhas sem login', assertSucceeds(getDoc(doc(anon, 'tv_campanhas/padrao'))));
+await t('professor nao edita campanhas', assertFails(setDoc(doc(prof, 'tv_campanhas/padrao'), { itens: [] })));
+await t('secretaria nao edita campanhas', assertFails(setDoc(doc(sec, 'tv_campanhas/padrao'), { itens: [] })));
+await t('administrador edita campanhas', assertSucceeds(setDoc(doc(ctx('adm'), 'tv_campanhas/padrao'), { itens: [{ id: 'c1', titulo: 'Dengue' }] })));
+await t('anonimo nao lista campanhas', assertFails(getDocs(collection(anon, 'tv_campanhas'))));
 
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
