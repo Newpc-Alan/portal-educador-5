@@ -103,6 +103,36 @@ table.res{width:100%;border-collapse:collapse}
 .pill{border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;display:inline-block}
 .pill.ok{background:#e9f5dc;color:#3d6b0c}.pill.cinza{background:#eef2f6;color:var(--muted)}.pill.az{background:#e3f1fb;color:#1f5f91}
 
+/* análise */
+.gab{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.gq input.bn{width:96px;margin-left:auto;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;font-size:.76rem;font-weight:700;text-transform:uppercase;background:#fbfcfe}
+.gq input.bn.erro{border-color:var(--red)}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.qc{border:1px solid var(--line);border-radius:12px;padding:9px 11px;font-size:.82rem}
+.qc .top{display:flex;justify-content:space-between;font-weight:800;margin-bottom:4px}
+.qc .alts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.qc .alts span{border-radius:6px;padding:1px 6px;background:#eef2f6;color:var(--ink-2);font-weight:700;font-size:.74rem}
+.qc .alts span.c{background:#e9f5dc;color:#3d6b0c}
+.qc .alts span.d{background:#fde3e0;color:#a12a20}
+.qc .bn{font-size:.72rem;color:var(--azul);font-weight:700}
+.bar{height:7px;border-radius:9px;background:#eef2f6;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:9px}
+.hab{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 70px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line);font-size:.86rem}
+.hab:last-child{border-bottom:0}
+.hab b.cod{font-family:ui-monospace,Consolas,monospace;font-size:.84rem}
+.hab .pc{font-weight:800;text-align:right}
+.hab details{grid-column:1/-1;font-size:.8rem;color:var(--ink-2)}
+.hab summary{cursor:pointer;color:var(--red);font-weight:700}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.kpi small{display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.kpi b{font-size:1.5rem;font-weight:800}
+.heat td.h{text-align:center;font-weight:800;font-size:.82rem;min-width:70px}
+.heat th.g{text-align:center;max-width:120px;white-space:normal;line-height:1.2}
+.heat td.cod{font-family:ui-monospace,Consolas,monospace;font-weight:800}
+.prio{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:14px}
+.prio > div{background:#fff4f2;border:1px solid #f3c1bb;border-radius:12px;padding:10px 12px;font-size:.84rem}
+.prio b{display:block;font-family:ui-monospace,Consolas,monospace}
 .modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
 .modal-box{background:#fff;border-radius:16px;padding:20px;width:min(560px,100%);max-height:92vh;overflow:auto}
 .modal-box h3{font-size:1.05rem;margin-bottom:10px}
@@ -133,6 +163,7 @@ table.res{width:100%;border-collapse:collapse}
     <button class="passo" data-action="ir" data-arg="cartoes"><i>2</i>Imprimir cartões</button>
     <button class="passo" data-action="ir" data-arg="corrigir"><i>3</i>Corrigir</button>
     <button class="passo" data-action="ir" data-arg="resultados"><i>4</i>Resultados</button>
+    <button class="passo" data-action="ir" data-arg="analise"><i>📈</i>Habilidades BNCC</button>
   </div>
 
   <section class="sec on" id="s-gabarito"><div id="gabBox"></div></section>
@@ -181,6 +212,24 @@ table.res{width:100%;border-collapse:collapse}
   </section>
 
   <section class="sec" id="s-resultados"><div id="resBox"></div></section>
+
+  <section class="sec" id="s-analise">
+    <div class="card">
+      <div class="h2" id="anTitulo">Habilidades BNCC</div>
+      <p class="sub" style="margin:2px 0 12px" id="anSub"></p>
+      <div class="barra">
+        <select class="sel" id="anMuni" aria-label="Município" hidden></select>
+        <select class="sel" id="anAno" aria-label="Ano"></select>
+        <select class="sel" id="anBim" aria-label="Bimestre"><option value="">Todos os bimestres</option><option value="1">1º bimestre</option><option value="2">2º bimestre</option><option value="3">3º bimestre</option><option value="4">4º bimestre</option></select>
+        <select class="sel" id="anDisc" aria-label="Disciplina"><option value="">Todas as disciplinas</option></select>
+        <select class="sel" id="anEsc" aria-label="Escola" hidden><option value="">Todas as escolas</option></select>
+        <span class="esp"></span>
+        <button class="btn btn-pri btn-sm" data-action="analisar">Atualizar</button>
+        <button class="btn btn-gh btn-sm" data-action="exportar-an">⬇ Planilha</button>
+      </div>
+    </div>
+    <div id="anBox"></div>
+  </section>
 </div>
 
 <div class="modal" id="mGab" hidden><div class="modal-box">
@@ -428,13 +477,30 @@ async function carregarAvals(selecionar){
   if(alvo && E.avals.some(a => a.id === alvo)){ $("selAval").value = alvo; await escolherAval(alvo); } else desenhar();
 }
 const objetivas = a => (a.questoes || []).filter(q => q.tipo === "multipla").sort((x, y) => x.numero - y.numero);
+
+/* ---------- BNCC: lê o código e diz o componente e o ano ---------- */
+const COMP = { LP:"Língua Portuguesa", MA:"Matemática", CI:"Ciências", HI:"História", GE:"Geografia", AR:"Arte", EF:"Educação Física", LI:"Língua Inglesa", ER:"Ensino Religioso" };
+const AREA_EM = { LGG:"Linguagens", LP:"Língua Portuguesa", MAT:"Matemática", CNT:"Ciências da Natureza", CHS:"Ciências Humanas" };
+const CAMPO_EI = { EO:"O eu, o outro e o nós", CG:"Corpo, gestos e movimentos", TS:"Traços, sons, cores e formas", EF:"Escuta, fala, pensamento e imaginação", ET:"Espaços, tempos, quantidades, relações e transformações" };
+const RX_BNCC = /^(EF\d{2}[A-Z]{2}\d{2}|EI\d{2}[A-Z]{2}\d{2}|EM13[A-Z]{2,3}\d{3})$/;
+function codigosBncc(s){ return [...new Set(String(s || "").toUpperCase().split(/[^A-Z0-9]+/).filter(c => RX_BNCC.test(c)))]; }
+function descBncc(c){
+  let m = /^EF(\d)(\d)([A-Z]{2})\d{2}$/.exec(c);
+  if(m) return (COMP[m[3]] || m[3]) + " · " + (m[1] === "0" ? m[2] + "º ano" : m[1] + "º ao " + m[2] + "º ano");
+  m = /^EI\d{2}([A-Z]{2})\d{2}$/.exec(c); if(m) return "Educação Infantil · " + (CAMPO_EI[m[1]] || m[1]);
+  m = /^EM13([A-Z]{2,3})\d{3}$/.exec(c); if(m) return "Ensino Médio · " + (AREA_EM[m[1]] || m[1]);
+  return "";
+}
+const pctTxt = v => v === null || v === undefined ? "–" : Math.round(v * 100) + "%";
+const corPct = v => v === null ? "#eef2f6" : v < 0.5 ? "#fbd9d5" : v < 0.7 ? "#ffe9c2" : "#dff0cc";
+const corBar = v => v < 0.5 ? "#C2362C" : v < 0.7 ? "#F9A825" : "#5A9420";
 async function escolherAval(id){
   E.aval = E.avals.find(a => a.id === id) || null; E.resp = {};
   if(E.aval){
     try{ localStorage.setItem("pde_corretor_aval", id); }catch(e){}
     const obj = objetivas(E.aval), nAlt = Math.max(4, Math.min(5, Math.max(...obj.map(q => (q.alternativas || []).length || 5))));
     E.lay = layout(obj.length, nAlt);
-    E.gab = {}; obj.forEach((q, i) => { const c = (q.alternativas || []).find(a => a.correta); E.gab[i + 1] = { letra:c ? c.letra : null, pontos:+q.pontos || 0, numero:q.numero }; });
+    E.gab = {}; obj.forEach((q, i) => { const c = (q.alternativas || []).find(a => a.correta); E.gab[i + 1] = { letra:c ? c.letra : null, pontos:+q.pontos || 0, numero:q.numero, bncc:codigosBncc(q.bncc).join(" ") }; });
     await carregarRespostas();
   }
   desenhar();
@@ -450,11 +516,12 @@ async function carregarRespostas(){
    ===================================================================== */
 function ir(s){ if(s !== "corrigir") pararCamera(); E.sec = s; desenhar(); }
 function desenhar(){
-  document.querySelectorAll(".passo").forEach(b => { b.classList.toggle("on", b.dataset.arg === E.sec); b.disabled = b.dataset.arg !== "gabarito" && !E.aval; });
+  document.querySelectorAll(".passo").forEach(b => { b.classList.toggle("on", b.dataset.arg === E.sec); b.disabled = !["gabarito", "analise"].includes(b.dataset.arg) && !E.aval; });
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + E.sec));
   if(E.sec === "gabarito") desenharGabarito();
   else if(E.sec === "cartoes") $("cResumo").textContent = E.aval ? E.alunos.length + " alunos · " + E.lay.nQ + " questões (" + LETRAS.slice(0, E.lay.nAlt).split("").join(", ") + ")" : "";
   else if(E.sec === "resultados") desenharResultados();
+  else if(E.sec === "analise") prepararAnalise();
 }
 function desenharGabarito(){
   if(!E.turma){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a turma</b>Depois, a prova: uma que você criou em Avaliações no Portal, ou um gabarito de prova impressa.</div>'; return; }
@@ -464,8 +531,8 @@ function desenharGabarito(){
   $("gabBox").innerHTML = '<div class="card"><div class="barra"><div><div class="h2">' + esc(E.aval.titulo) + '</div><div class="sub">' + esc([E.aval.disciplina, E.aval.bimestre ? E.aval.bimestre + "º bimestre" : "", L.nQ + " questões objetivas", "vale " + fmt(total) + " pontos"].filter(Boolean).join(" · ")) + "</div></div><span class=\"esp\"></span>" +
     (falta ? '<span class="pill cinza">' + falta + " sem resposta certa</span>" : '<span class="pill ok">Gabarito completo</span>') + "</div>" +
     ((E.aval.questoes || []).some(q => q.tipo !== "multipla") ? '<div class="aviso" style="margin-top:10px">Esta prova tem questões dissertativas. O cartão cobre só as objetivas; as dissertativas você corrige em Avaliações.</div>' : "") +
-    '<p class="sub" style="margin:10px 0">' + (edit ? "Toque na alternativa certa de cada questão. Salva sozinho." : "Gabarito da prova criada no Portal (para mudar, edite em Avaliações).") + "</p>" +
-    '<div class="gab">' + L.bolhas.map(b => '<div class="gq"><b>' + b.q + "</b>" + b.alts.map(a => '<button data-action="gab" data-arg="' + b.q + ":" + a.letra + '" class="' + (E.gab[b.q].letra === a.letra ? "on" : "") + '"' + (edit ? "" : " disabled") + ">" + a.letra + "</button>").join("") + "</div>").join("") + "</div></div>" +
+    '<p class="sub" style="margin:10px 0">' + (edit ? "Toque na alternativa certa de cada questão. Salva sozinho." : "Gabarito da prova criada no Portal (para mudar, edite em Avaliações).") + " Ao lado, o código da habilidade BNCC (opcional, ex.: EF05MA08) para o relatório por habilidade.</p>" +
+    '<div class="gab">' + L.bolhas.map(b => '<div class="gq"><b>' + b.q + "</b>" + b.alts.map(a => '<button data-action="gab" data-arg="' + b.q + ":" + a.letra + '" class="' + (E.gab[b.q].letra === a.letra ? "on" : "") + '"' + (edit ? "" : " disabled") + ">" + a.letra + "</button>").join("") + '<input class="bn" data-bncc="' + b.q + '" value="' + esc(E.gab[b.q].bncc || "") + '" placeholder="BNCC" maxlength="40" aria-label="Habilidade BNCC da questão ' + b.q + '" title="' + esc(codigosBncc(E.gab[b.q].bncc).map(descBncc).join(" | ")) + '"></div>').join("") + "</div></div>" +
     '<div class="barra"><span class="esp"></span><button class="btn btn-pri btn-lg" data-action="ir" data-arg="cartoes"' + (falta ? " disabled" : "") + ">Próximo: imprimir cartões →</button></div>";
 }
 let gabT = 0;
@@ -476,7 +543,7 @@ function marcarGab(arg){
 async function salvarGab(){
   const questoes = (E.aval.questoes || []).map(q => {
     const i = objetivas(E.aval).findIndex(o => o.numero === q.numero); if(i < 0) return q;
-    const certa = E.gab[i + 1].letra; return { ...q, alternativas:(q.alternativas || []).map(a => ({ ...a, correta:a.letra === certa })) };
+    const certa = E.gab[i + 1].letra; return { ...q, bncc:E.gab[i + 1].bncc || "", alternativas:(q.alternativas || []).map(a => ({ ...a, correta:E.aval.formato === "cartao" ? a.letra === certa : !!a.correta })) };
   });
   try{ await updateDoc(doc(db, "avaliacoes", E.aval.id), { questoes }); E.aval.questoes = questoes; }
   catch(e){ console.warn("gabarito:", e.code); toast("Não foi possível salvar o gabarito.", true); }
@@ -714,7 +781,34 @@ function desenharResultados(){
     E.alunos.map(a => { const r = E.resp[a.id]; if(!r) return "<tr><td>" + esc(a.nome) + '</td><td>–</td><td>–</td><td><span class="pill cinza">Sem cartão</span></td></tr>';
       const ac = (r.respostas || []).filter(x => { const q = (E.aval.questoes || []).find(qq => qq.numero === x.numero), c = q && (q.alternativas || []).find(al => al.correta); return c && x.escolhida === c.letra; }).length;
       return "<tr><td>" + esc(a.nome) + "</td><td>" + ac + "/" + E.lay.nQ + "</td><td><b>" + fmt(r.nota_objetivas || 0) + "</b></td><td>" + (r.origem === "cartao" ? '<span class="pill ok">Cartão lido</span>' : '<span class="pill az">Respondeu no Portal</span>') + "</td></tr>"; }).join("") +
-    "</tbody></table></div><p class=\"sub\" style=\"margin-top:8px\">As notas já valem no Portal: aparecem em Avaliações e o Notas e Médias puxa pela opção \"Puxar das Avaliações do Portal\". O relatório por questão e por habilidade da BNCC vem na próxima etapa.</p>";
+    "</tbody></table></div><p class=\"sub\" style=\"margin:8px 0 14px\">As notas já valem no Portal: aparecem em Avaliações e o Notas e Médias puxa pela opção \"Puxar das Avaliações do Portal\".</p>" + analiseDaProva(feitos);
+}
+// por questão (com a alternativa errada mais marcada) e por habilidade (com quem ficou abaixo de 50%)
+function analiseDaProva(feitos){
+  if(!feitos.length) return "";
+  const L = E.lay, letras = LETRAS.slice(0, L.nAlt).split("");
+  const qs = L.bolhas.map(b => {
+    const g = E.gab[b.q], cont = {}; let ac = 0, branco = 0;
+    feitos.forEach(a => { const r = (E.resp[a.id].respostas || []).find(x => x.numero === g.numero), l = r && r.escolhida; if(!l) branco++; else { cont[l] = (cont[l] || 0) + 1; if(l === g.letra) ac++; } });
+    const errada = letras.filter(l => l !== g.letra).sort((x, y) => (cont[y] || 0) - (cont[x] || 0))[0];
+    return { q:b.q, g, cont, branco, p:ac / feitos.length, distrator:errada && (cont[errada] || 0) / feitos.length >= 0.3 ? errada : "" };
+  });
+  const cards = qs.map(x => '<div class="qc"><div class="top"><span>Questão ' + x.q + '</span><span style="color:' + corBar(x.p) + '">' + pctTxt(x.p) + "</span></div>" +
+    '<div class="bar"><i style="width:' + Math.round(x.p * 100) + "%;background:" + corBar(x.p) + '"></i></div>' +
+    '<div class="alts">' + letras.map(l => '<span class="' + (l === x.g.letra ? "c" : l === x.distrator ? "d" : "") + '">' + l + " " + (x.cont[l] || 0) + "</span>").join("") + (x.branco ? "<span>branco " + x.branco + "</span>" : "") + "</div>" +
+    (x.distrator ? '<div class="sub" style="color:var(--red);margin-top:4px">' + Math.round((x.cont[x.distrator] || 0) / feitos.length * 100) + "% marcaram " + x.distrator + ": vale retomar</div>" : "") +
+    (x.g.bncc ? '<div class="bn" style="margin-top:4px">' + esc(x.g.bncc) + "</div>" : "") + "</div>").join("");
+  const H = {};
+  qs.forEach(x => codigosBncc(x.g.bncc).forEach(c => { (H[c] = H[c] || { c, qs:[] }).qs.push(x); }));
+  const habs = Object.values(H).map(h => {
+    const porAluno = feitos.map(a => { let ac = 0; h.qs.forEach(x => { const r = (E.resp[a.id].respostas || []).find(y => y.numero === x.g.numero); if(r && r.escolhida === x.g.letra) ac++; }); return { a, p:ac / h.qs.length }; });
+    return { ...h, p:porAluno.reduce((s, y) => s + y.p, 0) / porAluno.length, abaixo:porAluno.filter(y => y.p < 0.5).map(y => y.a.nome) };
+  }).sort((a, b) => a.p - b.p);
+  const blocoHab = habs.length ? habs.map(h => '<div class="hab"><div><b class="cod">' + h.c + '</b><div class="sub">' + esc(descBncc(h.c)) + " · questões " + h.qs.map(x => x.q).join(", ") + '</div></div><div class="bar"><i style="width:' + Math.round(h.p * 100) + "%;background:" + corBar(h.p) + '"></i></div><div class="pc" style="color:' + corBar(h.p) + '">' + pctTxt(h.p) + "</div>" +
+      (h.abaixo.length ? "<details><summary>" + h.abaixo.length + " aluno(s) abaixo de 50%: grupo de reforço</summary>" + h.abaixo.map(esc).join(", ") + "</details>" : "") + "</div>").join("")
+    : '<div class="sub">Marque o código BNCC de cada questão na etapa 1 (Gabarito) para ver o acerto por habilidade e os grupos de reforço.</div>';
+  return '<div class="card"><div class="h2" style="margin-bottom:8px">Por habilidade BNCC</div>' + blocoHab + "</div>" +
+    '<div class="card"><div class="h2" style="margin-bottom:2px">Por questão</div><p class="sub" style="margin-bottom:10px">Verde: alternativa certa. Vermelho: a errada que 30% ou mais da turma marcou (sinal de um erro de conceito comum).</p><div class="qgrid">' + cards + "</div></div>";
 }
 function exportar(){
   const L = E.lay, cab = ["aluno", ...L.bolhas.map(b => "q" + b.q), "acertos", "nota"];
@@ -728,6 +822,112 @@ function exportar(){
 }
 
 /* =====================================================================
+   HABILIDADES BNCC: professor (suas turmas), gestor (turmas da escola), secretaria (escolas da rede)
+   ===================================================================== */
+const AN = { dados:null, carregando:false, municipios:null, ultimo:null };
+function escopoAn(){
+  const pf = E.u.perfil;
+  if(E.admin) return { tipo:"admin", muni:$("anMuni").value || E.u.municipio_id || "" };
+  if(pf === "secretaria") return { tipo:"sec", muni:E.u.municipio_id || "" };
+  if(pf === "gestor") return { tipo:"gestor", escolas:(E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 10) };
+  return { tipo:"prof" };
+}
+async function prepararAnalise(){
+  const sc = escopoAn(), a = new Date().getFullYear();
+  if(!$("anAno").options.length) $("anAno").innerHTML = [a, a - 1].map(x => '<option value="' + x + '">' + x + "</option>").join("");
+  $("anSub").textContent = sc.tipo === "prof" ? "Acerto por habilidade em todas as provas objetivas que você aplicou, comparando as suas turmas."
+    : sc.tipo === "gestor" ? "Acerto por habilidade nas provas das turmas da escola, comparando as turmas."
+    : "Acerto por habilidade nas provas das escolas da rede, comparando as escolas. Escolha uma escola para ver as turmas.";
+  if(sc.tipo === "admin" && !AN.municipios){
+    AN.municipios = [];
+    try{ const s = await getDocs(query(collection(db, "municipios"), limit(300))); s.forEach(d => AN.municipios.push({ id:d.id, ...d.data() })); }catch(e){}
+    AN.municipios.sort((x, y) => String(x.nome || "").localeCompare(String(y.nome || ""), "pt-BR"));
+    $("anMuni").innerHTML = AN.municipios.map(m => '<option value="' + esc(m.id) + '">' + esc(m.nome || m.id) + "</option>").join(""); $("anMuni").hidden = false;
+    if(E.u.municipio_id && AN.municipios.some(m => m.id === E.u.municipio_id)) $("anMuni").value = E.u.municipio_id;
+  }
+  if(!AN.dados && !AN.carregando) analisar(); else desenharAnalise();
+}
+async function analisar(){
+  const sc = escopoAn(); AN.carregando = true;
+  $("anBox").innerHTML = '<div class="card vazio">Somando as provas...</div>';
+  const provas = [];
+  try{
+    let q = null;
+    if(sc.tipo === "prof") q = query(collection(db, "avaliacoes"), where("professor_uid", "==", E.user.uid));
+    else if(sc.tipo === "gestor" && sc.escolas.length) q = query(collection(db, "avaliacoes"), where("escola_id", "in", sc.escolas));
+    else if(sc.muni) q = query(collection(db, "avaliacoes"), where("municipio_id", "==", sc.muni));
+    if(q){ const s = await getDocs(q); s.forEach(d => { const a = d.data(); if(a.status !== "excluida" && objetivas(a).some(x => (x.alternativas || []).some(al => al.correta))) provas.push({ id:d.id, ...a }); }); }
+  }catch(e){ console.warn("analise provas:", e.code || e); }
+  const anoDe = p => +p.ano_letivo || (p.criado_em && p.criado_em.seconds ? new Date(p.criado_em.seconds * 1000).getFullYear() : 0);
+  provas.forEach(p => p._ano = anoDe(p));
+  provas.sort((x, y) => ((y.criado_em && y.criado_em.seconds) || 0) - ((x.criado_em && x.criado_em.seconds) || 0));
+  const lista = provas.slice(0, 200), dados = [];
+  for(let i = 0; i < lista.length; i += 8){
+    await Promise.all(lista.slice(i, i + 8).map(async p => {
+      const rs = [];
+      try{ const s = await getDocs(query(collection(db, "respostas"), where("avaliacao_id", "==", p.id))); s.forEach(d => rs.push(d.data())); }catch(e){ console.warn("analise respostas:", p.id, e.code || e); }
+      if(rs.length) dados.push({ p, rs });
+    }));
+  }
+  AN.dados = dados; AN.cortado = provas.length > lista.length; AN.carregando = false;
+  const discs = [...new Set(dados.map(d => String(d.p.disciplina || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const dv = $("anDisc").value; $("anDisc").innerHTML = '<option value="">Todas as disciplinas</option>' + discs.map(d => '<option>' + esc(d) + "</option>").join(""); if(discs.includes(dv)) $("anDisc").value = dv;
+  const escs = [...new Map(dados.map(d => [d.p.escola_id, d.p.escola_nome || d.p.escola_id])).entries()].filter(x => x[0]).sort((a, b) => String(a[1]).localeCompare(String(b[1]), "pt-BR"));
+  const ev = $("anEsc").value; $("anEsc").innerHTML = '<option value="">Todas as escolas</option>' + escs.map(([id, n]) => '<option value="' + esc(id) + '">' + esc(n) + "</option>").join("");
+  $("anEsc").hidden = !(sc.tipo === "sec" || sc.tipo === "admin") || escs.length < 2; if(escs.some(x => x[0] === ev)) $("anEsc").value = ev;
+  desenharAnalise();
+}
+function agregarAn(){
+  const sc = escopoAn(), ano = +$("anAno").value, bim = $("anBim").value, disc = $("anDisc").value, escF = $("anEsc").value;
+  const porEscola = (sc.tipo === "sec" || sc.tipo === "admin") && !escF;
+  const sel = (AN.dados || []).filter(({ p }) => p._ano === ano && (!bim || String(p.bimestre) === bim) && (!disc || String(p.disciplina || "").trim() === disc) && (!escF || p.escola_id === escF));
+  const H = {}, grupos = new Map(), provas = []; let semHab = 0, totQ = 0, totAc = 0, totResp = 0;
+  sel.forEach(({ p, rs }) => {
+    const gk = porEscola ? (p.escola_id || "-") : (p.turma_id || p.turma_nome || "-"), gn = porEscola ? (p.escola_nome || "Escola") : (p.turma_nome || "Turma");
+    grupos.set(gk, gn);
+    let pa = 0, pt = 0;
+    objetivas(p).forEach(q => {
+      const c = (q.alternativas || []).find(a => a.correta); if(!c) return;
+      let ac = 0; rs.forEach(r => { const x = (r.respostas || []).find(y => y.numero === q.numero); if(x && x.escolhida === c.letra) ac++; });
+      pa += ac; pt += rs.length;
+      const cods = codigosBncc(q.bncc); if(!cods.length) semHab++;
+      cods.forEach(cd => { const h = (H[cd] = H[cd] || { c:cd, ac:0, tot:0, q:0, provas:new Set(), g:{} }); h.ac += ac; h.tot += rs.length; h.q++; h.provas.add(p.id);
+        const hg = (h.g[gk] = h.g[gk] || { ac:0, tot:0 }); hg.ac += ac; hg.tot += rs.length; });
+    });
+    totAc += pa; totQ += pt; totResp += rs.length;
+    provas.push({ p, n:rs.length, pct:pt ? pa / pt : null, grupo:gn });
+  });
+  const habs = Object.values(H).map(h => ({ ...h, p:h.tot ? h.ac / h.tot : null })).sort((a, b) => a.p - b.p);
+  return { sc, porEscola, habs, grupos:[...grupos.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1]), "pt-BR", { numeric:true })), provas, semHab, geral:totQ ? totAc / totQ : null, totResp };
+}
+function desenharAnalise(){
+  if(!AN.dados) return;
+  const A = agregarAn(); AN.ultimo = A;
+  if(!A.provas.length){ $("anBox").innerHTML = '<div class="card vazio"><b>Nenhuma prova corrigida neste filtro</b>Corrija provas pelo cartão ou aplique provas pelo Portal e marque o código BNCC de cada questão no Gabarito.</div>'; return; }
+  const kpis = '<div class="kpis"><div class="kpi"><small>Provas</small><b>' + A.provas.length + '</b></div><div class="kpi"><small>Provas respondidas</small><b>' + A.totResp + '</b></div><div class="kpi"><small>Acerto geral</small><b style="color:' + corBar(A.geral || 0) + '">' + pctTxt(A.geral) + '</b></div><div class="kpi"><small>Habilidades avaliadas</small><b>' + A.habs.length + "</b></div></div>";
+  const prio = A.habs.filter(h => h.p < 0.6).slice(0, 3);
+  const blocoPrio = prio.length ? '<div class="h2" style="margin:4px 0 8px">Prioridades de reforço</div><div class="prio">' + prio.map(h => "<div><b>" + h.c + " · " + pctTxt(h.p) + "</b>" + esc(descBncc(h.c)) + '<div class="sub">' + h.q + " questão(ões) em " + h.provas.size + " prova(s)</div></div>").join("") + "</div>" : "";
+  const cols = A.grupos.slice(0, 30);
+  const heat = A.habs.length ? '<div class="card"><div class="h2" style="margin-bottom:8px">Acerto por habilidade · ' + (A.porEscola ? "por escola" : "por turma") + '</div><div class="tabela-wrap"><table class="res heat"><thead><tr><th>Habilidade</th><th>Questões</th><th>Geral</th>' +
+    cols.map(([, n]) => '<th class="g">' + esc(n) + "</th>").join("") + "</tr></thead><tbody>" +
+    A.habs.map(h => '<tr><td class="cod" title="' + esc(descBncc(h.c)) + '">' + h.c + '<div class="sub" style="font-family:inherit;font-weight:600">' + esc(descBncc(h.c)) + "</div></td><td>" + h.q + '</td><td class="h" style="background:' + corPct(h.p) + '">' + pctTxt(h.p) + "</td>" +
+      cols.map(([k]) => { const g = h.g[k], v = g && g.tot ? g.ac / g.tot : null; return '<td class="h" style="background:' + corPct(v) + '">' + pctTxt(v) + "</td>"; }).join("") + "</tr>").join("") +
+    "</tbody></table></div>" + (A.semHab ? '<p class="sub" style="margin-top:8px">' + A.semHab + " questão(ões) sem código BNCC ficaram fora desta tabela. O professor marca o código no Gabarito do Corretor.</p>" : "") + "</div>"
+    : '<div class="card vazio"><b>As questões ainda não têm código BNCC</b>O professor marca a habilidade de cada questão na etapa 1 (Gabarito) do Corretor. As provas criadas no Portal com BNCC já entram.</div>';
+  const tabProvas = '<div class="card"><div class="h2" style="margin-bottom:8px">Provas consideradas</div><div class="tabela-wrap"><table class="res"><thead><tr><th>Prova</th><th>' + (A.porEscola ? "Escola" : "Turma") + "</th><th>Disciplina</th><th>Bim.</th><th>Respostas</th><th>Acerto</th></tr></thead><tbody>" +
+    A.provas.sort((a, b) => String(a.grupo).localeCompare(String(b.grupo), "pt-BR", { numeric:true })).map(x => "<tr><td>" + esc(x.p.titulo) + "</td><td>" + esc(x.grupo) + "</td><td>" + esc(x.p.disciplina || "") + "</td><td>" + (x.p.bimestre || "–") + "</td><td>" + x.n + '</td><td><span class="pill" style="background:' + corPct(x.pct) + '">' + pctTxt(x.pct) + "</span></td></tr>").join("") +
+    "</tbody></table></div>" + (AN.cortado ? '<p class="sub" style="margin-top:8px">Mostrando as 200 provas mais recentes.</p>' : "") + "</div>";
+  $("anBox").innerHTML = kpis + blocoPrio + heat + tabProvas;
+}
+function exportarAnalise(){
+  const A = AN.ultimo; if(!A || !A.habs.length){ toast("Nada para exportar neste filtro.", true); return; }
+  const cols = A.grupos, linhas = [["habilidade", "descricao", "questoes", "acerto_geral", ...cols.map(([, n]) => n)]];
+  A.habs.forEach(h => linhas.push([h.c, descBncc(h.c), h.q, Math.round(h.p * 100), ...cols.map(([k]) => { const g = h.g[k]; return g && g.tot ? Math.round(g.ac / g.tot * 100) : ""; })]));
+  const txt = "﻿" + linhas.map(l => l.map(v => /[;"\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : v).join(";")).join("\r\n");
+  const el = document.createElement("a"); el.href = URL.createObjectURL(new Blob([txt], { type:"text/csv;charset=utf-8" })); el.download = "habilidades-bncc-" + $("anAno").value + ".csv"; document.body.appendChild(el); el.click(); el.remove();
+}
+
+/* =====================================================================
    EVENTOS E INÍCIO
    ===================================================================== */
 const ACOES = {
@@ -735,7 +935,7 @@ const ACOES = {
   "criar-gab": () => criarGab(), "gerar-pdf": () => gerarPdf(),
   "camera": () => { E.modoCamera = true; abrirCamera(); }, "parar": () => pararCamera(), "manual": () => digitar(),
   "trocar": a => trocar(a), "salvar": () => salvar(), "descartar": () => { $("confBox").hidden = true; if(E.modoCamera) abrirCamera(); else $("corrigirInicio").hidden = false; },
-  "exportar": () => exportar(), "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
+  "exportar": () => exportar(), "analisar": () => analisar(), "exportar-an": () => exportarAnalise(), "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
 };
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b || b.disabled) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
 document.addEventListener("change", ev => {
@@ -744,9 +944,17 @@ document.addEventListener("change", ev => {
   else if(t.id === "selAval") escolherAval(t.value);
   else if(t.id === "arqFoto" && t.files[0]){ E.modoCamera = false; lerFoto(t.files[0]); t.value = ""; }
   else if(t.id === "confAluno") desenharConferencia();
+  else if(t.dataset.bncc){
+    const q = t.dataset.bncc, cods = codigosBncc(t.value), resto = String(t.value).trim() && !cods.length;
+    t.classList.toggle("erro", !!resto); if(resto){ toast("Código BNCC não reconhecido. Exemplo: EF05MA08.", true); return; }
+    E.gab[q].bncc = cods.join(" "); t.value = E.gab[q].bncc; t.title = cods.map(descBncc).join(" | ");
+    clearTimeout(gabT); gabT = setTimeout(salvarGab, 300);
+  }
+  else if(["anAno", "anBim", "anDisc", "anEsc"].includes(t.id)) desenharAnalise();
+  else if(t.id === "anMuni"){ AN.dados = null; analisar(); }
 });
 document.addEventListener("visibilitychange", () => { if(document.hidden) pararCamera(); });
-window.__corretor = { layout, processar, decidir, lerBolhas, homografia, acharMarcas, cinza, FIDS, estado:E };
+window.__corretor = { codigosBncc, descBncc, AN:() => AN, layout, processar, decidir, lerBolhas, homografia, acharMarcas, cinza, FIDS, estado:E };
 
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
@@ -756,6 +964,9 @@ onAuthStateChanged(auth, async user => {
   const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   $("quem").textContent = u.nome || user.email;
+  if(!E.admin && (u.perfil === "gestor" || u.perfil === "secretaria")) E.sec = "analise";
+  // a secretaria não aplica prova: vê só o painel de habilidades da rede
+  if(!E.admin && u.perfil === "secretaria"){ document.querySelector(".app > .card.barra").hidden = true; document.querySelectorAll('.passo:not([data-arg="analise"])').forEach(b => b.hidden = true); }
   await carregarTurmas();
   let ult = ""; try{ ult = localStorage.getItem("pde_corretor_turma") || ""; }catch(e){}
   if(ult && E.turmas.some(t => t.id === ult)){ $("selTurma").value = ult; await escolherTurma(ult); } else desenhar();
