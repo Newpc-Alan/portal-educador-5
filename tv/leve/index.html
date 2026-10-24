@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portal do Educador TV</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<style>
+/* TV leve: para navegadores de TV antigos (LG NetCast, Samsung Orsay, Chrome 38).
+   Sem variáveis CSS, sem grid, sem clamp, sem "inset": só o que esses navegadores entendem. */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+.oculto{display:none!important}
+.tela{position:fixed;top:0;left:0;right:0;bottom:0}
+
+/* pareamento */
+#par{background:#071621;text-align:center;padding:6vh 4vw}
+#par img{width:12vh;height:12vh;margin-bottom:2vh}
+#par small{display:block;color:#8DC63F;letter-spacing:.3em;font-size:2vh;margin-bottom:2vh;font-weight:bold}
+#par h1{font-size:5vh;margin-bottom:4vh}
+#parCod span{display:inline-block;width:11vh;height:14vh;line-height:14vh;margin:0 .8vh;border-radius:2vh;background:#12263a;border:2px solid #2d4a66;font-size:9vh;font-weight:bold;font-family:"Courier New",monospace}
+#par ol{list-style:none;margin-top:5vh;font-size:2.4vh;color:#cfdbe7}
+#par li{display:inline-block;vertical-align:top;width:28%;margin:0 1%;background:#0f2236;border:1px solid #23415f;border-radius:1.5vh;padding:2vh}
+#par li b{display:block;color:#8DC63F;font-size:1.8vh;letter-spacing:.15em;margin-bottom:.6vh}
+.rod{margin-top:4vh;font-size:2vh;color:#8aa0b5}
+
+/* player (paisagem): mídia à esquerda, painel à direita, letreiro embaixo */
+#tv{background:#000}
+#midia{position:absolute;top:0;left:0;bottom:10vh;right:31vw;overflow:hidden;background:#000}
+#tv.cheia #midia{right:0}
+#midia img,#midia video,#midia iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:0;object-fit:cover}
+#midia img.contem,#midia video.contem{object-fit:contain}
+#lado{position:absolute;top:0;right:0;bottom:10vh;width:31vw;padding:6vh 2.6vw 3vh;background:#0b1626;border-left:4px solid #2E9BD6;overflow:hidden}
+#tv.cheia #lado{display:none}
+#hLogo{max-height:7vh;max-width:60%;margin-bottom:3vh}
+.olho{color:#2E9BD6;font-size:1.3vw;letter-spacing:.2em;font-weight:bold;margin-bottom:1.6vh;text-transform:uppercase}
+.titulo{font-size:2.8vw;font-weight:bold;line-height:1.1;margin-bottom:2.4vh}
+.texto{font-size:1.45vw;line-height:1.5;color:#dbe6f0;white-space:pre-line;max-height:34vh;overflow:hidden}
+#meta{position:absolute;left:2.6vw;right:2.6vw;bottom:3vh;border-top:1px solid #23415f;padding-top:2vh}
+#local{font-size:.9vw;color:#8aa0b5;letter-spacing:.15em;margin-bottom:.6vh;text-transform:uppercase}
+.relogio{font-family:"Courier New",monospace;font-size:3.6vw;font-weight:bold;line-height:1}
+#data{font-size:1vw;color:#a9bccd;margin-top:.8vh}
+#temp{position:absolute;right:0;bottom:0;font-family:"Courier New",monospace;font-size:2.4vw;font-weight:bold;color:#8DC63F}
+#sobre{position:absolute;left:0;right:0;bottom:0;padding:6vh 4vw 5vh;background:rgba(0,0,0,.72);z-index:3}
+#sobre .titulo{font-size:3vw;margin:0}
+#barra{position:absolute;left:0;bottom:10vh;height:4px;width:0;background:#8DC63F;z-index:5}
+#rodape{position:absolute;left:0;right:0;bottom:0;height:10vh;background:#06284a;border-top:3px solid #2E9BD6;overflow:hidden}
+#letreiro{position:absolute;left:0;right:22vw;top:0;bottom:0;overflow:hidden}
+#trilho{position:absolute;top:0;left:0;height:10vh;line-height:10vh;white-space:nowrap;font-size:1.9vw;font-weight:bold;-webkit-animation:passa 30s linear infinite;animation:passa 30s linear infinite}
+#trilho span{padding-right:6vw}
+@-webkit-keyframes passa{from{-webkit-transform:translateX(0)}to{-webkit-transform:translateX(-50%)}}
+@keyframes passa{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+#marca{position:absolute;right:0;top:0;bottom:0;width:22vw;border-left:1px solid #2d4a66;padding:1.6vh 1.4vw;white-space:nowrap;overflow:hidden}
+#marca img{height:6vh;vertical-align:middle;margin-right:.8vw}
+#marca b{font-size:1vw;vertical-align:middle}
+
+/* cartaz (texto, comunicado, campanha) */
+.cartaz{position:absolute;top:0;left:0;right:0;bottom:0;padding:9vh 7vw;background:#0c2338}
+.cartaz.aviso{background:#132c12}
+.cartaz .olho{color:#8DC63F}
+.cartaz .titulo{font-size:5vw}
+.cartaz .texto{font-size:2.3vw;max-height:none;max-width:80%}
+.selo{position:absolute;top:3vh;right:3vw;background:#8DC63F;color:#071621;font-weight:bold;font-size:1vw;letter-spacing:.12em;padding:.8vh 1.4vw;border-radius:99px;z-index:6;text-transform:uppercase}
+.assina{position:absolute;right:4vw;bottom:4vh;font-size:1.1vw;color:#c4d3e0}
+.assina img{width:3.2vw;height:3.2vw;vertical-align:middle;margin-right:.8vw}
+
+#espera{position:absolute;top:0;left:0;right:0;bottom:10vh;background:#071621;text-align:center;padding-top:18vh;z-index:7}
+#espera img{width:14vh;height:14vh}
+#espera h1{font-size:5vh;margin:2vh 0}
+#espera p{color:#9fb6cc;font-size:2.4vh}
+#espera .relogio{font-size:12vh;margin-top:3vh}
+
+#aviso{position:fixed;top:12px;right:12px;z-index:20;background:#b8342a;font-size:14px;font-weight:bold;padding:6px 14px;border-radius:99px}
+
+/* retrato (totem): mídia em cima, texto embaixo */
+#tv.vertical #midia{right:0;bottom:46vh}
+#tv.vertical.cheia #midia{bottom:8vh}
+#tv.vertical #lado{top:auto;width:auto;left:0;height:38vh;bottom:8vh;border-left:0;border-top:4px solid #2E9BD6;padding:3vh 6vw}
+#tv.vertical #meta,#tv.vertical #hLogo,#tv.vertical #marca{display:none}
+#tv.vertical .olho{font-size:2.2vw}
+#tv.vertical .titulo{font-size:6vw}
+#tv.vertical .texto{font-size:3.4vw}
+#tv.vertical #rodape{height:8vh}
+#tv.vertical #letreiro{right:0}
+#tv.vertical #trilho{height:8vh;line-height:8vh;font-size:3.2vw}
+#tv.vertical #barra{bottom:8vh}
+#tv.vertical #espera{bottom:8vh}
+</style>
+</head>
+<body>
+<section id="par" class="tela oculto">
+  <img src="/assets/pde-logo-128.png" alt="">
+  <small>PORTAL DO EDUCADOR TV</small>
+  <h1>Conecte esta tela à sua escola</h1>
+  <div id="parCod">&nbsp;</div>
+  <ol>
+    <li><b>PASSO 1</b>No computador ou celular, entre no Portal do Educador</li>
+    <li><b>PASSO 2</b>Abra Aplicativos Úteis e depois Portal do Educador TV</li>
+    <li><b>PASSO 3</b>Toque em Conectar TV e digite o código acima</li>
+  </ol>
+  <p class="rod" id="parRod">O código muda a cada 10 minutos.</p>
+  <p class="rod">Versão leve para TVs com navegador antigo.</p>
+</section>
+
+<section id="tv" class="tela oculto">
+  <div id="midia"></div>
+  <aside id="lado"><img id="hLogo" class="oculto" alt=""><div class="olho" id="olho"></div><div class="titulo" id="titulo"></div><div class="texto" id="texto"></div>
+    <div id="meta"><div id="local"></div><div class="relogio" id="relogio">--:--</div><div id="data"></div><div id="temp"></div></div></aside>
+  <div id="sobre" class="oculto"><div class="olho" id="olho2"></div><div class="titulo" id="titulo2"></div></div>
+  <div id="barra"></div>
+  <div id="espera" class="oculto"><img src="/assets/pde-logo-128.png" alt="" id="esperaLogo"><h1 id="esperaNome">Portal do Educador TV</h1><p>Nenhum conteúdo programado agora.</p><div class="relogio" id="esperaRelogio">--:--</div></div>
+  <div id="rodape"><div id="letreiro"><div id="trilho"></div></div><div id="marca"><img id="mLogo" src="/assets/pde-logo-128.png" alt=""><b id="mNome">Portal do Educador</b></div></div>
+</section>
+<div id="aviso" class="oculto"></div>
+
+<script>
+/* Escrito em JavaScript antigo (ES5) de propósito: roda em navegadores de TV de 2014 em diante.
+   Lê o Firestore pela API REST (XMLHttpRequest) e confere mudanças de tempos em tempos, em vez do tempo real. */
+(function(){
+  var API = "AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0";
+  var PROJ = "projects/portal-educador-5/databases/(default)/documents";
+  var BASE = "https://firestore.googleapis.com/v1/" + PROJ;
+  var VERSAO = "tv-leve-1";
+  var ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var P = { chave:"", tela:null, listas:{}, canal:null, campanhas:null, fila:[], idx:-1, timer:0, dur:10000, assinatura:"", rotAviso:0, rotCamp:0, ultimoAvanco:new Date().getTime(), parTimer:0, falhas:0 };
+
+  function $(id){ return document.getElementById(id); }
+  function mostra(el, sim){ if(!el) return; if(sim) el.className = el.className.replace(/\s*oculto/g, ""); else if(!/oculto/.test(el.className)) el.className += " oculto"; }
+  function agora(){ return new Date().getTime(); }
+  function lsGet(k, d){ try{ var v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } }
+  function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  function aleatorio(n, abc){
+    var s = "", i, a = null;
+    try{ a = new Uint32Array(n); window.crypto.getRandomValues(a); }catch(e){ a = null; }
+    for(i = 0; i < n; i++) s += abc.charAt((a ? a[i] : Math.floor(Math.random() * 4294967296)) % abc.length);
+    return s;
+  }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function txt(s){ return s === null || s === undefined ? "" : String(s); }
+  function setTxt(id, s){ var el = $(id); if(el) el.textContent = txt(s); }
+
+  /* ---------- Firestore REST ---------- */
+  function pedir(metodo, url, corpo, cb){
+    var x = new XMLHttpRequest();
+    x.open(metodo, url, true);
+    x.timeout = 25000;
+    x.onreadystatechange = function(){
+      if(x.readyState !== 4) return;
+      var j = null; try{ j = JSON.parse(x.responseText); }catch(e){}
+      cb(x.status, j);
+    };
+    x.ontimeout = function(){ cb(0, null); };
+    if(corpo){ x.setRequestHeader("Content-Type", "application/json"); x.send(JSON.stringify(corpo)); } else x.send();
+  }
+  function quando(s){ // "2026-10-24T21:00:00.123456Z" -> ms (navegador antigo não aceita mais de 3 casas)
+    var m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(\.\d+)?Z$/.exec(s || "");
+    if(!m) return Date.parse(s) || 0;
+    return Date.parse(m[1] + (m[2] ? m[2].substr(0, 4) : "") + "Z") || 0;
+  }
+  function valor(v){
+    if(!v) return null;
+    if(v.hasOwnProperty("stringValue")) return v.stringValue;
+    if(v.hasOwnProperty("integerValue")) return Number(v.integerValue);
+    if(v.hasOwnProperty("doubleValue")) return v.doubleValue;
+    if(v.hasOwnProperty("booleanValue")) return v.booleanValue;
+    if(v.hasOwnProperty("timestampValue")) return quando(v.timestampValue);
+    if(v.hasOwnProperty("mapValue")) return campos(v.mapValue.fields || {});
+    if(v.hasOwnProperty("arrayValue")){ var a = v.arrayValue.values || [], o = [], i; for(i = 0; i < a.length; i++) o.push(valor(a[i])); return o; }
+    return null;
+  }
+  function campos(f){ var o = {}, k; for(k in f) if(f.hasOwnProperty(k)) o[k] = valor(f[k]); return o; }
+  // cb(erro, dados): dados null = documento não existe
+  function ler(caminho, cb){
+    pedir("GET", BASE + "/" + caminho + "?key=" + API, null, function(st, j){
+      if(st === 200 && j) cb(null, campos(j.fields || {}));
+      else if(st === 404) cb(null, null);
+      else cb(st || "rede", null);
+    });
+  }
+  function gravar(writes, cb){ pedir("POST", BASE + ":commit?key=" + API, { writes:writes }, function(st){ cb(st === 200 ? null : (st || "rede")); }); }
+  function S(v){ return { stringValue:String(v) }; }
+
+  /* ---------- pareamento ---------- */
+  function mostrarPareamento(){
+    mostra($("tv"), false); mostra($("par"), true);
+    function gerar(t){
+      var cod = aleatorio(6, ABC);
+      gravar([{ update:{ name:PROJ + "/tv_pareamentos/" + cod, fields:{ chave:S(P.chave), orientacao:S(window.innerHeight > window.innerWidth ? "v" : "h"), resolucao:S(screen.width + "x" + screen.height) } },
+        currentDocument:{ exists:false }, updateTransforms:[{ fieldPath:"criado_em", setToServerValue:"REQUEST_TIME" }] }], function(erro){
+        if(!erro){ var h = "", i; for(i = 0; i < 6; i++) h += "<span>" + cod.charAt(i) + "</span>"; $("parCod").innerHTML = h; setTxt("parRod", "O código muda a cada 10 minutos."); return; }
+        if(t < 3) gerar(t + 1); else setTxt("parRod", "Sem conexão com o Portal (" + erro + "). Confira a internet desta TV.");
+      });
+    }
+    gerar(0); clearInterval(P.parTimer); P.parTimer = setInterval(function(){ gerar(0); }, 10 * 60 * 1000);
+  }
+
+  /* ---------- programação (mesmas regras do player completo) ---------- */
+  function playlistAtiva(){
+    var t = P.tela || {}, ag = t.agenda || {}, d = new Date(), hm = d.getHours() * 60 + d.getMinutes(), ativa = t.playlist_id || "", melhor = -1, ks = ["manha", "tarde", "noite"], i;
+    for(i = 0; i < ks.length; i++){
+      var a = ag[ks[i]]; if(!a || !a.playlist_id) continue;
+      var m = /^(\d{1,2}):(\d{2})$/.exec(a.inicio || ""); if(!m) continue;
+      var ini = Number(m[1]) * 60 + Number(m[2]);
+      if(ini <= hm && ini > melhor){ melhor = ini; ativa = a.playlist_id; }
+    }
+    return ativa;
+  }
+  function copia(o, extra){ var r = {}, k; for(k in o) if(o.hasOwnProperty(k)) r[k] = o[k]; for(k in extra) if(extra.hasOwnProperty(k)) r[k] = extra[k]; return r; }
+  function avisosAtivos(){
+    var c = P.canal, out = [], i, t = agora(), esc = P.tela && P.tela.escola_id;
+    if(!c || !c.avisos) return out;
+    for(i = 0; i < c.avisos.length; i++){
+      var a = c.avisos[i]; if(!a) continue;
+      if(a.inicio && a.inicio > t) continue; if(a.fim && a.fim < t) continue;
+      if(a.escolas && a.escolas.length && a.escolas.indexOf(esc) < 0) continue;
+      out.push(copia(a, { tipo:a.imagem_url ? "imagem" : "texto", url:a.imagem_url || "", categoria:a.categoria || "Comunicado da Secretaria", duracao:a.duracao || 15, layout:a.imagem_url ? "split" : "cheia", ehAviso:true }));
+    }
+    return out;
+  }
+  function campanhasAtivas(){
+    var c = P.campanhas, out = [], i, mes = new Date().getMonth() + 1;
+    if(!c || !c.itens || (P.tela && P.tela.campanhas === false)) return out;
+    for(i = 0; i < c.itens.length; i++){
+      var x = c.itens[i]; if(!x || x.ativo === false) continue;
+      if(x.meses && x.meses.length && x.meses.indexOf(mes) < 0) continue;
+      out.push(copia(x, { tipo:x.imagem_url ? "imagem" : "texto", url:x.imagem_url || "", categoria:x.categoria || "Campanha educativa", duracao:x.duracao || 15,
+        layout:x.imagem_url ? (x.layout || "split") : "cheia", ajuste:x.ajuste || "cobre", ehCampanha:true }));
+    }
+    return out;
+  }
+  function montarFila(){
+    var pl = P.listas[playlistAtiva()] || null, itens = [], i;
+    if(pl && pl.itens) for(i = 0; i < pl.itens.length; i++) if(pl.itens[i] && pl.itens[i].ativo !== false) itens.push(pl.itens[i]);
+    var avisos = avisosAtivos(), camps = campanhasAtivas(), fila = [];
+    for(i = 0; i < itens.length; i++){
+      fila.push(itens[i]);
+      if(avisos.length && (i + 1) % 3 === 0) fila.push({ id:"vaga-a-" + i, vaga:"aviso", lista:avisos });
+      if(camps.length && (i + 1) % 4 === 0) fila.push({ id:"vaga-c-" + i, vaga:"camp", lista:camps });
+    }
+    if(!itens.length){ for(i = 0; i < avisos.length; i++) fila.push(avisos[i]); for(i = 0; i < camps.length; i++) fila.push(camps[i]); }
+    else { if(avisos.length && itens.length < 3) fila.push({ id:"vaga-a", vaga:"aviso", lista:avisos }); if(camps.length && itens.length < 4) fila.push({ id:"vaga-c", vaga:"camp", lista:camps }); }
+    var ass = JSON.stringify([fila, avisos, camps]);
+    if(ass === P.assinatura) return;
+    var atual = P.fila[P.idx]; P.fila = fila; P.assinatura = ass;
+    var lista = {}; lista[playlistAtiva()] = pl;
+    lsSet("pde_tv_leve_ultima", { tela:P.tela, listas:lista, canal:P.canal, campanhas:P.campanhas });
+    if(atual && atual.id) for(i = 0; i < fila.length; i++) if(fila[i].id === atual.id){ P.idx = i; return; }
+    tocar(0);
+  }
+  function corOk(c){ return /^#[0-9a-fA-F]{6}$/.test(c || ""); }
+  function tocar(i){
+    clearTimeout(P.timer);
+    var m = $("midia"), b = $("barra");
+    if(!P.fila.length){ mostra($("espera"), true); m.innerHTML = ""; b.style.webkitTransition = b.style.transition = "none"; b.style.width = "0"; return; }
+    mostra($("espera"), false);
+    P.idx = ((i % P.fila.length) + P.fila.length) % P.fila.length;
+    var it = P.fila[P.idx]; P.ultimoAvanco = agora();
+    if(it.vaga){ var k = it.vaga === "aviso" ? "rotAviso" : "rotCamp"; it = it.lista[P[k] % it.lista.length]; P[k]++; }
+    var cheia = it.layout === "cheia" || it.tipo === "texto" || it.tipo === "web";
+    $("tv").className = "tela" + (cheia ? " cheia" : "") + (vertical() ? " vertical" : "");
+    setTxt("olho", it.categoria); setTxt("olho2", it.categoria); setTxt("titulo", it.titulo); setTxt("titulo2", it.titulo); setTxt("texto", it.texto);
+    $("olho").style.color = it.ehCampanha && corOk(it.cor) ? it.cor : "";
+    mostra($("sobre"), cheia && (it.tipo === "imagem" || it.tipo === "video") && !!(it.titulo || it.categoria));
+    m.innerHTML = "";
+    if(it.tipo === "imagem"){
+      var img = document.createElement("img"); img.alt = ""; img.src = it.url; if(it.ajuste === "contem") img.className = "contem"; m.appendChild(img);
+    } else if(it.tipo === "video"){
+      var v = document.createElement("video"); v.muted = true; v.autoplay = true; v.loop = true; v.setAttribute("muted", ""); v.src = it.url; if(it.ajuste === "contem") v.className = "contem";
+      m.appendChild(v); try{ v.play(); }catch(e){}
+    } else if(it.tipo === "youtube"){
+      var y = txt(it.url).replace(/[^\w-]/g, ""), f = document.createElement("iframe");
+      f.src = "https://www.youtube.com/embed/" + y + "?autoplay=1&mute=1&controls=0&loop=1&playlist=" + y + "&rel=0"; m.appendChild(f);
+    } else if(it.tipo === "web"){
+      var w = document.createElement("iframe"); w.src = it.url; w.style.background = "#fff"; m.appendChild(w);
+    } else {
+      var c = document.createElement("div"); c.className = "cartaz" + (it.ehAviso ? " aviso" : "");
+      if(it.ehCampanha && corOk(it.cor)) c.style.background = it.cor;
+      c.innerHTML = '<div class="olho"></div><div class="titulo"></div><div class="texto"></div>';
+      c.children[0].textContent = txt(it.categoria || (it.ehAviso ? "Comunicado da Secretaria" : ""));
+      c.children[1].textContent = txt(it.titulo); c.children[2].textContent = txt(it.texto);
+      if(it.ehCampanha){ var as = document.createElement("div"); as.className = "assina"; as.innerHTML = '<img src="/assets/pde-logo-128.png" alt="">Uma campanha do Portal do Educador'; c.appendChild(as); }
+      m.appendChild(c);
+    }
+    if((it.ehAviso || it.ehCampanha) && it.tipo !== "texto"){ var s = document.createElement("div"); s.className = "selo"; s.textContent = it.ehCampanha ? "Campanha" : "Comunicado"; m.appendChild(s); }
+    P.dur = Math.max(4, Math.min(600, Number(it.duracao) || 10)) * 1000;
+    b.style.webkitTransition = b.style.transition = "none"; b.style.width = "0"; void b.offsetWidth;
+    b.style.webkitTransition = b.style.transition = "width " + P.dur + "ms linear"; b.style.width = "100%";
+    if(P.fila.length > 1 || it.tipo === "texto") P.timer = setTimeout(function(){ tocar(P.idx + 1); }, P.dur);
+  }
+
+  /* ---------- aparência ---------- */
+  function vertical(){ var o = (P.tela && P.tela.orientacao) || "auto"; return o === "v" || (o === "auto" && window.innerHeight > window.innerWidth); }
+  function aplicarTela(){
+    var t = P.tela || {}, nome = t.escola_nome || "Portal do Educador";
+    if(!/cheia/.test($("tv").className)) $("tv").className = "tela" + (vertical() ? " vertical" : "");
+    setTxt("mNome", nome); setTxt("esperaNome", nome); setTxt("local", t.cidade || "");
+    if(t.logo_url){ $("mLogo").src = $("esperaLogo").src = $("hLogo").src = t.logo_url; mostra($("hLogo"), true); }
+    else { $("mLogo").src = "/assets/pde-logo-128.png"; mostra($("hLogo"), false); }
+    var frases = [t.letreiro || ("Bem-vindos à " + nome)], av = avisosAtivos(), i;
+    for(i = 0; i < av.length; i++) if(av[i].letreiro) frases.push(av[i].titulo);
+    var tx = frases.join("     •     ");
+    if($("trilho").getAttribute("data-txt") !== tx){
+      $("trilho").setAttribute("data-txt", tx);
+      $("trilho").innerHTML = ""; for(i = 0; i < 2; i++){ var s = document.createElement("span"); s.textContent = tx; $("trilho").appendChild(s); }
+      var dur = Math.max(18, Math.round(tx.length * 0.32)) + "s"; $("trilho").style.webkitAnimationDuration = $("trilho").style.animationDuration = dur;
+    }
+  }
+  var DIAS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+  var MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+  function relogio(){
+    var d = new Date(), h = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    setTxt("relogio", h); setTxt("esperaRelogio", h); setTxt("data", DIAS[d.getDay()] + ", " + d.getDate() + " de " + MESES[d.getMonth()]);
+  }
+  function clima(){
+    var t = P.tela || {}, lat = parseFloat(t.lat), lon = parseFloat(t.lon);
+    if(!isFinite(lat) || !isFinite(lon)){ lat = -20.4697; lon = -54.6201; }
+    pedir("GET", "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon + "&current=temperature_2m", null, function(st, j){
+      if(st === 200 && j && j.current) setTxt("temp", Math.round(j.current.temperature_2m) + "°");
+    });
+  }
+
+  /* ---------- atualização periódica ---------- */
+  function avisar(msg){ var a = $("aviso"); if(msg){ a.textContent = msg; mostra(a, true); } else mostra(a, false); }
+  function atualizar(){
+    ler("tv_telas/" + P.chave, function(erro, tela){
+      if(erro){ P.falhas++; if(P.tela) avisar("Sem conexão · exibindo a última programação"); else if(P.falhas > 2) mostrarPareamento(); return; }
+      P.falhas = 0; avisar("");
+      if(!tela){ P.tela = null; lsSet("pde_tv_leve_ultima", null); mostrarPareamento(); return; }
+      var primeira = !P.tela || /oculto/.test($("tv").className);
+      P.tela = tela;
+      if(primeira){ clearInterval(P.parTimer); mostra($("par"), false); mostra($("tv"), true); clima(); batimento(); }
+      aplicarTela();
+      // playlists (padrão e dos turnos), comunicados da secretaria e campanhas
+      var ids = [tela.playlist_id], ks = ["manha", "tarde", "noite"], i, pend = 0, novas = {};
+      for(i = 0; i < ks.length; i++) if(tela.agenda && tela.agenda[ks[i]] && tela.agenda[ks[i]].playlist_id) ids.push(tela.agenda[ks[i]].playlist_id);
+      function fim(){ if(--pend === 0){ P.listas = novas; montarFila(); aplicarTela(); } }
+      var vistos = {};
+      for(i = 0; i < ids.length; i++){
+        var id = ids[i]; if(!id || vistos[id]) continue; vistos[id] = true; pend++;
+        (function(id){ ler("tv_playlists/" + id, function(e, d){ novas[id] = e ? (P.listas[id] || null) : d; fim(); }); })(id);
+      }
+      if(tela.canal){ pend++; ler("tv_canais/" + tela.canal, function(e, d){ if(!e) P.canal = d; fim(); }); } else P.canal = null;
+      if(tela.campanhas !== false){ pend++; ler("tv_campanhas/padrao", function(e, d){ if(!e) P.campanhas = d; fim(); }); } else P.campanhas = null;
+      if(!pend){ P.listas = {}; montarFila(); }
+    });
+  }
+  function batimento(){
+    if(!P.tela) return;
+    gravar([{ update:{ name:PROJ + "/tv_telas/" + P.chave, fields:{ resolucao:S(window.innerWidth + "x" + window.innerHeight), aparelho:S(VERSAO) } },
+      updateMask:{ fieldPaths:["resolucao", "aparelho"] }, currentDocument:{ exists:true }, updateTransforms:[{ fieldPath:"visto_em", setToServerValue:"REQUEST_TIME" }] }], function(){});
+  }
+
+  /* ---------- início ---------- */
+  var h = (location.hash || "").replace(/[^A-Za-z0-9]/g, "");
+  P.chave = h.length === 20 ? h : (lsGet("pde_tv_chave", "") || aleatorio(20, ABC + "abcdefghijkmnopqrstuvwxyz"));
+  lsSet("pde_tv_chave", P.chave);
+  // última programação conhecida: liga e já exibe, mesmo sem internet
+  var ult = lsGet("pde_tv_leve_ultima", null);
+  if(ult && ult.tela){ P.tela = ult.tela; P.listas = ult.listas || {}; P.canal = ult.canal || null; P.campanhas = ult.campanhas || null; mostra($("tv"), true); aplicarTela(); montarFila(); }
+  relogio(); setInterval(relogio, 1000);
+  atualizar();
+  setInterval(atualizar, 90 * 1000);            // confere mudanças a cada 1,5 minuto
+  setInterval(batimento, 5 * 60 * 1000);
+  setInterval(clima, 30 * 60 * 1000);
+  setInterval(function(){                       // turnos, comunicados que vencem e vigia que destrava a TV
+    if(!P.tela) return; montarFila(); aplicarTela();
+    if(P.fila.length > 1 && agora() - P.ultimoAvanco > P.dur + 30000) tocar(P.idx + 1);
+    var d = new Date(); if(d.getHours() === 3 && d.getMinutes() === 30 && agora() - INICIO > 3600000) location.reload();
+  }, 20000);
+  var INICIO = agora();
+  // controle remoto: setas trocam o conteúdo, OK tenta tela cheia
+  document.addEventListener("keydown", function(e){
+    var k = e.keyCode;
+    if(k === 39) tocar(P.idx + 1); else if(k === 37) tocar(P.idx - 1);
+    else if(k === 13){ var el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen; if(f) try{ f.call(el); }catch(x){} }
+  }, false);
+  window.__tvLeve = P;
+})();
+</script>
+</body>
+</html>

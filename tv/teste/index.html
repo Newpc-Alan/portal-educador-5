@@ -65,9 +65,20 @@ var M = { ok:false };
   document.getElementById("tab").innerHTML = h;
   var v = document.getElementById("veredito");
   if(essenciais === temEss){ v.className = "veredito ok"; v.innerHTML = "Este navegador roda o Portal do Educador TV."; }
-  else if(typeof XMLHttpRequest !== "undefined"){ v.className = "veredito medio"; v.innerHTML = "Navegador antigo: o player atual não roda aqui, mas uma versão leve pode funcionar."; }
+  else if(typeof XMLHttpRequest !== "undefined"){ v.className = "veredito medio"; v.innerHTML = "Navegador antigo: esta TV usa a versão leve do player (abre sozinha em app.portaldoeducador.com.br/tv)."; }
   else { v.className = "veredito ruim"; v.innerHTML = "Navegador muito antigo. Use um TV box ou Chromecast nesta TV."; }
   document.getElementById("ua").innerHTML = ua.replace(/</g, "&lt;");
+  // conexão com o banco do Portal (o que a versão leve usa)
+  var tab = document.getElementById("tab"), linha = tab.insertRow(-1);
+  linha.innerHTML = "<td class='s'>...</td><td>Conexão com o Portal (para receber a programação)</td>";
+  try{
+    var x = new XMLHttpRequest();
+    x.open("GET", "https://firestore.googleapis.com/v1/projects/portal-educador-5/databases/(default)/documents/tv_campanhas/padrao?key=AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", true);
+    x.onreadystatechange = function(){ if(x.readyState !== 4) return; var ok = x.status === 200;
+      linha.cells[0].className = "s " + (ok ? "sim" : "nao"); linha.cells[0].innerHTML = ok ? "SIM" : "NÃO";
+      if(!ok) linha.cells[1].innerHTML += " <small>(erro " + x.status + ": confira a internet ou o certificado da TV)</small>"; };
+    x.send();
+  }catch(e){ linha.cells[0].innerHTML = "NÃO"; }
   // código curto para o suporte identificar o resultado na foto
   var bits = 0; for(var k = 0; k < itens.length; k++) if(itens[k][1]) bits |= (1 << k);
   document.getElementById("cod").innerHTML = (chrome || 0) + "-" + bits.toString(16).toUpperCase();
