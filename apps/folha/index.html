@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Folha Mágica · Portal do Educador</title>
+<meta name="theme-color" content="#071621">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<style>
+:root{
+  --escuro:#071621; --escuro-2:#0c2338; --azul:#2671AB; --azul-2:#2E9BD6; --lima:#8DC63F; --verde:#5A9420;
+  --bg:#f4f7fa; --ink:#0c2338; --ink-2:#2C3E55; --muted:#6b7c90; --line:#dce4ed; --surface:#fff;
+  --red:#C2362C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+.app{max-width:1240px;margin:0 auto;padding:0 16px 60px}
+
+.topo{position:sticky;top:0;z-index:40;margin:0 -16px 16px;padding:12px 20px;border-radius:0 0 18px 18px;color:#fff;
+  background:radial-gradient(600px 200px at 0% 0%,rgba(46,155,214,.35),transparent 60%),linear-gradient(135deg,#071621,#123556);
+  box-shadow:0 14px 30px -20px rgba(7,22,33,.8);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.marca img{width:44px;height:44px;flex:none}
+.marca small{display:block;font-size:.64rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--lima)}
+.marca b{display:block;font-size:1.08rem;letter-spacing:-.01em}
+.marca span{display:block;font-size:.76rem;color:rgba(255,255,255,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topo-acoes{display:flex;gap:6px;flex-wrap:wrap}
+.tb{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;border-radius:9px;padding:8px 12px;font-size:.82rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.tb:hover{background:rgba(255,255,255,.16)}
+.tb.on{background:#fff;color:var(--escuro-2);border-color:#fff}
+.tb.lima{background:var(--lima);border-color:var(--lima);color:var(--escuro)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 16px;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:.86rem;white-space:nowrap;line-height:1.2;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-pri{background:var(--azul);color:#fff}.btn-pri:hover{background:#1f5f91}
+.btn-ok{background:var(--verde);color:#fff}.btn-ok:hover{background:#4a7c19}
+.btn-gh{background:#fff;color:var(--ink);border-color:var(--line)}.btn-gh:hover{border-color:#b8c6d6}
+.btn-sm{padding:7px 11px;font-size:.78rem;border-radius:8px}
+.btn-red{background:#fff;color:var(--red);border-color:#f0c9c5}
+
+.grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:16px}
+.h2{font-size:1rem;font-weight:800;letter-spacing:-.01em;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sub{color:var(--muted);font-size:.84rem}
+.rot{font-size:.66rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 8px}
+.tipos{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px}
+.tipo{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 6px;text-align:center;transition:.12s}
+.tipo:hover{transform:translateY(-2px);box-shadow:0 10px 20px -16px rgba(15,44,74,.6)}
+.tipo.on{border-color:var(--azul-2);background:#eef6fc;box-shadow:0 0 0 3px rgba(46,155,214,.15)}
+.tipo span{display:block;font-size:22px;line-height:1.1;margin-bottom:4px}
+.tipo b{display:block;font-size:.74rem;font-weight:700;color:var(--ink-2);line-height:1.2}
+
+.abas{display:flex;gap:4px;background:#eef2f6;padding:4px;border-radius:12px;margin-bottom:14px;flex-wrap:wrap}
+.aba{flex:1;min-width:fit-content;padding:8px 12px;border:0;background:transparent;border-radius:9px;font-size:.84rem;font-weight:700;color:var(--muted)}
+.aba.on{background:#fff;color:var(--azul);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.painel{display:none}.painel.on{display:block}
+.campo{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.campo>label{font-size:.76rem;font-weight:700;color:var(--ink-2)}
+.campo input[type=text],.campo select{padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcfe;font-size:.88rem;width:100%}
+.campo input[type=range]{width:100%;accent-color:var(--azul)}
+.val{color:var(--azul);font-weight:800}
+.lado2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cor{display:flex;gap:8px;align-items:center}
+.cor input[type=color]{width:46px;height:40px;border:1.5px solid var(--line);border-radius:10px;background:#fff;padding:2px}
+.chave{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#f6f9fc;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;font-size:.84rem;font-weight:700}
+.chave input{width:20px;height:20px;accent-color:var(--verde);flex:none}
+.chave small{display:block;font-weight:500;color:var(--muted);font-size:.74rem}
+.eco{font-size:.78rem;color:#3d6b0c;background:#eef7e2;border:1px solid #d6ebbd;border-radius:10px;padding:8px 12px;margin-top:6px;font-weight:600}
+.cab-campos{background:#eef6fc;border:1px solid #cfe4f4;border-radius:12px;padding:12px;margin-top:6px}
+
+.lateral{position:sticky;top:96px}
+.palco{background:#eef2f6;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:center;min-height:360px}
+.papel{background:#fff;box-shadow:0 10px 30px rgba(7,22,33,.18);border-radius:2px;overflow:hidden}
+.papel svg{display:block}
+.prev-nome{font-size:.76rem;color:var(--muted);text-align:center;margin-top:8px;min-height:1.2em}
+.imp{border-radius:16px;padding:18px;color:#fff;background:radial-gradient(400px 160px at 0% 0%,rgba(141,198,63,.3),transparent 60%),linear-gradient(135deg,#0c2338,#1b4a74)}
+.imp .h2{color:#fff}
+.modos{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.modo{border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px;font-size:.78rem;font-weight:700}
+.modo.on{background:#fff;color:var(--escuro-2);border-color:#fff}
+.qtd{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.qtd button{width:42px;height:42px;border:0;border-radius:10px;background:rgba(255,255,255,.18);color:#fff;font-size:1.3rem;font-weight:800}
+.qtd input{width:80px;text-align:center;padding:9px;border:0;border-radius:10px;font-size:1.2rem;font-weight:800;color:var(--escuro-2)}
+.imp select{width:100%;padding:9px 11px;border-radius:10px;border:0;margin-bottom:8px;color:var(--escuro-2);font-weight:600}
+.imp .dica{font-size:.76rem;color:rgba(255,255,255,.82);margin-bottom:12px}
+.imp .btn{width:100%}
+.btn-pdf{background:var(--lima);color:var(--escuro);font-size:.95rem;padding:13px}
+.btn-pdf:hover{background:#9bd44d}
+.salvar{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:10px}
+
+.lista{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.fol{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.fol-top{display:flex;gap:12px;align-items:center}
+.fol-ico{width:46px;height:46px;border-radius:12px;background:#eef6fc;display:grid;place-items:center;font-size:24px;flex:none}
+.fol b{display:block;font-size:.92rem;line-height:1.25}
+.fol small{display:block;font-size:.76rem;color:var(--muted)}
+.fol-acoes{display:flex;gap:6px;flex-wrap:wrap}
+.vazio{text-align:center;color:var(--muted);padding:40px 10px;font-size:.9rem;grid-column:1/-1}
+.carregando{padding:60px 10px;text-align:center;color:var(--muted)}
+.giro{width:34px;height:34px;border:4px solid #dce4ed;border-top-color:var(--azul);border-radius:50%;animation:g .8s linear infinite;margin:0 auto 10px}
+@keyframes g{to{transform:rotate(360deg)}}
+.aviso{font-size:.8rem;background:#eef6fc;border:1px solid #cfe4f4;color:#1f5f91;border-radius:10px;padding:9px 12px;margin-bottom:12px}
+
+.modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
+.modal-box{background:#fff;border-radius:16px;padding:20px;width:min(420px,100%);box-shadow:0 30px 60px -20px rgba(7,22,33,.6)}
+.modal-box h3{font-size:1.02rem;margin-bottom:10px}
+.modal-acoes{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;z-index:99;background:var(--escuro-2);color:#fff;padding:11px 18px;border-radius:12px;font-size:.86rem;font-weight:600;transition:.2s;pointer-events:none;max-width:92vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.err{background:var(--red)}
+
+@media (max-width:900px){ .grid{grid-template-columns:1fr} .lateral{position:static} }
+@media (max-width:600px){ .topo{padding:10px 14px;position:static} .marca span{display:none} .lado2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topo">
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Aplicativos Úteis</small><b>Folha Mágica</b><span id="quem">Carregando...</span></div></div>
+    <nav class="topo-acoes" aria-label="Seções">
+      <button class="tb on" data-action="ir" data-arg="criar">📐 Criar folha</button>
+      <button class="tb" data-action="ir" data-arg="minhas">🗂️ Minhas folhas</button>
+      <a class="tb" href="/apps/">← Aplicativos</a>
+      <a class="tb lima" href="/entrar/">Portal</a>
+    </nav>
+  </header>
+
+  <main id="telaCriar" hidden>
+    <div class="aviso" id="avisoEdicao" hidden></div>
+    <div class="grid">
+      <div>
+        <section class="card">
+          <h2 class="h2">📐 Tipo de folha</h2>
+          <div class="rot">Substituem caderno especializado</div>
+          <div class="tipos" id="tipos1"></div>
+          <div class="rot">Folhas de apoio</div>
+          <div class="tipos" id="tipos2"></div>
+        </section>
+
+        <section class="card">
+          <div class="abas" role="tablist">
+            <button class="aba on" data-action="aba" data-arg="layout">Página</button>
+            <button class="aba" data-action="aba" data-arg="linhas">Linhas</button>
+            <button class="aba" data-action="aba" data-arg="cab">Cabeçalho</button>
+          </div>
+
+          <div class="painel on" data-painel="layout">
+            <div class="lado2">
+              <div class="campo"><label for="pageSize">Tamanho</label>
+                <select id="pageSize" data-campo><option value="a4">A4 (210×297 mm)</option><option value="a5">A5 (148×210 mm)</option><option value="letter">Carta (216×279 mm)</option></select></div>
+              <div class="campo"><label for="orientation">Orientação</label>
+                <select id="orientation" data-campo><option value="portrait">Retrato</option><option value="landscape">Paisagem</option></select></div>
+            </div>
+            <div class="campo"><label for="margin">Margem: <span class="val" id="vMargin">15</span> mm</label><input type="range" id="margin" min="5" max="30" value="15" data-campo></div>
+          </div>
+
+          <div class="painel" data-painel="linhas">
+            <div class="lado2">
+              <div class="campo"><label for="spacing">Espaçamento: <span class="val" id="vSpacing">8</span> mm</label><input type="range" id="spacing" min="1" max="20" step="0.5" value="8" data-campo></div>
+              <div class="campo"><label for="thick">Espessura: <span class="val" id="vThick">0.3</span> mm</label><input type="range" id="thick" min="0.1" max="1" step="0.1" value="0.3" data-campo></div>
+            </div>
+            <div class="campo"><label for="lineColor">Cor das linhas</label>
+              <div class="cor"><input type="color" id="lineColor" value="#9aa6b2" data-campo><input type="text" id="lineColorHex" value="#9aa6b2" maxlength="7" aria-label="Cor em hexadecimal"></div></div>
+            <div class="eco">🌱 Linha fina e clara economiza tinta da impressora da escola.</div>
+            <div id="ctxCalligraphy" hidden><div class="campo" style="margin-top:14px"><label for="guideText">Letra ou palavra para cobrir (opcional)</label>
+              <input type="text" id="guideText" placeholder="Ex.: a  ou  casa" maxlength="20" data-campo></div>
+              <div class="eco">✍️ Sai repetida em cinza claro para a criança cobrir.</div></div>
+            <div id="ctxClef" hidden><label class="chave" style="margin-top:14px">Desenhar clave de sol<input type="checkbox" id="showClef" checked data-campo></label></div>
+            <div id="ctxAxis" hidden><label class="chave" style="margin-top:14px">Numerar os eixos<input type="checkbox" id="showAxisNumbers" data-campo></label></div>
+          </div>
+
+          <div class="painel" data-painel="cab">
+            <label class="chave"><span>Adicionar cabeçalho<small>Escola e turma já vêm do seu cadastro</small></span><input type="checkbox" id="showHeader" data-campo></label>
+            <div class="cab-campos" id="cabCampos" hidden>
+              <label class="chave" id="chaveLogo" hidden><span>Logo da escola ou prefeitura<small id="logoInfo">Do cadastro do município</small></span><input type="checkbox" id="hLogo" checked data-campo></label>
+              <div class="campo"><label for="hSchool">Escola</label><input type="text" id="hSchool" placeholder="Escola Municipal..." maxlength="80" data-campo></div>
+              <div class="lado2">
+                <div class="campo"><label for="hSubject">Disciplina</label><input type="text" id="hSubject" placeholder="Ex.: Matemática" maxlength="40" data-campo></div>
+                <div class="campo"><label for="hClass">Turma</label><input type="text" id="hClass" placeholder="Ex.: 4º ano A" maxlength="40" data-campo list="listaTurmas"></div>
+              </div>
+              <datalist id="listaTurmas"></datalist>
+              <label class="chave">Linha para o nome do aluno e data<input type="checkbox" id="hNameLine" checked data-campo></label>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <aside class="lateral">
+        <section class="card">
+          <h2 class="h2">👁️ Prévia</h2>
+          <div class="palco"><div class="papel" id="papel"><svg id="svgPrev" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 297" width="100%" height="100%"></svg></div></div>
+          <div class="prev-nome" id="prevNome"></div>
+        </section>
+        <section class="imp">
+          <h2 class="h2">🖨️ Imprimir</h2>
+          <div class="modos">
+            <button class="modo on" data-action="modo" data-arg="qtd">Quantidade</button>
+            <button class="modo" data-action="modo" data-arg="turma">Uma por aluno</button>
+          </div>
+          <div id="boxQtd">
+            <div class="dica">Quantas folhas a turma precisa?</div>
+            <div class="qtd"><button data-action="qtd" data-arg="-1" aria-label="Menos">−</button><input type="text" id="qty" value="10" inputmode="numeric" aria-label="Quantidade de folhas"><button data-action="qtd" data-arg="1" aria-label="Mais">+</button></div>
+          </div>
+          <div id="boxTurma" hidden>
+            <select id="selTurma" aria-label="Turma"><option value="">Escolha a turma...</option></select>
+            <div class="dica" id="turmaInfo">Cada folha sai com o nome de um aluno impresso no cabeçalho.</div>
+          </div>
+          <button class="btn btn-pdf" data-action="pdf" id="btnPdf">📄 Gerar PDF</button>
+          <div class="salvar">
+            <button class="btn btn-gh" data-action="salvar" id="btnSalvar">💾 Salvar em Minhas folhas</button>
+            <button class="btn btn-gh" data-action="nova" title="Começar uma folha nova" id="btnNova" hidden>＋</button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <main id="telaMinhas" hidden></main>
+  <main id="telaCarregando"><div class="carregando"><div class="giro"></div>Carregando...</div></main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="mTit">
+    <h3 id="mTit">Salvar folha</h3>
+    <div class="campo"><label for="mNome">Nome para encontrar depois</label><input type="text" id="mNome" maxlength="60" placeholder="Ex.: Caligrafia 2º ano"></div>
+    <div class="modal-acoes"><button class="btn btn-gh" data-action="modal-fechar">Cancelar</button><button class="btn btn-ok" data-action="modal-ok" id="mOk">Salvar</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
+const auth = getAuth(app), db = getFirestore(app);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3200); }
+
+const TIPOS = [
+  { id:"music", e:"🎵", n:"Pauta musical", g:1, sp:2.5 }, { id:"tab", e:"🎸", n:"Tablatura", g:1, sp:3 },
+  { id:"calligraphy", e:"✍️", n:"Caligrafia 4 linhas", g:1, sp:5 }, { id:"millimeter", e:"📐", n:"Milimetrado", g:1, sp:1 },
+  { id:"isometric", e:"🔷", n:"Isométrico", g:1, sp:6 }, { id:"perspective", e:"📦", n:"Perspectiva", g:1, sp:10 },
+  { id:"cartesian", e:"➗", n:"Plano cartesiano", g:1, sp:5 },
+  { id:"lined", e:"📝", n:"Pautado", g:2, sp:8 }, { id:"grid", e:"📊", n:"Quadriculado", g:2, sp:5 },
+  { id:"dotted", e:"⚫", n:"Pontilhado", g:2, sp:6 }, { id:"motor", e:"🌊", n:"Coordenação motora", g:2, sp:12 },
+  { id:"mindmap", e:"🕸️", n:"Mapa mental", g:2, sp:8 }, { id:"cornell", e:"📋", n:"Cornell", g:2, sp:8 },
+  { id:"weekly", e:"📅", n:"Semanal", g:2, sp:8 }
+];
+const TIPO = id => TIPOS.find(t => t.id === id) || TIPOS[0];
+const SIZES = { a4:{ w:210, h:297 }, a5:{ w:148, h:210 }, letter:{ w:216, h:279 } };
+const PADRAO = { type:"lined", pageSize:"a4", orientation:"portrait", margin:15, spacing:8, thick:0.3, lineColor:"#9aa6b2",
+  showHeader:false, hLogo:true, hSchool:"", hSubject:"", hClass:"", hNameLine:true, guideText:"", showClef:true, showAxisNumbers:false };
+// campos de configuração que vão para "Minhas folhas"
+const CAMPOS = Object.keys(PADRAO);
+
+const E = { user:null, u:null, admin:false, escola:null, muni:null, logoUrl:"", logoData:null, logoProp:1,
+  S:{ ...PADRAO }, qty:10, modo:"qtd", turmas:[], turmaId:"", alunos:[], folhas:null, editId:"", editNome:"" };
+
+function dims(){ const d = SIZES[E.S.pageSize] || SIZES.a4; return E.S.orientation === "landscape" ? { w:d.h, h:d.w } : { w:d.w, h:d.h }; }
+
+/* ===================== motor de desenho (mm) ===================== */
+// buildCommands define a geometria uma vez; o SVG (prévia) e o jsPDF (impressão vetorial) desenham os mesmos comandos.
+const CLAVE = "M 7.6,23.5 C 5,22.8 3.6,20.6 4.2,18.4 4.8,16.3 7,15.4 8.7,16.2 10.1,16.9 10.6,18.6 9.9,19.9 9.4,20.9 8.2,21.3 7.3,20.8 6.7,20.5 6.4,19.7 6.8,19.1 M 8.5,18.5 C 8.9,14 9.4,9.5 9.1,6.2 8.9,3.8 7.9,1.6 6.3,1.5 4.9,1.4 4.1,3 4.3,4.6 4.6,7.1 6.8,8.7 9,10 11.2,11.3 13.2,12.9 13,15.4 12.8,17.7 10.8,19.2 8.7,18.9";
+
+function clipLine(cmd, ax, ay, bx, by, bx0, by0, bx1, by1, w){
+  const dx = bx - ax, dy = by - ay, p = [-dx, dx, -dy, dy], q = [ax - bx0, bx1 - ax, ay - by0, by1 - ay];
+  let u1 = 0, u2 = 1;
+  for(let i = 0; i < 4; i++){
+    if(p[i] === 0){ if(q[i] < 0) return; }
+    else { const r = q[i] / p[i]; if(p[i] < 0){ if(r > u2) return; if(r > u1) u1 = r; } else { if(r < u1) return; if(r < u2) u2 = r; } }
+  }
+  cmd.push({ k:"line", x1:ax + u1 * dx, y1:ay + u1 * dy, x2:ax + u2 * dx, y2:ay + u2 * dy, w, dash:null });
+}
+
+function cabecalho(cmd, x0, y0, x1, nomeAluno){
+  const S = E.S, fs = 4.2;
+  let tx = x0, alt = 0;
+  if(S.hLogo && E.logoUrl){
+    const h = 13, w = Math.min(32, h * E.logoProp);
+    cmd.push({ k:"img", x:x0, y:y0, w, h });
+    tx = x0 + w + 3; alt = h;
+  }
+  let ty = y0 + fs;
+  if(S.hSchool){ cmd.push({ k:"text", x:tx, y:ty, s:S.hSchool, size:fs + 0.6, bold:true, color:"#0c2338" }); ty += fs + 2.2; }
+  const info = [];
+  if(S.hSubject) info.push("Disciplina: " + S.hSubject);
+  if(S.hClass) info.push("Turma: " + S.hClass);
+  if(info.length){ cmd.push({ k:"text", x:tx, y:ty, s:info.join("      "), size:fs, color:"#2C3E55" }); ty += fs + 2.2; }
+  if(S.hNameLine || nomeAluno){
+    const nome = nomeAluno ? "Aluno(a): " + nomeAluno : "Aluno(a): ________________________________________";
+    cmd.push({ k:"text", x:tx, y:ty, s:nome, size:fs, bold:!!nomeAluno, color:"#2C3E55" });
+    cmd.push({ k:"text", x:x1, y:ty, s:"Data: ____/____/______", size:fs, anchor:"end", color:"#2C3E55" });
+    ty += fs + 2.2;
+  }
+  const fim = Math.max(ty - fs + 1, y0 + alt + 1.5);
+  cmd.push({ k:"line", x1:x0, y1:fim, x2:x1, y2:fim, w:0.35, dash:null, color:"#7d8a96" });
+  return fim - y0 + 4;
+}
+
+function buildCommands(nomeAluno){
+  const S = E.S, D = dims(), m = S.margin;
+  let x0 = m, y0 = m; const x1 = D.w - m, y1 = D.h - m, t = S.thick, sp = S.spacing, cmd = [];
+  const line = (a, b, c, d, w, dash) => cmd.push({ k:"line", x1:a, y1:b, x2:c, y2:d, w:w || t, dash:dash || null });
+  const dot = (a, b, r) => cmd.push({ k:"circle", cx:a, cy:b, r:r || t });
+  const text = (a, b, s, size, anchor, bold) => cmd.push({ k:"text", x:a, y:b, s, size, anchor:anchor || "start", bold:!!bold });
+  if(S.showHeader || nomeAluno) y0 += cabecalho(cmd, x0, y0, x1, nomeAluno);
+  switch(S.type){
+    case "lined": for(let y = y0; y <= y1; y += sp) line(x0, y, x1, y); break;
+    case "grid":
+      for(let y = y0; y <= y1; y += sp) line(x0, y, x1, y);
+      for(let x = x0; x <= x1; x += sp) line(x, y0, x, y1); break;
+    case "dotted": for(let y = y0; y <= y1; y += sp) for(let x = x0; x <= x1; x += sp) dot(x, y, t * 1.5); break;
+    case "music": {
+      const h = sp * 4, bloco = h + sp * 4;
+      for(let sy = y0; sy + h <= y1; sy += bloco){
+        for(let i = 0; i < 5; i++) line(x0, sy + i * sp, x1, sy + i * sp);
+        if(S.showClef) cmd.push({ k:"clef", x:x0 + 1, yTop:sy - sp * 0.6, h:h + sp * 1.2, w:t * 1.1 });
+      }
+      break;
+    }
+    case "tab": {
+      const h = sp * 5, bloco = h + sp * 4;
+      for(let ty = y0; ty + h <= y1; ty += bloco){
+        for(let i = 0; i < 6; i++) line(x0, ty + i * sp, x1, ty + i * sp);
+        text(x0 + 0.5, ty + sp * 1.2, "T", sp * 1.1); text(x0 + 0.5, ty + sp * 2.4, "A", sp * 1.1); text(x0 + 0.5, ty + sp * 3.6, "B", sp * 1.1);
+      }
+      break;
+    }
+    case "calligraphy": {
+      const h = sp * 3, bloco = h + sp * 1.5;
+      for(let cy = y0; cy + h <= y1; cy += bloco){
+        line(x0, cy, x1, cy, t); line(x0, cy + sp, x1, cy + sp, t * 0.5, [0.6, 0.6]);
+        line(x0, cy + sp * 2, x1, cy + sp * 2, t * 1.4); line(x0, cy + sp * 3, x1, cy + sp * 3, t);
+        if(S.guideText){
+          const fs = sp * 3.2, passo = fs * 0.62 * S.guideText.length + fs * 0.5;
+          for(let gx = x0 + 1; gx + passo * 0.4 < x1; gx += passo) cmd.push({ k:"guide", x:gx, baseY:cy + sp * 2, mid:sp * 2, text:S.guideText });
+        }
+      }
+      break;
+    }
+    case "millimeter":
+      for(let x = x0; x <= x1 + 0.01; x += 1){ const i = Math.round(x - x0); line(x, y0, x, y1, i % 10 === 0 ? t * 1.6 : (i % 5 === 0 ? t : t * 0.45)); }
+      for(let y = y0; y <= y1 + 0.01; y += 1){ const i = Math.round(y - y0); line(x0, y, x1, y, i % 10 === 0 ? t * 1.6 : (i % 5 === 0 ? t : t * 0.45)); }
+      break;
+    case "isometric": {
+      const dx = sp * Math.cos(Math.PI / 6), sl = Math.tan(Math.PI / 6);
+      for(let x = x0; x <= x1; x += dx) line(x, y0, x, y1, t * 0.7);
+      for(let x = x0 - (y1 - y0) * sl; x <= x1; x += dx * 2){
+        clipLine(cmd, x, y1, x + (y1 - y0) * sl, y0, x0, y0, x1, y1, t * 0.7);
+        clipLine(cmd, x, y0, x + (y1 - y0) * sl, y1, x0, y0, x1, y1, t * 0.7);
+      }
+      break;
+    }
+    case "perspective": {
+      cmd.push({ k:"rect", x:x0, y:y0, w:x1 - x0, h:y1 - y0, sw:t });
+      const vx = (x0 + x1) / 2, vy = (y0 + y1) / 2; dot(vx, vy, t * 2);
+      for(let i = 0; i < 24; i++){ const a = i / 24 * Math.PI * 2; clipLine(cmd, vx, vy, vx + Math.cos(a) * 1000, vy + Math.sin(a) * 1000, x0, y0, x1, y1, t * 0.5); }
+      break;
+    }
+    case "cartesian": {
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      for(let x = cx; x <= x1; x += sp) line(x, y0, x, y1, t * 0.5);
+      for(let x = cx; x >= x0; x -= sp) line(x, y0, x, y1, t * 0.5);
+      for(let y = cy; y <= y1; y += sp) line(x0, y, x1, y, t * 0.5);
+      for(let y = cy; y >= y0; y -= sp) line(x0, y, x1, y, t * 0.5);
+      line(x0, cy, x1, cy, t * 1.8); line(cx, y0, cx, y1, t * 1.8);
+      if(S.showAxisNumbers){
+        const f = sp * 0.7; let n;
+        n = 1; for(let x = cx + sp; x <= x1 - f; x += sp) text(x, cy - 0.8, String(n++), f, "middle");
+        n = -1; for(let x = cx - sp; x >= x0 + f; x -= sp) text(x, cy - 0.8, String(n--), f, "middle");
+        n = 1; for(let y = cy - sp; y >= y0 + f; y -= sp) text(cx + 1, y + f * 0.35, String(n++), f);
+        n = -1; for(let y = cy + sp; y <= y1 - f; y += sp) text(cx + 1, y + f * 0.35, String(n--), f);
+      }
+      break;
+    }
+    case "motor": {
+      const amp = sp * 0.35, per = sp * 0.8;
+      for(let y = y0 + sp; y <= y1; y += sp){ const segs = []; for(let x = x0; x + per <= x1 + 0.01; x += per) segs.push([x + per / 2, y - amp, x + per, y]); cmd.push({ k:"qcurve", x0, y0:y, segs, w:t, dash:[2, 2] }); }
+      break;
+    }
+    case "mindmap": {
+      const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      cmd.push({ k:"ellipse", cx:mx, cy:my, rx:sp * 2.5, ry:sp * 1.6, sw:t * 1.5 });
+      for(let i = 0; i < 8; i++){
+        const a = i / 8 * Math.PI * 2, sx = mx + Math.cos(a) * sp * 2.5, sy = my + Math.sin(a) * sp * 1.6, ex = mx + Math.cos(a) * sp * 7, ey = my + Math.sin(a) * sp * 7;
+        line(sx, sy, ex, ey, t); cmd.push({ k:"ellipse", cx:ex, cy:ey, rx:sp * 1.8, ry:sp * 1.1, sw:t });
+      }
+      break;
+    }
+    case "cornell": {
+      const kw = (x1 - x0) * 0.3, sy = y0 + (y1 - y0) * 0.78;
+      line(x0 + kw, y0, x0 + kw, sy, t * 1.5); line(x0, sy, x1, sy, t * 1.5);
+      for(let y = y0; y < sy; y += sp) line(x0 + kw + 2, y, x1, y, t * 0.5);
+      break;
+    }
+    case "weekly": {
+      const dias = ["SEG", "TER", "QUA", "QUI", "SEX"], cw = (x1 - x0) / dias.length, hh = sp * 1.4;
+      for(let i = 1; i < dias.length; i++) line(x0 + i * cw, y0, x0 + i * cw, y1, t);
+      line(x0, y0 + hh, x1, y0 + hh, t * 1.4);
+      dias.forEach((d, i) => text(x0 + i * cw + cw / 2, y0 + hh * 0.7, d, sp * 0.9, "middle", true));
+      for(let y = y0 + hh + sp; y <= y1; y += sp) line(x0, y, x1, y, t * 0.4);
+      break;
+    }
+  }
+  return cmd;
+}
+
+function paraSVG(cmds){
+  const c = E.S.lineColor, out = [];
+  for(const o of cmds){
+    if(o.k === "line") out.push('<line x1="' + o.x1 + '" y1="' + o.y1 + '" x2="' + o.x2 + '" y2="' + o.y2 + '" stroke="' + (o.color || c) + '" stroke-width="' + o.w + '"' + (o.dash ? ' stroke-dasharray="' + o.dash.join(",") + '"' : "") + "/>");
+    else if(o.k === "circle") out.push('<circle cx="' + o.cx + '" cy="' + o.cy + '" r="' + o.r + '" fill="' + c + '"/>');
+    else if(o.k === "rect") out.push('<rect x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h + '" fill="none" stroke="' + c + '" stroke-width="' + o.sw + '"/>');
+    else if(o.k === "ellipse") out.push('<ellipse cx="' + o.cx + '" cy="' + o.cy + '" rx="' + o.rx + '" ry="' + o.ry + '" fill="none" stroke="' + c + '" stroke-width="' + o.sw + '"/>');
+    else if(o.k === "text") out.push('<text x="' + o.x + '" y="' + o.y + '" font-family="Helvetica,Arial,sans-serif" font-size="' + o.size + '" fill="' + (o.color || c) + '"' + (o.bold ? ' font-weight="bold"' : "") + (o.anchor && o.anchor !== "start" ? ' text-anchor="' + o.anchor + '"' : "") + ">" + esc(o.s) + "</text>");
+    else if(o.k === "qcurve"){ let d = "M " + o.x0 + " " + o.y0; for(const s of o.segs) d += " Q " + s.join(" "); out.push('<path d="' + d + '" fill="none" stroke="' + c + '" stroke-width="' + o.w + '"' + (o.dash ? ' stroke-dasharray="' + o.dash.join(",") + '"' : "") + "/>"); }
+    else if(o.k === "clef"){ const sc = o.h / 24; out.push('<g transform="translate(' + o.x + "," + o.yTop + ") scale(" + sc + ')"><path d="' + CLAVE + '" fill="none" stroke="' + c + '" stroke-width="' + (o.w / sc) + '" stroke-linecap="round"/></g>'); }
+    else if(o.k === "guide"){ const fs = o.mid * 1.6; out.push('<text x="' + o.x + '" y="' + o.baseY + '" font-family="Helvetica,Arial,sans-serif" font-size="' + fs + '" fill="#d5dbe2" letter-spacing="' + (fs * 0.25) + '">' + esc(o.text) + "</text>"); }
+    else if(o.k === "img") out.push('<image href="' + esc(E.logoData || E.logoUrl) + '" x="' + o.x + '" y="' + o.y + '" width="' + o.w + '" height="' + o.h + '" preserveAspectRatio="xMinYMid meet"/>');
+  }
+  return out.join("");
+}
+
+function rgb(h){ h = String(h).replace("#", ""); if(h.length === 3) h = h.replace(/./g, x => x + x); return [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) || 0); }
+function claveNoPdf(pdf, x, yTop, h, w){
+  const sc = h / 24, tk = CLAVE.match(/[MC]|-?\d*\.?\d+/g); let i = 0, cmd = null, cx = 0, cy = 0;
+  pdf.setLineWidth(w);
+  while(i < tk.length){
+    if(tk[i] === "M" || tk[i] === "C"){ cmd = tk[i++]; continue; }
+    if(cmd === "M"){ cx = +tk[i]; cy = +tk[i + 1]; i += 2; }
+    else {
+      const c1 = [+tk[i], +tk[i + 1]], c2 = [+tk[i + 2], +tk[i + 3]], e = [+tk[i + 4], +tk[i + 5]]; i += 6;
+      let px = cx, py = cy;
+      for(let s = 1; s <= 10; s++){
+        const u = s / 10, mu = 1 - u;
+        const bx = mu * mu * mu * cx + 3 * mu * mu * u * c1[0] + 3 * mu * u * u * c2[0] + u * u * u * e[0];
+        const by = mu * mu * mu * cy + 3 * mu * mu * u * c1[1] + 3 * mu * u * u * c2[1] + u * u * u * e[1];
+        pdf.line(x + px * sc, yTop + py * sc, x + bx * sc, yTop + by * sc); px = bx; py = by;
+      }
+      cx = e[0]; cy = e[1];
+    }
+  }
+}
+function noPdf(pdf, cmds){
+  const base = rgb(E.S.lineColor);
+  for(const o of cmds){
+    const cor = o.color ? rgb(o.color) : base;
+    if(o.k === "line"){ pdf.setDrawColor(...cor); pdf.setLineWidth(o.w); pdf.setLineDashPattern(o.dash || [], 0); pdf.line(o.x1, o.y1, o.x2, o.y2); }
+    else if(o.k === "circle"){ pdf.setFillColor(...base); pdf.circle(o.cx, o.cy, o.r, "F"); }
+    else if(o.k === "rect"){ pdf.setDrawColor(...base); pdf.setLineWidth(o.sw); pdf.setLineDashPattern([], 0); pdf.rect(o.x, o.y, o.w, o.h, "S"); }
+    else if(o.k === "ellipse"){ pdf.setDrawColor(...base); pdf.setLineWidth(o.sw); pdf.setLineDashPattern([], 0); pdf.ellipse(o.cx, o.cy, o.rx, o.ry, "S"); }
+    else if(o.k === "text"){
+      pdf.setTextColor(...cor); pdf.setFontSize(o.size * 2.835); pdf.setFont("helvetica", o.bold ? "bold" : "normal");
+      pdf.text(o.s, o.x, o.y, o.anchor === "middle" ? { align:"center" } : o.anchor === "end" ? { align:"right" } : {});
+    }
+    else if(o.k === "qcurve"){
+      pdf.setDrawColor(...base); pdf.setLineWidth(o.w); pdf.setLineDashPattern(o.dash || [], 0);
+      let px = o.x0, py = o.y0;
+      for(const [cx, cy, ex, ey] of o.segs){
+        let lx = px, ly = py;
+        for(let k = 1; k <= 6; k++){ const u = k / 6, mu = 1 - u; const bx = mu * mu * px + 2 * mu * u * cx + u * u * ex, by = mu * mu * py + 2 * mu * u * cy + u * u * ey; pdf.line(lx, ly, bx, by); lx = bx; ly = by; }
+        px = ex; py = ey;
+      }
+    }
+    else if(o.k === "clef"){ pdf.setDrawColor(...base); pdf.setLineDashPattern([], 0); claveNoPdf(pdf, o.x, o.yTop, o.h, o.w); }
+    else if(o.k === "guide"){ pdf.setTextColor(213, 219, 226); pdf.setFontSize(o.mid * 1.6 * 2.835); pdf.setFont("helvetica", "normal"); pdf.setCharSpace(o.mid * 1.6 * 0.25); pdf.text(o.text, o.x, o.baseY); pdf.setCharSpace(0); }
+    else if(o.k === "img" && E.logoData){ try{ pdf.addImage(E.logoData, "PNG", o.x, o.y, o.w, o.h, "logo", "FAST"); }catch(e){} }
+  }
+  pdf.setLineDashPattern([], 0);
+}
+
+/* ===================== tela de criação ===================== */
+function desenharTipos(){
+  const html = g => TIPOS.filter(t => t.g === g).map(t => '<button class="tipo' + (E.S.type === t.id ? " on" : "") + '" data-action="tipo" data-arg="' + t.id + '"><span>' + t.e + "</span><b>" + esc(t.n) + "</b></button>").join("");
+  $("tipos1").innerHTML = html(1); $("tipos2").innerHTML = html(2);
+}
+function preencherCampos(){
+  const S = E.S;
+  ["pageSize", "orientation", "margin", "spacing", "thick", "lineColor", "hSchool", "hSubject", "hClass", "guideText"].forEach(k => { $(k).value = S[k]; });
+  ["showHeader", "hLogo", "hNameLine", "showClef", "showAxisNumbers"].forEach(k => { $(k).checked = !!S[k]; });
+  $("lineColorHex").value = S.lineColor;
+  atualizarVisuais();
+}
+function lerCampos(){
+  const S = E.S;
+  S.pageSize = $("pageSize").value; S.orientation = $("orientation").value;
+  S.margin = +$("margin").value; S.spacing = +$("spacing").value; S.thick = +$("thick").value; S.lineColor = $("lineColor").value;
+  ["hSchool", "hSubject", "hClass", "guideText"].forEach(k => { S[k] = $(k).value.trim(); });
+  ["showHeader", "hLogo", "hNameLine", "showClef", "showAxisNumbers"].forEach(k => { S[k] = $(k).checked; });
+  $("lineColorHex").value = S.lineColor;
+  atualizarVisuais();
+}
+function atualizarVisuais(){
+  const S = E.S;
+  $("vMargin").textContent = S.margin; $("vSpacing").textContent = S.spacing; $("vThick").textContent = S.thick;
+  $("ctxCalligraphy").hidden = S.type !== "calligraphy"; $("ctxClef").hidden = S.type !== "music"; $("ctxAxis").hidden = S.type !== "cartesian";
+  $("cabCampos").hidden = !S.showHeader;
+  $("chaveLogo").hidden = !E.logoUrl;
+  prever();
+}
+function prever(){
+  const D = dims(), esc2 = 300 / Math.max(D.w, D.h);
+  $("papel").style.width = (D.w * esc2) + "px"; $("papel").style.height = (D.h * esc2) + "px";
+  const nome = E.modo === "turma" && E.alunos.length ? E.alunos[0].nome : "";
+  const svg = $("svgPrev"); svg.setAttribute("viewBox", "0 0 " + D.w + " " + D.h);
+  svg.innerHTML = paraSVG(buildCommands(nome));
+  $("prevNome").textContent = nome ? "Prévia da folha de " + nome + " (1 de " + E.alunos.length + ")" : "";
+  $("btnPdf").textContent = E.modo === "turma" ? "📄 Gerar PDF (" + E.alunos.length + " " + (E.alunos.length === 1 ? "folha" : "folhas") + ")" : "📄 Gerar PDF (" + E.qty + " " + (E.qty === 1 ? "folha" : "folhas") + ")";
+  $("btnPdf").disabled = E.modo === "turma" && !E.alunos.length;
+}
+function escolherTipo(id){
+  E.S.type = id; E.S.spacing = TIPO(id).sp; $("spacing").value = E.S.spacing;
+  desenharTipos(); atualizarVisuais();
+}
+const limitarQtd = n => { n = parseInt(n, 10); return isNaN(n) || n < 1 ? 1 : Math.min(n, 200); };
+
+function nomeArquivo(){
+  const base = (E.editNome || TIPO(E.S.type).n + (E.S.hClass ? " " + E.S.hClass : "")).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
+  return "folha-" + (base || "magica") + ".pdf";
+}
+function gerarPdf(){
+  if(!window.jspdf || !window.jspdf.jsPDF){ toast("O gerador de PDF ainda está carregando. Tente de novo em 2 segundos.", true); return; }
+  const nomes = E.modo === "turma" ? E.alunos.map(a => a.nome) : Array(E.qty).fill("");
+  if(!nomes.length){ toast("Escolha uma turma com alunos cadastrados.", true); return; }
+  if(E.S.hLogo && E.logoUrl && !E.logoData && (E.S.showHeader || E.modo === "turma")) toast("O logo não pôde ser incluído no PDF (sem permissão de acesso à imagem).", true);
+  try{
+    const D = dims(), pdf = new window.jspdf.jsPDF({ orientation:E.S.orientation, unit:"mm", format:[D.w, D.h] });
+    pdf.setProperties({ title:"Folha Mágica · Portal do Educador", creator:"Portal do Educador · NEWPC" });
+    const fixa = E.modo === "turma" ? null : buildCommands("");
+    nomes.forEach((n, i) => { if(i) pdf.addPage([D.w, D.h], E.S.orientation); noPdf(pdf, fixa || buildCommands(n)); });
+    const url = URL.createObjectURL(pdf.output("blob"));
+    const a = document.createElement("a"); a.href = url; a.download = nomeArquivo(); document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast("PDF com " + nomes.length + " " + (nomes.length === 1 ? "folha" : "folhas") + " pronto!");
+  }catch(err){ console.error(err); toast("Não foi possível montar o PDF: " + (err && err.message || "erro"), true); }
+}
+
+/* ===================== turmas e alunos ===================== */
+async function carregarTurmas(){
+  const ids = (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 10);
+  E.turmas = [];
+  try{
+    if(E.admin){
+      const s = await getDocs(query(collection(db, "turmas"), limit(300)));
+      s.forEach(d => { const t = d.data(); if(t.status !== "inativa") E.turmas.push({ id:d.id, ...t }); });
+    } else if(ids.length){
+      const s = await getDocs(query(collection(db, "turmas"), where("escola_id", "in", ids)));
+      s.forEach(d => { const t = d.data(); if(t.status !== "inativa") E.turmas.push({ id:d.id, ...t }); });
+    }
+  }catch(e){ console.warn("turmas:", e.code); }
+  const minhas = new Set((E.u.turmas_ids || []).map(String));
+  const ehMinha = t => minhas.has(t.id) || t.criado_por === E.user.uid;
+  E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
+  const rot = t => (t.nome || "Turma") + (ids.length > 1 || E.admin ? " · " + (t.escola_nome || "") : "");
+  $("selTurma").innerHTML = '<option value="">' + (E.turmas.length ? "Escolha a turma..." : "Nenhuma turma cadastrada") + "</option>" +
+    E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(rot(t)) + (ehMinha(t) ? " ★" : "") + "</option>").join("");
+  $("listaTurmas").innerHTML = E.turmas.filter(ehMinha).map(t => '<option value="' + esc(t.nome || "") + '">').join("");
+}
+async function escolherTurma(id){
+  E.turmaId = id; E.alunos = [];
+  const t = E.turmas.find(x => x.id === id);
+  if(!t){ $("turmaInfo").textContent = "Cada folha sai com o nome de um aluno impresso no cabeçalho."; prever(); return; }
+  $("turmaInfo").textContent = "Carregando os alunos...";
+  try{
+    const s = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id)));
+    s.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo") E.alunos.push({ id:d.id, nome:String(a.nome).trim() }); });
+    E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    $("turmaInfo").textContent = E.alunos.length ? E.alunos.length + " alunos. Uma folha para cada, com o nome no cabeçalho." : "Esta turma ainda não tem alunos cadastrados. Cadastre em Turmas, no Portal.";
+    if(!$("hClass").value){ $("hClass").value = t.nome || ""; E.S.hClass = t.nome || ""; }
+  }catch(e){ console.warn("alunos:", e.code); $("turmaInfo").textContent = "Não foi possível carregar os alunos desta turma."; }
+  prever();
+}
+function trocarModo(m){
+  E.modo = m;
+  document.querySelectorAll(".modo").forEach(b => b.classList.toggle("on", b.dataset.arg === m));
+  $("boxQtd").hidden = m !== "qtd"; $("boxTurma").hidden = m !== "turma";
+  if(m === "turma" && !E.turmas.length) carregarTurmas();
+  prever();
+}
+
+/* ===================== minhas folhas (Firestore) ===================== */
+const colFolhas = () => collection(db, "usuarios", E.user.uid, "folhas");
+async function carregarFolhas(){
+  const s = await getDocs(colFolhas());
+  E.folhas = []; s.forEach(d => E.folhas.push({ id:d.id, ...d.data() }));
+  E.folhas.sort((a, b) => ((b.atualizado_em && b.atualizado_em.seconds) || 0) - ((a.atualizado_em && a.atualizado_em.seconds) || 0));
+}
+function cfgAtual(){ const c = {}; CAMPOS.forEach(k => { c[k] = E.S[k]; }); return c; }
+function abrirModal(){
+  $("mNome").value = E.editNome || (TIPO(E.S.type).n + (E.S.hClass ? " · " + E.S.hClass : ""));
+  $("mTit").textContent = E.editId ? "Salvar alterações" : "Salvar folha";
+  $("modal").hidden = false; setTimeout(() => $("mNome").focus(), 30);
+}
+async function salvar(){
+  const nome = $("mNome").value.trim();
+  if(nome.length < 2){ toast("Dê um nome para a folha.", true); return; }
+  $("mOk").disabled = true;
+  try{
+    const dados = { nome, tipo:E.S.type, cfg:cfgAtual(), atualizado_em:serverTimestamp() };
+    if(E.editId) await setDoc(doc(colFolhas(), E.editId), dados, { merge:true });
+    else { const r = await addDoc(colFolhas(), { ...dados, criado_em:serverTimestamp() }); E.editId = r.id; }
+    E.editNome = nome; E.folhas = null;
+    $("modal").hidden = true; marcarEdicao(); toast("Salva em Minhas folhas.");
+  }catch(e){ console.error(e); toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); }
+  $("mOk").disabled = false;
+}
+function marcarEdicao(){
+  $("avisoEdicao").hidden = !E.editId;
+  $("avisoEdicao").innerHTML = E.editId ? "✏️ Editando <b>" + esc(E.editNome) + "</b>. As alterações só ficam guardadas quando você salvar." : "";
+  $("btnSalvar").textContent = E.editId ? "💾 Salvar alterações" : "💾 Salvar em Minhas folhas";
+  $("btnNova").hidden = !E.editId;
+}
+function aplicarCfg(cfg){
+  E.S = { ...PADRAO, ...(cfg || {}) };
+  if(!TIPOS.some(t => t.id === E.S.type)) E.S.type = PADRAO.type;
+  desenharTipos(); preencherCampos();
+}
+function novaFolha(){
+  E.editId = ""; E.editNome = "";
+  aplicarCfg({ ...PADRAO, hSchool:E.escola ? E.escola.nome || "" : "" });
+  marcarEdicao(); ir("criar");
+}
+async function telaMinhas(){
+  const el = $("telaMinhas");
+  if(!E.folhas){ el.innerHTML = '<div class="carregando"><div class="giro"></div>Carregando suas folhas...</div>'; try{ await carregarFolhas(); }catch(e){ el.innerHTML = '<div class="card vazio">Não foi possível carregar suas folhas (' + esc(e.code || "erro") + ").</div>"; return; } }
+  const data = f => f.atualizado_em && f.atualizado_em.toDate ? f.atualizado_em.toDate().toLocaleDateString("pt-BR") : "";
+  el.innerHTML = '<section class="card"><h2 class="h2">🗂️ Minhas folhas</h2><p class="sub">Configurações guardadas na sua conta. Abra em qualquer computador, ajuste e gere o PDF de novo.</p></section>' +
+    '<div class="lista">' + (E.folhas.length ? E.folhas.map(f => {
+      const t = TIPO(f.tipo);
+      return '<article class="fol"><div class="fol-top"><div class="fol-ico">' + t.e + '</div><div><b>' + esc(f.nome) + "</b><small>" + esc(t.n) + (f.cfg && f.cfg.hClass ? " · " + esc(f.cfg.hClass) : "") + (data(f) ? " · " + data(f) : "") + "</small></div></div>" +
+        '<div class="fol-acoes"><button class="btn btn-pri btn-sm" data-action="abrir" data-arg="' + esc(f.id) + '">Abrir</button>' +
+        '<button class="btn btn-gh btn-sm" data-action="pdf-direto" data-arg="' + esc(f.id) + '">📄 PDF</button>' +
+        '<button class="btn btn-red btn-sm" data-action="excluir" data-arg="' + esc(f.id) + '">Excluir</button></div></article>';
+    }).join("") : '<div class="vazio">Você ainda não salvou nenhuma folha. Monte uma em <b>Criar folha</b> e toque em <b>Salvar</b>.</div>') + "</div>";
+}
+function abrirFolha(id, gerar){
+  const f = (E.folhas || []).find(x => x.id === id); if(!f) return;
+  E.editId = f.id; E.editNome = f.nome; aplicarCfg(f.cfg); marcarEdicao(); ir("criar");
+  if(gerar){ trocarModo("qtd"); gerarPdf(); }
+}
+async function excluirFolha(id){
+  const f = (E.folhas || []).find(x => x.id === id); if(!f) return;
+  if(!confirm('Excluir a folha "' + f.nome + '"?')) return;
+  try{ await deleteDoc(doc(colFolhas(), id)); E.folhas = E.folhas.filter(x => x.id !== id); if(E.editId === id){ E.editId = ""; E.editNome = ""; marcarEdicao(); } telaMinhas(); toast("Folha excluída."); }
+  catch(e){ toast("Não foi possível excluir (" + (e.code || "erro") + ").", true); }
+}
+
+/* ===================== navegação e eventos ===================== */
+function ir(t){
+  document.querySelectorAll(".topo-acoes .tb[data-arg]").forEach(b => b.classList.toggle("on", b.dataset.arg === t));
+  $("telaCarregando").hidden = true; $("telaCriar").hidden = t !== "criar"; $("telaMinhas").hidden = t !== "minhas";
+  try{ history.replaceState(null, "", "#" + t); }catch(e){}
+  if(t === "minhas") telaMinhas(); else prever();
+  window.scrollTo({ top:0 });
+}
+document.addEventListener("click", ev => {
+  const el = ev.target.closest("[data-action]"); if(!el) return;
+  const a = el.dataset.action, arg = el.dataset.arg;
+  if(a === "ir") ir(arg);
+  else if(a === "tipo") escolherTipo(arg);
+  else if(a === "aba"){ document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.arg === arg)); document.querySelectorAll(".painel").forEach(p => p.classList.toggle("on", p.dataset.painel === arg)); }
+  else if(a === "modo") trocarModo(arg);
+  else if(a === "qtd"){ E.qty = limitarQtd(E.qty + (+arg)); $("qty").value = E.qty; prever(); }
+  else if(a === "pdf") gerarPdf();
+  else if(a === "salvar") abrirModal();
+  else if(a === "nova") novaFolha();
+  else if(a === "modal-fechar") $("modal").hidden = true;
+  else if(a === "modal-ok") salvar();
+  else if(a === "abrir") abrirFolha(arg, false);
+  else if(a === "pdf-direto") abrirFolha(arg, true);
+  else if(a === "excluir") excluirFolha(arg);
+});
+document.addEventListener("input", ev => {
+  if(ev.target.matches("[data-campo]")) lerCampos();
+  else if(ev.target.id === "lineColorHex"){ const v = ev.target.value.trim(); if(/^#[0-9a-f]{6}$/i.test(v)){ $("lineColor").value = v; lerCampos(); } }
+});
+document.addEventListener("change", ev => {
+  if(ev.target.id === "qty"){ E.qty = limitarQtd(ev.target.value); ev.target.value = E.qty; prever(); }
+  else if(ev.target.id === "selTurma") escolherTurma(ev.target.value);
+  else if(ev.target.matches("[data-campo]")) lerCampos();
+});
+document.addEventListener("keydown", ev => {
+  if(ev.key === "Escape" && !$("modal").hidden) $("modal").hidden = true;
+  else if(ev.key === "Enter" && ev.target.id === "mNome") salvar();
+});
+
+/* logo: escola tem prioridade sobre o município; vira dataURL para entrar no PDF */
+async function prepararLogo(){
+  E.logoUrl = (E.escola && E.escola.logo_url) || (E.muni && E.muni.logo_url) || "";
+  if(!E.logoUrl) return;
+  $("logoInfo").textContent = E.escola && E.escola.logo_url ? "Do cadastro da escola" : "Do cadastro da prefeitura";
+  try{
+    const r = await fetch(E.logoUrl, { mode:"cors" }); if(!r.ok) throw new Error(r.status);
+    const blob = await r.blob(), bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas"), max = 360, k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    E.logoData = c.toDataURL("image/png"); E.logoProp = bmp.width / bmp.height || 1;
+  }catch(e){ console.warn("logo:", e); E.logoData = null; }
+}
+
+onAuthStateChanged(auth, async user => {
+  if(!user){ location.replace("/entrar/"); return; }
+  let u = null;
+  try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
+  if(!u || u.status !== "ativo" || u.perfil === "aluno"){ location.replace("/entrar/"); return; }
+  const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
+  E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
+  try{
+    if(u.escola_id){ const s = await getDoc(doc(db, "escolas", u.escola_id)); if(s.exists()) E.escola = s.data(); }
+    if(u.municipio_id){ const s = await getDoc(doc(db, "municipios", u.municipio_id)); if(s.exists()) E.muni = s.data(); }
+  }catch(e){}
+  $("quem").textContent = (u.nome || user.email) + (E.escola && E.escola.nome ? " · " + E.escola.nome : "");
+  await prepararLogo();
+  aplicarCfg({ ...PADRAO, hSchool:E.escola ? E.escola.nome || "" : "" });
+  marcarEdicao();
+  const h = (location.hash || "").slice(1);
+  ir(h === "minhas" ? "minhas" : "criar");
+  carregarTurmas();
+});
+</script>
+</body>
+</html>

@@ -140,6 +140,13 @@ service cloud.firestore {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && licenciado();
     }
+    // Aplicativos Uteis: configuracoes salvas da Folha Magica (so o dono)
+    match /usuarios/{uid}/folhas/{id} {
+      allow read, delete: if logado() && (request.auth.uid == uid || admin());
+      allow create, update: if logado() && request.auth.uid == uid && (licenciado() || eu().perfil in ["gestor", "secretaria"])
+        && novo().keys().hasOnly(["nome", "tipo", "cfg", "criado_em", "atualizado_em"])
+        && novo().nome is string && novo().nome.size() <= 60 && novo().cfg is map;
+    }
     match /usuarios/{uid}/pastas_provas/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && licenciado();
