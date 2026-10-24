@@ -77,6 +77,8 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 .cartaz .titulo{font-size:clamp(36px,5vw,110px)}
 .cartaz .texto{font-size:clamp(20px,2.2vw,48px);flex:none;max-width:70ch}
 .selo-aviso{position:absolute;top:3vh;right:3vw;background:var(--lima);color:#071621;font-weight:800;font-size:max(11px,1vw);letter-spacing:.12em;padding:.8vh 1.4vw;border-radius:99px;z-index:6;text-transform:uppercase}
+.assina{position:absolute;right:4vw;bottom:4vh;display:flex;align-items:center;gap:12px;font-size:max(12px,1.1vw);color:rgba(255,255,255,.7);font-weight:600}
+.assina img{width:max(32px,3.2vw);height:max(32px,3.2vw)}
 .web-erro{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:5vw;background:#0c2338;color:rgba(255,255,255,.8);font-size:max(14px,1.4vw)}
 
 /* espera */
@@ -157,7 +159,7 @@ const VERSAO = "tv-5.0";
 const CACHE = "pde-tv-midias-v1";
 
 const P = { chave:"", tela:null, listas:{}, canal:null, unsubs:{}, fila:[], idx:-1, timer:0, inicio:0, dur:0, pausado:false,
-  urls:new Map(), ultimoAvanco:Date.now(), previa:"", parTimer:0, parUnsub:null, assinatura:"" };
+  urls:new Map(), ultimoAvanco:Date.now(), previa:"", parTimer:0, parUnsub:null, assinatura:"", campanhas:null, rotAviso:0, rotCamp:0 };
 
 /* ---------- mídias guardadas na TV (Cache API): baixa uma vez e reaproveita ---------- */
 async function midiaLocal(url){
@@ -213,25 +215,33 @@ function avisosAtivos(){
   return c.avisos.filter(a => a && (!ms(a.inicio) || ms(a.inicio) <= agora) && (!ms(a.fim) || ms(a.fim) >= agora) && (!a.escolas || !a.escolas.length || a.escolas.includes(esc)))
     .map(a => ({ ...a, tipo:a.imagem_url ? "imagem" : "texto", url:a.imagem_url || "", categoria:a.categoria || "Comunicado da Secretaria", duracao:a.duracao || 15, layout:a.imagem_url ? "split" : "cheia", ehAviso:true }));
 }
+// campanhas educativas do Portal do Educador (dengue, trânsito, Outubro Rosa...): valem nos meses marcados, todo ano
+function campanhasAtivas(){
+  if(P.previa || !P.campanhas || !Array.isArray(P.campanhas.itens) || (P.tela && P.tela.campanhas === false)) return [];
+  const mes = new Date().getMonth() + 1;
+  return P.campanhas.itens.filter(c => c && c.ativo !== false && (!Array.isArray(c.meses) || !c.meses.length || c.meses.includes(mes)))
+    .map(c => ({ ...c, tipo:c.imagem_url ? "imagem" : "texto", url:c.imagem_url || "", categoria:c.categoria || "Campanha educativa", duracao:c.duracao || 15,
+      layout:c.imagem_url ? (c.layout || "split") : "cheia", ajuste:c.ajuste || "cobre", ehCampanha:true }));
+}
 function montarFila(){
   const pl = P.listas[playlistAtiva()] || null;
   const itens = (pl && Array.isArray(pl.itens) ? pl.itens : []).filter(i => i && i.ativo !== false);
-  const avisos = avisosAtivos();
+  const avisos = avisosAtivos(), camps = campanhasAtivas();
   const fila = [];
-  // um comunicado da secretaria a cada 3 itens da escola
-  let a = 0;
-  itens.forEach((it, i) => { fila.push(it); if(avisos.length && (i + 1) % 3 === 0) fila.push(avisos[a++ % avisos.length]); });
-  if(!itens.length) avisos.forEach(x => fila.push(x));
-  else if(avisos.length && itens.length < 3) fila.push(avisos[0]);
-  const assinatura = JSON.stringify(fila.map(x => [x.id, x.url, x.titulo, x.texto, x.duracao, x.layout, x.categoria]));
+  // vagas: um comunicado da secretaria a cada 3 itens da escola e uma campanha a cada 4; a cada volta entra o próximo da lista
+  const vaga = (lista, tipo) => ({ id:"vaga-" + tipo + "-" + fila.length, vaga:tipo, lista });
+  itens.forEach((it, i) => { fila.push(it); if(avisos.length && (i + 1) % 3 === 0) fila.push(vaga(avisos, "aviso")); if(camps.length && (i + 1) % 4 === 0) fila.push(vaga(camps, "camp")); });
+  if(!itens.length){ avisos.forEach(x => fila.push(x)); camps.forEach(x => fila.push(x)); }
+  else { if(avisos.length && itens.length < 3) fila.push(vaga(avisos, "aviso")); if(camps.length && itens.length < 4) fila.push(vaga(camps, "camp")); }
+  const assinatura = JSON.stringify([fila.map(x => [x.id, x.url, x.titulo, x.texto, x.duracao, x.layout, x.categoria]), avisos.map(x => [x.id, x.titulo, x.texto, x.url]), camps.map(x => [x.id, x.titulo, x.texto, x.url, x.cor])]);
   if(assinatura === P.assinatura) return;
   const atual = P.fila[P.idx];
   P.fila = fila; P.assinatura = assinatura;
-  const emUso = new Set(fila.filter(x => x.tipo === "imagem" || x.tipo === "video").map(x => x.url));
+  const emUso = new Set([...fila, ...avisos, ...camps].filter(x => x.tipo === "imagem" || x.tipo === "video").map(x => x.url));
   if(P.tela && P.tela.logo_url) emUso.add(P.tela.logo_url);
   limparCache(emUso);
-  fila.filter(x => x.tipo === "imagem" || x.tipo === "video").forEach(x => midiaLocal(x.url));
-  if(!P.previa) ls.set("pde_tv_ultima", { tela:P.tela, listas:{ [playlistAtiva()]:pl }, canal:P.canal });
+  [...fila, ...avisos, ...camps].filter(x => x.tipo === "imagem" || x.tipo === "video").forEach(x => midiaLocal(x.url));
+  if(!P.previa) ls.set("pde_tv_ultima", { tela:P.tela, listas:{ [playlistAtiva()]:pl }, canal:P.canal, campanhas:P.campanhas });
   const novoIdx = atual ? fila.findIndex(x => x.id && x.id === atual.id) : -1;
   if(novoIdx >= 0){ P.idx = novoIdx; return; }
   tocar(0);
@@ -242,7 +252,8 @@ async function tocar(i){
   if(!P.fila.length){ $("espera").hidden = false; $("midia").innerHTML = ""; $("barra").style.transition = "none"; $("barra").style.width = "0"; return; }
   $("espera").hidden = true;
   P.idx = ((i % P.fila.length) + P.fila.length) % P.fila.length;
-  const it = P.fila[P.idx]; P.ultimoAvanco = Date.now();
+  let it = P.fila[P.idx]; P.ultimoAvanco = Date.now();
+  if(it.vaga){ const k = it.vaga === "aviso" ? "rotAviso" : "rotCamp"; it = it.lista[P[k]++ % it.lista.length]; }
   const cheia = it.layout === "cheia" || it.tipo === "texto" || it.tipo === "web";
   $("palco").classList.toggle("cheia", cheia);
   $("olho").textContent = $("olho2").textContent = escTxt(it.categoria);
@@ -265,12 +276,16 @@ async function tocar(i){
     const f = document.createElement("iframe"); f.src = it.url; f.referrerPolicy = "no-referrer"; f.style.background = "#fff"; m.append(f);
     if(!navigator.onLine){ m.innerHTML = '<div class="web-erro">Esta página precisa de internet para aparecer.</div>'; }
   } else {
-    const c = document.createElement("div"); c.className = "cartaz entra" + (it.ehAviso ? " aviso" : "");
+    const c = document.createElement("div"); c.className = "cartaz entra" + (it.ehAviso ? " aviso" : "") + (it.ehCampanha ? " campanha" : "");
+    if(it.ehCampanha && /^#[0-9a-f]{6}$/i.test(it.cor || "")) c.style.background = "radial-gradient(80vw 60vh at 0% 0%," + it.cor + "aa,transparent 62%),radial-gradient(50vw 40vh at 100% 100%," + it.cor + "40,transparent 60%),linear-gradient(135deg,#0c2338,#071621)";
     c.innerHTML = '<div class="olho"></div><div class="titulo"></div><div class="texto"></div>';
     c.children[0].textContent = escTxt(it.categoria || (it.ehAviso ? "Comunicado da Secretaria" : "")); c.children[0].hidden = !c.children[0].textContent;
-    c.children[1].textContent = escTxt(it.titulo); c.children[2].textContent = escTxt(it.texto); m.append(c);
+    c.children[1].textContent = escTxt(it.titulo); c.children[2].textContent = escTxt(it.texto);
+    if(it.ehCampanha){ if(/^#[0-9a-f]{6}$/i.test(it.cor || "")) c.children[0].style.color = it.cor; const ass = document.createElement("div"); ass.className = "assina"; ass.innerHTML = '<img src="/assets/pde-logo-128.png" alt=""><span>Uma campanha do Portal do Educador</span>'; c.append(ass); }
+    m.append(c);
   }
-  if(it.ehAviso && it.tipo !== "texto"){ const s = document.createElement("div"); s.className = "selo-aviso"; s.textContent = "Comunicado"; m.append(s); }
+  if((it.ehAviso || it.ehCampanha) && it.tipo !== "texto"){ const s = document.createElement("div"); s.className = "selo-aviso"; s.textContent = it.ehCampanha ? "Campanha" : "Comunicado";
+    if(it.ehCampanha && /^#[0-9a-f]{6}$/i.test(it.cor || "")){ s.style.background = it.cor; s.style.color = "#fff"; } m.append(s); }
   P.dur = Math.max(4, Math.min(600, +it.duracao || 10)) * 1000; P.inicio = Date.now();
   const b = $("barra"); b.style.transition = "none"; b.style.width = "0"; void b.offsetWidth;
   b.style.transition = "width " + P.dur + "ms linear"; b.style.width = "100%";
@@ -320,6 +335,8 @@ function assinarListas(){
   Object.keys(P.unsubs).filter(k => k.startsWith("pl:") && !ids.has(k.slice(3))).forEach(k => { parar(k); delete P.listas[k.slice(3)]; });
   ids.forEach(id => ouvir("pl:" + id, doc(db, "tv_playlists", id), s => { P.listas[id] = s.exists() ? s.data() : null; montarFila(); }));
   if(t.canal) ouvir("canal:" + t.canal, doc(db, "tv_canais", t.canal), s => { P.canal = s.exists() ? s.data() : null; montarFila(); aplicarTela(); });
+  if(t.campanhas === false || P.previa) parar("camp");
+  else ouvir("camp", doc(db, "tv_campanhas", "padrao"), s => { P.campanhas = s.exists() ? s.data() : null; montarFila(); });
 }
 function iniciarPlayer(){
   $("par").hidden = true; $("tv").hidden = false; clearInterval(P.parTimer);
@@ -352,7 +369,7 @@ function iniciar(){
   if(doLink) history.replaceState(null, "", location.pathname);
   // última programação conhecida: a TV liga e já exibe, mesmo sem internet
   const ult = ls.get("pde_tv_ultima", null);
-  if(ult && ult.tela){ P.tela = ult.tela; P.listas = ult.listas || {}; P.canal = ult.canal || null; $("par").hidden = true; $("tv").hidden = false; aplicarTela(); montarFila(); }
+  if(ult && ult.tela){ P.tela = ult.tela; P.listas = ult.listas || {}; P.canal = ult.canal || null; P.campanhas = ult.campanhas || null; $("par").hidden = true; $("tv").hidden = false; aplicarTela(); montarFila(); }
   if(!navigator.onLine) $("offline").hidden = false;
   onSnapshot(doc(db, "tv_telas", P.chave), s => {
     if(!s.exists()){ P.tela = null; ls.set("pde_tv_ultima", null); Object.keys(P.unsubs).forEach(parar); mostrarPareamento(); return; }

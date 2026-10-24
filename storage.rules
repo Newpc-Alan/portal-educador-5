@@ -49,6 +49,12 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp|gif)|video/(mp4|webm)');
       allow delete: if equipeTvEscola(esc);
     }
+    match /tv/campanhas/{arquivo} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && eu().status == "ativo" && eu().perfil == "admin"
+        && request.resource.size < 10 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if request.auth != null && eu().status == "ativo" && eu().perfil == "admin";
+    }
     match /tv/municipios/{m}/{arquivo} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && eu().status == "ativo" && (eu().perfil == "admin" || (eu().perfil == "secretaria" && eu().get("municipio_id", "-") == m))

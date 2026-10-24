@@ -134,6 +134,7 @@ button{cursor:pointer}
       <button class="tb on" data-action="ir" data-arg="telas">📺 Telas</button>
       <button class="tb" data-action="ir" data-arg="playlists">🎞️ Playlists</button>
       <button class="tb" data-action="ir" data-arg="avisos">📢 Comunicados</button>
+      <button class="tb" data-action="ir" data-arg="campanhas" id="tbCamp" hidden>🎗️ Campanhas</button>
       <a class="tb" href="/apps/">← Aplicativos</a>
     </nav>
   </header>
@@ -208,10 +209,11 @@ async function ir(aba){
   E.aba = aba;
   document.querySelectorAll(".topo-acoes .tb[data-arg]").forEach(b => b.classList.toggle("on", b.dataset.arg === aba));
   try{ history.replaceState(null, "", "#" + aba); }catch(e){}
-  if(!E.escola){ $("tela").innerHTML = '<div class="card vazio"><b>Seu cadastro ainda não tem escola vinculada.</b><br>As TVs ficam ligadas a uma escola. Peça à secretaria ou ao administrador para vincular a sua.</div>'; return; }
+  if(!E.escola && aba !== "campanhas"){ $("tela").innerHTML = '<div class="card vazio"><b>Seu cadastro ainda não tem escola vinculada.</b><br>As TVs ficam ligadas a uma escola. Peça à secretaria ou ao administrador para vincular a sua.</div>'; return; }
   $("tela").innerHTML = '<div class="carregando"><div class="giro"></div>Carregando...</div>';
   try{
-    if(aba === "playlists") await telaPlaylists();
+    if(aba === "campanhas" && E.admin) await telaCampanhas();
+    else if(aba === "playlists") await telaPlaylists();
     else if(aba === "avisos") await telaAvisos();
     else await telaTelas();
   }catch(e){ console.error(e); $("tela").innerHTML = '<div class="card vazio">Não foi possível carregar agora (' + esc(e.code || "erro") + ").</div>"; }
@@ -273,7 +275,7 @@ async function conectar(){
     if(ms(p.criado_em) && Date.now() - ms(p.criado_em) > 30 * 60000){ toast("Esse código expirou. A TV mostra um novo a cada 10 minutos.", true); $("btOk").disabled = false; return; }
     const canal = await garantirCanal(true).catch(() => null);
     await setDoc(doc(db, "tv_telas", p.chave), { nome, escola_id:E.escolaId, escola_nome:E.escola.nome || "", municipio_id:E.escola.municipio_id || "",
-      orientacao:E.form.ori, playlist_id:$("fPl").value, agenda:{}, letreiro:"", cidade:E.muni ? [E.muni.nome, E.muni.uf].filter(Boolean).join(" · ") : "",
+      orientacao:E.form.ori, playlist_id:$("fPl").value, agenda:{}, letreiro:"", campanhas:true, cidade:E.muni ? [E.muni.nome, E.muni.uf].filter(Boolean).join(" · ") : "",
       lat:"", lon:"", logo_url:logoEscola(), canal:canal ? canal.id : "", criado_por:E.user.uid, criado_nome:E.u.nome || E.user.email || "",
       criado_em:serverTimestamp(), atualizado_em:serverTimestamp() });
     deleteDoc(doc(db, "tv_pareamentos", cod)).catch(() => {});
@@ -292,6 +294,7 @@ function modalTela(id){
     '<div class="campo"><label>Trocar a playlist por turno (opcional)</label>' + TURNOS.map(([k, n, h]) =>
       '<div class="agenda"><b>' + n + '</b><input type="time" id="ag_' + k + '" value="' + esc((ag[k] && ag[k].inicio) || h) + '" aria-label="Início do turno ' + n + '"><select id="agp_' + k + '" aria-label="Playlist do turno ' + n + '">' + opcoesPl(ag[k] && ag[k].playlist_id, "Mantém a padrão") + "</select></div>").join("") +
       '<small>A partir do horário, a TV troca sozinha para a playlist escolhida.</small></div>' +
+    '<label class="chave"><input type="checkbox" id="fCamp"' + (t.campanhas === false ? "" : " checked") + '> Exibir as campanhas educativas do Portal do Educador (dengue, trânsito, Outubro Rosa...)</label>' +
     '<div class="campo"><label for="fLet">Letreiro (texto que corre no rodapé)</label><input id="fLet" maxlength="300" value="' + esc(t.letreiro || "") + '" placeholder="Bem-vindos à ' + esc(E.escola.nome) + '"></div>' +
     '<div class="campos"><div class="campo"><label for="fCid">Cidade exibida</label><input id="fCid" maxlength="60" value="' + esc(t.cidade || "") + '"></div>' +
     '<div class="campo"><label>Temperatura</label><button type="button" class="btn btn-gh btn-sm" data-action="geo">📍 Usar a localização deste aparelho</button><small id="geoInfo">' + (t.lat ? "Localização definida" : "Sem localização: usa Campo Grande") + "</small></div></div>" +
@@ -306,7 +309,7 @@ async function salvarTela(){
   $("btOk").disabled = true;
   try{
     const dados = { nome, orientacao:E.form.ori, playlist_id:$("fPl").value, agenda, letreiro:$("fLet").value.trim(), cidade:$("fCid").value.trim(),
-      lat:String(E.form.lat || ""), lon:String(E.form.lon || ""), logo_url:logoEscola(), atualizado_em:serverTimestamp() };
+      lat:String(E.form.lat || ""), lon:String(E.form.lon || ""), logo_url:logoEscola(), campanhas:$("fCamp").checked, atualizado_em:serverTimestamp() };
     await updateDoc(doc(db, "tv_telas", t.id), dados);
     Object.assign(t, dados); fecharModal(); toast("Configuração salva. A TV atualiza em segundos."); telaTelas();
   }catch(e){ toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); $("btOk").disabled = false; }
@@ -525,6 +528,58 @@ async function apagarAviso(id){
   }catch(e){ toast("Não foi possível retirar (" + (e.code || "erro") + ").", true); }
 }
 
+/* ===================== CAMPANHAS DO PORTAL (só administrador) ===================== */
+const MESES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const CAMP = { itens:null, edit:null };
+async function carregarCampanhas(){ const s = await getDoc(doc(db, "tv_campanhas", "padrao")); CAMP.itens = s.exists() && Array.isArray(s.data().itens) ? s.data().itens : []; }
+async function gravarCampanhas(itens){
+  try{ await setDoc(doc(db, "tv_campanhas", "padrao"), { itens, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid }); CAMP.itens = itens; return true; }
+  catch(e){ console.error(e); toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); return false; }
+}
+const quandoCamp = c => !c.meses || !c.meses.length ? "o ano todo" : c.meses.length === 1 ? "em " + MESES[c.meses[0] - 1] : c.meses.map(m => MESES[m - 1]).join(", ");
+async function telaCampanhas(){
+  if(!CAMP.itens) await carregarCampanhas();
+  const mes = new Date().getMonth() + 1;
+  $("tela").innerHTML = '<div class="destaque"><div class="destaque-ico">🎗️</div><div class="destaque-txt"><b>Campanhas educativas do Portal do Educador</b><span>Passam em <b>todas as TVs</b> conectadas, uma a cada 4 itens da escola, nos meses marcados (todo ano). A escola pode desligar em cada TV.</span></div></div>' +
+    '<section class="card"><h2 class="h2">Campanhas</h2><div class="avs">' + (CAMP.itens.length ? CAMP.itens.map((c, i) => {
+      const noAr = c.ativo !== false && (!c.meses || !c.meses.length || c.meses.includes(mes));
+      return '<div class="av"><div><b><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + esc(c.cor || "#8DC63F") + ';margin-right:6px"></span>' + esc(c.titulo) + '</b><span class="pill ' + (noAr ? "on" : c.ativo === false ? "fim" : "ag") + '">' + (noAr ? "no ar" : c.ativo === false ? "pausada" : "fora do mês") + "</span><small>" + esc(c.categoria || "Campanha educativa") + " · " + quandoCamp(c) + " · " + (c.imagem_url ? "com imagem" : "só texto") + " · " + (c.duracao || 15) + " s</small></div>" +
+        '<div class="it-ac"><button class="btn-ic" data-action="camp-ativo" data-arg="' + i + '" title="' + (c.ativo === false ? "Voltar a exibir" : "Pausar") + '">' + (c.ativo === false ? "▶" : "⏸") + '</button><button class="btn-ic" data-action="camp-editar" data-arg="' + i + '" title="Editar">✏️</button><button class="btn-ic" data-action="camp-apagar" data-arg="' + i + '" title="Apagar">🗑️</button></div></div>';
+    }).join("") : '<div class="vazio">Nenhuma campanha cadastrada.</div>') + "</div></section>" +
+    '<section class="card" id="campForm">' + formCampanha(null) + "</section>";
+}
+function formCampanha(i){
+  const c = i === null ? null : CAMP.itens[i]; CAMP.edit = i;
+  const v = k => esc(c ? c[k] ?? "" : "");
+  return '<h2 class="h2">' + (c ? "✏️ Editar campanha" : "＋ Nova campanha") + '</h2>' +
+    '<div class="campos"><div class="campo cheio"><label for="cTit">Título</label><input id="cTit" maxlength="90" value="' + v("titulo") + '"></div>' +
+    '<div class="campo cheio"><label for="cTxt">Texto</label><textarea id="cTxt" maxlength="500">' + v("texto") + '</textarea></div>' +
+    '<div class="campo"><label for="cCat">Etiqueta</label><input id="cCat" maxlength="40" value="' + (c ? v("categoria") : "Campanha educativa") + '"></div>' +
+    '<div class="campo"><label for="cCor">Cor da campanha</label><input id="cCor" type="color" value="' + (c && /^#[0-9a-f]{6}$/i.test(c.cor || "") ? c.cor : "#8DC63F") + '" style="height:42px;padding:4px"></div>' +
+    '<div class="campo"><label for="cDur">Tempo na tela (segundos)</label><input id="cDur" type="number" min="5" max="120" value="' + (c ? c.duracao || 15 : 15) + '"></div>' +
+    '<div class="campo"><label for="cLay">Com imagem, aparece como</label><select id="cLay"><option value="split">Imagem + texto ao lado</option><option value="cheia"' + (c && c.layout === "cheia" ? " selected" : "") + '>Imagem em tela cheia</option></select></div>' +
+    '<div class="campo cheio"><label>Meses em que passa (nenhum marcado = o ano todo)</label><div style="display:flex;flex-wrap:wrap;gap:10px">' + MESES.map((m, k) => '<label class="chave" style="margin:0"><input type="checkbox" class="cMes" value="' + (k + 1) + '"' + (c && (c.meses || []).includes(k + 1) ? " checked" : "") + "> " + m + "</label>").join("") + "</div></div>" +
+    '<div class="campo cheio"><label class="envio"><input type="file" id="aArq" accept="image/jpeg,image/png,image/webp">🖼️ ' + (c && c.imagem_url ? "Trocar a imagem" : "Imagem da campanha (opcional; sem imagem, vira um cartaz de texto)") + '<div id="arqNome" class="sub"></div><div class="prog" hidden id="prog"><i></i></div></label>' +
+    (c && c.imagem_url ? '<label class="chave" style="margin-top:8px"><input type="checkbox" id="cSemImg"> Remover a imagem atual</label>' : "") + "</div></div>" +
+    '<div class="modal-acoes">' + (c ? '<button class="btn btn-gh" data-action="camp-cancelar">Cancelar</button>' : "") + '<button class="btn btn-ok" data-action="camp-salvar" id="btCamp">' + (c ? "Salvar alterações" : "Adicionar campanha") + "</button></div>";
+}
+async function salvarCampanha(){
+  const titulo = $("cTit").value.trim(); if(titulo.length < 3){ toast("Escreva o título da campanha.", true); return; }
+  const i = CAMP.edit, antiga = i === null ? null : CAMP.itens[i];
+  const c = { id:antiga ? antiga.id : "c" + Date.now().toString(36), titulo, texto:$("cTxt").value.trim(), categoria:$("cCat").value.trim() || "Campanha educativa",
+    cor:$("cCor").value, duracao:Math.max(5, Math.min(120, parseInt($("cDur").value, 10) || 15)), layout:$("cLay").value,
+    meses:[...document.querySelectorAll(".cMes:checked")].map(x => +x.value), ativo:antiga ? antiga.ativo !== false : true,
+    imagem_url:antiga && !($("cSemImg") && $("cSemImg").checked) ? antiga.imagem_url || "" : "", path:antiga && !($("cSemImg") && $("cSemImg").checked) ? antiga.path || "" : "" };
+  $("btCamp").disabled = true;
+  try{
+    const arq = $("aArq").files[0];
+    if(arq){ const r = await enviarArquivo(await reduzirImagem(arq), "tv/campanhas"); if(antiga && antiga.path) deleteObject(stRef(st, antiga.path)).catch(() => {}); c.imagem_url = r.url; c.path = r.path; }
+    else if(antiga && antiga.path && !c.path) deleteObject(stRef(st, antiga.path)).catch(() => {});
+  }catch(e){ toast("Falha no envio da imagem (" + (e.code || "erro") + ").", true); $("btCamp").disabled = false; return; }
+  const itens = [...CAMP.itens]; if(i === null) itens.push(c); else itens[i] = c;
+  if(await gravarCampanhas(itens)){ toast(i === null ? "Campanha adicionada. Já aparece nas TVs." : "Campanha atualizada."); telaCampanhas(); } else $("btCamp").disabled = false;
+}
+
 /* ===================== modal e eventos ===================== */
 function abrirModal(html){ $("modalBox").innerHTML = html; $("modal").hidden = false; }
 function fecharModal(){ $("modal").hidden = true; $("modalBox").innerHTML = ""; }
@@ -556,6 +611,11 @@ document.addEventListener("click", ev => {
   else if(a === "editar-it") editarItem(+arg);
   else if(a === "apagar-it") apagarItem(+arg);
   else if(a === "publicar-aviso") publicarAviso();
+  else if(a === "camp-salvar") salvarCampanha();
+  else if(a === "camp-editar"){ $("campForm").innerHTML = formCampanha(+arg); $("campForm").scrollIntoView({ behavior:"smooth" }); }
+  else if(a === "camp-cancelar") $("campForm").innerHTML = formCampanha(null);
+  else if(a === "camp-ativo"){ const it = CAMP.itens.map((c, k) => k === +arg ? { ...c, ativo:c.ativo === false } : c); gravarCampanhas(it).then(ok => ok && telaCampanhas()); }
+  else if(a === "camp-apagar"){ if(confirm("Apagar esta campanha de todas as TVs?")){ const x = CAMP.itens[+arg]; gravarCampanhas(CAMP.itens.filter((_, k) => k !== +arg)).then(ok => { if(ok){ if(x.path) deleteObject(stRef(st, x.path)).catch(() => {}); telaCampanhas(); } }); } }
   else if(a === "apagar-aviso") apagarAviso(arg);
 });
 document.addEventListener("change", ev => {
@@ -575,7 +635,8 @@ onAuthStateChanged(auth, async user => {
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim; E.perfil = sim || u.perfil;
   $("quem").textContent = (u.nome || user.email) + " · " + ({ admin:"Administrador", secretaria:"Secretaria", gestor:"Gestão escolar", professor:"Professor(a)" }[E.perfil] || "");
   try{ await carregarEscolas(); }catch(e){ console.error(e); }
-  const h = (location.hash || "").slice(1); E.aba = ["telas", "playlists", "avisos"].includes(h) ? h : (E.perfil === "secretaria" ? "avisos" : "telas");
+  $("tbCamp").hidden = !E.admin;
+  const h = (location.hash || "").slice(1); E.aba = ["telas", "playlists", "avisos", "campanhas"].includes(h) ? h : (E.perfil === "secretaria" ? "avisos" : "telas");
   await trocarEscola(E.escolaId);
 });
 </script>
