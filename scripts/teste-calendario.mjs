@@ -6,6 +6,7 @@ import CAL from '../functions/calendario-nucleo.js';
 const bloco = s => s.slice(s.indexOf('/* NUCLEO-INICIO'), s.indexOf('/* NUCLEO-FIM */'));
 const raiz = new URL('..', import.meta.url).pathname;
 assert.equal(bloco(readFileSync(raiz + 'apps/calendario/index.html', 'utf8')), bloco(readFileSync(raiz + 'functions/calendario-nucleo.js', 'utf8')), 'núcleo do app diferente do da function');
+assert.equal(readFileSync(raiz + 'assets/js/calendario-nucleo.js', 'utf8'), readFileSync(raiz + 'functions/calendario-nucleo.js', 'utf8'), 'cópia do núcleo em assets/js diferente');
 assert.deepEqual([2024, 2025, 2026, 2027, 2028, 2030].map(CAL.pascoa), ['2024-03-31', '2025-04-20', '2026-04-05', '2027-03-28', '2028-04-16', '2030-04-21']);
 const f26 = CAL.feriados(2026, 'MS');
 assert.ok(f26.some(f => f.data === '2026-02-16' && f.facultativo) && f26.some(f => f.data === '2026-06-04' && f.titulo === 'Corpus Christi'));
