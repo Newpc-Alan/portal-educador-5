@@ -214,6 +214,7 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
   .etq .t .cab img{width:4mm;height:4mm}
   .etq .t b{display:block;font-size:8pt;margin:.8mm 0 .3mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .etq .t .pat{display:inline-block;background:#000;color:#fff;border-radius:1mm;padding:0 1.2mm;font-weight:800;font-size:7pt}
+  .etq .t .sn{font-size:6pt;color:#333;margin-top:.4mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .etq .t .chama{font-weight:800;font-size:6.5pt;margin-top:.8mm}
   .etq .t .esc{color:#555;font-size:5.5pt;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .cartaz{height:276mm;display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;font-family:'Plus Jakarta Sans',Arial,sans-serif;color:#0c2338;border:1.2mm solid #0c2338;border-radius:6mm;padding:14mm 12mm}
@@ -241,6 +242,7 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
       <button class="tb gestor" data-action="ir" data-arg="itens" hidden>🏷️ Equipamentos</button>
       <button class="tb gestor" data-action="ir" data-arg="horarios" hidden>🕒 Horários</button>
       <button class="tb rede" data-action="ir" data-arg="rede" hidden>📊 Rede e SLA</button>
+      <button class="tb so-admin" data-action="ir" data-arg="estoque" hidden>📦 Estoque e entregas</button>
       <button class="tb so-admin" data-action="ir" data-arg="contratos" hidden>📑 Contratos</button>
       <a class="tb" href="/apps/">← Aplicativos</a>
     </nav>
@@ -311,6 +313,24 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
       <button class="btn btn-gh" data-action="exportar-sla">⬇ Chamados e SLA</button>
     </div>
     <div id="redeBox"></div>
+  </section>
+
+  <!-- ESTOQUE E ENTREGAS (equipe NEWPC) -->
+  <section class="sec" id="s-estoque">
+    <div class="card barra">
+      <select class="sel" id="selMuniEst" aria-label="Município"></select>
+      <div class="seg" id="segEst"><button class="on" data-action="filtro-est" data-arg="estoque">No estoque</button><button data-action="filtro-est" data-arg="todos">Todo o município</button></div>
+      <span class="esp"></span>
+      <button class="btn btn-ok" data-action="massa">＋ Cadastro em massa</button>
+    </div>
+    <div class="barra" style="margin-bottom:10px">
+      <input class="busca" id="buscaEst" placeholder="Buscar por patrimônio, série, nome, modelo..." aria-label="Buscar no estoque">
+      <span class="sub" id="contaEst"></span><span class="esp"></span>
+      <button class="btn btn-gh" data-action="exportar-est">⬇ Planilha</button>
+      <button class="btn btn-gh" data-action="etiquetas-est" id="btnEtqEst" disabled>🖨️ Etiquetas QR</button>
+      <button class="btn btn-pri" data-action="entregar" id="btnEntregar" disabled>🚚 Entregar para escola</button>
+    </div>
+    <div id="estBox"></div>
   </section>
 
   <!-- CONTRATOS -->
@@ -432,6 +452,42 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
   <div class="modal-acoes"><button class="btn btn-red" data-action="excluir-contrato" id="btnExcluirCt" hidden>Excluir</button><span style="flex:1"></span><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="salvar-contrato">Salvar</button></div>
 </div></div>
 
+<!-- cadastro em massa -->
+<div class="modal" id="mMassa" hidden><div class="modal-box largo">
+  <h3>Cadastro em massa</h3>
+  <p class="sub">Para uma entrega de muitos equipamentos iguais: preencha os dados comuns uma vez e cole os números de patrimônio e de série. Cada um ganha a própria etiqueta QR.</p>
+  <div class="lado3">
+    <div class="campo"><label for="mTipo">Tipo</label><select id="mTipo"></select></div>
+    <div class="campo"><label for="mMarca">Marca</label><input type="text" id="mMarca" maxlength="40" placeholder="Ex.: Positivo"></div>
+    <div class="campo"><label for="mModelo">Modelo</label><input type="text" id="mModelo" maxlength="60" placeholder="Ex.: Duo C4128"></div>
+  </div>
+  <div class="lado2">
+    <div class="campo"><label for="mNome">Nome que aparece na escola</label><input type="text" id="mNome" maxlength="70" placeholder="Ex.: Notebook Positivo"></div>
+    <div class="campo"><label for="mDestino">Vai para</label><select id="mDestino"></select></div>
+  </div>
+  <div class="lado3">
+    <div class="campo"><label for="mContrato">Contrato</label><select id="mContrato"></select></div>
+    <div class="campo"><label for="mEntregue">Recebido em</label><input type="date" id="mEntregue"></div>
+    <div class="campo"><label for="mGarantia">Garantia até</label><input type="date" id="mGarantia"></div>
+  </div>
+  <div class="campo"><label for="mLista">Patrimônio e nº de série: um equipamento por linha</label>
+    <textarea class="csv" id="mLista" style="margin-top:0" placeholder="Cole as duas colunas do Excel (patrimônio, série):&#10;NPC-3001	5CD1234ABC&#10;NPC-3002	5CD1234ABD&#10;Só o número de série? Comece a linha com ponto e vírgula:  ;5CD1234ABE"></textarea></div>
+  <label class="chave"><input type="checkbox" id="mNumerar"><span>Numerar os nomes (Notebook Positivo 001, 002...)<small>Ajuda a escola a diferenciar os aparelhos no dia a dia.</small></span></label>
+  <div class="resumo" id="massaResumo" hidden></div>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-gh" data-action="conferir-massa">Conferir</button><button class="btn btn-ok" data-action="gravar-massa" id="btnMassa" disabled>Cadastrar</button></div>
+</div></div>
+
+<!-- entregar -->
+<div class="modal" id="mEntrega" hidden><div class="modal-box">
+  <h3>Entregar para escola</h3>
+  <div class="resumo" id="entResumo"></div>
+  <div class="campo"><label for="eEscola">Escola</label><select id="eEscola"></select></div>
+  <div class="lado2"><div class="campo"><label for="eLocal">Onde vai ficar</label><input type="text" id="eLocal" maxlength="60" placeholder="Ex.: Carrinho 1"></div><div class="campo"><label for="eData">Data da entrega</label><input type="date" id="eData"></div></div>
+  <div class="campo"><label for="eObs">Observação (opcional)</label><input type="text" id="eObs" maxlength="300" placeholder="Ex.: termo de recebimento assinado pela diretora"></div>
+  <label class="chave"><input type="checkbox" id="eUso" checked><span>Marcar como Em uso<small>Desmarque se ficarem guardados na escola.</small></span></label>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="confirmar-entrega" id="btnEntrega">🚚 Entregar</button></div>
+</div></div>
+
 <!-- importar -->
 <div class="modal" id="mImport" hidden><div class="modal-box largo">
   <h3>Importar planilha de equipamentos</h3>
@@ -448,7 +504,7 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, where, limit, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, where, limit, writeBatch, serverTimestamp, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
@@ -489,17 +545,28 @@ const ST = { aberto:"Aberto", em_atendimento:"Em atendimento", resolvido:"Resolv
 
 const E = { user:null, u:null, admin:false, escolas:[], municipios:[], esc:"", escola:null, itens:[], qrs:{}, cfg:PADRAO_CFG, contratos:[],
   dia:hoje(), turno:"M", reservas:[], minhas:[], chamados:[], filtroCh:"abertos", sec:"reservar", sel:new Set(), turmas:[],
-  edit:null, lote:false, alvoRes:null, alvoCh:null, ficha:null, redeM:"", periodo:30, rede:null, ctEdit:null, csv:[] };
+  edit:null, lote:false, alvoRes:null, alvoCh:null, ficha:null, redeM:"", periodo:30, rede:null, ctEdit:null, csv:[],
+  est:{ itens:[], cts:[], filtro:"estoque", sel:new Set() }, massa:[] };
 
 const minhasEscolas = () => (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean);
 const gestorDe = escId => E.admin || (E.u.perfil === "gestor" && minhasEscolas().includes(escId));
 const podeGerir = () => gestorDe(E.esc);
 const podeReservar = () => podeGerir() || E.u.perfil === "professor";
 const veRede = () => E.admin || E.u.perfil === "secretaria";
-const itemDe = id => E.itens.find(i => i.id === id);
+const itemDe = id => E.itens.find(i => i.id === id) || E.est.itens.find(i => i.id === id);
 const sitDe = i => i.situacao || (i.ativo === false ? "baixado" : "em_uso");
 const reservaveis = () => E.itens.filter(i => i.reservavel && sitDe(i) === "em_uso");
-const nomeEscola = id => (E.escolas.find(e => e.id === id) || {}).nome || "";
+const nomeEscola = id => id ? (E.escolas.find(e => e.id === id) || {}).nome || "" : "📦 Estoque";
+// patrimônio e série viram chave de busca: só letras e algarismos, em maiúsculas (NPC-2500, npc 2500 e NPC2500 são o mesmo)
+const chaveNum = v => String(v || "").normalize("NFD").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 40);
+const nomeMuni = id => (E.municipios.find(m => m.id === id) || {}).nome || "";
+// mantém a busca pública por patrimônio e série em dia: tira os números antigos e grava os novos (cada um aponta para a etiqueta)
+function indexar(b, novo, antigo){
+  const qr = (novo || antigo).qr, vals = i => i ? [...new Set([i.patrimonio, i.serie].map(chaveNum).filter(v => v.length >= 2))] : [];
+  const nv = vals(novo), av = vals(antigo);
+  av.filter(v => !nv.includes(v)).forEach(v => b.set(doc(db, "rec_busca", v), { itens:{ [qr]:deleteField() }, ultimo:qr }, { merge:true }));
+  nv.forEach(v => b.set(doc(db, "rec_busca", v), { itens:{ [qr]:{ n:String(novo.nome || "").slice(0, 80), e:String(novo.escola_id ? nomeEscola(novo.escola_id) : "Estoque · " + nomeMuni(novo.municipio_id)).slice(0, 120), p:novo.patrimonio || "", s:novo.serie || "" } }, ultimo:qr }, { merge:true }));
+}
 
 /* ===================== SLA ===================== */
 // prazos em horas corridas a partir da abertura; o contrato ligado ao equipamento define as horas
@@ -545,7 +612,7 @@ async function carregarEscolas(){
   $("selEscola").hidden = lista.length < 2;
   $("selEscola").innerHTML = lista.map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome || "Escola") + (E.admin ? " · " + esc(e.municipio_nome || nomeM(e.municipio_id)) : "") + "</option>").join("");
   const opM = E.municipios.map(m => '<option value="' + esc(m.id) + '">' + esc(m.nome || m.id) + (m.uf ? "/" + esc(m.uf) : "") + "</option>").join("");
-  $("selMuni").innerHTML = opM; $("selMuniCt").innerHTML = opM;
+  $("selMuni").innerHTML = opM; $("selMuniCt").innerHTML = opM; $("selMuniEst").innerHTML = opM;
 }
 async function escolherEscola(id){
   E.esc = id; E.escola = E.escolas.find(e => e.id === id) || null; E.sel.clear();
@@ -554,7 +621,7 @@ async function escolherEscola(id){
   document.querySelectorAll(".gestor").forEach(b => b.hidden = !podeGerir());
   document.querySelectorAll(".rede").forEach(b => b.hidden = !veRede());
   document.querySelectorAll(".so-admin").forEach(b => b.hidden = !E.admin);
-  if((!podeGerir() && ["itens", "horarios"].includes(E.sec)) || (!veRede() && E.sec === "rede") || (!E.admin && E.sec === "contratos")) E.sec = "reservar";
+  if((!podeGerir() && ["itens", "horarios"].includes(E.sec)) || (!veRede() && E.sec === "rede") || (!E.admin && ["contratos", "estoque"].includes(E.sec))) E.sec = "reservar";
   if(!E.redeM && E.escola) E.redeM = E.escola.municipio_id || "";
   await Promise.all([carregarItens(), carregarCfg(), carregarTurmas(), carregarContratos(E.escola && E.escola.municipio_id)]);
   if(!E.cfg.turnos.some(t => t.id === E.turno)) E.turno = (E.cfg.turnos[0] || { id:"M" }).id;
@@ -607,6 +674,7 @@ async function carregarSecao(){
   else if(E.sec === "horarios") desenharHorarios();
   else if(E.sec === "rede") await carregarRede();
   else if(E.sec === "contratos") await carregarListaContratos();
+  else if(E.sec === "estoque") await carregarEstoque();
 }
 
 /* ===================== reservar ===================== */
@@ -832,6 +900,7 @@ async function salvarItem(){
       b.update(doc(db, "rec_itens", it.id), d);
       b.update(doc(db, "rec_qr", it.qr), { nome:d.nome, tipo:d.tipo, local:d.local, patrimonio:d.patrimonio, escola_nome:String(nomeEscola(E.esc)).slice(0, 120) });
       if(sitDe(it) !== d.situacao) movDoc(b, it.id, "situacao", SIT[sitDe(it)], SIT[d.situacao], "");
+      indexar(b, { ...it, ...d }, it);
       await b.commit(); toast("Equipamento salvo.");
     } else {
       const n = E.lote ? Math.max(2, Math.min(60, +$("iQtd").value || 2)) : 1, w = Math.max(2, String(n).length), pat = $("iPat").value.trim();
@@ -843,6 +912,7 @@ async function salvarItem(){
           contrato_id:E.admin ? $("iContrato").value : "", qr, criado_em:serverTimestamp(), criado_por:E.user.uid });
         b.set(ref, d); b.set(doc(db, "rec_qr", qr), { ...qrDe(ref.id, d), chamado_aberto:null, chamado_status:"", chamado_conf:0 });
         movDoc(b, ref.id, "cadastro", "", nomeEscola(E.esc), E.lote ? "Cadastro em lote" : "");
+        indexar(b, d, null);
         E.sel.add(ref.id);
       }
       await b.commit(); toast(n === 1 ? "Equipamento cadastrado. Imprima a etiqueta QR." : n + " equipamentos cadastrados. As etiquetas já estão selecionadas para imprimir.");
@@ -855,7 +925,7 @@ async function salvarItem(){
 async function excluirItem(){
   const it = E.edit; if(!it) return;
   if(!confirmar2("del" + it.id, "Toque de novo em Excluir. A etiqueta QR deixa de funcionar. Para equipamento que saiu de uso, prefira a situação Baixado.")) return;
-  try{ const b = writeBatch(db); b.delete(doc(db, "rec_itens", it.id)); b.delete(doc(db, "rec_qr", it.qr)); await b.commit(); E.sel.delete(it.id); toast("Equipamento excluído."); $("mItem").hidden = true; }
+  try{ const b = writeBatch(db); indexar(b, null, it); b.delete(doc(db, "rec_itens", it.id)); b.delete(doc(db, "rec_qr", it.qr)); await b.commit(); E.sel.delete(it.id); toast("Equipamento excluído."); $("mItem").hidden = true; }
   catch(e){ toast("Não foi possível excluir.", true); }
   await carregarItens(); await publicarCartaz(); desenharItens();
 }
@@ -873,12 +943,12 @@ async function abrirFicha(id){
   $("fContrato").innerHTML = ct ? '<div class="grupo-tit">Contrato</div><div class="ct" style="border:0;padding:8px 0">' + linhaContrato(ct, true) + "</div>" : "";
   $("fLink").href = URL_CHAMADO(i.qr);
   $("fTransf").hidden = !E.admin;
-  if(E.admin){ $("tEscola").innerHTML = E.escolas.filter(e => e.id !== i.escola_id).map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome) + "</option>").join(""); $("tLocal").value = ""; $("tObs").value = ""; }
-  $("btnEditarFicha").hidden = !podeGerir();
+  if(E.admin){ $("tEscola").innerHTML = E.escolas.filter(e => e.id !== i.escola_id).sort((a, b) => (b.municipio_id === i.municipio_id) - (a.municipio_id === i.municipio_id)).map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome) + "</option>").join(""); $("tLocal").value = ""; $("tObs").value = ""; }
+  $("btnEditarFicha").hidden = !podeGerir() || i.escola_id !== E.esc;
   $("fChamados").innerHTML = $("fMov").innerHTML = '<div class="sub">Carregando...</div>';
   $("mFicha").hidden = false;
   const chs = [], movs = [];
-  try{ const r = await getDocs(query(collection(db, "rec_chamados"), where("escola_id", "==", i.escola_id), where("item_id", "==", i.id))); r.forEach(d => chs.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("ficha ch:", e.code || e); }
+  try{ const r = await getDocs(query(collection(db, "rec_chamados"), where(i.escola_id ? "escola_id" : "municipio_id", "==", i.escola_id || i.municipio_id), where("item_id", "==", i.id))); r.forEach(d => chs.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("ficha ch:", e.code || e); }
   try{ const r = await getDocs(collection(db, "rec_itens", i.id, "mov")); r.forEach(d => movs.push(d.data())); }catch(e){ console.warn("ficha mov:", e.code || e); }
   chs.sort((a, b) => ms(b.criado_em) - ms(a.criado_em)); movs.sort((a, b) => ms(b.em) - ms(a.em));
   const resolv = chs.filter(c => c.status === "resolvido"), noPrazo = resolv.filter(c => { const x = sla(c, i); return x && x.soOk; }).length;
@@ -895,9 +965,11 @@ async function transferir(){
   b.update(doc(db, "rec_itens", i.id), { escola_id:dest, municipio_id:e.municipio_id, local, contrato_id:mesmoMuni ? i.contrato_id || "" : "", atualizado_em:serverTimestamp(), atualizado_por:E.user.uid });
   b.update(doc(db, "rec_qr", i.qr), { escola_id:dest, municipio_id:e.municipio_id, escola_nome:String(e.nome || "").slice(0, 120), local });
   movDoc(b, i.id, "transferencia", nomeEscola(i.escola_id), e.nome, $("tObs").value.trim());
+  indexar(b, { ...i, escola_id:dest, municipio_id:e.municipio_id }, i);
   try{ await b.commit(); toast("Transferido para " + e.nome + "."); $("mFicha").hidden = true; }
   catch(err){ console.warn("transf:", err.code || err); toast("Não foi possível transferir.", true); return; }
-  await carregarItens(); await publicarCartaz(); await publicarCartaz(dest); desenharItens();
+  await carregarItens(); if(i.escola_id) await publicarCartaz(i.escola_id); await publicarCartaz(dest);
+  if(E.sec === "estoque") await carregarEstoque(); else desenharItens();
 }
 
 /* cartaz da escola: lista pública dos equipamentos (sem os baixados) para escolher e abrir chamado */
@@ -913,7 +985,7 @@ async function publicarCartaz(escId){
     const b = writeBatch(db); let chave = cfg.chave_pub || "";
     if(!chave){ chave = novaChave(20); b.set(doc(db, "rec_config", alvo), { chave_pub:chave, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid }, { merge:true }); }
     const lista = itens.filter(i => sitDe(i) !== "baixado").sort((a, c) => String(a.nome).localeCompare(String(c.nome), "pt-BR", { numeric:true }))
-      .slice(0, 1500).map(i => ({ q:i.qr, n:i.nome, l:i.local || "", p:i.patrimonio || "", t:i.tipo }));
+      .slice(0, 1500).map(i => ({ q:i.qr, n:i.nome, l:i.local || "", p:i.patrimonio || "", s:i.serie || "", t:i.tipo }));
     b.set(doc(db, "rec_pub", chave), { escola_id:alvo, municipio_id:e.municipio_id || "", escola_nome:String(e.nome || "").slice(0, 120), itens:lista, atualizado_em:serverTimestamp() });
     await b.commit();
     if(alvo === E.esc) E.cfg = { ...E.cfg, chave_pub:chave };
@@ -935,7 +1007,7 @@ function imprimirEtiquetas(lista){
   if(!window.QRCode){ toast("O gerador de QR ainda está carregando. Tente de novo.", true); return; }
   const escNome = (E.escola && E.escola.nome) || "";
   $("impressao").innerHTML = '<div class="etqs">' + l.map((i, k) => '<div class="etq"><div class="qr" id="qr' + k + '"></div><div class="t"><div class="cab"><img src="/assets/pde-logo-64.png" alt="">Suporte técnico</div><b>' + esc(i.nome) + "</b>" +
-    (i.patrimonio ? '<span class="pat">' + esc(i.patrimonio) + "</span>" : "") + '<div class="chama">Problema? Aponte a câmera do celular.</div><div class="esc">' + esc(escNome) + "</div></div></div>").join("") + "</div>";
+    (i.patrimonio ? '<span class="pat">' + esc(i.patrimonio) + "</span>" : "") + (i.serie ? '<div class="sn">SN ' + esc(i.serie) + "</div>" : "") + '<div class="chama">Problema? Aponte a câmera do celular.</div><div class="esc">' + esc(i.escola_id ? nomeEscola(i.escola_id) : escNome) + "</div></div></div>").join("") + "</div>";
   l.forEach((i, k) => { try{ new window.QRCode($("qr" + k), { text:URL_CHAMADO(i.qr), width:256, height:256, correctLevel:window.QRCode.CorrectLevel.M }); }catch(e){} });
   imprimir();
 }
@@ -1005,17 +1077,18 @@ async function importarCsv(){
   const m = E.escola && E.escola.municipio_id; if(!E.csv.length || !m) return;
   $("btnImportar").disabled = true; let feitos = 0;
   try{
-    for(let k = 0; k < E.csv.length; k += 150){
+    for(let k = 0; k < E.csv.length; k += 80){
       const b = writeBatch(db);
-      for(const r of E.csv.slice(k, k + 150)){
+      for(const r of E.csv.slice(k, k + 80)){
         const ref = doc(collection(db, "rec_itens")), qr = novaChave(20);
         const d = { escola_id:E.esc, municipio_id:m, nome:r.nome, tipo:r.tipo, local:r.local, patrimonio:r.patrimonio, serie:r.serie, marca:r.marca, modelo:r.modelo, origem:r.origem,
           contrato_id:r.contrato_id, entregue_em:r.entregue_em, garantia_ate:r.garantia_ate, situacao:r.situacao, reservavel:r.reservavel, obs:r.obs, qr,
           criado_em:serverTimestamp(), criado_por:E.user.uid, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
         b.set(ref, d); b.set(doc(db, "rec_qr", qr), { ...qrDe(ref.id, d), chamado_aberto:null, chamado_status:"", chamado_conf:0 });
         movDoc(b, ref.id, "cadastro", "", nomeEscola(E.esc), "Importado da planilha");
+        indexar(b, d, null);
       }
-      await b.commit(); feitos += Math.min(150, E.csv.length - k);
+      await b.commit(); feitos += Math.min(80, E.csv.length - k);
       $("impResumo").innerHTML = "Importando... " + feitos + " de " + E.csv.length;
     }
     toast(feitos + " equipamentos importados."); $("mImport").hidden = true;
@@ -1136,6 +1209,135 @@ async function excluirContrato(){
   await carregarListaContratos();
 }
 
+/* ===================== estoque e entregas (equipe NEWPC) ===================== */
+// o estoque do município são os equipamentos sem escola (recebidos e ainda não entregues)
+async function carregarEstoque(){
+  if(!E.redeM && E.municipios[0]) E.redeM = E.municipios[0].id;
+  $("selMuniEst").value = E.redeM;
+  $("estBox").innerHTML = '<div class="carregando"><div class="giro"></div>Carregando...</div>';
+  const itens = [];
+  try{ const s = await getDocs(query(collection(db, "rec_itens"), where("municipio_id", "==", E.redeM))); s.forEach(d => itens.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("estoque:", e.code || e); }
+  itens.sort((a, b) => String(a.patrimonio || a.nome).localeCompare(String(b.patrimonio || b.nome), "pt-BR", { numeric:true }));
+  E.est.itens = itens; E.est.cts = await lerContratos(E.redeM);
+  desenharEstoque();
+}
+function listaEst(){
+  const t = norm($("buscaEst").value);
+  return E.est.itens.filter(i => (E.est.filtro === "todos" || !i.escola_id) && (!t || norm([i.nome, i.patrimonio, i.serie, i.marca, i.modelo, nomeEscola(i.escola_id)].join(" ")).includes(t)));
+}
+function desenharEstoque(){
+  document.querySelectorAll("#segEst button").forEach(b => b.classList.toggle("on", b.dataset.arg === E.est.filtro));
+  const l = listaEst(), sel = [...E.est.sel].filter(id => E.est.itens.some(i => i.id === id)), selEst = sel.filter(id => !(E.est.itens.find(i => i.id === id) || {}).escola_id);
+  const noEst = E.est.itens.filter(i => !i.escola_id).length;
+  $("contaEst").textContent = noEst + " no estoque · " + E.est.itens.length + " no município";
+  $("btnEtqEst").disabled = !sel.length; $("btnEtqEst").textContent = "🖨️ Etiquetas QR" + (sel.length ? " (" + sel.length + ")" : "");
+  $("btnEntregar").disabled = !selEst.length; $("btnEntregar").textContent = "🚚 Entregar para escola" + (selEst.length ? " (" + selEst.length + ")" : "");
+  if(!l.length){ $("estBox").innerHTML = '<div class="vazio card"><b>' + (E.est.filtro === "estoque" ? "Nada no estoque deste município" : "Nenhum equipamento neste município") + "</b>Use Cadastro em massa para registrar uma entrega: dados comuns uma vez, depois patrimônio e série de cada um.</div>"; return; }
+  const todos = l.every(i => E.est.sel.has(i.id)), ctDe = id => E.est.cts.find(c => c.id === id);
+  $("estBox").innerHTML = '<div class="tabela-wrap"><table class="itens"><thead><tr><th><input type="checkbox" data-selest="todos"' + (todos ? " checked" : "") + ' aria-label="Selecionar todos"></th><th>Patrimônio</th><th>Nº de série</th><th>Equipamento</th><th class="esc-m">Contrato</th><th>Escola</th><th></th></tr></thead><tbody>' +
+    l.slice(0, 1000).map(i => { const s = sitDe(i), ct = ctDe(i.contrato_id);
+      return '<tr class="' + s + '"><td><input type="checkbox" data-selest="' + esc(i.id) + '"' + (E.est.sel.has(i.id) ? " checked" : "") + ' aria-label="Selecionar"></td><td><b>' + esc(i.patrimonio || "") + "</b></td><td>" + esc(i.serie || "") + "</td>" +
+        "<td>" + TIPO(i.tipo)[1] + " " + esc(i.nome) + "<small>" + esc([i.marca, i.modelo].filter(Boolean).join(" ")) + '</small></td><td class="esc-m">' + esc(ct ? ct.numero : "") + "</td>" +
+        "<td>" + (i.escola_id ? esc(nomeEscola(i.escola_id)) + "<small>" + esc(i.local || "") + "</small>" : '<span class="tag estoque">📦 Estoque</span>') + '</td><td class="ac"><button class="btn btn-gh btn-sm" data-action="ficha" data-arg="' + esc(i.id) + '">Ficha</button></td></tr>'; }).join("") +
+    "</tbody></table></div>" + (l.length > 1000 ? '<p class="sub" style="margin-top:8px">Mostrando 1000 de ' + l.length + ". Use a busca para achar os demais.</p>" : "");
+}
+function abrirMassa(){
+  $("mTipo").innerHTML = TIPOS.map(t => '<option value="' + t[0] + '">' + t[1] + " " + t[2] + "</option>").join(""); $("mTipo").value = "chromebook";
+  const esc2 = E.escolas.filter(e => e.municipio_id === E.redeM);
+  $("mDestino").innerHTML = '<option value="">📦 Estoque de ' + esc(nomeMuni(E.redeM)) + " (entregar depois)</option>" + esc2.map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome) + "</option>").join("");
+  $("mContrato").innerHTML = '<option value="">Sem contrato</option>' + E.est.cts.map(c => '<option value="' + esc(c.id) + '">' + esc(c.numero) + " · " + esc(TIPO_CT[c.tipo] || "") + "</option>").join("");
+  if(E.est.cts.length === 1) $("mContrato").value = E.est.cts[0].id;
+  ["mMarca", "mModelo", "mNome", "mLista", "mGarantia"].forEach(id => $(id).value = ""); $("mEntregue").value = hoje(); $("mNumerar").checked = false;
+  $("massaResumo").hidden = true; $("btnMassa").disabled = true; E.massa = []; $("mMassa").hidden = false;
+}
+function conferirMassa(){
+  const linhas = $("mLista").value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const box = $("massaResumo"); box.hidden = false;
+  const base = $("mNome").value.trim() || [TIPO($("mTipo").value)[2].split(" ")[0], $("mMarca").value.trim()].filter(Boolean).join(" ");
+  const existentes = new Map(); E.est.itens.forEach(i => { [i.patrimonio, i.serie].map(chaveNum).filter(Boolean).forEach(v => existentes.set(v, i)); });
+  const vistos = new Set(), dup = [], ja = [], vazios = [];
+  const lista = [];
+  linhas.forEach((l, k) => {
+    if(k === 0 && /patrim|serie|série|tombo/i.test(l)) return;
+    const c = l.split(/\t|;|,/).map(x => x.trim());
+    const pat = (c[0] || "").slice(0, 30), sn = (c[1] || "").slice(0, 60);
+    if(!pat && !sn){ vazios.push(k + 1); return; }
+    const chaves = [pat, sn].map(chaveNum).filter(Boolean);
+    if(chaves.some(v => vistos.has(v))){ dup.push(pat || sn); return; }
+    if(chaves.some(v => existentes.has(v))){ ja.push(pat || sn); return; }
+    chaves.forEach(v => vistos.add(v)); lista.push({ patrimonio:pat, serie:sn });
+  });
+  const w = Math.max(3, String(lista.length).length);
+  lista.forEach((r, k) => r.nome = ($("mNumerar").checked ? base + " " + String(k + 1).padStart(w, "0") : base).slice(0, 80));
+  E.massa = lista.slice(0, 600);
+  const dest = $("mDestino").value;
+  if(!lista.length){ box.className = "resumo erro"; box.innerHTML = "Nenhuma linha válida. Cole uma linha por equipamento: patrimônio, depois o nº de série."; $("btnMassa").disabled = true; return; }
+  box.className = "resumo";
+  box.innerHTML = "<b>" + E.massa.length + "</b> × " + esc(base) + (($("mMarca").value + $("mModelo").value).trim() ? " (" + esc([$("mMarca").value, $("mModelo").value].filter(Boolean).join(" ")) + ")" : "") +
+    " para <b>" + esc(dest ? nomeEscola(dest) : "o estoque de " + nomeMuni(E.redeM)) + "</b>. Ex.: " + esc(E.massa.slice(0, 2).map(r => [r.patrimonio, r.serie && "SN " + r.serie].filter(Boolean).join(" · ")).join(" | ")) +
+    (dup.length ? "<br>⚠ " + dup.length + " repetidos na lista (ignorados): " + esc(dup.slice(0, 6).join(", ")) : "") +
+    (ja.length ? "<br>⚠ " + ja.length + " já cadastrados neste município (ignorados): " + esc(ja.slice(0, 6).join(", ")) : "") +
+    (vazios.length ? "<br>⚠ Linhas sem número: " + vazios.slice(0, 10).join(", ") : "") + (lista.length > 600 ? "<br>⚠ Máximo de 600 por vez." : "");
+  $("btnMassa").disabled = false;
+}
+async function gravarMassa(){
+  if(!E.massa.length) return;
+  const dest = $("mDestino").value, eDest = E.escolas.find(e => e.id === dest), m = E.redeM;
+  const comum = { tipo:$("mTipo").value, local:"", marca:$("mMarca").value.trim().slice(0, 40), modelo:$("mModelo").value.trim().slice(0, 60), origem:"newpc",
+    contrato_id:$("mContrato").value, entregue_em:dest ? $("mEntregue").value || "" : "", garantia_ate:$("mGarantia").value || "", situacao:dest ? "em_uso" : "estoque",
+    reservavel:false, obs:$("mEntregue").value && !dest ? "Recebido em " + dataBr($("mEntregue").value) : "" };
+  $("btnMassa").disabled = true; let feitos = 0; const novos = [];
+  try{
+    for(let k = 0; k < E.massa.length; k += 80){
+      const b = writeBatch(db);
+      for(const r of E.massa.slice(k, k + 80)){
+        const ref = doc(collection(db, "rec_itens")), qr = novaChave(20);
+        const d = { ...comum, escola_id:dest, municipio_id:m, nome:r.nome, patrimonio:r.patrimonio, serie:r.serie, qr,
+          criado_em:serverTimestamp(), criado_por:E.user.uid, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+        b.set(ref, d); b.set(doc(db, "rec_qr", qr), { ...qrDe(ref.id, d), escola_nome:String(dest ? (eDest || {}).nome || "" : "Estoque · " + nomeMuni(m)).slice(0, 120), chamado_aberto:null, chamado_status:"", chamado_conf:0 });
+        movDoc(b, ref.id, "cadastro", "", dest ? nomeEscola(dest) : "Estoque · " + nomeMuni(m), "Cadastro em massa");
+        indexar(b, d, null); novos.push(ref.id);
+      }
+      await b.commit(); feitos = Math.min(E.massa.length, k + 80);
+      $("massaResumo").innerHTML = "Cadastrando... " + feitos + " de " + E.massa.length;
+    }
+    toast(feitos + " equipamentos cadastrados. As etiquetas já estão selecionadas para imprimir."); $("mMassa").hidden = true;
+  }catch(e){ console.warn("massa:", e.code || e); toast("Parou em " + feitos + " de " + E.massa.length + ". Confira a lista e cadastre o restante.", true); }
+  E.massa = []; E.est.sel = new Set(novos); E.est.filtro = dest ? "todos" : "estoque";
+  if(dest) await publicarCartaz(dest);
+  await carregarEstoque();
+}
+function abrirEntrega(){
+  const ids = [...E.est.sel].filter(id => { const i = E.est.itens.find(x => x.id === id); return i && !i.escola_id; });
+  if(!ids.length) return;
+  const its = ids.map(id => E.est.itens.find(x => x.id === id)), modelos = [...new Set(its.map(i => [i.marca, i.modelo].filter(Boolean).join(" ") || i.nome))];
+  $("entResumo").innerHTML = "<b>" + ids.length + "</b> equipamento(s): " + esc(modelos.slice(0, 3).join(", ")) + "<br>Patrimônios: " + esc(its.slice(0, 6).map(i => i.patrimonio || i.serie).join(", ")) + (its.length > 6 ? "..." : "");
+  $("eEscola").innerHTML = E.escolas.filter(e => e.municipio_id === E.redeM).map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome) + "</option>").join("");
+  $("eLocal").value = ""; $("eObs").value = ""; $("eData").value = hoje(); $("eUso").checked = true;
+  E.entrega = its; $("mEntrega").hidden = false;
+}
+async function confirmarEntrega(){
+  const dest = $("eEscola").value, e = E.escolas.find(x => x.id === dest); if(!e){ toast("Escolha a escola.", true); return; }
+  const its = E.entrega || [], local = $("eLocal").value.trim().slice(0, 60), data = $("eData").value || hoje(), sit = $("eUso").checked ? "em_uso" : "estoque", obs = $("eObs").value.trim().slice(0, 300);
+  $("btnEntrega").disabled = true; let feitos = 0;
+  try{
+    for(let k = 0; k < its.length; k += 80){
+      const b = writeBatch(db);
+      for(const i of its.slice(k, k + 80)){
+        b.update(doc(db, "rec_itens", i.id), { escola_id:dest, municipio_id:e.municipio_id, local, entregue_em:data, situacao:sit, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid });
+        b.update(doc(db, "rec_qr", i.qr), { escola_id:dest, municipio_id:e.municipio_id, escola_nome:String(e.nome || "").slice(0, 120), local });
+        movDoc(b, i.id, "transferencia", "Estoque · " + nomeMuni(i.municipio_id), e.nome, ["Entrega em " + dataBr(data), obs].filter(Boolean).join(" · "));
+        indexar(b, { ...i, escola_id:dest, municipio_id:e.municipio_id }, i);
+      }
+      await b.commit(); feitos = Math.min(its.length, k + 80);
+    }
+    toast(feitos + " equipamento(s) entregues para " + e.nome + "."); $("mEntrega").hidden = true;
+  }catch(err){ console.warn("entrega:", err.code || err); toast("Parou em " + feitos + " de " + its.length + ". Tente de novo com os que faltaram.", true); }
+  $("btnEntrega").disabled = false; E.est.sel.clear();
+  await publicarCartaz(dest); await carregarEstoque();
+  if(dest === E.esc) await carregarItens();
+}
+
 /* ===================== horários ===================== */
 let rascunho = null;
 function desenharHorarios(){
@@ -1182,6 +1384,10 @@ const ACOES = {
   "salvar-horarios": () => salvarHorarios(),
   "periodo": p => { E.periodo = +p; if(E.rede) desenharRede(); }, "exportar-rede": () => exportarRede(), "exportar-sla": () => exportarSla(),
   "novo-contrato": () => abrirContrato(null), "editar-contrato": id => abrirContrato(id), "add-renovacao": () => addRenovacao(), "salvar-contrato": () => salvarContrato(), "excluir-contrato": () => excluirContrato(),
+  "filtro-est": f => { E.est.filtro = f; desenharEstoque(); }, "massa": () => abrirMassa(), "conferir-massa": () => conferirMassa(), "gravar-massa": () => gravarMassa(),
+  "entregar": () => abrirEntrega(), "confirmar-entrega": () => confirmarEntrega(),
+  "etiquetas-est": () => imprimirEtiquetas(E.est.itens.filter(i => E.est.sel.has(i.id))),
+  "exportar-est": () => baixarCsv("estoque-" + hoje() + ".csv", [CAB_ITENS, ...listaEst().map(i => linhaItem(i, E.est.cts))]),
   "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
 };
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
@@ -1192,6 +1398,8 @@ document.addEventListener("change", ev => {
   else if(t.id === "chRede") carregarChamados();
   else if(t.id === "selMuni"){ E.redeM = t.value; carregarRede(); }
   else if(t.id === "selMuniCt"){ E.redeM = t.value; carregarListaContratos(); }
+  else if(t.id === "selMuniEst"){ E.redeM = t.value; E.est.sel.clear(); carregarEstoque(); }
+  else if(t.dataset.selest){ const ids = t.dataset.selest === "todos" ? listaEst().map(i => i.id) : [t.dataset.selest]; ids.forEach(id => t.checked ? E.est.sel.add(id) : E.est.sel.delete(id)); desenharEstoque(); }
   else if(t.id === "filtroSit") desenharItens();
   else if(t.id === "arqCsv" && t.files[0]){ const r = new FileReader(); r.onload = () => { $("txtCsv").value = r.result; conferirCsv(); }; r.readAsText(t.files[0], "utf-8"); }
   else if(t.dataset.sel){ if(t.dataset.sel === "todos"){ const l = filtrados(); if(t.checked) l.forEach(i => E.sel.add(i.id)); else l.forEach(i => E.sel.delete(i.id)); } else if(t.checked) E.sel.add(t.dataset.sel); else E.sel.delete(t.dataset.sel); desenharItens(); }
@@ -1204,6 +1412,8 @@ document.addEventListener("input", ev => {
   else if(id === "buscaItens") desenharItens();
   else if(id === "buscaNovoCh") listarNovoCh();
   else if(id === "txtCsv") $("btnImportar").disabled = true;
+  else if(id === "buscaEst") desenharEstoque();
+  else if(id === "mLista") $("btnMassa").disabled = true;
 });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape") ACOES.fechar(); });
 
@@ -1216,7 +1426,7 @@ onAuthStateChanged(auth, async user => {
   const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   try{ const t = localStorage.getItem("pde_rec_turno"); if(TURNOS[t]) E.turno = t; }catch(e){}
-  const h = (location.hash || "").slice(1); if(["reservar", "minhas", "chamados", "itens", "horarios", "rede", "contratos"].includes(h)) E.sec = h;
+  const h = (location.hash || "").slice(1); if(["reservar", "minhas", "chamados", "itens", "horarios", "rede", "contratos", "estoque"].includes(h)) E.sec = h;
   await carregarEscolas();
   if(!E.escolas.length){ $("carregando").hidden = true; $("semEscola").hidden = false; return; }
   let ult = ""; try{ ult = localStorage.getItem("pde_rec_escola") || ""; }catch(e){}

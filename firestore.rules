@@ -256,11 +256,10 @@ service cloud.firestore {
     // ativo (equipamento): gestor cadastra na escola dele; transferir de escola e ligar a contrato e so a equipe NEWPC (admin)
     match /rec_itens/{id} {
       allow read: if recLeitor(resource.data.escola_id, resource.data.municipio_id);
-      allow create: if recGestor(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id) && camposItem()
-        && (admin() || novo().contrato_id == "");
-      allow update: if recGestor(resource.data.escola_id) && novo().qr == resource.data.qr && camposItem()
-        && (admin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(["escola_id", "municipio_id", "contrato_id"]))
-        && novo().municipio_id == muniDaEscola(novo().escola_id);
+      // escola vazia = estoque do municipio (equipamento ainda nao entregue): so a NEWPC
+      allow create: if camposItem() && lugarValido() && (admin() || (gestorDaEscola(novo().escola_id) && novo().contrato_id == ""));
+      allow update: if recGestor(resource.data.escola_id) && novo().qr == resource.data.qr && camposItem() && lugarValido()
+        && (admin() || !request.resource.data.diff(resource.data).affectedKeys().hasAny(["escola_id", "municipio_id", "contrato_id"]));
       allow delete: if recGestor(resource.data.escola_id);
       // historico de movimentacao (cadastro, situacao, transferencia): so acrescenta, ninguem edita
       match /mov/{mid} {
@@ -270,6 +269,10 @@ service cloud.firestore {
           && novo().tipo in ["cadastro", "situacao", "transferencia", "edicao"] && texto(novo().de, 120) && texto(novo().para, 120) && texto(novo().obs, 300) && texto(novo().por_nome, 80);
         allow delete: if admin();
       }
+    }
+    function lugarValido() {
+      return (novo().escola_id == "" && admin() && exists(/databases/$(database)/documents/municipios/$(novo().municipio_id)))
+        || (novo().escola_id != "" && novo().municipio_id == muniDaEscola(novo().escola_id));
     }
     function camposItem() {
       return novo().keys().hasOnly(["escola_id", "municipio_id", "nome", "tipo", "local", "patrimonio", "marca", "modelo", "serie", "origem", "contrato_id",
@@ -285,6 +288,19 @@ service cloud.firestore {
       allow read: if admin() || (ativo() && eu().perfil != "aluno" && resource.data.municipio_id == eu().get("municipio_id", "-"));
       allow write: if admin();
     }
+    // busca publica por patrimonio ou numero de serie (o ID e o numero so com letras e algarismos): aponta para a etiqueta do equipamento.
+    // cada gravacao mexe em um equipamento so (campo "ultimo"), e so quem cuida daquele equipamento pode mexer
+    match /rec_busca/{v} {
+      allow get: if true;
+      allow create: if v.matches("^[A-Z0-9]{2,40}$") && camposBusca() && novo().itens.keys().hasOnly([novo().ultimo]) && cuidaDoQr(novo().ultimo);
+      allow update: if camposBusca() && novo().itens.diff(resource.data.itens).affectedKeys().hasOnly([novo().ultimo]) && cuidaDoQr(novo().ultimo);
+      allow delete: if admin();
+    }
+    function camposBusca() { return novo().keys().hasOnly(["itens", "ultimo"]) && novo().itens is map && novo().itens.size() <= 50 && novo().ultimo is string && novo().ultimo.matches("^[A-Za-z0-9]{20}$"); }
+    function cuidaDoQr(k) {
+      return admin() || gestorDaEscola(getAfter(/databases/$(database)/documents/rec_qr/$(k)).data.escola_id)
+        || gestorDaEscola(get(/databases/$(database)/documents/rec_qr/$(k)).data.escola_id);
+    }
     // cartaz da escola: lista publica dos equipamentos da escola pela chave do cartaz (impossivel de adivinhar), para escolher e abrir chamado
     match /rec_pub/{chave} {
       allow get: if true;
@@ -297,8 +313,10 @@ service cloud.firestore {
     match /rec_qr/{chave} {
       allow get: if true;
       allow list: if recLeitor(resource.data.escola_id, resource.data.municipio_id);
-      allow create: if chave.matches("^[A-Za-z0-9]{20}$") && recGestor(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id)
-        && getAfter(/databases/$(database)/documents/rec_itens/$(novo().item_id)).data.qr == chave;
+      allow create: if chave.matches("^[A-Za-z0-9]{20}$") && (admin() || gestorDaEscola(novo().escola_id))
+        && getAfter(/databases/$(database)/documents/rec_itens/$(novo().item_id)).data.qr == chave
+        && getAfter(/databases/$(database)/documents/rec_itens/$(novo().item_id)).data.escola_id == novo().escola_id
+        && getAfter(/databases/$(database)/documents/rec_itens/$(novo().item_id)).data.municipio_id == novo().municipio_id;
       allow update: if (recGestor(resource.data.escola_id) && novo().item_id == resource.data.item_id && (admin() || novo().escola_id == resource.data.escola_id))
         || abrirChamadoQr(chave) || confirmarChamadoQr();
       allow delete: if recGestor(resource.data.escola_id);

@@ -57,6 +57,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--azul-2)}
 .aviso b{display:block;color:var(--ink);font-size:1.15rem;margin-bottom:6px}
 .giro{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--azul);border-radius:50%;animation:g .8s linear infinite;margin:0 auto 10px}
 @keyframes g{to{transform:rotate(360deg)}}
+#formBusca input{margin-top:6px}
 .lista-eq{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .lista-eq a{display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;text-decoration:none;color:var(--ink);font-weight:700;font-size:.92rem}
 .lista-eq a span{font-size:1.25rem}
@@ -74,7 +75,15 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--azul-2)}
   </header>
   <main>
     <div class="aviso" id="carregando"><div class="giro"></div>Carregando o equipamento...</div>
-    <div class="aviso" id="invalido" hidden><b>Etiqueta não encontrada</b>Este código não está cadastrado ou foi removido. Avise a direção da escola.</div>
+    <div class="aviso" id="invalido" hidden><b>Etiqueta não encontrada</b>Este código não está cadastrado ou foi removido. Procure o equipamento pelo patrimônio ou pelo número de série abaixo.</div>
+
+    <section id="telaBusca" hidden>
+      <div class="card"><h2>Abrir chamado técnico</h2><p class="sub">Digite o número de patrimônio (etiqueta da prefeitura ou NEWPC) ou o número de série (S/N, na etiqueta embaixo do aparelho).</p>
+        <form id="formBusca" novalidate><input type="text" id="numBusca" maxlength="60" autocapitalize="characters" autocomplete="off" placeholder="Ex.: NPC-2500 ou 5CD1234ABC" aria-label="Patrimônio ou número de série">
+        <button class="btn btn-pri" type="submit" id="btnBusca">Procurar equipamento</button></form>
+        <div class="erro" id="erroBusca" hidden></div>
+        <div class="lista-eq" id="listaBusca"></div></div>
+    </section>
 
     <section id="telaEscola" hidden>
       <div class="card"><h2>Qual equipamento está com problema?</h2><p class="sub">Toque no equipamento para abrir o chamado. Não precisa de login.</p>
@@ -135,10 +144,10 @@ async function carregarEscola(){
   }catch(e){ $("carregando").hidden = true; $("invalido").hidden = false; $("invalido").innerHTML = "<b>Sem conexão</b>Confira a internet do celular e escaneie de novo."; }
 }
 function listarEq(){
-  const t = normz($("buscaEq").value), l = (PUB.itens || []).filter(i => !t || normz([i.n, i.l, i.p].join(" ")).includes(t));
+  const t = normz($("buscaEq").value), l = (PUB.itens || []).filter(i => !t || normz([i.n, i.l, i.p, i.s].join(" ")).includes(t));
   const grupos = {}; l.forEach(i => (grupos[i.l || "Outros"] = grupos[i.l || "Outros"] || []).push(i));
   $("listaEq").innerHTML = l.length ? Object.keys(grupos).sort((a, b) => a.localeCompare(b, "pt-BR")).map(g => "<h4>" + esc(g) + "</h4>" +
-    grupos[g].map(i => '<a href="?k=' + esc(i.q) + "&e=" + escolaK + '"><span>' + (TIPO_ICO[i.t] || "📦") + "</span><div>" + esc(i.n) + (i.p ? "<small>Patrimônio " + esc(i.p) + "</small>" : "") + "</div></a>").join("")).join("")
+    grupos[g].map(i => '<a href="?k=' + esc(i.q) + "&e=" + escolaK + '"><span>' + (TIPO_ICO[i.t] || "📦") + "</span><div>" + esc(i.n) + (i.p || i.s ? "<small>" + esc([i.p && "Patrimônio " + i.p, i.s && "S/N " + i.s].filter(Boolean).join(" · ")) + "</small>" : "") + "</div></a>").join("")).join("")
     : '<p class="sub" style="margin-top:10px">Nenhum equipamento encontrado.</p>';
 }
 const E = { q:null, problema:"", enviando:false };
@@ -209,11 +218,27 @@ async function confirmar(){
     $("confInfo").textContent = "Obrigado! Registramos que aconteceu com você também. " + $("confInfo").textContent;
   }catch(e){ console.warn("confirmar:", e.code || e); $("btnConf").disabled = false; }
 }
+// patrimônio e série viram chave: só letras e algarismos, em maiúsculas (mesma regra do cadastro)
+const chaveNum = v => String(v || "").normalize("NFD").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 40);
+function mostrarBusca(){ $("carregando").hidden = true; $("telaBusca").hidden = false; }
+async function buscarNumero(ev){
+  ev.preventDefault();
+  const v = chaveNum($("numBusca").value), box = $("erroBusca"); $("listaBusca").innerHTML = "";
+  if(v.length < 2){ box.hidden = false; box.textContent = "Digite o patrimônio ou o número de série."; return; }
+  box.hidden = true; $("btnBusca").disabled = true; $("btnBusca").textContent = "Procurando...";
+  try{
+    const s = await getDoc(doc(db, "rec_busca", v)), itens = s.exists() ? Object.entries(s.data().itens || {}) : [];
+    if(!itens.length){ box.hidden = false; box.textContent = "Nenhum equipamento com esse número. Confira os dígitos ou avise a direção da escola."; }
+    else if(itens.length === 1){ location.href = "?k=" + itens[0][0]; return; }
+    else $("listaBusca").innerHTML = "<h4>Esse número aparece em " + itens.length + " equipamentos. Qual é o seu?</h4>" + itens.map(([k, i]) => '<a href="?k=' + esc(k) + '"><span>🔎</span><div>' + esc(i.n) + "<small>" + esc([i.e, i.p && "Patrimônio " + i.p, i.s && "S/N " + i.s].filter(Boolean).join(" · ")) + "</small></div></a>").join("");
+  }catch(e){ box.hidden = false; box.textContent = "Sem conexão. Confira a internet e tente de novo."; }
+  $("btnBusca").disabled = false; $("btnBusca").textContent = "Procurar equipamento";
+}
 async function carregar(silencioso){
-  if(chave.length !== 20){ $("carregando").hidden = true; $("invalido").hidden = false; return; }
+  if(chave.length !== 20){ $("carregando").hidden = true; $("invalido").hidden = false; $("telaBusca").hidden = false; return; }
   try{
     const s = await getDoc(doc(db, "rec_qr", chave));
-    if(!s.exists()){ $("carregando").hidden = true; $("invalido").hidden = false; return; }
+    if(!s.exists()){ $("carregando").hidden = true; $("invalido").hidden = false; $("telaBusca").hidden = false; return; }
     E.q = s.data(); mostrar();
   }catch(e){ if(!silencioso){ $("carregando").hidden = true; $("invalido").hidden = false; $("invalido").innerHTML = "<b>Sem conexão</b>Confira a internet do celular e escaneie de novo."; } }
 }
@@ -230,7 +255,8 @@ if(escolaK){ $("voltar").href = "?e=" + escolaK; }
 $("buscaEq").addEventListener("input", () => PUB && listarEq());
 if(chave){ if(escolaK) $("voltar").hidden = false; carregar(); }
 else if(escolaK) carregarEscola();
-else carregar();
+else mostrarBusca();
+$("formBusca").addEventListener("submit", buscarNumero);
 </script>
 </body>
 </html>

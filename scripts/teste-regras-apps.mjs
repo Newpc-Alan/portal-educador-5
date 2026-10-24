@@ -4,7 +4,7 @@
 //   firebase emulators:exec --only firestore --project demo-pe5 "node /tmp/rt/teste-regras-apps.mjs $PWD/firestore.rules"
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, query, where, getDocs, serverTimestamp, Timestamp, writeBatch, increment, deleteField } from 'firebase/firestore';
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
 const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
@@ -186,6 +186,33 @@ await t('anonimo nao le contratos', assertFails(getDoc(doc(anon, 'rec_contratos/
 { const a = ctx('adm'), b = writeBatch(a); b.update(doc(a, 'rec_itens/i3'), { escola_id: 'e2', municipio_id: 'm1', local: 'Sala 1' }); b.update(doc(a, `rec_qr/${QB}`), { escola_id: 'e2', escola_nome: 'EM Vila' });
   await t('administrador transfere de escola', assertSucceeds(b.commit())); }
 await t('transferencia com municipio errado', assertFails(updateDoc(doc(ctx('adm'), 'rec_itens/i3'), { escola_id: 'e9', municipio_id: 'm1' })));
+// estoque do municipio (sem escola) e busca por patrimonio e serie
+const QE = 'Ee1Ee2Ee3Ee4Ee5Ee6Ee', QF = 'Ff1Ff2Ff3Ff4Ff5Ff6Ff';
+await t('gestor nao cria item no estoque', assertFails(criarItem(gest, 'est1', QE, '', 'm1')));
+await t('estoque em municipio inexistente', assertFails(criarItem(ctx('adm'), 'est1', QE, '', 'mX')));
+await t('administrador cria item no estoque', assertSucceeds(criarItem(ctx('adm'), 'est1', QE, '', 'm1', { situacao: 'estoque', patrimonio: 'NPC-3001', serie: 'SN3001' })));
+await t('secretaria le o estoque do municipio', assertSucceeds(getDocs(query(collection(sec, 'rec_itens'), where('municipio_id', '==', 'm1')))));
+await t('gestor nao mexe no estoque', assertFails(updateDoc(doc(gest, 'rec_itens/est1'), { local: 'x' })));
+const busca = (qr, extra = {}) => ({ itens: { [qr]: { n: 'Notebook', e: 'Estoque', p: 'NPC-3001', s: 'SN3001' } }, ultimo: qr, ...extra });
+await t('administrador indexa patrimonio', assertSucceeds(setDoc(doc(ctx('adm'), 'rec_busca/NPC3001'), busca(QE), { merge: true })));
+await t('anonimo busca por patrimonio', assertSucceeds(getDoc(doc(anon, 'rec_busca/NPC3001'))));
+await t('anonimo nao grava busca', assertFails(setDoc(doc(anon, 'rec_busca/XYZ1'), busca(QE))));
+await t('anonimo nao lista busca', assertFails(getDocs(collection(anon, 'rec_busca'))));
+await t('chave de busca fora do padrao', assertFails(setDoc(doc(ctx('adm'), 'rec_busca/npc-3001'), busca(QE))));
+await t('gestor nao indexa equipamento de outra escola', assertFails(setDoc(doc(gest, 'rec_busca/SN3001'), busca(QE))));
+await t('gestor indexa equipamento da escola dele', assertSucceeds(setDoc(doc(gest, 'rec_busca/NPC3001'), busca(QA, { ultimo: QA, itens: { [QA]: { n: 'Carrinho', e: 'EM Vila', p: 'NPC-3001', s: '' } } }), { merge: true })));
+await t('gestor nao apaga entrada de outra escola', assertFails(setDoc(doc(gest, 'rec_busca/NPC3001'), { itens: { [QE]: deleteField() }, ultimo: QE }, { merge: true })));
+await t('gestor nao mexe em duas entradas de uma vez', assertFails(setDoc(doc(gest, 'rec_busca/NPC3001'), { itens: { [QE]: deleteField(), [QA]: { n: 'x' } }, ultimo: QA }, { merge: true })));
+await t('gestor remove a entrada da escola dele', assertSucceeds(setDoc(doc(gest, 'rec_busca/NPC3001'), { itens: { [QA]: deleteField() }, ultimo: QA }, { merge: true })));
+// entrega do estoque para a escola
+{ const a = ctx('adm'), b = writeBatch(a);
+  b.update(doc(a, 'rec_itens/est1'), { escola_id: 'e2', municipio_id: 'm1', local: 'Carrinho 2', situacao: 'em_uso', entregue_em: '2026-10-24' });
+  b.update(doc(a, `rec_qr/${QE}`), { escola_id: 'e2', municipio_id: 'm1', escola_nome: 'EM Vila', local: 'Carrinho 2' });
+  b.set(doc(a, 'rec_itens/est1/mov/m1'), { tipo: 'transferencia', de: 'Estoque', para: 'EM Vila', obs: 'Entrega', por: 'adm', por_nome: 'A', em: serverTimestamp() });
+  b.set(doc(a, 'rec_busca/NPC3001'), { itens: { [QE]: { n: 'Notebook', e: 'EM Vila', p: 'NPC-3001', s: 'SN3001' } }, ultimo: QE }, { merge: true });
+  await t('administrador entrega do estoque para a escola', assertSucceeds(b.commit())); }
+await t('depois da entrega o gestor cuida do item', assertSucceeds(updateDoc(doc(gest, 'rec_itens/est1'), { local: 'Sala 4' })));
+
 // cartaz da escola
 const PUB = 'Pp1Pp2Pp3Pp4Pp5Pp6Pp';
 async function cartaz(db, esc, chave) { const b = writeBatch(db); b.set(doc(db, `rec_config/${esc}`), { chave_pub: chave, atualizado_em: serverTimestamp(), atualizado_por: 'x' }, { merge: true });
@@ -236,6 +263,7 @@ await t('professor nao configura horarios', assertFails(setDoc(doc(prof, 'rec_co
 await t('professor le horarios da escola', assertSucceeds(getDoc(doc(prof, 'rec_config/e1'))));
 await t('gestor exclui recurso', assertSucceeds((async () => { const b = writeBatch(gest); b.delete(doc(gest, 'rec_itens/i1')); b.delete(doc(gest, `rec_qr/${QA}`)); await b.commit(); })()));
 
+await t('anonimo abre chamado de item entregue', assertSucceeds(abrir(anon, 'cE', QE, 'est1')));
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

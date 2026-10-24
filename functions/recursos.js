@@ -22,7 +22,7 @@ export const emailChamadoTecnico = onDocumentCreated(
     const c = event.data && event.data.data(); if (!c) return;
     try {
       const db = getFirestore();
-      const e = (await db.doc(`escolas/${c.escola_id}`).get()).data() || {};
+      const e = c.escola_id ? (await db.doc(`escolas/${c.escola_id}`).get()).data() || {} : { nome: 'Estoque (ainda não entregue)' };
       const m = (await db.doc(`municipios/${c.municipio_id}`).get()).data() || {};
       const protocolo = String(event.params.id).slice(-6).toUpperCase();
       // prazo do SLA pelo contrato ligado ao equipamento
@@ -43,7 +43,7 @@ ${zap.length >= 10 ? `<p style="margin:0 0 14px"><a href="https://wa.me/55${zap.
 <div style="background:#0c2338;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><b style="font-size:16px">Novo chamado técnico</b><br><span style="color:#8DC63F;font-size:12px">Recursos da Escola · Portal do Educador</span></div>
 <div style="border:1px solid #dce4ed;border-top:0;padding:18px 20px;border-radius:0 0 12px 12px">${corpo}
 <a href="https://app.portaldoeducador.com.br/apps/recursos/#chamados" style="display:inline-block;background:#5A9420;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Abrir os chamados</a></div></div>`;
-      const para = [...new Set([...destinos(), ...(await gestoresDaEscola(c.escola_id))])];
+      const para = [...new Set([...destinos(), ...(c.escola_id ? await gestoresDaEscola(c.escola_id) : [])])];
       await transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: para,
         subject: `Chamado ${protocolo}: ${String(c.problema || '').slice(0, 40)} · ${String(c.item_nome || '').slice(0, 50)} · ${String(e.nome || '').slice(0, 60)}`, html });
     } catch (err) { console.error('emailChamadoTecnico', event.params.id, err); }
