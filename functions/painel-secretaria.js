@@ -146,7 +146,7 @@ export async function montar(db, m) {
   });
 
   return {
-    gerado_em: agora, ano, municipio: { id: m, nome: muni.nome || '', uf: muni.uf || '' },
+    gerado_em: agora, ano, municipio: { id: m, nome: muni.nome || '', uf: muni.uf || '', logo_url: muni.logo_url || '' },
     totais: { escolas: escolas.length, alunos: Object.values(E).reduce((s, e) => s + e.alunos, 0) },
     uso, aprendizagem: { provas: apr.provas, respostas: apr.respostas, acerto: apr.tot ? apr.ac / apr.tot : null, habilidades: apr.habilidades.slice(0, 40), semHab: apr.semHab },
     calendario: cal, infra: inf, relatorios: rel,

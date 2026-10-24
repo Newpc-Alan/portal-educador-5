@@ -155,6 +155,7 @@ async function carregar(forcar){
 function kpi(rot, val, extra, cls){ return '<div class="kpi ' + (cls || "") + '"><small>' + rot + "</small><b>" + val + "</b><span>" + (extra || "") + "</span></div>"; }
 function desenhar(){
   const d = S.d, u = d.uso, a = d.aprendizagem, c = d.calendario, f = d.infra;
+  if(d.municipio.logo_url){ const im = document.querySelector(".marca img"); im.src = d.municipio.logo_url; im.style.background = "#fff"; im.style.borderRadius = "10px"; im.style.objectFit = "contain"; im.style.padding = "3px"; }
   $("tit").textContent = "Painel da Rede · " + (d.municipio.nome || "") + (d.municipio.uf ? "/" + d.municipio.uf : "");
   const totProf = u.professores + u.gestores, pAtivos = totProf ? u.ativos30 / totProf : null;
   $("kpis").innerHTML =
@@ -200,16 +201,39 @@ function desenhar(){
 }
 
 /* ---------- relatório executivo (PDF, 1 página A4) ---------- */
-function relatorio(){
+// brasão/logo do município (cadastrado em Municípios) em PNG para o PDF; sem logo ou sem acesso, segue sem
+function logoPng(url){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), t = setTimeout(() => ok(null), 7000);
+    img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(t); try{ const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k)); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      ok({ url:c.toDataURL("image/png"), w:c.width, h:c.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(t); ok(null); };
+    img.src = url;
+  });
+}
+// desenha o logo numa caixa branca arredondada dentro de (x, y, lado); devolve a largura ocupada
+function logoNoPdf(pdf, lg, x, y, lado){
+  if(!lg) return 0;
+  pdf.setFillColor(255, 255, 255); pdf.roundedRect(x, y, lado, lado, 2, 2, "F");
+  const m = 1.6, k = Math.min((lado - 2 * m) / lg.w, (lado - 2 * m) / lg.h), w = lg.w * k, h = lg.h * k;
+  pdf.addImage(lg.url, "PNG", x + (lado - w) / 2, y + (lado - h) / 2, w, h);
+  return lado + 4;
+}
+async function relatorio(){
   const d = S.d; if(!d){ return; }
   if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
+  const lg = await logoPng(d.municipio.logo_url);
   const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), u = d.uso, a = d.aprendizagem, c = d.calendario, f = d.infra;
   const totProf = u.professores + u.gestores;
   pdf.setFillColor(12, 35, 56); pdf.rect(0, 0, 210, 30, "F");
+  const tx = 14 + logoNoPdf(pdf, lg, 14, 4, 22);
   pdf.setTextColor(141, 198, 63); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5);
-  pdf.text(("PREFEITURA MUNICIPAL DE " + (d.municipio.nome || "") + (d.municipio.uf ? " · " + d.municipio.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO").toUpperCase(), 14, 11);
-  pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("Relatório executivo da rede · " + d.ano, 14, 21);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5); pdf.text("Gerado em " + new Date(d.gerado_em).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " pelo Portal do Educador", 14, 26.5);
+  pdf.text(pdf.splitTextToSize(("PREFEITURA MUNICIPAL DE " + (d.municipio.nome || "") + (d.municipio.uf ? " · " + d.municipio.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO").toUpperCase(), 196 - tx)[0], tx, 11);
+  pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("Relatório executivo da rede · " + d.ano, tx, 21);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5); pdf.text("Gerado em " + new Date(d.gerado_em).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " pelo Portal do Educador", tx, 26.5);
   // blocos de indicadores
   const blocos = [
     ["Escolas", n(d.totais.escolas), n(d.totais.alunos) + " alunos"],

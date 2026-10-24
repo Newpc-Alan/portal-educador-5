@@ -766,14 +766,36 @@ function baixarIcs(){
 
 /* ---------- PDF oficial ---------- */
 function rgb(h){ const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
-function gerarPdf(){
+// brasão/logo do município (cadastrado em Municípios) em PNG para o PDF; sem logo ou sem acesso, segue sem
+function logoPng(url){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), t = setTimeout(() => ok(null), 7000);
+    img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(t); try{ const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k)); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      ok({ url:c.toDataURL("image/png"), w:c.width, h:c.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(t); ok(null); };
+    img.src = url;
+  });
+}
+// desenha o logo numa caixa branca arredondada dentro de (x, y, lado); devolve a largura ocupada
+function logoNoPdf(pdf, lg, x, y, lado){
+  if(!lg) return 0;
+  pdf.setFillColor(255, 255, 255); pdf.roundedRect(x, y, lado, lado, 2, 2, "F");
+  const m = 1.6, k = Math.min((lado - 2 * m) / lg.w, (lado - 2 * m) / lg.h), w = lg.w * k, h = lg.h * k;
+  pdf.addImage(lg.url, "PNG", x + (lado - w) / 2, y + (lado - h) / 2, w, h);
+  return lado + 4;
+}
+async function gerarPdf(){
   if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
   const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4", orientation:"landscape" }), r = E.resumo, R = E.R;
   const nP = r.periodos.length, nomeP = NOME_PER[nP] || "período", marcos = new Set([R.inicio, R.fim, ...r.periodos.flatMap(p => [p.inicio, p.fim])]);
   // cabeçalho
   pdf.setFillColor(12, 35, 56); pdf.rect(0, 0, 297, 22, "F");
-  pdf.setTextColor(141, 198, 63); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.text("PREFEITURA MUNICIPAL DE " + String(E.muni.nome || "").toUpperCase() + (E.muni.uf ? " · " + E.muni.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO", 10, 8);
-  pdf.setTextColor(255, 255, 255); pdf.setFontSize(15); pdf.text("Calendário Escolar " + E.ano, 10, 16);
+  const esc0 = escolaAtual(), lg = await logoPng((E.visao !== "rede" && esc0 && esc0.logo_url) || E.muni.logo_url), tx = 10 + logoNoPdf(pdf, lg, 10, 2.5, 17);
+  pdf.setTextColor(141, 198, 63); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.text("PREFEITURA MUNICIPAL DE " + String(E.muni.nome || "").toUpperCase() + (E.muni.uf ? " · " + E.muni.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO", tx, 8);
+  pdf.setTextColor(255, 255, 255); pdf.setFontSize(15); pdf.text("Calendário Escolar " + E.ano, tx, 16);
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(10); pdf.text(nomeVisao(), 287, 16, { align:"right" });
   // meses: 4 colunas x 3 linhas
   const MW = 51, MH = 49, X0 = 8, Y0 = 27, GX = 2.5, GY = 3, cw = MW / 7, ch = 5.6;
