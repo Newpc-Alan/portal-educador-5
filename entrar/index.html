@@ -4450,7 +4450,9 @@
     const n = MODULOS.filter(m => modAdm.rasc[m.id].status === "liberado").length;
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
-  function urlOk(u){ return !u || u === "#acervo" || u === "#videos" || u === "#jogos" || u === "#ia" || u === "#provas" || u === "#relatorios" || u === "#formacao" || u === "#museus" || u === "#dicas" || u === "#colorir" || u === "#biblioteca" || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
+  // atalhos internos aceitos no campo de link (os mesmos de ROTA_INTERNA no Início)
+  const ROTAS_MODULO = ["#acervo","#videos","#jogos","#ia","#provas","#relatorios","#formacao","#museus","#dicas","#colorir","#biblioteca","#apps","#dicasaluno"];
+  function urlOk(u){ return !u || u === "https://" || ROTAS_MODULO.includes(u) || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;
     modAdm.rasc[t.dataset.mod][t.dataset.campo] = t.value.trim();
@@ -4461,8 +4463,8 @@
     const itens = {}; const problemas = [];
     MODULOS.forEach(md => { const c = modAdm.rasc[md.id];
       if(!urlOk(c.url) || !urlOk(c.imagem)) problemas.push(md.nome+": link ou imagem precisa começar com https://");
-      else if(c.status === "liberado" && !c.url) problemas.push(md.nome+": para liberar, informe o link");
-      itens[md.id] = { status:c.status, url:c.url, imagem:c.imagem }; });
+      else if(c.status === "liberado" && (!c.url || c.url === "https://")) problemas.push(md.nome+": para liberar, informe o link");
+      itens[md.id] = { status:c.status, url:c.url === "https://" ? "" : c.url, imagem:c.imagem === "https://" ? "" : c.imagem }; });
     if(problemas.length){ toast(problemas[0], true); return; }
     const btn = $("modSalvar"); btn.disabled = true; btn.textContent = "Salvando...";
     try{
