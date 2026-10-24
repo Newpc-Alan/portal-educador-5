@@ -473,10 +473,12 @@ service cloud.firestore {
     }
 
     // respostas das provas: so o professor dono da prova corrige; gestor da escola e secretaria do municipio acompanham
-    function donoDaProva(av) { return logado() && get(/databases/$(database)/documents/avaliacoes/$(av)).data.professor_uid == request.auth.uid; }
+    function prova(av) { return get(/databases/$(database)/documents/avaliacoes/$(av)).data; }
+    function donoDaProva(av) { return logado() && prova(av).professor_uid == request.auth.uid; }
     match /respostas/{id} {
       allow create: if true; // o aluno responde sem login
-      allow read: if admin() || donoDaProva(resource.data.avaliacao_id) || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id);
+      allow read: if admin() || donoDaProva(resource.data.avaliacao_id)
+        || gestorDaEscola(prova(resource.data.avaliacao_id).get("escola_id", "-")) || secretariaDoMuni(prova(resource.data.avaliacao_id).get("municipio_id", "-"));
       allow update, delete: if admin() || donoDaProva(resource.data.avaliacao_id);
     }
 
