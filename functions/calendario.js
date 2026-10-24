@@ -9,7 +9,7 @@ import CAL from './calendario-nucleo.js';
 const ID = /^[A-Za-z0-9_-]{1,64}$/, CHAVE = /^[A-Za-z0-9]{20}$/;
 const igual = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-export const calendarioIcs = onRequest({ invoker:'public', cors:false, memory:'256MiB', maxInstances:5 }, async (req, res) => {
+export const calendarioIcs = onRequest({ region:'southamerica-east1', invoker:'public', cors:false, memory:'256MiB', maxInstances:5 }, async (req, res) => {
   const m = String(req.query.m || ''), e = String(req.query.e || ''), t = String(req.query.t || '');
   if(req.method !== 'GET' && req.method !== 'HEAD'){ res.status(405).send('Use GET.'); return; }
   if(!ID.test(m) || (e && !ID.test(e)) || !CHAVE.test(t)){ res.status(400).send('Link de calendário inválido.'); return; }
