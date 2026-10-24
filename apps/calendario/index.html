@@ -508,18 +508,20 @@ function desenhar(){
     sem.innerHTML = podeRede()
       ? "<b>O calendário de " + E.ano + " ainda não foi criado</b>Comece com uma sugestão pronta (fevereiro a dezembro, recesso de julho e feriados) e ajuste as datas da rede." +
         '<div style="margin-top:14px"><button class="btn btn-ok" data-action="criar">＋ Criar calendário de ' + E.ano + "</button></div>"
-      : "<b>A secretaria ainda não publicou o calendário de " + E.ano + "</b>Quando publicar, ele aparece aqui com a contagem de dias letivos da sua escola.";
-    return;
-  }
-  $("semCal").hidden = true;
+      : "<b>A secretaria ainda não publicou o calendário de " + E.ano + "</b>Por enquanto aparecem só os feriados nacionais. Você já pode tocar num dia para criar seus lembretes.";
+    // sem calendário da rede: só a aba Calendário funciona (com feriados e lembretes)
+    if(E.sec !== "cal") return;
+  } else $("semCal").hidden = true;
   if(E.sec === "config" && !podeRede()) E.sec = "cal";
   $("s-" + E.sec).hidden = false;
-  E.resumo = CAL.resumo(E.R, E.Esc, E.muni.uf);
+  E.resumo = CAL.resumo(Rv(), E.Esc, E.muni.uf);
   if(E.sec === "cal") desenharCalendario();
   else if(E.sec === "config") desenharConfig();
   else if(E.sec === "escolas") desenharEscolas();
   else if(E.sec === "compartilhar") desenharCompartilhar();
 }
+// calendário em vista: o da rede ou, se ainda não existe, um ano vazio só com os feriados
+function Rv(){ return E.R || { municipio_id:E.muni.id, ano:E.ano, inicio:E.ano + "-12-31", fim:E.ano + "-12-31", dias_semana:[], horas_dia:4, periodos:[], facultativos_letivos:[], eventos:[] }; }
 function desenharKpis(){
   const r = E.resumo, okD = r.total >= r.metaDias, okH = r.horas >= r.metaHoras;
   const pct = (v, m) => Math.min(100, Math.round(v / m * 100));
@@ -545,15 +547,15 @@ function classeDia(info){
   return info.letivo ? "letivo" : "";
 }
 function desenharCalendario(){
-  desenharKpis();
-  const pode = podeAqui();
+  $("kpis").hidden = !E.R; if(E.R) desenharKpis();
+  const pode = !!E.R && podeAqui();
   $("legenda").innerHTML = [["letivo", "Dia letivo"], ["feriado", "Feriado"], ["facult", "Ponto facultativo"], ["recesso", "Recesso"], ["ferias", "Férias"], ["planejamento", "Planejamento"], ["paralisacao", "Paralisação"], ["reposicao", "Reposição / sábado letivo"]]
     .map(([k, n]) => '<span><i style="background:' + COR[k] + '"></i>' + n + "</span>").join("") + '<span><i style="background:#fff;border:2px solid var(--azul)"></i>Início ou fim de período</span><span><i style="width:8px;height:8px;border-radius:50%;background:var(--azul)"></i>Evento</span><span><i style="width:8px;height:8px;border-radius:50%;background:#7a3fc2"></i>Meu lembrete</span>';
   $("dicaEdicao").hidden = !pode;
   $("dicaEdicao").innerHTML = E.visao === "rede" ? "Você está editando a <b>base da rede</b>. Toque num dia para registrar feriado municipal, recesso, planejamento ou evento." :
     "Você está editando o calendário da <b>" + esc(nomeVisao()) + "</b>. Toque num dia para registrar reposição, paralisação ou evento da escola. A base da rede vem junto.";
   $("btnNovoEv").hidden = !pode;
-  const r = E.resumo, marcos = new Set([E.R.inicio, E.R.fim, ...r.periodos.flatMap(p => [p.inicio, p.fim])]), hj = hojeS();
+  const r = E.resumo, marcos = new Set(E.R ? [E.R.inicio, E.R.fim, ...r.periodos.flatMap(p => [p.inicio, p.fim])] : []), hj = hojeS();
   const lemDia = {}; E.lem.forEach(it => CAL.ocorrencias(it, E.ano + "-01-01", E.ano + "-12-31").forEach(d => lemDia[d] = (lemDia[d] || 0) + 1));
   let html = "";
   for(let m = 0; m < 12; m++){
@@ -572,11 +574,11 @@ function desenharCalendario(){
   desenharListaEventos();
 }
 function desenharListaEventos(){
-  const pode = podeAqui(), meuNivel = E.visao === "rede" ? "rede" : "escola";
-  const todos = [...(E.R.eventos || []).map(e => ({ ...e, nivel:"rede" })), ...((E.Esc && E.Esc.eventos) || []).map(e => ({ ...e, nivel:"escola" }))];
-  const fac = new Set(E.R.facultativos_letivos || []);
+  const R0 = Rv(), pode = !!E.R && podeAqui(), meuNivel = E.visao === "rede" ? "rede" : "escola";
+  const todos = [...(R0.eventos || []).map(e => ({ ...e, nivel:"rede" })), ...((E.Esc && E.Esc.eventos) || []).map(e => ({ ...e, nivel:"escola" }))];
+  const fac = new Set(R0.facultativos_letivos || []);
   CAL.feriados(E.ano, E.muni.uf).forEach(f => todos.push({ ini:f.data, fim:f.data, tipo:f.facultativo ? "facult" : "feriado", titulo:f.titulo + (f.facultativo ? (fac.has(f.data) ? " (ponto facultativo, com aula)" : " (ponto facultativo)") : " (nacional)"), nivel:"auto" }));
-  todos.push({ ini:E.R.inicio, fim:E.R.inicio, tipo:"marco", titulo:"Início do ano letivo", nivel:"auto" }, { ini:E.R.fim, fim:E.R.fim, tipo:"marco", titulo:"Fim do ano letivo", nivel:"auto" });
+  if(E.R) todos.push({ ini:E.R.inicio, fim:E.R.inicio, tipo:"marco", titulo:"Início do ano letivo", nivel:"auto" }, { ini:E.R.fim, fim:E.R.fim, tipo:"marco", titulo:"Fim do ano letivo", nivel:"auto" });
   todos.sort((a, b) => a.ini < b.ini ? -1 : a.ini > b.ini ? 1 : 0);
   $("listaEv").innerHTML = todos.map(e => {
     const dt = e.fim && e.fim !== e.ini ? fmtD(e.ini) + " a " + fmtD(e.fim) : fmtD(e.ini) + " · " + SEMANA[CAL.semana(e.ini)];
@@ -590,7 +592,7 @@ function desenharListaEventos(){
 
 /* ---------- datas (eventos) ---------- */
 function abrirEvento(data){
-  const pode = podeAqui(), info = E.resumo.dias[data];
+  const pode = !!E.R && podeAqui(), info = E.resumo.dias[data];
   $("evTitulo").textContent = pode ? "Adicionar data" : fmtDA(data);
   $("evOnde").textContent = pode ? (E.visao === "rede" ? "Vale para todas as escolas da rede." : "Vale só para " + nomeVisao() + ".") : "";
   const linhas = [];
@@ -604,12 +606,15 @@ function abrirEvento(data){
   const doDia = data ? ocorrenciasEntre(data, data) : [];
   $("evLem").innerHTML = doDia.length ? '<div class="ag-grupo" style="margin-top:10px"><h4>Meus lembretes</h4>' + doDia.map(linhaLem).join("") + "</div>" : "";
   $("evNovoLem").hidden = !data || $("abaAgenda").hidden;
+  // quem não edita o calendário da escola vem aqui para agendar: o botão de lembrete vira o principal
+  $("evNovoLem").className = "btn " + (pode ? "btn-gh" : "btn-ok btn-lg");
+  $("evNovoLem").textContent = pode ? "📌 Lembrete neste dia" : "📌 Agendar lembrete neste dia";
   document.querySelectorAll("#mEv .grade-form, #mEv [data-action=salvar-ev]").forEach(el => el.hidden = !pode);
   const tipos = E.visao === "rede" ? TIPOS_ORD.filter(t => t !== "paralisacao") : TIPOS_ORD;
   $("evTipo").innerHTML = tipos.map(t => '<option value="' + t + '">' + TIPO_DESC[t] + "</option>").join("");
   const padrao = !data ? "feriado" : E.visao !== "rede" ? (info.letivo ? "paralisacao" : "reposicao") : (info.letivo ? "feriado" : "evento");
   $("evTipo").value = tipos.includes(padrao) ? padrao : tipos[0];
-  $("evIni").value = data || E.R.inicio; $("evFim").value = data || E.R.inicio; $("evNome").value = "";
+  $("evIni").value = data || Rv().inicio; $("evFim").value = data || Rv().inicio; $("evNome").value = "";
   $("evIni").min = $("evFim").min = E.ano + "-01-01"; $("evIni").max = $("evFim").max = E.ano + "-12-31";
   $("mEv").hidden = false;
 }
@@ -985,6 +990,9 @@ onAuthStateChanged(auth, async user => {
   E.visao = E.escolas.some(e => e.id === ult) ? ult : (E.u.perfil === "secretaria" || E.admin) ? "rede" : ((E.escolas.find(e => e.id === u.escola_id) || E.escolas[0] || {}).id || "rede");
   montarSeletores();
   await carregarAno();
+  // vindo do mini calendário do menu (?dia=AAAA-MM-DD): abre direto o lembrete daquele dia
+  const diaUrl = new URLSearchParams(location.search).get("dia");
+  if(AGENDA_ATIVA && /^20\d{2}-\d{2}-\d{2}$/.test(diaUrl || "")) abrirLembrete(null, diaUrl);
 });
 </script>
 </body>
