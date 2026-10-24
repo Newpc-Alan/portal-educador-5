@@ -265,3 +265,6 @@ ${linha('Se publicada aparece como', String(d.autor_nome || '').trim().split(/\s
     }
   }
 );
+
+// usados pelos avisos do Portal do Educador TV (tv.js)
+export { transporte, destinos, esc as escHtml, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE };

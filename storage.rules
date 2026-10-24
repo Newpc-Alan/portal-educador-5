@@ -36,6 +36,26 @@ service firebase.storage {
       allow delete: if (request.auth != null && request.auth.uid == uid) || admin();
     }
 
+    // Portal do Educador TV: fotos e videos das escolas (a TV le pelo link com token gerado no envio)
+    function equipeTvEscola(esc) {
+      return request.auth != null && eu().status == "ativo" && (eu().perfil == "admin"
+        || (licenciado() && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]))
+        || (eu().perfil == "gestor" && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]))
+        || (eu().perfil == "secretaria" && firestore.get(/databases/(default)/documents/escolas/$(esc)).data.municipio_id == eu().get("municipio_id", "-")));
+    }
+    match /tv/escolas/{esc}/{arquivo} {
+      allow read: if request.auth != null;
+      allow create: if equipeTvEscola(esc) && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|gif)|video/(mp4|webm)');
+      allow delete: if equipeTvEscola(esc);
+    }
+    match /tv/municipios/{m}/{arquivo} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && eu().status == "ativo" && (eu().perfil == "admin" || (eu().perfil == "secretaria" && eu().get("municipio_id", "-") == m))
+        && request.resource.size < 10 * 1024 * 1024 && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow delete: if request.auth != null && eu().status == "ativo" && (eu().perfil == "admin" || (eu().perfil == "secretaria" && eu().get("municipio_id", "-") == m));
+    }
+
     // pasta de cada professor: so ele (e o administrador) acessa
     match /professores/{uid}/{arquivo=**} {
       allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();

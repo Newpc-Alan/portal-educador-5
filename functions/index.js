@@ -365,3 +365,4 @@ export const vincularContaFormacao = onCall(async req=>{
   return { ok:true, certificados:movidos, perfilCriado:!perfil };
 });
 export { painelUso } from './painel.js';
+export { emailTvConectada, emailComunicadoTv } from './tv.js';

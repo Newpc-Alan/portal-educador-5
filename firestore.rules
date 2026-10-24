@@ -189,6 +189,51 @@ service cloud.firestore {
       allow delete: if admin() || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status != "aprovado");
     }
 
+    // ---------- Portal do Educador TV ----------
+    // A TV nao tem login: le a propria tela, as playlists e o canal de comunicados pelo ID (aleatorio, impossivel de adivinhar).
+    // Listar e alterar e so para a equipe da escola (professor licenciado, gestor), a secretaria do municipio e o administrador.
+    function muniDaEscola(esc) { return get(/databases/$(database)/documents/escolas/$(esc)).data.municipio_id; }
+    function tvEquipeEscola(esc) {
+      return admin() || (licenciado() && esc in minhasEscolas()) || gestorDaEscola(esc)
+        || (ativo() && eu().perfil == "secretaria" && muniDaEscola(esc) == eu().get("municipio_id", "-"));
+    }
+    function tvLeitor(esc, m) {
+      return admin() || (ativo() && eu().perfil != "aluno" && (esc in minhasEscolas() || (eu().perfil == "secretaria" && m == eu().get("municipio_id", "-"))));
+    }
+    match /tv_pareamentos/{cod} {
+      allow create: if cod.matches("^[A-HJ-NP-Z2-9]{6}$") && novo().keys().hasOnly(["chave", "criado_em", "orientacao", "resolucao"])
+        && novo().chave is string && novo().chave.matches("^[A-Za-z0-9]{20}$") && novo().criado_em == request.time
+        && novo().get("resolucao", "") is string && novo().get("resolucao", "").size() < 20;
+      allow get, delete: if ativo() && eu().perfil != "aluno";
+    }
+    match /tv_telas/{chave} {
+      allow get: if true;
+      allow list: if tvLeitor(resource.data.escola_id, resource.data.municipio_id);
+      allow create: if chave.matches("^[A-Za-z0-9]{20}$") && tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id);
+      allow update: if (tvEquipeEscola(resource.data.escola_id) && novo().escola_id == resource.data.escola_id && novo().municipio_id == resource.data.municipio_id)
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["visto_em", "resolucao", "aparelho"]) && novo().visto_em == request.time
+            && novo().resolucao is string && novo().resolucao.size() < 20 && novo().aparelho is string && novo().aparelho.size() < 20);
+      allow delete: if tvEquipeEscola(resource.data.escola_id);
+    }
+    match /tv_playlists/{id} {
+      allow get: if true;
+      allow list: if tvLeitor(resource.data.escola_id, resource.data.municipio_id);
+      allow create: if tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id) && novo().itens is list && novo().itens.size() <= 80;
+      allow update: if tvEquipeEscola(resource.data.escola_id) && novo().escola_id == resource.data.escola_id && novo().municipio_id == resource.data.municipio_id
+        && novo().itens is list && novo().itens.size() <= 80;
+      allow delete: if tvEquipeEscola(resource.data.escola_id);
+    }
+    // comunicados da secretaria: um canal por municipio; so a secretaria (e o administrador) publica
+    match /tv_canais/{id} {
+      allow get: if true;
+      allow list: if admin() || (ativo() && eu().perfil != "aluno" && resource.data.municipio_id == eu().get("municipio_id", "-"));
+      allow create: if (admin() || (ativo() && eu().perfil != "aluno" && novo().municipio_id == eu().get("municipio_id", "-")))
+        && novo().avisos is list && novo().avisos.size() == 0;
+      allow update: if (admin() || (ativo() && eu().perfil == "secretaria" && resource.data.municipio_id == eu().get("municipio_id", "-")))
+        && novo().municipio_id == resource.data.municipio_id && novo().avisos is list && novo().avisos.size() <= 30;
+      allow delete: if admin();
+    }
+
     // lista importada de professores (chave = e-mail em minusculas)
     match /pre_cadastros/{email} {
       allow read: if admin() || (emailVerificado() && meuEmail() == email);
