@@ -45,6 +45,19 @@ await t('licenca vencida nao grava folha', assertFails(setDoc(doc(venc, 'usuario
 await t('gestor salva folha', assertSucceeds(setDoc(doc(gest, 'usuarios/gest/folhas/f1'), folha)));
 await t('aluno nao salva folha', assertFails(setDoc(doc(alu, 'usuarios/alu/folhas/f1'), folha)));
 
+// Turma na Lousa
+const lousa = { turma_nome: '5 Ano A', nomes: [], sorteados: ['a1', 'a2'], ausentes: { dia: '2026-10-24', ids: [] },
+  grupos: { modo: 'qtd', num: 4, lista: [{ ids: ['a1', 'a2'] }] }, mapa: { linhas: 5, colunas: 6, lugares: { '0_0': 'a1' }, fundo: false },
+  placar: { modo: 'equipes', equipes: [{ nome: 'Equipe 1', pontos: 3 }], alunos: {} }, atualizado_em: serverTimestamp() };
+await t('professor salva turma na lousa', assertSucceeds(setDoc(doc(prof, 'usuarios/prof/turma_lousa/t1'), lousa)));
+await t('turma na lousa com campo extra', assertFails(setDoc(doc(prof, 'usuarios/prof/turma_lousa/t2'), { ...lousa, x: 1 })));
+await t('turma na lousa com lista enorme', assertFails(setDoc(doc(prof, 'usuarios/prof/turma_lousa/t3'), { ...lousa, nomes: Array(81).fill('a') })));
+await t('turma na lousa na conta de outro', assertFails(setDoc(doc(prof2, 'usuarios/prof/turma_lousa/t1'), lousa)));
+await t('outro nao le minha turma na lousa', assertFails(getDoc(doc(prof2, 'usuarios/prof/turma_lousa/t1'))));
+await t('dono le turma na lousa', assertSucceeds(getDoc(doc(prof, 'usuarios/prof/turma_lousa/t1'))));
+await t('gestor salva turma na lousa', assertSucceeds(setDoc(doc(gest, 'usuarios/gest/turma_lousa/manual'), lousa)));
+await t('aluno nao salva turma na lousa', assertFails(setDoc(doc(alu, 'usuarios/alu/turma_lousa/t1'), lousa)));
+
 // ---------- Teleprompter
 const rot = { titulo: 'Aula', texto: 'Texto', settings: {}, markers: [], locked: false, cursor: 0, elapsed: 0, palavras: 1, criado_em: serverTimestamp(), atualizado_em: serverTimestamp() };
 await t('professor salva roteiro', assertSucceeds(setDoc(doc(prof, 'usuarios/prof/roteiros/r1'), rot)));

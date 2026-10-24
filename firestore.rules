@@ -147,6 +147,14 @@ service cloud.firestore {
         && novo().keys().hasOnly(["nome", "tipo", "cfg", "criado_em", "atualizado_em"])
         && novo().nome is string && novo().nome.size() <= 60 && novo().cfg is map;
     }
+    // Turma na Lousa: sorteio, grupos, mapa da sala e placar de cada turma (so o dono)
+    match /usuarios/{uid}/turma_lousa/{id} {
+      allow read, delete: if logado() && (request.auth.uid == uid || admin());
+      allow create, update: if logado() && request.auth.uid == uid && (licenciado() || eu().perfil in ["gestor", "secretaria"])
+        && novo().keys().hasOnly(["turma_nome", "nomes", "sorteados", "ausentes", "grupos", "mapa", "placar", "atualizado_em"])
+        && novo().nomes is list && novo().nomes.size() <= 80 && novo().sorteados is list && novo().sorteados.size() <= 120
+        && novo().ausentes is map && novo().grupos is map && novo().mapa is map && novo().placar is map;
+    }
     // Teleprompter: roteiros salvos na conta (so o dono), ate 200 mil caracteres
     match /usuarios/{uid}/roteiros/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
