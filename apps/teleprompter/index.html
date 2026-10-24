@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Teleprompter · Portal do Educador</title>
+<meta name="theme-color" content="#0b1728">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<style>
+html,body{margin:0;background:#0b1728}
+#pe-app{--bg:#0b1728;--panel:#112238;--card:#172c44;--border:#294057;--text:#f1f6fb;--muted:#a4b7ca;--cyan:#57c9ea;--navy:#0f2c4a;--green:#72deb1;--stage:#07121f;--script:#edf4fb;--soft:#d4e9f3;--focus:#84def5;font:14px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;color:var(--text);background:var(--bg);height:100vh;height:100dvh;min-height:520px;display:flex;flex-direction:column;overflow:hidden;isolation:isolate;position:relative;color-scheme:dark}
+#pe-app.light{--bg:#e9eef2;--panel:#fff;--card:#f1f5f8;--border:#d2dce5;--text:#0f2c4a;--muted:#50677a;--cyan:#0c77a1;--green:#087749;--soft:#e1f0f8;--focus:#0c77a1;color-scheme:light}
+#pe-app *,#pe-app *::before,#pe-app *::after{box-sizing:border-box}
+#pe-app [hidden]{display:none!important}
+#pe-app h1,#pe-app h2,#pe-app h3,#pe-app p{margin:0}
+#pe-app button,#pe-app input,#pe-app textarea,#pe-app select{font:inherit}
+#pe-app button{cursor:pointer;touch-action:manipulation}
+#pe-app button:disabled{cursor:default;opacity:.42}
+#pe-app button,#pe-app input,#pe-app textarea,#pe-app select,#pe-app a{-webkit-tap-highlight-color:transparent}
+#pe-app :focus-visible{outline:2px solid var(--focus);outline-offset:4px}
+#pe-app .icon{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;pointer-events:none}
+#pe-app .topbar{padding:15px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border);flex-shrink:0}
+#pe-app .brand{display:flex;align-items:center;gap:12px;min-width:0}
+#pe-app .brand-mark{width:56px;height:56px;flex:0 0 auto;display:grid;place-items:center}
+#pe-app .brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
+#pe-app h1{font-size:19px;font-weight:650;letter-spacing:-.5px;line-height:1.3}
+#pe-app h1 span{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cyan);border:1px solid var(--border);border-radius:5px;padding:2px 5px;margin-left:4px;vertical-align:middle}
+#pe-app .brand small{font-size:11px;letter-spacing:.4px;color:var(--muted)}
+#pe-app .row{display:flex;align-items:center;gap:8px}
+#pe-app .grow{flex:1;min-width:0}
+#pe-app .btn{border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:9px;min-height:39px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:600;transition:background .15s,border-color .15s;white-space:nowrap;text-decoration:none}
+#pe-app .btn:hover:not(:disabled){background:var(--border);border-color:var(--muted)}
+#pe-app .btn-ghost{background:transparent;border-color:transparent;color:var(--muted)}
+#pe-app .icon-btn{width:40px;min-width:40px;padding:8px}
+#pe-app .small-btn{padding:6px 9px;min-height:34px}
+#pe-app .btn-primary{background:var(--cyan);color:#062238;border-color:var(--cyan)}
+#pe-app.light .btn-primary{color:white}
+#pe-app .btn-primary:hover:not(:disabled){background:#8fddf4;border-color:#8fddf4;color:#062238}
+#pe-app .status{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:500}
+#pe-app .status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+#pe-app .status.running{color:var(--green)}
+#pe-app .status.running .status-dot{background:var(--green);box-shadow:0 0 0 4px #43cb9620}
+#pe-app .workspace{display:grid;grid-template-columns:348px minmax(0,1fr);gap:16px;flex:1;min-height:0;padding:18px 20px 10px}
+#pe-app .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+#pe-app .panel-heading{display:flex;justify-content:space-between;align-items:center;padding:17px 18px 12px}
+#pe-app .eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)}
+#pe-app .save-state{font-size:10px;color:var(--green);display:flex;align-items:center;gap:5px}
+#pe-app .save-state::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+#pe-app .tabs{display:flex;gap:4px;background:var(--bg);padding:4px;border:1px solid var(--border);border-radius:10px;margin:0 16px 15px}
+#pe-app .tab{flex:1;background:transparent;border:0;padding:9px 4px;border-radius:7px;color:var(--muted);font-size:12px;min-height:36px;font-weight:600}
+#pe-app .tab[aria-selected=true]{background:var(--card);color:var(--text);box-shadow:0 1px 3px #0002}
+#pe-app .tab-panel{padding:0 18px 18px;flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
+#pe-app #panel-script{display:flex;flex-direction:column;gap:11px}
+#pe-app .field-label{font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:6px}
+#pe-app input[type=text],#pe-app textarea,#pe-app select{color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 11px;width:100%;outline:none}
+#pe-app input[type=text]:focus,#pe-app textarea:focus,#pe-app select:focus{border-color:var(--cyan);box-shadow:0 0 0 2px #37b1da20}
+#pe-app #titleInput{font-size:14px;font-weight:600}
+#pe-app .editor-wrap{display:flex;flex-direction:column;flex:1;min-height:170px;border:1px solid var(--border);border-radius:10px;background:var(--bg);overflow:hidden}
+#pe-app .editor-head{padding:10px 12px 0;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase}
+#pe-app .editor-head button{font-size:10px;min-height:30px;letter-spacing:0;text-transform:none}
+#pe-app #editor{border:0;border-radius:0;flex:1;min-height:110px;width:100%;resize:none;line-height:1.85;font-size:13px;padding:12px 14px;scrollbar-width:thin;box-shadow:none}
+#pe-app #editor[readonly]{opacity:.7}
+#pe-app .editor-foot{display:flex;justify-content:space-between;gap:6px;padding:10px 12px;font-size:10px;color:var(--muted);border-top:1px solid var(--border)}
+#pe-app .file-row{display:flex;gap:7px}
+#pe-app .file-row .btn{flex:1}
+#pe-app .hint{font-size:11px;color:var(--muted);line-height:1.65}
+#pe-app .backup-row{display:flex;align-items:center;gap:4px;justify-content:space-between}
+#pe-app .backup-row .btn{font-size:10px;padding:5px 7px;min-height:31px}
+#pe-app .setting{padding:15px 0;border-bottom:1px solid var(--border)}
+#pe-app .setting:first-child{padding-top:1px}
+#pe-app .setting:last-child{border-bottom:0}
+#pe-app .setting-label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;font-weight:600;margin-bottom:10px}
+#pe-app .value{color:var(--cyan);font-variant-numeric:tabular-nums;font-size:12px}
+#pe-app input[type=range]{width:100%;height:24px;accent-color:var(--cyan);cursor:pointer;margin:0;background:transparent}
+#pe-app .range-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+#pe-app .segmented{display:flex;gap:5px}
+#pe-app .segmented .btn{flex:1;padding:7px 5px;font-size:10px;min-height:33px}
+#pe-app .segmented .btn[aria-pressed=true]{border-color:var(--cyan);color:var(--cyan);background:#37b1da16}
+#pe-app .switch-row{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:9px 0;font-size:12px}
+#pe-app .switch{width:37px;height:22px;padding:2px;border:1px solid var(--border);border-radius:20px;background:var(--bg);flex:none}
+#pe-app .switch::before{content:"";display:block;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:transform .15s}
+#pe-app .switch[aria-checked=true]{background:var(--cyan);border-color:var(--cyan)}
+#pe-app .switch[aria-checked=true]::before{transform:translateX(14px);background:#062238}
+#pe-app .marker-list{list-style:none;margin:13px 0;padding:0;display:flex;flex-direction:column;gap:7px}
+#pe-app .marker-item{display:flex;align-items:center;gap:4px;border:1px solid var(--border);border-radius:9px;background:var(--bg)}
+#pe-app .marker-link{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;background:none;border:0;color:var(--text);padding:11px 12px;text-align:left;font-size:12px}
+#pe-app .marker-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+#pe-app .marker-link small{font-size:10px;color:var(--muted)}
+#pe-app .marker-empty{border:1px dashed var(--border);padding:20px 16px;text-align:center;border-radius:10px;margin-top:14px}
+#pe-app .marker-empty .icon{width:25px;height:25px;color:var(--cyan);margin-bottom:9px}
+#pe-app .marker-empty strong{display:block;font-size:12px;margin-bottom:5px}
+#pe-app .stage-shell{display:flex;flex-direction:column;min-width:0;min-height:0;gap:12px}
+#pe-app .stage{background:var(--stage);border:1px solid #26384b;border-radius:14px;flex:1;min-height:140px;position:relative;overflow:hidden;color:#edf4fb}
+#pe-app .stage-top{position:absolute;top:0;left:0;right:0;padding:17px 20px;z-index:5;display:flex;align-items:center;gap:12px;background:linear-gradient(#07121ff5,#07121f00)}
+#pe-app .stage-title{color:#b5c9db;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:48%}
+#pe-app .stage-top .eyebrow{color:#82a0b8;font-size:9px;margin-bottom:3px}
+#pe-app .block-count{font-size:10px;border:1px solid #30465a;border-radius:6px;padding:4px 8px;color:#9db7cf;white-space:nowrap;flex:none}
+#pe-app .stage-top .btn{color:#a9c1d6;background:#102437;border:1px solid #294459;min-height:33px}
+#pe-app .reader-mirror{position:absolute;inset:0;transform:scale(var(--mirror-x,1),var(--mirror-y,1));--guide-y:36%;--reading-font:46px;--reading-line:1.65;--reading-width:850px}
+#pe-app .viewport{height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;overflow-anchor:none;scroll-behavior:auto;position:relative;outline:none;touch-action:pan-y}
+#pe-app .viewport::-webkit-scrollbar{display:none}
+#pe-app .script{width:min(100%,var(--reading-width));margin:0 auto;padding:0 52px;font-size:var(--reading-font);line-height:var(--reading-line);font-weight:520;letter-spacing:-.5px;text-align:left;overflow-wrap:anywhere;position:relative;color:var(--script)}
+#pe-app .script .script-block{white-space:pre-wrap;margin:0 0 .8em;opacity:.42;transition:opacity .18s;position:relative}
+#pe-app .script .script-block.active{opacity:1}
+#pe-app.no-highlight .script .script-block{opacity:1}
+#pe-app .guide{position:absolute;left:15px;right:15px;top:var(--guide-y);height:0;pointer-events:none;z-index:2;color:#57c9ea}
+#pe-app .guide::before{content:"";position:absolute;left:0;top:-6px;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:8px solid currentColor}
+#pe-app .guide::after{content:"";position:absolute;right:0;top:-6px;border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:8px solid currentColor}
+#pe-app .guide-line{position:absolute;left:14px;right:14px;top:calc(var(--reading-font) * -.825);height:calc(var(--reading-font) * 1.65);border-top:1px solid #57c9ea15;border-bottom:1px solid #57c9ea15;background:#37b1da05}
+#pe-app .fade-top,#pe-app .fade-bottom{position:absolute;left:0;right:0;pointer-events:none;z-index:2;height:18%}
+#pe-app .fade-top{top:0;background:linear-gradient(#07121f,transparent)}
+#pe-app .fade-bottom{bottom:0;background:linear-gradient(transparent,#07121f)}
+#pe-app .stage-bottom{position:absolute;bottom:13px;left:20px;right:20px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:10px;color:#a0bbd2;font-size:10px}
+#pe-app .mode-chip{font-size:9px;letter-spacing:.5px;color:#72b7cb;display:flex;align-items:center;gap:5px}
+#pe-app .mode-chip::before{content:"";width:4px;height:4px;border-radius:50%;background:currentColor}
+#pe-app .empty-stage{position:absolute;inset:70px 25px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;text-align:center;z-index:4}
+#pe-app .empty-stage .icon{width:35px;height:35px;color:#57c9ea}
+#pe-app .empty-stage h2{font-size:21px;font-weight:550}
+#pe-app .empty-stage p{max-width:330px;font-size:13px;color:#a4b7ca}
+#pe-app .countdown{position:absolute;inset:0;background:#07121fe8;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;backdrop-filter:blur(5px)}
+#pe-app .countdown strong{font-size:100px;font-weight:600;color:#77d7f2;line-height:1.3;font-variant-numeric:tabular-nums}
+#pe-app .countdown span{font-size:12px;color:#abc0d1;letter-spacing:2px;text-transform:uppercase}
+#pe-app .transport{background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:13px 18px 15px;flex-shrink:0;transition:opacity .2s}
+#pe-app .progress-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:10px;color:var(--muted)}
+#pe-app .time{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text);font-size:11px}
+#pe-app #progressSlider{height:20px;margin:1px 0 8px}
+#pe-app .transport-main{display:flex;justify-content:space-between;align-items:center;gap:14px}
+#pe-app .play-group{display:flex;align-items:center;gap:5px}
+#pe-app #playBtn{min-width:116px;font-size:13px;padding:10px 16px;min-height:44px}
+#pe-app .mini-control{display:flex;flex-direction:column;gap:4px}
+#pe-app .mini-control>label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+#pe-app .mini-control .btn{padding:3px;width:29px;min-width:29px;min-height:29px;border-radius:7px}
+#pe-app .mini-control .value{min-width:43px;text-align:center;font-size:12px;font-weight:600}
+#pe-app .mini-control small{color:var(--muted);font-size:9px;font-weight:400}
+#pe-app .transport-divider{height:30px;width:1px;background:var(--border)}
+#pe-app .brandfooter{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:33px;padding:0 24px 8px;font-size:10px;color:var(--muted)}
+#pe-app .brandfooter a{color:var(--muted);text-decoration:none}
+#pe-app .brandfooter a:hover{text-decoration:underline}
+#pe-app kbd{font:10px/1.4 inherit;padding:2px 5px;border:1px solid var(--border);border-radius:4px;background:var(--card);color:var(--text)}
+#pe-app .mobile-toggle{display:none}
+#pe-app .focus-exit{display:none}
+#pe-app.focus-mode .topbar,#pe-app.focus-mode .panel,#pe-app.focus-mode .brandfooter{display:none}
+#pe-app.focus-mode .workspace{grid-template-columns:minmax(0,1fr);padding:0;gap:0}
+#pe-app.focus-mode .stage-shell{gap:0;position:relative}
+#pe-app.focus-mode .stage{border:0;border-radius:0}
+#pe-app.focus-mode .transport{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;z-index:7;width:min(690px,calc(100% - 32px));box-shadow:0 10px 45px #0007;background:#102238ed;--text:#f1f6fb;--muted:#a4b7ca;--card:#172c44;--border:#294057;--cyan:#57c9ea;color:var(--text);backdrop-filter:blur(12px)}
+#pe-app.focus-mode .stage-bottom{bottom:170px}
+#pe-app.focus-mode .focus-exit{display:inline-flex}
+#pe-app.focus-mode #focusBtn{display:none}
+#pe-app.focus-mode.controls-hidden .transport{opacity:0;pointer-events:none}
+#pe-app.focus-mode.controls-hidden .transport:focus-within{opacity:1;pointer-events:auto}
+#pe-app.focus-mode .stage-title{max-width:45%}
+#pe-app:fullscreen{height:100vh;min-height:0;width:100vw}
+#pe-app .dialog{color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:440px;width:calc(100% - 36px);max-height:calc(100% - 48px);overflow:auto;box-shadow:0 24px 120px #0009}
+#pe-app .dialog::backdrop{background:#0009;backdrop-filter:blur(4px)}
+#pe-app .dialog h2{font-size:20px;letter-spacing:-.4px;margin-bottom:10px}
+#pe-app .dialog p{font-size:13px;color:var(--muted);margin-bottom:18px;white-space:pre-line}
+#pe-app .dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:21px}
+#pe-app .shortcut-list{display:grid;grid-template-columns:1fr auto;gap:12px 18px;font-size:12px;color:var(--muted);margin:20px 0}
+#pe-app .shortcut-list kbd{font-size:11px;color:var(--text);justify-self:end}
+#pe-app .toasts{position:absolute;bottom:45px;left:50%;transform:translateX(-50%);z-index:30;max-width:min(90%,460px);display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#pe-app .toast{padding:12px 17px;background:var(--soft);border:1px solid #37b1da55;color:#0f2c4a;border-radius:10px;box-shadow:0 5px 25px #0004;font-size:12px}
+#pe-app .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(min-width:1500px){#pe-app .workspace{grid-template-columns:380px minmax(0,1fr);padding:22px 28px 12px;gap:22px}#pe-app .topbar{padding:18px 30px}}
+@media(max-width:1090px){#pe-app .workspace{grid-template-columns:310px minmax(0,1fr);gap:12px;padding:14px 14px 8px}#pe-app .transport{padding:10px 12px 12px}#pe-app .transport-main{flex-wrap:wrap;gap:10px}#pe-app .transport-divider{display:none}#pe-app .font-quick{display:none}#pe-app .script{padding:0 36px}#pe-app .brandfooter .footer-shortcuts{display:none}}
+@media(max-width:760px){#pe-app{min-height:500px}#pe-app .topbar{padding:11px 14px;gap:8px;flex-wrap:wrap}#pe-app .topbar-status{display:none}#pe-app .topbar>.row:last-child{margin-left:auto}#pe-app h1{font-size:17px}#pe-app .brand-mark{width:44px;height:44px}#pe-app .brand{gap:9px}#pe-app .desktop-label,#pe-app .topbar .status{display:none}#pe-app .topbar .row{gap:3px}#pe-app .workspace{display:flex;position:relative;padding:10px 10px 5px}#pe-app .stage-shell{width:100%}#pe-app .panel{display:none;position:absolute;inset:10px 10px 5px;z-index:10;box-shadow:0 15px 50px #0007}#pe-app.panel-open .panel{display:flex}#pe-app .mobile-toggle{display:inline-flex}#pe-app .stage-top{padding:14px 16px;gap:8px}#pe-app .stage-title{max-width:48%}#pe-app .stage-top .btn .icon{width:16px;height:16px}#pe-app .script{padding:0 32px}#pe-app .transport-main{gap:8px;flex-wrap:nowrap}#pe-app .play-group{gap:2px}#pe-app .play-group .icon-btn{min-width:32px;width:32px;padding:5px}#pe-app #playBtn{min-width:92px;font-size:12px;padding:9px 10px}#pe-app .mini-control .row{gap:4px}#pe-app .mini-control .value{min-width:34px}#pe-app .brandfooter{font-size:9px;padding:3px 15px 8px;min-height:27px}#pe-app .brandfooter .footer-tip{display:none}#pe-app .stage-bottom{font-size:9px;left:15px;right:15px}#pe-app.focus-mode .stage-bottom{bottom:150px}#pe-app.focus-mode .transport{bottom:12px;width:calc(100% - 20px)}#pe-app .panel-heading{padding-top:12px}#pe-app #panel-script{min-height:0}#pe-app .editor-wrap{min-height:130px}#pe-app.focus-mode .panel{display:none!important}}
+@media(max-width:370px){#pe-app h1{font-size:15px}#pe-app .brand small{font-size:9px}#pe-app .topbar .icon-btn{min-width:32px;width:32px}#pe-app .brand-mark{width:38px;height:38px}#pe-app .restart-control{display:none}#pe-app .progress-meta{font-size:9px;gap:4px}#pe-app .block-count{padding:3px 5px}#pe-app .brandfooter{font-size:8px}}
+@media(max-height:640px) and (min-width:761px){#pe-app{min-height:430px}#pe-app .topbar{padding:9px 20px}#pe-app .workspace{padding-top:10px}#pe-app .editor-wrap{min-height:110px}#pe-app .panel-heading{padding-top:10px}#pe-app .tabs{margin-bottom:10px}#pe-app .hint.editor-hint{display:none}#pe-app .tab-panel{padding-bottom:10px}#pe-app .transport{padding-top:8px;padding-bottom:9px}}
+@media(prefers-reduced-motion:reduce){#pe-app *,#pe-app *::before{transition:none!important}}
+
+/* ---- Portal 5.0: roteiros na conta e controle pelo celular ---- */
+#pe-app .topbar a.btn{text-decoration:none}
+#pe-app .rot-lista{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:7px;max-height:52vh;overflow:auto}
+#pe-app .rot-item{display:flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:10px;background:var(--bg)}
+#pe-app .rot-item.atual{border-color:var(--cyan)}
+#pe-app .rot-abrir{flex:1;min-width:0;background:none;border:0;color:var(--text);text-align:left;padding:11px 12px;display:flex;flex-direction:column;gap:2px}
+#pe-app .rot-abrir span{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pe-app .rot-abrir small{font-size:11px;color:var(--muted)}
+#pe-app .rot-vazio{border:1px dashed var(--border);border-radius:10px;padding:18px;text-align:center;font-size:12px;color:var(--muted)}
+#pe-app .dialog.largo{max-width:520px}
+#pe-app .qr-box{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center;margin:4px 0 6px}
+#pe-app .qr{background:#fff;padding:10px;border-radius:12px;width:184px;height:184px;display:grid;place-items:center}
+#pe-app .qr img,#pe-app .qr canvas{width:164px!important;height:164px!important}
+#pe-app .qr-txt{font-size:12px;color:var(--muted);line-height:1.6}
+#pe-app .qr-txt b{color:var(--text)}
+#pe-app .qr-link{display:block;margin-top:8px;font-size:12px;color:var(--cyan);word-break:break-all}
+#pe-app .remoto-on{color:var(--green)!important;border-color:var(--green)!important}
+#pe-app .conexao{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-top:10px}
+#pe-app .conexao::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+#pe-app .conexao.ok{color:var(--green)}#pe-app .conexao.ok::before{background:var(--green);box-shadow:0 0 0 4px #43cb9620}
+@media(max-width:560px){#pe-app .qr-box{grid-template-columns:1fr;justify-items:center;text-align:center}}
+</style>
+</head>
+<body>
+<div id="pe-app">
+<svg hidden="" aria-hidden="true"><defs>
+<symbol id="i-logo" viewBox="0 0 24 24"><path d="M4 5h16v13H4zM9 21h6M12 18v3M8 9h8M8 13h5"></path></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7z"></path></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3"></path></symbol>
+<symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 1 9M3 4v6h6"></path></symbol>
+<symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"></path></symbol>
+<symbol id="i-next" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"></path></symbol>
+<symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"></path></symbol>
+<symbol id="i-focus" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M8 5v14M12 10h5M12 14h3"></path></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"></path></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 16v5h16v-5"></path></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 15.5A9 9 0 0 1 8.5 4 9 9 0 1 0 20 15.5Z"></path></symbol>
+<symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M6 9h1m3 0h1m3 0h1m3 0h1M6 12h1m3 0h1m3 0h1m3 0h1M7 16h10"></path></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 15z"></path></symbol>
+<symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"></path></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"></path></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"></path></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V6a4 4 0 0 1 8 0v4M12 14v3"></path></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6h6l2 2h10v11H3z"></path></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"></rect><path d="M11 18h2"></path></symbol>
+</defs></svg>
+
+<header class="topbar">
+ <div class="brand"><div class="brand-mark"><img src="/assets/pde-logo-128.png" width="56" height="56" alt="Portal do Educador"></div><div><h1>Teleprompter <span>PRO</span></h1><small id="quem">PORTAL DO EDUCADOR</small></div></div>
+ <div class="row topbar-status"><div class="status" id="statusBadge" role="status"><span class="status-dot"></span><span id="statusText">Leitura pausada</span></div></div>
+ <div class="row">
+  <button class="btn" id="listBtn" title="Meus roteiros"><svg class="icon"><use href="#i-folder"></use></svg><span class="desktop-label">Meus roteiros</span></button>
+  <button class="btn" id="remoteBtn" title="Controlar pelo celular"><svg class="icon"><use href="#i-phone"></use></svg><span class="desktop-label">Celular</span></button>
+  <button class="btn btn-ghost" id="helpBtn" title="Atalhos de teclado (?)"><svg class="icon"><use href="#i-keyboard"></use></svg></button>
+  <button class="btn btn-ghost icon-btn" id="themeBtn" aria-label="Ativar tema claro" title="Alternar tema"><svg class="icon"><use href="#i-moon"></use></svg></button>
+  <a class="btn btn-ghost" href="/apps/" title="Voltar aos Aplicativos Úteis"><svg class="icon"><use href="#i-prev"></use></svg><span class="desktop-label">Aplicativos</span></a>
+  <button class="btn mobile-toggle" id="openPanelBtn" aria-controls="controlPanel" aria-expanded="false"><svg class="icon"><use href="#i-edit"></use></svg>Editar</button>
+ </div>
+</header>
+<div class="workspace">
+ <aside class="panel" id="controlPanel" aria-label="Painel do roteiro">
+  <div class="panel-heading"><span class="eyebrow">Seu espaço de criação</span><span class="save-state" id="saveStatus" role="status">Carregando...</span><button class="btn btn-ghost icon-btn mobile-toggle" id="closePanelBtn" aria-label="Fechar painel"><svg class="icon"><use href="#i-close"></use></svg></button></div>
+  <div class="tabs" role="tablist" aria-label="Controles do teleprompter"><button class="tab" id="tab-script" role="tab" aria-selected="true" aria-controls="panel-script" tabindex="0">Roteiro</button><button class="tab" id="tab-settings" role="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">Ajustes</button><button class="tab" id="tab-markers" role="tab" aria-selected="false" aria-controls="panel-markers" tabindex="-1">Marcadores</button></div>
+  <section class="tab-panel" id="panel-script" role="tabpanel" aria-labelledby="tab-script">
+   <div><label class="field-label" for="titleInput">Nome do roteiro</label><input id="titleInput" type="text" maxlength="100" value="" autocomplete="off"></div>
+   <div class="editor-wrap"><div class="editor-head"><label for="editor">Texto da apresentação</label><button class="btn btn-ghost small-btn" id="lockBtn" aria-pressed="false" title="Evitar alterações acidentais"><svg class="icon" style="width:12px;height:12px"><use href="#i-lock"></use></svg><span id="lockText">Travar</span></button></div><textarea id="editor" spellcheck="true" placeholder="Cole ou digite seu roteiro aqui. Separe os trechos com uma linha em branco."></textarea><div class="editor-foot"><span id="wordCount">0 palavras</span><span id="estimate"></span></div></div>
+   <div class="file-row"><button class="btn" id="importBtn"><svg class="icon"><use href="#i-upload"></use></svg>Importar .txt</button><button class="btn" id="exportBtn"><svg class="icon"><use href="#i-download"></use></svg>Baixar .txt</button></div>
+   <p class="hint editor-hint">O roteiro fica salvo na sua conta: abra em qualquer computador, na lousa ou no celular. Uma linha em branco cria um novo bloco.</p>
+   <div class="backup-row"><button class="btn btn-ghost" id="saveSnapshotBtn" title="Guardar uma versão para recuperar depois">Guardar versão</button><button class="btn btn-ghost" id="restoreBtn" disabled>Restaurar</button><button class="btn btn-ghost" id="clearBtn">Limpar</button></div>
+   <input type="file" id="fileInput" accept=".txt,text/plain" hidden>
+  </section>
+  <section class="tab-panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+   <div class="setting"><label class="setting-label" for="speedSlider">Ritmo da leitura <output class="value" id="speedValue">130 ppm</output></label><input type="range" id="speedSlider" min="40" max="260" step="5" value="130"><div class="range-ends"><span>Mais tranquilo</span><span>Mais ágil</span></div><div class="segmented" style="margin-top:10px"><button class="btn" data-pace="90" aria-pressed="false">Tranquilo · 90</button><button class="btn" data-pace="130" aria-pressed="false">Natural · 130</button><button class="btn" data-pace="180" aria-pressed="false">Ágil · 180</button></div><p class="hint" style="margin-top:8px">Palavras por minuto (ppm). Ajuste ao seu ritmo de fala.</p></div>
+   <div class="setting"><label class="setting-label" for="fontSlider">Tamanho do texto <output class="value" id="fontValue">46 px</output></label><input type="range" id="fontSlider" min="22" max="96" step="2" value="46"><label class="setting-label" style="margin-top:14px" for="lineSlider">Espaço entre linhas <output class="value" id="lineValue">1,65</output></label><input type="range" id="lineSlider" min="120" max="220" step="5" value="165"></div>
+   <div class="setting"><div class="setting-label" id="widthLabel">Largura da leitura</div><div class="segmented" role="group" aria-labelledby="widthLabel"><button class="btn" data-width="narrow" aria-pressed="false">Estreita</button><button class="btn" data-width="normal" aria-pressed="true">Normal</button><button class="btn" data-width="wide" aria-pressed="false">Ampla</button></div></div>
+   <div class="setting"><label class="setting-label" for="modeSelect">Modo de apresentação</label><select id="modeSelect"><option value="continuous">Rolagem contínua</option><option value="blocks">Um bloco por vez</option></select><p class="hint" style="margin-top:8px" id="modeHint">Todo o roteiro em sequência, com passagem suave.</p></div>
+   <div class="setting"><label class="setting-label" for="countdownSelect">Preparação antes de iniciar</label><select id="countdownSelect"><option value="0">Começar imediatamente</option><option value="3" selected>Contagem de 3 segundos</option><option value="5">Contagem de 5 segundos</option></select></div>
+   <div class="setting"><div class="switch-row"><span id="mirrorHLabel">Espelhar horizontalmente</span><button class="switch" id="mirrorH" role="switch" aria-checked="false" aria-labelledby="mirrorHLabel"></button></div><div class="switch-row"><span id="mirrorVLabel">Inverter verticalmente</span><button class="switch" id="mirrorV" role="switch" aria-checked="false" aria-labelledby="mirrorVLabel"></button></div><div class="switch-row"><span id="guideLabel">Guia de leitura</span><button class="switch" id="guideToggle" role="switch" aria-checked="true" aria-labelledby="guideLabel"></button></div><div class="switch-row"><span id="highlightLabel">Destacar o bloco atual</span><button class="switch" id="highlightToggle" role="switch" aria-checked="true" aria-labelledby="highlightLabel"></button></div><label class="setting-label" style="margin-top:13px" for="guideSlider">Altura da guia <output class="value" id="guideValue">36%</output></label><input type="range" id="guideSlider" min="25" max="55" value="36"></div>
+  </section>
+  <section class="tab-panel" id="panel-markers" role="tabpanel" aria-labelledby="tab-markers" hidden>
+   <p class="hint">Salve pontos do roteiro para retomar um assunto rapidamente.</p><button class="btn" id="addMarkerBtn" style="width:100%;margin-top:13px"><svg class="icon"><use href="#i-plus"></use></svg>Marcar ponto da leitura</button>
+   <div class="marker-empty" id="markerEmpty"><svg class="icon"><use href="#i-bookmark"></use></svg><strong>Encontre seu ponto de volta</strong><p class="hint">Role até o trecho desejado e adicione um marcador. Ele fica salvo com o roteiro.</p></div><ul class="marker-list" id="markerList"></ul>
+  </section>
+ </aside>
+ <main class="stage-shell" aria-label="Apresentação do roteiro">
+  <div class="stage" id="stage">
+   <div class="stage-top"><div class="grow stage-title"><div class="eyebrow">Prévia de leitura</div><span id="stageTitle"></span></div><span class="block-count" id="blockCount"></span><button class="btn small-btn" id="focusBtn" title="Ocultar painel (P)"><svg class="icon"><use href="#i-focus"></use></svg><span class="desktop-label">Foco</span></button><button class="btn small-btn focus-exit" id="exitFocusBtn" title="Voltar aos controles (Esc)"><svg class="icon"><use href="#i-close"></use></svg>Sair</button><button class="btn icon-btn small-btn" id="fullscreenBtn" aria-label="Entrar em tela cheia" title="Tela cheia (F)"><svg class="icon"><use href="#i-expand"></use></svg></button></div>
+   <div class="reader-mirror" id="readerMirror"><div class="viewport" id="viewport" tabindex="0" aria-label="Texto para leitura. Use Espaço para iniciar ou pausar."><div class="script" id="script"></div></div><div class="guide" id="guide" aria-hidden="true"><div class="guide-line" id="guideLine"></div></div><div class="fade-top"></div><div class="fade-bottom"></div></div>
+   <div class="empty-stage" id="emptyStage" hidden><svg class="icon"><use href="#i-edit"></use></svg><h2>Dê voz à sua próxima ideia.</h2><p>Digite seu roteiro ou importe um arquivo de texto para começar.</p><button class="btn btn-primary" id="emptyEditBtn">Escrever meu roteiro</button></div>
+   <div class="countdown" id="countdownOverlay" hidden role="status"><span>Prepare-se</span><strong id="countdownNumber">3</strong><button class="btn" id="cancelCountdownBtn">Cancelar</button></div>
+   <div class="stage-bottom"><span class="mode-chip" id="modeLabel">ROLAGEM CONTÍNUA</span><span id="stageTip">Leia na altura das setas</span></div>
+  </div>
+  <section class="transport" id="transport" aria-label="Controles da apresentação">
+   <div class="progress-meta"><span><span class="time" id="elapsedTime">00:00</span> em leitura</span><span id="progressLabel">0% do roteiro</span><span>Restam ≈ <span class="time" id="remainingTime">00:00</span></span></div>
+   <label class="sr-only" for="progressSlider">Posição no roteiro</label><input type="range" id="progressSlider" min="0" max="1000" step="1" value="0">
+   <div class="transport-main"><div class="play-group"><button class="btn btn-ghost icon-btn restart-control" id="restartBtn" aria-label="Voltar ao início" title="Voltar ao início (R)"><svg class="icon"><use href="#i-restart"></use></svg></button><button class="btn btn-ghost icon-btn" id="prevBtn" aria-label="Bloco anterior" title="Bloco anterior (←)"><svg class="icon"><use href="#i-prev"></use></svg></button><button class="btn btn-primary" id="playBtn" aria-label="Iniciar leitura"><svg class="icon"><use id="playIcon" href="#i-play"></use></svg><span id="playLabel">Iniciar</span></button><button class="btn btn-ghost icon-btn" id="nextBtn" aria-label="Próximo bloco" title="Próximo bloco (→)"><svg class="icon"><use href="#i-next"></use></svg></button></div><div class="transport-divider"></div><div class="mini-control"><label>Ritmo · ppm</label><div class="row"><button class="btn" id="slowerBtn" aria-label="Diminuir ritmo em 5 palavras por minuto"><svg class="icon"><use href="#i-minus"></use></svg></button><span class="value" id="speedQuick">130</span><button class="btn" id="fasterBtn" aria-label="Aumentar ritmo em 5 palavras por minuto"><svg class="icon"><use href="#i-plus"></use></svg></button></div></div><div class="mini-control font-quick"><label>Texto · px</label><div class="row"><button class="btn" id="smallerBtn" aria-label="Diminuir fonte"><svg class="icon"><use href="#i-minus"></use></svg></button><span class="value" id="fontQuick">46</span><button class="btn" id="largerBtn" aria-label="Aumentar fonte"><svg class="icon"><use href="#i-plus"></use></svg></button></div></div></div>
+  </section>
+ </main>
+</div>
+<footer class="brandfooter"><span>Portal do Educador · Sua voz. Seu ritmo.</span><span class="footer-shortcuts"><kbd>Espaço</kbd> iniciar / pausar &nbsp; <kbd>← →</kbd> blocos &nbsp; <kbd>F</kbd> tela cheia</span><span class="footer-tip" id="footerTip">Roteiro salvo na sua conta</span></footer>
+<dialog class="dialog" id="actionDialog" aria-labelledby="dialogTitle"><form id="dialogForm"><h2 id="dialogTitle"></h2><p id="dialogMessage"></p><label class="field-label" for="dialogInput" id="dialogInputLabel" hidden>Nome</label><input id="dialogInput" type="text" maxlength="80" hidden><div class="dialog-actions"><button type="button" class="btn" id="dialogCancel">Cancelar</button><button type="submit" class="btn btn-primary" id="dialogConfirm">Confirmar</button></div></form></dialog>
+<dialog class="dialog" id="helpDialog" aria-labelledby="helpTitle"><h2 id="helpTitle">Tudo no seu ritmo.</h2><p>Cole o roteiro, ajuste a leitura e pressione Iniciar. A aplicação mostra o texto; não grava áudio ou vídeo.</p><div class="shortcut-list"><span>Iniciar ou pausar</span><kbd>Espaço</kbd><span>Aumentar / diminuir o ritmo</span><kbd>↑ / ↓</kbd><span>Bloco anterior / próximo</span><kbd>← / →</kbd><span>Aumentar / diminuir o texto</span><kbd>+ / −</kbd><span>Voltar ao início</span><kbd>R</kbd><span>Espelhar horizontalmente</span><kbd>M</kbd><span>Foco / tela cheia</span><kbd>P / F</kbd><span>Marcar ponto da leitura</span><kbd>B</kbd><span>Pausar e sair do foco</span><kbd>Esc</kbd></div><p class="hint">Os atalhos ficam inativos enquanto você digita. O tempo restante é uma estimativa. Seus roteiros ficam salvos na sua conta do Portal.</p><div class="dialog-actions"><button class="btn btn-primary" id="closeHelpBtn">Entendi</button></div></dialog>
+<dialog class="dialog largo" id="listDialog" aria-labelledby="listTitle"><h2 id="listTitle">Meus roteiros</h2><p>Os roteiros ficam na sua conta. Abra em qualquer aparelho em que você entrar no Portal.</p><button class="btn btn-primary" id="newScriptBtn" style="width:100%"><svg class="icon"><use href="#i-plus"></use></svg>Novo roteiro</button><ul class="rot-lista" id="rotLista"></ul><div class="dialog-actions"><button class="btn" id="closeListBtn">Fechar</button></div></dialog>
+<dialog class="dialog largo" id="remoteDialog" aria-labelledby="remoteTitle"><h2 id="remoteTitle">Controle pelo celular</h2>
+ <div class="qr-box"><div class="qr" id="qr"></div><div class="qr-txt"><b>1.</b> Aponte a câmera do celular para o código.<br><b>2.</b> Entre com a <b>mesma conta</b> do Portal.<br><b>3.</b> Inicie, pause, troque de bloco e ajuste o ritmo pelo celular, longe do computador.<a class="qr-link" id="qrLink" href="/apps/teleprompter/controle/" target="_blank" rel="noopener"></a></div></div>
+ <div class="conexao" id="conexao">Aguardando o celular...</div>
+ <div class="dialog-actions"><button class="btn" id="remoteOffBtn">Desligar controle</button><button class="btn btn-primary" id="closeRemoteBtn">Pronto</button></div></dialog>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<noscript>Ative o JavaScript do navegador para usar o teleprompter.</noscript>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
+const auth = getAuth(fb), db = getFirestore(fb);
+
+const root = document.getElementById('pe-app');
+const $ = id => root.querySelector('#' + id);
+const all = selector => [...root.querySelectorAll(selector)];
+const MAX_CHARS = 200000;
+const DEMO = `Bem-vindo ao Teleprompter do Portal do Educador!
+
+Sua voz. Seu ritmo. Seu próximo grande conteúdo começa aqui.
+
+Cole seu roteiro no painel e encontre um ritmo confortável. O texto em destaque ajuda você a manter o olhar na altura da câmera.
+
+Use as setas para navegar entre os blocos. Ajuste o tamanho das letras e a velocidade sem interromper a apresentação.
+
+Quer comandar de longe? Toque em Celular e controle a leitura pelo seu telefone.
+
+Agora é com você. Boa aula, boa apresentação e boa gravação!`;
+const defaults = {speed:130,fontSize:46,lineHeight:1.65,width:'normal',mode:'continuous',countdown:3,mirrorH:false,mirrorV:false,guide:true,highlight:true,guideAt:36,theme:'dark'};
+const state = {text:DEMO,title:'Meu primeiro roteiro',settings:{...defaults},markers:[],locked:false,words:0,cursor:0,elapsed:0,blocks:[],current:0,playing:false,counting:false,finished:false,focus:false};
+let points = [], rendered = [], frame = 0, lastTime = null, lastUI = 0, saveTimer = 0, editTimer = 0, resizeFrame = 0;
+let countdownTimer = 0, countdownToken = 0, hideTimer = 0, expectedScroll = 0, manualScroll = false, wakeLock = null, wakeGeneration = 0;
+let pendingDialog = null, snapshotMemory = null, mobileReturnFocus = null;
+// conta do Portal
+const C = { user:null, docId:null, lista:null, sujo:false, nuvemTimer:0, salvando:null, cacheKey:"" };
+const clamp = (v,min,max) => Math.max(min, Math.min(max,v));
+const numeric = (v,fallback,min,max) => Number.isFinite(Number(v)) ? clamp(Number(v),min,max) : fallback;
+const wordsOf = s => (s.match(/\S+/gu) || []).length;
+const clock = seconds => { const n = Math.max(0,Math.ceil(seconds)); const m = Math.floor(n/60); return String(m).padStart(2,'0') + ':' + String(n%60).padStart(2,'0'); };
+const icon = name => {const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');svg.classList.add('icon');svg.setAttribute('aria-hidden','true');const use=document.createElementNS(svg.namespaceURI,'use');use.setAttribute('href','#i-'+name);svg.append(use);return svg;};
+
+function toast(message) {
+ const el=document.createElement('div');el.className='toast';el.textContent=message;$('toasts').append(el);
+ while($('toasts').children.length>3) $('toasts').firstChild.remove();
+ setTimeout(()=>el.remove(),4400);
+}
+function cleanSettings(value) {
+ const s=value && typeof value==='object' ? value : {};
+ return {speed:numeric(s.speed,130,40,260),fontSize:numeric(s.fontSize,46,22,96),lineHeight:numeric(s.lineHeight,1.65,1.2,2.2),
+  width:['narrow','normal','wide'].includes(s.width)?s.width:'normal',mode:s.mode==='blocks'?'blocks':'continuous',
+  countdown:[0,3,5].includes(Number(s.countdown))?Number(s.countdown):3,guideAt:numeric(s.guideAt,36,25,55),theme:s.theme==='light'?'light':'dark',
+  mirrorH:s.mirrorH===true,mirrorV:s.mirrorV===true,guide:s.guide!==false,highlight:s.highlight!==false};
+}
+function cleanDocument(raw) {
+ if(!raw || typeof raw!=='object' || typeof raw.text!=='string' || raw.text.length>MAX_CHARS) return null;
+ const text=raw.text.replace(/\r\n?/g,'\n');
+ return {text,title:typeof raw.title==='string'?raw.title.slice(0,100):'Meu roteiro',settings:cleanSettings(raw.settings),locked:raw.locked===true,
+  markers:Array.isArray(raw.markers)?raw.markers.slice(0,100).filter(m=>m && typeof m.name==='string' && Number.isFinite(m.offset)).map((m,i)=>({id:'m'+i+'-'+Date.now(),name:m.name.slice(0,80),offset:clamp(m.offset,0,text.length),quote:typeof m.quote==='string'?m.quote.slice(0,80):''})):[],
+  cursor:numeric(raw.cursor,0,0,MAX_CHARS),elapsed:numeric(raw.elapsed,0,0,86400)};
+}
+function payload() {return {version:2,text:state.text,title:state.title,settings:state.settings,markers:state.markers,locked:state.locked,cursor:state.cursor,elapsed:state.elapsed};}
+
+/* ---------- salvar: cópia neste navegador na hora + conta do Portal a cada poucos segundos ---------- */
+function statusSalvo(txt, cor) { $('saveStatus').textContent=txt; $('saveStatus').style.color=cor||''; }
+function saveNow() {
+ clearTimeout(saveTimer);
+ if(!C.user) return;
+ try { localStorage.setItem(C.cacheKey, JSON.stringify({ ...payload(), docId:C.docId, t:Date.now() })); } catch {}
+ if(C.sujo) agendarNuvem(0);
+}
+function scheduleSave() { C.sujo=true; statusSalvo('Salvando…'); clearTimeout(saveTimer); saveTimer=setTimeout(saveNow,450); }
+function agendarNuvem(ms) { clearTimeout(C.nuvemTimer); C.nuvemTimer=setTimeout(salvarNuvem, ms ?? 1500); }
+async function salvarNuvem() {
+ if(!C.user || !C.sujo) return;
+ if(C.salvando){ await C.salvando.catch(()=>{}); if(!C.sujo) return; }
+ C.sujo=false;
+ const p=payload();
+ const dados={ titulo:(p.title||'Roteiro sem título').slice(0,100), texto:p.text, settings:p.settings, markers:p.markers.map(m=>({name:m.name,offset:m.offset,quote:m.quote})),
+  locked:p.locked, cursor:p.cursor, elapsed:p.elapsed, palavras:state.words, atualizado_em:serverTimestamp() };
+ const col=collection(db,'usuarios',C.user.uid,'roteiros');
+ C.salvando=(async()=>{
+  if(C.docId) await setDoc(doc(col,C.docId),dados,{merge:true});
+  else { const r=await addDoc(col,{...dados,criado_em:serverTimestamp()}); C.docId=r.id; lembrarUltimo(); }
+ })();
+ try { await C.salvando; statusSalvo('Salvo na sua conta'); $('footerTip').textContent='Roteiro salvo na sua conta'; C.lista=null; }
+ catch(e) { console.warn('salvar:',e.code||e); C.sujo=true; statusSalvo('Sem conexão: guardado neste aparelho','#f4c981'); $('footerTip').textContent='Tentando salvar de novo...'; agendarNuvem(8000); }
+ finally { C.salvando=null; }
+}
+function lembrarUltimo(){ try{ localStorage.setItem('pde_tele_ultimo_'+C.user.uid, C.docId||''); }catch{} }
+function saveSnapshot(announce=false) {
+ flushEditor();snapshotMemory=cleanDocument(payload());
+ $('restoreBtn').disabled=!snapshotMemory;
+ if(announce) toast('Versão guardada. Use Restaurar para voltar a ela.');
+}
+function ask({title,message,confirm='Confirmar',input=false,value='',label='Nome'}) {
+ pause();
+ $('dialogTitle').textContent=title;$('dialogMessage').textContent=message;$('dialogConfirm').textContent=confirm;
+ $('dialogInput').hidden=!input;$('dialogInputLabel').hidden=!input;$('dialogInputLabel').textContent=label;$('dialogInput').value=value;
+ $('actionDialog').showModal();
+ requestAnimationFrame(()=>input?$('dialogInput').focus():$('dialogCancel').focus());
+ return new Promise(resolve=>{pendingDialog={resolve,input};});
+}
+function finishDialog(accepted) {
+ if(!pendingDialog) return;
+ const p=pendingDialog;pendingDialog=null;
+ const result=accepted?(p.input?$('dialogInput').value.trim():true):null;
+ $('actionDialog').close();p.resolve(result);
+}
+
+// O roteiro é dividido apenas para navegação. No modo contínuo todos os blocos são renderizados.
+function parseText() {
+ let offset=0,start=0,group=[],sum=0;
+ state.blocks=[];
+ const flush=()=>{
+  if(!group.length) return;
+  const raw=group.join('\n'),left=raw.length-raw.trimStart().length,text=raw.trim(),words=wordsOf(text);
+  if(text && words){state.blocks.push({text,start:start+left,end:start+left+text.length,words,base:sum});sum+=words;}
+  group=[];
+ };
+ for(const line of state.text.split('\n')) {
+  if(!line.trim() || /^-{3,}$/.test(line.trim())) flush();
+  else {if(!group.length) start=offset;group.push(line);}
+  offset+=line.length+1;
+ }
+ flush();state.words=sum;state.cursor=clamp(state.cursor,0,sum);state.current=blockAt(state.cursor);
+}
+function blockAt(word) {
+ if(!state.blocks.length) return 0;
+ for(let i=state.blocks.length-1;i>=0;i--) if(word>=state.blocks[i].base) return i;
+ return 0;
+}
+function offsetAtCursor() {
+ const b=state.blocks[blockAt(state.cursor)];if(!b) return 0;
+ const tokens=[...b.text.matchAll(/\S+/gu)];
+ const n=clamp(Math.floor(state.cursor-b.base),0,tokens.length-1);
+ return b.start+(tokens[n]?.index||0);
+}
+function wordsAtOffset(offset) {
+ const b=state.blocks.find(x=>offset<=x.end)||state.blocks[state.blocks.length-1];
+ if(!b) return 0;
+ return b.base+wordsOf(b.text.slice(0,clamp(offset-b.start,0,b.text.length)));
+}
+function renderScript() {
+ const fragment=document.createDocumentFragment();rendered=[];
+ state.current=blockAt(state.cursor);
+ state.blocks.forEach((b,i)=>{
+  if(state.settings.mode==='blocks' && i!==state.current) return;
+  const p=document.createElement('p');p.className='script-block';p.dataset.block=String(i);p.textContent=b.text;
+  fragment.append(p);rendered.push({el:p,block:b,index:i});
+ });
+ $('script').replaceChildren(fragment);
+ const empty=state.words===0;
+ $('emptyStage').hidden=!empty;$('readerMirror').hidden=empty;$('progressSlider').disabled=empty;$('addMarkerBtn').disabled=empty;
+ $('exportBtn').disabled=!state.text.trim();
+ measure();updateUI();
+}
+function measure() {
+ if(!state.words || !$('viewport').clientHeight){points=[];return;}
+ const s=state.settings,v=$('viewport'),script=$('script');
+ const h=v.clientHeight,guide=h*s.guideAt/100,line=s.fontSize*s.lineHeight;
+ const first=rendered[0];if(!first) return;
+ script.style.paddingTop=Math.max(0,guide-line/2)+'px';
+ script.style.paddingBottom=Math.max(0,h-guide+line/2)+'px';
+ points=[];
+ for(const item of rendered) {
+  const count=Math.max(1,Math.round(item.el.offsetHeight/line));
+  for(let n=0;n<count;n++) points.push({w:item.block.base+item.block.words*n/count,y:Math.max(0,item.el.offsetTop+line*(n+.5)-guide)});
+ }
+ const last=rendered[rendered.length-1],end=last.block.base+last.block.words;
+ // O último intervalo mantém a última linha visível pelo tempo estimado de fala.
+ points.push({w:end,y:points[points.length-1]?.y||0});
+ syncScroll();
+}
+function yAtWord(word) {
+ if(points.length<2) return 0;
+ for(let i=1;i<points.length;i++) {
+  const a=points[i-1],b=points[i];
+  if(word<=b.w) return a.y+(b.y-a.y)*clamp((word-a.w)/(b.w-a.w||1),0,1);
+ }
+ return points[points.length-1].y;
+}
+function wordAtY(y) {
+ if(points.length<2) return state.cursor;
+ for(let i=1;i<points.length;i++) {
+  const a=points[i-1],b=points[i];
+  if(y<=b.y && b.y>a.y) return a.w+(b.w-a.w)*clamp((y-a.y)/(b.y-a.y),0,1);
+ }
+ return points[points.length-2].w;
+}
+function syncScroll() {
+ expectedScroll=yAtWord(state.cursor);$('viewport').scrollTop=expectedScroll;
+ // O navegador arredonda scrollTop em algumas escalas de tela.
+ expectedScroll=$('viewport').scrollTop;
+}
+function applySettings(reflow=true) {
+ const s=state.settings,m=$('readerMirror');
+ m.style.setProperty('--reading-font',s.fontSize+'px');m.style.setProperty('--reading-line',s.lineHeight);
+ m.style.setProperty('--reading-width',({narrow:620,normal:850,wide:1200})[s.width]+'px');
+ m.style.setProperty('--guide-y',s.guideAt+'%');m.style.setProperty('--mirror-x',s.mirrorH?-1:1);m.style.setProperty('--mirror-y',s.mirrorV?-1:1);
+ $('guideLine').style.height=s.fontSize*s.lineHeight+'px';$('guideLine').style.top=-s.fontSize*s.lineHeight/2+'px';
+ $('guide').hidden=!s.guide;root.classList.toggle('no-highlight',!s.highlight);root.classList.toggle('light',s.theme==='light');
+ $('themeBtn').setAttribute('aria-label',s.theme==='dark'?'Ativar tema claro':'Ativar tema escuro');
+ $('speedSlider').value=s.speed;$('speedValue').textContent=Math.round(s.speed)+' ppm';$('speedQuick').textContent=Math.round(s.speed);
+ $('fontSlider').value=s.fontSize;$('fontValue').textContent=s.fontSize+' px';$('fontQuick').textContent=s.fontSize;
+ $('lineSlider').value=Math.round(s.lineHeight*100);$('lineValue').textContent=s.lineHeight.toFixed(2).replace('.',',');
+ $('guideSlider').value=s.guideAt;$('guideValue').textContent=s.guideAt+'%';$('countdownSelect').value=s.countdown;$('modeSelect').value=s.mode;
+ [['mirrorH','mirrorH'],['mirrorV','mirrorV'],['guideToggle','guide'],['highlightToggle','highlight']].forEach(([id,k])=>$(id).setAttribute('aria-checked',String(s[k])));
+ all('[data-width]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.width===s.width)));
+ all('[data-pace]').forEach(b=>b.setAttribute('aria-pressed',String(Number(b.dataset.pace)===s.speed)));
+ $('modeLabel').textContent=s.mode==='blocks'?'UM BLOCO POR VEZ':'ROLAGEM CONTÍNUA';
+ $('modeHint').textContent=s.mode==='blocks'?'Os blocos avançam durante a leitura. Use as setas para trocar manualmente.':'Todo o roteiro em sequência, com passagem suave.';
+ if(reflow) measure();updateUI();
+}
+function updateLock() {
+ $('editor').readOnly=state.locked;$('titleInput').readOnly=state.locked;
+ $('lockBtn').setAttribute('aria-pressed',String(state.locked));$('lockText').textContent=state.locked?'Destravar':'Travar';
+ $('importBtn').disabled=state.locked;$('clearBtn').disabled=state.locked;
+}
+function updateUI() {
+ const total=state.words,ratio=total?state.cursor/total:0;
+ $('wordCount').textContent=total.toLocaleString('pt-BR')+(total===1?' palavra':' palavras');
+ $('estimate').textContent='≈ '+clock(total/state.settings.speed*60)+' de leitura';
+ $('elapsedTime').textContent=clock(Math.floor(state.elapsed));$('remainingTime').textContent=clock((total-state.cursor)/state.settings.speed*60);
+ $('progressLabel').textContent=Math.round(ratio*100)+'% do roteiro';$('progressSlider').value=Math.round(ratio*1000);
+ $('progressSlider').setAttribute('aria-valuetext',Math.round(ratio*100)+'% do roteiro');
+ const current=blockAt(state.cursor);state.current=current;
+ $('blockCount').textContent=total?'Bloco '+(current+1)+' / '+state.blocks.length:'Sem roteiro';
+ for(const item of rendered) item.el.classList.toggle('active',item.index===current);
+ $('prevBtn').disabled=!total || (current===0 && state.cursor<.1);$('nextBtn').disabled=!total || current===state.blocks.length-1;
+ $('playBtn').disabled=!total;
+ $('playLabel').textContent=state.counting?'Cancelar':state.playing?'Pausar':state.finished?'Repetir':state.cursor>0?'Continuar':'Iniciar';
+ $('playIcon').setAttribute('href',state.playing?'#i-pause':'#i-play');
+ $('playBtn').setAttribute('aria-label',state.counting?'Cancelar contagem':state.playing?'Pausar leitura':state.finished?'Repetir roteiro':state.cursor>0?'Continuar leitura':'Iniciar leitura');
+ $('statusBadge').classList.toggle('running',state.playing);
+ $('statusText').textContent=state.counting?'Prepare-se…':state.playing?'Leitura em andamento':state.finished?'Roteiro concluído':state.cursor>0?'Leitura pausada':'Pronto para começar';
+ $('stageTip').textContent=state.playing?'Espaço para pausar':state.finished?'Roteiro concluído':state.focus?'Toque ou mova o mouse para ver os controles':'Leia na altura das setas';
+ publicarSessao();
+}
+function setSpeed(value) {state.settings.speed=clamp(Math.round(value),40,260);applySettings(false);scheduleSave();}
+function setFont(value) {state.settings.fontSize=clamp(Math.round(value),22,96);applySettings();scheduleSave();}
+
+function beginPlayback() {
+ if(state.playing || !state.words || document.hidden) return;
+ state.playing=true;state.finished=false;manualScroll=false;lastTime=null;
+ updateUI();acquireWakeLock();showControls();frame=requestAnimationFrame(tick);
+}
+function tick(time) {
+ if(!state.playing) return;
+ const dt=lastTime===null?0:Math.min(Math.max((time-lastTime)/1000,0),.25);lastTime=time;
+ state.elapsed+=dt;state.cursor=Math.min(state.words,state.cursor+dt*state.settings.speed/60);
+ const next=blockAt(state.cursor);
+ if(state.settings.mode==='blocks' && next!==state.current) {state.current=next;renderScript();}
+ syncScroll();
+ if(time-lastUI>100){updateUI();lastUI=time;}
+ if(state.cursor>=state.words){pause();state.finished=true;updateUI();toast('Roteiro concluído. Boa apresentação!');saveNow();return;}
+ frame=requestAnimationFrame(tick);
+}
+function stopCountdown() {countdownToken++;clearTimeout(countdownTimer);state.counting=false;$('countdownOverlay').hidden=true;}
+function pause() {
+ const estava=state.playing||state.counting;
+ state.playing=false;cancelAnimationFrame(frame);frame=0;lastTime=null;stopCountdown();releaseWakeLock();
+ root.classList.remove('controls-hidden');clearTimeout(hideTimer);updateUI();if(estava) scheduleSave();
+}
+function togglePlay() {
+ flushEditor();
+ if(state.playing || state.counting){pause();return;}
+ if(!state.words){toast('Adicione um roteiro para iniciar.');return;}
+ if(state.finished || state.cursor>=state.words) {state.cursor=0;state.elapsed=0;state.finished=false;renderScript();}
+ closePanel(false);$('playBtn').focus({preventScroll:true});
+ if(state.cursor===0 && state.elapsed===0 && state.settings.countdown>0) {
+  state.counting=true;const token=++countdownToken;let count=state.settings.countdown;
+  $('countdownOverlay').hidden=false;$('countdownNumber').textContent=count;updateUI();
+  const step=()=>{if(token!==countdownToken || !state.counting) return;count--;if(count<=0){state.counting=false;$('countdownOverlay').hidden=true;beginPlayback();}else{$('countdownNumber').textContent=count;countdownTimer=setTimeout(step,1000);}};
+  countdownTimer=setTimeout(step,1000);
+ } else beginPlayback();
+}
+function restart() {pause();state.cursor=0;state.elapsed=0;state.finished=false;renderScript();scheduleSave();}
+function seek(word,{stop=true}={}) {
+ if(stop) pause();
+ state.cursor=clamp(word,0,state.words);state.finished=state.words>0 && state.cursor>=state.words;
+ const block=blockAt(state.cursor);
+ if(state.settings.mode==='blocks' && block!==state.current) {state.current=block;renderScript();}else{syncScroll();updateUI();}
+ scheduleSave();
+}
+function stepBlock(direction) {
+ if(!state.blocks.length) return;
+ const index=blockAt(state.cursor);
+ const next=clamp(index+direction,0,state.blocks.length-1);
+ seek(state.blocks[next].base);
+}
+async function acquireWakeLock() {
+ if(!('wakeLock' in navigator)) return;
+ const token=++wakeGeneration;
+ try {const lock=await navigator.wakeLock.request('screen');if(token!==wakeGeneration || !state.playing) {await lock.release();return;}wakeLock=lock;}catch{}
+}
+function releaseWakeLock() {wakeGeneration++;if(wakeLock){wakeLock.release().catch(()=>{});wakeLock=null;}}
+
+// Mantém o marcador ancorado no texto quando há inserções antes dele.
+function relocateMarkers(oldText,newText) {
+ let prefix=0;while(prefix<oldText.length && prefix<newText.length && oldText[prefix]===newText[prefix]) prefix++;
+ let suffix=0;while(suffix<oldText.length-prefix && suffix<newText.length-prefix && oldText[oldText.length-1-suffix]===newText[newText.length-1-suffix]) suffix++;
+ const oldEnd=oldText.length-suffix,delta=newText.length-oldText.length;
+ for(const m of state.markers) {
+  let offset=m.offset;
+  if(offset>=oldEnd) offset+=delta;
+  else if(offset>=prefix) offset=prefix;
+  if(m.quote && newText.slice(offset,offset+m.quote.length)!==m.quote) {
+   const found=newText.indexOf(m.quote);
+   if(found!==-1 && found===newText.lastIndexOf(m.quote)) offset=found;
+  }
+  m.offset=clamp(offset,0,newText.length);m.quote=newText.slice(m.offset,m.offset+50);
+ }
+}
+function applyEditor() {
+ clearTimeout(editTimer);editTimer=0;
+ const text=$('editor').value.replace(/\r\n?/g,'\n');
+ if(text===state.text) return;
+ if(text.length>MAX_CHARS){$('editor').value=state.text;toast('Este roteiro excede 200 mil caracteres. Divida em roteiros menores.');return;}
+ relocateMarkers(state.text,text);state.text=text;state.cursor=0;state.elapsed=0;state.finished=false;
+ parseText();renderScript();renderMarkers();scheduleSave();
+}
+function flushEditor() {if(editTimer || $('editor').value!==state.text) applyEditor();}
+function syncEditor() {$('editor').value=state.text;$('titleInput').value=state.title;$('stageTitle').textContent=state.title||'Roteiro sem título';updateLock();}
+async function clearText() {
+ if(state.locked) return;flushEditor();if(!state.text.trim()) return;
+ const confirmed=await ask({title:'Apagar o texto deste roteiro?',message:'O texto e os marcadores serão removidos. A versão anterior ficará disponível em Restaurar enquanto esta página estiver aberta.',confirm:'Limpar roteiro'});
+ if(!confirmed) return;
+ saveSnapshot();state.text='';state.markers=[];state.cursor=0;state.elapsed=0;state.finished=false;
+ syncEditor();parseText();renderScript();renderMarkers();scheduleSave();$('editor').focus();
+}
+async function restoreSnapshot() {
+ if(state.locked){toast('Destrave a edição para restaurar uma versão.');return;}
+ flushEditor();if(!snapshotMemory){toast('Nenhuma versão guardada.');return;}
+ const confirmed=await ask({title:'Restaurar versão guardada?',message:'O roteiro e os ajustes guardados serão recuperados. A versão atual ocupará o lugar deles em Restaurar.',confirm:'Restaurar'});
+ if(!confirmed) return;
+ const next=cleanDocument(snapshotMemory);saveSnapshot();Object.assign(state,next);state.finished=false;
+ syncEditor();parseText();applySettings(false);renderScript();renderMarkers();scheduleSave();toast('Versão restaurada.');
+}
+async function importFile(file) {
+ if(!file || state.locked) return;
+ if(!/\.txt$/i.test(file.name)){toast('Selecione um arquivo de texto com a extensão .txt.');return;}
+ if(file.size>1000000){toast('O arquivo é muito grande. Use um .txt de até 1 MB.');return;}
+ let text;
+ try{text=(await file.text()).replace(/^﻿/,'').replace(/\r\n?/g,'\n');}catch{toast('Não foi possível ler o arquivo.');return;}
+ if(text.length>MAX_CHARS || text.includes('\u0000')){toast('Use um arquivo de texto com até 200 mil caracteres.');return;}
+ flushEditor();pause();
+ // importar abre um roteiro novo na conta, sem apagar o atual
+ await salvarNuvem().catch(()=>{});
+ C.docId=null;saveSnapshot();
+ state.text=text;state.title=file.name.replace(/\.txt$/i,'').slice(0,100);state.markers=[];state.cursor=0;state.elapsed=0;state.finished=false;
+ syncEditor();parseText();renderScript();renderMarkers();scheduleSave();toast('Roteiro importado como um novo roteiro.');
+}
+function exportFile() {
+ flushEditor();if(!state.text.trim()) return;
+ const blob=new Blob(['﻿'+state.text],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download=(state.title.trim()||'roteiro').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'-').slice(0,100)+'.txt';
+ root.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+async function addMarker() {
+ flushEditor();if(!state.words) return;
+ if(state.markers.length>=100){toast('Limite de 100 marcadores por roteiro.');return;}
+ const offset=offsetAtCursor(),name=await ask({title:'Um ponto para retomar',message:'O marcador acompanha este trecho mesmo ao ajustar a fonte ou a largura.',confirm:'Adicionar marcador',input:true,value:'Bloco '+(state.current+1),label:'Nome do marcador'});
+ if(name===null) return;
+ state.markers.push({id:'m'+Date.now()+'-'+Math.random().toString(36).slice(2,6),name:name||'Marcador '+(state.markers.length+1),offset,quote:state.text.slice(offset,offset+50)});
+ renderMarkers();scheduleSave();toast('Marcador adicionado.');
+}
+function renderMarkers() {
+ $('markerEmpty').hidden=state.markers.length>0;
+ const f=document.createDocumentFragment();
+ for(const m of [...state.markers].sort((a,b)=>a.offset-b.offset)) {
+  const li=document.createElement('li');li.className='marker-item';
+  const go=document.createElement('button');go.className='marker-link';const name=document.createElement('span');name.textContent=m.name;
+  const sub=document.createElement('small');sub.textContent='Bloco '+(blockAt(wordsAtOffset(m.offset))+1)+' · '+state.text.slice(m.offset,m.offset+38).replace(/\s+/g,' ');
+  go.append(name,sub);go.addEventListener('click',()=>{seek(wordsAtOffset(m.offset));closePanel(false);});
+  const del=document.createElement('button');del.className='btn btn-ghost icon-btn';del.setAttribute('aria-label','Excluir marcador '+m.name);del.append(icon('close'));
+  del.addEventListener('click',()=>{state.markers=state.markers.filter(x=>x.id!==m.id);renderMarkers();scheduleSave();});
+  li.append(go,del);f.append(li);
+ }
+ $('markerList').replaceChildren(f);
+}
+
+function selectTab(name,focus=false) {
+ ['script','settings','markers'].forEach(n=>{const tab=$('tab-'+n);tab.setAttribute('aria-selected',String(n===name));tab.tabIndex=n===name?0:-1;$('panel-'+n).hidden=n!==name;});
+ if(focus) $('tab-'+name).focus();
+}
+function openPanel() {
+ pause();mobileReturnFocus=document.activeElement;root.classList.add('panel-open');$('openPanelBtn').setAttribute('aria-expanded','true');
+ const tab=all('.tab').find(t=>t.getAttribute('aria-selected')==='true');tab?.focus();
+}
+function closePanel(restore=true) {root.classList.remove('panel-open');$('openPanelBtn').setAttribute('aria-expanded','false');if(restore) mobileReturnFocus?.focus();}
+function setFocus(enabled) {
+ flushEditor();closePanel(false);state.focus=enabled;root.classList.toggle('focus-mode',enabled);root.classList.remove('controls-hidden');
+ if(enabled)$('exitFocusBtn').focus({preventScroll:true});else $('focusBtn').focus({preventScroll:true});
+ requestAnimationFrame(measure);updateUI();showControls();
+}
+async function fullscreen() {
+ if(document.fullscreenElement===root) {
+  try{await document.exitFullscreen();}catch{toast('Use Esc para sair da tela cheia.');}
+  return;
+ }
+ flushEditor();
+ if(typeof root.requestFullscreen!=='function'){setFocus(true);toast('Modo Foco ativado. Este navegador não oferece tela cheia.');return;}
+ try {await root.requestFullscreen();setFocus(true);}catch{setFocus(true);toast('Tela cheia indisponível aqui. O modo Foco está ativo.');}
+}
+async function exitFocus() {
+ pause();
+ if(document.fullscreenElement===root) {try{await document.exitFullscreen();}catch{toast('Use Esc para sair da tela cheia.');}}
+ setFocus(false);
+}
+function showControls() {
+ root.classList.remove('controls-hidden');clearTimeout(hideTimer);
+ if(state.focus && state.playing) hideTimer=setTimeout(()=>{
+  if(state.focus && state.playing && !$('transport').matches(':hover') && !$('transport').contains(document.activeElement)) root.classList.add('controls-hidden');
+ },3000);
+}
+function typingTarget(el) {return el?.closest('textarea,input,select,[contenteditable="true"]');}
+function algumDialogo() { return ['actionDialog','helpDialog','listDialog','remoteDialog'].some(id=>$(id).open); }
+function handleKey(e) {
+ if(e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+ if(algumDialogo()) return;
+ if(e.key==='Escape'){e.preventDefault();if(state.focus)exitFocus();else {pause();closePanel();}return;}
+ if(typingTarget(e.target)) return;
+ if(e.target.closest('button') && (e.key===' ' || e.key==='Enter')) return;
+ const key=e.key.toLowerCase();
+ const actions={' ':togglePlay,arrowup:()=>setSpeed(state.settings.speed+5),arrowdown:()=>setSpeed(state.settings.speed-5),arrowleft:()=>stepBlock(-1),arrowright:()=>stepBlock(1),'+':()=>setFont(state.settings.fontSize+2),'=':()=>setFont(state.settings.fontSize+2),'-':()=>setFont(state.settings.fontSize-2),r:restart,m:()=>toggleSetting('mirrorH'),f:fullscreen,p:()=>state.focus?exitFocus():setFocus(true),b:addMarker,'?':openHelp};
+ if(actions[key]){e.preventDefault();if(e.repeat && [' ','r','m','f','p','b','?'].includes(key))return;actions[key]();showControls();}
+}
+function toggleSetting(name) {state.settings[name]=!state.settings[name];applySettings();scheduleSave();}
+function openHelp() {pause();$('helpDialog').showModal();}
+
+/* ---------- Meus roteiros ---------- */
+function abrirDocumento(raw, id) {
+ const d=cleanDocument(raw);
+ if(!d) { toast('Não foi possível abrir este roteiro.'); return false; }
+ pause(); Object.assign(state,d); state.finished=false; C.docId=id||null; snapshotMemory=null; $('restoreBtn').disabled=true;
+ syncEditor();parseText();applySettings(false);renderScript();renderMarkers();
+ if(C.user) lembrarUltimo();
+ return true;
+}
+const docDoFirestore = x => ({ text:x.texto||'', title:x.titulo||'Roteiro', settings:x.settings, markers:x.markers||[], locked:x.locked, cursor:x.cursor, elapsed:x.elapsed });
+async function carregarLista() {
+ const s=await getDocs(collection(db,'usuarios',C.user.uid,'roteiros'));
+ C.lista=[]; s.forEach(d=>C.lista.push({id:d.id,...d.data()}));
+ C.lista.sort((a,b)=>((b.atualizado_em&&b.atualizado_em.seconds)||0)-((a.atualizado_em&&a.atualizado_em.seconds)||0));
+ return C.lista;
+}
+async function abrirLista() {
+ pause(); flushEditor(); await salvarNuvem().catch(()=>{});
+ $('rotLista').innerHTML='<li class="rot-vazio">Carregando...</li>'; $('listDialog').showModal();
+ try { if(!C.lista) await carregarLista(); } catch(e) { $('rotLista').innerHTML='<li class="rot-vazio">Não foi possível carregar seus roteiros.</li>'; return; }
+ desenharLista();
+}
+function desenharLista() {
+ const f=document.createDocumentFragment();
+ if(!C.lista.length){ const li=document.createElement('li'); li.className='rot-vazio'; li.textContent='Nenhum roteiro salvo ainda. O roteiro aberto agora é salvo assim que você editar.'; f.append(li); }
+ for(const r of C.lista){
+  const li=document.createElement('li'); li.className='rot-item'+(r.id===C.docId?' atual':'');
+  const go=document.createElement('button'); go.className='rot-abrir'; go.dataset.rot=r.id;
+  const t=document.createElement('span'); t.textContent=r.titulo||'Roteiro sem título';
+  const sub=document.createElement('small'); const dt=r.atualizado_em&&r.atualizado_em.toDate?r.atualizado_em.toDate().toLocaleDateString('pt-BR'):'';
+  sub.textContent=(r.palavras||0).toLocaleString('pt-BR')+' palavras'+(dt?' · '+dt:'')+(r.id===C.docId?' · aberto agora':'');
+  go.append(t,sub);
+  const del=document.createElement('button'); del.className='btn btn-ghost icon-btn'; del.dataset.del=r.id; del.setAttribute('aria-label','Excluir '+(r.titulo||'roteiro')); del.append(icon('close'));
+  li.append(go,del); f.append(li);
+ }
+ $('rotLista').replaceChildren(f);
+}
+async function abrirRoteiro(id) {
+ const r=(C.lista||[]).find(x=>x.id===id); if(!r) return;
+ $('listDialog').close();
+ if(abrirDocumento(docDoFirestore(r),r.id)) { statusSalvo('Salvo na sua conta'); toast('Roteiro aberto: '+(r.titulo||'sem título')); }
+}
+async function excluirRoteiro(id) {
+ const r=(C.lista||[]).find(x=>x.id===id); if(!r) return;
+ $('listDialog').close();
+ const ok=await ask({title:'Excluir este roteiro?',message:'"'+(r.titulo||'Roteiro')+'" será apagado da sua conta. Esta ação não pode ser desfeita.',confirm:'Excluir'});
+ if(!ok){ $('listDialog').showModal(); return; }
+ try {
+  await deleteDoc(doc(collection(db,'usuarios',C.user.uid,'roteiros'),id));
+  C.lista=C.lista.filter(x=>x.id!==id);
+  if(C.docId===id){ C.docId=null; C.sujo=false; if(C.lista[0]) abrirDocumento(docDoFirestore(C.lista[0]),C.lista[0].id); else novoRoteiro(true); }
+  toast('Roteiro excluído.');
+ } catch(e) { toast('Não foi possível excluir agora.'); }
+ $('listDialog').showModal(); desenharLista();
+}
+function novoRoteiro(silencioso) {
+ if($('listDialog').open) $('listDialog').close();
+ abrirDocumento({text:'',title:'Novo roteiro',settings:state.settings,markers:[]},null);
+ statusSalvo('Novo roteiro: salvo ao digitar');
+ selectTab('script'); if(matchMedia('(max-width:760px)').matches) openPanel();
+ if(!silencioso) $('editor').focus();
+}
+
+/* ---------- controle pelo celular ---------- */
+const R = { ativo:false, ultimo:'', ultimoEm:0, timer:0, unsub:null, pings:0, ultimoCmd:0 };
+const URL_CONTROLE = location.origin + '/apps/teleprompter/controle/';
+function sessaoRef(){ return doc(db,'usuarios',C.user.uid,'tele','sessao'); }
+function publicarSessao(forcar) {
+ if(!R.ativo || !C.user) return;
+ const total=state.blocks.length;
+ const s={ ativo:true, titulo:(state.title||'Roteiro').slice(0,100), bloco:total?blockAt(state.cursor)+1:0, blocos:total, tocando:state.playing, contando:state.counting,
+  concluido:state.finished, ppm:Math.round(state.settings.speed), fonte:state.settings.fontSize, progresso:state.words?Math.round(state.cursor/state.words*100):0 };
+ const chave=JSON.stringify({...s,progresso:Math.round(s.progresso/10)});
+ const agora=Date.now();
+ if(!forcar && chave===R.ultimo && agora-R.ultimoEm<20000) return;
+ clearTimeout(R.timer);
+ const espera=forcar?0:Math.max(0,700-(agora-R.ultimoEm));
+ R.timer=setTimeout(()=>{ R.ultimo=chave; R.ultimoEm=Date.now(); setDoc(sessaoRef(),{...s,atualizado_em:serverTimestamp()}).catch(e=>console.warn('sessao:',e.code||e)); },espera);
+}
+const ACOES = {
+ alternar:()=>togglePlay(), iniciar:()=>{ if(!state.playing && !state.counting) togglePlay(); }, pausar:()=>pause(),
+ proximo:()=>stepBlock(1), anterior:()=>stepBlock(-1), inicio:()=>restart(),
+ mais_rapido:()=>setSpeed(state.settings.speed+10), mais_lento:()=>setSpeed(state.settings.speed-10),
+ maior:()=>setFont(state.settings.fontSize+4), menor:()=>setFont(state.settings.fontSize-4)
+};
+async function ligarRemoto() {
+ if(R.ativo) return;
+ const col=collection(db,'usuarios',C.user.uid,'tele_cmd');
+ try { const velhos=await getDocs(col); await Promise.all(velhos.docs.map(d=>deleteDoc(doc(col,d.id)))); } catch(e) { console.warn('cmd:',e.code||e); }
+ R.ativo=true; $('remoteBtn').classList.add('remoto-on'); publicarSessao(true);
+ R.unsub=onSnapshot(col, snap=>{
+  snap.docChanges().forEach(ch=>{
+   if(ch.type!=='added') return;
+   const a=(ch.doc.data()||{}).acao;
+   deleteDoc(doc(col,ch.doc.id)).catch(()=>{});
+   if(ACOES[a]){ ACOES[a](); R.pings++; R.ultimoCmd=Date.now(); marcarConexao(); showControls(); }
+  });
+ }, e=>console.warn('cmd:',e.code||e));
+}
+function desligarRemoto() {
+ if(!R.ativo) return;
+ R.ativo=false; if(R.unsub){ R.unsub(); R.unsub=null; } clearTimeout(R.timer);
+ $('remoteBtn').classList.remove('remoto-on');
+ setDoc(sessaoRef(),{ativo:false,atualizado_em:serverTimestamp()},{merge:true}).catch(()=>{});
+}
+function marcarConexao() {
+ const el=$('conexao'); const ok=R.pings>0;
+ el.classList.toggle('ok',ok); el.textContent=ok?'Celular conectado: '+R.pings+' comando(s) recebido(s).':'Aguardando o celular...';
+}
+function abrirRemoto() {
+ pause(); ligarRemoto();
+ $('qrLink').textContent=URL_CONTROLE; $('qrLink').href=URL_CONTROLE;
+ const box=$('qr'); box.replaceChildren();
+ if(window.QRCode){ try{ new window.QRCode(box,{text:URL_CONTROLE,width:164,height:164,colorDark:'#0b1728',colorLight:'#ffffff'}); }catch{} }
+ else box.textContent='Abra o link ao lado no celular';
+ marcarConexao(); $('remoteDialog').showModal();
+}
+
+/* ---------- eventos ---------- */
+$('editor').addEventListener('input',()=>{pause();clearTimeout(editTimer);editTimer=setTimeout(applyEditor,170);});
+$('titleInput').addEventListener('input',()=>{state.title=$('titleInput').value;$('stageTitle').textContent=state.title||'Roteiro sem título';scheduleSave();publicarSessao();});
+$('editor').addEventListener('blur',flushEditor);
+$('playBtn').addEventListener('click',togglePlay);$('restartBtn').addEventListener('click',restart);
+$('prevBtn').addEventListener('click',()=>stepBlock(-1));$('nextBtn').addEventListener('click',()=>stepBlock(1));
+$('cancelCountdownBtn').addEventListener('click',pause);
+$('speedSlider').addEventListener('input',e=>setSpeed(Number(e.target.value)));
+$('slowerBtn').addEventListener('click',()=>setSpeed(state.settings.speed-5));$('fasterBtn').addEventListener('click',()=>setSpeed(state.settings.speed+5));
+$('fontSlider').addEventListener('input',e=>setFont(Number(e.target.value)));
+$('smallerBtn').addEventListener('click',()=>setFont(state.settings.fontSize-2));$('largerBtn').addEventListener('click',()=>setFont(state.settings.fontSize+2));
+$('lineSlider').addEventListener('input',e=>{state.settings.lineHeight=Number(e.target.value)/100;applySettings();scheduleSave();});
+$('guideSlider').addEventListener('input',e=>{state.settings.guideAt=Number(e.target.value);applySettings();scheduleSave();});
+all('[data-width]').forEach(b=>b.addEventListener('click',()=>{state.settings.width=b.dataset.width;applySettings();scheduleSave();}));
+all('[data-pace]').forEach(b=>b.addEventListener('click',()=>setSpeed(Number(b.dataset.pace))));
+$('modeSelect').addEventListener('change',e=>{pause();state.settings.mode=e.target.value;applySettings(false);renderScript();scheduleSave();});
+$('countdownSelect').addEventListener('change',e=>{if(state.counting)pause();state.settings.countdown=Number(e.target.value);scheduleSave();});
+[['mirrorH','mirrorH'],['mirrorV','mirrorV'],['guideToggle','guide'],['highlightToggle','highlight']].forEach(([id,key])=>$(id).addEventListener('click',()=>toggleSetting(key)));
+$('themeBtn').addEventListener('click',()=>{state.settings.theme=state.settings.theme==='dark'?'light':'dark';applySettings(false);scheduleSave();});
+$('progressSlider').addEventListener('input',e=>seek(Number(e.target.value)/1000*state.words));
+$('lockBtn').addEventListener('click',()=>{flushEditor();state.locked=!state.locked;updateLock();scheduleSave();});
+$('clearBtn').addEventListener('click',clearText);$('saveSnapshotBtn').addEventListener('click',()=>saveSnapshot(true));$('restoreBtn').addEventListener('click',restoreSnapshot);
+$('importBtn').addEventListener('click',()=>{if(!state.locked)$('fileInput').click();});$('fileInput').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';importFile(file);});
+$('exportBtn').addEventListener('click',exportFile);$('addMarkerBtn').addEventListener('click',addMarker);
+$('dialogForm').addEventListener('submit',e=>{e.preventDefault();finishDialog(true);});$('dialogCancel').addEventListener('click',()=>finishDialog(false));
+$('actionDialog').addEventListener('cancel',e=>{e.preventDefault();finishDialog(false);});
+$('helpBtn').addEventListener('click',openHelp);$('closeHelpBtn').addEventListener('click',()=>$('helpDialog').close());
+$('listBtn').addEventListener('click',abrirLista);$('closeListBtn').addEventListener('click',()=>$('listDialog').close());$('newScriptBtn').addEventListener('click',()=>novoRoteiro(false));
+$('rotLista').addEventListener('click',e=>{const a=e.target.closest('[data-rot]'),d=e.target.closest('[data-del]');if(a)abrirRoteiro(a.dataset.rot);else if(d)excluirRoteiro(d.dataset.del);});
+$('remoteBtn').addEventListener('click',abrirRemoto);$('closeRemoteBtn').addEventListener('click',()=>$('remoteDialog').close());
+$('remoteOffBtn').addEventListener('click',()=>{desligarRemoto();$('remoteDialog').close();toast('Controle pelo celular desligado.');});
+all('.tab').forEach((tab,i)=>{
+ tab.addEventListener('click',()=>selectTab(tab.id.replace('tab-','')));
+ tab.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();e.stopPropagation();const n=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;selectTab(['script','settings','markers'][n],true);}});
+});
+$('openPanelBtn').addEventListener('click',openPanel);$('closePanelBtn').addEventListener('click',()=>closePanel());
+$('emptyEditBtn').addEventListener('click',()=>{if(state.focus)setFocus(false);selectTab('script');if(matchMedia('(max-width:760px)').matches)openPanel();$('editor').focus();});
+$('focusBtn').addEventListener('click',()=>setFocus(true));$('exitFocusBtn').addEventListener('click',exitFocus);$('fullscreenBtn').addEventListener('click',fullscreen);
+document.addEventListener('fullscreenchange',()=>{const active=document.fullscreenElement===root;$('fullscreenBtn').setAttribute('aria-label',active?'Sair da tela cheia':'Entrar em tela cheia');if(!active && state.focus){pause();setFocus(false);}requestAnimationFrame(measure);});
+document.addEventListener('keydown',e=>{if(root.contains(e.target) || e.target===document.body)handleKey(e);});root.addEventListener('pointermove',showControls,{passive:true});root.addEventListener('pointerdown',showControls,{passive:true});
+root.addEventListener('focusin',showControls);
+$('viewport').addEventListener('wheel',()=>{if(state.playing || state.counting)pause();manualScroll=true;},{passive:true});
+$('viewport').addEventListener('touchstart',()=>{if(state.playing || state.counting)pause();manualScroll=true;},{passive:true});
+$('viewport').addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End'].includes(e.key)){pause();manualScroll=true;}});
+$('viewport').addEventListener('scroll',()=>{
+ const y=$('viewport').scrollTop;
+ if(Math.abs(y-expectedScroll)<1.2) return;
+ if(!state.playing && manualScroll) {state.cursor=clamp(wordAtY(y),0,state.words);state.finished=false;updateUI();scheduleSave();}
+},{passive:true});
+// com o controle pelo celular ligado, a leitura continua mesmo se a janela perder o foco
+document.addEventListener('visibilitychange',()=>{if(document.hidden){flushEditor();if(!R.ativo)pause();saveNow();}});
+window.addEventListener('pagehide',()=>{flushEditor();pause();saveNow();desligarRemoto();});
+const resize=()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(()=>{measure();updateUI();});};
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(resize).observe($('stage'));else window.addEventListener('resize',resize);
+
+// prévia imediata enquanto a conta carrega
+syncEditor();parseText();applySettings(false);renderScript();renderMarkers();
+requestAnimationFrame(()=>{measure();updateUI();});
+
+onAuthStateChanged(auth, async user => {
+ if(!user){ location.replace('/entrar/'); return; }
+ let u=null;
+ try{ const s=await getDoc(doc(db,'usuarios',user.uid)); u=s.exists()?s.data():null; }catch{}
+ if(!u || u.status!=='ativo' || u.perfil==='aluno'){ location.replace('/entrar/'); return; }
+ C.user=user; C.cacheKey='pde_tele_cache_'+user.uid;
+ $('quem').textContent=(u.nome||user.email||'').toUpperCase();
+ let ultimo=''; try{ ultimo=localStorage.getItem('pde_tele_ultimo_'+user.uid)||''; }catch{}
+ let cache=null; try{ cache=JSON.parse(localStorage.getItem(C.cacheKey)||'null'); }catch{}
+ try{ await carregarLista(); }catch(e){ console.warn('roteiros:',e.code||e); C.lista=[]; statusSalvo('Sem conexão com a conta','#f4c981'); }
+ const alvo=C.lista.find(x=>x.id===ultimo)||C.lista[0];
+ const ts=x=>x&&x.atualizado_em&&x.atualizado_em.toMillis?x.atualizado_em.toMillis():0;
+ // a cópia deste aparelho vence quando é mais nova que a da conta (ex.: a internet caiu antes de salvar)
+ if(cache && cache.docId && alvo && cache.docId===alvo.id && cache.t>ts(alvo)+2000){ abrirDocumento(cache,alvo.id); C.sujo=true; agendarNuvem(500); }
+ else if(alvo) abrirDocumento(docDoFirestore(alvo),alvo.id);
+ else if(cache && !cache.docId && cache.text && cache.text!==DEMO){ abrirDocumento(cache,null); C.sujo=true; agendarNuvem(500); }
+ if(!C.sujo) statusSalvo(C.docId?'Salvo na sua conta':'Salvo ao editar');
+});
+</script>
+</body>
+</html>

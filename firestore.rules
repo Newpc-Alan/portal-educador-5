@@ -147,6 +147,23 @@ service cloud.firestore {
         && novo().keys().hasOnly(["nome", "tipo", "cfg", "criado_em", "atualizado_em"])
         && novo().nome is string && novo().nome.size() <= 60 && novo().cfg is map;
     }
+    // Teleprompter: roteiros salvos na conta (so o dono), ate 200 mil caracteres
+    match /usuarios/{uid}/roteiros/{id} {
+      allow read, delete: if logado() && (request.auth.uid == uid || admin());
+      allow create, update: if logado() && request.auth.uid == uid && (licenciado() || eu().perfil in ["gestor", "secretaria"])
+        && novo().keys().hasOnly(["titulo", "texto", "settings", "markers", "locked", "cursor", "elapsed", "palavras", "criado_em", "atualizado_em"])
+        && novo().titulo is string && novo().titulo.size() <= 100 && novo().texto is string && novo().texto.size() <= 200000
+        && novo().markers is list && novo().markers.size() <= 100;
+    }
+    // Teleprompter: estado da leitura (publicado pelo computador) e comandos do celular; mesma conta nos dois aparelhos
+    match /usuarios/{uid}/tele/{id} {
+      allow read, write: if logado() && request.auth.uid == uid && id == "sessao";
+    }
+    match /usuarios/{uid}/tele_cmd/{id} {
+      allow read, delete: if logado() && request.auth.uid == uid;
+      allow create: if logado() && request.auth.uid == uid && novo().keys().hasOnly(["acao", "em"])
+        && novo().acao in ["alternar", "iniciar", "pausar", "proximo", "anterior", "inicio", "mais_rapido", "mais_lento", "maior", "menor"];
+    }
     match /usuarios/{uid}/pastas_provas/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && licenciado();
