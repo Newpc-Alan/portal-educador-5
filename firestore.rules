@@ -472,9 +472,12 @@ service cloud.firestore {
       allow update, delete: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
     }
 
+    // respostas das provas: so o professor dono da prova corrige; gestor da escola e secretaria do municipio acompanham
+    function donoDaProva(av) { return logado() && get(/databases/$(database)/documents/avaliacoes/$(av)).data.professor_uid == request.auth.uid; }
     match /respostas/{id} {
       allow create: if true; // o aluno responde sem login
-      allow read, update, delete: if professor();
+      allow read: if admin() || donoDaProva(resource.data.avaliacao_id) || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id);
+      allow update, delete: if admin() || donoDaProva(resource.data.avaliacao_id);
     }
 
     // ---------- Portal Maestro: historico das aulas ----------

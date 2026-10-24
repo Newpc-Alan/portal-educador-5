@@ -287,6 +287,21 @@ await t('professor le horarios da escola', assertSucceeds(getDoc(doc(prof, 'rec_
 await t('gestor exclui recurso', assertSucceeds((async () => { const b = writeBatch(gest); b.delete(doc(gest, 'rec_itens/i1')); b.delete(doc(gest, `rec_qr/${QA}`)); await b.commit(); })()));
 
 await t('anonimo abre chamado de item entregue', assertSucceeds(abrir(anon, 'cE', QE, 'est1')));
+// respostas das Avaliacoes: so o dono da prova, o gestor da escola e a secretaria do municipio
+await env.withSecurityRulesDisabled(async (c) => { const d = c.firestore();
+  await setDoc(doc(d, 'avaliacoes/avP'), { professor_uid: 'prof', turma_id: 't1', escola_id: 'e2', municipio_id: 'm1' });
+  await setDoc(doc(d, 'respostas/rP'), { avaliacao_id: 'avP', escola_id: 'e2', municipio_id: 'm1', aluno_id: 'a1', nota_final: 7 }); });
+await t('dono le respostas da prova', assertSucceeds(getDocs(query(collection(prof, 'respostas'), where('avaliacao_id', '==', 'avP')))));
+await t('outro professor nao le respostas', assertFails(getDocs(query(collection(prof2, 'respostas'), where('avaliacao_id', '==', 'avP')))));
+await t('outro professor nao abre resposta', assertFails(getDoc(doc(prof2, 'respostas/rP'))));
+await t('professor nao lista todas as respostas', assertFails(getDocs(collection(prof, 'respostas'))));
+await t('gestor da escola le respostas', assertSucceeds(getDocs(query(collection(gest, 'respostas'), where('avaliacao_id', '==', 'avP')))));
+await t('secretaria le resposta da rede', assertSucceeds(getDoc(doc(sec, 'respostas/rP'))));
+await t('dono corrige a resposta', assertSucceeds(updateDoc(doc(prof, 'respostas/rP'), { nota_final: 8 })));
+await t('gestor nao altera nota', assertFails(updateDoc(doc(gest, 'respostas/rP'), { nota_final: 10 })));
+await t('aluno sem login ainda responde', assertSucceeds(addDoc(collection(anon, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2' })));
+await t('anonimo nao le respostas', assertFails(getDoc(doc(anon, 'respostas/rP'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
