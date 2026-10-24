@@ -50,10 +50,7 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;user-
 <div class="app">
   <header class="topo"><img src="/assets/pde-logo-128.png" alt=""><div><small>Teleprompter</small><b>Controle remoto</b></div><span class="estado" id="estado">Conectando...</span></header>
 
-  <section id="telaLogin" hidden class="card aviso"><b>Entre com a mesma conta do Portal</b>Use a conta em que o teleprompter está aberto no computador.
-    <div><button class="btn-google" data-action="login"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Entrar com Google</button></div></section>
-
-  <section id="telaEspera" hidden class="card aviso"><b>Teleprompter não encontrado</b>No computador, abra o Teleprompter no Portal e toque em <b style="display:inline">Celular</b>. Esta tela se conecta sozinha.</section>
+  <section id="telaEspera" hidden class="card aviso"><b id="esperaTit">Controle desligado</b><span id="esperaTxt">No computador, abra o Teleprompter no Portal, toque em <b style="display:inline">Celular</b> e escaneie o código que aparecer.</span></section>
 
   <section id="telaControle" hidden style="display:flex;flex-direction:column;gap:14px">
     <div class="card"><div class="titulo" id="titulo">Roteiro</div><div class="sub" id="sub">Bloco 0 de 0</div><div class="barra"><i id="barra"></i></div></div>
@@ -71,20 +68,24 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;user-
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, addDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, addDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-const auth = getAuth(fb), db = getFirestore(fb);
+const db = getFirestore(fb);
 const $ = id => document.getElementById(id);
-const E = { uid:"", s:null, timer:0 };
-
-function tela(qual){ ["telaLogin","telaEspera","telaControle"].forEach(id => $(id).hidden = id !== qual); }
+// a chave da sessão vem no QR code (depois do #); sem login: o celular só controla a sessão daquela chave
+const E = { token:"", s:null, existe:false, timer:0 };
+function tela(qual){ ["telaEspera","telaControle"].forEach(id => $(id).hidden = id !== qual); }
 function estado(on, txt){ $("estado").classList.toggle("on", on); $("estado").textContent = txt; }
 // a sessão vale enquanto o computador estiver publicando (ele atualiza pelo menos a cada 20 s)
 function viva(s){ if(!s || !s.ativo) return false; const t = s.atualizado_em && s.atualizado_em.toMillis ? s.atualizado_em.toMillis() : Date.now(); return Date.now() - t < 120000; }
 function desenhar(){
   const s = E.s;
-  if(!viva(s)){ tela("telaEspera"); estado(false, "Desconectado"); return; }
+  if(!viva(s)){
+    tela("telaEspera"); estado(false, "Desconectado");
+    $("esperaTit").textContent = E.existe ? "Teleprompter sem sinal" : "Controle desligado";
+    $("esperaTxt").innerHTML = E.existe ? "O computador parou de responder. Confira se o Teleprompter continua aberto." : "No computador, abra o Teleprompter no Portal, toque em <b>Celular</b> e escaneie o código que aparecer. Cada código vale só enquanto o controle estiver ligado.";
+    return;
+  }
   tela("telaControle"); estado(true, "Conectado");
   $("titulo").textContent = s.titulo || "Roteiro";
   $("sub").textContent = s.blocos ? "Bloco " + s.bloco + " de " + s.blocos + (s.concluido ? " · concluído" : "") : "Roteiro vazio";
@@ -95,28 +96,19 @@ function desenhar(){
   b.textContent = s.contando ? "⏳ Prepare-se" : s.tocando ? "⏸ Pausar" : s.concluido ? "↺ Repetir" : s.progresso > 0 ? "▶ Continuar" : "▶ Iniciar";
 }
 async function enviar(acao){
-  if(!E.uid) return;
+  if(!E.token || !viva(E.s)) return;
   try{ navigator.vibrate && navigator.vibrate(18); }catch(e){}
-  try{ await addDoc(collection(db, "usuarios", E.uid, "tele_cmd"), { acao, em:serverTimestamp() }); }
+  try{ await addDoc(collection(db, "tele_sessoes", E.token, "cmd"), { acao, em:serverTimestamp() }); }
   catch(e){ estado(false, "Sem conexão"); }
 }
-document.addEventListener("click", async ev => {
-  const b = ev.target.closest("[data-acao]"); if(b){ enviar(b.dataset.acao); return; }
-  if(ev.target.closest('[data-action="login"]')){
-    const prov = new GoogleAuthProvider(); prov.setCustomParameters({ prompt:"select_account" });
-    try{ await signInWithPopup(auth, prov); }
-    catch(e){ if(/popup/.test(e.code || "")) signInWithRedirect(auth, prov); }
-  }
-});
-onAuthStateChanged(auth, async user => {
-  if(!user){ tela("telaLogin"); estado(false, "Sem login"); return; }
-  let u = null;
-  try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
-  if(!u || u.status !== "ativo"){ tela("telaEspera"); $("telaEspera").innerHTML = "<b>Conta sem acesso ao Portal</b>Entre com a conta de professor que você usa no Portal do Educador."; estado(false, "Sem acesso"); return; }
-  E.uid = user.uid;
-  onSnapshot(doc(db, "usuarios", user.uid, "tele", "sessao"), snap => { E.s = snap.exists() ? snap.data() : null; desenhar(); }, () => { estado(false, "Sem conexão"); });
-  clearInterval(E.timer); E.timer = setInterval(desenhar, 15000);
-});
+document.addEventListener("click", ev => { const b = ev.target.closest("[data-acao]"); if(b) enviar(b.dataset.acao); });
+const doLink = (location.hash || "").slice(1).replace(/[^A-Za-z0-9]/g, "");
+E.token = doLink.length === 24 ? doLink : (() => { try{ return sessionStorage.getItem("pde_tele_chave") || ""; }catch(e){ return ""; } })();
+if(E.token){
+  try{ sessionStorage.setItem("pde_tele_chave", E.token); }catch(e){}
+  onSnapshot(doc(db, "tele_sessoes", E.token), snap => { E.existe = snap.exists(); E.s = E.existe ? snap.data() : null; desenhar(); }, () => { estado(false, "Sem conexão"); tela("telaEspera"); });
+  E.timer = setInterval(desenhar, 15000);
+} else { desenhar(); }
 </script>
 </body>
 </html>

@@ -274,7 +274,7 @@ html,body{margin:0;background:#0b1728}
 <dialog class="dialog" id="helpDialog" aria-labelledby="helpTitle"><h2 id="helpTitle">Tudo no seu ritmo.</h2><p>Cole o roteiro, ajuste a leitura e pressione Iniciar. A aplicação mostra o texto; não grava áudio ou vídeo.</p><div class="shortcut-list"><span>Iniciar ou pausar</span><kbd>Espaço</kbd><span>Aumentar / diminuir o ritmo</span><kbd>↑ / ↓</kbd><span>Bloco anterior / próximo</span><kbd>← / →</kbd><span>Aumentar / diminuir o texto</span><kbd>+ / −</kbd><span>Voltar ao início</span><kbd>R</kbd><span>Espelhar horizontalmente</span><kbd>M</kbd><span>Foco / tela cheia</span><kbd>P / F</kbd><span>Marcar ponto da leitura</span><kbd>B</kbd><span>Pausar e sair do foco</span><kbd>Esc</kbd></div><p class="hint">Os atalhos ficam inativos enquanto você digita. O tempo restante é uma estimativa. Seus roteiros ficam salvos na sua conta do Portal.</p><div class="dialog-actions"><button class="btn btn-primary" id="closeHelpBtn">Entendi</button></div></dialog>
 <dialog class="dialog largo" id="listDialog" aria-labelledby="listTitle"><h2 id="listTitle">Meus roteiros</h2><p>Os roteiros ficam na sua conta. Abra em qualquer aparelho em que você entrar no Portal.</p><button class="btn btn-primary" id="newScriptBtn" style="width:100%"><svg class="icon"><use href="#i-plus"></use></svg>Novo roteiro</button><ul class="rot-lista" id="rotLista"></ul><div class="dialog-actions"><button class="btn" id="closeListBtn">Fechar</button></div></dialog>
 <dialog class="dialog largo" id="remoteDialog" aria-labelledby="remoteTitle"><h2 id="remoteTitle">Controle pelo celular</h2>
- <div class="qr-box"><div class="qr" id="qr"></div><div class="qr-txt"><b>1.</b> Aponte a câmera do celular para o código.<br><b>2.</b> Entre com a <b>mesma conta</b> do Portal.<br><b>3.</b> Inicie, pause, troque de bloco e ajuste o ritmo pelo celular, longe do computador.<a class="qr-link" id="qrLink" href="/apps/teleprompter/controle/" target="_blank" rel="noopener"></a></div></div>
+ <div class="qr-box"><div class="qr" id="qr"></div><div class="qr-txt"><b>1.</b> Aponte a câmera do celular para o código.<br><b>2.</b> Toque no link que aparece: o controle abre na hora, <b>sem login</b>.<br><b>3.</b> Inicie, pause, troque de bloco e ajuste o ritmo pelo celular, longe do computador.<br><small>O código vale só enquanto o controle estiver ligado.</small><a class="qr-link" id="qrLink" href="/apps/teleprompter/controle/" target="_blank" rel="noopener"></a></div></div>
  <div class="conexao" id="conexao">Aguardando o celular...</div>
  <div class="dialog-actions"><button class="btn" id="remoteOffBtn">Desligar controle</button><button class="btn btn-primary" id="closeRemoteBtn">Pronto</button></div></dialog>
 <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
@@ -284,7 +284,7 @@ html,body{margin:0;background:#0b1728}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(fb), db = getFirestore(fb);
@@ -769,21 +769,28 @@ function novoRoteiro(silencioso) {
  if(!silencioso) $('editor').focus();
 }
 
-/* ---------- controle pelo celular ---------- */
-const R = { ativo:false, ultimo:'', ultimoEm:0, timer:0, unsub:null, pings:0, ultimoCmd:0 };
-const URL_CONTROLE = location.origin + '/apps/teleprompter/controle/';
-function sessaoRef(){ return doc(db,'usuarios',C.user.uid,'tele','sessao'); }
-function publicarSessao(forcar) {
- if(!R.ativo || !C.user) return;
+/* ---------- controle pelo celular ----------
+   O QR code leva uma chave secreta desta sessão: o celular controla sem precisar entrar na conta
+   (a câmera do celular costuma abrir o link num navegador embutido, onde o login do Google é bloqueado).
+   A chave muda a cada vez que o controle é ligado e deixa de valer quando é desligado. */
+const R = { ativo:false, token:'', ultimo:'', ultimoEm:0, timer:0, unsub:null, pings:0, ultimoCmd:0 };
+const URL_CONTROLE = () => location.origin + '/apps/teleprompter/controle/#' + R.token;
+const novaChave = () => { const abc='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', a=new Uint32Array(24); crypto.getRandomValues(a); return Array.from(a,x=>abc[x%abc.length]).join(''); };
+function sessaoRef(){ return doc(db,'tele_sessoes',R.token); }
+function dadosSessao(){
  const total=state.blocks.length;
- const s={ ativo:true, titulo:(state.title||'Roteiro').slice(0,100), bloco:total?blockAt(state.cursor)+1:0, blocos:total, tocando:state.playing, contando:state.counting,
+ return { ativo:true, titulo:(state.title||'Roteiro').slice(0,100), bloco:total?blockAt(state.cursor)+1:0, blocos:total, tocando:state.playing, contando:state.counting,
   concluido:state.finished, ppm:Math.round(state.settings.speed), fonte:state.settings.fontSize, progresso:state.words?Math.round(state.cursor/state.words*100):0 };
+}
+function publicarSessao(forcar) {
+ if(!R.ativo || !C.user || !R.token) return;
+ const s=dadosSessao();
  const chave=JSON.stringify({...s,progresso:Math.round(s.progresso/10)});
  const agora=Date.now();
  if(!forcar && chave===R.ultimo && agora-R.ultimoEm<20000) return;
  clearTimeout(R.timer);
  const espera=forcar?0:Math.max(0,700-(agora-R.ultimoEm));
- R.timer=setTimeout(()=>{ R.ultimo=chave; R.ultimoEm=Date.now(); setDoc(sessaoRef(),{...s,atualizado_em:serverTimestamp()}).catch(e=>console.warn('sessao:',e.code||e)); },espera);
+ R.timer=setTimeout(()=>{ R.ultimo=chave; R.ultimoEm=Date.now(); updateDoc(sessaoRef(),{...s,atualizado_em:serverTimestamp()}).catch(e=>console.warn('sessao:',e.code||e)); },espera);
 }
 const ACOES = {
  alternar:()=>togglePlay(), iniciar:()=>{ if(!state.playing && !state.counting) togglePlay(); }, pausar:()=>pause(),
@@ -792,10 +799,12 @@ const ACOES = {
  maior:()=>setFont(state.settings.fontSize+4), menor:()=>setFont(state.settings.fontSize-4)
 };
 async function ligarRemoto() {
- if(R.ativo) return;
- const col=collection(db,'usuarios',C.user.uid,'tele_cmd');
- try { const velhos=await getDocs(col); await Promise.all(velhos.docs.map(d=>deleteDoc(doc(col,d.id)))); } catch(e) { console.warn('cmd:',e.code||e); }
- R.ativo=true; $('remoteBtn').classList.add('remoto-on'); publicarSessao(true);
+ if(R.ativo) return true;
+ R.token=novaChave(); R.pings=0;
+ try { await setDoc(sessaoRef(),{ ...dadosSessao(), dono:C.user.uid, criado_em:serverTimestamp(), atualizado_em:serverTimestamp() }); }
+ catch(e) { console.warn('sessao:',e.code||e); R.token=''; toast('Não foi possível ligar o controle agora. Confira a internet.'); return false; }
+ R.ativo=true; R.ultimoEm=Date.now(); $('remoteBtn').classList.add('remoto-on');
+ const col=collection(db,'tele_sessoes',R.token,'cmd');
  R.unsub=onSnapshot(col, snap=>{
   snap.docChanges().forEach(ch=>{
    if(ch.type!=='added') return;
@@ -804,24 +813,29 @@ async function ligarRemoto() {
    if(ACOES[a]){ ACOES[a](); R.pings++; R.ultimoCmd=Date.now(); marcarConexao(); showControls(); }
   });
  }, e=>console.warn('cmd:',e.code||e));
+ return true;
 }
 function desligarRemoto() {
  if(!R.ativo) return;
  R.ativo=false; if(R.unsub){ R.unsub(); R.unsub=null; } clearTimeout(R.timer);
  $('remoteBtn').classList.remove('remoto-on');
- setDoc(sessaoRef(),{ativo:false,atualizado_em:serverTimestamp()},{merge:true}).catch(()=>{});
+ deleteDoc(sessaoRef()).catch(()=>{});
+ R.token='';
 }
 function marcarConexao() {
  const el=$('conexao'); const ok=R.pings>0;
  el.classList.toggle('ok',ok); el.textContent=ok?'Celular conectado: '+R.pings+' comando(s) recebido(s).':'Aguardando o celular...';
 }
-function abrirRemoto() {
- pause(); ligarRemoto();
- $('qrLink').textContent=URL_CONTROLE; $('qrLink').href=URL_CONTROLE;
- const box=$('qr'); box.replaceChildren();
- if(window.QRCode){ try{ new window.QRCode(box,{text:URL_CONTROLE,width:164,height:164,colorDark:'#0b1728',colorLight:'#ffffff'}); }catch{} }
+async function abrirRemoto() {
+ pause();
+ const box=$('qr'); box.replaceChildren(); box.textContent='Gerando...';
+ $('remoteDialog').showModal(); marcarConexao();
+ if(!(await ligarRemoto())){ box.textContent='Sem conexão'; return; }
+ const url=URL_CONTROLE();
+ $('qrLink').textContent=url.replace(/#.*/,'#…'); $('qrLink').href=url;
+ box.replaceChildren();
+ if(window.QRCode){ try{ new window.QRCode(box,{text:url,width:164,height:164,colorDark:'#0b1728',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.M}); }catch{ box.textContent='Abra o link ao lado no celular'; } }
  else box.textContent='Abra o link ao lado no celular';
- marcarConexao(); $('remoteDialog').showModal();
 }
 
 /* ---------- eventos ---------- */

@@ -52,13 +52,24 @@ await t('roteiro grande demais', assertFails(setDoc(doc(prof, 'usuarios/prof/rot
 await t('roteiro com campo extra', assertFails(setDoc(doc(prof, 'usuarios/prof/roteiros/r3'), { ...rot, dono: 'x' })));
 await t('outro nao le roteiro', assertFails(getDoc(doc(prof2, 'usuarios/prof/roteiros/r0'))));
 await t('dono apaga roteiro', assertSucceeds(deleteDoc(doc(prof, 'usuarios/prof/roteiros/r0'))));
-await t('sessao do teleprompter', assertSucceeds(setDoc(doc(prof, 'usuarios/prof/tele/sessao'), { ativo: true, bloco: 1 })));
-await t('so o doc sessao', assertFails(setDoc(doc(prof, 'usuarios/prof/tele/outro'), { ativo: true })));
-await t('outro nao le a sessao', assertFails(getDoc(doc(prof2, 'usuarios/prof/tele/sessao'))));
-await t('celular manda comando', assertSucceeds(setDoc(doc(prof, 'usuarios/prof/tele_cmd/c1'), { acao: 'proximo', em: serverTimestamp() })));
-await t('comando desconhecido', assertFails(setDoc(doc(prof, 'usuarios/prof/tele_cmd/c2'), { acao: 'apagar_tudo', em: serverTimestamp() })));
-await t('outra conta nao manda comando', assertFails(setDoc(doc(prof2, 'usuarios/prof/tele_cmd/c3'), { acao: 'proximo', em: serverTimestamp() })));
-await t('dono apaga comando', assertSucceeds(deleteDoc(doc(prof, 'usuarios/prof/tele_cmd/c1'))));
+const TK = 'AbCdEfGhJkMnPqRsTuVwXyZ2';
+await t('computador cria sessao do controle', assertSucceeds(setDoc(doc(prof, `tele_sessoes/${TK}`), { dono: 'prof', ativo: true, titulo: 'Aula', bloco: 1 })));
+await t('sessao em nome de outro', assertFails(setDoc(doc(prof2, 'tele_sessoes/ZyXwVuTsRqPnMkJhGfEdCbA2'), { dono: 'prof', ativo: true })));
+await t('chave curta', assertFails(setDoc(doc(prof, 'tele_sessoes/curta'), { dono: 'prof', ativo: true })));
+await t('aluno nao cria sessao', assertFails(setDoc(doc(alu, 'tele_sessoes/AaAaAaAaAaAaAaAaAaAaAaA2'), { dono: 'alu', ativo: true })));
+await t('celular le a sessao sem login', assertSucceeds(getDoc(doc(anon, `tele_sessoes/${TK}`))));
+await t('celular manda comando sem login', assertSucceeds(addDoc(collection(anon, `tele_sessoes/${TK}/cmd`), { acao: 'proximo', em: serverTimestamp() })));
+await t('comando desconhecido', assertFails(addDoc(collection(anon, `tele_sessoes/${TK}/cmd`), { acao: 'apagar_tudo', em: serverTimestamp() })));
+await t('comando com campo extra', assertFails(addDoc(collection(anon, `tele_sessoes/${TK}/cmd`), { acao: 'proximo', em: serverTimestamp(), x: 1 })));
+await t('anonimo nao le comandos', assertFails(getDocs(collection(anon, `tele_sessoes/${TK}/cmd`))));
+await t('dono le comandos', assertSucceeds(getDocs(collection(prof, `tele_sessoes/${TK}/cmd`))));
+await t('celular nao altera a sessao', assertFails(updateDoc(doc(anon, `tele_sessoes/${TK}`), { bloco: 9 })));
+await t('outro professor nao altera a sessao', assertFails(updateDoc(doc(prof2, `tele_sessoes/${TK}`), { bloco: 9 })));
+await t('dono atualiza a sessao', assertSucceeds(updateDoc(doc(prof, `tele_sessoes/${TK}`), { bloco: 2 })));
+await t('controle desligado nao recebe comando', assertSucceeds(updateDoc(doc(prof, `tele_sessoes/${TK}`), { ativo: false })));
+await t('comando para sessao desligada', assertFails(addDoc(collection(anon, `tele_sessoes/${TK}/cmd`), { acao: 'proximo', em: serverTimestamp() })));
+await t('anonimo nao lista sessoes', assertFails(getDocs(collection(anon, 'tele_sessoes'))));
+await t('dono encerra a sessao', assertSucceeds(deleteDoc(doc(prof, `tele_sessoes/${TK}`))));
 
 // ---------- TV: pareamento (a TV não tem login)
 const par = cod => ({ chave: CH2, criado_em: serverTimestamp(), orientacao: 'h', resolucao: '1920x1080' });

@@ -155,15 +155,6 @@ service cloud.firestore {
         && novo().titulo is string && novo().titulo.size() <= 100 && novo().texto is string && novo().texto.size() <= 200000
         && novo().markers is list && novo().markers.size() <= 100;
     }
-    // Teleprompter: estado da leitura (publicado pelo computador) e comandos do celular; mesma conta nos dois aparelhos
-    match /usuarios/{uid}/tele/{id} {
-      allow read, write: if logado() && request.auth.uid == uid && id == "sessao";
-    }
-    match /usuarios/{uid}/tele_cmd/{id} {
-      allow read, delete: if logado() && request.auth.uid == uid;
-      allow create: if logado() && request.auth.uid == uid && novo().keys().hasOnly(["acao", "em"])
-        && novo().acao in ["alternar", "iniciar", "pausar", "proximo", "anterior", "inicio", "mais_rapido", "mais_lento", "maior", "menor"];
-    }
     match /usuarios/{uid}/pastas_provas/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && licenciado();
@@ -187,6 +178,23 @@ service cloud.firestore {
         || (gestorDaEscola(resource.data.escola_id) && novo().status in ["aprovado", "devolvido"]
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "comentario", "revisado_por", "revisado_nome", "revisado_em"]));
       allow delete: if admin() || (logado() && resource.data.autor_uid == request.auth.uid && resource.data.status != "aprovado");
+    }
+
+    // ---------- Teleprompter: controle pelo celular ----------
+    // O computador (logado) cria a sessao com uma chave aleatoria de 24 caracteres e mostra no QR code.
+    // O celular nao faz login: le o estado da leitura e manda comandos so para a sessao daquela chave.
+    function acoesTele() { return ["alternar", "iniciar", "pausar", "proximo", "anterior", "inicio", "mais_rapido", "mais_lento", "maior", "menor"]; }
+    match /tele_sessoes/{chave} {
+      allow get: if chave.matches("^[A-Za-z0-9]{24}$");
+      allow create: if logado() && chave.matches("^[A-Za-z0-9]{24}$") && novo().dono == request.auth.uid
+        && (licenciado() || (ativo() && eu().perfil in ["gestor", "secretaria"]));
+      allow update: if logado() && resource.data.dono == request.auth.uid && novo().dono == request.auth.uid;
+      allow delete: if logado() && resource.data.dono == request.auth.uid;
+      match /cmd/{id} {
+        allow create: if novo().keys().hasOnly(["acao", "em"]) && novo().acao in acoesTele() && novo().em == request.time
+          && get(/databases/$(database)/documents/tele_sessoes/$(chave)).data.ativo == true;
+        allow read, delete: if logado() && get(/databases/$(database)/documents/tele_sessoes/$(chave)).data.dono == request.auth.uid;
+      }
     }
 
     // ---------- Portal do Educador TV ----------
