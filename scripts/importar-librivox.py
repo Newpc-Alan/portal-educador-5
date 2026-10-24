@@ -10,7 +10,7 @@
 # Cloud Shell (pasta scripts):
 #   python3 importar-librivox.py --listar     -> resumo do que entra e do que fica de fora
 #   python3 importar-librivox.py --gravar     -> publica (pode rodar de novo: pula o que já existe)
-import json, re, sys, time, datetime, unicodedata, urllib.request, urllib.parse
+import json, re, sys, time, datetime, unicodedata, urllib.request, urllib.parse, urllib.error
 
 ANO_LIMITE = datetime.date.today().year - 71
 UA = {"User-Agent": "PortalDoEducador-Biblioteca/1.0 (suporte@portaldoeducador.com.br)"}
@@ -35,11 +35,14 @@ def ano(v):
 # 1) todos os audiolivros (só id e idioma), depois os detalhes dos que estão em português
 ids, off = [], 0
 while True:
-    d = get(API + "?" + urllib.parse.urlencode({"format": "json", "limit": 1000, "offset": off, "fields": "{id,language}"}))
+    try: d = get(API + "?" + urllib.parse.urlencode({"format": "json", "limit": 500, "offset": off, "fields": "{id,language}"}), tentativas=2)
+    except urllib.error.HTTPError as e:
+        if e.code == 404: break  # passou do fim do catálogo
+        raise
     livros = d.get("books") or []
     if not livros: break
     ids += [b["id"] for b in livros if str(b.get("language", "")).strip().lower() in ("portuguese", "português", "portugues")]
-    off += 1000; time.sleep(1)
+    off += 500; time.sleep(1)
 print("LIBRIVOX EM PORTUGUÊS:", len(ids), flush=True)
 
 # autores de língua portuguesa já confirmados (importação do Gutenberg em domínio público)
