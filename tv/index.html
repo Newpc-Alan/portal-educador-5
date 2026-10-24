@@ -7,6 +7,11 @@
 <meta name="theme-color" content="#000000">
 <meta name="robots" content="noindex">
 <link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="manifest" href="/tv/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/tv/icone-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
@@ -88,6 +93,8 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 .espera p{color:rgba(255,255,255,.6);font-size:max(13px,2vmin)}
 .espera .relogio{font-size:12vmin;margin-top:2vh}
 .previa{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:20;background:#f4c981;color:#071621;font-weight:800;font-size:13px;padding:6px 14px;border-radius:99px}
+.cheia-btn{position:fixed;left:50%;bottom:14vh;transform:translateX(-50%);z-index:30;border:0;border-radius:999px;padding:16px 28px;font:inherit;font-weight:800;font-size:max(15px,1.6vmin);color:#071621;background:var(--lima);box-shadow:0 18px 40px -16px rgba(0,0,0,.8);cursor:pointer;display:flex;align-items:center;gap:10px}
+.cheia-btn small{font-weight:600;opacity:.75}
 .offline{position:fixed;top:12px;right:12px;z-index:20;background:rgba(194,54,44,.9);font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px}
 
 /* ---------- vertical (totem / hall) ---------- */
@@ -128,6 +135,7 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
       <li><b>PASSO 3</b>Toque em Conectar TV e digite o código acima</li>
     </ol>
     <p class="par-rod" id="parRod">O código muda a cada 10 minutos.</p>
+    <p class="par-rod">Dica: instale como aplicativo (menu do navegador › Instalar app ou Adicionar à tela inicial) para abrir sempre em tela cheia.</p>
   </div>
 </section>
 
@@ -144,6 +152,7 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
   <footer class="rodape"><div class="letreiro"><div class="trilho" id="trilho"></div></div><div class="marca"><img id="mLogo" src="/assets/pde-logo-128.png" alt=""><div><b id="mNome">Portal do Educador</b><small>PORTAL DO EDUCADOR TV</small></div></div></footer>
 </section>
 <div class="previa" id="previa" hidden>PRÉVIA · nada aqui aparece nas TVs até você salvar</div>
+<button class="cheia-btn" id="cheiaBtn" hidden>⛶ Tocar para tela cheia <small>ou instale como app</small></button>
 <div class="offline" id="offline" hidden>Sem internet · exibindo a última programação</div>
 
 <script type="module">
@@ -385,9 +394,31 @@ addEventListener("keydown", e => {
   if(e.key === "ArrowRight") tocar(P.idx + 1);
   else if(e.key === "ArrowLeft") tocar(P.idx - 1);
   else if(e.key === " "){ e.preventDefault(); P.pausado = !P.pausado; if(P.pausado){ clearTimeout(P.timer); $("barra").style.transition = "none"; } else tocar(P.idx); }
-  else if(e.key === "f" || e.key === "F" || e.key === "Enter"){ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); }
+  // F alterna; Enter (botão OK do controle) só entra em tela cheia, nunca sai
+  else if(e.key === "f" || e.key === "F"){ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); else entrarTelaCheia(); }
 });
-addEventListener("click", () => { if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); });
+/* ---------- tela cheia (modo quiosque) ----------
+   O navegador só permite entrar em tela cheia depois de um toque, clique ou tecla. Instalada como aplicativo
+   (manifest com display "fullscreen"), a TV já abre sem barras. Aqui: tentamos a cada interação e mostramos o botão. */
+const instalada = () => matchMedia("(display-mode: fullscreen)").matches || matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const emTelaCheia = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || instalada() || (innerHeight >= screen.height - 2 && innerWidth >= screen.width - 2);
+function entrarTelaCheia(){
+  if(emTelaCheia()) return;
+  const el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen;
+  if(f){ try{ const r = f.call(el, { navigationUI:"hide" }); if(r && r.catch) r.catch(() => {}); }catch(e){} }
+  try{ screen.orientation && screen.orientation.lock && P.tela && P.tela.orientacao !== "auto" && screen.orientation.lock(P.tela.orientacao === "v" ? "portrait" : "landscape").catch(() => {}); }catch(e){}
+}
+function botaoTelaCheia(){ $("cheiaBtn").hidden = emTelaCheia(); }
+["click", "touchend", "keydown"].forEach(ev => addEventListener(ev, () => { entrarTelaCheia(); setTimeout(botaoTelaCheia, 400); }, { passive:true }));
+$("cheiaBtn").addEventListener("click", e => { e.stopPropagation(); entrarTelaCheia(); setTimeout(botaoTelaCheia, 400); });
+document.addEventListener("fullscreenchange", botaoTelaCheia); addEventListener("resize", botaoTelaCheia);
+setTimeout(botaoTelaCheia, 1500); setInterval(botaoTelaCheia, 30000);
+// tela sempre acesa enquanto a TV estiver exibindo
+let travaTela = null;
+async function manterAcesa(){ try{ if("wakeLock" in navigator && document.visibilityState === "visible" && !travaTela){ travaTela = await navigator.wakeLock.request("screen"); travaTela.addEventListener("release", () => { travaTela = null; }); } }catch(e){} }
+document.addEventListener("visibilitychange", manterAcesa); ["click", "touchend", "keydown"].forEach(ev => addEventListener(ev, manterAcesa, { passive:true }));
+manterAcesa(); setInterval(manterAcesa, 60000);
+if("serviceWorker" in navigator) navigator.serviceWorker.register("/tv/sw.js", { scope:"/tv/" }).catch(() => {});
 let cursorT = 0; addEventListener("mousemove", () => { document.body.classList.remove("sem-cursor"); clearTimeout(cursorT); cursorT = setTimeout(() => document.body.classList.add("sem-cursor"), 3000); });
 document.body.classList.add("sem-cursor");
 iniciar();

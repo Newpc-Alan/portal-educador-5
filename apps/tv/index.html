@@ -232,7 +232,7 @@ async function telaTelas(){
   const nomePl = id => (E.playlists.find(p => p.id === id) || {}).nome || "sem playlist";
   $("tela").innerHTML =
     '<div class="destaque"><div class="destaque-ico">📺</div><div class="destaque-txt"><b>As TVs da ' + esc(E.escola.nome) + '</b><span>Na TV (ou no computador ligado a ela), abra <b>' + esc(TV_URL.replace(/^https?:\/\//, "")) + '</b>. Vai aparecer um código: toque em <b>Conectar TV</b> e digite.</span></div>' +
-    '<button class="btn btn-ok" data-action="conectar">＋ Conectar TV</button></div>' +
+    '<div class="acoes"><button class="btn btn-gh" data-action="ajuda-cheia" style="background:rgba(255,255,255,.1);color:#fff;border-color:rgba(255,255,255,.3)">⛶ Tela cheia e quiosque</button><button class="btn btn-ok" data-action="conectar">＋ Conectar TV</button></div></div>' +
     (E.telas.length ? '<div class="telas">' + E.telas.map(t => {
       const [c, txt] = statusTela(t), o = t.orientacao || "auto";
       return '<article class="tela"><div class="tela-tv"><span class="st ' + c + '">' + esc(txt) + '</span><div class="forma ' + (o === "v" ? "v" : "h") + '">' + (o === "v" ? "▮" : "▬") + "</div></div>" +
@@ -313,6 +313,17 @@ async function salvarTela(){
     await updateDoc(doc(db, "tv_telas", t.id), dados);
     Object.assign(t, dados); fecharModal(); toast("Configuração salva. A TV atualiza em segundos."); telaTelas();
   }catch(e){ toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); $("btOk").disabled = false; }
+}
+function ajudaTelaCheia(){
+  const u = esc(TV_URL);
+  abrirModal('<h3>⛶ TV sempre em tela cheia</h3><p class="sub" style="margin-bottom:12px">Por segurança, nenhum site consegue se colocar em tela cheia sozinho: o navegador exige um toque ou uma tecla. Para a TV abrir <b>sempre</b> sem barras, instale como aplicativo ou use o modo quiosque.</p>' +
+    '<div class="avs">' +
+    '<div class="av"><div><b>📱 Celular, tablet, totem ou TV box Android</b><small>Abra ' + u + ' no Chrome › menu ⋮ › <b>Instalar app</b> (ou Adicionar à tela inicial). Abra sempre pelo ícone <b>PDE TV</b>: entra direto em tela cheia.</small></div></div>' +
+    '<div class="av"><div><b>🍎 iPhone ou iPad</b><small>Abra no Safari › Compartilhar › <b>Adicionar à Tela de Início</b> e abra pelo ícone.</small></div></div>' +
+    '<div class="av"><div><b>💻 Computador ou notebook ligado à TV (Windows)</b><small>Crie um atalho com o destino: <b>chrome.exe --kiosk ' + u + '</b> e coloque na pasta Inicializar do Windows. Liga o PC, a TV abre sozinha em tela cheia. Para sair: Alt + F4.</small></div></div>' +
+    '<div class="av"><div><b>🧩 Chromebook da escola (Google Admin)</b><small>No console do Google Admin, cadastre ' + u + ' como <b>aplicativo de quiosque</b> e defina para iniciar automaticamente.</small></div></div>' +
+    '<div class="av"><div><b>📺 Smart TV com navegador</b><small>Abra o endereço e aperte <b>OK</b> no controle: a TV entra em tela cheia. Se o navegador da TV não permitir, use um TV box Android ou um Chromecast com Google TV e instale como app.</small></div></div>' +
+    '</div><div class="modal-acoes"><button class="btn btn-ok" data-action="fechar">Entendi</button></div>');
 }
 function linkTela(id){
   const url = TV_URL + "#" + id;
@@ -594,6 +605,7 @@ document.addEventListener("click", ev => {
   else if(a === "editar-tela") modalTela(arg);
   else if(a === "tela-salvar") salvarTela();
   else if(a === "link-tela") linkTela(arg);
+  else if(a === "ajuda-cheia") ajudaTelaCheia();
   else if(a === "copiar"){ const i = $("fLink"); i.select(); (navigator.clipboard ? navigator.clipboard.writeText(i.value) : Promise.reject()).then(() => toast("Link copiado."), () => { document.execCommand("copy"); toast("Link copiado."); }); }
   else if(a === "remover-tela") removerTela(arg);
   else if(a === "geo"){ if(!navigator.geolocation){ toast("Este aparelho não informa a localização.", true); return; }
