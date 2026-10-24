@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste da TV · Portal do Educador</title>
+<style>
+/* página de propósito simples (sem recursos novos de CSS), para abrir em navegadores de TV antigos */
+body{margin:0;background:#071621;color:#eef5fb;font-family:Arial,Helvetica,sans-serif;font-size:22px}
+.box{padding:30px 40px}
+h1{font-size:34px;margin:0 0 6px 0;color:#8DC63F}
+.sub{color:#9fb6cc;font-size:20px;margin-bottom:20px}
+.veredito{font-size:30px;font-weight:bold;padding:18px 24px;border-radius:12px;margin:0 0 20px 0}
+.ok{background:#1f4d16;color:#c8f0a8}.medio{background:#5a4400;color:#ffe08a}.ruim{background:#5c1a14;color:#ffc2b8}
+table{border-collapse:collapse;width:100%}
+td{padding:7px 10px;border-bottom:1px solid #24476a;vertical-align:top}
+td.s{width:70px;text-align:center;font-weight:bold}
+.sim{color:#8DC63F}.nao{color:#ff8a7a}
+.ua{font-size:16px;color:#9fb6cc;word-break:break-all;margin-top:18px}
+.cod{display:inline-block;background:#fff;color:#071621;font-weight:bold;font-size:30px;padding:6px 16px;border-radius:8px;letter-spacing:2px}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Portal do Educador TV · teste deste aparelho</h1>
+  <div class="sub">Tire uma foto desta tela e mande para o suporte NEWPC.</div>
+  <div id="veredito" class="veredito medio">Testando...</div>
+  <table id="tab"></table>
+  <div class="ua">Código do teste: <span class="cod" id="cod">-</span><br><br><span id="ua"></span></div>
+</div>
+<script>
+/* escrito em JavaScript antigo (ES5) de propósito: precisa rodar em qualquer TV */
+var M = { ok:false };
+</script>
+<script type="module">window.__modulo = true;</script>
+<script>
+(function(){
+  function css(p, v){ try{ return !!(window.CSS && CSS.supports && CSS.supports(p, v)); }catch(e){ return false; } }
+  function es2017(){ try{ new Function("async function f(){ await 1; } var o = { ...{} }; return 1;")(); return true; }catch(e){ return false; } }
+  function opcional(){ try{ new Function("var a = null; return a?.b ?? 1;")(); return true; }catch(e){ return false; } }
+  function video(t){ try{ var v = document.createElement("video"); return !!(v.canPlayType && v.canPlayType(t)); }catch(e){ return false; } }
+  function ls(){ try{ localStorage.setItem("pde_t", "1"); localStorage.removeItem("pde_t"); return true; }catch(e){ return false; } }
+  var ua = navigator.userAgent || "";
+  var m = ua.match(/Chrom(e|ium)\/(\d+)/), chrome = m ? parseInt(m[2], 10) : 0;
+  var marca = /Tizen/i.test(ua) ? "Samsung (Tizen)" : /Web0S|webOS/i.test(ua) ? "LG (webOS)" : /Android/i.test(ua) ? "Android TV / TV box" : /CrKey/i.test(ua) ? "Chromecast" : /AFT/i.test(ua) ? "Fire TV" : /Roku/i.test(ua) ? "Roku" : /VIDAA|Hisense/i.test(ua) ? "Hisense (VIDAA)" : /Philips|NETTV/i.test(ua) ? "Philips" : /Linux/i.test(ua) ? "Linux (TV)" : "Outro";
+  var itens = [
+    ["Módulos de JavaScript (o player atual precisa)", !!window.__modulo, true],
+    ["JavaScript moderno (async/await)", es2017(), true],
+    ["JavaScript recente (?. e ??)", opcional(), true],
+    ["Promise e fetch", typeof Promise !== "undefined" && typeof fetch !== "undefined", true],
+    ["Layout em grade (CSS grid)", css("display", "grid"), false],
+    ["Tamanho de letra fluido (clamp)", css("width", "clamp(1px,2vw,3px)"), false],
+    ["Vídeo MP4 (H.264)", video('video/mp4; codecs="avc1.42E01E"'), false],
+    ["Vídeo WebM", video("video/webm"), false],
+    ["Tela cheia pelo navegador", !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen), false],
+    ["Guardar dados no aparelho (para funcionar sem internet)", ls(), false],
+    ["Manter a tela acesa (Wake Lock)", !!(navigator.wakeLock), false]
+  ];
+  var essenciais = 0, temEss = 0, h = "";
+  for(var i = 0; i < itens.length; i++){
+    var it = itens[i]; if(it[2]){ temEss++; if(it[1]) essenciais++; }
+    h += "<tr><td class='s " + (it[1] ? "sim'>SIM" : "nao'>NÃO") + "</td><td>" + it[0] + (it[2] ? " <b>*</b>" : "") + "</td></tr>";
+  }
+  h += "<tr><td class='s'>" + (chrome || "-") + "</td><td>Versão do motor do navegador (Chrome). O ideal é 80 ou mais. Aparelho: " + marca + "</td></tr>";
+  document.getElementById("tab").innerHTML = h;
+  var v = document.getElementById("veredito");
+  if(essenciais === temEss){ v.className = "veredito ok"; v.innerHTML = "Este navegador roda o Portal do Educador TV."; }
+  else if(typeof XMLHttpRequest !== "undefined"){ v.className = "veredito medio"; v.innerHTML = "Navegador antigo: o player atual não roda aqui, mas uma versão leve pode funcionar."; }
+  else { v.className = "veredito ruim"; v.innerHTML = "Navegador muito antigo. Use um TV box ou Chromecast nesta TV."; }
+  document.getElementById("ua").innerHTML = ua.replace(/</g, "&lt;");
+  // código curto para o suporte identificar o resultado na foto
+  var bits = 0; for(var k = 0; k < itens.length; k++) if(itens[k][1]) bits |= (1 << k);
+  document.getElementById("cod").innerHTML = (chrome || 0) + "-" + bits.toString(16).toUpperCase();
+})();
+</script>
+</body>
+</html>
