@@ -198,7 +198,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
     }
     gerar(0); clearInterval(P.parTimer); P.parTimer = setInterval(function(){ gerar(0); }, 10 * 60 * 1000);
     // enquanto espera a conexão, confere a cada 8 segundos para a programação entrar logo
-    clearInterval(P.rapido); P.rapido = setInterval(atualizar, 8000);
+    clearInterval(P.rapido); P.rapido = setInterval(function(){ atualizar(true); }, 8000);
   }
 
   /* ---------- programação (mesmas regras do player completo) ---------- */
@@ -330,12 +330,16 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
   // linha discreta no canto: ajuda o suporte pela foto da TV
   function diag(t){ var d = new Date(); setTxt("diag", "leve · " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + " · " + t); }
   function avisar(msg){ var a = $("aviso"); if(msg){ a.textContent = msg; mostra(a, true); } else mostra(a, false); }
-  function atualizar(){
+  // completo = também relê playlists, comunicados e campanhas; senão só a tela (mais barato) e o resto se a tela mudou
+  function atualizar(completo){
     ler("tv_telas/" + P.chave, function(erro, tela){
       if(erro){ P.falhas++; diag("erro " + erro); if(P.tela) avisar("Sem conexão · exibindo a última programação"); else if(P.falhas > 2) mostrarPareamento(); return; }
       P.falhas = 0; avisar("");
-      if(!tela){ P.tela = null; lsSet("pde_tv_leve_ultima", null); diag("aguardando conexão"); mostrarPareamento(); return; }
+      if(!tela){ P.tela = null; P.assinatura = ""; P.marcaTela = ""; lsSet("pde_tv_leve_ultima", null); diag("aguardando conexão"); mostrarPareamento(); return; }
       var primeira = !P.tela || /oculto/.test($("tv").className);
+      var marca = JSON.stringify(tela);
+      if(!primeira && completo !== true && marca === P.marcaTela) return;   // nada mudou na tela: confere o resto na próxima rodada completa
+      P.marcaTela = marca;
       P.tela = tela;
       if(primeira){ clearInterval(P.parTimer); clearInterval(P.rapido); P.pareando = false; mostra($("par"), false); mostra($("tv"), true); clima(); batimento(); }
       aplicarTela();
@@ -368,8 +372,9 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
   var ult = lsGet("pde_tv_leve_ultima", null);
   if(ult && ult.tela){ P.tela = ult.tela; P.listas = ult.listas || {}; P.canal = ult.canal || null; P.campanhas = ult.campanhas || null; mostra($("tv"), true); aplicarTela(); montarFila(); }
   relogio(); setInterval(relogio, 1000);
-  atualizar();
-  setInterval(atualizar, 90 * 1000);            // confere mudanças a cada 1,5 minuto
+  atualizar(true);
+  setInterval(function(){ atualizar(false); }, 15 * 1000);   // a tela (desconectar, trocar lista, turnos) a cada 15 s
+  setInterval(function(){ atualizar(true); }, 60 * 1000);    // o conteúdo das listas e comunicados a cada 1 min
   setInterval(batimento, 5 * 60 * 1000);
   setInterval(clima, 30 * 60 * 1000);
   setInterval(function(){                       // turnos, comunicados que vencem e vigia que destrava a TV
