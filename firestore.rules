@@ -163,6 +163,23 @@ service cloud.firestore {
         && novo().titulo is string && novo().titulo.size() <= 100 && novo().texto is string && novo().texto.size() <= 200000
         && novo().markers is list && novo().markers.size() <= 100;
     }
+    // Minha agenda (lembretes da escola e pessoais): só o próprio dono lê e grava, nem o administrador vê
+    match /usuarios/{uid}/lembretes/{id} {
+      allow read, delete: if logado() && request.auth.uid == uid;
+      allow create, update: if logado() && request.auth.uid == uid && ativo() && eu().perfil != "aluno"
+        && novo().keys().hasOnly(["titulo", "tipo", "data", "hora", "repetir", "ate", "avisar", "antes_min", "notas", "feitos", "tz_min",
+          "proxima", "proximo_aviso", "avisado", "criado_em", "atualizado_em"])
+        && novo().titulo is string && novo().titulo.size() > 0 && novo().titulo.size() <= 120
+        && novo().tipo in ["escola", "pessoal"] && dataOk(novo().data)
+        && novo().hora is string && (novo().hora == "" || novo().hora.matches("^[0-2][0-9]:[0-5][0-9]$"))
+        && novo().repetir in ["nao", "semanal", "mensal"] && (novo().ate == "" || dataOk(novo().ate))
+        && novo().avisar in ["nao", "resumo", "hora"] && novo().antes_min in [0, 15, 60, 1440]
+        && novo().notas is string && novo().notas.size() <= 500
+        && novo().feitos is list && novo().feitos.size() <= 400
+        && novo().tz_min is int && novo().tz_min >= -840 && novo().tz_min <= 720
+        && (novo().proxima == null || dataOk(novo().proxima))
+        && (novo().proximo_aviso == null || novo().proximo_aviso is timestamp);
+    }
     match /usuarios/{uid}/pastas_provas/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && licenciado();

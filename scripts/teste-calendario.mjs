@@ -33,4 +33,13 @@ assert.ok(ics.split('\r\n').every(l => Buffer.byteLength(l) <= 75), 'linhas de a
 assert.ok(ics.replace(/\r\n /g, '').includes('X-WR-CALNAME:Calendário · EM Centro\\, Vila\\; teste'), 'nome escapado');
 assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, (ics.match(/END:VEVENT/g) || []).length);
 const uids = ics.match(/^UID:.*$/gm); assert.equal(new Set(uids).size, uids.length, 'UIDs únicos');
+// lembretes: repetição, conclusão e horário do aviso
+assert.deepEqual([0, 1, 2].map(k => CAL.ocorrencia({ data: '2026-01-31', repetir: 'mensal' }, k)), ['2026-01-31', '2026-02-28', '2026-03-31']);
+assert.equal(CAL.proximaOcorrencia({ data: '2026-10-05', repetir: 'semanal', feitos: ['2026-10-26'] }, '2026-10-24'), '2026-11-02');
+assert.equal(CAL.proximaOcorrencia({ data: '2026-10-05', repetir: 'semanal', ate: '2026-10-20' }, '2026-10-24'), null);
+assert.equal(CAL.proximaOcorrencia({ data: '2026-10-30', repetir: 'nao' }, '2026-10-24'), '2026-10-30');
+assert.equal(CAL.proximaOcorrencia({ data: '2026-10-30', repetir: 'nao', feitos: ['2026-10-30'] }, '2026-10-24'), null);
+assert.deepEqual(CAL.ocorrencias({ data: '2026-10-05', repetir: 'semanal', ate: '2026-10-20' }, '2026-10-01', '2026-12-31'), ['2026-10-05', '2026-10-12', '2026-10-19']);
+assert.equal(new Date(CAL.instanteAviso({ hora: '14:00', tz_min: 240, antes_min: 15 }, '2026-10-26')).toISOString(), '2026-10-26T17:45:00.000Z');
+assert.equal(new Date(CAL.instanteAviso({ hora: '', tz_min: 180, antes_min: 1440 }, '2026-10-26')).toISOString(), '2026-10-25T10:00:00.000Z');
 console.log('CALENDÁRIO: ok (' + base + ' dias na base de teste)');

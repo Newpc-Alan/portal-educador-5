@@ -133,6 +133,21 @@ table.tab{width:100%;border-collapse:collapse}
 .link-box{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .link-box input{flex:1;min-width:220px;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#f6f9fc;font-size:.8rem;font-family:ui-monospace,Consolas,monospace}
 
+.dia .pl{position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#7a3fc2;box-shadow:0 0 0 1.5px #fff}
+.lem{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;font-size:.88rem;flex-wrap:wrap;background:#fff}
+.lem + .lem{margin-top:6px}
+.lem .ck{width:26px;height:26px;border-radius:50%;border:2px solid #b8c6d6;background:#fff;flex:none;font-weight:800;color:#fff;padding:0}
+.lem .ck:hover{border-color:var(--verde)}
+.lem.feito{opacity:.55}.lem.feito .tt{text-decoration:line-through}
+.lem.feito .ck{background:var(--verde);border-color:var(--verde)}
+.lem .hr{font-weight:800;min-width:92px;color:var(--ink-2)}
+.lem .tt{flex:1;min-width:150px}
+.lem .tg{font-size:.7rem;font-weight:800;border-radius:99px;padding:2px 8px}
+.tg.escola{background:#e3f1fb;color:#1f5f91}.tg.pessoal{background:#f1e6fb;color:#6b3a99}
+.lem .rp{font-size:.74rem;color:var(--muted)}
+.ag-grupo{margin-bottom:14px}
+.ag-grupo h4{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:0 0 6px}
+.ag-grupo.atraso h4{color:var(--red)}
 .modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
 .modal-box{background:#fff;border-radius:16px;padding:20px;width:min(520px,100%);max-height:92vh;overflow:auto}
 .modal-box h3{font-size:1.05rem;margin-bottom:4px}
@@ -164,6 +179,7 @@ table.tab{width:100%;border-collapse:collapse}
     <button class="aba" data-action="aba" data-arg="config" id="abaConfig">⚙️ Configurar o ano</button>
     <button class="aba" data-action="aba" data-arg="escolas" id="abaEscolas">🏫 Escolas da rede</button>
     <button class="aba" data-action="aba" data-arg="compartilhar">🔗 Google Agenda e PDF</button>
+    <button class="aba" data-action="aba" data-arg="agenda" id="abaAgenda">📌 Minha agenda</button>
   </div>
 
   <div id="carregando" class="card vazio">Carregando o calendário...</div>
@@ -209,6 +225,16 @@ table.tab{width:100%;border-collapse:collapse}
 
   <section id="s-escolas" hidden><div id="escBox"></div></section>
 
+  <section id="s-agenda" hidden>
+    <div class="card barra">
+      <div><div class="h2">📌 Minha agenda</div><div class="sub">Seus lembretes da escola e da vida pessoal. Só você vê. O aviso chega por e-mail, se você quiser.</div></div>
+      <span class="esp"></span>
+      <div class="chips" id="agFiltro"><button class="chip on" data-action="ag-filtro" data-arg="">Todos</button><button class="chip" data-action="ag-filtro" data-arg="escola">Escola</button><button class="chip" data-action="ag-filtro" data-arg="pessoal">Pessoal</button></div>
+      <button class="btn btn-ok" data-action="lem-novo">＋ Novo lembrete</button>
+    </div>
+    <div id="agBox"></div>
+  </section>
+
   <section id="s-compartilhar" hidden>
     <div class="card">
       <div class="h2" style="margin-bottom:4px">📲 No Google Agenda de todo mundo</div>
@@ -238,7 +264,25 @@ table.tab{width:100%;border-collapse:collapse}
     <div class="campo"><label for="evFim">Até</label><input type="date" id="evFim"></div>
     <div class="campo" style="grid-column:1/-1"><label for="evNome">Descrição</label><input id="evNome" maxlength="80" placeholder="Ex.: Aniversário do município"></div>
   </div>
-  <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="salvar-ev">Salvar</button></div>
+  <div id="evLem"></div>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="lem-dia" id="evNovoLem">📌 Lembrete neste dia</button><span style="flex:1"></span><button class="btn btn-gh" data-action="fechar">Fechar</button><button class="btn btn-ok" data-action="salvar-ev">Salvar data</button></div>
+</div></div>
+
+<div class="modal" id="mLem" hidden><div class="modal-box">
+  <h3 id="lemTitulo">Novo lembrete</h3>
+  <p class="sub" style="margin-bottom:12px">Só você vê seus lembretes.</p>
+  <div class="grade-form">
+    <div class="campo" style="grid-column:1/-1"><label for="lNome">O que é</label><input id="lNome" maxlength="120" placeholder="Ex.: Entregar notas do 4º bimestre, consulta no dentista"></div>
+    <div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="chips" id="lTipo"><button class="chip on" data-action="lem-tipo" data-arg="escola">🏫 Escola</button><button class="chip" data-action="lem-tipo" data-arg="pessoal">🏠 Pessoal</button></div></div>
+    <div class="campo"><label for="lData">Dia</label><input type="date" id="lData"></div>
+    <div class="campo"><label for="lHora">Hora (opcional)</label><input type="time" id="lHora"></div>
+    <div class="campo"><label for="lRep">Repetir</label><select id="lRep"><option value="nao">Não repete</option><option value="semanal">Toda semana</option><option value="mensal">Todo mês</option></select></div>
+    <div class="campo" id="lAteBox" hidden><label for="lAte">Até (opcional)</label><input type="date" id="lAte"></div>
+    <div class="campo" style="grid-column:1/-1"><label for="lAvisar">Aviso por e-mail</label><select id="lAvisar"><option value="resumo">No resumo do dia, às 6h30</option><option value="hora">No resumo e também no horário</option><option value="nao">Não avisar por e-mail</option></select></div>
+    <div class="campo" id="lAntesBox" hidden><label for="lAntes">Quando avisar</label><select id="lAntes"><option value="0">Na hora</option><option value="15">15 minutos antes</option><option value="60">1 hora antes</option><option value="1440">1 dia antes</option></select></div>
+    <div class="campo" style="grid-column:1/-1"><label for="lNotas">Anotações (opcional)</label><input id="lNotas" maxlength="500" placeholder="Sala, link, o que levar..."></div>
+  </div>
+  <div class="modal-acoes"><button class="btn btn-red" data-action="lem-excluir" id="lExcluir" hidden>Excluir</button><span style="flex:1"></span><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="lem-salvar">Salvar</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -246,7 +290,7 @@ table.tab{width:100%;border-collapse:collapse}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection, query, where, limit, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(fb), db = getFirestore(fb);
@@ -352,6 +396,35 @@ const CAL = (() => {
     linhas.push("END:VCALENDAR");
     return linhas.map(dobrar).join("\r\n") + "\r\n";
   }
+  // ---------- lembretes do professor (Minha agenda) ----------
+  // k-ésima ocorrência: semanal soma 7 dias; mensal mantém o dia (ou o último dia do mês curto)
+  function ocorrencia(it, k){
+    if(it.repetir === "semanal") return soma(it.data, 7 * k);
+    if(it.repetir === "mensal"){
+      const y = +it.data.slice(0, 4), m = +it.data.slice(5, 7) - 1 + k, dia = +it.data.slice(8, 10);
+      const ult = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      return ds(new Date(Date.UTC(y, m, Math.min(dia, ult))));
+    }
+    return k === 0 ? it.data : null;
+  }
+  function ocorrencias(it, de, ate){
+    const out = [], fim = it.ate && it.ate < ate ? it.ate : ate;
+    for(let k = 0; k < 600; k++){ const d = ocorrencia(it, k); if(!d || d > fim) break; if(d >= de) out.push(d); }
+    return out;
+  }
+  // próxima ocorrência ainda não concluída, a partir de "desde" (inclusive)
+  function proximaOcorrencia(it, desde){
+    if(!it || !it.data) return null;
+    const feitos = new Set(it.feitos || []), fim = it.ate || "2099-12-31";
+    for(let k = 0; k < 2000; k++){ const d = ocorrencia(it, k); if(!d || d > fim) return null; if(d >= desde && !feitos.has(d)) return d; }
+    return null;
+  }
+  // instante (ms) do aviso por e-mail: dia + hora local (fuso do professor) menos a antecedência
+  function instanteAviso(it, dia){
+    if(!dia) return null;
+    const h = /^\d{2}:\d{2}$/.test(it.hora || "") ? it.hora : "07:00";
+    return Date.UTC(+dia.slice(0, 4), +dia.slice(5, 7) - 1, +dia.slice(8, 10), +h.slice(0, 2), +h.slice(3, 5)) + (Number.isFinite(it.tz_min) ? it.tz_min : 240) * 60000 - (it.antes_min || 0) * 60000;
+  }
   function txt(s){ return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
   // linhas de no máximo 75 bytes (UTF-8), continuação começa com espaço
   function dobrar(l){
@@ -360,7 +433,7 @@ const CAL = (() => {
     out.push(atual); return out.join("\r\n ");
   }
   function hash(s){ let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-  return { ds, dd, soma, semana, pascoa, feriados, EFEITO, NOMES, classificar, resumo, dividir, ics };
+  return { ds, dd, soma, semana, pascoa, feriados, EFEITO, NOMES, classificar, resumo, dividir, ics, ocorrencia, ocorrencias, proximaOcorrencia, instanteAviso };
 })();
 /* NUCLEO-FIM */
 
@@ -382,7 +455,7 @@ const novoId = () => Math.random().toString(36).slice(2, 10);
    ESTADO
    ===================================================================== */
 const E = { user:null, u:null, admin:false, municipios:[], muni:null, escolas:[], visao:"rede", ano:new Date().getFullYear(), R:null, Esc:null, nPer:4,
-  sec:"cal", resumo:null, cfg:null, escCache:{} };
+  sec:"cal", resumo:null, cfg:null, escCache:{}, lem:[], agFiltro:"", lemEdit:null, lemTipo:"escola" };
 const podeRede = () => E.admin || (E.u.perfil === "secretaria" && E.u.municipio_id === (E.muni && E.muni.id));
 const minhasEscolas = () => (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean);
 const podeEscola = id => podeRede() || (E.u.perfil === "gestor" && minhasEscolas().includes(id));
@@ -428,7 +501,8 @@ async function carregarAno(){
    ===================================================================== */
 function desenhar(){
   document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.arg === E.sec));
-  ["cal", "config", "escolas", "compartilhar"].forEach(s => $("s-" + s).hidden = true);
+  ["cal", "config", "escolas", "compartilhar", "agenda"].forEach(s => $("s-" + s).hidden = true);
+  if(E.sec === "agenda"){ $("semCal").hidden = true; $("carregando").hidden = true; $("s-agenda").hidden = false; desenharAgenda(); return; }
   if(!E.R){
     const sem = $("semCal"); sem.hidden = false;
     sem.innerHTML = podeRede()
@@ -474,12 +548,13 @@ function desenharCalendario(){
   desenharKpis();
   const pode = podeAqui();
   $("legenda").innerHTML = [["letivo", "Dia letivo"], ["feriado", "Feriado"], ["facult", "Ponto facultativo"], ["recesso", "Recesso"], ["ferias", "Férias"], ["planejamento", "Planejamento"], ["paralisacao", "Paralisação"], ["reposicao", "Reposição / sábado letivo"]]
-    .map(([k, n]) => '<span><i style="background:' + COR[k] + '"></i>' + n + "</span>").join("") + '<span><i style="background:#fff;border:2px solid var(--azul)"></i>Início ou fim de período</span><span><i style="background:#fff;position:relative"><b style="position:absolute;left:5px;top:9px;width:4px;height:4px;border-radius:50%;background:var(--azul)"></b></i>Evento</span>';
+    .map(([k, n]) => '<span><i style="background:' + COR[k] + '"></i>' + n + "</span>").join("") + '<span><i style="background:#fff;border:2px solid var(--azul)"></i>Início ou fim de período</span><span><i style="width:8px;height:8px;border-radius:50%;background:var(--azul)"></i>Evento</span><span><i style="width:8px;height:8px;border-radius:50%;background:#7a3fc2"></i>Meu lembrete</span>';
   $("dicaEdicao").hidden = !pode;
   $("dicaEdicao").innerHTML = E.visao === "rede" ? "Você está editando a <b>base da rede</b>. Toque num dia para registrar feriado municipal, recesso, planejamento ou evento." :
     "Você está editando o calendário da <b>" + esc(nomeVisao()) + "</b>. Toque num dia para registrar reposição, paralisação ou evento da escola. A base da rede vem junto.";
   $("btnNovoEv").hidden = !pode;
   const r = E.resumo, marcos = new Set([E.R.inicio, E.R.fim, ...r.periodos.flatMap(p => [p.inicio, p.fim])]), hj = hojeS();
+  const lemDia = {}; E.lem.forEach(it => CAL.ocorrencias(it, E.ano + "-01-01", E.ano + "-12-31").forEach(d => lemDia[d] = (lemDia[d] || 0) + 1));
   let html = "";
   for(let m = 0; m < 12; m++){
     const primeiro = E.ano + "-" + String(m + 1).padStart(2, "0") + "-01", w0 = CAL.semana(primeiro), nd = new Date(Date.UTC(E.ano, m + 1, 0)).getUTCDate();
@@ -489,7 +564,7 @@ function desenharCalendario(){
       const s = primeiro.slice(0, 8) + String(d).padStart(2, "0"), info = r.dias[s]; if(info.letivo) cont++;
       const tit = [fmtDA(s), info.letivo ? "dia letivo" : "sem aula", info.feriado ? info.feriado.titulo : "", ...info.eventos.map(e => e.titulo || CAL.NOMES[e.tipo])].filter(Boolean).join(" · ");
       cel += '<button class="dia ' + (info.dentro ? "dentro " : "") + classeDia(info) + (marcos.has(s) ? " marco" : "") + (s === hj ? " hoje" : "") + '" data-action="dia" data-arg="' + s + '" title="' + esc(tit) + '">' + d +
-        (info.eventos.some(e => e.tipo === "evento") ? '<i class="pt"></i>' : "") + "</button>";
+        (info.eventos.some(e => e.tipo === "evento") ? '<i class="pt"></i>' : "") + (lemDia[s] ? '<i class="pl" title="' + lemDia[s] + ' lembrete(s)"></i>' : "") + "</button>";
     }
     html += '<div class="mes"><h3>' + MESES[m] + "<small>" + (cont ? cont + " letivos" : "") + '</small></h3><div class="sem">' + cel + "</div></div>";
   }
@@ -525,6 +600,10 @@ function abrirEvento(data){
     info.eventos.forEach(e => linhas.push("• " + esc(e.titulo || CAL.NOMES[e.tipo]) + ' <span class="sub">(' + (e.nivel === "rede" ? "rede" : "escola") + ")</span>"));
   }
   $("evDia").innerHTML = linhas.map(l => "<div>" + l + "</div>").join("");
+  E.diaAberto = data;
+  const doDia = data ? ocorrenciasEntre(data, data) : [];
+  $("evLem").innerHTML = doDia.length ? '<div class="ag-grupo" style="margin-top:10px"><h4>Meus lembretes</h4>' + doDia.map(linhaLem).join("") + "</div>" : "";
+  $("evNovoLem").hidden = !data;
   document.querySelectorAll("#mEv .grade-form, #mEv [data-action=salvar-ev]").forEach(el => el.hidden = !pode);
   const tipos = E.visao === "rede" ? TIPOS_ORD.filter(t => t !== "paralisacao") : TIPOS_ORD;
   $("evTipo").innerHTML = tipos.map(t => '<option value="' + t + '">' + TIPO_DESC[t] + "</option>").join("");
@@ -765,6 +844,90 @@ function gerarPdf(){
 }
 
 /* =====================================================================
+   MINHA AGENDA (lembretes do professor, só ele vê)
+   ===================================================================== */
+async function carregarLembretes(){
+  E.lem = [];
+  try{ const s = await getDocs(collection(db, "usuarios", E.user.uid, "lembretes")); s.forEach(d => E.lem.push({ id:d.id, ...d.data() })); }
+  catch(e){ console.warn("lembretes:", e.code || e); }
+}
+// ocorrências de todos os lembretes entre duas datas, já com a marca de feito
+function ocorrenciasEntre(de, ate){
+  const out = [];
+  E.lem.filter(it => !E.agFiltro || it.tipo === E.agFiltro || E.sec !== "agenda").forEach(it => CAL.ocorrencias(it, de, ate).forEach(d => out.push({ it, d, feito:(it.feitos || []).includes(d) })));
+  return out.sort((a, b) => (a.d + (a.it.hora || "00:00")).localeCompare(b.d + (b.it.hora || "00:00")));
+}
+const ROT_REP = { semanal:"toda semana", mensal:"todo mês" };
+function linhaLem(o){
+  const it = o.it, hj = hojeS();
+  const quando = (o.d === hj ? "Hoje" : o.d === CAL.soma(hj, 1) ? "Amanhã" : fmtD(o.d) + " · " + SEMANA[CAL.semana(o.d)]) + (it.hora ? " " + it.hora : "");
+  return '<div class="lem' + (o.feito ? " feito" : "") + '"><button class="ck" data-action="lem-feito" data-arg="' + esc(it.id) + "|" + o.d + '" title="' + (o.feito ? "Desmarcar" : "Marcar como feito") + '">' + (o.feito ? "✓" : "") + "</button>" +
+    '<span class="hr">' + quando + '</span><span class="tt">' + esc(it.titulo) + (it.notas ? '<div class="sub">' + esc(it.notas) + "</div>" : "") + "</span>" +
+    (ROT_REP[it.repetir] ? '<span class="rp">🔁 ' + ROT_REP[it.repetir] + "</span>" : "") + (it.avisar !== "nao" ? '<span class="rp" title="Aviso por e-mail">✉️</span>' : "") +
+    '<span class="tg ' + it.tipo + '">' + (it.tipo === "pessoal" ? "Pessoal" : "Escola") + '</span><button class="btn btn-gh btn-sm" data-action="lem-editar" data-arg="' + esc(it.id) + '">Editar</button></div>';
+}
+function desenharAgenda(){
+  document.querySelectorAll("#agFiltro .chip").forEach(c => c.classList.toggle("on", c.dataset.arg === E.agFiltro));
+  const hj = hojeS(), lista = ocorrenciasEntre(CAL.soma(hj, -30), CAL.soma(hj, 60));
+  const atrasados = lista.filter(o => o.d < hj && !o.feito), hoje = lista.filter(o => o.d === hj), semana = lista.filter(o => o.d > hj && o.d <= CAL.soma(hj, 7)), depois = lista.filter(o => o.d > CAL.soma(hj, 7));
+  const grupo = (t, l, cls) => l.length ? '<div class="ag-grupo ' + (cls || "") + '"><h4>' + t + " (" + l.length + ")</h4>" + l.map(linhaLem).join("") + "</div>" : "";
+  const html = grupo("Atrasados", atrasados, "atraso") + grupo("Hoje", hoje) + grupo("Próximos 7 dias", semana) + grupo("Até 60 dias", depois.slice(0, 60));
+  $("agBox").innerHTML = '<div class="card">' + (html || '<div class="vazio"><b>Nenhum lembrete por aqui</b>Crie lembretes da escola (entregar notas, reunião, conselho de classe) ou pessoais (consulta, pagamento). Você pode receber o resumo do dia por e-mail às 6h30.</div>') + "</div>";
+}
+function proxAviso(it){
+  const hj = hojeS(), proxima = CAL.proximaOcorrencia(it, hj);
+  let pa = null;
+  if(it.avisar === "hora") for(let d = proxima, i = 0; d && i < 5; i++, d = CAL.proximaOcorrencia(it, CAL.soma(d, 1))){ const t = CAL.instanteAviso(it, d); if(t > Date.now() && d !== it.avisado){ pa = Timestamp.fromMillis(t); break; } }
+  return { proxima, proximo_aviso:pa };
+}
+function abrirLembrete(id, dia){
+  const it = id ? E.lem.find(x => x.id === id) : null;
+  E.lemEdit = it; E.lemTipo = it ? it.tipo : "escola";
+  $("lemTitulo").textContent = it ? "Editar lembrete" : "Novo lembrete";
+  $("lNome").value = it ? it.titulo : ""; $("lData").value = it ? it.data : (dia || hojeS()); $("lHora").value = it ? it.hora : "";
+  $("lRep").value = it ? it.repetir : "nao"; $("lAte").value = it ? it.ate : ""; $("lAvisar").value = it ? it.avisar : "resumo"; $("lAntes").value = String(it ? it.antes_min : 0);
+  $("lNotas").value = it ? it.notas : ""; $("lExcluir").hidden = !it;
+  ajustarLem(); document.querySelectorAll(".modal").forEach(m => m.hidden = true); $("mLem").hidden = false; setTimeout(() => $("lNome").focus(), 50);
+}
+function ajustarLem(){
+  document.querySelectorAll("#lTipo .chip").forEach(c => c.classList.toggle("on", c.dataset.arg === E.lemTipo));
+  $("lAteBox").hidden = $("lRep").value === "nao"; $("lAntesBox").hidden = $("lAvisar").value !== "hora";
+}
+async function gravarLem(id, it){
+  const dados = { titulo:it.titulo, tipo:it.tipo, data:it.data, hora:it.hora, repetir:it.repetir, ate:it.ate, avisar:it.avisar, antes_min:it.antes_min, notas:it.notas,
+    feitos:(it.feitos || []).slice(-400), tz_min:new Date().getTimezoneOffset(), avisado:it.avisado || null, atualizado_em:serverTimestamp() };
+  Object.assign(dados, proxAviso(dados));
+  dados.criado_em = (id && it.criado_em) || serverTimestamp();
+  if(id){ await setDoc(doc(db, "usuarios", E.user.uid, "lembretes", id), dados); Object.assign(E.lem.find(x => x.id === id), dados); }
+  else { const r = await addDoc(collection(db, "usuarios", E.user.uid, "lembretes"), dados); E.lem.push({ id:r.id, ...dados }); }
+}
+async function salvarLem(){
+  const titulo = $("lNome").value.trim().slice(0, 120), data = $("lData").value, hora = $("lHora").value || "", repetir = $("lRep").value, ate = repetir === "nao" ? "" : ($("lAte").value || "");
+  if(!titulo){ toast("Escreva o lembrete.", true); $("lNome").focus(); return; }
+  if(!/^20\d{2}-\d{2}-\d{2}$/.test(data)){ toast("Escolha o dia.", true); return; }
+  if(ate && ate < data){ toast("A data final vem antes do primeiro dia.", true); return; }
+  const antigo = E.lemEdit, mudouQuando = !antigo || antigo.data !== data || antigo.hora !== hora || antigo.repetir !== repetir;
+  const it = { ...(antigo || {}), titulo, tipo:E.lemTipo, data, hora, repetir, ate, avisar:$("lAvisar").value, antes_min:+$("lAntes").value, notas:$("lNotas").value.trim().slice(0, 500),
+    feitos:mudouQuando && antigo && antigo.repetir === "nao" ? [] : ((antigo && antigo.feitos) || []), avisado:mudouQuando ? null : ((antigo && antigo.avisado) || null) };
+  try{ await gravarLem(antigo && antigo.id, it); $("mLem").hidden = true; toast(antigo ? "Lembrete atualizado." : "Lembrete criado." + (it.avisar !== "nao" ? " O aviso chega no seu e-mail." : "")); redesenharTudo(); }
+  catch(e){ console.warn("lembrete:", e.code || e); toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); }
+}
+async function feitoLem(arg){
+  const [id, d] = arg.split("|"), it = E.lem.find(x => x.id === id); if(!it) return;
+  const f = new Set(it.feitos || []); f.has(d) ? f.delete(d) : f.add(d);
+  try{ await gravarLem(id, { ...it, feitos:[...f].sort() }); redesenharTudo(); }
+  catch(e){ toast("Não foi possível marcar (" + (e.code || "erro") + ").", true); }
+}
+let excluirArmado = 0;
+async function excluirLem(btn){
+  if(Date.now() - excluirArmado > 4000){ excluirArmado = Date.now(); btn.textContent = "Confirmar exclusão?"; setTimeout(() => btn.textContent = "Excluir", 4000); return; }
+  excluirArmado = 0; const it = E.lemEdit; if(!it) return;
+  try{ await deleteDoc(doc(db, "usuarios", E.user.uid, "lembretes", it.id)); E.lem = E.lem.filter(x => x.id !== it.id); $("mLem").hidden = true; toast("Lembrete excluído."); redesenharTudo(); }
+  catch(e){ toast("Não foi possível excluir (" + (e.code || "erro") + ").", true); }
+}
+function redesenharTudo(){ desenhar(); if(!$("mEv").hidden && E.diaAberto) abrirEvento(E.diaAberto); }
+
+/* =====================================================================
    EVENTOS
    ===================================================================== */
 const ACOES = {
@@ -774,6 +937,8 @@ const ACOES = {
   "fac": a => { const [d, v] = a.split(":"); E.cfg.facultativos_letivos = E.cfg.facultativos_letivos.filter(x => x !== d); if(v === "1") E.cfg.facultativos_letivos.push(d); desenharFacultativos(); desenharPeriodos(); },
   "dividir": () => { E.cfg.periodos = CAL.dividir(lerConfig(), null, E.muni.uf, E.nPer); desenharPeriodos(); $("perSub").textContent = "Dividido em " + E.nPer + " " + NOME_PER[E.nPer] + "s com o mesmo número de dias, cortando no recesso do meio do ano. Confira e salve."; },
   "salvar-config": () => salvarConfig(), "ver-escola": id => { E.visao = id; $("selVisao").value = id; E.sec = "cal"; carregarAno(); },
+  "lem-novo": () => abrirLembrete(null), "lem-dia": () => abrirLembrete(null, E.diaAberto), "lem-editar": id => abrirLembrete(id), "lem-salvar": () => salvarLem(),
+  "lem-excluir": (_, b) => excluirLem(b), "lem-feito": a => feitoLem(a), "lem-tipo": t => { E.lemTipo = t; ajustarLem(); }, "ag-filtro": f => { E.agFiltro = f; desenharAgenda(); },
   "copiar": () => copiar(), "trocar-chave": (_, b) => trocarChave(b), "baixar-ics": () => baixarIcs(), "pdf": () => gerarPdf()
 };
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b || b.disabled) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
@@ -784,6 +949,7 @@ document.addEventListener("change", ev => {
   else if(t.id === "selMuni"){ E.muni = E.municipios.find(m => m.id === t.value); E.visao = "rede"; E.escCache = {}; carregarEscolas().then(() => { montarSeletores(); carregarAno(); }); }
   else if(t.dataset.per !== undefined){ E.cfg.periodos[+t.dataset.per][t.dataset.campo] = t.value; desenharPeriodos(); }
   else if(["cIni", "cFim", "cHoras"].includes(t.id)) desenharPeriodos();
+  else if(t.id === "lRep" || t.id === "lAvisar") ajustarLem();
 });
 $("evIni").addEventListener("change", () => { if(!$("evFim").value || $("evFim").value < $("evIni").value) $("evFim").value = $("evIni").value; });
 window.__cal = { CAL, estado:E };
@@ -796,6 +962,8 @@ onAuthStateChanged(auth, async user => {
   const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   $("quem").textContent = u.nome || user.email;
+  await carregarLembretes();
+  if((location.hash || "") === "#agenda") E.sec = "agenda";
   if(E.admin){
     try{ const s = await getDocs(query(collection(db, "municipios"), limit(300))); s.forEach(d => E.municipios.push({ id:d.id, ...d.data() })); }catch(e){}
     E.municipios.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
@@ -805,7 +973,11 @@ onAuthStateChanged(auth, async user => {
   } else if(u.municipio_id){
     try{ const s = await getDoc(doc(db, "municipios", u.municipio_id)); E.muni = { id:u.municipio_id, ...(s.exists() ? s.data() : {}) }; }catch(e){ E.muni = { id:u.municipio_id }; }
   }
-  if(!E.muni){ $("carregando").innerHTML = "<b>Seu cadastro ainda não está ligado a um município.</b>Fale com a secretaria de educação."; return; }
+  if(!E.muni){
+    // sem rede (licença avulsa): só a agenda pessoal
+    document.querySelectorAll('.aba:not([data-arg="agenda"])').forEach(b => b.hidden = true); document.querySelector(".app > .card.barra").hidden = true;
+    E.sec = "agenda"; desenhar(); return;
+  }
   await carregarEscolas();
   let ult = ""; try{ ult = localStorage.getItem("pde_cal_visao") || ""; }catch(e){}
   E.visao = E.escolas.some(e => e.id === ult) ? ult : (E.u.perfil === "secretaria" || E.admin) ? "rede" : ((E.escolas.find(e => e.id === u.escola_id) || E.escolas[0] || {}).id || "rede");

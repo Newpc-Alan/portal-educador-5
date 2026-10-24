@@ -95,6 +95,35 @@ const CAL = (() => {
     linhas.push("END:VCALENDAR");
     return linhas.map(dobrar).join("\r\n") + "\r\n";
   }
+  // ---------- lembretes do professor (Minha agenda) ----------
+  // k-ésima ocorrência: semanal soma 7 dias; mensal mantém o dia (ou o último dia do mês curto)
+  function ocorrencia(it, k){
+    if(it.repetir === "semanal") return soma(it.data, 7 * k);
+    if(it.repetir === "mensal"){
+      const y = +it.data.slice(0, 4), m = +it.data.slice(5, 7) - 1 + k, dia = +it.data.slice(8, 10);
+      const ult = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+      return ds(new Date(Date.UTC(y, m, Math.min(dia, ult))));
+    }
+    return k === 0 ? it.data : null;
+  }
+  function ocorrencias(it, de, ate){
+    const out = [], fim = it.ate && it.ate < ate ? it.ate : ate;
+    for(let k = 0; k < 600; k++){ const d = ocorrencia(it, k); if(!d || d > fim) break; if(d >= de) out.push(d); }
+    return out;
+  }
+  // próxima ocorrência ainda não concluída, a partir de "desde" (inclusive)
+  function proximaOcorrencia(it, desde){
+    if(!it || !it.data) return null;
+    const feitos = new Set(it.feitos || []), fim = it.ate || "2099-12-31";
+    for(let k = 0; k < 2000; k++){ const d = ocorrencia(it, k); if(!d || d > fim) return null; if(d >= desde && !feitos.has(d)) return d; }
+    return null;
+  }
+  // instante (ms) do aviso por e-mail: dia + hora local (fuso do professor) menos a antecedência
+  function instanteAviso(it, dia){
+    if(!dia) return null;
+    const h = /^\d{2}:\d{2}$/.test(it.hora || "") ? it.hora : "07:00";
+    return Date.UTC(+dia.slice(0, 4), +dia.slice(5, 7) - 1, +dia.slice(8, 10), +h.slice(0, 2), +h.slice(3, 5)) + (Number.isFinite(it.tz_min) ? it.tz_min : 240) * 60000 - (it.antes_min || 0) * 60000;
+  }
   function txt(s){ return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
   // linhas de no máximo 75 bytes (UTF-8), continuação começa com espaço
   function dobrar(l){
@@ -103,7 +132,7 @@ const CAL = (() => {
     out.push(atual); return out.join("\r\n ");
   }
   function hash(s){ let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-  return { ds, dd, soma, semana, pascoa, feriados, EFEITO, NOMES, classificar, resumo, dividir, ics };
+  return { ds, dd, soma, semana, pascoa, feriados, EFEITO, NOMES, classificar, resumo, dividir, ics, ocorrencia, ocorrencias, proximaOcorrencia, instanteAviso };
 })();
 /* NUCLEO-FIM */
 export default CAL;

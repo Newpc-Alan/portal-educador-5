@@ -336,6 +336,23 @@ await t('secretaria lista as escolas do ano', assertSucceeds(getDocs(query(colle
 await t('gestor nao lista a rede inteira', assertFails(getDocs(query(collection(gest, 'cal_escola'), where('municipio_id', '==', 'm1')))));
 await t('ninguem apaga o calendario', assertFails(deleteDoc(doc(sec, 'cal_rede/m1_2026'))));
 
+// Minha agenda: lembretes só do dono (nem admin, nem gestor)
+const lem = { titulo: 'Entregar notas', tipo: 'escola', data: '2026-10-30', hora: '14:00', repetir: 'nao', ate: '', avisar: 'hora', antes_min: 15, notas: '', feitos: [], tz_min: 240,
+  proxima: '2026-10-30', proximo_aviso: Timestamp.fromMillis(Date.now() + 86400000), avisado: null, criado_em: serverTimestamp(), atualizado_em: serverTimestamp() };
+await t('professor cria lembrete', assertSucceeds(setDoc(doc(prof, 'usuarios/prof/lembretes/l1'), lem)));
+await t('professor le os proprios lembretes', assertSucceeds(getDocs(collection(prof, 'usuarios/prof/lembretes'))));
+await t('admin nao le lembretes do professor', assertFails(getDoc(doc(ctx('adm'), 'usuarios/prof/lembretes/l1'))));
+await t('gestor nao le lembretes do professor', assertFails(getDoc(doc(gest, 'usuarios/prof/lembretes/l1'))));
+await t('outro nao grava na agenda alheia', assertFails(setDoc(doc(prof2, 'usuarios/prof/lembretes/l2'), lem)));
+await t('lembrete com tipo invalido', assertFails(setDoc(doc(prof, 'usuarios/prof/lembretes/l3'), { ...lem, tipo: 'x' })));
+await t('lembrete com hora invalida', assertFails(setDoc(doc(prof, 'usuarios/prof/lembretes/l3'), { ...lem, hora: '9h' })));
+await t('lembrete com campo extra', assertFails(setDoc(doc(prof, 'usuarios/prof/lembretes/l3'), { ...lem, x: 1 })));
+await t('lembrete sem titulo', assertFails(setDoc(doc(prof, 'usuarios/prof/lembretes/l3'), { ...lem, titulo: '' })));
+await t('lembrete pessoal semanal sem aviso', assertSucceeds(setDoc(doc(prof, 'usuarios/prof/lembretes/l4'), { ...lem, tipo: 'pessoal', repetir: 'semanal', ate: '2026-12-31', avisar: 'nao', proximo_aviso: null })));
+await t('gestor tambem tem agenda', assertSucceeds(setDoc(doc(gest, 'usuarios/gest/lembretes/g1'), lem)));
+await t('aluno nao cria lembrete', assertFails(setDoc(doc(alu, 'usuarios/alu/lembretes/a1'), lem)));
+await t('professor apaga o proprio lembrete', assertSucceeds(deleteDoc(doc(prof, 'usuarios/prof/lembretes/l4'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

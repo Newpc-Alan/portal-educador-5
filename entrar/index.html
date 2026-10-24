@@ -77,6 +77,11 @@
   .mini-cal .mc-d.x{ background:rgba(141,198,63,.55);color:#071621 }
   .mini-cal .mc-d.h{ box-shadow:inset 0 0 0 2px var(--pde-lima);color:#fff }
   .mini-cal .mc-d i{ position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:3px;height:3px;border-radius:50%;background:#7cc8f0 }
+  .mini-cal .mc-d b{ position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#c79bf2 }
+  .mini-cal .mc-lem{ margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.08) }
+  .mini-cal .mc-lem div{ white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:rgba(255,255,255,.8);cursor:pointer }
+  .mini-cal .mc-lem div:hover{ color:#fff }
+  .mini-cal .mc-lem .mc-add{ color:var(--pde-lima);font-weight:700 }
   .mini-cal .mc-info{ margin-top:7px;line-height:1.4;color:rgba(255,255,255,.75) }
   .mini-cal .mc-info b{ color:#fff }
   .mini-cal .mc-prox{ margin-top:3px;color:rgba(255,255,255,.6) }
@@ -1208,18 +1213,19 @@
   }
 
   // ---------- mini calendário do mês no menu (Calendário e Dias Letivos) ----------
-  const miniCal = { CAL:null, R:null, Esc:null, uf:"", ano:0, mes:0, resumo:null };
+  const miniCal = { CAL:null, R:null, Esc:null, uf:"", ano:0, mes:0, resumo:null, lem:[] };
   async function montarMiniCal(){
     const el = $("miniCal"); el.hidden = true; el.innerHTML = "";
     const u = usuarioAtual || {};
-    if(!u.municipio_id || u.perfil === "admin" || u.perfil === "aluno") return;
+    if(u.perfil === "admin" || u.perfil === "aluno") return;
     try{
       if(!miniCal.CAL) miniCal.CAL = (await import("/assets/js/calendario-nucleo.js")).default;
       const hoje = new Date(); miniCal.ano = hoje.getFullYear(); miniCal.mes = hoje.getMonth();
       miniCal.uf = (u._muni && u._muni.uf) || "";
-      if(!miniCal.uf){ try{ const m = await getDoc(doc(db,"municipios",u.municipio_id)); miniCal.uf = m.exists() ? (m.data().uf || "") : ""; }catch(e){} }
-      miniCal.R = null; miniCal.Esc = null;
-      try{ const s = await getDoc(doc(db,"cal_rede",u.municipio_id+"_"+miniCal.ano)); if(s.exists()) miniCal.R = s.data(); }catch(e){}
+      if(!miniCal.uf && u.municipio_id){ try{ const m = await getDoc(doc(db,"municipios",u.municipio_id)); miniCal.uf = m.exists() ? (m.data().uf || "") : ""; }catch(e){} }
+      miniCal.R = null; miniCal.Esc = null; miniCal.lem = [];
+      try{ const s = await getDocs(collection(db,"usuarios",(usuarioReal || u).uid,"lembretes")); s.forEach(d => miniCal.lem.push(d.data())); }catch(e){}
+      if(u.municipio_id){ try{ const s = await getDoc(doc(db,"cal_rede",u.municipio_id+"_"+miniCal.ano)); if(s.exists()) miniCal.R = s.data(); }catch(e){} }
       if(miniCal.R && u.escola_id){ try{ const s = await getDoc(doc(db,"cal_escola",u.escola_id+"_"+miniCal.ano)); if(s.exists()) miniCal.Esc = s.data(); }catch(e){} }
       // sem calendário publicado: mostra o mês com os feriados nacionais
       const R = miniCal.R || { municipio_id:u.municipio_id, ano:miniCal.ano, inicio:miniCal.ano+"-12-31", fim:miniCal.ano+"-12-31", dias_semana:[], periodos:[], eventos:[] };
@@ -1232,17 +1238,18 @@
     const MES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
     const p2 = n => String(n).padStart(2,"0"), d0 = new Date(), hoje = d0.getFullYear()+"-"+p2(d0.getMonth()+1)+"-"+p2(d0.getDate());
     const primeiro = a+"-"+p2(m+1)+"-01", w0 = C.semana(primeiro), nd = new Date(Date.UTC(a, m+1, 0)).getUTCDate();
+    const lemDia = {}; miniCal.lem.forEach(it => C.ocorrencias(it, primeiro, a+"-"+p2(m+1)+"-31").forEach(x => { if(!(it.feitos || []).includes(x)) lemDia[x] = (lemDia[x] || 0) + 1; }));
     let cel = ["D","S","T","Q","Q","S","S"].map(x => '<span class="mc-cab">'+x+'</span>').join("");
     for(let i = 0; i < w0; i++) cel += "<span></span>";
     for(let d = 1; d <= nd; d++){
-      const s = primeiro.slice(0,8)+p2(d), info = r.dias[s];
+      const s = primeiro.slice(0,8)+p2(d), info = r.dias[s], nl = lemDia[s] || 0;
       const tipos = info.eventos.map(e => C.EFEITO[e.tipo] === "nao" ? e.tipo : C.EFEITO[e.tipo] === "sim" ? "sim" : "").filter(Boolean);
       let cls = info.letivo ? (tipos.includes("sim") ? "x" : "l") : (info.feriado && !info.facultativoLetivo) || tipos.some(t => t === "feriado" || t === "paralisacao") ? "f" : tipos.some(t => ["recesso","ferias","planejamento"].includes(t)) ? "r" : "";
       const tit = [d+"/"+(m+1), info.letivo ? "dia letivo" : (miniCal.R ? "sem aula" : ""), info.feriado ? info.feriado.titulo : "", ...info.eventos.map(e => e.titulo || C.NOMES[e.tipo])].filter(Boolean).join(" · ");
-      cel += '<span class="mc-d '+cls+(s === hoje ? " h" : "")+'" data-action="mc-abrir" title="'+escapeAttr(tit)+'">'+d+(info.eventos.some(e => e.tipo === "evento") ? "<i></i>" : "")+'</span>';
+      cel += '<span class="mc-d '+cls+(s === hoje ? " h" : "")+'" data-action="mc-abrir" title="'+escapeAttr(tit+(nl ? " · "+nl+" lembrete(s)" : ""))+'">'+d+(info.eventos.some(e => e.tipo === "evento") ? "<i></i>" : "")+(nl ? "<b></b>" : "")+'</span>';
     }
     let info = "";
-    if(!miniCal.R) info = '<div class="mc-info">A rede ainda não publicou o calendário letivo de '+a+'.</div>';
+    if(!miniCal.R) info = usuarioAtual.municipio_id ? '<div class="mc-info">A rede ainda não publicou o calendário letivo de '+a+'.</div>' : "";
     else{
       const hj = r.dias[hoje], per = r.periodos.find(p => hoje >= p.inicio && hoje <= p.fim);
       const nP = ["","semestre","semestre","trimestre","bimestre"][r.periodos.length] || "período";
@@ -1256,6 +1263,17 @@
         if(marca){ info += '<div class="mc-prox">Próximo: <b>'+s.slice(8,10)+"/"+s.slice(5,7)+"</b> "+escapeHtml(marca)+(x.letivo ? "" : " (sem aula)")+"</div>"; break; }
       }
     }
+    // meus lembretes de hoje e amanhã
+    const amanha = C.soma(hoje, 1), prox = [];
+    miniCal.lem.forEach(it => C.ocorrencias(it, hoje, amanha).forEach(x => { if(!(it.feitos || []).includes(x)) prox.push({ x, it }); }));
+    prox.sort((p, q) => (p.x + (p.it.hora || "")).localeCompare(q.x + (q.it.hora || "")));
+    info += '<div class="mc-lem">'+prox.slice(0, 4).map(o => '<div data-action="mc-agenda" title="'+escapeAttr(o.it.titulo)+'">📌 '+(o.x === hoje ? "Hoje" : "Amanhã")+(o.it.hora ? " "+o.it.hora : "")+" · "+escapeHtml(o.it.titulo)+"</div>").join("")+
+      (prox.length > 4 ? '<div data-action="mc-agenda">+ '+(prox.length - 4)+' lembrete(s)</div>' : "")+'<div class="mc-add" data-action="mc-agenda">＋ Minha agenda</div></div>';
+    if(!miniCal.avisado){
+      miniCal.avisado = true; const nh = prox.filter(o => o.x === hoje);
+      let ja = false; try{ ja = sessionStorage.getItem("pde_agenda_aviso") === hoje; sessionStorage.setItem("pde_agenda_aviso", hoje); }catch(e){}
+      if(nh.length && !ja) toast("📌 Hoje você tem "+nh.length+" lembrete"+(nh.length > 1 ? "s" : "")+": "+nh[0].it.titulo+(nh[0].it.hora ? " às "+nh[0].it.hora : ""));
+    }
     el.innerHTML = '<div class="mc-topo"><button class="mc-titulo" data-action="mc-abrir" title="Abrir o Calendário e Dias Letivos">📅 '+MES[m]+" "+a+'</button>'+
       '<button class="mc-seta" data-action="mc-mes" data-arg="-1" aria-label="Mês anterior"'+(m === 0 ? " disabled" : "")+'>‹</button><button class="mc-seta" data-action="mc-mes" data-arg="1" aria-label="Próximo mês"'+(m === 11 ? " disabled" : "")+'>›</button></div>'+
       '<div class="mc-grade">'+cel+"</div>"+info;
@@ -1265,6 +1283,7 @@
     const b = ev.target.closest("[data-action]"); if(!b || b.disabled) return;
     if(b.dataset.action === "mc-mes"){ miniCal.mes = Math.max(0, Math.min(11, miniCal.mes + +b.dataset.arg)); desenharMiniCal(); }
     else if(b.dataset.action === "mc-abrir") location.href = "/apps/calendario/";
+    else if(b.dataset.action === "mc-agenda") location.href = "/apps/calendario/#agenda";
   });
 
   // mostra no menu quantos cadastros aguardam aprovacao
