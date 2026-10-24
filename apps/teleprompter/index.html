@@ -774,7 +774,8 @@ function novoRoteiro(silencioso) {
    (a câmera do celular costuma abrir o link num navegador embutido, onde o login do Google é bloqueado).
    A chave muda a cada vez que o controle é ligado e deixa de valer quando é desligado. */
 const R = { ativo:false, token:'', ultimo:'', ultimoEm:0, timer:0, unsub:null, pings:0, ultimoCmd:0 };
-const URL_CONTROLE = () => location.origin + '/apps/teleprompter/controle/#' + R.token;
+// a chave vai no endereço (?k=) e não depois do #: alguns leitores de QR code cortam o que vem depois do #
+const URL_CONTROLE = () => location.origin + '/apps/teleprompter/controle/?k=' + R.token;
 const novaChave = () => { const abc='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', a=new Uint32Array(24); crypto.getRandomValues(a); return Array.from(a,x=>abc[x%abc.length]).join(''); };
 function sessaoRef(){ return doc(db,'tele_sessoes',R.token); }
 function dadosSessao(){
@@ -832,7 +833,7 @@ async function abrirRemoto() {
  $('remoteDialog').showModal(); marcarConexao();
  if(!(await ligarRemoto())){ box.textContent='Sem conexão'; return; }
  const url=URL_CONTROLE();
- $('qrLink').textContent=url.replace(/#.*/,'#…'); $('qrLink').href=url;
+ $('qrLink').textContent='Código da sessão: '+R.token.slice(-4).toUpperCase()+' (confira no celular)'; $('qrLink').href=url;
  box.replaceChildren();
  if(window.QRCode){ try{ new window.QRCode(box,{text:url,width:164,height:164,colorDark:'#0b1728',colorLight:'#ffffff',correctLevel:window.QRCode.CorrectLevel.M}); }catch{ box.textContent='Abra o link ao lado no celular'; } }
  else box.textContent='Abra o link ao lado no celular';

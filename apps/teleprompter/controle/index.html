@@ -40,7 +40,8 @@ button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation;user-
 .ajuste div b{display:block;font-size:1.2rem}
 .ajuste div small{font-size:.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
 .aviso{text-align:center;padding:28px 18px;color:var(--muted);font-size:.92rem;line-height:1.6}
-.aviso b{color:var(--txt);display:block;font-size:1.05rem;margin-bottom:6px}
+.aviso>b{color:var(--txt);display:block;font-size:1.05rem;margin-bottom:6px}
+.aviso span b{color:var(--txt)}
 .btn-google{display:inline-flex;align-items:center;gap:10px;margin-top:16px;background:#fff;color:#1f1f1f;border:0;border-radius:12px;padding:12px 18px;font-weight:700}
 .rodape{margin-top:auto;text-align:center;font-size:.72rem;color:var(--muted)}
 .rodape a{color:var(--cyan)}
@@ -73,7 +74,7 @@ const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", aut
 const db = getFirestore(fb);
 const $ = id => document.getElementById(id);
 // a chave da sessão vem no QR code (depois do #); sem login: o celular só controla a sessão daquela chave
-const E = { token:"", s:null, existe:false, timer:0 };
+const E = { token:"", veio:"", s:null, existe:false, timer:0 };
 function tela(qual){ ["telaEspera","telaControle"].forEach(id => $(id).hidden = id !== qual); }
 function estado(on, txt){ $("estado").classList.toggle("on", on); $("estado").textContent = txt; }
 // a sessão vale enquanto o computador estiver publicando (ele atualiza pelo menos a cada 20 s)
@@ -83,7 +84,14 @@ function desenhar(){
   if(!viva(s)){
     tela("telaEspera"); estado(false, "Desconectado");
     $("esperaTit").textContent = E.existe ? "Teleprompter sem sinal" : "Controle desligado";
-    $("esperaTxt").innerHTML = E.existe ? "O computador parou de responder. Confira se o Teleprompter continua aberto." : "No computador, abra o Teleprompter no Portal, toque em <b>Celular</b> e escaneie o código que aparecer. Cada código vale só enquanto o controle estiver ligado.";
+    const fim = E.token ? E.token.slice(-4).toUpperCase() : "";
+    $("esperaTxt").innerHTML = E.existe
+      ? "O computador parou de responder. Confira se o Teleprompter continua aberto com a janela <b>Controle pelo celular</b>."
+      : E.token
+        ? "A sessão <b>" + fim + "</b> não está ligada. No computador, recarregue a página do Teleprompter (F5), toque em <b>Celular</b> e escaneie o novo código. Confira se o código da sessão na tela do computador também termina em <b>" + fim + "</b>."
+        : E.veio
+          ? "O link chegou incompleto. Escaneie o código de novo ou toque no link que aparece embaixo do QR code no computador."
+          : "No computador, abra o Teleprompter no Portal, toque em <b>Celular</b> e escaneie o código que aparecer. Cada código vale só enquanto o controle estiver ligado.";
     return;
   }
   tela("telaControle"); estado(true, "Conectado");
@@ -102,10 +110,14 @@ async function enviar(acao){
   catch(e){ estado(false, "Sem conexão"); }
 }
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-acao]"); if(b) enviar(b.dataset.acao); });
-const doLink = (location.hash || "").slice(1).replace(/[^A-Za-z0-9]/g, "");
+const limpa = v => String(v || "").replace(/[^A-Za-z0-9]/g, "");
+let doLink = ""; try{ doLink = limpa(new URLSearchParams(location.search).get("k")); }catch(e){}
+if(doLink.length !== 24) doLink = limpa((location.hash || "").slice(1));
+E.veio = doLink.length ? doLink : "";
 E.token = doLink.length === 24 ? doLink : (() => { try{ return sessionStorage.getItem("pde_tele_chave") || ""; }catch(e){ return ""; } })();
 if(E.token){
   try{ sessionStorage.setItem("pde_tele_chave", E.token); }catch(e){}
+  if(location.search || location.hash) try{ history.replaceState(null, "", location.pathname); }catch(e){}
   onSnapshot(doc(db, "tele_sessoes", E.token), snap => { E.existe = snap.exists(); E.s = E.existe ? snap.data() : null; desenhar(); }, () => { estado(false, "Sem conexão"); tela("telaEspera"); });
   E.timer = setInterval(desenhar, 15000);
 } else { desenhar(); }
