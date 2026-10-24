@@ -45,6 +45,29 @@ await t('licenca vencida nao grava folha', assertFails(setDoc(doc(venc, 'usuario
 await t('gestor salva folha', assertSucceeds(setDoc(doc(gest, 'usuarios/gest/folhas/f1'), folha)));
 await t('aluno nao salva folha', assertFails(setDoc(doc(alu, 'usuarios/alu/folhas/f1'), folha)));
 
+// Notas e Medias
+const regra = { periodos: 4, pesos: [1, 1, 1, 1], media_minima: 6, nota_max: 10, arredondamento: 'decimo', composicao: 'media', rec_periodo: 'maior', rec_final: true,
+  peso_media: 1, peso_exame: 1, media_final_minima: 5, freq_minima: 75, atualizado_em: serverTimestamp(), atualizado_por: 'sec' };
+await t('secretaria define a regra do municipio', assertSucceeds(setDoc(doc(sec, 'notas_regras/m1'), regra)));
+await t('secretaria nao define regra de outro municipio', assertFails(setDoc(doc(sec, 'notas_regras/m2'), regra)));
+await t('professor nao altera a regra', assertFails(setDoc(doc(prof, 'notas_regras/m1'), regra)));
+await t('regra com pesos errados', assertFails(setDoc(doc(sec, 'notas_regras/m1'), { ...regra, pesos: [1, 1] })));
+await t('regra com media acima da escala', assertFails(setDoc(doc(sec, 'notas_regras/m1'), { ...regra, media_minima: 11 })));
+await t('professor do municipio le a regra', assertSucceeds(getDoc(doc(prof, 'notas_regras/m1'))));
+await t('professor de outro municipio nao le', assertFails(getDoc(doc(prof2, 'notas_regras/m1'))));
+const plan = { professor_uid: 'prof', professor_nome: 'P', escola_id: 'e1', municipio_id: 'm1', turma_id: 't1', turma_nome: '5A', disciplina: 'Matemática', ano_letivo: 2026,
+  avaliacoes: [{ id: 'x', periodo: 1, nome: 'Prova', peso: 1, max: 10, tipo: 'nota' }], notas: { a1: { x: 7.5 } }, faltas: {}, aulas: { 1: 40 }, exame: {}, conselho: {}, atualizado_em: serverTimestamp() };
+await t('professor salva planilha de notas', assertSucceeds(setDoc(doc(prof, 'notas_planilhas/prof_t1_matematica_2026'), plan)));
+await t('planilha com id de outro dono', assertFails(setDoc(doc(prof, 'notas_planilhas/gest_t1_matematica_2026'), plan)));
+await t('planilha em nome de outro', assertFails(setDoc(doc(prof2, 'notas_planilhas/prof2_t1_x_2026'), plan)));
+await t('planilha com campo extra', assertFails(setDoc(doc(prof, 'notas_planilhas/prof_t1_y_2026'), { ...plan, x: 1 })));
+await t('licenca vencida nao salva planilha', assertFails(setDoc(doc(venc, 'notas_planilhas/venc_t1_matematica_2026'), { ...plan, professor_uid: 'venc' })));
+await t('dono lista as proprias planilhas', assertSucceeds(getDocs(query(collection(prof, 'notas_planilhas'), where('professor_uid', '==', 'prof')))));
+await t('outro professor nao le a planilha', assertFails(getDoc(doc(prof2, 'notas_planilhas/prof_t1_matematica_2026'))));
+await t('secretaria do municipio le a planilha', assertSucceeds(getDoc(doc(sec, 'notas_planilhas/prof_t1_matematica_2026'))));
+await t('gestor de outra escola nao le', assertFails(getDoc(doc(gest, 'notas_planilhas/prof_t1_matematica_2026'))));
+await t('aluno nao le notas', assertFails(getDoc(doc(alu, 'notas_planilhas/prof_t1_matematica_2026'))));
+
 // Turma na Lousa
 const lousa = { turma_nome: '5 Ano A', nomes: [], sorteados: ['a1', 'a2'], ausentes: { dia: '2026-10-24', ids: [] },
   grupos: { modo: 'qtd', num: 4, lista: [{ ids: ['a1', 'a2'] }] }, mapa: { linhas: 5, colunas: 6, lugares: { '0_0': 'a1' }, fundo: false },

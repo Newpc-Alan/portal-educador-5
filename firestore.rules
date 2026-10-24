@@ -239,6 +239,32 @@ service cloud.firestore {
         && novo().itens is list && novo().itens.size() <= 80;
       allow delete: if tvEquipeEscola(resource.data.escola_id);
     }
+    // ---------- Notas e Medias ----------
+    // regra de calculo do municipio (bimestres, pesos, media minima, recuperacao, frequencia): a secretaria define, a rede le
+    match /notas_regras/{m} {
+      allow get: if admin() || (ativo() && eu().perfil != "aluno" && eu().get("municipio_id", "-") == m);
+      allow create, update: if (admin() || secretariaDoMuni(m))
+        && novo().keys().hasOnly(["periodos", "pesos", "media_minima", "nota_max", "arredondamento", "composicao", "rec_periodo", "rec_final",
+          "peso_media", "peso_exame", "media_final_minima", "freq_minima", "atualizado_em", "atualizado_por"])
+        && novo().periodos in [2, 3, 4] && novo().pesos is list && novo().pesos.size() == novo().periodos
+        && novo().nota_max in [10, 100] && novo().media_minima is number && novo().media_minima > 0 && novo().media_minima <= novo().nota_max
+        && novo().arredondamento in ["decimo", "meio_cima", "inteiro"] && novo().composicao in ["media", "soma"]
+        && novo().rec_periodo in ["maior", "media", "nao"] && novo().rec_final is bool && novo().freq_minima is number && novo().freq_minima <= 100;
+    }
+    // planilha de notas do professor: uma por turma, disciplina e ano; o ID comeca com o uid do dono
+    match /notas_planilhas/{id} {
+      allow read: if logado() && (resource.data.professor_uid == request.auth.uid || admin()
+        || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id));
+      allow create, update: if logado() && novo().professor_uid == request.auth.uid && id.matches("^" + request.auth.uid + "_.+")
+        && (licenciado() || eu().perfil in ["gestor", "secretaria"])
+        && (resource == null || resource.data.professor_uid == request.auth.uid)
+        && novo().keys().hasOnly(["professor_uid", "professor_nome", "escola_id", "municipio_id", "turma_id", "turma_nome", "disciplina", "ano_letivo",
+          "avaliacoes", "notas", "faltas", "aulas", "exame", "conselho", "atualizado_em"])
+        && novo().avaliacoes is list && novo().avaliacoes.size() <= 80 && novo().notas is map && novo().notas.size() <= 120
+        && novo().disciplina is string && novo().disciplina.size() <= 60;
+      allow delete: if logado() && resource.data.professor_uid == request.auth.uid;
+    }
+
     // ---------- Recursos da escola: reservas e chamado tecnico ----------
     // gestor da escola e a equipe NEWPC (admin) cadastram; quem e da escola ve; o professor licenciado reserva
     function recGestor(esc) { return admin() || gestorDaEscola(esc); }
