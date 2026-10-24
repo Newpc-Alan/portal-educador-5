@@ -71,6 +71,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
 #espera p{color:#9fb6cc;font-size:2.4vh}
 #espera .relogio{font-size:12vh;margin-top:3vh}
 
+#diag{position:fixed;left:8px;bottom:10.5vh;z-index:20;font-size:11px;color:rgba(255,255,255,.45);font-family:"Courier New",monospace}
 #aviso{position:fixed;top:12px;right:12px;z-index:20;background:#b8342a;font-size:14px;font-weight:bold;padding:6px 14px;border-radius:99px}
 
 /* retrato (totem): mídia em cima, texto embaixo */
@@ -113,6 +114,7 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
   <div id="rodape"><div id="letreiro"><div id="trilho"></div></div><div id="marca"><img id="mLogo" src="/assets/pde-logo-128.png" alt=""><b id="mNome">Portal do Educador</b></div></div>
 </section>
 <div id="aviso" class="oculto"></div>
+<div id="diag"></div>
 
 <script>
 /* Escrito em JavaScript antigo (ES5) de propósito: roda em navegadores de TV de 2014 em diante.
@@ -184,6 +186,8 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
   /* ---------- pareamento ---------- */
   function mostrarPareamento(){
     mostra($("tv"), false); mostra($("par"), true);
+    if(P.pareando) return;   // já está mostrando um código: não troca a cada conferida
+    P.pareando = true;
     function gerar(t){
       var cod = aleatorio(6, ABC);
       gravar([{ update:{ name:PROJ + "/tv_pareamentos/" + cod, fields:{ chave:S(P.chave), orientacao:S(window.innerHeight > window.innerWidth ? "v" : "h"), resolucao:S(screen.width + "x" + screen.height) } },
@@ -193,6 +197,8 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
       });
     }
     gerar(0); clearInterval(P.parTimer); P.parTimer = setInterval(function(){ gerar(0); }, 10 * 60 * 1000);
+    // enquanto espera a conexão, confere a cada 8 segundos para a programação entrar logo
+    clearInterval(P.rapido); P.rapido = setInterval(atualizar, 8000);
   }
 
   /* ---------- programação (mesmas regras do player completo) ---------- */
@@ -321,20 +327,23 @@ html,body{height:100%;background:#000;color:#fff;font-family:Arial,Helvetica,san
   }
 
   /* ---------- atualização periódica ---------- */
+  // linha discreta no canto: ajuda o suporte pela foto da TV
+  function diag(t){ var d = new Date(); setTxt("diag", "leve · " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + " · " + t); }
   function avisar(msg){ var a = $("aviso"); if(msg){ a.textContent = msg; mostra(a, true); } else mostra(a, false); }
   function atualizar(){
     ler("tv_telas/" + P.chave, function(erro, tela){
-      if(erro){ P.falhas++; if(P.tela) avisar("Sem conexão · exibindo a última programação"); else if(P.falhas > 2) mostrarPareamento(); return; }
+      if(erro){ P.falhas++; diag("erro " + erro); if(P.tela) avisar("Sem conexão · exibindo a última programação"); else if(P.falhas > 2) mostrarPareamento(); return; }
       P.falhas = 0; avisar("");
-      if(!tela){ P.tela = null; lsSet("pde_tv_leve_ultima", null); mostrarPareamento(); return; }
+      if(!tela){ P.tela = null; lsSet("pde_tv_leve_ultima", null); diag("aguardando conexão"); mostrarPareamento(); return; }
       var primeira = !P.tela || /oculto/.test($("tv").className);
       P.tela = tela;
-      if(primeira){ clearInterval(P.parTimer); mostra($("par"), false); mostra($("tv"), true); clima(); batimento(); }
+      if(primeira){ clearInterval(P.parTimer); clearInterval(P.rapido); P.pareando = false; mostra($("par"), false); mostra($("tv"), true); clima(); batimento(); }
       aplicarTela();
       // playlists (padrão e dos turnos), comunicados da secretaria e campanhas
       var ids = [tela.playlist_id], ks = ["manha", "tarde", "noite"], i, pend = 0, novas = {};
       for(i = 0; i < ks.length; i++) if(tela.agenda && tela.agenda[ks[i]] && tela.agenda[ks[i]].playlist_id) ids.push(tela.agenda[ks[i]].playlist_id);
-      function fim(){ if(--pend === 0){ P.listas = novas; montarFila(); aplicarTela(); } }
+      function fim(){ if(--pend === 0){ P.listas = novas; montarFila(); aplicarTela();
+        var pl = novas[playlistAtiva()]; diag((tela.playlist_id || playlistAtiva() ? "lista " + (pl ? (pl.itens || []).length + " itens" : "não encontrada") : "sem lista") + " · fila " + P.fila.length); } }
       var vistos = {};
       for(i = 0; i < ids.length; i++){
         var id = ids[i]; if(!id || vistos[id]) continue; vistos[id] = true; pend++;
