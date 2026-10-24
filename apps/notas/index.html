@@ -108,6 +108,30 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .carregando{padding:60px 10px;text-align:center;color:var(--muted)}
 .giro{width:34px;height:34px;border:4px solid #dce4ed;border-top-color:var(--azul);border-radius:50%;animation:g .8s linear infinite;margin:0 auto 10px}
 @keyframes g{to{transform:rotate(360deg)}}
+
+/* regra da rede: blocos numerados, um assunto por bloco */
+.rg-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.rg-muni{display:flex;align-items:center;gap:8px}
+.rg-bloco{display:flex;gap:16px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px}
+.rg-num{flex:none;width:34px;height:34px;border-radius:50%;background:var(--azul);color:#fff;font-weight:800;display:grid;place-items:center}
+.rg-corpo{flex:1;min-width:0}
+.rg-corpo h3{font-size:1rem;margin:5px 0 12px}
+.rg-campos{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px 20px}
+.rg-campos + .rg-campos{margin-top:16px;padding-top:16px;border-top:1px dashed var(--line)}
+.rg-campo{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rg-campo.largo{grid-column:span 2}
+.rg-campo > label{font-size:.82rem;font-weight:700;color:var(--ink-2)}
+.rg-campo input[type=text],.rg-campo input[type=number],.rg-campo select{padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcfe;font-size:.95rem;width:100%}
+.rg-campo small{font-size:.76rem;color:var(--muted);line-height:1.35}
+.rg-pesos{display:flex;gap:10px;flex-wrap:wrap}
+.rg-pesos label{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:.72rem;font-weight:700;color:var(--muted)}
+.rg-pesos input{width:64px;text-align:center;padding:10px 6px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcfe;font-size:.95rem;font-weight:700}
+.rg-liga{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f6f9fc;border:1.5px solid var(--line);border-radius:10px;font-weight:700;font-size:.92rem;cursor:pointer}
+.rg-liga input{width:20px;height:20px;accent-color:var(--verde)}
+.rg-exemplo{background:#eef6fc;border:1px solid #cfe4f4;border-radius:14px;padding:14px 18px;font-size:.9rem;color:#1f5f91;line-height:1.6;margin-bottom:12px}
+.rg-exemplo b{color:var(--escuro-2)}
+.rg-acoes{display:flex;justify-content:flex-end}
+@media (max-width:700px){ .rg-campo.largo{grid-column:auto} .rg-bloco{padding:14px} .rg-num{width:28px;height:28px} }
 @media (max-width:700px){ .topo{position:static} .grade .nome{min-width:140px;max-width:150px} }
 </style>
 </head>
@@ -126,7 +150,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
     </div>
   </header>
 
-  <div class="card barra">
+  <div class="card barra" id="barPlan">
     <select class="sel" id="selTurma" aria-label="Turma"><option value="">Carregando turmas...</option></select>
     <input class="inp" id="disciplina" list="listaDisc" maxlength="60" placeholder="Disciplina (ex.: Matemática)" aria-label="Disciplina" style="min-width:220px">
     <datalist id="listaDisc"></datalist>
@@ -163,28 +187,59 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 
   <!-- REGRA -->
   <section class="sec" id="s-regra">
-    <div class="card"><div class="h2">⚖️ Regra de cálculo da rede</div><p class="sub" id="regraQuem"></p></div>
-    <div class="card" id="regraForm">
-      <div class="regra-grid">
-        <div>
-          <div class="campo"><label for="rPer">Divisão do ano</label><select id="rPer"><option value="4">4 bimestres</option><option value="3">3 trimestres</option><option value="2">2 semestres</option></select></div>
-          <div class="campo"><label>Peso de cada período na média anual</label><div class="pesos" id="rPesos"></div></div>
-          <div class="campo"><label for="rMax">Escala de notas</label><select id="rMax"><option value="10">0 a 10</option><option value="100">0 a 100</option></select></div>
-          <div class="campo"><label for="rMin">Média mínima para aprovação</label><input id="rMin" type="text" inputmode="decimal"></div>
-        </div>
-        <div>
-          <div class="campo"><label for="rComp">Nota do período</label><select id="rComp"><option value="media">Média ponderada das avaliações (pelos pesos)</option><option value="soma">Soma dos pontos das avaliações (até a nota máxima)</option></select></div>
-          <div class="campo"><label for="rArr">Arredondamento</label><select id="rArr"><option value="decimo">Uma casa decimal (6,35 → 6,4)</option><option value="meio_cima">Sobe para o próximo meio ponto (6,1 → 6,5)</option><option value="inteiro">Inteiro mais próximo (6,4 → 6; 6,5 → 7)</option></select></div>
-          <div class="campo"><label for="rRecP">Recuperação de cada período</label><select id="rRecP"><option value="maior">Fica a maior nota (período ou recuperação)</option><option value="media">Média entre a nota do período e a recuperação, se melhorar</option><option value="nao">Não tem recuperação por período</option></select></div>
-          <div class="campo"><label for="rFreq">Frequência mínima (%)</label><input id="rFreq" type="number" min="0" max="100"></div>
-        </div>
-        <div>
-          <label class="chave"><input type="checkbox" id="rFinal"><span>Tem exame final<small>Para quem não atingiu a média anual.</small></span></label>
-          <div class="campo"><label>Média final = (média anual × peso + exame × peso) ÷ soma dos pesos</label><div class="pesos"><input id="rPm" type="number" min="1" max="9" aria-label="Peso da média anual"><span class="sub" style="align-self:center">× média anual</span><input id="rPe" type="number" min="1" max="9" aria-label="Peso do exame"><span class="sub" style="align-self:center">× exame</span></div></div>
-          <div class="campo"><label for="rMfm">Média final mínima depois do exame</label><input id="rMfm" type="text" inputmode="decimal"></div>
+    <div class="card rg-topo">
+      <div><div class="h2">⚖️ Regra de cálculo da rede</div><p class="sub" id="regraQuem"></p></div>
+      <div class="rg-muni"><select class="sel" id="selMuni" hidden aria-label="Município"></select><span class="pill att" id="regraInfo" hidden>Usando a regra padrão</span></div>
+    </div>
+    <div id="regraForm">
+      <div class="rg-bloco">
+        <div class="rg-num">1</div>
+        <div class="rg-corpo">
+          <h3>Ano letivo</h3>
+          <div class="rg-campos">
+            <div class="rg-campo"><label for="rPer">Divisão do ano</label><select id="rPer"><option value="4">4 bimestres</option><option value="3">3 trimestres</option><option value="2">2 semestres</option></select></div>
+            <div class="rg-campo largo"><label>Peso de cada período na média anual</label><div class="rg-pesos" id="rPesos"></div><small>Todos com peso 1 = média simples.</small></div>
+          </div>
         </div>
       </div>
-      <div class="barra" style="margin-top:14px"><span class="sub" id="regraInfo"></span><span class="esp"></span><select class="sel" id="selMuni" hidden aria-label="Município"></select><button class="btn btn-ok" data-action="salvar-regra" id="btnRegra">Salvar regra da rede</button></div>
+      <div class="rg-bloco">
+        <div class="rg-num">2</div>
+        <div class="rg-corpo">
+          <h3>Notas</h3>
+          <div class="rg-campos">
+            <div class="rg-campo"><label for="rMax">Escala</label><select id="rMax"><option value="10">0 a 10</option><option value="100">0 a 100</option></select></div>
+            <div class="rg-campo"><label for="rMin">Média para aprovação</label><input id="rMin" type="text" inputmode="decimal"></div>
+            <div class="rg-campo"><label for="rComp">Nota do período</label><select id="rComp"><option value="media">Média das avaliações</option><option value="soma">Soma dos pontos</option></select><small id="rCompAj"></small></div>
+            <div class="rg-campo"><label for="rArr">Arredondamento</label><select id="rArr"><option value="decimo">1 casa decimal</option><option value="meio_cima">Sobe para meio ponto</option><option value="inteiro">Número inteiro</option></select><small id="rArrAj"></small></div>
+          </div>
+        </div>
+      </div>
+      <div class="rg-bloco">
+        <div class="rg-num">3</div>
+        <div class="rg-corpo">
+          <h3>Recuperação</h3>
+          <div class="rg-campos">
+            <div class="rg-campo"><label for="rRecP">Recuperação de cada período</label><select id="rRecP"><option value="maior">Fica a maior nota</option><option value="media">Média com a recuperação</option><option value="nao">Não tem</option></select><small id="rRecAj"></small></div>
+            <div class="rg-campo"><label>Exame final</label><label class="rg-liga"><input type="checkbox" id="rFinal"> Tem exame final</label><small>Para quem não atingiu a média anual.</small></div>
+          </div>
+          <div class="rg-campos" id="boxExame">
+            <div class="rg-campo"><label for="rPm">Peso da média anual</label><input id="rPm" type="number" min="1" max="9"></div>
+            <div class="rg-campo"><label for="rPe">Peso do exame</label><input id="rPe" type="number" min="1" max="9"></div>
+            <div class="rg-campo"><label for="rMfm">Média final para aprovação</label><input id="rMfm" type="text" inputmode="decimal"></div>
+          </div>
+        </div>
+      </div>
+      <div class="rg-bloco">
+        <div class="rg-num">4</div>
+        <div class="rg-corpo">
+          <h3>Frequência</h3>
+          <div class="rg-campos">
+            <div class="rg-campo"><label for="rFreq">Frequência mínima (%)</label><input id="rFreq" type="number" min="0" max="100"><small>A LDB exige 75%. Abaixo disso o aluno reprova, mesmo com nota.</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="rg-exemplo" id="rExemplo"></div>
+      <div class="rg-acoes"><button class="btn btn-ok" data-action="salvar-regra" id="btnRegra">Salvar regra da rede</button></div>
     </div>
   </section>
 </div>
@@ -376,6 +431,7 @@ async function gravar(){
 function desenhar(){
   document.querySelectorAll('[data-action="ir"]').forEach(b => b.classList.toggle("on", b.dataset.arg === E.sec));
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + E.sec));
+  $("barPlan").hidden = E.sec === "regra";
   if(E.sec === "regra"){ desenharRegra(); return; }
   if(!E.P){ $("semPlanilha").hidden = false; $("boxNotas").hidden = true; $("boxResultado").innerHTML = '<div class="vazio card"><b>Abra uma planilha primeiro</b>Escolha a turma e a disciplina lá em cima.</div>'; return; }
   if(E.sec === "notas") desenharNotas(); else desenharResultado();
@@ -514,17 +570,33 @@ async function importarAv(id){
 const podeRegra = () => E.admin || E.u.perfil === "secretaria";
 function desenharRegra(){
   const R = E.regra, pode = podeRegra();
-  $("regraQuem").textContent = pode ? "Vale para todos os professores do município. Quem calcula é o Portal; o professor só lança as notas." : "Definida pela secretaria de educação. Só a secretaria altera.";
+  $("regraQuem").textContent = pode ? "Vale para todos os professores do município. O professor só lança as notas; o cálculo segue esta regra." : "Definida pela secretaria de educação. Só a secretaria pode alterar.";
   $("selMuni").hidden = !E.admin;
   $("rPer").value = R.periodos; $("rMax").value = R.nota_max; $("rMin").value = fmt(R.media_minima, 2); $("rComp").value = R.composicao; $("rArr").value = R.arredondamento;
   $("rRecP").value = R.rec_periodo; $("rFreq").value = R.freq_minima; $("rFinal").checked = !!R.rec_final; $("rPm").value = R.peso_media; $("rPe").value = R.peso_exame; $("rMfm").value = fmt(R.media_final_minima, 2);
   desenharPesos(R.pesos);
-  document.querySelectorAll("#regraForm input,#regraForm select").forEach(el => { if(el.id !== "selMuni") el.disabled = !pode; });
+  document.querySelectorAll("#regraForm input,#regraForm select").forEach(el => el.disabled = !pode);
   $("btnRegra").hidden = !pode;
-  $("regraInfo").textContent = E.regraExiste ? "" : "Este município usa a regra padrão do Portal até a secretaria salvar a dela.";
+  $("regraInfo").hidden = E.regraExiste;
+  ajudaRegra();
+}
+// textos de ajuda e o exemplo mudam conforme as escolhas
+function ajudaRegra(){
+  const n = +$("rPer").value, nome = NOME_PER[n], mx = +$("rMax").value, c = mx === 100 ? 0 : 1, min = lerNum($("rMin").value) ?? 6;
+  $("rCompAj").textContent = $("rComp").value === "media" ? "Usa o peso de cada avaliação." : "Soma as avaliações, até a nota máxima.";
+  $("rArrAj").textContent = { decimo:"Ex.: 6,35 vira 6,4.", meio_cima:"Ex.: 6,1 vira 6,5; 6,6 vira 7.", inteiro:"Ex.: 6,4 vira 6; 6,5 vira 7." }[$("rArr").value];
+  $("rRecAj").textContent = { maior:"Se a recuperação for maior, ela substitui a nota.", media:"Faz a média das duas, só se melhorar.", nao:"Sem coluna de recuperação." }[$("rRecP").value];
+  $("boxExame").hidden = !$("rFinal").checked;
+  const pesos = [...document.querySelectorAll("[data-peso]")].map(el => Math.max(1, +el.value || 1)), iguais = pesos.every(p => p === pesos[0]);
+  const pm = Math.max(1, +$("rPm").value || 1), pe = Math.max(1, +$("rPe").value || 1), mfm = lerNum($("rMfm").value) ?? 5;
+  $("rExemplo").innerHTML = "<b>Como fica:</b> o aluno precisa de média <b>" + fmt(min, c) + "</b> nos " + n + " " + nome + "s" + (iguais ? " (média simples)" : " (pesos " + pesos.join(", ") + ")") + "." +
+    ($("rRecP").value !== "nao" ? " Em cada " + nome + " pode fazer recuperação." : "") +
+    ($("rFinal").checked ? " Se não alcançar, faz o exame final e precisa de média final <b>" + fmt(mfm, c) + "</b>" + (pm === pe ? " (média anual e exame valem o mesmo)." : " (média anual vale " + pm + ", exame vale " + pe + ").") : " Não tem exame final.") +
+    " Precisa também de <b>" + ($("rFreq").value || 75) + "%</b> de frequência.";
 }
 function desenharPesos(p){
-  const n = +$("rPer").value; $("rPesos").innerHTML = Array.from({ length:n }, (_, k) => '<input type="number" min="1" max="9" value="' + (p[k] || 1) + '" aria-label="Peso do ' + (k + 1) + 'º período" data-peso="' + k + '">').join("");
+  const n = +$("rPer").value, ab = { 4:"bim", 3:"tri", 2:"sem" }[n];
+  $("rPesos").innerHTML = Array.from({ length:n }, (_, k) => '<label>' + (k + 1) + "º " + ab + '<input type="number" min="1" max="9" value="' + (p[k] || 1) + '" aria-label="Peso do ' + (k + 1) + 'º período" data-peso="' + k + '"></label>').join("");
   document.querySelectorAll("[data-peso]").forEach(el => el.disabled = !podeRegra());
 }
 async function salvarRegra(){
@@ -573,9 +645,11 @@ document.addEventListener("change", ev => {
   else if(t.dataset.exame){ lancar(t); desenhar(); }
   else if(t.id === "aulasPer"){ const v = lerNum(t.value); if(v === null) delete E.P.aulas[E.per]; else E.P.aulas[E.per] = Math.max(0, Math.round(v)); salvar(); desenhar(); }
   else if(t.id === "selMinhas" && t.value){ const [tu, d, a] = t.value.split("|"); t.value = ""; abrirPlanilha(tu, d, a); }
-  else if(t.id === "rPer") desenharPesos([...document.querySelectorAll("[data-peso]")].map(el => +el.value));
+  else if(t.id === "rPer"){ desenharPesos([...document.querySelectorAll("[data-peso]")].map(el => +el.value)); ajudaRegra(); }
+  else if(t.closest && t.closest("#regraForm")) ajudaRegra();
   else if(t.id === "selMuni") carregarRegra(t.value).then(desenharRegra);
 });
+document.addEventListener("input", ev => { if(ev.target.closest && ev.target.closest("#regraForm")) ajudaRegra(); });
 document.addEventListener("keydown", ev => {
   const t = ev.target;
   if(ev.key === "Enter" && t.dataset && t.dataset.lin !== undefined){
