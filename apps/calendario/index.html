@@ -265,7 +265,7 @@ table.tab{width:100%;border-collapse:collapse}
     <div class="campo" style="grid-column:1/-1"><label for="evNome">Descrição</label><input id="evNome" maxlength="80" placeholder="Ex.: Aniversário do município"></div>
   </div>
   <div id="evLem"></div>
-  <div class="modal-acoes"><button class="btn btn-gh" data-action="lem-dia" id="evNovoLem">📌 Lembrete neste dia</button><span style="flex:1"></span><button class="btn btn-gh" data-action="fechar">Fechar</button><button class="btn btn-ok" data-action="salvar-ev">Salvar data</button></div>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="lem-dia" id="evNovoLem" hidden>📌 Lembrete neste dia</button><span style="flex:1"></span><button class="btn btn-gh" data-action="fechar">Fechar</button><button class="btn btn-ok" data-action="salvar-ev">Salvar data</button></div>
 </div></div>
 
 <div class="modal" id="mLem" hidden><div class="modal-box">
@@ -603,7 +603,7 @@ function abrirEvento(data){
   E.diaAberto = data;
   const doDia = data ? ocorrenciasEntre(data, data) : [];
   $("evLem").innerHTML = doDia.length ? '<div class="ag-grupo" style="margin-top:10px"><h4>Meus lembretes</h4>' + doDia.map(linhaLem).join("") + "</div>" : "";
-  $("evNovoLem").hidden = !data;
+  $("evNovoLem").hidden = !data || $("abaAgenda").hidden;
   document.querySelectorAll("#mEv .grade-form, #mEv [data-action=salvar-ev]").forEach(el => el.hidden = !pode);
   const tipos = E.visao === "rede" ? TIPOS_ORD.filter(t => t !== "paralisacao") : TIPOS_ORD;
   $("evTipo").innerHTML = tipos.map(t => '<option value="' + t + '">' + TIPO_DESC[t] + "</option>").join("");
@@ -962,8 +962,9 @@ onAuthStateChanged(auth, async user => {
   const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   $("quem").textContent = u.nome || user.email;
-  await carregarLembretes();
-  if((location.hash || "") === "#agenda") E.sec = "agenda";
+  // AGENDA_ATIVA: liga quando as regras e os avisos da Minha agenda estiverem publicados
+  const AGENDA_ATIVA = false;
+  if(AGENDA_ATIVA){ await carregarLembretes(); if((location.hash || "") === "#agenda") E.sec = "agenda"; } else $("abaAgenda").hidden = true;
   if(E.admin){
     try{ const s = await getDocs(query(collection(db, "municipios"), limit(300))); s.forEach(d => E.municipios.push({ id:d.id, ...d.data() })); }catch(e){}
     E.municipios.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
@@ -973,6 +974,7 @@ onAuthStateChanged(auth, async user => {
   } else if(u.municipio_id){
     try{ const s = await getDoc(doc(db, "municipios", u.municipio_id)); E.muni = { id:u.municipio_id, ...(s.exists() ? s.data() : {}) }; }catch(e){ E.muni = { id:u.municipio_id }; }
   }
+  if(!E.muni && !AGENDA_ATIVA){ $("carregando").innerHTML = "<b>Seu cadastro ainda não está ligado a um município.</b>Fale com a secretaria de educação."; return; }
   if(!E.muni){
     // sem rede (licença avulsa): só a agenda pessoal
     document.querySelectorAll('.aba:not([data-arg="agenda"])').forEach(b => b.hidden = true); document.querySelector(".app > .card.barra").hidden = true;

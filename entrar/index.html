@@ -1224,7 +1224,10 @@
       miniCal.uf = (u._muni && u._muni.uf) || "";
       if(!miniCal.uf && u.municipio_id){ try{ const m = await getDoc(doc(db,"municipios",u.municipio_id)); miniCal.uf = m.exists() ? (m.data().uf || "") : ""; }catch(e){} }
       miniCal.R = null; miniCal.Esc = null; miniCal.lem = [];
-      try{ const s = await getDocs(collection(db,"usuarios",(usuarioReal || u).uid,"lembretes")); s.forEach(d => miniCal.lem.push(d.data())); }catch(e){}
+      const AGENDA_ATIVA = false; // liga quando as regras e os avisos da Minha agenda estiverem publicados
+      if(!u.municipio_id && !AGENDA_ATIVA) return;
+      if(AGENDA_ATIVA){ try{ const s = await getDocs(collection(db,"usuarios",(usuarioReal || u).uid,"lembretes")); s.forEach(d => miniCal.lem.push(d.data())); }catch(e){} }
+      miniCal.agenda = AGENDA_ATIVA;
       if(u.municipio_id){ try{ const s = await getDoc(doc(db,"cal_rede",u.municipio_id+"_"+miniCal.ano)); if(s.exists()) miniCal.R = s.data(); }catch(e){} }
       if(miniCal.R && u.escola_id){ try{ const s = await getDoc(doc(db,"cal_escola",u.escola_id+"_"+miniCal.ano)); if(s.exists()) miniCal.Esc = s.data(); }catch(e){} }
       // sem calendário publicado: mostra o mês com os feriados nacionais
@@ -1267,7 +1270,7 @@
     const amanha = C.soma(hoje, 1), prox = [];
     miniCal.lem.forEach(it => C.ocorrencias(it, hoje, amanha).forEach(x => { if(!(it.feitos || []).includes(x)) prox.push({ x, it }); }));
     prox.sort((p, q) => (p.x + (p.it.hora || "")).localeCompare(q.x + (q.it.hora || "")));
-    info += '<div class="mc-lem">'+prox.slice(0, 4).map(o => '<div data-action="mc-agenda" title="'+escapeAttr(o.it.titulo)+'">📌 '+(o.x === hoje ? "Hoje" : "Amanhã")+(o.it.hora ? " "+o.it.hora : "")+" · "+escapeHtml(o.it.titulo)+"</div>").join("")+
+    if(miniCal.agenda) info += '<div class="mc-lem">'+prox.slice(0, 4).map(o => '<div data-action="mc-agenda" title="'+escapeAttr(o.it.titulo)+'">📌 '+(o.x === hoje ? "Hoje" : "Amanhã")+(o.it.hora ? " "+o.it.hora : "")+" · "+escapeHtml(o.it.titulo)+"</div>").join("")+
       (prox.length > 4 ? '<div data-action="mc-agenda">+ '+(prox.length - 4)+' lembrete(s)</div>' : "")+'<div class="mc-add" data-action="mc-agenda">＋ Minha agenda</div></div>';
     if(!miniCal.avisado){
       miniCal.avisado = true; const nh = prox.filter(o => o.x === hoje);
