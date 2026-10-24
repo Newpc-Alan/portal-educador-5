@@ -90,6 +90,11 @@ button{cursor:pointer}
 .l-baixo input[type=range]{flex:1;accent-color:var(--lima)}
 .l-ocupado{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;background:rgba(27,38,50,.7);z-index:4}
 /* audio */
+.p-cap{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
+.p-cap select{max-width:300px;flex:1;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font:inherit;font-size:.8rem}
+.p-cap select option{color:#0c2338}
+.p-cap button{background:rgba(255,255,255,.1);border:0;color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer}
+.p-cred{margin-top:12px!important;font-size:.72rem!important;color:rgba(255,255,255,.55)!important}
 .player{flex:1;display:grid;place-items:center;padding:20px;color:#fff}
 .player-caixa{width:100%;max-width:520px;text-align:center}
 .player-capa{width:220px;height:220px;margin:0 auto 18px;border-radius:22px;background:radial-gradient(240px 160px at 20% 10%,rgba(141,198,63,.35),transparent 60%),linear-gradient(135deg,#0c2338,#2671AB);display:grid;place-items:center;font-size:84px;box-shadow:0 20px 50px -20px rgba(0,0,0,.8)}
@@ -336,8 +341,11 @@ function fecharLeitor(){
 }
 
 /* ---------- audiolivro ---------- */
-const A = { el:null, livro:null, salvarT:0 };
+const A = { el:null, livro:null, salvarT:0, fx:null, i:0 };
+// audiolivro em capítulos (ex.: LibriVox): l.faixas = [{ t:"Capítulo 1", url, s:segundos }]
 function abrirAudio(l){
+  const fx = Array.isArray(l.faixas) && l.faixas.length ? l.faixas : null;
+  A.fx = fx; A.i = 0;
   A.livro = l; $("lTit").textContent = l.titulo; $("lSec").textContent = "Audiolivro";
   $("lBaixo").hidden = true; $("bDuas").hidden = true;
   $("leitor").hidden = false; document.body.style.overflow = "hidden";
@@ -346,16 +354,36 @@ function abrirAudio(l){
     '<h3>' + esc(l.titulo) + '</h3><p>' + esc(l.autor || "Audiolivro") + '</p>' +
     '<div class="p-barra"><span id="pAt">0:00</span><input type="range" id="pBar" min="0" max="100" step="0.1" value="0" aria-label="Posição"><span id="pTot">0:00</span></div>' +
     '<div class="p-ctrl"><button data-action="a-pular" data-arg="-15">−15s</button><button class="play" data-action="a-play" id="pPlay">▶</button><button data-action="a-pular" data-arg="30">+30s</button></div>' +
-    '<div class="p-vel">' + [0.75, 1, 1.25, 1.5].map(v => '<button data-action="a-vel" data-arg="' + v + '"' + (v === vel ? ' class="on"' : "") + '>' + String(v).replace(".", ",") + 'x</button>').join("") + '</div></div></div>';
-  const el = new Audio(); el.preload = "metadata"; el.src = l.url; el.playbackRate = vel; A.el = el;
-  el.addEventListener("loadedmetadata", () => { $("pTot").textContent = hms(el.duration); if(p.pos && p.pos < el.duration - 5){ el.currentTime = p.pos; toast("Continuando de " + hms(p.pos) + "."); } });
+    '<div class="p-vel">' + [0.75, 1, 1.25, 1.5].map(v => '<button data-action="a-vel" data-arg="' + v + '"' + (v === vel ? ' class="on"' : "") + '>' + String(v).replace(".", ",") + 'x</button>').join("") + '</div>' +
+    (fx ? '<div class="p-cap"><button data-action="a-cap" data-arg="-1" aria-label="Capítulo anterior">⏮</button><select id="pCap" aria-label="Capítulo">' +
+      fx.map((f, i) => '<option value="' + i + '">' + esc(f.t || "Parte " + (i + 1)) + (f.s ? " · " + hms(f.s) : "") + '</option>').join("") + '</select>' +
+      '<button data-action="a-cap" data-arg="1" aria-label="Próximo capítulo">⏭</button></div>' + (l.narrador ? '<p class="p-cred">Narração: ' + esc(l.narrador) + '</p>' : "") : "") +
+    '</div></div>';
+  const el = new Audio(); el.preload = "metadata"; el.playbackRate = vel; A.el = el;
+  let retomar = fx ? (Number.isInteger(p.faixa) ? p.fpos : p.pos) : p.pos;
+  if(fx){ A.i = Number.isInteger(p.faixa) && p.faixa < fx.length ? p.faixa : 0; el.src = fx[A.i].url; $("pCap").value = A.i;
+    $("pCap").addEventListener("change", e => irCapitulo(+e.target.value, true));
+    el.addEventListener("ended", () => { if(A.i < fx.length - 1) irCapitulo(A.i + 1, true); }); }
+  else el.src = l.url;
+  el.addEventListener("loadedmetadata", () => { $("pTot").textContent = hms(el.duration); if(retomar && retomar < el.duration - 5){ el.currentTime = retomar; toast("Continuando de " + (fx ? (fx[A.i].t || "Parte " + (A.i + 1)) + ", " : "") + hms(retomar) + "."); } retomar = 0; });
   el.addEventListener("timeupdate", () => { if(!el.duration) return; $("pAt").textContent = hms(el.currentTime); $("pBar").value = 100 * el.currentTime / el.duration; if(Date.now() - A.salvarT > 5000){ A.salvarT = Date.now(); salvarAudio(); } });
   el.addEventListener("play", () => { $("pPlay").textContent = "❚❚"; $("pCapa").classList.add("tocando"); });
   el.addEventListener("pause", () => { $("pPlay").textContent = "▶"; $("pCapa").classList.remove("tocando"); salvarAudio(); });
   el.addEventListener("error", () => toast("Não foi possível carregar o áudio.", true));
   $("pBar").addEventListener("input", e => { if(el.duration) el.currentTime = el.duration * e.target.value / 100; });
 }
-function salvarAudio(){ if(A.el && A.livro && A.el.duration) salvarProg(A.livro.id, { pos:A.el.currentTime, total:A.el.duration }); }
+function salvarAudio(){
+  if(!A.el || !A.livro || !A.el.duration) return;
+  if(A.fx) salvarProg(A.livro.id, { faixa:A.i, fpos:A.el.currentTime, pos:A.i + A.el.currentTime / A.el.duration, total:A.fx.length });
+  else salvarProg(A.livro.id, { pos:A.el.currentTime, total:A.el.duration });
+}
+function irCapitulo(i, tocar){
+  if(!A.fx || !A.el || i < 0 || i >= A.fx.length) return;
+  salvarAudio(); A.i = i; A.el.src = A.fx[i].url; if($("pCap")) $("pCap").value = i;
+  $("pAt").textContent = "0:00"; $("pBar").value = 0;
+  if(tocar) A.el.play().catch(() => {});
+  salvarProg(A.livro.id, { faixa:i, fpos:0, pos:i, total:A.fx.length });
+}
 
 /* ---------- triagem (admin) ---------- */
 async function carregarTriagem(){
@@ -453,6 +481,7 @@ document.addEventListener("click", async e => {
   else if(a === "zoom-l"){ L.zoom = !L.zoom; if(L.livro && !A.el) mostrar(); }
   else if(a === "tela-cheia"){ try{ if(document.fullscreenElement) await document.exitFullscreen(); else await $("leitor").requestFullscreen(); setTimeout(() => { if(L.livro && !A.el) mostrar(); }, 250); }catch(err){ toast("Use a tecla F11 para tela cheia."); } }
   else if(a === "a-play"){ if(!A.el) return; A.el.paused ? A.el.play().catch(() => toast("Toque de novo para tocar.")) : A.el.pause(); }
+  else if(a === "a-cap"){ if(A.el) irCapitulo(A.i + (+arg), !A.el.paused); }
   else if(a === "a-pular"){ if(A.el) A.el.currentTime = Math.max(0, A.el.currentTime + (+arg)); }
   else if(a === "a-vel"){ if(!A.el) return; A.el.playbackRate = +arg; ls.set("pde_bib_vel", +arg); document.querySelectorAll(".p-vel button").forEach(b => b.classList.toggle("on", b.dataset.arg === arg)); }
   else if(a === "fechar-modal") fecharModal();
