@@ -252,6 +252,40 @@ service cloud.firestore {
         && novo().rec_periodo in ["maior", "media", "nao"] && novo().rec_final is bool && novo().freq_minima is number && novo().freq_minima <= 100;
     }
     // planilha de notas do professor: uma por turma, disciplina e ano; o ID comeca com o uid do dono
+    // ---------- Calendário e Dias Letivos ----------
+    // cal_rede/{municipio}_{ano}: base da rede, feita pela secretaria. cal_escola/{escola}_{ano}: ajustes da escola (gestor ou secretaria).
+    function dataOk(v) { return v is string && v.matches("^20[2-9][0-9]-[01][0-9]-[0-3][0-9]$"); }
+    function calEventosOk() { return novo().eventos is list && novo().eventos.size() <= 200; }
+    match /cal_rede/{id} {
+      allow get: if admin() || (naoAluno() && (resource == null || resource.data.municipio_id == eu().get("municipio_id", "-")));
+      allow list: if admin() || (naoAluno() && resource.data.municipio_id == eu().get("municipio_id", "-"));
+      allow create, update: if (admin() || secretariaDoMuni(novo().municipio_id))
+        && novo().keys().hasOnly(["municipio_id", "ano", "inicio", "fim", "dias_semana", "horas_dia", "meta_dias", "meta_horas", "periodos",
+          "facultativos_letivos", "eventos", "token", "atualizado_em", "atualizado_por"])
+        && novo().ano is int && id == novo().municipio_id + "_" + string(novo().ano)
+        && (resource == null || resource.data.municipio_id == novo().municipio_id)
+        && dataOk(novo().inicio) && dataOk(novo().fim) && novo().inicio < novo().fim
+        && novo().dias_semana is list && novo().dias_semana.size() <= 7
+        && novo().horas_dia is number && novo().horas_dia > 0 && novo().horas_dia <= 12
+        && novo().periodos is list && novo().periodos.size() <= 4
+        && novo().facultativos_letivos is list && novo().facultativos_letivos.size() <= 20
+        && calEventosOk() && novo().token is string && novo().token.matches("^[A-Za-z0-9]{20}$");
+      allow delete: if admin();
+    }
+    match /cal_escola/{id} {
+      allow get: if admin() || (naoAluno() && (resource == null || resource.data.municipio_id == eu().get("municipio_id", "-")
+        || resource.data.escola_id in minhasEscolas()));
+      allow list: if admin() || secretariaDoMuni(resource.data.municipio_id) || (naoAluno() && resource.data.escola_id in minhasEscolas());
+      allow create, update: if (admin() || secretariaDoMuni(novo().municipio_id) || gestorDaEscola(novo().escola_id))
+        && novo().keys().hasOnly(["escola_id", "municipio_id", "ano", "horas_dia", "eventos", "atualizado_em", "atualizado_por"])
+        && novo().ano is int && id == novo().escola_id + "_" + string(novo().ano)
+        && (resource == null || (resource.data.escola_id == novo().escola_id && resource.data.municipio_id == novo().municipio_id))
+        && muniDaEscola(novo().escola_id) == novo().municipio_id
+        && (novo().horas_dia == null || (novo().horas_dia is number && novo().horas_dia > 0 && novo().horas_dia <= 12))
+        && calEventosOk();
+      allow delete: if admin();
+    }
+
     match /notas_planilhas/{id} {
       allow read: if logado() && (resource.data.professor_uid == request.auth.uid || admin()
         || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id));

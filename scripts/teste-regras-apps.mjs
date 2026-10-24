@@ -302,6 +302,40 @@ await t('gestor nao altera nota', assertFails(updateDoc(doc(gest, 'respostas/rP'
 await t('aluno sem login ainda responde', assertSucceeds(addDoc(collection(anon, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2' })));
 await t('anonimo nao le respostas', assertFails(getDoc(doc(anon, 'respostas/rP'))));
 
+// Calendario e Dias Letivos: secretaria monta a base da rede, gestor ajusta a escola dele, professor so le
+const calR = { municipio_id: 'm1', ano: 2026, inicio: '2026-02-02', fim: '2026-12-18', dias_semana: [1, 2, 3, 4, 5], horas_dia: 4, meta_dias: 200, meta_horas: 800,
+  periodos: [{ inicio: '2026-02-02', fim: '2026-04-23' }], facultativos_letivos: [], eventos: [{ id: 'a', ini: '2026-07-13', fim: '2026-07-24', tipo: 'recesso', titulo: 'Recesso' }],
+  token: CH, atualizado_em: serverTimestamp(), atualizado_por: 'sec' };
+const calE = { escola_id: 'e2', municipio_id: 'm1', ano: 2026, horas_dia: null, eventos: [{ id: 'b', ini: '2026-08-29', fim: '2026-08-29', tipo: 'sabado', titulo: 'Sábado letivo' }],
+  atualizado_em: serverTimestamp(), atualizado_por: 'gest' };
+await t('professor ve que o calendario ainda nao existe', assertSucceeds(getDoc(doc(prof, 'cal_rede/m1_2026'))));
+await t('secretaria cria o calendario da rede', assertSucceeds(setDoc(doc(sec, 'cal_rede/m1_2026'), calR)));
+await t('secretaria nao cria calendario de outra rede', assertFails(setDoc(doc(sec, 'cal_rede/m2_2026'), { ...calR, municipio_id: 'm2' })));
+await t('calendario com id trocado', assertFails(setDoc(doc(sec, 'cal_rede/m1_2027'), calR)));
+await t('calendario com chave fraca', assertFails(setDoc(doc(sec, 'cal_rede/m1_2026'), { ...calR, token: 'abc' })));
+await t('calendario com campo extra', assertFails(setDoc(doc(sec, 'cal_rede/m1_2026'), { ...calR, x: 1 })));
+await t('calendario com fim antes do inicio', assertFails(setDoc(doc(sec, 'cal_rede/m1_2026'), { ...calR, fim: '2026-01-01' })));
+await t('gestor nao altera a base da rede', assertFails(setDoc(doc(gest, 'cal_rede/m1_2026'), calR)));
+await t('professor nao altera a base da rede', assertFails(setDoc(doc(prof, 'cal_rede/m1_2026'), calR)));
+await t('professor da rede le o calendario', assertSucceeds(getDoc(doc(prof, 'cal_rede/m1_2026'))));
+await t('professor de outra rede nao le', assertFails(getDoc(doc(prof2, 'cal_rede/m1_2026'))));
+await t('aluno nao le o calendario', assertFails(getDoc(doc(alu, 'cal_rede/m1_2026'))));
+await t('anonimo nao le o calendario', assertFails(getDoc(doc(anon, 'cal_rede/m1_2026'))));
+await t('admin cria calendario de qualquer rede', assertSucceeds(setDoc(doc(ctx('adm'), 'cal_rede/m2_2026'), { ...calR, municipio_id: 'm2' })));
+await t('gestor ajusta a escola dele', assertSucceeds(setDoc(doc(gest, 'cal_escola/e2_2026'), calE)));
+await t('gestor nao ajusta outra escola', assertFails(setDoc(doc(gest, 'cal_escola/e1_2026'), { ...calE, escola_id: 'e1' })));
+await t('escola com municipio errado', assertFails(setDoc(doc(sec, 'cal_escola/e2_2026'), { ...calE, municipio_id: 'm2' })));
+await t('secretaria ajusta escola da rede', assertSucceeds(setDoc(doc(sec, 'cal_escola/e1_2026'), { ...calE, escola_id: 'e1' })));
+await t('secretaria nao ajusta escola de outra rede', assertFails(setDoc(doc(sec, 'cal_escola/e9_2026'), { ...calE, escola_id: 'e9', municipio_id: 'm2' })));
+await t('professor nao ajusta a escola', assertFails(setDoc(doc(prof, 'cal_escola/e1_2026'), { ...calE, escola_id: 'e1' })));
+await t('escola com horas absurdas', assertFails(setDoc(doc(gest, 'cal_escola/e2_2026'), { ...calE, horas_dia: 30 })));
+await t('professor le o ajuste da escola dele', assertSucceeds(getDoc(doc(prof, 'cal_escola/e1_2026'))));
+await t('professor ve ajuste inexistente', assertSucceeds(getDoc(doc(prof, 'cal_escola/e1_2027'))));
+await t('professor de outra rede nao le ajuste', assertFails(getDoc(doc(prof2, 'cal_escola/e1_2026'))));
+await t('secretaria lista as escolas do ano', assertSucceeds(getDocs(query(collection(sec, 'cal_escola'), where('municipio_id', '==', 'm1'), where('ano', '==', 2026)))));
+await t('gestor nao lista a rede inteira', assertFails(getDocs(query(collection(gest, 'cal_escola'), where('municipio_id', '==', 'm1')))));
+await t('ninguem apaga o calendario', assertFails(deleteDoc(doc(sec, 'cal_rede/m1_2026'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

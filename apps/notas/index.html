@@ -47,6 +47,7 @@ button{cursor:pointer}
 .sel,.inp{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff;font-weight:600;font-size:.88rem}
 .seg{display:inline-flex;background:#eef2f6;border-radius:10px;padding:3px;gap:3px;flex-wrap:wrap}
 .seg button{border:0;background:transparent;border-radius:8px;padding:7px 12px;font-weight:700;font-size:.82rem;color:var(--muted)}
+.seg button .per-datas{display:block;font-size:.66rem;font-weight:600;opacity:.75;line-height:1.2}
 .seg button.on{background:#fff;color:var(--azul);box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .sec{display:none}.sec.on{display:block}
 .status{font-size:.74rem;color:rgba(255,255,255,.75);text-align:right;min-height:1em}
@@ -295,6 +296,7 @@ const PADRAO = { periodos:4, pesos:[1, 1, 1, 1], media_minima:6, nota_max:10, ar
   rec_final:true, peso_media:1, peso_exame:1, media_final_minima:5, freq_minima:75 };
 const NOME_PER = { 4:"bimestre", 3:"trimestre", 2:"semestre" };
 const E = { user:null, u:null, admin:false, turmas:[], alunos:[], regra:{ ...PADRAO }, regraDe:"", regraExiste:false, P:null, pid:"", per:1, sec:"notas", salvarT:0, avEdit:null, consAluno:"" };
+const dataBr = d => String(d || "").slice(8, 10) + "/" + String(d || "").slice(5, 7);
 const perNome = p => p + "º " + NOME_PER[E.regra.periodos];
 function arred(v){
   if(v === null) return null; const r = E.regra.arredondamento;
@@ -411,6 +413,12 @@ async function abrirPlanilha(turmaId, disciplina, ano){
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   try{ localStorage.setItem("pde_notas_ultima", JSON.stringify({ t:turmaId, d:disciplina, a:ano })); }catch(e){}
   $("selTurma").value = turmaId; $("disciplina").value = disciplina; $("selAno").value = String(ano);
+  // datas dos períodos vêm do Calendário da rede (quando a secretaria já montou): abre no período de hoje
+  E.calPer = null;
+  try{ const c = await getDoc(doc(db, "cal_rede", muni + "_" + ano)); const per = c.exists() ? c.data().periodos : null; if(Array.isArray(per) && per.length === E.regra.periodos) E.calPer = per; }catch(e){}
+  const d0 = new Date(), hj = d0.getFullYear() + "-" + String(d0.getMonth() + 1).padStart(2, "0") + "-" + String(d0.getDate()).padStart(2, "0"), atual = E.calPer ? E.calPer.findIndex(x => hj >= x.inicio && hj <= x.fim) : -1;
+  if(atual >= 0 && E.ultimoPid !== E.pid) E.per = atual + 1;
+  E.ultimoPid = E.pid;
   E.per = Math.min(E.per, E.regra.periodos);
   $("carregando").hidden = true; desenhar();
 }
@@ -441,7 +449,7 @@ function desenharNotas(){
   $("semPlanilha").hidden = true; $("boxNotas").hidden = false;
   $("regraResumo").innerHTML = resumoRegra();
   const R = E.regra, P = E.P, p = E.per, mx = R.nota_max, c = mx === 100 ? 0 : 1;
-  $("segPer").innerHTML = Array.from({ length:R.periodos }, (_, k) => '<button class="' + (k + 1 === p ? "on" : "") + '" data-action="per" data-arg="' + (k + 1) + '">' + perNome(k + 1) + "</button>").join("");
+  $("segPer").innerHTML = Array.from({ length:R.periodos }, (_, k) => '<button class="' + (k + 1 === p ? "on" : "") + '" data-action="per" data-arg="' + (k + 1) + '"' + (E.calPer ? ' title="' + dataBr(E.calPer[k].inicio) + " a " + dataBr(E.calPer[k].fim) + '"' : "") + ">" + perNome(k + 1) + (E.calPer ? '<small class="per-datas">' + dataBr(E.calPer[k].inicio) + " a " + dataBr(E.calPer[k].fim) + "</small>" : "") + "</button>").join("");
   $("aulasPer").value = P.aulas[p] ?? "";
   const cols = P.avaliacoes.filter(a => a.periodo === p && a.tipo === "nota"), rec = P.avaliacoes.find(a => a.periodo === p && a.tipo === "rec");
   $("btnRec").hidden = !!rec || R.rec_periodo === "nao";

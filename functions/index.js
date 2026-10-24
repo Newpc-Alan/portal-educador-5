@@ -367,3 +367,4 @@ export const vincularContaFormacao = onCall(async req=>{
 export { painelUso } from './painel.js';
 export { emailTvConectada, emailComunicadoTv } from './tv.js';
 export { emailChamadoTecnico } from './recursos.js';
+export { calendarioIcs } from './calendario.js';

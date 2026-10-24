@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Calendário e Dias Letivos · Portal do Educador</title>
+<meta name="theme-color" content="#071621">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<style>
+:root{
+  --escuro:#071621; --escuro-2:#0c2338; --azul:#2671AB; --azul-2:#2E9BD6; --lima:#8DC63F; --verde:#5A9420;
+  --bg:#f4f7fa; --ink:#0c2338; --ink-2:#2C3E55; --muted:#6b7c90; --line:#dce4ed; --red:#C2362C; --amarelo:#F9A825;
+  --c-letivo:#e6f3d6; --c-feriado:#fbd9d5; --c-facult:#ffe9c2; --c-recesso:#d8eaf8; --c-ferias:#bcd9f2; --c-plan:#e7dcfa; --c-paral:#f2b9b2; --c-repos:#8DC63F;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+.app{max-width:1280px;margin:0 auto;padding:0 16px 60px}
+.topo{margin:0 -16px 16px;padding:12px 20px;border-radius:0 0 18px 18px;color:#fff;
+  background:radial-gradient(600px 200px at 0% 0%,rgba(46,155,214,.35),transparent 60%),linear-gradient(135deg,#071621,#123556);
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:12px;min-width:240px;flex:1}
+.marca img{width:44px;height:44px;flex:none}
+.marca small{display:block;font-size:.64rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--lima)}
+.marca b{display:block;font-size:1.08rem}
+.marca span{display:block;font-size:.78rem;color:rgba(255,255,255,.72)}
+.tb{border:1px solid var(--lima);background:var(--lima);color:#071621;border-radius:9px;padding:8px 12px;font-size:.82rem;font-weight:800;text-decoration:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 16px;border-radius:10px;border:1px solid transparent;font-weight:700;font-size:.88rem;white-space:nowrap;line-height:1.2;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-pri{background:var(--azul);color:#fff}.btn-pri:hover{background:#1f5f91}
+.btn-ok{background:var(--verde);color:#fff}.btn-ok:hover{background:#4a7c19}
+.btn-gh{background:#fff;color:var(--ink);border-color:var(--line)}.btn-gh:hover{border-color:#b8c6d6}
+.btn-red{background:#fff;color:var(--red);border-color:#f0c4bf}
+.btn-sm{padding:7px 11px;font-size:.8rem;border-radius:8px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px}
+.h2{font-size:1.02rem;font-weight:800}
+.sub{color:var(--muted);font-size:.84rem}
+.barra{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.barra .esp{flex:1}
+.sel,.inp{border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;background:#fff;font-weight:600;font-size:.88rem;max-width:100%}
+.abas{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.aba{border:1.5px solid var(--line);background:#fff;border-radius:11px;padding:9px 14px;font-weight:800;font-size:.86rem;color:var(--muted)}
+.aba.on{border-color:var(--azul-2);color:var(--azul);background:#eef6fc}
+.vazio{text-align:center;color:var(--muted);padding:40px 10px;font-size:.92rem}
+.vazio b{display:block;color:var(--ink);font-size:1.08rem;margin-bottom:6px}
+
+/* contagem */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+.kpi small{display:block;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.kpi b{display:block;font-size:1.7rem;line-height:1.15;font-weight:800}
+.kpi b span{font-size:.92rem;color:var(--muted);font-weight:700}
+.kpi .st{font-size:.8rem;font-weight:700}
+.kpi.ok{border-color:#bfe0a0}.kpi.ok .st{color:#3d6b0c}
+.kpi.falta{border-color:#f3c1bb}.kpi.falta .st{color:var(--red)}
+.barra-prog{height:7px;border-radius:9px;background:#eef2f6;overflow:hidden;margin-top:6px}
+.barra-prog i{display:block;height:100%;background:var(--verde);border-radius:9px}
+.kpi.falta .barra-prog i{background:var(--red)}
+.pers{display:flex;flex-direction:column;gap:3px;margin-top:4px}
+.pers div{display:flex;justify-content:space-between;gap:8px;font-size:.8rem;color:var(--ink-2)}
+.kpi .pers b{display:inline;font-size:.82rem;line-height:1.4}
+
+/* meses */
+.meses{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.mes{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 10px 8px}
+.mes h3{font-size:.92rem;font-weight:800;display:flex;justify-content:space-between;margin:0 4px 6px}
+.mes h3 small{font-size:.74rem;color:var(--muted);font-weight:700}
+.sem{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.sem .cab{font-size:.66rem;font-weight:800;color:var(--muted);text-align:center;padding:2px 0}
+.dia{position:relative;aspect-ratio:1;border:0;border-radius:7px;background:transparent;font-size:.8rem;font-weight:700;color:#a5b1be;display:grid;place-items:center;padding:0}
+.dia.dentro{color:var(--ink-2)}
+.dia.letivo{background:var(--c-letivo);color:var(--ink)}
+.dia.t-feriado{background:var(--c-feriado);color:#8c1d14}
+.dia.t-facult{background:var(--c-facult);color:#7a4b00}
+.dia.t-recesso{background:var(--c-recesso);color:#174a73}
+.dia.t-ferias{background:var(--c-ferias);color:#123c5e}
+.dia.t-planejamento{background:var(--c-plan);color:#4a2c85}
+.dia.t-paralisacao{background:var(--c-paral);color:#6e130b}
+.dia.t-reposicao,.dia.t-sabado{background:var(--c-repos);color:#071621}
+.dia.marco::after{content:"";position:absolute;inset:1px;border:2px solid var(--azul);border-radius:7px}
+.dia .pt{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--azul)}
+.dia.hoje{outline:2px solid var(--escuro-2);outline-offset:-2px}
+.dia:hover{filter:brightness(.94)}
+.dia.vz{visibility:hidden}
+.legenda{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.78rem;color:var(--ink-2);margin:4px 0 12px}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.legenda i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.lista-ev{display:flex;flex-direction:column;gap:6px}
+.ev{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:.86rem;flex-wrap:wrap}
+.ev .cor{width:12px;height:12px;border-radius:4px;flex:none}
+.ev .dt{font-weight:800;min-width:118px}
+.ev .tt{flex:1;min-width:140px}
+.ev .nv{font-size:.72rem;font-weight:800;border-radius:99px;padding:2px 8px;background:#eef2f6;color:var(--muted)}
+.ev .nv.escola{background:#e3f1fb;color:#1f5f91}
+
+/* formulários */
+.grade-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.campo{display:flex;flex-direction:column;gap:5px}
+.campo>label,.campo>span{font-size:.78rem;font-weight:700;color:var(--ink-2)}
+.campo input,.campo select{padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#fbfcfe;font-size:.92rem;width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font-weight:700;font-size:.82rem;color:var(--muted)}
+.chip.on{background:var(--verde);border-color:var(--verde);color:#fff}
+.per{display:grid;grid-template-columns:110px 1fr 1fr 90px;gap:8px;align-items:center;margin-bottom:6px}
+.per b{font-size:.86rem}
+.per input{padding:8px 10px;border:1.5px solid var(--line);border-radius:9px;background:#fbfcfe}
+.per span{font-size:.82rem;color:var(--muted);font-weight:700}
+.fac{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:.88rem;flex-wrap:wrap}
+.fac:last-child{border-bottom:0}
+.fac b{min-width:110px}
+.fac .esp{flex:1}
+.aviso{background:#fff3d6;border:1px solid #f3d88f;color:#6b4500;border-radius:10px;padding:9px 12px;font-size:.85rem;margin-bottom:12px}
+.info{background:#e8f3fb;border:1px solid #c3dff2;color:#174a73;border-radius:10px;padding:9px 12px;font-size:.85rem;margin-bottom:12px}
+
+/* tabela escolas */
+.tabela-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
+table.tab{width:100%;border-collapse:collapse}
+.tab th,.tab td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:.88rem;white-space:nowrap}
+.tab th{background:#f6f9fc;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tab tr.clic{cursor:pointer}.tab tr.clic:hover td{background:#f7fbff}
+.pill{border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;display:inline-block}
+.pill.ok{background:#e9f5dc;color:#3d6b0c}.pill.falta{background:#fde3e0;color:#a12a20}.pill.cinza{background:#eef2f6;color:var(--muted)}
+
+/* compartilhar */
+.passo-g{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.passo-g i{font-style:normal;flex:none;width:28px;height:28px;border-radius:50%;background:var(--azul);color:#fff;display:grid;place-items:center;font-weight:800;font-size:.85rem}
+.link-box{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.link-box input{flex:1;min-width:220px;padding:9px 11px;border:1.5px solid var(--line);border-radius:10px;background:#f6f9fc;font-size:.8rem;font-family:ui-monospace,Consolas,monospace}
+
+.modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
+.modal-box{background:#fff;border-radius:16px;padding:20px;width:min(520px,100%);max-height:92vh;overflow:auto}
+.modal-box h3{font-size:1.05rem;margin-bottom:4px}
+.modal-acoes{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
+.dia-info{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;z-index:99;background:var(--escuro-2);color:#fff;padding:11px 18px;border-radius:12px;font-size:.88rem;font-weight:600;transition:.2s;pointer-events:none;max-width:92vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.err{background:var(--red)}
+@media (max-width:640px){ .meses{grid-template-columns:1fr 1fr;gap:8px} .mes{padding:7px 5px 5px} .mes h3{font-size:.8rem;margin:0 2px 4px;flex-direction:column} .dia{font-size:.68rem;border-radius:5px} .dia.marco::after{border-radius:5px} .per{grid-template-columns:1fr 1fr} .per b{grid-column:1/-1} .ev .dt{min-width:0} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topo">
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Gestão Escolar</small><b>Calendário e Dias Letivos</b><span id="quem">Carregando...</span></div></div>
+    <a class="tb" href="/gestao/">← Gestão Escolar</a>
+  </header>
+
+  <div class="card barra">
+    <select class="sel" id="selMuni" aria-label="Município" hidden></select>
+    <select class="sel" id="selVisao" aria-label="Rede ou escola"></select>
+    <select class="sel" id="selAno" aria-label="Ano letivo"></select>
+    <span class="esp"></span>
+    <span class="sub" id="salvoEm"></span>
+  </div>
+
+  <div class="abas" id="abas">
+    <button class="aba on" data-action="aba" data-arg="cal">📅 Calendário</button>
+    <button class="aba" data-action="aba" data-arg="config" id="abaConfig">⚙️ Configurar o ano</button>
+    <button class="aba" data-action="aba" data-arg="escolas" id="abaEscolas">🏫 Escolas da rede</button>
+    <button class="aba" data-action="aba" data-arg="compartilhar">🔗 Google Agenda e PDF</button>
+  </div>
+
+  <div id="carregando" class="card vazio">Carregando o calendário...</div>
+  <div id="semCal" class="card vazio" hidden></div>
+
+  <section id="s-cal" hidden>
+    <div class="kpis" id="kpis"></div>
+    <div class="legenda" id="legenda"></div>
+    <div class="info" id="dicaEdicao" hidden></div>
+    <div class="meses" id="meses"></div>
+    <div class="card" style="margin-top:14px">
+      <div class="barra" style="margin-bottom:10px"><div class="h2">Datas do ano</div><span class="esp"></span><button class="btn btn-ok btn-sm" data-action="novo-ev" id="btnNovoEv">＋ Adicionar data</button></div>
+      <div class="lista-ev" id="listaEv"></div>
+    </div>
+  </section>
+
+  <section id="s-config" hidden>
+    <div class="card">
+      <div class="h2" style="margin-bottom:4px">Ano letivo da rede</div>
+      <p class="sub" style="margin-bottom:14px">A base vale para todas as escolas. Cada escola registra por cima as próprias reposições, paralisações e eventos.</p>
+      <div class="grade-form">
+        <div class="campo"><label for="cIni">Primeiro dia letivo</label><input type="date" id="cIni"></div>
+        <div class="campo"><label for="cFim">Último dia letivo</label><input type="date" id="cFim"></div>
+        <div class="campo"><label for="cHoras">Horas de aula por dia</label><input type="text" inputmode="decimal" id="cHoras"></div>
+        <div class="campo"><label for="cMetaD">Mínimo de dias letivos</label><input type="number" id="cMetaD" min="1" max="300"></div>
+        <div class="campo"><label for="cMetaH">Mínimo de horas</label><input type="number" id="cMetaH" min="1" max="2000"></div>
+      </div>
+      <div class="campo" style="margin-top:12px"><span>Dias de aula na semana</span><div class="chips" id="cSemana"></div></div>
+      <p class="sub" style="margin-top:10px">LDB, art. 24: no mínimo 800 horas em 200 dias de efetivo trabalho escolar no ensino fundamental.</p>
+    </div>
+    <div class="card">
+      <div class="barra" style="margin-bottom:6px"><div class="h2" id="perTitulo">Bimestres</div><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="dividir">✨ Dividir automaticamente</button></div>
+      <p class="sub" style="margin-bottom:12px" id="perSub"></p>
+      <div id="cPer"></div>
+    </div>
+    <div class="card">
+      <div class="h2" style="margin-bottom:4px">Feriados nacionais e pontos facultativos</div>
+      <p class="sub" style="margin-bottom:8px">Calculados sozinhos a cada ano, inclusive Carnaval, Paixão de Cristo e Corpus Christi. Feriados municipais e o recesso entram como datas no calendário.</p>
+      <div id="cFac"></div>
+    </div>
+    <div class="barra"><span class="esp"></span><button class="btn btn-ok" data-action="salvar-config">✓ Salvar configuração</button></div>
+  </section>
+
+  <section id="s-escolas" hidden><div id="escBox"></div></section>
+
+  <section id="s-compartilhar" hidden>
+    <div class="card">
+      <div class="h2" style="margin-bottom:4px">📲 No Google Agenda de todo mundo</div>
+      <p class="sub" style="margin-bottom:14px">Professores, direção e famílias assinam uma vez e o calendário aparece no celular. Quando a secretaria ou a escola muda uma data aqui, a agenda de quem assinou se atualiza sozinha (o Google confere o link de tempos em tempos, em geral em algumas horas).</p>
+      <div class="passo-g"><i>1</i><div style="flex:1"><b id="linkTitulo">Link do calendário</b>
+        <div class="link-box"><input id="linkIcs" readonly aria-label="Link do calendário"><button class="btn btn-gh btn-sm" data-action="copiar">Copiar</button></div>
+        <div class="barra"><a class="btn btn-pri btn-sm" id="abrirGoogle" target="_blank" rel="noopener">Abrir no Google Agenda</a><a class="btn btn-gh btn-sm" id="abrirApple">iPhone / Outlook</a></div></div></div>
+      <div class="passo-g"><i>2</i><div class="sub" style="padding-top:4px">No computador, o Google Agenda abre a tela "Adicionar agenda". Confirme e pronto. Se preferir, em <b>Outras agendas › ＋ › Do URL</b>, cole o link.</div></div>
+      <div class="passo-g"><i>3</i><div class="sub" style="padding-top:4px">Para as famílias: mande o link no grupo da escola. Cada escola tem o seu link, com a base da rede e as datas próprias.</div></div>
+      <div class="barra" id="trocarBox" style="margin-top:6px"><span class="sub">O link vazou ou foi parar onde não devia?</span><button class="btn btn-red btn-sm" data-action="trocar-chave">Gerar link novo (desliga os antigos)</button></div>
+    </div>
+    <div class="card">
+      <div class="h2" style="margin-bottom:4px">📄 Documentos</div>
+      <p class="sub" style="margin-bottom:12px">Calendário anual em PDF para homologação no Conselho de Educação e para o mural, e o arquivo de agenda para importar uma vez.</p>
+      <div class="barra"><button class="btn btn-pri" data-action="pdf">📄 Calendário oficial em PDF</button><button class="btn btn-gh" data-action="baixar-ics">⬇ Arquivo .ics</button></div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="mEv" hidden><div class="modal-box">
+  <h3 id="evTitulo">Adicionar data</h3>
+  <p class="sub" id="evOnde"></p>
+  <div class="dia-info" id="evDia"></div>
+  <div class="grade-form">
+    <div class="campo" style="grid-column:1/-1"><label for="evTipo">O que é</label><select id="evTipo"></select></div>
+    <div class="campo"><label for="evIni">De</label><input type="date" id="evIni"></div>
+    <div class="campo"><label for="evFim">Até</label><input type="date" id="evFim"></div>
+    <div class="campo" style="grid-column:1/-1"><label for="evNome">Descrição</label><input id="evNome" maxlength="80" placeholder="Ex.: Aniversário do município"></div>
+  </div>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="salvar-ev">Salvar</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
+const auth = getAuth(fb), db = getFirestore(fb);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3400); }
+const FEED = "https://southamerica-east1-portal-educador-5.cloudfunctions.net/calendarioIcs";
+
+/* NUCLEO-INICIO: este bloco é idêntico em apps/calendario/index.html e functions/calendario-nucleo.js (o teste confere) */
+const CAL = (() => {
+  // datas sempre em texto "AAAA-MM-DD" e contas em UTC: sem surpresa de fuso horário
+  const p2 = n => String(n).padStart(2, "0");
+  const ds = d => d.getUTCFullYear() + "-" + p2(d.getUTCMonth() + 1) + "-" + p2(d.getUTCDate());
+  const dd = s => new Date(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)));
+  const soma = (s, n) => { const d = dd(s); d.setUTCDate(d.getUTCDate() + n); return ds(d); };
+  const semana = s => dd(s).getUTCDay(); // 0 domingo ... 6 sábado
+  // Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher)
+  function pascoa(a){
+    const b = Math.floor(a / 100), c = a % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+    const h = (19 * (a % 19) + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor(((a % 19) + 11 * h + 22 * l) / 451);
+    const mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+    return ds(new Date(Date.UTC(a, mes - 1, dia)));
+  }
+  const ESTADUAIS = { MS:[["10-11", "Criação do Estado de Mato Grosso do Sul"]] };
+  // feriados nacionais (Lei 662/1949, Lei 6.802/1980, Lei 14.759/2023) e pontos facultativos que as redes costumam seguir
+  function feriados(ano, uf){
+    const P = pascoa(ano), l = [
+      [ano + "-01-01", "Confraternização Universal", false], [soma(P, -48), "Carnaval", true], [soma(P, -47), "Carnaval", true],
+      [soma(P, -2), "Paixão de Cristo", false], [ano + "-04-21", "Tiradentes", false], [ano + "-05-01", "Dia do Trabalho", false],
+      [soma(P, 60), "Corpus Christi", true], [ano + "-09-07", "Independência do Brasil", false], [ano + "-10-12", "Nossa Senhora Aparecida", false],
+      [ano + "-11-02", "Finados", false], [ano + "-11-15", "Proclamação da República", false], [ano + "-11-20", "Dia Nacional de Zumbi e da Consciência Negra", false],
+      [ano + "-12-25", "Natal", false]
+    ];
+    (ESTADUAIS[String(uf || "").toUpperCase()] || []).forEach(([md, t]) => l.push([ano + "-" + md, t, false]));
+    return l.map(([data, titulo, facultativo]) => ({ data, titulo, facultativo })).sort((a, b) => a.data < b.data ? -1 : 1);
+  }
+  // o que cada tipo de data faz com a contagem: "nao" tira o dia, "sim" conta o dia, "" só informa
+  const EFEITO = { feriado:"nao", recesso:"nao", ferias:"nao", planejamento:"nao", paralisacao:"nao", reposicao:"sim", sabado:"sim", evento:"" };
+  const NOMES = { feriado:"Feriado", recesso:"Recesso escolar", ferias:"Férias", planejamento:"Planejamento sem alunos", paralisacao:"Paralisação ou suspensão",
+    reposicao:"Reposição de aula", sabado:"Sábado letivo", evento:"Evento" };
+  // monta o ano dia a dia: rede primeiro, escola por cima
+  function classificar(R, Esc, uf){
+    const ano = R.ano, nac = {}, dias = {}, ini = R.inicio, fim = R.fim, sem = new Set(R.dias_semana || [1, 2, 3, 4, 5]);
+    const fac = new Set(R.facultativos_letivos || []);
+    feriados(ano, uf).forEach(f => nac[f.data] = f);
+    const porDia = (lista, nivel) => { const m = {}; (lista || []).forEach(ev => { if(!ev || !ev.ini) return; const f = ev.fim && ev.fim >= ev.ini ? ev.fim : ev.ini;
+      for(let d = ev.ini, n = 0; d <= f && n < 400; d = soma(d, 1), n++) (m[d] = m[d] || []).push({ ...ev, nivel }); }); return m; };
+    const evR = porDia(R.eventos, "rede"), evE = porDia(Esc && Esc.eventos, "escola");
+    for(let d = ano + "-01-01"; d <= ano + "-12-31"; d = soma(d, 1)){
+      const dentro = d >= ini && d <= fim, w = semana(d), f = nac[d];
+      let letivo = dentro && sem.has(w);
+      if(letivo && f && !(f.facultativo && fac.has(d))) letivo = false;
+      const aplica = l => { if(l.some(e => EFEITO[e.tipo] === "nao")) letivo = false; if(dentro && l.some(e => EFEITO[e.tipo] === "sim")) letivo = true; };
+      if(evR[d]) aplica(evR[d]);
+      if(evE[d]) aplica(evE[d]);
+      dias[d] = { letivo, dentro, w, feriado:f || null, facultativoLetivo:!!(f && f.facultativo && fac.has(d)), eventos:[...(evR[d] || []), ...(evE[d] || [])] };
+    }
+    return dias;
+  }
+  function resumo(R, Esc, uf){
+    const dias = classificar(R, Esc, uf), horasDia = (Esc && Esc.horas_dia) || R.horas_dia || 4;
+    const letivos = Object.keys(dias).filter(d => dias[d].letivo).sort();
+    const periodos = (R.periodos || []).map((p, i) => ({ n:i + 1, inicio:p.inicio, fim:p.fim, dias:letivos.filter(d => d >= p.inicio && d <= p.fim).length }));
+    const foraPeriodo = periodos.length ? letivos.filter(d => !periodos.some(p => d >= p.inicio && d <= p.fim)).length : 0;
+    const total = letivos.length, horas = Math.round(total * horasDia * 100) / 100;
+    return { dias, letivos, total, horas, horasDia, periodos, foraPeriodo, metaDias:R.meta_dias || 200, metaHoras:R.meta_horas || 800 };
+  }
+  // divide os dias letivos em períodos iguais; com número par de períodos, corta primeiro no recesso do meio do ano
+  function dividir(R, Esc, uf, n){
+    const { letivos, dias } = resumo({ ...R, periodos:[] }, Esc, uf);
+    if(!letivos.length || n < 1) return [];
+    const partes = (l, k) => Array.from({ length:k }, (_, i) => l.slice(Math.round(i * l.length / k), Math.round((i + 1) * l.length / k)));
+    let blocos = [letivos];
+    if(n % 2 === 0 && n >= 2){
+      let melhor = -1, maior = 0;
+      for(let i = Math.floor(letivos.length * 0.3); i < Math.floor(letivos.length * 0.7); i++){
+        let gap = 0; for(let d = soma(letivos[i], 1); d < letivos[i + 1]; d = soma(d, 1)) if(dias[d].w !== 0 && dias[d].w !== 6) gap++;
+        if(gap > maior){ maior = gap; melhor = i; }
+      }
+      blocos = maior >= 5 ? [letivos.slice(0, melhor + 1), letivos.slice(melhor + 1)] : partes(letivos, 2);
+      blocos = blocos.flatMap(b => partes(b, n / 2));
+    } else blocos = partes(letivos, n);
+    return blocos.filter(b => b.length).map(b => ({ inicio:b[0], fim:b[b.length - 1] }));
+  }
+  // arquivo de agenda (iCalendar, RFC 5545): eventos de dia inteiro
+  function ics(R, Esc, uf, nome, agora){
+    const linhas = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Portal do Educador//Calendario Escolar//PT-BR", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+      "X-WR-CALNAME:" + txt(nome), "X-WR-TIMEZONE:America/Campo_Grande", "REFRESH-INTERVAL;VALUE=DURATION:PT6H", "X-PUBLISHED-TTL:PT6H"];
+    const carimbo = (agora || new Date()).toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+    const vistos = new Set(), ev = (ini, fim, titulo, desc) => {
+      const uid = "pde-" + hash(R.municipio_id + "|" + ((Esc && Esc.escola_id) || "") + "|" + ini + "|" + titulo) + "@portaldoeducador.com.br";
+      if(vistos.has(uid)) return; vistos.add(uid);
+      linhas.push("BEGIN:VEVENT", "UID:" + uid, "DTSTAMP:" + carimbo, "DTSTART;VALUE=DATE:" + ini.replace(/-/g, ""), "DTEND;VALUE=DATE:" + soma(fim || ini, 1).replace(/-/g, ""),
+        "SUMMARY:" + txt(titulo), ...(desc ? ["DESCRIPTION:" + txt(desc)] : []), "TRANSP:TRANSPARENT", "END:VEVENT");
+    };
+    const fac = new Set(R.facultativos_letivos || []);
+    feriados(R.ano, uf).forEach(f => ev(f.data, f.data, f.titulo + (f.facultativo ? (fac.has(f.data) ? " (ponto facultativo, dia letivo)" : " (ponto facultativo, sem aula)") : " (feriado)")));
+    ev(R.inicio, R.inicio, "Início do ano letivo"); ev(R.fim, R.fim, "Fim do ano letivo");
+    const nomePer = ["", "semestre", "semestre", "trimestre", "bimestre"][(R.periodos || []).length] || "período";
+    (R.periodos || []).forEach((p, i) => { ev(p.inicio, p.inicio, "Início do " + (i + 1) + "º " + nomePer); ev(p.fim, p.fim, "Fim do " + (i + 1) + "º " + nomePer); });
+    const todos = [...(R.eventos || []).map(e => ({ ...e, nivel:"Rede" })), ...((Esc && Esc.eventos) || []).map(e => ({ ...e, nivel:"Escola" }))];
+    todos.forEach(e => ev(e.ini, e.fim || e.ini, e.titulo || NOMES[e.tipo] || "Data", (NOMES[e.tipo] || "") + (EFEITO[e.tipo] === "nao" ? " · sem aula" : EFEITO[e.tipo] === "sim" ? " · dia letivo" : "") + " · " + e.nivel));
+    linhas.push("END:VCALENDAR");
+    return linhas.map(dobrar).join("\r\n") + "\r\n";
+  }
+  function txt(s){ return String(s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+  // linhas de no máximo 75 bytes (UTF-8), continuação começa com espaço
+  function dobrar(l){
+    const out = []; let atual = "", bytes = 0;
+    for(const ch of l){ const b = unescape(encodeURIComponent(ch)).length; if(bytes + b > (out.length ? 74 : 75)){ out.push(atual); atual = ""; bytes = 0; } atual += ch; bytes += b; }
+    out.push(atual); return out.join("\r\n ");
+  }
+  function hash(s){ let h = 2166136261; for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
+  return { ds, dd, soma, semana, pascoa, feriados, EFEITO, NOMES, classificar, resumo, dividir, ics };
+})();
+/* NUCLEO-FIM */
+
+const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const SEMANA = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const COR = { letivo:"#e6f3d6", feriado:"#fbd9d5", facult:"#ffe9c2", recesso:"#d8eaf8", ferias:"#bcd9f2", planejamento:"#e7dcfa", paralisacao:"#f2b9b2", reposicao:"#8DC63F", sabado:"#8DC63F", evento:"#2E9BD6" };
+const TIPOS_ORD = ["feriado", "recesso", "ferias", "planejamento", "paralisacao", "reposicao", "sabado", "evento"];
+const TIPO_DESC = { feriado:"Feriado municipal ou estadual (sem aula)", recesso:"Recesso escolar (sem aula)", ferias:"Férias (sem aula)", planejamento:"Planejamento ou formação, sem alunos (sem aula)",
+  paralisacao:"Paralisação ou suspensão de aulas (sem aula)", reposicao:"Reposição de aula (conta como dia letivo)", sabado:"Sábado letivo (conta como dia letivo)", evento:"Evento ou reunião (não muda a contagem)" };
+const NOME_PER = { 4:"bimestre", 3:"trimestre", 2:"semestre" };
+const fmtD = s => s.slice(8, 10) + "/" + s.slice(5, 7);
+const fmtDA = s => s.slice(8, 10) + "/" + s.slice(5, 7) + "/" + s.slice(0, 4);
+const fmtN = n => (Math.round(n * 100) / 100).toLocaleString("pt-BR", { maximumFractionDigits:2 });
+const hojeS = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+const novaChave = () => { const a = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789", v = new Uint32Array(20); crypto.getRandomValues(v); return Array.from(v, x => a[x % a.length]).join(""); };
+const novoId = () => Math.random().toString(36).slice(2, 10);
+
+/* =====================================================================
+   ESTADO
+   ===================================================================== */
+const E = { user:null, u:null, admin:false, municipios:[], muni:null, escolas:[], visao:"rede", ano:new Date().getFullYear(), R:null, Esc:null, nPer:4,
+  sec:"cal", resumo:null, cfg:null, escCache:{} };
+const podeRede = () => E.admin || (E.u.perfil === "secretaria" && E.u.municipio_id === (E.muni && E.muni.id));
+const minhasEscolas = () => (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean);
+const podeEscola = id => podeRede() || (E.u.perfil === "gestor" && minhasEscolas().includes(id));
+const podeAqui = () => E.visao === "rede" ? podeRede() : podeEscola(E.visao);
+const escolaAtual = () => E.escolas.find(e => e.id === E.visao) || null;
+const nomeVisao = () => E.visao === "rede" ? "Rede municipal de " + ((E.muni && E.muni.nome) || "") : ((escolaAtual() || {}).nome || "Escola");
+
+/* =====================================================================
+   CARGA
+   ===================================================================== */
+async function carregarEscolas(){
+  E.escolas = [];
+  try{
+    if(E.admin || E.u.perfil === "secretaria"){
+      const s = await getDocs(query(collection(db, "escolas"), where("municipio_id", "==", E.muni.id)));
+      s.forEach(d => E.escolas.push({ id:d.id, ...d.data() }));
+    } else {
+      for(const id of minhasEscolas().slice(0, 5)){ const s = await getDoc(doc(db, "escolas", id)); if(s.exists()) E.escolas.push({ id, ...s.data() }); }
+    }
+  }catch(e){ console.warn("escolas:", e.code || e); }
+  E.escolas.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+}
+function montarSeletores(){
+  const pr = podeRede() || E.u.perfil === "secretaria";
+  $("selVisao").innerHTML = '<option value="rede">🏛️ Rede municipal (base)</option>' + E.escolas.map(e => '<option value="' + esc(e.id) + '">🏫 ' + esc(e.nome || e.id) + "</option>").join("");
+  if(!E.escolas.some(e => e.id === E.visao) && E.visao !== "rede") E.visao = "rede";
+  $("selVisao").value = E.visao;
+  const a = new Date().getFullYear(); $("selAno").innerHTML = [a - 1, a, a + 1].map(x => '<option value="' + x + '">' + x + "</option>").join(""); $("selAno").value = E.ano;
+  $("abaEscolas").hidden = !pr; $("abaConfig").hidden = !podeRede();
+}
+async function carregarAno(){
+  $("carregando").hidden = false; $("semCal").hidden = true;
+  E.R = null; E.Esc = null; E.nPer = 4;
+  try{ const s = await getDoc(doc(db, "cal_rede", E.muni.id + "_" + E.ano)); E.R = s.exists() ? s.data() : null; }catch(e){ console.warn("cal_rede:", e.code || e); }
+  try{ const s = await getDoc(doc(db, "notas_regras", E.muni.id)); if(s.exists() && [2, 3, 4].includes(s.data().periodos)) E.nPer = s.data().periodos; }catch(e){}
+  if(E.R && E.visao !== "rede"){ try{ const s = await getDoc(doc(db, "cal_escola", E.visao + "_" + E.ano)); E.Esc = s.exists() ? s.data() : null; }catch(e){ console.warn("cal_escola:", e.code || e); } }
+  $("carregando").hidden = true;
+  desenhar();
+}
+
+/* =====================================================================
+   TELAS
+   ===================================================================== */
+function desenhar(){
+  document.querySelectorAll(".aba").forEach(b => b.classList.toggle("on", b.dataset.arg === E.sec));
+  ["cal", "config", "escolas", "compartilhar"].forEach(s => $("s-" + s).hidden = true);
+  if(!E.R){
+    const sem = $("semCal"); sem.hidden = false;
+    sem.innerHTML = podeRede()
+      ? "<b>O calendário de " + E.ano + " ainda não foi criado</b>Comece com uma sugestão pronta (fevereiro a dezembro, recesso de julho e feriados) e ajuste as datas da rede." +
+        '<div style="margin-top:14px"><button class="btn btn-ok" data-action="criar">＋ Criar calendário de ' + E.ano + "</button></div>"
+      : "<b>A secretaria ainda não publicou o calendário de " + E.ano + "</b>Quando publicar, ele aparece aqui com a contagem de dias letivos da sua escola.";
+    return;
+  }
+  $("semCal").hidden = true;
+  if(E.sec === "config" && !podeRede()) E.sec = "cal";
+  $("s-" + E.sec).hidden = false;
+  E.resumo = CAL.resumo(E.R, E.Esc, E.muni.uf);
+  if(E.sec === "cal") desenharCalendario();
+  else if(E.sec === "config") desenharConfig();
+  else if(E.sec === "escolas") desenharEscolas();
+  else if(E.sec === "compartilhar") desenharCompartilhar();
+}
+function desenharKpis(){
+  const r = E.resumo, okD = r.total >= r.metaDias, okH = r.horas >= r.metaHoras;
+  const pct = (v, m) => Math.min(100, Math.round(v / m * 100));
+  const per = r.periodos.map(p => "<div><span>" + p.n + "º " + (NOME_PER[r.periodos.length] || "período") + " · " + fmtD(p.inicio) + " a " + fmtD(p.fim) + "</span><b>" + p.dias + " dias</b></div>").join("");
+  const hj = hojeS(), dados = r.letivos.filter(d => d <= hj).length;
+  $("kpis").innerHTML =
+    '<div class="kpi ' + (okD ? "ok" : "falta") + '"><small>Dias letivos</small><b>' + r.total + " <span>de " + r.metaDias + "</span></b>" +
+      '<div class="barra-prog"><i style="width:' + pct(r.total, r.metaDias) + '%"></i></div><div class="st">' + (okD ? "✓ Cumpre o mínimo" + (r.total > r.metaDias ? " (" + (r.total - r.metaDias) + " de folga)" : "") : "Faltam " + (r.metaDias - r.total) + " dias") + "</div></div>" +
+    '<div class="kpi ' + (okH ? "ok" : "falta") + '"><small>Carga horária</small><b>' + fmtN(r.horas) + " <span>de " + r.metaHoras + " h</span></b>" +
+      '<div class="barra-prog"><i style="width:' + pct(r.horas, r.metaHoras) + '%"></i></div><div class="st">' + fmtN(r.horasDia) + " h por dia · " + (okH ? "✓ Cumpre o mínimo" : "Faltam " + fmtN(r.metaHoras - r.horas) + " h") + "</div></div>" +
+    '<div class="kpi"><small>' + (r.periodos.length ? "Divisão do ano" : "Períodos") + '</small><div class="pers">' + (per || '<div><span>Sem períodos definidos</span></div>') + "</div>" +
+      (r.foraPeriodo ? '<div class="st" style="color:var(--red)">' + r.foraPeriodo + " dias letivos fora dos períodos</div>" : "") + "</div>" +
+    '<div class="kpi"><small>Até hoje</small><b>' + dados + " <span>dias dados</span></b><div class=\"st\" style=\"color:var(--muted)\">" + (r.total - dados) + " dias letivos pela frente</div></div>";
+}
+function classeDia(info){
+  const ef = t => CAL.EFEITO[t];
+  // a cor mostra o que decide o dia: primeiro o que a escola registrou, depois a rede
+  const deEscola = info.eventos.filter(e => e.nivel === "escola" && ef(e.tipo)), deRede = info.eventos.filter(e => e.nivel === "rede" && ef(e.tipo));
+  const decide = (deEscola.length ? deEscola : deRede);
+  if(decide.length){ const t = decide.find(e => ef(e.tipo) === (info.letivo ? "sim" : "nao")) || decide[0]; return "t-" + t.tipo; }
+  if(info.feriado && info.dentro && [1, 2, 3, 4, 5, 6].includes(info.w)) return info.feriado.facultativo ? (info.facultativoLetivo ? "letivo" : "t-facult") : "t-feriado";
+  if(info.feriado) return info.feriado.facultativo ? "t-facult" : "t-feriado";
+  return info.letivo ? "letivo" : "";
+}
+function desenharCalendario(){
+  desenharKpis();
+  const pode = podeAqui();
+  $("legenda").innerHTML = [["letivo", "Dia letivo"], ["feriado", "Feriado"], ["facult", "Ponto facultativo"], ["recesso", "Recesso"], ["ferias", "Férias"], ["planejamento", "Planejamento"], ["paralisacao", "Paralisação"], ["reposicao", "Reposição / sábado letivo"]]
+    .map(([k, n]) => '<span><i style="background:' + COR[k] + '"></i>' + n + "</span>").join("") + '<span><i style="background:#fff;border:2px solid var(--azul)"></i>Início ou fim de período</span><span><i style="background:#fff;position:relative"><b style="position:absolute;left:5px;top:9px;width:4px;height:4px;border-radius:50%;background:var(--azul)"></b></i>Evento</span>';
+  $("dicaEdicao").hidden = !pode;
+  $("dicaEdicao").innerHTML = E.visao === "rede" ? "Você está editando a <b>base da rede</b>. Toque num dia para registrar feriado municipal, recesso, planejamento ou evento." :
+    "Você está editando o calendário da <b>" + esc(nomeVisao()) + "</b>. Toque num dia para registrar reposição, paralisação ou evento da escola. A base da rede vem junto.";
+  $("btnNovoEv").hidden = !pode;
+  const r = E.resumo, marcos = new Set([E.R.inicio, E.R.fim, ...r.periodos.flatMap(p => [p.inicio, p.fim])]), hj = hojeS();
+  let html = "";
+  for(let m = 0; m < 12; m++){
+    const primeiro = E.ano + "-" + String(m + 1).padStart(2, "0") + "-01", w0 = CAL.semana(primeiro), nd = new Date(Date.UTC(E.ano, m + 1, 0)).getUTCDate();
+    let cont = 0, cel = SEMANA.map(s => '<div class="cab">' + s.charAt(0) + "</div>").join("");
+    for(let i = 0; i < w0; i++) cel += '<span class="dia vz"></span>';
+    for(let d = 1; d <= nd; d++){
+      const s = primeiro.slice(0, 8) + String(d).padStart(2, "0"), info = r.dias[s]; if(info.letivo) cont++;
+      const tit = [fmtDA(s), info.letivo ? "dia letivo" : "sem aula", info.feriado ? info.feriado.titulo : "", ...info.eventos.map(e => e.titulo || CAL.NOMES[e.tipo])].filter(Boolean).join(" · ");
+      cel += '<button class="dia ' + (info.dentro ? "dentro " : "") + classeDia(info) + (marcos.has(s) ? " marco" : "") + (s === hj ? " hoje" : "") + '" data-action="dia" data-arg="' + s + '" title="' + esc(tit) + '">' + d +
+        (info.eventos.some(e => e.tipo === "evento") ? '<i class="pt"></i>' : "") + "</button>";
+    }
+    html += '<div class="mes"><h3>' + MESES[m] + "<small>" + (cont ? cont + " letivos" : "") + '</small></h3><div class="sem">' + cel + "</div></div>";
+  }
+  $("meses").innerHTML = html;
+  desenharListaEventos();
+}
+function desenharListaEventos(){
+  const pode = podeAqui(), meuNivel = E.visao === "rede" ? "rede" : "escola";
+  const todos = [...(E.R.eventos || []).map(e => ({ ...e, nivel:"rede" })), ...((E.Esc && E.Esc.eventos) || []).map(e => ({ ...e, nivel:"escola" }))];
+  const fac = new Set(E.R.facultativos_letivos || []);
+  CAL.feriados(E.ano, E.muni.uf).forEach(f => todos.push({ ini:f.data, fim:f.data, tipo:f.facultativo ? "facult" : "feriado", titulo:f.titulo + (f.facultativo ? (fac.has(f.data) ? " (ponto facultativo, com aula)" : " (ponto facultativo)") : " (nacional)"), nivel:"auto" }));
+  todos.push({ ini:E.R.inicio, fim:E.R.inicio, tipo:"marco", titulo:"Início do ano letivo", nivel:"auto" }, { ini:E.R.fim, fim:E.R.fim, tipo:"marco", titulo:"Fim do ano letivo", nivel:"auto" });
+  todos.sort((a, b) => a.ini < b.ini ? -1 : a.ini > b.ini ? 1 : 0);
+  $("listaEv").innerHTML = todos.map(e => {
+    const dt = e.fim && e.fim !== e.ini ? fmtD(e.ini) + " a " + fmtD(e.fim) : fmtD(e.ini) + " · " + SEMANA[CAL.semana(e.ini)];
+    const cor = e.tipo === "marco" ? "#fff;border:2px solid var(--azul)" : COR[e.tipo] || "#ccc";
+    const rot = e.nivel === "rede" ? "Rede" : e.nivel === "escola" ? "Escola" : "Automático";
+    const remover = pode && e.nivel === meuNivel ? '<button class="btn btn-red btn-sm" data-action="remover" data-arg="' + esc(e.id) + '">Remover</button>' : "";
+    return '<div class="ev"><i class="cor" style="background:' + cor + '"></i><span class="dt">' + dt + '</span><span class="tt">' + esc(e.titulo || CAL.NOMES[e.tipo]) +
+      (CAL.EFEITO[e.tipo] ? ' <span class="sub">· ' + (CAL.EFEITO[e.tipo] === "nao" ? "sem aula" : "dia letivo") + "</span>" : "") + '</span><span class="nv ' + e.nivel + '">' + rot + "</span>" + remover + "</div>";
+  }).join("");
+}
+
+/* ---------- datas (eventos) ---------- */
+function abrirEvento(data){
+  const pode = podeAqui(), info = E.resumo.dias[data];
+  $("evTitulo").textContent = pode ? "Adicionar data" : fmtDA(data);
+  $("evOnde").textContent = pode ? (E.visao === "rede" ? "Vale para todas as escolas da rede." : "Vale só para " + nomeVisao() + ".") : "";
+  const linhas = [];
+  if(data){
+    linhas.push("<b>" + fmtDA(data) + " · " + ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"][info.w] + "</b> · " + (info.letivo ? '<span class="pill ok">dia letivo</span>' : '<span class="pill cinza">sem aula</span>'));
+    if(info.feriado) linhas.push("🇧🇷 " + esc(info.feriado.titulo) + (info.feriado.facultativo ? " (ponto facultativo)" : ""));
+    info.eventos.forEach(e => linhas.push("• " + esc(e.titulo || CAL.NOMES[e.tipo]) + ' <span class="sub">(' + (e.nivel === "rede" ? "rede" : "escola") + ")</span>"));
+  }
+  $("evDia").innerHTML = linhas.map(l => "<div>" + l + "</div>").join("");
+  document.querySelectorAll("#mEv .grade-form, #mEv [data-action=salvar-ev]").forEach(el => el.hidden = !pode);
+  const tipos = E.visao === "rede" ? TIPOS_ORD.filter(t => t !== "paralisacao") : TIPOS_ORD;
+  $("evTipo").innerHTML = tipos.map(t => '<option value="' + t + '">' + TIPO_DESC[t] + "</option>").join("");
+  const padrao = !data ? "feriado" : E.visao !== "rede" ? (info.letivo ? "paralisacao" : "reposicao") : (info.letivo ? "feriado" : "evento");
+  $("evTipo").value = tipos.includes(padrao) ? padrao : tipos[0];
+  $("evIni").value = data || E.R.inicio; $("evFim").value = data || E.R.inicio; $("evNome").value = "";
+  $("evIni").min = $("evFim").min = E.ano + "-01-01"; $("evIni").max = $("evFim").max = E.ano + "-12-31";
+  $("mEv").hidden = false;
+}
+async function salvarEvento(){
+  const tipo = $("evTipo").value, ini = $("evIni").value, fim = $("evFim").value || ini, titulo = $("evNome").value.trim().slice(0, 80) || CAL.NOMES[tipo];
+  if(!ini || ini.slice(0, 4) !== String(E.ano) || fim.slice(0, 4) !== String(E.ano)){ toast("Use datas de " + E.ano + ".", true); return; }
+  if(fim < ini){ toast("A data final vem antes da inicial.", true); return; }
+  const ev = { id:novoId(), ini, fim, tipo, titulo };
+  if(E.visao === "rede"){
+    if((E.R.eventos || []).length >= 200){ toast("Limite de 200 datas na rede.", true); return; }
+    const novo = { ...E.R, eventos:[...(E.R.eventos || []), ev] };
+    if(await gravarRede(novo)) { $("mEv").hidden = true; toast("Data salva para toda a rede."); }
+  } else {
+    const base = E.Esc || { escola_id:E.visao, municipio_id:E.muni.id, ano:E.ano, horas_dia:null, eventos:[] };
+    if((base.eventos || []).length >= 200){ toast("Limite de 200 datas na escola.", true); return; }
+    if(await gravarEscola({ ...base, eventos:[...(base.eventos || []), ev] })) { $("mEv").hidden = true; toast("Data salva para a escola."); }
+  }
+}
+async function remover(id){
+  if(E.visao === "rede") await gravarRede({ ...E.R, eventos:(E.R.eventos || []).filter(e => e.id !== id) });
+  else if(E.Esc) await gravarEscola({ ...E.Esc, eventos:(E.Esc.eventos || []).filter(e => e.id !== id) });
+  toast("Data removida.");
+}
+async function gravarRede(R){
+  const dados = { municipio_id:E.muni.id, ano:E.ano, inicio:R.inicio, fim:R.fim, dias_semana:R.dias_semana, horas_dia:R.horas_dia, meta_dias:R.meta_dias, meta_horas:R.meta_horas,
+    periodos:R.periodos || [], facultativos_letivos:R.facultativos_letivos || [], eventos:(R.eventos || []).map(e => ({ id:e.id, ini:e.ini, fim:e.fim || e.ini, tipo:e.tipo, titulo:e.titulo })),
+    token:R.token, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+  try{ await setDoc(doc(db, "cal_rede", E.muni.id + "_" + E.ano), dados); E.R = { ...dados, atualizado_em:null }; marcarSalvo(); desenhar(); return true; }
+  catch(e){ console.warn("gravar rede:", e.code || e); toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); return false; }
+}
+async function gravarEscola(Es){
+  const dados = { escola_id:E.visao, municipio_id:E.muni.id, ano:E.ano, horas_dia:Es.horas_dia || null,
+    eventos:(Es.eventos || []).map(e => ({ id:e.id, ini:e.ini, fim:e.fim || e.ini, tipo:e.tipo, titulo:e.titulo })), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+  try{ await setDoc(doc(db, "cal_escola", E.visao + "_" + E.ano), dados); E.Esc = { ...dados, atualizado_em:null }; delete E.escCache[E.ano]; marcarSalvo(); desenhar(); return true; }
+  catch(e){ console.warn("gravar escola:", e.code || e); toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); return false; }
+}
+function marcarSalvo(){ $("salvoEm").textContent = "✓ Salvo às " + new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); }
+
+/* ---------- criar o ano com uma sugestão ---------- */
+async function criarAno(){
+  const a = E.ano, util = (s, passo) => { while([0, 6].includes(CAL.semana(s))) s = CAL.soma(s, passo); return s; };
+  let ant = null; try{ const s = await getDoc(doc(db, "cal_rede", E.muni.id + "_" + (a - 1))); ant = s.exists() ? s.data() : null; }catch(e){}
+  // recesso: segunda-feira da terceira semana de julho, duas semanas
+  let rec = a + "-07-13"; while(CAL.semana(rec) !== 1) rec = CAL.soma(rec, 1);
+  const eventos = [{ id:novoId(), ini:rec, fim:CAL.soma(rec, 11), tipo:"recesso", titulo:"Recesso escolar de julho" }];
+  // feriados municipais do ano anterior repetem no mesmo dia
+  if(ant) (ant.eventos || []).filter(e => e.tipo === "feriado" && e.ini === e.fim).forEach(e => eventos.push({ id:novoId(), ini:a + e.ini.slice(4), fim:a + e.ini.slice(4), tipo:"feriado", titulo:e.titulo }));
+  const R = { municipio_id:E.muni.id, ano:a, inicio:util(a + "-02-02", 1), fim:util(a + "-12-18", -1), dias_semana:(ant && ant.dias_semana) || [1, 2, 3, 4, 5],
+    horas_dia:(ant && ant.horas_dia) || 4, meta_dias:200, meta_horas:800, facultativos_letivos:[], eventos, token:(ant && ant.token) || novaChave() };
+  R.periodos = CAL.dividir(R, null, E.muni.uf, E.nPer);
+  if(await gravarRede(R)){ E.sec = "config"; desenhar(); toast("Calendário criado. Confira as datas e ajuste o que a rede decidiu."); }
+}
+
+/* ---------- configurar ---------- */
+function desenharConfig(){
+  const R = E.R;
+  $("cIni").value = R.inicio; $("cFim").value = R.fim; $("cHoras").value = fmtN(R.horas_dia); $("cMetaD").value = R.meta_dias || 200; $("cMetaH").value = R.meta_horas || 800;
+  E.cfg = { dias_semana:[...(R.dias_semana || [1, 2, 3, 4, 5])], periodos:(R.periodos || []).map(p => ({ ...p })), facultativos_letivos:[...(R.facultativos_letivos || [])] };
+  if(E.cfg.periodos.length !== E.nPer){
+    $("perSub").innerHTML = '<span style="color:var(--red);font-weight:700">A regra de notas da rede usa ' + E.nPer + " " + NOME_PER[E.nPer] + "s e o calendário tem " + E.cfg.periodos.length + ". Use \"Dividir automaticamente\" para acertar.</span>";
+  } else $("perSub").textContent = "Segue a divisão do ano definida na regra de notas da rede (Notas e Médias). As datas aparecem para os professores no lançamento de notas.";
+  $("perTitulo").textContent = NOME_PER[E.nPer].charAt(0).toUpperCase() + NOME_PER[E.nPer].slice(1) + "s";
+  desenharSemana(); desenharPeriodos(); desenharFacultativos();
+}
+function desenharSemana(){
+  $("cSemana").innerHTML = [1, 2, 3, 4, 5, 6, 0].map(w => '<button class="chip' + (E.cfg.dias_semana.includes(w) ? " on" : "") + '" data-action="semana" data-arg="' + w + '">' + SEMANA[w] + "</button>").join("");
+}
+function lerConfig(){
+  const R = { ...E.R, inicio:$("cIni").value, fim:$("cFim").value, horas_dia:Number(String($("cHoras").value).replace(",", ".")) || 4,
+    meta_dias:Math.max(1, Math.min(300, +$("cMetaD").value || 200)), meta_horas:Math.max(1, Math.min(2000, +$("cMetaH").value || 800)),
+    dias_semana:E.cfg.dias_semana, periodos:E.cfg.periodos, facultativos_letivos:E.cfg.facultativos_letivos };
+  return R;
+}
+function desenharPeriodos(){
+  const R = lerConfig(), r = CAL.resumo(R, null, E.muni.uf);
+  $("cPer").innerHTML = E.cfg.periodos.map((p, i) => '<div class="per"><b>' + (i + 1) + "º " + NOME_PER[E.cfg.periodos.length || E.nPer] + '</b><input type="date" data-per="' + i + '" data-campo="inicio" value="' + p.inicio + '" aria-label="Início"><input type="date" data-per="' + i + '" data-campo="fim" value="' + p.fim + '" aria-label="Fim"><span>' + (r.periodos[i] ? r.periodos[i].dias : 0) + " dias</span></div>").join("") +
+    '<p class="sub" style="margin-top:8px">Total: <b>' + r.total + " dias letivos</b> · " + fmtN(r.horas) + " h" + (r.foraPeriodo ? ' · <span style="color:var(--red)">' + r.foraPeriodo + " dias fora dos períodos</span>" : "") + "</p>";
+}
+function desenharFacultativos(){
+  const fs = CAL.feriados(E.ano, E.muni.uf).filter(f => f.facultativo || f.titulo.indexOf("Estado") >= 0);
+  $("cFac").innerHTML = fs.map(f => {
+    const letivo = E.cfg.facultativos_letivos.includes(f.data);
+    return '<div class="fac"><b>' + fmtDA(f.data) + "</b><span>" + esc(f.titulo) + ' <span class="sub">· ' + (f.facultativo ? "ponto facultativo" : "feriado estadual") + '</span></span><span class="esp"></span>' +
+      (f.facultativo ? '<div class="chips"><button class="chip' + (!letivo ? " on" : "") + '" data-action="fac" data-arg="' + f.data + ':0">Sem aula</button><button class="chip' + (letivo ? " on" : "") + '" data-action="fac" data-arg="' + f.data + ':1">Com aula</button></div>' : '<span class="pill cinza">sem aula</span>') + "</div>";
+  }).join("") + '<p class="sub" style="margin-top:8px">Também entram sozinhos: ' + CAL.feriados(E.ano, E.muni.uf).filter(f => !f.facultativo && f.titulo.indexOf("Estado") < 0).map(f => fmtD(f.data) + " " + f.titulo).join(", ") + ".</p>";
+}
+async function salvarConfig(){
+  const R = lerConfig();
+  if(!R.inicio || !R.fim || R.inicio >= R.fim || R.inicio.slice(0, 4) !== String(E.ano) || R.fim.slice(0, 4) !== String(E.ano)){ toast("Confira o primeiro e o último dia letivo (dentro de " + E.ano + ").", true); return; }
+  if(!R.dias_semana.length){ toast("Marque ao menos um dia da semana.", true); return; }
+  if(R.horas_dia <= 0 || R.horas_dia > 12){ toast("Horas por dia entre 0 e 12.", true); return; }
+  for(const p of R.periodos) if(!p.inicio || !p.fim || p.fim < p.inicio){ toast("Confira as datas dos períodos.", true); return; }
+  if(await gravarRede(R)) toast("Configuração salva.");
+}
+
+/* ---------- escolas da rede ---------- */
+async function desenharEscolas(){
+  $("escBox").innerHTML = '<div class="card vazio">Somando os dias de cada escola...</div>';
+  if(!E.escCache[E.ano]){
+    const m = {};
+    try{ const s = await getDocs(query(collection(db, "cal_escola"), where("municipio_id", "==", E.muni.id), where("ano", "==", E.ano))); s.forEach(d => m[d.data().escola_id] = d.data()); }
+    catch(e){ console.warn("cal_escola lista:", e.code || e); }
+    E.escCache[E.ano] = m;
+  }
+  const m = E.escCache[E.ano], base = CAL.resumo(E.R, null, E.muni.uf);
+  const linhas = E.escolas.map(e => ({ e, r:CAL.resumo(E.R, m[e.id] || null, E.muni.uf), n:((m[e.id] || {}).eventos || []).length }));
+  const abaixo = linhas.filter(l => l.r.total < l.r.metaDias || l.r.horas < l.r.metaHoras).length;
+  $("escBox").innerHTML = '<div class="card barra"><div><div class="h2">Dias letivos por escola · ' + E.ano + '</div><div class="sub">Base da rede: ' + base.total + " dias e " + fmtN(base.horas) + " h. " +
+    (abaixo ? '<b style="color:var(--red)">' + abaixo + " escola(s) abaixo do mínimo.</b>" : "Todas as escolas cumprem o mínimo.") + "</div></div></div>" +
+    '<div class="tabela-wrap"><table class="tab"><thead><tr><th>Escola</th><th>Dias letivos</th><th>Horas</th><th>Ajustes da escola</th><th>Situação</th></tr></thead><tbody>' +
+    linhas.map(({ e, r, n }) => { const ok = r.total >= r.metaDias && r.horas >= r.metaHoras;
+      return '<tr class="clic" data-action="ver-escola" data-arg="' + esc(e.id) + '"><td><b>' + esc(e.nome || e.id) + "</b></td><td>" + r.total + (r.total !== base.total ? ' <span class="sub">(' + (r.total > base.total ? "+" : "") + (r.total - base.total) + ")</span>" : "") +
+        "</td><td>" + fmtN(r.horas) + "</td><td>" + (n ? n + " data(s)" : '<span class="sub">nenhum</span>') + '</td><td><span class="pill ' + (ok ? "ok" : "falta") + '">' + (ok ? "Cumpre" : "Abaixo do mínimo") + "</span></td></tr>"; }).join("") +
+    "</tbody></table></div>";
+}
+
+/* ---------- compartilhar ---------- */
+function urlFeed(){ return FEED + "?m=" + encodeURIComponent(E.muni.id) + (E.visao !== "rede" ? "&e=" + encodeURIComponent(E.visao) : "") + "&t=" + E.R.token; }
+function desenharCompartilhar(){
+  const u = urlFeed(), webcal = u.replace(/^https:/, "webcal:");
+  $("linkTitulo").textContent = "Link do calendário · " + nomeVisao();
+  $("linkIcs").value = u;
+  $("abrirGoogle").href = "https://calendar.google.com/calendar/r?cid=" + encodeURIComponent(webcal);
+  $("abrirApple").href = webcal;
+  $("trocarBox").hidden = !podeRede();
+}
+async function copiar(){
+  const v = $("linkIcs").value;
+  try{ await navigator.clipboard.writeText(v); toast("Link copiado."); }catch(e){ $("linkIcs").select(); toast("Selecionado. Use Ctrl+C para copiar."); }
+}
+let trocarArmado = 0;
+async function trocarChave(btn){
+  if(Date.now() - trocarArmado > 4000){ trocarArmado = Date.now(); btn.textContent = "Confirmar: desligar os links antigos?"; setTimeout(() => btn.textContent = "Gerar link novo (desliga os antigos)", 4000); return; }
+  trocarArmado = 0;
+  const token = novaChave();
+  // a chave vale para a rede inteira: grava em todos os anos que já existem
+  for(const a of [E.ano - 1, E.ano, E.ano + 1]){
+    if(a === E.ano) continue;
+    try{ const s = await getDoc(doc(db, "cal_rede", E.muni.id + "_" + a)); if(s.exists()) await setDoc(doc(db, "cal_rede", E.muni.id + "_" + a), { ...s.data(), token, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid }); }catch(e){ console.warn("chave", a, e.code || e); }
+  }
+  if(await gravarRede({ ...E.R, token })) toast("Link novo gerado. Mande o novo link para quem precisa.");
+}
+function nomeArquivo(ext){ return "calendario-" + E.ano + "-" + nomeVisao().normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().slice(0, 50) + "." + ext; }
+function baixarIcs(){
+  const txt = CAL.ics(E.R, E.Esc, E.muni.uf, "Calendário escolar · " + nomeVisao());
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type:"text/calendar;charset=utf-8" })); a.download = nomeArquivo("ics"); document.body.appendChild(a); a.click(); a.remove();
+  window.__ultimoIcs = txt;
+}
+
+/* ---------- PDF oficial ---------- */
+function rgb(h){ const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function gerarPdf(){
+  if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
+  const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4", orientation:"landscape" }), r = E.resumo, R = E.R;
+  const nP = r.periodos.length, nomeP = NOME_PER[nP] || "período", marcos = new Set([R.inicio, R.fim, ...r.periodos.flatMap(p => [p.inicio, p.fim])]);
+  // cabeçalho
+  pdf.setFillColor(12, 35, 56); pdf.rect(0, 0, 297, 22, "F");
+  pdf.setTextColor(141, 198, 63); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.text("PREFEITURA MUNICIPAL DE " + String(E.muni.nome || "").toUpperCase() + (E.muni.uf ? " · " + E.muni.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO", 10, 8);
+  pdf.setTextColor(255, 255, 255); pdf.setFontSize(15); pdf.text("Calendário Escolar " + E.ano, 10, 16);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(10); pdf.text(nomeVisao(), 287, 16, { align:"right" });
+  // meses: 4 colunas x 3 linhas
+  const MW = 51, MH = 49, X0 = 8, Y0 = 27, GX = 2.5, GY = 3, cw = MW / 7, ch = 5.6;
+  for(let m = 0; m < 12; m++){
+    const cx = X0 + (m % 4) * (MW + GX), cy = Y0 + Math.floor(m / 4) * (MH + GY), primeiro = E.ano + "-" + String(m + 1).padStart(2, "0") + "-01";
+    const w0 = CAL.semana(primeiro), nd = new Date(Date.UTC(E.ano, m + 1, 0)).getUTCDate();
+    let cont = 0; for(let d = 1; d <= nd; d++) if(r.dias[primeiro.slice(0, 8) + String(d).padStart(2, "0")].letivo) cont++;
+    pdf.setDrawColor(210, 220, 230); pdf.setLineWidth(0.2); pdf.roundedRect(cx, cy, MW, MH, 1.5, 1.5);
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(12, 35, 56); pdf.text(MESES[m], cx + 2, cy + 4.6);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(7); pdf.setTextColor(100, 115, 130); pdf.text(cont ? cont + " letivos" : "", cx + MW - 2, cy + 4.6, { align:"right" });
+    pdf.setFontSize(6); SEMANA.forEach((s, k) => pdf.text(s.charAt(0), cx + k * cw + cw / 2, cy + 9, { align:"center" }));
+    for(let d = 1; d <= nd; d++){
+      const s = primeiro.slice(0, 8) + String(d).padStart(2, "0"), info = r.dias[s], pos = w0 + d - 1, x = cx + (pos % 7) * cw, y = cy + 10.2 + Math.floor(pos / 7) * ch;
+      const cl = classeDia(info).replace("t-", ""), cor = COR[cl];
+      if(cor){ pdf.setFillColor(...rgb(cor)); pdf.roundedRect(x + 0.4, y + 0.3, cw - 0.8, ch - 0.6, 0.8, 0.8, "F"); }
+      if(marcos.has(s)){ pdf.setDrawColor(38, 113, 171); pdf.setLineWidth(0.45); pdf.roundedRect(x + 0.4, y + 0.3, cw - 0.8, ch - 0.6, 0.8, 0.8); }
+      pdf.setFontSize(7); pdf.setFont("helvetica", info.letivo ? "bold" : "normal"); pdf.setTextColor(...(info.dentro || cor ? [12, 35, 56] : [170, 180, 190]));
+      pdf.text(String(d), x + cw / 2, y + 3.9, { align:"center" });
+      if(info.eventos.some(e => e.tipo === "evento")){ pdf.setFillColor(46, 155, 214); pdf.circle(x + cw - 1.3, y + 1.3, 0.55, "F"); }
+    }
+  }
+  // painel da direita: contagem e legenda
+  const PX = 222, PW = 67; let py = 27;
+  pdf.setDrawColor(210, 220, 230); pdf.setLineWidth(0.2); pdf.roundedRect(PX, py, PW, 72, 1.5, 1.5);
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(12, 35, 56); pdf.text("Dias letivos", PX + 3, py + 5.5);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.6); py += 11;
+  r.periodos.forEach(p => { pdf.setTextColor(60, 75, 95); pdf.text(p.n + "º " + nomeP + "  " + fmtD(p.inicio) + " a " + fmtD(p.fim), PX + 3, py); pdf.setTextColor(12, 35, 56); pdf.text(String(p.dias), PX + PW - 3, py, { align:"right" }); py += 5; });
+  pdf.setDrawColor(200, 210, 220); pdf.line(PX + 3, py - 2.5, PX + PW - 3, py - 2.5); py += 2;
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5);
+  pdf.text("Total de dias letivos", PX + 3, py); pdf.text(String(r.total), PX + PW - 3, py, { align:"right" }); py += 5.5;
+  pdf.text("Carga horária (" + fmtN(r.horasDia) + " h/dia)", PX + 3, py); pdf.text(fmtN(r.horas) + " h", PX + PW - 3, py, { align:"right" }); py += 5.5;
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.4); pdf.setTextColor(60, 75, 95);
+  pdf.text("Início: " + fmtDA(R.inicio) + "   Término: " + fmtDA(R.fim), PX + 3, py); py += 4.5;
+  const cumpre = r.total >= r.metaDias && r.horas >= r.metaHoras;
+  pdf.setTextColor(...(cumpre ? [61, 107, 12] : [194, 54, 44])); pdf.setFont("helvetica", "bold");
+  pdf.text(cumpre ? "Cumpre o mínimo legal (" + r.metaDias + " dias e " + r.metaHoras + " h)" : "Abaixo do mínimo (" + r.metaDias + " dias e " + r.metaHoras + " h)", PX + 3, py); py += 4;
+  pdf.setFont("helvetica", "normal"); pdf.setTextColor(100, 115, 130); pdf.setFontSize(6.6); pdf.text("Lei 9.394/1996 (LDB), art. 24, inciso I.", PX + 3, py);
+  py = 103; pdf.setDrawColor(210, 220, 230); pdf.roundedRect(PX, py, PW, 50, 1.5, 1.5);
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(12, 35, 56); pdf.text("Legenda", PX + 3, py + 5.5); py += 10;
+  [["letivo", "Dia letivo"], ["feriado", "Feriado"], ["facult", "Ponto facultativo sem aula"], ["recesso", "Recesso escolar"], ["ferias", "Férias"], ["planejamento", "Planejamento sem alunos"], ["paralisacao", "Paralisação"], ["reposicao", "Reposição / sábado letivo"]]
+    .forEach(([k, n]) => { pdf.setFillColor(...rgb(COR[k])); pdf.roundedRect(PX + 3, py - 2.6, 3.4, 3.4, 0.6, 0.6, "F"); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.2); pdf.setTextColor(60, 75, 95); pdf.text(n, PX + 8.5, py); py += 4.5; });
+  pdf.setDrawColor(38, 113, 171); pdf.setLineWidth(0.45); pdf.roundedRect(PX + 35, py - 38.6, 3.4, 3.4, 0.6, 0.6); pdf.text("Início/fim de período", PX + 40.5, py - 36);
+  // assinaturas
+  pdf.setDrawColor(120, 130, 140); pdf.setLineWidth(0.25); pdf.setFontSize(7.2); pdf.setTextColor(60, 75, 95);
+  pdf.line(PX + 3, 168, PX + PW - 3, 168); pdf.text(E.visao === "rede" ? "Secretário(a) Municipal de Educação" : "Diretor(a) da escola", PX + PW / 2, 171.5, { align:"center" });
+  pdf.line(PX + 3, 185, PX + PW - 3, 185); pdf.text(E.visao === "rede" ? "Presidente do Conselho Municipal de Educação" : "Secretário(a) Municipal de Educação", PX + PW / 2, 188.5, { align:"center" });
+  pdf.setFontSize(6.5); pdf.setTextColor(140, 150, 160);
+  pdf.text("Gerado pelo Portal do Educador em " + new Date().toLocaleDateString("pt-BR") + ". Datas da rede" + (E.visao === "rede" ? "" : " e da escola") + " na página seguinte.", 8, 204);
+  // página 2: lista de datas
+  pdf.addPage("a4", "landscape");
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(12); pdf.setTextColor(12, 35, 56); pdf.text("Datas do Calendário Escolar " + E.ano + " · " + nomeVisao(), 10, 14);
+  const fac = new Set(R.facultativos_letivos || []), itens = [];
+  CAL.feriados(E.ano, E.muni.uf).forEach(f => itens.push([f.data, f.data, f.titulo, f.facultativo ? (fac.has(f.data) ? "Ponto facultativo · com aula" : "Ponto facultativo · sem aula") : "Feriado"]));
+  itens.push([R.inicio, R.inicio, "Início do ano letivo", "Marco"], [R.fim, R.fim, "Término do ano letivo", "Marco"]);
+  r.periodos.forEach(p => { itens.push([p.inicio, p.inicio, "Início do " + p.n + "º " + nomeP, "Marco"]); itens.push([p.fim, p.fim, "Término do " + p.n + "º " + nomeP, "Marco"]); });
+  (R.eventos || []).forEach(e => itens.push([e.ini, e.fim || e.ini, e.titulo, CAL.NOMES[e.tipo] + " · rede"]));
+  ((E.Esc && E.Esc.eventos) || []).forEach(e => itens.push([e.ini, e.fim || e.ini, e.titulo, CAL.NOMES[e.tipo] + " · escola"]));
+  itens.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  let y = 22, col = 0;
+  const desenharCab = () => { pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.5); pdf.setTextColor(100, 115, 130); pdf.text("DATA", 10 + col * 140, y); pdf.text("DESCRIÇÃO", 40 + col * 140, y); pdf.text("TIPO", 108 + col * 140, y); y += 5; };
+  desenharCab();
+  itens.forEach(([i, f, t, tp]) => {
+    if(y > 198){ if(col === 0){ col = 1; y = 22; desenharCab(); } else { pdf.addPage("a4", "landscape"); col = 0; y = 22; desenharCab(); } }
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(12, 35, 56);
+    pdf.text(i === f ? fmtDA(i) : fmtD(i) + " a " + fmtD(f), 10 + col * 140, y);
+    pdf.text(pdf.splitTextToSize(String(t), 66)[0], 40 + col * 140, y);
+    pdf.setTextColor(100, 115, 130); pdf.setFontSize(7); pdf.text(pdf.splitTextToSize(tp, 34)[0], 108 + col * 140, y);
+    y += 4.8;
+  });
+  window.__ultimoPdf = pdf.output("datauristring");
+  pdf.save(nomeArquivo("pdf"));
+  toast("PDF gerado.");
+}
+
+/* =====================================================================
+   EVENTOS
+   ===================================================================== */
+const ACOES = {
+  "aba": s => { E.sec = s; desenhar(); }, "criar": () => criarAno(), "dia": d => abrirEvento(d), "novo-ev": () => abrirEvento(""),
+  "salvar-ev": () => salvarEvento(), "remover": id => remover(id), "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true),
+  "semana": w => { w = +w; const l = E.cfg.dias_semana; E.cfg.dias_semana = l.includes(w) ? l.filter(x => x !== w) : [...l, w].sort(); desenharSemana(); desenharPeriodos(); },
+  "fac": a => { const [d, v] = a.split(":"); E.cfg.facultativos_letivos = E.cfg.facultativos_letivos.filter(x => x !== d); if(v === "1") E.cfg.facultativos_letivos.push(d); desenharFacultativos(); desenharPeriodos(); },
+  "dividir": () => { E.cfg.periodos = CAL.dividir(lerConfig(), null, E.muni.uf, E.nPer); desenharPeriodos(); $("perSub").textContent = "Dividido em " + E.nPer + " " + NOME_PER[E.nPer] + "s com o mesmo número de dias, cortando no recesso do meio do ano. Confira e salve."; },
+  "salvar-config": () => salvarConfig(), "ver-escola": id => { E.visao = id; $("selVisao").value = id; E.sec = "cal"; carregarAno(); },
+  "copiar": () => copiar(), "trocar-chave": (_, b) => trocarChave(b), "baixar-ics": () => baixarIcs(), "pdf": () => gerarPdf()
+};
+document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b || b.disabled) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
+document.addEventListener("change", ev => {
+  const t = ev.target;
+  if(t.id === "selVisao"){ E.visao = t.value; try{ localStorage.setItem("pde_cal_visao", E.visao); }catch(e){} carregarAno(); }
+  else if(t.id === "selAno"){ E.ano = +t.value; carregarAno(); }
+  else if(t.id === "selMuni"){ E.muni = E.municipios.find(m => m.id === t.value); E.visao = "rede"; E.escCache = {}; carregarEscolas().then(() => { montarSeletores(); carregarAno(); }); }
+  else if(t.dataset.per !== undefined){ E.cfg.periodos[+t.dataset.per][t.dataset.campo] = t.value; desenharPeriodos(); }
+  else if(["cIni", "cFim", "cHoras"].includes(t.id)) desenharPeriodos();
+});
+$("evIni").addEventListener("change", () => { if(!$("evFim").value || $("evFim").value < $("evIni").value) $("evFim").value = $("evIni").value; });
+window.__cal = { CAL, estado:E };
+
+onAuthStateChanged(auth, async user => {
+  if(!user){ location.replace("/entrar/"); return; }
+  let u = null;
+  try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
+  if(!u || u.status !== "ativo" || u.perfil === "aluno"){ location.replace("/entrar/"); return; }
+  const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
+  E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
+  $("quem").textContent = u.nome || user.email;
+  if(E.admin){
+    try{ const s = await getDocs(query(collection(db, "municipios"), limit(300))); s.forEach(d => E.municipios.push({ id:d.id, ...d.data() })); }catch(e){}
+    E.municipios.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+    $("selMuni").hidden = false; $("selMuni").innerHTML = E.municipios.map(m => '<option value="' + esc(m.id) + '">' + esc(m.nome || m.id) + (m.uf ? " · " + esc(m.uf) : "") + "</option>").join("");
+    E.muni = E.municipios.find(m => m.id === u.municipio_id) || E.municipios[0] || null;
+    if(E.muni) $("selMuni").value = E.muni.id;
+  } else if(u.municipio_id){
+    try{ const s = await getDoc(doc(db, "municipios", u.municipio_id)); E.muni = { id:u.municipio_id, ...(s.exists() ? s.data() : {}) }; }catch(e){ E.muni = { id:u.municipio_id }; }
+  }
+  if(!E.muni){ $("carregando").innerHTML = "<b>Seu cadastro ainda não está ligado a um município.</b>Fale com a secretaria de educação."; return; }
+  await carregarEscolas();
+  let ult = ""; try{ ult = localStorage.getItem("pde_cal_visao") || ""; }catch(e){}
+  E.visao = E.escolas.some(e => e.id === ult) ? ult : (E.u.perfil === "secretaria" || E.admin) ? "rede" : ((E.escolas.find(e => e.id === u.escola_id) || E.escolas[0] || {}).id || "rede");
+  montarSeletores();
+  await carregarAno();
+});
+</script>
+</body>
+</html>
