@@ -2446,7 +2446,7 @@
     const i = bk.info, link = i.pasta_id ? "https://drive.google.com/drive/folders/"+i.pasta_id : "";
     $("pnCorpo").innerHTML =
       '<div class="pn-card"><h3>💾 Fazer backup agora</h3><p class="pn-cf">Copia o banco inteiro do Portal (usuários, escolas, turmas, alunos, chamadas, notas, fichas, telas da TV) para a pasta do Google Drive escolhida abaixo, num arquivo <b>.tar.gz</b> com a data no nome. Leva de 1 a 5 minutos.</p>'+
-        '<div class="bk-linha"><button class="btn btn-primary" style="width:auto;padding:13px 24px" data-action="bk-agora" id="bkAgora"'+(i.pasta_id ? "" : " disabled")+'>💾 Fazer backup agora</button>'+
+        '<div class="bk-linha"><button class="btn btn-primary" style="width:auto;padding:13px 24px" data-action="bk-agora" id="bkAgora">💾 Fazer backup agora</button>'+
         (i.pasta_id ? '<span class="pn-cf">Destino: <a href="'+escapeAttr(link)+'" target="_blank" rel="noopener"><b>'+escapeHtml(i.pasta_nome || "pasta do Drive")+' ↗</b></a></span>' : '<span class="pn-cf" style="color:#9c2a20">Escolha a pasta do Drive primeiro.</span>')+'</div>'+
         '<p class="pn-nota">Use antes de mudanças grandes: importação de rede nova, virada do ano letivo, limpeza de dados.</p></div>'+
       '<div class="pn-card" style="margin-top:12px"><h3>📁 Onde guardar</h3>'+
@@ -2484,6 +2484,9 @@
     catch(e){ toast(e.message || "Não foi possível usar essa pasta.", true); btn.disabled = false; btn.textContent = "Salvar e testar"; }
   }
   async function fazerBackupAgora(btn){
+    // sem pasta ainda: leva direto ao campo do link, em vez de um botão que não responde
+    if(!bk.info || !bk.info.pasta_id){ toast("Primeiro escolha a pasta do Google Drive: siga os 3 passos e clique em Salvar e testar.", true);
+      const c = $("bkLink"); if(c){ c.scrollIntoView({ behavior:"smooth", block:"center" }); c.focus(); c.style.boxShadow = "0 0 0 3px rgba(229,83,61,.35)"; setTimeout(() => { c.style.boxShadow = ""; }, 3000); } return; }
     if(!confirm("Fazer agora uma cópia completa do banco para o Google Drive?")) return;
     btn.disabled = true; btn.textContent = "Fazendo backup... (pode fechar esta tela)";
     try{ const r = await chamarBackup("backupAgora", {}, 1800000); toast("Backup concluído: "+fmt(r.documentos)+" documentos."); }
