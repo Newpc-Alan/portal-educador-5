@@ -130,6 +130,19 @@ body.tv .mural{border-radius:0;min-height:100vh;padding:22px 28px}
 .mu-btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;font-size:.82rem}
 .mu-sel{background:#10283f;border:1px solid #24476a;color:#fff;border-radius:10px;padding:8px 10px;font-weight:700}
 .mu-turma{margin-top:14px}
+.mu-modo{background:rgba(255,255,255,.08)}.mu-modo button{color:#9fb6cc}.mu-modo button.on{background:#fff;color:#0c2338}
+body.tv .mu-topo,body.tv .mu-cont{position:sticky;z-index:5;background:#071621}
+body.tv .mu-topo{top:0;padding-top:6px}body.tv .mu-cont{top:62px;padding-bottom:8px;margin-bottom:0}
+.mu-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:6px}
+.mu-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;text-align:left;color:#eef5fb;display:flex;flex-direction:column;gap:5px}
+.mu-card:hover{border-color:#2E9BD6}
+.mu-card b{font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mu-card .n{font-size:1.7rem;font-weight:800;line-height:1.1;color:var(--lima)}.mu-card .n small{font-size:.9rem;color:#9fb6cc}.mu-card .n.agu{color:#6f8aa5}
+.mu-card.agu{opacity:.65}
+.barra-p{height:7px;border-radius:9px;background:rgba(255,255,255,.12);overflow:hidden}.barra-p i{display:block;height:100%;background:var(--lima)}
+.mu-card .chips{display:flex;gap:5px;flex-wrap:wrap}
+.mu-card em{font-style:normal;font-size:.7rem;font-weight:800;border-radius:99px;padding:1px 8px;background:rgba(255,255,255,.1);color:#9fb6cc}
+.mu-card em.f{background:rgba(229,83,61,.2);color:#ff9d8f}.mu-card em.v{background:rgba(249,196,64,.18);color:#F9C440}.mu-card em.ok{background:rgba(141,198,63,.18);color:var(--lima)}
 .mu-turma h3{font-size:.86rem;font-weight:800;color:#9fb6cc;margin-bottom:8px;display:flex;gap:8px;align-items:center}
 .mu-turma h3 span{font-weight:600;font-size:.76rem;color:#6f8aa5}
 .mu-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--b,88px),1fr));gap:10px 8px}
@@ -240,6 +253,7 @@ body.tv .mural{border-radius:0;min-height:100vh;padding:22px 28px}
         <div class="t"><small>Mural de chegada · Portal do Educador</small><b id="muTit">Sua escola</b></div>
         <select class="mu-sel" id="muEscola" hidden aria-label="Escola"></select>
         <div class="mu-relogio" id="muRelogio"></div>
+        <div class="seg mu-modo" id="muModo"><button data-action="mu-modo" data-arg="turmas">Turmas</button><button data-action="mu-modo" data-arg="faltas">Quem faltou</button><button data-action="mu-modo" data-arg="todos">Todos</button></div>
         <button class="mu-btn" data-action="tela-cheia">⛶ Tela cheia</button>
       </div>
       <div class="mu-cont" id="muCont"></div>
@@ -336,7 +350,7 @@ const dataBr = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "–";
 const dataLonga = d => SEMANA[new Date(d + "T12:00:00").getDay()] + ", " + dataBr(d) + "/" + d.slice(0, 4);
 const pct = v => v === null || v === undefined ? "–" : String(Math.round(v * 10) / 10).replace(".", ",") + "%";
 const E = { user:null, u:null, admin:false, sim:"", gestor:false, aba:"chamada", turmas:[], turma:null, alunos:[], aulas:1, faltas:{}, just:{}, existe:false, sujo:false,
-  cal:null, calChave:"", resumos:[], filtro:"alerta", hist:[], escolasNomes:{}, casos:{}, ficha:null, muEscola:"", muAntes:{}, muOuvintes:[] };
+  cal:null, calChave:"", resumos:[], filtro:"alerta", hist:[], escolasNomes:{}, casos:{}, ficha:null, muEscola:"", muAntes:{}, muOuvintes:[], muModo:"auto", muTurma:"" };
 
 /* ===================== abas ===================== */
 function ir(aba){
@@ -654,30 +668,59 @@ function desenharMural(){
   const hj = hojeMS(), rs = E.resumos.filter(r => r.escola_id === E.muEscola).sort((a, b) => String(a.turma_nome).localeCompare(String(b.turma_nome), "pt-BR", { numeric:true }));
   $("muTit").textContent = E.escolasNomes[E.muEscola] || "Sua escola";
   let tot = 0, cheg = 0, falt = 0, agu = 0, seg3 = 0;
-  const n = rs.reduce((s, r) => s + Object.keys(r.alunos || {}).length, 0), tam = n > 400 ? 64 : n > 220 ? 74 : 88;
   const antes = E.muAntes, agora = {}; E.muNovos = E.muNovos || {};
-  $("muTurmas").style.setProperty("--b", tam + "px");
-  $("muTurmas").innerHTML = rs.map(r => {
+  // 1) situação de cada aluno hoje
+  const T = rs.map(r => {
     const dia = r.dias && r.dias[hj] ? FREQ.decodificar(r.dias[hj]) : null;
-    const al = Object.entries(r.alunos || {}).filter(([, a]) => !a.t || a.t >= CAL.soma(hj, -30)).sort((x, y) => String(x[1].n).localeCompare(String(y[1].n), "pt-BR"));
-    let tc = 0;
-    const bolas = al.map(([id, a]) => {
-      tot++;
-      const f = dia ? +(dia.f[id] || 0) : 0, faltou = dia && dia.a && f >= dia.a, chegou = dia && !faltou;
-      if(chegou){ cheg++; tc++; } else if(faltou) falt++; else agu++;
-      const s = faltou ? a.s : (dia ? 0 : a.s), anel = s >= 3 ? " r3" : s === 2 ? " r2" : s >= 1 ? " r1" : "";
-      if(s >= 3) seg3++;
-      agora[id] = !!chegou;
+    const al = Object.entries(r.alunos || {}).filter(([, a]) => !a.t || a.t >= CAL.soma(hj, -30)).sort((x, y) => String(x[1].n).localeCompare(String(y[1].n), "pt-BR")).map(([id, a]) => {
+      const f = dia ? +(dia.f[id] || 0) : 0, faltou = !!(dia && dia.a && f >= dia.a), chegou = !!(dia && !faltou), s = faltou ? a.s : (dia ? 0 : a.s);
+      tot++; if(chegou) cheg++; else if(faltou) falt++; else agu++; if(s >= 3) seg3++;
+      agora[id] = chegou;
       // quem acabou de chegar pisca por alguns segundos (o mural pode ser redesenhado no meio)
       if(chegou && antes[id] === false) E.muNovos[id] = Date.now();
-      const novo = chegou && E.muNovos[id] && Date.now() - E.muNovos[id] < 4000;
-      const caso = E.casos[id] && E.casos[id].status !== "resolvido";
-      return '<button class="bola' + (chegou ? "" : " cinza") + (faltou ? " falta" : "") + anel + (novo ? " chegou" : "") + '" style="--h:' + matiz(id) + '" data-action="ficha" data-arg="' + esc(r.turma_id + "|" + id) + '" title="' + esc(a.n) + (s ? " · " + s + " dia(s) seguidos faltando" : "") + '"><i><u>' + esc(iniciais(a.n)) + "</u>" + (caso ? "<em>📋</em>" : "") + "</i><span>" + esc(String(a.n || "").split(" ")[0]) + "</span></button>";
-    }).join("");
-    return '<div class="mu-turma"><h3>' + esc(r.turma_nome || "Turma") + "<span>" + (dia ? tc + " de " + al.length + " presentes" : "aguardando a chamada de hoje") + '</span></h3><div class="mu-grade">' + bolas + "</div></div>";
-  }).join("") || '<div class="vazio" style="color:#9fb6cc"><b style="color:#fff">Nenhuma turma com chamada ainda</b>Assim que os professores lançarem a chamada na Frequência, os alunos aparecem aqui.</div>';
+      return { id, a, faltou, chegou, s, novo:chegou && E.muNovos[id] && Date.now() - E.muNovos[id] < 4000 };
+    });
+    return { r, dia, al, presentes:al.filter(x => x.chegou).length, faltaram:al.filter(x => x.faltou).length, seg3:al.filter(x => x.s >= 3).length };
+  });
   E.muAntes = agora;
-  $("muCont").innerHTML = '<div class="ok"><b>' + cheg + "</b>chegaram</div><div><b>" + agu + '</b>aguardando chamada</div><div class="ruim"><b>' + falt + '</b>faltaram hoje</div><div class="ruim"><b>' + seg3 + "</b>3 dias ou mais</div><div><b>" + tot + "</b>alunos</div>";
+  // 2) modo: escola pequena vê todos; escola grande começa pelas turmas (numa TV cabem umas 400 bolinhas legíveis)
+  const modo = E.muModo === "auto" || !E.muModo ? (tot > 400 ? "turmas" : "todos") : E.muModo;
+  document.querySelectorAll("#muModo button").forEach(b => b.classList.toggle("on", b.dataset.arg === modo));
+  const bola = (r, x) => { const anel = x.s >= 3 ? " r3" : x.s === 2 ? " r2" : x.s >= 1 ? " r1" : "", caso = E.casos[x.id] && E.casos[x.id].status !== "resolvido";
+    return '<button class="bola' + (x.chegou ? "" : " cinza") + (x.faltou ? " falta" : "") + anel + (x.novo ? " chegou" : "") + '" style="--h:' + matiz(x.id) + '" data-action="ficha" data-arg="' + esc(r.turma_id + "|" + x.id) + '" title="' + esc(x.a.n) + (x.s ? " · " + x.s + " dia(s) seguidos faltando" : "") + '"><i><u>' + esc(iniciais(x.a.n)) + "</u>" + (caso ? "<em>📋</em>" : "") + "</i><span>" + esc(String(x.a.n || "").split(" ")[0]) + "</span></button>"; };
+  const bloco = (t, lista, sub) => '<div class="mu-turma"><h3>' + esc(t.r.turma_nome || "Turma") + "<span>" + sub + '</span></h3><div class="mu-grade">' + lista.map(x => bola(t.r, x)).join("") + "</div></div>";
+  const subT = t => t.dia ? t.presentes + " de " + t.al.length + " presentes" : "aguardando a chamada de hoje";
+  let h = "", nB = 0;
+  const aberta = E.muTurma && T.find(t => t.r.turma_id === E.muTurma);
+  if(aberta){
+    nB = aberta.al.length;
+    h = '<button class="mu-btn" data-action="mu-turma" data-arg="" style="margin-bottom:6px">← Todas as turmas</button>' + bloco(aberta, aberta.al, subT(aberta));
+  } else if(modo === "turmas"){
+    h = '<div class="mu-cards">' + T.map(t => { const p = t.al.length ? t.presentes / t.al.length : 0;
+      return '<button class="mu-card' + (t.dia ? "" : " agu") + '" data-action="mu-turma" data-arg="' + esc(t.r.turma_id) + '"><b>' + esc(t.r.turma_nome || "Turma") + "</b>" +
+        (t.dia ? '<span class="n">' + t.presentes + "<small>/" + t.al.length + '</small></span><span class="barra-p"><i style="width:' + Math.round(p * 100) + '%"></i></span>' +
+          '<span class="chips">' + (t.faltaram ? '<em class="f">' + t.faltaram + (t.faltaram === 1 ? " faltou" : " faltaram") + "</em>" : '<em class="ok">todos presentes</em>') + (t.seg3 ? '<em class="v">' + t.seg3 + " há 3+ dias</em>" : "") + "</span>"
+          : '<span class="n agu">–</span><span class="chips"><em>aguardando chamada</em>' + (t.seg3 ? '<em class="v">' + t.seg3 + " há 3+ dias</em>" : "") + "</span>") + "</button>"; }).join("") + "</div>";
+  } else if(modo === "faltas"){
+    // só quem faltou hoje ou vem faltando dias seguidos: é a lista que a diretoria precisa olhar
+    h = T.map(t => { const l = t.al.filter(x => x.faltou || x.s >= 2); nB += l.length; return l.length ? bloco(t, l, l.length + (l.length === 1 ? " aluno" : " alunos") + " · " + subT(t)) : ""; }).join("")
+      || '<div class="vazio" style="color:#9fb6cc"><b style="color:#fff">Ninguém faltando por enquanto 👏</b>Aqui aparecem só os alunos que faltaram hoje ou vêm faltando dias seguidos.</div>';
+  } else {
+    nB = tot; h = T.map(t => bloco(t, t.al, subT(t))).join("");
+  }
+  $("muTurmas").style.setProperty("--b", (nB > 400 ? 60 : nB > 220 ? 72 : 88) + "px");
+  $("muTurmas").innerHTML = h || '<div class="vazio" style="color:#9fb6cc"><b style="color:#fff">Nenhuma turma com chamada ainda</b>Assim que os professores lançarem a chamada na Frequência, os alunos aparecem aqui.</div>';
+  $("muCont").innerHTML = '<div class="ok"><b>' + cheg.toLocaleString("pt-BR") + "</b>chegaram</div><div><b>" + agu.toLocaleString("pt-BR") + '</b>aguardando chamada</div><div class="ruim"><b>' + falt.toLocaleString("pt-BR") + '</b>faltaram hoje</div><div class="ruim"><b>' + seg3 + "</b>3 dias ou mais</div><div><b>" + tot.toLocaleString("pt-BR") + "</b>alunos · " + T.length + " turmas</div>";
+}
+// TV em tela cheia: se o mural não cabe, desce sozinho de página em página e volta ao topo
+function carrossel(){
+  clearInterval(E.muCar);
+  E.muCar = setInterval(() => {
+    if(!document.body.classList.contains("tv") || E.aba !== "mural" || !$("ficha").hidden) return;
+    const el = document.scrollingElement, fim = el.scrollHeight - innerHeight;
+    if(fim < 40) return;
+    if(el.scrollTop >= fim - 10) scrollTo({ top:0, behavior:"smooth" }); else scrollBy({ top:Math.round(innerHeight * 0.75), behavior:"smooth" });
+  }, 12000);
 }
 
 /* ===================== eventos ===================== */
@@ -702,6 +745,8 @@ const ACOES = {
   "salvar-registro":() => salvarRegistro(),
   status:a => mudarStatus(a),
   "imprimir-ficha":() => { document.body.classList.add("imp-ficha"); window.print(); setTimeout(() => document.body.classList.remove("imp-ficha"), 500); },
+  "mu-modo":a => { E.muModo = a; E.muTurma = ""; desenharMural(); },
+  "mu-turma":a => { E.muTurma = a; desenharMural(); scrollTo({ top:0 }); },
   "tela-cheia":() => { if(document.fullscreenElement) document.exitFullscreen(); else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); },
   filtro:a => { E.filtro = a; document.querySelectorAll("#segFiltro button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenharBusca(); }
 };
@@ -716,7 +761,7 @@ document.addEventListener("change", ev => {
 });
 document.addEventListener("input", ev => { if(ev.target.id === "conteudo") { E.sujo = true; try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, conteudo:$("conteudo").value })); }catch(e){} rodape(); } else if(ev.target.id === "busca") desenharBusca(); });
 // tela cheia: só o mural na TV (a ficha continua abrindo por cima)
-document.addEventListener("fullscreenchange", () => document.body.classList.toggle("tv", !!document.fullscreenElement && E.aba === "mural"));
+document.addEventListener("fullscreenchange", () => { document.body.classList.toggle("tv", !!document.fullscreenElement && E.aba === "mural"); carrossel(); });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape" && !$("ficha").hidden) ACOES["fechar-ficha"](); });
 window.addEventListener("beforeunload", ev => { if(E.sujo && E.turma){ ev.preventDefault(); ev.returnValue = ""; } });
 
