@@ -125,6 +125,13 @@ service cloud.firestore {
           && novo().get("licenca_tipo", "institucional") == "institucional"
           && novo().municipio_id == pre().municipio_id && novo().escola_id == pre().escola_id
           && novo().escolas_ids == pre().escolas_ids && novo().get("turmas_ids", []) == [] )
+        ||
+        // 7) gestor da escola e secretaria de educacao importados pelo administrador (so ele grava esses pre-cadastros)
+        ( temPreCadastro() && pre().perfil in ["gestor", "secretaria"] && pre().status == "ativo"
+          && novo().perfil == pre().perfil && novo().status == "ativo" && novo().email == meuEmail()
+          && novo().get("licenca_tipo", "institucional") == "institucional"
+          && novo().municipio_id == pre().municipio_id && novo().get("escola_id", null) == pre().get("escola_id", null)
+          && novo().get("escolas_ids", []) == pre().get("escolas_ids", []) && novo().get("turmas_ids", []) == [] )
       );
       // o gestor ve e pausa (ativo/inativo) a equipe de apoio da escola dele
       allow read: if resource != null && perfilApoio(resource.data.get("perfil", "")) && gestorDaEscola(resource.data.get("escola_id", "-"));

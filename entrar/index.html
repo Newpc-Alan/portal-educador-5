@@ -1092,11 +1092,11 @@
         Object.assign(dados, novo);
         return true;
       }
-      if(p.perfil === "portaria" || p.perfil === "secretaria_escolar"){
+      if(["portaria", "secretaria_escolar", "gestor", "secretaria"].includes(p.perfil)){
         // equipe de apoio convidada pelo gestor: nasce com exatamente a escola do convite
         const novo = { uid:user.uid, nome:p.nome || dados.nome, email:user.email.toLowerCase(), perfil:p.perfil, status:"ativo", licenca_tipo:"institucional",
-          municipio_id:p.municipio_id, municipio_nome:p.municipio_nome || "", escola_id:p.escola_id, escolas_ids:p.escolas_ids, escolas_nomes:p.escolas_nomes || [],
-          turmas_ids:[], origem:"convite_gestor", criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid };
+          municipio_id:p.municipio_id, municipio_nome:p.municipio_nome || "", escola_id:p.escola_id || null, escolas_ids:p.escolas_ids || [], escolas_nomes:p.escolas_nomes || [],
+          turmas_ids:[], origem:p.convidado_por ? "convite_gestor" : "pre_cadastro", criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid };
         await setDoc(ref, novo);
         Object.assign(dados, novo);
         return true;
@@ -4867,12 +4867,13 @@
   const LAYOUT = {
     escolas:     { cols:"municipio ; uf ; escola ; inep", exemplo:"municipio;uf;escola;inep\nRibas do Rio Pardo;MS;EM Centro;50012345\nRibas do Rio Pardo;MS;EM Vila Nova;" },
     professores: { cols:"nome ; email ; municipio ; escolas", exemplo:"nome;email;municipio;escolas\nMaria Souza;maria.souza@rede.ms.gov.br;Ribas do Rio Pardo;EM Centro | EM Vila Nova\nJoao Lima;joao.lima@rede.ms.gov.br;Ribas do Rio Pardo;50012345" },
+    equipe:      { cols:"nome ; email ; perfil ; municipio ; escola (vazia para a Secretaria de Educação)", exemplo:"nome;email;perfil;municipio;escola\nRita Alves;rita.alves@rede.ms.gov.br;Gestor;Ribas do Rio Pardo;EM Centro\nSonia Prado;sonia.prado@gmail.com;Secretaria escolar;Ribas do Rio Pardo;EM Centro\nJose Lima;jose.lima@gmail.com;Portaria;Ribas do Rio Pardo;EM Centro\nCarla Mendes;carla.mendes@rede.ms.gov.br;Secretaria de Educação;Ribas do Rio Pardo;" },
     alunos:      { cols:"nome ; email ; municipio ; escola (opcional) ; turma (opcional)", exemplo:"nome;email;municipio;escola;turma\nAna Clara Silva;ana.silva@escola.ms.gov.br;Ribas do Rio Pardo;EM Centro;5º ano A\nPedro Rocha;pedro.rocha@escola.ms.gov.br;Ribas do Rio Pardo;;" }
   };
   const ALIAS = {
     municipio:["municipio","cidade","municipios"], uf:["uf","estado"], escola:["escola","unidade","nome da escola","unidade escolar"],
     inep:["inep","codigo inep","cod inep","código inep"], nome:["nome","professor","nome do professor","nome completo","aluno","nome do aluno","estudante"],
-    turma:["turma","classe","ano turma"],
+    turma:["turma","classe","ano turma"], perfil:["perfil","funcao","cargo","papel"],
     email:["email","e mail","e-mail","email institucional"], escolas:["escolas","escola","unidades","unidade","escolas onde atua"]
   };
   function norm(s){ return semAcento(s).replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim(); }
@@ -4884,6 +4885,7 @@
       '<div class="imp-tipos">'+
         '<label><input type="radio" name="impTipo" value="escolas"> <span>Escolas<small>município, UF, escola e código INEP</small></span></label>'+
         '<label><input type="radio" name="impTipo" value="professores"> <span>Professores<small>nome, e-mail, município e escolas onde dá aula</small></span></label>'+
+        '<label><input type="radio" name="impTipo" value="equipe"> <span>Gestão e equipe<small>gestor, secretaria escolar, portaria e Secretaria de Educação</small></span></label>'+
         '<label><input type="radio" name="impTipo" value="alunos"> <span>Alunos<small>nome, e-mail, município, escola e turma (rede sem domínio próprio de aluno)</small></span></label>'+
       '</div></div>'+
       '<div class="imp-card"><h3>2. Cole a planilha ou envie o arquivo</h3>'+
@@ -4965,13 +4967,13 @@
   async function gerarPrevia(){
     const tab = lerTabela($("impTexto").value);
     if(!tab){ toast("Cole o cabeçalho e pelo menos uma linha.", true); return; }
-    const precisa = imp.tipo === "escolas" ? ["municipio","escola"] : imp.tipo === "alunos" ? ["nome","email","municipio"] : ["nome","email","municipio","escolas"];
+    const precisa = imp.tipo === "escolas" ? ["municipio","escola"] : imp.tipo === "alunos" ? ["nome","email","municipio"] : imp.tipo === "equipe" ? ["nome","email","perfil","municipio"] : ["nome","email","municipio","escolas"];
     const falta = precisa.filter(k => tab.idx[k] === undefined);
     if(falta.length){ toast("Coluna não encontrada: "+falta.join(", ")+". Use o modelo.", true); return; }
     $("impPrevia").innerHTML = '<div class="imp-card"><div class="empty">Conferindo...</div></div>';
     try{
       await Promise.all([ carregarCacheMunicipios(), carregarCacheEscolas() ]);
-      imp.linhas = imp.tipo === "escolas" ? previaEscolas(tab.dados) : imp.tipo === "alunos" ? await previaAlunos(tab.dados) : await previaProfessores(tab.dados);
+      imp.linhas = imp.tipo === "escolas" ? previaEscolas(tab.dados) : imp.tipo === "alunos" ? await previaAlunos(tab.dados) : imp.tipo === "equipe" ? await previaEquipe(tab.dados) : await previaProfessores(tab.dados);
       desenharPrevia();
     }catch(e){ console.warn(e); $("impPrevia").innerHTML = '<div class="imp-card"><div class="empty">Erro ao conferir ('+escapeHtml(e.code||"erro")+').</div></div>'; }
   }
@@ -5044,6 +5046,55 @@
     return out.concat(erros).sort((a,b) => parseInt(a.linha,10) - parseInt(b.linha,10));
   }
 
+  // gestão e equipe: gestor (até 5 escolas), secretaria escolar e portaria (1 escola), Secretaria de Educação (sem escola)
+  const PERFIS_EQUIPE = { gestor:"Gestor da escola", secretaria_escolar:"Secretaria escolar", portaria:"Portaria", secretaria:"Secretaria de Educação" };
+  function perfilDoTexto(t){
+    const n = norm(t);
+    if(!n) return "";
+    if(/portar|porteir|inspetor/.test(n)) return "portaria";
+    if(/semed|tecnic[ao] da secretaria/.test(n) || (/secretari/.test(n) && /educa|municipal/.test(n) && !/escola/.test(n))) return "secretaria";
+    if(/secretari|escrituraria|administrativ/.test(n)) return "secretaria_escolar";
+    if(/gestor|diretor|direcao|coordenad|vice/.test(n)) return "gestor";
+    return "";
+  }
+  async function previaEquipe(dados){
+    const snapU = await getDocs(collection(db,"usuarios"));
+    const porEmail = {}; snapU.forEach(d => { const u = d.data(); if(u.email) porEmail[String(u.email).toLowerCase()] = { id:d.id, ...u }; });
+    let preExist = new Set();
+    try{ const sp = await getDocs(collection(db,"pre_cadastros")); sp.forEach(d => preExist.add(d.id)); }catch(e){}
+    const vistos = new Set();
+    return dados.map(d => {
+      const email = String(d.email||"").trim().toLowerCase();
+      const r = { linha:d._linha, col1:d.nome, col2:email, col3:"", st:"erro", msg:"" };
+      if(!d.nome){ r.msg = "Falta o nome"; return r; }
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ r.msg = "E-mail inválido"; return r; }
+      const perfil = perfilDoTexto(d.perfil);
+      if(!perfil){ r.msg = "Perfil “"+(d.perfil||"")+"” não reconhecido: use Gestor, Secretaria escolar, Portaria ou Secretaria de Educação"; return r; }
+      const muni = acharMunicipio(d.municipio);
+      if(!muni){ r.msg = "Município “"+d.municipio+"” não cadastrado. Importe as escolas primeiro."; return r; }
+      const termos = String(d.escolas || d.escola || "").split(/[|;]/).map(x => x.trim()).filter(Boolean);
+      const esc = [], faltando = [];
+      termos.forEach(t => { const e = acharEscola(t, muni.id); e ? (esc.some(x => x.id === e.id) || esc.push(e)) : faltando.push(t); });
+      if(faltando.length){ r.msg = "Escola não encontrada: "+faltando.join(", "); return r; }
+      if(perfil === "secretaria") esc.length = 0;
+      else if(!esc.length){ r.msg = "Falta a escola"; return r; }
+      else if(perfil !== "gestor" && esc.length > 1){ r.msg = PERFIS_EQUIPE[perfil]+" fica em uma escola só"; return r; }
+      else if(esc.length > 5){ r.msg = "Gestor com mais de 5 escolas"; return r; }
+      r.col3 = PERFIS_EQUIPE[perfil]+" · "+[muni.nome].concat(esc.map(e => e.nome)).join(" · ");
+      r.pessoa = { nome:d.nome.trim(), email, perfil, muni, escolas:esc };
+      if(vistos.has(email)){ r.st = "ign"; r.msg = "Repetido na planilha"; return r; }
+      vistos.add(email);
+      const u = porEmail[email];
+      if(u){
+        if(u.perfil === "admin"){ r.st = "ign"; r.msg = "É administrador, não alterado"; }
+        else if(u.perfil === "aluno"){ r.st = "erro"; r.msg = "Este e-mail é de aluno"; }
+        else { r.st = "atu"; r.usuarioId = u.id; r.msg = u.perfil === perfil ? "Já entrou no Portal: atualiza o vínculo" : "Já entrou como "+(LABELS_PERFIL[u.perfil]||u.perfil)+": passa a "+PERFIS_EQUIPE[perfil]; }
+      }else if(preExist.has(email)){ r.st = "atu"; r.msg = "Atualiza pré-cadastro"; }
+      else { r.st = "novo"; r.msg = "Pré-cadastro novo"; }
+      return r;
+    });
+  }
+
   // alunos: 1 linha por aluno; escola e turma sao opcionais (so para organizar)
   async function previaAlunos(dados){
     const [snapEq, snapAl] = await Promise.all([
@@ -5081,7 +5132,7 @@
   function desenharPrevia(){
     const c = { novo:0, atu:0, ign:0, erro:0 }; imp.linhas.forEach(r => c[r.st]++);
     const gravar = c.novo + c.atu;
-    const cab = imp.tipo === "escolas" ? ["Linha","Município","Escola","INEP","Resultado"] : ["Linha", imp.tipo === "alunos" ? "Aluno" : "Professor","E-mail","Vínculo","Resultado"];
+    const cab = imp.tipo === "escolas" ? ["Linha","Município","Escola","INEP","Resultado"] : ["Linha", imp.tipo === "alunos" ? "Aluno" : imp.tipo === "equipe" ? "Pessoa" : "Professor","E-mail","Vínculo","Resultado"];
     const rot = { novo:"Novo", atu:"Atualiza", ign:"Ignorado", erro:"Erro" };
     let html = '<div class="imp-card"><h3>3. Confira e grave</h3>'+
       '<div class="imp-resumo"><span class="r-novo">'+c.novo+' novo(s)</span><span class="r-atu">'+c.atu+' atualização(ões)</span><span class="r-ign">'+c.ign+' ignorado(s)</span><span class="r-erro">'+c.erro+' com erro</span></div>'+
@@ -5119,6 +5170,14 @@
           if(r.st === "atu") ops.push([doc(db,"escolas",r.escolaId), { inep:r.inep, ...quem }, "update"]);
           else ops.push([doc(collection(db,"escolas")), { nome:r.escola, inep:r.inep, municipio_id:muniId, municipio_nome:muniNome, municipio_uf:muniUf,
             status:"ativa", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, ...quem }, "set"]);
+        });
+      }else if(imp.tipo === "equipe"){
+        validas.forEach(r => {
+          const p = r.pessoa, ids = p.escolas.map(e => e.id), nomes = p.escolas.map(e => e.nome);
+          const vinc = { perfil:p.perfil, municipio_id:p.muni.id, municipio_nome:p.muni.nome, escola_id:ids[0] || null, escola_nome:nomes[0] || "", escolas_ids:ids, escolas_nomes:nomes, turmas_ids:[] };
+          if(r.usuarioId) ops.push([doc(db,"usuarios",r.usuarioId), { ...vinc, status:"ativo", licenca_tipo:"institucional", licenca_fim:null, aprovado_em:serverTimestamp(), aprovado_por:usuarioAtual.uid, origem_vinculo:"importacao", ...quem }, "update"]);
+          else ops.push([doc(db,"pre_cadastros",p.email), { nome:p.nome, email:p.email, status:"ativo", licenca_tipo:"institucional", ...vinc,
+            importado_em:serverTimestamp(), importado_por:usuarioAtual.uid, ...quem }, "set"]);
         });
       }else if(imp.tipo === "alunos"){
         validas.forEach(r => {
@@ -5159,7 +5218,7 @@
       cacheMunicipios = []; cacheEscolas = [];
       toast(validas.length+" registro(s) gravado(s).");
       $("impPrevia").innerHTML = '<div class="imp-card"><h3>Importação concluída</h3><p class="d" style="margin:0">'+validas.length+' registro(s) gravado(s)'+
-        (imp.tipo === "alunos" ? '. Os alunos entram com a conta Google desse e-mail e aparecem em <b>Usuarios › Alunos</b>.' : imp.tipo === "professores" ? '. Os professores pré-cadastrados aparecem em <b>Usuarios › Pré-cadastrados</b> até fazerem o primeiro login.' : '. Agora você pode importar os professores ou ajustar o plano de cada município em <b>Municipios</b>.')+'</p></div>';
+        (imp.tipo === "equipe" ? '. Cada pessoa entra com a conta Google desse e-mail e já cai na tela da função dela.' : imp.tipo === "alunos" ? '. Os alunos entram com a conta Google desse e-mail e aparecem em <b>Usuarios › Alunos</b>.' : imp.tipo === "professores" ? '. Os professores pré-cadastrados aparecem em <b>Usuarios › Pré-cadastrados</b> até fazerem o primeiro login.' : '. Agora você pode importar os professores ou ajustar o plano de cada município em <b>Municipios</b>.')+'</p></div>';
       imp.linhas = []; $("impTexto").value = "";
     }catch(e){
       console.warn(e);

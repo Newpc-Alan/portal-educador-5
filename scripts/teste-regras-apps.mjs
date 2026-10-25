@@ -556,6 +556,17 @@ await t('secretaria escolar nao convida ninguem', assertFails(setDoc(doc(sece, '
 await t('secretaria escolar nao le dados de outra escola', assertFails(getDocs(query(collection(sece, 'busca_ativa'), where('escola_id', '==', 'e2'), where('ano', '==', 2026)))));
 await t('gestor cancela convite', assertSucceeds(deleteDoc(doc(gest1, 'pre_cadastros/port1@x.com'))));
 
+// gestor e Secretaria de Educação importados pelo administrador
+const gestImp = ctx('gimp'), secImp = ctx('simp'), falso = ctx('gfalso');
+await t('admin importa gestor', assertSucceeds(setDoc(doc(ctx('adm'), 'pre_cadastros/gimp@x.com'), { nome: 'G', email: 'gimp@x.com', perfil: 'gestor', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1', 'e2'], turmas_ids: [] })));
+await t('admin importa secretaria de educacao', assertSucceeds(setDoc(doc(ctx('adm'), 'pre_cadastros/simp@x.com'), { nome: 'S', email: 'simp@x.com', perfil: 'secretaria', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: null, escolas_ids: [], turmas_ids: [] })));
+await t('gestor importado com escola a mais nao entra', assertFails(setDoc(doc(gestImp, 'usuarios/gimp'), { nome: 'G', email: 'gimp@x.com', perfil: 'gestor', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1', 'e2', 'e9'], turmas_ids: [] })));
+await t('gestor importado nao vira secretaria', assertFails(setDoc(doc(gestImp, 'usuarios/gimp'), { nome: 'G', email: 'gimp@x.com', perfil: 'secretaria', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1', 'e2'], turmas_ids: [] })));
+await t('gestor importado entra', assertSucceeds(setDoc(doc(gestImp, 'usuarios/gimp'), { nome: 'G', email: 'gimp@x.com', perfil: 'gestor', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1', 'e2'], turmas_ids: [] })));
+await t('secretaria de educacao importada entra', assertSucceeds(setDoc(doc(secImp, 'usuarios/simp'), { nome: 'S', email: 'simp@x.com', perfil: 'secretaria', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: null, escolas_ids: [], turmas_ids: [] })));
+await t('sem pre-cadastro nao vira gestor', assertFails(setDoc(doc(falso, 'usuarios/gfalso'), { nome: 'X', email: 'gfalso@x.com', perfil: 'gestor', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1'], turmas_ids: [] })));
+await t('gestor nao cria pre-cadastro de gestor', assertFails(setDoc(doc(gest1, 'pre_cadastros/novo-g@x.com'), conv('novo-g@x.com', 'gestor'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
