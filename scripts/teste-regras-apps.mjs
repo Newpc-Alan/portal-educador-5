@@ -572,6 +572,7 @@ await t('professor reage ao video', assertSucceeds(setDoc(doc(prof, 'videos_reac
 await t('professor nao reage a rascunho', assertFails(setDoc(doc(prof, 'videos_reacoes/vr_prof'), { video_id: 'vr', uid: 'prof', reacao: 'gostei', perfil: 'professor', em: serverTimestamp() })));
 await t('licenca vencida nao reage', assertFails(setDoc(doc(venc, 'videos_reacoes/vp_venc'), { video_id: 'vp', uid: 'venc', reacao: 'gostei', perfil: 'professor', em: serverTimestamp() })));
 await t('outro professor nao le minha reacao', assertFails(getDoc(doc(prof2, 'videos_reacoes/vp_prof'))));
+await t('admin tambem vota', assertSucceeds(setDoc(doc(ctx('adm'), 'videos_reacoes/vp_adm'), { video_id: 'vp', uid: 'adm', reacao: 'amei', perfil: 'admin', em: serverTimestamp() })));
 await t('admin le as reacoes', assertSucceeds(getDocs(query(collection(ctx('adm'), 'videos_reacoes'), where('video_id', '==', 'vp')))));
 
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);

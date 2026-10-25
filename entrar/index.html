@@ -4119,8 +4119,8 @@
     $("vdDesc").textContent = [v.descricao, v.canal ? "Canal: "+v.canal : ""].filter(Boolean).join(" · ");
     $("modalVideo").classList.add("show");
     vdReac.v = v; vdReac.minha = ""; desenharReacao();
-    if(usuarioAtual.perfil !== "admin"){
-      registrarVideo(v.id);
+    if(usuarioAtual.perfil !== "admin") registrarVideo(v.id);
+    {
       getDoc(doc(db,"videos_reacoes",v.id+"_"+usuarioAtual.uid)).then(s => { if(vdReac.v === v && s.exists()){ vdReac.minha = s.data().reacao || ""; desenharReacao(); } }).catch(e => console.warn("reacao:", e.code));
     }
   }
@@ -4129,19 +4129,19 @@
   const vdReac = { v:null, minha:"", salvando:false };
   function desenharReacao(){
     const el = $("vdReacao"); if(!el || !vdReac.v) return;
-    const c = vdReac.v.reacoes || {}, admin = usuarioAtual.perfil === "admin";
-    el.innerHTML = '<span>'+(admin ? "Reações:" : vdReac.minha ? "Obrigado! Sua reação:" : "O que achou do vídeo?")+'</span>'+REACOES.map(([k, ico, rot]) =>
-      '<button type="button" class="vd-carinha'+(vdReac.minha === k ? " on" : "")+'" data-action="vd-reagir" data-arg="'+k+'" aria-pressed="'+(vdReac.minha === k)+'" title="'+rot+'"'+(admin ? " disabled" : "")+'>'+
+    const c = vdReac.v.reacoes || {}, admin = (usuarioReal || usuarioAtual).perfil === "admin";
+    el.innerHTML = '<span>'+(vdReac.minha ? "Obrigado! Sua reação:" : "O que achou do vídeo?")+'</span>'+REACOES.map(([k, ico, rot]) =>
+      '<button type="button" class="vd-carinha'+(vdReac.minha === k ? " on" : "")+'" data-action="vd-reagir" data-arg="'+k+'" aria-pressed="'+(vdReac.minha === k)+'" title="'+rot+'">'+
       '<b aria-hidden="true">'+ico+'</b><small>'+(admin || vdReac.minha ? (c[k] || 0) : rot)+'</small></button>').join("");
   }
   async function reagirVideo(k){
-    const v = vdReac.v; if(!v || vdReac.salvando || usuarioAtual.perfil === "admin" || !REACOES.some(r => r[0] === k)) return;
+    const v = vdReac.v; if(!v || vdReac.salvando || !REACOES.some(r => r[0] === k)) return;
     const antes = vdReac.minha; if(antes === k) return;
     vdReac.salvando = true; vdReac.minha = k;
     // mostra na hora; o servidor confirma a contagem
     v.reacoes = { ...(v.reacoes || {}) }; if(antes) v.reacoes[antes] = Math.max(0, (v.reacoes[antes] || 0) - 1); v.reacoes[k] = (v.reacoes[k] || 0) + 1;
     desenharReacao();
-    try{ await setDoc(doc(db,"videos_reacoes",v.id+"_"+usuarioAtual.uid), { video_id:v.id, uid:usuarioAtual.uid, reacao:k, perfil:usuarioAtual.perfil, em:serverTimestamp() }); }
+    try{ await setDoc(doc(db,"videos_reacoes",v.id+"_"+usuarioAtual.uid), { video_id:v.id, uid:usuarioAtual.uid, reacao:k, perfil:(usuarioReal || usuarioAtual).perfil, em:serverTimestamp() }); }
     catch(e){ console.warn("reagir:", e.code); toast("Não foi possível registrar agora.", true); vdReac.minha = antes; }
     finally{ vdReac.salvando = false; desenharReacao(); }
   }
