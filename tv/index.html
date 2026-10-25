@@ -172,7 +172,7 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 <div class="offline" id="offline" hidden>Sem internet · exibindo a última programação</div>
 <div class="pt-flash" id="ptFlash" hidden><div class="pt-ico" id="ptIco"></div><b id="ptTit"></b><span id="ptSub"></span></div>
 <div class="pt-selo" id="ptSelo" hidden></div>
-<video id="ptCam" playsinline muted hidden></video>
+<video id="ptCam" playsinline muted autoplay style="position:fixed;left:0;top:0;width:160px;height:120px;opacity:.01;pointer-events:none;z-index:-1"></video>
 
 <script nomodule>
 /* navegador de TV antigo (sem módulos de JavaScript): abre a versão leve do player, com a mesma chave da tela */
@@ -412,10 +412,29 @@ async function cameraPortaria(on){
   catch(e){ console.warn("portaria camera", e.name || e); PT.cam = null; }
   seloPortaria();
 }
-function fotoPortaria(){
-  const v = $("ptCam"); if(!PT.foto || !PT.cam || !v.videoWidth) return "";
-  try{ const c = document.createElement("canvas"), k = Math.min(1, 320 / v.videoWidth); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
-    c.getContext("2d").drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL("image/jpeg", 0.6); return u.slice(u.indexOf(",") + 1); }catch(e){ return ""; }
+// pega um quadro novo da câmera: ImageCapture (direto da câmera, quando o navegador tem) ou o próprio vídeo
+async function quadroPortaria(){
+  const v = $("ptCam"), tr = PT.cam && PT.cam.getVideoTracks()[0];
+  if(!tr) return null;
+  if(tr.readyState === "ended"){ PT.cam = null; cameraPortaria(true); return null; }
+  if("ImageCapture" in window){ try{ if(!PT.ic || PT.ic.track !== tr) PT.ic = new ImageCapture(tr); return await PT.ic.grabFrame(); }catch(e){} }
+  if(v.paused) await v.play().catch(() => {});
+  return v.videoWidth ? v : null;
+}
+// foto pequena (320 px); quadro escuro (câmera aquecendo, vídeo parado) é descartado e tenta de novo; se continuar preto, não manda foto
+async function fotoPortaria(){
+  if(!PT.foto || !PT.cam) return "";
+  for(let i = 0; i < 4; i++){
+    try{
+      const q = await quadroPortaria();
+      if(q){ const w = q.videoWidth || q.width, h = q.videoHeight || q.height, k = Math.min(1, 320 / w), c = document.createElement("canvas");
+        c.width = Math.round(w * k); c.height = Math.round(h * k); const x = c.getContext("2d", { willReadFrequently:true }); x.drawImage(q, 0, 0, c.width, c.height);
+        const d = x.getImageData(0, 0, c.width, c.height).data; let soma = 0, n = 0; for(let j = 0; j < d.length; j += 64){ soma += d[j] * .3 + d[j + 1] * .59 + d[j + 2] * .11; n++; }
+        if(soma / n >= 10){ if(PT.camEscura){ PT.camEscura = 0; seloPortaria(); } const u = c.toDataURL("image/jpeg", 0.65); return u.slice(u.indexOf(",") + 1); } }
+    }catch(e){ console.warn("portaria foto", e.name || e); }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  PT.camEscura = (PT.camEscura || 0) + 1; seloPortaria(); return "";
 }
 function ligarPortaria(on){
   if(P.tela) cameraPortaria(on && P.tela.foto_entrada === true);
@@ -434,7 +453,7 @@ function seloPortaria(){
   if(PT.dia && PT.dia !== diaMS()){ PT.dia = diaMS(); PT.hoje = new Set(); }
   $("ptSelo").className = "pt-selo" + (PT.fila.length ? " fila" : "");
   $("ptSelo").innerHTML = "<i></i>Portaria · " + PT.hoje.size + (PT.hoje.size === 1 ? " entrada hoje" : " entradas hoje") + (PT.fila.length ? " · " + PT.fila.length + " aguardando internet" : "") +
-    (PT.foto ? " · 📷 Foto registrada na entrada" + (PT.cam ? "" : " (câmera desligada)") : "");
+    (PT.foto ? " · 📷 Foto registrada na entrada" + (!PT.cam ? " (câmera desligada)" : PT.camEscura >= 2 ? " (câmera sem imagem: confira tampa, luz e cabo)" : "") : "");
 }
 // toque de duas notas (subindo) para confirmar; duas notas descendo para recusar
 function somPortaria(tipo){
@@ -463,11 +482,14 @@ function cartaoPortaria(txt){
   if(PT.hoje.has(id)){ flashPortaria("ja", "✓", a ? a[0] + ", você já entrou" : "Entrada já registrada", "Bom estudo!"); return; }
   PT.hoje.add(id);
   flashPortaria("ok", "✓", a ? oi + ", " + a[0] + "!" : "Entrada registrada", a ? "Bom estudo!" : "");
-  const item = { id, hora:horaMS(), dia:diaMS() }, foto = fotoPortaria();
+  const item = { id, hora:horaMS(), dia:diaMS() };
   // a foto fica só na memória (não cabe na fila guardada do aparelho); se o totem reiniciar sem internet, a entrada sobe sem foto
-  if(foto) PT.fotos[id + "|" + item.dia] = foto;
-  PT.fila.push(item); ls.set("pde_tv_portaria_fila", PT.fila); seloPortaria();
-  enviarPortaria();
+  // no máximo 1,5 s esperando a foto: a entrada nunca fica presa por causa da câmera
+  Promise.race([fotoPortaria(), new Promise(r => setTimeout(() => r(""), 1500))]).then(foto => {
+    if(foto) PT.fotos[id + "|" + item.dia] = foto;
+    PT.fila.push(item); ls.set("pde_tv_portaria_fila", PT.fila); seloPortaria();
+    enviarPortaria();
+  });
 }
 async function enviarPortaria(){
   if(PT.enviando || !PT.fila.length || !navigator.onLine) return;
