@@ -410,7 +410,7 @@
   .vd-carinha:disabled{ cursor:default }
   .vd-carinha:disabled:hover b{ transform:none }
   .vd-reac-mini{ font-size:12px;color:var(--muted);white-space:nowrap }
-  /* vídeo em destaque do dia (Início) */
+  /* vídeos em destaque (topo da página Vídeos) */
   .ini-video{ display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:0 10px 26px -20px rgba(7,22,33,.5);cursor:pointer;text-align:left;font:inherit;color:inherit;width:100% }
   .ini-video:hover{ border-color:#b8c6d6 }
   .ini-video-capa{ position:relative;flex:0 0 240px;max-width:100%;aspect-ratio:16/9;border-radius:12px;background:#0c2338 center/cover }
@@ -420,13 +420,6 @@
   .ini-video-txt h3{ font-size:18px;color:var(--ink);margin-bottom:4px }
   .ini-video-txt p{ font-size:13.5px;color:var(--muted) }
   @media (max-width:560px){ .ini-video-capa{ flex-basis:100% } }
-  /* agenda de destaques (admin) */
-  .vd-agenda{ display:grid;gap:6px }
-  .vd-agenda-l{ display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:center;font-size:13.5px }
-  .vd-agenda-l b{ font-weight:700 }
-  .vd-agenda-l.hoje b{ color:var(--pde-azul,#2671AB) }
-  .vd-agenda-l select{ width:100%;height:38px;border:1.5px solid var(--line);border-radius:9px;padding:0 10px;font:inherit;background:#fff }
-  @media (max-width:560px){ .vd-agenda-l{ grid-template-columns:1fr } }
   /* admin */
   .vd-form{ display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start }
   .vd-previa{ aspect-ratio:16/9;border-radius:12px;background:#eef2f6 center/cover no-repeat;display:grid;place-items:center;color:var(--muted);font-size:13px;text-align:center;padding:10px }
@@ -3762,6 +3755,7 @@
     else if(acao === "vdadm-salvar"){ salvarVideo(false); }
     else if(acao === "vdadm-salvar-outro"){ salvarVideo(true); }
     else if(acao === "vdadm-limpar"){ formVideo(null); }
+    else if(acao === "vdadm-dest"){ alternarDestaque(el.dataset.id); }
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
@@ -3914,7 +3908,7 @@
       (admin ? '<div class="ini-previa"><button class="usr-tab'+(ehAluno?"":" on")+'" data-action="ini-previa" data-arg="professor">Professor</button><button class="usr-tab'+(ehAluno?" on":"")+'" data-action="ini-previa" data-arg="aluno">Aluno</button></div>' : '')+
       '</div>'+
       '</div>'+
-      '<div id="iniAula"></div><div id="iniVideo"></div>'+
+      '<div id="iniAula"></div>'+
       '<div class="ini-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div>';
     await carregarCfgModulos();
     // plano do municipio: so vale quando o administrador ja configurou a lista
@@ -3928,8 +3922,6 @@
     // Maestro em destaque: o professor comeca a aula por ele
     const aula = ehAluno ? null : maestroDisponivel(doPlano, admin);
     $("iniAula").innerHTML = aula ? faixaAula(aula, admin) : "";
-    // vídeo do dia: só quando o botão Vídeos está liberado para esse perfil e no plano do município
-    faixaVideoDoDia(ehAluno, cfgDe("videos").status === "liberado" && (!doPlano || doPlano.has("videos")));
     // a Central de Relatorios fica dentro do Gestao Escolar quando ele esta liberado (o card proprio sai do Inicio)
     const gestaoAtiva = cfgDe("gestao").status === "liberado";
     const cards = MODULOS.map(md => {
@@ -4067,7 +4059,7 @@
         '<input type="search" id="vdBusca" class="usr-busca" placeholder="Buscar por título, tema ou habilidade (ex: EF05CI11)" aria-label="Buscar vídeos">'+
         '<select id="vdSerie" aria-label="Ano ou faixa etária">'+opcoesFaixa("", "Todas as séries e idades")+'</select>'+
         '<select id="vdComp" aria-label="Componente"><option value="">Todos os componentes</option>'+DISCIPLINAS.map(d => '<option>'+d+'</option>').join("")+'</select>'+
-      '</div><div class="vd-atalhos" id="vdAtalhos"></div><div id="vdLista"><div class="empty">Carregando os vídeos...</div></div>';
+      '</div><div id="vdDestaque"></div><div class="vd-atalhos" id="vdAtalhos"></div><div id="vdLista"><div class="empty">Carregando os vídeos...</div></div>';
     // atalhos com os anos das turmas do professor
     if(!cacheTurmas.length && (usuarioAtual.turmas_ids || []).length && ehProfessor()){ try{ await carregarCacheTurmas(); }catch(e){ console.warn("turmas:", e.code); } }
     if(!$("vdAtalhos")) return;
@@ -4081,6 +4073,7 @@
         : query(collection(db,"videos"), where("publicado","==",true)));
       vds.itens = []; snap.forEach(d => vds.itens.push({ id:d.id, ...d.data() }));
       vds.itens.sort((a,b) => (idxFaixa(a.faixa_de) - idxFaixa(b.faixa_de)) || (a.titulo||"").localeCompare(b.titulo||""));
+      desenharDestaques();
       desenharVideos();
     }catch(e){ console.warn(e); $("vdLista").innerHTML = '<div class="empty">Não foi possível carregar os vídeos ('+escapeHtml(e.code||"erro")+').</div>'; }
   }
@@ -4155,38 +4148,17 @@
   const reacoesMini = v => { const c = v.reacoes || {}, t = REACOES.reduce((n, r) => n + (c[r[0]] || 0), 0);
     return t ? '<span class="vd-reac-mini">'+REACOES.filter(r => c[r[0]]).map(r => r[1]+" "+c[r[0]]).join(" · ")+'</span>' : '<span class="vd-reac-mini">–</span>'; };
 
-  // ---------- vídeo em destaque do dia: agenda do administrador (videos_destaque/{dia}); sem agenda, roda entre os 10 mais recentes ----------
-  const diaNum = d => Math.floor(Date.parse(d+"T12:00:00Z") / 864e5);
-  function destaqueAutomatico(lista, dia){
-    const rec = [...lista].sort((a,b) => (msDe(b.criado_em)||0) - (msDe(a.criado_em)||0)).slice(0, 10);
-    return rec.length ? rec[diaNum(dia) % rec.length] : null;
-  }
-  async function videoDoDia(ehAluno){
-    const hoje = hojeISO();
-    try{
-      const ag = await getDoc(doc(db,"videos_destaque",hoje));
-      if(ag.exists() && ag.data().video_id){
-        const s = await getDoc(doc(db,"videos",ag.data().video_id));
-        if(s.exists()){ const v = { id:s.id, ...s.data() }; if(v.publicado && (!ehAluno || v.para_alunos)) return v; }
-      }
-    }catch(e){ console.warn("destaque:", e.code); }
-    try{
-      const snap = await getDocs(ehAluno ? query(collection(db,"videos"), where("publicado","==",true), where("para_alunos","==",true)) : query(collection(db,"videos"), where("publicado","==",true)));
-      const l = []; snap.forEach(d => l.push({ id:d.id, ...d.data() }));
-      return destaqueAutomatico(ehAluno ? l : l.filter(v => v.para_professores !== false), hoje);
-    }catch(e){ console.warn("destaque auto:", e.code); return null; }
-  }
-  async function faixaVideoDoDia(ehAluno, liberado){
-    const el = $("iniVideo"); if(!el) return;
-    if(!liberado){ el.innerHTML = ""; return; }
-    const v = await videoDoDia(ehAluno);
-    if(!v || !$("iniVideo")){ return; }
-    if(!vds.itens.some(x => x.id === v.id)) vds.itens.push(v);
-    el.innerHTML = '<button type="button" class="ini-video" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">'+
+  // ---------- vídeos em destaque: o administrador marca e desmarca (videos/{id}.destaque); aparecem no topo de Vídeos ----------
+  function desenharDestaques(){
+    const el = $("vdDestaque"); if(!el) return;
+    const l = vds.itens.filter(v => v.destaque === true && (usuarioAtual.perfil === "aluno" || v.para_professores !== false))
+      .sort((a,b) => (msDe(b.destaque_em)||0) - (msDe(a.destaque_em)||0));
+    el.innerHTML = l.map(v => '<button type="button" class="ini-video" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">'+
       '<span class="ini-video-capa" style="background-image:url(\''+capaVideo(v.youtube_id)+'\')"></span>'+
-      '<span class="ini-video-txt"><small>\u{1F3AC} Vídeo do dia</small><h3>'+escapeHtml(v.titulo || "")+'</h3>'+
+      '<span class="ini-video-txt"><small>\u2B50 Em destaque</small><h3>'+escapeHtml(v.titulo || "")+'</h3>'+
       '<p>'+escapeHtml([rotuloFaixa(v.faixa_de, v.faixa_ate), v.componente, v.duracao_seg ? mostrarDuracao(v.duracao_seg) : ""].filter(Boolean).join(" · "))+'</p>'+
-      '<p style="margin-top:6px;font-weight:700;color:var(--pde-azul,#2671AB)">Assistir e dar sua opinião \u2192</p></span></button>';
+      (v.descricao ? '<p style="margin-top:4px">'+escapeHtml(v.descricao)+'</p>' : '')+
+      '<p style="margin-top:6px;font-weight:700;color:var(--pde-azul,#2671AB)">Assistir e dar sua opinião \u2192</p></span></button>').join("");
   }
 
   function fecharVideo(){
@@ -4212,8 +4184,6 @@
     $("conteudo").innerHTML =
       '<div class="imp-card"><h3 id="vdFormTit">Cadastrar vídeo</h3><p class="d">Cole o link do YouTube: a capa e o título vêm sozinhos. Depois indique para qual série ou faixa de idade o vídeo serve. Pode salvar como rascunho e publicar quando terminar de revisar.</p>'+
         '<div id="vdForm"></div></div>'+
-      '<div class="imp-card"><h3>\u2B50 Vídeo em destaque do dia</h3><p class="d">Aparece no topo do Início do professor e do aluno. Escolha o vídeo de cada dia; nos dias em "Automático", o Portal roda entre os 10 vídeos mais recentes. Para o aluno, só vale vídeo liberado para alunos (se não for, ele vê o automático).</p>'+
-        '<div class="vd-agenda" id="vdAgenda"><div class="empty">Carregando...</div></div></div>'+
       '<div class="imp-card"><h3>Vídeos cadastrados</h3><p class="vd-prog" id="vdProg"></p>'+
         '<div class="usr-tabs" id="vdAdmTabs" style="margin-bottom:10px"></div>'+
         '<div class="acv-filtros"><input type="search" id="vdAdmBusca" class="usr-busca" placeholder="Buscar por título, tema, canal ou BNCC"></div>'+
@@ -4324,18 +4294,17 @@
       vdAdm.itens = []; snap.forEach(d => vdAdm.itens.push({ id:d.id, ...d.data() }));
       vdAdm.itens.sort((a,b) => (msDe(b.criado_em)||0) - (msDe(a.criado_em)||0));
       desenharVideosAdmin();
-      carregarAgendaDestaque();
     }catch(e){ console.warn(e); $("vdAdmLista").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code||"erro")+'). As regras do banco precisam estar publicadas.</div>'; }
   }
   function desenharVideosAdmin(){
     if(!$("vdAdmLista")) return;
     const tot = vdAdm.itens.length, pub = vdAdm.itens.filter(v => v.publicado).length;
     $("vdProg").textContent = tot ? tot+" vídeo(s) · "+pub+" publicado(s) · "+(tot-pub)+" rascunho(s)" : "";
-    $("vdAdmTabs").innerHTML = [["todos","Todos"],["pub","Publicados"],["rasc","Rascunhos"],["prof","Para professores"],["aluno","Para alunos"]].map(([k,n]) =>
+    $("vdAdmTabs").innerHTML = [["todos","Todos"],["dest","\u2B50 Em destaque"],["pub","Publicados"],["rasc","Rascunhos"],["prof","Para professores"],["aluno","Para alunos"]].map(([k,n]) =>
       '<button class="usr-tab'+(vdAdm.filtro===k?" on":"")+'" data-action="vdadm-filtro" data-filtro="'+k+'">'+n+'</button>').join("");
     const t = semAcento(vdAdm.busca);
     const f = vdAdm.filtro;
-    const l = vdAdm.itens.filter(v => (f === "todos" || (f === "pub" && v.publicado) || (f === "rasc" && !v.publicado)
+    const l = vdAdm.itens.filter(v => (f === "todos" || (f === "dest" && v.destaque === true) || (f === "pub" && v.publicado) || (f === "rasc" && !v.publicado)
         || (f === "prof" && v.para_professores !== false) || (f === "aluno" && !!v.para_alunos))
       && (!t || semAcento([v.titulo, v.tema, v.canal, (v.bncc||[]).join(" ")].join(" ")).includes(t)));
     $("vdAdmLista").innerHTML = !l.length ? '<div class="empty">'+(tot ? "Nenhum vídeo neste filtro." : "Nenhum vídeo cadastrado ainda. Comece colando o primeiro link acima.")+'</div>' :
@@ -4345,41 +4314,23 @@
         '<td class="usr-vinc">'+escapeHtml(v.componente || "-")+'</td>'+
         '<td class="usr-vinc">'+escapeHtml([v.para_professores !== false ? "Professores" : "", v.para_alunos ? "Alunos" : ""].filter(Boolean).join(" e "))+'</td>'+
         '<td>'+reacoesMini(v)+'</td>'+
-        '<td><span class="pill '+(v.publicado ? "ativo" : "pendente")+'">'+(v.publicado ? "Publicado" : "Rascunho")+'</span></td>'+
+        '<td><span class="pill '+(v.publicado ? "ativo" : "pendente")+'">'+(v.publicado ? "Publicado" : "Rascunho")+'</span>'+(v.destaque === true ? ' <span class="pill teste">\u2B50 Destaque</span>' : '')+'</td>'+
         '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">Ver</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="vdadm-editar" data-id="'+escapeAttr(v.id)+'">Editar</button>'+
+        '<button class="btn-mini btn-gerenciar" data-action="vdadm-dest" data-id="'+escapeAttr(v.id)+'">'+(v.destaque === true ? "Tirar destaque" : "\u2B50 Destacar")+'</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="vdadm-pub" data-id="'+escapeAttr(v.id)+'">'+(v.publicado ? "Ocultar" : "Publicar")+'</button>'+
         '<button class="btn-mini btn-recusar" data-action="vdadm-del" data-id="'+escapeAttr(v.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
   }
-  const vdAg = { dias:{} };
-  async function carregarAgendaDestaque(){
-    if(!$("vdAgenda")) return;
-    const dias = []; for(let i = 0; i < 14; i++) dias.push(diasAtras(-i));
-    try{ const sn = await getDocs(query(collection(db,"videos_destaque"), where("dia", ">=", dias[0]), where("dia", "<=", dias[13]))); vdAg.dias = {}; sn.forEach(d => { vdAg.dias[d.id] = d.data().video_id; }); }
-    catch(e){ console.warn("agenda destaque:", e.code); }
-    desenharAgendaDestaque(dias);
+  // destaque: fica no topo da página Vídeos até o administrador tirar
+  async function alternarDestaque(id){
+    const v = vdAdm.itens.find(x => x.id === id); if(!v) return;
+    const novo = v.destaque !== true;
+    if(novo && !v.publicado){ toast("Publique o vídeo antes de colocar em destaque.", true); return; }
+    try{ await updateDoc(doc(db,"videos",id), { destaque:novo, destaque_em:novo ? serverTimestamp() : null, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      v.destaque = novo; v.destaque_em = novo ? { toMillis:() => Date.now() } : null; desenharVideosAdmin();
+      toast(novo ? "Em destaque no topo de Vídeos." : "Saiu do destaque."); }
+    catch(e){ console.warn(e); toast("Erro ("+(e.code||"erro")+").", true); }
   }
-  function desenharAgendaDestaque(dias){
-    const el = $("vdAgenda"); if(!el) return;
-    const pubs = vdAdm.itens.filter(v => v.publicado), hoje = hojeISO();
-    const SEM = ["dom","seg","ter","qua","qui","sex","sáb"];
-    el.innerHTML = !pubs.length ? '<div class="empty">Publique pelo menos um vídeo para escolher o destaque.</div>' : dias.map(d => {
-      const auto = destaqueAutomatico(pubs.filter(v => v.para_professores !== false), d), esc = vdAg.dias[d] || "";
-      return '<label class="vd-agenda-l'+(d === hoje ? " hoje" : "")+'"><b>'+(d === hoje ? "Hoje" : SEM[new Date(d+"T12:00:00Z").getUTCDay()])+' · '+d.slice(8,10)+'/'+d.slice(5,7)+'</b>'+
-        '<select data-dia="'+d+'" aria-label="Destaque de '+d+'"><option value="">Automático'+(auto ? ": "+escapeHtml(auto.titulo || "") : "")+'</option>'+
-        pubs.map(v => '<option value="'+escapeAttr(v.id)+'"'+(esc === v.id ? " selected" : "")+'>'+escapeHtml(v.titulo || "")+(v.para_alunos ? "" : " (só professores)")+'</option>').join("")+'</select></label>';
-    }).join("");
-  }
-  async function salvarDestaque(dia, videoId){
-    try{
-      if(videoId) await setDoc(doc(db,"videos_destaque",dia), { dia, video_id:videoId, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
-      else await deleteDoc(doc(db,"videos_destaque",dia));
-      if(videoId) vdAg.dias[dia] = videoId; else delete vdAg.dias[dia];
-      toast(videoId ? "Destaque de "+dia.slice(8,10)+"/"+dia.slice(5,7)+" agendado." : "Dia "+dia.slice(8,10)+"/"+dia.slice(5,7)+" volta para o automático.");
-    }catch(e){ console.warn("destaque:", e.code); toast("Não foi possível salvar ("+(e.code||"erro")+").", true); carregarAgendaDestaque(); }
-  }
-  document.addEventListener("change", ev => { const t = ev.target; if(t && t.matches && t.matches("#vdAgenda select[data-dia]")) salvarDestaque(t.dataset.dia, t.value); });
-
   async function alternarVideoPublicado(id){
     const v = vdAdm.itens.find(x => x.id === id); if(!v) return;
     try{ await updateDoc(doc(db,"videos",id), { publicado:!v.publicado, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });

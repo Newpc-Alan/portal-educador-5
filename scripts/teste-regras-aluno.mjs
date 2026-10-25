@@ -76,8 +76,6 @@ await t('reacao invalida', assertFails(setDoc(doc(al, 'videos_reacoes/v1_alu'), 
 await t('reacao fingindo ser professor', assertFails(setDoc(doc(al, 'videos_reacoes/v1_alu'), reac('v1', 'amei', { perfil: 'professor' }))));
 await t('reacao em nome de outro', assertFails(setDoc(doc(al, 'videos_reacoes/v1_outro'), reac('v1', 'amei', { uid: 'outro' }))));
 await t('aluno nao lista reacoes', assertFails(getDocs(query(collection(al, 'videos_reacoes'), where('video_id', '==', 'v1')))));
-await t('aluno le o destaque do dia', assertSucceeds(getDoc(doc(al, 'videos_destaque/2026-10-26'))));
-await t('aluno nao agenda destaque', assertFails(setDoc(doc(al, 'videos_destaque/2026-10-26'), { dia: '2026-10-26', video_id: 'v1' })));
 await t('jogos para alunos', assertSucceeds(getDocs(query(collection(al, 'jogos'), where('publicado', '==', true), where('para_alunos', '==', true)))));
 await t('biblioteca estantes do aluno', assertSucceeds(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true), where('secao', 'in', ['aprender', 'gibiteca'])))));
 await t('biblioteca inteira', assertFails(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true)))));
