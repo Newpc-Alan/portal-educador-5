@@ -1,5 +1,6 @@
-// Backup do banco (Firestore) para uma pasta do Google Drive escolhida pelo administrador, ou para baixar no computador
-// (HD externo, servidor da empresa): o arquivo fica 7 dias em downloads/ no bucket de São Paulo, lido só pelo administrador (regras).
+// Backup do banco (Firestore), e opcionalmente de todos os arquivos do Storage, para uma pasta do Google Drive escolhida
+// pelo administrador ou para baixar no computador (HD externo, servidor da empresa). O pacote fica 7 dias em pacotes/ no
+// bucket de São Paulo; o download é por link assinado de 30 minutos, gerado só para o administrador.
 // Caminho: exportação oficial do Firestore (inclui subcoleções) num bucket temporário em São Paulo
 // -> empacotada num .tar.gz -> enviada ao Drive. O bucket temporário apaga tudo em 7 dias.
 // Restaurar: descompactar, subir a pasta para um bucket e rodar `gcloud firestore import` (procedimento guiado, nunca por botão).
@@ -9,7 +10,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { gzipSync } from 'node:zlib';
+import { createGzip } from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
 
 const PROJETO = 'portal-educador-5';
 export const BUCKET_BACKUP = 'portal-educador-5-backups';
@@ -59,38 +61,84 @@ async function enviarDrive(pasta, nome, buf, tipo) {
   return r.json();
 }
 
-// .tar mínimo (ustar), sem dependência externa
+// .tar (ustar) escrito em fluxo: nada do pacote fica inteiro na memória (o completo passa de 800 MB)
+export function cabecalho(nome, tamanho) {
+  const h = Buffer.alloc(512), n = Buffer.from(nome, 'utf8');
+  if (n.length > 100) {
+    // ustar: nome longo vai dividido em prefixo (até 155 bytes) + nome (até 100 bytes), cortando numa barra
+    let corte = -1; for (let k = n.indexOf(47); k >= 0; k = n.indexOf(47, k + 1)) if (k <= 155 && n.length - k - 1 <= 100) { corte = k; break; }
+    if (corte < 0) return null;
+    n.copy(h, 0, corte + 1); n.copy(h, 345, 0, corte);
+  } else n.copy(h, 0);
+  h.write('0000644\0', 100); h.write('0000000\0', 108); h.write('0000000\0', 116);
+  h.write(tamanho.toString(8).padStart(11, '0') + '\0', 124); h.write(Math.floor(Date.now() / 1000).toString(8).padStart(11, '0') + '\0', 136);
+  h.write('        ', 148); h.write('0', 156); h.write('ustar\0', 257); h.write('00', 263);
+  let soma = 0; for (const b of h) soma += b; h.write(soma.toString(8).padStart(6, '0') + '\0 ', 148);
+  return h;
+}
+// versão em memória (usada nos testes)
 export function tar(arquivos) {
   const blocos = [];
-  for (const { nome, dados } of arquivos) {
-    const h = Buffer.alloc(512), n = Buffer.from(nome);
-    if (n.length > 100) {
-      // ustar: nome longo vai dividido em prefixo (até 155) + nome (até 100), cortando numa barra
-      let corte = -1; for (let i = nome.indexOf('/'); i >= 0; i = nome.indexOf('/', i + 1)) if (i <= 155 && nome.length - i - 1 <= 100) { corte = i; break; }
-      if (corte < 0) throw new Error('nome longo demais no pacote: ' + nome);
-      h.write(nome.slice(corte + 1), 0, 100); h.write(nome.slice(0, corte), 345, 155);
-    } else h.write(nome, 0, 100);
-    h.write('0000644\0', 100); h.write('0000000\0', 108); h.write('0000000\0', 116);
-    h.write(dados.length.toString(8).padStart(11, '0') + '\0', 124); h.write(Math.floor(Date.now() / 1000).toString(8).padStart(11, '0') + '\0', 136);
-    h.write('        ', 148); h.write('0', 156); h.write('ustar\0', 257); h.write('00', 263);
-    let soma = 0; for (const b of h) soma += b; h.write(soma.toString(8).padStart(6, '0') + '\0 ', 148);
-    blocos.push(h, dados, Buffer.alloc((512 - (dados.length % 512)) % 512));
-  }
+  for (const { nome, dados } of arquivos) { blocos.push(cabecalho(nome, dados.length), dados, Buffer.alloc((512 - (dados.length % 512)) % 512)); }
   blocos.push(Buffer.alloc(1024));
   return Buffer.concat(blocos);
 }
+// entradas: { nome, dados } (Buffer) ou { nome, arquivo, tamanho } (arquivo do Storage, lido em fluxo)
+async function empacotar(entradas, destino, nomeDownload) {
+  const gz = createGzip({ level: 6 }), saida = destino.createWriteStream({ resumable: true, contentType: 'application/gzip', metadata: { contentDisposition: `attachment; filename="${nomeDownload}"` } });
+  const fim = pipeline(gz, saida);
+  const escrever = b => new Promise((ok, erro) => { if (gz.destroyed) return erro(new Error('compactação interrompida')); gz.write(b) ? ok() : gz.once('drain', ok); });
+  const renomeados = [];
+  for (const e of entradas) {
+    let h = cabecalho(e.nome, e.tamanho ?? e.dados.length), nome = e.nome;
+    if (!h) { nome = e.nome.split('/')[0] + '/_nomes-longos/' + renomeados.length + '.bin'; renomeados.push(nome + '\t' + e.nome); h = cabecalho(nome, e.tamanho ?? e.dados.length); }
+    await escrever(h);
+    let n = 0;
+    if (e.dados) { await escrever(e.dados); n = e.dados.length; }
+    else for await (const pedaco of e.arquivo.createReadStream()) { const p = n + pedaco.length > e.tamanho ? pedaco.subarray(0, e.tamanho - n) : pedaco; n += p.length; if (p.length) await escrever(p); }
+    if (n < (e.tamanho ?? 0)) await escrever(Buffer.alloc(e.tamanho - n)); // arquivo mudou no meio: completa para não quebrar o .tar
+    const pad = (512 - ((e.tamanho ?? e.dados.length) % 512)) % 512; if (pad) await escrever(Buffer.alloc(pad));
+  }
+  if (renomeados.length) { const d = Buffer.from('nome no pacote\tnome original\n' + renomeados.join('\n') + '\n'); await escrever(cabecalho(entradas[0].nome.split('/')[0] + '/_nomes-longos/LISTA.tsv', d.length)); await escrever(d); const pad = (512 - d.length % 512) % 512; if (pad) await escrever(Buffer.alloc(pad)); }
+  await escrever(Buffer.alloc(1024)); gz.end(); await fim;
+  const [meta] = await destino.getMetadata(); return +meta.size;
+}
+// envio ao Drive em partes (o arquivo sai do bucket em fluxo; partes de 32 MB)
+async function enviarDriveDoBucket(pasta, nome, arquivo, tamanho) {
+  const ini = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,webViewLink,size`, {
+    method: 'POST', headers: { Authorization: `Bearer ${await token(DRIVE)}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/gzip', 'X-Upload-Content-Length': String(tamanho) },
+    body: JSON.stringify({ name: nome, parents: [pasta] })
+  });
+  if (!ini.ok) { const txt = await ini.text(); if (/storage quota/i.test(txt)) throw new HttpsError('failed-precondition', 'A pasta precisa estar num Drive compartilhado.'); throw new HttpsError('internal', 'Drive (início do envio) ' + ini.status + ': ' + txt.slice(0, 200)); }
+  const url = ini.headers.get('location'), PARTE = 32 * 1024 * 1024;
+  let buf = [], tam = 0, off = 0, resposta = null;
+  const mandar = async () => {
+    const corpo = Buffer.concat(buf), fimB = off + corpo.length - 1;
+    const r = await fetch(url, { method: 'PUT', headers: { 'Content-Length': String(corpo.length), 'Content-Range': `bytes ${off}-${fimB}/${tamanho}` }, body: corpo });
+    if (r.status === 308) { off = fimB + 1; buf = []; tam = 0; return; }
+    if (!r.ok) throw new HttpsError('internal', 'Drive (envio) ' + r.status + ': ' + (await r.text()).slice(0, 200));
+    resposta = await r.json(); // a última parte pode coincidir com o fim de uma parte de 32 MB
+  };
+  for await (const pedaco of arquivo.createReadStream()) {
+    buf.push(pedaco); tam += pedaco.length;
+    while (tam >= PARTE) { const tudo = Buffer.concat(buf); buf = [tudo.subarray(0, PARTE)]; tam = PARTE; const resto = tudo.subarray(PARTE); await mandar(); if (resto.length) { buf = [resto]; tam = resto.length; } }
+  }
+  if (!resposta) await mandar();
+  return resposta;
+}
 
-// destino "drive" (pasta configurada) ou "computador" (o arquivo fica no bucket em downloads/ e o administrador baixa pelo painel)
-async function gerarBackup(tipo, quem, destino = 'drive') {
+// destino "drive" (pasta configurada) ou "computador" (fica 7 dias no bucket e o administrador baixa por um link de 30 minutos)
+// completo: além do banco, todos os arquivos do Storage (aulas, provas, mídias da TV, biblioteca, colorir, materiais da Formação)
+async function gerarBackup(tipo, quem, destino = 'drive', completo = false) {
   const db = getFirestore(), cfg = (await db.doc('backup_config/atual').get()).data() || {};
   if (destino === 'drive' && !cfg.pasta_id) throw new HttpsError('failed-precondition', 'Escolha primeiro a pasta do Drive.');
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19), log = db.collection('backups_log').doc();
-  await log.set({ em: FieldValue.serverTimestamp(), tipo, por_uid: quem.uid || '', por_nome: quem.nome || (tipo === 'automatico' ? 'Automático' : ''), status: 'exportando', destino, pasta_nome: destino === 'drive' ? cfg.pasta_nome || '' : '' });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19), log = db.collection('backups_log').doc(), raiz = `backup-${stamp}`;
+  await log.set({ em: FieldValue.serverTimestamp(), tipo, destino, completo, por_uid: quem.uid || '', por_nome: quem.nome || (tipo === 'automatico' ? 'Automático' : ''), status: 'exportando', pasta_nome: destino === 'drive' ? cfg.pasta_nome || '' : '' });
   try {
     // 1) exportação oficial do Firestore (todas as coleções e subcoleções)
-    const prefixo = `exports/${stamp}`, t = await token();
+    const prefixo = `exports/${stamp}`;
     const op = await (await fetch(`https://firestore.googleapis.com/v1/projects/${PROJETO}/databases/(default):exportDocuments`, {
-      method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ outputUriPrefix: `gs://${BUCKET_BACKUP}/${prefixo}` })
+      method: 'POST', headers: { Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ outputUriPrefix: `gs://${BUCKET_BACKUP}/${prefixo}` })
     })).json();
     if (!op.name) throw new Error('exportação: ' + JSON.stringify(op).slice(0, 300));
     let fim = null, docs = 0;
@@ -101,39 +149,58 @@ async function gerarBackup(tipo, quem, destino = 'drive') {
       if (s.done) { if (s.error) throw new Error('exportação: ' + s.error.message); fim = s; }
     }
     if (!fim) throw new Error('exportação demorou mais que 20 minutos');
-    await log.update({ status: 'enviando', documentos: docs });
-    // 2) empacota e manda para o Drive
-    const [arqs] = await getStorage().bucket(BUCKET_BACKUP).getFiles({ prefix: prefixo + '/' });
-    const lista = [];
-    for (const f of arqs) { const [dados] = await f.download(); lista.push({ nome: `backup-${stamp}/` + f.name.slice(prefixo.length + 1), dados }); }
-    lista.push({ nome: `backup-${stamp}/LEIA-ME.txt`, dados: Buffer.from(
-      `Backup do banco do Portal do Educador 5.0 (projeto ${PROJETO})\nGerado em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Campo_Grande' })} · ${tipo} · ${docs} documentos\n\n` +
-      'Para restaurar (com o suporte técnico, primeiro num banco de teste):\n1. Descompacte este arquivo.\n2. Envie a pasta para um bucket do Google Cloud Storage.\n' +
-      `3. gcloud firestore import gs://BUCKET/backup-${stamp} --project=PROJETO_DE_DESTINO\n\nNão contém senhas (o login fica no Firebase Authentication) nem os arquivos do Storage.\n`) });
-    const gz = gzipSync(tar(lista), { level: 9 });
-    const nome = `portal-educador-backup-${stamp}.tar.gz`;
-    if (destino === 'computador') {
-      const caminho = `downloads/${nome}`;
-      await getStorage().bucket(BUCKET_BACKUP).file(caminho).save(gz, { contentType: 'application/gzip', resumable: false, metadata: { contentDisposition: `attachment; filename="${nome}"` } });
-      await log.update({ status: 'ok', bytes: gz.length, documentos: docs, caminho, nome, fim: FieldValue.serverTimestamp() });
-      return { ok: true, bytes: gz.length, documentos: docs, caminho, nome };
+    await log.update({ status: 'empacotando', documentos: docs });
+    // 2) monta o pacote: banco + (se completo) arquivos do Storage
+    const bk = getStorage().bucket(BUCKET_BACKUP), [exp] = await bk.getFiles({ prefix: prefixo + '/' });
+    const entradas = exp.map(f => ({ nome: `${raiz}/banco/` + f.name.slice(prefixo.length + 1), arquivo: f, tamanho: +f.metadata.size }));
+    let nArqs = 0, bytesArqs = 0;
+    if (completo) {
+      const [arqs] = await getStorage().bucket().getFiles();
+      arqs.filter(f => !f.name.endsWith('/')).forEach(f => { nArqs++; bytesArqs += +f.metadata.size; entradas.push({ nome: `${raiz}/arquivos/` + f.name, arquivo: f, tamanho: +f.metadata.size }); });
+      await log.update({ arquivos: nArqs, bytes_arquivos: bytesArqs });
     }
-    const f = await enviarDrive(cfg.pasta_id, nome, gz, 'application/gzip');
-    await log.update({ status: 'ok', bytes: gz.length, documentos: docs, arquivo_id: f.id || '', link: f.webViewLink || '', nome: f.name || '', fim: FieldValue.serverTimestamp() });
+    entradas.unshift({ nome: `${raiz}/LEIA-ME.txt`, dados: Buffer.from(
+      `Backup do Portal do Educador 5.0 (projeto ${PROJETO})\nGerado em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Campo_Grande' })} · ${tipo} · ${completo ? 'COMPLETO' : 'somente banco'}\n` +
+      `Banco: ${docs} documentos (pasta banco/)\n` + (completo ? `Arquivos: ${nArqs} arquivos do Storage (pasta arquivos/, mesmos caminhos do bucket)\n` : '') +
+      '\nPara restaurar o banco (com o suporte técnico, primeiro num projeto de teste):\n1. Descompacte este arquivo.\n2. Envie a pasta banco/ para um bucket do Google Cloud Storage.\n' +
+      `3. gcloud firestore import gs://BUCKET/CAMINHO/banco --project=PROJETO_DE_DESTINO\n` +
+      (completo ? '\nPara restaurar arquivos: gcloud storage cp -r arquivos/* gs://BUCKET_DE_DESTINO/\n' : '') +
+      '\nNão contém senhas (o login fica no Firebase Authentication) nem as fotos da portaria (apagadas em 15 dias por regra de privacidade).\nContém dados pessoais de alunos e professores: guarde em local protegido (LGPD).\n') });
+    const nome = `portal-educador-backup${completo ? '-completo' : ''}-${stamp}.tar.gz`, caminho = `pacotes/${nome}`;
+    const tamanho = await empacotar(entradas, bk.file(caminho), nome);
+    if (destino === 'computador') {
+      await log.update({ status: 'ok', bytes: tamanho, documentos: docs, caminho, nome, fim: FieldValue.serverTimestamp() });
+      return { ok: true, bytes: tamanho, documentos: docs, arquivos: nArqs, caminho, nome, url: await linkTemporario(caminho) };
+    }
+    await log.update({ status: 'enviando', bytes: tamanho });
+    const f = await enviarDriveDoBucket(cfg.pasta_id, nome, bk.file(caminho), tamanho);
+    await log.update({ status: 'ok', bytes: tamanho, documentos: docs, caminho, arquivo_id: f.id || '', link: f.webViewLink || '', nome, fim: FieldValue.serverTimestamp() });
     await db.doc('backup_config/atual').set({ ultimo_ok: FieldValue.serverTimestamp() }, { merge: true });
-    return { ok: true, bytes: gz.length, documentos: docs, link: f.webViewLink || '' };
+    return { ok: true, bytes: tamanho, documentos: docs, arquivos: nArqs, link: f.webViewLink || '' };
   } catch (e) {
     await log.update({ status: 'erro', erro: String(e.message || e).slice(0, 400), fim: FieldValue.serverTimestamp() }).catch(() => {});
     if (e instanceof HttpsError) throw e;
     throw new HttpsError('internal', String(e.message || e).slice(0, 300));
   }
 }
+// link assinado de 30 minutos: o navegador baixa direto do bucket, sem carregar o pacote na memória
+async function linkTemporario(caminho) {
+  const [url] = await getStorage().bucket(BUCKET_BACKUP).file(caminho).getSignedUrl({ version: 'v4', action: 'read', expires: Date.now() + 30 * 60 * 1000 });
+  return url;
+}
+// tamanho atual do Storage (para o administrador saber o peso do backup completo)
+async function tamanhoArquivos() {
+  const [arqs] = await getStorage().bucket().getFiles(); let b = 0, n = 0;
+  arqs.forEach(f => { if (!f.name.endsWith('/')) { n++; b += +f.metadata.size; } });
+  return { n, b };
+}
 
 // dados da tela: e-mail do robô (para adicionar no Drive) e a configuração atual
 export const backupInfo = onCall(OPC, async req => {
   await exigirAdmin(req);
   const cfg = (await getFirestore().doc('backup_config/atual').get()).data() || {};
-  return { email: await emailRobo(), pasta_id: cfg.pasta_id || '', pasta_nome: cfg.pasta_nome || '', automatico: cfg.automatico !== false };
+  const arq = await tamanhoArquivos().catch(() => ({ n: 0, b: 0 }));
+  return { email: await emailRobo(), pasta_id: cfg.pasta_id || '', pasta_nome: cfg.pasta_nome || '', automatico: cfg.automatico !== false, arquivos: arq.n, bytes_arquivos: arq.b };
 });
 
 // salva a pasta escolhida: testa gravando e apagando um arquivo pequeno antes de aceitar
@@ -150,7 +217,18 @@ export const backupConfigurar = onCall(OPC, async req => {
 
 export const backupAgora = onCall({ ...OPC, timeoutSeconds: 1800, memory: '1GiB' }, async req => {
   const u = await exigirAdmin(req);
-  return gerarBackup('manual', { uid: req.auth.uid, nome: u.nome || '' }, (req.data || {}).destino === 'computador' ? 'computador' : 'drive');
+  const d = req.data || {};
+  return gerarBackup('manual', { uid: req.auth.uid, nome: u.nome || '' }, d.destino === 'computador' ? 'computador' : 'drive', d.completo === true);
+});
+
+// novo link de download (30 min) para um pacote ainda guardado (até 7 dias)
+export const backupLink = onCall(OPC, async req => {
+  await exigirAdmin(req);
+  const c = String((req.data || {}).caminho || '');
+  if (!/^(pacotes|downloads)\/portal-educador-backup[\w.-]+\.tar\.gz$/.test(c)) throw new HttpsError('invalid-argument', 'Arquivo inválido.');
+  const [existe] = await getStorage().bucket(BUCKET_BACKUP).file(c).exists();
+  if (!existe) throw new HttpsError('not-found', 'Esse arquivo já foi apagado (fica guardado 7 dias).');
+  return { url: await linkTemporario(c) };
 });
 
 // automático: todo domingo às 3h23 (horário de MS), se estiver ligado

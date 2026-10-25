@@ -2437,6 +2437,8 @@
     const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
     return (await httpsCallable(getFunctions(app, "southamerica-east1"), nome, { timeout:tempo || 70000 })(dados || {})).data;
   }
+  const tamTxt = b => b > 1073741824 ? (b/1073741824).toFixed(1).replace(".",",")+" GB" : b > 1048576 ? Math.round(b/1048576)+" MB" : Math.max(1, Math.round((b||0)/1024))+" KB";
+  const bkCompleto = () => { const r = document.querySelector('input[name="bkTipo"]:checked'); return !!r && r.value === "completo"; };
   async function renderPnBackup(){
     $("pnAtual").textContent = "Backup do banco de dados";
     $("pnCorpo").innerHTML = '<div class="pn-card"><div class="empty">Carregando...</div></div>';
@@ -2446,6 +2448,9 @@
     const i = bk.info, link = i.pasta_id ? "https://drive.google.com/drive/folders/"+i.pasta_id : "";
     $("pnCorpo").innerHTML =
       '<div class="pn-card"><h3>💾 Fazer backup agora</h3><p class="pn-cf">Copia o banco inteiro do Portal (usuários, escolas, turmas, alunos, chamadas, notas, fichas, telas da TV) num arquivo <b>.tar.gz</b> com a data no nome. Leva de 1 a 5 minutos. Mande para a pasta do Google Drive escolhida abaixo ou baixe no computador para guardar num HD externo ou no servidor da empresa.</p>'+
+        '<div class="bk-linha" style="gap:18px"><span class="pn-cf" style="font-weight:700">O que copiar:</span>'+
+          '<label class="pn-cf" style="display:flex;gap:6px;align-items:center"><input type="radio" name="bkTipo" value="banco" checked> Só o banco (cerca de 1 a 2 MB, 1 minuto)</label>'+
+          '<label class="pn-cf" style="display:flex;gap:6px;align-items:center"><input type="radio" name="bkTipo" value="completo"> Completo: banco + '+fmt(i.arquivos || 0)+' arquivos ('+tamTxt(i.bytes_arquivos || 0)+', de 5 a 15 minutos)</label></div>'+
         '<div class="bk-linha"><button class="btn btn-primary" style="width:auto;padding:13px 24px" data-action="bk-agora" id="bkAgora">💾 Fazer backup agora</button>'+
         '<button class="btn btn-ghost" style="width:auto;padding:12px 20px" data-action="bk-baixar-novo" id="bkBaixar">⬇️ Baixar no computador</button>'+
         (i.pasta_id ? '<span class="pn-cf">Drive: <a href="'+escapeAttr(link)+'" target="_blank" rel="noopener"><b>'+escapeHtml(i.pasta_nome || "pasta do Drive")+' ↗</b></a></span>' : '<span class="pn-cf" style="color:#9c2a20">Escolha a pasta do Drive primeiro.</span>')+'</div>'+
@@ -2459,7 +2464,7 @@
         '<button class="btn btn-ghost" style="width:auto;padding:11px 18px" data-action="bk-salvar">Salvar e testar</button></div>'+
         '<p class="pn-nota">Ao salvar, o Portal grava e apaga um arquivo de teste na pasta para ter certeza de que o backup vai funcionar.</p></div>'+
       '<div class="pn-card" style="margin-top:12px"><h3>🗂️ Últimos backups</h3><div id="bkLista"><div class="empty">Carregando...</div></div>'+
-        '<p class="pn-nota">Não entram no backup: senhas (o login fica no Firebase Authentication), os arquivos enviados pelos professores, o acervo da biblioteca e as fotos da portaria (estas somem em 15 dias por regra de privacidade). Para restaurar, fale com o suporte técnico: a restauração é feita primeiro num banco de teste e conferida antes de substituir o banco real.</p></div>';
+        '<p class="pn-nota">O backup "só o banco" não leva os arquivos (aulas da Lousa, provas, mídias da TV, biblioteca, colorir, materiais da Formação): para isso, use o completo. Nenhum dos dois leva senhas (o login fica no Firebase Authentication) nem as fotos da portaria (somem em 15 dias por regra de privacidade). Para restaurar, fale com o suporte técnico: a restauração é feita primeiro num banco de teste e conferida antes de substituir o banco real.</p></div>';
     ouvirBackups();
   }
   function ouvirBackups(){
@@ -2468,10 +2473,10 @@
       bk.ouvinte = onSnapshot(query(collection(db, "backups_log"), orderBy("em", "desc"), limit(15)), sn => {
         if(!$("bkLista")){ bk.ouvinte(); bk.ouvinte = null; return; }
         const l = []; sn.forEach(d => l.push(d.data()));
-        const ST = { exportando:["Copiando o banco...","rodando"], enviando:["Enviando ao Drive...","rodando"], ok:["Concluído","ok"], erro:["Falhou","erro"] };
+        const ST = { exportando:["Copiando o banco...","rodando"], empacotando:["Montando o pacote...","rodando"], enviando:["Enviando ao Drive...","rodando"], ok:["Concluído","ok"], erro:["Falhou","erro"] };
         const tam = b => b > 1048576 ? (b/1048576).toFixed(1).replace(".",",")+" MB" : Math.max(1, Math.round((b||0)/1024))+" KB";
         $("bkLista").innerHTML = l.length ? '<table class="bk-tab"><thead><tr><th>Quando</th><th>Tipo</th><th>Por</th><th>Situação</th><th>Documentos</th><th>Tamanho</th><th></th></tr></thead><tbody>'+
-          l.map(x => { const st = ST[x.status] || [x.status,""]; return '<tr><td>'+(x.em && x.em.toDate ? escapeHtml(x.em.toDate().toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})) : "agora")+'</td><td>'+(x.tipo === "automatico" ? "Automático" : "Manual")+(x.destino === "computador" ? " · computador" : "")+'</td><td>'+escapeHtml(x.por_nome || "–")+
+          l.map(x => { const st = ST[x.status] || [x.status,""]; return '<tr><td>'+(x.em && x.em.toDate ? escapeHtml(x.em.toDate().toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})) : "agora")+'</td><td>'+(x.tipo === "automatico" ? "Automático" : "Manual")+(x.completo ? " · <b>completo</b>" : "")+(x.destino === "computador" ? " · computador" : "")+'</td><td>'+escapeHtml(x.por_nome || "–")+
             '</td><td><span class="bk-st '+st[1]+'">'+escapeHtml(st[0])+'</span>'+(x.erro ? '<div class="pn-nota" style="margin:4px 0 0;color:#9c2a20">'+escapeHtml(x.erro)+'</div>' : "")+'</td><td>'+(x.documentos ? fmt(x.documentos) : "–")+'</td><td>'+(x.bytes ? tam(x.bytes) : "–")+'</td><td>'+
             (x.link ? '<a href="'+escapeAttr(x.link)+'" target="_blank" rel="noopener" style="font-weight:700;color:#2671AB">Abrir no Drive ↗</a>' :
               x.caminho && x.em && x.em.toMillis && Date.now() - x.em.toMillis() < 6.5 * 86400000 ? '<a href="#" data-action="bk-baixar" data-arg="'+escapeAttr(x.caminho)+'" style="font-weight:700;color:#2671AB">⬇️ Baixar</a>' : x.caminho ? '<span class="pn-nota">expirou (7 dias)</span>' : "")+'</td></tr>'; }).join("")+'</tbody></table>'
@@ -2486,16 +2491,14 @@
     catch(e){ toast(e.message || "Não foi possível usar essa pasta.", true); btn.disabled = false; btn.textContent = "Salvar e testar"; }
   }
   // backup para baixar: a função deixa o pacote em downloads/ (bucket em São Paulo, só o administrador lê) e o navegador salva
-  async function baixarArquivoBackup(caminho){
-    const { getStorage:gs, ref:rf, getBlob } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js");
-    const blob = await getBlob(rf(gs(app, "gs://portal-educador-5-backups"), caminho));
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = caminho.split("/").pop(); document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
-  }
+  // o pacote fica 7 dias no bucket de São Paulo; o download é por link assinado de 30 minutos (o navegador baixa direto, sem carregar na memória)
+  function abrirDownload(url){ const a = document.createElement("a"); a.href = url; a.rel = "noopener"; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1000); }
+  async function baixarArquivoBackup(caminho){ abrirDownload((await chamarBackup("backupLink", { caminho })).url); }
   async function backupParaComputador(btn){
-    if(!confirm("Gerar agora uma cópia completa do banco para baixar neste computador?\n\nO arquivo tem dados de alunos: guarde num lugar seguro (HD externo com senha ou servidor da empresa).")) return;
-    btn.disabled = true; btn.textContent = "Gerando o arquivo...";
-    try{ const r = await chamarBackup("backupAgora", { destino:"computador" }, 1800000); btn.textContent = "Baixando..."; await baixarArquivoBackup(r.caminho); toast("Backup baixado: "+fmt(r.documentos)+" documentos. Veja na pasta Downloads."); }
+    const completo = bkCompleto();
+    if(!confirm("Gerar agora o backup "+(completo ? "COMPLETO (banco + todos os arquivos)" : "do banco")+" para baixar neste computador?\n\nO arquivo tem dados de alunos: guarde num lugar seguro (HD externo com senha ou servidor da empresa).")) return;
+    btn.disabled = true; btn.textContent = completo ? "Gerando o pacote completo (pode levar 15 min)..." : "Gerando o arquivo...";
+    try{ const r = await chamarBackup("backupAgora", { destino:"computador", completo }, 1800000); abrirDownload(r.url); toast("Backup pronto: "+fmt(r.documentos)+" documentos"+(r.arquivos ? " e "+fmt(r.arquivos)+" arquivos" : "")+" ("+tamTxt(r.bytes)+"). O download começou."); }
     catch(e){ toast(e.message || "Não foi possível gerar o arquivo.", true); }
     if($("bkBaixar")){ btn.disabled = false; btn.textContent = "⬇️ Baixar no computador"; }
   }
@@ -2503,9 +2506,10 @@
     // sem pasta ainda: leva direto ao campo do link, em vez de um botão que não responde
     if(!bk.info || !bk.info.pasta_id){ toast("Primeiro escolha a pasta do Google Drive: siga os 3 passos e clique em Salvar e testar.", true);
       const c = $("bkLink"); if(c){ c.scrollIntoView({ behavior:"smooth", block:"center" }); c.focus(); c.style.boxShadow = "0 0 0 3px rgba(229,83,61,.35)"; setTimeout(() => { c.style.boxShadow = ""; }, 3000); } return; }
-    if(!confirm("Fazer agora uma cópia completa do banco para o Google Drive?")) return;
+    const completo = bkCompleto();
+    if(!confirm("Fazer agora o backup "+(completo ? "COMPLETO (banco + todos os arquivos)" : "do banco")+" para o Google Drive?")) return;
     btn.disabled = true; btn.textContent = "Fazendo backup... (pode fechar esta tela)";
-    try{ const r = await chamarBackup("backupAgora", {}, 1800000); toast("Backup concluído: "+fmt(r.documentos)+" documentos."); }
+    try{ const r = await chamarBackup("backupAgora", { completo }, 1800000); toast("Backup concluído: "+fmt(r.documentos)+" documentos"+(r.arquivos ? " e "+fmt(r.arquivos)+" arquivos" : "")+"."); }
     catch(e){ toast(e.message || "O backup falhou. Veja o motivo na lista.", true); }
     if($("bkAgora")){ btn.disabled = false; btn.textContent = "💾 Fazer backup agora"; }
   }
