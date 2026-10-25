@@ -82,6 +82,12 @@ await t('biblioteca estantes do aluno', assertSucceeds(getDocs(query(collection(
 await t('biblioteca inteira', assertFails(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true)))));
 await t('aluno le historias educativas', assertSucceeds(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true), where('secao', '==', 'historias')))));
 await t('aluno nao le livro do professor', assertFails(getDoc(doc(al, 'biblioteca/l1'))));
+const rl = (l, r, extra = {}) => ({ livro_id: l, uid: 'alu', reacao: r, perfil: 'aluno', em: serverTimestamp(), ...extra });
+await t('aluno reage a historia', assertSucceeds(setDoc(doc(al, 'biblioteca_reacoes/h1_alu'), rl('h1', 'amei'))));
+await t('aluno troca reacao da historia', assertSucceeds(setDoc(doc(al, 'biblioteca_reacoes/h1_alu'), rl('h1', 'gostei'))));
+await t('aluno nao reage a livro do professor', assertFails(setDoc(doc(al, 'biblioteca_reacoes/l1_alu'), rl('l1', 'amei'))));
+await t('reacao de livro em nome de outro', assertFails(setDoc(doc(al, 'biblioteca_reacoes/h1_outro'), rl('h1', 'amei', { uid: 'outro' }))));
+await t('aluno nao lista reacoes de livros', assertFails(getDocs(query(collection(al, 'biblioteca_reacoes'), where('livro_id', '==', 'h1')))));
 await t('livro adulto', assertFails(getDoc(doc(al, 'biblioteca/b1'))));
 await t('gibi', assertSucceeds(getDoc(doc(al, 'biblioteca/b2'))));
 await t('colorir', assertSucceeds(getDoc(doc(al, 'colorir/c1'))));

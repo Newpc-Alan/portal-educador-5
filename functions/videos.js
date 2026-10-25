@@ -21,3 +21,19 @@ export const contarReacaoVideo = onDocumentWritten({ region: REGIAO_FIRESTORE, d
   try { await getFirestore().doc('videos/' + videoId).update(mudar); }
   catch (e) { console.warn('reacao: video', videoId, e.code || e.message); }
 });
+
+// O mesmo para os títulos da Biblioteca (Histórias Educativas e demais estantes): biblioteca_reacoes/{livro}_{uid} -> biblioteca/{id}.reacoes
+export const contarReacaoLivro = onDocumentWritten({ region: REGIAO_FIRESTORE, document: 'biblioteca_reacoes/{id}', maxInstances: 10 }, async (event) => {
+  const antes = event.data.before.exists ? event.data.before.data() : null;
+  const depois = event.data.after.exists ? event.data.after.data() : null;
+  const r0 = antes && VALIDAS.includes(antes.reacao) ? antes.reacao : null;
+  const r1 = depois && VALIDAS.includes(depois.reacao) ? depois.reacao : null;
+  if (r0 === r1) return;
+  const livroId = (depois || antes).livro_id;
+  if (!livroId || typeof livroId !== 'string') return;
+  const mudar = {};
+  if (r0) mudar['reacoes.' + r0] = FieldValue.increment(-1);
+  if (r1) mudar['reacoes.' + r1] = FieldValue.increment(1);
+  try { await getFirestore().doc('biblioteca/' + livroId).update(mudar); }
+  catch (e) { console.warn('reacao: livro', livroId, e.code || e.message); }
+});

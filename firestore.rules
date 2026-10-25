@@ -703,6 +703,21 @@ service cloud.firestore {
       allow write: if admin();
     }
     match /biblioteca_triagem/{id} { allow read, write: if admin(); }
+    // reação aos títulos da Biblioteca: um voto por pessoa ({livro}_{uid}); quem pode ler o título pode reagir
+    function podeLerLivro(l) {
+      return admin() || (naoAluno() && l.publicado == true)
+        || (alunoPode("biblioteca") && l.publicado == true && l.secao in ["aprender", "gibiteca"])
+        || (alunoPode("historias") && l.publicado == true && l.secao == "historias");
+    }
+    match /biblioteca_reacoes/{id} {
+      allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);
+      allow create, update: if logado() && id == novo().livro_id + "_" + request.auth.uid
+        && novo().keys().hasOnly(["livro_id", "uid", "reacao", "perfil", "em"])
+        && novo().uid == request.auth.uid && novo().reacao in ["amei", "gostei", "meh", "nao"] && novo().perfil == eu().perfil
+        && exists(/databases/$(database)/documents/biblioteca/$(novo().livro_id))
+        && podeLerLivro(get(/databases/$(database)/documents/biblioteca/$(novo().livro_id)).data);
+      allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
+    }
     // ================= DESENHOS PARA COLORIR =================
     match /colorir/{id} {
       allow read: if admin() || (naoAluno() && resource.data.publicado == true) || (alunoPode("colorir") && resource.data.publicado == true);

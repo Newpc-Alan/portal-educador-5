@@ -88,6 +88,21 @@ button{cursor:pointer}
 .l-nav.ant{left:12px}.l-nav.prox{right:12px}
 .l-baixo{display:flex;align-items:center;gap:10px;padding:8px 14px;background:#0c2338;color:#fff;font-size:.8rem}
 .l-baixo input[type=range]{flex:1;accent-color:var(--lima)}
+.l-reac{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.l-reac span{font-size:.74rem;color:#c9d8e6;margin-right:2px;white-space:nowrap}
+.l-car{display:inline-flex;align-items:center;gap:3px;border:1.5px solid transparent;background:rgba(255,255,255,.08);color:#fff;border-radius:999px;padding:3px 9px;font-size:1.15rem;line-height:1;cursor:pointer}
+.l-car small{font-size:.7rem;font-weight:700;color:#c9d8e6}
+.l-car.on{border-color:var(--lima);background:rgba(141,198,63,.22)}
+.l-car:hover{background:rgba(255,255,255,.16)}
+@media (max-width:600px){.l-baixo{flex-wrap:wrap}.l-reac{width:100%;justify-content:center}}
+/* administrador: novas histórias */
+.adm-hist{border:1.5px dashed var(--azul-2);background:#f3f9fe}
+.adm-grid{display:grid;grid-template-columns:2fr 1.2fr 1fr;gap:10px;margin-top:10px}
+@media (max-width:760px){.adm-grid{grid-template-columns:1fr}}
+.adm-lista{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:10px}
+.adm-lista td{padding:7px 6px;border-top:1px solid var(--line);vertical-align:middle}
+.adm-lista td:last-child{text-align:right;white-space:nowrap}
+.adm-lista img{width:44px;height:30px;object-fit:cover;border-radius:5px;vertical-align:middle;margin-right:8px}
 .l-ocupado{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;background:rgba(27,38,50,.7);z-index:4}
 /* audio */
 .p-cap{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px}
@@ -169,7 +184,7 @@ button{cursor:pointer}
     <button class="tb" data-action="tela-cheia" title="Tela cheia">⛶</button>
   </div>
   <div class="l-area" id="lArea"></div>
-  <div class="l-baixo" id="lBaixo"><span id="lPag">1 / 1</span><input type="range" id="lSlide" min="1" max="1" value="1" aria-label="Página"></div>
+  <div class="l-baixo" id="lBaixo"><span id="lPag">1 / 1</span><input type="range" id="lSlide" min="1" max="1" value="1" aria-label="Página"><div class="l-reac" id="lReac"></div></div>
 </section>
 <div class="mb" id="mb"><div class="modal" role="dialog" aria-modal="true"><div class="modal-h"><b id="mTit"></b><button class="fechar" data-action="fechar-modal" aria-label="Fechar">×</button></div><div class="modal-b" id="mCorpo"></div><div class="modal-f" id="mPe"></div></div></div>
 <div class="toast" id="toast"></div>
@@ -179,11 +194,12 @@ button{cursor:pointer}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, updateDoc, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1");
+const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1"), st = getStorage(app);
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const SECOES = { livros:{ e:"📕", nome:"Livros", d:"Leitura para a turma e para o professor" }, audiolivros:{ e:"🎧", nome:"Audiolivros", d:"Ouça na sala ou em casa" },
@@ -256,7 +272,7 @@ function telaAcervo(){
     (autoresDaSecao().length ? '<select id="fAutor" aria-label="Autor"><option value="">Todos os autores</option>' + autoresDaSecao().map(([a, q]) => '<option value="' + esc(a) + '"' + (E.autor === a ? " selected" : "") + '>' + esc(a) + ' (' + q + ')</option>').join("") + '</select>' : "") +
     '<select id="fOrdem" aria-label="Ordenar"><option value="titulo">Título (A a Z)</option><option value="autor"' + (E.ordem === "autor" ? " selected" : "") + '>Autor</option><option value="recentes"' + (E.ordem === "recentes" ? " selected" : "") + '>Chegaram agora</option></select>' +
     '<button class="btn ' + (E.soFav ? "btn-pri" : "btn-gh") + '" data-action="so-fav">⭐ Favoritos</button>' + (E.secao !== "todas" && !MODO_HIST ? '<button class="btn btn-gh" data-action="secao" data-arg="todas">Ver todas as seções</button>' : "") + '</div>' +
-    '<p class="contagem" id="contagem"></p><div class="grade" id="grade"></div><div class="mais-wrap" id="mais"></div>';
+    '<p class="contagem" id="contagem"></p><div class="grade" id="grade"></div><div class="mais-wrap" id="mais"></div>' + painelAdminHist();
   $("fBusca").addEventListener("input", e => { E.busca = e.target.value; E.mostrar = LOTE; clearTimeout(E._t); E._t = setTimeout(desenharGrade, 200); });
   if($("fAutor")) $("fAutor").addEventListener("change", e => { E.autor = e.target.value; E.mostrar = LOTE; desenharGrade(); });
   $("fOrdem").addEventListener("change", e => { E.ordem = e.target.value; E.mostrar = LOTE; desenharGrade(); });
@@ -294,6 +310,8 @@ function abrir(id){
   L.livro = l; L.pdf = null; L.imgs = null; L.urls.forEach(u => URL.revokeObjectURL(u)); L.urls = [];
   $("lTit").textContent = l.titulo; $("lSec").textContent = SECOES[l.secao]?.nome || "Livro";
   $("lBaixo").hidden = false; $("bDuas").hidden = false;
+  RE.livro = l; RE.minha = ""; desenharReacao();
+  getDoc(doc(db, "biblioteca_reacoes", l.id + "_" + E.user.uid)).then(s => { if(RE.livro === l && s.exists()){ RE.minha = s.data().reacao || ""; desenharReacao(); } }).catch(() => {});
   $("leitor").hidden = false; document.body.style.overflow = "hidden";
   $("lArea").innerHTML = '<div class="l-ocupado"><div><div class="giro"></div>Abrindo...</div></div>';
   const p = progresso()[l.id];
@@ -337,6 +355,95 @@ async function mostrar(){
   $("lPag").textContent = pags.join("-") + " / " + L.total; $("lSlide").value = L.pag;
   salvarProg(L.livro.id, { pos:L.pag, total:L.total });
 }
+/* ---------- reação ao título (4 carinhas, como nos vídeos): um voto por pessoa, pode trocar; a contagem vem do servidor ---------- */
+const REACOES = [["amei", "😍", "Amei"], ["gostei", "🙂", "Gostei"], ["meh", "😐", "Mais ou menos"], ["nao", "🙁", "Não gostei"]];
+const RE = { livro:null, minha:"", salvando:false };
+function desenharReacao(){
+  const el = $("lReac"); if(!el || !RE.livro) return;
+  const c = RE.livro.reacoes || {}, ver = E.u.perfil === "admin" || !!RE.minha;
+  el.innerHTML = '<span>' + (RE.minha ? "Obrigado!" : "O que achou?") + '</span>' + REACOES.map(([k, ico, rot]) =>
+    '<button class="l-car' + (RE.minha === k ? " on" : "") + '" data-action="reagir" data-arg="' + k + '" title="' + rot + '" aria-label="' + rot + '" aria-pressed="' + (RE.minha === k) + '">' + ico + (ver ? '<small>' + (c[k] || 0) + '</small>' : "") + '</button>').join("");
+}
+async function reagir(k){
+  const l = RE.livro; if(!l || RE.salvando || !REACOES.some(r => r[0] === k) || RE.minha === k) return;
+  const antes = RE.minha; RE.salvando = true; RE.minha = k;
+  l.reacoes = { ...(l.reacoes || {}) }; if(antes) l.reacoes[antes] = Math.max(0, (l.reacoes[antes] || 0) - 1); l.reacoes[k] = (l.reacoes[k] || 0) + 1;
+  desenharReacao();
+  try{ await setDoc(doc(db, "biblioteca_reacoes", l.id + "_" + E.user.uid), { livro_id:l.id, uid:E.user.uid, reacao:k, perfil:E.u.perfil, em:serverTimestamp() }); }
+  catch(e){ console.warn("reagir:", e.code); toast("Não foi possível registrar agora.", true); RE.minha = antes; }
+  finally{ RE.salvando = false; desenharReacao(); }
+}
+const reacoesTxt = l => { const c = l.reacoes || {}; const t = REACOES.filter(r => c[r[0]]).map(r => r[1] + " " + c[r[0]]); return t.length ? t.join(" · ") : "sem reações"; };
+
+/* ---------- administrador: novas histórias (PDF do computador), ocultar e excluir ---------- */
+const NH = { arq:null, enviando:false };
+function painelAdminHist(){
+  if(!MODO_HIST || !E.admin) return "";
+  const l = E.livros.slice().sort((a, b) => ms(b.criado_em) - ms(a.criado_em));
+  return '<div class="card adm-hist"><div class="h2">➕ Nova história</div><p class="sub">Escolha o PDF no computador. A capa sai da primeira página. A história entra publicada para professores e alunos.</p>' +
+    '<div class="adm-grid"><div class="campo"><label for="nhTit">Título</label><input id="nhTit" maxlength="160" placeholder="Ex.: Por que o céu é azul"></div>' +
+    '<div class="campo"><label for="nhAut">Autor</label><input id="nhAut" maxlength="120" value="Portal do Educador"></div>' +
+    '<div class="campo"><label for="nhLic">Licença</label><select id="nhLic">' + Object.entries(LIC).map(([k, v]) => '<option value="' + k + '"' + (k === "propria" ? " selected" : "") + '>' + esc(v) + '</option>').join("") + '</select></div></div>' +
+    '<div class="adm-grid" style="grid-template-columns:2fr 2.2fr"><div class="campo"><label for="nhArq">Arquivo PDF (até 100 MB)</label><input type="file" id="nhArq" accept="application/pdf"></div>' +
+    '<div class="campo"><label for="nhObs">Comprovação da licença</label><input id="nhObs" maxlength="400" value="Material próprio da NEWPC"></div></div>' +
+    '<div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-pri" data-action="nh-enviar" id="nhEnviar">Publicar história</button><span class="sub" id="nhProg"></span></div>' +
+    '<details style="margin-top:14px"><summary class="sub" style="cursor:pointer;font-weight:700">Gerenciar as ' + l.length + ' histórias (reações, ocultar, excluir)</summary><table class="adm-lista"><tbody>' +
+    l.map(x => '<tr><td>' + (x.capa_url ? '<img src="' + esc(x.capa_url) + '" alt="">' : "") + '<b>' + esc(x.titulo) + '</b>' + (x.publicado ? "" : ' <span class="sub">(oculta)</span>') + '</td><td class="sub">' + reacoesTxt(x) + '</td>' +
+      '<td><button class="btn btn-gh" data-action="nh-pub" data-arg="' + esc(x.id) + '">' + (x.publicado ? "Ocultar" : "Publicar") + '</button> <button class="btn btn-gh" data-action="nh-del" data-arg="' + esc(x.id) + '" style="color:#C2362C">Excluir</button></td></tr>').join("") +
+    '</tbody></table></details></div>';
+}
+async function capaDoPdf(arq){
+  const doc1 = await pdfjsLib.getDocument({ data:await arq.arrayBuffer() }).promise;
+  const pg = await doc1.getPage(1), v = pg.getViewport({ scale:1 }), esc2 = 900 / Math.max(v.width, v.height), vp = pg.getViewport({ scale:esc2 });
+  const c = document.createElement("canvas"); c.width = vp.width; c.height = vp.height;
+  await pg.render({ canvasContext:c.getContext("2d"), viewport:vp }).promise;
+  return new Promise(ok => c.toBlob(ok, "image/jpeg", 0.82));
+}
+function subir(caminho, blob, tipo, aoProgresso){
+  return new Promise((ok, falha) => {
+    const t = uploadBytesResumable(sRef(st, caminho), blob, { contentType:tipo, cacheControl:"public, max-age=31536000" });
+    t.on("state_changed", s => aoProgresso && aoProgresso(s.bytesTransferred / s.totalBytes), falha, async () => ok(await getDownloadURL(t.snapshot.ref)));
+  });
+}
+async function publicarHistoria(){
+  if(NH.enviando) return;
+  const tit = $("nhTit").value.trim(), aut = $("nhAut").value.trim(), lic = $("nhLic").value, obs = $("nhObs").value.trim(), arq = $("nhArq").files[0];
+  if(!tit){ toast("Escreva o título.", true); $("nhTit").focus(); return; }
+  if(!arq || !/pdf$/i.test(arq.type || arq.name)){ toast("Escolha o arquivo PDF.", true); return; }
+  if(arq.size > 100 * 1024 * 1024){ toast("PDF acima de 100 MB.", true); return; }
+  if(obs.length < 10){ toast("Descreva a licença (pelo menos 10 letras).", true); return; }
+  if(E.livros.some(x => semAc(x.titulo) === semAc(tit)) && !confirm("Já existe uma história com esse título. Publicar mesmo assim?")) return;
+  NH.enviando = true; $("nhEnviar").disabled = true;
+  const id = "h" + Date.now().toString(36), base = "biblioteca/historias/" + id, prog = t => { $("nhProg").textContent = t; };
+  try{
+    prog("Gerando a capa...");
+    const capa = await capaDoPdf(arq).catch(() => null);
+    const capa_url = capa ? await subir(base + "-capa.jpg", capa, "image/jpeg") : "";
+    const url = await subir(base + ".pdf", arq, "application/pdf", p => prog("Enviando o PDF... " + Math.round(p * 100) + "%"));
+    await setDoc(doc(db, "biblioteca", id), { titulo:tit.slice(0, 160), autor:aut.slice(0, 120), etapa:"", secao:"historias", tipo:"pdf", url, paginas:[], capa_url, tamanho:arq.size,
+      publicado:true, licenca:{ tipo:lic, obs:obs.slice(0, 400), aprovado_por:E.user.uid, aprovado_nome:String(E.u.nome || "").slice(0, 120), aprovado_em:serverTimestamp() }, criado_em:serverTimestamp() });
+    toast("História publicada."); prog("");
+    await carregar(); telaAcervo();
+  }catch(e){ console.warn(e); toast("Não foi possível publicar (" + (e.code || e.message || "erro") + ").", true); prog(""); }
+  finally{ NH.enviando = false; if($("nhEnviar")) $("nhEnviar").disabled = false; }
+}
+async function alternarPublicada(id){
+  const l = E.livros.find(x => x.id === id); if(!l) return;
+  try{ await updateDoc(doc(db, "biblioteca", id), { publicado:!l.publicado }); l.publicado = !l.publicado; telaAcervo(); toast(l.publicado ? "Publicada." : "Ocultada de professores e alunos."); }
+  catch(e){ toast("Não foi possível alterar.", true); }
+}
+// caminho no Storage a partir do link de download (…/o/<caminho>?alt=media)
+const caminhoDe = u => { const m = /\/o\/([^?]+)/.exec(u || ""); return m ? decodeURIComponent(m[1]) : ""; };
+async function excluirHistoria(id){
+  const l = E.livros.find(x => x.id === id); if(!l) return;
+  if(!confirm("Excluir \"" + l.titulo + "\"? Sai da estante e o arquivo é apagado do Portal (a cópia no Drive, se houver, continua lá).")) return;
+  try{
+    await deleteDoc(doc(db, "biblioteca", id));
+    for(const u of [l.url, l.capa_url]){ const c = caminhoDe(u); if(c.startsWith("biblioteca/historias/")) await deleteObject(sRef(st, c)).catch(() => {}); }
+    E.livros = E.livros.filter(x => x.id !== id); telaAcervo(); toast("História excluída.");
+  }catch(e){ console.warn(e); toast("Não foi possível excluir.", true); }
+}
+
 function virar(d){ const passo = L.duas ? 2 : 1; const n = L.pag + d * passo; if(n < 1 || n > L.total) return; L.pag = n; mostrar(); }
 function fecharLeitor(){
   if(A.el){ A.el.pause(); salvarAudio(); A.el = null; }
@@ -482,6 +589,10 @@ document.addEventListener("click", async e => {
   else if(a === "mais"){ E.mostrar += LOTE * 2; desenharGrade(); }
   else if(a === "abrir") abrir(arg);
   else if(a === "fechar-leitor") fecharLeitor();
+  else if(a === "reagir") reagir(arg);
+  else if(a === "nh-enviar") publicarHistoria();
+  else if(a === "nh-pub") alternarPublicada(arg);
+  else if(a === "nh-del") excluirHistoria(arg);
   else if(a === "pag") virar(+arg);
   else if(a === "duas"){ L.duas = !L.duas; if(L.duas && L.pag % 2 === 0) L.pag--; mostrar(); }
   else if(a === "zoom-l"){ L.zoom = !L.zoom; if(L.livro && !A.el) mostrar(); }
