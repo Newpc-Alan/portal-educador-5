@@ -308,6 +308,8 @@
   /* ===== Painel ===== */
   .pn-topo{ display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px }
   .pn-topo .count{ font-size:13px;color:var(--muted) }
+  .pn-topo-acoes{ display:flex;align-items:center;gap:12px;flex-wrap:wrap }
+  .pn-demo{ display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap }
   .pn-tiles{ display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px }
   .pn-tiles-2{ grid-template-columns:repeat(6,1fr) }
   .pn-tile{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:2px }
@@ -2296,11 +2298,19 @@
 
   // Painel em 3 abas: pessoas e uso (o que ja existia), conteudo do Portal, infraestrutura (Firebase e Cloudflare)
   const pn = { aba:"geral" };
+  // Rede Modelo NEWPC (demonstração): fica fora dos números do administrador, a não ser que ele peça para incluir
+  const DEMO_MUNI = "demo-rede", DEMO_NOME = "Rede Modelo NEWPC";
+  const ehDemo = x => !!x && (x.demo === true || x.municipio_id === DEMO_MUNI || x.municipio === DEMO_NOME || String(x.uid || x.id || "").startsWith("demo-"));
+  let verDemo = (() => { try{ return localStorage.getItem("pde_admin_ver_demo") === "1"; }catch(e){ return false; } })();
+  const semDemo = l => verDemo ? l : l.filter(x => !ehDemo(x));
+  const chaveDemo = acao => '<label class="pn-demo" title="A Rede Modelo NEWPC é a rede fictícia de demonstração"><input type="checkbox" data-action="'+acao+'"'+(verDemo ? " checked" : "")+'> Incluir Rede Modelo</label>';
+  function trocarDemo(el){ verDemo = !!el.checked; try{ localStorage.setItem("pde_admin_ver_demo", verDemo ? "1" : "0"); }catch(e){} }
+
   async function renderPainel(){
     const abas = [["geral","Pessoas e uso"],["conteudo","Conteúdo e participação"],["infra","Infraestrutura e custos"],["backup","💾 Backup"]];
     $("conteudo").innerHTML = '<div class="pn-abas" role="tablist">'+abas.map(([k,l]) => '<button class="usr-tab'+(pn.aba===k?" on":"")+'" role="tab" aria-selected="'+(pn.aba===k)+'" data-action="painel-aba" data-arg="'+k+'">'+l+'</button>').join("")+'</div>'+
       '<div class="pn-topo"><span class="count" id="pnAtual">Carregando dados da plataforma...</span>'+
-      '<button class="btn btn-ghost btn-add" data-action="painel-atualizar">Atualizar</button></div><div id="pnCorpo"><div class="empty">Carregando...</div></div>';
+      '<span class="pn-topo-acoes">'+chaveDemo("painel-demo")+'<button class="btn btn-ghost btn-add" data-action="painel-atualizar">Atualizar</button></span></div><div id="pnCorpo"><div class="empty">Carregando...</div></div>';
     if(pn.aba === "conteudo"){ renderPnConteudo(); return; }
     if(pn.aba === "infra"){ renderPnInfra(); return; }
     if(pn.aba === "backup"){ renderPnBackup(); return; }
@@ -2314,8 +2324,9 @@
         cacheMunicipios.length ? Promise.resolve() : carregarCacheMunicipios(),
         getDocs(collection(db,"acervo")).then(sn => { acvAdm.itens = []; sn.forEach(d => acvAdm.itens.push({ id:d.id, ...d.data() })); }).catch(() => {})
       ]);
-      const us = []; snapU.forEach(d => us.push({ id:d.id, ...d.data() }));
-      const acTodos = []; if(snapA) snapA.forEach(d => acTodos.push(d.data()));
+      let us = []; snapU.forEach(d => us.push({ id:d.id, ...d.data() }));
+      let acTodos = []; if(snapA) snapA.forEach(d => acTodos.push(d.data()));
+      us = semDemo(us); acTodos = semDemo(acTodos);
       const ac = acTodos.filter(a => a.perfil !== "aluno");
       const acAl = acTodos.filter(a => a.perfil === "aluno");
       painelAlunos = { total:nAlunos, hoje:new Set(acAl.filter(a => a.dia === hojeISO()).map(a => a.uid)).size,
@@ -2429,9 +2440,18 @@
       avaliacoes:conta("avaliacoes"), respostas:conta("respostas"), maestro:conta("maestro_aulas"),
       triPend:conta("biblioteca_triagem", where("status","==","pendente"))
     };
+    // sem a Rede Modelo: desconta o que é da demonstração (tudo dela tem id começando com "demo-" ou demo: true)
+    const faixaDemo = campo => [where(campo, ">=", "demo-"), where(campo, "<", "demo.")];
+    const D = verDemo ? {} : {
+      municipios:conta("municipios", where("demo","==",true)), escolas:conta("escolas", where("municipio_id","==",DEMO_MUNI)),
+      turmas:conta("turmas", where("demo","==",true)), professores:conta("usuarios", where("perfil","==","professor"), where("demo","==",true)),
+      avaliacoes:conta("avaliacoes", where("demo","==",true)), respostas:conta("respostas", ...faixaDemo("turma_id"))
+    };
     const ks = Object.keys(P), vs = await Promise.all(Object.values(P));
+    const dks = Object.keys(D), dvs = await Promise.all(Object.values(D));
     if(pn.aba !== "conteudo" || !$("pnCorpo")) return;
     const n = {}; ks.forEach((k, i) => n[k] = vs[i]);
+    dks.forEach((k, i) => { if(n[k] !== null && dvs[i]) n[k] = Math.max(0, n[k] - dvs[i]); });
     const v = (x) => x === null ? "-" : fmt(x);
     const tile = (rot, val, sub, cls) => '<div class="pn-tile'+(cls?" "+cls:"")+'"><span class="pn-rot">'+rot+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
     const alerta = (x) => x ? "pn-alerta" : "";
@@ -3285,7 +3305,7 @@
     $("conteudo").innerHTML =
       '<div class="usr-top">'+
         '<div class="usr-tabs" id="usrTabs"></div>'+
-        '<input class="usr-busca" id="usrBusca" type="search" placeholder="Buscar por nome ou e-mail" aria-label="Buscar usuário">'+
+        '<input class="usr-busca" id="usrBusca" type="search" placeholder="Buscar por nome ou e-mail" aria-label="Buscar usuário">'+chaveDemo("usr-demo")+
       '</div>'+
       '<div class="tablewrap" id="usrTabela"><div class="empty"><div class="ei">\u{1F465}</div>Carregando cadastros...</div></div>';
     $("usrBusca").value = usr.busca;
@@ -3307,6 +3327,7 @@
       usr.nAlunos = nAl || 0; usr.alunos = null;
       usr.lista = [];
       snap.forEach(d => usr.lista.push({ id:d.id, ...d.data() }));
+      usr.listaTodos = usr.lista;
       // pre-cadastrados que ainda nao fizeram o primeiro acesso
       const emails = new Set(usr.lista.map(u => String(u.email||"").toLowerCase()));
       usr.pre = [];
@@ -3342,15 +3363,17 @@
     b.textContent = n;
   }
 
+  const PERFIS_GESTAO = ["gestor", "secretaria", "secretaria_escolar", "portaria"];
   function desenharUsuarios(){
     if(!usr.carregado) return;
+    usr.lista = usr.listaTodos ? semDemo(usr.listaTodos) : usr.lista;
     const cont = { aguardando:0, ativo:0, avulsos:0, vencendo:0, inativo:0, gestao:0, todos:usr.lista.length, precad:usr.pre.length, alunos:(usr.nAlunos||0) + (usr.preAlunos||[]).length };
     usr.lista.forEach(u => { const s=situacao(u);
       if(s==="pendente"||s==="semvinculo") cont.aguardando++;
       else if(s==="teste"||s==="avulso") cont.avulsos++;
       else if(s==="ativo"||s==="inativo") cont[s]++;
-      if(venceEmBreve(u)) cont.vencendo++; if(u.perfil === "gestor" || u.perfil === "secretaria") cont.gestao++; });
-    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Institucionais"], ["avulsos","Avulsos e teste"], ["vencendo","Vencendo / vencidas"], ["inativo","Desativados"], ["gestao","Gestores e secretarias"], ["todos","Todos"], ["precad","Pré-cadastrados"], ["alunos","Alunos"] ];
+      if(venceEmBreve(u)) cont.vencendo++; if(PERFIS_GESTAO.includes(u.perfil)) cont.gestao++; });
+    const abas = [ ["aguardando","Aguardando aprovação"], ["ativo","Institucionais"], ["avulsos","Avulsos e teste"], ["vencendo","Vencendo / vencidas"], ["inativo","Desativados"], ["gestao","Gestão e equipe"], ["todos","Todos"], ["precad","Pré-cadastrados"], ["alunos","Alunos"] ];
     $("usrTabs").innerHTML = abas.map(([k,l]) =>
       '<button class="usr-tab'+(usr.filtro===k?" on":"")+((k==="aguardando"||k==="vencendo")&&cont[k]?" alerta":"")+'" data-action="usr-filtro" data-filtro="'+k+'">'+l+'<b>'+cont[k]+'</b></button>').join("");
 
@@ -3364,7 +3387,7 @@
       if(usr.filtro==="avulsos" && !(s==="teste"||s==="avulso")) return false;
       if(usr.filtro==="vencendo" && !venceEmBreve(u)) return false;
       if(usr.filtro==="inativo" && s!=="inativo") return false;
-      if(usr.filtro==="gestao" && u.perfil!=="gestor" && u.perfil!=="secretaria") return false;
+      if(usr.filtro==="gestao" && !PERFIS_GESTAO.includes(u.perfil)) return false;
       if(termo && !semAcento((u.nome||"")+" "+(u.email||"")).includes(termo)) return false;
       return true;
     });
@@ -3670,6 +3693,8 @@
     else if(acao === "mod-salvar"){ salvarModulos(); }
     else if(acao === "ini-abrir"){ registrarModulo(el.dataset.mod); }
     else if(acao === "painel-atualizar"){ pn.forcar = true; renderPainel(); }
+    else if(acao === "painel-demo"){ trocarDemo(el); renderPainel(); }
+    else if(acao === "usr-demo"){ trocarDemo(el); desenharUsuarios(); }
     else if(acao === "painel-aba"){ pn.aba = el.dataset.arg; renderPainel(); }
     else if(acao === "bk-salvar"){ salvarBackupDestino(el); }
     else if(acao === "bk-agora"){ fazerBackupAgora(el); }
