@@ -609,6 +609,14 @@ await t('pesquisa: professor nao le respostas dos outros', assertFails(getDocs(q
 await t('pesquisa: admin le respostas', assertSucceeds(getDocs(query(collection(ctx('adm'), 'pesquisa_respostas'), where('noticia_id', '==', 'pq2')))));
 await t('pesquisa: professor nao apaga a resposta', assertFails(deleteDoc(doc(prof, 'pesquisa_respostas/pq1_prof'))));
 
+// datas comemorativas
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(doc(f, 'datas_comemorativas/d1'), { nome: 'Dia da Árvore', publicado: true }); await setDoc(doc(f, 'datas_comemorativas/d2'), { nome: 'Rascunho', publicado: false }); });
+await t('datas: professor le publicadas', assertSucceeds(getDocs(query(collection(prof, 'datas_comemorativas'), where('publicado', '==', true)))));
+await t('datas: professor nao le rascunho', assertFails(getDoc(doc(prof, 'datas_comemorativas/d2'))));
+await t('datas: professor nao edita', assertFails(updateDoc(doc(prof, 'datas_comemorativas/d1'), { kit: [] })));
+await t('datas: admin cria', assertSucceeds(setDoc(doc(ctx('adm'), 'datas_comemorativas/d3'), { nome: 'x', publicado: true })));
+await t('datas: anonimo nao le', assertFails(getDoc(doc(anon, 'datas_comemorativas/d1'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
