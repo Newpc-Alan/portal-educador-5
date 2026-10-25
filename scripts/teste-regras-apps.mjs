@@ -567,6 +567,19 @@ await t('secretaria de educacao importada entra', assertSucceeds(setDoc(doc(secI
 await t('sem pre-cadastro nao vira gestor', assertFails(setDoc(doc(falso, 'usuarios/gfalso'), { nome: 'X', email: 'gfalso@x.com', perfil: 'gestor', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1'], turmas_ids: [] })));
 await t('gestor nao cria pre-cadastro de gestor', assertFails(setDoc(doc(gest1, 'pre_cadastros/novo-g@x.com'), conv('novo-g@x.com', 'gestor'))));
 
+// vídeos: reação do professor e agenda do destaque
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(doc(f, 'videos/vp'), { publicado: true, para_alunos: false }); await setDoc(doc(f, 'videos/vr'), { publicado: false }); });
+await t('professor reage ao video', assertSucceeds(setDoc(doc(prof, 'videos_reacoes/vp_prof'), { video_id: 'vp', uid: 'prof', reacao: 'gostei', perfil: 'professor', em: serverTimestamp() })));
+await t('professor nao reage a rascunho', assertFails(setDoc(doc(prof, 'videos_reacoes/vr_prof'), { video_id: 'vr', uid: 'prof', reacao: 'gostei', perfil: 'professor', em: serverTimestamp() })));
+await t('licenca vencida nao reage', assertFails(setDoc(doc(venc, 'videos_reacoes/vp_venc'), { video_id: 'vp', uid: 'venc', reacao: 'gostei', perfil: 'professor', em: serverTimestamp() })));
+await t('outro professor nao le minha reacao', assertFails(getDoc(doc(prof2, 'videos_reacoes/vp_prof'))));
+await t('admin le as reacoes', assertSucceeds(getDocs(query(collection(ctx('adm'), 'videos_reacoes'), where('video_id', '==', 'vp')))));
+await t('admin agenda destaque', assertSucceeds(setDoc(doc(ctx('adm'), 'videos_destaque/2026-10-27'), { dia: '2026-10-27', video_id: 'vp', atualizado_em: serverTimestamp(), atualizado_por: 'adm' })));
+await t('destaque com dia trocado', assertFails(setDoc(doc(ctx('adm'), 'videos_destaque/2026-10-28'), { dia: '2026-10-29', video_id: 'vp' })));
+await t('professor nao agenda destaque', assertFails(setDoc(doc(prof, 'videos_destaque/2026-10-27'), { dia: '2026-10-27', video_id: 'vp' })));
+await t('professor le o destaque', assertSucceeds(getDoc(doc(prof, 'videos_destaque/2026-10-27'))));
+await t('admin volta o dia para automatico', assertSucceeds(deleteDoc(doc(ctx('adm'), 'videos_destaque/2026-10-27'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
