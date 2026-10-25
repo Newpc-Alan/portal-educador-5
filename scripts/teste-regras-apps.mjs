@@ -31,7 +31,9 @@ await env.withSecurityRulesDisabled(async (c) => {
 
 let ok = 0, falhas = 0;
 async function t(nome, p) { try { await p; ok++; } catch (e) { falhas++; console.log('FALHA:', nome, '-', String(e.message || e).slice(0, 160)); } }
-const ctx = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore();
+// um contexto por usuário: criar de novo o mesmo usuário reconfigura um Firestore já iniciado
+const _ctx = {};
+const ctx = uid => _ctx[uid] || (_ctx[uid] = env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore());
 const anon = env.unauthenticatedContext().firestore();
 const prof = ctx('prof'), prof2 = ctx('prof2'), gest = ctx('gest'), sec = ctx('sec'), alu = ctx('alu'), venc = ctx('venc');
 
