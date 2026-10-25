@@ -112,6 +112,10 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
   .cab-impressao{display:block !important;margin-bottom:10px}
 }
 .cab-impressao{display:none}
+.fi-fam{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0 4px;background:#fbfdff;font-size:.86rem}
+.fi-fam .lin{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0}.fi-fam .lin b{min-width:0}
+.fi-fam a.zap{background:#128C3F;color:#fff;border-radius:8px;padding:4px 10px;font-weight:800;text-decoration:none;font-size:.78rem}
+.fi-fam a.tel{border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-weight:700;text-decoration:none;color:var(--ink);font-size:.78rem}
 .tab tr.ficha{cursor:pointer}.tab tr.ficha:hover td{background:#f7fbff}
 
 /* mural de chegada (TV da diretoria) */
@@ -451,6 +455,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
     <div class="cab"><div><div class="h2" id="fiNome" style="font-size:1.2rem"></div><div class="sub" id="fiTurma"></div></div>
       <button class="x nao-imprime" data-action="fechar-ficha" aria-label="Fechar">✕</button></div>
     <div class="fi-dados" id="fiDados"></div>
+    <div class="fi-fam" id="fiFam"></div>
     <div class="barra nao-imprime"><span class="sub" style="font-weight:800">Situação</span><div class="seg" id="fiStatus"></div></div>
     <div class="sub nao-imprime" style="margin-top:6px;display:none" id="fiStatusTxt"></div>
     <div class="card nao-imprime" style="margin:14px 0 0;padding:14px;background:#fbfdff">
@@ -753,6 +758,22 @@ function abrirFicha(turmaId, id){
   $("fiRetorno").value = ""; $("fiTexto").value = ""; $("fiMotivo").value = (E.casos[id] && E.casos[id].registros.slice(-1)[0] || {}).motivo || ""; $("fiPara").value = ""; $("fiTipo").value = "ligacao";
   $("fiAudit").hidden = !podePortaria();
   desenharFicha(); $("ficha").hidden = false;
+  familiaFicha(id, x.r);
+}
+// contatos da família (cadastro Famílias): WhatsApp com mensagem pronta e ligação, direto da ficha
+const telBonito = d => !d ? "" : "(" + d.slice(2, 4) + ") " + (d.length === 13 ? d.slice(4, 9) + "-" + d.slice(9) : d.slice(4, 8) + "-" + d.slice(8));
+async function familiaFicha(id, r){
+  const box = $("fiFam"); box.innerHTML = '<span class="sub">Carregando contatos da família...</span>';
+  let f = null; try{ const s = await getDoc(doc(db, "alunos_familia", id)); f = s.exists() ? s.data() : null; }catch(e){ console.warn("familia:", e.code); }
+  if(!E.ficha || E.ficha.id !== id) return;
+  const editar = '<a class="tel" href="/apps/familias/" target="_blank" rel="noopener">✏️ ' + (f ? "Editar contatos" : "Cadastrar contatos") + "</a>";
+  if(!f || !(f.responsaveis || []).length){ box.innerHTML = '<div class="lin"><b>👨‍👩‍👧 Família</b><span class="sub">Nenhum contato cadastrado para este aluno.</span><span style="flex:1"></span>' + editar + "</div>"; return; }
+  const aluno = (E.ficha.a.n || "").split(" ")[0], escola = E.escolasNomes[r.escola_id] || "escola";
+  box.innerHTML = '<div class="lin"><b>👨‍👩‍👧 Família</b>' + (f.aceita_avisos === false ? '<span class="pill cinza">não quer receber avisos</span>' : "") + '<span style="flex:1"></span>' + editar + "</div>" +
+    f.responsaveis.map(p => { const msg = "Olá, " + p.nome.split(" ")[0] + "! Aqui é da " + escola + ". Sentimos falta de " + aluno + " nas aulas dos últimos dias. Está tudo bem? Podemos conversar?";
+      return '<div class="lin"><b>' + esc(p.nome) + '</b><span class="sub">' + esc(p.parentesco || "") + (p.principal ? " · principal" : "") + "</span><span style=\"flex:1\"></span>" +
+        (p.whatsapp ? '<a class="zap" data-zap="1" href="https://wa.me/' + esc(p.whatsapp) + "?text=" + encodeURIComponent(msg) + '" target="_blank" rel="noopener">💬 WhatsApp</a><a class="tel" href="tel:+' + esc(p.whatsapp) + '">📞 ' + esc(telBonito(p.whatsapp)) + "</a>" : "") +
+        (p.email ? '<a class="tel" href="mailto:' + esc(p.email) + '">✉️ ' + esc(p.email) + "</a>" : "") + "</div>"; }).join("") + (f.obs ? '<div class="sub" style="margin-top:4px">📝 ' + esc(f.obs) + "</div>" : "");
 }
 function desenharFicha(){
   const f = E.ficha, a = f.a, r = f.r, c = E.casos[f.id], min = r.freq_min || 75;
@@ -1344,7 +1365,8 @@ const ACOES = {
   "tela-cheia":() => { if(document.fullscreenElement) document.exitFullscreen(); else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); },
   filtro:a => { E.filtro = a; document.querySelectorAll("#segFiltro button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenharBusca(); }
 };
-document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg || "", b); });
+document.addEventListener("click", ev => { if(ev.target.closest("[data-zap]") && $("fiTipo")) $("fiTipo").value = "whatsapp";
+  const b = ev.target.closest("[data-action]"); if(!b) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg || "", b); });
 document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selTurma") abrirTurma(t.value);

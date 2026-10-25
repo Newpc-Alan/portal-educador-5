@@ -448,6 +448,18 @@ await t('administrador le o backup', assertSucceeds(getDoc(doc(ctx('adm'), 'back
 await t('gestor nao le o backup', assertFails(getDoc(doc(gest1, 'backup_config/atual'))));
 await t('administrador nao grava log de backup pelo app', assertFails(setDoc(doc(ctx('adm'), 'backups_log/b2'), { status: 'ok' })));
 
+// familia do aluno (contatos dos responsaveis)
+const fam = { aluno_id: 'al1', aluno_nome: 'Ana', escola_id: 'e1', municipio_id: 'm1', turma_id: 'tf1', turma_nome: '5A', responsaveis: [{ nome: 'Maria', parentesco: 'Mãe', whatsapp: '5567999990000', email: '', principal: true }], aceita_avisos: true, atualizado_em: serverTimestamp(), atualizado_por: 'gest1', atualizado_por_nome: 'G' };
+await t('gestor grava familia do aluno da escola', assertSucceeds(setDoc(doc(gest1, 'alunos_familia/al1'), fam)));
+await t('gestor le familias da escola', assertSucceeds(getDocs(query(collection(gest1, 'alunos_familia'), where('escola_id', '==', 'e1')))));
+await t('professor nao le telefone da familia', assertFails(getDoc(doc(prof, 'alunos_familia/al1'))));
+await t('gestor de outra escola nao le familia', assertFails(getDoc(doc(gest, 'alunos_familia/al1'))));
+await t('familia com escola trocada', assertFails(setDoc(doc(gest1, 'alunos_familia/al1'), { ...fam, escola_id: 'e2' })));
+await t('familia com id de outro aluno', assertFails(setDoc(doc(gest1, 'alunos_familia/outro'), fam)));
+await t('familia com mais de 4 responsaveis', assertFails(setDoc(doc(gest1, 'alunos_familia/al1'), { ...fam, responsaveis: [1, 2, 3, 4, 5].map(() => fam.responsaveis[0]) })));
+await t('familia com campo extra', assertFails(setDoc(doc(gest1, 'alunos_familia/al1'), { ...fam, cpf: '1' })));
+await t('secretaria nao le familia', assertFails(getDoc(doc(sec, 'alunos_familia/al1'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
