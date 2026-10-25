@@ -409,6 +409,25 @@ await t('ficha em nome de outro', assertFails(setDoc(doc(gest1, IDB), { ...caso,
 await t('ficha com campo extra', assertFails(setDoc(doc(gest1, IDB), { ...caso, x: 1 })));
 await t('gestor nao apaga ficha', assertFails(deleteDoc(doc(gest1, IDB))));
 
+// Portaria: entradas pela carteirinha (gestor da escola) e leitura de turmas e alunos pelo gestor
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'alunos/al1'), { nome: 'Ana', turma_id: 'tf1', escola_id: 'e1' }); });
+const ent = { escola_id: 'e1', municipio_id: 'm1', turma_id: 'tf1', turma_nome: '5A', dia: '2026-10-26', ano: 2026, entradas: { al1: '07:12' }, nomes: { al1: 'Ana' }, atualizado_em: serverTimestamp() };
+const IDE = 'freq_entradas/tf1_2026-10-26';
+await t('gestor registra entrada', assertSucceeds(setDoc(doc(gest1, IDE), ent)));
+await t('gestor registra outra entrada (merge)', assertSucceeds(setDoc(doc(gest1, IDE), { ...ent, entradas: { al2: '07:13' }, nomes: { al2: 'Bia' } }, { merge: true })));
+await t('gestor le entradas do dia', assertSucceeds(getDocs(query(collection(gest1, 'freq_entradas'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('gestor de outra escola nao registra', assertFails(setDoc(doc(gest, IDE), ent, { merge: true })));
+await t('gestor de outra escola nao le entradas', assertFails(getDoc(doc(gest, IDE))));
+await t('professor nao registra entrada', assertFails(setDoc(doc(prof, 'freq_entradas/tf1_2026-10-27'), { ...ent, dia: '2026-10-27' })));
+await t('secretaria nao le entradas com nomes', assertFails(getDoc(doc(sec, IDE))));
+await t('entrada com id diferente', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-28'), ent)));
+await t('entrada com escola trocada', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-29'), { ...ent, dia: '2026-10-29', escola_id: 'e2' })));
+await t('entrada com campo extra', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-30'), { ...ent, dia: '2026-10-30', x: 1 })));
+await t('gestor le turmas da escola', assertSucceeds(getDocs(query(collection(gest1, 'turmas'), where('escola_id', '==', 'e1')))));
+await t('gestor le alunos da escola', assertSucceeds(getDocs(query(collection(gest1, 'alunos'), where('escola_id', '==', 'e1')))));
+await t('gestor nao le alunos de outra escola', assertFails(getDocs(query(collection(gest, 'alunos'), where('escola_id', '==', 'e1')))));
+await t('gestor nao cria aluno', assertFails(setDoc(doc(gest1, 'alunos/novo1'), { nome: 'X', turma_id: 'tf1', escola_id: 'e1', criado_por: 'gest1' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

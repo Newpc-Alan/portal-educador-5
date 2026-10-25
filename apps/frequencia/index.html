@@ -8,6 +8,9 @@
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
 <style>
 :root{
   --escuro:#071621; --escuro-2:#0c2338; --azul:#2671AB; --azul-2:#2E9BD6; --lima:#8DC63F; --verde:#5A9420;
@@ -167,6 +170,35 @@ body.tv .mu-topo{top:0;padding-top:6px}body.tv .mu-cont{top:62px;padding-bottom:
 .mu-legenda .bola{pointer-events:none;--b:46px}
 .mu-legenda .bola span{display:none}
 
+/* portaria (totem) */
+#s-portaria.on{display:block}
+.porta{background:radial-gradient(900px 500px at 100% 0%,rgba(141,198,63,.12),transparent 60%),#071621;color:#eef5fb;border-radius:18px;padding:16px 18px 18px;min-height:78vh;display:flex;flex-direction:column}
+body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
+.po-corpo{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,1fr);gap:16px;flex:1}
+.po-cam{position:relative;background:#0c2338;border:2px dashed #24476a;border-radius:18px;min-height:360px;overflow:hidden;display:grid;place-items:center}
+.po-cam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.po-mira{position:relative;text-align:center;padding:20px;max-width:440px}
+.po-mira b{display:block;font-size:1.9rem;margin-bottom:6px}
+.po-mira span{color:#9fb6cc;font-size:.95rem}
+.po-cam.vivo .po-mira{position:absolute;bottom:14px;left:14px;right:14px;max-width:none;background:rgba(7,22,33,.7);border-radius:12px;padding:10px}
+.po-cam.vivo .po-mira b{font-size:1.1rem;margin:0}.po-cam.vivo .po-mira span{display:none}
+.po-flash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;z-index:3;animation:flash .25s ease-out}
+.po-flash.ok{background:#5A9420}.po-flash.ja{background:#2671AB}.po-flash.erro{background:#C2362C}
+.po-flash i{font-style:normal;font-size:4rem;line-height:1}
+.po-flash b{font-size:2.4rem;line-height:1.15;margin:8px 0 4px}
+.po-flash span{font-size:1.2rem;opacity:.92}
+@keyframes flash{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+.po-lado{display:flex;flex-direction:column;gap:10px;min-width:0}
+.po-lado .mu-cont{margin:0}
+.po-lista{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:8px;display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow:auto}
+.po-lista div{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,.04);font-size:.9rem}
+.po-lista div u{width:34px;height:34px;flex:none;border-radius:50%;display:grid;place-items:center;text-decoration:none;font-weight:800;font-size:.8rem;background:hsl(var(--h) 60% 45%)}
+.po-lista div b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.po-lista div small{color:#9fb6cc;white-space:nowrap}
+.po-rod{color:#6f8aa5;font-size:.78rem;margin-top:10px}
+@media (max-width:760px){ .po-corpo{grid-template-columns:1fr} .po-cam{min-height:300px} }
+.bola.fora i{outline:3px dashed #F9A825;outline-offset:3px;border-radius:50%}
+
 /* ficha de busca ativa */
 .fundo{position:fixed;inset:0;background:rgba(7,22,33,.55);z-index:80;display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto}
 .modal{background:#fff;border-radius:18px;max-width:720px;width:100%;padding:20px 22px;box-shadow:0 30px 60px -20px rgba(7,22,33,.6)}
@@ -201,6 +233,8 @@ body.tv .mu-topo{top:0;padding-top:6px}body.tv .mu-cont{top:62px;padding-bottom:
       <button class="tb" data-action="ir" data-arg="historico" id="tabHist">🗂️ Histórico</button>
       <button class="tb" data-action="ir" data-arg="busca" id="tabBusca">🔎 Busca ativa</button>
       <button class="tb" data-action="ir" data-arg="mural" id="tabMural" hidden>📺 Mural de chegada</button>
+      <button class="tb" data-action="ir" data-arg="portaria" id="tabPortaria" hidden>🚪 Portaria</button>
+      <button class="tb" data-action="ir" data-arg="carteirinhas" id="tabCart" hidden>🪪 Carteirinhas</button>
       <a class="tb lima" href="/gestao/">← Gestão</a>
     </div>
     <div class="status" id="status"></div>
@@ -264,7 +298,46 @@ body.tv .mu-topo{top:0;padding-top:6px}body.tv .mu-cont{top:62px;padding-bottom:
         <span class="bola cinza falta r1" style="--h:140"><i><u>AB</u></i></span> Faltou hoje
         <span class="bola cinza falta r2" style="--h:140"><i><u>AB</u></i></span> 2 dias seguidos
         <span class="bola cinza falta r3" style="--h:140"><i><u>AB</u></i></span> 3 dias ou mais · 📋 em acompanhamento
+        <span class="bola fora" style="--h:140"><i><u>AB</u></i></span> Entrou na escola e está como falta na chamada
       </div>
+    </div>
+  </section>
+
+  <section class="sec" id="s-portaria">
+    <div class="porta" id="porta">
+      <div class="mu-topo">
+        <div class="t"><small>Entrada da escola · Portal do Educador</small><b id="poTit">Portaria</b></div>
+        <select class="mu-sel" id="poEscola" hidden aria-label="Escola"></select>
+        <div class="mu-relogio" id="poRelogio"></div>
+        <button class="mu-btn" data-action="po-camera" id="poBtnCam">📷 Ligar câmera</button>
+        <button class="mu-btn" data-action="tela-cheia">⛶ Tela cheia</button>
+      </div>
+      <div class="po-corpo">
+        <div class="po-cam">
+          <video id="poVideo" playsinline muted hidden></video>
+          <div class="po-mira" id="poMira"><b>Aproxime a carteirinha</b><span id="poDica">Ligue a câmera ou use o leitor de código. O leitor USB funciona direto, sem clicar em nada.</span></div>
+          <div class="po-flash" id="poFlash" hidden></div>
+        </div>
+        <div class="po-lado">
+          <div class="mu-cont" id="poCont"></div>
+          <div class="po-lista" id="poLista"></div>
+        </div>
+      </div>
+      <p class="po-rod" id="poRod"></p>
+    </div>
+  </section>
+
+  <section class="sec" id="s-carteirinhas">
+    <div class="card">
+      <div class="h2">🪪 Carteirinhas com QR</div>
+      <p class="sub" style="margin:2px 0 12px">Dez por folha A4, no tamanho de cartão de crédito, com o brasão do município, o nome e a turma. O aluno mostra o QR na entrada e a escola registra a chegada na hora. O QR não tem dados pessoais, só um código interno.</p>
+      <div class="barra">
+        <label class="campo" style="min-width:220px" id="caEscolaBox" hidden>Escola<select class="sel" id="caEscola"></select></label>
+        <label class="campo" style="flex:1;min-width:220px">Turma<select class="sel" id="caTurma"></select></label>
+        <button class="btn btn-pri" data-action="ca-pdf" data-arg="turma">📄 PDF da turma</button>
+        <button class="btn btn-gh" data-action="ca-pdf" data-arg="todas">📚 Todas as turmas</button>
+      </div>
+      <div class="sub" id="caInfo" style="margin-top:10px"></div>
     </div>
   </section>
 
@@ -350,18 +423,20 @@ const dataBr = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "–";
 const dataLonga = d => SEMANA[new Date(d + "T12:00:00").getDay()] + ", " + dataBr(d) + "/" + d.slice(0, 4);
 const pct = v => v === null || v === undefined ? "–" : String(Math.round(v * 10) / 10).replace(".", ",") + "%";
 const E = { user:null, u:null, admin:false, sim:"", gestor:false, aba:"chamada", turmas:[], turma:null, alunos:[], aulas:1, faltas:{}, just:{}, existe:false, sujo:false,
-  cal:null, calChave:"", resumos:[], filtro:"alerta", hist:[], escolasNomes:{}, casos:{}, ficha:null, muEscola:"", muAntes:{}, muOuvintes:[], muModo:"auto", muTurma:"" };
+  cal:null, calChave:"", resumos:[], filtro:"alerta", hist:[], escolasNomes:{}, casos:{}, ficha:null, muEscola:"", muAntes:{}, muOuvintes:[], muModo:"auto", muTurma:"", muEntradas:{}, base:{ escola:"", turmas:[], alunos:{} }, poFila:[], poUlt:{} };
 
 /* ===================== abas ===================== */
 function ir(aba){
   E.aba = aba;
-  [["chamada", "tabChamada"], ["historico", "tabHist"], ["busca", "tabBusca"], ["mural", "tabMural"]].forEach(([a, b]) => $(b).classList.toggle("on", a === aba));
+  [["chamada", "tabChamada"], ["historico", "tabHist"], ["busca", "tabBusca"], ["mural", "tabMural"], ["portaria", "tabPortaria"], ["carteirinhas", "tabCart"]].forEach(([a, b]) => $(b).classList.toggle("on", a === aba));
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + aba));
   $("rodape").hidden = aba !== "chamada" || !E.turma;
   try{ history.replaceState(null, "", "#" + aba); }catch(e){}
   if(aba === "historico") carregarHistorico();
   if(aba === "busca") carregarBusca();
   if(aba === "mural") abrirMural();
+  if(aba === "portaria") abrirPortaria(); else pararCamera();
+  if(aba === "carteirinhas") abrirCarteirinhas();
 }
 
 /* ===================== turmas e alunos ===================== */
@@ -576,6 +651,9 @@ const TIPOS = { ligacao:"📞 Ligação", whatsapp:"💬 WhatsApp", bilhete:"✉
 const FICHA_ATIVA = true;
 const podeMural = () => E.gestor || E.admin;
 const podeFicha = () => FICHA_ATIVA && podeMural();
+// portaria e carteirinhas ligam quando as regras de freq_entradas (e leitura de alunos pelo gestor) estiverem publicadas
+const PORTARIA_ATIVA = false;
+const podePortaria = () => PORTARIA_ATIVA && podeMural();
 const pillCaso = c => !c ? '<span class="pill cinza">Sem registro</span>' : '<span class="pill ' + STATUS[c.status][1] + '">' + STATUS[c.status][0] + "</span>" + (c.registros && c.registros.length ? ' <span class="sub">' + c.registros.length + "</span>" : "");
 async function carregarCasos(){
   E.casos = {};
@@ -661,6 +739,11 @@ function ouvirMural(){
       const outros = E.resumos.filter(r => r.escola_id !== E.muEscola); const desta = []; s.forEach(d => desta.push(d.data()));
       E.resumos = [...outros, ...desta]; desenharMural();
     }, e => console.warn("mural:", e.code)));
+    // entradas pela portaria (carteirinha): a bolinha colore antes mesmo da chamada
+    E.muOuvintes.push(onSnapshot(query(collection(db, "freq_entradas"), where("escola_id", "==", E.muEscola), where("dia", "==", hojeMS())), s => {
+      const m = {}; s.forEach(d => { const x = d.data(); Object.entries(x.entradas || {}).forEach(([id, h]) => { m[id] = { h, turma_id:x.turma_id, turma_nome:x.turma_nome, n:(x.nomes || {})[id] || "" }; }); });
+      E.muEntradas = m; desenharMural();
+    }, e => console.warn("entradas:", e.code)));
   }catch(e){ console.warn("mural:", e); }
   desenharMural();
 }
@@ -670,15 +753,22 @@ function desenharMural(){
   let tot = 0, cheg = 0, falt = 0, agu = 0, seg3 = 0;
   const antes = E.muAntes, agora = {}; E.muNovos = E.muNovos || {};
   // 1) situação de cada aluno hoje
-  const T = rs.map(r => {
+  // turmas que só têm entradas pela portaria (ainda sem chamada no ano) entram como turma provisória
+  const EN = E.muEntradas || {}, comResumo = new Set(rs.map(r => r.turma_id)), extras = {};
+  Object.entries(EN).forEach(([id, x]) => { if(comResumo.has(x.turma_id)) return; const r = extras[x.turma_id] = extras[x.turma_id] || { turma_id:x.turma_id, turma_nome:x.turma_nome, escola_id:E.muEscola, alunos:{}, dias:{} }; r.alunos[id] = { n:x.n, s:0 }; });
+  const todas = [...rs, ...Object.values(extras)].sort((a, b) => String(a.turma_nome).localeCompare(String(b.turma_nome), "pt-BR", { numeric:true }));
+  let fora = 0, portaria = 0;
+  const T = todas.map(r => {
     const dia = r.dias && r.dias[hj] ? FREQ.decodificar(r.dias[hj]) : null;
     const al = Object.entries(r.alunos || {}).filter(([, a]) => !a.t || a.t >= CAL.soma(hj, -30)).sort((x, y) => String(x[1].n).localeCompare(String(y[1].n), "pt-BR")).map(([id, a]) => {
-      const f = dia ? +(dia.f[id] || 0) : 0, faltou = !!(dia && dia.a && f >= dia.a), chegou = !!(dia && !faltou), s = faltou ? a.s : (dia ? 0 : a.s);
-      tot++; if(chegou) cheg++; else if(faltou) falt++; else agu++; if(s >= 3) seg3++;
+      const f = dia ? +(dia.f[id] || 0) : 0, faltouAula = !!(dia && dia.a && f >= dia.a), entrou = !!EN[id];
+      // entrou pela portaria mas está como falta na chamada: na escola, fora da sala
+      const foraSala = entrou && faltouAula, faltou = faltouAula && !entrou, chegou = entrou || !!(dia && !faltouAula), s = faltou ? a.s : (dia || entrou ? 0 : a.s);
+      tot++; if(chegou) cheg++; else if(faltou) falt++; else agu++; if(s >= 3) seg3++; if(foraSala) fora++; if(entrou) portaria++;
       agora[id] = chegou;
       // quem acabou de chegar pisca por alguns segundos (o mural pode ser redesenhado no meio)
       if(chegou && antes[id] === false) E.muNovos[id] = Date.now();
-      return { id, a, faltou, chegou, s, novo:chegou && E.muNovos[id] && Date.now() - E.muNovos[id] < 4000 };
+      return { id, a, faltou, chegou, s, foraSala, hora:entrou ? EN[id].h : "", novo:chegou && E.muNovos[id] && Date.now() - E.muNovos[id] < 4000 };
     });
     return { r, dia, al, presentes:al.filter(x => x.chegou).length, faltaram:al.filter(x => x.faltou).length, seg3:al.filter(x => x.s >= 3).length };
   });
@@ -687,7 +777,7 @@ function desenharMural(){
   const modo = E.muModo === "auto" || !E.muModo ? (tot > 400 ? "turmas" : "todos") : E.muModo;
   document.querySelectorAll("#muModo button").forEach(b => b.classList.toggle("on", b.dataset.arg === modo));
   const bola = (r, x) => { const anel = x.s >= 3 ? " r3" : x.s === 2 ? " r2" : x.s >= 1 ? " r1" : "", caso = E.casos[x.id] && E.casos[x.id].status !== "resolvido";
-    return '<button class="bola' + (x.chegou ? "" : " cinza") + (x.faltou ? " falta" : "") + anel + (x.novo ? " chegou" : "") + '" style="--h:' + matiz(x.id) + '" data-action="ficha" data-arg="' + esc(r.turma_id + "|" + x.id) + '" title="' + esc(x.a.n) + (x.s ? " · " + x.s + " dia(s) seguidos faltando" : "") + '"><i><u>' + esc(iniciais(x.a.n)) + "</u>" + (caso ? "<em>📋</em>" : "") + "</i><span>" + esc(String(x.a.n || "").split(" ")[0]) + "</span></button>"; };
+    return '<button class="bola' + (x.chegou ? "" : " cinza") + (x.faltou ? " falta" : "") + (x.foraSala ? " fora" : "") + anel + (x.novo ? " chegou" : "") + '" style="--h:' + matiz(x.id) + '" data-action="ficha" data-arg="' + esc(r.turma_id + "|" + x.id) + '" title="' + esc(x.a.n) + (x.hora ? " · entrou às " + x.hora : "") + (x.foraSala ? " · está como falta na chamada" : "") + (x.s ? " · " + x.s + " dia(s) seguidos faltando" : "") + '"><i><u>' + esc(iniciais(x.a.n)) + "</u>" + (caso ? "<em>📋</em>" : "") + "</i><span>" + esc(String(x.a.n || "").split(" ")[0]) + "</span></button>"; };
   const bloco = (t, lista, sub) => '<div class="mu-turma"><h3>' + esc(t.r.turma_nome || "Turma") + "<span>" + sub + '</span></h3><div class="mu-grade">' + lista.map(x => bola(t.r, x)).join("") + "</div></div>";
   const subT = t => t.dia ? t.presentes + " de " + t.al.length + " presentes" : "aguardando a chamada de hoje";
   let h = "", nB = 0;
@@ -710,7 +800,8 @@ function desenharMural(){
   }
   $("muTurmas").style.setProperty("--b", (nB > 400 ? 60 : nB > 220 ? 72 : 88) + "px");
   $("muTurmas").innerHTML = h || '<div class="vazio" style="color:#9fb6cc"><b style="color:#fff">Nenhuma turma com chamada ainda</b>Assim que os professores lançarem a chamada na Frequência, os alunos aparecem aqui.</div>';
-  $("muCont").innerHTML = '<div class="ok"><b>' + cheg.toLocaleString("pt-BR") + "</b>chegaram</div><div><b>" + agu.toLocaleString("pt-BR") + '</b>aguardando chamada</div><div class="ruim"><b>' + falt.toLocaleString("pt-BR") + '</b>faltaram hoje</div><div class="ruim"><b>' + seg3 + "</b>3 dias ou mais</div><div><b>" + tot.toLocaleString("pt-BR") + "</b>alunos · " + T.length + " turmas</div>";
+  $("muCont").innerHTML = '<div class="ok"><b>' + cheg.toLocaleString("pt-BR") + "</b>chegaram</div><div><b>" + agu.toLocaleString("pt-BR") + '</b>aguardando chamada</div><div class="ruim"><b>' + falt.toLocaleString("pt-BR") + '</b>faltaram hoje</div><div class="ruim"><b>' + seg3 + "</b>3 dias ou mais</div><div><b>" + tot.toLocaleString("pt-BR") + "</b>alunos · " + T.length + " turmas</div>" +
+    (portaria ? "<div><b>" + portaria.toLocaleString("pt-BR") + "</b>pela portaria</div>" : "") + (fora ? '<div class="ruim"><b>' + fora + "</b>na escola, fora da sala</div>" : "");
 }
 // TV em tela cheia: se o mural não cabe, desce sozinho de página em página e volta ao topo
 function carrossel(){
@@ -722,6 +813,200 @@ function carrossel(){
     if(el.scrollTop >= fim - 10) scrollTo({ top:0, behavior:"smooth" }); else scrollBy({ top:Math.round(innerHeight * 0.75), behavior:"smooth" });
   }, 12000);
 }
+
+/* ===================== escola: turmas e alunos (portaria e carteirinhas) ===================== */
+async function escolasGestao(){
+  if(E.gestor) return (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 5);
+  if(!E.turmas.length) await carregarTurmas();
+  return [...new Set(E.turmas.map(t => t.escola_id).filter(Boolean))];
+}
+async function nomesEscolas(ids){
+  await Promise.all(ids.filter(id => !E.escolasNomes[id]).map(id => getDoc(doc(db, "escolas", id)).then(s => { E.escolasNomes[id] = s.exists() ? s.data().nome : id; }).catch(() => { E.escolasNomes[id] = id; })));
+}
+function preencherEscolas(sel, ids){
+  if(!E.muEscola || !ids.includes(E.muEscola)) E.muEscola = ids[0] || "";
+  $(sel).hidden = ids.length < 2; if($(sel).parentElement.id === "caEscolaBox") $("caEscolaBox").hidden = ids.length < 2;
+  $(sel).innerHTML = ids.map(id => '<option value="' + esc(id) + '"' + (id === E.muEscola ? " selected" : "") + ">" + esc(E.escolasNomes[id] || id) + "</option>").join("");
+}
+async function carregarBase(escola){
+  if(E.base.escola === escola && E.base.turmas.length) return E.base;
+  const b = { escola, turmas:[], alunos:{} };
+  try{
+    const st = await getDocs(query(collection(db, "turmas"), where("escola_id", "==", escola)));
+    st.forEach(d => { const t = d.data(); if(t.status !== "inativa") b.turmas.push({ id:d.id, ...t }); });
+    b.turmas.sort((x, y) => String(x.nome || "").localeCompare(String(y.nome || ""), "pt-BR", { numeric:true }));
+    const ids = new Set(b.turmas.map(t => t.id));
+    const sa = await getDocs(query(collection(db, "alunos"), where("escola_id", "==", escola)));
+    sa.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo" && ids.has(a.turma_id)) b.alunos[d.id] = { id:d.id, nome:String(a.nome).trim().slice(0, 80), turma_id:a.turma_id }; });
+  }catch(e){ console.warn("base:", e.code); toast("Não foi possível carregar turmas e alunos desta escola.", true); }
+  E.base = b; return b;
+}
+
+/* ===================== carteirinhas ===================== */
+async function abrirCarteirinhas(){
+  const ids = await escolasGestao(); await nomesEscolas(ids); preencherEscolas("caEscola", ids);
+  $("caInfo").textContent = "Carregando turmas...";
+  const b = await carregarBase(E.muEscola), conta = {};
+  Object.values(b.alunos).forEach(a => { conta[a.turma_id] = (conta[a.turma_id] || 0) + 1; });
+  $("caTurma").innerHTML = b.turmas.length ? b.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + " · " + (conta[t.id] || 0) + " alunos</option>").join("") : '<option value="">Nenhuma turma cadastrada</option>';
+  $("caInfo").textContent = b.turmas.length ? Object.keys(b.alunos).length + " alunos em " + b.turmas.length + " turmas. Imprima em papel 180 g ou plastifique; o QR funciona também na tela do celular." : "";
+}
+function qrDataUrl(texto){
+  const box = document.createElement("div");
+  new window.QRCode(box, { text:texto, width:256, height:256, correctLevel:window.QRCode.CorrectLevel.M });
+  const c = box.querySelector("canvas"); return c ? c.toDataURL("image/png") : (box.querySelector("img") || {}).src;
+}
+function logoPng(url){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), t = setTimeout(() => ok(null), 7000); img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(t); try{ const k = Math.min(1, 300 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k)); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      ok({ url:c.toDataURL("image/png"), w:c.width, h:c.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(t); ok(null); }; img.src = url;
+  });
+}
+// cartão CR80 (85,6 x 54 mm), 10 por folha A4
+function cartao(pdf, x, y, al, turma, escola, muni, lg, ano){
+  const W = 85.6, H = 54;
+  pdf.setDrawColor(200, 210, 222); pdf.setLineWidth(0.2); pdf.roundedRect(x, y, W, H, 3, 3, "S");
+  pdf.setFillColor(12, 35, 56); pdf.roundedRect(x, y, W, 14, 3, 3, "F"); pdf.rect(x, y + 10, W, 4, "F");
+  let tx = x + 3.5;
+  if(lg){ pdf.setFillColor(255, 255, 255); pdf.roundedRect(x + 2.5, y + 2, 10, 10, 1.5, 1.5, "F"); const k = Math.min(8.6 / lg.w, 8.6 / lg.h); pdf.addImage(lg.url, "PNG", x + 2.5 + (10 - lg.w * k) / 2, y + 2 + (10 - lg.h * k) / 2, lg.w * k, lg.h * k); tx = x + 15; }
+  pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.2); pdf.text(pdf.splitTextToSize(escola.toUpperCase(), x + W - 3 - tx)[0] || "", tx, y + 6.2);
+  pdf.setTextColor(141, 198, 63); pdf.setFontSize(5.4); pdf.text(pdf.splitTextToSize(("Prefeitura Municipal de " + muni).toUpperCase(), x + W - 3 - tx)[0] || "", tx, y + 10.2);
+  pdf.setTextColor(107, 124, 144); pdf.setFontSize(5.5); pdf.text("ALUNO(A)", x + 4, y + 20);
+  pdf.setTextColor(12, 35, 56); pdf.setFont("helvetica", "bold"); pdf.setFontSize(10.5);
+  const nm = pdf.splitTextToSize(al.nome, 50).slice(0, 2); pdf.text(nm, x + 4, y + 24.5);
+  const yb = y + 24.5 + nm.length * 4.4 + 2;
+  pdf.setTextColor(107, 124, 144); pdf.setFont("helvetica", "bold"); pdf.setFontSize(5.5); pdf.text("TURMA", x + 4, yb); pdf.text("ANO LETIVO", x + 34, yb);
+  pdf.setTextColor(12, 35, 56); pdf.setFontSize(8.5); pdf.text(pdf.splitTextToSize(turma, 28)[0] || "", x + 4, yb + 4); pdf.text(String(ano), x + 34, yb + 4);
+  pdf.addImage(qrDataUrl("PDEA:" + al.id), "PNG", x + W - 30, y + 17, 27, 27);
+  pdf.setFillColor(141, 198, 63); pdf.rect(x + 3, y + H - 6.5, W - 6, 0.5, "F");
+  pdf.setTextColor(107, 124, 144); pdf.setFont("helvetica", "normal"); pdf.setFontSize(5.2); pdf.text("Apresente na entrada da escola · Portal do Educador", x + 4, y + H - 3);
+}
+async function gerarCarteirinhas(modo){
+  if(!window.jspdf || !window.QRCode){ toast("Carregando os componentes do PDF. Tente de novo em instantes.", true); return; }
+  const b = await carregarBase(E.muEscola), tid = $("caTurma").value;
+  const turmas = modo === "todas" ? b.turmas : b.turmas.filter(t => t.id === tid);
+  const lista = turmas.flatMap(t => Object.values(b.alunos).filter(a => a.turma_id === t.id).sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR")).map(a => ({ a, t })));
+  if(!lista.length){ toast("Nenhum aluno cadastrado " + (modo === "todas" ? "nesta escola." : "nesta turma."), true); return; }
+  $("caInfo").textContent = "Gerando " + lista.length + " carteirinhas...";
+  await new Promise(r => setTimeout(r, 30));
+  let muni = { nome:"", logo_url:"" }; try{ const m = await getDoc(doc(db, "municipios", turmas[0].municipio_id || E.u.municipio_id)); if(m.exists()) muni = m.data(); }catch(e){}
+  const lg = await logoPng(muni.logo_url), ano = +hojeMS().slice(0, 4), escola = E.escolasNomes[E.muEscola] || turmas[0].escola_nome || "";
+  const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" });
+  for(let i = 0; i < lista.length; i++){
+    const k = i % 10; if(i && !k) pdf.addPage();
+    const x = 14 + (k % 2) * (85.6 + 11), y = 8 + Math.floor(k / 2) * 56.5;
+    cartao(pdf, x, y, lista[i].a, lista[i].t.nome || "", escola, muni.nome || "", lg, ano);
+    if(i % 40 === 39){ $("caInfo").textContent = "Gerando " + (i + 1) + " de " + lista.length + "..."; await new Promise(r => setTimeout(r, 0)); }
+  }
+  window.__ultimoPdf = lista.length <= 60 ? pdf.output("datauristring") : "";
+  pdf.save("carteirinhas-" + slug(modo === "todas" ? escola : turmas[0].nome) + ".pdf");
+  $("caInfo").textContent = lista.length + " carteirinhas geradas (" + Math.ceil(lista.length / 10) + " folha(s) A4).";
+}
+
+/* ===================== portaria (totem de entrada) ===================== */
+// cada leitura grava em freq_entradas/{turma}_{dia}: um documento por turma e dia (muitas leituras por segundo sem disputa no mesmo documento)
+async function abrirPortaria(){
+  clearInterval(E.poRel); const rel = () => { $("poRelogio").textContent = new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); }; rel(); E.poRel = setInterval(rel, 15000);
+  const ids = await escolasGestao(); await nomesEscolas(ids); preencherEscolas("poEscola", ids);
+  $("poTit").textContent = "Portaria · " + (E.escolasNomes[E.muEscola] || "");
+  await carregarBase(E.muEscola);
+  $("poRod").textContent = Object.keys(E.base.alunos).length + " alunos cadastrados nesta escola. A entrada só marca a chegada: a frequência oficial continua sendo a chamada do professor.";
+  ouvirEntradas();
+  try{ E.poFila = JSON.parse(localStorage.getItem("pde_portaria_fila") || "[]"); }catch(e){ E.poFila = []; }
+  enviarFila(); clearInterval(E.poFilaT); E.poFilaT = setInterval(enviarFila, 15000);
+}
+function ouvirEntradas(){
+  if(E.poOuvinte) E.poOuvinte(); E.poOuvinte = null;
+  const dia = hojeMS(), esc0 = E.muEscola;
+  try{
+    E.poOuvinte = onSnapshot(query(collection(db, "freq_entradas"), where("escola_id", "==", esc0), where("dia", "==", dia)), s => {
+      const m = {}; s.forEach(d => { const x = d.data(); Object.entries(x.entradas || {}).forEach(([id, h]) => { m[id] = { h, turma_id:x.turma_id, turma_nome:x.turma_nome, n:(x.nomes || {})[id] || "" }; }); });
+      E.poHoje = m; desenharPortaria();
+    }, e => console.warn("portaria:", e.code));
+  }catch(e){ console.warn("portaria:", e); }
+}
+function desenharPortaria(){
+  const m = E.poHoje || {}, l = Object.entries(m).sort((a, b) => String(b[1].h).localeCompare(String(a[1].h))), tot = Object.keys(E.base.alunos).length;
+  $("poCont").innerHTML = '<div class="ok"><b>' + l.length.toLocaleString("pt-BR") + "</b>entraram hoje</div><div><b>" + Math.max(0, tot - l.length).toLocaleString("pt-BR") + "</b>ainda não chegaram</div>" + (E.poFila.length ? '<div class="ruim"><b>' + E.poFila.length + "</b>aguardando internet</div>" : "");
+  $("poLista").innerHTML = l.slice(0, 40).map(([id, x]) => '<div style="--h:' + matiz(id) + '"><u>' + esc(iniciais(x.n)) + "</u><b>" + esc(x.n) + "</b><small>" + esc(x.turma_nome || "") + " · " + esc(x.h) + "</small></div>").join("") || '<div style="justify-content:center;color:#9fb6cc">As entradas de hoje aparecem aqui.</div>';
+}
+function bip(ok){
+  try{ const c = E.poAudio || (E.poAudio = new (window.AudioContext || window.webkitAudioContext)()), o = c.createOscillator(), g = c.createGain();
+    o.frequency.value = ok ? 880 : 220; o.type = ok ? "sine" : "square"; g.gain.value = 0.08; o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + (ok ? 0.12 : 0.35)); }catch(e){}
+}
+function mostrar(tipo, ico, titulo, sub){
+  const f = $("poFlash"); f.className = "po-flash " + tipo; f.innerHTML = "<i>" + ico + "</i><b>" + esc(titulo) + "</b><span>" + esc(sub) + "</span>"; f.hidden = false;
+  clearTimeout(E.poFlashT); E.poFlashT = setTimeout(() => { f.hidden = true; }, tipo === "erro" ? 2600 : 1800);
+}
+function lerCodigo(txt){
+  const c = String(txt || "").trim(), m = /^PDEA[:;]([A-Za-z0-9_-]{1,64})$/i.exec(c), id = m ? m[1] : (/^[A-Za-z0-9_-]{8,64}$/.test(c) ? c : "");
+  const agora = Date.now();
+  if(id && E.poUlt[id] && agora - E.poUlt[id] < 6000) return; // a câmera lê o mesmo cartão várias vezes seguidas
+  if(id) E.poUlt[id] = agora;
+  const al = id && E.base.alunos[id];
+  if(!al){ bip(false); mostrar("erro", "⚠️", "Carteirinha não reconhecida", "Não é desta escola ou o aluno não está cadastrado. Procure a secretaria."); return; }
+  const t = E.base.turmas.find(x => x.id === al.turma_id) || {}, prim = al.nome.split(" ")[0];
+  const ja = (E.poHoje || {})[id];
+  if(ja){ bip(true); mostrar("ja", "👍", prim + ", você já entrou", "Registrado às " + ja.h + " · " + (t.nome || "")); return; }
+  const hora = new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" });
+  bip(true); mostrar("ok", "✅", (new Date().getHours() < 12 ? "Bom dia" : "Boa tarde") + ", " + prim + "!", (t.nome || "") + " · entrada às " + hora);
+  E.poHoje = { ...(E.poHoje || {}), [id]:{ h:hora, turma_id:t.id, turma_nome:t.nome || "", n:al.nome } }; desenharPortaria();
+  E.poFila.push({ id, turma_id:t.id, turma_nome:t.nome || "", escola_id:t.escola_id || E.muEscola, municipio_id:t.municipio_id || E.u.municipio_id || "", nome:al.nome, hora, dia:hojeMS() });
+  try{ localStorage.setItem("pde_portaria_fila", JSON.stringify(E.poFila)); }catch(e){}
+  enviarFila();
+}
+// fila: se a internet da portaria cair, as entradas ficam guardadas no aparelho e sobem depois
+async function enviarFila(){
+  if(E.poEnviando || !E.poFila.length) return;
+  E.poEnviando = true;
+  try{
+    while(E.poFila.length){
+      const x = E.poFila[0];
+      await setDoc(doc(db, "freq_entradas", x.turma_id + "_" + x.dia), { escola_id:x.escola_id, municipio_id:x.municipio_id, turma_id:x.turma_id, turma_nome:String(x.turma_nome).slice(0, 80), dia:x.dia, ano:+x.dia.slice(0, 4),
+        entradas:{ [x.id]:x.hora }, nomes:{ [x.id]:String(x.nome).slice(0, 80) }, atualizado_em:serverTimestamp() }, { merge:true });
+      E.poFila.shift(); try{ localStorage.setItem("pde_portaria_fila", JSON.stringify(E.poFila)); }catch(e){}
+    }
+  }catch(e){ console.warn("entrada:", e.code || e); if(e.code === "permission-denied"){ toast("Sem permissão para registrar entradas nesta escola.", true); E.poFila = []; try{ localStorage.removeItem("pde_portaria_fila"); }catch(er){} } }
+  E.poEnviando = false; if(E.aba === "portaria") desenharPortaria();
+}
+// câmera: BarcodeDetector do próprio navegador quando existe (mais rápido); senão jsQR
+async function ligarCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast("Este aparelho não libera a câmera. Use um leitor de código USB.", true); return; }
+  try{ E.poStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false }); }
+  catch(e){ toast("A câmera não foi liberada. Confira a permissão do navegador.", true); return; }
+  const v = $("poVideo"); v.srcObject = E.poStream; v.hidden = false; await v.play().catch(() => {});
+  $("poBtnCam").textContent = "⏹ Desligar câmera"; $("poVideo").parentElement.classList.add("vivo");
+  let det = null; try{ if("BarcodeDetector" in window) det = new window.BarcodeDetector({ formats:["qr_code"] }); }catch(e){}
+  const cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently:true });
+  const passo = async () => {
+    if(!E.poStream) return;
+    try{
+      if(v.readyState >= 2){
+        if(det){ const r = await det.detect(v); if(r && r[0]) lerCodigo(r[0].rawValue); }
+        else if(window.jsQR){ const w = 480, h = Math.round(w * v.videoHeight / v.videoWidth) || 360; cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h);
+          const r = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts:"dontInvert" }); if(r && r.data) lerCodigo(r.data); }
+      }
+    }catch(e){}
+    E.poCamT = setTimeout(passo, 180);
+  };
+  passo();
+}
+function pararCamera(){
+  clearTimeout(E.poCamT);
+  if(E.poStream){ E.poStream.getTracks().forEach(t => t.stop()); E.poStream = null; }
+  const v = $("poVideo"); if(v){ v.hidden = true; v.srcObject = null; v.parentElement.classList.remove("vivo"); }
+  if($("poBtnCam")) $("poBtnCam").textContent = "📷 Ligar câmera";
+}
+// leitor USB: digita o código muito rápido e termina com Enter
+document.addEventListener("keydown", ev => {
+  if(E.aba !== "portaria" || ev.target.matches("input,textarea,select")) return;
+  if(ev.key === "Enter"){ if(E.poBuf){ lerCodigo(E.poBuf); E.poBuf = ""; } return; }
+  if(ev.key.length === 1){ const t = Date.now(); if(t - (E.poBufT || 0) > 120) E.poBuf = ""; E.poBuf = (E.poBuf || "") + ev.key; E.poBufT = t; }
+});
 
 /* ===================== eventos ===================== */
 const ACOES = {
@@ -745,6 +1030,8 @@ const ACOES = {
   "salvar-registro":() => salvarRegistro(),
   status:a => mudarStatus(a),
   "imprimir-ficha":() => { document.body.classList.add("imp-ficha"); window.print(); setTimeout(() => document.body.classList.remove("imp-ficha"), 500); },
+  "po-camera":() => E.poStream ? pararCamera() : ligarCamera(),
+  "ca-pdf":a => gerarCarteirinhas(a),
   "mu-modo":a => { E.muModo = a; E.muTurma = ""; desenharMural(); },
   "mu-turma":a => { E.muTurma = a; desenharMural(); scrollTo({ top:0 }); },
   "tela-cheia":() => { if(document.fullscreenElement) document.exitFullscreen(); else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); },
@@ -755,13 +1042,15 @@ document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selTurma") abrirTurma(t.value);
   else if(t.id === "muEscola"){ E.muEscola = t.value; E.muAntes = {}; ouvirMural(); }
+  else if(t.id === "poEscola"){ E.muEscola = t.value; abrirPortaria(); }
+  else if(t.id === "caEscola"){ E.muEscola = t.value; abrirCarteirinhas(); }
   else if(t.id === "disciplina") abrirChamada();
   else if(t.id === "dia"){ if(t.value > hojeMS()) t.value = hojeMS(); if(E.turma){ carregarCalendario(E.turma).then(abrirChamada); } else desenharChamada(); E.histTurma = ""; }
   else if(t.dataset && t.dataset.qt){ E.faltas[t.dataset.qt] = +t.value; mexeu(); }
 });
 document.addEventListener("input", ev => { if(ev.target.id === "conteudo") { E.sujo = true; try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, conteudo:$("conteudo").value })); }catch(e){} rodape(); } else if(ev.target.id === "busca") desenharBusca(); });
 // tela cheia: só o mural na TV (a ficha continua abrindo por cima)
-document.addEventListener("fullscreenchange", () => { document.body.classList.toggle("tv", !!document.fullscreenElement && E.aba === "mural"); carrossel(); });
+document.addEventListener("fullscreenchange", () => { document.body.classList.toggle("tv", !!document.fullscreenElement && ["mural", "portaria"].includes(E.aba)); carrossel(); });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape" && !$("ficha").hidden) ACOES["fechar-ficha"](); });
 window.addEventListener("beforeunload", ev => { if(E.sujo && E.turma){ ev.preventDefault(); ev.returnValue = ""; } });
 
@@ -787,14 +1076,14 @@ onAuthStateChanged(auth, async user => {
     $("carregando").hidden = false; $("carregando").innerHTML = '<div class="card vazio"><b>A frequência da rede fica no Painel da Rede</b>Por escola, com a frequência média e o número de alunos que precisam de busca ativa, sem nomes de alunos.<br><br><a class="btn btn-pri" href="/painel/">Abrir o Painel da Rede</a></div>';
     return;
   }
-  $("tabMural").hidden = !podeMural();
-  if(E.gestor){ $("tabChamada").hidden = $("tabHist").hidden = true; ir(location.hash === "#mural" ? "mural" : "busca"); return; }
+  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = $("tabCart").hidden = !podePortaria();
+  if(E.gestor){ $("tabChamada").hidden = $("tabHist").hidden = true; ir(location.hash === "#mural" || (["#portaria", "#carteirinhas"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
   await carregarTurmas();
   let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima") || "null"); }catch(e){}
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }
   if(ult && E.turmas.some(t => t.id === ult.t)){ $("selTurma").value = ult.t; await abrirTurma(ult.t); } else desenharChamada();
   const h = location.hash.replace("#", "");
-  if(["historico", "busca"].includes(h) || (h === "mural" && podeMural())) ir(h); else ir("chamada");
+  if(["historico", "busca"].includes(h) || ((h === "mural" && podeMural()) || (["portaria", "carteirinhas"].includes(h) && podePortaria()))) ir(h); else ir("chamada");
 });
 </script>
 </body>
