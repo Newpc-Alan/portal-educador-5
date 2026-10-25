@@ -478,6 +478,7 @@ await t('gestor le avisos enviados da escola', assertSucceeds(getDocs(query(coll
 await t('gestor de outra escola nao le avisos', assertFails(getDoc(doc(gest, 'avisos_familia/falta_al1_2026-10-26'))));
 await t('ninguem grava aviso pelo app', assertFails(setDoc(doc(gest1, 'avisos_familia/x'), { escola_id: 'e1' })));
 
+const portA = ctx('port1'), sece = ctx('sece1'), semconv = ctx('semconv');
 // equipe de apoio da escola: portaria e secretaria escolar, convidadas pelo gestor
 const conv = (email, perfil, extra = {}) => ({ nome: 'Maria Souza', email, perfil, status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', municipio_nome: 'Ribas',
   escola_id: 'e1', escola_nome: 'EM Centro', escolas_ids: ['e1'], escolas_nomes: ['EM Centro'], turmas_ids: [], convidado_por: 'gest1', convidado_por_nome: 'G', atualizado_em: serverTimestamp(), atualizado_por: 'gest1', ...extra });
@@ -503,12 +504,11 @@ await t('gestor de outra escola nao apaga o convite', assertFails(deleteDoc(doc(
 await t('professor nao convida', assertFails(setDoc(doc(prof, 'pre_cadastros/q9@x.com'), conv('q9@x.com', 'portaria', { convidado_por: 'prof' }))));
 // primeiro login do convidado
 const usrApoio = (perfil, extra = {}) => ({ nome: 'Maria Souza', perfil, status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1'], turmas_ids: [], ...extra });
-await t('convidado com escola trocada nao entra', assertFails(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('portaria', { escola_id: 'e2', escolas_ids: ['e2'] }), email: 'port1@x.com' })));
-await t('convidado nao vira gestor', assertFails(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('gestor'), email: 'port1@x.com' })));
-await t('convidado da portaria entra', assertSucceeds(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('portaria'), email: 'port1@x.com' })));
-await t('convidado da secretaria escolar entra', assertSucceeds(setDoc(doc(ctx('sece1'), 'usuarios/sece1'), { ...usrApoio('secretaria_escolar'), email: 'sece1@x.com' })));
-await t('sem convite nao vira portaria', assertFails(setDoc(doc(ctx('semconv'), 'usuarios/semconv'), { ...usrApoio('portaria'), email: 'semconv@x.com' })));
-const portA = ctx('port1'), sece = ctx('sece1');
+await t('convidado com escola trocada nao entra', assertFails(setDoc(doc(portA, 'usuarios/port1'), { ...usrApoio('portaria', { escola_id: 'e2', escolas_ids: ['e2'] }), email: 'port1@x.com' })));
+await t('convidado nao vira gestor', assertFails(setDoc(doc(portA, 'usuarios/port1'), { ...usrApoio('gestor'), email: 'port1@x.com' })));
+await t('convidado da portaria entra', assertSucceeds(setDoc(doc(portA, 'usuarios/port1'), { ...usrApoio('portaria'), email: 'port1@x.com' })));
+await t('convidado da secretaria escolar entra', assertSucceeds(setDoc(doc(sece, 'usuarios/sece1'), { ...usrApoio('secretaria_escolar'), email: 'sece1@x.com' })));
+await t('sem convite nao vira portaria', assertFails(setDoc(doc(semconv, 'usuarios/semconv'), { ...usrApoio('portaria'), email: 'semconv@x.com' })));
 await t('portaria nao troca a propria escola', assertFails(updateDoc(doc(portA, 'usuarios/port1'), { escolas_ids: ['e1', 'e2'], escola_id: 'e1' })));
 await t('secretaria escolar nao troca a propria escola', assertFails(updateDoc(doc(sece, 'usuarios/sece1'), { escolas_ids: ['e2'], escola_id: 'e2' })));
 await t('gestor nao adiciona outra escola a si mesmo', assertFails(updateDoc(doc(gest1, 'usuarios/gest1'), { escolas_ids: ['e1', 'e2'] })));
