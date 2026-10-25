@@ -50,6 +50,10 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 .pt-selo i{width:1.3vmin;height:1.3vmin;min-width:9px;min-height:9px;border-radius:50%;background:var(--lima);display:inline-block}
 .pt-selo.fila i{background:#F9A825}
 @media (prefers-reduced-motion:reduce){ .pt-flash,.pt-ico{animation:none} }
+/* teste da câmera do totem: digite CAMERA no leitor ou no teclado e aperte Enter */
+.pt-diag{position:fixed;right:2vmin;top:2vmin;z-index:60;width:min(420px,90vw);background:rgba(7,22,33,.94);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:14px;font:600 14px/1.45 system-ui,sans-serif}
+.pt-diag b{display:block;font-size:16px;margin-bottom:6px}.pt-diag .ok{color:#8dc63f}.pt-diag .ruim{color:#ff8a7a}
+#ptCam.diag{position:fixed!important;right:calc(2vmin + 14px)!important;left:auto!important;top:calc(2vmin + 44px)!important;width:min(392px,84vw)!important;height:auto!important;opacity:1!important;z-index:61!important;border-radius:10px;background:#000}
 
 /* ---------- player ---------- */
 .tv{position:fixed;inset:0;display:flex;flex-direction:column;background:#000}
@@ -172,6 +176,7 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 <div class="offline" id="offline" hidden>Sem internet · exibindo a última programação</div>
 <div class="pt-flash" id="ptFlash" hidden><div class="pt-ico" id="ptIco"></div><b id="ptTit"></b><span id="ptSub"></span></div>
 <div class="pt-selo" id="ptSelo" hidden></div>
+<div class="pt-diag" id="ptDiag" hidden></div>
 <video id="ptCam" playsinline muted autoplay style="position:fixed;left:0;top:0;width:160px;height:120px;opacity:.01;pointer-events:none;z-index:-1"></video>
 
 <script nomodule>
@@ -409,7 +414,9 @@ async function cameraPortaria(on){
   if(PT.cam || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   try{ PT.cam = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
     const v = $("ptCam"); v.srcObject = PT.cam; await v.play().catch(() => {}); }
-  catch(e){ console.warn("portaria camera", e.name || e); PT.cam = null; }
+  catch(e){ console.warn("portaria camera", e.name || e); PT.cam = null;
+    PT.camMotivo = { NotAllowedError:"permissão da câmera negada neste navegador", NotReadableError:"câmera em uso por outro programa ou aba", NotFoundError:"nenhuma câmera encontrada", OverconstrainedError:"câmera não aceita a configuração" }[e.name] || "erro ao ligar a câmera (" + (e.name || e) + ")"; }
+  if(PT.cam){ PT.camMotivo = ""; PT.cam.getVideoTracks().forEach(t => { t.onended = () => { PT.camMotivo = "a câmera foi desconectada"; PT.cam = null; seloPortaria(); setTimeout(() => cameraPortaria(PT.foto), 3000); }; }); }
   seloPortaria();
 }
 // pega um quadro novo da câmera: ImageCapture (direto da câmera, quando o navegador tem) ou o próprio vídeo
@@ -430,11 +437,31 @@ async function fotoPortaria(){
       if(q){ const w = q.videoWidth || q.width, h = q.videoHeight || q.height, k = Math.min(1, 320 / w), c = document.createElement("canvas");
         c.width = Math.round(w * k); c.height = Math.round(h * k); const x = c.getContext("2d", { willReadFrequently:true }); x.drawImage(q, 0, 0, c.width, c.height);
         const d = x.getImageData(0, 0, c.width, c.height).data; let soma = 0, n = 0; for(let j = 0; j < d.length; j += 64){ soma += d[j] * .3 + d[j + 1] * .59 + d[j + 2] * .11; n++; }
-        if(soma / n >= 10){ if(PT.camEscura){ PT.camEscura = 0; seloPortaria(); } const u = c.toDataURL("image/jpeg", 0.65); return u.slice(u.indexOf(",") + 1); } }
+        PT.camBrilho = Math.round(soma / n);
+        if(soma / n >= 10){ PT.camMotivo = ""; if(PT.camEscura){ PT.camEscura = 0; seloPortaria(); } const u = c.toDataURL("image/jpeg", 0.65); return u.slice(u.indexOf(",") + 1); } }
     }catch(e){ console.warn("portaria foto", e.name || e); }
     await new Promise(r => setTimeout(r, 150));
   }
-  PT.camEscura = (PT.camEscura || 0) + 1; seloPortaria(); return "";
+  PT.camEscura = (PT.camEscura || 0) + 1; PT.camMotivo = PT.camBrilho === undefined ? "a câmera não entrega imagem" : "imagem preta (brilho " + PT.camBrilho + "): tampa fechada, pouca luz ou câmera presa em outro programa"; seloPortaria(); return "";
+}
+// teste da câmera na própria tela do totem: mostra a imagem ao vivo, o nome da câmera e o brilho, por 30 segundos
+const escH = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+async function diagCamera(){
+  const d = $("ptDiag"), v = $("ptCam");
+  clearInterval(PT.diagT); clearTimeout(PT.diagFim);
+  if(!PT.foto){ d.hidden = false; d.innerHTML = '<b>📷 Teste da câmera</b><span class="ruim">A foto na entrada está desligada para esta tela.</span><br>Ligue em Portal do Educador TV › esta tela › Foto na entrada.'; PT.diagFim = setTimeout(() => { d.hidden = true; }, 12000); return; }
+  if(!PT.cam) await cameraPortaria(true);
+  v.classList.add("diag"); d.hidden = false;
+  const atualizar = async () => {
+    const tr = PT.cam && PT.cam.getVideoTracks()[0], st = tr && tr.getSettings ? tr.getSettings() : {};
+    if(PT.cam){ await fotoPortaria(); }
+    d.innerHTML = '<b>📷 Teste da câmera</b><div style="height:' + Math.round(Math.min(392, innerWidth * .84) * .75 + 8) + 'px"></div>' + (tr ? "Câmera: " + escH(tr.label || "sem nome") + "<br>Imagem: " + (st.width || v.videoWidth || "?") + " × " + (st.height || v.videoHeight || "?") + " · " + escH(tr.readyState) + (tr.muted ? " · <span class=ruim>sem sinal (muted)</span>" : "") : "") +
+      "<br>Brilho: " + (PT.camBrilho === undefined ? "–" : PT.camBrilho) + ' <span class="' + (PT.camBrilho >= 10 ? 'ok">ok' : 'ruim">escuro') + "</span>" +
+      (PT.camMotivo ? '<br><span class="ruim">' + escH(PT.camMotivo) + "</span>" : '<br><span class="ok">Foto funcionando.</span>') +
+      '<br><small>Fecha sozinho em 30 s. Digite CAMERA de novo para repetir.</small>';
+  };
+  await atualizar(); PT.diagT = setInterval(atualizar, 1500);
+  PT.diagFim = setTimeout(() => { clearInterval(PT.diagT); d.hidden = true; v.classList.remove("diag"); }, 30000);
 }
 function ligarPortaria(on){
   if(P.tela) cameraPortaria(on && P.tela.foto_entrada === true);
@@ -453,7 +480,7 @@ function seloPortaria(){
   if(PT.dia && PT.dia !== diaMS()){ PT.dia = diaMS(); PT.hoje = new Set(); }
   $("ptSelo").className = "pt-selo" + (PT.fila.length ? " fila" : "");
   $("ptSelo").innerHTML = "<i></i>Portaria · " + PT.hoje.size + (PT.hoje.size === 1 ? " entrada hoje" : " entradas hoje") + (PT.fila.length ? " · " + PT.fila.length + " aguardando internet" : "") +
-    (PT.foto ? " · 📷 Foto registrada na entrada" + (!PT.cam ? " (câmera desligada)" : PT.camEscura >= 2 ? " (câmera sem imagem: confira tampa, luz e cabo)" : "") : "");
+    (PT.foto ? " · 📷 Foto registrada na entrada" + (!PT.cam ? " (câmera desligada" + (PT.camMotivo ? ": " + PT.camMotivo : "") + ")" : PT.camEscura >= 2 ? " (câmera sem imagem: confira tampa, luz e cabo)" : "") : "");
 }
 // toque de duas notas (subindo) para confirmar; duas notas descendo para recusar
 function somPortaria(tipo){
@@ -471,6 +498,7 @@ function flashPortaria(tipo, ico, tit, sub){
 }
 function cartaoPortaria(txt){
   const c = String(txt || "").trim(), m = /^PDEA[^A-Za-z0-9_-]{0,2}([A-Za-z0-9_-]{1,64})$/i.exec(c);
+  if(/^(PDEA[^A-Za-z0-9_-]{0,2})?C[AÂ]MERA$/i.test(c)){ diagCamera(); return; }
   let id = m ? m[1] : (/^[A-Za-z0-9_-]{8,64}$/.test(c) ? c : "");
   if(!id){ flashPortaria("erro", "✕", "Carteirinha não reconhecida", "Passe de novo ou procure a secretaria"); return; }
   const agora = Date.now(); if(PT.ult[id] && agora - PT.ult[id] < 5000) return; PT.ult[id] = agora;
@@ -485,7 +513,7 @@ function cartaoPortaria(txt){
   const item = { id, hora:horaMS(), dia:diaMS() };
   // a foto fica só na memória (não cabe na fila guardada do aparelho); se o totem reiniciar sem internet, a entrada sobe sem foto
   // no máximo 1,5 s esperando a foto: a entrada nunca fica presa por causa da câmera
-  Promise.race([fotoPortaria(), new Promise(r => setTimeout(() => r(""), 1500))]).then(foto => {
+  Promise.race([fotoPortaria(), new Promise(r => setTimeout(() => r(""), 2500))]).then(foto => {
     if(foto) PT.fotos[id + "|" + item.dia] = foto;
     PT.fila.push(item); ls.set("pde_tv_portaria_fila", PT.fila); seloPortaria();
     enviarPortaria();
