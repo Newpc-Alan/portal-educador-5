@@ -37,3 +37,19 @@ export const contarReacaoLivro = onDocumentWritten({ region: REGIAO_FIRESTORE, d
   try { await getFirestore().doc('biblioteca/' + livroId).update(mudar); }
   catch (e) { console.warn('reacao: livro', livroId, e.code || e.message); }
 });
+
+// E para o mural de notícias: noticias_reacoes/{noticia}_{uid} -> noticias/{id}.reacoes
+export const contarReacaoNoticia = onDocumentWritten({ region: REGIAO_FIRESTORE, document: 'noticias_reacoes/{id}', maxInstances: 10 }, async (event) => {
+  const antes = event.data.before.exists ? event.data.before.data() : null;
+  const depois = event.data.after.exists ? event.data.after.data() : null;
+  const r0 = antes && VALIDAS.includes(antes.reacao) ? antes.reacao : null;
+  const r1 = depois && VALIDAS.includes(depois.reacao) ? depois.reacao : null;
+  if (r0 === r1) return;
+  const nid = (depois || antes).noticia_id;
+  if (!nid || typeof nid !== 'string') return;
+  const mudar = {};
+  if (r0) mudar['reacoes.' + r0] = FieldValue.increment(-1);
+  if (r1) mudar['reacoes.' + r1] = FieldValue.increment(1);
+  try { await getFirestore().doc('noticias/' + nid).update(mudar); }
+  catch (e) { console.warn('reacao: noticia', nid, e.code || e.message); }
+});

@@ -575,6 +575,17 @@ await t('outro professor nao le minha reacao', assertFails(getDoc(doc(prof2, 'vi
 await t('admin tambem vota', assertSucceeds(setDoc(doc(ctx('adm'), 'videos_reacoes/vp_adm'), { video_id: 'vp', uid: 'adm', reacao: 'amei', perfil: 'admin', em: serverTimestamp() })));
 await t('admin le as reacoes', assertSucceeds(getDocs(query(collection(ctx('adm'), 'videos_reacoes'), where('video_id', '==', 'vp')))));
 
+// mural de notícias
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(doc(f, 'noticias/n1'), { titulo: 'Novo episódio', publicado: true }); await setDoc(doc(f, 'noticias/n2'), { titulo: 'Rascunho', publicado: false }); });
+await t('professor le noticias publicadas', assertSucceeds(getDocs(query(collection(prof, 'noticias'), where('publicado', '==', true)))));
+await t('professor nao le rascunho', assertFails(getDoc(doc(prof, 'noticias/n2'))));
+await t('professor nao publica noticia', assertFails(setDoc(doc(prof, 'noticias/n3'), { titulo: 'x', publicado: true })));
+await t('admin publica noticia', assertSucceeds(setDoc(doc(ctx('adm'), 'noticias/n3'), { titulo: 'x', publicado: true })));
+await t('professor reage a noticia', assertSucceeds(setDoc(doc(prof, 'noticias_reacoes/n1_prof'), { noticia_id: 'n1', uid: 'prof', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
+await t('reacao em rascunho', assertFails(setDoc(doc(prof, 'noticias_reacoes/n2_prof'), { noticia_id: 'n2', uid: 'prof', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
+await t('reacao de noticia em nome de outro', assertFails(setDoc(doc(prof, 'noticias_reacoes/n1_prof2'), { noticia_id: 'n1', uid: 'prof2', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
+await t('anonimo nao le noticias', assertFails(getDocs(query(collection(anon, 'noticias'), where('publicado', '==', true)))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

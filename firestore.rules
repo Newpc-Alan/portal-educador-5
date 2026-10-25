@@ -615,6 +615,21 @@ service cloud.firestore {
       allow write: if admin();
     }
 
+    // mural de notícias: a NEWPC publica; quem entra no Portal lê as publicadas (público, municípios e datas são filtrados na tela)
+    match /noticias/{id} {
+      allow read: if admin() || (logado() && resource.data.publicado == true);
+      allow write: if admin();
+    }
+    match /noticias_reacoes/{id} {
+      allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);
+      allow create, update: if logado() && id == novo().noticia_id + "_" + request.auth.uid
+        && novo().keys().hasOnly(["noticia_id", "uid", "reacao", "perfil", "em"])
+        && novo().uid == request.auth.uid && novo().reacao in ["amei", "gostei", "meh", "nao"] && novo().perfil == eu().perfil
+        && exists(/databases/$(database)/documents/noticias/$(novo().noticia_id))
+        && get(/databases/$(database)/documents/noticias/$(novo().noticia_id)).data.publicado == true;
+      allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
+    }
+
     // videos: catalogo (os videos ficam no YouTube); o professor so ve os publicados
     match /videos/{id} {
       allow read: if admin() || (licenciado() && resource.data.publicado == true)
