@@ -93,6 +93,23 @@ button{cursor:pointer}
 .rq.duvida{background:#fff3d6;border-radius:6px}
 .rq .ok{color:var(--verde);font-weight:800;width:14px}
 .rq .x{color:var(--red);font-weight:800;width:14px}
+.lote-drop{display:flex;flex-direction:column;align-items:center;gap:4px;border:2px dashed #b8c6d6;border-radius:14px;padding:28px 16px;text-align:center;cursor:pointer;background:#f8fbfd}
+.lote-drop:hover,.lote-drop.sobre{border-color:var(--azul-2);background:#eef6fc}
+.lote-drop b{font-size:1.02rem}.lote-drop span{color:var(--muted);font-size:.84rem}
+.lote-barra{height:9px;border-radius:9px;background:#eef2f6;overflow:hidden;margin:10px 0}
+.lote-barra i{display:block;height:100%;width:0;background:var(--verde);transition:width .2s}
+.lote-kpis{display:flex;gap:8px;flex-wrap:wrap}
+.lote-kpis span{border-radius:99px;padding:3px 11px;font-size:.78rem;font-weight:800;background:#eef2f6;color:var(--muted)}
+.lote-kpis .ok{background:#e9f5dc;color:#3d6b0c}.lote-kpis .att{background:#fff3d6;color:#8a5a00}.lote-kpis .ruim{background:#fbe3e0;color:#9c2a20}
+.lote-lista{display:flex;flex-direction:column;gap:8px}
+.lote-item{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px;background:#fff}
+.lote-item img{width:64px;height:90px;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#f4f7fa}
+.lote-item .mini{width:64px;height:90px;border-radius:6px;background:#f4f7fa;display:grid;place-items:center;color:var(--muted);font-size:.7rem}
+.lote-item b{display:block;font-size:.9rem}
+.lote-item small{color:var(--muted);font-size:.78rem}
+.lote-item .acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.lote-item select{max-width:220px}
+@media (max-width:640px){ .lote-item{grid-template-columns:52px minmax(0,1fr)} .lote-item .acoes{grid-column:1 / -1;justify-content:flex-start} .lote-item img,.lote-item .mini{width:52px;height:73px} }
 .aviso{background:#fff3d6;border:1px solid #f3d88f;color:#6b4500;border-radius:10px;padding:8px 12px;font-size:.84rem;margin-bottom:10px}
 
 /* resultados */
@@ -164,6 +181,7 @@ table.res{width:100%;border-collapse:collapse}
     <button class="passo" data-action="ir" data-arg="corrigir"><i>3</i>Corrigir</button>
     <button class="passo" data-action="ir" data-arg="resultados"><i>4</i>Resultados</button>
     <button class="passo" data-action="ir" data-arg="analise"><i>📈</i>Habilidades BNCC</button>
+    <button class="passo" data-action="ir" data-arg="lote"><i>📠</i>Lote do scanner</button>
   </div>
 
   <section class="sec on" id="s-gabarito"><div id="gabBox"></div></section>
@@ -212,6 +230,31 @@ table.res{width:100%;border-collapse:collapse}
   </section>
 
   <section class="sec" id="s-resultados"><div id="resBox"></div></section>
+
+  <section class="sec" id="s-lote">
+    <div class="card">
+      <div class="h2">📠 Lote do scanner</div>
+      <p class="sub" style="margin:4px 0 12px">Escaneie a pilha de cartões no scanner com alimentador e envie o PDF (ou as imagens). Pode misturar provas e turmas: o QR de cada cartão diz a prova e o aluno. Cartões limpos são salvos na hora; os duvidosos ficam aqui para conferir.</p>
+      <label class="lote-drop" id="loteDrop" for="arqLote">
+        <b>Arraste o PDF ou as imagens aqui</b>
+        <span>ou toque para escolher · PDF de várias páginas, JPG ou PNG</span>
+      </label>
+      <input type="file" id="arqLote" accept="application/pdf,.pdf,image/*" multiple hidden>
+      <details class="sub" style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">Como configurar o scanner</summary>
+        <ul style="margin:6px 0 0 18px;line-height:1.7">
+          <li>Resolução de 200 a 300 dpi, em tons de cinza (ou preto e branco).</li>
+          <li>Papel A4, sem "ajustar à página" e sem cortar margens: os 4 quadrados pretos dos cantos precisam aparecer.</li>
+          <li>Salvar como PDF de várias páginas. Frente e verso pode: as páginas em branco são ignoradas.</li>
+          <li>Cartão de cabeça para baixo ou deitado também é lido.</li>
+        </ul></details>
+    </div>
+    <div class="card" id="loteProg" hidden>
+      <div class="barra"><b id="loteTxt">Preparando...</b><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="lote-parar" id="loteParar">Parar</button></div>
+      <div class="lote-barra"><i id="loteBarra"></i></div>
+      <div class="lote-kpis" id="loteKpis"></div>
+    </div>
+    <div id="loteRes"></div>
+  </section>
 
   <section class="sec" id="s-analise">
     <div class="card">
@@ -477,6 +520,12 @@ async function carregarAvals(selecionar){
   if(alvo && E.avals.some(a => a.id === alvo)){ $("selAval").value = alvo; await escolherAval(alvo); } else desenhar();
 }
 const objetivas = a => (a.questoes || []).filter(q => q.tipo === "multipla").sort((x, y) => x.numero - y.numero);
+// layout do cartão e gabarito de uma prova (o mesmo para câmera, foto e lote)
+function montarGab(a){
+  const obj = objetivas(a), nAlt = Math.max(4, Math.min(5, Math.max(...obj.map(q => (q.alternativas || []).length || 5)))), gab = {};
+  obj.forEach((q, i) => { const c = (q.alternativas || []).find(x => x.correta); gab[i + 1] = { letra:c ? c.letra : null, pontos:+q.pontos || 0, numero:q.numero, bncc:codigosBncc(q.bncc).join(" ") }; });
+  return { lay:layout(obj.length, nAlt), gab };
+}
 
 /* ---------- BNCC: lê o código e diz o componente e o ano ---------- */
 const COMP = { LP:"Língua Portuguesa", MA:"Matemática", CI:"Ciências", HI:"História", GE:"Geografia", AR:"Arte", EF:"Educação Física", LI:"Língua Inglesa", ER:"Ensino Religioso" };
@@ -498,9 +547,7 @@ async function escolherAval(id){
   E.aval = E.avals.find(a => a.id === id) || null; E.resp = {};
   if(E.aval){
     try{ localStorage.setItem("pde_corretor_aval", id); }catch(e){}
-    const obj = objetivas(E.aval), nAlt = Math.max(4, Math.min(5, Math.max(...obj.map(q => (q.alternativas || []).length || 5))));
-    E.lay = layout(obj.length, nAlt);
-    E.gab = {}; obj.forEach((q, i) => { const c = (q.alternativas || []).find(a => a.correta); E.gab[i + 1] = { letra:c ? c.letra : null, pontos:+q.pontos || 0, numero:q.numero, bncc:codigosBncc(q.bncc).join(" ") }; });
+    const m = montarGab(E.aval); E.lay = m.lay; E.gab = m.gab;
     await carregarRespostas();
   }
   desenhar();
@@ -516,12 +563,13 @@ async function carregarRespostas(){
    ===================================================================== */
 function ir(s){ if(s !== "corrigir") pararCamera(); E.sec = s; desenhar(); }
 function desenhar(){
-  document.querySelectorAll(".passo").forEach(b => { b.classList.toggle("on", b.dataset.arg === E.sec); b.disabled = !["gabarito", "analise"].includes(b.dataset.arg) && !E.aval; });
+  document.querySelectorAll(".passo").forEach(b => { b.classList.toggle("on", b.dataset.arg === E.sec); b.disabled = !["gabarito", "analise", "lote"].includes(b.dataset.arg) && !E.aval; });
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + E.sec));
   if(E.sec === "gabarito") desenharGabarito();
   else if(E.sec === "cartoes") $("cResumo").textContent = E.aval ? E.alunos.length + " alunos · " + E.lay.nQ + " questões (" + LETRAS.slice(0, E.lay.nAlt).split("").join(", ") + ")" : "";
   else if(E.sec === "resultados") desenharResultados();
   else if(E.sec === "analise") prepararAnalise();
+  else if(E.sec === "lote") desenharLote();
 }
 function desenharGabarito(){
   if(!E.turma){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a turma</b>Depois, a prova: uma que você criou em Avaliações no Portal, ou um gabarito de prova impressa.</div>'; return; }
@@ -724,30 +772,39 @@ function trocar(arg){
   const [q, l] = arg.split(":"), x = E.atual.leitura[q - 1];
   x.letra = x.letra === l ? null : l; x.conferida = true; desenharConferencia();
 }
-async function salvar(){
-  const alunoId = $("confAluno").value; if(!alunoId){ toast("Escolha o aluno deste cartão.", true); $("confAluno").focus(); return; }
-  const al = E.alunos.find(a => a.id === alunoId), A = E.atual, porNumero = {};
-  A.leitura.forEach(x => { const g = E.gab[x.q]; if(g) porNumero[g.numero] = x.letra; });
-  const questoes = E.aval.questoes || [];
+// grava a resposta de um aluno numa prova (C = { aval, gab, turma, alunos, resp }); devolve a nota das objetivas
+async function gravarResposta(C, alunoId, leitura){
+  const al = C.alunos.find(a => a.id === alunoId), porNumero = {};
+  leitura.forEach(x => { const g = C.gab[x.q]; if(g) porNumero[g.numero] = x.letra; });
+  const questoes = C.aval.questoes || [];
   let notaObj = 0;
   const respostas = questoes.map(q => {
     if(q.tipo === "multipla"){ const esc_ = porNumero[q.numero] || null, c = (q.alternativas || []).find(a => a.correta); if(c && esc_ === c.letra) notaObj += +q.pontos || 0; return { numero:q.numero, tipo:"multipla", escolhida:esc_ }; }
     return { numero:q.numero, tipo:"dissertativa", texto:"" };
   });
   notaObj = Math.round(notaObj * 100) / 100;
-  const temDiss = questoes.some(q => q.tipo !== "multipla"), ant = E.resp[alunoId];
+  const temDiss = questoes.some(q => q.tipo !== "multipla"), ant = C.resp[alunoId];
   const notaDiss = ant && ant.nota_dissertativas !== undefined && ant.nota_dissertativas !== null ? ant.nota_dissertativas : null;
   const dados = { respostas, nota_objetivas:notaObj, nota_final:temDiss ? (notaDiss !== null ? Math.round((notaObj + notaDiss) * 100) / 100 : null) : notaObj,
     dissertativa_pendente:temDiss && notaDiss === null, status:temDiss && notaDiss === null ? "enviada" : "corrigida", origem:"cartao", corrigida_em:serverTimestamp(), corrigida_por:E.user.uid };
+  if(ant) await updateDoc(doc(db, "respostas", ant.id), dados);
+  else {
+    const t = C.turma, novo = { avaliacao_id:C.aval.id, avaliacao_titulo:C.aval.titulo || "", turma_id:t.id, turma_nome:t.nome || "", escola_id:C.aval.escola_id || t.escola_id || "",
+      municipio_id:C.aval.municipio_id || t.municipio_id || "", aluno_id:alunoId, aluno_nome:al.nome, ...dados, enviada_em:serverTimestamp(), criado_em:serverTimestamp() };
+    const r = await addDoc(collection(db, "respostas"), novo); C.resp[alunoId] = { id:r.id, ...novo };
+  }
+  if(ant) Object.assign(C.resp[alunoId], dados);
+  return notaObj;
+}
+async function salvar(){
+  const alunoId = $("confAluno").value; if(!alunoId){ toast("Escolha o aluno deste cartão.", true); $("confAluno").focus(); return; }
+  const al = E.alunos.find(a => a.id === alunoId), A = E.atual;
   try{
-    if(ant) await updateDoc(doc(db, "respostas", ant.id), dados);
-    else {
-      const t = E.turma, novo = { avaliacao_id:E.aval.id, avaliacao_titulo:E.aval.titulo || "", turma_id:t.id, turma_nome:t.nome || "", escola_id:E.aval.escola_id || t.escola_id || "",
-        municipio_id:E.aval.municipio_id || t.municipio_id || "", aluno_id:alunoId, aluno_nome:al.nome, ...dados, enviada_em:serverTimestamp(), criado_em:serverTimestamp() };
-      const r = await addDoc(collection(db, "respostas"), novo); E.resp[alunoId] = { id:r.id, ...novo };
-    }
-    if(ant) Object.assign(E.resp[alunoId], dados);
+    const notaObj = await gravarResposta({ aval:E.aval, gab:E.gab, turma:E.turma, alunos:E.alunos, resp:E.resp }, alunoId, A.leitura);
     E.lidosSessao++;
+    // cartão vindo do lote do scanner: volta para a lista do lote
+    if(E.loteItem){ const it = E.loteItem; E.loteItem = null; it.estado = "salvo"; it.aluno = alunoId; it.alunoNome = al.nome; it.nota = notaObj; it.motivo = ""; $("confBox").hidden = true; $("corrigirInicio").hidden = false;
+      toast(al.nome.split(" ")[0] + ": " + fmt(notaObj) + " · salvo."); ir("lote"); return; }
     toast(al.nome.split(" ")[0] + ": " + fmt(notaObj) + " · salvo. " + (E.alunos.length - Object.keys(E.resp).length) + " alunos ainda sem cartão.");
     $("confBox").hidden = true; $("contaLidos").textContent = E.lidosSessao + " cartões corrigidos agora";
     if(E.modoCamera) abrirCamera(); else { $("corrigirInicio").hidden = false; }
@@ -928,13 +985,183 @@ function exportarAnalise(){
 }
 
 /* =====================================================================
+   LOTE DO SCANNER: PDF de várias páginas ou imagens; o QR de cada cartão diz a prova e o aluno
+   ===================================================================== */
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+const LOTE = { itens:[], paginas:[], ctx:{}, rodando:false, parar:false, feitas:0, total:0 };
+function carregarPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise((ok, erro) => { const s = document.createElement("script"); s.src = PDFJS + "pdf.min.js";
+    s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js"; ok(window.pdfjsLib); }; s.onerror = () => erro(new Error("pdf.js")); document.head.appendChild(s); });
+}
+async function paginasDe(arquivos){
+  const l = [];
+  for(const f of arquivos){
+    if(/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)){
+      try{ const lib = await carregarPdfJs(), d = await lib.getDocument({ data:new Uint8Array(await f.arrayBuffer()) }).promise; for(let p = 1; p <= d.numPages; p++) l.push({ arq:f.name, doc:d, p, n:d.numPages }); }
+      catch(e){ console.warn("pdf:", e); toast("Não consegui abrir o PDF " + f.name + ".", true); }
+    } else if(/^image\//.test(f.type) || /\.(jpe?g|png|webp|bmp)$/i.test(f.name)) l.push({ arq:f.name, file:f });
+  }
+  return l;
+}
+// página em ImageData, com no máximo 2000 px no lado maior (A4 a ~170 dpi: sobra para as bolinhas)
+async function imagemDe(pg){
+  const c = document.createElement("canvas"), cx = c.getContext("2d", { willReadFrequently:true });
+  if(pg.doc){
+    const page = await pg.doc.getPage(pg.p), v0 = page.getViewport({ scale:1 }), v = page.getViewport({ scale:Math.min(3, 2000 / Math.max(v0.width, v0.height)) });
+    c.width = Math.round(v.width); c.height = Math.round(v.height); cx.fillStyle = "#fff"; cx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext:cx, viewport:v }).promise; page.cleanup && page.cleanup();
+  } else {
+    const bmp = await createImageBitmap(pg.file); const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); cx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+  }
+  return cx.getImageData(0, 0, c.width, c.height);
+}
+function girar(img, graus){
+  if(!graus) return img;
+  const a = document.createElement("canvas"); a.width = img.width; a.height = img.height; a.getContext("2d").putImageData(img, 0, 0);
+  const b = document.createElement("canvas"), deitado = graus % 180 !== 0; b.width = deitado ? img.height : img.width; b.height = deitado ? img.width : img.height;
+  const bx = b.getContext("2d", { willReadFrequently:true }); bx.translate(b.width / 2, b.height / 2); bx.rotate(graus * Math.PI / 180); bx.drawImage(a, -img.width / 2, -img.height / 2);
+  return bx.getImageData(0, 0, b.width, b.height);
+}
+function emBranco(G){ let s = 0, s2 = 0, n = 0; for(let i = 0; i < G.g.length; i += 37){ const v = G.g[i]; s += v; s2 += v * v; n++; } const m = s / n; return m > 225 && Math.sqrt(s2 / n - m * m) < 18; }
+// acha cantos e QR; se o cartão entrou de cabeça para baixo ou deitado, tenta girando
+async function lerPagina(img, graus0){
+  let primeiro = null;
+  for(const graus of graus0 !== undefined ? [graus0] : [0, 180, 90, 270]){
+    const G = cinza(girar(img, graus)), cantos = acharMarcas(G);
+    if(!cantos){ if(graus === 0 && emBranco(G)) return { branco:true }; continue; }
+    const H = homografia(FIDS, cantos); if(!H) continue;
+    const info = lerInfoQR(await lerQR(G, H));
+    if(info) return { G, H, info, graus };
+    if(!primeiro) primeiro = { G, H, graus };
+  }
+  return primeiro ? { ...primeiro, info:null } : { semCantos:true };
+}
+// prova do cartão: gabarito, layout, turma, alunos e respostas já salvas (uma vez por prova)
+async function contexto(avId){
+  if(LOTE.ctx[avId]) return LOTE.ctx[avId];
+  const C = LOTE.ctx[avId] = { id:avId };
+  try{
+    const s = await getDoc(doc(db, "avaliacoes", avId));
+    if(!s.exists() || s.data().status === "excluida"){ C.erro = "Prova não encontrada (excluída?)"; return C; }
+    const a = { id:s.id, ...s.data() };
+    if(a.professor_uid !== E.user.uid && !E.admin){ C.erro = "Prova de outro professor"; C.titulo = a.titulo; return C; }
+    if(!objetivas(a).length){ C.erro = "Prova sem questões objetivas"; return C; }
+    const m = montarGab(a); Object.assign(C, { aval:a, lay:m.lay, gab:m.gab, titulo:a.titulo || "Prova", alunos:[], resp:{} });
+    C.turma = E.turmas.find(t => t.id === a.turma_id) || { id:a.turma_id, nome:a.turma_nome || "", escola_id:a.escola_id, municipio_id:a.municipio_id };
+    const sa = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", a.turma_id), where("escola_id", "==", C.turma.escola_id || a.escola_id)));
+    sa.forEach(d => { const x = d.data(); if(x.nome && x.status !== "inativo") C.alunos.push({ id:d.id, nome:String(x.nome).trim() }); });
+    C.alunos.sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"));
+    const sr = await getDocs(query(collection(db, "respostas"), where("avaliacao_id", "==", avId))); sr.forEach(d => { const r = d.data(); if(r.aluno_id) C.resp[r.aluno_id] = { id:d.id, ...r }; });
+  }catch(e){ console.warn("contexto:", e.code || e); C.erro = "Sem acesso à prova (" + (e.code || "erro") + ")"; }
+  return C;
+}
+function miniatura(G, H){ const im = retificar(G, H, 0, 0, 210, 297, 0.6), c = document.createElement("canvas"); c.width = im.width; c.height = im.height; c.getContext("2d").putImageData(im, 0, 0); return c.toDataURL("image/jpeg", 0.7); }
+const notaCom = (gab, leit) => { let n = 0, a = 0; leit.forEach(x => { const g = gab[x.q]; if(g && x.letra && x.letra === g.letra){ n += g.pontos; a++; } }); return { n, a }; };
+async function processarLote(arquivos){
+  if(LOTE.rodando){ toast("Espere o lote atual terminar.", true); return; }
+  E.sec = "lote"; desenhar();
+  LOTE.rodando = true; LOTE.parar = false; $("loteProg").hidden = false; $("loteTxt").textContent = "Abrindo os arquivos..."; $("loteParar").hidden = false;
+  const novas = await paginasDe(arquivos); const base = LOTE.paginas.length;
+  LOTE.paginas.push(...novas); LOTE.total = LOTE.paginas.length;
+  const vistos = {}; LOTE.itens.forEach(it => { if(it.av && it.aluno && it.estado !== "ignorado") vistos[it.av + "|" + it.aluno] = true; });
+  for(let i = base; i < LOTE.paginas.length && !LOTE.parar; i++){
+    const pg = LOTE.paginas[i], it = { pag:i, rot:pg.arq + (pg.doc ? " · pág. " + pg.p : ""), estado:"", motivo:"" };
+    LOTE.itens.push(it);
+    try{
+      const img = await imagemDe(pg), r = await lerPagina(img);
+      if(r.branco){ it.estado = "ignorado"; it.motivo = "Página em branco (verso)"; }
+      else if(r.semCantos){ it.estado = "naolido"; it.motivo = "Não achei os 4 quadrados dos cantos (página cortada, torta demais ou não é cartão)"; }
+      else {
+        it.graus = r.graus; it.mini = miniatura(r.G, r.H);
+        if(!r.info){ it.estado = "naolido"; it.motivo = "QR não lido: escolha a prova e confira"; }
+        else {
+          const C = await contexto(r.info.av); it.av = r.info.av; it.prova = C.titulo || "";
+          if(C.erro){ it.estado = "ignorado"; it.motivo = C.erro; }
+          else {
+            it.leitura = decidir(lerBolhas(r.G, r.H, C.lay)); it.aluno = r.info.aluno; const al = C.alunos.find(a => a.id === it.aluno); it.alunoNome = al ? al.nome : "";
+            const duv = it.leitura.filter(x => x.duvida).length, chave = it.av + "|" + it.aluno;
+            if(!al) { it.estado = "conferir"; it.motivo = it.aluno ? "Aluno do QR não está mais na turma" : "Cartão em branco: escolha o aluno"; }
+            else if(vistos[chave]){ it.estado = "conferir"; it.motivo = "Cartão repetido neste lote"; }
+            else if(duv){ it.estado = "conferir"; it.motivo = duv + " questão(ões) com marcação dupla, fraca ou em branco"; }
+            else if(C.resp[it.aluno]){ it.estado = "conferir"; it.motivo = "Já tinha resposta salva: substituir?"; it.substituir = true; }
+            else {
+              it.nota = await gravarResposta(C, it.aluno, it.leitura); it.estado = "salvo";
+            }
+            if(al) vistos[chave] = true;
+          }
+        }
+      }
+    }catch(e){ console.warn("lote:", e.code || e); it.estado = "naolido"; it.motivo = e.code ? "Não salvou (" + e.code + ")" : "Erro ao ler a página"; }
+    LOTE.feitas = i + 1;
+    if(i % 3 === 0 || i === LOTE.paginas.length - 1) { progressoLote(); await new Promise(r => setTimeout(r, 0)); }
+  }
+  LOTE.rodando = false; $("loteParar").hidden = true; progressoLote(true); desenharLote();
+  if(E.aval && LOTE.ctx[E.aval.id]) E.resp = LOTE.ctx[E.aval.id].resp;
+}
+function contarLote(){ const c = { salvo:0, conferir:0, naolido:0, ignorado:0 }; LOTE.itens.forEach(it => { if(c[it.estado] !== undefined) c[it.estado]++; }); return c; }
+function progressoLote(fim){
+  const c = contarLote(), t = LOTE.total || 1;
+  $("loteTxt").textContent = fim ? (LOTE.parar ? "Lote parado na página " + LOTE.feitas + " de " + LOTE.total : "Lote lido: " + LOTE.total + " página(s)") : "Lendo a página " + LOTE.feitas + " de " + LOTE.total + "...";
+  $("loteBarra").style.width = Math.round(100 * LOTE.feitas / t) + "%";
+  $("loteKpis").innerHTML = '<span class="ok">' + c.salvo + " salvos</span>" + '<span class="att">' + c.conferir + " para conferir</span>" + '<span class="ruim">' + c.naolido + " não lidos</span>" + "<span>" + c.ignorado + " ignorados</span>";
+  if(!fim && LOTE.feitas % 15 === 0) desenharLote();
+}
+function desenharLote(){
+  if(!$("loteRes")) return;
+  if(!LOTE.itens.length){ $("loteRes").innerHTML = ""; return; }
+  const linha = (it, i, extra) => '<div class="lote-item">' + (it.mini ? '<img src="' + it.mini + '" alt="">' : '<div class="mini">sem imagem</div>') +
+    "<div><b>" + esc(it.alunoNome || (it.estado === "naolido" ? "Cartão não identificado" : it.estado === "ignorado" ? "Página ignorada" : "Aluno não identificado")) + "</b><small>" + esc([it.prova, it.rot].filter(Boolean).join(" · ")) + "</small>" +
+    (it.motivo ? '<div class="sub" style="color:' + (it.estado === "salvo" ? "inherit" : "#8a5a00") + '">' + esc(it.motivo) + "</div>" : "") +
+    (it.estado === "salvo" && it.nota !== undefined ? '<div class="sub">Nota ' + fmt(it.nota) + "</div>" : "") + '</div><div class="acoes">' + (extra || "") + "</div></div>";
+  const provas = Object.values(LOTE.ctx).filter(C => C.aval);
+  const opcoes = '<option value="">Qual prova?</option>' + provas.map(C => '<option value="' + esc(C.id) + '">' + esc(C.titulo + " · " + (C.turma.nome || "")) + "</option>").join("") +
+    E.avals.filter(a => !LOTE.ctx[a.id]).map(a => '<option value="' + esc(a.id) + '">' + esc(a.titulo + " · " + ((E.turma || {}).nome || "")) + "</option>").join("");
+  const grupo = (est, tit, sub, extra) => { const todos = LOTE.itens.map((it, i) => [it, i]).filter(([it]) => it.estado === est); if(!todos.length) return "";
+    // lote grande: a lista dos salvos mostra os últimos 30 (os outros estão nos Resultados de cada prova)
+    const l = est === "salvo" && todos.length > 30 ? todos.slice(-30) : todos;
+    return '<div class="card"><div class="barra" style="margin-bottom:8px"><div><div class="h2">' + tit + " (" + todos.length + ')</div><div class="sub">' + sub + '</div></div><span class="esp"></span>' + (extra || "") + '</div><div class="lote-lista">' +
+      l.map(([it, i]) => linha(it, i, est === "conferir" ? '<button class="btn btn-pri btn-sm" data-action="lote-conferir" data-arg="' + i + '">Conferir</button>'
+        : est === "naolido" && it.mini ? '<select class="sel" data-lote-prova="' + i + '" aria-label="Prova">' + opcoes.replace('value="' + esc(it.escolhida || "") + '"', 'value="' + esc(it.escolhida || "") + '" selected') + '</select><button class="btn btn-pri btn-sm" data-action="lote-conferir" data-arg="' + i + '">Conferir</button>' : "")).join("") + "</div>" + (l.length < todos.length ? '<p class="sub" style="margin-top:8px">Mostrando os últimos ' + l.length + " de " + todos.length + ". Todos estão nos Resultados de cada prova.</p>" : "") + "</div>"; };
+  const subst = LOTE.itens.filter(it => it.estado === "conferir" && it.substituir && !it.leitura.some(x => x.duvida)).length;
+  // resumo por prova: quantos alunos ainda sem cartão
+  const resumo = provas.map(C => { const lidos = Object.keys(C.resp).length; return "<li><b>" + esc(C.titulo) + "</b> · " + esc(C.turma.nome || "") + ": " + lidos + " de " + C.alunos.length + " alunos com resposta" + (C.alunos.length - lidos > 0 ? " · faltam " + (C.alunos.length - lidos) : " · completa") + "</li>"; }).join("");
+  $("loteRes").innerHTML = (resumo ? '<div class="card"><div class="h2">Provas neste lote</div><ul class="sub" style="margin:6px 0 0 18px;line-height:1.7">' + resumo + "</ul></div>" : "") +
+    grupo("conferir", "Para conferir", "Toque em Conferir: abre a leitura do cartão para você ajustar e salvar.", subst ? '<button class="btn btn-gh btn-sm" data-action="lote-substituir">Substituir os ' + subst + " já corrigidos</button>" : "") +
+    grupo("naolido", "Não lidos", "Sem QR legível ou sem os quadrados dos cantos. Quando houver imagem, escolha a prova e confira.") +
+    grupo("salvo", "Salvos", "Cartões limpos, gravados com a nota.") +
+    grupo("ignorado", "Ignorados", "Páginas em branco e cartões de provas que não são suas.") +
+    (LOTE.rodando ? "" : '<div class="barra"><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="lote-limpar">Limpar a lista do lote</button></div>');
+}
+async function conferirLote(i){
+  const it = LOTE.itens[i]; if(!it) return;
+  const avId = it.av || it.escolhida; if(!avId){ toast("Escolha a prova deste cartão.", true); return; }
+  const C = await contexto(avId); if(C.erro){ toast(C.erro, true); return; }
+  try{
+    const img = await imagemDe(LOTE.paginas[it.pag]), r = await lerPagina(img, it.graus || 0);
+    if(!r.G){ toast("Não consegui reabrir esta página.", true); return; }
+    E.aval = C.aval; E.lay = C.lay; E.gab = C.gab; E.turma = C.turma; E.alunos = C.alunos; E.resp = C.resp; E.loteItem = it; E.modoCamera = false;
+    E.sec = "corrigir"; desenhar(); $("corrigirInicio").hidden = true;
+    abrirConferencia({ G:r.G, H:r.H, info:{ av:avId, aluno:it.aluno || (r.info && r.info.aluno) || "" }, leitura:it.leitura || decidir(lerBolhas(r.G, r.H, C.lay)) });
+  }catch(e){ console.warn("conferir:", e); toast("Não consegui reabrir esta página.", true); }
+}
+async function substituirLote(){
+  const l = LOTE.itens.filter(it => it.estado === "conferir" && it.substituir && !it.leitura.some(x => x.duvida));
+  let n = 0;
+  for(const it of l){ try{ const C = await contexto(it.av); it.nota = await gravarResposta(C, it.aluno, it.leitura); it.estado = "salvo"; it.motivo = "Resposta anterior substituída"; n++; }catch(e){ console.warn("substituir:", e.code || e); } }
+  toast(n + " cartão(ões) substituído(s)."); desenharLote();
+}
+
+/* =====================================================================
    EVENTOS E INÍCIO
    ===================================================================== */
 const ACOES = {
   "ir": s => ir(s), "gab": a => marcarGab(a), "novo-gab": () => { $("gTitulo").value = ""; $("mGab").hidden = false; setTimeout(() => $("gTitulo").focus(), 50); },
   "criar-gab": () => criarGab(), "gerar-pdf": () => gerarPdf(),
   "camera": () => { E.modoCamera = true; abrirCamera(); }, "parar": () => pararCamera(), "manual": () => digitar(),
-  "trocar": a => trocar(a), "salvar": () => salvar(), "descartar": () => { $("confBox").hidden = true; if(E.modoCamera) abrirCamera(); else $("corrigirInicio").hidden = false; },
+  "trocar": a => trocar(a), "salvar": () => salvar(), "descartar": () => { $("confBox").hidden = true; if(E.loteItem){ E.loteItem = null; $("corrigirInicio").hidden = false; ir("lote"); return; } if(E.modoCamera) abrirCamera(); else $("corrigirInicio").hidden = false; },
+  "lote-parar": () => { LOTE.parar = true; }, "lote-conferir": a => conferirLote(+a), "lote-substituir": () => substituirLote(), "lote-limpar": () => { LOTE.itens = []; LOTE.paginas = []; desenharLote(); },
   "exportar": () => exportar(), "analisar": () => analisar(), "exportar-an": () => exportarAnalise(), "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
 };
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b || b.disabled) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
@@ -943,6 +1170,8 @@ document.addEventListener("change", ev => {
   if(t.id === "selTurma") escolherTurma(t.value);
   else if(t.id === "selAval") escolherAval(t.value);
   else if(t.id === "arqFoto" && t.files[0]){ E.modoCamera = false; lerFoto(t.files[0]); t.value = ""; }
+  else if(t.id === "arqLote" && t.files.length){ processarLote([...t.files]); t.value = ""; }
+  else if(t.dataset.loteProva){ const it = LOTE.itens[+t.dataset.loteProva]; if(it) it.escolhida = t.value; }
   else if(t.id === "confAluno") desenharConferencia();
   else if(t.dataset.bncc){
     const q = t.dataset.bncc, cods = codigosBncc(t.value), resto = String(t.value).trim() && !cods.length;
@@ -954,7 +1183,12 @@ document.addEventListener("change", ev => {
   else if(t.id === "anMuni"){ AN.dados = null; analisar(); }
 });
 document.addEventListener("visibilitychange", () => { if(document.hidden) pararCamera(); });
-window.__corretor = { codigosBncc, descBncc, AN:() => AN, layout, processar, decidir, lerBolhas, homografia, acharMarcas, cinza, FIDS, estado:E };
+// arrastar arquivos para o lote
+["dragenter", "dragover"].forEach(n => document.addEventListener(n, ev => { const d = ev.target.closest && ev.target.closest("#loteDrop"); if(d){ ev.preventDefault(); d.classList.add("sobre"); } }));
+["dragleave", "drop"].forEach(n => document.addEventListener(n, ev => { const d = ev.target.closest && ev.target.closest("#loteDrop"); if(d) d.classList.remove("sobre"); }));
+document.addEventListener("drop", ev => { if(ev.target.closest && ev.target.closest("#loteDrop")){ ev.preventDefault(); const f = [...(ev.dataTransfer.files || [])]; if(f.length) processarLote(f); } });
+window.addEventListener("beforeunload", ev => { if(LOTE.rodando){ ev.preventDefault(); ev.returnValue = ""; } });
+window.__corretor = { LOTE:() => LOTE, codigosBncc, descBncc, AN:() => AN, layout, processar, decidir, lerBolhas, homografia, acharMarcas, cinza, FIDS, estado:E };
 
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
