@@ -21,7 +21,16 @@ const db = getFirestore();
 const p = new URLSearchParams({ key: CHAVE, q: `'${PASTA}' in parents and trashed=false and mimeType='application/pdf'`, fields: 'files(id,name,size)', pageSize: '200' });
 const r = await fetch('https://www.googleapis.com/drive/v3/files?' + p, { headers: { Referer: REFERER } });
 if (!r.ok) { console.log('Drive respondeu', r.status, await r.text()); process.exit(1); }
-const arquivos = (await r.json()).files || [];
+let arquivos = (await r.json()).files || [];
+// a pasta não é pública: usa os IDs dos links da página antiga (scripts/historias-ids.json, extraídos do HTML salvo)
+if (!arquivos.length) {
+  const { readFileSync } = await import('node:fs');
+  const ids = JSON.parse(readFileSync(new URL('./historias-ids.json', import.meta.url), 'utf8'));
+  for (const id of ids) {
+    const x = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?fields=id,name,size,mimeType&key=${CHAVE}`, { headers: { Referer: REFERER } });
+    if (x.ok) arquivos.push(await x.json()); else console.log('Sem acesso ao arquivo', id, x.status);
+  }
+}
 const titulo = n => n.replace(/\.pdf$/i, '').replace(/\s+[–-]\s+/g, ': ').replace(/\s+/g, ' ').trim();
 console.log(arquivos.length, 'histórias encontradas');
 arquivos.forEach(f => console.log(' -', titulo(f.name), '·', Math.round(Number(f.size || 0) / 1e6), 'MB'));
