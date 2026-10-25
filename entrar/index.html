@@ -4922,7 +4922,10 @@
             s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload = ok; s.onerror = falha; document.head.appendChild(s); });
         }
         const wb = window.XLSX.read(await arq.arrayBuffer(), { type:"array" });
-        $("impTexto").value = window.XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]], { FS:"\t" });
+        // planilha modelo da NEWPC tem uma aba por tipo: usa a aba do tipo escolhido
+        const PADRAO_ABA = { escolas:/escola/, equipe:/gest|equipe/, professores:/professor/, alunos:/aluno/ };
+        const aba = wb.SheetNames.find(n => PADRAO_ABA[imp.tipo].test(norm(n))) || wb.SheetNames[0];
+        $("impTexto").value = window.XLSX.utils.sheet_to_csv(wb.Sheets[aba], { FS:"\t", blankrows:false });
       }else{
         const buf = await arq.arrayBuffer();
         let txt; try{ txt = new TextDecoder("utf-8", { fatal:true }).decode(buf); }catch(e){ txt = new TextDecoder("windows-1252").decode(buf); }
@@ -4948,7 +4951,9 @@
     const idx = {};
     Object.keys(ALIAS).forEach(k => { const i = nomes.findIndex(n => ALIAS[k].map(norm).includes(n)); if(i >= 0) idx[k] = i; });
     const dados = linhas.slice(1).map((l, i) => { const c = quebrar(l); const o = { _linha:i+2 };
-      Object.keys(idx).forEach(k => o[k] = (c[idx[k]] || "").trim()); return o; });
+      Object.keys(idx).forEach(k => o[k] = (c[idx[k]] || "").trim()); return o; })
+      // ignora linhas vazias e as linhas de exemplo da planilha modelo
+      .filter(o => Object.keys(idx).some(k => o[k]) && !/^exemplo\b/i.test(o.nome || o.escola || ""));
     return { idx, dados };
   }
 
