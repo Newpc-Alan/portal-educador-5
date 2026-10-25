@@ -390,6 +390,25 @@ await t('ninguem grava o resumo', assertFails(setDoc(doc(prof, 'freq_resumo/tf1_
 await t('outro nao apaga minha chamada', assertFails(deleteDoc(doc(prof2, IDC))));
 await t('professor apaga a propria chamada', assertSucceeds(deleteDoc(doc(prof, IDC))));
 
+// Ficha de busca ativa: so a gestao da escola
+const caso = { escola_id: 'e1', municipio_id: 'm1', aluno_id: 'a1', aluno_nome: 'Ana', turma_id: 'tf1', turma_nome: '5A', ano: 2026, status: 'contato',
+  registros: [{ em: 1, por: 'gest1', tipo: 'ligacao', texto: 'Mae informou febre' }], atualizado_em: serverTimestamp(), atualizado_por: 'gest1' };
+const IDB = 'busca_ativa/e1_a1_2026';
+await t('gestor abre ficha de busca ativa', assertSucceeds(setDoc(doc(gest1, IDB), caso)));
+await t('gestor atualiza a ficha', assertSucceeds(setDoc(doc(gest1, IDB), { ...caso, status: 'encaminhado' })));
+await t('gestor le as fichas da escola', assertSucceeds(getDocs(query(collection(gest1, 'busca_ativa'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
+await t('gestor de outra escola nao le a ficha', assertFails(getDoc(doc(gest, IDB))));
+await t('gestor de outra escola nao grava', assertFails(setDoc(doc(gest, 'busca_ativa/e1_a2_2026'), { ...caso, aluno_id: 'a2', atualizado_por: 'gest' })));
+await t('professor nao le a ficha', assertFails(getDoc(doc(prof, IDB))));
+await t('professor nao grava ficha', assertFails(setDoc(doc(prof, 'busca_ativa/e1_a3_2026'), { ...caso, aluno_id: 'a3', atualizado_por: 'prof' })));
+await t('secretaria nao le ficha com nomes', assertFails(getDoc(doc(sec, IDB))));
+await t('ficha com id diferente', assertFails(setDoc(doc(gest1, 'busca_ativa/e1_a9_2026'), caso)));
+await t('ficha com status invalido', assertFails(setDoc(doc(gest1, IDB), { ...caso, status: 'x' })));
+await t('ficha com municipio trocado', assertFails(setDoc(doc(gest1, 'busca_ativa/e1_a5_2026'), { ...caso, aluno_id: 'a5', municipio_id: 'm2' })));
+await t('ficha em nome de outro', assertFails(setDoc(doc(gest1, IDB), { ...caso, atualizado_por: 'prof' })));
+await t('ficha com campo extra', assertFails(setDoc(doc(gest1, IDB), { ...caso, x: 1 })));
+await t('gestor nao apaga ficha', assertFails(deleteDoc(doc(gest1, IDB))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

@@ -342,6 +342,20 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ficha de busca ativa: um caso por aluno, escola e ano; so a gestao da escola (e o administrador)
+    match /busca_ativa/{id} {
+      allow read: if admin() || (resource == null && ativo() && eu().perfil == "gestor") || (resource != null && gestorDaEscola(resource.data.escola_id));
+      allow create, update: if (admin() || gestorDaEscola(novo().escola_id))
+        && id == novo().escola_id + "_" + novo().aluno_id + "_" + string(novo().ano)
+        && (resource == null || (resource.data.escola_id == novo().escola_id && resource.data.aluno_id == novo().aluno_id && resource.data.ano == novo().ano))
+        && novo().keys().hasOnly(["escola_id", "municipio_id", "aluno_id", "aluno_nome", "turma_id", "turma_nome", "ano", "status", "registros", "atualizado_em", "atualizado_por"])
+        && (admin() || muniDaEscola(novo().escola_id) == novo().municipio_id)
+        && novo().ano is int && novo().status in ["aberto", "contato", "encaminhado", "resolvido"]
+        && novo().registros is list && novo().registros.size() <= 200
+        && texto(novo().aluno_nome, 80) && texto(novo().turma_nome, 80) && novo().atualizado_por == request.auth.uid;
+      allow delete: if admin();
+    }
+
     // ---------- Recursos da escola: reservas e chamado tecnico ----------
     // gestor da escola e a equipe NEWPC (admin) cadastram; quem e da escola ve; o professor licenciado reserva
     function recGestor(esc) { return admin() || gestorDaEscola(esc); }
