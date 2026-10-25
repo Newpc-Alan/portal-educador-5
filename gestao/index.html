@@ -45,7 +45,7 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
 <body>
 <div class="app">
   <header class="topo">
-    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Gestão Escolar</b><span>Frequência, notas, relatórios, recursos e suporte técnico da escola, em um só lugar</span></div></div>
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Gestão Escolar</b><span>Frequência, notas, comunicação, relatórios, recursos e suporte técnico da escola, em um só lugar</span></div></div>
     <a class="tb" href="/entrar/">← Portal</a>
   </header>
   <div class="grade">
@@ -68,6 +68,13 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
       <div class="app-corpo"><b>Frequência</b>
         <p id="cfTxt">Chamada da turma pelo celular em poucos toques, com as faltas indo sozinhas para o Notas e Médias.</p>
         <ul id="cfLista"><li>Chamada por aula; nos anos iniciais, uma vale para o dia</li><li>Faltas do bimestre entram sozinhas no Notas e Médias</li><li>Busca ativa: alunos faltando seguido, com aviso ao gestor</li></ul>
+        <span class="app-btn">Abrir</span></div>
+    </a>
+    <a class="app-card" href="/apps/tv/" id="cardTv">
+      <div class="app-capa" style="background-image:url(/assets/apps/capas/tv.webp);background-position:center 40%"></div>
+      <div class="app-corpo"><b>Portal do Educador TV</b>
+        <p id="ctTxt">Comunicação da escola nas TVs e totens, e a portaria com carteirinha: tudo controlado pela gestão, de qualquer computador.</p>
+        <ul id="ctLista"><li>Telas e totens conectados por código, sem login na TV</li><li>Playlists por turno, com avisos, fotos e vídeos</li><li>Totem da portaria: entrada pela carteirinha, com foto opcional</li></ul>
         <span class="app-btn">Abrir</span></div>
     </a>
     <a class="app-card" href="/relatorios/" data-mod="relatorios">
@@ -115,6 +122,8 @@ onAuthStateChanged(getAuth(app), async user => {
     let u = (await getDoc(doc(db, "usuarios", user.uid))).data() || {};
     // administrador em "Entrar como": a tela segue o perfil do teste
     if(u.perfil === "admin"){ try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); if(v && v.perfil && v.perfil !== "admin") u = { ...u, perfil:v.perfil, municipio_id:v.muni || u.municipio_id }; }catch(e){} }
+    // TV na gestão é da direção e da secretaria; o professor usa o atalho "Enviar para a TV da escola" em Aplicativos
+    if(!["admin", "secretaria", "gestor"].includes(u.perfil)) document.getElementById("cardTv").hidden = true;
     // painel: secretaria (rede), gestor (escola) e administrador; liberado pelo plano do município
     if(["admin", "secretaria", "gestor"].includes(u.perfil)){
       const c = document.getElementById("cardPainel"); c.hidden = false;
@@ -122,6 +131,8 @@ onAuthStateChanged(getAuth(app), async user => {
         c.querySelector("ul").innerHTML = "<li>Sua escola comparada com a média da rede</li><li>Habilidades BNCC que pedem reforço</li><li>Relatório da escola em PDF com o brasão</li>";
         document.getElementById("cfTxt").textContent = "Busca ativa da escola: alunos abaixo da frequência mínima ou faltando dias seguidos, pelas chamadas dos professores.";
         document.getElementById("cfLista").innerHTML = "<li>Lista com turma, frequência e última falta</li><li>Turmas sem chamada na semana</li><li>Resumo por e-mail toda segunda-feira</li>"; document.getElementById("cardFreq").href = "/apps/frequencia/#busca"; }
+      if(u.perfil === "secretaria"){ document.getElementById("cardTv").href = "/apps/tv/#avisos"; document.getElementById("ctTxt").textContent = "Comunicados da Secretaria nas TVs e totens de todas as escolas da rede, ao mesmo tempo.";
+        document.getElementById("ctLista").innerHTML = "<li>Um aviso vale para a rede inteira ou para escolas escolhidas</li><li>Com data para entrar e sair do ar</li><li>As escolas continuam com a programação delas</li>"; }
       if(u.perfil === "secretaria"){ document.getElementById("cardFreq").href = "/painel/"; document.getElementById("cfTxt").textContent = "A frequência da rede, escola por escola, fica no Painel da Rede (sem nomes de alunos)."; }
     }
     if(u.perfil === "admin" || !u.municipio_id) return;
