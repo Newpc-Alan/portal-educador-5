@@ -23,6 +23,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await s('usuarios/alu3', { perfil: 'aluno', status: 'ativo', municipio_id: 'm3' });
   await s('usuarios/prof', { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
   await s('videos/v1', { publicado: true, para_alunos: true });
+  await s('biblioteca/h1', { publicado: true, secao: 'historias' }); await s('biblioteca/l1', { publicado: true, secao: 'livros' });
   await s('videos/v2', { publicado: true, para_alunos: false });
   await s('jogos/j1', { publicado: true, para_alunos: true });
   await s('biblioteca/b1', { publicado: true, secao: 'livros' });
@@ -79,6 +80,8 @@ await t('aluno nao lista reacoes', assertFails(getDocs(query(collection(al, 'vid
 await t('jogos para alunos', assertSucceeds(getDocs(query(collection(al, 'jogos'), where('publicado', '==', true), where('para_alunos', '==', true)))));
 await t('biblioteca estantes do aluno', assertSucceeds(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true), where('secao', 'in', ['aprender', 'gibiteca'])))));
 await t('biblioteca inteira', assertFails(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true)))));
+await t('aluno le historias educativas', assertSucceeds(getDocs(query(collection(al, 'biblioteca'), where('publicado', '==', true), where('secao', '==', 'historias')))));
+await t('aluno nao le livro do professor', assertFails(getDoc(doc(al, 'biblioteca/l1'))));
 await t('livro adulto', assertFails(getDoc(doc(al, 'biblioteca/b1'))));
 await t('gibi', assertSucceeds(getDoc(doc(al, 'biblioteca/b2'))));
 await t('colorir', assertSucceeds(getDoc(doc(al, 'colorir/c1'))));
