@@ -35,6 +35,22 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 .par li b{display:block;color:var(--lima);font-size:max(11px,1.5vmin);letter-spacing:.15em;margin-bottom:.4vmin}
 .par-rod{margin-top:3vmin;font-size:max(11px,1.5vmin);color:rgba(255,255,255,.45);font-family:var(--mono)}
 
+/* ---------- totem da portaria: confirmação por cima da programação ---------- */
+.pt-flash{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.4vmin;text-align:center;padding:5vmin;
+  background:rgba(4,12,20,.86);backdrop-filter:blur(6px);animation:ptEntra .18s ease-out}
+.pt-ico{width:42vmin;height:42vmin;border-radius:50%;display:grid;place-items:center;font-size:26vmin;font-weight:800;line-height:1;color:#fff;
+  box-shadow:0 0 0 2.4vmin rgba(255,255,255,.08),0 2vmin 8vmin rgba(0,0,0,.5);animation:ptPula .45s cubic-bezier(.3,1.6,.5,1)}
+.pt-flash.ok .pt-ico{background:#4f9a1c}.pt-flash.ja .pt-ico{background:#2671AB}.pt-flash.erro .pt-ico{background:#C2362C}
+.pt-flash b{font-size:max(28px,8vmin);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+.pt-flash span{font-size:max(16px,3.4vmin);color:rgba(255,255,255,.8)}
+@keyframes ptEntra{from{opacity:0}to{opacity:1}}
+@keyframes ptPula{from{transform:scale(.4)}to{transform:scale(1)}}
+.pt-selo{position:fixed;left:2vmin;bottom:2vmin;z-index:40;background:rgba(7,22,33,.82);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:1vmin 2.2vmin;
+  font-size:max(12px,1.8vmin);font-weight:700;color:#fff;display:flex;gap:1.2vmin;align-items:center}
+.pt-selo i{width:1.3vmin;height:1.3vmin;min-width:9px;min-height:9px;border-radius:50%;background:var(--lima);display:inline-block}
+.pt-selo.fila i{background:#F9A825}
+@media (prefers-reduced-motion:reduce){ .pt-flash,.pt-ico{animation:none} }
+
 /* ---------- player ---------- */
 .tv{position:fixed;inset:0;display:flex;flex-direction:column;background:#000}
 .cabeca{display:none}
@@ -154,6 +170,8 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 <div class="previa" id="previa" hidden>PRÉVIA · nada aqui aparece nas TVs até você salvar</div>
 <button class="cheia-btn" id="cheiaBtn" hidden>⛶ Tocar para tela cheia <small>ou instale como app</small></button>
 <div class="offline" id="offline" hidden>Sem internet · exibindo a última programação</div>
+<div class="pt-flash" id="ptFlash" hidden><div class="pt-ico" id="ptIco"></div><b id="ptTit"></b><span id="ptSub"></span></div>
+<div class="pt-selo" id="ptSelo" hidden></div>
 
 <script nomodule>
 /* navegador de TV antigo (sem módulos de JavaScript): abre a versão leve do player, com a mesma chave da tela */
@@ -361,6 +379,92 @@ async function batimento(){
   try{ await updateDoc(doc(db, "tv_telas", P.chave), { visto_em:serverTimestamp(), resolucao:innerWidth + "x" + innerHeight, aparelho:VERSAO }); }catch(e){ console.warn("batimento", e.code || e); }
 }
 
+/* ---------- totem da portaria (tela em "modo Portaria") ----------
+   O leitor de código USB "digita" a carteirinha e aperta Enter. A confirmação aparece na hora (lista local da escola)
+   e a entrada sobe para o servidor; sem internet, fica numa fila no aparelho. */
+const PORT_URL = "https://southamerica-east1-portal-educador-5.cloudfunctions.net/portaria";
+const PT = { ativo:false, alunos:{}, turmas:{}, hoje:new Set(), dia:"", buf:"", bufT:0, ult:{}, fila:[], enviando:false, audio:null, flashT:0, listaT:0, filaT:0 };
+const diaMS = () => new Intl.DateTimeFormat("en-CA", { timeZone:"America/Campo_Grande", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+const horaMS = () => new Intl.DateTimeFormat("pt-BR", { timeZone:"America/Campo_Grande", hour:"2-digit", minute:"2-digit", hour12:false }).format(new Date());
+async function chamarPortaria(corpo){
+  const r = await fetch(PORT_URL, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ chave:P.chave, ...corpo }) });
+  const d = await r.json().catch(() => ({})); if(!r.ok) throw new Error(d.erro || "http " + r.status); return d;
+}
+async function listaPortaria(){
+  try{
+    const d = await chamarPortaria({ acao:"lista" });
+    PT.alunos = d.alunos || {}; PT.turmas = d.turmas || {};
+    if(PT.dia !== d.dia){ PT.dia = d.dia; PT.hoje = new Set(); }
+    (d.entraram || []).forEach(id => PT.hoje.add(id));
+    ls.set("pde_tv_portaria", { alunos:PT.alunos, turmas:PT.turmas, dia:PT.dia, hoje:[...PT.hoje] });
+  }catch(e){ console.warn("portaria lista", e.message || e); }
+  seloPortaria();
+}
+function ligarPortaria(on){
+  if(on === PT.ativo) return;
+  PT.ativo = on; clearInterval(PT.listaT); clearInterval(PT.filaT); $("ptSelo").hidden = !on;
+  if(!on) return;
+  const c = ls.get("pde_tv_portaria", null);
+  if(c){ PT.alunos = c.alunos || {}; PT.turmas = c.turmas || {}; PT.dia = c.dia || ""; PT.hoje = new Set(c.dia === diaMS() ? c.hoje || [] : []); }
+  PT.fila = ls.get("pde_tv_portaria_fila", []) || [];
+  listaPortaria(); PT.listaT = setInterval(listaPortaria, 5 * 60 * 1000);
+  enviarPortaria(); PT.filaT = setInterval(enviarPortaria, 15000);
+  seloPortaria();
+}
+function seloPortaria(){
+  if(!PT.ativo) return;
+  if(PT.dia && PT.dia !== diaMS()){ PT.dia = diaMS(); PT.hoje = new Set(); }
+  $("ptSelo").className = "pt-selo" + (PT.fila.length ? " fila" : "");
+  $("ptSelo").innerHTML = "<i></i>Portaria · " + PT.hoje.size + (PT.hoje.size === 1 ? " entrada hoje" : " entradas hoje") + (PT.fila.length ? " · " + PT.fila.length + " aguardando internet" : "");
+}
+// toque de duas notas (subindo) para confirmar; duas notas descendo para recusar
+function somPortaria(tipo){
+  try{
+    const c = PT.audio || (PT.audio = new (window.AudioContext || window.webkitAudioContext)()); if(c.state === "suspended") c.resume();
+    const notas = tipo === "erro" ? [[440, 0], [294, .16]] : tipo === "ja" ? [[880, 0]] : [[784, 0], [1175, .11]];
+    notas.forEach(([f, t0]) => { const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+      o.type = tipo === "erro" ? "triangle" : "sine"; o.frequency.value = f; o.connect(g); g.connect(c.destination);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28); o.start(t); o.stop(t + 0.3); });
+  }catch(e){}
+}
+function flashPortaria(tipo, ico, tit, sub){
+  const f = $("ptFlash"); f.className = "pt-flash " + tipo; $("ptIco").textContent = ico; $("ptTit").textContent = tit; $("ptSub").textContent = sub; f.hidden = false;
+  somPortaria(tipo); clearTimeout(PT.flashT); PT.flashT = setTimeout(() => { f.hidden = true; }, tipo === "erro" ? 2600 : 1800);
+}
+function cartaoPortaria(txt){
+  const c = String(txt || "").trim(), m = /^PDEA[^A-Za-z0-9_-]{0,2}([A-Za-z0-9_-]{1,64})$/i.exec(c);
+  let id = m ? m[1] : (/^[A-Za-z0-9_-]{8,64}$/.test(c) ? c : "");
+  if(!id){ flashPortaria("erro", "✕", "Carteirinha não reconhecida", "Passe de novo ou procure a secretaria"); return; }
+  const agora = Date.now(); if(PT.ult[id] && agora - PT.ult[id] < 5000) return; PT.ult[id] = agora;
+  const temLista = Object.keys(PT.alunos).length > 0;
+  if(temLista && !PT.alunos[id]){ const k = Object.keys(PT.alunos).find(x => x.toLowerCase() === id.toLowerCase()); if(k) id = k; }
+  const a = PT.alunos[id];
+  if(temLista && !a){ flashPortaria("erro", "✕", "Carteirinha não reconhecida", "Não é desta escola. Procure a secretaria"); return; }
+  const h = new Date().getHours(), oi = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  if(PT.hoje.has(id)){ flashPortaria("ja", "✓", a ? a[0] + ", você já entrou" : "Entrada já registrada", "Bom estudo!"); return; }
+  PT.hoje.add(id);
+  flashPortaria("ok", "✓", a ? oi + ", " + a[0] + "!" : "Entrada registrada", a ? "Bom estudo!" : "");
+  PT.fila.push({ id, hora:horaMS(), dia:diaMS() }); ls.set("pde_tv_portaria_fila", PT.fila); seloPortaria();
+  enviarPortaria();
+}
+async function enviarPortaria(){
+  if(PT.enviando || !PT.fila.length || !navigator.onLine) return;
+  PT.enviando = true;
+  try{
+    const lote = PT.fila.slice(0, 200), r = await chamarPortaria({ acao:"entrar", entradas:lote });
+    const feitos = new Set([...(r.ok || []), ...(r.recusados || [])]);
+    PT.fila = PT.fila.filter(e => !(feitos.has(e.id) && lote.includes(e))); ls.set("pde_tv_portaria_fila", PT.fila);
+  }catch(e){ console.warn("portaria envio", e.message || e); }
+  PT.enviando = false; seloPortaria();
+}
+// leitor USB: os caracteres chegam muito rápido e terminam com Enter ou Tab
+addEventListener("keydown", e => {
+  if(!PT.ativo) return;
+  if(e.key === "Enter" || e.key === "Tab"){ if(PT.buf){ e.preventDefault(); e.stopImmediatePropagation(); const b = PT.buf; PT.buf = ""; cartaoPortaria(b); } return; }
+  if(e.key.length === 1){ const t = Date.now(); if(t - PT.bufT > 150) PT.buf = ""; PT.buf += e.key; PT.bufT = t; e.stopImmediatePropagation(); }
+}, true);
+addEventListener("online", enviarPortaria);
+
 /* ---------- início ---------- */
 function iniciar(){
   const q = new URLSearchParams(location.search);
@@ -383,12 +487,12 @@ function iniciar(){
   if(doLink) history.replaceState(null, "", location.pathname);
   // última programação conhecida: a TV liga e já exibe, mesmo sem internet
   const ult = ls.get("pde_tv_ultima", null);
-  if(ult && ult.tela){ P.tela = ult.tela; P.listas = ult.listas || {}; P.canal = ult.canal || null; P.campanhas = ult.campanhas || null; $("par").hidden = true; $("tv").hidden = false; aplicarTela(); montarFila(); }
+  if(ult && ult.tela){ P.tela = ult.tela; P.listas = ult.listas || {}; P.canal = ult.canal || null; P.campanhas = ult.campanhas || null; $("par").hidden = true; $("tv").hidden = false; aplicarTela(); montarFila(); ligarPortaria(P.tela.modo === "portaria"); }
   if(!navigator.onLine) $("offline").hidden = false;
   onSnapshot(doc(db, "tv_telas", P.chave), s => {
-    if(!s.exists()){ P.tela = null; ls.set("pde_tv_ultima", null); Object.keys(P.unsubs).forEach(parar); mostrarPareamento(); return; }
+    if(!s.exists()){ P.tela = null; ls.set("pde_tv_ultima", null); Object.keys(P.unsubs).forEach(parar); ligarPortaria(false); mostrarPareamento(); return; }
     const novo = !P.tela || !P.unsubs["pl:" + (s.data().playlist_id || "")];
-    P.tela = s.data();
+    P.tela = s.data(); ligarPortaria(P.tela.modo === "portaria");
     if(novo || $("tv").hidden){ iniciarPlayer(); batimento(); } else { aplicarTela(); assinarListas(); montarFila(); }
   }, e => { console.warn("tela", e.code || e); if(!P.tela) mostrarPareamento(); });
   setInterval(batimento, 5 * 60 * 1000);

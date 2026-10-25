@@ -237,7 +237,7 @@ async function telaTelas(){
     (E.telas.length ? '<div class="telas">' + E.telas.map(t => {
       const [c, txt] = statusTela(t), o = t.orientacao || "auto";
       return '<article class="tela"><div class="tela-tv"><span class="st ' + c + '">' + esc(txt) + '</span><div class="forma ' + (o === "v" ? "v" : "h") + '">' + (o === "v" ? "▮" : "▬") + "</div></div>" +
-        '<div class="tela-corpo"><b>' + esc(t.nome || "TV") + "</b><small>" + esc(ORI[o]) + " · " + esc(nomePl(t.playlist_id)) + (t.agenda && TURNOS.some(([k]) => t.agenda[k] && t.agenda[k].playlist_id) ? " · com agenda por turno" : "") + "</small>" +
+        '<div class="tela-corpo"><b>' + esc(t.nome || "TV") + "</b><small>" + (t.modo === "portaria" ? "🚪 Totem da portaria · " : "") + esc(ORI[o]) + " · " + esc(nomePl(t.playlist_id)) + (t.agenda && TURNOS.some(([k]) => t.agenda[k] && t.agenda[k].playlist_id) ? " · com agenda por turno" : "") + "</small>" +
         '<div class="acoes"><button class="btn btn-pri btn-sm" data-action="editar-tela" data-arg="' + esc(t.id) + '">Configurar</button>' +
         '<button class="btn btn-gh btn-sm" data-action="link-tela" data-arg="' + esc(t.id) + '">🔗 Link</button>' +
         '<button class="btn btn-red btn-sm" data-action="remover-tela" data-arg="' + esc(t.id) + '">Desconectar</button></div></div></article>';
@@ -246,6 +246,11 @@ async function telaTelas(){
 function htmlOrientacao(sel){
   return '<div class="ori" id="fOri">' + [["auto","a","Automática"],["h","h","Horizontal"],["v","v","Vertical (totem)"]].map(([k, c, n]) =>
     '<button type="button" class="' + c + (sel === k ? " on" : "") + '" data-action="ori" data-arg="' + k + '"><i></i>' + n + "</button>").join("") + "</div>";
+}
+// totem da portaria: só a gestão da escola (a tela mostra o primeiro nome dos alunos)
+const podePortaria = () => E.admin || E.perfil === "gestor";
+function htmlPortaria(on){
+  return podePortaria() ? '<label class="chave" style="align-items:flex-start"><input type="checkbox" id="fPort"' + (on ? " checked" : "") + '> <span><b>Totem da portaria</b>: com um leitor de código USB ligado ao aparelho, registra a entrada dos alunos pela carteirinha. A programação continua passando e, a cada carteirinha, aparece um OK verde grande com o primeiro nome e um som.</span></label>' : "";
 }
 function opcoesPl(sel, vazio){ return (vazio ? '<option value="">' + vazio + "</option>" : "") + E.playlists.map(p => '<option value="' + esc(p.id) + '"' + (p.id === sel ? " selected" : "") + ">" + esc(p.nome) + "</option>").join(""); }
 async function garantirPlaylist(){
@@ -260,7 +265,7 @@ async function modalConectar(){
     '<div class="campo"><label for="fCod">Código que aparece na TV</label><input id="fCod" class="cod-in" maxlength="6" autocomplete="off" autocapitalize="characters" placeholder="ABC123"></div>' +
     '<div class="campo"><label for="fNome">Nome desta TV</label><input id="fNome" maxlength="60" placeholder="Ex.: TV do pátio, Totem da entrada"></div>' +
     '<div class="campo"><label>Formato da tela</label>' + htmlOrientacao("auto") + "</div>" +
-    '<div class="campo"><label for="fPl">Playlist que vai passar</label><select id="fPl">' + opcoesPl(E.playlists[0].id) + "</select></div>" +
+    '<div class="campo"><label for="fPl">Playlist que vai passar</label><select id="fPl">' + opcoesPl(E.playlists[0].id) + "</select></div>" + htmlPortaria(false) +
     '<div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="conectar-ok" id="btOk">Conectar</button></div>');
   setTimeout(() => $("fCod").focus(), 40);
 }
@@ -277,7 +282,7 @@ async function conectar(){
     const canal = await garantirCanal(true).catch(() => null);
     await setDoc(doc(db, "tv_telas", p.chave), { nome, escola_id:E.escolaId, escola_nome:E.escola.nome || "", municipio_id:E.escola.municipio_id || "",
       orientacao:E.form.ori, playlist_id:$("fPl").value, agenda:{}, letreiro:"", campanhas:true, cidade:E.muni ? [E.muni.nome, E.muni.uf].filter(Boolean).join(" · ") : "",
-      lat:"", lon:"", logo_url:logoEscola(), canal:canal ? canal.id : "", criado_por:E.user.uid, criado_nome:E.u.nome || E.user.email || "",
+      lat:"", lon:"", logo_url:logoEscola(), canal:canal ? canal.id : "", modo:$("fPort") && $("fPort").checked ? "portaria" : "tv", criado_por:E.user.uid, criado_nome:E.u.nome || E.user.email || "",
       criado_em:serverTimestamp(), atualizado_em:serverTimestamp() });
     deleteDoc(doc(db, "tv_pareamentos", cod)).catch(() => {});
     fecharModal(); E.telas = null; toast("TV conectada! Em alguns segundos ela começa a exibir.");
@@ -295,6 +300,7 @@ function modalTela(id){
     '<div class="campo"><label>Trocar a playlist por turno (opcional)</label>' + TURNOS.map(([k, n, h]) =>
       '<div class="agenda"><b>' + n + '</b><input type="time" id="ag_' + k + '" value="' + esc((ag[k] && ag[k].inicio) || h) + '" aria-label="Início do turno ' + n + '"><select id="agp_' + k + '" aria-label="Playlist do turno ' + n + '">' + opcoesPl(ag[k] && ag[k].playlist_id, "Mantém a padrão") + "</select></div>").join("") +
       '<small>A partir do horário, a TV troca sozinha para a playlist escolhida.</small></div>' +
+    htmlPortaria(t.modo === "portaria") +
     '<label class="chave"><input type="checkbox" id="fCamp"' + (t.campanhas === false ? "" : " checked") + '> Exibir as campanhas educativas do Portal do Educador (dengue, trânsito, Outubro Rosa...)</label>' +
     '<div class="campo"><label for="fLet">Letreiro (texto que corre no rodapé)</label><input id="fLet" maxlength="300" value="' + esc(t.letreiro || "") + '" placeholder="Bem-vindos à ' + esc(E.escola.nome) + '"></div>' +
     '<div class="campos"><div class="campo"><label for="fCid">Cidade exibida</label><input id="fCid" maxlength="60" value="' + esc(t.cidade || "") + '"></div>' +
@@ -311,6 +317,7 @@ async function salvarTela(){
   try{
     const dados = { nome, orientacao:E.form.ori, playlist_id:$("fPl").value, agenda, letreiro:$("fLet").value.trim(), cidade:$("fCid").value.trim(),
       lat:String(E.form.lat || ""), lon:String(E.form.lon || ""), logo_url:logoEscola(), campanhas:$("fCamp").checked, atualizado_em:serverTimestamp() };
+    if($("fPort")) dados.modo = $("fPort").checked ? "portaria" : "tv";
     await updateDoc(doc(db, "tv_telas", t.id), dados);
     Object.assign(t, dados); fecharModal(); toast("Configuração salva. A TV atualiza em segundos."); telaTelas();
   }catch(e){ toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); $("btOk").disabled = false; }
