@@ -373,3 +373,4 @@ export { painelSecretaria } from './painel-secretaria.js';
 export { freqResumo, emailBuscaAtiva } from './frequencia.js';
 export { portaria, limparFotosPortaria } from './portaria.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
+export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';

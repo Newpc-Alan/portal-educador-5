@@ -382,6 +382,27 @@ service cloud.firestore {
       allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
     }
 
+    // avisos as familias: a escola liga cada tipo; o registro de envios so a funcao grava; comunicado criado pelo gestor
+    match /avisos_config/{esc} {
+      allow read: if admin() || gestorDaEscola(esc);
+      allow write: if (admin() || gestorDaEscola(esc))
+        && novo().keys().hasOnly(["falta_dia", "seguidos", "fora_sala", "chegada", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
+        && novo().falta_dia is bool && novo().seguidos is bool && novo().fora_sala is bool && novo().chegada is bool && texto(novo().get("atualizado_por_nome", ""), 80);
+    }
+    match /avisos_familia/{id} {
+      allow read: if admin() || (resource != null && gestorDaEscola(resource.data.escola_id));
+      allow write: if false;
+    }
+    match /avisos_contador/{dia} { allow read: if admin(); allow write: if false; }
+    match /comunicados_familia/{id} {
+      allow read: if admin() || (resource != null && gestorDaEscola(resource.data.escola_id));
+      allow create: if (admin() || gestorDaEscola(novo().escola_id)) && novo().criado_por == request.auth.uid && novo().status == "pendente"
+        && novo().keys().hasOnly(["escola_id", "escola_nome", "municipio_id", "titulo", "texto", "turmas", "status", "criado_em", "criado_por", "criado_por_nome"])
+        && texto(novo().titulo, 120) && novo().titulo.size() >= 3 && texto(novo().texto, 3000) && novo().texto.size() >= 3
+        && novo().turmas is list && novo().turmas.size() >= 1 && novo().turmas.size() <= 200 && texto(novo().get("criado_por_nome", ""), 80);
+      allow update, delete: if false;
+    }
+
     // ficha de busca ativa: um caso por aluno, escola e ano; so a gestao da escola (e o administrador)
     match /busca_ativa/{id} {
       allow read: if admin() || (resource == null && ativo() && eu().perfil == "gestor") || (resource != null && gestorDaEscola(resource.data.escola_id));

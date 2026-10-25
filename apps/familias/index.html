@@ -80,6 +80,17 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
 .st-novo{color:var(--verde)}.st-atu{color:var(--azul)}.st-ign{color:var(--muted)}.st-erro{color:var(--red)}
 .tab tr.erro td{background:#fff6f5}
 .lgpd{font-size:.76rem;color:var(--muted);margin-top:10px}
+.av-op{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start;padding:12px 0;border-top:1px solid #edf1f5}
+.av-op:first-of-type{border-top:0}
+.av-op b{font-size:.95rem}.av-op .sub{grid-column:2}
+.chave{position:relative;width:46px;height:26px;flex:none;margin-top:2px}.chave input{opacity:0;width:0;height:0}
+.chave span{position:absolute;inset:0;background:#cfd9e3;border-radius:99px;transition:.2s;cursor:pointer}
+.chave span::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.chave input:checked + span{background:var(--verde)}.chave input:checked + span::before{transform:translateX(20px)}
+.chave input:focus-visible + span{outline:3px solid #9cc7ea}
+.turmas-sel{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.turmas-sel label{text-transform:none;letter-spacing:0;color:var(--ink);border:1.5px solid var(--line);border-radius:9px;padding:5px 10px;font-size:.82rem;font-weight:700;display:flex;gap:6px;align-items:center;cursor:pointer;background:#fff}
+.turmas-sel label.on{border-color:var(--azul);background:#eef6fd;color:var(--azul)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--escuro-2);color:#fff;border-radius:12px;padding:12px 18px;font-weight:700;font-size:.88rem;opacity:0;transition:.25s;z-index:100;max-width:92vw;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .toast.err{background:var(--red)}
@@ -91,6 +102,7 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
     <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Famílias</b><span id="quem">Carregando...</span></div></div>
     <button class="tb on" data-action="ir" data-arg="lista" id="tabLista">👨‍👩‍👧 Responsáveis</button>
     <button class="tb" data-action="ir" data-arg="importar" id="tabImp">📥 Importar planilha</button>
+    <button class="tb" data-action="ir" data-arg="avisos" id="tabAv">📣 Avisos às famílias</button>
     <a class="tb lima" href="/gestao/">← Gestão</a>
   </header>
   <div class="carregando" id="carregando">Carregando...</div>
@@ -126,6 +138,30 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
     </div>
     <div id="impPrevia"></div>
   </section>
+
+  <section id="s-avisos" hidden>
+    <div class="card">
+      <div class="h2">📣 Avisos automáticos por e-mail</div>
+      <p class="sub" style="margin:4px 0 6px">Cada escola decide quais avisos as famílias recebem. Os avisos vão para o e-mail dos responsáveis cadastrados que aceitam receber avisos. <span id="avCobertura"></span></p>
+      <div id="avOps"></div>
+    </div>
+    <div class="card">
+      <div class="h2">✉️ Novo comunicado às famílias</div>
+      <p class="sub" style="margin:4px 0 10px">Reunião de pais, evento, aviso geral. Sai na hora para as famílias das turmas escolhidas, assinado pela escola.</p>
+      <label class="campo">Assunto<input class="inp" id="coTit" maxlength="120" placeholder="Ex.: Reunião de pais e mestres"></label>
+      <label class="campo" style="margin-top:10px">Mensagem<textarea class="inp" id="coTxt" maxlength="3000" style="font-family:inherit;font-size:.92rem;min-height:130px" placeholder="Ex.: Convidamos as famílias para a reunião do 4º bimestre na sexta-feira, 13/11, às 19h, no pátio da escola."></textarea></label>
+      <div class="campo" style="margin-top:10px">Para as famílias de<div class="turmas-sel" id="coTurmas"></div></div>
+      <div class="barra" style="margin-top:12px"><span class="sub" id="coAlcance"></span><span class="esp"></span><button class="btn btn-pri" data-action="co-enviar" id="coEnviar">Enviar comunicado</button></div>
+      <div id="coLista" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <div class="barra"><div><div class="h2">🗒️ Mural de avisos</div><div class="sub">Tudo o que saiu para as famílias no dia, e quem ficou sem aviso por falta de contato.</div></div><span class="esp"></span>
+        <label class="campo">Dia<input class="inp" type="date" id="muDia"></label>
+        <div class="seg" id="muTipo"><button class="on" data-action="mu-tipo" data-arg="">Todos</button><button data-action="mu-tipo" data-arg="falta">Falta</button><button data-action="mu-tipo" data-arg="seguidos">3 dias</button><button data-action="mu-tipo" data-arg="fora_sala">Fora da sala</button><button data-action="mu-tipo" data-arg="chegada">Chegada</button><button data-action="mu-tipo" data-arg="comunicado">Comunicado</button></div></div>
+      <div class="kpis" id="muKpis" style="margin-top:12px"></div>
+      <div class="tab-wrap"><table class="tab" id="muTab"></table></div>
+    </div>
+  </section>
 </div>
 
 <div class="fundo" id="modal" hidden>
@@ -145,7 +181,7 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, where, limit, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection, query, where, limit, serverTimestamp, writeBatch, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
@@ -377,10 +413,86 @@ function csv(nome, linhas){
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([t], { type:"text/csv;charset=utf-8" })); a.download = nome; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
+/* ===================== avisos às famílias ===================== */
+const OPS = [
+  ["falta_dia", "Faltou o dia inteiro", "Ao fim do turno (matutino 12h40, vespertino 18h10, noturno 22h40), depois das chamadas. Falta justificada não gera aviso."],
+  ["seguidos", "3 dias seguidos faltando", "No 3º dia letivo seguido de falta, um aviso mais firme pedindo que a família procure a escola (no lugar do aviso de falta daquele dia)."],
+  ["fora_sala", "Entrou na escola, mas está com falta", "Também ao fim do turno, para dar tempo de a escola corrigir uma chamada lançada errada. Diz a hora da entrada e as aulas com falta."],
+  ["chegada", "Chegada na escola", "Na hora em que a carteirinha é lida no totem: \"Ana chegou à escola às 07:05\". Gera um e-mail por aluno por dia: o limite da conta de envio é de 1.500 avisos por dia somando todas as escolas."]
+];
+const TIPOS_AV = { falta:"Falta", seguidos:"3 dias seguidos", fora_sala:"Entrou, com falta", chegada:"Chegada", comunicado:"Comunicado" };
+const ST_AV = { enviado:["Enviado", "ok"], enviando:["Enviando", "att"], sem_contato:["Sem contato", "ruim"], sem_email:["Sem e-mail", "ruim"], sem_aceite:["Família não aceita", "cinza"], limite:["Limite do dia", "att"], erro:["Erro no envio", "ruim"] };
+async function abrirAvisos(){
+  if(!$("muDia").value){ $("muDia").value = hojeMS(); $("muDia").max = hojeMS(); }
+  let cfg = {}; try{ const s = await getDoc(doc(db, "avisos_config", E.escola)); cfg = s.exists() ? s.data() : {}; }catch(e){ console.warn("avisos:", e.code); }
+  E.avCfg = cfg;
+  const n = E.alunos.length, comMail = E.alunos.filter(a => (E.fam[a.id] && E.fam[a.id].aceita_avisos !== false && (E.fam[a.id].responsaveis || []).some(r => r.email))).length;
+  $("avCobertura").innerHTML = "Hoje, <b>" + comMail + " de " + n + "</b> alunos (" + (n ? Math.round(100 * comMail / n) : 0) + "%) têm e-mail de família cadastrado nesta escola.";
+  $("avOps").innerHTML = OPS.map(([k, t, d]) => '<div class="av-op"><label class="chave"><input type="checkbox" data-av="' + k + '"' + (cfg[k] ? " checked" : "") + ' aria-label="' + esc(t) + '"><span></span></label><b>' + esc(t) + '</b><div class="sub">' + esc(d) + "</div></div>").join("");
+  E.coTurmas = E.coTurmas || new Set(["*"]);
+  desenharTurmasCo(); ouvirComunicados(); ouvirMural();
+}
+async function salvarAvisos(){
+  const d = { atualizado_em:serverTimestamp(), atualizado_por:E.user.uid, atualizado_por_nome:String(E.u.nome || E.user.email || "").slice(0, 80) };
+  OPS.forEach(([k]) => { d[k] = !!(document.querySelector('[data-av="' + k + '"]') || {}).checked; });
+  try{ await setDoc(doc(db, "avisos_config", E.escola), d); E.avCfg = d; toast(OPS.filter(([k]) => d[k]).length ? "Avisos atualizados: " + OPS.filter(([k]) => d[k]).map(o => o[1].toLowerCase()).join(", ") + "." : "Todos os avisos automáticos desligados."); }
+  catch(e){ toast("Não foi possível salvar.", true); abrirAvisos(); }
+}
+function desenharTurmasCo(){
+  const sel = E.coTurmas, todas = sel.has("*");
+  $("coTurmas").innerHTML = '<label class="' + (todas ? "on" : "") + '"><input type="checkbox" data-co="*"' + (todas ? " checked" : "") + "> Todas as turmas</label>" +
+    E.turmas.map(t => '<label class="' + (!todas && sel.has(t.id) ? "on" : "") + '"><input type="checkbox" data-co="' + esc(t.id) + '"' + (!todas && sel.has(t.id) ? " checked" : "") + (todas ? " disabled" : "") + "> " + esc(t.nome || "Turma") + "</label>").join("");
+  const al = E.alunos.filter(a => todas || sel.has(a.turma_id)), mails = new Set(); let sem = 0;
+  al.forEach(a => { const f = E.fam[a.id], es = f && f.aceita_avisos !== false ? (f.responsaveis || []).map(r => r.email).filter(Boolean) : []; if(es.length) es.forEach(e => mails.add(e)); else sem++; });
+  E.coAlcance = mails.size;
+  $("coAlcance").innerHTML = al.length ? "Vai para <b>" + mails.size + "</b> e-mail(s) de família · " + al.length + " alunos" + (sem ? ' · <span style="color:var(--red)">' + sem + " sem e-mail cadastrado</span>" : "") : "Nenhum aluno nas turmas escolhidas.";
+}
+async function enviarComunicado(){
+  const titulo = $("coTit").value.trim().replace(/\s+/g, " "), texto = $("coTxt").value.trim();
+  if(titulo.length < 3 || texto.length < 3){ toast("Escreva o assunto e a mensagem.", true); return; }
+  if(!E.coAlcance){ toast("Nenhuma família com e-mail nas turmas escolhidas.", true); return; }
+  if(!confirm("Enviar \"" + titulo + "\" para " + E.coAlcance + " e-mail(s) de família agora?")) return;
+  const turmas = E.coTurmas.has("*") ? ["*"] : [...E.coTurmas];
+  $("coEnviar").disabled = true;
+  try{ await addDoc(collection(db, "comunicados_familia"), { escola_id:E.escola, escola_nome:String(E.escolasNomes[E.escola] || "").slice(0, 120), municipio_id:(E.alunos[0] || {}).municipio_id || "", titulo:titulo.slice(0, 120), texto:texto.slice(0, 3000), turmas,
+    status:"pendente", criado_em:serverTimestamp(), criado_por:E.user.uid, criado_por_nome:String(E.u.nome || E.user.email || "").slice(0, 80) });
+    toast("Comunicado na fila de envio. Acompanhe abaixo."); $("coTit").value = ""; $("coTxt").value = ""; }
+  catch(e){ console.warn(e); toast(e.code === "permission-denied" ? "Sem permissão para enviar comunicado nesta escola." : "Não foi possível enviar agora.", true); }
+  $("coEnviar").disabled = false;
+}
+function ouvirComunicados(){
+  if(E.coOuv) E.coOuv(); E.coOuv = null;
+  try{ E.coOuv = onSnapshot(query(collection(db, "comunicados_familia"), where("escola_id", "==", E.escola)), sn => {
+    const l = []; sn.forEach(d => l.push(d.data()));
+    l.sort((a, b) => ((b.criado_em && b.criado_em.toMillis ? b.criado_em.toMillis() : Date.now()) - (a.criado_em && a.criado_em.toMillis ? a.criado_em.toMillis() : Date.now())));
+    $("coLista").innerHTML = l.length ? '<div class="tab-wrap" style="max-height:260px"><table class="tab"><thead><tr><th>Quando</th><th>Assunto</th><th>Turmas</th><th>Por</th><th>Situação</th></tr></thead><tbody>' +
+      l.slice(0, 30).map(c => { const t = c.totais || {}; return "<tr><td>" + (c.criado_em && c.criado_em.toDate ? esc(c.criado_em.toDate().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" })) : "agora") + '</td><td class="txt"><b>' + esc(c.titulo) + "</b></td><td>" + (c.turmas.includes("*") ? "Todas" : c.turmas.length + " turma(s)") + "</td><td>" + esc(c.criado_por_nome || "") + "</td><td>" +
+        (c.status === "enviado" ? '<span class="pill ok">' + (t.enviados || 0) + " enviados</span>" + (t.sem_contato ? ' <span class="pill ruim">' + t.sem_contato + " sem contato</span>" : "") + (t.erro ? ' <span class="pill ruim">' + t.erro + " erro(s)</span>" : "") + (t.limite ? ' <span class="pill att">' + t.limite + " no limite</span>" : "") : '<span class="pill att">Enviando...</span>') + "</td></tr>"; }).join("") + "</tbody></table></div>"
+      : '<div class="sub">Nenhum comunicado enviado ainda.</div>';
+  }, e => console.warn("comunicados:", e.code)); }catch(e){}
+}
+function ouvirMural(){
+  if(E.muOuv) E.muOuv(); E.muOuv = null;
+  const dia = $("muDia").value || hojeMS();
+  try{ E.muOuv = onSnapshot(query(collection(db, "avisos_familia"), where("escola_id", "==", E.escola), where("dia", "==", dia)), sn => { E.muAv = []; sn.forEach(d => E.muAv.push(d.data())); desenharMural(); }, e => console.warn("mural avisos:", e.code)); }catch(e){}
+}
+function desenharMural(){
+  const tipo = E.muTipoSel || "", l = (E.muAv || []).filter(x => !tipo || x.tipo === tipo).sort((a, b) => ((b.em && b.em.toMillis ? b.em.toMillis() : 0) - (a.em && a.em.toMillis ? a.em.toMillis() : 0)));
+  const n = s => l.filter(x => x.status === s).length;
+  const k = (rot, v, cls) => '<div class="kpi ' + (cls || "") + '"><small>' + rot + "</small><b>" + v + "</b></div>";
+  $("muKpis").innerHTML = k("Enviados", n("enviado"), "ok") + k("Sem contato ou sem e-mail", n("sem_contato") + n("sem_email"), n("sem_contato") + n("sem_email") ? "ruim" : "") + k("Família não aceita", n("sem_aceite")) + k("Erro ou limite", n("erro") + n("limite"), n("erro") + n("limite") ? "alerta" : "");
+  $("muTab").innerHTML = l.length ? "<thead><tr><th>Hora</th><th>Aluno</th><th>Turma</th><th>Aviso</th><th>Situação</th><th>Para</th></tr></thead><tbody>" +
+    l.slice(0, 800).map(x => { const st = ST_AV[x.status] || [x.status, "cinza"]; return "<tr><td>" + (x.em && x.em.toDate ? esc(x.em.toDate().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })) : "–") + '</td><td class="clic" data-action="editar" data-arg="' + esc(x.aluno_id) + '"><b>' + esc(x.aluno_nome) + "</b></td><td>" + esc(x.turma_nome || "") + "</td><td>" + esc(TIPOS_AV[x.tipo] || x.tipo) +
+      '</td><td><span class="pill ' + st[1] + '">' + esc(st[0]) + "</span>" + (x.erro ? ' <span class="sub">' + esc(x.erro) + "</span>" : "") + '</td><td class="txt sub">' + esc((x.para || []).join(", ")) + "</td></tr>"; }).join("") + "</tbody>"
+    : '<tbody><tr><td class="vazio" style="padding:26px">Nenhum aviso neste dia' + (tipo ? " para este tipo" : "") + ".</td></tr></tbody>";
+}
+const hojeMS = () => new Intl.DateTimeFormat("en-CA", { timeZone:"America/Campo_Grande", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+
 /* ===================== navegação e eventos ===================== */
 function ir(aba){
-  E.aba = aba; $("s-lista").hidden = aba !== "lista"; $("s-importar").hidden = aba !== "importar";
-  $("tabLista").classList.toggle("on", aba === "lista"); $("tabImp").classList.toggle("on", aba === "importar");
+  E.aba = aba; $("s-lista").hidden = aba !== "lista"; $("s-importar").hidden = aba !== "importar"; $("s-avisos").hidden = aba !== "avisos";
+  $("tabLista").classList.toggle("on", aba === "lista"); $("tabImp").classList.toggle("on", aba === "importar"); $("tabAv").classList.toggle("on", aba === "avisos");
+  if(aba === "avisos") abrirAvisos();
   try{ history.replaceState(null, "", "#" + aba); }catch(e){}
   if(aba === "lista") desenhar();
   if(aba === "importar") $("impCols").innerHTML = "Colunas: <b>matrícula</b> (ou <b>aluno</b> + <b>turma</b>), <b>responsável</b>, parentesco, whatsapp, email, e se houver: responsável 2, parentesco 2, whatsapp 2, email 2. Escola: <b>" + esc(E.escolasNomes[E.escola] || "") + "</b>";
@@ -397,6 +509,8 @@ const ACOES = {
   csv:() => csv("familias-" + norm(E.escolasNomes[E.escola] || "escola").replace(/ /g, "-") + ".csv", [["Matrícula", "Aluno", "Turma", "Responsável", "Parentesco", "WhatsApp", "E-mail", "Principal", "Aceita avisos"],
     ...(E.lista || []).flatMap(a => { const f = E.fam[a.id]; return f && f.responsaveis.length ? f.responsaveis.map(r => [a.matricula, a.nome, turmaNome(a.turma_id), r.nome, r.parentesco, telBonito(r.whatsapp), r.email, r.principal ? "Sim" : "", f.aceita_avisos ? "Sim" : "Não"]) : [[a.matricula, a.nome, turmaNome(a.turma_id), "", "", "", "", "", ""]]; })]),
   "imp-previa":() => previa(),
+  "co-enviar":() => enviarComunicado(),
+  "mu-tipo":a => { E.muTipoSel = a; document.querySelectorAll("#muTipo button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenharMural(); },
   "imp-gravar":() => gravarImportacao(),
   "imp-modelo":() => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + MODELO + "\n"], { type:"text/csv;charset=utf-8" })); a.download = "modelo-responsaveis.csv"; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500); }
 };
@@ -409,8 +523,11 @@ $("modal").addEventListener("click", ev => { if(ev.target.id === "modal") $("mod
 document.addEventListener("keydown", ev => { if(ev.key === "Escape") $("modal").hidden = true; });
 document.addEventListener("change", ev => {
   const t = ev.target;
-  if(t.id === "selEscola"){ E.escola = t.value; try{ localStorage.setItem("pde_familias_escola", E.escola); }catch(e){} carregarEscola(); if(E.aba === "importar") ir("importar"); }
+  if(t.id === "selEscola"){ E.escola = t.value; try{ localStorage.setItem("pde_familias_escola", E.escola); }catch(e){} E.coTurmas = new Set(["*"]); carregarEscola().then(() => { if(E.aba !== "lista") ir(E.aba); }); }
   else if(t.id === "selTurma") desenhar();
+  else if(t.dataset && t.dataset.av) salvarAvisos();
+  else if(t.dataset && t.dataset.co){ if(t.dataset.co === "*"){ E.coTurmas = t.checked ? new Set(["*"]) : new Set(); } else { E.coTurmas.delete("*"); t.checked ? E.coTurmas.add(t.dataset.co) : E.coTurmas.delete(t.dataset.co); } desenharTurmasCo(); }
+  else if(t.id === "muDia") ouvirMural();
   else if(t.id === "impArquivo" && t.files[0]) lerArquivo(t.files[0]);
   else if(t.dataset && t.dataset.c === "whatsapp"){ const w = telefone(t.value); t.classList.toggle("erro", w === null); if(w) t.value = telBonito(w); }
   else if(t.dataset && t.dataset.c === "email") t.classList.toggle("erro", !emailOk(String(t.value).trim()));
@@ -434,7 +551,7 @@ onAuthStateChanged(auth, async user => {
   await carregarEscolas();
   $("carregando").hidden = true;
   await carregarEscola();
-  ir(location.hash === "#importar" ? "importar" : "lista");
+  ir(["#importar", "#avisos"].includes(location.hash) ? location.hash.slice(1) : "lista");
 });
 </script>
 </body>

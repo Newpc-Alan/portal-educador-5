@@ -460,6 +460,24 @@ await t('familia com mais de 4 responsaveis', assertFails(setDoc(doc(gest1, 'alu
 await t('familia com campo extra', assertFails(setDoc(doc(gest1, 'alunos_familia/al1'), { ...fam, cpf: '1' })));
 await t('secretaria nao le familia', assertFails(getDoc(doc(sec, 'alunos_familia/al1'))));
 
+// avisos as familias
+const cfgAv = { falta_dia: true, seguidos: true, fora_sala: false, chegada: false, atualizado_em: serverTimestamp(), atualizado_por: 'gest1', atualizado_por_nome: 'G' };
+await t('gestor liga avisos da escola', assertSucceeds(setDoc(doc(gest1, 'avisos_config/e1'), cfgAv)));
+await t('gestor nao liga avisos de outra escola', assertFails(setDoc(doc(gest1, 'avisos_config/e2'), cfgAv)));
+await t('professor nao liga avisos', assertFails(setDoc(doc(prof, 'avisos_config/e1'), cfgAv)));
+await t('config de avisos com campo extra', assertFails(setDoc(doc(gest1, 'avisos_config/e1'), { ...cfgAv, whatsapp: true })));
+const com = { escola_id: 'e1', escola_nome: 'E', municipio_id: 'm1', titulo: 'Reunião de pais', texto: 'Sexta às 19h.', turmas: ['*'], status: 'pendente', criado_em: serverTimestamp(), criado_por: 'gest1', criado_por_nome: 'G' };
+await t('gestor cria comunicado', assertSucceeds(setDoc(doc(gest1, 'comunicados_familia/c1'), com)));
+await t('gestor le comunicados da escola', assertSucceeds(getDocs(query(collection(gest1, 'comunicados_familia'), where('escola_id', '==', 'e1')))));
+await t('comunicado ja enviado nao pode ser criado assim', assertFails(setDoc(doc(gest1, 'comunicados_familia/c2'), { ...com, status: 'enviado' })));
+await t('comunicado em nome de outro', assertFails(setDoc(doc(gest1, 'comunicados_familia/c3'), { ...com, criado_por: 'gest' })));
+await t('comunicado nao pode ser alterado', assertFails(setDoc(doc(gest1, 'comunicados_familia/c1'), { ...com, titulo: 'Outro' })));
+await t('professor nao cria comunicado', assertFails(setDoc(doc(prof, 'comunicados_familia/c4'), { ...com, criado_por: 'prof' })));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'avisos_familia/falta_al1_2026-10-26'), { escola_id: 'e1', status: 'enviado' }); });
+await t('gestor le avisos enviados da escola', assertSucceeds(getDocs(query(collection(gest1, 'avisos_familia'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('gestor de outra escola nao le avisos', assertFails(getDoc(doc(gest, 'avisos_familia/falta_al1_2026-10-26'))));
+await t('ninguem grava aviso pelo app', assertFails(setDoc(doc(gest1, 'avisos_familia/x'), { escola_id: 'e1' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
