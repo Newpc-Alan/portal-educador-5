@@ -423,6 +423,7 @@ await t('secretaria nao le entradas com nomes', assertFails(getDoc(doc(sec, IDE)
 await t('entrada com id diferente', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-28'), ent)));
 await t('entrada com escola trocada', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-29'), { ...ent, dia: '2026-10-29', escola_id: 'e2' })));
 await t('entrada com campo extra', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-30'), { ...ent, dia: '2026-10-30', x: 1 })));
+await t('cliente nao grava foto da entrada', assertFails(setDoc(doc(gest1, IDE), { fotos: { al1: 'portaria/e1/x.jpg' } }, { merge: true })));
 await t('gestor le turmas da escola', assertSucceeds(getDocs(query(collection(gest1, 'turmas'), where('escola_id', '==', 'e1')))));
 await t('gestor le alunos da escola', assertSucceeds(getDocs(query(collection(gest1, 'alunos'), where('escola_id', '==', 'e1')))));
 await t('gestor nao le alunos de outra escola', assertFails(getDocs(query(collection(gest, 'alunos'), where('escola_id', '==', 'e1')))));

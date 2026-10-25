@@ -195,6 +195,9 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
 .po-lista div u{width:34px;height:34px;flex:none;border-radius:50%;display:grid;place-items:center;text-decoration:none;font-weight:800;font-size:.8rem;background:hsl(var(--h) 60% 45%)}
 .po-lista div b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .po-lista div small{color:#9fb6cc;white-space:nowrap}
+.po-foto{border:0;padding:0;background:none;cursor:pointer;flex:none;width:34px;height:34px;border-radius:50%;overflow:hidden;background:#24476a}
+.po-foto img{width:100%;height:100%;object-fit:cover;display:block}
+.po-foto.sem{opacity:.4}
 .po-rod{color:#6f8aa5;font-size:.78rem;margin-top:10px}
 @media (max-width:760px){ .po-corpo{grid-template-columns:1fr} .po-cam{min-height:300px} }
 .bola.fora i{outline:3px dashed #F9A825;outline-offset:3px;border-radius:50%}
@@ -400,17 +403,21 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
     <div class="barra nao-imprime" style="margin-top:14px"><span class="sub">Dados de aluno: uso restrito à gestão da escola e à rede de proteção (LGPD).</span><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="imprimir-ficha">🖨️ Imprimir ficha</button></div>
   </div>
 </div>
+<div class="fundo" id="poFotoBox" hidden data-action="po-foto-fechar"><div class="modal" style="max-width:420px;text-align:center"><img id="poFotoImg" alt="Foto da entrada" style="width:100%;border-radius:12px;background:#0c2338;min-height:120px">
+  <p class="sub" id="poFotoTxt" style="margin-top:8px"></p><p class="sub" style="font-size:.74rem">Foto tirada pelo totem no momento da leitura da carteirinha. Uso restrito à gestão da escola; apagada depois de 15 dias.</p>
+  <button class="btn btn-gh btn-sm" data-action="po-foto-fechar" style="margin-top:6px">Fechar</button></div></div>
 <div class="toast" id="toast"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, where, limit, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import CAL from "/assets/js/calendario-nucleo.js";
 import * as FREQ from "/assets/js/frequencia-nucleo.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-const auth = getAuth(app), db = getFirestore(app);
+const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3400); }
@@ -924,7 +931,7 @@ function ouvirEntradas(){
   const dia = hojeMS(), esc0 = E.muEscola;
   try{
     E.poOuvinte = onSnapshot(query(collection(db, "freq_entradas"), where("escola_id", "==", esc0), where("dia", "==", dia)), s => {
-      const m = {}; s.forEach(d => { const x = d.data(); Object.entries(x.entradas || {}).forEach(([id, h]) => { m[id] = { h, turma_id:x.turma_id, turma_nome:x.turma_nome, n:(x.nomes || {})[id] || "" }; }); });
+      const m = {}; s.forEach(d => { const x = d.data(); Object.entries(x.entradas || {}).forEach(([id, h]) => { m[id] = { h, turma_id:x.turma_id, turma_nome:x.turma_nome, n:(x.nomes || {})[id] || "", foto:(x.fotos || {})[id] || "" }; }); });
       E.poHoje = m; desenharPortaria();
     }, e => console.warn("portaria:", e.code));
   }catch(e){ console.warn("portaria:", e); }
@@ -932,7 +939,17 @@ function ouvirEntradas(){
 function desenharPortaria(){
   const m = E.poHoje || {}, l = Object.entries(m).sort((a, b) => String(b[1].h).localeCompare(String(a[1].h))), tot = Object.keys(E.base.alunos).length;
   $("poCont").innerHTML = '<div class="ok"><b>' + l.length.toLocaleString("pt-BR") + "</b>entraram hoje</div><div><b>" + Math.max(0, tot - l.length).toLocaleString("pt-BR") + "</b>ainda não chegaram</div>" + (E.poFila.length ? '<div class="ruim"><b>' + E.poFila.length + "</b>aguardando internet</div>" : "");
-  $("poLista").innerHTML = l.slice(0, 40).map(([id, x]) => '<div style="--h:' + matiz(id) + '"><u>' + esc(iniciais(x.n)) + "</u><b>" + esc(x.n) + "</b><small>" + esc(x.turma_nome || "") + " · " + esc(x.h) + "</small></div>").join("") || '<div style="justify-content:center;color:#9fb6cc">As entradas de hoje aparecem aqui.</div>';
+  $("poLista").innerHTML = l.slice(0, 40).map(([id, x]) => '<div style="--h:' + matiz(id) + '">' + (x.foto ? '<button class="po-foto" data-action="po-foto" data-arg="' + esc(x.foto) + '" data-nome="' + esc(x.n + " · " + (x.turma_nome || "") + " · " + x.h) + '" aria-label="Ver a foto da entrada de ' + esc(x.n) + '"><img alt="" data-foto="' + esc(x.foto) + '"></button>' : "<u>" + esc(iniciais(x.n)) + "</u>") +
+    "<b>" + esc(x.n) + "</b><small>" + esc(x.turma_nome || "") + " · " + esc(x.h) + "</small></div>").join("") || '<div style="justify-content:center;color:#9fb6cc">As entradas de hoje aparecem aqui.</div>';
+  carregarFotos();
+}
+// fotos da entrada (totem com câmera): só a gestão da escola consegue abrir (regras do Storage)
+const FOTOS = {};
+async function urlFoto(path){ if(!(path in FOTOS)) FOTOS[path] = getDownloadURL(sRef(st, path)).catch(() => ""); return FOTOS[path]; }
+function carregarFotos(){ document.querySelectorAll("img[data-foto]").forEach(async im => { const u = await urlFoto(im.dataset.foto); if(u) im.src = u; else im.closest(".po-foto").classList.add("sem"); }); }
+async function verFoto(path, nome){
+  const u = await urlFoto(path);
+  $("poFotoImg").src = u || ""; $("poFotoTxt").textContent = u ? nome : "Foto não disponível (apagada pelo prazo de guarda ou ainda enviando)."; $("poFotoBox").hidden = false;
 }
 function bip(ok){
   try{ const c = E.poAudio || (E.poAudio = new (window.AudioContext || window.webkitAudioContext)()), o = c.createOscillator(), g = c.createGain();
@@ -1034,6 +1051,8 @@ const ACOES = {
   "salvar-registro":() => salvarRegistro(),
   status:a => mudarStatus(a),
   "imprimir-ficha":() => { document.body.classList.add("imp-ficha"); window.print(); setTimeout(() => document.body.classList.remove("imp-ficha"), 500); },
+  "po-foto":(a, b) => verFoto(a, b ? b.dataset.nome : ""),
+  "po-foto-fechar":() => { $("poFotoBox").hidden = true; },
   "po-camera":() => E.poStream ? pararCamera() : ligarCamera(),
   "ca-pdf":a => gerarCarteirinhas(a),
   "mu-modo":a => { E.muModo = a; E.muTurma = ""; desenharMural(); },
@@ -1041,7 +1060,7 @@ const ACOES = {
   "tela-cheia":() => { if(document.fullscreenElement) document.exitFullscreen(); else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); },
   filtro:a => { E.filtro = a; document.querySelectorAll("#segFiltro button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenharBusca(); }
 };
-document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg || ""); });
+document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg || "", b); });
 document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selTurma") abrirTurma(t.value);

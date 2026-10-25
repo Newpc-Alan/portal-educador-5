@@ -6,7 +6,8 @@ import { randomBytes } from 'node:crypto';
 const req = createRequire(process.cwd() + '/');
 const { initializeApp, applicationDefault } = await import(pathToFileURL(req.resolve('firebase-admin/app')).href);
 const { getFirestore } = await import(pathToFileURL(req.resolve('firebase-admin/firestore')).href);
-initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
+const { getStorage } = await import(pathToFileURL(req.resolve('firebase-admin/storage')).href);
+initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5', storageBucket: 'portal-educador-5.firebasestorage.app' });
 const db = getFirestore(), URL_F = 'https://southamerica-east1-portal-educador-5.cloudfunctions.net/portaria';
 const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', chave = Array.from(randomBytes(20), b => ABC[b % ABC.length]).join('');
 const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -31,6 +32,15 @@ try {
   [s, d] = await post({ acao: 'entrar', entradas: [{ id: al.id, hora: '09:30', dia: hoje }] });
   t('primeira hora fica', (await entRef.get()).data().entradas[al.id] === ((antes && antes.entradas && antes.entradas[al.id]) || '07:05'));
   [s, d] = await post({ acao: 'entrar', entradas: [{ id: al.id, hora: '07:00', dia: '2026-01-01' }] }); t('data antiga recusada', s === 200 && d.ok.length === 0);
+  // foto na entrada: outro aluno da mesma turma, com a tela em "foto ligada"
+  const al2 = (await db.collection('alunos').where('turma_id', '==', al.data().turma_id).limit(3).get()).docs.find(x => x.id !== al.id && !((antes && antes.entradas) || {})[x.id]);
+  await ref.update({ foto_entrada: true });
+  const JPG = '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP' + 'A'.repeat(300) + '/9k=';
+  [s, d] = await post({ acao: 'entrar', entradas: [{ id: al2.id, hora: '07:10', dia: hoje, foto: JPG }] });
+  const caminho = `portaria/demo-e1/${hoje}/${al2.id}_0710.jpg`;
+  const doc2 = (await entRef.get()).data() || {};
+  t('foto gravada no Storage', (await getStorage().bucket().file(caminho).exists())[0] && (doc2.fotos || {})[al2.id] === caminho);
+  await getStorage().bucket().file(caminho).delete().catch(() => {});
 } finally {
   await ref.delete();
   if (!antes) await entRef.delete(); else await entRef.set(antes);
