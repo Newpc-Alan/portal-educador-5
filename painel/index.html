@@ -102,6 +102,12 @@ table.tab{width:100%;border-collapse:collapse}
       <div class="card"><div class="h2">📉 Habilidades BNCC que pedem reforço</div><div class="sub">Menor acerto da rede no ano</div><div id="gHab"></div></div>
     </div>
 
+    <div class="secao blocoFreq">Frequência</div>
+    <div class="grid2 blocoFreq">
+      <div class="card"><div class="h2">🙋 Frequência por escola</div><div class="sub" id="frqSub"></div><div id="gFrq" style="margin-top:10px"></div></div>
+      <div class="card"><div class="h2">🔎 Busca ativa</div><div class="sub">Alunos abaixo da frequência mínima ou faltando seguido (sem nomes neste painel)</div><div id="gBusca" style="margin-top:10px"></div></div>
+    </div>
+
     <div class="secao">Calendário e infraestrutura</div>
     <div class="grid2">
       <div class="card"><div class="h2">📅 Dias letivos</div><div class="sub" id="calSub"></div><div id="gCal" style="margin-top:10px"></div></div>
@@ -114,7 +120,7 @@ table.tab{width:100%;border-collapse:collapse}
     <div class="secao">Atalhos</div>
     <div class="atalhos">
       <a href="/gestao/">🏫 Gestão Escolar</a><a href="/apps/calendario/">📅 Calendário</a><a href="/apps/corretor/">📈 Habilidades BNCC</a>
-      <a href="/apps/recursos/#rede">🛠️ Rede e SLA</a><a href="/relatorios/">📋 Central de Relatórios</a><a href="/apps/notas/">📊 Notas e Médias</a>
+      <a href="/apps/recursos/#rede">🛠️ Rede e SLA</a><a href="/relatorios/">📋 Central de Relatórios</a><a href="/apps/notas/">📊 Notas e Médias</a><a href="/apps/frequencia/#busca" id="atalhoFreq" hidden>🙋 Busca ativa</a>
     </div>
     <p class="sub" style="margin-top:14px" id="rodape"></p>
   </div>
@@ -154,19 +160,22 @@ async function carregar(forcar){
 }
 function kpi(rot, val, extra, cls){ return '<div class="kpi ' + (cls || "") + '"><small>' + rot + "</small><b>" + val + "</b><span>" + (extra || "") + "</span></div>"; }
 function desenhar(){
-  const d = S.d, u = d.uso, a = d.aprendizagem, c = d.calendario, f = d.infra;
+  const d = S.d, u = d.uso, a = d.aprendizagem, c = d.calendario, f = d.infra, fq = d.frequencia || { freq:null, risco:0, atencao:0, turmas:0, turmas7:0, alunos:0 };
   if(d.municipio.logo_url){ const im = document.querySelector(".marca img"); im.src = d.municipio.logo_url; im.style.background = "#fff"; im.style.borderRadius = "10px"; im.style.objectFit = "contain"; im.style.padding = "3px"; }
   const ehEscola = d.escopo === "escola", R0 = d.rede || {}, vsRede = v => ehEscola && v !== null && v !== undefined ? " · rede " + pc(v) : "";
   $("tit").textContent = ehEscola ? "Painel da Escola · " + d.escolasNomes.join(", ") : "Painel da Rede · " + (d.municipio.nome || "") + (d.municipio.uf ? "/" + d.municipio.uf : "");
   $("olhoTopo").textContent = ehEscola ? "Gestão da escola · " + (d.municipio.nome || "") : "Secretaria Municipal de Educação";
   document.title = (ehEscola ? "Painel da Escola" : "Painel da Rede") + " · Portal do Educador";
   document.querySelectorAll(".blocoUso").forEach(el => el.hidden = ehEscola);
+  const temFreq = !!d.frequencia; document.querySelectorAll(".blocoFreq").forEach(el => el.hidden = !temFreq);
+  $("atalhoFreq").hidden = !ehEscola || !temFreq;
   const totProf = u.professores + u.gestores, pAtivos = totProf ? u.ativos30 / totProf : null;
   $("kpis").innerHTML =
     kpi("Escolas", n(d.totais.escolas), n(d.totais.alunos) + " alunos cadastrados") +
     kpi("Professores ativos", pc(pAtivos), n(u.ativos30) + " de " + n(totProf) + " usaram em 30 dias" + vsRede(R0.ativos30), pAtivos === null ? "" : pAtivos >= 0.6 ? "ok" : pAtivos >= 0.3 ? "alerta" : "ruim") +
     (ehEscola ? "" : kpi("Usando agora", n(u.onlineAgora), n(u.ativos7) + " nos últimos 7 dias")) +
     kpi("Acerto nas provas", pc(a.acerto), n(a.provas) + " provas · " + n(a.respostas) + " respostas" + vsRede(R0.acerto), a.acerto === null ? "" : a.acerto >= 0.7 ? "ok" : a.acerto >= 0.5 ? "alerta" : "ruim") +
+    (!d.frequencia ? "" : kpi("Frequência", fq.freq === null ? "–" : pc(fq.freq), fq.freq === null ? "sem chamadas lançadas" : n(fq.risco + fq.atencao) + " aluno(s) para busca ativa" + vsRede(R0.freq), fq.freq === null ? "" : fq.risco ? "ruim" : fq.atencao ? "alerta" : "ok")) +
     kpi("Calendário " + d.ano, c.publicado ? (d.totais.escolas - c.escolasAbaixo) + "/" + d.totais.escolas : "–", c.publicado ? "escolas cumprem " + c.metaDias + " dias" : "ainda não publicado", !c.publicado ? "alerta" : c.escolasAbaixo ? "ruim" : "ok") +
     kpi("Chamados abertos", n(f.abertos), f.atrasados48h ? f.atrasados48h + " há mais de 48 h" : "nenhum parado há 48 h", f.atrasados48h ? "ruim" : f.abertos ? "alerta" : "ok") +
     kpi("TVs online", f.tvs ? f.tvsOnline + "/" + f.tvs : "–", f.tvs ? "Portal do Educador TV" : "nenhuma TV conectada");
@@ -183,6 +192,16 @@ function desenhar(){
   const prio = a.habilidades.filter(h => h.p !== null && h.p < 0.6).slice(0, 6);
   $("gHab").innerHTML = prio.length ? '<div class="prio">' + prio.map(h => "<div><b>" + h.c + " · " + pc(h.p) + "</b>" + esc(descBncc(h.c)) + '<div class="sub">' + h.q + " questão(ões) · " + (ehEscola ? "rede " + pc(h.rede) : Object.keys(h.escolas).length + " escola(s)") + "</div></div>").join("") + "</div>"
     : '<div class="sub" style="margin-top:10px">' + (a.habilidades.length ? "Nenhuma habilidade com acerto abaixo de 60%." : "As provas ainda não têm código BNCC nas questões. O professor marca no Gabarito do Corretor.") + "</div>";
+  // frequência
+  const corF = v => v === null || v === undefined ? "#c3ced9" : v < 0.75 ? "#C2362C" : v < 0.85 ? "#F9A825" : "#5A9420";
+  $("frqSub").textContent = fq.turmas ? "Chamadas de " + n(fq.turmas) + " turma(s) em " + d.ano + " · " + n(fq.turmas7) + " com chamada nos últimos 7 dias" : "Quando os professores lançarem a chamada na Frequência, a frequência de cada escola aparece aqui.";
+  const comFreq = d.escolas.filter(e => e.freq !== null && e.freq !== undefined).sort((x, y) => x.freq - y.freq);
+  $("gFrq").innerHTML = comFreq.length ? comFreq.map(e => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + Math.round(e.freq * 100) + "%;background:" + corF(e.freq) + '"></i></span><span class="v" style="color:' + corF(e.freq) + '">' + pc(e.freq) + "</span></div>").join("") : '<div class="sub">Sem chamadas lançadas ainda.</div>';
+  $("gBusca").innerHTML = '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:10px">' +
+    kpi("Abaixo do mínimo", n(fq.risco), "com 10 aulas ou mais", fq.risco ? "ruim" : "") + kpi("Faltando seguido", n(fq.atencao), "3 dias ou mais", fq.atencao ? "alerta" : "") + kpi("Acompanhados", n(fq.alunos), "alunos com chamada") + "</div>" +
+    (ehEscola ? '<a class="atalhos" href="/apps/frequencia/#busca" style="text-decoration:none"><span class="pill alerta">Abrir a lista da busca ativa →</span></a>'
+      : (() => { const l = d.escolas.filter(e => e.freqRisco || e.freqAtencao).sort((x, y) => (y.freqRisco + y.freqAtencao) - (x.freqRisco + x.freqAtencao)).slice(0, 8), mx = Math.max(1, ...l.map(e => e.freqRisco + e.freqAtencao));
+        return l.map(e => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + ((e.freqRisco + e.freqAtencao) / mx * 100) + '%;background:#C2362C"></i></span><span class="v">' + (e.freqRisco + e.freqAtencao) + "</span></div>").join(""); })());
   // calendário
   $("calSub").textContent = c.publicado ? "Base da rede: " + c.baseDias + " dias e " + n(c.baseHoras) + " h · mínimo " + c.metaDias + " dias e " + c.metaHoras + " h (LDB, art. 24)" : "O calendário de " + d.ano + " ainda não foi publicado.";
   $("gCal").innerHTML = c.publicado ? d.escolas.map(e => { const ok = e.dias >= e.metaDias && e.horas >= e.metaHoras;
@@ -194,9 +213,9 @@ function desenhar(){
     kpi("Equipamentos", n(f.equipamentos), "cadastrados") + "</div>" +
     (f.problemas.length ? '<div class="sub" style="margin-bottom:4px">Problemas mais relatados (90 dias)</div>' + f.problemas.map(p => '<div class="hbar"><span class="t">' + esc(p.t) + '</span><span class="trilho"><i style="width:' + (p.n / f.problemas[0].n * 100) + '%;background:#2671AB"></i></span><span class="v">' + p.n + "</span></div>").join("") : "");
   // tabela
-  $("tabEsc").innerHTML = "<thead><tr><th>Escola</th><th>Professores</th><th>Ativos 30 d</th><th>Alunos</th><th>Provas</th><th>Acerto</th><th>Dias letivos</th><th>Chamados</th><th>Equip.</th><th>TVs</th></tr></thead><tbody>" +
+  $("tabEsc").innerHTML = "<thead><tr><th>Escola</th><th>Professores</th><th>Ativos 30 d</th><th>Alunos</th><th>Provas</th><th>Acerto</th><th>Frequência</th><th>Dias letivos</th><th>Chamados</th><th>Equip.</th><th>TVs</th></tr></thead><tbody>" +
     d.escolas.map(e => "<tr><td><b>" + esc(e.nome) + '</b></td><td class="n">' + n(e.professores) + '</td><td class="n">' + (e.professores ? pc(e.ativos30 / e.professores) : "–") + '</td><td class="n">' + n(e.alunos) +
-      '</td><td class="n">' + n(e.provas) + '</td><td class="n"><span class="pill" style="background:' + (e.acerto === null ? "#eef2f6" : corP(e.acerto) + "22") + ";color:" + corP(e.acerto) + '">' + pc(e.acerto) + "</span></td><td>" +
+      '</td><td class="n">' + n(e.provas) + '</td><td class="n"><span class="pill" style="background:' + (e.acerto === null ? "#eef2f6" : corP(e.acerto) + "22") + ";color:" + corP(e.acerto) + '">' + pc(e.acerto) + "</span></td><td>" + (e.freq === null || e.freq === undefined ? '<span class="pill cinza">–</span>' : '<span class="pill ' + (e.freq < 0.75 ? "ruim" : e.freq < 0.85 ? "alerta" : "ok") + '">' + pc(e.freq) + (e.freqRisco + e.freqAtencao ? " · " + (e.freqRisco + e.freqAtencao) + " busca" : "") + "</span>") + "</td><td>" +
       (e.dias === null ? '<span class="pill cinza">–</span>' : '<span class="pill ' + (e.dias >= e.metaDias && e.horas >= e.metaHoras ? "ok" : "ruim") + '">' + e.dias + "</span>") + "</td><td>" +
       (e.chamadosAbertos ? '<span class="pill ' + (e.chamadosAtrasados ? "ruim" : "alerta") + '">' + e.chamadosAbertos + " aberto(s)</span>" : '<span class="pill ok">0</span>') + '</td><td class="n">' + n(e.equipamentos) + '</td><td class="n">' + (e.tvs ? e.tvsOnline + "/" + e.tvs : "–") + "</td></tr>").join("") + "</tbody>";
   $("avisoErros").hidden = !d.erros.length; $("avisoErros").textContent = d.erros.length ? "Algumas partes não puderam ser somadas agora (" + d.erros.join(", ") + "). Os demais números estão certos." : "";
@@ -245,7 +264,7 @@ async function relatorio(){
     ["Acerto nas provas", pc(a.acerto), n(a.provas) + " provas, " + n(a.respostas) + " respostas"],
     ["Calendário letivo", c.publicado ? (d.totais.escolas - c.escolasAbaixo) + "/" + d.totais.escolas : "–", c.publicado ? "escolas com " + c.metaDias + " dias" : "não publicado"],
     ["Chamados técnicos", n(f.abertos) + " abertos", d.escopo === "escola" ? f.atrasados48h + " há mais de 48 h" : n(f.resolvidos30) + " resolvidos em 30 d"],
-    ["Portal do Educador TV", f.tvs ? f.tvsOnline + "/" + f.tvs : "–", "telas online agora"]
+    ["Frequência", d.frequencia && d.frequencia.freq !== null ? pc(d.frequencia.freq) : "–", d.frequencia && d.frequencia.freq !== null ? n(d.frequencia.risco + d.frequencia.atencao) + " aluno(s) para busca ativa" : "sem chamadas lançadas"]
   ];
   blocos.forEach((b, i) => { const x = 14 + (i % 3) * 61, y = 36 + Math.floor(i / 3) * 24;
     pdf.setDrawColor(220, 228, 237); pdf.setFillColor(246, 249, 252); pdf.roundedRect(x, y, 58, 21, 2, 2, "FD");
@@ -279,6 +298,8 @@ async function relatorio(){
   if(prio.length) linhas.push("Habilidades BNCC com menor acerto: " + prio.map(h => h.c + " (" + pc(h.p) + ")").join(", ") + ".");
   if(c.publicado && c.escolasAbaixo) linhas.push(c.escolasAbaixo + " escola(s) abaixo do mínimo de " + c.metaDias + " dias letivos: prever reposição.");
   if(!c.publicado) linhas.push("Publicar o calendário letivo de " + d.ano + " no Portal para acompanhar os dias letivos por escola.");
+  if(d.frequencia && d.frequencia.risco) linhas.push(d.frequencia.risco + " aluno(s) abaixo da frequência mínima e " + d.frequencia.atencao + " faltando dias seguidos: acionar a busca ativa nas escolas.");
+  else if(d.frequencia && d.frequencia.atencao) linhas.push(d.frequencia.atencao + " aluno(s) faltando dias seguidos: acionar a busca ativa nas escolas.");
   if(f.atrasados48h) linhas.push(f.atrasados48h + " chamado(s) técnico(s) aberto(s) há mais de 48 horas.");
   if(totProf && u.ativos30 / totProf < 0.5) linhas.push("Menos da metade dos professores usou o Portal nos últimos 30 dias: reforçar a formação nas escolas com menor uso.");
   if(!linhas.length) linhas.push("Nenhum ponto de atenção no momento.");

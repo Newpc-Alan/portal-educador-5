@@ -73,6 +73,8 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .grade td.med i{font-style:normal;font-size:.68rem;color:var(--muted);display:block;font-weight:600}
 .grade td.fal input{width:52px;color:#8a5a00}
 .grade tr:hover td{background-color:#fbfdff}
+.freq-aviso{background:#e8f2fb;border:1px solid #c4dcf1;color:#1f5f91;border-radius:12px;padding:10px 14px;font-size:.85rem;margin-bottom:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.freq-aviso span{flex:1;min-width:220px}
 .pill{border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;display:inline-block}
 .pill.ok{background:#e9f5dc;color:#3d6b0c}
 .pill.ruim{background:#fbe3e0;color:#9c2a20}
@@ -177,6 +179,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
         <button class="btn btn-gh btn-sm" data-action="importar">⬇ Puxar das Avaliações do Portal</button>
         <button class="btn btn-gh btn-sm" data-action="rec-col" id="btnRec">＋ Recuperação</button>
       </div>
+      <div class="freq-aviso" id="freqAviso" hidden></div>
       <div class="grade-wrap" id="gradeBox"></div>
       <p class="sub" style="margin-top:8px">Digite as notas com vírgula ou ponto. Enter desce para o próximo aluno. Tudo é salvo sozinho.</p>
     </div>
@@ -420,7 +423,52 @@ async function abrirPlanilha(turmaId, disciplina, ano){
   if(atual >= 0 && E.ultimoPid !== E.pid) E.per = atual + 1;
   E.ultimoPid = E.pid;
   E.per = Math.min(E.per, E.regra.periodos);
+  await lerFrequencia();
   $("carregando").hidden = true; desenhar();
+}
+
+/* ===================== faltas da Frequência digital ===================== */
+// as chamadas do professor nesta turma e disciplina entram por período (pelas datas do Calendário da rede); o professor ainda ajusta
+const POLI = slug("Polivalente (anos iniciais)");
+async function lerFrequencia(){
+  E.freq = null; E.freqSemCal = 0;
+  if(!E.P || E.u._sim) return;
+  const ds = slug(E.P.disciplina), l = [];
+  try{ const s = await getDocs(query(collection(db, "freq_chamadas"), where("professor_uid", "==", E.user.uid), where("turma_id", "==", E.P.turma_id)));
+    s.forEach(d => { const c = d.data(); if(c.ano === +E.P.ano_letivo && (c.disc_id === ds || c.disc_id === POLI)) l.push(c); }); }
+  catch(e){ console.warn("frequencia:", e.code); return; }
+  if(!l.length) return;
+  if(!E.calPer){ E.freqSemCal = l.length; return; }
+  const F = {};
+  l.forEach(c => { const p = E.calPer.findIndex(x => c.dia >= x.inicio && c.dia <= x.fim) + 1; if(!p) return;
+    const x = F[p] = F[p] || { aulas:0, faltas:{}, n:0 }; x.aulas += +c.aulas || 0; x.n++;
+    Object.entries(c.faltas || {}).forEach(([id, v]) => { x.faltas[id] = (x.faltas[id] || 0) + Math.min(+c.aulas || 0, +v || 0); }); });
+  E.freq = F;
+  // período ainda em branco na planilha: preenche sozinho
+  let mudou = false;
+  Object.keys(F).forEach(p => { const branco = (E.P.aulas[p] === undefined || E.P.aulas[p] === null) && !E.alunos.some(a => ((E.P.faltas[a.id] || {})[p] ?? null) !== null);
+    if(branco){ aplicarFreq(+p); mudou = true; } });
+  if(mudou) salvar();
+}
+function aplicarFreq(p){
+  const x = E.freq && E.freq[p]; if(!x) return;
+  E.P.aulas[p] = x.aulas;
+  E.alunos.forEach(a => { const F = E.P.faltas[a.id] = E.P.faltas[a.id] || {}; if(x.faltas[a.id]) F[p] = x.faltas[a.id]; else delete F[p]; });
+}
+function difereFreq(p){
+  const x = E.freq && E.freq[p]; if(!x) return false;
+  if((+E.P.aulas[p] || 0) !== x.aulas) return true;
+  return E.alunos.some(a => (+((E.P.faltas[a.id] || {})[p]) || 0) !== (x.faltas[a.id] || 0));
+}
+function avisoFreq(){
+  const el = $("freqAviso"), p = E.per, x = E.freq && E.freq[p];
+  if(E.freqSemCal){ el.hidden = false; el.innerHTML = "<span>📋 Você tem " + E.freqSemCal + " chamada(s) lançada(s) na Frequência para esta turma. As faltas entram aqui sozinhas quando o Calendário da rede tiver as datas dos " + NOME_PER[E.regra.periodos] + "s.</span>"; return; }
+  if(!x){ el.hidden = true; return; }
+  const dif = difereFreq(p);
+  el.hidden = false;
+  el.innerHTML = "<span>📋 <b>Frequência digital:</b> " + x.n + " chamada(s), " + x.aulas + " aulas neste " + NOME_PER[E.regra.periodos] + "." +
+    (dif ? " Os números da planilha estão diferentes das chamadas (você ajustou à mão ou entraram chamadas novas)." : " Aulas e faltas abaixo vieram das chamadas.") + "</span>" +
+    (dif ? '<button class="btn btn-pri btn-sm" data-action="usar-freq">Usar os números da Frequência</button>' : "") + '<a class="btn btn-gh btn-sm" href="/apps/frequencia/">Abrir a chamada</a>';
 }
 
 /* ===================== salvar ===================== */
@@ -451,6 +499,7 @@ function desenharNotas(){
   const R = E.regra, P = E.P, p = E.per, mx = R.nota_max, c = mx === 100 ? 0 : 1;
   $("segPer").innerHTML = Array.from({ length:R.periodos }, (_, k) => '<button class="' + (k + 1 === p ? "on" : "") + '" data-action="per" data-arg="' + (k + 1) + '"' + (E.calPer ? ' title="' + dataBr(E.calPer[k].inicio) + " a " + dataBr(E.calPer[k].fim) + '"' : "") + ">" + perNome(k + 1) + (E.calPer ? '<small class="per-datas">' + dataBr(E.calPer[k].inicio) + " a " + dataBr(E.calPer[k].fim) + "</small>" : "") + "</button>").join("");
   $("aulasPer").value = P.aulas[p] ?? "";
+  avisoFreq();
   const cols = P.avaliacoes.filter(a => a.periodo === p && a.tipo === "nota"), rec = P.avaliacoes.find(a => a.periodo === p && a.tipo === "rec");
   $("btnRec").hidden = !!rec || R.rec_periodo === "nao";
   if(!E.alunos.length){ $("gradeBox").innerHTML = '<div class="vazio"><b>Esta turma não tem alunos cadastrados</b>Cadastre os alunos em Turmas, no Portal.</div>'; return; }
@@ -624,7 +673,7 @@ async function salvarRegra(){
 const ACOES = {
   "ir": s => { E.sec = s; if(s === "regra" && E.admin){ carregarRegra($("selMuni").value).then(desenhar); return; } desenhar(); },
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
-  "per": p => { E.per = +p; desenhar(); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "excluir-av": () => excluirAv(),
+  "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "excluir-av": () => excluirAv(),
   "rec-col": () => { E.P.avaliacoes.push({ id:novoId(), periodo:E.per, nome:"Recuperação", peso:1, max:E.regra.nota_max, tipo:"rec" }); salvar(); desenhar(); },
   "importar": () => abrirImportar(), "importar-av": id => importarAv(id), "exportar": () => exportar(),
   "conselho": id => { E.consAluno = id; const c = E.P.conselho[id] || {}; $("consAluno").textContent = (E.alunos.find(a => a.id === id) || {}).nome || ""; $("consAprov").checked = !!c.aprovado; $("consJust").value = c.justificativa || ""; $("mCons").hidden = false; },
@@ -650,7 +699,7 @@ function lancar(el){
 }
 document.addEventListener("change", ev => {
   const t = ev.target;
-  if(t.dataset.nota || t.dataset.falta){ lancar(t); atualizarLinha(t); }
+  if(t.dataset.nota || t.dataset.falta){ lancar(t); atualizarLinha(t); if(t.dataset.falta) avisoFreq(); }
   else if(t.dataset.exame){ lancar(t); desenhar(); }
   else if(t.id === "aulasPer"){ const v = lerNum(t.value); if(v === null) delete E.P.aulas[E.per]; else E.P.aulas[E.per] = Math.max(0, Math.round(v)); salvar(); desenhar(); }
   else if(t.id === "selMinhas" && t.value){ const [tu, d, a] = t.value.split("|"); t.value = ""; abrirPlanilha(tu, d, a); }

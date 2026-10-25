@@ -353,6 +353,43 @@ await t('gestor tambem tem agenda', assertSucceeds(setDoc(doc(gest, 'usuarios/ge
 await t('aluno nao cria lembrete', assertFails(setDoc(doc(alu, 'usuarios/alu/lembretes/a1'), lem)));
 await t('professor apaga o proprio lembrete', assertSucceeds(deleteDoc(doc(prof, 'usuarios/prof/lembretes/l4'))));
 
+// Frequencia digital: professor lanca a chamada das turmas da escola dele; gestor le; resumo so a funcao grava
+await env.withSecurityRulesDisabled(async (c) => {
+  const db = c.firestore();
+  await setDoc(doc(db, 'turmas/tf1'), { nome: '5A', escola_id: 'e1', municipio_id: 'm1', criado_por: 'prof' });
+  await setDoc(doc(db, 'turmas/tf9'), { nome: 'Longe', escola_id: 'e9', municipio_id: 'm2', criado_por: 'prof2' });
+  await setDoc(doc(db, 'usuarios/gest1'), { perfil: 'gestor', status: 'ativo', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
+  await setDoc(doc(db, 'freq_resumo/tf1_2026'), { turma_id: 'tf1', escola_id: 'e1', municipio_id: 'm1', ano: 2026, alunos: {}, dias: {} });
+});
+const cham = { professor_uid: 'prof', professor_nome: 'P', escola_id: 'e1', municipio_id: 'm1', turma_id: 'tf1', turma_nome: '5A', disciplina: 'Matemática', disc_id: 'matematica',
+  dia: '2026-10-22', ano: 2026, aulas: 2, lista: ['a1', 'a2'], nomes: { a1: 'Ana', a2: 'Bia' }, faltas: { a1: 2 }, just: {}, conteudo: 'Frações', atualizado_em: serverTimestamp() };
+const IDC = 'freq_chamadas/prof_tf1_2026-10-22_matematica', gest1 = ctx('gest1');
+await t('professor lanca a chamada', assertSucceeds(setDoc(doc(prof, IDC), cham)));
+await t('professor corrige a chamada', assertSucceeds(setDoc(doc(prof, IDC), { ...cham, faltas: {} })));
+await t('chamada com id diferente do conteudo', assertFails(setDoc(doc(prof, 'freq_chamadas/prof_tf1_2026-10-23_matematica'), cham)));
+await t('chamada em nome de outro', assertFails(setDoc(doc(prof2, IDC.replace('prof_', 'prof2_')), cham)));
+await t('chamada em turma de outra escola', assertFails(setDoc(doc(prof, 'freq_chamadas/prof_tf9_2026-10-22_matematica'), { ...cham, turma_id: 'tf9' })));
+await t('chamada com escola trocada', assertFails(setDoc(doc(prof, IDC), { ...cham, escola_id: 'e2' })));
+await t('chamada com 7 aulas', assertFails(setDoc(doc(prof, IDC), { ...cham, aulas: 7 })));
+await t('chamada com ano errado', assertFails(setDoc(doc(prof, IDC), { ...cham, ano: 2025 })));
+await t('chamada com campo extra', assertFails(setDoc(doc(prof, IDC), { ...cham, x: 1 })));
+await t('chamada com lista enorme', assertFails(setDoc(doc(prof, IDC), { ...cham, lista: Array(81).fill('a') })));
+await t('gestor nao lanca chamada', assertFails(setDoc(doc(gest1, 'freq_chamadas/gest1_tf1_2026-10-22_matematica'), { ...cham, professor_uid: 'gest1' })));
+await t('licenca vencida nao lanca', assertFails(setDoc(doc(venc, 'freq_chamadas/venc_tf1_2026-10-22_matematica'), { ...cham, professor_uid: 'venc' })));
+await t('professor lista as proprias chamadas', assertSucceeds(getDocs(query(collection(prof, 'freq_chamadas'), where('professor_uid', '==', 'prof'), where('turma_id', '==', 'tf1')))));
+await t('professor abre chamada que ainda nao existe', assertSucceeds(getDoc(doc(prof, 'freq_chamadas/prof_tf1_2026-10-01_matematica'))));
+await t('gestor da escola le a chamada', assertSucceeds(getDoc(doc(gest1, IDC))));
+await t('gestor de outra escola nao le', assertFails(getDoc(doc(gest, IDC))));
+await t('secretaria nao le chamada com nomes', assertFails(getDoc(doc(sec, IDC))));
+await t('outro professor nao le', assertFails(getDoc(doc(prof2, IDC))));
+await t('gestor le o resumo da escola', assertSucceeds(getDocs(query(collection(gest1, 'freq_resumo'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
+await t('professor da escola le o resumo', assertSucceeds(getDoc(doc(prof, 'freq_resumo/tf1_2026'))));
+await t('gestor de outra escola nao le o resumo', assertFails(getDoc(doc(gest, 'freq_resumo/tf1_2026'))));
+await t('secretaria nao le o resumo com nomes', assertFails(getDoc(doc(sec, 'freq_resumo/tf1_2026'))));
+await t('ninguem grava o resumo', assertFails(setDoc(doc(prof, 'freq_resumo/tf1_2026'), { escola_id: 'e1' })));
+await t('outro nao apaga minha chamada', assertFails(deleteDoc(doc(prof2, IDC))));
+await t('professor apaga a propria chamada', assertSucceeds(deleteDoc(doc(prof, IDC))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

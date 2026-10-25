@@ -63,6 +63,13 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
         <ul><li>Mostra "quanto falta" para cada aluno passar</li><li>Puxa as notas das Avaliações feitas no Portal</li><li>Exporta para digitar no sistema oficial da rede</li></ul>
         <span class="app-btn">Abrir</span></div>
     </a>
+    <a class="app-card" href="/apps/frequencia/" data-mod="gestao" id="cardFreq" hidden>
+      <div class="app-capa" style="background:radial-gradient(260px 160px at 20% 10%,rgba(141,198,63,.45),transparent 60%),linear-gradient(135deg,#0c2338,#2671AB)">🙋</div>
+      <div class="app-corpo"><b>Frequência</b>
+        <p id="cfTxt">Chamada da turma pelo celular em poucos toques, com as faltas indo sozinhas para o Notas e Médias.</p>
+        <ul id="cfLista"><li>Chamada por aula; nos anos iniciais, uma vale para o dia</li><li>Faltas do bimestre entram sozinhas no Notas e Médias</li><li>Busca ativa: alunos faltando seguido, com aviso ao gestor</li></ul>
+        <span class="app-btn">Abrir</span></div>
+    </a>
     <a class="app-card" href="/relatorios/" data-mod="relatorios">
       <div class="app-capa" style="background-image:url(/assets/cards/relatorios.webp);background-size:cover;background-position:center 35%"></div>
       <div class="app-corpo"><b>Central de Relatórios</b>
@@ -98,6 +105,9 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const db = getFirestore(app);
+// Frequência: liga quando as regras e a função do resumo estiverem publicadas
+const FREQ_ATIVA = false;
+if(FREQ_ATIVA) document.getElementById("cardFreq").hidden = false;
 // cada card segue o plano do município: Notas e Recursos pelo módulo "gestao", a Central de Relatórios pelo módulo "relatorios"
 onAuthStateChanged(getAuth(app), async user => {
   if(!user){ location.replace("/entrar/"); return; }
@@ -109,7 +119,10 @@ onAuthStateChanged(getAuth(app), async user => {
     if(["admin", "secretaria", "gestor"].includes(u.perfil)){
       const c = document.getElementById("cardPainel"); c.hidden = false;
       if(u.perfil === "gestor"){ document.getElementById("cpTit").textContent = "Painel da Escola"; document.getElementById("cpTxt").textContent = "Professores ativos, aprendizagem BNCC comparada com a rede, dias letivos, equipamentos e chamados da sua escola.";
-        c.querySelector("ul").innerHTML = "<li>Sua escola comparada com a média da rede</li><li>Habilidades BNCC que pedem reforço</li><li>Relatório da escola em PDF com o brasão</li>"; }
+        c.querySelector("ul").innerHTML = "<li>Sua escola comparada com a média da rede</li><li>Habilidades BNCC que pedem reforço</li><li>Relatório da escola em PDF com o brasão</li>";
+        document.getElementById("cfTxt").textContent = "Busca ativa da escola: alunos abaixo da frequência mínima ou faltando dias seguidos, pelas chamadas dos professores.";
+        document.getElementById("cfLista").innerHTML = "<li>Lista com turma, frequência e última falta</li><li>Turmas sem chamada na semana</li><li>Resumo por e-mail toda segunda-feira</li>"; document.getElementById("cardFreq").href = "/apps/frequencia/#busca"; }
+      if(u.perfil === "secretaria"){ document.getElementById("cardFreq").href = "/painel/"; document.getElementById("cfTxt").textContent = "A frequência da rede, escola por escola, fica no Painel da Rede (sem nomes de alunos)."; }
     }
     if(u.perfil === "admin" || !u.municipio_id) return;
     const m = (await getDoc(doc(db, "municipios", u.municipio_id))).data() || {};

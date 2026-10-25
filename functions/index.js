@@ -370,3 +370,4 @@ export { emailChamadoTecnico } from './recursos.js';
 export { calendarioIcs } from './calendario.js';
 export { emailAgendaDia, emailLembretes } from './agenda.js';
 export { painelSecretaria } from './painel-secretaria.js';
+export { freqResumo, emailBuscaAtiva } from './frequencia.js';

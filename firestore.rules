@@ -316,6 +316,32 @@ service cloud.firestore {
       allow delete: if logado() && resource.data.professor_uid == request.auth.uid;
     }
 
+    // ---------- Frequencia digital ----------
+    // chamada: um professor, uma turma, um dia, uma disciplina; ID = {uid}_{turma}_{dia}_{disciplina}
+    // escola e municipio precisam ser os da turma; o resumo por aluno (freq_resumo) so a funcao escreve
+    function turmaDoc(t) { return get(/databases/$(database)/documents/turmas/$(t)).data; }
+    match /freq_chamadas/{id} {
+      allow read: if logado() && (resource == null || resource.data.professor_uid == request.auth.uid || admin() || gestorDaEscola(resource.data.escola_id));
+      allow create, update: if vinculado() && novo().professor_uid == request.auth.uid
+        && id == request.auth.uid + "_" + novo().turma_id + "_" + novo().dia + "_" + novo().disc_id
+        && (resource == null || (resource.data.professor_uid == request.auth.uid && resource.data.turma_id == novo().turma_id && resource.data.dia == novo().dia))
+        && novo().keys().hasOnly(["professor_uid", "professor_nome", "escola_id", "municipio_id", "turma_id", "turma_nome", "disciplina", "disc_id",
+          "dia", "ano", "aulas", "lista", "nomes", "faltas", "just", "conteudo", "atualizado_em"])
+        && (admin() || (turmaDoc(novo().turma_id).escola_id == novo().escola_id && novo().escola_id in minhasEscolas()
+          && turmaDoc(novo().turma_id).municipio_id == novo().municipio_id))
+        && dataOk(novo().dia) && novo().ano is int && int(novo().dia.split("-")[0]) == novo().ano
+        && novo().disc_id is string && novo().disc_id.matches("^[a-z0-9-]{1,40}$") && texto(novo().disciplina, 60)
+        && novo().aulas is int && novo().aulas >= 1 && novo().aulas <= 6
+        && novo().lista is list && novo().lista.size() <= 80 && novo().nomes is map && novo().nomes.size() <= 80
+        && novo().faltas is map && novo().faltas.size() <= 80 && novo().just is map && novo().just.size() <= 80
+        && texto(novo().get("conteudo", ""), 600) && texto(novo().turma_nome, 80) && texto(novo().professor_nome, 80);
+      allow delete: if logado() && (resource.data.professor_uid == request.auth.uid || admin());
+    }
+    match /freq_resumo/{id} {
+      allow read: if admin() || gestorDaEscola(resource.data.escola_id) || (vinculado() && resource.data.escola_id in minhasEscolas());
+      allow write: if false;
+    }
+
     // ---------- Recursos da escola: reservas e chamado tecnico ----------
     // gestor da escola e a equipe NEWPC (admin) cadastram; quem e da escola ve; o professor licenciado reserva
     function recGestor(esc) { return admin() || gestorDaEscola(esc); }
