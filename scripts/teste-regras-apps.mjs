@@ -508,12 +508,12 @@ await t('convidado nao vira gestor', assertFails(setDoc(doc(ctx('port1'), 'usuar
 await t('convidado da portaria entra', assertSucceeds(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('portaria'), email: 'port1@x.com' })));
 await t('convidado da secretaria escolar entra', assertSucceeds(setDoc(doc(ctx('sece1'), 'usuarios/sece1'), { ...usrApoio('secretaria_escolar'), email: 'sece1@x.com' })));
 await t('sem convite nao vira portaria', assertFails(setDoc(doc(ctx('semconv'), 'usuarios/semconv'), { ...usrApoio('portaria'), email: 'semconv@x.com' })));
-const port = ctx('port1'), sece = ctx('sece1');
-await t('portaria nao troca a propria escola', assertFails(updateDoc(doc(port, 'usuarios/port1'), { escolas_ids: ['e1', 'e2'], escola_id: 'e1' })));
+const portA = ctx('port1'), sece = ctx('sece1');
+await t('portaria nao troca a propria escola', assertFails(updateDoc(doc(portA, 'usuarios/port1'), { escolas_ids: ['e1', 'e2'], escola_id: 'e1' })));
 await t('secretaria escolar nao troca a propria escola', assertFails(updateDoc(doc(sece, 'usuarios/sece1'), { escolas_ids: ['e2'], escola_id: 'e2' })));
 await t('gestor nao adiciona outra escola a si mesmo', assertFails(updateDoc(doc(gest1, 'usuarios/gest1'), { escolas_ids: ['e1', 'e2'] })));
 await t('professor ainda troca as proprias escolas', assertSucceeds(updateDoc(doc(prof, 'usuarios/prof'), { escolas_ids: ['e1', 'e2'], escola_id: 'e1' })));
-await t('portaria altera o proprio nome', assertSucceeds(updateDoc(doc(port, 'usuarios/port1'), { nome: 'Maria A. Souza' })));
+await t('portaria altera o proprio nome', assertSucceeds(updateDoc(doc(portA, 'usuarios/port1'), { nome: 'Maria A. Souza' })));
 // gestor ve e pausa a equipe
 await t('gestor lista a equipe da escola', assertSucceeds(getDocs(query(collection(gest1, 'usuarios'), where('escola_id', '==', 'e1'), where('perfil', 'in', ['portaria', 'secretaria_escolar'])))));
 await t('gestor pausa a portaria', assertSucceeds(updateDoc(doc(gest1, 'usuarios/port1'), { status: 'inativo', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' })));
@@ -521,20 +521,20 @@ await t('gestor nao muda o perfil da equipe', assertFails(updateDoc(doc(gest1, '
 await t('gestor nao pausa professor', assertFails(updateDoc(doc(gest1, 'usuarios/prof'), { status: 'inativo' })));
 await t('gestor de outra escola nao pausa', assertFails(updateDoc(doc(gest, 'usuarios/sece1'), { status: 'inativo' })));
 await t('gestor nao le usuario professor', assertFails(getDoc(doc(gest1, 'usuarios/prof'))));
-await t('portaria pausada nao le alunos', assertFails(getDocs(query(collection(port, 'alunos'), where('escola_id', '==', 'e1')))));
+await t('portaria pausada nao le alunos', assertFails(getDocs(query(collection(portA, 'alunos'), where('escola_id', '==', 'e1')))));
 await t('gestor reativa a portaria', assertSucceeds(updateDoc(doc(gest1, 'usuarios/port1'), { status: 'ativo', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' })));
 // o que cada um ve
-await t('portaria le turmas da escola', assertSucceeds(getDocs(query(collection(port, 'turmas'), where('escola_id', '==', 'e1')))));
-await t('portaria le alunos da escola', assertSucceeds(getDocs(query(collection(port, 'alunos'), where('escola_id', '==', 'e1')))));
-await t('portaria nao le alunos de outra escola', assertFails(getDocs(query(collection(port, 'alunos'), where('escola_id', '==', 'e2')))));
-await t('portaria registra entrada', assertSucceeds(setDoc(doc(port, IDE), { ...ent, entradas: { al3: '07:20' }, nomes: { al3: 'Caio' } }, { merge: true })));
-await t('portaria le entradas do dia', assertSucceeds(getDocs(query(collection(port, 'freq_entradas'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
-await t('portaria nao le resumo de faltas', assertFails(getDocs(query(collection(port, 'freq_resumo'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
-await t('portaria nao le chamada', assertFails(getDoc(doc(port, IDC))));
-await t('portaria nao le busca ativa', assertFails(getDoc(doc(port, IDB))));
-await t('portaria nao le telefone da familia', assertFails(getDoc(doc(port, 'alunos_familia/al1'))));
-await t('portaria nao le avisos', assertFails(getDocs(query(collection(port, 'avisos_familia'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
-await t('portaria nao manda comunicado', assertFails(setDoc(doc(port, 'comunicados_familia/cp'), { ...com, criado_por: 'port1' })));
+await t('portaria le turmas da escola', assertSucceeds(getDocs(query(collection(portA, 'turmas'), where('escola_id', '==', 'e1')))));
+await t('portaria le alunos da escola', assertSucceeds(getDocs(query(collection(portA, 'alunos'), where('escola_id', '==', 'e1')))));
+await t('portaria nao le alunos de outra escola', assertFails(getDocs(query(collection(portA, 'alunos'), where('escola_id', '==', 'e2')))));
+await t('portaria registra entrada', assertSucceeds(setDoc(doc(portA, IDE), { ...ent, entradas: { al3: '07:20' }, nomes: { al3: 'Caio' } }, { merge: true })));
+await t('portaria le entradas do dia', assertSucceeds(getDocs(query(collection(portA, 'freq_entradas'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('portaria nao le resumo de faltas', assertFails(getDocs(query(collection(portA, 'freq_resumo'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
+await t('portaria nao le chamada', assertFails(getDoc(doc(portA, IDC))));
+await t('portaria nao le busca ativa', assertFails(getDoc(doc(portA, IDB))));
+await t('portaria nao le telefone da familia', assertFails(getDoc(doc(portA, 'alunos_familia/al1'))));
+await t('portaria nao le avisos', assertFails(getDocs(query(collection(portA, 'avisos_familia'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('portaria nao manda comunicado', assertFails(setDoc(doc(portA, 'comunicados_familia/cp'), { ...com, criado_por: 'port1' })));
 await t('secretaria escolar le o resumo de faltas', assertSucceeds(getDocs(query(collection(sece, 'freq_resumo'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
 await t('secretaria escolar le a chamada', assertSucceeds(getDoc(doc(sece, IDC))));
 await t('secretaria escolar nao lanca chamada', assertFails(setDoc(doc(sece, 'freq_chamadas/sece1_tf1_2026-10-22_matematica'), { ...cham, professor_uid: 'sece1' })));
