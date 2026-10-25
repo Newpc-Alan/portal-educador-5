@@ -19,22 +19,48 @@ export const painelSecretaria = onCall({ region: 'southamerica-east1', timeoutSe
   const db = getFirestore();
   const u = (await db.doc(`usuarios/${req.auth.uid}`).get()).data();
   if (!u || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Acesso não liberado.');
-  let m;
+  let m, escolasGestor = null;
   if (u.perfil === 'admin') m = String((req.data && req.data.municipio_id) || u.municipio_id || '');
   else if (u.perfil === 'secretaria') m = String(u.municipio_id || '');
-  else throw new HttpsError('permission-denied', 'O Painel da Rede é da Secretaria de Educação.');
+  else if (u.perfil === 'gestor') {
+    m = String(u.municipio_id || '');
+    escolasGestor = (Array.isArray(u.escolas_ids) && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean).slice(0, 5);
+    if (!escolasGestor.length) throw new HttpsError('failed-precondition', 'Seu cadastro de gestor ainda não está ligado a uma escola.');
+  }
+  else throw new HttpsError('permission-denied', 'O painel é da Secretaria de Educação e dos gestores das escolas.');
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a um município.');
-  // o Painel da Rede é um módulo do plano: o administrador libera em Municípios › Plano e módulos
-  if (u.perfil === 'secretaria') {
+  // o painel é um módulo do plano: o administrador libera em Municípios › Plano e módulos
+  if (u.perfil !== 'admin') {
     const mu = (await db.doc(`municipios/${m}`).get()).data() || {};
-    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O Painel da Rede ainda não faz parte do plano do seu município. Fale com a equipe NEWPC.');
+    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O painel ainda não faz parte do plano do seu município. Fale com a equipe NEWPC.');
   }
   const c = cache.get(m);
-  if (c && Date.now() - c.em < 20 * 60 * 1000 && !(req.data && req.data.forcar)) return c.dados;
-  const dados = await montar(db, m);
-  cache.set(m, { em: Date.now(), dados });
-  return dados;
+  let dados;
+  if (c && Date.now() - c.em < 20 * 60 * 1000 && !(req.data && req.data.forcar)) dados = c.dados;
+  else { dados = await montar(db, m); cache.set(m, { em: Date.now(), dados }); }
+  return escolasGestor ? daEscola(dados, escolasGestor) : dados;
 });
+
+// visão do gestor: só as escolas dele, com a média da rede ao lado para comparar (só números agregados)
+export function daEscola(d, ids) {
+  const set = new Set(ids), escolas = d.escolas.filter(e => set.has(e.id)), soma = k => escolas.reduce((s, e) => s + (e[k] || 0), 0);
+  const qtot = soma('qtot'), acerto = qtot ? escolas.reduce((s, e) => s + (e.acerto || 0) * (e.qtot || 0), 0) / qtot : null;
+  const habilidades = d.aprendizagem.habilidades.map(h => {
+    const vs = ids.map(id => h.escolas[id]).filter(v => v !== undefined && v !== null);
+    return vs.length ? { c: h.c, q: h.q, p: vs.reduce((s, v) => s + v, 0) / vs.length, rede: h.p, escolas: {} } : null;
+  }).filter(Boolean).sort((a, b) => a.p - b.p);
+  const abaixo = escolas.filter(e => e.dias !== null && (e.dias < e.metaDias || e.horas < e.metaHoras)).length;
+  return {
+    ...d, escopo: 'escola', escolasNomes: escolas.map(e => e.nome),
+    totais: { escolas: escolas.length, alunos: soma('alunos') },
+    uso: { professores: soma('professores'), gestores: 0, ativos30: soma('ativos30'), ativos7: null, onlineAgora: null, porDia: [], modulos: [] },
+    aprendizagem: { provas: soma('provas'), respostas: soma('respostas'), acerto, habilidades, semHab: null },
+    calendario: { ...d.calendario, escolasAbaixo: abaixo },
+    infra: { abertos: soma('chamadosAbertos'), atrasados48h: soma('chamadosAtrasados'), resolvidos30: null, horasMedia: null, equipamentos: soma('equipamentos'), tvs: soma('tvs'), tvsOnline: soma('tvsOnline'), problemas: [] },
+    relatorios: null, escolas,
+    rede: { acerto: d.aprendizagem.acerto, ativos30: (d.uso.professores + d.uso.gestores) ? d.uso.ativos30 / (d.uso.professores + d.uso.gestores) : null, escolas: d.totais.escolas, baseDias: d.calendario.baseDias }
+  };
+}
 
 export async function montar(db, m) {
   const agora = Date.now(), hoje = isoMS(agora), ano = +hoje.slice(0, 4), d30 = isoMS(agora - 29 * DIA);
@@ -150,7 +176,7 @@ export async function montar(db, m) {
     totais: { escolas: escolas.length, alunos: Object.values(E).reduce((s, e) => s + e.alunos, 0) },
     uso, aprendizagem: { provas: apr.provas, respostas: apr.respostas, acerto: apr.tot ? apr.ac / apr.tot : null, habilidades: apr.habilidades.slice(0, 40), semHab: apr.semHab },
     calendario: cal, infra: inf, relatorios: rel,
-    escolas: Object.values(E).map(e => ({ ...e, acerto: e.tot ? e.ac / e.tot : null, ac: undefined, tot: undefined })),
+    escolas: Object.values(E).map(e => ({ ...e, acerto: e.tot ? e.ac / e.tot : null, qtot: e.tot, ac: undefined, tot: undefined })),
     erros
   };
 }

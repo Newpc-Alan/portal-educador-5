@@ -78,7 +78,7 @@ table.tab{width:100%;border-collapse:collapse}
 <body>
 <div class="app">
   <header class="topo">
-    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Secretaria Municipal de Educação</small><b id="tit">Painel da Rede</b><span id="quem">Carregando...</span></div></div>
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small id="olhoTopo">Secretaria Municipal de Educação</small><b id="tit">Painel da Rede</b><span id="quem">Carregando...</span></div></div>
     <select class="sel" id="selMuni" aria-label="Município" hidden></select>
     <button class="tb" data-action="atualizar">↻ Atualizar</button>
     <button class="tb" data-action="pdf">📄 Relatório executivo</button>
@@ -90,8 +90,8 @@ table.tab{width:100%;border-collapse:collapse}
     <div class="aviso" id="avisoErros" hidden></div>
     <div class="kpis" id="kpis"></div>
 
-    <div class="secao">Uso do Portal</div>
-    <div class="grid2">
+    <div class="secao blocoUso">Uso do Portal</div>
+    <div class="grid2 blocoUso">
       <div class="card"><div class="h2">👩‍🏫 Professores que usaram o Portal por dia</div><div class="sub">Últimos 30 dias · professores e gestores da rede</div><div class="barras" id="gUso"></div></div>
       <div class="card"><div class="h2">🧩 Módulos mais abertos</div><div class="sub">Últimos 30 dias</div><div id="gMod" style="margin-top:10px"></div></div>
     </div>
@@ -156,13 +156,17 @@ function kpi(rot, val, extra, cls){ return '<div class="kpi ' + (cls || "") + '"
 function desenhar(){
   const d = S.d, u = d.uso, a = d.aprendizagem, c = d.calendario, f = d.infra;
   if(d.municipio.logo_url){ const im = document.querySelector(".marca img"); im.src = d.municipio.logo_url; im.style.background = "#fff"; im.style.borderRadius = "10px"; im.style.objectFit = "contain"; im.style.padding = "3px"; }
-  $("tit").textContent = "Painel da Rede · " + (d.municipio.nome || "") + (d.municipio.uf ? "/" + d.municipio.uf : "");
+  const ehEscola = d.escopo === "escola", R0 = d.rede || {}, vsRede = v => ehEscola && v !== null && v !== undefined ? " · rede " + pc(v) : "";
+  $("tit").textContent = ehEscola ? "Painel da Escola · " + d.escolasNomes.join(", ") : "Painel da Rede · " + (d.municipio.nome || "") + (d.municipio.uf ? "/" + d.municipio.uf : "");
+  $("olhoTopo").textContent = ehEscola ? "Gestão da escola · " + (d.municipio.nome || "") : "Secretaria Municipal de Educação";
+  document.title = (ehEscola ? "Painel da Escola" : "Painel da Rede") + " · Portal do Educador";
+  document.querySelectorAll(".blocoUso").forEach(el => el.hidden = ehEscola);
   const totProf = u.professores + u.gestores, pAtivos = totProf ? u.ativos30 / totProf : null;
   $("kpis").innerHTML =
     kpi("Escolas", n(d.totais.escolas), n(d.totais.alunos) + " alunos cadastrados") +
-    kpi("Professores ativos", pc(pAtivos), n(u.ativos30) + " de " + n(totProf) + " usaram em 30 dias", pAtivos === null ? "" : pAtivos >= 0.6 ? "ok" : pAtivos >= 0.3 ? "alerta" : "ruim") +
-    kpi("Usando agora", n(u.onlineAgora), n(u.ativos7) + " nos últimos 7 dias") +
-    kpi("Acerto nas provas", pc(a.acerto), n(a.provas) + " provas · " + n(a.respostas) + " respostas", a.acerto === null ? "" : a.acerto >= 0.7 ? "ok" : a.acerto >= 0.5 ? "alerta" : "ruim") +
+    kpi("Professores ativos", pc(pAtivos), n(u.ativos30) + " de " + n(totProf) + " usaram em 30 dias" + vsRede(R0.ativos30), pAtivos === null ? "" : pAtivos >= 0.6 ? "ok" : pAtivos >= 0.3 ? "alerta" : "ruim") +
+    (ehEscola ? "" : kpi("Usando agora", n(u.onlineAgora), n(u.ativos7) + " nos últimos 7 dias")) +
+    kpi("Acerto nas provas", pc(a.acerto), n(a.provas) + " provas · " + n(a.respostas) + " respostas" + vsRede(R0.acerto), a.acerto === null ? "" : a.acerto >= 0.7 ? "ok" : a.acerto >= 0.5 ? "alerta" : "ruim") +
     kpi("Calendário " + d.ano, c.publicado ? (d.totais.escolas - c.escolasAbaixo) + "/" + d.totais.escolas : "–", c.publicado ? "escolas cumprem " + c.metaDias + " dias" : "ainda não publicado", !c.publicado ? "alerta" : c.escolasAbaixo ? "ruim" : "ok") +
     kpi("Chamados abertos", n(f.abertos), f.atrasados48h ? f.atrasados48h + " há mais de 48 h" : "nenhum parado há 48 h", f.atrasados48h ? "ruim" : f.abertos ? "alerta" : "ok") +
     kpi("TVs online", f.tvs ? f.tvsOnline + "/" + f.tvs : "–", f.tvs ? "Portal do Educador TV" : "nenhuma TV conectada");
@@ -177,7 +181,7 @@ function desenhar(){
   const comProva = d.escolas.filter(e => e.acerto !== null).sort((x, y) => x.acerto - y.acerto);
   $("gAcerto").innerHTML = comProva.length ? comProva.map(e => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + Math.round(e.acerto * 100) + "%;background:" + corP(e.acerto) + '"></i></span><span class="v" style="color:' + corP(e.acerto) + '">' + pc(e.acerto) + "</span></div>").join("") : '<div class="sub">Quando os professores corrigirem provas pelo Corretor de Gabarito ou aplicarem provas no Portal, o acerto de cada escola aparece aqui.</div>';
   const prio = a.habilidades.filter(h => h.p !== null && h.p < 0.6).slice(0, 6);
-  $("gHab").innerHTML = prio.length ? '<div class="prio">' + prio.map(h => "<div><b>" + h.c + " · " + pc(h.p) + "</b>" + esc(descBncc(h.c)) + '<div class="sub">' + h.q + " questão(ões) · " + Object.keys(h.escolas).length + " escola(s)</div></div>").join("") + "</div>"
+  $("gHab").innerHTML = prio.length ? '<div class="prio">' + prio.map(h => "<div><b>" + h.c + " · " + pc(h.p) + "</b>" + esc(descBncc(h.c)) + '<div class="sub">' + h.q + " questão(ões) · " + (ehEscola ? "rede " + pc(h.rede) : Object.keys(h.escolas).length + " escola(s)") + "</div></div>").join("") + "</div>"
     : '<div class="sub" style="margin-top:10px">' + (a.habilidades.length ? "Nenhuma habilidade com acerto abaixo de 60%." : "As provas ainda não têm código BNCC nas questões. O professor marca no Gabarito do Corretor.") + "</div>";
   // calendário
   $("calSub").textContent = c.publicado ? "Base da rede: " + c.baseDias + " dias e " + n(c.baseHoras) + " h · mínimo " + c.metaDias + " dias e " + c.metaHoras + " h (LDB, art. 24)" : "O calendário de " + d.ano + " ainda não foi publicado.";
@@ -186,7 +190,7 @@ function desenhar(){
     : '<a class="atalhos" href="/apps/calendario/" style="text-decoration:none"><span class="pill alerta">Criar o calendário da rede →</span></a>';
   // infraestrutura
   $("gInf").innerHTML = '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:10px">' +
-    kpi("Abertos", n(f.abertos), f.atrasados48h + " há +48 h", f.atrasados48h ? "ruim" : "") + kpi("Resolvidos 30 d", n(f.resolvidos30), f.horasMedia !== null ? "média de " + String(f.horasMedia).replace(".", ",") + " h" : "") +
+    kpi("Abertos", n(f.abertos), f.atrasados48h + " há +48 h", f.atrasados48h ? "ruim" : "") + (ehEscola ? "" : kpi("Resolvidos 30 d", n(f.resolvidos30), f.horasMedia !== null ? "média de " + String(f.horasMedia).replace(".", ",") + " h" : "")) +
     kpi("Equipamentos", n(f.equipamentos), "cadastrados") + "</div>" +
     (f.problemas.length ? '<div class="sub" style="margin-bottom:4px">Problemas mais relatados (90 dias)</div>' + f.problemas.map(p => '<div class="hbar"><span class="t">' + esc(p.t) + '</span><span class="trilho"><i style="width:' + (p.n / f.problemas[0].n * 100) + '%;background:#2671AB"></i></span><span class="v">' + p.n + "</span></div>").join("") : "");
   // tabela
@@ -232,7 +236,7 @@ async function relatorio(){
   const tx = 14 + logoNoPdf(pdf, lg, 14, 4, 22);
   pdf.setTextColor(141, 198, 63); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5);
   pdf.text(pdf.splitTextToSize(("PREFEITURA MUNICIPAL DE " + (d.municipio.nome || "") + (d.municipio.uf ? " · " + d.municipio.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO").toUpperCase(), 196 - tx)[0], tx, 11);
-  pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text("Relatório executivo da rede · " + d.ano, tx, 21);
+  pdf.setTextColor(255, 255, 255); pdf.setFontSize(17); pdf.text((d.escopo === "escola" ? "Relatório da escola · " : "Relatório executivo da rede · ") + d.ano, tx, 21);
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5); pdf.text("Gerado em " + new Date(d.gerado_em).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " pelo Portal do Educador", tx, 26.5);
   // blocos de indicadores
   const blocos = [
@@ -240,7 +244,7 @@ async function relatorio(){
     ["Professores ativos (30 d)", pc(totProf ? u.ativos30 / totProf : null), n(u.ativos30) + " de " + n(totProf)],
     ["Acerto nas provas", pc(a.acerto), n(a.provas) + " provas, " + n(a.respostas) + " respostas"],
     ["Calendário letivo", c.publicado ? (d.totais.escolas - c.escolasAbaixo) + "/" + d.totais.escolas : "–", c.publicado ? "escolas com " + c.metaDias + " dias" : "não publicado"],
-    ["Chamados técnicos", n(f.abertos) + " abertos", n(f.resolvidos30) + " resolvidos em 30 d"],
+    ["Chamados técnicos", n(f.abertos) + " abertos", d.escopo === "escola" ? f.atrasados48h + " há mais de 48 h" : n(f.resolvidos30) + " resolvidos em 30 d"],
     ["Portal do Educador TV", f.tvs ? f.tvsOnline + "/" + f.tvs : "–", "telas online agora"]
   ];
   blocos.forEach((b, i) => { const x = 14 + (i % 3) * 61, y = 36 + Math.floor(i / 3) * 24;
@@ -279,7 +283,7 @@ async function relatorio(){
   if(totProf && u.ativos30 / totProf < 0.5) linhas.push("Menos da metade dos professores usou o Portal nos últimos 30 dias: reforçar a formação nas escolas com menor uso.");
   if(!linhas.length) linhas.push("Nenhum ponto de atenção no momento.");
   linhas.forEach(l => { pdf.splitTextToSize("• " + l, 180).forEach(t => { pdf.text(t, 15, y); y += 4.6; }); });
-  pdf.setDrawColor(150, 160, 170); pdf.line(120, 278, 196, 278); pdf.setFontSize(8); pdf.setTextColor(60, 75, 95); pdf.text("Secretário(a) Municipal de Educação", 158, 282, { align:"center" });
+  pdf.setDrawColor(150, 160, 170); pdf.line(120, 278, 196, 278); pdf.setFontSize(8); pdf.setTextColor(60, 75, 95); pdf.text(d.escopo === "escola" ? "Diretor(a) da escola" : "Secretário(a) Municipal de Educação", 158, 282, { align:"center" });
   pdf.setFontSize(7); pdf.setTextColor(140, 150, 160); pdf.text("Dados agregados, sem informações pessoais de alunos (LGPD). Fonte: Portal do Educador.", 14, 290);
   window.__ultimoPdf = pdf.output("datauristring");
   pdf.save("relatorio-rede-" + String(d.municipio.nome || "municipio").normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase() + "-" + new Date().toISOString().slice(0, 10) + ".pdf");
@@ -292,9 +296,9 @@ $("selMuni").addEventListener("change", () => { try{ localStorage.setItem("pde_p
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
-  if(!u || u.status !== "ativo" || !["secretaria", "admin"].includes(u.perfil)){ location.replace("/entrar/"); return; }
+  if(!u || u.status !== "ativo" || !["secretaria", "admin", "gestor"].includes(u.perfil)){ location.replace("/entrar/"); return; }
   S.u = u; S.admin = u.perfil === "admin";
-  $("quem").textContent = (u.nome || user.email) + (S.admin ? " · administrador" : " · Secretaria de Educação");
+  $("quem").textContent = (u.nome || user.email) + (S.admin ? " · administrador" : u.perfil === "gestor" ? " · gestão da escola" : " · Secretaria de Educação");
   if(S.admin){
     const ms = []; try{ const s = await getDocs(query(collection(db, "municipios"), limit(300))); s.forEach(d => ms.push({ id:d.id, ...d.data() })); }catch(e){}
     ms.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
