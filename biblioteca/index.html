@@ -187,7 +187,8 @@ const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "sout
 if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const SECOES = { livros:{ e:"📕", nome:"Livros", d:"Leitura para a turma e para o professor" }, audiolivros:{ e:"🎧", nome:"Audiolivros", d:"Ouça na sala ou em casa" },
-  aprender:{ e:"🧩", nome:"Aprender brincando", d:"Livros com atividades" }, gibiteca:{ e:"💬", nome:"Gibiteca", d:"Histórias em quadrinhos" } };
+  aprender:{ e:"🧩", nome:"Aprender brincando", d:"Livros com atividades" }, gibiteca:{ e:"💬", nome:"Gibiteca", d:"Histórias em quadrinhos" },
+  historias:{ e:"📖", nome:"Histórias Educativas", d:"Histórias que ensinam ciência e valores" } };
 const TIPO_ROT = { pdf:"Livro", audio:"Áudio", cbz:"Gibi", imagens:"Gibi" };
 const LIC = { "dominio-publico":"Domínio público", "licenca-aberta":"Licença aberta (Creative Commons ou similar)", "licenciada":"Licenciada (contrato ou autorização)", "propria":"Material próprio da NEWPC" };
 const SUG = { comercial:"Comercial", "dominio-publico":"Domínio público provável", revisar:"Revisar" };
@@ -207,7 +208,7 @@ function salvarProg(id, dados){ const p = progresso(); p[id] = { ...(p[id] || {}
 function ir(t){
   E.tela = t;
   document.querySelectorAll(".topo-acoes .tb[data-arg]").forEach(b => b.classList.toggle("on", b.dataset.arg === t));
-  try{ history.replaceState(null, "", "#" + t); }catch(e){}
+  try{ history.replaceState(null, "", "#" + (MODO_HIST ? "historias" + (t === "acervo" ? "" : "-" + t) : t)); }catch(e){}
   if(t === "continuar") telaContinuar(); else if(t === "triagem" && E.admin) telaTriagem(); else telaAcervo();
   window.scrollTo({ top:0 });
 }
@@ -215,9 +216,12 @@ function ir(t){
 /* ---------- acervo ---------- */
 // aluno: só as estantes Aprender brincando e Gibiteca (as regras do banco também exigem isso)
 const SECOES_ALUNO = ["aprender", "gibiteca"];
-const secoesVis = () => Object.entries(SECOES).filter(([id]) => !E.aluno || SECOES_ALUNO.includes(id));
+// modo Histórias: o botão "Histórias Educativas" do Portal abre /biblioteca/#historias só com essa estante (professor e aluno)
+const MODO_HIST = /^#historias/.test(location.hash);
+const secoesVis = () => MODO_HIST ? [] : Object.entries(SECOES).filter(([id]) => id !== "historias" || !E.aluno).filter(([id]) => !E.aluno || SECOES_ALUNO.includes(id));
 async function carregar(){
-  const q = E.admin ? collection(db, "biblioteca")
+  const q = MODO_HIST ? (E.admin ? query(collection(db, "biblioteca"), where("secao", "==", "historias")) : query(collection(db, "biblioteca"), where("publicado", "==", true), where("secao", "==", "historias")))
+    : E.admin ? collection(db, "biblioteca")
     : E.aluno ? query(collection(db, "biblioteca"), where("publicado", "==", true), where("secao", "in", SECOES_ALUNO))
     : query(collection(db, "biblioteca"), where("publicado", "==", true));
   const s = await getDocs(q); E.livros = []; s.forEach(d => E.livros.push({ id:d.id, ...d.data() }));
@@ -242,14 +246,16 @@ function autoresDaSecao(){
 function telaAcervo(){
   const n = s => E.livros.filter(l => l.secao === s).length;
   $("tela").innerHTML =
-    (E.aluno
+    (MODO_HIST
+      ? '<div class="destaque"><div class="destaque-ico">📖</div><div class="destaque-txt"><b>Histórias Educativas</b><span>' + (E.aluno ? "Histórias ilustradas para ler e aprender sobre o corpo, a natureza e o mundo. A estante lembra onde você parou." : "Histórias ilustradas sobre ciência, natureza e o corpo humano para projetar na lousa ou ler com a turma. A estante lembra onde você parou.") + '</span></div></div>'
+      : E.aluno
       ? '<div class="destaque"><div class="destaque-ico">📚</div><div class="destaque-txt"><b>Ler e aprender brincando</b><span>Livros com atividades e gibis para ler no Chromebook ou no celular. A Biblioteca lembra onde você parou.</span></div></div>'
       : '<div class="destaque"><div class="destaque-ico">📚</div><div class="destaque-txt"><b>Leitura para a sala de aula</b><span>Livros, audiolivros e gibis para projetar na lousa, ler no Chromebook ou ouvir com a turma. A Biblioteca lembra onde você parou.</span></div></div>') +
     '<div class="secoes"' + (E.aluno ? ' style="grid-template-columns:1fr 1fr"' : '') + '>' + secoesVis().map(([id, s]) => '<button class="secao' + (E.secao === id ? " on" : "") + '" data-action="secao" data-arg="' + id + '"><span class="e">' + s.e + '</span><span><b>' + esc(s.nome) + '</b><small>' + n(id) + ' título' + (n(id) === 1 ? "" : "s") + '</small></span></button>').join("") + '</div>' +
     '<div class="filtros"><input id="fBusca" type="search" placeholder="Buscar por título ou autor" value="' + esc(E.busca) + '">' +
     (autoresDaSecao().length ? '<select id="fAutor" aria-label="Autor"><option value="">Todos os autores</option>' + autoresDaSecao().map(([a, q]) => '<option value="' + esc(a) + '"' + (E.autor === a ? " selected" : "") + '>' + esc(a) + ' (' + q + ')</option>').join("") + '</select>' : "") +
     '<select id="fOrdem" aria-label="Ordenar"><option value="titulo">Título (A a Z)</option><option value="autor"' + (E.ordem === "autor" ? " selected" : "") + '>Autor</option><option value="recentes"' + (E.ordem === "recentes" ? " selected" : "") + '>Chegaram agora</option></select>' +
-    '<button class="btn ' + (E.soFav ? "btn-pri" : "btn-gh") + '" data-action="so-fav">⭐ Favoritos</button>' + (E.secao !== "todas" ? '<button class="btn btn-gh" data-action="secao" data-arg="todas">Ver todas as seções</button>' : "") + '</div>' +
+    '<button class="btn ' + (E.soFav ? "btn-pri" : "btn-gh") + '" data-action="so-fav">⭐ Favoritos</button>' + (E.secao !== "todas" && !MODO_HIST ? '<button class="btn btn-gh" data-action="secao" data-arg="todas">Ver todas as seções</button>' : "") + '</div>' +
     '<p class="contagem" id="contagem"></p><div class="grade" id="grade"></div><div class="mais-wrap" id="mais"></div>';
   $("fBusca").addEventListener("input", e => { E.busca = e.target.value; E.mostrar = LOTE; clearTimeout(E._t); E._t = setTimeout(desenharGrade, 200); });
   if($("fAutor")) $("fAutor").addEventListener("change", e => { E.autor = e.target.value; E.mostrar = LOTE; desenharGrade(); });
@@ -519,9 +525,11 @@ onAuthStateChanged(auth, async user => {
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim; E.aluno = u.perfil === "aluno" || sim === "aluno";
   E.favs = new Set(ls.get("pde_bib_favs_" + user.uid, []));
   $("quem").textContent = u.nome || user.email;
-  if(E.admin){ $("tbTri").hidden = false; carregarTriagem().catch(() => {}); }
+  if(MODO_HIST){ E.secao = "historias"; document.title = "Histórias Educativas · Portal do Educador"; document.querySelector(".marca b").textContent = "Histórias Educativas"; $("tbTri").remove(); }
+  if(E.admin && !MODO_HIST){ $("tbTri").hidden = false; carregarTriagem().catch(() => {}); }
   try{ await carregar(); }catch(e){ console.error(e); $("tela").innerHTML = '<div class="card vazio">Não foi possível carregar a Biblioteca agora.</div>'; return; }
   const h = (location.hash || "").slice(1);
+  if(MODO_HIST){ telaAcervo(); return; }
   ir(["acervo","continuar","triagem"].includes(h) ? h : "acervo");
 });
 </script>
