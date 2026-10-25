@@ -281,7 +281,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
       <button class="tb" data-action="ir" data-arg="portaria" id="tabPortaria" hidden>🚪 Portaria</button>
       <button class="tb" data-action="ir" data-arg="carteirinhas" id="tabCart" hidden>🪪 Carteirinhas</button>
       <button class="tb" data-action="ir" data-arg="auditoria" id="tabAudit" hidden>🧾 Auditoria</button>
-      <a class="tb lima" href="/gestao/">← Gestão</a>
+      <a class="tb lima" href="/gestao/" id="lnkVoltar">← Gestão</a>
     </div>
     <div class="status" id="status"></div>
   </header>
@@ -685,7 +685,7 @@ async function carregarBusca(forcar){
   if(!E.resumos.length || forcar){
     E.resumos = [];
     try{
-      if(E.gestor){
+      if(E.escolar){
         const ids = (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 5);
         for(const id of ids){ const s = await getDocs(query(collection(db, "freq_resumo"), where("escola_id", "==", id), where("ano", "==", ano))); s.forEach(d => E.resumos.push(d.data())); }
         const ns = await Promise.all(ids.map(id => getDoc(doc(db, "escolas", id)).then(s => [id, s.exists() ? s.data().nome : ""]).catch(() => [id, ""]))); ns.forEach(([id, n]) => { E.escolasNomes[id] = n; });
@@ -704,7 +704,7 @@ async function carregarBusca(forcar){
 function desenharBusca(){
   const rs = E.resumos, hj = hojeMS(), g = FREQ.agregar(rs, hj), min = (rs[0] && rs[0].freq_min) || 75;
   const nomesEsc = Object.values(E.escolasNomes).filter(Boolean);
-  $("buscaTit").textContent = E.gestor ? "Busca ativa · " + (nomesEsc.join(", ") || "sua escola") : "Busca ativa · turmas da sua escola";
+  $("buscaTit").textContent = E.escolar ? "Busca ativa · " + (nomesEsc.join(", ") || "sua escola") : "Busca ativa · turmas da sua escola";
   $("buscaSub").textContent = g.turmas ? g.turmas + " turma(s) com chamada em " + hj.slice(0, 4) + " · pelas chamadas lançadas pelos professores" : "Ainda não há chamadas lançadas neste ano.";
   $("impTit").textContent = $("buscaTit").textContent; $("impSub").textContent = "Gerado em " + new Date().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " · Portal do Educador · uso restrito à gestão escolar (LGPD)";
   const k = (rot, v, x, cls) => '<div class="kpi ' + (cls || "") + '"><small>' + rot + "</small><b>" + v + "</b><span>" + (x || "") + "</span></div>";
@@ -734,7 +734,10 @@ const STATUS = { aberto:["Aberto", "ruim"], contato:["Em contato com a família"
 const TIPOS = { ligacao:"📞 Ligação", whatsapp:"💬 WhatsApp", bilhete:"✉️ Bilhete ou recado", visita:"🏠 Visita domiciliar", reuniao:"🤝 Reunião na escola", sem_contato:"❌ Tentativa sem sucesso" };
 // ficha liga quando as regras de busca_ativa estiverem publicadas
 const FICHA_ATIVA = true;
-const podeMural = () => E.gestor || E.admin;
+// gestão da escola = gestor e secretaria escolar; a portaria só usa a tela de entrada; fotos da entrada só gestor e administrador
+const podeMural = () => E.gestor || E.secEsc || E.admin;
+const podeFotos = () => E.gestor || E.admin;
+const podeEntrada = () => PORTARIA_ATIVA && (podeMural() || E.portaria);
 const podeFicha = () => FICHA_ATIVA && podeMural();
 // portaria e carteirinhas ligam quando as regras de freq_entradas (e leitura de alunos pelo gestor) estiverem publicadas
 const PORTARIA_ATIVA = true;
@@ -824,7 +827,7 @@ const matiz = id => { let h = 7; for(const ch of String(id)) h = (h * 131 + ch.c
 async function abrirMural(){
   clearInterval(E.muRel); const rel = () => { $("muRelogio").textContent = new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); }; rel(); E.muRel = setInterval(rel, 15000);
   if(!E.resumos.length) await carregarBusca();
-  let escolas = E.gestor ? (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 5) : [...new Set(E.resumos.map(r => r.escola_id).filter(Boolean))];
+  let escolas = E.escolar ? (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 5) : [...new Set(E.resumos.map(r => r.escola_id).filter(Boolean))];
   if(!E.muEscola || !escolas.includes(E.muEscola)) E.muEscola = escolas[0] || "";
   if(E.admin) await Promise.all(escolas.filter(id => !(id in E.escolasNomes)).map(id => getDoc(doc(db, "escolas", id)).then(s => { E.escolasNomes[id] = s.exists() ? s.data().nome : id; }).catch(() => {})));
   $("muEscola").hidden = escolas.length < 2;
@@ -999,7 +1002,7 @@ function carrossel(){
 
 /* ===================== escola: turmas e alunos (portaria e carteirinhas) ===================== */
 async function escolasGestao(){
-  if(E.gestor) return (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 5);
+  if(E.escolar) return (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 5);
   if(!E.turmas.length) await carregarTurmas();
   return [...new Set(E.turmas.map(t => t.escola_id).filter(Boolean))];
 }
@@ -1115,7 +1118,7 @@ function ouvirEntradas(){
 function desenharPortaria(){
   const m = E.poHoje || {}, l = Object.entries(m).sort((a, b) => String(b[1].h).localeCompare(String(a[1].h))), tot = Object.keys(E.base.alunos).length;
   $("poCont").innerHTML = '<div class="ok"><b>' + l.length.toLocaleString("pt-BR") + "</b>entraram hoje</div><div><b>" + Math.max(0, tot - l.length).toLocaleString("pt-BR") + "</b>ainda não chegaram</div>" + (E.poFila.length ? '<div class="ruim"><b>' + E.poFila.length + "</b>aguardando internet</div>" : "");
-  $("poLista").innerHTML = l.slice(0, 40).map(([id, x]) => '<div style="--h:' + matiz(id) + '">' + (x.foto ? '<button class="po-foto" data-action="po-foto" data-arg="' + esc(x.foto) + '" data-nome="' + esc(x.n + " · " + (x.turma_nome || "") + " · " + x.h) + '" aria-label="Ver a foto da entrada de ' + esc(x.n) + '"><img alt="" data-foto="' + esc(x.foto) + '"></button>' : "<u>" + esc(iniciais(x.n)) + "</u>") +
+  $("poLista").innerHTML = l.slice(0, 40).map(([id, x]) => '<div style="--h:' + matiz(id) + '">' + (x.foto && podeFotos() ? '<button class="po-foto" data-action="po-foto" data-arg="' + esc(x.foto) + '" data-nome="' + esc(x.n + " · " + (x.turma_nome || "") + " · " + x.h) + '" aria-label="Ver a foto da entrada de ' + esc(x.n) + '"><img alt="" data-foto="' + esc(x.foto) + '"></button>' : "<u>" + esc(iniciais(x.n)) + "</u>") +
     "<b>" + esc(x.n) + "</b><small>" + esc(x.turma_nome || "") + " · " + esc(x.h) + "</small></div>").join("") || '<div style="justify-content:center;color:#9fb6cc">As entradas de hoje aparecem aqui.</div>';
   carregarFotos();
 }
@@ -1261,6 +1264,7 @@ function linhasAuditoria(){
 const fotoVencida = dia => dia < CAL.soma(hojeMS(), -15);
 function botaoFoto(x, dia){
   if(!x.foto) return '<span class="sub">–</span>';
+  if(!podeFotos()) return '<span class="sub" title="As fotos da entrada ficam só com o gestor da escola">só gestor</span>';
   if(fotoVencida(dia)) return '<span class="sub" title="Apagada pelo prazo de guarda de 15 dias">apagada</span>';
   return '<button class="au-ft" data-action="po-foto" data-arg="' + esc(x.foto) + '" data-nome="' + esc(x.nome + " · " + (x.turma || "") + " · " + x.h) + '">📷 ver</button>';
 }
@@ -1398,7 +1402,8 @@ onAuthStateChanged(auth, async user => {
   // modo de teste do administrador ("Entrar como"): a tela age como o perfil escolhido; o banco continua tratando como administrador
   if(sim) u = { ...u, perfil:sim, municipio_id:verComo.muni || u.municipio_id, escolas_ids:verComo.escolas || [], escola_id:(verComo.escolas || [])[0] || null, turmas_ids:[], _sim:true };
   E.user = user; E.u = u; E.sim = sim; E.admin = u.perfil === "admin" && !sim; E.gestor = u.perfil === "gestor";
-  $("quem").textContent = (u.nome || user.email) + (sim ? " · teste como " + sim : E.admin ? " · administrador" : E.gestor ? " · gestão da escola" : "");
+  E.secEsc = u.perfil === "secretaria_escolar"; E.portaria = u.perfil === "portaria"; E.escolar = E.gestor || E.secEsc || E.portaria;
+  $("quem").textContent = (u.nome || user.email) + (sim ? " · teste como " + sim : E.admin ? " · administrador" : E.gestor ? " · gestão da escola" : E.secEsc ? " · secretaria escolar" : E.portaria ? " · portaria" : "");
   if(sim){ $("avisoSim").hidden = false; $("avisoSim").textContent = "Modo de teste: você vê esta tela como " + sim + ". Chamadas salvas aqui são gravadas de verdade."; }
   $("dia").value = hojeMS(); $("dia").max = hojeMS();
   $("listaDisc").innerHTML = DISC.map(d => '<option value="' + esc(d) + '">').join("");
@@ -1409,8 +1414,14 @@ onAuthStateChanged(auth, async user => {
     $("carregando").hidden = false; $("carregando").innerHTML = '<div class="card vazio"><b>A frequência da rede fica no Painel da Rede</b>Por escola, com a frequência média e o número de alunos que precisam de busca ativa, sem nomes de alunos.<br><br><a class="btn btn-pri" href="/painel/">Abrir o Painel da Rede</a></div>';
     return;
   }
-  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = $("tabCart").hidden = $("tabAudit").hidden = !podePortaria();
-  if(E.gestor){ $("tabChamada").hidden = $("tabHist").hidden = true; E.hashInicial = location.hash; ir(location.hash.startsWith("#mural") ? "mural" : location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
+  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = !podeEntrada(); $("tabCart").hidden = $("tabAudit").hidden = !podePortaria();
+  if(E.portaria){
+    // portaria: só a tela de entrada (sem busca ativa, mural com faltas, carteirinhas ou fotos)
+    $("tabChamada").hidden = $("tabHist").hidden = $("tabBusca").hidden = true;
+    $("lnkVoltar").href = "/entrar/"; $("lnkVoltar").textContent = "← Início";
+    ir("portaria"); return;
+  }
+  if(E.escolar){ $("tabChamada").hidden = $("tabHist").hidden = true; E.hashInicial = location.hash; ir(location.hash.startsWith("#mural") ? "mural" : location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
   await carregarTurmas();
   let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima") || "null"); }catch(e){}
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }

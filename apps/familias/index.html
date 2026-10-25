@@ -276,7 +276,7 @@ function abrir(id){
   $("moNome").textContent = a.nome; $("moTurma").textContent = turmaNome(a.turma_id) + (a.matricula ? " · matrícula " + a.matricula : "") + " · " + (E.escolasNomes[E.escola] || "");
   $("moAvisos").checked = f ? f.aceita_avisos !== false : true; $("moObs").value = f ? f.obs || "" : "";
   $("moRodape").textContent = f && f.atualizado_por_nome ? "Última alteração por " + f.atualizado_por_nome + (f.atualizado_em && f.atualizado_em.toDate ? " em " + f.atualizado_em.toDate().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) : "") : "";
-  $("btnExcluir").hidden = !f;
+  $("btnExcluir").hidden = !f || E.secEsc; // apagar contatos: só o gestor
   desenharResp(); $("modal").hidden = false;
   setTimeout(() => { const i = document.querySelector("#moResp input"); if(i) i.focus(); }, 50);
 }
@@ -428,7 +428,8 @@ async function abrirAvisos(){
   E.avCfg = cfg;
   const n = E.alunos.length, comMail = E.alunos.filter(a => (E.fam[a.id] && E.fam[a.id].aceita_avisos !== false && (E.fam[a.id].responsaveis || []).some(r => r.email))).length;
   $("avCobertura").innerHTML = "Hoje, <b>" + comMail + " de " + n + "</b> alunos (" + (n ? Math.round(100 * comMail / n) : 0) + "%) têm e-mail de família cadastrado nesta escola.";
-  $("avOps").innerHTML = OPS.map(([k, t, d]) => '<div class="av-op"><label class="chave"><input type="checkbox" data-av="' + k + '"' + (cfg[k] ? " checked" : "") + ' aria-label="' + esc(t) + '"><span></span></label><b>' + esc(t) + '</b><div class="sub">' + esc(d) + "</div></div>").join("");
+  $("avOps").innerHTML = OPS.map(([k, t, d]) => '<div class="av-op"><label class="chave"><input type="checkbox" data-av="' + k + '"' + (cfg[k] ? " checked" : "") + (E.secEsc ? " disabled" : "") + ' aria-label="' + esc(t) + '"><span></span></label><b>' + esc(t) + '</b><div class="sub">' + esc(d) + "</div></div>").join("");
+  if(E.secEsc) $("avOps").insertAdjacentHTML("beforeend", '<p class="sub">Quem liga e desliga os avisos automáticos é o gestor da escola. A secretaria escolar acompanha os envios e manda comunicados.</p>');
   E.coTurmas = E.coTurmas || new Set(["*"]);
   desenharTurmasCo(); ouvirComunicados(); ouvirMural();
 }
@@ -525,7 +526,7 @@ document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selEscola"){ E.escola = t.value; try{ localStorage.setItem("pde_familias_escola", E.escola); }catch(e){} E.coTurmas = new Set(["*"]); carregarEscola().then(() => { if(E.aba !== "lista") ir(E.aba); }); }
   else if(t.id === "selTurma") desenhar();
-  else if(t.dataset && t.dataset.av) salvarAvisos();
+  else if(t.dataset && t.dataset.av && !E.secEsc) salvarAvisos();
   else if(t.dataset && t.dataset.co){ if(t.dataset.co === "*"){ E.coTurmas = t.checked ? new Set(["*"]) : new Set(); } else { E.coTurmas.delete("*"); t.checked ? E.coTurmas.add(t.dataset.co) : E.coTurmas.delete(t.dataset.co); } desenharTurmasCo(); }
   else if(t.id === "muDia") ouvirMural();
   else if(t.id === "impArquivo" && t.files[0]) lerArquivo(t.files[0]);
@@ -542,12 +543,12 @@ onAuthStateChanged(auth, async user => {
   const verComo = u.perfil === "admin" ? (() => { try{ return JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); }catch(e){ return null; } })() : null;
   const sim = verComo && verComo.perfil && verComo.perfil !== "admin" ? verComo.perfil : "";
   if(sim) u = { ...u, perfil:sim, municipio_id:verComo.muni || u.municipio_id, escolas_ids:verComo.escolas || [], escola_id:(verComo.escolas || [])[0] || null };
-  E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
-  if(!E.admin && u.perfil !== "gestor"){
+  E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim; E.secEsc = u.perfil === "secretaria_escolar";
+  if(!E.admin && u.perfil !== "gestor" && !E.secEsc){
     $("carregando").innerHTML = '<div class="card vazio"><b>Os contatos das famílias ficam com a gestão da escola</b>Fale com a direção ou a coordenação para atualizar o telefone de um responsável.<br><br><a class="btn btn-pri" href="/gestao/">Voltar</a></div>';
     document.querySelectorAll(".topo .tb[data-action]").forEach(b => { b.hidden = true; }); return;
   }
-  $("quem").textContent = (u.nome || user.email) + (E.admin ? " · administrador" : " · gestão da escola");
+  $("quem").textContent = (u.nome || user.email) + (E.admin ? " · administrador" : E.secEsc ? " · secretaria escolar" : " · gestão da escola");
   await carregarEscolas();
   $("carregando").hidden = true;
   await carregarEscola();

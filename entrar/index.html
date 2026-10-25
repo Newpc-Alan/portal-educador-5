@@ -941,6 +941,15 @@
       { id:"acervo",      ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"trabalhos",   ico:"\u{1F4C1}", label:"Meus trabalhos" },
       { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
+    // equipe de apoio da escola, convidada pelo gestor
+    secretaria_escolar: { itens: [
+      { id:"apoioInicio", ico:"\u{1F3E0}", label:"Início" },
+      { id:"gestaoLink",  ico:"\u{1F3EB}", label:"Gestão Escolar" },
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
+    portaria: { itens: [
+      { id:"apoioInicio", ico:"\u{1F3E0}", label:"Início" },
+      { id:"portariaLink", ico:"\u{1F6AA}", label:"Portaria (entrada)" },
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
     // aluno da rede: so a tela inicial com os botoes liberados para alunos
     aluno: { itens: [
       { id:"inicio",      ico:"\u{1F3E0}", label:"Início" } ] },
@@ -952,7 +961,7 @@
       { id:"trabalhos",   ico:"\u{1F4C1}", label:"Meus trabalhos" },
       { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] }
   };
-  const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria de Educação", gestor:"Gestor da escola", professor:"Professor", aluno:"Aluno" };
+  const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria de Educação", gestor:"Gestor da escola", professor:"Professor", aluno:"Aluno", secretaria_escolar:"Secretaria escolar", portaria:"Portaria" };
   let usuarioAtual = null;
   let cacheMunicipios = [];
   let cacheEscolas = [];
@@ -1083,6 +1092,15 @@
         Object.assign(dados, novo);
         return true;
       }
+      if(p.perfil === "portaria" || p.perfil === "secretaria_escolar"){
+        // equipe de apoio convidada pelo gestor: nasce com exatamente a escola do convite
+        const novo = { uid:user.uid, nome:p.nome || dados.nome, email:user.email.toLowerCase(), perfil:p.perfil, status:"ativo", licenca_tipo:"institucional",
+          municipio_id:p.municipio_id, municipio_nome:p.municipio_nome || "", escola_id:p.escola_id, escolas_ids:p.escolas_ids, escolas_nomes:p.escolas_nomes || [],
+          turmas_ids:[], origem:"convite_gestor", criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid };
+        await setDoc(ref, novo);
+        Object.assign(dados, novo);
+        return true;
+      }
       if(p.perfil !== "professor") return false;
       const novo = { uid:user.uid, nome:p.nome || dados.nome, email:user.email.toLowerCase(), perfil:"professor", status:"ativo", licenca_tipo:"institucional",
         municipio_id:p.municipio_id, municipio_nome:p.municipio_nome||"", escola_id:p.escola_id,
@@ -1133,7 +1151,7 @@
   let usuarioReal = null;
   function verComo(){ try{ return JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); }catch(e){ return null; } }
   function guardarVerComo(v){ try{ v ? sessionStorage.setItem("pde_ver_como", JSON.stringify(v)) : sessionStorage.removeItem("pde_ver_como"); }catch(e){} }
-  const ROT_SIM = { admin:"Administrador", professor:"Professor", aluno:"Aluno", gestor:"Gestor da escola", secretaria:"Secretaria de Educação" };
+  const ROT_SIM = { admin:"Administrador", professor:"Professor", aluno:"Aluno", gestor:"Gestor da escola", secretaria:"Secretaria de Educação", secretaria_escolar:"Secretaria escolar", portaria:"Portaria" };
   async function mostrarEscolhaAdmin(){
     $("loginView").style.display="none"; $("appView").style.display="block";
     $("nav").innerHTML = ""; $("avisoLicenca").innerHTML = "";
@@ -1147,6 +1165,8 @@
         '<button class="sim-op" data-action="sim-entrar" data-arg="aluno"><span>🎒</span><b>Aluno</b><small>Tela e módulos de um aluno da rede escolhida</small></button>'+
         '<button class="sim-op" data-action="sim-entrar" data-arg="gestor"><span>🏫</span><b>Gestor da escola</b><small>Painel da Escola, Gestão Escolar e calendário da escola escolhida</small></button>'+
         '<button class="sim-op" data-action="sim-entrar" data-arg="secretaria"><span>🏛️</span><b>Secretaria de Educação</b><small>Painel da Rede e as ferramentas da secretaria do município</small></button>'+
+        '<button class="sim-op" data-action="sim-entrar" data-arg="secretaria_escolar"><span>🗂️</span><b>Secretaria escolar</b><small>Famílias, busca ativa, portaria e comunicados da escola escolhida</small></button>'+
+        '<button class="sim-op" data-action="sim-entrar" data-arg="portaria"><span>🚪</span><b>Portaria</b><small>Só a tela de entrada com as carteirinhas da escola escolhida</small></button>'+
       '</div><div class="sim-campos"><div class="field sim-muni"><label for="simMuni">Rede usada no teste</label><select id="simMuni"><option value="">Carregando...</option></select></div>'+
       '<div class="field sim-muni"><label for="simEsc">Escola (teste de gestor e professor)</label><select id="simEsc"><option value="">Escolha a rede</option></select></div></div></div>';
     try{
@@ -1179,7 +1199,7 @@
         lista.sort((a,b) => a.nome.localeCompare(b.nome));
         // escola escolhida vai primeiro; gestor fica só com ela; secretaria não tem escola
         const i = lista.findIndex(e => e.id === v.escola); if(i > 0) lista.unshift(lista.splice(i, 1)[0]);
-        const mins = v.perfil === "secretaria" ? [] : v.perfil === "gestor" ? lista.slice(0, 1) : lista.slice(0, 5);
+        const mins = v.perfil === "secretaria" ? [] : ["gestor", "secretaria_escolar", "portaria"].includes(v.perfil) ? lista.slice(0, 1) : lista.slice(0, 5);
         sim.escolas_ids = mins.map(e => e.id); sim.escolas_nomes = mins.map(e => e.nome);
         sim.escola_id = mins[0] ? mins[0].id : null; sim.escola_nome = mins[0] ? mins[0].nome : "";
         guardarVerComo({ ...v, escolas:sim.escolas_ids });   // os aplicativos (Calendário, Recursos...) leem daqui
@@ -1240,6 +1260,7 @@
     faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
+    if(perfil === "portaria" || perfil === "secretaria_escolar"){ montarMiniCal(); return; } // equipe de apoio: sem Lousa
     atalhoAulaNoMenu();
     if(perfil === "admin") contarPendentesEmSegundoPlano();
     montarLousa();
@@ -1338,6 +1359,20 @@
     if(item.id === "vercomo"){ guardarVerComo(null); mostrarEscolhaAdmin(); return; }
     if(item.id === "relatoriosLink"){ location.href = "/relatorios/"; return; }
     if(item.id === "gestaoLink"){ location.href = "/gestao/"; return; }
+    if(item.id === "portariaLink"){ location.href = "/apps/frequencia/#portaria"; return; }
+    if(item.id === "apoioInicio"){
+      // portaria e secretaria escolar: abre direto a tela de trabalho uma vez por sessão; ao voltar, mostra os atalhos
+      const port = usuarioAtual.perfil === "portaria", destino = port ? "/apps/frequencia/#portaria" : "/gestao/";
+      let ja = false; try{ ja = sessionStorage.getItem("pde_apoio_aberto") === "1"; sessionStorage.setItem("pde_apoio_aberto", "1"); }catch(e){}
+      if(!ja && !usuarioAtual._sim){ location.href = destino; return; }
+      document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.sec === item.id));
+      $("secTitulo").textContent = "Início";
+      $("conteudo").innerHTML = '<div class="panel"><div class="pico">'+(port ? "\u{1F6AA}" : "\u{1F3EB}")+'</div><h3>'+(port ? "Portaria da escola" : "Secretaria escolar")+'</h3><p>'+
+        (port ? "Tela de leitura das carteirinhas e quem já entrou hoje em "+escapeHtml(usuarioAtual.escola_nome || (usuarioAtual.escolas_nomes || [])[0] || "sua escola")+"."
+              : "Famílias e responsáveis, busca ativa, portaria, mural de chegada, auditoria e comunicados de "+escapeHtml(usuarioAtual.escola_nome || (usuarioAtual.escolas_nomes || [])[0] || "sua escola")+".")+'</p>'+
+        '<div style="margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><a class="btn btn-primary btn-add" href="'+destino+'">'+(port ? "Abrir a portaria" : "Abrir a Gestão Escolar")+'</a></div></div>';
+      return;
+    }
     if(item.id === "calendarioLink"){ location.href = "/apps/calendario/"; return; }
     if(item.id === "painelRedeLink"){ location.href = "/painel/"; return; }
     if(item.id === "painelRede"){
@@ -3150,7 +3185,7 @@
         linha("E-mail", u.email)+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button></div></div>'+
       '<div>'+
-      (inst ? '<div class="imp-card"><h3>Escolas onde dou aula</h3><p class="d">Município: <b>'+escapeHtml(u.municipio_nome||"-")+'</b>. Marque até 5 escolas. Você passa a ver as turmas dessas escolas.</p><div id="mcEscolas" class="chk-lista"><div class="vazio">Carregando escolas...</div></div>'+
+      (inst && u.perfil === "professor" ? '<div class="imp-card"><h3>Escolas onde dou aula</h3><p class="d">Município: <b>'+escapeHtml(u.municipio_nome||"-")+'</b>. Marque até 5 escolas. Você passa a ver as turmas dessas escolas.</p><div id="mcEscolas" class="chk-lista"><div class="vazio">Carregando escolas...</div></div>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-escolas" id="mcSalvarEsc">Salvar escolas</button></div></div>' : '')+
       '<div class="imp-card"><h3>Minha licença</h3>'+
         linha("Tipo", ROTULO_TIPO[lic.tipo] || lic.tipo)+linha("Plano", ROTULO_PLANO[lic.plano] || "")+
@@ -3158,7 +3193,7 @@
         (lic.dias !== null && !lic.semFim ? linha("Dias restantes", Math.max(0, lic.dias)) : "")+
         (inst ? "" : '<a class="btn btn-primary btn-add" style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
       '</div></div></div>';
-    if(inst) carregarEscolasCadastro();
+    if(inst && u.perfil === "professor") carregarEscolasCadastro();
   }
   async function carregarEscolasCadastro(){
     try{

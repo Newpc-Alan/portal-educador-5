@@ -478,6 +478,81 @@ await t('gestor le avisos enviados da escola', assertSucceeds(getDocs(query(coll
 await t('gestor de outra escola nao le avisos', assertFails(getDoc(doc(gest, 'avisos_familia/falta_al1_2026-10-26'))));
 await t('ninguem grava aviso pelo app', assertFails(setDoc(doc(gest1, 'avisos_familia/x'), { escola_id: 'e1' })));
 
+// equipe de apoio da escola: portaria e secretaria escolar, convidadas pelo gestor
+const conv = (email, perfil, extra = {}) => ({ nome: 'Maria Souza', email, perfil, status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', municipio_nome: 'Ribas',
+  escola_id: 'e1', escola_nome: 'EM Centro', escolas_ids: ['e1'], escolas_nomes: ['EM Centro'], turmas_ids: [], convidado_por: 'gest1', convidado_por_nome: 'G', atualizado_em: serverTimestamp(), atualizado_por: 'gest1', ...extra });
+await t('gestor convida portaria', assertSucceeds(setDoc(doc(gest1, 'pre_cadastros/port1@x.com'), conv('port1@x.com', 'portaria'))));
+await t('gestor convida secretaria escolar', assertSucceeds(setDoc(doc(gest1, 'pre_cadastros/sece1@x.com'), conv('sece1@x.com', 'secretaria_escolar'))));
+await t('gestor nao convida professor', assertFails(setDoc(doc(gest1, 'pre_cadastros/p9@x.com'), conv('p9@x.com', 'professor'))));
+await t('gestor nao convida gestor', assertFails(setDoc(doc(gest1, 'pre_cadastros/g9@x.com'), conv('g9@x.com', 'gestor'))));
+await t('gestor nao convida para outra escola', assertFails(setDoc(doc(gest1, 'pre_cadastros/o9@x.com'), conv('o9@x.com', 'portaria', { escola_id: 'e2', escolas_ids: ['e2'] }))));
+await t('convite com duas escolas', assertFails(setDoc(doc(gest1, 'pre_cadastros/d9@x.com'), conv('d9@x.com', 'portaria', { escolas_ids: ['e1', 'e2'] }))));
+await t('convite com municipio errado', assertFails(setDoc(doc(gest1, 'pre_cadastros/m9@x.com'), conv('m9@x.com', 'portaria', { municipio_id: 'm2' }))));
+await t('convite com turmas', assertFails(setDoc(doc(gest1, 'pre_cadastros/t9@x.com'), conv('t9@x.com', 'portaria', { turmas_ids: ['tf1'] }))));
+await t('convite com campo extra', assertFails(setDoc(doc(gest1, 'pre_cadastros/x9@x.com'), conv('x9@x.com', 'portaria', { admin: true }))));
+await t('convite com e-mail diferente do id', assertFails(setDoc(doc(gest1, 'pre_cadastros/y9@x.com'), conv('outro@x.com', 'portaria'))));
+await t('convite em nome de outro gestor', assertFails(setDoc(doc(gest1, 'pre_cadastros/z9@x.com'), conv('z9@x.com', 'portaria', { convidado_por: 'gest' }))));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'pre_cadastros/prof9@x.com'), { perfil: 'professor', status: 'ativo', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1', turmas_ids: [] }); });
+await t('gestor nao sobrescreve pre-cadastro de professor', assertFails(setDoc(doc(gest1, 'pre_cadastros/prof9@x.com'), conv('prof9@x.com', 'portaria'))));
+await t('gestor nao le pre-cadastro de professor', assertFails(getDoc(doc(gest1, 'pre_cadastros/prof9@x.com'))));
+await t('gestor nao apaga pre-cadastro de professor', assertFails(deleteDoc(doc(gest1, 'pre_cadastros/prof9@x.com'))));
+await t('gestor ve se um e-mail esta livre', assertSucceeds(getDoc(doc(gest1, 'pre_cadastros/livre@x.com'))));
+await t('gestor lista convites da escola', assertSucceeds(getDocs(query(collection(gest1, 'pre_cadastros'), where('escola_id', '==', 'e1'), where('perfil', 'in', ['portaria', 'secretaria_escolar'])))));
+await t('gestor de outra escola nao le o convite', assertFails(getDoc(doc(gest, 'pre_cadastros/port1@x.com'))));
+await t('gestor de outra escola nao apaga o convite', assertFails(deleteDoc(doc(gest, 'pre_cadastros/port1@x.com'))));
+await t('professor nao convida', assertFails(setDoc(doc(prof, 'pre_cadastros/q9@x.com'), conv('q9@x.com', 'portaria', { convidado_por: 'prof' }))));
+// primeiro login do convidado
+const usrApoio = (perfil, extra = {}) => ({ nome: 'Maria Souza', perfil, status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', escola_id: 'e1', escolas_ids: ['e1'], turmas_ids: [], ...extra });
+await t('convidado com escola trocada nao entra', assertFails(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('portaria', { escola_id: 'e2', escolas_ids: ['e2'] }), email: 'port1@x.com' })));
+await t('convidado nao vira gestor', assertFails(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('gestor'), email: 'port1@x.com' })));
+await t('convidado da portaria entra', assertSucceeds(setDoc(doc(ctx('port1'), 'usuarios/port1'), { ...usrApoio('portaria'), email: 'port1@x.com' })));
+await t('convidado da secretaria escolar entra', assertSucceeds(setDoc(doc(ctx('sece1'), 'usuarios/sece1'), { ...usrApoio('secretaria_escolar'), email: 'sece1@x.com' })));
+await t('sem convite nao vira portaria', assertFails(setDoc(doc(ctx('semconv'), 'usuarios/semconv'), { ...usrApoio('portaria'), email: 'semconv@x.com' })));
+const port = ctx('port1'), sece = ctx('sece1');
+await t('portaria nao troca a propria escola', assertFails(updateDoc(doc(port, 'usuarios/port1'), { escolas_ids: ['e1', 'e2'], escola_id: 'e1' })));
+await t('secretaria escolar nao troca a propria escola', assertFails(updateDoc(doc(sece, 'usuarios/sece1'), { escolas_ids: ['e2'], escola_id: 'e2' })));
+await t('gestor nao adiciona outra escola a si mesmo', assertFails(updateDoc(doc(gest1, 'usuarios/gest1'), { escolas_ids: ['e1', 'e2'] })));
+await t('professor ainda troca as proprias escolas', assertSucceeds(updateDoc(doc(prof, 'usuarios/prof'), { escolas_ids: ['e1', 'e2'], escola_id: 'e1' })));
+await t('portaria altera o proprio nome', assertSucceeds(updateDoc(doc(port, 'usuarios/port1'), { nome: 'Maria A. Souza' })));
+// gestor ve e pausa a equipe
+await t('gestor lista a equipe da escola', assertSucceeds(getDocs(query(collection(gest1, 'usuarios'), where('escola_id', '==', 'e1'), where('perfil', 'in', ['portaria', 'secretaria_escolar'])))));
+await t('gestor pausa a portaria', assertSucceeds(updateDoc(doc(gest1, 'usuarios/port1'), { status: 'inativo', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' })));
+await t('gestor nao muda o perfil da equipe', assertFails(updateDoc(doc(gest1, 'usuarios/port1'), { perfil: 'gestor' })));
+await t('gestor nao pausa professor', assertFails(updateDoc(doc(gest1, 'usuarios/prof'), { status: 'inativo' })));
+await t('gestor de outra escola nao pausa', assertFails(updateDoc(doc(gest, 'usuarios/sece1'), { status: 'inativo' })));
+await t('gestor nao le usuario professor', assertFails(getDoc(doc(gest1, 'usuarios/prof'))));
+await t('portaria pausada nao le alunos', assertFails(getDocs(query(collection(port, 'alunos'), where('escola_id', '==', 'e1')))));
+await t('gestor reativa a portaria', assertSucceeds(updateDoc(doc(gest1, 'usuarios/port1'), { status: 'ativo', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' })));
+// o que cada um ve
+await t('portaria le turmas da escola', assertSucceeds(getDocs(query(collection(port, 'turmas'), where('escola_id', '==', 'e1')))));
+await t('portaria le alunos da escola', assertSucceeds(getDocs(query(collection(port, 'alunos'), where('escola_id', '==', 'e1')))));
+await t('portaria nao le alunos de outra escola', assertFails(getDocs(query(collection(port, 'alunos'), where('escola_id', '==', 'e2')))));
+await t('portaria registra entrada', assertSucceeds(setDoc(doc(port, IDE), { ...ent, entradas: { al3: '07:20' }, nomes: { al3: 'Caio' } }, { merge: true })));
+await t('portaria le entradas do dia', assertSucceeds(getDocs(query(collection(port, 'freq_entradas'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('portaria nao le resumo de faltas', assertFails(getDocs(query(collection(port, 'freq_resumo'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
+await t('portaria nao le chamada', assertFails(getDoc(doc(port, IDC))));
+await t('portaria nao le busca ativa', assertFails(getDoc(doc(port, IDB))));
+await t('portaria nao le telefone da familia', assertFails(getDoc(doc(port, 'alunos_familia/al1'))));
+await t('portaria nao le avisos', assertFails(getDocs(query(collection(port, 'avisos_familia'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('portaria nao manda comunicado', assertFails(setDoc(doc(port, 'comunicados_familia/cp'), { ...com, criado_por: 'port1' })));
+await t('secretaria escolar le o resumo de faltas', assertSucceeds(getDocs(query(collection(sece, 'freq_resumo'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
+await t('secretaria escolar le a chamada', assertSucceeds(getDoc(doc(sece, IDC))));
+await t('secretaria escolar nao lanca chamada', assertFails(setDoc(doc(sece, 'freq_chamadas/sece1_tf1_2026-10-22_matematica'), { ...cham, professor_uid: 'sece1' })));
+await t('secretaria escolar registra na busca ativa', assertSucceeds(setDoc(doc(sece, IDB), { ...caso, atualizado_por: 'sece1' })));
+await t('secretaria escolar le as fichas', assertSucceeds(getDocs(query(collection(sece, 'busca_ativa'), where('escola_id', '==', 'e1'), where('ano', '==', 2026)))));
+await t('secretaria escolar nao apaga ficha', assertFails(deleteDoc(doc(sece, IDB))));
+await t('secretaria escolar grava familia', assertSucceeds(setDoc(doc(sece, 'alunos_familia/al1'), { ...fam, atualizado_por: 'sece1' })));
+await t('secretaria escolar le familias', assertSucceeds(getDocs(query(collection(sece, 'alunos_familia'), where('escola_id', '==', 'e1')))));
+await t('secretaria escolar nao apaga familia', assertFails(deleteDoc(doc(sece, 'alunos_familia/al1'))));
+await t('secretaria escolar ve a config de avisos', assertSucceeds(getDoc(doc(sece, 'avisos_config/e1'))));
+await t('secretaria escolar nao liga avisos', assertFails(setDoc(doc(sece, 'avisos_config/e1'), { ...cfgAv, atualizado_por: 'sece1' })));
+await t('secretaria escolar manda comunicado', assertSucceeds(setDoc(doc(sece, 'comunicados_familia/cs'), { ...com, criado_por: 'sece1' })));
+await t('secretaria escolar le avisos enviados', assertSucceeds(getDocs(query(collection(sece, 'avisos_familia'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
+await t('secretaria escolar nao le registro de fotos vistas', assertFails(getDocs(query(collection(sece, 'portaria_vistas'), where('escola_id', '==', 'e1')))));
+await t('secretaria escolar nao convida ninguem', assertFails(setDoc(doc(sece, 'pre_cadastros/w9@x.com'), conv('w9@x.com', 'portaria', { convidado_por: 'sece1' }))));
+await t('secretaria escolar nao le dados de outra escola', assertFails(getDocs(query(collection(sece, 'busca_ativa'), where('escola_id', '==', 'e2'), where('ano', '==', 2026)))));
+await t('gestor cancela convite', assertSucceeds(deleteDoc(doc(gest1, 'pre_cadastros/port1@x.com'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

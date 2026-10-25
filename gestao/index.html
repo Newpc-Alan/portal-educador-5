@@ -56,7 +56,14 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
         <ul><li>Indicadores e comparação entre escolas</li><li>Habilidades BNCC que pedem reforço</li><li>Relatório executivo em PDF com o brasão</li></ul>
         <span class="app-btn">Abrir</span></div>
     </a>
-    <a class="app-card" href="/apps/notas/" data-mod="gestao">
+    <a class="app-card" href="/apps/equipe/" id="cardEquipe" hidden>
+      <div class="app-capa" style="background-image:url(/assets/cards/gestao.webp);background-position:center 30%"></div>
+      <div class="app-corpo"><b>Equipe da escola</b>
+        <p>O gestor convida a portaria e a secretaria escolar pelo e-mail, cada um só com o acesso que a função pede.</p>
+        <ul><li>Portaria: só a tela de entrada das carteirinhas</li><li>Secretaria escolar: famílias, busca ativa e comunicados</li><li>Pausar ou reativar o acesso a qualquer momento</li></ul>
+        <span class="app-btn">Abrir</span></div>
+    </a>
+    <a class="app-card" href="/apps/notas/" data-mod="gestao" data-cargo="docente">
       <div class="app-capa" style="background-image:url(/assets/apps/capas/notas.webp);background-size:cover;background-position:center 30%"></div>
       <div class="app-corpo"><b>Notas e Médias</b>
         <p>Planilha de notas da turma com média, recuperação, exame final, conselho e frequência, seguindo a regra da sua rede.</p>
@@ -84,20 +91,20 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
         <ul id="ctLista"><li>Telas e totens conectados por código, sem login na TV</li><li>Playlists por turno, com avisos, fotos e vídeos</li><li>Totem da portaria: entrada pela carteirinha, com foto opcional</li></ul>
         <span class="app-btn">Abrir</span></div>
     </a>
-    <a class="app-card" href="/relatorios/" data-mod="relatorios">
+    <a class="app-card" href="/relatorios/" data-mod="relatorios" data-cargo="docente">
       <div class="app-capa" style="background-image:url(/assets/cards/relatorios.webp);background-size:cover;background-position:center 35%"></div>
       <div class="app-corpo"><b>Central de Relatórios</b>
         <p>Registros, pareceres e acompanhamento de cada aluno, com relatórios prontos para a escola e a família.</p>
         <span class="app-btn">Abrir</span></div>
     </a>
-    <a class="app-card" href="/apps/recursos/" data-mod="gestao">
+    <a class="app-card" href="/apps/recursos/" data-mod="gestao" data-cargo="docente">
       <div class="app-capa" style="background-image:url(/assets/apps/capas/recursos.webp);background-position:center 15%"></div>
       <div class="app-corpo"><b>Recursos da Escola</b>
         <p>Reserva do carrinho de Chromebooks, laboratório e sala de VR, e chamado técnico pela etiqueta QR do equipamento.</p>
         <ul><li>Reserva por aula, sem conflito, com repetição semanal</li><li>Etiqueta QR: chamado aberto pelo celular, sem login</li><li>Equipe técnica e direção avisadas por e-mail</li></ul>
         <span class="app-btn">Abrir</span></div>
     </a>
-    <a class="app-card" href="/apps/corretor/" data-mod="gestao">
+    <a class="app-card" href="/apps/corretor/" data-mod="gestao" data-cargo="docente">
       <div class="app-capa" style="background-image:url(/assets/apps/capas/corretor.webp);background-position:center 30%"></div>
       <div class="app-corpo"><b>Corretor de Gabarito</b>
         <p>Cartão-resposta impresso pelo Portal e corrigido pela câmera do celular, com a nota já lançada.</p>
@@ -129,10 +136,21 @@ onAuthStateChanged(getAuth(app), async user => {
     let u = (await getDoc(doc(db, "usuarios", user.uid))).data() || {};
     // administrador em "Entrar como": a tela segue o perfil do teste
     if(u.perfil === "admin"){ try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); if(v && v.perfil && v.perfil !== "admin") u = { ...u, perfil:v.perfil, municipio_id:v.muni || u.municipio_id }; }catch(e){} }
+    // portaria só usa a tela de entrada
+    if(u.perfil === "portaria"){ location.replace("/apps/frequencia/#portaria"); return; }
+    // equipe da escola: o gestor convida portaria e secretaria escolar
+    if(["admin", "gestor"].includes(u.perfil)) document.getElementById("cardEquipe").hidden = false;
+    // secretaria escolar: frequência (busca ativa, portaria, mural), famílias e calendário; notas, corretor, recursos e relatórios ficam com a gestão e os professores
+    if(u.perfil === "secretaria_escolar"){
+      document.querySelectorAll('[data-cargo="docente"]').forEach(a => { a.hidden = true; });
+      document.getElementById("cardFreq").href = "/apps/frequencia/#busca";
+      document.getElementById("cfTxt").textContent = "Busca ativa, portaria, mural de chegada, carteirinhas e auditoria da escola.";
+      document.getElementById("cfLista").innerHTML = "<li>Ficha de busca ativa com o contato da família</li><li>Entrada pela carteirinha e mural na TV</li><li>Auditoria: entrou na escola e está com falta</li>";
+    }
     // TV na gestão é da direção e da secretaria; o professor usa o atalho "Enviar para a TV da escola" em Aplicativos
     if(!["admin", "secretaria", "gestor"].includes(u.perfil)) document.getElementById("cardTv").hidden = true;
     // famílias: só a gestão da escola e o administrador
-    if(!["admin", "gestor"].includes(u.perfil)) document.getElementById("cardFam").hidden = true;
+    if(!["admin", "gestor", "secretaria_escolar"].includes(u.perfil)) document.getElementById("cardFam").hidden = true;
     // painel: secretaria (rede), gestor (escola) e administrador; liberado pelo plano do município
     if(["admin", "secretaria", "gestor"].includes(u.perfil)){
       const c = document.getElementById("cardPainel"); c.hidden = false;

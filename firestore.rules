@@ -75,7 +75,7 @@ service cloud.firestore {
     }
     // turmas: o professor ve as das suas escolas e cria/edita as proprias
     match /turmas/{id} {
-      allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas()) || gestorDaEscola(resource.data.escola_id);
+      allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas()) || entradaEscola(resource.data.escola_id);
       allow create: if admin() || (vinculado() && novo().criado_por == request.auth.uid
         && novo().escola_id in minhasEscolas() && novo().municipio_id == eu().municipio_id);
       allow update: if admin() || (vinculado() && resource.data.get("criado_por", "") == request.auth.uid
@@ -118,14 +118,26 @@ service cloud.firestore {
           && novo().perfil == "aluno" && novo().status == "ativo" && novo().email == meuEmail()
           && novo().municipio_id == pre().municipio_id && novo().get("escola_id", null) == pre().get("escola_id", null)
           && novo().get("licenca_tipo", "institucional") == "institucional" && camposAluno() )
+        ||
+        // 6) equipe de apoio convidada pelo gestor (portaria, secretaria escolar): exatamente o vinculo do convite
+        ( temPreCadastro() && perfilApoio(pre().perfil) && pre().status == "ativo"
+          && novo().perfil == pre().perfil && novo().status == "ativo" && novo().email == meuEmail()
+          && novo().get("licenca_tipo", "institucional") == "institucional"
+          && novo().municipio_id == pre().municipio_id && novo().escola_id == pre().escola_id
+          && novo().escolas_ids == pre().escolas_ids && novo().get("turmas_ids", []) == [] )
       );
+      // o gestor ve e pausa (ativo/inativo) a equipe de apoio da escola dele
+      allow read: if resource != null && perfilApoio(resource.data.get("perfil", "")) && gestorDaEscola(resource.data.get("escola_id", "-"));
+      allow update: if perfilApoio(resource.data.get("perfil", "")) && gestorDaEscola(resource.data.get("escola_id", "-"))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "atualizado_em", "atualizado_por"])
+        && novo().status in ["ativo", "inativo"];
       // o proprio usuario altera dados pessoais, suas escolas (so do proprio municipio, ate 5) e sua lista de turmas;
       // licenca, municipio, perfil e situacao so o administrador
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "ultimo_acesso", "atualizado_em", "atualizado_por",
               "escolas_ids", "escolas_nomes", "escola_id", "turmas_ids", "vinculo_alterado_em", "vinculo_alterado_por"])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["escolas_ids", "escola_id"]) || escolasValidas()));
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["escolas_ids", "escola_id"]) || (resource.data.perfil == "professor" && escolasValidas())));
       allow delete: if admin();
     }
 
@@ -188,6 +200,12 @@ service cloud.firestore {
     // Central de Relatorios: o autor edita; a gestao da escola confere (aprova/devolve); a secretaria municipal acompanha
     function ativo() { return temCadastro() && eu().status == "ativo"; }
     function gestorDaEscola(esc) { return ativo() && eu().perfil == "gestor" && esc in minhasEscolas(); }
+    // equipe de apoio da escola, convidada pelo gestor: secretaria escolar (familias, busca ativa, portaria) e portaria (so a entrada)
+    function secEscolar(esc) { return ativo() && eu().perfil == "secretaria_escolar" && esc in minhasEscolas(); }
+    function portariaDaEscola(esc) { return ativo() && eu().perfil == "portaria" && esc in minhasEscolas(); }
+    function equipeEscola(esc) { return gestorDaEscola(esc) || secEscolar(esc); }
+    function entradaEscola(esc) { return equipeEscola(esc) || portariaDaEscola(esc); }
+    function perfilApoio(p) { return p in ["portaria", "secretaria_escolar"]; }
     function secretariaDoMuni(m) { return ativo() && eu().perfil == "secretaria" && eu().get("municipio_id", "") == m; }
     match /relatorios/{id} {
       allow read: if admin() || (logado() && resource.data.autor_uid == request.auth.uid)
@@ -321,7 +339,7 @@ service cloud.firestore {
     // escola e municipio precisam ser os da turma; o resumo por aluno (freq_resumo) so a funcao escreve
     function turmaDoc(t) { return get(/databases/$(database)/documents/turmas/$(t)).data; }
     match /freq_chamadas/{id} {
-      allow read: if logado() && (resource == null || resource.data.professor_uid == request.auth.uid || admin() || gestorDaEscola(resource.data.escola_id));
+      allow read: if logado() && (resource == null || resource.data.professor_uid == request.auth.uid || admin() || equipeEscola(resource.data.escola_id));
       allow create, update: if vinculado() && novo().professor_uid == request.auth.uid
         && id == request.auth.uid + "_" + novo().turma_id + "_" + novo().dia + "_" + novo().disc_id
         && (resource == null || (resource.data.professor_uid == request.auth.uid && resource.data.turma_id == novo().turma_id && resource.data.dia == novo().dia))
@@ -338,14 +356,14 @@ service cloud.firestore {
       allow delete: if logado() && (resource.data.professor_uid == request.auth.uid || admin());
     }
     match /freq_resumo/{id} {
-      allow read: if admin() || gestorDaEscola(resource.data.escola_id) || (vinculado() && resource.data.escola_id in minhasEscolas());
+      allow read: if admin() || equipeEscola(resource.data.escola_id) || (vinculado() && resource.data.escola_id in minhasEscolas());
       allow write: if false;
     }
 
     // entradas pela portaria (carteirinha com QR): um documento por turma e dia; so a gestao da escola grava
     match /freq_entradas/{id} {
-      allow read: if admin() || gestorDaEscola(resource.data.escola_id);
-      allow create, update: if (admin() || gestorDaEscola(novo().escola_id))
+      allow read: if admin() || entradaEscola(resource.data.escola_id);
+      allow create, update: if (admin() || entradaEscola(novo().escola_id))
         && id == novo().turma_id + "_" + novo().dia
         && (resource == null || (resource.data.escola_id == novo().escola_id && resource.data.turma_id == novo().turma_id && resource.data.dia == novo().dia))
         && novo().keys().hasOnly(["escola_id", "municipio_id", "turma_id", "turma_nome", "dia", "ano", "entradas", "nomes", "fotos", "atualizado_em"])
@@ -372,8 +390,8 @@ service cloud.firestore {
     // so a gestao da escola e o administrador; o professor nao ve telefone de familia (LGPD: so o necessario)
     function alunoDoc(a) { return get(/databases/$(database)/documents/alunos/$(a)).data; }
     match /alunos_familia/{id} {
-      allow read: if admin() || (resource == null && ativo() && eu().perfil == "gestor") || (resource != null && gestorDaEscola(resource.data.escola_id));
-      allow create, update: if (admin() || gestorDaEscola(novo().escola_id))
+      allow read: if admin() || (resource == null && ativo() && eu().perfil in ["gestor", "secretaria_escolar"]) || (resource != null && equipeEscola(resource.data.escola_id));
+      allow create, update: if (admin() || equipeEscola(novo().escola_id))
         && id == novo().aluno_id && alunoDoc(id).escola_id == novo().escola_id
         && (resource == null || resource.data.escola_id == novo().escola_id)
         && novo().keys().hasOnly(["aluno_id", "aluno_nome", "escola_id", "municipio_id", "turma_id", "turma_nome", "responsaveis", "aceita_avisos", "obs", "origem", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
@@ -384,19 +402,20 @@ service cloud.firestore {
 
     // avisos as familias: a escola liga cada tipo; o registro de envios so a funcao grava; comunicado criado pelo gestor
     match /avisos_config/{esc} {
-      allow read: if admin() || gestorDaEscola(esc);
+      // a secretaria escolar ve o que esta ligado; so o gestor liga e desliga
+      allow read: if admin() || equipeEscola(esc);
       allow write: if (admin() || gestorDaEscola(esc))
         && novo().keys().hasOnly(["falta_dia", "seguidos", "fora_sala", "chegada", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
         && novo().falta_dia is bool && novo().seguidos is bool && novo().fora_sala is bool && novo().chegada is bool && texto(novo().get("atualizado_por_nome", ""), 80);
     }
     match /avisos_familia/{id} {
-      allow read: if admin() || (resource != null && gestorDaEscola(resource.data.escola_id));
+      allow read: if admin() || (resource != null && equipeEscola(resource.data.escola_id));
       allow write: if false;
     }
     match /avisos_contador/{dia} { allow read: if admin(); allow write: if false; }
     match /comunicados_familia/{id} {
-      allow read: if admin() || (resource != null && gestorDaEscola(resource.data.escola_id));
-      allow create: if (admin() || gestorDaEscola(novo().escola_id)) && novo().criado_por == request.auth.uid && novo().status == "pendente"
+      allow read: if admin() || (resource != null && equipeEscola(resource.data.escola_id));
+      allow create: if (admin() || equipeEscola(novo().escola_id)) && novo().criado_por == request.auth.uid && novo().status == "pendente"
         && novo().keys().hasOnly(["escola_id", "escola_nome", "municipio_id", "titulo", "texto", "turmas", "status", "criado_em", "criado_por", "criado_por_nome"])
         && texto(novo().titulo, 120) && novo().titulo.size() >= 3 && texto(novo().texto, 3000) && novo().texto.size() >= 3
         && novo().turmas is list && novo().turmas.size() >= 1 && novo().turmas.size() <= 200 && texto(novo().get("criado_por_nome", ""), 80);
@@ -405,8 +424,8 @@ service cloud.firestore {
 
     // ficha de busca ativa: um caso por aluno, escola e ano; so a gestao da escola (e o administrador)
     match /busca_ativa/{id} {
-      allow read: if admin() || (resource == null && ativo() && eu().perfil == "gestor") || (resource != null && gestorDaEscola(resource.data.escola_id));
-      allow create, update: if (admin() || gestorDaEscola(novo().escola_id))
+      allow read: if admin() || (resource == null && ativo() && eu().perfil in ["gestor", "secretaria_escolar"]) || (resource != null && equipeEscola(resource.data.escola_id));
+      allow create, update: if (admin() || equipeEscola(novo().escola_id))
         && id == novo().escola_id + "_" + novo().aluno_id + "_" + string(novo().ano)
         && (resource == null || (resource.data.escola_id == novo().escola_id && resource.data.aluno_id == novo().aluno_id && resource.data.ano == novo().ano))
         && novo().keys().hasOnly(["escola_id", "municipio_id", "aluno_id", "aluno_nome", "turma_id", "turma_nome", "ano", "status", "registros", "atualizado_em", "atualizado_por"])
@@ -561,8 +580,18 @@ service cloud.firestore {
 
     // lista importada de professores (chave = e-mail em minusculas)
     match /pre_cadastros/{email} {
-      allow read: if admin() || (emailVerificado() && meuEmail() == email);
+      allow read: if admin() || (emailVerificado() && meuEmail() == email)
+        // o gestor ve os convites da equipe de apoio da escola dele (e se um e-mail ainda esta livre)
+        || (ativo() && eu().perfil == "gestor" && (resource == null || (perfilApoio(resource.data.get("perfil", "")) && gestorDaEscola(resource.data.get("escola_id", "-")))));
       allow write: if admin();
+      // o gestor convida a equipe de apoio da escola dele (portaria e secretaria escolar), so para a propria escola
+      allow create, update: if gestorDaEscola(novo().escola_id) && perfilApoio(novo().perfil)
+        && (resource == null || (perfilApoio(resource.data.get("perfil", "")) && gestorDaEscola(resource.data.get("escola_id", "-"))))
+        && novo().keys().hasOnly(["nome", "email", "perfil", "status", "licenca_tipo", "municipio_id", "municipio_nome", "escola_id", "escola_nome", "escolas_ids", "escolas_nomes", "turmas_ids", "convidado_por", "convidado_por_nome", "atualizado_em", "atualizado_por"])
+        && novo().email == email && email.matches("^[^@ ]+@[^@ ]+[.][^@ ]+$") && email == email.lower()
+        && novo().status == "ativo" && novo().licenca_tipo == "institucional" && novo().escolas_ids == [novo().escola_id] && novo().turmas_ids == []
+        && novo().municipio_id == muniDaEscola(novo().escola_id) && novo().convidado_por == request.auth.uid && texto(novo().nome, 80);
+      allow delete: if gestorDaEscola(resource.data.get("escola_id", "-")) && perfilApoio(resource.data.get("perfil", ""));
     }
 
     // registro de uso: 1 documento por pessoa por dia (alimenta o Painel do administrador)
@@ -613,7 +642,7 @@ service cloud.firestore {
     // dados de alunos (LGPD): so professores das mesmas escolas leem; o professor cadastra alunos nas turmas que criou
     match /alunos/{id} {
       // gestor da escola tambem le (carteirinhas e portaria)
-      allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas()) || gestorDaEscola(resource.data.escola_id);
+      allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas()) || entradaEscola(resource.data.escola_id);
       allow create: if admin() || (vinculado() && novo().criado_por == request.auth.uid
         && novo().escola_id in minhasEscolas()
         && get(/databases/$(database)/documents/turmas/$(novo().turma_id)).data.criado_por == request.auth.uid);
