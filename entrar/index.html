@@ -327,6 +327,10 @@
   .pn-atalhos a:hover{ border-color:#2E9BD6 }
   .pn-cf{ font-size:14px;line-height:1.5;color:var(--ink) }
   .pn-nota{ font-size:12.5px;color:var(--muted);margin:14px 0 0 }
+  .bk-passos{ margin:6px 0 0 18px;font-size:13.5px;line-height:1.65;color:var(--ink) } .bk-passos code{ background:#eef4fa;border-radius:6px;padding:2px 6px;font-size:12.5px;user-select:all }
+  .bk-linha{ display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px } .bk-linha input[type=url]{ flex:1;min-width:260px }
+  .bk-st{ font-size:11.5px;font-weight:800;border-radius:99px;padding:2px 10px;white-space:nowrap } .bk-st.ok{ background:#e9f5dc;color:#3d6b0c } .bk-st.erro{ background:#fbe3e0;color:#9c2a20 } .bk-st.rodando{ background:#e3f0fb;color:#1d5d8f }
+  .bk-tab{ width:100%;border-collapse:collapse;font-size:13px } .bk-tab th,.bk-tab td{ text-align:left;padding:8px 10px;border-bottom:1px solid #edf1f5 } .bk-tab th{ font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em }
   .pn-card h3{ font-size:15px;margin-bottom:10px;color:var(--pde-escuro) }
   .pn-leg{ display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px }
   .pn-leg i{ display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px }
@@ -2258,12 +2262,13 @@
   // Painel em 3 abas: pessoas e uso (o que ja existia), conteudo do Portal, infraestrutura (Firebase e Cloudflare)
   const pn = { aba:"geral" };
   async function renderPainel(){
-    const abas = [["geral","Pessoas e uso"],["conteudo","Conteúdo e participação"],["infra","Infraestrutura e custos"]];
+    const abas = [["geral","Pessoas e uso"],["conteudo","Conteúdo e participação"],["infra","Infraestrutura e custos"],["backup","💾 Backup"]];
     $("conteudo").innerHTML = '<div class="pn-abas" role="tablist">'+abas.map(([k,l]) => '<button class="usr-tab'+(pn.aba===k?" on":"")+'" role="tab" aria-selected="'+(pn.aba===k)+'" data-action="painel-aba" data-arg="'+k+'">'+l+'</button>').join("")+'</div>'+
       '<div class="pn-topo"><span class="count" id="pnAtual">Carregando dados da plataforma...</span>'+
       '<button class="btn btn-ghost btn-add" data-action="painel-atualizar">Atualizar</button></div><div id="pnCorpo"><div class="empty">Carregando...</div></div>';
     if(pn.aba === "conteudo"){ renderPnConteudo(); return; }
     if(pn.aba === "infra"){ renderPnInfra(); return; }
+    if(pn.aba === "backup"){ renderPnBackup(); return; }
     try{
       const inicio = diasAtras(29);
       // alunos ficam fora da lista (podem ser milhares): so a contagem
@@ -2425,6 +2430,67 @@
   const NOMES_FUNCAO = { emaildicaprofessor:"E-mail: Dica do Professor", emaildicaaluno:"E-mail: Dica do Aluno", emailnovocadastro:"E-mail: novo cadastro", emailcertificadoemitido:"E-mail: certificado",
     emailrelatorioenviado:"E-mail: relatório enviado", emailprecadastros:"E-mail: pré-cadastros (a cada 15 min)", emailresumodiario:"E-mail: resumo diário", importarbiblioteca:"Biblioteca: importar título",
     painelUso:"Painel de uso", paineluso:"Painel de uso", emitircertificado:"Formação: emitir certificado", corrigirquiz:"Formação: corrigir quiz" };
+  // ===================== BACKUP DO BANCO (Google Drive) =====================
+  // a função exporta o Firestore inteiro e grava um .tar.gz na pasta do Drive escolhida aqui; restaurar é procedimento guiado, nunca botão
+  const bk = { info:null, ouvinte:null };
+  async function chamarBackup(nome, dados, tempo){
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), nome, { timeout:tempo || 70000 })(dados || {})).data;
+  }
+  async function renderPnBackup(){
+    $("pnAtual").textContent = "Backup do banco de dados";
+    $("pnCorpo").innerHTML = '<div class="pn-card"><div class="empty">Carregando...</div></div>';
+    try{ bk.info = await chamarBackup("backupInfo"); }
+    catch(e){ if(pn.aba !== "backup") return; $("pnCorpo").innerHTML = '<div class="pn-card"><div class="empty">Não foi possível abrir o backup agora ('+escapeHtml(e.code || "erro")+').</div></div>'; return; }
+    if(pn.aba !== "backup" || !$("pnCorpo")) return;
+    const i = bk.info, link = i.pasta_id ? "https://drive.google.com/drive/folders/"+i.pasta_id : "";
+    $("pnCorpo").innerHTML =
+      '<div class="pn-card"><h3>💾 Fazer backup agora</h3><p class="pn-cf">Copia o banco inteiro do Portal (usuários, escolas, turmas, alunos, chamadas, notas, fichas, telas da TV) para a pasta do Google Drive escolhida abaixo, num arquivo <b>.tar.gz</b> com a data no nome. Leva de 1 a 5 minutos.</p>'+
+        '<div class="bk-linha"><button class="btn btn-primary" style="width:auto;padding:13px 24px" data-action="bk-agora" id="bkAgora"'+(i.pasta_id ? "" : " disabled")+'>💾 Fazer backup agora</button>'+
+        (i.pasta_id ? '<span class="pn-cf">Destino: <a href="'+escapeAttr(link)+'" target="_blank" rel="noopener"><b>'+escapeHtml(i.pasta_nome || "pasta do Drive")+' ↗</b></a></span>' : '<span class="pn-cf" style="color:#9c2a20">Escolha a pasta do Drive primeiro.</span>')+'</div>'+
+        '<p class="pn-nota">Use antes de mudanças grandes: importação de rede nova, virada do ano letivo, limpeza de dados.</p></div>'+
+      '<div class="pn-card" style="margin-top:12px"><h3>📁 Onde guardar</h3>'+
+        '<ol class="bk-passos"><li>No Google Drive da NEWPC, abra (ou crie) um <b>Drive compartilhado</b>, por exemplo "Backups Portal do Educador". Pasta no "Meu Drive" de uma pessoa não funciona: o robô não tem espaço próprio no Drive.</li>'+
+        '<li>Em <b>Gerenciar membros</b>, adicione o robô do Portal como <b>Gerente de conteúdo</b>:<br><code>'+escapeHtml(i.email || "(e-mail indisponível)")+'</code></li>'+
+        '<li>Abra a pasta onde os backups vão ficar, copie o link da barra de endereço e cole aqui.</li></ol>'+
+        '<div class="bk-linha"><input type="url" id="bkLink" style="padding:10px 12px;border:1px solid var(--line);border-radius:10px;font:inherit" placeholder="https://drive.google.com/drive/folders/..." value="'+escapeAttr(link)+'">'+
+        '<label class="pn-cf" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="bkAuto"'+(i.automatico ? " checked" : "")+'> Também toda semana, automático (domingo de madrugada)</label>'+
+        '<button class="btn btn-ghost" style="width:auto;padding:11px 18px" data-action="bk-salvar">Salvar e testar</button></div>'+
+        '<p class="pn-nota">Ao salvar, o Portal grava e apaga um arquivo de teste na pasta para ter certeza de que o backup vai funcionar.</p></div>'+
+      '<div class="pn-card" style="margin-top:12px"><h3>🗂️ Últimos backups</h3><div id="bkLista"><div class="empty">Carregando...</div></div>'+
+        '<p class="pn-nota">Não entram no backup: senhas (o login fica no Firebase Authentication), os arquivos enviados pelos professores, o acervo da biblioteca e as fotos da portaria (estas somem em 15 dias por regra de privacidade). Para restaurar, fale com o suporte técnico: a restauração é feita primeiro num banco de teste e conferida antes de substituir o banco real.</p></div>';
+    ouvirBackups();
+  }
+  function ouvirBackups(){
+    if(bk.ouvinte) bk.ouvinte();
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js").then(({ onSnapshot }) => {
+      bk.ouvinte = onSnapshot(query(collection(db, "backups_log"), orderBy("em", "desc"), limit(15)), sn => {
+        if(!$("bkLista")){ bk.ouvinte(); bk.ouvinte = null; return; }
+        const l = []; sn.forEach(d => l.push(d.data()));
+        const ST = { exportando:["Copiando o banco...","rodando"], enviando:["Enviando ao Drive...","rodando"], ok:["Concluído","ok"], erro:["Falhou","erro"] };
+        const tam = b => b > 1048576 ? (b/1048576).toFixed(1).replace(".",",")+" MB" : Math.max(1, Math.round((b||0)/1024))+" KB";
+        $("bkLista").innerHTML = l.length ? '<table class="bk-tab"><thead><tr><th>Quando</th><th>Tipo</th><th>Por</th><th>Situação</th><th>Documentos</th><th>Tamanho</th><th></th></tr></thead><tbody>'+
+          l.map(x => { const st = ST[x.status] || [x.status,""]; return '<tr><td>'+(x.em && x.em.toDate ? escapeHtml(x.em.toDate().toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})) : "agora")+'</td><td>'+(x.tipo === "automatico" ? "Automático" : "Manual")+'</td><td>'+escapeHtml(x.por_nome || "–")+
+            '</td><td><span class="bk-st '+st[1]+'">'+escapeHtml(st[0])+'</span>'+(x.erro ? '<div class="pn-nota" style="margin:4px 0 0;color:#9c2a20">'+escapeHtml(x.erro)+'</div>' : "")+'</td><td>'+(x.documentos ? fmt(x.documentos) : "–")+'</td><td>'+(x.bytes ? tam(x.bytes) : "–")+'</td><td>'+
+            (x.link ? '<a href="'+escapeAttr(x.link)+'" target="_blank" rel="noopener" style="font-weight:700;color:#2671AB">Abrir no Drive ↗</a>' : "")+'</td></tr>'; }).join("")+'</tbody></table>'
+          : '<div class="empty">Nenhum backup ainda.</div>';
+      }, e => { if($("bkLista")) $("bkLista").innerHTML = '<div class="empty">Não foi possível ler o histórico ('+escapeHtml(e.code || "")+').</div>'; });
+    });
+  }
+  async function salvarBackupDestino(btn){
+    const link = $("bkLink").value.trim(); if(!link){ toast("Cole o link da pasta do Drive.", true); return; }
+    btn.disabled = true; btn.textContent = "Testando a pasta...";
+    try{ const r = await chamarBackup("backupConfigurar", { link, automatico:$("bkAuto").checked }); toast("Pasta \""+(r.pasta_nome || "")+"\" pronta para receber os backups."); renderPnBackup(); }
+    catch(e){ toast(e.message || "Não foi possível usar essa pasta.", true); btn.disabled = false; btn.textContent = "Salvar e testar"; }
+  }
+  async function fazerBackupAgora(btn){
+    if(!confirm("Fazer agora uma cópia completa do banco para o Google Drive?")) return;
+    btn.disabled = true; btn.textContent = "Fazendo backup... (pode fechar esta tela)";
+    try{ const r = await chamarBackup("backupAgora", {}, 1800000); toast("Backup concluído: "+fmt(r.documentos)+" documentos."); }
+    catch(e){ toast(e.message || "O backup falhou. Veja o motivo na lista.", true); }
+    if($("bkAgora")){ btn.disabled = false; btn.textContent = "💾 Fazer backup agora"; }
+  }
+
   async function renderPnInfra(){
     const atalhos = '<h3 class="pn-sec">Atalhos de gestão</h3><div class="pn-atalhos">'+[
       ["Uso e faturamento do Firebase","https://console.firebase.google.com/project/portal-educador-5/usage"],
@@ -3545,6 +3611,8 @@
     else if(acao === "ini-abrir"){ registrarModulo(el.dataset.mod); }
     else if(acao === "painel-atualizar"){ pn.forcar = true; renderPainel(); }
     else if(acao === "painel-aba"){ pn.aba = el.dataset.arg; renderPainel(); }
+    else if(acao === "bk-salvar"){ salvarBackupDestino(el); }
+    else if(acao === "bk-agora"){ fazerBackupAgora(el); }
     else if(acao === "mt-nova"){ formTurma(null); }
     else if(acao === "mt-editar"){ formTurma(cacheTurmas.find(t => t.id === el.dataset.id)); }
     else if(acao === "mt-cancelar"){ mt.editando = null; $("mtForm").innerHTML = ""; }

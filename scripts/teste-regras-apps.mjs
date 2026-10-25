@@ -442,6 +442,12 @@ await t('registro de foto de outra escola', assertFails(setDoc(doc(gest1, 'porta
 await t('registro com caminho que nao bate', assertFails(setDoc(doc(gest1, 'portaria_vistas/v5'), { ...vista, foto: 'portaria/e1/2026-10-26/outro_0705.jpg' })));
 await t('professor nao registra nem le', assertFails(setDoc(doc(prof, 'portaria_vistas/v6'), { ...vista, por_uid: 'prof' })));
 
+// backup: so o administrador le; ninguem grava pelo aplicativo
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'backup_config/atual'), { pasta_id: 'x' }); await setDoc(doc(c.firestore(), 'backups_log/b1'), { status: 'ok' }); });
+await t('administrador le o backup', assertSucceeds(getDoc(doc(ctx('adm'), 'backups_log/b1'))));
+await t('gestor nao le o backup', assertFails(getDoc(doc(gest1, 'backup_config/atual'))));
+await t('administrador nao grava log de backup pelo app', assertFails(setDoc(doc(ctx('adm'), 'backups_log/b2'), { status: 'ok' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

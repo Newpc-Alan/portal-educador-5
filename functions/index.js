@@ -372,3 +372,4 @@ export { emailAgendaDia, emailLembretes } from './agenda.js';
 export { painelSecretaria } from './painel-secretaria.js';
 export { freqResumo, emailBuscaAtiva } from './frequencia.js';
 export { portaria, limparFotosPortaria } from './portaria.js';
+export { backupInfo, backupConfigurar, backupAgora, backupSemanal } from './backup.js';
