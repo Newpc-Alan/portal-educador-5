@@ -4,10 +4,11 @@
 // Rodar no Cloud Shell, na pasta do repositório (usa o firebase-admin da pasta functions):
 //   cd functions && node ../scripts/demo-rede.mjs --criar      cria a rede (escolas, turmas, alunos, calendário, 6 semanas de chamadas, fichas, provas)
 //   cd functions && node ../scripts/demo-rede.mjs --manha      simula a entrada de hoje pela portaria (rodar na manhã da demonstração)
+//   cd functions && node ../scripts/demo-rede.mjs --usuarios   cria professores, gestores e secretaria fictícios (sem e-mail, sem login) e 30 dias de acessos
 //   cd functions && node ../scripts/demo-rede.mjs --apagar     apaga tudo o que começa com "demo-"
 //
-// Não cria usuários (professor, gestor, secretaria): cada usuário novo dispara e-mail de "novo cadastro" para a equipe.
-// Para ver a rede, o administrador usa "Entrar como" e escolhe a Rede Modelo NEWPC.
+// Usuários fictícios (--usuarios) têm demo: true e não geram o e-mail de "novo cadastro" (função emailNovoCadastro ignora).
+// Não têm e-mail nem senha: ninguém entra com eles. Para ver a rede, o administrador usa "Entrar como" e escolhe a Rede Modelo NEWPC.
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import * as FREQ from '../functions/frequencia-nucleo.js';
@@ -194,6 +195,37 @@ async function manha() {
   console.log(`PRONTO. ${n} entradas pela portaria hoje (${hoje}); ${fora} aluno(s) na escola mas com falta na chamada.`);
 }
 
+async function usuarios() {
+  const agora = Date.now(), hoje = hojeMS();
+  const ts = (await db.collection('turmas').where('municipio_id', '==', MUNI).get()).docs.map(d => ({ id: d.id, ...d.data() }));
+  if (!ts.length) { console.log('Crie a rede antes (--criar).'); return; }
+  const docs = [], PN = ['Ana Paula', 'Márcia', 'Rosângela', 'Cláudia', 'Patrícia', 'Juliana', 'Fernanda', 'Simone', 'Adriana', 'Luciana', 'Carlos', 'Marcos', 'Rodrigo', 'André', 'Fábio', 'Sérgio'];
+  const nomeProf = () => um(PN) + ' ' + um(SOBRENOMES) + ' (demonstração)';
+  const profs = {};
+  ts.forEach(t => { const ini = /^[1-5]º/.test(t.ano_serie || '');
+    (ini ? [`demo-prof-${t.id}`] : [`demo-prof-${t.id}-ma`, `demo-prof-${t.id}-lp`]).forEach(uid => { profs[uid] = { escola: t.escola_id, turma: t.id, escola_nome: t.escola_nome }; }); });
+  // atividade: 70% usou nos últimos 7 dias, 15% há algumas semanas, 15% não usa
+  const uso = {};
+  Object.entries(profs).forEach(([uid, p]) => { const r = rnd(); uso[uid] = r < 0.7 ? 0 : r < 0.85 ? 8 + Math.floor(rnd() * 15) : null;
+    docs.push([db.doc(`usuarios/${uid}`), { nome: nomeProf(), perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', demo: true, municipio_id: MUNI, municipio_nome: MUNI_NOME,
+      escola_id: p.escola, escolas_ids: [p.escola], escolas_nomes: [p.escola_nome], turmas_ids: [p.turma], funcao: 'Professor(a)',
+      ...(uso[uid] === null ? {} : { ultimo_acesso: Timestamp.fromMillis(agora - (uso[uid] * 864e5) - Math.floor(rnd() * 8 * 36e5)) }) }]); });
+  ESCOLAS.forEach((e, i) => docs.push([db.doc(`usuarios/demo-gestor-${e.id.slice(5)}`), { nome: ['Diretora Helena Prado', 'Diretor Paulo Mendes', 'Diretora Sônia Arruda'][i] + ' (demonstração)', perfil: 'gestor', status: 'ativo',
+    licenca_tipo: 'institucional', demo: true, municipio_id: MUNI, municipio_nome: MUNI_NOME, escola_id: e.id, escolas_ids: [e.id], escolas_nomes: [e.nome], turmas_ids: [], funcao: 'Diretor(a)',
+    ultimo_acesso: Timestamp.fromMillis(agora - Math.floor(rnd() * 2 * 864e5)) }]));
+  docs.push([db.doc('usuarios/demo-secretaria'), { nome: 'Secretária Municipal de Educação (demonstração)', perfil: 'secretaria', status: 'ativo', licenca_tipo: 'institucional', demo: true,
+    municipio_id: MUNI, municipio_nome: MUNI_NOME, escola_id: null, escolas_ids: [], turmas_ids: [], ultimo_acesso: Timestamp.fromMillis(agora - 3 * 36e5) }]);
+  // 30 dias de acessos (gráfico de uso e módulos do Painel)
+  const MODS = ['gestao', 'gestao', 'gestao', 'provas', 'videos', 'jogos', 'ia', 'atividades', 'relatorios', 'biblioteca'];
+  let na = 0;
+  Object.keys(profs).forEach(uid => { if (uso[uid] === null) return;
+    for (let k = 0; k < 30; k++) { const dia = soma(hoje, -k), w = semana(dia); if (w === 0 || w === 6 || k < uso[uid] || rnd() > 0.72) continue;
+      docs.push([db.doc(`acessos_dia/${dia}_${uid}`), { dia, uid, perfil: 'professor', licenca_tipo: 'institucional', uf: 'MS', municipio: MUNI_NOME, demo: true,
+        modulos: [...new Set(Array.from({ length: 1 + Math.floor(rnd() * 3) }, () => um(MODS)))], ultimo: Timestamp.fromMillis(Date.parse(dia + 'T14:00:00Z')) }]); na++; } });
+  await gravar(docs);
+  console.log(`PRONTO. ${Object.keys(profs).length} professores, ${ESCOLAS.length} gestores e 1 secretaria (demonstração), ${na} registros de acesso.`);
+}
+
 async function apagar() {
   // chamadas primeiro: a função freqResumo recriaria resumos apagados antes
   const porPrefixo = async c => {
@@ -212,6 +244,7 @@ async function apagar() {
   };
   console.log('freq_chamadas', await porPrefixo('freq_chamadas') + await porMuni('freq_chamadas'));
   for (const c of ['notas_planilhas', 'busca_ativa', 'freq_entradas', 'cal_escola']) console.log(c, await porMuni(c));
+  for (;;) { const s = await db.collection('acessos_dia').where('municipio', '==', MUNI_NOME).limit(400).get(); if (s.empty) break; const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); await b.commit(); console.log('acessos_dia', s.size); }
   console.log('Aguardando 90 s para a função terminar...'); await new Promise(r => setTimeout(r, 90000));
   for (const c of COLECOES.filter(c => c !== 'freq_chamadas')) console.log(c, await porPrefixo(c));
   console.log('PRONTO. Rede Modelo NEWPC apagada.');
@@ -221,5 +254,6 @@ const cmd = process.argv[2];
 if (cmd === '--criar') await criar();
 else if (cmd === '--simular') { SIMULAR = true; await criar(); }
 else if (cmd === '--manha') await manha();
+else if (cmd === '--usuarios') await usuarios();
 else if (cmd === '--apagar') await apagar();
 else console.log('Use --criar, --manha ou --apagar');

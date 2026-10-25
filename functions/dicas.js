@@ -76,6 +76,8 @@ export const emailNovoCadastro = onDocumentCreated(
     const u = snap.data(), uid = event.params.uid;
     // aluno nao gera e-mail individual (podem ser milhares no inicio do ano): entra no resumo diario
     if (u.perfil === 'aluno') return;
+    // usuarios da rede de demonstracao (scripts/demo-rede.mjs) nao geram aviso
+    if (u.demo === true || uid.startsWith('demo-')) return;
     const ref = getFirestore().doc(`usuarios/${uid}`);
     const whats = String(u.whatsapp || '').replace(/\D/g, '');
     const local = [u.municipio_nome || u.municipio_cad, u.uf].filter(Boolean).join('/');
