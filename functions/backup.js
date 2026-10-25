@@ -89,15 +89,22 @@ async function empacotar(entradas, destino, nomeDownload) {
   const fim = pipeline(gz, saida);
   const escrever = b => new Promise((ok, erro) => { if (gz.destroyed) return erro(new Error('compactação interrompida')); gz.write(b) ? ok() : gz.once('drain', ok); });
   const renomeados = [];
-  for (const e of entradas) {
-    let h = cabecalho(e.nome, e.tamanho ?? e.dados.length), nome = e.nome;
-    if (!h) { nome = e.nome.split('/')[0] + '/_nomes-longos/' + renomeados.length + '.bin'; renomeados.push(nome + '\t' + e.nome); h = cabecalho(nome, e.tamanho ?? e.dados.length); }
+  // arquivos pequenos são baixados em paralelo, 24 à frente (milhares de arquivos lidos um a um levariam muitos minutos só de espera)
+  const JANELA = 24, PEQUENO = 8 * 1024 * 1024, pre = new Map();
+  const adiantar = k => { for (let x = k; x < Math.min(entradas.length, k + JANELA); x++) { const e = entradas[x];
+    if (e.arquivo && !pre.has(x) && e.tamanho <= PEQUENO) pre.set(x, e.arquivo.download().then(r => r[0]).catch(() => null)); } };
+  for (let k = 0; k < entradas.length; k++) {
+    const e = entradas[k]; adiantar(k);
+    if (pre.has(k)) { const b = await pre.get(k); pre.delete(k); if (b) { e.dados = b.length > e.tamanho ? b.subarray(0, e.tamanho) : b; } }
+    const tam = e.tamanho ?? e.dados.length;
+    let h = cabecalho(e.nome, tam), nome = e.nome;
+    if (!h) { nome = e.nome.split('/')[0] + '/_nomes-longos/' + renomeados.length + '.bin'; renomeados.push(nome + '\t' + e.nome); h = cabecalho(nome, tam); }
     await escrever(h);
     let n = 0;
-    if (e.dados) { await escrever(e.dados); n = e.dados.length; }
-    else for await (const pedaco of e.arquivo.createReadStream()) { const p = n + pedaco.length > e.tamanho ? pedaco.subarray(0, e.tamanho - n) : pedaco; n += p.length; if (p.length) await escrever(p); }
-    if (n < (e.tamanho ?? 0)) await escrever(Buffer.alloc(e.tamanho - n)); // arquivo mudou no meio: completa para não quebrar o .tar
-    const pad = (512 - ((e.tamanho ?? e.dados.length) % 512)) % 512; if (pad) await escrever(Buffer.alloc(pad));
+    if (e.dados) { await escrever(e.dados); n = e.dados.length; e.dados = null; }
+    else for await (const pedaco of e.arquivo.createReadStream()) { const p = n + pedaco.length > tam ? pedaco.subarray(0, tam - n) : pedaco; n += p.length; if (p.length) await escrever(p); }
+    if (n < tam) await escrever(Buffer.alloc(tam - n)); // arquivo mudou no meio: completa para não quebrar o .tar
+    const pad = (512 - (tam % 512)) % 512; if (pad) await escrever(Buffer.alloc(pad));
   }
   if (renomeados.length) { const d = Buffer.from('nome no pacote\tnome original\n' + renomeados.join('\n') + '\n'); await escrever(cabecalho(entradas[0].nome.split('/')[0] + '/_nomes-longos/LISTA.tsv', d.length)); await escrever(d); const pad = (512 - d.length % 512) % 512; if (pad) await escrever(Buffer.alloc(pad)); }
   await escrever(Buffer.alloc(1024)); gz.end(); await fim;
@@ -215,7 +222,7 @@ export const backupConfigurar = onCall(OPC, async req => {
   return { ok: true, pasta_nome: pasta.name || '' };
 });
 
-export const backupAgora = onCall({ ...OPC, timeoutSeconds: 1800, memory: '1GiB' }, async req => {
+export const backupAgora = onCall({ ...OPC, timeoutSeconds: 1800, memory: '2GiB', cpu: 2 }, async req => {
   const u = await exigirAdmin(req);
   const d = req.data || {};
   return gerarBackup('manual', { uid: req.auth.uid, nome: u.nome || '' }, d.destino === 'computador' ? 'computador' : 'drive', d.completo === true);
@@ -232,7 +239,7 @@ export const backupLink = onCall(OPC, async req => {
 });
 
 // automático: todo domingo às 3h23 (horário de MS), se estiver ligado
-export const backupSemanal = onSchedule({ ...OPC, schedule: '23 3 * * 0', timeZone: 'America/Campo_Grande', timeoutSeconds: 1800, memory: '1GiB' }, async () => {
+export const backupSemanal = onSchedule({ ...OPC, schedule: '23 3 * * 0', timeZone: 'America/Campo_Grande', timeoutSeconds: 1800, memory: '2GiB', cpu: 2 }, async () => {
   const cfg = (await getFirestore().doc('backup_config/atual').get()).data() || {};
   if (!cfg.pasta_id || cfg.automatico === false) return;
   await gerarBackup('automatico', {}).catch(e => console.error('backupSemanal', e.message));
