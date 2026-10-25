@@ -986,7 +986,10 @@ onAuthStateChanged(auth, async user => {
   let u = null;
   try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo" || u.perfil === "aluno"){ location.replace("/entrar/"); return; }
-  const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
+  const verComo = u.perfil === "admin" ? (() => { try{ return JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); }catch(e){ return null; } })() : null;
+  const sim = verComo && verComo.perfil && verComo.perfil !== "admin" ? verComo.perfil : "";
+  // modo de teste do administrador ("Entrar como"): a tela age como o perfil escolhido; o banco continua tratando como administrador
+  if(sim) u = { ...u, perfil:sim, municipio_id:verComo.muni || u.municipio_id, escolas_ids:verComo.escolas || [], escola_id:(verComo.escolas || [])[0] || null, turmas_ids:[], _sim:true };
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim;
   $("quem").textContent = u.nome || user.email;
   // AGENDA_ATIVA: liga quando as regras e os avisos da Minha agenda estiverem publicados

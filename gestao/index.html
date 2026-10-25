@@ -102,7 +102,9 @@ const db = getFirestore(app);
 onAuthStateChanged(getAuth(app), async user => {
   if(!user){ location.replace("/entrar/"); return; }
   try{
-    const u = (await getDoc(doc(db, "usuarios", user.uid))).data() || {};
+    let u = (await getDoc(doc(db, "usuarios", user.uid))).data() || {};
+    // administrador em "Entrar como": a tela segue o perfil do teste
+    if(u.perfil === "admin"){ try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); if(v && v.perfil && v.perfil !== "admin") u = { ...u, perfil:v.perfil, municipio_id:v.muni || u.municipio_id }; }catch(e){} }
     // painel: secretaria (rede), gestor (escola) e administrador; liberado pelo plano do município
     if(["admin", "secretaria", "gestor"].includes(u.perfil)){
       const c = document.getElementById("cardPainel"); c.hidden = false;

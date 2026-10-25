@@ -145,7 +145,7 @@ const S = { u:null, admin:false, d:null };
 async function carregar(forcar){
   $("carregando").hidden = false; $("carregando").innerHTML = "Somando os números da rede... isso leva alguns segundos.";
   try{
-    const r = await chamar({ municipio_id:$("selMuni").value || undefined, forcar:!!forcar });
+    const r = await chamar({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined, escolas:S.sim && S.sim.perfil === "gestor" ? (S.sim.escolas || []) : undefined, forcar:!!forcar });
     S.d = r.data; desenhar(); $("carregando").hidden = true; $("corpo").hidden = false;
   }catch(e){
     console.warn("painel:", e.code, e.message);
@@ -297,8 +297,11 @@ onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo" || !["secretaria", "admin", "gestor"].includes(u.perfil)){ location.replace("/entrar/"); return; }
-  S.u = u; S.admin = u.perfil === "admin";
-  $("quem").textContent = (u.nome || user.email) + (S.admin ? " · administrador" : u.perfil === "gestor" ? " · gestão da escola" : " · Secretaria de Educação");
+  // administrador em "Entrar como" gestor ou secretaria: o painel mostra o que esse perfil veria
+  let v = null; if(u.perfil === "admin"){ try{ v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); }catch(e){} }
+  S.sim = v && ["gestor", "secretaria"].includes(v.perfil) ? v : null;
+  S.u = u; S.admin = u.perfil === "admin" && !S.sim;
+  $("quem").textContent = (u.nome || user.email) + (S.sim ? " · teste como " + (S.sim.perfil === "gestor" ? "gestor" : "secretaria") : S.admin ? " · administrador" : u.perfil === "gestor" ? " · gestão da escola" : " · Secretaria de Educação");
   if(S.admin){
     const ms = []; try{ const s = await getDocs(query(collection(db, "municipios"), limit(300))); s.forEach(d => ms.push({ id:d.id, ...d.data() })); }catch(e){}
     ms.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));

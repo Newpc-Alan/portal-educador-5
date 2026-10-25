@@ -20,7 +20,11 @@ export const painelSecretaria = onCall({ region: 'southamerica-east1', timeoutSe
   const u = (await db.doc(`usuarios/${req.auth.uid}`).get()).data();
   if (!u || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Acesso não liberado.');
   let m, escolasGestor = null;
-  if (u.perfil === 'admin') m = String((req.data && req.data.municipio_id) || u.municipio_id || '');
+  if (u.perfil === 'admin') {
+    m = String((req.data && req.data.municipio_id) || u.municipio_id || '');
+    // administrador testando como gestor ("Entrar como"): mesma visão de escola
+    if (req.data && Array.isArray(req.data.escolas) && req.data.escolas.length) escolasGestor = req.data.escolas.map(String).filter(x => /^[A-Za-z0-9_-]{1,64}$/.test(x)).slice(0, 5);
+  }
   else if (u.perfil === 'secretaria') m = String(u.municipio_id || '');
   else if (u.perfil === 'gestor') {
     m = String(u.municipio_id || '');

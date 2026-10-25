@@ -614,7 +614,8 @@
   .ini-previa{ display:flex;gap:6px;flex-wrap:wrap;margin-top:8px }
   .sim-escolha{ max-width:860px;margin:10px auto }
   .sim-sub{ color:var(--muted);margin:0 0 16px }
-  .sim-ops{ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px }
+  .sim-ops{ display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px }
+  .sim-campos{ display:flex;gap:14px;flex-wrap:wrap }
   .sim-op{ display:flex;flex-direction:column;align-items:flex-start;gap:6px;text-align:left;background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:20px;cursor:pointer;font:inherit;color:var(--ink);transition:border-color .15s,box-shadow .15s }
   .sim-op:hover,.sim-op:focus-visible{ border-color:#2E9BD6;box-shadow:0 0 0 3px rgba(46,155,214,.18) }
   .sim-op span{ font-size:30px } .sim-op b{ font-size:17px } .sim-op small{ color:var(--muted);font-size:13px;line-height:1.4 }
@@ -1128,7 +1129,7 @@
   let usuarioReal = null;
   function verComo(){ try{ return JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); }catch(e){ return null; } }
   function guardarVerComo(v){ try{ v ? sessionStorage.setItem("pde_ver_como", JSON.stringify(v)) : sessionStorage.removeItem("pde_ver_como"); }catch(e){} }
-  const ROT_SIM = { admin:"Administrador", professor:"Professor", aluno:"Aluno" };
+  const ROT_SIM = { admin:"Administrador", professor:"Professor", aluno:"Aluno", gestor:"Gestor da escola", secretaria:"Secretaria de Educação" };
   async function mostrarEscolhaAdmin(){
     $("loginView").style.display="none"; $("appView").style.display="block";
     $("nav").innerHTML = ""; $("avisoLicenca").innerHTML = "";
@@ -1140,12 +1141,27 @@
         '<button class="sim-op" data-action="sim-entrar" data-arg="admin"><span>🛡️</span><b>Administrador</b><small>Gestão completa: municípios, usuários, módulos e conteúdos</small></button>'+
         '<button class="sim-op" data-action="sim-entrar" data-arg="professor"><span>👩‍🏫</span><b>Professor</b><small>Tela e módulos de um professor da rede escolhida</small></button>'+
         '<button class="sim-op" data-action="sim-entrar" data-arg="aluno"><span>🎒</span><b>Aluno</b><small>Tela e módulos de um aluno da rede escolhida</small></button>'+
-      '</div><div class="field sim-muni"><label for="simMuni">Rede usada no teste de professor e aluno</label><select id="simMuni"><option value="">Carregando...</option></select></div></div>';
+        '<button class="sim-op" data-action="sim-entrar" data-arg="gestor"><span>🏫</span><b>Gestor da escola</b><small>Painel da Escola, Gestão Escolar e calendário da escola escolhida</small></button>'+
+        '<button class="sim-op" data-action="sim-entrar" data-arg="secretaria"><span>🏛️</span><b>Secretaria de Educação</b><small>Painel da Rede e as ferramentas da secretaria do município</small></button>'+
+      '</div><div class="sim-campos"><div class="field sim-muni"><label for="simMuni">Rede usada no teste</label><select id="simMuni"><option value="">Carregando...</option></select></div>'+
+      '<div class="field sim-muni"><label for="simEsc">Escola (teste de gestor e professor)</label><select id="simEsc"><option value="">Escolha a rede</option></select></div></div></div>';
     try{
       const ms = cacheMunicipios.length ? cacheMunicipios : await carregarCacheMunicipios();
       const ult = (verComo() || {}).muni || "";
       $("simMuni").innerHTML = ms.length ? ms.map(m => '<option value="'+escapeAttr(m.id)+'"'+(m.id === ult ? " selected" : "")+'>'+escapeHtml(m.nome+(m.uf ? "/"+m.uf : ""))+'</option>').join("") : '<option value="">Nenhum município cadastrado</option>';
     }catch(e){ $("simMuni").innerHTML = '<option value="">Não foi possível carregar</option>'; }
+    simEscolas();
+  }
+  async function simEscolas(){
+    const sel = $("simEsc"), m = $("simMuni") && $("simMuni").value; if(!sel) return;
+    if(!m){ sel.innerHTML = '<option value="">Escolha a rede</option>'; return; }
+    try{
+      const es = await getDocs(query(collection(db,"escolas"), where("municipio_id","==",m)));
+      const l = []; es.forEach(d => { if(d.data().status !== "inativa") l.push({ id:d.id, nome:d.data().nome || d.id }); });
+      l.sort((a,b) => a.nome.localeCompare(b.nome, "pt-BR"));
+      const ult = (verComo() || {}).escola || "";
+      sel.innerHTML = l.length ? l.map(e => '<option value="'+escapeAttr(e.id)+'"'+(e.id === ult ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("") : '<option value="">Nenhuma escola nesta rede</option>';
+    }catch(e){ sel.innerHTML = '<option value="">Não foi possível carregar</option>'; }
   }
   async function prepararSimulacao(v){
     const real = usuarioReal || usuarioAtual;
@@ -1157,8 +1173,12 @@
         const es = await getDocs(query(collection(db,"escolas"), where("municipio_id","==",v.muni)));
         const lista = []; es.forEach(d => { if(d.data().status !== "inativa") lista.push({ id:d.id, nome:d.data().nome || "" }); });
         lista.sort((a,b) => a.nome.localeCompare(b.nome));
-        sim.escolas_ids = lista.slice(0, 5).map(e => e.id); sim.escolas_nomes = lista.slice(0, 5).map(e => e.nome);
-        sim.escola_id = lista[0] ? lista[0].id : null; sim.escola_nome = lista[0] ? lista[0].nome : "";
+        // escola escolhida vai primeiro; gestor fica só com ela; secretaria não tem escola
+        const i = lista.findIndex(e => e.id === v.escola); if(i > 0) lista.unshift(lista.splice(i, 1)[0]);
+        const mins = v.perfil === "secretaria" ? [] : v.perfil === "gestor" ? lista.slice(0, 1) : lista.slice(0, 5);
+        sim.escolas_ids = mins.map(e => e.id); sim.escolas_nomes = mins.map(e => e.nome);
+        sim.escola_id = mins[0] ? mins[0].id : null; sim.escola_nome = mins[0] ? mins[0].nome : "";
+        guardarVerComo({ ...v, escolas:sim.escolas_ids });   // os aplicativos (Calendário, Recursos...) leem daqui
       }catch(e){ console.warn("simulacao:", e.code); }
     }
     usuarioReal = real; usuarioAtual = sim;
@@ -3621,7 +3641,7 @@
     else if(acao === "sim-entrar"){
       const muni = $("simMuni") ? $("simMuni").value : "";
       if(el.dataset.arg !== "admin" && !muni){ toast("Escolha a rede do teste.", true); return; }
-      guardarVerComo({ perfil:el.dataset.arg, muni });
+      guardarVerComo({ perfil:el.dataset.arg, muni, escola:$("simEsc") ? $("simEsc").value : "" });
       if(usuarioReal){ usuarioAtual = usuarioReal; }
       el.disabled = true; abrirApp();
     }
@@ -4706,6 +4726,7 @@
       t.checked ? alvo.add(t.value) : alvo.delete(t.value);
       contarPlano();
     }
+    if(t.id === "simMuni") simEscolas();
     if(t.name === "impTipo"){ imp.tipo = t.value; imp.linhas = []; desenharImportar(); }
     if(t.id === "impArquivo" && t.files && t.files[0]){ lerArquivo(t.files[0]); t.value = ""; }
   });
