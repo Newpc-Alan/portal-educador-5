@@ -204,7 +204,14 @@ async function apagar() {
     }
     return total;
   };
-  console.log('freq_chamadas', await porPrefixo('freq_chamadas'));
+  // o que o administrador lançou testando a rede ("Entrar como") não começa com demo-: sai pelo município
+  const porMuni = async c => {
+    let total = 0;
+    for (;;) { const s = await db.collection(c).where('municipio_id', '==', MUNI).limit(400).get(); if (s.empty) break; const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); await b.commit(); total += s.size; }
+    return total;
+  };
+  console.log('freq_chamadas', await porPrefixo('freq_chamadas') + await porMuni('freq_chamadas'));
+  for (const c of ['notas_planilhas', 'busca_ativa', 'freq_entradas', 'cal_escola']) console.log(c, await porMuni(c));
   console.log('Aguardando 90 s para a função terminar...'); await new Promise(r => setTimeout(r, 90000));
   for (const c of COLECOES.filter(c => c !== 'freq_chamadas')) console.log(c, await porPrefixo(c));
   console.log('PRONTO. Rede Modelo NEWPC apagada.');
