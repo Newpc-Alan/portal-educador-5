@@ -53,3 +53,19 @@ export const contarReacaoNoticia = onDocumentWritten({ region: REGIAO_FIRESTORE,
   try { await getFirestore().doc('noticias/' + nid).update(mudar); }
   catch (e) { console.warn('reacao: noticia', nid, e.code || e.message); }
 });
+
+// Pesquisa rápida: pesquisa_respostas/{noticia}_{uid} -> noticias/{id}.votos.<opção>
+export const contarRespostaPesquisa = onDocumentWritten({ region: REGIAO_FIRESTORE, document: 'pesquisa_respostas/{id}', maxInstances: 10 }, async (event) => {
+  const antes = event.data.before.exists ? event.data.before.data() : null;
+  const depois = event.data.after.exists ? event.data.after.data() : null;
+  const ok = (r) => r && Number.isInteger(r.opcao) && r.opcao >= 0 && r.opcao < 5 ? r.opcao : null;
+  const o0 = ok(antes), o1 = ok(depois);
+  if (o0 === o1) return;
+  const nid = (depois || antes).noticia_id;
+  if (!nid || typeof nid !== 'string') return;
+  const mudar = {};
+  if (o0 !== null) mudar['votos.' + o0] = FieldValue.increment(-1);
+  if (o1 !== null) mudar['votos.' + o1] = FieldValue.increment(1);
+  try { await getFirestore().doc('noticias/' + nid).update(mudar); }
+  catch (e) { console.warn('pesquisa: noticia', nid, e.code || e.message); }
+});

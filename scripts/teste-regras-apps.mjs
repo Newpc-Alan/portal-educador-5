@@ -586,6 +586,29 @@ await t('reacao em rascunho', assertFails(setDoc(doc(prof, 'noticias_reacoes/n2_
 await t('reacao de noticia em nome de outro', assertFails(setDoc(doc(prof, 'noticias_reacoes/n1_prof2'), { noticia_id: 'n1', uid: 'prof2', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
 await t('anonimo nao le noticias', assertFails(getDocs(query(collection(anon, 'noticias'), where('publicado', '==', true)))));
 
+// pesquisa rápida
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+  await setDoc(doc(f, 'noticias/pq1'), { tipo: 'pesquisa', titulo: 'Gostou?', opcoes: ['Sim', 'Não'], publicado: true, identificada: false });
+  await setDoc(doc(f, 'noticias/pq2'), { tipo: 'pesquisa', titulo: 'Qual escola?', opcoes: ['A', 'B', 'C'], publicado: true, identificada: true });
+  await setDoc(doc(f, 'noticias/pq3'), { tipo: 'pesquisa', titulo: 'Rascunho', opcoes: ['A', 'B'], publicado: false });
+  await setDoc(doc(f, 'noticias/pq4'), { tipo: 'pesquisa', titulo: 'Encerrada', opcoes: ['A', 'B'], publicado: true, fim: new Date(Date.now() - 86400000) }); });
+const rp = (o) => ({ noticia_id: 'pq1', uid: 'prof', opcao: 1, perfil: 'professor', municipio_id: 'm1', em: serverTimestamp(), ...o });
+await t('pesquisa: professor responde anonima', assertSucceeds(setDoc(doc(prof, 'pesquisa_respostas/pq1_prof'), rp())));
+await t('pesquisa: nao troca a resposta', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq1_prof'), rp({ opcao: 0 }))));
+await t('pesquisa: le a propria resposta', assertSucceeds(getDoc(doc(prof, 'pesquisa_respostas/pq1_prof'))));
+await t('pesquisa: anonima nao leva nome', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq1_prof'), rp({ nome: 'Joao' }))));
+await t('pesquisa: opcao fora da lista', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq2_prof'), rp({ noticia_id: 'pq2', opcao: 3, nome: 'J', escola_nome: 'E' }))));
+await t('pesquisa: identificada sem nome', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq2_prof'), rp({ noticia_id: 'pq2', opcao: 2 }))));
+await t('pesquisa: municipio de outro', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq2_prof'), rp({ noticia_id: 'pq2', opcao: 2, nome: 'J', escola_nome: 'E', municipio_id: 'm2' }))));
+await t('pesquisa: identificada com nome', assertSucceeds(setDoc(doc(prof, 'pesquisa_respostas/pq2_prof'), rp({ noticia_id: 'pq2', opcao: 2, nome: 'Joao', escola_nome: 'EM A' }))));
+await t('pesquisa: em nome de outro', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq1_prof2'), rp({ uid: 'prof2' }))));
+await t('pesquisa: rascunho', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq3_prof'), rp({ noticia_id: 'pq3' }))));
+await t('pesquisa: encerrada', assertFails(setDoc(doc(prof, 'pesquisa_respostas/pq4_prof'), rp({ noticia_id: 'pq4' }))));
+await t('pesquisa: noticia comum nao recebe resposta', assertFails(setDoc(doc(prof, 'pesquisa_respostas/n1_prof'), rp({ noticia_id: 'n1' }))));
+await t('pesquisa: professor nao le respostas dos outros', assertFails(getDocs(query(collection(prof, 'pesquisa_respostas'), where('noticia_id', '==', 'pq2')))));
+await t('pesquisa: admin le respostas', assertSucceeds(getDocs(query(collection(ctx('adm'), 'pesquisa_respostas'), where('noticia_id', '==', 'pq2')))));
+await t('pesquisa: professor nao apaga a resposta', assertFails(deleteDoc(doc(prof, 'pesquisa_respostas/pq1_prof'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

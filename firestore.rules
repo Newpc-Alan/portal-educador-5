@@ -630,6 +630,26 @@ service cloud.firestore {
       allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
     }
 
+    // pesquisa rápida (noticias com tipo "pesquisa"): uma resposta por pessoa, sem trocar depois; anônima não leva nome nem escola
+    function pesquisa(nid) { return get(/databases/$(database)/documents/noticias/$(nid)).data; }
+    function pesquisaAberta(p) {
+      return p.get("tipo", "") == "pesquisa" && p.get("publicado", false) == true
+        && (p.get("fim", null) == null || p.fim > request.time) && p.get("opcoes", []) is list;
+    }
+    match /pesquisa_respostas/{id} {
+      allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);
+      allow create: if logado() && id == novo().noticia_id + "_" + request.auth.uid
+        && novo().keys().hasOnly(["noticia_id", "uid", "opcao", "perfil", "municipio_id", "nome", "escola_nome", "em"])
+        && novo().uid == request.auth.uid && novo().perfil == eu().perfil
+        && novo().municipio_id == eu().get("municipio_id", null) && novo().em == request.time
+        && pesquisaAberta(pesquisa(novo().noticia_id))
+        && novo().opcao is int && novo().opcao >= 0 && novo().opcao < pesquisa(novo().noticia_id).opcoes.size()
+        && (pesquisa(novo().noticia_id).get("identificada", false) == true
+              ? (novo().nome is string && novo().nome.size() <= 120 && novo().escola_nome is string && novo().escola_nome.size() <= 160)
+              : (!("nome" in novo()) && !("escola_nome" in novo())));
+      allow delete: if admin();
+    }
+
     // videos: catalogo (os videos ficam no YouTube); o professor so ve os publicados
     match /videos/{id} {
       allow read: if admin() || (licenciado() && resource.data.publicado == true)

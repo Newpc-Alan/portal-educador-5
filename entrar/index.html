@@ -442,6 +442,24 @@
   .nt-midia{ position:relative;margin:4px 0 16px;border-radius:12px;overflow:hidden;background:#000 }
   .nt-midia.yt{ aspect-ratio:16/9 } .nt-midia.sp{ height:232px;background:transparent }
   .nt-midia iframe{ position:absolute;inset:0;width:100%;height:100%;border:0 }
+  .pq{ margin-top:6px }
+  .pq-perg{ font-size:17px;font-weight:700;color:var(--ink);margin-bottom:10px;line-height:1.35 }
+  .pq-ops{ display:grid;gap:8px }
+  .pq-op{ text-align:left;border:1.5px solid var(--line);border-radius:12px;background:#fff;padding:12px 14px;font:600 14.5px inherit;color:var(--ink);cursor:pointer }
+  .pq-op:hover:not(:disabled){ border-color:var(--pde-azul,#2671AB);background:#f3f8fd }
+  .pq-op:disabled{ cursor:default;opacity:.7 }
+  .pq-op.on{ border-color:var(--pde-azul,#2671AB);background:#e9f2fb;opacity:1 }
+  .pq-aviso{ font-size:12px;color:var(--muted);margin-top:10px }
+  .pq-ok{ padding:12px 14px;border-radius:12px;background:#eaf6ee;color:#1a6b2a;font-weight:700;font-size:14px }
+  .pq-res{ display:grid;gap:8px;margin-top:12px }
+  .pq-bar{ display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center;font-size:13px;color:var(--ink) }
+  .pq-bar span{ display:block;height:8px;border-radius:99px;background:#e6edf4;overflow:hidden;margin-top:4px }
+  .pq-bar span i{ display:block;height:100%;background:var(--pde-azul,#2671AB) }
+  .pq-bar small{ text-align:right;color:var(--muted);font-weight:700 }
+  .nt-pop .modal{ max-width:520px }
+  .nt-pop-img{ width:100%;max-height:220px;object-fit:cover;display:block }
+  .nt-pop .mb h3{ font-size:19px;color:var(--ink);margin:2px 0 6px;line-height:1.3 }
+  .nt-pop .mb p.r{ font-size:14px;color:var(--muted) }
   .nt-adm-l{ display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line) }
   .nt-adm-l b{ font-size:14px }
   .nt-adm-l small{ display:block;font-size:12px;color:var(--muted) }
@@ -3740,6 +3758,7 @@
   }
   $("nav").addEventListener("click", (e) => { if(e.target.closest("a")) abrirMenu(false); });
   document.addEventListener("keydown", (e) => { if(e.key === "Escape" && document.body.classList.contains("menu-aberto")) abrirMenu(false); });
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && document.querySelector(".nt-pop")) fecharPopupNoticia(); });
 
   // delegacao de eventos (Regra 9)
   document.addEventListener("click", async (ev) => {
@@ -3796,6 +3815,10 @@
     else if(acao === "ntadm-pub"){ alternarNoticia(el.dataset.id, "publicado"); }
     else if(acao === "ntadm-fixar"){ alternarNoticia(el.dataset.id, "fixada"); }
     else if(acao === "ntadm-del"){ excluirNoticia(el.dataset.id, el); }
+    else if(acao === "pq-votar"){ votarPesquisa(el.dataset.id, el.dataset.arg, el); }
+    else if(acao === "pq-csv"){ csvPesquisa(el.dataset.id, el); }
+    else if(acao === "ntpop-fechar"){ fecharPopupNoticia(); }
+    else if(acao === "ntpop-ler"){ fecharPopupNoticia(); abrirNoticia(el.dataset.id); }
     else if(acao === "vd-fechar"){ fecharVideo(); }
     else if(acao === "vd-tela"){ telaCheiaVideo(); }
     else if(acao === "vd-serie"){ vds.serie = el.dataset.serie; const s = $("vdSerie"); if(s) s.value = vds.serie; desenharVideos(); }
@@ -4214,7 +4237,7 @@
   // ===================== MURAL DE NOTÍCIAS =====================
   // noticias/{id}: a NEWPC publica (depois, a Secretaria de cada rede só para a rede dela). Faixa no Início alterna uma por vez;
   // a matéria completa abre na página Notícias, com imagem, podcast/vídeo e as mesmas carinhas dos vídeos.
-  const NT_TIPOS = { noticia:["\u{1F4F0}","Notícia"], podcast:["\u{1F399}\u{FE0F}","Podcast"], acao:["\u{1F4E3}","Ação"], novidade:["\u{1F195}","Novidade no Portal"] };
+  const NT_TIPOS = { noticia:["\u{1F4F0}","Notícia"], podcast:["\u{1F399}\u{FE0F}","Podcast"], acao:["\u{1F4E3}","Ação"], novidade:["\u{1F195}","Novidade no Portal"], pesquisa:["\u{1F4CA}","Pesquisa rápida"] };
   const ntFaixa = { lista:[], i:0, t:null };
   const ntDe = n => { const ms = msDe(n.inicio) || msDe(n.criado_em) || 0; return ms ? new Date(ms).toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" }) : ""; };
   // quem vê: público (professor e equipe / aluno), municípios e janela de datas; o administrador vê tudo
@@ -4242,6 +4265,7 @@
     try{ await carregarNoticias(); }catch(e){ console.warn("noticias:", e.code); el.innerHTML = ""; return; }
     ntFaixa.lista = ntCache.filter(n => noticiaVisivel(n, ehAluno)).sort(ordemNoticias).slice(0, 6); ntFaixa.i = 0; ntFaixa.aluno = ehAluno;
     desenharFaixaNoticias();
+    popupNoticias(ehAluno);
     if(ntFaixa.lista.length > 1) ntFaixa.t = setInterval(() => { if(!$("iniNoticias")){ clearInterval(ntFaixa.t); return; } ntFaixa.i = (ntFaixa.i + 1) % ntFaixa.lista.length; desenharFaixaNoticias(); }, 8000);
   }
   function desenharFaixaNoticias(manual){
@@ -4253,7 +4277,7 @@
       '<span class="nt-faixa-img"'+(n.imagem_url ? ' style="background-image:url(\''+escapeAttr(n.imagem_url)+'\')"' : '')+'>'+(n.imagem_url ? '' : t[0])+'</span>'+
       '<div class="nt-faixa-txt"><span class="nt-selo">'+t[0]+' '+escapeHtml(t[1])+(n.fixada ? ' · em destaque' : '')+'</span><b>'+escapeHtml(n.titulo || "")+'</b><p>'+escapeHtml(n.resumo || "")+'</p></div>'+
       '<div class="nt-faixa-acoes">'+(l.length > 1 ? '<span class="nt-pontos">'+l.map((x, i) => '<i class="'+(i === ntFaixa.i % l.length ? "on" : "")+'" data-action="nt-ir" data-arg="'+i+'" role="button" aria-label="Notícia '+(i+1)+'"></i>').join("")+'</span>' : '')+
-      '<button type="button" class="nt-btn" data-action="nt-abrir" data-id="'+escapeAttr(n.id)+'">Ler mais</button>'+
+      '<button type="button" class="nt-btn" data-action="nt-abrir" data-id="'+escapeAttr(n.id)+'">'+(n.tipo === "pesquisa" ? "Responder" : "Ler mais")+'</button>'+
       '<button type="button" class="nt-lnk" data-action="nt-todas">Todas</button></div></div>';
   }
   async function renderNoticias(){
@@ -4296,8 +4320,9 @@
     $("conteudo").innerHTML = '<p style="margin-bottom:12px"><button class="btn btn-ghost btn-add" data-action="nt-todas">← Todas as notícias</button></p>'+
       '<article class="nt-mat">'+(n.imagem_url ? '<img class="nt-mat-img" src="'+escapeAttr(n.imagem_url)+'" alt="">' : '')+
       '<div class="nt-mat-c"><span class="nt-selo">'+t[0]+' '+escapeHtml(t[1])+'</span><h2>'+escapeHtml(n.titulo || "")+'</h2><div class="nt-data">'+escapeHtml(ntDe(n))+'</div>'+
-      midiaNoticia(n.midia_url)+'<div class="nt-corpo">'+corpoNoticia(n.corpo || n.resumo)+'</div>'+
-      '<div class="vd-reacao" id="ntReacao" style="margin-top:16px"></div></div></article>';
+      midiaNoticia(n.midia_url)+'<div class="nt-corpo">'+corpoNoticia(n.tipo === "pesquisa" ? n.corpo : (n.corpo || n.resumo))+'</div>'+
+      (n.tipo === "pesquisa" ? '<div class="pq" id="pqPagina"></div>' : '<div class="vd-reacao" id="ntReacao" style="margin-top:16px"></div>')+'</div></article>';
+    if(n.tipo === "pesquisa"){ pesquisaEm($("pqPagina"), n); return; }
     ntReac.n = n; ntReac.minha = ""; desenharReacaoNoticia();
     getDoc(doc(db,"noticias_reacoes",n.id+"_"+usuarioAtual.uid)).then(s => { if(ntReac.n === n && s.exists()){ ntReac.minha = s.data().reacao || ""; desenharReacaoNoticia(); } }).catch(() => {});
   }
@@ -4317,6 +4342,109 @@
     finally{ ntReac.salvando = false; desenharReacaoNoticia(); }
   }
 
+  // ---------- pesquisa rápida: 1 pergunta (o título), 2 a 5 opções, uma resposta por pessoa ----------
+  // pesquisa_respostas/{noticia}_{uid}; a function contarRespostaPesquisa soma em noticias/{id}.votos.<opção>
+  const pqResp = {};
+  async function minhaResposta(n){
+    if(n.id in pqResp) return pqResp[n.id];
+    try{ const s = await getDoc(doc(db,"pesquisa_respostas",n.id+"_"+usuarioAtual.uid)); pqResp[n.id] = s.exists() ? s.data().opcao : -1; }
+    catch(e){ pqResp[n.id] = -1; }
+    return pqResp[n.id];
+  }
+  const totalVotos = n => (n.opcoes || []).reduce((a, _, i) => a + ((n.votos || {})[i] || 0), 0);
+  function resultadoPesquisa(n){
+    const ops = n.opcoes || [], v = n.votos || {}, tot = totalVotos(n);
+    return '<div class="pq-res"><b style="font-size:13px">Resultado: '+tot+' resposta'+(tot === 1 ? "" : "s")+(n.identificada ? " · identificada" : " · anônima")+'</b>'+ops.map((o, i) => {
+      const q = v[i] || 0, pc = tot ? Math.round(q * 100 / tot) : 0;
+      return '<div class="pq-bar"><div>'+escapeHtml(o)+'<span><i style="width:'+pc+'%"></i></span></div><small>'+q+' · '+pc+'%</small></div>'; }).join("")+
+      (n.identificada && tot ? '<p style="margin-top:6px"><button type="button" class="btn btn-ghost btn-add" data-action="pq-csv" data-id="'+escapeAttr(n.id)+'">Baixar respostas (planilha)</button></p>' : '')+'</div>';
+  }
+  async function pesquisaEm(el, n){
+    if(!el) return;
+    el.innerHTML = '<div class="pq-aviso">Carregando...</div>';
+    const ops = Array.isArray(n.opcoes) ? n.opcoes : [], minha = await minhaResposta(n);
+    if(!el.isConnected) return;
+    const admin = (usuarioReal || usuarioAtual).perfil === "admin";
+    const aviso = n.identificada ? "Resposta identificada: a NEWPC vê seu nome e sua escola." : "Resposta anônima: aparecem só os totais.";
+    el.innerHTML = (minha >= 0 ? '<div class="pq-ok">✅ Obrigado! Você respondeu: '+escapeHtml(ops[minha] || "")+'</div>'
+      : '<div class="pq-ops">'+ops.map((o, i) => '<button type="button" class="pq-op" data-action="pq-votar" data-id="'+escapeAttr(n.id)+'" data-arg="'+i+'">'+escapeHtml(o)+'</button>').join("")+'</div><p class="pq-aviso">'+aviso+' Uma resposta por pessoa.</p>')+
+      (admin ? resultadoPesquisa(n) : '');
+  }
+  async function votarPesquisa(id, i, btn){
+    const n = ntPop.n && ntPop.n.id === id ? ntPop.n : ((ntCache || []).find(x => x.id === id) || (ntAdm.itens || []).find(x => x.id === id));
+    const box = btn.closest(".pq"); i = +i;
+    if(!n || !box || !(i >= 0 && i < (n.opcoes || []).length)) return;
+    box.querySelectorAll(".pq-op").forEach(b => b.disabled = true); btn.classList.add("on");
+    const u = usuarioReal || usuarioAtual;
+    const dados = { noticia_id:id, uid:usuarioAtual.uid, opcao:i, perfil:u.perfil, municipio_id:u.municipio_id || null, em:serverTimestamp() };
+    if(n.identificada){ dados.nome = String(u.nome || "").slice(0, 120); dados.escola_nome = String(u.escola_nome || (u.escolas_nomes || [])[0] || "").slice(0, 160); }
+    try{
+      await setDoc(doc(db,"pesquisa_respostas",id+"_"+usuarioAtual.uid), dados);
+      pqResp[id] = i; n.votos = { ...(n.votos || {}) }; n.votos[i] = (n.votos[i] || 0) + 1;
+      marcarPopupVisto(id); toast("Resposta registrada. Obrigado!");
+      await pesquisaEm(box, n);
+      if(box.closest(".nt-pop")) setTimeout(fecharPopupNoticia, 1600);
+    }catch(e){
+      console.warn("pesquisa:", e.code);
+      toast(e.code === "permission-denied" ? "Esta pesquisa já foi respondida ou saiu do ar." : "Não foi possível registrar agora.", true);
+      box.querySelectorAll(".pq-op").forEach(b => b.disabled = false); btn.classList.remove("on");
+    }
+  }
+  async function csvPesquisa(id, btn){
+    const n = (ntAdm.itens || []).find(x => x.id === id) || (ntCache || []).find(x => x.id === id); if(!n) return;
+    btn.disabled = true;
+    try{
+      if(!cacheMunicipios.length){ try{ await carregarCacheMunicipios(); }catch(e){} }
+      const s = await getDocs(query(collection(db,"pesquisa_respostas"), where("noticia_id","==",id)));
+      const muni = mid => ((cacheMunicipios.find(m => m.id === mid) || {}).nome || mid || "");
+      const linhas = [["Nome","Escola","Município","Perfil","Resposta","Data"]];
+      s.forEach(d => { const r = d.data(), ms = msDe(r.em);
+        linhas.push([r.nome || "", r.escola_nome || "", muni(r.municipio_id), LABELS_PERFIL[r.perfil] || r.perfil || "", (n.opcoes || [])[r.opcao] || "", ms ? new Date(ms).toLocaleString("pt-BR") : ""]); });
+      const csv = "﻿"+linhas.map(l => l.map(c => '"'+String(c).replace(/"/g, '""')+'"').join(";")).join("\r\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
+      a.download = "pesquisa-"+String(n.titulo || id).toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40)+".csv";
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    }catch(e){ toast("Não foi possível baixar ("+(e.code || "erro")+").", true); }
+    finally{ btn.disabled = false; }
+  }
+
+  // ---------- pop-up ao entrar: só um por entrada; some para a pessoa quando ela responde ou fecha ----------
+  const ntPop = { n:null };
+  const chavePop = id => "pe5_ntpop_"+(usuarioAtual.uid || "")+"_"+id;
+  function popupVisto(id){ try{ return localStorage.getItem(chavePop(id)) === "1"; }catch(e){ return false; } }
+  function marcarPopupVisto(id){ try{ localStorage.setItem(chavePop(id), "1"); }catch(e){} }
+  async function popupNoticias(ehAluno){
+    try{ if(sessionStorage.getItem("pe5_ntpop_sessao")) return; }catch(e){}
+    if(document.querySelector(".nt-pop") || !ntCache) return;
+    const cands = ntCache.filter(n => n.popup === true && noticiaVisivel(n, ehAluno) && !popupVisto(n.id)).sort(ordemNoticias);
+    for(const n of cands){
+      if(n.tipo === "pesquisa" && (await minhaResposta(n)) >= 0) continue;
+      if(!$("iniNoticias") || document.querySelector(".nt-pop")) return;   // a pessoa já saiu do Início
+      abrirPopupNoticia(n); return;
+    }
+  }
+  function abrirPopupNoticia(n){
+    try{ sessionStorage.setItem("pe5_ntpop_sessao", "1"); }catch(e){}
+    ntPop.n = n;
+    const t = NT_TIPOS[n.tipo] || NT_TIPOS.noticia, pq = n.tipo === "pesquisa";
+    const bg = document.createElement("div");
+    bg.className = "modal-bg show nt-pop"; bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true"); bg.setAttribute("aria-labelledby", "ntPopTit");
+    bg.innerHTML = '<div class="modal">'+(n.imagem_url && !pq ? '<img class="nt-pop-img" src="'+escapeAttr(n.imagem_url)+'" alt="">' : '')+
+      '<div class="mb"><span class="nt-selo">'+t[0]+' '+escapeHtml(t[1])+'</span><h3 id="ntPopTit">'+escapeHtml(n.titulo || "")+'</h3>'+
+      (n.resumo ? '<p class="r">'+escapeHtml(n.resumo)+'</p>' : '')+(pq ? '<div class="pq" id="pqPop"></div>' : '')+'</div>'+
+      '<div class="mf">'+(pq ? '' : '<button type="button" class="btn btn-primary" data-action="ntpop-ler" data-id="'+escapeAttr(n.id)+'">'+(n.tipo === "podcast" ? "Ouvir agora" : "Ler a matéria")+'</button>')+
+      '<button type="button" class="btn btn-ghost" data-action="ntpop-fechar">'+(pq ? "Agora não" : "Fechar")+'</button></div></div>';
+    bg.addEventListener("click", e => { if(e.target === bg) fecharPopupNoticia(); });
+    document.body.appendChild(bg);
+    if(pq) pesquisaEm($("pqPop"), n);
+    const b = bg.querySelector(".mf .btn"); if(b) b.focus();
+  }
+  function fecharPopupNoticia(){
+    const el = document.querySelector(".nt-pop"); if(!el) return;
+    if(ntPop.n) marcarPopupVisto(ntPop.n.id);
+    el.remove(); ntPop.n = null;
+  }
+
   // ---------- administrador: escrever, publicar, fixar e tirar do ar ----------
   const ntAdm = { itens:[], editando:null, img:null };
   const dataInput = ms => { if(!ms) return ""; const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60000); return d.toISOString().slice(0, 10); };
@@ -4332,10 +4460,15 @@
     if($("ntFormTit")) $("ntFormTit").textContent = n ? "Editar notícia" : "Nova notícia";
     const x = n || { tipo:"noticia", publico:{ prof:true, aluno:false }, municipios:[], publicado:true };
     const munis = new Set(x.municipios || []);
+    const travado = !!n && n.tipo === "pesquisa" && totalVotos(n) > 0;   // já tem respostas: não muda as opções
     $("ntForm").innerHTML =
       '<div class="row2"><div class="field"><label for="ntTipo">Tipo</label><select id="ntTipo">'+Object.entries(NT_TIPOS).map(([k, v]) => '<option value="'+k+'"'+(x.tipo === k ? " selected" : "")+'>'+v[0]+' '+v[1]+'</option>').join("")+'</select></div>'+
-        '<div class="field"><label for="ntTit">Título</label><input type="text" id="ntTit" maxlength="120" value="'+escapeAttr(x.titulo || "")+'"></div></div>'+
-      '<div class="field"><label for="ntRes">Chamada curta (aparece na faixa do Início)</label><input type="text" id="ntRes" maxlength="160" value="'+escapeAttr(x.resumo || "")+'" placeholder="Ex.: Novo episódio: como usar a IA para planejar a semana"></div>'+
+        '<div class="field"><label for="ntTit">Título <small>(na pesquisa, é a pergunta)</small></label><input type="text" id="ntTit" maxlength="120" value="'+escapeAttr(x.titulo || "")+'"></div></div>'+
+      '<div class="field"><label for="ntRes">Chamada curta (aparece na faixa do Início) <small>(opcional na pesquisa)</small></label><input type="text" id="ntRes" maxlength="160" value="'+escapeAttr(x.resumo || "")+'" placeholder="Ex.: Novo episódio: como usar a IA para planejar a semana"></div>'+
+      '<div id="ntPqBox" class="imp-card" style="background:#f6f9fc;margin-bottom:14px"'+(x.tipo === "pesquisa" ? "" : " hidden")+'><div class="field"><label>Opções de resposta <small>(de 2 a 5)</small></label>'+
+        [0,1,2,3,4].map(i => '<input type="text" id="ntOp'+i+'" maxlength="80" style="margin-bottom:6px" placeholder="Opção '+(i+1)+(i < 2 ? "" : " (opcional)")+'" value="'+escapeAttr((x.opcoes || [])[i] || "")+'"'+(travado ? " disabled" : "")+'>').join("")+
+        (travado ? '<small class="acv-status">Já tem '+totalVotos(n)+' resposta(s): opções e identificação ficaram travadas para não misturar o resultado.</small>' : '')+'</div>'+
+        '<label class="vd-check"><input type="checkbox" id="ntIdent"'+(x.identificada ? " checked" : "")+(travado ? " disabled" : "")+'> Resposta identificada (vejo nome e escola de quem respondeu). Sem marcar, é anônima.</label></div>'+
       '<div class="field"><label for="ntCorpo">Matéria completa <small>(deixe uma linha em branco entre os parágrafos)</small></label><textarea id="ntCorpo" rows="7" maxlength="8000">'+escapeHtml(x.corpo || "")+'</textarea></div>'+
       '<div class="row2"><div class="field"><label for="ntMidia">Link do podcast ou vídeo <small>(Spotify ou YouTube viram player)</small></label><input type="text" id="ntMidia" maxlength="300" placeholder="https://open.spotify.com/episode/..." value="'+escapeAttr(x.midia_url || "")+'"></div>'+
         '<div class="field"><label for="ntImg">Imagem <small>(opcional, vira capa)</small></label><input type="file" id="ntImg" accept="image/*">'+(x.imagem_url ? '<small class="acv-status">Já tem imagem. Escolha outra para trocar.</small>' : '')+'</div></div>'+
@@ -4343,8 +4476,10 @@
         '<label class="vd-check"><input type="checkbox" id="ntAlu"'+(x.publico && x.publico.aluno ? " checked" : "")+'> Alunos</label></div></div>'+
         '<div class="field"><label>Período <small>(sem data de fim, fica até você tirar)</small></label><div class="row2" style="gap:8px"><input type="date" id="ntIni" value="'+escapeAttr(dataInput(msDe(x.inicio)) || dataInput(Date.now()))+'" aria-label="Início"><input type="date" id="ntFim" value="'+escapeAttr(dataInput(msDe(x.fim)))+'" aria-label="Fim"></div></div></div>'+
       '<div class="field"><label>Municípios <small>(nenhum marcado = todos)</small></label><div class="chk-lista" style="max-height:150px">'+cacheMunicipios.filter(m => !m.demo).map(m => '<label class="chk"><input type="checkbox" name="ntMuni" value="'+escapeAttr(m.id)+'"'+(munis.has(m.id) ? " checked" : "")+'> '+escapeHtml(m.nome+(m.uf ? "/"+m.uf : ""))+'</label>').join("")+'</div></div>'+
-      '<div class="vd-checks" style="margin-bottom:14px"><label class="vd-check"><input type="checkbox" id="ntFix"'+(x.fixada ? " checked" : "")+'> ⭐ Fixar no topo</label><label class="vd-check"><input type="checkbox" id="ntPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label></div>'+
+      '<div class="vd-checks" style="margin-bottom:14px"><label class="vd-check"><input type="checkbox" id="ntFix"'+(x.fixada ? " checked" : "")+'> ⭐ Fixar no topo</label><label class="vd-check"><input type="checkbox" id="ntPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label>'+
+        '<label class="vd-check"><input type="checkbox" id="ntPop"'+(x.popup ? " checked" : "")+'> \u{1F514} Abrir em pop-up ao entrar</label></div>'+
       '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="ntadm-salvar" id="ntSalvar">'+(n ? "Salvar alterações" : "Salvar notícia")+'</button><button type="button" class="btn btn-ghost" data-action="ntadm-limpar">'+(n ? "Cancelar edição" : "Limpar")+'</button></div>';
+    $("ntTipo").addEventListener("change", () => { $("ntPqBox").hidden = $("ntTipo").value !== "pesquisa"; });
   }
   async function imagemNoticia(arq){
     const bmp = await createImageBitmap(arq), L = 1200, r = Math.min(1, L / bmp.width);
@@ -4355,9 +4490,12 @@
   }
   async function salvarNoticia(){
     const tit = $("ntTit").value.trim(), res = $("ntRes").value.trim(), corpo = $("ntCorpo").value.trim(), midia = $("ntMidia").value.trim();
-    const prof = $("ntProf").checked, alu = $("ntAlu").checked;
-    if(!tit){ toast("Escreva o título.", true); return; }
-    if(!res){ toast("Escreva a chamada curta.", true); return; }
+    const prof = $("ntProf").checked, alu = $("ntAlu").checked, pq = $("ntTipo").value === "pesquisa", travado = $("ntOp0").disabled;
+    if(!tit){ toast(pq ? "Escreva a pergunta no título." : "Escreva o título.", true); return; }
+    if(!res && !pq){ toast("Escreva a chamada curta.", true); return; }
+    const opcoes = [0,1,2,3,4].map(i => $("ntOp"+i).value.trim()).filter(Boolean);
+    if(pq && !travado && opcoes.length < 2){ toast("A pesquisa precisa de pelo menos 2 opções.", true); return; }
+    if(pq && !travado && new Set(opcoes.map(o => o.toLowerCase())).size !== opcoes.length){ toast("Há opções repetidas.", true); return; }
     if(!prof && !alu){ toast("Marque quem vê: professores, alunos ou ambos.", true); return; }
     if(midia && !/^https:\/\//i.test(midia)){ toast("O link deve começar com https://", true); return; }
     const ini = $("ntIni").value, fim = $("ntFim").value;
@@ -4368,7 +4506,8 @@
       const dados = { tipo:$("ntTipo").value, titulo:tit, resumo:res, corpo, midia_url:midia, publico:{ prof, aluno:alu },
         municipios:[...document.querySelectorAll('input[name="ntMuni"]:checked')].map(i => i.value),
         inicio:ini ? Timestamp.fromDate(new Date(ini+"T00:00:00")) : serverTimestamp(), fim:fim ? Timestamp.fromDate(new Date(fim+"T23:59:59")) : null,
-        fixada:$("ntFix").checked, publicado:$("ntPub").checked, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+        fixada:$("ntFix").checked, publicado:$("ntPub").checked, popup:$("ntPop").checked, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      if(pq && !travado){ dados.opcoes = opcoes; dados.identificada = $("ntIdent").checked; }
       const arq = $("ntImg").files[0];
       if(arq){
         if(!/^image\//.test(arq.type)) throw new Error("Escolha um arquivo de imagem.");
@@ -4379,7 +4518,7 @@
       }
       if(ntAdm.editando) await updateDoc(ref, dados);
       else await setDoc(ref, { ...dados, imagem_url:dados.imagem_url || "", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid });
-      toast(dados.publicado ? "Notícia publicada." : "Notícia salva como rascunho.");
+      toast(dados.publicado ? (pq ? "Pesquisa publicada." : "Notícia publicada.") : "Salva como rascunho.");
       ntCache = null; formNoticia(null); await listarNoticiasAdmin();
     }catch(e){ console.warn(e); toast("Não foi possível salvar ("+(e.code || e.message || "erro")+").", true); }
     finally{ if($("ntSalvar")){ $("ntSalvar").disabled = false; $("ntSalvar").textContent = ntAdm.editando ? "Salvar alterações" : "Salvar notícia"; } }
@@ -4394,7 +4533,8 @@
         const sit = !n.publicado ? "Rascunho" : (fim && fim < agora) ? "Encerrada" : (ini && ini > agora) ? "Agendada" : "No ar";
         const pub = [n.publico && n.publico.prof ? "professores" : "", n.publico && n.publico.aluno ? "alunos" : ""].filter(Boolean).join(" e ");
         const munis = (n.municipios || []).length ? (n.municipios || []).map(id => ((cacheMunicipios.find(m => m.id === id) || {}).nome || id)).join(", ") : "todos os municípios";
-        return '<div class="nt-adm-l"><div><b>'+t[0]+' '+escapeHtml(n.titulo || "")+(n.fixada ? " ⭐" : "")+'</b><small>'+sit+' · '+escapeHtml(pub)+' · '+escapeHtml(munis)+' · '+escapeHtml(ntDe(n))+'</small><small>'+reacoesMini(n)+'</small></div>'+
+        return '<div class="nt-adm-l"><div><b>'+t[0]+' '+escapeHtml(n.titulo || "")+(n.fixada ? " ⭐" : "")+'</b><small>'+sit+' · '+escapeHtml(pub)+' · '+escapeHtml(munis)+' · '+escapeHtml(ntDe(n))+(n.popup ? ' · \u{1F514} pop-up' : '')+'</small>'+
+          '<small>'+(n.tipo === "pesquisa" ? '\u{1F4CA} '+totalVotos(n)+' resposta(s) · '+(n.identificada ? "identificada" : "anônima") : reacoesMini(n))+'</small></div>'+
           '<div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="nt-abrir" data-id="'+escapeAttr(n.id)+'">Ver</button><button class="btn-mini btn-gerenciar" data-action="ntadm-editar" data-id="'+escapeAttr(n.id)+'">Editar</button>'+
           '<button class="btn-mini btn-gerenciar" data-action="ntadm-fixar" data-id="'+escapeAttr(n.id)+'">'+(n.fixada ? "Desafixar" : "Fixar")+'</button>'+
           '<button class="btn-mini btn-gerenciar" data-action="ntadm-pub" data-id="'+escapeAttr(n.id)+'">'+(n.publicado ? "Tirar do ar" : "Publicar")+'</button>'+
