@@ -1,0 +1,13 @@
+rules_version = '2';
+// Bucket portal-educador-5-backups (São Paulo): exportações do banco. Só o administrador baixa o pacote pronto
+// (downloads/); as exportações cruas não são lidas pelo aplicativo. Tudo some em 7 dias (regra do bucket).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function eu() { return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data; }
+    match /downloads/{arquivo} {
+      allow get: if request.auth != null && eu().perfil == "admin" && eu().status == "ativo";
+      allow list, write: if false;
+    }
+    match /{tudo=**} { allow read, write: if false; }
+  }
+}

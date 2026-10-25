@@ -1,4 +1,5 @@
-// Backup do banco (Firestore) para uma pasta do Google Drive escolhida pelo administrador.
+// Backup do banco (Firestore) para uma pasta do Google Drive escolhida pelo administrador, ou para baixar no computador
+// (HD externo, servidor da empresa): o arquivo fica 7 dias em downloads/ no bucket de São Paulo, lido só pelo administrador (regras).
 // Caminho: exportação oficial do Firestore (inclui subcoleções) num bucket temporário em São Paulo
 // -> empacotada num .tar.gz -> enviada ao Drive. O bucket temporário apaga tudo em 7 dias.
 // Restaurar: descompactar, subir a pasta para um bucket e rodar `gcloud firestore import` (procedimento guiado, nunca por botão).
@@ -79,11 +80,12 @@ export function tar(arquivos) {
   return Buffer.concat(blocos);
 }
 
-async function gerarBackup(tipo, quem) {
+// destino "drive" (pasta configurada) ou "computador" (o arquivo fica no bucket em downloads/ e o administrador baixa pelo painel)
+async function gerarBackup(tipo, quem, destino = 'drive') {
   const db = getFirestore(), cfg = (await db.doc('backup_config/atual').get()).data() || {};
-  if (!cfg.pasta_id) throw new HttpsError('failed-precondition', 'Escolha primeiro a pasta do Drive.');
+  if (destino === 'drive' && !cfg.pasta_id) throw new HttpsError('failed-precondition', 'Escolha primeiro a pasta do Drive.');
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19), log = db.collection('backups_log').doc();
-  await log.set({ em: FieldValue.serverTimestamp(), tipo, por_uid: quem.uid || '', por_nome: quem.nome || (tipo === 'automatico' ? 'Automático' : ''), status: 'exportando', pasta_nome: cfg.pasta_nome || '' });
+  await log.set({ em: FieldValue.serverTimestamp(), tipo, por_uid: quem.uid || '', por_nome: quem.nome || (tipo === 'automatico' ? 'Automático' : ''), status: 'exportando', destino, pasta_nome: destino === 'drive' ? cfg.pasta_nome || '' : '' });
   try {
     // 1) exportação oficial do Firestore (todas as coleções e subcoleções)
     const prefixo = `exports/${stamp}`, t = await token();
@@ -109,7 +111,14 @@ async function gerarBackup(tipo, quem) {
       'Para restaurar (com o suporte técnico, primeiro num banco de teste):\n1. Descompacte este arquivo.\n2. Envie a pasta para um bucket do Google Cloud Storage.\n' +
       `3. gcloud firestore import gs://BUCKET/backup-${stamp} --project=PROJETO_DE_DESTINO\n\nNão contém senhas (o login fica no Firebase Authentication) nem os arquivos do Storage.\n`) });
     const gz = gzipSync(tar(lista), { level: 9 });
-    const f = await enviarDrive(cfg.pasta_id, `portal-educador-backup-${stamp}.tar.gz`, gz, 'application/gzip');
+    const nome = `portal-educador-backup-${stamp}.tar.gz`;
+    if (destino === 'computador') {
+      const caminho = `downloads/${nome}`;
+      await getStorage().bucket(BUCKET_BACKUP).file(caminho).save(gz, { contentType: 'application/gzip', resumable: false, metadata: { contentDisposition: `attachment; filename="${nome}"` } });
+      await log.update({ status: 'ok', bytes: gz.length, documentos: docs, caminho, nome, fim: FieldValue.serverTimestamp() });
+      return { ok: true, bytes: gz.length, documentos: docs, caminho, nome };
+    }
+    const f = await enviarDrive(cfg.pasta_id, nome, gz, 'application/gzip');
     await log.update({ status: 'ok', bytes: gz.length, documentos: docs, arquivo_id: f.id || '', link: f.webViewLink || '', nome: f.name || '', fim: FieldValue.serverTimestamp() });
     await db.doc('backup_config/atual').set({ ultimo_ok: FieldValue.serverTimestamp() }, { merge: true });
     return { ok: true, bytes: gz.length, documentos: docs, link: f.webViewLink || '' };
@@ -141,7 +150,7 @@ export const backupConfigurar = onCall(OPC, async req => {
 
 export const backupAgora = onCall({ ...OPC, timeoutSeconds: 1800, memory: '1GiB' }, async req => {
   const u = await exigirAdmin(req);
-  return gerarBackup('manual', { uid: req.auth.uid, nome: u.nome || '' });
+  return gerarBackup('manual', { uid: req.auth.uid, nome: u.nome || '' }, (req.data || {}).destino === 'computador' ? 'computador' : 'drive');
 });
 
 // automático: todo domingo às 3h23 (horário de MS), se estiver ligado
