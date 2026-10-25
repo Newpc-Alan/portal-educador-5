@@ -943,11 +943,15 @@ function mostrar(tipo, ico, titulo, sub){
   clearTimeout(E.poFlashT); E.poFlashT = setTimeout(() => { f.hidden = true; }, tipo === "erro" ? 2600 : 1800);
 }
 function lerCodigo(txt){
-  const c = String(txt || "").trim(), m = /^PDEA[:;]([A-Za-z0-9_-]{1,64})$/i.exec(c), id = m ? m[1] : (/^[A-Za-z0-9_-]{8,64}$/.test(c) ? c : "");
+  // leitor configurado com teclado americano num computador ABNT2 troca o ":" (vira "Ç", ";" ou "?"): aceita qualquer separador
+  const c = String(txt || "").trim(), m = /^PDEA[^A-Za-z0-9_-]{0,2}([A-Za-z0-9_-]{1,64})$/i.exec(c);
+  let id = m ? m[1] : (/^[A-Za-z0-9_-]{8,64}$/.test(c) ? c : "");
   const agora = Date.now();
   if(id && E.poUlt[id] && agora - E.poUlt[id] < 6000) return; // a câmera lê o mesmo cartão várias vezes seguidas
   if(id) E.poUlt[id] = agora;
-  const al = id && E.base.alunos[id];
+  // e se o leitor estiver com Caps Lock, o código chega em maiúsculas: procura também sem diferenciar maiúsculas
+  const al = id && (E.base.alunos[id] || Object.values(E.base.alunos).find(a => a.id.toLowerCase() === id.toLowerCase()));
+  if(al) id = al.id;
   if(!al){ bip(false); mostrar("erro", "⚠️", "Carteirinha não reconhecida", "Não é desta escola ou o aluno não está cadastrado. Procure a secretaria."); return; }
   const t = E.base.turmas.find(x => x.id === al.turma_id) || {}, prim = al.nome.split(" ")[0];
   const ja = (E.poHoje || {})[id];
@@ -1004,7 +1008,7 @@ function pararCamera(){
 // leitor USB: digita o código muito rápido e termina com Enter
 document.addEventListener("keydown", ev => {
   if(E.aba !== "portaria" || ev.target.matches("input,textarea,select")) return;
-  if(ev.key === "Enter"){ if(E.poBuf){ lerCodigo(E.poBuf); E.poBuf = ""; } return; }
+  if(ev.key === "Enter" || ev.key === "Tab"){ if(ev.key === "Tab" && E.poBuf) ev.preventDefault(); if(E.poBuf){ lerCodigo(E.poBuf); E.poBuf = ""; } return; }
   if(ev.key.length === 1){ const t = Date.now(); if(t - (E.poBufT || 0) > 120) E.poBuf = ""; E.poBuf = (E.poBuf || "") + ev.key; E.poBufT = t; }
 });
 
