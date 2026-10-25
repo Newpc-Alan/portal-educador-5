@@ -97,3 +97,21 @@ export function agregar(resumos, hoje) {
   return { turmas, turmas7, alunos, aulas: a, faltas: f, freq: a ? (a - f) / a : null, risco, atencao };
 }
 function semanaAntes(d) { const t = Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - 6 * 864e5, x = new Date(t); return x.toISOString().slice(0, 10); }
+
+// Auditoria da portaria: cruza a entrada pela carteirinha com a chamada do professor, aluno por aluno, num dia.
+//   entrou: hora da entrada ("07:12") ou vazio; d: dia da turma (saída de dia()) ou null quando ainda não houve chamada
+// Situações:
+//   ok          entrou e está presente na chamada
+//   saiu        entrou e está com falta em TODAS as aulas do dia (o caso mais sério: entrou e não está na sala)
+//   parcial     entrou e faltou parte das aulas (chegou atrasado na sala ou saiu antes)
+//   sem_entrada está presente na chamada mas não passou a carteirinha (esqueceu, outro portão, emprestou)
+//   ausente     não entrou e faltou (coerente)
+//   so_entrada  entrou, mas a turma ainda não tem chamada no dia
+//   sem_dados   nem entrada nem chamada
+export const DIVERGENCIAS = ['saiu', 'parcial', 'sem_entrada'];
+export function conciliar(id, entrou, d) {
+  const a = d ? d.a : 0, f = d ? int((d.f || {})[id], a) : 0, j = !!(d && (d.j || []).includes(id));
+  if (!a) return { s: entrou ? 'so_entrada' : 'sem_dados', a: 0, f: 0, j: false };
+  const s = entrou ? (!f ? 'ok' : f >= a ? 'saiu' : 'parcial') : (f >= a ? 'ausente' : 'sem_entrada');
+  return { s, a, f, j };
+}

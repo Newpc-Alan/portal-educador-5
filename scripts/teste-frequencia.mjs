@@ -62,5 +62,15 @@ t('frequência média', Math.abs(g.freq - (1 - (12 + 0 + 12 + 0) / (16 + 16 + 16
 // texto ruim no banco não derruba a conta
 t('dia corrompido vira zero', F.totais({ '2026-03-01': '{x' }, { a1: { d: '2026-03-01', t: '2026-03-01' } }, 75).alunos.a1.a === 0);
 
+// auditoria da portaria: entrada x chamada
+const DD = F.dia([{ aulas: 3, lista: ['a', 'b', 'c', 'd'], faltas: { a: 3, b: 1, d: 3 }, just: { d: true } }]);
+t('entrou e presente', F.conciliar('c', '07:00', DD).s === 'ok');
+t('entrou e falta em todas', F.conciliar('a', '07:00', DD).s === 'saiu');
+t('entrou e faltou parte', F.conciliar('b', '07:00', DD).s === 'parcial' && F.conciliar('b', '07:00', DD).f === 1);
+t('presente sem entrada', F.conciliar('c', '', DD).s === 'sem_entrada' && F.conciliar('b', '', DD).s === 'sem_entrada');
+t('faltou e nao entrou', F.conciliar('a', '', DD).s === 'ausente' && F.conciliar('d', '', DD).j === true);
+t('sem chamada', F.conciliar('a', '07:00', null).s === 'so_entrada' && F.conciliar('a', '', null).s === 'sem_dados');
+t('divergencias', F.DIVERGENCIAS.join() === 'saiu,parcial,sem_entrada');
+
 console.log(`${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

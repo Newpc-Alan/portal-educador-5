@@ -39,8 +39,8 @@ try {
   [s, d] = await post({ acao: 'entrar', entradas: [{ id: al2.id, hora: '07:10', dia: hoje, foto: JPG }] });
   const caminho = `portaria/demo-e1/${hoje}/${al2.id}_0710.jpg`;
   const doc2 = (await entRef.get()).data() || {};
-  t('foto gravada no Storage', (await getStorage().bucket().file(caminho).exists())[0] && (doc2.fotos || {})[al2.id] === caminho);
-  await getStorage().bucket().file(caminho).delete().catch(() => {});
+  t('foto gravada no Storage', (await getStorage().bucket('portal-educador-5-portaria').file(caminho).exists())[0] && (doc2.fotos || {})[al2.id] === caminho);
+  await getStorage().bucket('portal-educador-5-portaria').file(caminho).delete().catch(() => {});
 } finally {
   await ref.delete();
   if (!antes) await entRef.delete(); else await entRef.set(antes);

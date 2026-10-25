@@ -429,6 +429,19 @@ await t('gestor le alunos da escola', assertSucceeds(getDocs(query(collection(ge
 await t('gestor nao le alunos de outra escola', assertFails(getDocs(query(collection(gest, 'alunos'), where('escola_id', '==', 'e1')))));
 await t('gestor nao cria aluno', assertFails(setDoc(doc(gest1, 'alunos/novo1'), { nome: 'X', turma_id: 'tf1', escola_id: 'e1', criado_por: 'gest1' })));
 
+// registro de quem abriu foto da entrada
+const vista = { escola_id: 'e1', aluno_id: 'al1', aluno_nome: 'Ana', dia: '2026-10-26', foto: 'portaria/e1/2026-10-26/al1_0705.jpg', por_uid: 'gest1', por_nome: 'G', em: serverTimestamp(), mes: '2026-10' };
+await t('gestor registra que abriu a foto', assertSucceeds(setDoc(doc(gest1, 'portaria_vistas/v1'), vista)));
+await t('gestor le quem abriu fotos da escola', assertSucceeds(getDocs(query(collection(gest1, 'portaria_vistas'), where('escola_id', '==', 'e1'), where('mes', '==', '2026-10')))));
+await t('gestor de outra escola nao le registro', assertFails(getDoc(doc(gest, 'portaria_vistas/v1'))));
+await t('registro nao pode ser apagado', assertFails(deleteDoc(doc(gest1, 'portaria_vistas/v1'))));
+await t('registro nao pode ser alterado', assertFails(setDoc(doc(gest1, 'portaria_vistas/v1'), { ...vista, por_nome: 'Outro' })));
+await t('registro em nome de outro', assertFails(setDoc(doc(gest1, 'portaria_vistas/v2'), { ...vista, por_uid: 'gest' })));
+await t('registro com hora falsa', assertFails(setDoc(doc(gest1, 'portaria_vistas/v3'), { ...vista, em: new Date(2020, 0, 1) })));
+await t('registro de foto de outra escola', assertFails(setDoc(doc(gest1, 'portaria_vistas/v4'), { ...vista, escola_id: 'e2', foto: 'portaria/e2/2026-10-26/al1_0705.jpg' })));
+await t('registro com caminho que nao bate', assertFails(setDoc(doc(gest1, 'portaria_vistas/v5'), { ...vista, foto: 'portaria/e1/2026-10-26/outro_0705.jpg' })));
+await t('professor nao registra nem le', assertFails(setDoc(doc(prof, 'portaria_vistas/v6'), { ...vista, por_uid: 'prof' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

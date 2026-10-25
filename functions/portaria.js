@@ -11,6 +11,8 @@ import { getStorage } from 'firebase-admin/storage';
 
 // foto da entrada (opcional, por totem): conferência de carteirinha emprestada; guardada só por este prazo
 export const RETENCAO_FOTOS_DIAS = 15;
+// bucket só das fotos, em São Paulo (southamerica-east1), sem lixeira e com apagamento automático no próprio bucket como segunda garantia
+export const BUCKET_PORTARIA = 'portal-educador-5-portaria';
 
 const CHAVE = /^[A-Za-z0-9]{20}$/, ID = /^[A-Za-z0-9_-]{1,64}$/, HORA = /^[0-2]\d:[0-5]\d$/, DATA = /^20\d\d-[01]\d-[0-3]\d$/;
 const hojeMS = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -52,7 +54,7 @@ export const portaria = onRequest({ region: 'southamerica-east1', cors: true, in
     // agrupa por turma e dia; a primeira hora registrada fica (não sobrescreve quem já entrou)
     const grupos = {}, ok = [];
     lista.forEach(e => { const a = al[e.id]; if (!a || !turmas[a.turma_id]) return; const k = a.turma_id + '_' + e.dia; (grupos[k] = grupos[k] || { turma: a.turma_id, dia: e.dia, itens: [] }).itens.push({ ...e, nome: String(a.nome).slice(0, 80) }); });
-    const comFoto = tela.foto_entrada === true, bucket = comFoto ? getStorage().bucket() : null;
+    const comFoto = tela.foto_entrada === true, bucket = comFoto ? getStorage().bucket(BUCKET_PORTARIA) : null;
     for (const [k, g] of Object.entries(grupos)) {
       const ref = db.doc(`freq_entradas/${k}`);
       let novos = [];
@@ -85,7 +87,7 @@ function fotoOk(b64) {
 
 // apaga todo dia as fotos da entrada que passaram do prazo de guarda (pasta portaria/{escola}/{dia}/)
 export const limparFotosPortaria = onSchedule({ schedule: '17 3 * * *', timeZone: 'America/Campo_Grande', region: 'southamerica-east1', timeoutSeconds: 540 }, async () => {
-  const limite = diasAtras(hojeMS(), RETENCAO_FOTOS_DIAS), bucket = getStorage().bucket();
+  const limite = diasAtras(hojeMS(), RETENCAO_FOTOS_DIAS), bucket = getStorage().bucket(BUCKET_PORTARIA);
   let apagadas = 0, pagina = null;
   do {
     const [arqs, prox] = await bucket.getFiles({ prefix: 'portaria/', autoPaginate: false, maxResults: 1000, pageToken: pagina || undefined });

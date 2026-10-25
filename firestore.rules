@@ -355,6 +355,18 @@ service cloud.firestore {
         && novo().entradas is map && novo().entradas.size() <= 80 && novo().nomes is map && novo().nomes.size() <= 80 && texto(novo().turma_nome, 80);
       allow delete: if admin();
     }
+    // registro de quem abriu cada foto da entrada (auditoria da diretoria): so cria, nunca altera nem apaga
+    match /portaria_vistas/{id} {
+      allow read: if admin() || gestorDaEscola(resource.data.escola_id);
+      allow create: if (admin() || gestorDaEscola(novo().escola_id))
+        && novo().keys().hasOnly(["escola_id", "aluno_id", "aluno_nome", "dia", "foto", "por_uid", "por_nome", "em", "mes"])
+        && novo().por_uid == request.auth.uid && novo().em == request.time
+        && novo().escola_id is string && novo().aluno_id is string && novo().aluno_id.matches("^[A-Za-z0-9_-]{1,64}$")
+        && dataOk(novo().dia) && novo().mes is string && novo().mes.matches("^20[0-9]{2}-[01][0-9]$")
+        && novo().foto is string && novo().foto.size() <= 200 && novo().foto.matches("^portaria/" + novo().escola_id + "/" + novo().dia + "/" + novo().aluno_id + "_[0-9]{4}[.]jpg$")
+        && texto(novo().aluno_nome, 80) && texto(novo().por_nome, 80);
+      allow update, delete: if false;
+    }
 
     // ficha de busca ativa: um caso por aluno, escola e ano; so a gestao da escola (e o administrador)
     match /busca_ativa/{id} {

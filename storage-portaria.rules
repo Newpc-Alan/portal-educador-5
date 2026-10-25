@@ -1,0 +1,14 @@
+rules_version = '2';
+// Bucket portal-educador-5-portaria (São Paulo): só as fotos da entrada tiradas pelo totem da portaria.
+// Só o servidor grava; só a gestão da escola (e o administrador) abre; tudo some depois do prazo de guarda (15 dias).
+service firebase.storage {
+  match /b/{bucket}/o {
+    function eu() { return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data; }
+    match /portaria/{esc}/{dia}/{arquivo} {
+      allow get: if request.auth != null && eu().status == "ativo"
+        && (eu().perfil == "admin" || (eu().perfil == "gestor" && esc in eu().get("escolas_ids", [eu().get("escola_id", "")])));
+      allow list, write: if false;
+    }
+    match /{tudo=**} { allow read, write: if false; }
+  }
+}

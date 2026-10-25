@@ -198,6 +198,13 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
 .po-foto{border:0;padding:0;background:none;cursor:pointer;flex:none;width:34px;height:34px;border-radius:50%;overflow:hidden;background:#24476a}
 .po-foto img{width:100%;height:100%;object-fit:cover;display:block}
 .po-foto.sem{opacity:.4}
+/* na lista ao vivo a foto fica borrada: ver o rosto é sempre um clique, e todo clique fica registrado */
+.po-lista .po-foto img{filter:blur(5px)}
+.au-ft{border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 8px;font-size:.78rem;font-weight:700;cursor:pointer}
+.au-ft:disabled{opacity:.45;cursor:default}
+.tab td.au-ch{white-space:normal;max-width:300px;font-size:.8rem;color:var(--muted)}
+.tab tr.au-div td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.tab tr.au-att td:first-child{box-shadow:inset 3px 0 0 #e0a100}
 .po-rod{color:#6f8aa5;font-size:.78rem;margin-top:10px}
 @media (max-width:760px){ .po-corpo{grid-template-columns:1fr} .po-cam{min-height:300px} }
 .bola.fora i{outline:3px dashed #F9A825;outline-offset:3px;border-radius:50%}
@@ -238,6 +245,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
       <button class="tb" data-action="ir" data-arg="mural" id="tabMural" hidden>📺 Mural de chegada</button>
       <button class="tb" data-action="ir" data-arg="portaria" id="tabPortaria" hidden>🚪 Portaria</button>
       <button class="tb" data-action="ir" data-arg="carteirinhas" id="tabCart" hidden>🪪 Carteirinhas</button>
+      <button class="tb" data-action="ir" data-arg="auditoria" id="tabAudit" hidden>🧾 Auditoria</button>
       <a class="tb lima" href="/gestao/">← Gestão</a>
     </div>
     <div class="status" id="status"></div>
@@ -344,6 +352,36 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
     </div>
   </section>
 
+  <section class="sec" id="s-auditoria">
+    <div class="cab-impressao"><b id="auImpTit">Auditoria da portaria</b><div class="sub" id="auImpSub"></div></div>
+    <div class="card nao-imprime">
+      <div class="barra">
+        <div><div class="h2" id="auTit">🧾 Auditoria da portaria</div><div class="sub">Entrada pela carteirinha × chamada do professor, aluno por aluno. Toque no aluno para ver os últimos 30 dias.</div></div><span class="esp"></span>
+        <button class="btn btn-gh btn-sm" data-action="au-csv">⬇️ Planilha (CSV)</button>
+        <button class="btn btn-gh btn-sm" data-action="imprimir">🖨️ Imprimir</button>
+      </div>
+      <div class="barra" style="margin-top:10px">
+        <label class="campo" style="min-width:200px" hidden>Escola<select class="sel" id="auEscola"></select></label>
+        <label class="campo">Dia<input class="inp" type="date" id="auDia"></label>
+        <label class="campo" style="flex:1;min-width:200px">Turma<select class="sel" id="auTurma"></select></label>
+        <div class="seg" id="auFiltro"><button class="on" data-action="au-filtro" data-arg="div">Só divergências</button><button data-action="au-filtro" data-arg="todos">Todos</button></div>
+        <input class="inp" id="auBusca" placeholder="Procurar aluno" style="min-width:180px">
+      </div>
+    </div>
+    <div class="kpis" id="auKpis"></div>
+    <div class="card" id="auHistBox" hidden>
+      <div class="barra"><div><div class="h2" id="auHistTit"></div><div class="sub" id="auHistSub"></div></div><span class="esp"></span>
+        <button class="btn btn-gh btn-sm nao-imprime" data-action="au-hist-csv">⬇️ CSV do aluno</button><button class="btn btn-gh btn-sm nao-imprime" data-action="au-hist-fechar">Fechar</button></div>
+      <div class="tab-wrap" style="margin-top:10px"><table class="tab" id="auHist"></table></div>
+    </div>
+    <div class="card"><div class="tab-wrap"><table class="tab" id="auTabela"></table></div><p class="sub" style="margin-top:10px" id="auRegra"></p></div>
+    <div class="card nao-imprime">
+      <div class="barra"><div><div class="h2">👁️ Quem abriu fotos da entrada</div><div class="sub">Toda foto ampliada fica registrada aqui, com nome e horário. Ninguém consegue apagar este registro, nem o administrador.</div></div><span class="esp"></span>
+        <label class="campo">Mês<input class="inp" type="month" id="auMes"></label></div>
+      <div class="tab-wrap" style="margin-top:10px"><table class="tab" id="auVistas"></table></div>
+    </div>
+  </section>
+
   <section class="sec" id="s-busca">
     <div class="cab-impressao"><b id="impTit">Busca ativa</b><div class="sub" id="impSub"></div></div>
     <div class="card nao-imprime">
@@ -400,7 +438,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
     </div>
     <div class="h2" style="font-size:.95rem;margin-top:16px">Histórico</div>
     <div class="fi-hist" id="fiHist"></div>
-    <div class="barra nao-imprime" style="margin-top:14px"><span class="sub">Dados de aluno: uso restrito à gestão da escola e à rede de proteção (LGPD).</span><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="imprimir-ficha">🖨️ Imprimir ficha</button></div>
+    <div class="barra nao-imprime" style="margin-top:14px"><span class="sub">Dados de aluno: uso restrito à gestão da escola e à rede de proteção (LGPD).</span><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="ficha-auditoria" id="fiAudit" hidden>🧾 Entrada × chamada</button><button class="btn btn-gh btn-sm" data-action="imprimir-ficha">🖨️ Imprimir ficha</button></div>
   </div>
 </div>
 <div class="fundo" id="poFotoBox" hidden data-action="po-foto-fechar"><div class="modal" style="max-width:420px;text-align:center"><img id="poFotoImg" alt="Foto da entrada" style="width:100%;border-radius:12px;background:#0c2338;min-height:120px">
@@ -411,13 +449,13 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, where, limit, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection, query, where, limit, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref as sRef, getBlob } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import CAL from "/assets/js/calendario-nucleo.js";
 import * as FREQ from "/assets/js/frequencia-nucleo.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
+const auth = getAuth(app), db = getFirestore(app), stFotos = getStorage(app, "gs://portal-educador-5-portaria"); // fotos da entrada: bucket em São Paulo
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3400); }
@@ -435,7 +473,7 @@ const E = { user:null, u:null, admin:false, sim:"", gestor:false, aba:"chamada",
 /* ===================== abas ===================== */
 function ir(aba){
   E.aba = aba;
-  [["chamada", "tabChamada"], ["historico", "tabHist"], ["busca", "tabBusca"], ["mural", "tabMural"], ["portaria", "tabPortaria"], ["carteirinhas", "tabCart"]].forEach(([a, b]) => $(b).classList.toggle("on", a === aba));
+  [["chamada", "tabChamada"], ["historico", "tabHist"], ["busca", "tabBusca"], ["mural", "tabMural"], ["portaria", "tabPortaria"], ["carteirinhas", "tabCart"], ["auditoria", "tabAudit"]].forEach(([a, b]) => $(b).classList.toggle("on", a === aba));
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + aba));
   $("rodape").hidden = aba !== "chamada" || !E.turma;
   try{ history.replaceState(null, "", "#" + aba); }catch(e){}
@@ -444,6 +482,7 @@ function ir(aba){
   if(aba === "mural") abrirMural();
   if(aba === "portaria") abrirPortaria(); else pararCamera();
   if(aba === "carteirinhas") abrirCarteirinhas();
+  if(aba === "auditoria") abrirAuditoria();
 }
 
 /* ===================== turmas e alunos ===================== */
@@ -678,6 +717,7 @@ function abrirFicha(turmaId, id){
   const x = dadosAluno(turmaId, id); if(!x) return;
   E.ficha = { turmaId, id, r:x.r, a:x.a };
   $("fiRetorno").value = ""; $("fiTexto").value = ""; $("fiMotivo").value = (E.casos[id] && E.casos[id].registros.slice(-1)[0] || {}).motivo || ""; $("fiPara").value = ""; $("fiTipo").value = "ligacao";
+  $("fiAudit").hidden = !podePortaria();
   desenharFicha(); $("ficha").hidden = false;
 }
 function desenharFicha(){
@@ -832,7 +872,7 @@ async function nomesEscolas(ids){
 }
 function preencherEscolas(sel, ids){
   if(!E.muEscola || !ids.includes(E.muEscola)) E.muEscola = ids[0] || "";
-  $(sel).hidden = ids.length < 2; if($(sel).parentElement.id === "caEscolaBox") $("caEscolaBox").hidden = ids.length < 2;
+  $(sel).hidden = ids.length < 2; const bx = $(sel).closest("label.campo"); if(bx) bx.hidden = ids.length < 2;
   $(sel).innerHTML = ids.map(id => '<option value="' + esc(id) + '"' + (id === E.muEscola ? " selected" : "") + ">" + esc(E.escolasNomes[id] || id) + "</option>").join("");
 }
 async function carregarBase(escola){
@@ -945,9 +985,17 @@ function desenharPortaria(){
 }
 // fotos da entrada (totem com câmera): só a gestão da escola consegue abrir (regras do Storage)
 const FOTOS = {};
-async function urlFoto(path){ if(!(path in FOTOS)) FOTOS[path] = getDownloadURL(sRef(st, path)).catch(() => ""); return FOTOS[path]; }
+// getBlob passa pelas regras a cada abertura: não existe link público da foto (como teria um link de download com token)
+async function urlFoto(path){ if(!(path in FOTOS)) FOTOS[path] = getBlob(sRef(stFotos, path)).then(b => URL.createObjectURL(b)).catch(() => ""); return FOTOS[path]; }
 function carregarFotos(){ document.querySelectorAll("img[data-foto]").forEach(async im => { const u = await urlFoto(im.dataset.foto); if(u) im.src = u; else im.closest(".po-foto").classList.add("sem"); }); }
+// antes de mostrar, registra quem abriu (portaria_vistas); se não registrar, não mostra
 async function verFoto(path, nome){
+  const p = /^portaria\/([A-Za-z0-9_-]+)\/(20\d\d-[01]\d-[0-3]\d)\/([A-Za-z0-9_-]+)_\d{4}\.jpg$/.exec(path || "");
+  if(!p) return;
+  const al = E.base.alunos[p[3]] || {};
+  try{ await addDoc(collection(db, "portaria_vistas"), { escola_id:p[1], aluno_id:p[3], aluno_nome:String(al.nome || String(nome || "").split(" · ")[0] || "").slice(0, 80), dia:p[2], foto:path,
+    por_uid:E.user.uid, por_nome:String(E.u.nome || E.user.email || "").slice(0, 80), em:serverTimestamp(), mes:hojeMS().slice(0, 7) }); E.auVistasChave = ""; if(E.aba === "auditoria") carregarVistas(); }
+  catch(e){ console.warn("vista:", e.code || e); toast("Não foi possível registrar o acesso, por isso a foto não foi aberta. Tente de novo.", true); return; }
   const u = await urlFoto(path);
   $("poFotoImg").src = u || ""; $("poFotoTxt").textContent = u ? nome : "Foto não disponível (apagada pelo prazo de guarda ou ainda enviando)."; $("poFotoBox").hidden = false;
 }
@@ -1029,6 +1077,118 @@ document.addEventListener("keydown", ev => {
   if(ev.key.length === 1){ const t = Date.now(); if(t - (E.poBufT || 0) > 120) E.poBuf = ""; E.poBuf = (E.poBuf || "") + ev.key; E.poBufT = t; }
 });
 
+/* ===================== auditoria da portaria ===================== */
+// entrada (freq_entradas) × chamada (freq_chamadas) no dia, aluno por aluno; histórico de 30 dias pelo resumo da turma
+const AU_SIT = { saiu:["Entrou e está com falta", "ruim"], parcial:["Entrou, faltou parte das aulas", "att"], sem_entrada:["Na sala sem passar a carteirinha", "att"],
+  ok:["Entrou e está na sala", "ok"], ausente:["Faltou", "cinza"], so_entrada:["Entrou · turma sem chamada ainda", "cinza"], sem_dados:["Sem entrada e sem chamada", "cinza"] };
+const AU_ORDEM = ["saiu", "parcial", "sem_entrada", "so_entrada", "ok", "ausente", "sem_dados"];
+async function abrirAuditoria(){
+  E.au = E.au || { chave:"", filtro:"div" };
+  if(!$("auDia").value){ $("auDia").value = hojeMS(); $("auDia").max = hojeMS(); }
+  if(!$("auMes").value) $("auMes").value = hojeMS().slice(0, 7);
+  const ids = await escolasGestao(); await nomesEscolas(ids); preencherEscolas("auEscola", ids);
+  $("auTit").textContent = "🧾 Auditoria da portaria · " + (E.escolasNomes[E.muEscola] || "");
+  const b = await carregarBase(E.muEscola), atual = $("auTurma").value;
+  $("auTurma").innerHTML = '<option value="">Todas as turmas</option>' + b.turmas.map(t => '<option value="' + esc(t.id) + '"' + (t.id === atual ? " selected" : "") + ">" + esc(t.nome || "Turma") + "</option>").join("");
+  await carregarDiaAuditoria();
+  carregarVistas();
+}
+async function carregarDiaAuditoria(forcar){
+  const dia = $("auDia").value || hojeMS(), chave = E.muEscola + "|" + dia;
+  if(E.au.chave !== chave || forcar){
+    $("auTabela").innerHTML = '<tbody><tr><td class="sub" style="padding:20px">Carregando...</td></tr></tbody>';
+    const ent = {}, ch = {};
+    try{
+      const [se, sc] = await Promise.all([
+        getDocs(query(collection(db, "freq_entradas"), where("escola_id", "==", E.muEscola), where("dia", "==", dia))),
+        getDocs(query(collection(db, "freq_chamadas"), where("escola_id", "==", E.muEscola), where("dia", "==", dia)))]);
+      se.forEach(d => { const x = d.data(); Object.entries(x.entradas || {}).forEach(([id, h]) => { ent[id] = { h, foto:(x.fotos || {})[id] || "", turma_id:x.turma_id, n:(x.nomes || {})[id] || "" }; }); });
+      sc.forEach(d => { const c = d.data(); (ch[c.turma_id] = ch[c.turma_id] || []).push(c); });
+    }catch(e){ console.warn("auditoria:", e.code || e); toast("Não foi possível carregar a auditoria deste dia.", true); }
+    const dias = {}; Object.entries(ch).forEach(([t, l]) => { dias[t] = FREQ.dia(l); });
+    E.au = { ...E.au, chave, dia, ent, ch, dias };
+  }
+  desenharAuditoria();
+}
+// linhas do dia: um aluno por linha, com a situação e as disciplinas em que ficou com falta
+function linhasAuditoria(){
+  const A = E.au, b = E.base, turmas = {}; b.turmas.forEach(t => { turmas[t.id] = t; });
+  const alunos = { ...b.alunos };
+  // quem entrou mas saiu do cadastro (transferido) aparece mesmo assim
+  Object.entries(A.ent).forEach(([id, x]) => { if(!alunos[id]) alunos[id] = { id, nome:x.n || "Aluno", turma_id:x.turma_id }; });
+  return Object.values(alunos).map(al => {
+    const e = A.ent[al.id], d = A.dias[al.turma_id], r = FREQ.conciliar(al.id, e ? e.h : "", d && d.a ? d : null);
+    const chs = A.ch[al.turma_id] || [], disc = chs.filter(c => +(c.faltas || {})[al.id] > 0).map(c => c.disciplina + (chs.length > 1 && (c.aulas || 1) > 1 ? " (" + c.faltas[al.id] + " de " + c.aulas + ")" : "") + (c.professor_nome ? " · " + String(c.professor_nome).split(" ")[0] : ""));
+    return { id:al.id, nome:al.nome, turma_id:al.turma_id, turma:(turmas[al.turma_id] || {}).nome || "", h:e ? e.h : "", foto:e ? e.foto : "", disc, ...r };
+  }).sort((x, y) => AU_ORDEM.indexOf(x.s) - AU_ORDEM.indexOf(y.s) || String(x.turma).localeCompare(String(y.turma), "pt-BR", { numeric:true }) || x.nome.localeCompare(y.nome, "pt-BR"));
+}
+const fotoVencida = dia => dia < CAL.soma(hojeMS(), -15);
+function botaoFoto(x, dia){
+  if(!x.foto) return '<span class="sub">–</span>';
+  if(fotoVencida(dia)) return '<span class="sub" title="Apagada pelo prazo de guarda de 15 dias">apagada</span>';
+  return '<button class="au-ft" data-action="po-foto" data-arg="' + esc(x.foto) + '" data-nome="' + esc(x.nome + " · " + (x.turma || "") + " · " + x.h) + '">📷 ver</button>';
+}
+function desenharAuditoria(){
+  const A = E.au, todas = linhasAuditoria(), tid = $("auTurma").value, termo = slug($("auBusca").value);
+  const daTurma = todas.filter(x => !tid || x.turma_id === tid), c = {}; daTurma.forEach(x => { c[x.s] = (c[x.s] || 0) + 1; });
+  const turmasCom = Object.keys(A.dias).filter(t => A.dias[t].a && (!tid || t === tid)).length, turmasTot = tid ? 1 : E.base.turmas.length;
+  const k = (rot, v, x, cls) => '<div class="kpi ' + (cls || "") + '"><small>' + rot + "</small><b>" + v + "</b><span>" + (x || "") + "</span></div>";
+  const entr = daTurma.filter(x => x.h).length;
+  $("auKpis").innerHTML = k("Entraram", entr.toLocaleString("pt-BR"), "de " + daTurma.length.toLocaleString("pt-BR") + " alunos") +
+    k("Chamadas lançadas", turmasCom + "/" + turmasTot, "turmas com chamada no dia", turmasCom < turmasTot ? "alerta" : "ok") +
+    k("Entrou e está com falta", c.saiu || 0, "o caso mais sério: conferir onde está", c.saiu ? "ruim" : "ok") +
+    k("Faltou parte das aulas", c.parcial || 0, "entrou, mas não esteve em todas", c.parcial ? "alerta" : "ok") +
+    k("Na sala sem carteirinha", c.sem_entrada || 0, "esqueceu, outro portão ou emprestou", c.sem_entrada ? "alerta" : "ok");
+  let l = daTurma; if(A.filtro === "div") l = l.filter(x => FREQ.DIVERGENCIAS.includes(x.s)); if(termo) l = l.filter(x => slug(x.nome + " " + x.turma).includes(termo));
+  A.lista = l;
+  const escN = E.escolasNomes[E.muEscola] || "";
+  $("auImpTit").textContent = "Auditoria da portaria · " + escN + " · " + dataLonga(A.dia);
+  $("auImpSub").textContent = "Gerado em " + new Date().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " por " + (E.u.nome || E.user.email) + " · Portal do Educador · uso restrito à gestão escolar (LGPD)";
+  $("auTabela").innerHTML = l.length ? "<thead><tr><th>Aluno</th><th>Turma</th><th>Entrada</th><th>Foto</th><th>Chamada do dia</th><th>Situação</th></tr></thead><tbody>" +
+    l.map(x => { const sit = AU_SIT[x.s], cls = x.s === "saiu" ? "au-div" : FREQ.DIVERGENCIAS.includes(x.s) ? "au-att" : "";
+      const chTxt = !x.a ? "–" : !x.f ? "Presente nas " + x.a + (x.a === 1 ? " aula" : " aulas") : "Falta em " + x.f + " de " + x.a + (x.j ? " · justificada" : "") + (x.disc.length ? ": " + x.disc.join("; ") : "");
+      return '<tr class="clic ' + cls + '" data-action="au-aluno" data-arg="' + esc(x.turma_id + "|" + x.id) + '"><td><b>' + esc(x.nome) + "</b></td><td>" + esc(x.turma) + "</td><td>" + (x.h ? "<b>" + esc(x.h) + "</b>" : '<span class="sub">não passou</span>') +
+        "</td><td>" + botaoFoto(x, A.dia) + '</td><td class="au-ch">' + esc(chTxt) + '</td><td><span class="pill ' + sit[1] + '">' + esc(x.s === "parcial" ? "Entrou, faltou " + x.f + " de " + x.a + " aulas" : sit[0]) + "</span></td></tr>"; }).join("") + "</tbody>"
+    : '<tbody><tr><td class="sub" style="padding:24px">' + (A.filtro === "div" ? (entr || turmasCom ? "Nenhuma divergência entre a entrada e a chamada neste dia. 👏" : "Ainda não há entradas nem chamadas neste dia.") : "Nenhum aluno encontrado.") + "</td></tr></tbody>";
+  $("auRegra").textContent = "A frequência oficial é sempre a chamada do professor; a entrada só mostra a chegada na escola. Divergência não é acusação: o motivo mais comum é carteirinha esquecida ou chamada lançada com erro. Fotos da entrada ficam guardadas por 15 dias.";
+}
+// últimos 30 dias de um aluno: um dia por linha
+async function historicoAuditoria(turmaId, id, escola){
+  escola = escola || E.muEscola;
+  const hj = hojeMS(), ini = CAL.soma(hj, -29), anos = [...new Set([+ini.slice(0, 4), +hj.slice(0, 4)])];
+  const al = E.base.alunos[id] || (E.au && E.au.ent[id] ? { nome:E.au.ent[id].n } : null) || {}, t = E.base.turmas.find(x => x.id === turmaId) || {};
+  $("auHistBox").hidden = false; $("auHistTit").textContent = (al.nome || "Aluno") + " · últimos 30 dias"; $("auHistSub").textContent = "Carregando..."; $("auHist").innerHTML = "";
+  $("auHistBox").scrollIntoView({ behavior:"smooth", block:"start" });
+  const dias = {}, ent = {};
+  try{
+    const rs = await Promise.all(anos.map(a => getDoc(doc(db, "freq_resumo", turmaId + "_" + a)).catch(() => null)));
+    rs.forEach(r => { if(r && r.exists()) Object.entries(r.data().dias || {}).forEach(([d, v]) => { if(d >= ini && d <= hj) dias[d] = FREQ.decodificar(v); }); });
+    const es = await Promise.all(anos.map(a => getDocs(query(collection(db, "freq_entradas"), where("escola_id", "==", escola), where("turma_id", "==", turmaId), where("ano", "==", a)))));
+    es.forEach(s => s.forEach(d => { const x = d.data(); if(x.dia >= ini && x.dia <= hj && (x.entradas || {})[id]) ent[x.dia] = { h:x.entradas[id], foto:(x.fotos || {})[id] || "" }; }));
+  }catch(e){ console.warn("historico auditoria:", e.code || e); toast("Não foi possível carregar o histórico deste aluno.", true); }
+  const ordem = [...new Set([...Object.keys(dias), ...Object.keys(ent)])].sort().reverse();
+  const L = ordem.map(d => { const e = ent[d] || {}, r = FREQ.conciliar(id, e.h || "", dias[d] && dias[d].a ? dias[d] : null); return { d, h:e.h || "", foto:e.foto || "", nome:al.nome || "Aluno", turma:t.nome || "", ...r }; });
+  const n = s => L.filter(x => x.s === s).length;
+  E.auHist = { nome:al.nome || "Aluno", turma:t.nome || "", L };
+  $("auHistSub").textContent = (t.nome || "") + " · " + L.filter(x => x.h).length + " dia(s) com entrada · " + L.filter(x => x.a).length + " dia(s) com chamada · " +
+    (n("saiu") + n("parcial") + n("sem_entrada")) + " divergência(s)" + (n("saiu") ? " · " + n("saiu") + " dia(s) entrou e ficou com falta" : "");
+  $("auHist").innerHTML = L.length ? "<thead><tr><th>Dia</th><th>Entrada</th><th>Foto</th><th class=n>Aulas</th><th class=n>Faltas</th><th>Situação</th></tr></thead><tbody>" +
+    L.map(x => { const sit = AU_SIT[x.s]; return "<tr><td><b>" + esc(dataBr(x.d)) + '</b> <span class="sub">' + SEMANA[new Date(x.d + "T12:00:00").getDay()].slice(0, 3) + "</span></td><td>" + (x.h ? esc(x.h) : '<span class="sub">não passou</span>') + "</td><td>" + botaoFoto(x, x.d) +
+      '</td><td class="n">' + (x.a || "–") + '</td><td class="n">' + (x.a ? x.f + (x.j ? " just." : "") : "–") + '</td><td><span class="pill ' + sit[1] + '">' + esc(sit[0]) + "</span></td></tr>"; }).join("") + "</tbody>"
+    : '<tbody><tr><td class="sub" style="padding:20px">Nenhuma entrada nem chamada nos últimos 30 dias.</td></tr></tbody>';
+}
+async function carregarVistas(){
+  const mes = $("auMes").value || hojeMS().slice(0, 7), chave = E.muEscola + "|" + mes;
+  if(E.auVistasChave === chave) return; E.auVistasChave = chave;
+  const l = [];
+  try{ const s = await getDocs(query(collection(db, "portaria_vistas"), where("escola_id", "==", E.muEscola), where("mes", "==", mes))); s.forEach(d => l.push(d.data())); }
+  catch(e){ console.warn("vistas:", e.code || e); }
+  l.sort((a, b) => ((b.em && b.em.toMillis ? b.em.toMillis() : 0) - (a.em && a.em.toMillis ? a.em.toMillis() : 0)));
+  $("auVistas").innerHTML = l.length ? "<thead><tr><th>Quando</th><th>Quem abriu</th><th>Foto de</th><th>Dia da foto</th></tr></thead><tbody>" +
+    l.slice(0, 300).map(v => "<tr><td>" + (v.em && v.em.toDate ? esc(v.em.toDate().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" })) : "–") + "</td><td><b>" + esc(v.por_nome) + "</b></td><td>" + esc(v.aluno_nome) + "</td><td>" + esc(dataBr(v.dia)) + "</td></tr>").join("") + "</tbody>"
+    : '<tbody><tr><td class="sub" style="padding:20px">Nenhuma foto aberta neste mês.</td></tr></tbody>';
+}
+
 /* ===================== eventos ===================== */
 const ACOES = {
   ir:a => ir(a),
@@ -1053,6 +1213,13 @@ const ACOES = {
   "imprimir-ficha":() => { document.body.classList.add("imp-ficha"); window.print(); setTimeout(() => document.body.classList.remove("imp-ficha"), 500); },
   "po-foto":(a, b) => verFoto(a, b ? b.dataset.nome : ""),
   "po-foto-fechar":() => { $("poFotoBox").hidden = true; },
+  "au-filtro":a => { E.au.filtro = a; document.querySelectorAll("#auFiltro button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenharAuditoria(); },
+  "au-aluno":a => { const [t, id] = a.split("|"); historicoAuditoria(t, id); },
+  "au-hist-fechar":() => { $("auHistBox").hidden = true; },
+  "au-csv":() => csv("auditoria-portaria-" + slug(E.escolasNomes[E.muEscola] || "escola") + "-" + E.au.dia + ".csv", [["Dia", "Escola", "Turma", "Aluno", "Entrada", "Aulas no dia", "Aulas com falta", "Justificada", "Faltas por disciplina", "Situação"],
+    ...(E.au.lista || []).map(x => [E.au.dia, E.escolasNomes[E.muEscola] || "", x.turma, x.nome, x.h, x.a || "", x.a ? x.f : "", x.j ? "Sim" : "", x.disc.join("; "), AU_SIT[x.s][0]])]),
+  "au-hist-csv":() => { const h = E.auHist; if(!h) return; csv("auditoria-" + slug(h.nome) + ".csv", [["Dia", "Aluno", "Turma", "Entrada", "Aulas", "Faltas", "Justificada", "Situação"], ...h.L.map(x => [x.d, h.nome, h.turma, x.h, x.a || "", x.a ? x.f : "", x.j ? "Sim" : "", AU_SIT[x.s][0]])]); },
+  "ficha-auditoria":async () => { const f = E.ficha; if(!f) return; const escola = f.r.escola_id; ACOES["fechar-ficha"](); if(escola) E.muEscola = escola; ir("auditoria"); await new Promise(r => setTimeout(r, 0)); await carregarBase(E.muEscola); historicoAuditoria(f.turmaId, f.id, escola); },
   "po-camera":() => E.poStream ? pararCamera() : ligarCamera(),
   "ca-pdf":a => gerarCarteirinhas(a),
   "mu-modo":a => { E.muModo = a; E.muTurma = ""; desenharMural(); },
@@ -1067,11 +1234,15 @@ document.addEventListener("change", ev => {
   else if(t.id === "muEscola"){ E.muEscola = t.value; E.muAntes = {}; ouvirMural(); }
   else if(t.id === "poEscola"){ E.muEscola = t.value; abrirPortaria(); }
   else if(t.id === "caEscola"){ E.muEscola = t.value; abrirCarteirinhas(); }
+  else if(t.id === "auEscola"){ E.muEscola = t.value; $("auHistBox").hidden = true; abrirAuditoria(); }
+  else if(t.id === "auDia"){ if(t.value > hojeMS()) t.value = hojeMS(); carregarDiaAuditoria(); }
+  else if(t.id === "auTurma") desenharAuditoria();
+  else if(t.id === "auMes") carregarVistas();
   else if(t.id === "disciplina") abrirChamada();
   else if(t.id === "dia"){ if(t.value > hojeMS()) t.value = hojeMS(); if(E.turma){ carregarCalendario(E.turma).then(abrirChamada); } else desenharChamada(); E.histTurma = ""; }
   else if(t.dataset && t.dataset.qt){ E.faltas[t.dataset.qt] = +t.value; mexeu(); }
 });
-document.addEventListener("input", ev => { if(ev.target.id === "conteudo") { E.sujo = true; try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, conteudo:$("conteudo").value })); }catch(e){} rodape(); } else if(ev.target.id === "busca") desenharBusca(); });
+document.addEventListener("input", ev => { if(ev.target.id === "conteudo") { E.sujo = true; try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, conteudo:$("conteudo").value })); }catch(e){} rodape(); } else if(ev.target.id === "busca") desenharBusca(); else if(ev.target.id === "auBusca") desenharAuditoria(); });
 // tela cheia: só o mural na TV (a ficha continua abrindo por cima)
 document.addEventListener("fullscreenchange", () => { document.body.classList.toggle("tv", !!document.fullscreenElement && ["mural", "portaria"].includes(E.aba)); carrossel(); });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape" && !$("ficha").hidden) ACOES["fechar-ficha"](); });
@@ -1099,14 +1270,14 @@ onAuthStateChanged(auth, async user => {
     $("carregando").hidden = false; $("carregando").innerHTML = '<div class="card vazio"><b>A frequência da rede fica no Painel da Rede</b>Por escola, com a frequência média e o número de alunos que precisam de busca ativa, sem nomes de alunos.<br><br><a class="btn btn-pri" href="/painel/">Abrir o Painel da Rede</a></div>';
     return;
   }
-  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = $("tabCart").hidden = !podePortaria();
-  if(E.gestor){ $("tabChamada").hidden = $("tabHist").hidden = true; ir(location.hash === "#mural" || (["#portaria", "#carteirinhas"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
+  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = $("tabCart").hidden = $("tabAudit").hidden = !podePortaria();
+  if(E.gestor){ $("tabChamada").hidden = $("tabHist").hidden = true; ir(location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
   await carregarTurmas();
   let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima") || "null"); }catch(e){}
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }
   if(ult && E.turmas.some(t => t.id === ult.t)){ $("selTurma").value = ult.t; await abrirTurma(ult.t); } else desenharChamada();
   const h = location.hash.replace("#", "");
-  if(["historico", "busca"].includes(h) || ((h === "mural" && podeMural()) || (["portaria", "carteirinhas"].includes(h) && podePortaria()))) ir(h); else ir("chamada");
+  if(["historico", "busca"].includes(h) || ((h === "mural" && podeMural()) || (["portaria", "carteirinhas", "auditoria"].includes(h) && podePortaria()))) ir(h); else ir("chamada");
 });
 </script>
 </body>
