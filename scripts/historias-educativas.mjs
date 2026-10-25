@@ -40,6 +40,8 @@ const alan = (await db.collection('usuarios').where('email', '==', 'alan@newpc.c
 const quem = { uid: alan ? alan.id : 'admin', nome: (alan && alan.data().nome) || 'Alan' };
 let ok = 0, erro = 0;
 for (const f of arquivos) {
+  // já está na estante: pula (rodar de novo só traz o que faltou)
+  if ((await db.doc(`biblioteca/${f.id}`).get()).exists) { console.log('OK', titulo(f.name), '(já estava)'); ok++; continue; }
   await db.doc(`biblioteca_triagem/${f.id}`).set({ titulo: titulo(f.name), nome: f.name, secao: 'historias', tipo: 'pdf', mime: 'application/pdf',
     tamanho: Number(f.size || 0), pasta: 'Histórias educativas', sugestao: 'revisar', motivo: 'Material próprio da NEWPC', drive_id: f.id,
     status: 'pendente', atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
