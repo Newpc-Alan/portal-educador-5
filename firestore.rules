@@ -630,6 +630,34 @@ service cloud.firestore {
       allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
     }
 
+    // prova online: só as funções criam e corrigem; o aluno lê as questões (sem gabarito) e grava as próprias respostas no prazo
+    function provaOnline(id) { return get(/databases/$(database)/documents/provas_online/$(id)).data; }
+    match /provas_online/{id} {
+      allow read: if admin() || (logado() && (resource.data.professor_uid == request.auth.uid || request.auth.uid in resource.data.alunos_uids));
+      allow write: if false;
+      match /po_tentativas/{uid} {
+        allow read: if admin() || (logado() && (request.auth.uid == uid || provaOnline(id).professor_uid == request.auth.uid));
+        allow update: if logado() && request.auth.uid == uid && resource.data.status == "em_andamento"
+          && request.time < resource.data.prazo + duration.value(2, "m")
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["respostas", "desvios", "eventos", "status", "bloqueado_em", "atualizado_em"])
+          && request.resource.data.respostas is map && request.resource.data.respostas.size() <= 100
+          && request.resource.data.desvios is int && request.resource.data.desvios >= resource.data.desvios
+          && request.resource.data.eventos is list && request.resource.data.eventos.size() <= 80
+          && (request.resource.data.status == "em_andamento"
+              || (request.resource.data.status == "bloqueada" && request.resource.data.desvios > resource.data.avisos_max));
+        allow create, delete: if false;
+      }
+      match /po_resultados/{uid} {
+        allow read: if admin() || (logado() && (provaOnline(id).professor_uid == request.auth.uid
+          || (request.auth.uid == uid && (provaOnline(id).fecha_em < request.time || provaOnline(id).get("nota_liberada", false) == true))));
+        allow write: if false;
+      }
+    }
+    match /provas_online_gab/{id} {
+      allow read: if admin() || (logado() && resource.data.professor_uid == request.auth.uid);
+      allow write: if false;
+    }
+
     // atividades prontas (Banco Curricular): professor com licença lê as publicadas; só o administrador e as funções gravam
     match /atividades/{id} {
       allow read: if admin() || (licenciado() && resource.data.publicado == true);

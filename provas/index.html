@@ -715,6 +715,7 @@ html, body { background: #f4f7fa !important; }
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="abrirResumo" title="Ver o resumo da avaliação">☰ Resumo</button>
         <span class="pde-topbar-sep"></span>
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="mpAbrir" title="Suas provas guardadas na nuvem, organizadas em pastas">📁 Minhas provas</button>
+        <button class="pde-btn pde-btn-primary pde-btn-sm" data-action="olAbrir" title="Aplicar esta prova no Portal do Aluno, com horário marcado e correção automática">📡 Aplicar online</button>
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="guiaAbrir" title="Conheça os recursos do gerador">❔ Guia</button>
         <button class="pde-btn pde-btn-ghost pde-btn-sm pde-nuvem-btn" data-action="mpSalvar" id="mp-salvar" title="Guardar esta prova na sua conta">☁ Salvar</button>
         <a class="pde-btn pde-btn-ghost pde-btn-sm pde-voltar" href="/entrar/" title="Voltar ao Portal do Educador">← Voltar ao Portal</a>
@@ -1162,6 +1163,14 @@ html, body { background: #f4f7fa !important; }
       <div class="guia-corpo" id="guia-corpo"></div>
       <div class="guia-pe"><div class="guia-pontos" id="guia-pontos"></div>
         <div class="guia-acoes"><button class="pde-btn pde-btn-ghost" data-action="guiaFechar" id="guia-pular">Pular</button><button class="pde-btn pde-btn-primary" data-action="guiaProximo" id="guia-prox">Próximo</button></div></div>
+    </div>
+  </div>
+
+  <!-- Modal: aplicar online (Portal do Aluno, modo protegido) -->
+  <div class="pde-modal-bg" id="ol-bg" data-close-on-bg="olFechar">
+    <div class="pde-modal" style="max-width:560px">
+      <div class="pde-modal-head"><h3>📡 Aplicar online</h3><button class="pde-modal-close" data-action="olFechar">×</button></div>
+      <div class="pde-modal-body" id="ol-corpo" style="display:grid;gap:12px"></div>
     </div>
   </div>
 
@@ -3487,8 +3496,9 @@ onAuthStateChanged(auth, async (user) => {
       const minhas = new Set(u.turmas_ids || []), todas = [];
       sn.forEach(d => { const t = d.data(); if(t.status === "inativa") return;
         const nome = (t.ano_serie && !/ano/i.test(t.nome || "") ? t.ano_serie + "º ano · " : "") + (t.nome || "");
-        todas.push({ nome, minha:minhas.has(d.id) }); });
+        todas.push({ id:d.id, nome, minha:minhas.has(d.id) || t.criado_por === user.uid }); });
       const l = todas.some(t => t.minha) ? todas.filter(t => t.minha) : todas;
+      P.turmasObj = l.slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
       P.turmas = [...new Set(l.map(t => t.nome))].sort();
     }catch(e){ console.warn("turmas:", e.code); }
   }
@@ -3790,12 +3800,60 @@ async function moverProva(id, pasta){
   p.pasta_id = pasta; const a = atual(); if(a && a.id === id) definirAtual({ ...a, pasta_id:pasta });
   desenharMP(); G().toast("Movida para " + nomePasta(pasta) + ".");
 }
+
+/* ═══════════ APLICAR ONLINE (prova no Portal do Aluno, modo protegido) ═══════════ */
+const OL = { enviando:false };
+function hojeISO(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function olAbrir(){
+  const dados = G().collectData(), qs = dados.questoes || [];
+  const corpo = $("ol-corpo");
+  if(!qs.length){ G().toast("Monte a prova antes de aplicar online.", "warn"); return; }
+  const turmas = P.turmasObj || [];
+  const semGab = qs.filter(q => (q.tipo === "multipla" && !(q.gab >= 0)) || (q.tipo === "vf" && !q.gab)).length;
+  const manuais = qs.filter(q => ["dissertativa", "checkbox", "grade_radio", "grade_check"].includes(q.tipo) || (q.tipo === "curta" && !q.exp)).length;
+  const turmaTxt = (dados.header.turma || "").toLowerCase();
+  const sugerida = turmas.find(t => turmaTxt && t.nome.toLowerCase().includes(turmaTxt)) || turmas[0];
+  const h0 = new Date(Date.now() + 60 * 60000);
+  corpo.innerHTML = '<p style="margin:0;color:#62758a">Os alunos da turma veem a prova no Início do Portal do Aluno no horário marcado. Ela abre em tela cheia: se o aluno sair, recebe 1 aviso e, na segunda saída, a prova é bloqueada até você liberar. As objetivas são corrigidas sozinhas; a nota aparece para o aluno quando o horário terminar.</p>'+
+    (turmas.length ? '<label class="pde-label" for="ol-turma">Turma</label><select id="ol-turma" class="pde-select">'+turmas.map(t => '<option value="'+escH(t.id)+'"'+(sugerida && t.id === sugerida.id ? " selected" : "")+'>'+escH(t.nome)+'</option>').join("")+'</select>'
+      : '<p style="color:#C2362C;margin:0">Você ainda não tem turmas no Portal. Cadastre a turma em Minhas Turmas para aplicar online.</p>')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"><div><label class="pde-label" for="ol-dia">Dia</label><input type="date" id="ol-dia" class="pde-input" value="'+hojeISO()+'"></div>'+
+      '<div><label class="pde-label" for="ol-ini">Abre às</label><input type="time" id="ol-ini" class="pde-input" value="'+String(h0.getHours()).padStart(2, "0")+':00"></div>'+
+      '<div><label class="pde-label" for="ol-fim">Fecha às</label><input type="time" id="ol-fim" class="pde-input" value="'+String((h0.getHours() + 1) % 24).padStart(2, "0")+':40"></div></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end"><div><label class="pde-label" for="ol-dur">Tempo de prova (minutos)</label><input type="number" id="ol-dur" class="pde-input" min="5" max="300" value="50"></div>'+
+      '<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ol-emb" checked> Embaralhar questões e alternativas</label></div>'+
+    '<div style="background:#f5f8fb;border-radius:12px;padding:10px 12px;font-size:.88rem">📋 '+qs.length+' questões · ⭐ '+dados.totalPontos+' pontos'+(manuais ? ' · ✍️ '+manuais+' para você corrigir depois' : '')+(semGab ? '<br><b style="color:#C2362C">⚠ '+semGab+' questão(ões) objetiva(s) sem gabarito marcado: elas ficam para correção manual.</b>' : '')+'</div>'+
+    '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap"><a href="/prova/" target="_blank" rel="noopener" style="font-weight:700">Ver provas online já aplicadas ↗</a>'+
+    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Aplicar para a turma</button></div>';
+  $("ol-bg").classList.add("show");
+}
+async function olAplicar(){
+  if(OL.enviando) return;
+  const dados = G().collectData(), dia = $("ol-dia").value, ini = $("ol-ini").value, fim = $("ol-fim").value;
+  if(!dia || !ini || !fim){ G().toast("Preencha o dia e os horários.", "warn"); return; }
+  const abre = new Date(dia + "T" + ini + ":00").getTime(), fecha = new Date(dia + "T" + fim + ":00").getTime(), dur = parseInt($("ol-dur").value, 10);
+  if(!(fecha > abre)){ G().toast("O horário de fechar precisa ser depois do de abrir.", "warn"); return; }
+  if(!(dur >= 5)){ G().toast("O tempo de prova é de pelo menos 5 minutos.", "warn"); return; }
+  if(dur > (fecha - abre) / 60000) G().toast("Atenção: o tempo de prova é maior que a janela; quem começar tarde terá menos tempo.", "warn");
+  OL.enviando = true; const btn = $("ol-ok"); btn.disabled = true; btn.textContent = "Aplicando...";
+  try{
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    const titulo = (atual() && atual().titulo) || [dados.header.mat, dados.header.turma].filter(Boolean).join(" · ") || "Prova";
+    const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "publicarProvaOnline", { timeout:120000 })({
+      titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, avisos:1,
+      questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
+    $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">Prova aplicada</h3><p style="color:#62758a">'+r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. '+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
+      '<a class="pde-btn pde-btn-primary" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Abrir o painel ao vivo ↗</a></div>';
+  }catch(e){ G().toast(e.message || "Não foi possível aplicar.", "err"); btn.disabled = false; btn.textContent = "Aplicar para a turma"; }
+  finally{ OL.enviando = false; }
+}
 // "Recomeçar" do gerador vira "nova prova" quando a prova esta na nuvem (a salva continua guardada)
 function registrar(){
   const A = G().ACTIONS;
   Object.assign(A, {
     mpAbrir, mpSalvar, mpNovaProva, mpNovaPasta, mpRenomearPasta, mpExcluirPasta,
     mpFechar: () => $("mp-bg").classList.remove("show"),
+    olAbrir, olAplicar, olFechar: () => $("ol-bg").classList.remove("show"),
     mpPasta: (v) => { N.pasta = v === null ? "" : v; desenharMP(); },
     mpAbrirProva: (v) => abrirProva(v),
     mpDuplicar: (v) => mpDuplicar(v), mpRenomear: (v) => mpRenomear(v), mpExcluir: (v, b) => mpExcluir(v, b),

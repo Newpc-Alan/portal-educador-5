@@ -128,6 +128,37 @@ await t('professor ve todos os videos publicados', assertSucceeds(getDocs(query(
 await t('professor ve a biblioteca toda', assertSucceeds(getDocs(query(collection(pr, 'biblioteca'), where('publicado', '==', true)))));
 await t('professor le dica de professor', assertSucceeds(getDoc(doc(pr, 'dicas_envios/d1'))));
 
+// prova online
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+  await setDoc(doc(f, 'provas_online/po1'), { professor_uid: 'prof', alunos_uids: ['alu'], status: 'agendada', fecha_em: Timestamp.fromMillis(Date.now() + 3600000), nota_liberada: false, questoes: [] });
+  await setDoc(doc(f, 'provas_online/po2'), { professor_uid: 'prof', alunos_uids: ['alu'], status: 'encerrada', fecha_em: Timestamp.fromMillis(Date.now() - 60000), questoes: [] });
+  await setDoc(doc(f, 'provas_online_gab/po1'), { professor_uid: 'prof', gab: { q1: { gab: 1 } } });
+  await setDoc(doc(f, 'provas_online/po1/po_tentativas/alu'), { uid: 'alu', status: 'em_andamento', prazo: Timestamp.fromMillis(Date.now() + 3000000), respostas: {}, desvios: 0, avisos_max: 1, eventos: [] });
+  await setDoc(doc(f, 'provas_online/po1/po_tentativas/alu2'), { uid: 'alu2', status: 'em_andamento', prazo: Timestamp.fromMillis(Date.now() - 600000), respostas: {}, desvios: 0, avisos_max: 1, eventos: [] });
+  await setDoc(doc(f, 'provas_online/po1/po_resultados/alu'), { nota: 5 });
+  await setDoc(doc(f, 'provas_online/po2/po_resultados/alu'), { nota: 7 }); });
+const poA = ctx('alu', 'alu@aluno.ribas.ms.gov.br'), poA2 = ctx('alu2', 'x@y.com'), poP = ctx('prof', 'prof@x.com');
+await t('prova online: aluno da turma le a prova', assertSucceeds(getDoc(doc(poA, 'provas_online/po1'))));
+await t('prova online: aluno lista as dele', assertSucceeds(getDocs(query(collection(poA, 'provas_online'), where('alunos_uids', 'array-contains', 'alu')))));
+await t('prova online: outro aluno nao le', assertFails(getDoc(doc(poA2, 'provas_online/po1'))));
+await t('prova online: aluno nao le gabarito', assertFails(getDoc(doc(poA, 'provas_online_gab/po1'))));
+await t('prova online: professor le gabarito', assertSucceeds(getDoc(doc(poP, 'provas_online_gab/po1'))));
+await t('prova online: aluno nao cria prova', assertFails(setDoc(doc(poA, 'provas_online/x'), { professor_uid: 'alu' })));
+await t('prova online: aluno salva resposta', assertSucceeds(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { 'respostas.q1': 1, atualizado_em: serverTimestamp() })));
+await t('prova online: aluno nao muda o prazo', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { prazo: Timestamp.fromMillis(Date.now() + 9e6) })));
+await t('prova online: aluno nao se entrega sozinho', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { status: 'entregue' })));
+await t('prova online: aluno registra a saida', assertSucceeds(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { desvios: 1 })));
+await t('prova online: desvios nao diminuem', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { desvios: 0 })));
+await t('prova online: bloqueio so passando dos avisos', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { status: 'bloqueada', desvios: 1 })));
+await t('prova online: bloqueio no segundo desvio', assertSucceeds(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { status: 'bloqueada', desvios: 2, bloqueado_em: serverTimestamp() })));
+await t('prova online: bloqueado nao responde', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { 'respostas.q1': 2 })));
+await t('prova online: sem resposta depois do prazo', assertFails(updateDoc(doc(poA2, 'provas_online/po1/po_tentativas/alu2'), { 'respostas.q1': 2 })));
+await t('prova online: aluno nao mexe na tentativa do colega', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu2'), { 'respostas.q1': 2 })));
+await t('prova online: nota escondida antes do fim', assertFails(getDoc(doc(poA, 'provas_online/po1/po_resultados/alu'))));
+await t('prova online: nota visivel depois do fim', assertSucceeds(getDoc(doc(poA, 'provas_online/po2/po_resultados/alu'))));
+await t('prova online: professor ve a nota', assertSucceeds(getDoc(doc(poP, 'provas_online/po1/po_resultados/alu'))));
+await t('prova online: aluno nao grava nota', assertFails(setDoc(doc(poA, 'provas_online/po1/po_resultados/alu'), { nota: 10 })));
+
 console.log(`REGRAS ALUNO: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
