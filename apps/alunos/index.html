@@ -122,6 +122,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 .fi-corpo{padding:18px 22px;max-height:64vh;overflow:auto}
 .fi-rod{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line);background:#fbfcfe}
 .fi-rod .esp{flex:1}
+.dica-c{font-size:.68rem;font-weight:600;text-transform:none;letter-spacing:0;min-height:12px;color:var(--muted)}.dica-c.erro{color:#b42318}.dica-c.ok{color:#1a6b2a}
 .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .grade .dupla{grid-column:span 2}
 @media (max-width:640px){ .grade .dupla{grid-column:auto} }
@@ -229,13 +230,15 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
       <button data-action="fi-aba" data-arg="vida">🎒 Vida escolar e programas</button>
     </div>
     <div class="fi-corpo">
+      <datalist id="dl_nat"></datalist><datalist id="dl_cid"></datalist>
       <div id="fa-id">
         <div class="bloco"><h4>Aluno</h4><div class="grade">
           <label class="campo dupla">Nome completo *<input class="inp" id="f_nome" maxlength="80" autocomplete="off"></label>
           <label class="campo">Nome social<input class="inp" id="f_social" maxlength="80" autocomplete="off"></label>
           <label class="campo">Data de nascimento<input class="inp" type="date" id="f_nasc" min="1990-01-01"></label>
           <label class="campo">Sexo<select class="sel" id="f_sexo"><option value="">Não informado</option><option value="F">Feminino</option><option value="M">Masculino</option></select></label>
-          <label class="campo">Naturalidade<input class="inp" id="f_natural" maxlength="80" placeholder="Cidade / UF"></label>
+          <label class="campo">Naturalidade · UF<select class="sel" id="f_nat_uf"><option value="">UF</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></label>
+          <label class="campo">Naturalidade · cidade<input class="inp" id="f_natural" maxlength="60" list="dl_nat" autocomplete="off" placeholder="Escolha a UF e digite"><small class="dica-c" id="natDica"></small></label>
         </div></div>
         <div class="bloco"><h4>Matrícula</h4><div class="grade">
           <label class="campo">Turma *<select class="sel" id="f_turma"></select></label>
@@ -253,12 +256,13 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 
       <div id="fa-end" hidden>
         <div class="bloco"><h4>Endereço</h4><div class="grade">
-          <label class="campo">CEP<input class="inp" id="f_cep" maxlength="9" inputmode="numeric"></label>
+          <label class="campo">CEP<input class="inp" id="f_cep" maxlength="9" inputmode="numeric" placeholder="Preenche o endereço"><small class="dica-c" id="cepDica"></small></label>
           <label class="campo dupla">Rua / avenida<input class="inp" id="f_rua" maxlength="120"></label>
           <label class="campo">Número<input class="inp" id="f_num" maxlength="12"></label>
           <label class="campo">Complemento<input class="inp" id="f_comp" maxlength="60"></label>
           <label class="campo">Bairro<input class="inp" id="f_bairro" maxlength="80"></label>
-          <label class="campo">Cidade<input class="inp" id="f_cidade" maxlength="80"></label>
+          <label class="campo">Cidade<input class="inp" id="f_cidade" maxlength="80" list="dl_cid" autocomplete="off"></label>
+          <label class="campo">UF<select class="sel" id="f_uf"><option value="">UF</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></label>
           <label class="campo">Zona<select class="sel" id="f_zona"><option value="">Não informada</option><option value="urbana">Urbana</option><option value="rural">Rural</option></select></label>
         </div></div>
         <div class="bloco"><h4>Transporte escolar</h4><div class="grade">
@@ -543,6 +547,56 @@ async function abrir(id){
     }catch(e){ console.warn("ficha:", e.code); toast("Não foi possível carregar a ficha completa. Os dados básicos podem ser salvos.", true); }
   } else desenharAcomp();
 }
+/* ===================== cidades (IBGE) e CEP ===================== */
+// naturalidade continua gravada num texto só ("Campo Grande/MS"), que é o que relatórios e importação já usam
+function natPartes(v){ const m = String(v || "").trim().match(/^(.*?)\s*[\/\-–]\s*([A-Za-z]{2})$/); return m ? { cidade:m[1].trim(), uf:m[2].toUpperCase() } : { cidade:String(v || "").trim(), uf:"" }; }
+function natJunta(){ const c = limpa($("f_natural").value, 60), uf = $("f_nat_uf").value; return c ? c + (uf ? "/" + uf : "") : ""; }
+const CIDADES = {};
+const semAc = v => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+async function carregarCidades(uf, dl){
+  if(!uf) return [];
+  if(!CIDADES[uf]){
+    CIDADES[uf] = (async () => {
+      const ac = new AbortController(), t = setTimeout(() => ac.abort(), 8000);
+      try{ const r = await fetch("https://servicodados.ibge.gov.br/api/v1/localidades/estados/" + uf + "/municipios", { signal:ac.signal }); const j = r.ok ? await r.json() : []; return j.map(x => x.nome).sort((a, b) => a.localeCompare(b, "pt-BR")); }
+      catch(e){ return []; } finally{ clearTimeout(t); }
+    })();
+    CIDADES[uf].then(l => { if(!l.length) delete CIDADES[uf]; });
+  }
+  const lista = await CIDADES[uf];
+  if(dl && $(dl)) $(dl).innerHTML = lista.map(n => '<option value="' + esc(n) + '">').join("");
+  return lista;
+}
+// confere a cidade com a lista do IBGE: acerta a grafia ("campo grande" vira "Campo Grande") e avisa erro de digitação
+async function conferirCidade(inp, uf, dica){
+  const v = inp.value.trim(); if(!v || !uf){ if(dica) dica("", ""); return; }
+  const lista = await carregarCidades(uf); if(!lista.length){ if(dica) dica("", ""); return; }
+  const achou = lista.find(n => semAc(n) === semAc(v));
+  if(achou){ inp.value = achou; if(dica) dica("", ""); }
+  else if(dica) dica("Cidade não encontrada em " + uf + ". Confira a grafia.", "erro");
+}
+function natDica(txt, tipo){ const el = $("natDica"); el.textContent = txt || ""; el.className = "dica-c" + (tipo ? " " + tipo : ""); }
+function cepDica(txt, tipo){ const el = $("cepDica"); el.textContent = txt || ""; el.className = "dica-c" + (tipo ? " " + tipo : ""); }
+let cepBuscado = "";
+async function buscarCep(){
+  const cep = soDig($("f_cep").value, 8);
+  if(cep.length !== 8 || cep === cepBuscado) return;
+  cepBuscado = cep; cepDica("Buscando...");
+  const pega = async url => { const ac = new AbortController(), t = setTimeout(() => ac.abort(), 7000); try{ const r = await fetch(url, { signal:ac.signal }); return r.ok ? await r.json() : null; }catch(e){ return null; } finally{ clearTimeout(t); } };
+  let end = null;
+  const v = await pega("https://viacep.com.br/ws/" + cep + "/json/");
+  if(v && !v.erro) end = { rua:v.logradouro, bairro:v.bairro, cidade:v.localidade, uf:v.uf };
+  else { const b = await pega("https://brasilapi.com.br/api/cep/v2/" + cep); if(b && b.city) end = { rua:b.street, bairro:b.neighborhood, cidade:b.city, uf:b.state }; }
+  if(soDig($("f_cep").value, 8) !== cep) return;
+  if(!end){ cepDica("CEP não encontrado. Preencha à mão.", "erro"); return; }
+  if(end.rua) $("f_rua").value = end.rua;
+  if(end.bairro) $("f_bairro").value = end.bairro;
+  $("f_cidade").value = end.cidade || ""; $("f_uf").value = end.uf || "";
+  if(end.uf) carregarCidades(end.uf, "dl_cid");
+  cepDica(end.rua ? "Endereço preenchido pelo CEP" : "CEP geral da cidade: digite a rua", end.rua ? "ok" : "");
+  (end.rua ? $("f_num") : $("f_rua")).focus();
+  if(E.edit) atualizarPct();
+}
 function preencherBasico(){
   const a = E.edit.a, n = a.nome_social || a.nome || "Novo aluno";
   $("fiNome").textContent = n; desenharAvatar();
@@ -553,8 +607,8 @@ function preencherBasico(){
 }
 function preencherFicha(f){
   const en = f.endereco || {}, tr = f.transporte || {}, vi = f.vida || {}, pr = f.programas || {};
-  $("f_sexo").value = f.sexo || ""; $("f_natural").value = f.naturalidade || ""; $("f_cpf").value = f.cpf ? cpfBonito(f.cpf) : ""; $("f_nis").value = f.nis || ""; $("f_sus").value = f.sus || ""; $("f_certidao").value = f.certidao || "";
-  $("f_cep").value = en.cep || ""; $("f_rua").value = en.rua || ""; $("f_num").value = en.numero || ""; $("f_comp").value = en.complemento || ""; $("f_bairro").value = en.bairro || ""; $("f_cidade").value = en.cidade || ""; $("f_zona").value = en.zona || "";
+  $("f_sexo").value = f.sexo || ""; { const nt = natPartes(f.naturalidade); $("f_natural").value = nt.cidade; $("f_nat_uf").value = nt.uf; natDica(""); if(nt.uf) carregarCidades(nt.uf, "dl_nat"); } $("f_cpf").value = f.cpf ? cpfBonito(f.cpf) : ""; $("f_nis").value = f.nis || ""; $("f_sus").value = f.sus || ""; $("f_certidao").value = f.certidao || "";
+  $("f_cep").value = en.cep || ""; $("f_rua").value = en.rua || ""; $("f_num").value = en.numero || ""; $("f_comp").value = en.complemento || ""; $("f_bairro").value = en.bairro || ""; $("f_cidade").value = en.cidade || ""; $("f_uf").value = en.uf || ""; $("f_zona").value = en.zona || ""; $("cepDica").textContent = ""; $("cepDica").className = "dica-c"; cepBuscado = soDig(en.cep, 8); if(en.uf) carregarCidades(en.uf, "dl_cid");
   $("f_transp").value = tr.usa === true ? "sim" : tr.usa === false ? "nao" : ""; $("f_tpoder").value = tr.poder || ""; $("f_rota").value = tr.rota || ""; $("f_ponto").value = tr.ponto || "";
   $("f_escant").value = vi.escola_anterior || ""; $("f_redeant").value = vi.origem || ""; $("f_anoesc").value = vi.ano_escola || ""; $("f_anorede").value = vi.ano_rede || ""; $("f_vidaobs").value = vi.obs || "";
   $("f_bf").checked = !!pr.bolsa_familia; $("f_bpc").checked = !!pr.bpc; $("f_prog").value = pr.outros || ""; $("f_obs").value = f.obs || "";
@@ -672,8 +726,8 @@ function atualizarPct(){
 function montarFicha(){
   const ant = E.edit.ficha || {};
   return {
-    sexo:$("f_sexo").value, naturalidade:limpa($("f_natural").value, 80), cpf:soDig($("f_cpf").value, 11), nis:soDig($("f_nis").value, 14), sus:soDig($("f_sus").value, 18), certidao:limpa($("f_certidao").value, 60),
-    endereco:{ cep:soDig($("f_cep").value, 8), rua:limpa($("f_rua").value, 120), numero:limpa($("f_num").value, 12), complemento:limpa($("f_comp").value, 60), bairro:limpa($("f_bairro").value, 80), cidade:limpa($("f_cidade").value, 80), zona:$("f_zona").value },
+    sexo:$("f_sexo").value, naturalidade:natJunta(), cpf:soDig($("f_cpf").value, 11), nis:soDig($("f_nis").value, 14), sus:soDig($("f_sus").value, 18), certidao:limpa($("f_certidao").value, 60),
+    endereco:{ cep:soDig($("f_cep").value, 8), rua:limpa($("f_rua").value, 120), numero:limpa($("f_num").value, 12), complemento:limpa($("f_comp").value, 60), bairro:limpa($("f_bairro").value, 80), cidade:limpa($("f_cidade").value, 80), uf:$("f_uf").value, zona:$("f_zona").value },
     transporte:{ usa:$("f_transp").value === "sim" ? true : $("f_transp").value === "nao" ? false : null, poder:$("f_tpoder").value, rota:limpa($("f_rota").value, 60), ponto:limpa($("f_ponto").value, 80) },
     vida:{ escola_anterior:limpa($("f_escant").value, 120), origem:$("f_redeant").value, ano_escola:+$("f_anoesc").value || null, ano_rede:+$("f_anorede").value || null, obs:limpa($("f_vidaobs").value, 300) },
     programas:{ bolsa_familia:$("f_bf").checked, bpc:$("f_bpc").checked, outros:limpa($("f_prog").value, 120) },
@@ -1270,11 +1324,15 @@ document.addEventListener("change", ev => {
   else if(t.dataset && t.dataset.c === "email") t.classList.toggle("erro", !emailOk(String(t.value).trim()));
   else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && d.length !== 11); }
   else if(t.id === "f_cep"){ const d = soDig(t.value, 8); t.value = d.length === 8 ? d.slice(0, 5) + "-" + d.slice(5) : d; }
+  else if(t.id === "f_nat_uf"){ $("dl_nat").innerHTML = ""; carregarCidades(t.value, "dl_nat").then(() => conferirCidade($("f_natural"), t.value, natDica)); }
+  else if(t.id === "f_natural") conferirCidade(t, $("f_nat_uf").value, (x, k) => natDica(x || (!$("f_nat_uf").value && t.value.trim() ? "Escolha a UF" : ""), x ? k : (!$("f_nat_uf").value && t.value.trim() ? "erro" : "")));
+  else if(t.id === "f_uf"){ $("dl_cid").innerHTML = ""; carregarCidades(t.value, "dl_cid").then(() => conferirCidade($("f_cidade"), t.value, cepDica)); }
+  else if(t.id === "f_cidade") conferirCidade(t, $("f_uf").value, cepDica);
   if(t.closest && t.closest(".chips") && t.type === "checkbox") t.closest("label").classList.toggle("on", t.checked);
   if(t.id === "f_ciencia" && t.checked && !$("f_ciencia_data").value) $("f_ciencia_data").value = hojeMS();
   if(E.edit && t.closest && t.closest(".fi-corpo")) atualizarPct();
 });
-document.addEventListener("input", ev => { if(ev.target.id === "busca") desenhar(); else if(ev.target.id === "f_nome" || ev.target.id === "f_social"){ const n = $("f_social").value.trim() || $("f_nome").value.trim() || "Novo aluno"; $("fiNome").textContent = n; desenharAvatar(); } });
+document.addEventListener("input", ev => { if(ev.target.id === "busca") desenhar(); else if(ev.target.id === "f_cep"){ const d = soDig(ev.target.value, 8); ev.target.value = d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5) : d; if(d.length === 8) buscarCep(); else { cepBuscado = ""; cepDica(""); } } else if(ev.target.id === "f_nome" || ev.target.id === "f_social"){ const n = $("f_social").value.trim() || $("f_nome").value.trim() || "Novo aluno"; $("fiNome").textContent = n; desenharAvatar(); } });
 
 /* ===================== início ===================== */
 onAuthStateChanged(auth, async user => {
