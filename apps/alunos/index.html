@@ -123,6 +123,12 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 .fi-rod{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line);background:#fbfcfe}
 .fi-rod .esp{flex:1}
 .dica-c{font-size:.68rem;font-weight:600;text-transform:none;letter-spacing:0;min-height:12px;color:var(--muted)}.dica-c.erro{color:#b42318}.dica-c.ok{color:#1a6b2a}
+.foto-slot{display:flex;align-items:center;gap:14px;border:1.5px dashed #9cc89f;background:#f3faf3;border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.foto-slot.tem{border-style:solid;border-color:#d9e4ec;background:#fff}
+.fs-img{width:76px;height:76px;border-radius:12px;border:0;background:#e3ecf3;font-size:1.8rem;cursor:pointer;overflow:hidden;padding:0;flex:none;display:flex;align-items:center;justify-content:center}
+.fs-img img{width:100%;height:100%;object-fit:cover;display:block}
+.fs-tx{flex:1;min-width:0}.fs-tx b{display:block;color:var(--azul,#0f2c4a)}.fs-tx small{color:var(--muted);font-size:.8rem}
+@media (max-width:560px){.foto-slot{flex-wrap:wrap}.foto-slot .btn{width:100%}}
 .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .grade .dupla{grid-column:span 2}
 @media (max-width:640px){ .grade .dupla{grid-column:auto} }
@@ -232,6 +238,9 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
     <div class="fi-corpo">
       <datalist id="dl_nat"></datalist><datalist id="dl_cid"></datalist>
       <div id="fa-id">
+        <div class="foto-slot" id="fotoSlot"><button type="button" class="fs-img" id="fsImg" data-action="foto-aluno" aria-label="Foto do aluno">📷</button>
+          <div class="fs-tx"><b id="fsTit">Foto do aluno</b><small id="fsSub">Aparece na chamada do professor, na portaria e na carteirinha. Tire agora, no ato da matrícula.</small></div>
+          <button type="button" class="btn btn-pri" data-action="foto-aluno" id="fsBtn">📷 Tirar foto</button></div>
         <div class="bloco"><h4>Aluno</h4><div class="grade">
           <label class="campo dupla">Nome completo *<input class="inp" id="f_nome" maxlength="80" autocomplete="off"></label>
           <label class="campo">Nome social<input class="inp" id="f_social" maxlength="80" autocomplete="off"></label>
@@ -708,7 +717,7 @@ function itensFicha(){
   return [
     ["Nascimento", !!$("f_nasc").value], ["Sexo", !!$("f_sexo").value], ["Documento (CPF, NIS ou certidão)", !!(soDig($("f_cpf").value, 11) || $("f_nis").value.trim() || $("f_certidao").value.trim())],
     ["Endereço", !!($("f_rua").value.trim() && $("f_bairro").value.trim())], ["Transporte", !!$("f_transp").value], ["Contato da família", temFam],
-    ["Saúde revisada com a família", E.edit.sauAberta ? !!($("f_ciencia").checked) : !!(E.edit.ficha || {}).saude_revisada], ["Documento anexado", docs.length > 0]
+    ["Saúde revisada com a família", E.edit.sauAberta ? !!($("f_ciencia").checked) : !!(E.edit.ficha || {}).saude_revisada], ["Documento anexado", docs.length > 0], ["Foto", !!(E.edit.foto && (E.edit.foto.url || (E.edit.foto.atual && !E.edit.foto.remover)))]
   ];
 }
 function atualizarPct(){
@@ -718,7 +727,7 @@ function atualizarPct(){
   $("fiPct").innerHTML = '<i><s style="width:' + pc + '%"></s></i>Ficha ' + pc + "%";
   const falta = it.filter(x => !x[1]).map(x => x[0]);
   $("fiFalta").textContent = falta.length ? "Falta: " + falta.slice(0, 4).join(", ") + (falta.length > 4 ? "..." : "") : "Ficha completa ✓";
-  const marcas = { id:!$("f_nasc").value || !$("f_sexo").value, end:!$("f_rua").value.trim() || !it[5][1], sau:E.edit.sauAberta && !$("f_ciencia").checked, doc:!(E.edit.docs || []).length };
+  const marcas = { id:!$("f_nasc").value || !$("f_sexo").value || !it[8][1], end:!$("f_rua").value.trim() || !it[5][1], sau:E.edit.sauAberta && !$("f_ciencia").checked, doc:!(E.edit.docs || []).length };
   document.querySelectorAll("#fiTabs button").forEach(b => { const d = b.querySelector(".dot"); if(d) d.remove(); if(marcas[b.dataset.arg]) b.insertAdjacentHTML("beforeend", '<span class="dot"></span>'); });
 }
 
@@ -812,9 +821,14 @@ const FB = { alvo:null, blob:null, url:"", stream:null };
 function desenharAvatar(){
   if(!E.edit) return;
   const f = E.edit.foto, el = $("fiAv"), n = $("f_social").value.trim() || $("f_nome").value.trim() || E.edit.a.nome || "?";
-  if(f.url){ el.innerHTML = '<img alt="Foto de ' + esc(n) + '" src="' + f.url + '">'; return; }
-  el.textContent = iniciais(n);
-  if(f.atual && !f.remover){ const p = f.atual; urlFoto(p).then(u => { if(u && E.edit && E.edit.foto.atual === p && !E.edit.foto.url && !E.edit.foto.remover) el.innerHTML = '<img alt="" src="' + u + '">'; }); }
+  const tem = !!(f.url || (f.atual && !f.remover)), g = $("fsImg");
+  $("fotoSlot").classList.toggle("tem", tem);
+  $("fsBtn").textContent = tem ? "Trocar foto" : "📷 Tirar foto";
+  $("fsBtn").className = tem ? "btn btn-gh" : "btn btn-pri";
+  $("fsSub").textContent = tem ? (f.url ? "Foto nova: será gravada ao salvar a ficha." : "Foto cadastrada. Usada na chamada, na portaria e na carteirinha.") : "Aparece na chamada do professor, na portaria e na carteirinha. Tire agora, no ato da matrícula.";
+  if(f.url){ el.innerHTML = '<img alt="Foto de ' + esc(n) + '" src="' + f.url + '">'; g.innerHTML = '<img alt="" src="' + f.url + '">'; return; }
+  el.textContent = iniciais(n); g.textContent = "📷";
+  if(f.atual && !f.remover){ const p = f.atual; urlFoto(p).then(u => { if(u && E.edit && E.edit.foto.atual === p && !E.edit.foto.url && !E.edit.foto.remover){ el.innerHTML = '<img alt="" src="' + u + '">'; g.innerHTML = '<img alt="" src="' + u + '">'; } }); }
 }
 function abrirFoto(alvo){
   FB.alvo = alvo; FB.blob = null; FB.url = "";
@@ -857,13 +871,13 @@ async function fotoDeArquivo(arq){
 }
 function usarFoto(){
   const ed = E.edit, a = FB.alvo; if(!ed || !a || !FB.blob) return;
-  if(a.tipo === "aluno"){ ed.foto.blob = FB.blob; ed.foto.url = FB.url; ed.foto.remover = false; desenharAvatar(); }
+  if(a.tipo === "aluno"){ ed.foto.blob = FB.blob; ed.foto.url = FB.url; ed.foto.remover = false; desenharAvatar(); atualizarPct(); }
   else { lerAut(); const x = ed.auts[a.i]; if(x){ x.blob = FB.blob; x.url = FB.url; } desenharAut(); }
   FB.url = ""; fecharFoto(); toast("Foto pronta. Ela é gravada quando você salvar a ficha.");
 }
 function removerFoto(){
   const ed = E.edit, a = FB.alvo; if(!ed || !a) return;
-  if(a.tipo === "aluno"){ ed.foto.blob = null; ed.foto.url = ""; ed.foto.remover = true; desenharAvatar(); }
+  if(a.tipo === "aluno"){ ed.foto.blob = null; ed.foto.url = ""; ed.foto.remover = true; desenharAvatar(); atualizarPct(); }
   else { lerAut(); const x = ed.auts[a.i]; if(x){ x.blob = null; x.url = ""; x.foto = ""; } desenharAut(); }
   fecharFoto();
 }
