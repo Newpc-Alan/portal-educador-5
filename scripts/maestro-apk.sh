@@ -28,6 +28,8 @@ if [ ! -d "$BASE/android-sdk/build-tools/34.0.0" ]; then
   android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$BASE/android-sdk" "platforms;android-34" "build-tools;34.0.0" "platform-tools" | tail -2
 fi
 export ANDROID_HOME="$BASE/android-sdk"
+# o Bubblewrap ainda procura o SDK no formato antigo (pasta "tools")
+[ -e "$BASE/android-sdk/tools" ] || ln -s "$BASE/android-sdk/cmdline-tools/latest" "$BASE/android-sdk/tools"
 
 # 3) Bubblewrap (ferramenta do Google que empacota a página como app)
 if [ ! -x "$BASE/node_modules/.bin/bubblewrap" ]; then echo "Instalando Bubblewrap..."; npm i --silent --prefix "$BASE" @bubblewrap/cli@1.23.0 >/dev/null; fi
