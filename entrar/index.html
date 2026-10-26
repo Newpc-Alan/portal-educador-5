@@ -192,6 +192,8 @@
   /* ===== Usuarios (aprovacao e vinculo) ===== */
   .pill.pendente{ background:#fff4e0;color:#9a6700 }
   .pill.semvinculo{ background:#eaf6fb;color:#1d6f8f }
+  .usr-novo{ display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:-6px 0 14px } .usr-novo span{ font-size:12.5px;color:var(--muted) }
+  .nu-chk{ display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto;border:1px solid var(--borda,#dfe7ef);border-radius:10px;padding:8px } .nu-chk label{ display:flex;gap:6px;align-items:center;font-size:13px;border:1px solid #e3eaf1;border-radius:8px;padding:4px 8px;cursor:pointer } .nu-chk .vazio{ font-size:12.5px;color:var(--muted) }
   .usr-top{ display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:16px }
   .usr-tabs{ display:flex;flex-wrap:wrap;gap:6px }
   .usr-tab{ border:1.5px solid var(--line);background:#fff;color:var(--muted);border-radius:20px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer }
@@ -3651,6 +3653,8 @@
         '<div class="usr-tabs" id="usrTabs"></div>'+
         '<input class="usr-busca" id="usrBusca" type="search" placeholder="Buscar por nome ou e-mail" aria-label="Buscar usuário">'+chaveDemo("usr-demo")+
       '</div>'+
+      '<div class="usr-novo"><button class="btn btn-primary" data-action="nu-abrir">+ Novo usuário</button><button class="btn btn-ghost" data-action="nu-sem" id="nuSemBtn">Contas sem cadastro</button>'+
+        '<span>Cadastro manual com senha provisória: a pessoa troca a senha no primeiro acesso.</span></div>'+
       '<div class="tablewrap" id="usrTabela"><div class="empty"><div class="ei">\u{1F465}</div>Carregando cadastros...</div></div>';
     $("usrBusca").value = usr.busca;
     $("usrBusca").addEventListener("input", (e) => { usr.busca = e.target.value; desenharUsuarios(); });
@@ -3770,6 +3774,79 @@
     });
     html += '</tbody></table>';
     $("usrTabela").innerHTML = html;
+  }
+
+  // ---------- cadastro manual (senha provisória, troca no 1º acesso) ----------
+  const nu = { perfil:"professor", alunos:[] };
+  async function chamarFn(nome, dados, tempo){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js"); return (await httpsCallable(getFunctions(app, "southamerica-east1"), nome, { timeout:tempo || 60000 })(dados || {})).data; }
+  async function abrirNovoUsuario(pre){
+    await Promise.all([ cacheMunicipios.length ? 0 : carregarCacheMunicipios(), cacheEscolas.length ? 0 : carregarCacheEscolas(), cacheTurmas.length ? 0 : carregarCacheTurmas() ]);
+    const m0 = $("modalNovoUsr"); if(m0) m0.remove();
+    const m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalNovoUsr";
+    const muniOps = cacheMunicipios.filter(x => !String(x.id).startsWith("demo-")).map(x => '<option value="'+escapeAttr(x.id)+'">'+escapeHtml(x.nome)+(x.uf ? " / "+escapeHtml(x.uf) : "")+'</option>').join("");
+    m.innerHTML = '<div class="modal"><div class="mh"><h3>Novo usuário</h3><p>Cadastro manual. Gera uma senha provisória; no primeiro acesso a pessoa cria a própria senha.</p></div><div class="mb" style="max-height:64vh;overflow:auto">'+
+      '<div class="field"><label for="nuNome">Nome completo</label><input type="text" id="nuNome" maxlength="80" value="'+escapeAttr((pre && pre.nome) || "")+'"></div>'+
+      '<div class="field"><label for="nuEmail">E-mail</label><input type="email" id="nuEmail" maxlength="120" value="'+escapeAttr((pre && pre.email) || "")+'"'+(pre && pre.email ? " readonly" : "")+'></div>'+
+      '<div class="row2"><div class="field"><label for="nuPerfil">Perfil</label><select id="nuPerfil"><option value="professor">Professor</option><option value="aluno">Aluno</option><option value="gestor">Gestor da escola</option><option value="secretaria_escolar">Secretaria escolar</option><option value="portaria">Portaria</option><option value="secretaria">Secretaria de Educação</option></select></div>'+
+      '<div class="field"><label for="nuMuni">Município</label><select id="nuMuni"><option value="">Escolha...</option>'+muniOps+'</select></div></div>'+
+      '<div id="nuBloco"></div><div class="msg" id="nuMsg"></div></div>'+
+      '<div class="mf"><button class="btn btn-ghost" data-action="nu-fechar">Cancelar</button><button class="btn btn-primary" data-action="nu-salvar" id="nuSalvar">Cadastrar e gerar senha</button></div></div>';
+    document.body.appendChild(m);
+    if(cacheMunicipios.filter(x => !String(x.id).startsWith("demo-")).length === 1) $("nuMuni").selectedIndex = 1;
+    $("nuPerfil").addEventListener("change", nuDesenhar); $("nuMuni").addEventListener("change", nuDesenhar);
+    m.addEventListener("change", e => { if(e.target.name === "nuEsc" || e.target.id === "nuEscAl" || e.target.id === "nuTurAl") nuDesenhar(e); });
+    nuDesenhar(); setTimeout(() => $(pre && pre.nome ? "nuPerfil" : "nuNome").focus(), 50);
+  }
+  async function nuDesenhar(ev){
+    const perfil = $("nuPerfil").value, muni = $("nuMuni").value, b = $("nuBloco");
+    const escolas = cacheEscolas.filter(e => e.municipio_id === muni && e.status !== "inativa");
+    if(!muni){ b.innerHTML = '<p class="sub">Escolha o município.</p>'; return; }
+    if(perfil === "secretaria"){ b.innerHTML = '<p class="sub">A Secretaria de Educação vê o município inteiro.</p>'; return; }
+    if(perfil === "aluno"){
+      const escSel = ev && ev.target && ev.target.id !== "nuPerfil" && ev.target.id !== "nuMuni" && $("nuEscAl") ? $("nuEscAl").value : (escolas[0] || {}).id || "";
+      const turSel0 = $("nuTurAl") && ev && ev.target && ev.target.id === "nuTurAl" ? $("nuTurAl").value : "";
+      const turmas = cacheTurmas.filter(t => t.escola_id === escSel && t.status !== "inativa");
+      const turSel = turSel0 || (turmas[0] || {}).id || "";
+      b.innerHTML = '<div class="row2"><div class="field"><label for="nuEscAl">Escola</label><select id="nuEscAl">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(e.id === escSel ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label for="nuTurAl">Turma</label><select id="nuTurAl">'+turmas.map(t => '<option value="'+escapeAttr(t.id)+'"'+(t.id === turSel ? " selected" : "")+'>'+escapeHtml(t.nome)+'</option>').join("")+'</select></div></div>'+
+        '<div class="field"><label for="nuAluno">Matrícula (Ficha do Aluno)</label><select id="nuAluno"><option value="">Carregando...</option></select></div>';
+      if(!turSel){ $("nuAluno").innerHTML = '<option value="">Esta escola não tem turmas</option>'; return; }
+      try{ const sn = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", turSel)));
+        const l = []; sn.forEach(d => { const a = d.data(); if(a.status !== "inativo") l.push({ id:d.id, ...a }); }); l.sort(porNome);
+        if($("nuAluno")) $("nuAluno").innerHTML = l.length ? '<option value="">Escolha o aluno...</option>'+l.map(a => '<option value="'+escapeAttr(a.id)+'">'+escapeHtml(a.nome_social || a.nome)+(a.email ? " · já tem e-mail" : "")+'</option>').join("") : '<option value="">Nenhum aluno matriculado nesta turma</option>';
+      }catch(e){ if($("nuAluno")) $("nuAluno").innerHTML = '<option value="">Erro ao carregar ('+escapeHtml(e.code || "")+')</option>'; }
+      return;
+    }
+    const marcadas = new Set([...document.querySelectorAll('input[name="nuEsc"]:checked')].map(x => x.value));
+    const turMarc = new Set([...document.querySelectorAll('input[name="nuTur"]:checked')].map(x => x.value));
+    if(!marcadas.size && escolas.length === 1) marcadas.add(escolas[0].id);
+    const turmas = cacheTurmas.filter(t => marcadas.has(t.escola_id) && t.status !== "inativa");
+    b.innerHTML = '<div class="field"><label>Escolas</label><div class="nu-chk">'+(escolas.length ? escolas.map(e => '<label><input type="checkbox" name="nuEsc" value="'+escapeAttr(e.id)+'"'+(marcadas.has(e.id) ? " checked" : "")+'>'+escapeHtml(e.nome)+'</label>').join("") : '<span class="vazio">Nenhuma escola neste município.</span>')+'</div></div>'+
+      (perfil === "professor" ? '<div class="field"><label>Turmas</label><div class="nu-chk">'+(turmas.length ? turmas.map(t => '<label><input type="checkbox" name="nuTur" value="'+escapeAttr(t.id)+'"'+(turMarc.has(t.id) ? " checked" : "")+'>'+escapeHtml(t.nome)+(t.turno ? " · "+escapeHtml(t.turno) : "")+'</label>').join("") : '<span class="vazio">Marque a escola para ver as turmas.</span>')+'</div></div>' : '');
+  }
+  async function salvarNovoUsuario(){
+    const perfil = $("nuPerfil").value, msg = t => { $("nuMsg").className = "msg error"; $("nuMsg").textContent = t; };
+    const d = { nome:$("nuNome").value.trim(), email:$("nuEmail").value.trim().toLowerCase(), perfil, municipio_id:$("nuMuni").value };
+    if(d.nome.length < 3) return msg("Informe o nome completo.");
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) return msg("Informe um e-mail válido.");
+    if(!d.municipio_id) return msg("Escolha o município.");
+    if(perfil === "aluno"){ d.aluno_id = $("nuAluno") ? $("nuAluno").value : ""; if(!d.aluno_id) return msg("Escolha a matrícula do aluno."); }
+    else if(perfil !== "secretaria"){ d.escolas_ids = [...document.querySelectorAll('input[name="nuEsc"]:checked')].map(x => x.value); d.turmas_ids = [...document.querySelectorAll('input[name="nuTur"]:checked')].map(x => x.value); if(!d.escolas_ids.length) return msg("Marque ao menos uma escola."); }
+    const b = $("nuSalvar"); b.disabled = true; b.textContent = "Cadastrando...";
+    try{ const r = await chamarFn("criarUsuarioManual", d); $("modalNovoUsr").remove(); mostrarSenhaGerada(r); await carregarUsuarios(); }
+    catch(e){ console.warn(e); msg(e.message || "Não foi possível cadastrar agora."); b.disabled = false; b.textContent = "Cadastrar e gerar senha"; }
+  }
+  async function verContasSemCadastro(){
+    const b = $("nuSemBtn"); b.disabled = true; b.textContent = "Buscando...";
+    try{
+      const r = await chamarFn("contasSemCadastro", {}, 120000); usr.semCad = r.contas || [];
+      document.querySelectorAll(".usr-tab").forEach(x => x.classList.remove("on"));
+      $("usrTabela").innerHTML = !usr.semCad.length ? '<div class="empty"><div class="ei">✅</div>Nenhuma conta sem cadastro.</div>' :
+        '<table><thead><tr><th>Conta criada sem cadastro no Portal</th><th>Como entrou</th><th>Criada em</th><th>Ações</th></tr></thead><tbody>'+
+        usr.semCad.map(c => '<tr><td class="usr-nome"><b>'+escapeHtml(c.nome || "Sem nome")+'</b><small>'+escapeHtml(c.email)+'</small></td><td class="usr-vinc">'+(c.google ? "Google" : "E-mail e senha")+(c.verificado ? "" : " · e-mail não confirmado")+'</td>'+
+          '<td class="usr-vinc">'+escapeHtml(c.criado ? new Date(c.criado).toLocaleDateString("pt-BR") : "-")+'</td><td><button class="btn-mini btn-gerenciar" data-action="nu-cadastrar" data-email="'+escapeAttr(c.email)+'" data-nome="'+escapeAttr(c.nome || "")+'">Cadastrar</button></td></tr>').join("")+'</tbody></table>';
+    }catch(e){ console.warn(e); toast(e.message || "Não foi possível listar agora.", true); }
+    finally{ b.disabled = false; b.textContent = "Contas sem cadastro"; }
   }
 
   function desenharPreCadastros(termo){
@@ -4034,6 +4111,11 @@
     const el = ev.target.closest("[data-action]"); if(!el) return;
     const acao = el.dataset.action;
     if(acao === "usr-filtro"){ usr.filtro = el.dataset.filtro; desenharUsuarios(); }
+    else if(acao === "nu-abrir"){ abrirNovoUsuario(); }
+    else if(acao === "nu-fechar"){ const m = $("modalNovoUsr"); if(m) m.remove(); }
+    else if(acao === "nu-salvar"){ salvarNovoUsuario(); }
+    else if(acao === "nu-sem"){ verContasSemCadastro(); }
+    else if(acao === "nu-cadastrar"){ abrirNovoUsuario({ email:el.dataset.email, nome:el.dataset.nome }); }
     else if(acao === "aluno-status"){ mudarStatusAluno(el.dataset.id, el.dataset.arg, el); }
     else if(acao === "usr-abrir"){ abrirModalUsuario(el.dataset.uid); }
     else if(acao === "usr-recusar"){ recusarUsuario(el.dataset.uid, el); }
