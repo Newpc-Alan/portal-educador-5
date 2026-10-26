@@ -33,6 +33,7 @@
   .field input, .field select{ width:100%;padding:12px 14px;border:1.5px solid var(--line); border-radius:10px;font-size:14.5px;color:var(--ink); background:#fbfcfe; transition:border-color .15s, box-shadow .15s; }
   .field input:focus, .field select:focus{ outline:none;border-color:var(--cyan); box-shadow:0 0 0 3px rgba(55,177,218,.15); background:#fff; }
   .row2{ display:flex;gap:12px } .row2 .field{ flex:1 }
+  .row2 .tur-letra{ flex:0 0 120px } .tur-previa{ background:#eef6ee;border:1px dashed #1a6b2a;border-radius:10px;padding:10px 14px;margin-top:4px } .tur-previa small{ display:block;color:var(--muted);font-size:11.5px } .tur-previa b{ font-size:18px;color:#0f2c4a } .usr-acoes a.btn-mini{ text-decoration:none;display:inline-flex;align-items:center }
   .row2 .esc-ddd{ flex:0 0 72px } .row2 .esc-num{ flex:0 0 96px } .row2 .esc-cep{ flex:0 0 140px }
   #modalEscola .modal{ max-width:620px;width:calc(100% - 24px) } .row2 .esc-cnpj{ flex:1.5 }
   .esc-linha{ display:flex;gap:6px } .esc-linha input{ flex:1;min-width:0 } .esc-linha button{ background:#0f2c4a;color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:700;font-size:13px;cursor:pointer } .esc-linha button:hover{ background:#1a6b2a } .esc-st{ display:block;min-height:15px;font-size:11.5px;color:var(--muted);margin-top:3px } .esc-st.erro{ color:#b42318 } .esc-st.ok{ color:#1a6b2a }
@@ -699,7 +700,7 @@
     .usr-tabs{ flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px }
     .usr-tab{ white-space:nowrap;flex:none }
     .usr-busca{ min-width:0;width:100% }
-    .row2{ flex-direction:column;gap:0 } .row2 .esc-ddd,.row2 .esc-num,.row2 .esc-cep{ flex:1 1 auto }
+    .row2{ flex-direction:column;gap:0 } .row2 .esc-ddd,.row2 .esc-num,.row2 .esc-cep,.row2 .tur-letra{ flex:1 1 auto }
     .modal-bg{ padding:10px;align-items:flex-end }
     .modal, .modal.usr, .modal.big{ max-width:100%;max-height:92vh;display:flex;flex-direction:column }
     .modal .mb{ overflow-y:auto }
@@ -967,20 +968,18 @@
   <div class="modal">
     <div class="mh"><h3>Nova Turma</h3><p>Cadastre uma turma vinculada a uma escola.</p></div>
     <div class="mb">
-      <div class="field"><label for="turNome">Nome da turma</label><input type="text" id="turNome" placeholder="Ex: 5o Ano A"></div>
       <div class="field"><label for="turEscola">Escola</label><select id="turEscola"><option value="">Carregando...</option></select></div>
       <div class="row2">
-        <div class="field"><label for="turSerie">Ano / Série</label>
-          <select id="turSerie">
-            <option value="">--</option>
-            <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option>
-          </select>
-        </div>
+        <div class="field"><label for="turSerie">Etapa / Ano</label><select id="turSerie"></select></div>
+        <div class="field tur-letra"><label for="turLetra">Turma</label><select id="turLetra"></select></div>
+      </div>
+      <div class="row2">
         <div class="field"><label for="turTurno">Turno</label>
           <select id="turTurno"><option>Matutino</option><option>Vespertino</option><option>Integral</option><option>Noturno</option></select>
         </div>
         <div class="field"><label for="turAno">Ano letivo</label><input type="number" id="turAno" value="2026"></div>
       </div>
+      <div class="tur-previa"><small>Nome da turma (padrão da rede)</small><b id="turNome">Escolha a etapa</b></div>
     </div>
     <div class="mf"><button class="btn btn-ghost" id="turCancelar">Cancelar</button><button class="btn btn-primary" id="turSalvar">Salvar turma</button></div>
   </div>
@@ -1979,6 +1978,35 @@
   });
 
   // ===================== TURMAS =====================
+  // Nome da turma padronizado: etapa + letra ("4º Ano A", "Pré II B", "1ª Série A"). Nada de digitação livre.
+  // ano_serie guarda o código da etapa (o mesmo das faixas dos vídeos/atividades: bebes, cbp, cp, 1..9, em1..em3).
+  const TUR_ETAPAS = [
+    ["Educação Infantil", [["Berçário I","bebes"],["Berçário II","bebes"],["Maternal I","cbp"],["Maternal II","cbp"],["Pré I","cp"],["Pré II","cp"]]],
+    ["Ensino Fundamental · Anos Iniciais", ["1","2","3","4","5"].map(n => [n+"º Ano", n])],
+    ["Ensino Fundamental · Anos Finais", ["6","7","8","9"].map(n => [n+"º Ano", n])],
+    ["Ensino Médio", ["1","2","3"].map(n => [n+"ª Série", "em"+n])],
+    ["Outras", [["EJA Fase I","eja"],["EJA Fase II","eja"],["Multisseriada","multi"]]]
+  ];
+  const TUR_COD = {}; TUR_ETAPAS.forEach(([, l]) => l.forEach(([r, c]) => { TUR_COD[r] = c; }));
+  const TUR_LETRAS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const turEtapaOpcoes = sel => '<option value="">Escolha...</option>' + TUR_ETAPAS.map(([g, l]) => '<optgroup label="' + escapeAttr(g) + '">' + l.map(([r]) => '<option' + (r === sel ? " selected" : "") + '>' + escapeHtml(r) + '</option>').join("") + '</optgroup>').join("");
+  const turLetraOpcoes = sel => TUR_LETRAS.map(x => '<option' + (x === sel ? " selected" : "") + '>' + x + '</option>').join("") + '<option value=""' + (sel === "" ? " selected" : "") + '>Única (sem letra)</option>';
+  const turNomePadrao = (etapa, letra) => etapa ? etapa + (letra ? " " + letra : "") : "";
+  // chave de comparação: sem acento, sem maiúscula; "5º", "5o" e "5" valem o mesmo
+  const turChave = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/(\d+)\s*(?:[\u00ba\u00b0\u00aa]|o(?![a-z0-9]))?\s*/g, "$1 ").replace(/\s+/g, " ").trim();
+  // lê um nome já gravado ("4º ano a", "5 Ano A") de volta para etapa + letra, quando possível
+  function turParse(nome){
+    const n = turChave(nome);
+    for(const r of Object.keys(TUR_COD)){ const k = turChave(r);
+      if(n === k) return { etapa:r, letra:"" };
+      const m = n.match(new RegExp("^" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " ([a-z])$")); if(m) return { etapa:r, letra:m[1].toUpperCase() }; }
+    return null;
+  }
+  // mesma turma (escola + ano letivo + nome) não pode existir duas vezes
+  const turDuplicada = (escId, ano, nome, ignorar) => (cacheTurmas || []).some(t => t.id !== ignorar && t.status !== "inativa" && t.escola_id === escId && Number(t.ano_letivo) === Number(ano) && turChave(t.nome) === turChave(nome));
+  const turRotuloSerie = t => { const c = String(t.ano_serie || ""); if(/^\d$/.test(c)) return c + "º ano"; if(/^em\d$/.test(c)) return c.slice(2) + "ª série EM"; return ({ bebes:"Berçário", cbp:"Maternal", cp:"Pré-escola", eja:"EJA", multi:"Multisseriada" })[c] || ""; };
+  const linkAlunosTurma = (t, novo) => "/apps/alunos/#e=" + encodeURIComponent(t.escola_id || "") + "&t=" + encodeURIComponent(t.id) + (novo ? "&a=novo" : "");
+
   async function renderTurmas(){
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="turCount">Carregando...</span>'+
@@ -1993,60 +2021,71 @@
       const snap = await getDocs(q);
       const ativas = [];
       snap.forEach(d => { const t=d.data(); if(t.status!=="inativa") ativas.push({ id:d.id, ...t }); });
+      ativas.sort((a, b) => String(a.escola_nome || "").localeCompare(String(b.escola_nome || ""), "pt-BR") || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
       $("turCount").textContent = ativas.length+" turma(s) cadastrada(s)";
       if(ativas.length===0){ $("turTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F4DA}</div>Nenhuma turma cadastrada ainda.<br>Clique em "Nova Turma" para comecar.</div>'; return; }
-      let html = '<table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano letivo</th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano letivo</th><th>Alunos</th></tr></thead><tbody>';
       ativas.forEach(t => {
         html += '<tr><td><b>'+escapeHtml(t.nome)+'</b></td>'+
                 '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td>'+
                 '<td>'+escapeHtml(t.turno||"-")+'</td>'+
-                '<td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td></tr>';
+                '<td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
+                '<td><div class="usr-acoes"><a class="btn-mini btn-gerenciar" href="'+escapeAttr(linkAlunosTurma(t, true))+'">+ Matricular alunos</a>'+
+                '<a class="btn-mini btn-result" href="'+escapeAttr(linkAlunosTurma(t, false))+'">Ver alunos</a></div></td></tr>';
       });
       html += '</tbody></table>'; $("turTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("turTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
+  function turAtualizarNome(){ $("turNome").textContent = turNomePadrao($("turSerie").value, $("turLetra").value) || "Escolha a etapa"; }
+  $("turSerie").addEventListener("change", turAtualizarNome);
+  $("turLetra").addEventListener("change", turAtualizarNome);
   async function abrirModalTurma(){
-    $("turNome").value=""; $("turSerie").value=""; $("turTurno").value="Matutino"; $("turAno").value="2026";
+    $("turSerie").innerHTML = turEtapaOpcoes(""); $("turLetra").innerHTML = turLetraOpcoes("A");
+    $("turTurno").value="Matutino"; $("turAno").value=String(new Date().getFullYear()); turAtualizarNome();
     const sel = $("turEscola"); sel.innerHTML = '<option value="">Carregando...</option>';
     $("modalTurma").classList.add("show");
     try{
-      const lista = cacheEscolas.length ? cacheEscolas : await carregarCacheEscolas();
+      const [lista] = await Promise.all([ cacheEscolas.length ? cacheEscolas : carregarCacheEscolas(), cacheTurmas.length ? cacheTurmas : carregarCacheTurmas() ]);
       if(lista.length===0){ sel.innerHTML = '<option value="">Nenhuma escola. Cadastre primeiro.</option>'; return; }
-      sel.innerHTML = '<option value="">Selecione a escola...</option>';
+      sel.innerHTML = (lista.length > 1 ? '<option value="">Selecione a escola...</option>' : '');
       lista.forEach(e => {
         const o=document.createElement("option");
         o.value=e.id; o.textContent=e.nome+" ("+(e.municipio_nome||"")+")";
         o.dataset.nome=e.nome; o.dataset.muniId=e.municipio_id||""; o.dataset.muniNome=e.municipio_nome||""; o.dataset.muniUf=e.municipio_uf||"";
         sel.appendChild(o);
       });
-      $("turNome").focus();
+      (lista.length > 1 ? sel : $("turSerie")).focus();
     }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
   }
   function fecharModalTurma(){ $("modalTurma").classList.remove("show"); }
   $("turCancelar").addEventListener("click", fecharModalTurma);
   $("modalTurma").addEventListener("click", (e)=>{ if(e.target.id==="modalTurma") fecharModalTurma(); });
   $("turSalvar").addEventListener("click", async () => {
-    const nome=$("turNome").value.trim();
+    const etapa=$("turSerie").value, nome=turNomePadrao(etapa, $("turLetra").value);
     const sel=$("turEscola"); const escId=sel.value; const opt=sel.options[sel.selectedIndex];
-    const serie=$("turSerie").value; const turno=$("turTurno").value; const ano=parseInt($("turAno").value,10);
-    if(!nome){ toast("Informe o nome da turma.", true); return; }
+    const turno=$("turTurno").value; const ano=parseInt($("turAno").value,10);
     if(!escId){ toast("Selecione a escola.", true); return; }
-    if(!ano){ toast("Informe o ano letivo.", true); return; }
+    if(!etapa){ toast("Escolha a etapa / ano da turma.", true); return; }
+    if(!ano || ano < 2020){ toast("Informe o ano letivo.", true); return; }
+    if(turDuplicada(escId, ano, nome)){ toast("Já existe a turma "+nome+" nesta escola em "+ano+".", true); return; }
     $("turSalvar").disabled=true; $("turSalvar").textContent="Salvando...";
     try{
-      await addDoc(collection(db,"turmas"), {
+      const r = await addDoc(collection(db,"turmas"), {
         nome,
         escola_id: escId,
         escola_nome: opt.dataset.nome || "",
         municipio_id: opt.dataset.muniId || "",     // herda da escola
         municipio_nome: opt.dataset.muniNome || "",
-        ano_serie: serie || "",
+        ano_serie: TUR_COD[etapa] || "",
+        etapa,
+        turma_letra: $("turLetra").value,
         turno: turno,
         ano_letivo: ano,
         status: "ativa",
         criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid
       });
-      fecharModalTurma(); toast("Turma cadastrada!"); await listarTurmas();
+      cacheTurmas = []; fecharModalTurma(); await listarTurmas();
+      toast("Turma "+nome+" cadastrada! Use “+ Matricular alunos” na linha dela.");
     }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
     finally{ $("turSalvar").disabled=false; $("turSalvar").textContent="Salvar turma"; }
   });
@@ -2148,7 +2187,7 @@
         ? '<div class="empty"><div class="ei">\u{1F4DA}</div>Você ainda não tem turmas. Crie uma em "+ Nova turma" ou adicione uma turma que já existe na sua escola, logo abaixo.</div>'
         : '<div class="tablewrap"><table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano</th><th>Ações</th></tr></thead><tbody>'+
           minhas.map(t => { const dono = t.criado_por === usuarioAtual.uid;
-            return '<tr><td><b>'+escapeHtml(t.nome)+'</b>'+(t.ano_serie ? '<br><small class="muni-tag">'+escapeHtml(t.ano_serie)+'º ano</small>' : '')+'</td>'+
+            return '<tr><td><b>'+escapeHtml(t.nome)+'</b>'+(turRotuloSerie(t) ? '<br><small class="muni-tag">'+escapeHtml(turRotuloSerie(t))+'</small>' : '')+'</td>'+
             '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td><td>'+escapeHtml(t.turno||"-")+'</td><td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
             '<td><div class="usr-acoes"><button class="btn-mini btn-result" data-action="mt-alunos" data-id="'+escapeAttr(t.id)+'">Alunos</button>'+
             (dono ? '<button class="btn-mini btn-gerenciar" data-action="mt-editar" data-id="'+escapeAttr(t.id)+'">Editar</button>' : '')+
@@ -2163,24 +2202,29 @@
   }
   function formTurma(t){
     mt.editando = t ? t.id : null;
+    const pr = t ? (t.etapa ? { etapa:t.etapa, letra:t.turma_letra || "" } : turParse(t.nome)) : null;
     const escolas = cacheEscolas.filter(e => minhasEscolasIds().includes(e.id));
     $("mtForm").innerHTML = '<div class="imp-card"><h3>'+(t ? "Editar turma" : "Nova turma")+'</h3>'+
-      '<div class="row2"><div class="field"><label for="mtNome">Nome da turma</label><input type="text" id="mtNome" maxlength="40" placeholder="Ex: 5º Ano A" value="'+escapeAttr(t ? t.nome : "")+'"></div>'+
-      '<div class="field"><label for="mtEscola">Escola</label><select id="mtEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(t && t.escola_id===e.id ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></div></div>'+
-      '<div class="row2"><div class="field"><label for="mtSerie">Ano / série</label><select id="mtSerie"><option value="">--</option>'+["1","2","3","4","5","6","7","8","9"].map(n => '<option'+(t && t.ano_serie===n ? " selected" : "")+'>'+n+'</option>').join("")+'</select></div>'+
+      '<div class="field"><label for="mtEscola">Escola</label><select id="mtEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(t && t.escola_id===e.id ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></div>'+
+      '<div class="row2"><div class="field"><label for="mtSerie">Etapa / Ano</label><select id="mtSerie" data-action="mt-nome">'+turEtapaOpcoes(pr ? pr.etapa : "")+'</select></div>'+
+      '<div class="field tur-letra"><label for="mtLetra">Turma</label><select id="mtLetra" data-action="mt-nome">'+turLetraOpcoes(pr ? pr.letra : "A")+'</select></div>'+
       '<div class="field"><label for="mtTurno">Turno</label><select id="mtTurno">'+["Matutino","Vespertino","Integral","Noturno"].map(n => '<option'+(t && t.turno===n ? " selected" : "")+'>'+n+'</option>').join("")+'</select></div>'+
       '<div class="field"><label for="mtAno">Ano letivo</label><input type="number" id="mtAno" min="2020" max="2100" value="'+(t ? t.ano_letivo : new Date().getFullYear())+'"></div></div>'+
+      '<div class="tur-previa"><small>Nome da turma (padrão da rede)'+(t && !pr ? ' · o nome antigo “'+escapeHtml(t.nome)+'” será padronizado' : '')+'</small><b id="mtNome">'+escapeHtml(pr ? turNomePadrao(pr.etapa, pr.letra) : "Escolha a etapa")+'</b></div>'+
       '<div class="imp-acoes"><button class="btn btn-primary" data-action="mt-salvar" id="mtSalvar">Salvar turma</button><button class="btn btn-ghost" data-action="mt-cancelar">Cancelar</button></div></div>';
-    $("mtNome").focus();
+    $("mtSerie").focus();
   }
+  function mtAtualizarNome(){ const el = $("mtNome"); if(el) el.textContent = turNomePadrao($("mtSerie").value, $("mtLetra").value) || "Escolha a etapa"; }
+  document.addEventListener("change", e => { if(e.target && e.target.dataset && e.target.dataset.action === "mt-nome") mtAtualizarNome(); });
   async function salvarTurma(){
-    const nome = $("mtNome").value.trim(), escId = $("mtEscola").value, ano = parseInt($("mtAno").value,10);
-    if(nome.length < 2){ toast("Informe o nome da turma.", true); return; }
+    const etapa = $("mtSerie").value, nome = turNomePadrao(etapa, $("mtLetra").value), escId = $("mtEscola").value, ano = parseInt($("mtAno").value,10);
     if(!escId){ toast("Escolha a escola.", true); return; }
+    if(!etapa){ toast("Escolha a etapa / ano da turma.", true); return; }
     if(!ano || ano < 2020){ toast("Informe o ano letivo.", true); return; }
+    if(turDuplicada(escId, ano, nome, mt.editando)){ toast("Já existe a turma "+nome+" nesta escola em "+ano+". Use \u201cAdicionar\u201d na lista de turmas da escola.", true); return; }
     const esc = cacheEscolas.find(e => e.id === escId) || {};
     const dados = { nome, escola_id:escId, escola_nome:esc.nome||"", municipio_id:usuarioAtual.municipio_id, municipio_nome:usuarioAtual.municipio_nome||"",
-      ano_serie:$("mtSerie").value, turno:$("mtTurno").value, ano_letivo:ano, status:"ativa", atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      ano_serie:TUR_COD[etapa] || "", etapa, turma_letra:$("mtLetra").value, turno:$("mtTurno").value, ano_letivo:ano, status:"ativa", atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     const btn = $("mtSalvar"); btn.disabled = true; btn.textContent = "Salvando...";
     try{
       if(mt.editando){ await updateDoc(doc(db,"turmas",mt.editando), dados); toast("Turma atualizada."); }
