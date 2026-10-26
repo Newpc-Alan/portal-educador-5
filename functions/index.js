@@ -7,6 +7,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
 export { importarBiblioteca } from './biblioteca.js';
+export { sincronizarAtividades } from './atividades.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });
