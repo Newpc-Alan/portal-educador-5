@@ -610,6 +610,7 @@ html, body { background: #f4f7fa !important; }
 #pde-painel .pde-portal { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 14px;
   background: #fff; border: 1px solid #dce4ed; border-left: 4px solid var(--lima); border-radius: 14px; box-shadow: 0 1px 3px rgba(15,44,74,.06); }
 #pde-painel .pde-portal[hidden] { display: none; }
+#pde-painel .pde-btn[hidden] { display: none !important; }
 #pde-painel .pde-portal-ico { width: 46px; height: 46px; border-radius: 12px; background: #eef5fb; display: grid; place-items: center; font-size: 22px; flex-shrink: 0; overflow: hidden; }
 #pde-painel .pde-portal-ico img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
 #pde-painel .pde-portal-txt { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; }
@@ -715,7 +716,7 @@ html, body { background: #f4f7fa !important; }
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="abrirResumo" title="Ver o resumo da avaliação">☰ Resumo</button>
         <span class="pde-topbar-sep"></span>
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="mpAbrir" title="Suas provas guardadas na nuvem, organizadas em pastas">📁 Minhas provas</button>
-        <button class="pde-btn pde-btn-primary pde-btn-sm" data-action="olAbrir" title="Aplicar esta prova no Portal do Aluno, com horário marcado e correção automática">📡 Aplicar online</button>
+        <button class="pde-btn pde-btn-primary pde-btn-sm" data-action="olAbrir" hidden title="Aplicar esta prova no Portal do Aluno, com horário marcado e correção automática">📡 Aplicar online</button>
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="guiaAbrir" title="Conheça os recursos do gerador">❔ Guia</button>
         <button class="pde-btn pde-btn-ghost pde-btn-sm pde-nuvem-btn" data-action="mpSalvar" id="mp-salvar" title="Guardar esta prova na sua conta">☁ Salvar</button>
         <a class="pde-btn pde-btn-ghost pde-btn-sm pde-voltar" href="/entrar/" title="Voltar ao Portal do Educador">← Voltar ao Portal</a>
@@ -3495,6 +3496,9 @@ onAuthStateChanged(auth, async (user) => {
       }
     }catch(e){ console.warn("municipios:", e.code); }
   }
+  // Prova online é recurso do plano do município (o administrador vê sempre)
+  P.provaOnline = P.admin || !!(P.muni && Array.isArray(P.muni.recursos) && P.muni.recursos.includes("prova_online"));
+  document.querySelectorAll('[data-action="olAbrir"]').forEach(b => b.hidden = !P.provaOnline);
   const ids = (u.escolas_ids && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean).slice(0, 10);
   P.escolas = (await Promise.all(ids.map(i => ler("escolas", i)))).filter(Boolean).map(e => ({ id:e.id, nome:e.nome || "", logo_url:e.logo_url || "" }));
   if(!P.escolas.length && u.escola_texto) P.escolas = [{ id:"", nome:u.escola_texto, logo_url:"" }];

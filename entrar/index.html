@@ -980,6 +980,9 @@
         <table class="mod-tab" style="margin-top:10px"><thead><tr><th>Secretaria de Educação</th><th class="c">Secretaria</th></tr></thead>
           <tbody><tr><td>Painel da Rede<small>indicadores de uso, aprendizagem BNCC, calendário letivo, suporte técnico e relatório executivo em PDF</small></td>
           <td class="c"><input type="checkbox" id="planoPainel" data-plano="sec" value="painel" aria-label="Painel da Rede para a Secretaria"></td></tr></tbody></table>
+        <table class="mod-tab" style="margin-top:10px"><thead><tr><th>Recursos extras</th><th class="c">Liberado</th></tr></thead>
+          <tbody><tr><td>Prova online<small>no Gerador de Provas: o professor aplica a prova no Portal do Aluno, com horário, modo protegido e correção automática</small></td>
+          <td class="c"><input type="checkbox" id="planoProvaOnline" data-plano="rec" value="prova_online" aria-label="Prova online"></td></tr></tbody></table>
       </div>
       <div class="usr-aviso">A liberação vale para todos os professores e alunos aprovados deste município. Os módulos marcados só para professor não aparecem no Portal do Aluno.</div>
     </div>
@@ -4080,7 +4083,7 @@
     { id:"maestro",     nome:"Portal Maestro",         aluno:false, ico:"\u{1F3BC}", desc:"Conduza a turma nos dispositivos em tempo real", obs:"gestão da sala de aula",
       urlPadrao:"https://sala.portaldoeducador.com.br/" }
   ];
-  const plano = { muniId:null, prof:new Set(), alu:new Set(), sec:new Set() };
+  const plano = { muniId:null, prof:new Set(), alu:new Set(), sec:new Set(), rec:new Set() };
 
   // ===================== INICIO: botoes principais do Portal =====================
   // situacao global de cada modulo (o admin destrava conforme cada um fica pronto)
@@ -6076,6 +6079,7 @@
     plano.prof = new Set(Array.isArray(m.modulos_professor) ? m.modulos_professor : []);
     plano.alu  = new Set(Array.isArray(m.modulos_aluno) ? m.modulos_aluno : []);
     plano.sec  = new Set(Array.isArray(m.modulos_secretaria) ? m.modulos_secretaria : []);
+    plano.rec  = new Set(Array.isArray(m.recursos) ? m.recursos : []);
     $("planoSub").textContent = m.nome+" / "+(m.uf||"");
     $("planoContrato").value = m.contrato_numero || "";
     $("planoVigencia").value = m.vigencia_fim || "";
@@ -6087,6 +6091,7 @@
   function fecharModalPlano(){ $("modalPlano").classList.remove("show"); plano.muniId = null; }
   function desenharPlano(){
     $("planoPainel").checked = plano.sec.has("painel");
+    $("planoProvaOnline").checked = plano.rec.has("prova_online");
     $("planoModulos").innerHTML = MODULOS.map(md =>
       '<tr><td>'+escapeHtml(md.nome)+(md.obs ? '<small>'+escapeHtml(md.obs)+'</small>' : '')+'</td>'+
       '<td class="c"><input type="checkbox" data-plano="prof" value="'+md.id+'"'+(plano.prof.has(md.id)?" checked":"")+' aria-label="'+escapeAttr(md.nome)+' para professor"></td>'+
@@ -6095,10 +6100,10 @@
         : '<input type="checkbox" disabled title="Exclusivo do professor" aria-label="Exclusivo do professor">')+'</td></tr>').join("");
     contarPlano();
   }
-  function contarPlano(){ $("planoCont").textContent = plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : ""); }
+  function contarPlano(){ $("planoCont").textContent = plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : "")+(plano.rec && plano.rec.has("prova_online") ? " · Prova online" : ""); }
   function atalhoPlano(acao){
-    if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); }
-    else if(acao === "plano-nenhum"){ plano.prof.clear(); plano.alu.clear(); plano.sec.clear(); }
+    if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); }
+    else if(acao === "plano-nenhum"){ plano.prof.clear(); plano.alu.clear(); plano.sec.clear(); plano.rec.clear(); }
     else if(acao === "plano-alunos"){ plano.alu = new Set(MODULOS.filter(m => m.aluno && plano.prof.has(m.id)).map(m => m.id)); }
     desenharPlano();
   }
@@ -6113,6 +6118,7 @@
       modulos_professor: MODULOS.filter(m => plano.prof.has(m.id)).map(m => m.id),
       modulos_aluno: MODULOS.filter(m => m.aluno && plano.alu.has(m.id)).map(m => m.id),
       modulos_secretaria: ["painel"].filter(x => plano.sec.has(x)),
+      recursos: ["prova_online"].filter(x => plano.rec.has(x)),
       atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
     };
     // dominios de aluno: valida, confere se nao pertencem a outro municipio e sincroniza dominios_aluno/{dominio}
@@ -6144,7 +6150,7 @@
   document.addEventListener("change", (ev) => {
     const t = ev.target;
     if(t.dataset && t.dataset.plano && plano.muniId){
-      const alvo = t.dataset.plano === "prof" ? plano.prof : t.dataset.plano === "sec" ? plano.sec : plano.alu;
+      const alvo = t.dataset.plano === "prof" ? plano.prof : t.dataset.plano === "sec" ? plano.sec : t.dataset.plano === "rec" ? plano.rec : plano.alu;
       t.checked ? alvo.add(t.value) : alvo.delete(t.value);
       contarPlano();
     }

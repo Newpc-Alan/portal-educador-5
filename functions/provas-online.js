@@ -55,6 +55,13 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   const minhas = new Set(u.turmas_ids || []), escolas = new Set(u.escolas_ids && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]);
   if (u.perfil !== 'admin' && !(minhas.has(d.turma_id) || turma.criado_por === u.uid || (u.perfil === 'gestor' && escolas.has(turma.escola_id))))
     throw new HttpsError('permission-denied', 'Essa turma não é sua.');
+  // recurso contratado: o município da turma precisa ter "Prova online" no plano
+  if (u.perfil !== 'admin') {
+    const mid = turma.municipio_id || (turma.escola_id ? ((await db.doc(`escolas/${turma.escola_id}`).get()).data() || {}).municipio_id : '');
+    const m = mid ? (await db.doc(`municipios/${mid}`).get()).data() : null;
+    if (!m || !Array.isArray(m.recursos) || !m.recursos.includes('prova_online'))
+      throw new HttpsError('failed-precondition', 'A Prova online não está incluída no plano da sua rede. Fale com a NEWPC.');
+  }
   const abre = Number(d.abre_em), fecha = Number(d.fecha_em), dur = Math.round(Number(d.duracao_min));
   if (!(abre > 0 && fecha > abre)) throw new HttpsError('invalid-argument', 'Confira o horário de abertura e de encerramento.');
   if (fecha < Date.now()) throw new HttpsError('invalid-argument', 'O encerramento já passou.');
