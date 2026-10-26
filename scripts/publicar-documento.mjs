@@ -1,7 +1,7 @@
 // Publica um PDF na Documentação do Portal (menu do administrador) ou na Ajuda (todos os perfis).
 // Uso (Cloud Shell, conta com acesso ao projeto):
 //   node scripts/publicar-documento.mjs --arquivo manual.pdf --titulo "Manual do Usuário" --categoria manual --publico todos --versao 1.0 [--codigo X] [--descricao "..."] [--id idExistente] [--nota "o que mudou"]
-//   --categoria: manual | pop | tecnico | outro      --publico: admin (só a equipe NEWPC) | todos (aparece em Ajuda)
+//   --categoria: manual | pop | tecnico | app | outro   (app = aplicativo Android .apk, sempre --publico admin)      --publico: admin (só a equipe NEWPC) | todos (aparece em Ajuda)
 //   Com --id de um documento existente, publica uma NOVA VERSÃO (guarda o histórico). Sem --gravar, só mostra o que faria.
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -14,10 +14,12 @@ const arg = n => { const i = process.argv.indexOf('--' + n); return i > 0 ? proc
 const gravar = process.argv.includes('--gravar');
 const arquivo = arg('arquivo'), titulo = arg('titulo'), categoria = arg('categoria') || 'outro', publico = arg('publico') || 'admin', versao = arg('versao') || '1.0';
 if (!arquivo || (!titulo && !arg('id'))) { console.log('Informe --arquivo e --titulo (ou --id para nova versão).'); process.exit(1); }
-if (!['manual', 'pop', 'tecnico', 'outro'].includes(categoria)) { console.log('Categoria inválida.'); process.exit(1); }
+if (!['manual', 'pop', 'tecnico', 'app', 'outro'].includes(categoria)) { console.log('Categoria inválida.'); process.exit(1); }
 if (!['admin', 'todos'].includes(publico)) { console.log('--publico deve ser admin ou todos.'); process.exit(1); }
 const buf = readFileSync(arquivo);
-if (buf.slice(0, 4).toString() !== '%PDF') { console.log('O arquivo não é PDF.'); process.exit(1); }
+const apk = /\.apk$/i.test(arquivo);
+if (apk ? buf.slice(0, 2).toString() !== 'PK' : buf.slice(0, 4).toString() !== '%PDF') { console.log(apk ? 'O arquivo não é um APK válido.' : 'O arquivo não é PDF.'); process.exit(1); }
+if (apk && publico !== 'admin') { console.log('APK fica só para a equipe NEWPC: use --publico admin.'); process.exit(1); }
 
 initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5', storageBucket: 'portal-educador-5.firebasestorage.app' });
 const db = getFirestore(), bucket = getStorage().bucket();
@@ -25,11 +27,12 @@ const ref = arg('id') ? db.doc('documentos/' + arg('id')) : db.collection('docum
 const atual = arg('id') ? (await ref.get()).data() : null;
 if (arg('id') && !atual) { console.log('Documento não encontrado: ' + arg('id')); process.exit(1); }
 const pub = atual ? atual.publico : publico;
-const caminho = 'documentos/' + (pub === 'todos' ? 'publico' : 'interno') + '/' + ref.id + '-v' + versao.replace(/[^0-9A-Za-z]+/g, '-') + '-' + Date.now().toString(36) + '.pdf';
+if (apk && pub !== 'admin') { console.log('APK só em documento da equipe NEWPC.'); process.exit(1); }
+const caminho = 'documentos/' + (pub === 'todos' ? 'publico' : 'interno') + '/' + ref.id + '-v' + versao.replace(/[^0-9A-Za-z]+/g, '-') + '-' + Date.now().toString(36) + (apk ? '.apk' : '.pdf');
 console.log((atual ? 'Nova versão de "' + atual.titulo + '"' : 'Novo documento "' + titulo + '"') + ' · ' + pub + ' · v' + versao + ' · ' + (buf.length / 1048576).toFixed(1) + ' MB → ' + caminho);
 if (!gravar) { console.log('Simulação. Rode de novo com --gravar.'); process.exit(0); }
 
-await bucket.file(caminho).save(buf, { contentType: 'application/pdf', resumable: false });
+await bucket.file(caminho).save(buf, { contentType: apk ? 'application/vnd.android.package-archive' : 'application/pdf', resumable: false });
 const reg = { versao, arquivo: caminho, tamanho: buf.length, em: Timestamp.now(), por: 'script', nota: arg('nota').slice(0, 200) };
 const quem = { atualizado_em: FieldValue.serverTimestamp(), atualizado_por: 'script' };
 if (atual) {

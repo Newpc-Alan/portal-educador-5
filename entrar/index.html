@@ -5037,7 +5037,9 @@
   // ===================== DOCUMENTAÇÃO (admin) e AJUDA (todos) =====================
   // documentos/{id}: titulo, categoria, codigo, descricao, publico ("admin" | "todos"), versao, arquivo (Storage), tamanho, versoes[]
   // Storage: documentos/interno/ (só admin) e documentos/publico/ (quem tem acesso ativo)
-  const DOC_CATS = { manual:["\u{1F4D8}","Manuais"], pop:["✅","POPs"], tecnico:["\u{1F6E0}\u{FE0F}","Técnico"], outro:["\u{1F4C4}","Outros"] };
+  const DOC_CATS = { manual:["\u{1F4D8}","Manuais"], pop:["✅","POPs"], tecnico:["\u{1F6E0}\u{FE0F}","Técnico"], app:["\u{1F4F1}","Aplicativos"], outro:["\u{1F4C4}","Outros"] };
+  // aplicativo Android (APK): só a equipe NEWPC, sempre baixado (o navegador não "abre" um APK)
+  const ehApk = c => /\.apk$/i.test(String(c || ""));
   const DOC = { lista:[], busca:"", cat:"*", form:null, hist:"", ajuda:false };
   const docMs = t => t && t.toMillis ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0);
   const docData = t => { const m = docMs(t); return m ? new Date(m).toLocaleDateString("pt-BR") : ""; };
@@ -5106,7 +5108,7 @@
       (ed ? '' : '<div class="field"><label for="dcVer">Versão</label><input id="dcVer" maxlength="12" value="'+escapeHtml(prox)+'"></div>')+
       (versao ? '<div class="field" style="grid-column:1/-1"><label for="dcNota">O que mudou (opcional)</label><input id="dcNota" maxlength="200" placeholder="Ex.: inclusão do POP 18"></div>' :
         '<div class="field" style="grid-column:1/-1"><label for="dcDesc">Descrição (opcional)</label><textarea id="dcDesc" maxlength="400">'+escapeHtml(d ? d.descricao || "" : "")+'</textarea></div>')+
-      (ed ? '' : '<div class="field" style="grid-column:1/-1"><label for="dcArq">Arquivo PDF (até 80 MB)</label><input type="file" id="dcArq" accept="application/pdf,.pdf"></div>')+
+      (ed ? '' : '<div class="field" style="grid-column:1/-1"><label for="dcArq">Arquivo PDF ou aplicativo Android (APK), até 80 MB</label><input type="file" id="dcArq" accept="application/pdf,.pdf,.apk,application/vnd.android.package-archive"></div>')+
       '</div><div class="acoes"><button class="btn btn-ghost" data-action="dc-cancelar">Cancelar</button><button class="btn btn-primary" data-action="dc-salvar" id="dcSalvar">'+(ed ? "Salvar" : "Publicar")+'</button></div></div>';
     $("dcForm").scrollIntoView({ behavior:"smooth", block:"start" });
   }
@@ -5117,9 +5119,11 @@
     if(f.modo !== "versao" && !v("dcTitulo")){ toast("Escreva o título.", true); return; }
     const arq = $("dcArq") ? $("dcArq").files[0] : null;
     if(f.modo !== "editar"){
-      if(!arq){ toast("Escolha o arquivo PDF.", true); return; }
-      if(arq.type !== "application/pdf" && !/\.pdf$/i.test(arq.name)){ toast("O arquivo precisa ser PDF.", true); return; }
-      if(arq.size > 80 * 1048576){ toast("O PDF passa de 80 MB.", true); return; }
+      if(!arq){ toast("Escolha o arquivo.", true); return; }
+      const apk = /\.apk$/i.test(arq.name);
+      if(!apk && arq.type !== "application/pdf" && !/\.pdf$/i.test(arq.name)){ toast("O arquivo precisa ser PDF ou APK.", true); return; }
+      if(apk && (f.modo === "novo" ? v("dcPub") : d.publico) !== "admin"){ toast("Aplicativo (APK) fica só para a equipe NEWPC.", true); return; }
+      if(arq.size > 80 * 1048576){ toast("O arquivo passa de 80 MB.", true); return; }
       if(!v("dcVer")){ toast("Informe a versão (ex.: 1.0).", true); return; }
     }
     btn.disabled = true; btn.textContent = f.modo === "editar" ? "Salvando..." : "Enviando...";
@@ -5132,8 +5136,9 @@
         const ref = f.modo === "novo" ? doc(collection(db, "documentos")) : doc(db, "documentos", d.id);
         const publico = f.modo === "novo" ? v("dcPub") : d.publico;
         const versao = v("dcVer").slice(0, 12), slug = versao.replace(/[^0-9A-Za-z]+/g, "-");
-        const caminho = "documentos/"+(publico === "todos" ? "publico" : "interno")+"/"+ref.id+"-v"+slug+"-"+Date.now().toString(36)+".pdf";
-        await uploadBytes(stRef(getStorage(app), caminho), arq, { contentType:"application/pdf" });
+        const apk = /\.apk$/i.test(arq.name);
+        const caminho = "documentos/"+(publico === "todos" ? "publico" : "interno")+"/"+ref.id+"-v"+slug+"-"+Date.now().toString(36)+(apk ? ".apk" : ".pdf");
+        await uploadBytes(stRef(getStorage(app), caminho), arq, { contentType:apk ? "application/vnd.android.package-archive" : "application/pdf" });
         const reg = { versao, arquivo:caminho, tamanho:arq.size, em:Timestamp.now(), por:usuarioAtual.uid, nota:v("dcNota").slice(0, 200) };
         if(f.modo === "novo"){
           await setDoc(ref, { titulo:v("dcTitulo").slice(0, 120), categoria:v("dcCat"), codigo:v("dcCodigo").slice(0, 40), descricao:v("dcDesc").slice(0, 400), publico,
@@ -5148,12 +5153,13 @@
     }catch(e){ console.warn("documento:", e.code || e); toast("Não foi possível salvar ("+(e.code || "erro")+").", true); btn.disabled = false; btn.textContent = f.modo === "editar" ? "Salvar" : "Publicar"; }
   }
   async function abrirDoc(caminho, titulo, baixar){
+    if(ehApk(caminho)) baixar = true;
     const janela = baixar ? null : window.open("", "_blank");
     if(janela){ try{ janela.document.title = titulo || "Documento"; janela.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px;color:#5b7088">Abrindo '+escapeHtml(titulo || "o documento")+'...</p>'; }catch(e){} }
     try{
       const b = await getBlob(stRef(getStorage(app), caminho));
-      const url = URL.createObjectURL(new Blob([b], { type:"application/pdf" }));
-      if(baixar){ const a = document.createElement("a"); a.href = url; a.download = (titulo || "documento").replace(/[\\/:*?"<>|]+/g, "")+".pdf"; document.body.appendChild(a); a.click(); a.remove(); }
+      const url = URL.createObjectURL(new Blob([b], { type:ehApk(caminho) ? "application/vnd.android.package-archive" : "application/pdf" }));
+      if(baixar){ const a = document.createElement("a"); a.href = url; a.download = (titulo || "documento").replace(/[\\/:*?"<>|]+/g, "")+(ehApk(caminho) ? ".apk" : ".pdf"); document.body.appendChild(a); a.click(); a.remove(); }
       else if(janela) janela.location.href = url; else location.href = url;
       setTimeout(() => URL.revokeObjectURL(url), 300000);
     }catch(e){ if(janela) try{ janela.close(); }catch(x){} console.warn("abrir documento:", e.code || e); toast("Não foi possível abrir o documento ("+(e.code || "erro")+").", true); }

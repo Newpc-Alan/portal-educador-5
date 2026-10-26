@@ -93,9 +93,11 @@ service firebase.storage {
     // demais estantes: o administrador envia PDF, áudio (MP3/M4A) ou gibi (CBZ) e a capa direto pelo painel da Biblioteca
     // Documentação do Portal: "interno" só a equipe NEWPC; "publico" qualquer pessoa com cadastro ativo (Ajuda). Só o admin envia, em PDF
     function docPdf(arquivo) { return arquivo.matches("^[A-Za-z0-9_-]+\\.pdf$") && request.resource.size < 80 * 1024 * 1024 && request.resource.contentType == "application/pdf"; }
+    // aplicativos Android (APK, ex.: Portal Maestro para tablets): só na pasta interna, só o administrador
+    function docApk(arquivo) { return arquivo.matches("^[A-Za-z0-9_-]+\\.apk$") && request.resource.size < 80 * 1024 * 1024 && request.resource.contentType == "application/vnd.android.package-archive"; }
     match /documentos/interno/{arquivo} {
       allow read, delete: if admin();
-      allow create: if admin() && docPdf(arquivo);
+      allow create: if admin() && (docPdf(arquivo) || docApk(arquivo));
     }
     match /documentos/publico/{arquivo} {
       allow read: if request.auth != null && eu().status == "ativo";
