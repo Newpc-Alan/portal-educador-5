@@ -273,8 +273,8 @@ function telaAcervo(){
     '<select id="fOrdem" aria-label="Ordenar"><option value="titulo">Título (A a Z)</option><option value="autor"' + (E.ordem === "autor" ? " selected" : "") + '>Autor</option><option value="recentes"' + (E.ordem === "recentes" ? " selected" : "") + '>Chegaram agora</option></select>' +
     '<button class="btn ' + (E.soFav ? "btn-pri" : "btn-gh") + '" data-action="so-fav">⭐ Favoritos</button>' + (E.secao !== "todas" && !MODO_HIST ? '<button class="btn btn-gh" data-action="secao" data-arg="todas">Ver todas as seções</button>' : "") + '</div>' +
     '<p class="contagem" id="contagem"></p><div class="grade" id="grade"></div><div class="mais-wrap" id="mais"></div>' + painelAdminHist();
-  $("fBusca").addEventListener("input", e => { E.busca = e.target.value; E.mostrar = LOTE; clearTimeout(E._t); E._t = setTimeout(desenharGrade, 200); });
-  if($("fAutor")) $("fAutor").addEventListener("change", e => { E.autor = e.target.value; E.mostrar = LOTE; desenharGrade(); });
+  $("fBusca").addEventListener("input", e => { E.busca = e.target.value; E.mostrar = LOTE; clearTimeout(E._t); E._t = setTimeout(() => { desenharGrade(); redesenharAdmin(); }, 200); });
+  if($("fAutor")) $("fAutor").addEventListener("change", e => { E.autor = e.target.value; E.mostrar = LOTE; desenharGrade(); redesenharAdmin(); });
   $("fOrdem").addEventListener("change", e => { E.ordem = e.target.value; E.mostrar = LOTE; desenharGrade(); });
   desenharGrade();
 }
@@ -375,22 +375,40 @@ async function reagir(k){
 }
 const reacoesTxt = l => { const c = l.reacoes || {}; const t = REACOES.filter(r => c[r[0]]).map(r => r[1] + " " + c[r[0]]); return t.length ? t.join(" · ") : "sem reações"; };
 
-/* ---------- administrador: novas histórias (PDF do computador), ocultar e excluir ---------- */
-const NH = { arq:null, enviando:false };
+/* ---------- administrador: novos títulos em qualquer estante (PDF, áudio ou gibi), ocultar e excluir ---------- */
+// cada estante aceita um tipo de arquivo; a capa sai da 1ª página do PDF ou de uma imagem escolhida
+const FORMATOS = {
+  livros:     { tipos:["pdf"], rot:"PDF", aceita:"application/pdf,.pdf" },
+  aprender:   { tipos:["pdf"], rot:"PDF", aceita:"application/pdf,.pdf" },
+  historias:  { tipos:["pdf"], rot:"PDF", aceita:"application/pdf,.pdf" },
+  gibiteca:   { tipos:["pdf","cbz"], rot:"PDF ou CBZ", aceita:"application/pdf,.pdf,.cbz" },
+  audiolivros:{ tipos:["audio"], rot:"MP3 ou M4A", aceita:"audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a" } };
+const LIMITE_MB = { pdf:150, cbz:150, audio:300 };
+const NH = { arq:null, enviando:false, sec:"", mostrar:40 };
+const secAdm = () => MODO_HIST ? "historias" : (NH.sec || (E.secao !== "todas" ? E.secao : "livros"));
 function painelAdminHist(){
-  if(!MODO_HIST || !E.admin) return "";
-  const l = E.livros.slice().sort((a, b) => ms(b.criado_em) - ms(a.criado_em));
-  return '<div class="card adm-hist"><div class="h2">➕ Nova história</div><p class="sub">Escolha o PDF no computador. A capa sai da primeira página. A história entra publicada para professores e alunos.</p>' +
-    '<div class="adm-grid"><div class="campo"><label for="nhTit">Título</label><input id="nhTit" maxlength="160" placeholder="Ex.: Por que o céu é azul"></div>' +
-    '<div class="campo"><label for="nhAut">Autor</label><input id="nhAut" maxlength="120" value="Portal do Educador"></div>' +
-    '<div class="campo"><label for="nhLic">Licença</label><select id="nhLic">' + Object.entries(LIC).map(([k, v]) => '<option value="' + k + '"' + (k === "propria" ? " selected" : "") + '>' + esc(v) + '</option>').join("") + '</select></div></div>' +
-    '<div class="adm-grid" style="grid-template-columns:2fr 2.2fr"><div class="campo"><label for="nhArq">Arquivo PDF (até 100 MB)</label><input type="file" id="nhArq" accept="application/pdf"></div>' +
-    '<div class="campo"><label for="nhObs">Comprovação da licença</label><input id="nhObs" maxlength="400" value="Material próprio da NEWPC"></div></div>' +
-    '<div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-pri" data-action="nh-enviar" id="nhEnviar">Publicar história</button><span class="sub" id="nhProg"></span></div>' +
-    '<details style="margin-top:14px"><summary class="sub" style="cursor:pointer;font-weight:700">Gerenciar as ' + l.length + ' histórias (reações, ocultar, excluir)</summary><table class="adm-lista"><tbody>' +
-    l.map(x => '<tr><td>' + (x.capa_url ? '<img src="' + esc(x.capa_url) + '" alt="">' : "") + '<b>' + esc(x.titulo) + '</b>' + (x.publicado ? "" : ' <span class="sub">(oculta)</span>') + '</td><td class="sub">' + reacoesTxt(x) + '</td>' +
+  if(!E.admin) return "";
+  const sec = secAdm(), f = FORMATOS[sec], hist = MODO_HIST;
+  const lista = (hist ? E.livros : filtrados()).slice().sort((a, b) => ms(b.criado_em) - ms(a.criado_em));
+  const capaManual = sec === "audiolivros" || sec === "gibiteca";
+  return '<div class="card adm-hist" id="admNovo"><div class="h2">➕ ' + (hist ? "Nova história" : "Novo título na Biblioteca") + '</div><p class="sub">' +
+    (hist ? "Escolha o PDF no computador. A capa sai da primeira página. A história entra publicada para professores e alunos." :
+      "Escolha a estante e o arquivo no computador. No PDF a capa sai da primeira página; no áudio e no gibi você pode mandar uma imagem de capa. O título entra publicado.") + '</p>' +
+    (hist ? "" : '<div class="adm-grid" style="grid-template-columns:repeat(4,1fr)">' + ["livros","audiolivros","aprender","gibiteca"].map(id => '<button class="secao' + (sec === id ? " on" : "") + '" data-action="nh-sec" data-arg="' + id + '" style="padding:10px"><span class="e">' + SECOES[id].e + '</span><span><b>' + esc(SECOES[id].nome) + '</b><small>' + FORMATOS[id].rot + '</small></span></button>').join("") + '</div>') +
+    '<div class="adm-grid"><div class="campo"><label for="nhTit">Título</label><input id="nhTit" maxlength="160" placeholder="' + (hist ? "Ex.: Por que o céu é azul" : "Título da obra") + '"></div>' +
+    '<div class="campo"><label for="nhAut">Autor' + (sec === "audiolivros" ? " / narração" : "") + '</label><input id="nhAut" maxlength="120" value="' + (hist ? "Portal do Educador" : "") + '"></div>' +
+    '<div class="campo"><label for="nhLic">Licença</label><select id="nhLic">' + Object.entries(LIC).map(([k, v]) => '<option value="' + k + '"' + (k === (hist ? "propria" : "dominio-publico") ? " selected" : "") + '>' + esc(v) + '</option>').join("") + '</select></div></div>' +
+    '<div class="adm-grid" style="grid-template-columns:' + (capaManual ? "1.4fr 1.2fr 2fr" : "2fr 2.2fr") + '"><div class="campo"><label for="nhArq">Arquivo ' + f.rot + ' (até ' + LIMITE_MB[f.tipos[f.tipos.length - 1]] + ' MB)</label><input type="file" id="nhArq" accept="' + f.aceita + '"></div>' +
+    (capaManual ? '<div class="campo"><label for="nhCapa">Capa (imagem, opcional)</label><input type="file" id="nhCapa" accept="image/*"></div>' : "") +
+    '<div class="campo"><label for="nhObs">Comprovação da licença</label><input id="nhObs" maxlength="400" value="' + (hist ? "Material próprio da NEWPC" : "") + '" placeholder="Autor e ano de falecimento, link da licença, contrato ou autorização"></div></div>' +
+    (hist ? "" : '<div class="aviso" style="margin:12px 0 0">⚖️ Obra de editora, personagem de marca ou autor com direitos ativos só entra como <b>licenciada</b>, com o contrato ou a autorização na comprovação.</div>') +
+    '<div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap"><button class="btn btn-pri" data-action="nh-enviar" id="nhEnviar">' + (hist ? "Publicar história" : "Publicar na estante " + esc(SECOES[sec].nome)) + '</button><span class="sub" id="nhProg"></span></div>' +
+    '<details style="margin-top:14px"' + (NH.aberto ? " open" : "") + ' id="nhDet"><summary class="sub" style="cursor:pointer;font-weight:700">Gerenciar ' + (hist ? "as " + lista.length + " histórias" : lista.length + " título(s) do filtro atual") + ' (reações, ocultar, excluir)</summary>' +
+    (hist ? "" : '<p class="sub" style="margin-top:6px">Use as estantes, a busca e o filtro de autor lá em cima para achar o título.</p>') + '<table class="adm-lista"><tbody>' +
+    lista.slice(0, hist ? lista.length : NH.mostrar).map(x => '<tr><td>' + (x.capa_url ? '<img src="' + esc(x.capa_url) + '" alt="">' : "") + '<b>' + esc(x.titulo) + '</b>' + (x.publicado ? "" : ' <span class="sub">(oculto)</span>') +
+      (hist ? "" : ' <span class="sub">· ' + esc(SECOES[x.secao]?.nome || "") + (x.licenca?.tipo ? " · " + esc(LIC[x.licenca.tipo] || x.licenca.tipo) : "") + '</span>') + '</td><td class="sub">' + reacoesTxt(x) + '</td>' +
       '<td><button class="btn btn-gh" data-action="nh-pub" data-arg="' + esc(x.id) + '">' + (x.publicado ? "Ocultar" : "Publicar") + '</button> <button class="btn btn-gh" data-action="nh-del" data-arg="' + esc(x.id) + '" style="color:#C2362C">Excluir</button></td></tr>').join("") +
-    '</tbody></table></details></div>';
+    '</tbody></table>' + (!hist && lista.length > NH.mostrar ? '<p style="margin-top:8px"><button class="btn btn-gh" data-action="nh-mais">Mostrar mais (' + (lista.length - NH.mostrar) + ')</button></p>' : "") + '</details></div>';
 }
 async function capaDoPdf(arq){
   const doc1 = await pdfjsLib.getDocument({ data:await arq.arrayBuffer() }).promise;
@@ -399,37 +417,63 @@ async function capaDoPdf(arq){
   await pg.render({ canvasContext:c.getContext("2d"), viewport:vp }).promise;
   return new Promise(ok => c.toBlob(ok, "image/jpeg", 0.82));
 }
+// capa a partir de uma imagem (áudio e gibi): reduz para 900 px e grava em JPEG
+async function capaDaImagem(arq){
+  const bmp = await createImageBitmap(arq), r = Math.min(1, 900 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * r); c.height = Math.round(bmp.height * r);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise(ok => c.toBlob(ok, "image/jpeg", 0.82));
+}
+// capa do CBZ: primeira imagem do arquivo
+async function capaDoCbz(arq){
+  const z = await JSZip.loadAsync(await arq.arrayBuffer());
+  const n = Object.keys(z.files).filter(k => /\.(jpe?g|png|webp)$/i.test(k) && !z.files[k].dir).sort((a, b) => a.localeCompare(b, "pt-BR", { numeric:true }))[0];
+  return n ? capaDaImagem(await z.files[n].async("blob")) : null;
+}
 function subir(caminho, blob, tipo, aoProgresso){
   return new Promise((ok, falha) => {
     const t = uploadBytesResumable(sRef(st, caminho), blob, { contentType:tipo, cacheControl:"public, max-age=31536000" });
     t.on("state_changed", s => aoProgresso && aoProgresso(s.bytesTransferred / s.totalBytes), falha, async () => ok(await getDownloadURL(t.snapshot.ref)));
   });
 }
+function tipoDoArquivo(arq){
+  const n = (arq.name || "").toLowerCase(), t = arq.type || "";
+  if(/pdf$/.test(t) || n.endsWith(".pdf")) return { tipo:"pdf", ext:"pdf", ct:"application/pdf" };
+  if(n.endsWith(".cbz")) return { tipo:"cbz", ext:"cbz", ct:"application/zip" };
+  if(n.endsWith(".mp3") || t === "audio/mpeg") return { tipo:"audio", ext:"mp3", ct:"audio/mpeg" };
+  if(n.endsWith(".m4a") || /audio\/(mp4|x-m4a)/.test(t)) return { tipo:"audio", ext:"m4a", ct:"audio/mp4" };
+  return null;
+}
 async function publicarHistoria(){
   if(NH.enviando) return;
+  const sec = secAdm(), f = FORMATOS[sec];
   const tit = $("nhTit").value.trim(), aut = $("nhAut").value.trim(), lic = $("nhLic").value, obs = $("nhObs").value.trim(), arq = $("nhArq").files[0];
+  const img = $("nhCapa") ? $("nhCapa").files[0] : null;
   if(!tit){ toast("Escreva o título.", true); $("nhTit").focus(); return; }
-  if(!arq || !/pdf$/i.test(arq.type || arq.name)){ toast("Escolha o arquivo PDF.", true); return; }
-  if(arq.size > 100 * 1024 * 1024){ toast("PDF acima de 100 MB.", true); return; }
+  const ti = arq ? tipoDoArquivo(arq) : null;
+  if(!arq || !ti || !f.tipos.includes(ti.tipo)){ toast("Escolha um arquivo " + f.rot + " para esta estante.", true); return; }
+  if(arq.size > LIMITE_MB[ti.tipo] * 1024 * 1024){ toast("Arquivo acima de " + LIMITE_MB[ti.tipo] + " MB.", true); return; }
+  if(img && !/^image\//.test(img.type)){ toast("A capa precisa ser uma imagem.", true); return; }
   if(obs.length < 10){ toast("Descreva a licença (pelo menos 10 letras).", true); return; }
-  if(E.livros.some(x => semAc(x.titulo) === semAc(tit)) && !confirm("Já existe uma história com esse título. Publicar mesmo assim?")) return;
+  if(E.livros.some(x => x.secao === sec && semAc(x.titulo) === semAc(tit)) && !confirm("Já existe um título igual nesta estante. Publicar mesmo assim?")) return;
   NH.enviando = true; $("nhEnviar").disabled = true;
-  const id = "h" + Date.now().toString(36), base = "biblioteca/historias/" + id, prog = t => { $("nhProg").textContent = t; };
+  const id = (sec === "historias" ? "h" : "n") + Date.now().toString(36), base = "biblioteca/" + sec + "/" + id, prog = t => { if($("nhProg")) $("nhProg").textContent = t; };
   try{
-    prog("Gerando a capa...");
-    const capa = await capaDoPdf(arq).catch(() => null);
+    prog("Preparando a capa...");
+    const capa = img ? await capaDaImagem(img).catch(() => null) : ti.tipo === "pdf" ? await capaDoPdf(arq).catch(() => null) : ti.tipo === "cbz" ? await capaDoCbz(arq).catch(() => null) : null;
     const capa_url = capa ? await subir(base + "-capa.jpg", capa, "image/jpeg") : "";
-    const url = await subir(base + ".pdf", arq, "application/pdf", p => prog("Enviando o PDF... " + Math.round(p * 100) + "%"));
-    await setDoc(doc(db, "biblioteca", id), { titulo:tit.slice(0, 160), autor:aut.slice(0, 120), etapa:"", secao:"historias", tipo:"pdf", url, paginas:[], capa_url, tamanho:arq.size,
-      publicado:true, licenca:{ tipo:lic, obs:obs.slice(0, 400), aprovado_por:E.user.uid, aprovado_nome:String(E.u.nome || "").slice(0, 120), aprovado_em:serverTimestamp() }, criado_em:serverTimestamp() });
-    toast("História publicada."); prog("");
-    await carregar(); telaAcervo();
+    const url = await subir(base + "." + ti.ext, arq, ti.ct, p => prog("Enviando o arquivo... " + Math.round(p * 100) + "%"));
+    await setDoc(doc(db, "biblioteca", id), { titulo:tit.slice(0, 160), autor:aut.slice(0, 120), etapa:"", secao:sec, tipo:ti.tipo, url, paginas:[], capa_url, tamanho:arq.size,
+      publicado:true, origem:"painel", licenca:{ tipo:lic, obs:obs.slice(0, 400), aprovado_por:E.user.uid, aprovado_nome:String(E.u.nome || "").slice(0, 120), aprovado_em:serverTimestamp() }, criado_em:serverTimestamp() });
+    toast((sec === "historias" ? "História" : "Título") + " publicado."); prog("");
+    await carregar(); if(!MODO_HIST){ E.secao = sec; E.busca = ""; E.autor = ""; } telaAcervo();
   }catch(e){ console.warn(e); toast("Não foi possível publicar (" + (e.code || e.message || "erro") + ").", true); prog(""); }
   finally{ NH.enviando = false; if($("nhEnviar")) $("nhEnviar").disabled = false; }
 }
+function redesenharAdmin(){ const el = $("admNovo"); if(!el) return; NH.aberto = !!($("nhDet") && $("nhDet").open); el.outerHTML = painelAdminHist(); }
 async function alternarPublicada(id){
   const l = E.livros.find(x => x.id === id); if(!l) return;
-  try{ await updateDoc(doc(db, "biblioteca", id), { publicado:!l.publicado }); l.publicado = !l.publicado; telaAcervo(); toast(l.publicado ? "Publicada." : "Ocultada de professores e alunos."); }
+  try{ await updateDoc(doc(db, "biblioteca", id), { publicado:!l.publicado }); l.publicado = !l.publicado; desenharGrade(); redesenharAdmin(); toast(l.publicado ? "Publicado." : "Oculto para professores e alunos."); }
   catch(e){ toast("Não foi possível alterar.", true); }
 }
 // caminho no Storage a partir do link de download (…/o/<caminho>?alt=media)
@@ -439,8 +483,10 @@ async function excluirHistoria(id){
   if(!confirm("Excluir \"" + l.titulo + "\"? Sai da estante e o arquivo é apagado do Portal (a cópia no Drive, se houver, continua lá).")) return;
   try{
     await deleteDoc(doc(db, "biblioteca", id));
-    for(const u of [l.url, l.capa_url]){ const c = caminhoDe(u); if(c.startsWith("biblioteca/historias/")) await deleteObject(sRef(st, c)).catch(() => {}); }
-    E.livros = E.livros.filter(x => x.id !== id); telaAcervo(); toast("História excluída.");
+    for(const u of [l.url, l.capa_url, ...(l.paginas || [])]){ const c = caminhoDe(u); if(c.startsWith("biblioteca/" + l.secao + "/")) await deleteObject(sRef(st, c)).catch(() => {}); }
+    // título que veio da triagem do Drive: marca como recusado para não voltar à fila
+    if(l.drive_id) await updateDoc(doc(db, "biblioteca_triagem", l.drive_id), { status:"recusado", motivo:"Excluído da Biblioteca pelo administrador", atualizado_em:serverTimestamp(), revisado_por:E.user.uid }).catch(() => {});
+    E.livros = E.livros.filter(x => x.id !== id); NH.aberto = true; telaAcervo(); toast("Título excluído.");
   }catch(e){ console.warn(e); toast("Não foi possível excluir.", true); }
 }
 
@@ -584,13 +630,15 @@ document.addEventListener("click", async e => {
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "fav"){ e.stopPropagation(); if(E.favs.has(arg)) E.favs.delete(arg); else E.favs.add(arg); ls.set("pde_bib_favs_" + E.user.uid, [...E.favs]); el.textContent = E.favs.has(arg) ? "⭐" : "☆"; return; }
   if(a === "ir") ir(arg);
-  else if(a === "secao"){ E.secao = E.secao === arg ? "todas" : arg; E.autor = ""; E.mostrar = LOTE; telaAcervo(); }
+  else if(a === "secao"){ E.secao = E.secao === arg ? "todas" : arg; E.autor = ""; E.mostrar = LOTE; NH.sec = ""; NH.mostrar = 40; telaAcervo(); }
   else if(a === "so-fav"){ E.soFav = !E.soFav; telaAcervo(); }
   else if(a === "mais"){ E.mostrar += LOTE * 2; desenharGrade(); }
   else if(a === "abrir") abrir(arg);
   else if(a === "fechar-leitor") fecharLeitor();
   else if(a === "reagir") reagir(arg);
   else if(a === "nh-enviar") publicarHistoria();
+  else if(a === "nh-sec"){ NH.sec = arg; redesenharAdmin(); }
+  else if(a === "nh-mais"){ NH.mostrar += 80; NH.aberto = true; redesenharAdmin(); }
   else if(a === "nh-pub") alternarPublicada(arg);
   else if(a === "nh-del") excluirHistoria(arg);
   else if(a === "pag") virar(+arg);
