@@ -103,6 +103,17 @@ service firebase.storage {
       allow create: if admin() && docPdf(arquivo);
     }
 
+    // Ficha do Aluno: histórico escolar, laudos, certidão e comprovantes (PDF ou foto), só a gestão e a secretaria escolar da escola
+    function equipeEscolaSt(esc) {
+      return request.auth != null && eu().status == "ativo" && eu().perfil in ["gestor", "secretaria_escolar"]
+        && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]);
+    }
+    match /alunos_docs/{esc}/{aluno}/{arquivo} {
+      allow read, delete: if admin() || equipeEscolaSt(esc);
+      allow create: if (admin() || equipeEscolaSt(esc)) && arquivo.matches("^[A-Za-z0-9_-]{1,90}[.](pdf|jpg|png)$")
+        && request.resource.size < 15 * 1024 * 1024 && request.resource.contentType in ["application/pdf", "image/jpeg", "image/png"];
+    }
+
     match /biblioteca/{secao}/{arquivo} {
       allow read: if request.auth != null;
       allow create: if admin() && secao in ["livros", "audiolivros", "aprender", "gibiteca"]

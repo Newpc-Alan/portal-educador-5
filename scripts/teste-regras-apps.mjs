@@ -650,6 +650,63 @@ await t('atividades: professor reage', assertSucceeds(setDoc(doc(prof, 'atividad
 await t('atividades: reacao em oculta', assertFails(setDoc(doc(prof, 'atividades_reacoes/a2_prof'), { atividade_id: 'a2', uid: 'prof', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
 await t('atividades: ignoradas so admin', assertFails(getDocs(collection(prof, 'atividades_ignoradas'))));
 
+// ---------- Ficha do Aluno
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+  await setDoc(doc(f, 'turmas/tf2'), { nome: '5B', escola_id: 'e1', municipio_id: 'm1', criado_por: 'prof' });
+  await setDoc(doc(f, 'turmas/tx2'), { nome: '1A', escola_id: 'e2', municipio_id: 'm1', criado_por: 'x' });
+  await setDoc(doc(f, 'alunos/al9'), { nome: 'Bia', turma_id: 'tf1', escola_id: 'e1', criado_por: 'prof', demo: true, status: 'ativo' }); });
+const alu0 = { nome: 'Caio Lima', nome_social: '', matricula: '2026-1', inep_aluno: '', nascimento: '2016-03-10', situacao: 'cursando', turma_id: 'tf1', turma_nome: '5A',
+  escola_id: 'e1', escola_nome: 'EM Centro', municipio_id: 'm1', municipio_nome: 'Ribas', ano_letivo: 2026, status: 'ativo', alertas: [{ t: 'pei', x: 'Tem PEI' }],
+  ficha_pct: 40, origem: 'manual', criado_em: serverTimestamp(), criado_por: 'gest1', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' };
+await t('ficha: gestor matricula aluno na escola', assertSucceeds(setDoc(doc(gest1, 'alunos/alN'), alu0)));
+await t('ficha: secretaria escolar matricula aluno', assertSucceeds(setDoc(doc(sece, 'alunos/alS'), { ...alu0, criado_por: 'sece1', atualizado_por: 'sece1' })));
+await t('ficha: matricula em turma de outra escola', assertFails(setDoc(doc(gest1, 'alunos/alX'), { ...alu0, turma_id: 'tx2' })));
+await t('ficha: matricula com campo extra', assertFails(setDoc(doc(gest1, 'alunos/alX'), { ...alu0, cid: 'F84' })));
+await t('ficha: matricula com situacao invalida', assertFails(setDoc(doc(gest1, 'alunos/alX'), { ...alu0, situacao: 'xx' })));
+await t('ficha: gestor de outra escola nao matricula', assertFails(setDoc(doc(gest, 'alunos/alX'), { ...alu0, criado_por: 'gest', atualizado_por: 'gest' })));
+await t('ficha: professor nao poe alerta ao cadastrar', assertFails(setDoc(doc(prof, 'alunos/alP'), { nome: 'P', turma_id: 'tf1', escola_id: 'e1', criado_por: 'prof', alertas: [] })));
+await t('ficha: gestor remaneja aluno do professor (doc antigo com campo extra)', assertSucceeds(updateDoc(doc(gest1, 'alunos/al9'), { turma_id: 'tf2', turma_nome: '5B', situacao: 'remanejado', alertas: [], atualizado_por: 'gest1', atualizado_em: serverTimestamp() })));
+await t('ficha: gestor nao muda o criador', assertFails(updateDoc(doc(gest1, 'alunos/al9'), { criado_por: 'gest1', atualizado_por: 'gest1' })));
+await t('ficha: gestor nao leva aluno para outra escola', assertFails(updateDoc(doc(gest1, 'alunos/al9'), { escola_id: 'e2', turma_id: 'tx2', atualizado_por: 'gest1' })));
+await t('ficha: professor le o aluno com alertas', assertSucceeds(getDoc(doc(prof, 'alunos/alN'))));
+await t('ficha: professor nao mexe nos alertas', assertFails(updateDoc(doc(prof, 'alunos/al1'), { alertas: [], criado_por: 'prof' })));
+const fich = { aluno_id: 'alN', aluno_nome: 'Caio Lima', escola_id: 'e1', municipio_id: 'm1', sexo: 'M', cpf: '12345678901', nis: '', endereco: { rua: 'Rua A', bairro: 'Centro' },
+  transporte: { usa: true, rota: 'Linha 3' }, vida: { escola_anterior: 'EM X' }, programas: { bolsa_familia: true }, documentos: [{ tipo: 'historico', nome: 'h.pdf', arquivo: 'alunos_docs/e1/alN/h.pdf' }],
+  atualizado_em: serverTimestamp(), atualizado_por: 'gest1', atualizado_por_nome: 'G' };
+await t('ficha: gestor grava a ficha', assertSucceeds(setDoc(doc(gest1, 'alunos_ficha/alN'), fich)));
+await t('ficha: secretaria escolar grava a ficha', assertSucceeds(setDoc(doc(sece, 'alunos_ficha/alN'), { ...fich, atualizado_por: 'sece1' })));
+await t('ficha: professor nao le a ficha', assertFails(getDoc(doc(prof, 'alunos_ficha/alN'))));
+await t('ficha: gestor de outra escola nao le', assertFails(getDoc(doc(gest, 'alunos_ficha/alN'))));
+await t('ficha: portaria nao le', assertFails(getDoc(doc(portA, 'alunos_ficha/alN'))));
+await t('ficha: escola trocada', assertFails(setDoc(doc(gest1, 'alunos_ficha/alN'), { ...fich, escola_id: 'e2' })));
+await t('ficha: id de outro aluno', assertFails(setDoc(doc(gest1, 'alunos_ficha/al1'), fich)));
+await t('ficha: campo extra', assertFails(setDoc(doc(gest1, 'alunos_ficha/alN'), { ...fich, cid: 'x' })));
+await t('ficha: mais de 30 anexos', assertFails(setDoc(doc(gest1, 'alunos_ficha/alN'), { ...fich, documentos: Array(31).fill(fich.documentos[0]) })));
+await t('ficha: gestor lista as fichas da escola', assertSucceeds(getDocs(query(collection(gest1, 'alunos_ficha'), where('escola_id', '==', 'e1')))));
+// aluno novo e ficha no mesmo lote (importação)
+{ const b = writeBatch(gest1); b.set(doc(gest1, 'alunos/alB'), { ...alu0, nome: 'Duda' }); b.set(doc(gest1, 'alunos_ficha/alB'), { ...fich, aluno_id: 'alB', aluno_nome: 'Duda' }); b.set(doc(gest1, 'alunos_saude/alB'), { aluno_id: 'alB', aluno_nome: 'Duda', escola_id: 'e1', municipio_id: 'm1', alergias: 'Amendoim', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' });
+  await t('ficha: importacao cria aluno, ficha e saude juntos', assertSucceeds(b.commit())); }
+const sau = { aluno_id: 'alN', aluno_nome: 'Caio Lima', escola_id: 'e1', municipio_id: 'm1', deficiencias: ['tea'], laudo: true, cid: 'F84.0', aee: true, apoio: false,
+  acompanhamentos: ['fono'], acomp_obs: '', condicoes: 'Asma', alergias: 'Dipirona', medicacao: '', restricao: '', emergencia: { nome: 'Maria', telefone: '5567999990000' },
+  plano_saude: '', obs: '', ciencia: { termo: true, data: '2026-10-26' }, atualizado_em: serverTimestamp(), atualizado_por: 'gest1', atualizado_por_nome: 'G' };
+await t('saude: gestor grava', assertSucceeds(setDoc(doc(gest1, 'alunos_saude/alN'), sau)));
+await t('saude: secretaria escolar le', assertSucceeds(getDoc(doc(sece, 'alunos_saude/alN'))));
+await t('saude: professor nao le', assertFails(getDoc(doc(prof, 'alunos_saude/alN'))));
+await t('saude: portaria nao le', assertFails(getDoc(doc(portA, 'alunos_saude/alN'))));
+await t('saude: secretaria do municipio nao le', assertFails(getDoc(doc(sec, 'alunos_saude/alN'))));
+await t('saude: gestor de outra escola nao le', assertFails(getDoc(doc(gest, 'alunos_saude/alN'))));
+await t('saude: campo extra', assertFails(setDoc(doc(gest1, 'alunos_saude/alN'), { ...sau, religiao: 'x' })));
+await t('saude: em nome de outro', assertFails(setDoc(doc(gest1, 'alunos_saude/alN'), { ...sau, atualizado_por: 'sece1' })));
+await t('saude: secretaria escolar nao apaga', assertFails(deleteDoc(doc(sece, 'alunos_saude/alN'))));
+const ace = { escola_id: 'e1', aluno_id: 'alN', aluno_nome: 'Caio Lima', secao: 'saude', detalhe: '', por_uid: 'sece1', por_nome: 'S', em: serverTimestamp(), mes: '2026-10' };
+await t('acesso: secretaria escolar registra que abriu a saude', assertSucceeds(setDoc(doc(sece, 'alunos_acessos/x1'), ace)));
+await t('acesso: gestor le os acessos', assertSucceeds(getDocs(query(collection(gest1, 'alunos_acessos'), where('escola_id', '==', 'e1'), where('mes', '==', '2026-10')))));
+await t('acesso: secretaria escolar nao le os acessos', assertFails(getDoc(doc(sece, 'alunos_acessos/x1'))));
+await t('acesso: nao altera', assertFails(setDoc(doc(sece, 'alunos_acessos/x1'), { ...ace, detalhe: 'x' })));
+await t('acesso: em nome de outro', assertFails(setDoc(doc(sece, 'alunos_acessos/x2'), { ...ace, por_uid: 'gest1' })));
+await t('acesso: hora falsa', assertFails(setDoc(doc(sece, 'alunos_acessos/x3'), { ...ace, em: new Date(2020, 0, 1) })));
+await t('acesso: professor nao registra', assertFails(setDoc(doc(prof, 'alunos_acessos/x4'), { ...ace, por_uid: 'prof' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

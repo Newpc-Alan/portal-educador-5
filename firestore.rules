@@ -399,12 +399,61 @@ service cloud.firestore {
     match /alunos_familia/{id} {
       allow read: if admin() || (resource == null && ativo() && eu().perfil in ["gestor", "secretaria_escolar"]) || (resource != null && equipeEscola(resource.data.escola_id));
       allow create, update: if (admin() || equipeEscola(novo().escola_id))
-        && id == novo().aluno_id && alunoDoc(id).escola_id == novo().escola_id
+        && id == novo().aluno_id && alunoDepois(id).escola_id == novo().escola_id
         && (resource == null || resource.data.escola_id == novo().escola_id)
         && novo().keys().hasOnly(["aluno_id", "aluno_nome", "escola_id", "municipio_id", "turma_id", "turma_nome", "responsaveis", "aceita_avisos", "obs", "origem", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
         && novo().responsaveis is list && novo().responsaveis.size() <= 4 && novo().aceita_avisos is bool
         && texto(novo().get("obs", ""), 300) && texto(novo().aluno_nome, 80);
       allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
+    }
+
+    // ---------- Ficha do Aluno ----------
+    // documento, endereço, transporte, vida escolar, programas sociais e anexos: gestão e secretaria escolar (mesmo ID do aluno)
+    function alunoDepois(a) { return getAfter(/databases/$(database)/documents/alunos/$(a)).data; }
+    function fichaDaEscola(id) {
+      return (admin() || equipeEscola(novo().escola_id))
+        && id == novo().aluno_id && alunoDepois(id).escola_id == novo().escola_id
+        && (resource == null || resource.data.escola_id == novo().escola_id)
+        && texto(novo().aluno_nome, 80) && novo().atualizado_por == request.auth.uid && texto(novo().get("atualizado_por_nome", ""), 80);
+    }
+    function leFichaEscola() {
+      return admin() || (resource == null && ativo() && eu().perfil in ["gestor", "secretaria_escolar"]) || (resource != null && equipeEscola(resource.data.escola_id));
+    }
+    match /alunos_ficha/{id} {
+      allow read: if leFichaEscola();
+      allow create, update: if fichaDaEscola(id)
+        && novo().keys().hasOnly(["aluno_id", "aluno_nome", "escola_id", "municipio_id", "sexo", "naturalidade", "cpf", "nis", "sus", "certidao",
+          "endereco", "transporte", "vida", "programas", "documentos", "obs", "saude_revisada", "origem", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
+        && novo().get("documentos", []) is list && novo().get("documentos", []).size() <= 30
+        && novo().get("endereco", {}) is map && novo().get("transporte", {}) is map && novo().get("vida", {}) is map && novo().get("programas", {}) is map
+        && texto(novo().get("cpf", ""), 14) && texto(novo().get("nis", ""), 14) && texto(novo().get("sus", ""), 18) && texto(novo().get("obs", ""), 600);
+      allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
+    }
+    // saúde e inclusão (dado sensível, LGPD art. 11): só gestão e secretaria escolar; o professor vê apenas os alertas no cadastro do aluno
+    match /alunos_saude/{id} {
+      allow read: if leFichaEscola();
+      allow create, update: if fichaDaEscola(id)
+        && novo().keys().hasOnly(["aluno_id", "aluno_nome", "escola_id", "municipio_id", "deficiencias", "laudo", "cid", "aee", "apoio",
+          "acompanhamentos", "acomp_obs", "condicoes", "alergias", "medicacao", "restricao", "emergencia", "plano_saude", "obs", "ciencia",
+          "origem", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
+        && novo().get("deficiencias", []) is list && novo().get("deficiencias", []).size() <= 12
+        && novo().get("acompanhamentos", []) is list && novo().get("acompanhamentos", []).size() <= 12
+        && novo().get("emergencia", {}) is map && novo().get("ciencia", {}) is map
+        && texto(novo().get("cid", ""), 60) && texto(novo().get("condicoes", ""), 400) && texto(novo().get("alergias", ""), 300)
+        && texto(novo().get("medicacao", ""), 300) && texto(novo().get("restricao", ""), 300) && texto(novo().get("obs", ""), 600) && texto(novo().get("acomp_obs", ""), 400);
+      allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
+    }
+    // quem abriu a saúde, um anexo ou imprimiu a ficha (auditoria da direção): só cria, nunca altera nem apaga
+    match /alunos_acessos/{id} {
+      allow read: if admin() || gestorDaEscola(resource.data.escola_id);
+      allow create: if (admin() || equipeEscola(novo().escola_id))
+        && novo().keys().hasOnly(["escola_id", "aluno_id", "aluno_nome", "secao", "detalhe", "por_uid", "por_nome", "em", "mes"])
+        && novo().por_uid == request.auth.uid && novo().em == request.time
+        && novo().secao in ["saude", "documento", "impressao", "exportacao"]
+        && novo().aluno_id is string && novo().aluno_id.matches("^[A-Za-z0-9_*-]{1,64}$")
+        && novo().mes is string && novo().mes.matches("^20[0-9]{2}-[01][0-9]$")
+        && texto(novo().aluno_nome, 80) && texto(novo().get("detalhe", ""), 120) && texto(novo().por_nome, 80);
+      allow update, delete: if false;
     }
 
     // avisos as familias: a escola liga cada tipo; o registro de envios so a funcao grava; comunicado criado pelo gestor
@@ -758,11 +807,33 @@ service cloud.firestore {
       // gestor da escola tambem le (carteirinhas e portaria)
       allow read: if admin() || (vinculado() && resource.data.escola_id in minhasEscolas()) || entradaEscola(resource.data.escola_id);
       allow create: if admin() || (vinculado() && novo().criado_por == request.auth.uid
-        && novo().escola_id in minhasEscolas()
-        && get(/databases/$(database)/documents/turmas/$(novo().turma_id)).data.criado_por == request.auth.uid);
+        && novo().escola_id in minhasEscolas() && !("alertas" in novo()) && !("situacao" in novo())
+        && get(/databases/$(database)/documents/turmas/$(novo().turma_id)).data.criado_por == request.auth.uid)
+        // Ficha do Aluno: a gestão e a secretaria escolar matriculam e atualizam os alunos da própria escola
+        || (equipeEscola(novo().escola_id) && novo().criado_por == request.auth.uid
+          && novo().keys().hasOnly(camposAlunoEscola()) && alunoEscolaOk());
       allow update: if admin() || (vinculado() && resource.data.get("criado_por", "") == request.auth.uid
-        && novo().criado_por == request.auth.uid && novo().escola_id == resource.data.escola_id && novo().turma_id == resource.data.turma_id);
+        && novo().criado_por == request.auth.uid && novo().escola_id == resource.data.escola_id && novo().turma_id == resource.data.turma_id
+        && novo().get("alertas", null) == resource.data.get("alertas", null) && novo().get("situacao", null) == resource.data.get("situacao", null))
+        || (equipeEscola(resource.data.escola_id) && novo().escola_id == resource.data.escola_id
+          && novo().get("criado_por", "") == resource.data.get("criado_por", "")
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(camposAlunoEscola()) && alunoEscolaOk());
       allow delete: if admin();
+    }
+    // campos que a escola grava no aluno (o professor lê): nada de saúde aqui, só os alertas curtos escolhidos pela gestão
+    function camposAlunoEscola() {
+      return ["nome", "nome_social", "matricula", "inep_aluno", "nascimento", "situacao", "turma_id", "turma_nome", "escola_id", "escola_nome",
+        "municipio_id", "municipio_nome", "ano_letivo", "status", "alertas", "ficha_pct", "origem", "criado_em", "criado_por", "atualizado_em", "atualizado_por"];
+    }
+    function alunoEscolaOk() {
+      return turmaDoc(novo().turma_id).escola_id == novo().escola_id
+        && novo().nome is string && novo().nome.size() >= 2 && novo().nome.size() <= 80
+        && texto(novo().get("nome_social", ""), 80) && texto(novo().get("matricula", ""), 40) && texto(novo().get("inep_aluno", ""), 20)
+        && (novo().get("nascimento", "") == "" || novo().nascimento.matches("^(19|20)[0-9]{2}-[01][0-9]-[0-3][0-9]$"))
+        && novo().get("situacao", "cursando") in ["cursando", "remanejado", "transferido", "abandono", "concluido"]
+        && novo().get("status", "ativo") in ["ativo", "inativo"]
+        && novo().get("alertas", []) is list && novo().get("alertas", []).size() <= 8
+        && novo().atualizado_por == request.auth.uid;
     }
 
     match /avaliacoes/{id} {

@@ -974,7 +974,7 @@
 <!-- Modal Novo Aluno -->
 <div class="modal-bg" id="modalAluno">
   <div class="modal">
-    <div class="mh"><h3>Novo Aluno</h3><p>Cadastre um aluno vinculado a uma turma.</p></div>
+    <div class="mh"><h3>Novo Aluno</h3><p>Cadastro rápido. O cadastro completo (documentos, família, saúde, anexos) fica na <a href="/apps/alunos/#a=novo" style="color:#2671AB;font-weight:700">Ficha do Aluno</a>.</p></div>
     <div class="mb">
       <div class="field"><label for="aluNome">Nome do aluno</label><input type="text" id="aluNome" placeholder="Ex: Joao da Silva"></div>
       <div class="field"><label for="aluTurma">Turma</label><select id="aluTurma"><option value="">Carregando...</option></select></div>
@@ -1944,12 +1944,16 @@
       snap.forEach(d => { const a=d.data(); if(a.status!=="inativo") ativos.push({ id:d.id, ...a }); });
       $("aluCount").textContent = ativos.length+" aluno(s) cadastrado(s)";
       if(ativos.length===0){ $("aluTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno cadastrado ainda.<br>Clique em "Novo Aluno" para comecar.</div>'; return; }
-      let html = '<table><thead><tr><th>Aluno</th><th>Matrícula</th><th>Turma</th><th>Escola</th></tr></thead><tbody>';
-      ativos.forEach(a => {
-        html += '<tr><td><b>'+escapeHtml(a.nome)+'</b></td>'+
+      // cadastros antigos (e a Rede Modelo) só têm os IDs: o nome da turma e da escola vem do cadastro de turmas
+      const turmasPorId = {}; try{ (cacheTurmas.length ? cacheTurmas : await carregarCacheTurmas()).forEach(t => { turmasPorId[t.id] = t; }); }catch(e){}
+      let html = '<table><thead><tr><th>Aluno</th><th>Matrícula</th><th>Turma</th><th>Escola</th><th></th></tr></thead><tbody>';
+      ativos.slice(0, 3000).forEach(a => {
+        const t = turmasPorId[a.turma_id] || {};
+        html += '<tr><td><b>'+escapeHtml(a.nome_social||a.nome)+'</b></td>'+
                 '<td>'+escapeHtml(a.matricula||"-")+'</td>'+
-                '<td>'+escapeHtml(a.turma_nome||"-")+'</td>'+
-                '<td><span class="muni-tag">'+escapeHtml(a.escola_nome||"-")+'</span></td></tr>';
+                '<td>'+escapeHtml(a.turma_nome||t.nome||"-")+'</td>'+
+                '<td><span class="muni-tag">'+escapeHtml(a.escola_nome||t.escola_nome||"-")+'</span></td>'+
+                '<td><a class="btn-mini btn-gerenciar" href="/apps/alunos/#a='+encodeURIComponent(a.id)+'&e='+encodeURIComponent(a.escola_id||"")+'">Ficha</a></td></tr>';
       });
       html += '</tbody></table>'; $("aluTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("aluTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }

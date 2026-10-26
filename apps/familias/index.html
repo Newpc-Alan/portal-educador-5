@@ -103,6 +103,7 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
     <button class="tb on" data-action="ir" data-arg="lista" id="tabLista">👨‍👩‍👧 Responsáveis</button>
     <button class="tb" data-action="ir" data-arg="importar" id="tabImp">📥 Importar planilha</button>
     <button class="tb" data-action="ir" data-arg="avisos" id="tabAv">📣 Avisos às famílias</button>
+    <a class="tb" href="/apps/alunos/">🧒 Ficha do Aluno</a>
     <a class="tb lima" href="/gestao/">← Gestão</a>
   </header>
   <div class="carregando" id="carregando">Carregando...</div>
@@ -383,9 +384,10 @@ async function gravarImportacao(){
   const subst = $("impSubst").checked, btn = $("impGravar"); btn.disabled = true; btn.textContent = "Gravando...";
   const quem = { atualizado_em:serverTimestamp(), atualizado_por:E.user.uid, atualizado_por_nome:String(E.u.nome || E.user.email || "").slice(0, 80) };
   try{
-    for(let i = 0; i < ok.length; i += 400){
+    for(let i = 0; i < ok.length; i += 15){
+      // lotes pequenos: as regras conferem a escola de cada aluno e há limite de leituras por lote
       const b = writeBatch(db);
-      ok.slice(i, i + 400).forEach(r => {
+      ok.slice(i, i + 15).forEach(r => {
         const a = r.aluno, antes = E.fam[a.id];
         let resp = r.resp;
         if(!subst && antes){ const ja = new Set(antes.responsaveis.map(x => norm(x.nome))); resp = [...antes.responsaveis, ...r.resp.filter(x => !ja.has(norm(x.nome))).map(x => ({ ...x, principal:false }))].slice(0, 4); }
@@ -394,7 +396,7 @@ async function gravarImportacao(){
         b.set(doc(db, "alunos_familia", a.id), d); E.fam[a.id] = { ...d, atualizado_em:null };
       });
       await b.commit();
-      btn.textContent = "Gravando... " + Math.min(ok.length, i + 400) + " de " + ok.length;
+      btn.textContent = "Gravando... " + Math.min(ok.length, i + 15) + " de " + ok.length;
     }
     toast(ok.length + " aluno(s) com contatos gravados."); $("impPrevia").innerHTML = ""; $("impTexto").value = ""; ir("lista");
   }catch(e){ console.warn(e); toast(e.code === "permission-denied" ? "Sem permissão para gravar nesta escola." : "A gravação parou no meio. Confira a lista e importe de novo.", true); btn.disabled = false; btn.textContent = "Tentar de novo"; }

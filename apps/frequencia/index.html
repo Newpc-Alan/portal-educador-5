@@ -73,6 +73,7 @@ button{cursor:pointer}
 .al .num{font-weight:800;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .al .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;padding:6px 0}
 .al .nm small{display:block;font-weight:600;color:var(--muted);font-size:.74rem}
+.al .al-alerta{border:1px solid #f3dfa6;background:#fff8e6;border-radius:8px;padding:6px 8px;font-size:.9rem;cursor:pointer;line-height:1}
 .al .bts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .pf{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 0;width:48px;font-weight:800;font-size:.95rem}
 .pf.p.on{background:var(--verde);border-color:var(--verde);color:#fff}
@@ -543,7 +544,7 @@ async function abrirTurma(id){
   if(!t){ desenharChamada(); return; }
   try{
     const s = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id)));
-    s.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo") E.alunos.push({ id:d.id, nome:String(a.nome).trim().slice(0, 80) }); });
+    s.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo") E.alunos.push({ id:d.id, nome:String(a.nome_social || a.nome).trim().slice(0, 80), alertas:Array.isArray(a.alertas) ? a.alertas.slice(0, 8) : [] }); });
   }catch(e){ console.warn("alunos:", e.code); toast("Não foi possível carregar os alunos desta turma.", true); }
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   await carregarCalendario(t);
@@ -577,6 +578,13 @@ async function abrirChamada(){
   }
   desenharChamada();
 }
+// alertas curtos que a gestão escolheu mostrar ao professor (Ficha do Aluno): ícone ao lado do nome, texto ao tocar
+const ICO_AL = { pei:"♿", alergia:"⚠️", medicacao:"💊", saude:"❤️", visao:"👓", audicao:"👂", apoio:"🧩", outro:"📌" };
+function alertasAluno(a){
+  if(!a.alertas || !a.alertas.length) return "";
+  const ics = [...new Set(a.alertas.map(x => ICO_AL[x.t] || ICO_AL.outro))].join("");
+  return ' <button class="al-alerta" data-action="ver-alertas" data-arg="' + esc(a.id) + '" aria-label="Alertas da escola sobre ' + esc(a.nome) + '" title="' + esc(a.alertas.map(x => x.x).join(" · ")) + '">' + ics + "</button>";
+}
 function desenharChamada(){
   $("segAulas").innerHTML = [1, 2, 3, 4, 5, 6].map(n => '<button class="' + (n === E.aulas ? "on" : "") + '" data-action="aulas" data-arg="' + n + '">' + n + "</button>").join("");
   const d = $("dia").value, hj = hojeMS(), disc = discAtual();
@@ -598,7 +606,7 @@ function desenharChamada(){
   $("lista").innerHTML = E.alunos.slice(0, 80).map((a, i) => {
     const f = E.faltas[a.id] || 0, j = !!E.just[a.id];
     return '<div class="al' + (f ? " falta" : "") + '"><span class="num">' + (i + 1) + '</span><span class="nm" data-action="alternar" data-arg="' + esc(a.id) + '" title="' + esc(a.nome) + '">' + esc(a.nome) +
-      (f ? "<small>" + (f < E.aulas ? "faltou " + f + " de " + E.aulas + " aulas" : "faltou") + (j ? " · justificada" : "") + "</small>" : "") + '</span><span class="bts">' +
+      (f ? "<small>" + (f < E.aulas ? "faltou " + f + " de " + E.aulas + " aulas" : "faltou") + (j ? " · justificada" : "") + "</small>" : "") + '</span><span class="bts">' + alertasAluno(a) +
       '<button class="pf p' + (f ? "" : " on") + '" data-action="presente" data-arg="' + esc(a.id) + '" aria-label="Presente: ' + esc(a.nome) + '">P</button>' +
       '<button class="pf f' + (f ? " on" : "") + '" data-action="falta" data-arg="' + esc(a.id) + '" aria-label="Falta: ' + esc(a.nome) + '">F</button>' +
       (f && E.aulas > 1 ? '<select class="qt" data-qt="' + esc(a.id) + '" aria-label="Aulas que faltou">' + Array.from({ length:E.aulas }, (_, k) => '<option value="' + (k + 1) + '"' + (k + 1 === f ? " selected" : "") + ">" + (k + 1 === E.aulas ? "todas" : (k + 1) + " de " + E.aulas) + "</option>").join("") + "</select>" : "") +
@@ -769,7 +777,7 @@ async function familiaFicha(id, r){
   const box = $("fiFam"); box.innerHTML = '<span class="sub">Carregando contatos da família...</span>';
   let f = null; try{ const s = await getDoc(doc(db, "alunos_familia", id)); f = s.exists() ? s.data() : null; }catch(e){ console.warn("familia:", e.code); }
   if(!E.ficha || E.ficha.id !== id) return;
-  const editar = '<a class="tel" href="/apps/familias/" target="_blank" rel="noopener">✏️ ' + (f ? "Editar contatos" : "Cadastrar contatos") + "</a>";
+  const editar = '<a class="tel" href="/apps/alunos/#a=' + encodeURIComponent(id) + "&e=" + encodeURIComponent(r.escola_id || "") + '" target="_blank" rel="noopener">📋 Ficha do aluno</a>';
   if(!f || !(f.responsaveis || []).length){ box.innerHTML = '<div class="lin"><b>👨‍👩‍👧 Família</b><span class="sub">Nenhum contato cadastrado para este aluno.</span><span style="flex:1"></span>' + editar + "</div>"; return; }
   const aluno = (E.ficha.a.n || "").split(" ")[0], escola = E.escolasNomes[r.escola_id] || "escola";
   box.innerHTML = '<div class="lin"><b>👨‍👩‍👧 Família</b>' + (f.aceita_avisos === false ? '<span class="pill cinza">não quer receber avisos</span>' : "") + '<span style="flex:1"></span>' + editar + "</div>" +
@@ -1331,6 +1339,7 @@ async function carregarVistas(){
 
 /* ===================== eventos ===================== */
 const ACOES = {
+  "ver-alertas":a => { const x = E.alunos.find(y => y.id === a); if(x && x.alertas && x.alertas.length) toast(x.alertas.map(z => (ICO_AL[z.t] || ICO_AL.outro) + " " + z.x).join("  ·  ")); },
   ir:a => ir(a),
   aulas:a => { E.aulas = +a; Object.keys(E.faltas).forEach(id => { E.faltas[id] = E.aulas; }); mexeu(); },
   presente:id => { delete E.faltas[id]; delete E.just[id]; mexeu(); },
