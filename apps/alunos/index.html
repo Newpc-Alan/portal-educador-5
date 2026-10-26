@@ -176,6 +176,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
       </div>
       <div class="barra" style="margin-top:10px">
         <button class="btn btn-ok" data-action="novo">+ Matricular aluno</button>
+        <button class="btn btn-gh btn-sm" data-action="cart-lista">🪪 Carteirinhas</button>
         <button class="btn btn-gh btn-sm" data-action="csv">⬇️ Planilha (CSV)</button>
         <span class="esp"></span>
         <a class="btn btn-gh btn-sm" href="/apps/familias/#avisos">📣 Avisos às famílias</a>
@@ -352,6 +353,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
     </div>
     <div class="fi-rod">
       <span class="pct" id="fiPct"></span><span class="falta-lista" id="fiFalta"></span><span class="esp"></span>
+      <button class="btn btn-gh" data-action="cart-aluno" id="btnCart">🪪 Carteirinha</button>
       <button class="btn btn-gh" data-action="imprimir" id="btnImprimir">🖨️ Imprimir</button>
       <button class="btn btn-gh" data-action="fechar">Cancelar</button>
       <button class="btn btn-ok" data-action="salvar" id="btnSalvar">Salvar ficha</button>
@@ -373,11 +375,14 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
   </div>
 </div>
 <div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytes, getBlob, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import * as CART from "/assets/js/carteirinha.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
@@ -543,7 +548,7 @@ function preencherBasico(){
   $("fiSub").textContent = E.edit.id ? [turmaNome(a.turma_id), a.matricula ? "matrícula " + a.matricula : "", E.escolasNomes[E.escola]].filter(Boolean).join(" · ") : "Matrícula nova · " + (E.escolasNomes[E.escola] || "");
   $("f_nome").value = a.nome || ""; $("f_social").value = a.nome_social || ""; $("f_nasc").value = a.nascimento || ""; $("f_nasc").max = hojeMS();
   $("f_turma").innerHTML = opcoesTurma(a.turma_id); $("f_sit").value = situacao(a); $("f_mat").value = a.matricula || ""; $("f_inep").value = a.inep_aluno || "";
-  $("btnImprimir").hidden = !E.edit.id;
+  $("btnImprimir").hidden = !E.edit.id; $("btnCart").hidden = !E.edit.id;
 }
 function preencherFicha(f){
   const en = f.endereco || {}, tr = f.transporte || {}, vi = f.vida || {}, pr = f.programas || {};
@@ -896,6 +901,30 @@ async function removerDoc(i){
   }catch(e){ toast("Não foi possível remover.", true); }
 }
 
+/* ===================== carteirinhas (mesmo modelo da Frequência, com QR da portaria) ===================== */
+async function gerarCart(alunos, nomeArq, fotoAgora){
+  if(!window.jspdf || !window.QRCode){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
+  if(!alunos.length){ toast("Nenhum aluno cursando neste filtro.", true); return; }
+  toast("Gerando " + alunos.length + " carteirinha(s)...");
+  let muni = {}; try{ const m = await getDoc(doc(db, "municipios", E.escolasMuni[E.escola] || alunos[0].municipio_id || "")); if(m.exists()) muni = m.data(); }catch(e){}
+  const lista = alunos.map(a => ({ a:{ id:a.id, nome:a.nome_social || a.nome, foto:fotoAgora && fotoAgora.id === a.id ? "agora" : a.foto || "" }, turma:turmaNome(a.turma_id) || a.turma_nome || "" }));
+  const r = await CART.gerarPdf({ lista, escola:E.escolasNomes[E.escola] || "", muni, ano:+hojeMS().slice(0, 4), urlFoto:p => p === "agora" ? Promise.resolve(fotoAgora.url) : urlFoto(p) });
+  window.__ultimoPdf = alunos.length <= 60 ? r.pdf.output("datauristring") : "";
+  r.pdf.save(nomeArq);
+  toast(alunos.length + " carteirinha(s) gerada(s)" + (r.pedidas ? ", " + r.comFoto + " com foto." : ". Sem fotos: tire pela ficha de cada aluno."));
+}
+function cartLista(){
+  const { base, termo } = filtrados(), l = base.filter(a => !SAI(situacao(a)) && a.status !== "inativo" && (!termo || norm(a.nome + " " + (a.nome_social || "") + " " + (a.matricula || "")).includes(termo)));
+  const tid = $("selTurma").value;
+  if(!tid && l.length > 60 && !confirm("Gerar " + l.length + " carteirinhas da escola inteira? Para uma turma só, escolha a turma no filtro.")) return;
+  gerarCart(l.sort((a, b) => (turmaNome(a.turma_id) || "").localeCompare(turmaNome(b.turma_id) || "", "pt-BR", { numeric:true }) || a.nome.localeCompare(b.nome, "pt-BR")), "carteirinhas-" + norm(tid ? turmaNome(tid) : E.escolasNomes[E.escola] || "escola").replace(/ /g, "-") + ".pdf");
+}
+function cartAluno(){
+  const ed = E.edit; if(!ed || !ed.id) return;
+  const a = { ...ed.a, nome:limpa($("f_nome").value, 80) || ed.a.nome, nome_social:limpa($("f_social").value, 80), turma_id:$("f_turma").value || ed.a.turma_id, foto:ed.foto.remover ? "" : ed.foto.atual };
+  gerarCart([a], "carteirinha-" + norm(a.nome_social || a.nome).replace(/ /g, "-") + ".pdf", ed.foto.url ? { id:a.id, url:ed.foto.url } : null);
+}
+
 /* ===================== impressão ===================== */
 async function imprimir(){
   const ed = E.edit; if(!ed || !ed.id) return;
@@ -1219,7 +1248,7 @@ const ACOES = {
   "aut-copiar":() => { lerAut(); lerResp(); const ja = new Set(E.edit.auts.map(x => norm(x.nome)));
     E.edit.resp.filter(r => limpa(r.nome, 80) && !ja.has(norm(r.nome))).forEach(r => { if(E.edit.auts.length < 6) E.edit.auts.push({ nome:limpa(r.nome, 80), parentesco:PAR_AUT.includes(r.parentesco) ? r.parentesco : "Outro", documento:"", telefone:telefone(r.whatsapp) || "", foto:"", blob:null, url:"" }); });
     desenharAut(); },
-  salvar:() => salvar(), imprimir:() => imprimir(), csv:() => exportar(),
+  salvar:() => salvar(), imprimir:() => imprimir(), csv:() => exportar(), "cart-lista":() => cartLista(), "cart-aluno":() => cartAluno(),
   "imp-previa":() => { if(!$("impTexto").value.startsWith("Arquivo: ")) E.impMatriz = null; previa(); }, "imp-gravar":() => gravarImportacao(), "imp-modelo":() => baixarModelo()
 };
 document.addEventListener("click", ev => {

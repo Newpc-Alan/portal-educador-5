@@ -61,6 +61,13 @@
   .nav a:hover{ background:rgba(255,255,255,.08);color:#fff }
   .nav a.active{ background:var(--cyan);color:#fff; box-shadow:0 6px 16px -8px rgba(55,177,218,.8); }
   .nav a .ico{ width:18px;text-align:center;font-size:15px }
+  .nav-grupo{ display:flex;align-items:center;justify-content:space-between;width:100%;border:0;background:none;cursor:pointer;padding:14px 14px 6px;margin-top:4px;
+    font:inherit;font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(141,198,63,.95) }
+  .nav-grupo:first-child{ margin-top:0;padding-top:4px }
+  .nav-grupo i{ font-style:normal;font-size:12px;color:rgba(255,255,255,.5);transition:transform .15s }
+  .nav-grupo.fechado i{ transform:rotate(-90deg) }
+  .nav-grupo:hover{ color:#b6e07a }
+  .nav-sub[hidden]{ display:none }
   /* mini calendário do mês no menu lateral */
   .mini-cal{ margin:6px 12px 14px;padding:10px 10px 9px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11px;color:rgba(255,255,255,.85) }
   .mini-cal .mc-topo{ display:flex;align-items:center;gap:4px;margin-bottom:6px }
@@ -1106,27 +1113,33 @@
   const $ = (id) => document.getElementById(id);
 
   const MENUS = {
+    // administrador: itens agrupados por área ({ grupo } abre um bloco recolhível no menu)
     admin: { itens: [
+      { grupo:"Visão geral", ico:"\u{1F4C8}" },
       { id:"painel",     ico:"\u{1F4C8}", label:"Painel" },
       { id:"painelRedeLink", ico:"\u{1F4CA}", label:"Painel da Rede (secretarias)" },
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início (prévia)" },
-      { id:"noticiasadm", ico:"\u{1F4F0}", label:"Notícias" },
-      { id:"datasadm",   ico:"\u{1F4C5}", label:"Datas Comemorativas" },
-      { id:"modulos",    ico:"\u{1F9E9}", label:"Módulos do Portal" },
+      { grupo:"Redes e cadastros", ico:"\u{1F3DB}\u{FE0F}" },
       { id:"municipios", ico:"\u{1F3DB}\u{FE0F}", label:"Municípios" },
       { id:"escolas",    ico:"\u{1F3EB}", label:"Escolas" },
       { id:"turmas",     ico:"\u{1F4DA}", label:"Turmas" },
       { id:"alunos",     ico:"\u{1F9D2}", label:"Alunos" },
+      { id:"servidoresLink", ico:"\u{1FAAA}", label:"Servidores da rede" },
       { id:"usuarios",   ico:"\u{1F465}", label:"Usuários" },
       { id:"importar",   ico:"\u{1F4E5}", label:"Importar cadastros" },
+      { grupo:"Gestão das escolas", ico:"\u{1F3EB}" },
+      { id:"gestaoLink", ico:"\u{1F3EB}", label:"Gestão Escolar" },
+      { grupo:"Conteúdo do Portal", ico:"\u{1F5C2}\u{FE0F}" },
+      { id:"noticiasadm", ico:"\u{1F4F0}", label:"Notícias" },
+      { id:"datasadm",   ico:"\u{1F4C5}", label:"Datas Comemorativas" },
       { id:"acervoadm",  ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"videosadm",  ico:"\u{1F3AC}", label:"Vídeos" },
       { id:"jogosadm",   ico:"\u{1F3AE}", label:"Jogos" },
       { id:"iaadm",      ico:"\u{1F916}", label:"Dicas de IA" },
-      { id:"formacaoLink", ico:"\u{1F393}", label:"Formação Continuada" },
       { id:"dicasLink", ico:"\u{1F4A1}", label:"Dicas recebidas" },
-      { id:"gestaoLink", ico:"\u{1F3EB}", label:"Gestão Escolar" },
-      { id:"servidoresLink", ico:"\u{1FAAA}", label:"Servidores da rede" },
+      { id:"formacaoLink", ico:"\u{1F393}", label:"Formação Continuada" },
+      { grupo:"Sistema", ico:"\u2699\u{FE0F}" },
+      { id:"modulos",    ico:"\u{1F9E9}", label:"Módulos do Portal" },
       { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
@@ -1507,16 +1520,28 @@
       avisoDeLicenca(lic);
     }
     const nav = $("nav"); nav.innerHTML = "";
-    menu.itens.forEach((item, i) => {
+    // grupos recolhíveis (menu do administrador); o estado fica guardado neste aparelho
+    let fechados = []; try{ fechados = JSON.parse(localStorage.getItem("pde_menu_fechados") || "[]"); }catch(e){}
+    let alvo = nav, primeiro = null;
+    menu.itens.forEach(item => {
+      if(item.grupo){
+        const g = document.createElement("button"), sub = document.createElement("div"), fechado = fechados.includes(item.grupo);
+        g.type = "button"; g.className = "nav-grupo" + (fechado ? " fechado" : ""); g.setAttribute("aria-expanded", fechado ? "false" : "true");
+        g.innerHTML = '<span>'+escapeHtml(item.grupo)+'</span><i aria-hidden="true">\u25BE</i>';
+        sub.className = "nav-sub"; sub.hidden = fechado;
+        g.addEventListener("click", () => { const f = !sub.hidden; sub.hidden = f; g.classList.toggle("fechado", f); g.setAttribute("aria-expanded", f ? "false" : "true");
+          try{ const l = new Set(JSON.parse(localStorage.getItem("pde_menu_fechados") || "[]")); f ? l.add(item.grupo) : l.delete(item.grupo); localStorage.setItem("pde_menu_fechados", JSON.stringify([...l])); }catch(e){} });
+        nav.appendChild(g); nav.appendChild(sub); alvo = sub; return;
+      }
       const a = document.createElement("a");
       a.dataset.sec = item.id;
       a.innerHTML = '<span class="ico">'+item.ico+'</span>'+item.label;
-      if(i===0) a.classList.add("active");
-      a.addEventListener("click", () => selecionar(item));
-      nav.appendChild(a);
+      if(!primeiro){ primeiro = item; a.classList.add("active"); }
+      a.addEventListener("click", () => { const sub = a.closest(".nav-sub"); if(sub && sub.hidden) sub.hidden = false; selecionar(item); });
+      alvo.appendChild(a);
     });
     $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
-    selecionar(menu.itens[0]);
+    selecionar(primeiro);
     faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
