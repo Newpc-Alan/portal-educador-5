@@ -989,12 +989,13 @@ html, body { background: #f4f7fa !important; }
               <div class="pde-hint">Com embaralhar ativo, cada cópia vira uma versão diferente</div>
             </div>
             <div class="pde-field">
-              <label class="pde-label" for="pd-embaralhar">Embaralhar alternativas</label>
+              <label class="pde-label" for="pd-embaralhar">Embaralhar</label>
               <select id="pd-embaralhar" class="pde-select">
                 <option value="nao">Não embaralhar</option>
-                <option value="sim">Sim, gerar versões diferentes</option>
+                <option value="sim">Questões e alternativas (versões diferentes)</option>
+                <option value="alts">Só as alternativas</option>
               </select>
-              <div class="pde-hint">Cada cópia recebe as alternativas em ordem aleatória</div>
+              <div class="pde-hint">Cada cópia sai com a ordem das questões e das alternativas sorteada, e o gabarito acompanha a versão</div>
             </div>
           </div>
         </div>
@@ -1874,7 +1875,7 @@ const TIPS = [
   '📥 Faça backup mensal: o botão "Backup" baixa um arquivo com tudo, inclusive o banco.',
   '⌨️ Atalho: Ctrl+Enter no passo 2 adiciona uma questão na hora.',
   'Duplique uma questão pronta e ajuste só o que mudar. Ganha tempo em provas longas.',
-  'Use "Embaralhar alternativas" para gerar versões diferentes da mesma prova e reduzir cola.',
+  'Use "Embaralhar: questões e alternativas" para gerar versões diferentes da mesma prova e reduzir cola.',
   'Logo e nome da escola no cabeçalho dão identidade profissional à prova impressa.',
   'Imagens nas questões deixam a avaliação mais visual e acessível.',
   'No modo "Prova + gabarito por versão", cada cópia sai com o próprio gabarito.',
@@ -2488,7 +2489,7 @@ function setModo(val, card){
 }
 function getModo(){ return ($('input[name="pd-modo"]:checked') || {}).value || 'provas'; }
 id('pd-embaralhar').addEventListener('change', () => {
-  const emb = id('pd-embaralhar').value === 'sim';
+  const emb = id('pd-embaralhar').value !== 'nao';
   $$('.pde-mode-card').forEach(mc => {
     const v = mc.dataset.val;
     const off = (v === 'provas_gab_unico' && emb) || (v === 'provas_gab_versao' && !emb);
@@ -2498,7 +2499,7 @@ id('pd-embaralhar').addEventListener('change', () => {
   checkModoWarn();
 });
 function checkModoWarn(){
-  const emb = id('pd-embaralhar').value === 'sim';
+  const emb = id('pd-embaralhar').value !== 'nao';
   const modo = getModo();
   const w = id('modo-warn'), wt = id('modo-warn-txt');
   if(modo === 'provas_gab_unico' && emb){ w.style.display = 'flex'; wt.textContent = 'Este modo requer "Não embaralhar". Altere a configuração acima.'; }
@@ -3036,6 +3037,13 @@ function makeOrdersForVersion(questoes, embaralhar){
     return null;
   });
 }
+// versão embaralhada: sorteia a ordem das questões (quando pedido) e devolve uma cópia dos dados nessa ordem
+function versaoDaProva(data, embQuestoes){
+  if(!embQuestoes || data.questoes.length < 2) return data;
+  const qs = data.questoes.slice();
+  for(let i=qs.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [qs[i],qs[j]] = [qs[j],qs[i]]; }
+  return { ...data, questoes:qs };
+}
 function buildProofHTML(data, ordersPerQuestion, versaoLabel){
   const H = data.header;
   let qsHTML = '';
@@ -3107,7 +3115,7 @@ async function handlePrint(){
     const ok = await pdeConfirm('Há ' + semEnun + ' questão(ões) sem enunciado. Elas sairão em branco na prova.', {titulo:'Imprimir mesmo assim?', ok:'Imprimir'});
     if(!ok) return;
   }
-  const emb = id('pd-embaralhar').value === 'sim';
+  const embModo = id('pd-embaralhar').value, emb = embModo !== 'nao', embQ = embModo === 'sim';
   const modo = getModo();
   const nCopias = Math.max(1, Math.min(200, parseInt(id('pd-num-copias').value) || 1));
   data._code = genProofCode();
@@ -3118,7 +3126,7 @@ async function handlePrint(){
   }
   const paginas = [];
   if(modo === 'provas'){
-    for(let c=0;c<nCopias;c++){ paginas.push(buildProofHTML(data, makeOrdersForVersion(data.questoes,emb), emb&&nCopias>1 ? `Versão ${c+1}` : '')); }
+    for(let c=0;c<nCopias;c++){ const v = versaoDaProva(data, embQ); paginas.push(buildProofHTML(v, makeOrdersForVersion(v.questoes,emb), emb&&nCopias>1 ? `Versão ${c+1}` : '')); }
   }
   else if(modo === 'provas_gab_unico'){
     const orders = makeOrdersForVersion(data.questoes,false);
@@ -3127,10 +3135,11 @@ async function handlePrint(){
   }
   else if(modo === 'provas_gab_versao'){
     for(let c=0;c<nCopias;c++){
-      const orders = makeOrdersForVersion(data.questoes,emb);
+      const v = versaoDaProva(data, embQ);
+      const orders = makeOrdersForVersion(v.questoes,emb);
       const label = `Versão ${c+1}`;
-      paginas.push(buildProofHTML(data, orders, label));
-      paginas.push(buildAnswerKeyPage(data, orders, label));
+      paginas.push(buildProofHTML(v, orders, label));
+      paginas.push(buildAnswerKeyPage(v, orders, label));
     }
   }
   printInIframe(wrapPrint(paginas.join(pageBreak()), 'Prova - ' + (data.header.escola || 'Portal do Educador')));
