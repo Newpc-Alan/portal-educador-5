@@ -771,6 +771,34 @@
   .imp-prev table td, .imp-prev table th{ padding:8px 12px;font-size:12.5px }
   .imp-prev tr.erro td{ background:#fff7f6 }
   .st-novo{ color:var(--green);font-weight:700 } .st-atu{ color:#1d6f8f;font-weight:700 } .st-ign{ color:#888;font-weight:700 } .st-erro{ color:var(--danger);font-weight:700 }
+  /* Documentação (admin) e Ajuda */
+  .dc-topo{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .dc-topo input{flex:1;min-width:200px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;font-size:14px}
+  .dc-topo .btn{width:auto;padding:11px 16px}
+  .dc-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .dc-chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+  .dc-chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .dc-grupo{margin:18px 0 8px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--green)}
+  .dc-item{display:flex;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+  .dc-item .ic{font-size:26px;line-height:1}
+  .dc-item .tx{flex:1;min-width:0}
+  .dc-item .tx b{display:block;font-size:15px;color:var(--ink)}
+  .dc-item .tx small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .dc-item .tx p{color:var(--muted);font-size:13px;margin-top:4px}
+  .dc-acoes{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .dc-acoes .btn{width:auto;padding:8px 12px;font-size:13px}
+  .dc-selo{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:middle}
+  .dc-selo.int{background:#fde8e6;color:#a8322a}.dc-selo.pub{background:#e3f3d6;color:#2f6b14}
+  .dc-hist{margin:-4px 0 12px 54px;font-size:13px;color:var(--muted)}
+  .dc-hist div{display:flex;gap:10px;align-items:center;padding:4px 0;border-bottom:1px dashed var(--line)}
+  .dc-hist button{border:0;background:none;color:#2671AB;font-weight:700;cursor:pointer}
+  .dc-form{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .dc-form .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+  .dc-form textarea{width:100%;min-height:64px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:14px}
+  .dc-form .acoes{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+  .dc-form .acoes .btn{width:auto;padding:11px 18px}
+  .dc-vazio{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--muted)}
+  @media (max-width:640px){ .dc-item{flex-wrap:wrap} .dc-acoes{width:100%;justify-content:flex-start} .dc-hist{margin-left:0} }
 </style>
 </head>
 <body>
@@ -1031,7 +1059,7 @@
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-  import { getStorage, ref as stRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+  import { getStorage, ref as stRef, uploadBytes, getDownloadURL, getBlob, deleteObject as stDelete } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   if(location.protocol === "http:" && /portaldoeducador\.com\.br$/.test(location.hostname)){ location.replace("https://" + location.host + location.pathname + location.search); }
   const firebaseConfig = {
@@ -1067,35 +1095,41 @@
       { id:"iaadm",      ico:"\u{1F916}", label:"Dicas de IA" },
       { id:"formacaoLink", ico:"\u{1F393}", label:"Formação Continuada" },
       { id:"dicasLink", ico:"\u{1F4A1}", label:"Dicas recebidas" },
+      { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
       { id:"painelRede", ico:"\u{1F4CA}", label:"Painel da Rede" },
       { id:"gestaoLink", ico:"\u{1F3EB}", label:"Gestão Escolar" },
       { id:"calendarioLink", ico:"\u{1F4C5}", label:"Calendário Letivo" },
-      { id:"relatoriosLink", ico:"\u{1F4CB}", label:"Central de Relatórios" } ] },
+      { id:"relatoriosLink", ico:"\u{1F4CB}", label:"Central de Relatórios" },
+      { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
     gestor: { itens: [
       { id:"inicio",      ico:"\u{1F3E0}", label:"Início" },
       { id:"painelRede",  ico:"\u{1F4CA}", label:"Painel da Escola" },
       { id:"gestaoLink",  ico:"\u{1F3EB}", label:"Gestão Escolar" },
       { id:"calendarioLink", ico:"\u{1F4C5}", label:"Calendário Letivo" },
       { id:"relatoriosLink", ico:"\u{1F4CB}", label:"Central de Relatórios" },
-      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" },
+      { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
     professor: { itens: [
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início" },
       { id:"turmas",     ico:"\u{1F4DA}", label:"Minhas Turmas" },
       { id:"planoaula",  ico:"\u{1F916}", label:"Plano de Aula IA" },
       { id:"acervo",      ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"trabalhos",   ico:"\u{1F4C1}", label:"Meus trabalhos" },
-      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" },
+      { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
     // equipe de apoio da escola, convidada pelo gestor
     secretaria_escolar: { itens: [
       { id:"apoioInicio", ico:"\u{1F3E0}", label:"Início" },
       { id:"gestaoLink",  ico:"\u{1F3EB}", label:"Gestão Escolar" },
-      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" },
+      { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
     portaria: { itens: [
       { id:"apoioInicio", ico:"\u{1F3E0}", label:"Início" },
       { id:"portariaLink", ico:"\u{1F6AA}", label:"Portaria (entrada)" },
-      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" },
+      { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
     // aluno da rede: so a tela inicial com os botoes liberados para alunos
     aluno: { itens: [
       { id:"inicio",      ico:"\u{1F3E0}", label:"Início" } ] },
@@ -1105,7 +1139,8 @@
       { id:"planoaula",   ico:"\u{1F916}", label:"Plano de Aula IA" },
       { id:"acervo",      ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"trabalhos",   ico:"\u{1F4C1}", label:"Meus trabalhos" },
-      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] }
+      { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" },
+      { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
   };
   const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria de Educação", gestor:"Gestor da escola", professor:"Professor", aluno:"Aluno", secretaria_escolar:"Secretaria escolar", portaria:"Portaria" };
   let usuarioAtual = null;
@@ -1554,7 +1589,9 @@
       if(item.id === "iaadm"){ renderIaAdmin(); return; }
       if(item.id === "noticiasadm"){ renderNoticiasAdmin(); return; }
       if(item.id === "datasadm"){ renderDatasAdmin(); return; }
+      if(item.id === "docs"){ renderDocumentacao(); return; }
     }
+    if(item.id === "ajuda"){ renderAjuda(); return; }
     if(item.id === "inicio"){ renderInicio(); return; }
     if(item.id === "meucadastro"){ renderMeuCadastro(); return; }
     if(item.id === "acervo"){ renderAcervo(""); return; }
@@ -1567,7 +1604,7 @@
     $("conteudo").innerHTML =
       '<div class="panel"><div class="pico">'+item.ico+'</div><h3>'+item.label+'</h3>'+
       '<p>Esta área está pronta na estrutura e será ativada nas próximas etapas. '+
-      'Aqui voce vai gerenciar '+item.label.toLowerCase()+'.</p></div>';
+      'Aqui você vai gerenciar '+item.label.toLowerCase()+'.</p></div>';
   }
 
   // caches compartilhados
@@ -4887,6 +4924,157 @@
     if(ntPop.n) marcarPopupVisto(ntPop.n.id);
     el.remove(); ntPop.n = null;
   }
+
+
+  // ===================== DOCUMENTAÇÃO (admin) e AJUDA (todos) =====================
+  // documentos/{id}: titulo, categoria, codigo, descricao, publico ("admin" | "todos"), versao, arquivo (Storage), tamanho, versoes[]
+  // Storage: documentos/interno/ (só admin) e documentos/publico/ (quem tem acesso ativo)
+  const DOC_CATS = { manual:["\u{1F4D8}","Manuais"], pop:["✅","POPs"], tecnico:["\u{1F6E0}\u{FE0F}","Técnico"], outro:["\u{1F4C4}","Outros"] };
+  const DOC = { lista:[], busca:"", cat:"*", form:null, hist:"", ajuda:false };
+  const docMs = t => t && t.toMillis ? t.toMillis() : (t && t.seconds ? t.seconds * 1000 : 0);
+  const docData = t => { const m = docMs(t); return m ? new Date(m).toLocaleDateString("pt-BR") : ""; };
+  const docMb = n => n ? (n / 1048576).toLocaleString("pt-BR", { maximumFractionDigits:1 }) + " MB" : "";
+  async function carregarDocs(){
+    const q = DOC.ajuda ? query(collection(db, "documentos"), where("publico", "==", "todos")) : collection(db, "documentos");
+    const s = await getDocs(q); const l = []; s.forEach(d => l.push({ id:d.id, ...d.data() }));
+    const ordem = Object.keys(DOC_CATS);
+    l.sort((a, b) => (ordem.indexOf(a.categoria) - ordem.indexOf(b.categoria)) || String(a.codigo || a.titulo).localeCompare(String(b.codigo || b.titulo), "pt-BR", { numeric:true }));
+    DOC.lista = l;
+  }
+  async function renderDocumentacao(){
+    DOC.form = null; DOC.hist = ""; DOC.ajuda = false;
+    $("conteudo").innerHTML = '<div class="dc-topo"><input id="dcBusca" placeholder="Buscar por título ou código (ex.: POP-PDE-12)" value="'+escapeHtml(DOC.busca)+'">'+
+      '<button class="btn btn-primary" data-action="dc-novo">+ Novo documento</button></div><div id="dcForm"></div><div id="dcChips" class="dc-chips"></div><div id="dcLista"><div class="dc-vazio">Carregando...</div></div>';
+    $("dcBusca").addEventListener("input", e => { DOC.busca = e.target.value; desenharDocs(); });
+    try{ await carregarDocs(); }catch(e){ $("dcLista").innerHTML = '<div class="dc-vazio">Não foi possível carregar ('+escapeHtml(e.code || "erro")+'). Se a área é nova, as regras do Firebase podem ainda não ter sido publicadas.</div>'; return; }
+    desenharDocs();
+  }
+  async function renderAjuda(){
+    DOC.ajuda = true; DOC.busca = "";
+    $("conteudo").innerHTML = '<div class="dc-form" style="margin-bottom:16px"><h3 style="margin-bottom:6px">Ajuda e manuais</h3><p style="color:var(--muted);font-size:14px">Os manuais do Portal do Educador, sempre na versão mais nova. Toque em <b>Abrir</b> para ler ou em <b>Baixar</b> para guardar no aparelho.</p></div>'+
+      '<div id="dcLista"><div class="dc-vazio">Carregando...</div></div>'+
+      '<div class="dc-vazio" style="margin-top:14px">Não encontrou o que precisava? Fale com a coordenação da sua escola ou com o suporte NEWPC pelo <a href="https://wa.me/556730266571?text='+encodeURIComponent("Olá! Preciso de ajuda com o Portal do Educador. Meu e-mail de acesso: "+(usuarioAtual.email || ""))+'" target="_blank" rel="noopener">WhatsApp</a>.</div>';
+    try{ await carregarDocs(); }catch(e){ $("dcLista").innerHTML = '<div class="dc-vazio">Não foi possível carregar os manuais agora.</div>'; return; }
+    desenharDocs();
+  }
+  function desenharDocs(){
+    const admin = !DOC.ajuda && usuarioAtual.perfil === "admin";
+    if(admin && $("dcChips")){
+      const cont = {}; DOC.lista.forEach(d => cont[d.categoria] = (cont[d.categoria] || 0) + 1);
+      $("dcChips").innerHTML = '<button class="dc-chip'+(DOC.cat === "*" ? " on" : "")+'" data-action="dc-cat" data-arg="*">Todos ('+DOC.lista.length+')</button>'+
+        Object.entries(DOC_CATS).filter(([k]) => cont[k]).map(([k, v]) => '<button class="dc-chip'+(DOC.cat === k ? " on" : "")+'" data-action="dc-cat" data-arg="'+k+'">'+v[0]+' '+v[1]+' ('+cont[k]+')</button>').join("");
+    }
+    const t = DOC.busca.trim().toLowerCase();
+    const l = DOC.lista.filter(d => (DOC.ajuda || DOC.cat === "*" || d.categoria === DOC.cat) && (!t || (String(d.titulo)+" "+String(d.codigo || "")+" "+String(d.descricao || "")).toLowerCase().includes(t)));
+    if(!l.length){ $("dcLista").innerHTML = '<div class="dc-vazio">'+(DOC.lista.length ? "Nenhum documento com essa busca." : DOC.ajuda ? "Os manuais estão sendo preparados. Volte em breve." : "Nenhum documento ainda. Use “+ Novo documento” para enviar o primeiro PDF.")+'</div>'; return; }
+    let h = "", grupo = "";
+    l.forEach(d => {
+      const cat = DOC_CATS[d.categoria] || DOC_CATS.outro;
+      if(d.categoria !== grupo){ grupo = d.categoria; h += '<div class="dc-grupo">'+cat[0]+' '+cat[1]+'</div>'; }
+      const vers = Array.isArray(d.versoes) ? d.versoes : [];
+      h += '<div class="dc-item"><div class="ic">'+cat[0]+'</div><div class="tx"><b>'+escapeHtml(d.titulo || "Documento")+
+        (admin ? '<span class="dc-selo '+(d.publico === "todos" ? 'pub">Todos os usuários' : 'int">Só equipe NEWPC')+'</span>' : '')+'</b>'+
+        '<small>'+escapeHtml([d.codigo, d.versao ? "versão "+d.versao : "", docData(d.atualizado_em), docMb(d.tamanho)].filter(Boolean).join(" · "))+'</small>'+
+        (d.descricao ? '<p>'+escapeHtml(d.descricao)+'</p>' : '')+'</div><div class="dc-acoes">'+
+        '<button class="btn btn-primary" data-action="dc-abrir" data-arg="'+d.id+'">Abrir</button>'+
+        '<button class="btn btn-ghost" data-action="dc-baixar" data-arg="'+d.id+'">Baixar</button>'+
+        (admin ? '<button class="btn btn-ghost" data-action="dc-versao" data-arg="'+d.id+'">Nova versão</button>'+
+          (vers.length > 1 ? '<button class="btn btn-ghost" data-action="dc-hist" data-arg="'+d.id+'">Histórico ('+vers.length+')</button>' : '')+
+          '<button class="btn btn-ghost" data-action="dc-editar" data-arg="'+d.id+'">Editar</button>'+
+          '<button class="btn btn-ghost" data-action="dc-excluir" data-arg="'+d.id+'" style="color:#c0392b">Excluir</button>' : '')+'</div></div>';
+      if(admin && DOC.hist === d.id) h += '<div class="dc-hist">'+vers.slice().reverse().map((v, i) => '<div><span style="flex:1">Versão '+escapeHtml(v.versao || "?")+' · '+escapeHtml(docData(v.em))+(v.nota ? ' · '+escapeHtml(v.nota) : '')+(i === 0 ? ' · atual' : '')+'</span><button data-action="dc-abrir-v" data-arg="'+d.id+'" data-arq="'+escapeHtml(v.arquivo)+'">Abrir</button></div>').join("")+'</div>';
+    });
+    $("dcLista").innerHTML = h;
+  }
+  function formDoc(modo, d){
+    DOC.form = { modo, id:d ? d.id : null };
+    const nova = modo === "novo", versao = modo === "versao", ed = modo === "editar";
+    const prox = d && d.versao ? (() => { const m = String(d.versao).match(/^(\d+)\.(\d+)$/); return m ? m[1]+"."+(+m[2] + 1) : ""; })() : "1.0";
+    $("dcForm").innerHTML = '<div class="dc-form"><h3 style="margin-bottom:12px">'+(nova ? "Novo documento" : versao ? "Nova versão · "+escapeHtml(d.titulo) : "Editar · "+escapeHtml(d.titulo))+'</h3><div class="grid">'+
+      (versao ? '' : '<div class="field" style="grid-column:1/-1"><label for="dcTitulo">Título</label><input id="dcTitulo" maxlength="120" value="'+escapeHtml(d ? d.titulo || "" : "")+'" placeholder="Ex.: Procedimentos Operacionais Padrão"></div>'+
+        '<div class="field"><label for="dcCat">Categoria</label><select id="dcCat">'+Object.entries(DOC_CATS).map(([k, v]) => '<option value="'+k+'"'+(d && d.categoria === k ? " selected" : "")+'>'+v[1]+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label for="dcCodigo">Código (opcional)</label><input id="dcCodigo" maxlength="40" value="'+escapeHtml(d ? d.codigo || "" : "")+'" placeholder="Ex.: POP-PDE-01"></div>')+
+      (nova ? '<div class="field"><label for="dcPub">Quem pode ver</label><select id="dcPub"><option value="admin">Só a equipe NEWPC</option><option value="todos">Todos os usuários (aparece em Ajuda)</option></select></div>' : '')+
+      (ed ? '' : '<div class="field"><label for="dcVer">Versão</label><input id="dcVer" maxlength="12" value="'+escapeHtml(prox)+'"></div>')+
+      (versao ? '<div class="field" style="grid-column:1/-1"><label for="dcNota">O que mudou (opcional)</label><input id="dcNota" maxlength="200" placeholder="Ex.: inclusão do POP 18"></div>' :
+        '<div class="field" style="grid-column:1/-1"><label for="dcDesc">Descrição (opcional)</label><textarea id="dcDesc" maxlength="400">'+escapeHtml(d ? d.descricao || "" : "")+'</textarea></div>')+
+      (ed ? '' : '<div class="field" style="grid-column:1/-1"><label for="dcArq">Arquivo PDF (até 80 MB)</label><input type="file" id="dcArq" accept="application/pdf,.pdf"></div>')+
+      '</div><div class="acoes"><button class="btn btn-ghost" data-action="dc-cancelar">Cancelar</button><button class="btn btn-primary" data-action="dc-salvar" id="dcSalvar">'+(ed ? "Salvar" : "Publicar")+'</button></div></div>';
+    $("dcForm").scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+  async function salvarDoc(btn){
+    const f = DOC.form; if(!f) return;
+    const d = f.id ? DOC.lista.find(x => x.id === f.id) : null;
+    const v = idx => ($(idx) ? $(idx).value.trim() : "");
+    if(f.modo !== "versao" && !v("dcTitulo")){ toast("Escreva o título.", true); return; }
+    const arq = $("dcArq") ? $("dcArq").files[0] : null;
+    if(f.modo !== "editar"){
+      if(!arq){ toast("Escolha o arquivo PDF.", true); return; }
+      if(arq.type !== "application/pdf" && !/\.pdf$/i.test(arq.name)){ toast("O arquivo precisa ser PDF.", true); return; }
+      if(arq.size > 80 * 1048576){ toast("O PDF passa de 80 MB.", true); return; }
+      if(!v("dcVer")){ toast("Informe a versão (ex.: 1.0).", true); return; }
+    }
+    btn.disabled = true; btn.textContent = f.modo === "editar" ? "Salvando..." : "Enviando...";
+    try{
+      const quem = { atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      if(f.modo === "editar"){
+        await updateDoc(doc(db, "documentos", d.id), { titulo:v("dcTitulo").slice(0, 120), categoria:v("dcCat"), codigo:v("dcCodigo").slice(0, 40), descricao:v("dcDesc").slice(0, 400), ...quem });
+        toast("Documento atualizado.");
+      }else{
+        const ref = f.modo === "novo" ? doc(collection(db, "documentos")) : doc(db, "documentos", d.id);
+        const publico = f.modo === "novo" ? v("dcPub") : d.publico;
+        const versao = v("dcVer").slice(0, 12), slug = versao.replace(/[^0-9A-Za-z]+/g, "-");
+        const caminho = "documentos/"+(publico === "todos" ? "publico" : "interno")+"/"+ref.id+"-v"+slug+"-"+Date.now().toString(36)+".pdf";
+        await uploadBytes(stRef(getStorage(app), caminho), arq, { contentType:"application/pdf" });
+        const reg = { versao, arquivo:caminho, tamanho:arq.size, em:Timestamp.now(), por:usuarioAtual.uid, nota:v("dcNota").slice(0, 200) };
+        if(f.modo === "novo"){
+          await setDoc(ref, { titulo:v("dcTitulo").slice(0, 120), categoria:v("dcCat"), codigo:v("dcCodigo").slice(0, 40), descricao:v("dcDesc").slice(0, 400), publico,
+            versao, arquivo:caminho, tamanho:arq.size, versoes:[reg], criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, ...quem });
+        }else{
+          await updateDoc(ref, { versao, arquivo:caminho, tamanho:arq.size, versoes:[...(Array.isArray(d.versoes) ? d.versoes : []), reg].slice(-30), ...quem });
+        }
+        toast(f.modo === "novo" ? "Documento publicado." : "Nova versão publicada.");
+      }
+      DOC.form = null; $("dcForm").innerHTML = "";
+      await carregarDocs(); desenharDocs();
+    }catch(e){ console.warn("documento:", e.code || e); toast("Não foi possível salvar ("+(e.code || "erro")+").", true); btn.disabled = false; btn.textContent = f.modo === "editar" ? "Salvar" : "Publicar"; }
+  }
+  async function abrirDoc(caminho, titulo, baixar){
+    const janela = baixar ? null : window.open("", "_blank");
+    if(janela){ try{ janela.document.title = titulo || "Documento"; janela.document.body.innerHTML = '<p style="font-family:sans-serif;padding:24px;color:#5b7088">Abrindo '+escapeHtml(titulo || "o documento")+'...</p>'; }catch(e){} }
+    try{
+      const b = await getBlob(stRef(getStorage(app), caminho));
+      const url = URL.createObjectURL(new Blob([b], { type:"application/pdf" }));
+      if(baixar){ const a = document.createElement("a"); a.href = url; a.download = (titulo || "documento").replace(/[\\/:*?"<>|]+/g, "")+".pdf"; document.body.appendChild(a); a.click(); a.remove(); }
+      else if(janela) janela.location.href = url; else location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 300000);
+    }catch(e){ if(janela) try{ janela.close(); }catch(x){} console.warn("abrir documento:", e.code || e); toast("Não foi possível abrir o documento ("+(e.code || "erro")+").", true); }
+  }
+  async function excluirDoc(id, btn){
+    if(!btn.dataset.confirma){ btn.dataset.confirma = "1"; btn.textContent = "Confirmar exclusão"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "Excluir"; } }, 4000); return; }
+    const d = DOC.lista.find(x => x.id === id); if(!d) return;
+    btn.disabled = true;
+    try{
+      for(const v of (Array.isArray(d.versoes) && d.versoes.length ? d.versoes : [{ arquivo:d.arquivo }])){ try{ await stDelete(stRef(getStorage(app), v.arquivo)); }catch(e){} }
+      await deleteDoc(doc(db, "documentos", id));
+      toast("Documento excluído."); await carregarDocs(); desenharDocs();
+    }catch(e){ toast("Não foi possível excluir ("+(e.code || "erro")+").", true); btn.disabled = false; }
+  }
+  document.addEventListener("click", ev => {
+    const el = ev.target.closest("[data-action^='dc-']"); if(!el) return;
+    const a = el.dataset.action, d = DOC.lista.find(x => x.id === el.dataset.arg);
+    if(a === "dc-novo") formDoc("novo");
+    else if(a === "dc-versao" && d) formDoc("versao", d);
+    else if(a === "dc-editar" && d) formDoc("editar", d);
+    else if(a === "dc-cancelar"){ DOC.form = null; $("dcForm").innerHTML = ""; }
+    else if(a === "dc-salvar") salvarDoc(el);
+    else if(a === "dc-cat"){ DOC.cat = el.dataset.arg; desenharDocs(); }
+    else if(a === "dc-hist" && d){ DOC.hist = DOC.hist === d.id ? "" : d.id; desenharDocs(); }
+    else if(a === "dc-abrir" && d) abrirDoc(d.arquivo, d.titulo, false);
+    else if(a === "dc-baixar" && d) abrirDoc(d.arquivo, d.titulo, true);
+    else if(a === "dc-abrir-v" && d) abrirDoc(el.dataset.arq, d.titulo+" (versão anterior)", false);
+    else if(a === "dc-excluir") excluirDoc(el.dataset.arg, el);
+  });
 
   // ---------- administrador: escrever, publicar, fixar e tirar do ar ----------
   const ntAdm = { itens:[], editando:null, img:null };

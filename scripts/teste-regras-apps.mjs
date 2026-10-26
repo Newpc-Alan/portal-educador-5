@@ -301,6 +301,18 @@ await t('gestor da escola le respostas', assertSucceeds(getDocs(query(collection
 await t('secretaria le resposta da rede', assertSucceeds(getDoc(doc(sec, 'respostas/rP'))));
 await t('dono corrige a resposta', assertSucceeds(updateDoc(doc(prof, 'respostas/rP'), { nota_final: 8 })));
 await t('gestor nao altera nota', assertFails(updateDoc(doc(gest, 'respostas/rP'), { nota_final: 10 })));
+// Documentação: equipe NEWPC vê tudo; "todos" aparece em Ajuda
+await env.withSecurityRulesDisabled(async (c) => { const d = c.firestore();
+  await setDoc(doc(d, 'documentos/dInt'), { titulo: 'POPs', publico: 'admin', arquivo: 'documentos/interno/pops-v1.pdf' });
+  await setDoc(doc(d, 'documentos/dPub'), { titulo: 'Manual do Usuário', publico: 'todos', arquivo: 'documentos/publico/manual-v1.pdf' }); });
+await t('admin le documento interno', assertSucceeds(getDoc(doc(ctx('adm'), 'documentos/dInt'))));
+await t('professor nao le documento interno', assertFails(getDoc(doc(prof, 'documentos/dInt'))));
+await t('professor le manual publico', assertSucceeds(getDoc(doc(prof, 'documentos/dPub'))));
+await t('professor lista so os publicos', assertSucceeds(getDocs(query(collection(prof, 'documentos'), where('publico', '==', 'todos')))));
+await t('professor nao lista todos os documentos', assertFails(getDocs(collection(prof, 'documentos'))));
+await t('anonimo nao le manual', assertFails(getDoc(doc(anon, 'documentos/dPub'))));
+await t('professor nao publica documento', assertFails(setDoc(doc(prof, 'documentos/x'), { titulo: 'x', publico: 'todos' })));
+await t('admin publica documento', assertSucceeds(setDoc(doc(ctx('adm'), 'documentos/novo'), { titulo: 'POP 18', publico: 'admin' })));
 await t('anonimo nao grava resposta', assertFails(addDoc(collection(anon, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2' })));
 await t('dono lanca resposta pelo corretor', assertSucceeds(addDoc(collection(prof, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2', nota_final: 6, origem: 'cartao' })));
 await t('outro professor nao lanca resposta', assertFails(addDoc(collection(prof2, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a3' })));

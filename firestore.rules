@@ -774,6 +774,12 @@ service cloud.firestore {
       allow update, delete: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
     }
 
+    // Documentação do Portal (manuais, POPs, técnico): a equipe NEWPC vê tudo; "todos" aparece em Ajuda para quem tem acesso ativo
+    match /documentos/{id} {
+      allow read: if admin() || (ativo() && resource.data.get("publico", "admin") == "todos");
+      allow write: if admin();
+    }
+
     // respostas das provas: so o professor dono da prova corrige; gestor da escola e secretaria do municipio acompanham
     function prova(av) { return get(/databases/$(database)/documents/avaliacoes/$(av)).data; }
     function donoDaProva(av) { return logado() && prova(av).professor_uid == request.auth.uid; }
