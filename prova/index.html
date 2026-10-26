@@ -102,6 +102,24 @@ const LETRAS = "ABCDEFGH";
 const params = new URLSearchParams(location.search);
 const E = { user:null, u:null, prova:null, tent:null, i:0, offset:0, timer:null, salvarT:null, pend:{}, ativo:false, ultDesvio:0, unsub:[] };
 const agora = () => Date.now() + E.offset;
+// um aparelho por vez: cada página aberta é uma sessão; o aparelho guarda um id próprio para contar as trocas
+const novoId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)).slice(0, 36);
+E.sessao = novoId();
+E.disp = (() => { try{ let d = localStorage.getItem("pe5_disp"); if(!d){ d = novoId(); localStorage.setItem("pe5_disp", d); } return d; }catch(e){ return "s-" + E.sessao; } })();
+const TOQUE = (navigator.maxTouchPoints || 0) > 0 && matchMedia("(pointer: coarse)").matches;
+function aparelho(){
+  const ua = navigator.userAgent;
+  if(/CrOS/.test(ua)) return "Chromebook";
+  if(/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "iPad";
+  if(/iPhone|iPod/.test(ua)) return "iPhone";
+  if(/Android/.test(ua)) return /Mobile/.test(ua) ? "Celular Android" : "Tablet Android";
+  if(/Windows/.test(ua)) return "Windows";
+  if(/Macintosh/.test(ua)) return "Mac";
+  if(/Linux/.test(ua)) return "Linux";
+  return "Outro aparelho";
+}
+const ICO_AP = { "Chromebook":"💻", "Windows":"🖥️", "Mac":"🖥️", "Linux":"🖥️", "iPad":"📱", "Tablet Android":"📱", "iPhone":"📱", "Celular Android":"📱" };
+const tref = () => doc(db, "provas_online", E.prova.id, "po_tentativas", E.user.uid);
 
 /* =================== LISTAS =================== */
 async function lista(){
@@ -134,21 +152,28 @@ async function telaAluno(id){
 function reagirTentativa(){
   const t = E.tent;
   if(!t){ if(!E.ativo) introAluno(); return; }
+  if(t.sessao === E.sessao) E.minhaVista = true;
   if(t.status === "em_andamento"){
-    if(E.ativo){ if($("capaBloq")) liberadaPeloProfessor(); return; }
+    if(E.ativo){
+      if(E.minhaVista && t.sessao && t.sessao !== E.sessao){ outroAparelho(); return; }
+      if($("capaBloq")) liberadaPeloProfessor(); return;
+    }
+    if(E.fora) return; // este aparelho perdeu a vez: espera o aluno tocar em "Fazer neste aparelho"
     retomar(); return;
   }
   if(t.status === "bloqueada"){ telaBloqueada(); return; }
   if(t.status === "entregue"){ sairExec(); telaEntregue(); }
 }
 function introAluno(){
+  const SAIDAS = TOQUE ? "trocar de aplicativo, de aba ou ir para a tela inicial" : "trocar de aba, minimizar ou sair da tela cheia";
   const p = E.prova, ab = ms(p.abre_em), fe = ms(p.fecha_em), t = Date.now();
   const aberta = p.status === "agendada" && t >= ab && t <= fe;
   $("tela").innerHTML = '<div class="card"><span class="chip '+situacaoProva(p)[1]+'">'+situacaoProva(p)[0]+'</span><h1 style="margin-top:10px">'+esc(p.titulo)+'</h1>'+
     '<p class="sub">'+esc([p.disciplina, p.turma_nome, "Prof. " + (p.professor_nome || "")].filter(Boolean).join(" · "))+'</p>'+
     '<p style="margin-top:12px"><b>'+dia(ab)+'</b>, das <b>'+hora(ab)+'</b> às <b>'+hora(fe)+'</b> · você terá <b>'+p.duracao_min+' minutos</b> · '+p.questoes.length+' questões · '+p.total_pontos+' pontos</p>'+
     '<div class="regras"><div><span>🖥️</span><p>A prova abre em tela cheia. Não saia dela até entregar.</p></div>'+
-      '<div><span>⚠️</span><p>'+(p.avisos_max ? 'Se sair da prova (trocar de aba, minimizar ou sair da tela cheia), você recebe '+(p.avisos_max === 1 ? "1 aviso" : p.avisos_max+" avisos")+'. Na próxima saída, a prova é <b>bloqueada</b> e só o professor libera.' : 'Se sair da prova (trocar de aba, minimizar ou sair da tela cheia), ela é <b>bloqueada</b> na hora e só o professor libera.')+'</p></div>'+
+      '<div><span>📱</span><p>Faça a prova em <b>um aparelho só</b>. Se abrir em outro, o primeiro sai da prova e a troca fica registrada para o professor.</p></div>'+
+      '<div><span>⚠️</span><p>'+(p.avisos_max ? 'Se sair da prova ('+SAIDAS+'), você recebe '+(p.avisos_max === 1 ? "1 aviso" : p.avisos_max+" avisos")+'. Na próxima saída, a prova é <b>bloqueada</b> e só o professor libera.' : 'Se sair da prova ('+SAIDAS+'), ela é <b>bloqueada</b> na hora e só o professor libera.')+'</p></div>'+
       '<div><span>💾</span><p>Cada resposta é salva na hora. Se a internet cair, entre de novo: você continua de onde parou.</p></div>'+
       '<div><span>⏱️</span><p>Quando o tempo acabar, a prova é entregue sozinha.</p></div>'+
       '<div><span>📊</span><p>A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.</p></div></div>'+
@@ -180,9 +205,28 @@ function retomar(){
   }
   iniciarExec();
 }
+function reivindicar(){
+  const t = E.tent; if(t.sessao === E.sessao) return;
+  const upd = { sessao:E.sessao, disp:E.disp, aparelho:aparelho(), atualizado_em:serverTimestamp() };
+  if(t.disp && t.disp !== E.disp){ upd.trocas = (t.trocas || 0) + 1; upd.eventos = arrayUnion({ t:Date.now(), e:"troca", m:"passou para " + upd.aparelho }); }
+  updateDoc(tref(), upd).catch(e => console.warn("sessao:", e.code));
+}
+function outroAparelho(){
+  E.ativo = false; E.fora = true; E.minhaVista = false; E.pend = {}; clearTimeout(E.salvarT); clearInterval(E.timer);
+  const x = $("exec"); if(x) x.remove();
+  sairTelaCheia();
+  capa("📱", "A prova foi aberta em outro aparelho", "A prova só pode ficar aberta em um aparelho (ou aba) por vez"+(E.tent.aparelho ? ". Agora ela está em: " + E.tent.aparelho : "")+". Para continuar aqui, toque no botão. A troca fica registrada para o professor.",
+    '<button class="btn btn-ok" data-action="usar-aqui">Fazer neste aparelho</button>', false, "capaOutro");
+}
+function pedirTelaCheia(){
+  if(!E.ativo || document.fullscreenElement || !temTelaCheia() || !E.tent || E.tent.status !== "em_andamento" || document.querySelector("[data-capa]")) return;
+  const a = document.activeElement; if(a && /^(INPUT|TEXTAREA)$/.test(a.tagName)) return; // teclado aberto: pede depois
+  capa("🖥️", "Volte para a tela cheia", "A prova precisa ficar em tela cheia. Isso não conta como saída, mas trocar de aplicativo ou de aba conta.", '<button class="btn btn-ok" data-action="voltar-prova">Voltar para a tela cheia</button>');
+}
 function iniciarExec(){
   fecharCapa();
-  E.ativo = true; E.i = Math.min(E.i, (E.tent.ordem || []).length - 1);
+  E.ativo = true; E.fora = false; E.i = Math.min(E.i, (E.tent.ordem || []).length - 1);
+  reivindicar();
   document.body.insertAdjacentHTML("beforeend", '<div id="exec" role="main"><div class="ex-top"><span class="tt">'+esc(E.prova.titulo)+'</span><span class="ex-tempo" id="exTempo">--:--</span></div>'+
     '<div class="ex-paleta" id="exPaleta"></div><div class="ex-corpo"><div class="ex-q" id="exQ"></div></div>'+
     '<div class="ex-pe"><button class="btn btn-gh" data-action="ant" id="btnAnt">← Anterior</button><span class="salvo" id="exSalvo"></span><button class="btn btn-pri" data-action="prox" id="btnProx">Próxima →</button></div></div>');
@@ -302,7 +346,12 @@ function capa(ico, tit, txt, botoes, simples, id){
 function fecharCapa(){ document.querySelectorAll("[data-capa]").forEach(x => x.remove()); }
 document.addEventListener("visibilitychange", () => { if(document.hidden) desvio("saiu da aba ou minimizou"); });
 window.addEventListener("blur", () => setTimeout(() => { if(!document.hasFocus()) desvio("saiu da janela da prova"); }, 300));
-document.addEventListener("fullscreenchange", () => { if(!document.fullscreenElement && E.ativo && temTelaCheia()) desvio("saiu da tela cheia"); });
+document.addEventListener("fullscreenchange", () => {
+  if(document.fullscreenElement || !E.ativo || !temTelaCheia()) return;
+  // no tablet o teclado ou um gesto podem tirar da tela cheia: pede para voltar, sem contar como saída
+  if(TOQUE) setTimeout(pedirTelaCheia, 300); else desvio("saiu da tela cheia");
+});
+document.addEventListener("focusout", e => { if(TOQUE && E.ativo && e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) setTimeout(pedirTelaCheia, 500); });
 ["copy", "cut", "paste", "contextmenu", "dragstart"].forEach(ev => document.addEventListener(ev, e => { if(E.ativo) e.preventDefault(); }));
 document.addEventListener("keydown", e => { if(E.ativo && (e.ctrlKey || e.metaKey) && /^[cvxpsua]$/i.test(e.key)) e.preventDefault(); });
 window.addEventListener("beforeunload", e => { if(E.ativo && !E.desarmar){ salvar(); e.preventDefault(); e.returnValue = ""; } });
@@ -335,7 +384,7 @@ function desenharPainel(){
     '<table class="tabela"><thead><tr><th>Aluno</th><th>Situação</th><th>Respondidas</th><th>Saídas</th><th>Tempo</th><th>Nota</th><th></th></tr></thead><tbody>'+
     alunos.map(a => { const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid);
       const ev = t ? (t.eventos || []).filter(x => x.e === "desvio").map(x => hora(x.t)+" "+x.m).join(" · ") : "";
-      return '<tr><td><b>'+esc(a.nome)+'</b></td><td><span class="chip '+s[1]+'">'+s[0]+'</span>'+(t && t.liberacoes ? '<small>liberado '+t.liberacoes+'x</small>' : '')+'</td>'+
+      return '<tr><td><b>'+esc(a.nome)+'</b>'+(t && t.aparelho ? '<small>'+(ICO_AP[t.aparelho] || "")+' '+esc(t.aparelho)+(t.trocas ? ' · trocou de aparelho '+t.trocas+'x' : '')+'</small>' : '')+'</td><td><span class="chip '+s[1]+'">'+s[0]+'</span>'+(t && t.liberacoes ? '<small>liberado '+t.liberacoes+'x</small>' : '')+'</td>'+
         '<td>'+(t ? respondidas(t)+' / '+nq : '-')+'</td><td>'+(t ? (t.desvios || 0) + (ev ? '<small title="'+esc(ev)+'">'+esc(ev.slice(0, 60))+'</small>' : '') : '-')+'</td>'+
         '<td>'+(t && t.status === "em_andamento" ? '<span data-prazo="'+ms(t.prazo)+'">'+mmss((ms(t.prazo) - Date.now()) / 1000)+'</span>' : '-')+'</td>'+
         '<td>'+(r ? '<b>'+r.nota+'</b> / '+r.total+(r.pendentes ? '<small>'+r.pendentes+' para corrigir</small>' : '') : '-')+'</td>'+
@@ -345,7 +394,7 @@ function desenharPainel(){
 }
 function modalLiberar(uid){
   const a = (E.prova.alunos || []).find(x => x.uid === uid) || { nome:"aluno" }, t = PN.tent[uid] || {};
-  const ev = (t.eventos || []).filter(x => x.e === "desvio").map(x => "• " + hora(x.t) + ": " + x.m).join("\n");
+  const ev = (t.eventos || []).filter(x => x.e === "desvio" || x.e === "troca").map(x => "• " + hora(x.t) + ": " + (x.e === "troca" ? "trocou de aparelho, " : "") + x.m).join("\n");
   capa("🔓", "Dar nova chance para " + a.nome + "?", "Motivo do bloqueio:\n" + (ev || "saída da prova"),
     '<div style="display:grid;gap:8px"><button class="btn btn-ok" data-action="pn-lib-ok" data-arg="'+uid+'" data-modo="continuar">Continuar de onde parou</button><button class="btn btn-gh" data-action="pn-lib-ok" data-arg="'+uid+'" data-modo="zerar">Recomeçar do zero (apaga as respostas)</button><button class="btn btn-gh" data-action="fechar-capa">Cancelar</button></div>');
   document.querySelector("#capa p").style.whiteSpace = "pre-wrap";
@@ -362,7 +411,7 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "comecar") comecar(el);
-  else if(a === "continuar"){ telaCheia().then(iniciarExec); }
+  else if(a === "continuar" || a === "usar-aqui"){ telaCheia().then(iniciarExec); }
   else if(a === "voltar-prova"){ fecharCapa(); telaCheia(); if(!$("exec")) iniciarExec(); }
   else if(a === "fechar-capa") fecharCapa();
   else if(a === "ir"){ salvar(); E.i = +arg; desenharQuestao(); desenharPaleta(); }

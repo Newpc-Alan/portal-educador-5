@@ -148,6 +148,13 @@ await t('prova online: aluno salva resposta', assertSucceeds(updateDoc(doc(poA, 
 await t('prova online: aluno nao muda o prazo', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { prazo: Timestamp.fromMillis(Date.now() + 9e6) })));
 await t('prova online: aluno nao se entrega sozinho', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { status: 'entregue' })));
 await t('prova online: aluno registra a saida', assertSucceeds(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { desvios: 1 })));
+const poT = doc(poA, 'provas_online/po1/po_tentativas/alu');
+await t('prova online: registra sessao e aparelho', assertSucceeds(updateDoc(poT, { sessao: 's1', disp: 'd1', aparelho: 'Windows', atualizado_em: serverTimestamp() })));
+await t('prova online: troca de aparelho soma 1', assertSucceeds(updateDoc(poT, { sessao: 's2', disp: 'd2', aparelho: 'iPad', trocas: 1 })));
+await t('prova online: trocas nao pulam', assertFails(updateDoc(poT, { trocas: 3 })));
+await t('prova online: trocas nao diminuem', assertFails(updateDoc(poT, { trocas: 0 })));
+await t('prova online: aparelho com texto grande', assertFails(updateDoc(poT, { aparelho: 'x'.repeat(41) })));
+await t('prova online: sessao precisa ser texto', assertFails(updateDoc(poT, { sessao: 5 })));
 await t('prova online: desvios nao diminuem', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { desvios: 0 })));
 await t('prova online: bloqueio so passando dos avisos', assertFails(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { status: 'bloqueada', desvios: 1 })));
 await t('prova online: bloqueio no segundo desvio', assertSucceeds(updateDoc(doc(poA, 'provas_online/po1/po_tentativas/alu'), { status: 'bloqueada', desvios: 2, bloqueado_em: serverTimestamp() })));

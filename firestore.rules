@@ -639,7 +639,15 @@ service cloud.firestore {
         allow read: if admin() || (logado() && (request.auth.uid == uid || provaOnline(id).professor_uid == request.auth.uid));
         allow update: if logado() && request.auth.uid == uid && resource.data.status == "em_andamento"
           && request.time < resource.data.prazo + duration.value(2, "m")
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["respostas", "desvios", "eventos", "status", "bloqueado_em", "atualizado_em"])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["respostas", "desvios", "eventos", "status", "bloqueado_em", "atualizado_em",
+               "sessao", "disp", "aparelho", "trocas"])
+          // um aparelho por vez: a sessao ativa, o aparelho e quantas vezes trocou (so sobe de 1 em 1)
+          && request.resource.data.get("sessao", "") is string && request.resource.data.get("sessao", "").size() <= 40
+          && request.resource.data.get("disp", "") is string && request.resource.data.get("disp", "").size() <= 40
+          && request.resource.data.get("aparelho", "") is string && request.resource.data.get("aparelho", "").size() <= 40
+          && request.resource.data.get("trocas", 0) is int
+          && request.resource.data.get("trocas", 0) >= resource.data.get("trocas", 0)
+          && request.resource.data.get("trocas", 0) <= resource.data.get("trocas", 0) + 1
           && request.resource.data.respostas is map && request.resource.data.respostas.size() <= 100
           && request.resource.data.desvios is int && request.resource.data.desvios >= resource.data.desvios
           && request.resource.data.eventos is list && request.resource.data.eventos.size() <= 80
