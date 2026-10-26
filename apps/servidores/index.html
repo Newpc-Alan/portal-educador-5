@@ -122,6 +122,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 .fi-corpo{padding:18px 22px;max-height:64vh;overflow:auto}
 .fi-rod{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line);background:#fbfcfe}
 .fi-rod .esp{flex:1}
+.cpf-rec{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px;padding:10px 12px;border-radius:12px;background:#f6f9fc;border:1px solid var(--line);font-size:.85rem}.cpf-rec span{flex:1;min-width:200px}.cpf-rec.ok{background:#eef8ee;border-color:#b9dcbc}.cpf-rec.alerta{background:#fff6e5;border-color:#f0cf8a}
 .foto-slot{display:flex;align-items:center;gap:14px;border:1.5px dashed #9cc89f;background:#f3faf3;border-radius:14px;padding:12px 14px;margin-bottom:14px}
 .foto-slot.tem{border-style:solid;border-color:#d9e4ec;background:#fff}
 .fs-img{width:76px;height:76px;border-radius:12px;border:0;background:#e3ecf3;font-size:1.8rem;cursor:pointer;overflow:hidden;padding:0;flex:none;display:flex;align-items:center;justify-content:center}
@@ -271,7 +272,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
           <label class="campo">Data de nascimento<input class="inp" type="date" id="f_nasc" min="1940-01-01"></label>
           <label class="campo">CPF<input class="inp" id="f_cpf" maxlength="14" inputmode="numeric" placeholder="000.000.000-00"></label>
           <label class="campo">Celular / WhatsApp<input class="inp" id="f_tel" data-c="whatsapp" inputmode="tel" placeholder="(67) 99999-0000"></label>
-        </div><p class="nota">O e-mail liga a ficha ao login do servidor. Para trocar o e-mail de uma ficha já criada, crie uma ficha nova.</p></div>
+        </div><div class="cpf-rec" id="cpfRec" hidden><span id="cpfRecTx"></span><button type="button" class="btn btn-gh" data-action="cpf-receita" id="btnCpfRec">🔎 Conferir na Receita</button></div><p class="nota">O e-mail liga a ficha ao login do servidor. Para trocar o e-mail de uma ficha já criada, crie uma ficha nova.</p></div>
       </div>
       <div id="fa-lot" hidden>
         <div class="bloco"><h4>Vínculo com a rede</h4><div class="grade">
@@ -338,6 +339,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytes, getBlob, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
@@ -465,6 +467,35 @@ function caixaVal(v){
     : "🕓 <div>Aguardando a conferência da direção da escola ou da Secretaria de Educação.</div>") + "</div>";
 }
 
+/* ===================== CPF na Receita (Serpro) ===================== */
+// liga quando o contrato do Serpro estiver ativo e a função conferirCpfServidor publicada
+const RECEITA_ATIVA = false;
+const nomeChave = v => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z ]/g, " ").replace(/\s+/g, " ").trim();
+async function impressaoCpf(cpf, nasc, nome){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(cpf + "|" + nasc + "|" + nomeChave(nome))); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join("").slice(0, 24); }
+function cpfRecMostrar(txt, tipo){ $("cpfRecTx").innerHTML = txt; $("cpfRec").className = "cpf-rec" + (tipo ? " " + tipo : ""); }
+async function cpfRecCarregar(d){
+  $("cpfRec").hidden = !RECEITA_ATIVA || E.edit.novo; if($("cpfRec").hidden) return;
+  cpfRecMostrar("Ainda não conferido na Receita Federal.", "");
+  try{
+    const s = await getDoc(doc(db, "cpf_receita", d.email)); if(!s.exists() || !E.edit || E.edit.d.email !== d.email) return;
+    const r = s.data(), mesmo = r.impressao === await impressaoCpf(d.cpf || "", d.nascimento || "", d.nome || ""), quando = r.conferido_em && r.conferido_em.toDate ? r.conferido_em.toDate().toLocaleDateString("pt-BR") : "";
+    if(!mesmo) cpfRecMostrar("CPF, nascimento ou nome mudaram desde a última conferência" + (quando ? " (" + quando + ")" : "") + ". Confira de novo.", "alerta");
+    else cpfRecMostrar((r.status === "confere" ? "✅ " : "⚠️ ") + esc(r.texto || "") + (r.status === "nome_diverge" && r.nome_receita ? " Na Receita: <b>" + esc(r.nome_receita) + "</b>." : "") + (quando ? " <small>(" + quando + ")</small>" : ""), r.status === "confere" ? "ok" : "alerta");
+  }catch(e){ console.warn("cpf_receita:", e.code); }
+}
+async function cpfRecConferir(){
+  const d = E.edit.d, b = $("btnCpfRec");
+  if(soDig($("f_cpf").value, 11) !== (d.cpf || "") || $("f_nasc").value !== (d.nascimento || "") || limpa($("f_nome").value, 80) !== (d.nome || "")){ toast("Salve a ficha antes de conferir: a Receita é consultada com os dados gravados.", true); return; }
+  if(!cpfValido(d.cpf)){ toast("Preencha um CPF válido e salve a ficha.", true); return; }
+  if(!d.nascimento){ toast("A Receita exige a data de nascimento. Preencha e salve a ficha.", true); return; }
+  b.disabled = true; b.textContent = "Consultando...";
+  try{
+    const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "conferirCpfServidor", { timeout:40000 })({ email:d.email })).data;
+    await cpfRecCarregar(d); toast(r.reaproveitado ? "Já conferido antes, sem nova consulta: " + r.texto : r.texto, r.status !== "confere");
+  }catch(e){ console.warn(e); toast(e.message || "Não foi possível consultar a Receita agora.", true); }
+  finally{ b.disabled = false; b.textContent = "🔎 Conferir na Receita"; }
+}
+
 /* ===================== ficha: abrir ===================== */
 function abrir(d, minha){
   const novo = !d;
@@ -487,7 +518,7 @@ function abrir(d, minha){
   $("btnCursos").hidden = !proprio;
   $("btnValidar").hidden = $("btnAjustar").hidden = proprio || novo || !E.equipe;
   $("fiVal").innerHTML = novo ? "" : caixaVal(d.validacao || {});
-  desenharLot(); desenharGrad(); desenharPos(); desenharCursos(); desenharDocs(); cabecalho(); aba("id"); $("modal").hidden = false; atualizarPct();
+  desenharLot(); desenharGrad(); desenharPos(); desenharCursos(); desenharDocs(); cabecalho(); aba("id"); $("modal").hidden = false; atualizarPct(); cpfRecCarregar(d);
   try{ history.replaceState(null, "", "#" + (minha ? "minha" : "s=" + encodeURIComponent(d.email || "nova"))); }catch(e){}
 }
 function cabecalho(){
@@ -878,6 +909,7 @@ const ACOES = {
   ir:a => ir(a), "abrir-minha":() => abrir(E.minha, true), novo:() => abrir(null, false),
   editar:a => { const d = E.lista.find(x => x.id === a); if(d) abrir(d, d.id === meuEmail()); },
   filtro:a => { E.filtroVal = a; document.querySelectorAll("#segVal button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenhar(); },
+  "cpf-receita":() => cpfRecConferir(),
   "fi-aba":a => aba(a), fechar:() => fechar(), salvar:() => salvar(null), "val-validar":() => validarFicha(true), "val-ajustar":() => validarFicha(false),
   "lot-mais":() => { lerLot(); if(E.edit.lot.length < 10){ E.edit.lot.push({ escola_id:"", funcao:"", turno:"", turmas:"", ch:null }); desenharLot(); } },
   "lot-rm":a => { lerLot(); E.edit.lot.splice(+a, 1); desenharLot(); atualizarPct(); },

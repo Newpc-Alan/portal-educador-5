@@ -749,6 +749,16 @@ await t('servidor: gestor nao apaga', assertFails(deleteDoc(doc(gest1, 'servidor
 await t('servidor: secretaria apaga', assertSucceeds(deleteDoc(doc(sec, 'servidores/novo@x.com'))));
 await t('servidor: aluno nao le', assertFails(getDoc(doc(alu, 'servidores/prof@x.com'))));
 
+// conferência do CPF na Receita: só a função grava
+await env.withSecurityRulesDisabled(async c => { await setDoc(doc(c.firestore(), 'cpf_receita/prof@x.com'), { email: 'prof@x.com', municipio_id: 'm1', escolas_ids: ['e1'], status: 'confere' }); });
+await t('cpf_receita: proprio servidor le', assertSucceeds(getDoc(doc(prof, 'cpf_receita/prof@x.com'))));
+await t('cpf_receita: gestor da escola le', assertSucceeds(getDoc(doc(gest1, 'cpf_receita/prof@x.com'))));
+await t('cpf_receita: gestor de outra escola nao le', assertFails(getDoc(doc(gest, 'cpf_receita/prof@x.com'))));
+await t('cpf_receita: secretaria do municipio le', assertSucceeds(getDoc(doc(sec, 'cpf_receita/prof@x.com'))));
+await t('cpf_receita: professor nao grava resultado', assertFails(setDoc(doc(prof, 'cpf_receita/prof@x.com'), { status: 'confere' })));
+await t('cpf_receita: gestor nao grava resultado', assertFails(setDoc(doc(gest1, 'cpf_receita/prof@x.com'), { status: 'confere' })));
+await t('cpf_receita: aluno nao le', assertFails(getDoc(doc(alu, 'cpf_receita/prof@x.com'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
