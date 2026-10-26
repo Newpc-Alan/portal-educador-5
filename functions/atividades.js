@@ -148,7 +148,9 @@ async function baixar(id) {
   for (let t = 0; t < 3; t++) {
     for (const u of fontes) {
       try {
-        const r = await fetch(u, { headers: { Referer: REFERER }, redirect: 'follow', signal: AbortSignal.timeout(120000) });
+        // o prazo vale só até o Drive começar a responder; o download em si pode demorar (PDFs grandes)
+        const ac = new AbortController(), limite = setTimeout(() => ac.abort(), 60000);
+        const r = await fetch(u, { headers: { Referer: REFERER }, redirect: 'follow', signal: ac.signal }).finally(() => clearTimeout(limite));
         if (r.ok && !(r.headers.get('content-type') || '').startsWith('text/html')) return r;
       } catch (e) {}
     }
