@@ -390,7 +390,8 @@ function desenharPainel(){
         '<td>'+(r ? '<b>'+r.nota+'</b> / '+r.total+(r.pendentes ? '<small>'+r.pendentes+' para corrigir</small>' : '') : '-')+'</td>'+
         '<td><div class="acoes">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">Dar nova chance</button>' : '')+
           (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'">+10 min</button>' : '')+'</div></td></tr>'; }).join("")+
-    '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles depois das '+hora(ms(p.fecha_em))+'.</p>';
+    '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles depois das '+hora(ms(p.fecha_em))+'.'+
+    ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>';
 }
 function modalLiberar(uid){
   const a = (E.prova.alunos || []).find(x => x.uid === uid) || { nome:"aluno" }, t = PN.tent[uid] || {};
@@ -411,6 +412,8 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "comecar") comecar(el);
+  else if(a === "pn-copiar"){ const url = location.origin + "/prova/?id=" + encodeURIComponent(E.prova.id || params.get("painel"));
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast("Link copiado. No Portal Maestro, use Enviar conteúdo e cole o link."), () => { prompt("Copie o link da prova:", url); }); }
   else if(a === "continuar" || a === "usar-aqui"){ telaCheia().then(iniciarExec); }
   else if(a === "voltar-prova"){ fecharCapa(); telaCheia(); if(!$("exec")) iniciarExec(); }
   else if(a === "fechar-capa") fecharCapa();
