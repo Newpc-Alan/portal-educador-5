@@ -69,6 +69,7 @@ cat > twa-manifest.json <<JSON
   "splashScreenFadeOutDuration": 300,
   "signingKey": { "path": "$BASE/maestro.keystore", "alias": "maestro" },
   "appVersionName": "$VER",
+  "appVersion": "$VER",
   "appVersionCode": $COD,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
