@@ -443,6 +443,14 @@ service cloud.firestore {
         && texto(novo().get("medicacao", ""), 300) && texto(novo().get("restricao", ""), 300) && texto(novo().get("obs", ""), 600) && texto(novo().get("acomp_obs", ""), 400);
       allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
     }
+    // autorizados a buscar o aluno (com foto) e restrições: a portaria consulta na saída; o professor não vê
+    match /alunos_autorizados/{id} {
+      allow read: if admin() || (resource == null && ativo() && eu().perfil in ["gestor", "secretaria_escolar", "portaria"]) || (resource != null && entradaEscola(resource.data.escola_id));
+      allow create, update: if fichaDaEscola(id)
+        && novo().keys().hasOnly(["aluno_id", "aluno_nome", "escola_id", "municipio_id", "turma_id", "turma_nome", "lista", "restricoes", "atualizado_em", "atualizado_por", "atualizado_por_nome"])
+        && novo().lista is list && novo().lista.size() <= 6 && texto(novo().get("restricoes", ""), 400) && texto(novo().get("turma_nome", ""), 80);
+      allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
+    }
     // quem abriu a saúde, um anexo ou imprimiu a ficha (auditoria da direção): só cria, nunca altera nem apaga
     match /alunos_acessos/{id} {
       allow read: if admin() || gestorDaEscola(resource.data.escola_id);
@@ -823,7 +831,7 @@ service cloud.firestore {
     // campos que a escola grava no aluno (o professor lê): nada de saúde aqui, só os alertas curtos escolhidos pela gestão
     function camposAlunoEscola() {
       return ["nome", "nome_social", "matricula", "inep_aluno", "nascimento", "situacao", "turma_id", "turma_nome", "escola_id", "escola_nome",
-        "municipio_id", "municipio_nome", "ano_letivo", "status", "alertas", "ficha_pct", "origem", "criado_em", "criado_por", "atualizado_em", "atualizado_por"];
+        "municipio_id", "municipio_nome", "ano_letivo", "status", "alertas", "ficha_pct", "foto", "saida_em", "origem", "criado_em", "criado_por", "atualizado_em", "atualizado_por"];
     }
     function alunoEscolaOk() {
       return turmaDoc(novo().turma_id).escola_id == novo().escola_id
@@ -833,6 +841,8 @@ service cloud.firestore {
         && novo().get("situacao", "cursando") in ["cursando", "remanejado", "transferido", "abandono", "concluido"]
         && novo().get("status", "ativo") in ["ativo", "inativo"]
         && novo().get("alertas", []) is list && novo().get("alertas", []).size() <= 8
+        && (novo().get("foto", "") == "" || novo().foto.matches("^fotos_alunos/" + novo().escola_id + "/[A-Za-z0-9_-]{1,64}/[A-Za-z0-9_-]{1,60}[.]jpg$"))
+        && (novo().get("saida_em", "") == "" || dataOk(novo().saida_em))
         && novo().atualizado_por == request.auth.uid;
     }
 

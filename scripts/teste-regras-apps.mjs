@@ -707,6 +707,22 @@ await t('acesso: em nome de outro', assertFails(setDoc(doc(sece, 'alunos_acessos
 await t('acesso: hora falsa', assertFails(setDoc(doc(sece, 'alunos_acessos/x3'), { ...ace, em: new Date(2020, 0, 1) })));
 await t('acesso: professor nao registra', assertFails(setDoc(doc(prof, 'alunos_acessos/x4'), { ...ace, por_uid: 'prof' })));
 
+// ---------- Fotos do cadastro e autorizados a buscar
+await t('foto: gestor grava caminho da foto do aluno', assertSucceeds(updateDoc(doc(gest1, 'alunos/alN'), { foto: 'fotos_alunos/e1/alN/foto-abc.jpg', atualizado_por: 'gest1' })));
+await t('foto: caminho de outra escola', assertFails(updateDoc(doc(gest1, 'alunos/alN'), { foto: 'fotos_alunos/e2/alN/foto-abc.jpg', atualizado_por: 'gest1' })));
+await t('foto: caminho fora da pasta', assertFails(updateDoc(doc(gest1, 'alunos/alN'), { foto: 'https://x.com/a.jpg', atualizado_por: 'gest1' })));
+await t('foto: data de saida valida', assertSucceeds(updateDoc(doc(gest1, 'alunos/alN'), { situacao: 'transferido', status: 'inativo', saida_em: '2026-10-26', atualizado_por: 'gest1' })));
+await t('foto: data de saida invalida', assertFails(updateDoc(doc(gest1, 'alunos/alN'), { saida_em: 'ontem', atualizado_por: 'gest1' })));
+const aut = { aluno_id: 'alN', aluno_nome: 'Caio Lima', escola_id: 'e1', municipio_id: 'm1', turma_id: 'tf1', turma_nome: '5A',
+  lista: [{ nome: 'Rosa', parentesco: 'Avó', documento: 'RG 123', telefone: '5567999990000', foto: 'fotos_autorizados/e1/alN/aut-1.jpg' }], restricoes: 'Pai não retira', atualizado_em: serverTimestamp(), atualizado_por: 'sece1', atualizado_por_nome: 'S' };
+await t('autorizados: secretaria escolar grava', assertSucceeds(setDoc(doc(sece, 'alunos_autorizados/alN'), aut)));
+await t('autorizados: portaria le', assertSucceeds(getDoc(doc(portA, 'alunos_autorizados/alN'))));
+await t('autorizados: professor nao le', assertFails(getDoc(doc(prof, 'alunos_autorizados/alN'))));
+await t('autorizados: portaria nao grava', assertFails(setDoc(doc(portA, 'alunos_autorizados/alN'), { ...aut, atualizado_por: 'port1' })));
+await t('autorizados: gestor de outra escola nao le', assertFails(getDoc(doc(gest, 'alunos_autorizados/alN'))));
+await t('autorizados: mais de 6', assertFails(setDoc(doc(sece, 'alunos_autorizados/alN'), { ...aut, lista: Array(7).fill(aut.lista[0]) })));
+await t('autorizados: campo extra', assertFails(setDoc(doc(sece, 'alunos_autorizados/alN'), { ...aut, cpf: 'x' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

@@ -99,6 +99,22 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
 .fi-cab{display:flex;gap:14px;align-items:center;padding:18px 22px 12px;border-bottom:1px solid var(--line)}
 .fi-av{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--azul),var(--verde));color:#fff;font-weight:800;font-size:1.2rem;display:flex;align-items:center;justify-content:center;flex:none}
 .fi-cab .x{margin-left:auto}
+button.fi-av{border:0;cursor:pointer;position:relative;overflow:hidden;padding:0;font-family:inherit}
+.fi-av img{width:100%;height:100%;object-fit:cover;display:block}
+button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font-size:.8rem;background:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.mini{width:34px;height:34px;border-radius:50%;background:#e6eef6;color:var(--muted);font-weight:800;font-size:.8rem;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;vertical-align:middle;margin-right:10px;flex:none}
+.mini img{width:100%;height:100%;object-fit:cover}
+.nm-cel{display:flex;align-items:center}
+#fotoBox{z-index:95}
+.foto-palco{position:relative;width:100%;max-width:340px;aspect-ratio:1;margin:0 auto;border-radius:16px;overflow:hidden;background:#0c2338;display:flex;align-items:center;justify-content:center;color:#9fb6cc;text-align:center;padding:0}
+.foto-palco video,.foto-palco img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.foto-palco video{transform:scaleX(-1)}
+.foto-palco .guia{position:absolute;inset:14% 20% 8%;border:2px dashed rgba(255,255,255,.55);border-radius:50% 50% 45% 45%;pointer-events:none}
+.aut{display:grid;grid-template-columns:auto 1.6fr 1fr 1fr 1fr auto;gap:8px;align-items:end;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
+@media (max-width:760px){ .aut{grid-template-columns:auto 1fr} .aut .campo:nth-of-type(n+2){grid-column:1 / -1} }
+.aut-foto{width:56px;height:56px;border-radius:12px;border:1.5px dashed var(--line);background:#f6f9fc;font-size:1.3rem;cursor:pointer;overflow:hidden;padding:0}
+.aut-foto img{width:100%;height:100%;object-fit:cover;display:block}
+.aut .rm{border:0;background:none;color:var(--red);font-size:1.1rem;padding-bottom:10px}
 .fi-tabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid var(--line);overflow-x:auto;background:#fbfcfe}
 .fi-tabs button{border:0;background:none;padding:12px 12px 10px;font-weight:700;font-size:.86rem;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
 .fi-tabs button.on{color:var(--azul);border-bottom-color:var(--azul)}
@@ -203,7 +219,7 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
 
 <div class="fundo" id="modal" hidden>
   <div class="modal ficha" role="dialog" aria-modal="true" aria-labelledby="fiNome">
-    <div class="fi-cab"><div class="fi-av" id="fiAv">?</div><div style="min-width:0"><div class="h2" id="fiNome" style="font-size:1.15rem"></div><div class="sub" id="fiSub"></div></div><button class="x" data-action="fechar" aria-label="Fechar">✕</button></div>
+    <div class="fi-cab"><button class="fi-av" id="fiAv" data-action="foto-aluno" aria-label="Foto do aluno">?</button><div style="min-width:0"><div class="h2" id="fiNome" style="font-size:1.15rem"></div><div class="sub" id="fiSub"></div></div><button class="x" data-action="fechar" aria-label="Fechar">✕</button></div>
     <div class="fi-tabs" id="fiTabs">
       <button class="on" data-action="fi-aba" data-arg="id">🪪 Identificação</button>
       <button data-action="fi-aba" data-arg="end">🏠 Endereço e família</button>
@@ -255,6 +271,12 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
           <button class="btn btn-gh btn-sm" data-action="mais-resp" id="btnMais">+ Adicionar responsável</button>
           <label class="chk" style="margin-top:12px"><input type="checkbox" id="f_avisos" checked> A família aceita receber avisos da escola (faltas, reuniões, comunicados)</label>
           <label class="campo" style="margin-top:10px">Observação sobre a família<input class="inp" id="f_famobs" maxlength="300" placeholder="Ex.: ligar depois das 18h; guarda compartilhada"></label>
+        </div>
+        <div class="bloco"><h4>Autorizados a buscar</h4>
+          <p class="nota" style="margin:0 0 10px">Quem pode retirar o aluno na saída. A portaria consulta esta lista, com foto, no celular. O professor não vê.</p>
+          <div id="f_auts"></div>
+          <div class="barra"><button class="btn btn-gh btn-sm" data-action="aut-mais" id="btnAutMais">+ Autorizado</button><button class="btn btn-gh btn-sm" data-action="aut-copiar">Copiar dos responsáveis</button></div>
+          <label class="campo" style="margin-top:10px">Restrições na saída<textarea class="inp" id="f_restr_saida" maxlength="400" style="min-height:60px;font-family:inherit;font-size:.9rem" placeholder="Ex.: o pai não pode retirar o aluno (decisão judicial, cópia na secretaria); só sai acompanhado"></textarea></label>
         </div>
       </div>
 
@@ -334,6 +356,20 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
       <button class="btn btn-gh" data-action="fechar">Cancelar</button>
       <button class="btn btn-ok" data-action="salvar" id="btnSalvar">Salvar ficha</button>
     </div>
+  </div>
+</div>
+<div class="fundo" id="fotoBox" hidden>
+  <div class="modal" style="max-width:460px" role="dialog" aria-modal="true" aria-labelledby="fotoTit">
+    <div class="cab"><div><div class="h2" id="fotoTit">Foto</div><div class="sub" id="fotoSub"></div></div><button class="x" data-action="foto-fechar" aria-label="Fechar">✕</button></div>
+    <div class="foto-palco"><video id="fotoVideo" playsinline muted hidden></video><img id="fotoPrev" alt="" hidden><div class="guia" id="fotoGuia" hidden></div><span id="fotoVazio">Ligue a câmera ou escolha uma foto</span></div>
+    <div class="barra" style="margin-top:12px;justify-content:center">
+      <button class="btn btn-pri" data-action="foto-camera" id="btnCam">📷 Ligar câmera</button>
+      <button class="btn btn-ok" data-action="foto-tirar" id="btnTirar" hidden>Tirar foto</button>
+      <label class="btn btn-gh">🖼️ Escolher arquivo<input type="file" id="fotoArq" accept="image/*" hidden></label>
+      <button class="btn btn-red" data-action="foto-remover" id="btnFotoRm" hidden>Remover foto</button>
+    </div>
+    <div class="barra" style="margin-top:12px"><span class="esp"></span><button class="btn btn-gh" data-action="foto-fechar">Cancelar</button><button class="btn btn-ok" data-action="foto-usar" id="btnFotoUsar" disabled>Usar esta foto</button></div>
+    <p class="nota">Rosto no centro, de frente, fundo claro. A foto é recortada em quadrado, fica pequena (cerca de 40 KB) e só abre para quem tem login na escola. Ela é gravada quando você salvar a ficha.</p>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -448,11 +484,25 @@ function desenhar(){
   E.lista = l;
   $("tabela").innerHTML = l.length ? "<thead><tr><th>Aluno</th><th>Turma</th><th>Nascimento</th><th>Situação</th><th>Família</th><th>Ficha</th><th>Alertas</th></tr></thead><tbody>" +
     l.slice(0, 2000).map(a => { const s = SITS[situacao(a)] || SITS.cursando, pc = Math.min(100, a.ficha_pct || 0), id = idade(a.nascimento);
-      return '<tr class="clic" data-action="editar" data-arg="' + esc(a.id) + '"><td><b>' + esc(a.nome_social || a.nome) + "</b>" + (a.nome_social ? ' <span class="sub">(' + esc(a.nome) + ")</span>" : "") + (a.matricula ? ' <span class="sub">' + esc(a.matricula) + "</span>" : "") +
+      return '<tr class="clic" data-action="editar" data-arg="' + esc(a.id) + '"><td><div class="nm-cel"><span class="mini"' + (a.foto ? ' data-foto="' + esc(a.foto) + '"' : "") + ">" + esc(iniciais(a.nome_social || a.nome)) + "</span><div><b>" + esc(a.nome_social || a.nome) + "</b>" + (a.nome_social ? ' <span class="sub">(' + esc(a.nome) + ")</span>" : "") + (a.matricula ? ' <span class="sub">' + esc(a.matricula) + "</span>" : "") + "</div></div>" +
         "</td><td>" + esc(turmaNome(a.turma_id) || a.turma_nome || "–") + "</td><td>" + (a.nascimento ? esc(dataBR(a.nascimento)) + ' <span class="sub">' + id + " anos</span>" : '<span class="sub">–</span>') +
         '</td><td><span class="pill ' + s[1] + '">' + s[0] + "</span></td><td>" + (temContato(E.fam[a.id]) ? '<span class="pill ok">Com contato</span>' : '<span class="pill ruim">Sem contato</span>') +
         '</td><td><span class="pct"><i><s style="width:' + pc + '%"></s></i>' + pc + '%</span></td><td class="ics">' + esc(icones(a)) + "</td></tr>"; }).join("") + "</tbody>"
     : '<tbody><tr><td class="vazio" style="padding:30px">' + (E.alunos.length ? "Nenhum aluno neste filtro." : "<b>Nenhum aluno cadastrado nesta escola</b>Matricule pelo botão acima ou importe a planilha da secretaria.") + "</td></tr></tbody>";
+  observarFotos();
+}
+/* ===================== fotos (leitura) ===================== */
+const iniciais = n => String(n || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase() || "?";
+const FOTOS = {};
+function urlFoto(path){ if(!path) return Promise.resolve(""); if(!(path in FOTOS)) FOTOS[path] = getBlob(stRef(st, path)).then(b => URL.createObjectURL(b)).catch(() => ""); return FOTOS[path]; }
+let obsFotos = null;
+function observarFotos(){
+  const carregar = el => { const p = el.dataset.foto; el.removeAttribute("data-foto"); urlFoto(p).then(u => { if(u) el.innerHTML = '<img alt="" src="' + u + '">'; }); };
+  const l = document.querySelectorAll("#tabela [data-foto]");
+  if(!("IntersectionObserver" in window)){ l.forEach(carregar); return; }
+  if(obsFotos) obsFotos.disconnect();
+  obsFotos = new IntersectionObserver(es => es.forEach(e => { if(e.isIntersecting){ obsFotos.unobserve(e.target); carregar(e.target); } }), { rootMargin:"200px" });
+  l.forEach(el => obsFotos.observe(el));
 }
 
 /* ===================== ficha: abrir ===================== */
@@ -466,10 +516,11 @@ async function abrir(id){
   if(id && !a){ toast("Aluno não encontrado nesta escola.", true); return; }
   if(!E.escola){ toast("Escolha a escola.", true); return; }
   if(!id && !E.turmas.length){ toast("Esta escola ainda não tem turmas. Cadastre as turmas antes de matricular.", true); return; }
-  E.edit = { id:id || "", a:a || { nome:"", turma_id:$("selTurma").value || "", situacao:"cursando", alertas:[] }, ficha:null, fichaOk:!id, sau:null, sauAberta:!id, sauOk:!id, resp:[], alertas:(a && a.alertas || []).map(x => ({ ...x })), docs:[], busca:null };
+  E.edit = { id:id || "", a:a || { nome:"", turma_id:$("selTurma").value || "", situacao:"cursando", alertas:[] }, ficha:null, fichaOk:!id, sau:null, sauAberta:!id, sauOk:!id, resp:[], alertas:(a && a.alertas || []).map(x => ({ ...x })), docs:[], busca:null,
+    foto:{ atual:a && a.foto || "", blob:null, url:"", remover:false }, auts:[], autAnt:null, autOk:!id };
   const f = id ? E.fam[id] : null;
   E.edit.resp = f && f.responsaveis && f.responsaveis.length ? f.responsaveis.map(r => ({ ...r })) : [{ nome:"", parentesco:"Mãe", whatsapp:"", email:"", principal:true }];
-  preencherBasico(); preencherFamilia(f);
+  preencherBasico(); preencherFamilia(f); preencherAut({});
   preencherFicha({}); preencherSaude({});
   $("sauCapa").hidden = !id; $("sauForm").hidden = !!id;
   $("docTipo").innerHTML = Object.entries(DOCS).map(([k, v]) => '<option value="' + k + '">' + esc(v) + "</option>").join("");
@@ -478,8 +529,9 @@ async function abrir(id){
   setTimeout(() => { if(!id) $("f_nome").focus(); }, 60);
   if(id){
     try{
-      const [sf, sb] = await Promise.all([getDoc(doc(db, "alunos_ficha", id)), getDoc(doc(db, "busca_ativa", E.escola + "_" + id + "_" + hojeMS().slice(0, 4))).catch(() => null)]);
+      const [sf, sb, sx] = await Promise.all([getDoc(doc(db, "alunos_ficha", id)), getDoc(doc(db, "busca_ativa", E.escola + "_" + id + "_" + hojeMS().slice(0, 4))).catch(() => null), getDoc(doc(db, "alunos_autorizados", id)).catch(() => null)]);
       if(!E.edit || E.edit.id !== id) return;
+      if(sx){ E.edit.autAnt = sx.exists() ? sx.data() : null; E.edit.autOk = true; preencherAut(E.edit.autAnt || {}); }
       E.edit.ficha = sf.exists() ? sf.data() : {}; E.edit.fichaOk = true; E.edit.docs = (E.edit.ficha.documentos || []).slice(); E.edit.busca = sb && sb.exists() ? sb.data() : null;
       preencherFicha(E.edit.ficha); desenharDocs(); desenharAcomp(); atualizarPct();
     }catch(e){ console.warn("ficha:", e.code); toast("Não foi possível carregar a ficha completa. Os dados básicos podem ser salvos.", true); }
@@ -487,7 +539,7 @@ async function abrir(id){
 }
 function preencherBasico(){
   const a = E.edit.a, n = a.nome_social || a.nome || "Novo aluno";
-  $("fiNome").textContent = n; $("fiAv").textContent = (n.trim()[0] || "?").toUpperCase();
+  $("fiNome").textContent = n; desenharAvatar();
   $("fiSub").textContent = E.edit.id ? [turmaNome(a.turma_id), a.matricula ? "matrícula " + a.matricula : "", E.escolasNomes[E.escola]].filter(Boolean).join(" · ") : "Matrícula nova · " + (E.escolasNomes[E.escola] || "");
   $("f_nome").value = a.nome || ""; $("f_social").value = a.nome_social || ""; $("f_nasc").value = a.nascimento || ""; $("f_nasc").max = hojeMS();
   $("f_turma").innerHTML = opcoesTurma(a.turma_id); $("f_sit").value = situacao(a); $("f_mat").value = a.matricula || ""; $("f_inep").value = a.inep_aluno || "";
@@ -652,8 +704,26 @@ async function salvar(){
     turma_id:tid, turma_nome:String(t.nome || "").slice(0, 80), escola_id:E.escola, escola_nome:String(E.escolasNomes[E.escola] || "").slice(0, 120), municipio_id:muni,
     status:SAI(sit) ? "inativo" : "ativo", alertas, ficha_pct:ed.pct || 0, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
   if(!ed.id) Object.assign(base, { ano_letivo:+t.ano_letivo || +hojeMS().slice(0, 4), origem:"ficha", criado_em:serverTimestamp(), criado_por:E.user.uid });
+  // data de saída: conta o prazo de guarda das fotos (apagadas 1 ano depois da transferência ou conclusão)
+  const saiuAntes = SAI(situacao(ed.a));
+  if(SAI(sit) && (!saiuAntes || !ed.a.saida_em)) base.saida_em = ed.a.saida_em && saiuAntes ? ed.a.saida_em : hojeMS(); else if(!SAI(sit) && ed.a.saida_em) base.saida_em = "";
   const comum = { aluno_id:id, aluno_nome:nome, escola_id:E.escola, municipio_id:muni, ...quem() };
+  const auts = ed.autOk ? autValidos() : null; if(auts && auts.erro){ aba("end"); toast(auts.erro, true); return; }
+  $("btnSalvar").disabled = true; $("btnSalvar").textContent = "Salvando...";
+  // fotos sobem antes; os caminhos entram no mesmo lote do cadastro
+  const apagar = [];
+  try{
+    const carimbo = Date.now().toString(36);
+    if(ed.foto.blob){ const path = "fotos_alunos/" + E.escola + "/" + id + "/foto-" + carimbo + ".jpg"; await uploadBytes(stRef(st, path), ed.foto.blob, { contentType:"image/jpeg" }); base.foto = path; FOTOS[path] = Promise.resolve(ed.foto.url); if(ed.foto.atual) apagar.push(ed.foto.atual); }
+    else if(ed.foto.remover && ed.foto.atual){ base.foto = ""; apagar.push(ed.foto.atual); }
+    if(auts) for(let k = 0; k < auts.lista.length; k++){ const x = auts.lista[k], o = ed.auts[x._i];
+      if(o.blob){ const path = "fotos_autorizados/" + E.escola + "/" + id + "/aut-" + carimbo + "-" + k + ".jpg"; await uploadBytes(stRef(st, path), o.blob, { contentType:"image/jpeg" }); x.foto = path; FOTOS[path] = Promise.resolve(o.url); }
+      delete x._i; }
+  }catch(e){ console.warn("foto:", e.code || e); toast(e.code === "storage/unauthorized" ? "Sem permissão para enviar fotos nesta escola." : "Não foi possível enviar a foto. Confira a internet e tente de novo.", true); $("btnSalvar").disabled = false; $("btnSalvar").textContent = "Salvar ficha"; return; }
+  if(auts){ const novas = new Set(auts.lista.map(x => x.foto).filter(Boolean)); ((ed.autAnt || {}).lista || []).forEach(x => { if(x.foto && !novas.has(x.foto)) apagar.push(x.foto); }); }
   const b = writeBatch(db);
+  if(auts && (auts.lista.length || auts.restricoes || ed.autAnt)) b.set(doc(db, "alunos_autorizados", id), { aluno_id:id, aluno_nome:nome, escola_id:E.escola, municipio_id:muni, turma_id:tid, turma_nome:String(t.nome || "").slice(0, 80),
+    lista:auts.lista, restricoes:auts.restricoes, ...quem() });
   if(ed.id) b.set(ref, base, { merge:true }); else b.set(ref, base);
   if(ed.fichaOk) b.set(doc(db, "alunos_ficha", id), { ...montarFicha(), ...comum });
   if(ed.sauAberta && ed.sauOk){ const s = montarSaude(), vazia = !s.deficiencias.length && !s.acompanhamentos.length && !s.laudo && !s.cid && !s.aee && !s.apoio && !s.condicoes && !s.alergias && !s.medicacao && !s.restricao && !s.plano_saude && !s.obs && !s.emergencia.nome && !s.emergencia.telefone && !s.ciencia.termo;
@@ -662,9 +732,9 @@ async function salvar(){
   let famNovo = null;
   if(resp.length){ famNovo = { aluno_id:id, aluno_nome:nome, escola_id:E.escola, municipio_id:muni, turma_id:tid, turma_nome:String(t.nome || "").slice(0, 80), responsaveis:resp, aceita_avisos:$("f_avisos").checked,
     obs:limpa($("f_famobs").value, 300), origem:famAnt && famAnt.origem || "ficha", ...quem() }; b.set(doc(db, "alunos_familia", id), famNovo); }
-  $("btnSalvar").disabled = true; $("btnSalvar").textContent = "Salvando...";
   try{
     await b.commit();
+    apagar.forEach(path => deleteObject(stRef(st, path)).catch(() => {}));
     const loc = { ...ed.a, ...base, id, atualizado_em:null, criado_em:null };
     const i = E.alunos.findIndex(a => a.id === id); if(i >= 0) E.alunos[i] = loc; else { E.alunos.push(loc); E.alunos.sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR")); }
     if(famNovo) E.fam[id] = { ...famNovo, atualizado_em:null };
@@ -675,7 +745,103 @@ async function salvar(){
   $("btnSalvar").disabled = false; $("btnSalvar").textContent = "Salvar ficha";
 }
 function limparHash(){ try{ history.replaceState(null, "", location.pathname + (E.aba !== "lista" ? "#" + E.aba : "")); }catch(e){} }
-function fechar(){ $("modal").hidden = true; E.edit = null; limparHash(); }
+function fechar(){ fecharFoto(); $("modal").hidden = true; E.edit = null; limparHash(); }
+
+/* ===================== foto do aluno e dos autorizados ===================== */
+const FB = { alvo:null, blob:null, url:"", stream:null };
+function desenharAvatar(){
+  if(!E.edit) return;
+  const f = E.edit.foto, el = $("fiAv"), n = $("f_social").value.trim() || $("f_nome").value.trim() || E.edit.a.nome || "?";
+  if(f.url){ el.innerHTML = '<img alt="Foto de ' + esc(n) + '" src="' + f.url + '">'; return; }
+  el.textContent = iniciais(n);
+  if(f.atual && !f.remover){ const p = f.atual; urlFoto(p).then(u => { if(u && E.edit && E.edit.foto.atual === p && !E.edit.foto.url && !E.edit.foto.remover) el.innerHTML = '<img alt="" src="' + u + '">'; }); }
+}
+function abrirFoto(alvo){
+  FB.alvo = alvo; FB.blob = null; FB.url = "";
+  const ehAluno = alvo.tipo === "aluno", ed = E.edit;
+  $("fotoTit").textContent = ehAluno ? "Foto do aluno" : "Foto de quem pode buscar";
+  $("fotoSub").textContent = ehAluno ? ($("f_nome").value || "Novo aluno") : (ed.auts[alvo.i] && ed.auts[alvo.i].nome || "Autorizado");
+  const temAtual = ehAluno ? (ed.foto.url || (ed.foto.atual && !ed.foto.remover)) : (ed.auts[alvo.i] && (ed.auts[alvo.i].url || ed.auts[alvo.i].foto));
+  $("btnFotoRm").hidden = !temAtual; $("btnFotoUsar").disabled = true;
+  $("fotoPrev").hidden = true; $("fotoVideo").hidden = true; $("fotoGuia").hidden = true; $("fotoVazio").hidden = false; $("btnTirar").hidden = true; $("btnCam").hidden = false;
+  $("fotoBox").hidden = false;
+}
+function pararCamera(){ if(FB.stream){ FB.stream.getTracks().forEach(t => t.stop()); FB.stream = null; } $("fotoVideo").hidden = true; $("fotoGuia").hidden = true; $("btnTirar").hidden = true; $("btnCam").hidden = false; }
+function fecharFoto(){ pararCamera(); $("fotoBox").hidden = true; FB.alvo = null; }
+async function ligarCameraFoto(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast("Este aparelho não libera a câmera aqui. Use \"Escolher arquivo\".", true); return; }
+  try{ FB.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:FB.alvo && FB.alvo.tipo === "aluno" ? "user" : "user", width:{ ideal:960 }, height:{ ideal:960 } }, audio:false }); }
+  catch(e){ toast("A câmera não foi liberada. Confira a permissão do navegador ou use \"Escolher arquivo\".", true); return; }
+  const v = $("fotoVideo"); v.srcObject = FB.stream; v.hidden = false; await v.play().catch(() => {});
+  $("fotoPrev").hidden = true; $("fotoVazio").hidden = true; $("fotoGuia").hidden = false; $("btnTirar").hidden = false; $("btnCam").hidden = true;
+}
+// recorte quadrado do centro, 480 px, JPEG: cerca de 40 KB
+function quadrado(fonte, w, h, espelhar){
+  const lado = Math.min(w, h), c = document.createElement("canvas"); c.width = c.height = 480;
+  const g = c.getContext("2d"); if(espelhar){ g.translate(480, 0); g.scale(-1, 1); }
+  g.drawImage(fonte, (w - lado) / 2, (h - lado) / 2, lado, lado, 0, 0, 480, 480);
+  return new Promise(ok => c.toBlob(ok, "image/jpeg", 0.85));
+}
+function mostrarPrevia(blob){
+  if(FB.url) URL.revokeObjectURL(FB.url);
+  FB.blob = blob; FB.url = URL.createObjectURL(blob);
+  $("fotoPrev").src = FB.url; $("fotoPrev").hidden = false; $("fotoVazio").hidden = true; $("btnFotoUsar").disabled = false;
+}
+async function tirarFoto(){
+  const v = $("fotoVideo"); if(!v.videoWidth) return;
+  const blob = await quadrado(v, v.videoWidth, v.videoHeight, true); pararCamera(); mostrarPrevia(blob);
+}
+async function fotoDeArquivo(arq){
+  try{ const img = await createImageBitmap(arq); const blob = await quadrado(img, img.width, img.height, false); pararCamera(); mostrarPrevia(blob); }
+  catch(e){ toast("Não consegui abrir esta imagem. Use JPG ou PNG.", true); }
+}
+function usarFoto(){
+  const ed = E.edit, a = FB.alvo; if(!ed || !a || !FB.blob) return;
+  if(a.tipo === "aluno"){ ed.foto.blob = FB.blob; ed.foto.url = FB.url; ed.foto.remover = false; desenharAvatar(); }
+  else { lerAut(); const x = ed.auts[a.i]; if(x){ x.blob = FB.blob; x.url = FB.url; } desenharAut(); }
+  FB.url = ""; fecharFoto(); toast("Foto pronta. Ela é gravada quando você salvar a ficha.");
+}
+function removerFoto(){
+  const ed = E.edit, a = FB.alvo; if(!ed || !a) return;
+  if(a.tipo === "aluno"){ ed.foto.blob = null; ed.foto.url = ""; ed.foto.remover = true; desenharAvatar(); }
+  else { lerAut(); const x = ed.auts[a.i]; if(x){ x.blob = null; x.url = ""; x.foto = ""; } desenharAut(); }
+  fecharFoto();
+}
+// autorizados a buscar
+const PAR_AUT = ["Mãe", "Pai", "Avó", "Avô", "Tia", "Tio", "Irmã", "Irmão", "Madrasta", "Padrasto", "Responsável legal", "Vizinho(a)", "Transporte escolar", "Outro"];
+function preencherAut(d){
+  if(!E.edit) return;
+  E.edit.auts = (d.lista || []).map(x => ({ nome:x.nome || "", parentesco:x.parentesco || "Outro", documento:x.documento || "", telefone:x.telefone || "", foto:x.foto || "", blob:null, url:"" }));
+  $("f_restr_saida").value = d.restricoes || ""; desenharAut();
+}
+function lerAut(){
+  document.querySelectorAll("#f_auts .aut").forEach((el, i) => { const x = E.edit.auts[i]; if(!x) return;
+    x.nome = el.querySelector("[data-a=nome]").value; x.parentesco = el.querySelector("[data-a=parentesco]").value; x.documento = el.querySelector("[data-a=documento]").value; x.telefone = el.querySelector("[data-a=telefone]").value; });
+}
+function desenharAut(){
+  const l = E.edit ? E.edit.auts : [];
+  $("f_auts").innerHTML = l.length ? l.map((x, i) => '<div class="aut"><button class="aut-foto" data-action="aut-foto" data-arg="' + i + '" aria-label="Foto de ' + esc(x.nome || "autorizado") + '">' + (x.url ? '<img alt="" src="' + x.url + '">' : x.foto ? '<img alt="" data-autfoto="' + esc(x.foto) + '">' : "📷") + "</button>" +
+    '<label class="campo">Nome<input class="inp" data-a="nome" maxlength="80" value="' + esc(x.nome) + '"></label>' +
+    '<label class="campo">Parentesco<select class="sel" data-a="parentesco">' + PAR_AUT.map(p => "<option" + (p === x.parentesco ? " selected" : "") + ">" + p + "</option>").join("") + "</select></label>" +
+    '<label class="campo">Documento<input class="inp" data-a="documento" maxlength="30" placeholder="RG ou CPF" value="' + esc(x.documento) + '"></label>' +
+    '<label class="campo">Telefone<input class="inp" data-a="telefone" data-c="whatsapp" inputmode="tel" value="' + esc(x.telefone && /^\d+$/.test(x.telefone) ? telBonito(x.telefone) : x.telefone) + '"></label>' +
+    '<button class="rm" data-action="aut-rm" data-arg="' + i + '" aria-label="Remover autorizado">🗑</button></div>').join("")
+    : '<p class="sub" style="margin-bottom:8px">Ninguém cadastrado. Sem esta lista, a portaria não tem como conferir quem retira o aluno.</p>';
+  $("btnAutMais").hidden = l.length >= 6;
+  document.querySelectorAll("#f_auts img[data-autfoto]").forEach(im => urlFoto(im.dataset.autfoto).then(u => { if(u) im.src = u; }));
+}
+function autValidos(){
+  lerAut();
+  const lista = []; let erro = "";
+  E.edit.auts.forEach((x, i) => {
+    const nome = limpa(x.nome, 80), tel = telefone(x.telefone);
+    if(!nome && !x.blob && !x.foto && !x.telefone) return;
+    if(!nome && !erro) erro = "Autorizado " + (i + 1) + ": falta o nome";
+    if(tel === null && !erro) erro = "Autorizado " + (i + 1) + ": telefone inválido";
+    lista.push({ nome, parentesco:x.parentesco || "Outro", documento:limpa(x.documento, 30), telefone:tel || "", foto:x.blob ? "" : x.foto || "", _i:i });
+  });
+  return erro ? { erro } : { lista:lista.slice(0, 6), restricoes:String($("f_restr_saida").value || "").trim().slice(0, 400) };
+}
 
 /* ===================== documentos anexos ===================== */
 function desenharDocs(){
@@ -736,6 +902,7 @@ async function imprimir(){
   const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
   await registrarAcesso("impressao", ed.sauAberta ? "Imprimiu a ficha com saúde e inclusão" : "Imprimiu a ficha (sem saúde)");
   const f = montarFicha(), s = ed.sauAberta ? montarSaude() : null, { resp } = respValidos(), t = turma($("f_turma").value) || {};
+  const fotoImp = ed.foto.url || (ed.foto.atual && !ed.foto.remover ? await urlFoto(ed.foto.atual) : ""), au = ed.autOk ? autValidos() : { lista:[] };
   const L = (r, v) => v ? "<tr><th>" + esc(r) + "</th><td>" + esc(v) + "</td></tr>" : "";
   const sec = (tit, linhas) => linhas ? "<h2>" + esc(tit) + "</h2><table>" + linhas + "</table>" : "";
   const en = f.endereco, defs = s ? s.deficiencias.map(k => (DEFS.find(d => d[0] === k) || [k, k])[1]).join(", ") : "";
@@ -744,13 +911,14 @@ async function imprimir(){
     "h1{font-size:18px;margin:0}header small{color:#555;display:block}h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#1a6b2a;border-bottom:1px solid #ccd;margin:16px 0 6px;padding-bottom:3px}" +
     "table{width:100%;border-collapse:collapse}th{width:34%;text-align:left;color:#555;font-weight:600;padding:3px 6px;vertical-align:top}td{padding:3px 6px}tr:nth-child(odd){background:#f6f8fa}" +
     "footer{margin-top:22px;font-size:10px;color:#666;border-top:1px solid #ccd;padding-top:8px}.ass{display:flex;gap:40px;margin-top:40px}.ass div{flex:1;border-top:1px solid #333;text-align:center;padding-top:4px}@page{margin:14mm}</style></head><body>" +
-    '<header><img src="' + location.origin + '/assets/pde-logo-128.png" alt=""><div><h1>Ficha do aluno</h1><small>' + esc(E.escolasNomes[E.escola] || "") + " · emitida em " + esc(dataBR(hojeMS())) + " por " + esc(nomeQuem()) + "</small></div></header>" +
+    '<header><img src="' + location.origin + '/assets/pde-logo-128.png" alt=""><div style="flex:1"><h1>Ficha do aluno</h1><small>' + esc(E.escolasNomes[E.escola] || "") + " · emitida em " + esc(dataBR(hojeMS())) + " por " + esc(nomeQuem()) + "</small></div>" + (fotoImp ? '<img src="' + fotoImp + '" alt="" style="width:30mm;height:30mm;object-fit:cover;border-radius:4px;border:1px solid #ccd">' : "") + "</header>" +
     sec("Identificação", L("Nome", $("f_nome").value) + L("Nome social", $("f_social").value) + L("Nascimento", dataBR($("f_nasc").value) + ($("f_nasc").value ? " (" + idade($("f_nasc").value) + " anos)" : "")) + L("Sexo", { F:"Feminino", M:"Masculino" }[f.sexo]) +
       L("Naturalidade", f.naturalidade) + L("Turma", (t.nome || "") + (t.turno ? " · " + t.turno : "")) + L("Situação", (SITS[$("f_sit").value] || [""])[0]) + L("Matrícula", $("f_mat").value) + L("INEP do aluno", $("f_inep").value) +
       L("CPF", f.cpf ? cpfBonito(f.cpf) : "") + L("NIS", f.nis) + L("Cartão SUS", f.sus) + L("Certidão", f.certidao)) +
     sec("Endereço e transporte", L("Endereço", [en.rua, en.numero, en.complemento].filter(Boolean).join(", ")) + L("Bairro", en.bairro) + L("Cidade", en.cidade) + L("CEP", en.cep) + L("Zona", en.zona) +
       L("Transporte escolar", f.transporte.usa === true ? "Sim" + (f.transporte.rota ? " · " + f.transporte.rota : "") + (f.transporte.ponto ? " · ponto: " + f.transporte.ponto : "") : f.transporte.usa === false ? "Não" : "")) +
     sec("Responsáveis", resp.map(r => L(r.parentesco + (r.principal ? " (principal)" : ""), [r.nome, telBonito(r.whatsapp), r.email].filter(Boolean).join(" · "))).join("") + L("Observação", $("f_famobs").value)) +
+    sec("Autorizados a buscar", (au.lista || []).map(x => L(x.parentesco, [x.nome, x.documento, telBonito(x.telefone)].filter(Boolean).join(" · "))).join("") + L("Restrições", au.restricoes)) +
     (s ? sec("Saúde e inclusão", L("Condições", defs) + L("Laudo", { sim:"Tem laudo", nao:"Sem laudo", investigacao:"Em investigação" }[s.laudo]) + L("CID", s.cid) + L("AEE", s.aee ? "Sim" : "") + L("Profissional de apoio", s.apoio ? "Sim" : "") +
       L("Acompanhamentos", s.acompanhamentos.map(k => (ACOMPS.find(d => d[0] === k) || [k, k])[1]).join(", ") + (s.acomp_obs ? " · " + s.acomp_obs : "")) + L("Saúde", s.condicoes) + L("Alergias", s.alergias) + L("Medicação contínua", s.medicacao) +
       L("Restrição alimentar", s.restricao) + L("Plano de saúde", s.plano_saude) + L("Emergência", [s.emergencia.nome, s.emergencia.parentesco, telBonito(s.emergencia.telefone)].filter(Boolean).join(" · ")) + L("Observações", s.obs)) : "") +
@@ -886,7 +1054,7 @@ function linhaParaDocs(r, subst, alertasOn){
   else if(r.turma && subst) Object.assign(al, { turma_id:r.turma.id, turma_nome:String(r.turma.nome || "").slice(0, 80), situacao:a.situacao === "cursando" || !a.situacao ? "remanejado" : a.situacao });
   poe(al, "nome_social", pega(a.nome_social, limpa(d.social, 80), subst)); poe(al, "matricula", pega(a.matricula, limpa(d.matricula, 40), subst)); poe(al, "inep_aluno", pega(a.inep_aluno, soDig(d.inep, 20), subst));
   poe(al, "nascimento", pega(a.nascimento, r.nasc, subst));
-  if(d.situacao){ const s = Object.keys(SITS).find(k => norm(SITS[k][0]).startsWith(norm(d.situacao).slice(0, 6)) || norm(d.situacao).startsWith(k.slice(0, 6))); const v = pega(novo ? "" : a.situacao, s, subst); if(v){ al.situacao = v; al.status = SAI(v) ? "inativo" : "ativo"; } }
+  if(d.situacao){ const s = Object.keys(SITS).find(k => norm(SITS[k][0]).startsWith(norm(d.situacao).slice(0, 6)) || norm(d.situacao).startsWith(k.slice(0, 6))); const v = pega(novo ? "" : a.situacao, s, subst); if(v){ al.situacao = v; al.status = SAI(v) ? "inativo" : "ativo"; if(SAI(v) && !a.saida_em) al.saida_em = hojeMS(); else if(!SAI(v) && a.saida_em) al.saida_em = ""; } }
   // ficha
   const fx = E.impEx.fichas[id] || {}, fi = {}, en = {}, tr = {}, vi = {}, pr = {};
   const sx = norm(d.sexo); poe(fi, "sexo", pega(fx.sexo, /^f/.test(sx) ? "F" : /^m/.test(sx) ? "M" : "", subst));
@@ -1044,6 +1212,13 @@ const ACOES = {
   "al-rm":a => { lerAlertas(); E.edit.alertas.splice(+a, 1); desenharAlertas(); },
   "al-sugerir":() => sugerirAlertas(),
   "doc-abrir":a => abrirDoc(a), "doc-rm":a => removerDoc(a),
+  "foto-aluno":() => abrirFoto({ tipo:"aluno" }), "foto-camera":() => ligarCameraFoto(), "foto-tirar":() => tirarFoto(), "foto-usar":() => usarFoto(), "foto-remover":() => removerFoto(), "foto-fechar":() => fecharFoto(),
+  "aut-foto":a => { lerAut(); abrirFoto({ tipo:"aut", i:+a }); },
+  "aut-mais":() => { lerAut(); if(E.edit.auts.length < 6){ E.edit.auts.push({ nome:"", parentesco:"Mãe", documento:"", telefone:"", foto:"", blob:null, url:"" }); desenharAut(); } },
+  "aut-rm":a => { lerAut(); E.edit.auts.splice(+a, 1); desenharAut(); },
+  "aut-copiar":() => { lerAut(); lerResp(); const ja = new Set(E.edit.auts.map(x => norm(x.nome)));
+    E.edit.resp.filter(r => limpa(r.nome, 80) && !ja.has(norm(r.nome))).forEach(r => { if(E.edit.auts.length < 6) E.edit.auts.push({ nome:limpa(r.nome, 80), parentesco:PAR_AUT.includes(r.parentesco) ? r.parentesco : "Outro", documento:"", telefone:telefone(r.whatsapp) || "", foto:"", blob:null, url:"" }); });
+    desenharAut(); },
   salvar:() => salvar(), imprimir:() => imprimir(), csv:() => exportar(),
   "imp-previa":() => { if(!$("impTexto").value.startsWith("Arquivo: ")) E.impMatriz = null; previa(); }, "imp-gravar":() => gravarImportacao(), "imp-modelo":() => baixarModelo()
 };
@@ -1052,7 +1227,7 @@ document.addEventListener("click", ev => {
   const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg || "", b);
 });
 $("modal").addEventListener("click", ev => { if(ev.target.id === "modal" && confirm("Fechar a ficha sem salvar?")) fechar(); });
-document.addEventListener("keydown", ev => { if(ev.key === "Escape" && !$("modal").hidden && confirm("Fechar a ficha sem salvar?")) fechar(); });
+document.addEventListener("keydown", ev => { if(ev.key !== "Escape") return; if(!$("fotoBox").hidden){ fecharFoto(); return; } if(!$("modal").hidden && confirm("Fechar a ficha sem salvar?")) fechar(); });
 document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selEscola"){ E.escola = t.value; try{ localStorage.setItem("pde_fichas_escola", E.escola); }catch(e){} carregarEscola().then(() => { if(E.aba !== "lista") ir(E.aba); }); }
@@ -1060,6 +1235,7 @@ document.addEventListener("change", ev => {
   else if(t.id === "aceMes") carregarAcessos();
   else if(t.id === "impArquivo" && t.files[0]){ lerArquivo(t.files[0]); t.value = ""; }
   else if(t.id === "docArq" && t.files[0]) anexar(t.files[0]);
+  else if(t.id === "fotoArq" && t.files[0]){ fotoDeArquivo(t.files[0]); t.value = ""; }
   else if(t.dataset && t.dataset.c === "whatsapp"){ const w = telefone(t.value); t.classList.toggle("erro", w === null); if(w) t.value = telBonito(w); }
   else if(t.dataset && t.dataset.c === "email") t.classList.toggle("erro", !emailOk(String(t.value).trim()));
   else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && d.length !== 11); }
@@ -1068,7 +1244,7 @@ document.addEventListener("change", ev => {
   if(t.id === "f_ciencia" && t.checked && !$("f_ciencia_data").value) $("f_ciencia_data").value = hojeMS();
   if(E.edit && t.closest && t.closest(".fi-corpo")) atualizarPct();
 });
-document.addEventListener("input", ev => { if(ev.target.id === "busca") desenhar(); else if(ev.target.id === "f_nome" || ev.target.id === "f_social"){ const n = $("f_social").value.trim() || $("f_nome").value.trim() || "Novo aluno"; $("fiNome").textContent = n; $("fiAv").textContent = n[0].toUpperCase(); } });
+document.addEventListener("input", ev => { if(ev.target.id === "busca") desenhar(); else if(ev.target.id === "f_nome" || ev.target.id === "f_social"){ const n = $("f_social").value.trim() || $("f_nome").value.trim() || "Novo aluno"; $("fiNome").textContent = n; desenharAvatar(); } });
 
 /* ===================== início ===================== */
 onAuthStateChanged(auth, async user => {

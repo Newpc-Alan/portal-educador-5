@@ -108,6 +108,21 @@ service firebase.storage {
       return request.auth != null && eu().status == "ativo" && eu().perfil in ["gestor", "secretaria_escolar"]
         && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]);
     }
+    function portariaSt(esc) { return request.auth != null && eu().status == "ativo" && eu().perfil == "portaria" && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]); }
+    function professorSt(esc) { return licenciado() && eu().perfil == "professor" && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]); }
+    function fotoCadastro(arquivo) { return arquivo.matches("^[A-Za-z0-9_-]{1,60}[.]jpg$") && request.resource.size < 1024 * 1024 && request.resource.contentType == "image/jpeg"; }
+    // foto do aluno (cadastro): a escola tira; professor, portaria e gestão da escola veem; nunca link público
+    match /fotos_alunos/{esc}/{aluno}/{arquivo} {
+      allow read: if admin() || equipeEscolaSt(esc) || portariaSt(esc) || professorSt(esc);
+      allow create: if (admin() || equipeEscolaSt(esc)) && fotoCadastro(arquivo);
+      allow delete: if admin() || equipeEscolaSt(esc);
+    }
+    // foto de quem está autorizado a buscar o aluno: só a escola e a portaria
+    match /fotos_autorizados/{esc}/{aluno}/{arquivo} {
+      allow read: if admin() || equipeEscolaSt(esc) || portariaSt(esc);
+      allow create: if (admin() || equipeEscolaSt(esc)) && fotoCadastro(arquivo);
+      allow delete: if admin() || equipeEscolaSt(esc);
+    }
     match /alunos_docs/{esc}/{aluno}/{arquivo} {
       allow read, delete: if admin() || equipeEscolaSt(esc);
       allow create: if (admin() || equipeEscolaSt(esc)) && arquivo.matches("^[A-Za-z0-9_-]{1,90}[.](pdf|jpg|png)$")
