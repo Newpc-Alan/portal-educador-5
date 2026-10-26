@@ -73,7 +73,7 @@ cat > twa-manifest.json <<JSON
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
   "webManifestUrl": "https://$HOST/aluno/manifest.webmanifest",
-  "fallbackType": "customtabs",
+  "fallbackType": "webview",
   "features": {},
   "alphaDependencies": { "enabled": false },
   "enableSiteSettingsShortcut": false,
