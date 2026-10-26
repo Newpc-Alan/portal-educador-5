@@ -159,6 +159,10 @@ table.res{width:100%;border-collapse:collapse}
 .toast.err{background:var(--red)}
 #confBox{scroll-margin-top:96px}
 @media (max-width:800px){ .topo{position:static} .conf{grid-template-columns:1fr} }
+.ger-lista{display:grid;gap:8px;max-height:50vh;overflow:auto}
+.ger-item{text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;color:inherit}
+.ger-item:hover{border-color:var(--azul,#2671AB)}
+.ger-item small{display:block;color:var(--muted);font-size:.84rem;margin-top:2px}
 </style>
 </head>
 <body>
@@ -172,6 +176,7 @@ table.res{width:100%;border-collapse:collapse}
     <select class="sel" id="selTurma" aria-label="Turma"><option value="">Carregando turmas...</option></select>
     <select class="sel" id="selAval" aria-label="Prova" disabled><option value="">Escolha a turma primeiro</option></select>
     <span class="esp"></span>
+    <button class="btn btn-pri btn-sm" data-action="ger-abrir" id="btnGer" disabled>📥 Trazer do Gerador de Provas</button>
     <button class="btn btn-ok btn-sm" data-action="novo-gab" id="btnNovo" disabled>＋ Gabarito de prova impressa</button>
   </div>
 
@@ -275,6 +280,13 @@ table.res{width:100%;border-collapse:collapse}
   </section>
 </div>
 
+<div class="modal" id="mGer" hidden><div class="modal-box">
+  <h3>Trazer do Gerador de Provas</h3>
+  <p class="sub" style="margin-bottom:10px">Suas provas salvas em <b>Minhas provas</b>. As questões de múltipla escolha com gabarito marcado viram o cartão-resposta desta turma.</p>
+  <div class="aviso" style="margin-bottom:10px">Para corrigir com o cartão, imprima a prova com a opção <b>Não embaralhar</b>: todas as cópias precisam ter a mesma ordem de questões e alternativas.</div>
+  <div id="gerLista" class="ger-lista"><div class="vazio">Carregando...</div></div>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Fechar</button></div>
+</div></div>
 <div class="modal" id="mGab" hidden><div class="modal-box">
   <h3>Gabarito de prova impressa</h3>
   <p class="sub" style="margin-bottom:12px">Para provas feitas fora do Portal. Depois você marca a alternativa certa de cada questão.</p>
@@ -295,9 +307,10 @@ table.res{width:100%;border-collapse:collapse}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getStorage, ref as stRef, getBlob } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-const auth = getAuth(fb), db = getFirestore(fb);
+const auth = getAuth(fb), db = getFirestore(fb), st = getStorage(fb);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3400); }
@@ -497,7 +510,7 @@ async function carregarTurmas(){
 }
 async function escolherTurma(id){
   E.turma = E.turmas.find(t => t.id === id) || null; E.alunos = []; E.avals = []; E.aval = null; E.resp = {};
-  $("btnNovo").disabled = !E.turma; $("selAval").disabled = !E.turma;
+  $("btnNovo").disabled = !E.turma; $("btnGer").disabled = !E.turma; $("selAval").disabled = !E.turma;
   if(!E.turma){ $("selAval").innerHTML = '<option value="">Escolha a turma primeiro</option>'; desenhar(); return; }
   try{ localStorage.setItem("pde_corretor_turma", id); }catch(e){}
   try{
@@ -572,14 +585,14 @@ function desenhar(){
   else if(E.sec === "lote") desenharLote();
 }
 function desenharGabarito(){
-  if(!E.turma){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a turma</b>Depois, a prova: uma que você criou em Avaliações no Portal, ou um gabarito de prova impressa.</div>'; return; }
-  if(!E.aval){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a prova ou crie um gabarito</b>As provas que você criou em Avaliações para esta turma aparecem na lista. Para prova feita fora do Portal, use "＋ Gabarito de prova impressa".</div>'; return; }
+  if(!E.turma){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a turma</b>Depois, a prova: traga uma de Minhas provas do Gerador ou crie o gabarito de uma prova impressa.</div>'; return; }
+  if(!E.aval){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a prova ou crie um gabarito</b>Use "📥 Trazer do Gerador de Provas" para uma prova salva em Minhas provas, ou "＋ Gabarito de prova impressa" para prova feita fora do Portal.</div>'; return; }
   const edit = E.aval.formato === "cartao", L = E.lay, falta = Object.values(E.gab).filter(g => !g.letra).length;
   const total = Object.values(E.gab).reduce((s, g) => s + g.pontos, 0);
   $("gabBox").innerHTML = '<div class="card"><div class="barra"><div><div class="h2">' + esc(E.aval.titulo) + '</div><div class="sub">' + esc([E.aval.disciplina, E.aval.bimestre ? E.aval.bimestre + "º bimestre" : "", L.nQ + " questões objetivas", "vale " + fmt(total) + " pontos"].filter(Boolean).join(" · ")) + "</div></div><span class=\"esp\"></span>" +
     (falta ? '<span class="pill cinza">' + falta + " sem resposta certa</span>" : '<span class="pill ok">Gabarito completo</span>') + "</div>" +
-    ((E.aval.questoes || []).some(q => q.tipo !== "multipla") ? '<div class="aviso" style="margin-top:10px">Esta prova tem questões dissertativas. O cartão cobre só as objetivas; as dissertativas você corrige em Avaliações.</div>' : "") +
-    '<p class="sub" style="margin:10px 0">' + (edit ? "Toque na alternativa certa de cada questão. Salva sozinho." : "Gabarito da prova criada no Portal (para mudar, edite em Avaliações).") + " Ao lado, o código da habilidade BNCC (opcional, ex.: EF05MA08) para o relatório por habilidade.</p>" +
+    ((E.aval.questoes || []).some(q => q.tipo !== "multipla") ? '<div class="aviso" style="margin-top:10px">Esta prova tem questões dissertativas. O cartão cobre só as objetivas; as questões abertas você lança direto em Notas e Médias.</div>' : "") +
+    '<p class="sub" style="margin:10px 0">' + (edit ? "Toque na alternativa certa de cada questão. Salva sozinho." : "Gabarito da prova criada no Portal.") + " Ao lado, o código da habilidade BNCC (opcional, ex.: EF05MA08) para o relatório por habilidade.</p>" +
     '<div class="gab">' + L.bolhas.map(b => '<div class="gq"><b>' + b.q + "</b>" + b.alts.map(a => '<button data-action="gab" data-arg="' + b.q + ":" + a.letra + '" class="' + (E.gab[b.q].letra === a.letra ? "on" : "") + '"' + (edit ? "" : " disabled") + ">" + a.letra + "</button>").join("") + '<input class="bn" data-bncc="' + b.q + '" value="' + esc(E.gab[b.q].bncc || "") + '" placeholder="BNCC" maxlength="40" aria-label="Habilidade BNCC da questão ' + b.q + '" title="' + esc(codigosBncc(E.gab[b.q].bncc).map(descBncc).join(" | ")) + '"></div>').join("") + "</div></div>" +
     '<div class="barra"><span class="esp"></span><button class="btn btn-pri btn-lg" data-action="ir" data-arg="cartoes"' + (falta ? " disabled" : "") + ">Próximo: imprimir cartões →</button></div>";
 }
@@ -595,6 +608,46 @@ async function salvarGab(){
   });
   try{ await updateDoc(doc(db, "avaliacoes", E.aval.id), { questoes }); E.aval.questoes = questoes; }
   catch(e){ console.warn("gabarito:", e.code); toast("Não foi possível salvar o gabarito.", true); }
+}
+/* ---------- provas do Gerador (Minhas provas) viram o gabarito do cartão ---------- */
+async function abrirGerador(){
+  $("mGer").hidden = false; $("gerLista").innerHTML = '<div class="vazio">Carregando...</div>';
+  let l = [];
+  try{ const s = await getDocs(collection(db, "usuarios", E.user.uid, "provas")); s.forEach(d => l.push({ id:d.id, ...d.data() })); }
+  catch(e){ $("gerLista").innerHTML = '<div class="vazio">Não foi possível abrir Minhas provas (' + esc(e.code || "erro") + ').</div>'; return; }
+  l.sort((a, b) => ((b.atualizado_em && b.atualizado_em.seconds) || 0) - ((a.atualizado_em && a.atualizado_em.seconds) || 0));
+  const ja = new Set(E.avals.map(a => a.gerador_id).filter(Boolean));
+  $("gerLista").innerHTML = l.length ? l.map(p => '<button class="ger-item" data-action="ger-usar" data-arg="' + esc(p.id) + '"><b>' + esc(p.titulo || "Prova sem nome") + "</b><small>" +
+    esc([p.disciplina, p.turma, (p.questoes || 0) + " questões"].filter(Boolean).join(" · ")) + (ja.has(p.id) ? " · já está nesta turma" : "") + "</small></button>").join("")
+    : '<div class="vazio">Nenhuma prova salva ainda. No Gerador de Provas, use "☁ Salvar" para guardar a prova em Minhas provas.</div>';
+}
+async function usarDoGerador(id, btn){
+  const existente = E.avals.find(a => a.gerador_id === id);
+  if(existente){ $("mGer").hidden = true; $("selAval").value = existente.id; await escolherAval(existente.id); toast("Esta prova já estava no Corretor desta turma."); return; }
+  if(btn) btn.disabled = true;
+  try{
+    const ficha = (await getDoc(doc(db, "usuarios", E.user.uid, "provas", id))).data() || {};
+    const b = await getBlob(stRef(st, "professores/" + E.user.uid + "/provas/" + id + ".json.gz"));
+    let txt; try{ txt = ficha.tipo_arquivo === "application/json" || typeof DecompressionStream === "undefined" ? await b.text() : await new Response(b.stream().pipeThrough(new DecompressionStream("gzip"))).text(); }
+    catch(e){ txt = await b.text(); }
+    const estado = JSON.parse(txt || "{}"), qs = Array.isArray(estado.questoes) ? estado.questoes : [];
+    const questoes = [];
+    qs.forEach((q, i) => {
+      if(!q || q.tipo !== "multipla" || !Array.isArray(q.alts) || !(q.gab >= 0) || q.alts.length < 2) return;
+      const alts = q.alts.slice(0, 5);
+      questoes.push({ numero:i + 1, tipo:"multipla", enunciado:String(q.enun || "Questão " + (i + 1)).slice(0, 400), pontos:Math.max(0, +q.valor || 1), bncc:String(q.bncc || "").slice(0, 40),
+        alternativas:alts.map((t, k) => ({ letra:LETRAS[k], texto:String(t || "").slice(0, 200), correta:k === q.gab })) });
+    });
+    if(!questoes.length){ toast("Esta prova não tem questões de múltipla escolha com o gabarito marcado.", true); if(btn) btn.disabled = false; return; }
+    const ignoradas = qs.length - questoes.length, t = E.turma;
+    const r = await addDoc(collection(db, "avaliacoes"), { titulo:String(ficha.titulo || "Prova do Gerador").slice(0, 80), disciplina:String(ficha.disciplina || "").slice(0, 60), bimestre:1,
+      turma_id:t.id, turma_nome:t.nome || "", escola_id:t.escola_id || "", escola_nome:t.escola_nome || "", municipio_id:t.municipio_id || E.u.municipio_id || "",
+      ano_letivo:new Date().getFullYear(), professor_uid:E.user.uid, questoes, total_pontos:Math.round(questoes.reduce((s, q) => s + q.pontos, 0) * 100) / 100,
+      status:"impressa", formato:"cartao", origem:"gerador", gerador_id:id, codigo_acesso:null, liberada_em:null, encerra_em:null, criado_em:serverTimestamp() });
+    $("mGer").hidden = true;
+    toast(questoes.length + " questões no cartão" + (ignoradas ? " · " + ignoradas + " não objetiva(s) ficam para lançar em Notas e Médias" : "") + ".");
+    E.sec = "gabarito"; await carregarAvals(r.id);
+  }catch(e){ console.warn("gerador:", e.code || e); toast("Não foi possível trazer a prova (" + (e.code || "erro") + ").", true); if(btn) btn.disabled = false; }
 }
 async function criarGab(){
   const titulo = $("gTitulo").value.trim(), n = Math.max(1, Math.min(50, +$("gN").value || 10)), nAlt = +$("gAlt").value, total = Number(String($("gTotal").value).replace(",", ".")) || 10;
@@ -838,7 +891,7 @@ function desenharResultados(){
     E.alunos.map(a => { const r = E.resp[a.id]; if(!r) return "<tr><td>" + esc(a.nome) + '</td><td>–</td><td>–</td><td><span class="pill cinza">Sem cartão</span></td></tr>';
       const ac = (r.respostas || []).filter(x => { const q = (E.aval.questoes || []).find(qq => qq.numero === x.numero), c = q && (q.alternativas || []).find(al => al.correta); return c && x.escolhida === c.letra; }).length;
       return "<tr><td>" + esc(a.nome) + "</td><td>" + ac + "/" + E.lay.nQ + "</td><td><b>" + fmt(r.nota_objetivas || 0) + "</b></td><td>" + (r.origem === "cartao" ? '<span class="pill ok">Cartão lido</span>' : '<span class="pill az">Respondeu no Portal</span>') + "</td></tr>"; }).join("") +
-    "</tbody></table></div><p class=\"sub\" style=\"margin:8px 0 14px\">As notas já valem no Portal: aparecem em Avaliações e o Notas e Médias puxa pela opção \"Puxar das Avaliações do Portal\".</p>" + analiseDaProva(feitos);
+    "</tbody></table></div><p class=\"sub\" style=\"margin:8px 0 14px\">As notas já valem no Portal: o Notas e Médias puxa pela opção \"Puxar notas do Corretor\" e o Painel da Rede usa no acerto por habilidade BNCC.</p>" + analiseDaProva(feitos);
 }
 // por questão (com a alternativa errada mais marcada) e por habilidade (com quem ficou abaixo de 50%)
 function analiseDaProva(feitos){
@@ -1158,7 +1211,7 @@ async function substituirLote(){
    ===================================================================== */
 const ACOES = {
   "ir": s => ir(s), "gab": a => marcarGab(a), "novo-gab": () => { $("gTitulo").value = ""; $("mGab").hidden = false; setTimeout(() => $("gTitulo").focus(), 50); },
-  "criar-gab": () => criarGab(), "gerar-pdf": () => gerarPdf(),
+  "criar-gab": () => criarGab(), "gerar-pdf": () => gerarPdf(), "ger-abrir": () => abrirGerador(), "ger-usar": (a, b) => usarDoGerador(a, b),
   "camera": () => { E.modoCamera = true; abrirCamera(); }, "parar": () => pararCamera(), "manual": () => digitar(),
   "trocar": a => trocar(a), "salvar": () => salvar(), "descartar": () => { $("confBox").hidden = true; if(E.loteItem){ E.loteItem = null; $("corrigirInicio").hidden = false; ir("lote"); return; } if(E.modoCamera) abrirCamera(); else $("corrigirInicio").hidden = false; },
   "lote-parar": () => { LOTE.parar = true; }, "lote-conferir": a => conferirLote(+a), "lote-substituir": () => substituirLote(), "lote-limpar": () => { LOTE.itens = []; LOTE.paginas = []; desenharLote(); },

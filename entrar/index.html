@@ -927,33 +927,6 @@
   </div>
 </div>
 
-<!-- Modal Nova Avaliacao -->
-<div class="modal-bg" id="modalAval">
-  <div class="modal big">
-    <div class="mh"><h3>Nova Avaliação</h3><p>Monte a prova com questões. Salva como rascunho.</p></div>
-    <div class="mb" style="max-height:65vh;overflow-y:auto">
-      <div class="field"><label for="avTitulo">Título da avaliação</label><input type="text" id="avTitulo" placeholder="Ex.: Avaliação de Matemática · 1º Bimestre"></div>
-      <div class="row2">
-        <div class="field"><label for="avTurma">Turma</label><select id="avTurma"><option value="">Carregando...</option></select></div>
-        <div class="field"><label for="avDisciplina">Disciplina</label><input type="text" id="avDisciplina" placeholder="Ex: Matematica"></div>
-      </div>
-      <div class="row2">
-        <div class="field"><label for="avBimestre">Bimestre</label>
-          <select id="avBimestre"><option value="1">1º Bimestre</option><option value="2">2º Bimestre</option><option value="3">3º Bimestre</option><option value="4">4º Bimestre</option></select>
-        </div>
-        <div class="field"><label>Total de pontos</label><input type="text" id="avTotalPts" value="0" readonly style="background:#f0f4f8"></div>
-      </div>
-      <div style="border-top:1px solid var(--line);margin:18px 0 14px"></div>
-      <div id="qLista"></div>
-      <div class="addq">
-        <button type="button" id="btnAddMultipla">+ Questão de múltipla escolha</button>
-        <button type="button" id="btnAddDiss">+ Questão dissertativa</button>
-      </div>
-    </div>
-    <div class="mf"><button class="btn btn-ghost" id="avCancelar">Cancelar</button><button class="btn btn-primary" id="avSalvar">Salvar rascunho</button></div>
-  </div>
-</div>
-
 <!-- Modal Plano e modulos do municipio -->
 <div class="modal-bg" id="modalPlano">
   <div class="modal usr" role="dialog" aria-modal="true" aria-labelledby="planoTitulo">
@@ -1086,7 +1059,6 @@
       { id:"escolas",    ico:"\u{1F3EB}", label:"Escolas" },
       { id:"turmas",     ico:"\u{1F4DA}", label:"Turmas" },
       { id:"alunos",     ico:"\u{1F9D2}", label:"Alunos" },
-      { id:"avaliacoes", ico:"\u{1F4DD}", label:"Avaliações" },
       { id:"usuarios",   ico:"\u{1F465}", label:"Usuários" },
       { id:"importar",   ico:"\u{1F4E5}", label:"Importar cadastros" },
       { id:"acervoadm",  ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
@@ -1112,7 +1084,6 @@
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início" },
       { id:"turmas",     ico:"\u{1F4DA}", label:"Minhas Turmas" },
       { id:"planoaula",  ico:"\u{1F916}", label:"Plano de Aula IA" },
-      { id:"avaliacoes", ico:"\u{1F4DD}", label:"Avaliações" },
       { id:"acervo",      ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"trabalhos",   ico:"\u{1F4C1}", label:"Meus trabalhos" },
       { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" } ] },
@@ -1571,7 +1542,6 @@
       if(item.id === "escolas"){ renderEscolas(); return; }
       if(item.id === "turmas"){ renderTurmas(); return; }
       if(item.id === "alunos"){ renderAlunos(); return; }
-      if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
       if(item.id === "usuarios"){ renderUsuarios(); return; }
       if(item.id === "importar"){ renderImportar(); return; }
       if(item.id === "modulos"){ renderModulosAdmin(); return; }
@@ -1591,7 +1561,6 @@
     if(usuarioAtual.perfil === "professor"){
       if(item.id === "turmas"){ renderMinhasTurmas(); return; }
       if(item.id === "planoaula"){ renderPlanoAula(); return; }
-      if(item.id === "avaliacoes"){ renderAvaliacoes(); return; }
     }
     $("conteudo").innerHTML =
       '<div class="panel"><div class="pico">'+item.ico+'</div><h3>'+item.label+'</h3>'+
@@ -1915,326 +1884,6 @@
     }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
     finally{ $("aluSalvar").disabled=false; $("aluSalvar").textContent="Salvar aluno"; }
   });
-
-  // ===================== AVALIACOES =====================
-  let questoesTmp = []; // questoes em construcao no modal
-  let qSeq = 0;
-
-  async function renderAvaliacoes(){
-    $("conteudo").innerHTML =
-      '<div class="sectionbar"><span class="count" id="avCount">Carregando...</span>'+
-      '<button class="btn btn-primary btn-add" id="btnNovaAval">+ Nova Avaliação</button></div>'+
-      '<div class="tablewrap" id="avTabela"><div class="empty"><div class="ei">\u{1F4DD}</div>Carregando...</div></div>';
-    $("btnNovaAval").addEventListener("click", abrirModalAval);
-    await listarAvaliacoes();
-  }
-
-  async function listarAvaliacoes(){
-    try{
-      // professor só pode listar as próprias provas (a prova guarda o gabarito); o administrador vê todas
-      const q = usuarioAtual.perfil==="admin" ? query(collection(db,"avaliacoes"), orderBy("criado_em","desc"))
-        : query(collection(db,"avaliacoes"), where("professor_uid","==",usuarioAtual.uid));
-      const snap = await getDocs(q);
-      const lista = [];
-      snap.forEach(d => { const a=d.data(); if(a.status!=="excluida"){
-        if(usuarioAtual.perfil==="professor" && a.professor_uid!==usuarioAtual.uid) return;
-        lista.push({ id:d.id, ...a });
-      }});
-      lista.sort((x,y) => ((y.criado_em && y.criado_em.seconds) || 0) - ((x.criado_em && x.criado_em.seconds) || 0));
-      $("avCount").textContent = lista.length+(lista.length===1 ? " avaliação" : " avaliações");
-      if(lista.length===0){ $("avTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F4DD}</div>Nenhuma avaliação ainda.<br>Clique em "Nova Avaliação" para começar.</div>'; return; }
-      let html = '<table><thead><tr><th>Avaliação</th><th>Turma</th><th>Questões</th><th>Código</th><th>Status</th><th>Ação</th></tr></thead><tbody>';
-      lista.forEach(a => {
-        const st = a.status || "rascunho";
-        const nq = Array.isArray(a.questoes) ? a.questoes.length : 0;
-        const pillClass = st==="rascunho"?"piloto":st==="liberada"?"ativa":"inativa";
-        const codigo = a.codigo_acesso ? '<span class="codebox">'+escapeHtml(a.codigo_acesso)+'</span>' : '<span class="muni-tag">-</span>';
-        let acao = '';
-        if(st==="rascunho"){ acao = '<button class="btn-mini btn-liberar" data-id="'+a.id+'">Liberar</button>'; }
-        else if(st==="liberada"){ acao = '<button class="btn-mini btn-result" data-id="'+a.id+'">Resultados</button> <button class="btn-mini btn-encerrar" data-id="'+a.id+'">Encerrar</button>'; }
-        else { acao = '<button class="btn-mini btn-result" data-id="'+a.id+'">Resultados</button>'; }
-        html += '<tr><td><b>'+escapeHtml(a.titulo)+'</b><br><span class="muni-tag">'+escapeHtml(a.disciplina||"")+' - '+nq+' questões - '+escapeHtml(String(a.total_pontos||0))+' pts</span></td>'+
-                '<td>'+escapeHtml(a.turma_nome||"-")+'</td>'+
-                '<td>'+nq+'</td>'+
-                '<td>'+codigo+'</td>'+
-                '<td><span class="pill '+pillClass+'">'+st+'</span></td>'+
-                '<td>'+acao+'</td></tr>';
-      });
-      html += '</tbody></table>'; $("avTabela").innerHTML = html;
-      // listeners de acao
-      $("avTabela").querySelectorAll(".btn-liberar").forEach(b => b.addEventListener("click", () => liberarAvaliacao(b.dataset.id)));
-      $("avTabela").querySelectorAll(".btn-encerrar").forEach(b => b.addEventListener("click", () => encerrarAvaliacao(b.dataset.id)));
-      $("avTabela").querySelectorAll(".btn-result").forEach(b => b.addEventListener("click", () => verResultados(b.dataset.id)));
-    }catch(e){ console.warn(e); $("avTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
-  }
-
-  // gera um codigo curto e legivel a partir da disciplina + turma + numero
-  function gerarCodigo(disciplina, turmaNome){
-    const limpa = s => (s||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
-    const d = limpa(disciplina).slice(0,3) || "AVA";
-    const t = limpa(turmaNome).slice(0,2) || "T";
-    const n = Math.floor(10 + Math.random()*90); // 2 digitos
-    return d + t + n;
-  }
-
-  async function liberarAvaliacao(id){
-    try{
-      // busca os dados para gerar o codigo
-      const ref = doc(db,"avaliacoes",id);
-      const snap = await getDoc(ref);
-      if(!snap.exists()){ toast("Avaliação não encontrada.", true); return; }
-      const a = snap.data();
-      const codigo = gerarCodigo(a.disciplina, a.turma_nome);
-      // horario atual em UTC-4 (Campo Grande). serverTimestamp grava em UTC;
-      // guardamos tambem o fuso para exibir corretamente depois.
-      await updateDoc(ref, {
-        status: "liberada",
-        codigo_acesso: codigo,
-        liberada_em: serverTimestamp(),
-        fuso_horario: "America/Campo_Grande (UTC-4)",
-        atualizado_em: serverTimestamp(),
-        atualizado_por: usuarioAtual.uid
-      });
-      toast("Avaliação liberada (código " + codigo + "). Para o aluno fazer no computador ou tablet, use o Gerador de Provas › Aplicar online.");
-      await listarAvaliacoes();
-    }catch(e){ console.warn(e); toast("Erro ao liberar ("+e.code+").", true); }
-  }
-
-  async function encerrarAvaliacao(id){
-    try{
-      const ref = doc(db,"avaliacoes",id);
-      await updateDoc(ref, {
-        status: "encerrada",
-        encerra_em: serverTimestamp(),
-        atualizado_em: serverTimestamp(),
-        atualizado_por: usuarioAtual.uid
-      });
-      toast("Avaliação encerrada.");
-      await listarAvaliacoes();
-    }catch(e){ console.warn(e); toast("Erro ao encerrar ("+e.code+").", true); }
-  }
-
-
-  async function abrirModalAval(){
-    $("avTitulo").value=""; $("avDisciplina").value=""; $("avBimestre").value="1";
-    questoesTmp = []; qSeq = 0; renderQuestoes();
-    const sel = $("avTurma"); sel.innerHTML = '<option value="">Carregando...</option>';
-    $("modalAval").classList.add("show");
-    try{
-      const lista = cacheTurmas.length ? cacheTurmas : await carregarCacheTurmas();
-      if(lista.length===0){ sel.innerHTML = '<option value="">Nenhuma turma. Cadastre primeiro.</option>'; return; }
-      sel.innerHTML = '<option value="">Selecione a turma...</option>';
-      lista.forEach(t => {
-        const o=document.createElement("option");
-        o.value=t.id; o.textContent=t.nome+" ("+(t.escola_nome||"")+")";
-        o.dataset.nome=t.nome; o.dataset.escId=t.escola_id||""; o.dataset.escNome=t.escola_nome||"";
-        o.dataset.muniId=t.municipio_id||""; o.dataset.anoLetivo=t.ano_letivo||"";
-        sel.appendChild(o);
-      });
-      $("avTitulo").focus();
-    }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
-  }
-  function fecharModalAval(){ $("modalAval").classList.remove("show"); }
-  $("avCancelar").addEventListener("click", fecharModalAval);
-  $("modalAval").addEventListener("click", (e)=>{ if(e.target.id==="modalAval") fecharModalAval(); });
-
-  $("btnAddMultipla").addEventListener("click", () => {
-    qSeq++;
-    questoesTmp.push({ _id:qSeq, tipo:"multipla", enunciado:"", pontos:1, bncc:"",
-      alternativas:[ {letra:"A",texto:"",correta:true}, {letra:"B",texto:"",correta:false}, {letra:"C",texto:"",correta:false}, {letra:"D",texto:"",correta:false} ] });
-    renderQuestoes();
-  });
-  $("btnAddDiss").addEventListener("click", () => {
-    qSeq++;
-    questoesTmp.push({ _id:qSeq, tipo:"dissertativa", enunciado:"", pontos:1, bncc:"", alternativas:[] });
-    renderQuestoes();
-  });
-
-  function renderQuestoes(){
-    const box = $("qLista");
-    if(questoesTmp.length===0){ box.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:10px 0">Nenhuma questão ainda. Adicione abaixo.</div>'; atualizaTotal(); return; }
-    box.innerHTML = "";
-    questoesTmp.forEach((q, idx) => {
-      const div = document.createElement("div");
-      div.className = "qbox";
-      let alts = "";
-      if(q.tipo==="multipla"){
-        q.alternativas.forEach((alt, ai) => {
-          alts += '<div class="alt-row">'+
-            '<input type="text" data-q="'+idx+'" data-alt="'+ai+'" class="altTxt" placeholder="Alternativa '+alt.letra+'" value="'+escapeAttr(alt.texto)+'">'+
-            '<label class="corr"><input type="radio" name="corr-'+idx+'" data-q="'+idx+'" data-alt="'+ai+'" class="altCorr" '+(alt.correta?"checked":"")+'> correta</label>'+
-            '</div>';
-        });
-      }
-      div.innerHTML =
-        '<div class="qhead"><span class="qn">Questão '+(idx+1)+' - '+(q.tipo==="multipla"?"Múltipla escolha":"Dissertativa")+'</span>'+
-          '<button type="button" class="qdel" data-del="'+idx+'">remover</button></div>'+
-        '<div class="qmeta">'+
-          '<div class="field" style="flex:1"><textarea data-q="'+idx+'" class="qEnun" placeholder="Enunciado da questao" style="width:100%;min-height:54px;padding:10px;border:1.5px solid var(--line);border-radius:8px;font-size:13.5px;font-family:inherit;resize:vertical">'+escapeHtml(q.enunciado)+'</textarea></div>'+
-          '<div class="field f-pts"><label style="font-size:11px">Pontos</label><input type="number" data-q="'+idx+'" class="qPts" value="'+q.pontos+'" min="0" step="0.5"></div>'+
-        '</div>'+ alts;
-      box.appendChild(div);
-    });
-    // listeners
-    box.querySelectorAll(".qEnun").forEach(el => el.addEventListener("input", e => { questoesTmp[+e.target.dataset.q].enunciado = e.target.value; }));
-    box.querySelectorAll(".qPts").forEach(el => el.addEventListener("input", e => { questoesTmp[+e.target.dataset.q].pontos = parseFloat(e.target.value)||0; atualizaTotal(); }));
-    box.querySelectorAll(".altTxt").forEach(el => el.addEventListener("input", e => { questoesTmp[+e.target.dataset.q].alternativas[+e.target.dataset.alt].texto = e.target.value; }));
-    box.querySelectorAll(".altCorr").forEach(el => el.addEventListener("change", e => {
-      const qi=+e.target.dataset.q, ai=+e.target.dataset.alt;
-      questoesTmp[qi].alternativas.forEach((a,i)=> a.correta = (i===ai));
-    }));
-    box.querySelectorAll(".qdel").forEach(el => el.addEventListener("click", e => { questoesTmp.splice(+e.target.dataset.del,1); renderQuestoes(); }));
-    atualizaTotal();
-  }
-  function atualizaTotal(){
-    const total = questoesTmp.reduce((s,q)=> s+(parseFloat(q.pontos)||0), 0);
-    $("avTotalPts").value = total;
-  }
-  function escapeAttr(s){ return String(s).replace(/"/g,"&quot;"); }
-
-  $("avSalvar").addEventListener("click", async () => {
-    const titulo=$("avTitulo").value.trim();
-    const sel=$("avTurma"); const turId=sel.value; const opt=sel.options[sel.selectedIndex];
-    const disciplina=$("avDisciplina").value.trim();
-    const bimestre=parseInt($("avBimestre").value,10);
-    if(!titulo){ toast("Informe o título da avaliação.", true); return; }
-    if(!turId){ toast("Selecione a turma.", true); return; }
-    if(questoesTmp.length===0){ toast("Adicione pelo menos uma questão.", true); return; }
-    // validacao das questoes
-    for(let i=0;i<questoesTmp.length;i++){
-      const q=questoesTmp[i];
-      if(!q.enunciado.trim()){ toast("Questao "+(i+1)+": preencha o enunciado.", true); return; }
-      if(q.tipo==="multipla"){
-        const semTexto = q.alternativas.some(a=>!a.texto.trim());
-        if(semTexto){ toast("Questao "+(i+1)+": preencha todas as alternativas.", true); return; }
-        if(!q.alternativas.some(a=>a.correta)){ toast("Questao "+(i+1)+": marque a alternativa correta.", true); return; }
-      }
-    }
-    // monta as questoes como ARRAY DE OBJETOS NATIVO (sem _id interno)
-    const questoes = questoesTmp.map((q,idx) => {
-      const base = { numero:idx+1, tipo:q.tipo, enunciado:q.enunciado.trim(), pontos:parseFloat(q.pontos)||0, bncc:q.bncc||"" };
-      if(q.tipo==="multipla"){ base.alternativas = q.alternativas.map(a=>({ letra:a.letra, texto:a.texto.trim(), correta:!!a.correta })); }
-      else { base.alternativas = []; }
-      return base;
-    });
-    const totalPts = questoes.reduce((s,q)=>s+q.pontos,0);
-    $("avSalvar").disabled=true; $("avSalvar").textContent="Salvando...";
-    try{
-      await addDoc(collection(db,"avaliacoes"), {
-        titulo, disciplina, bimestre,
-        turma_id: turId, turma_nome: opt.dataset.nome||"",
-        escola_id: opt.dataset.escId||"", escola_nome: opt.dataset.escNome||"",
-        municipio_id: opt.dataset.muniId||"",
-        ano_letivo: parseInt(opt.dataset.anoLetivo,10) || new Date().getFullYear(),
-        professor_uid: usuarioAtual.uid,
-        questoes: questoes,              // array de objetos nativo
-        total_pontos: totalPts,
-        status: "rascunho",
-        codigo_acesso: null, liberada_em: null, encerra_em: null,
-        criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid
-      });
-      fecharModalAval(); toast("Avaliação salva como rascunho!"); await listarAvaliacoes();
-    }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
-    finally{ $("avSalvar").disabled=false; $("avSalvar").textContent="Salvar rascunho"; }
-  });
-
-  // ===================== RESULTADOS / CORRECAO =====================
-  let avalAtual = null;
-
-  async function verResultados(avalId){
-    try{
-      // carrega a avaliacao
-      const ref = doc(db,"avaliacoes",avalId);
-      const snap = await getDoc(ref);
-      if(!snap.exists()){ toast("Avaliação não encontrada.", true); return; }
-      avalAtual = { id:avalId, ...snap.data() };
-
-      $("conteudo").innerHTML =
-        '<button class="voltar" id="btnVoltarAval">\u2190 Voltar para avaliações</button>'+
-        '<div class="resumo-aval"><h3>'+escapeHtml(avalAtual.titulo)+'</h3>'+
-        '<div class="meta">'+escapeHtml(avalAtual.disciplina||"")+' - Turma '+escapeHtml(avalAtual.turma_nome||"")+' - '+escapeHtml(String(avalAtual.total_pontos||0))+' pontos · Código '+escapeHtml(avalAtual.codigo_acesso||"-")+'</div></div>'+
-        '<div id="respLista"><div class="empty">Carregando respostas...</div></div>';
-      $("btnVoltarAval").addEventListener("click", renderAvaliacoes);
-      await listarRespostas();
-    }catch(e){ console.warn(e); toast("Erro ao abrir resultados ("+e.code+").", true); }
-  }
-
-  async function listarRespostas(){
-    try{
-      const q = query(collection(db,"respostas"), where("avaliacao_id","==",avalAtual.id));
-      const snap = await getDocs(q);
-      const respostas = [];
-      snap.forEach(d => respostas.push({ id:d.id, ...d.data() }));
-      respostas.sort((a,b)=> (a.aluno_nome||"").localeCompare(b.aluno_nome||""));
-      if(respostas.length===0){ $("respLista").innerHTML = '<div class="empty"><div class="ei">\u{1F4ED}</div>Nenhum aluno respondeu ainda.</div>'; return; }
-
-      let html = '<div class="sectionbar"><span class="count">'+respostas.length+' aluno(s) responderam</span></div>';
-      respostas.forEach(r => {
-        const pend = r.dissertativa_pendente && r.nota_final===null;
-        const notaLabel = (r.nota_final!==null && r.nota_final!==undefined)
-          ? '<span class="nota-tag ok">Nota final: '+r.nota_final+'</span>'
-          : '<span class="nota-tag pend">Aguardando correção</span>';
-        const objLabel = '<span class="nota-tag ok">Objetivas: '+(r.nota_objetivas||0)+'</span>';
-        html += '<div class="resp-card">'+
-          '<div class="resp-head"><span class="alunoNome">'+escapeHtml(r.aluno_nome||"-")+'</span>'+
-          '<span class="notas">'+objLabel+notaLabel+'</span></div>';
-        // bloco de dissertativas, se houver pendencia
-        if(pend){
-          html += '<div class="diss-bloco" id="diss-'+r.id+'">';
-          (avalAtual.questoes||[]).forEach(q => {
-            if(q.tipo==="dissertativa"){
-              const respAluno = (r.respostas||[]).find(x=>x.numero===q.numero);
-              const texto = respAluno && respAluno.texto ? respAluno.texto : "(em branco)";
-              html += '<div class="diss-q">'+
-                '<div class="enun">Questão '+q.numero+': '+escapeHtml(q.enunciado)+' (vale '+q.pontos+')</div>'+
-                '<div class="resp-aluno">'+escapeHtml(texto)+'</div>'+
-                '<div class="nota-input"><input type="number" min="0" max="'+q.pontos+'" step="0.5" '+
-                  'data-resp="'+r.id+'" data-q="'+q.numero+'" data-max="'+q.pontos+'" class="notaDiss" placeholder="0"> '+
-                  '<span>de '+q.pontos+' ponto(s)</span></div>'+
-                '</div>';
-            }
-          });
-          html += '<button class="btn-salvar-nota" data-resp="'+r.id+'">Salvar correção</button></div>';
-        }
-        html += '</div>';
-      });
-      $("respLista").innerHTML = html;
-      // listeners de salvar correcao
-      $("respLista").querySelectorAll(".btn-salvar-nota").forEach(b =>
-        b.addEventListener("click", () => salvarCorrecao(b.dataset.resp, respostas.find(r=>r.id===b.dataset.resp)))
-      );
-    }catch(e){ console.warn(e); $("respLista").innerHTML = '<div class="empty">Erro ao carregar respostas ('+e.code+').</div>'; }
-  }
-
-  async function salvarCorrecao(respId, respObj){
-    // coleta as notas digitadas para cada dissertativa
-    const inputs = $("diss-"+respId).querySelectorAll(".notaDiss");
-    let somaDiss = 0;
-    let faltou = false;
-    inputs.forEach(inp => {
-      const v = inp.value.trim();
-      if(v===""){ faltou = true; return; }
-      const max = parseFloat(inp.dataset.max);
-      let n = parseFloat(v);
-      if(isNaN(n) || n<0) n=0;
-      if(n>max) n=max;
-      somaDiss += n;
-    });
-    if(faltou){ toast("Preencha a nota de todas as dissertativas.", true); return; }
-    const notaFinal = (respObj.nota_objetivas||0) + somaDiss;
-    try{
-      await updateDoc(doc(db,"respostas",respId), {
-        nota_dissertativas: somaDiss,
-        nota_final: notaFinal,
-        dissertativa_pendente: false,
-        status: "corrigida",
-        corrigida_em: serverTimestamp(),
-        corrigida_por: usuarioAtual.uid
-      });
-      toast("Correção salva! Nota final: "+notaFinal);
-      await listarRespostas();
-    }catch(e){ console.warn(e); toast("Erro ao salvar correção ("+e.code+").", true); }
-  }
 
   // ===================== MINHAS TURMAS (professor monta as proprias turmas) =====================
   const mt = { editando:null };
@@ -2643,7 +2292,7 @@
       tile("Cursos da Formação", v(n.cursos)) + tile("Acervo (R2)", v(n.acervo), "atividades, datas, histórias") + '</div>';
     h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
       tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados") +
-      tile("Avaliações criadas", v(n.avaliacoes), v(n.respostas)+" respostas de alunos") + tile("Aulas no Maestro", v(n.maestro)) +
+      tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados") + tile("Aulas no Maestro", v(n.maestro)) +
       tile("Dicas do Professor publicadas", v(n.dicasPub)) + tile("Dicas do Aluno publicadas", v(n.dicasAluPub)) + '</div>';
     const pend = [
       [n.dicasNovas, "dica(s) de professor para revisar", "/dicas/#recebidas"], [n.dicasAluNovas, "dica(s) de aluno para revisar", "/dicas/?aluno=1#recebidas"],
