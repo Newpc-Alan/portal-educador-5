@@ -78,14 +78,6 @@
   .como-op span{ font-size:19px }
   .como-op:hover{ color:#fff }
   .como-op.on{ background:var(--lima); color:var(--escuro) }
-  .al-cod{ margin-top:10px; padding:14px; border-radius:16px; background:rgba(255,255,255,.08); border:1px solid rgba(141,198,63,.55) }
-  .al-cod > b{ color:#fff; font-size:15px; display:block; margin-bottom:8px }
-  .al-lin{ display:grid; grid-template-columns:1.4fr 1fr; gap:8px; margin-bottom:8px }
-  .al-cod input{ width:100%; font:800 20px/1.2 ui-monospace,Consolas,monospace; letter-spacing:3px; text-transform:uppercase; text-align:center; padding:12px 6px; border-radius:12px; border:1.5px solid rgba(255,255,255,.25); background:#fff; color:#0c2338 }
-  .bt-al{ background:var(--lima); color:var(--escuro); border:0; cursor:pointer; justify-content:center }
-  .bt-al2{ background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.35); justify-content:center }
-  .al-msg{ min-height:18px; font-size:13px; color:#ffd2cc; margin:0 }
-  .al-msg.ok{ color:#c9f29b }
   .bt-google{ background:#fff; color:#1f1f1f; border-color:#fff; font-size:17px; padding:15px 22px; box-shadow:0 10px 30px -14px rgba(0,0,0,.6) }
   .bt-google:hover{ background:#f3f6f9 }
   .bt-google svg{ width:22px; height:22px; flex:none }
@@ -300,13 +292,6 @@
           <div class="como" role="radiogroup" aria-label="Quem está entrando">
             <button type="button" class="como-op on" data-action="como" data-como="professor" role="radio" aria-checked="true"><span aria-hidden="true">👩‍🏫</span>Sou professor</button>
             <button type="button" class="como-op" data-action="como" data-como="aluno" role="radio" aria-checked="false"><span aria-hidden="true">🎒</span>Sou aluno</button>
-          </div>
-          <div class="al-cod" id="alCod" hidden>
-            <b>🎫 Código da carteirinha</b>
-            <div class="al-lin"><input id="alCodigo" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CÓDIGO" aria-label="Código de 6 letras e números">
-              <input id="alPin" maxlength="4" inputmode="numeric" type="password" autocomplete="off" placeholder="PIN" aria-label="PIN de 4 números"></div>
-            <div class="al-lin"><button type="button" class="bt bt-al" data-action="al-entrar" id="alEntrar">Entrar</button><a class="bt bt-al2" href="/entrar/?como=aluno&amp;qr=1">📷 Ler QR</a></div>
-            <p class="al-msg" id="alMsg" role="status"></p>
           </div>
           <a class="bt bt-google" id="btGoogle" href="/entrar/?como=professor" data-action="google">
             <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.6 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C39.9 36.5 44 31 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>
@@ -601,31 +586,12 @@ function definir(c){
   try{ sessionStorage.setItem("pde_como", como); }catch(e){}
   document.querySelectorAll(".como-op").forEach(b => { const on = b.dataset.como === como; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
   document.getElementById("btGoogle").href = "/entrar/?como=" + como;
-  document.getElementById("alCod").hidden = como !== "aluno";
   document.getElementById("acessoNota").innerHTML = como === "aluno"
-    ? "Sem e-mail? Use o <b>código e o PIN</b> que o professor te deu. Tem Google da escola? Entre com ele."
+    ? "Use a <b>conta Google que a sua escola te deu</b>."
     : "Primeira vez? Professores ganham <b>7 dias grátis</b>, sem cartão.";
 }
 definir(como);
-// aluno sem e-mail: código + PIN da conta da matrícula (gerados pelo professor na turma)
-const alCodigo = document.getElementById("alCodigo"), alPin = document.getElementById("alPin"), alMsg = document.getElementById("alMsg");
-const codLimpo = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
-alCodigo.addEventListener("input", () => { alCodigo.value = codLimpo(alCodigo.value); if(alCodigo.value.length === 6) alPin.focus(); carregar(); });
-alPin.addEventListener("input", () => { alPin.value = alPin.value.replace(/\D/g, "").slice(0, 4); if(alPin.value.length === 4) entrarAluno(); });
-alPin.addEventListener("keydown", e => { if(e.key === "Enter") entrarAluno(); });
-let entrando = false;
-async function entrarAluno(){
-  const c = codLimpo(alCodigo.value), p = alPin.value.replace(/\D/g, "");
-  if(c.length !== 6){ alMsg.className = "al-msg"; alMsg.textContent = "Digite o código de 6 letras e números."; alCodigo.focus(); return; }
-  if(p.length !== 4){ alMsg.className = "al-msg"; alMsg.textContent = "Digite o PIN de 4 números."; alPin.focus(); return; }
-  if(entrando) return; entrando = true; alMsg.className = "al-msg ok"; alMsg.textContent = "Entrando...";
-  const f = await carregar();
-  if(!f){ entrando = false; location.href = "/entrar/?como=aluno"; return; }
-  try{ await f.b.signInWithEmailAndPassword(f.auth, c.toLowerCase() + "@aluno.portaldoeducador.com.br", "pde." + c + "." + p); location.href = "/entrar/"; }
-  catch(err){ entrando = false; alPin.value = ""; alMsg.className = "al-msg"; alMsg.textContent = err && err.code === "auth/too-many-requests" ? "Muitas tentativas. Espere alguns minutos." : "Código ou PIN não conferem. Confira com o professor."; alPin.focus(); }
-}
 document.addEventListener("click", (e) => {
-  if(e.target.closest('[data-action="al-entrar"]')){ entrarAluno(); return; }
   const el = e.target.closest('[data-action="como"],[data-action="google"]'); if(!el) return;
   if(el.dataset.action === "como"){ definir(el.dataset.como); return; }
   if(!fb || embutido()) return; // segue o link para /entrar/
