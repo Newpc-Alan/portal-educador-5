@@ -301,7 +301,17 @@ await t('gestor da escola le respostas', assertSucceeds(getDocs(query(collection
 await t('secretaria le resposta da rede', assertSucceeds(getDoc(doc(sec, 'respostas/rP'))));
 await t('dono corrige a resposta', assertSucceeds(updateDoc(doc(prof, 'respostas/rP'), { nota_final: 8 })));
 await t('gestor nao altera nota', assertFails(updateDoc(doc(gest, 'respostas/rP'), { nota_final: 10 })));
-await t('aluno sem login ainda responde', assertSucceeds(addDoc(collection(anon, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2' })));
+await t('anonimo nao grava resposta', assertFails(addDoc(collection(anon, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2' })));
+await t('dono lanca resposta pelo corretor', assertSucceeds(addDoc(collection(prof, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a2', nota_final: 6, origem: 'cartao' })));
+await t('outro professor nao lanca resposta', assertFails(addDoc(collection(prof2, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a3' })));
+await t('resposta com campo estranho recusada', assertFails(addDoc(collection(prof, 'respostas'), { avaliacao_id: 'avP', aluno_id: 'a4', hack: 1 })));
+await t('anonimo nao le a prova com gabarito', assertFails(getDoc(doc(anon, 'avaliacoes/avP'))));
+await t('anonimo nao lista provas', assertFails(getDocs(collection(anon, 'avaliacoes'))));
+await t('outro professor nao le a prova', assertFails(getDoc(doc(prof2, 'avaliacoes/avP'))));
+await t('dono lista as proprias provas', assertSucceeds(getDocs(query(collection(prof, 'avaliacoes'), where('professor_uid', '==', 'prof')))));
+await t('professor nao lista todas as provas', assertFails(getDocs(collection(prof, 'avaliacoes'))));
+await t('gestor le provas da escola', assertSucceeds(getDocs(query(collection(gest, 'avaliacoes'), where('escola_id', 'in', ['e2'])))));
+await t('secretaria le provas da rede', assertSucceeds(getDocs(query(collection(sec, 'avaliacoes'), where('municipio_id', '==', 'm1')))));
 await t('anonimo nao le respostas', assertFails(getDoc(doc(anon, 'respostas/rP'))));
 
 // Calendario e Dias Letivos: secretaria monta a base da rede, gestor ajusta a escola dele, professor so le

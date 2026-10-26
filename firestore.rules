@@ -766,7 +766,10 @@ service cloud.firestore {
     }
 
     match /avaliacoes/{id} {
-      allow read: if true; // o aluno abre a prova pelo codigo de acesso
+      // a prova traz o gabarito: só o professor dono, a gestão da escola e a secretaria do município leem
+      // (a prova por código sem login foi aposentada; o aluno faz a Prova online, com o gabarito guardado à parte)
+      allow read: if admin() || (logado() && resource.data.get("professor_uid", "") == request.auth.uid)
+        || gestorDaEscola(resource.data.get("escola_id", "-")) || secretariaDoMuni(resource.data.get("municipio_id", "-"));
       allow create: if professor() && request.resource.data.professor_uid == request.auth.uid;
       allow update, delete: if admin() || (professor() && resource.data.professor_uid == request.auth.uid);
     }
@@ -775,7 +778,10 @@ service cloud.firestore {
     function prova(av) { return get(/databases/$(database)/documents/avaliacoes/$(av)).data; }
     function donoDaProva(av) { return logado() && prova(av).professor_uid == request.auth.uid; }
     match /respostas/{id} {
-      allow create: if true; // o aluno responde sem login
+      // quem lança é o professor dono da prova (Corretor de Gabarito); ninguém grava sem login
+      allow create: if admin() || (logado() && donoDaProva(novo().avaliacao_id) && novo().keys().hasOnly(["avaliacao_id", "avaliacao_titulo",
+          "turma_id", "turma_nome", "escola_id", "municipio_id", "aluno_id", "aluno_nome", "respostas", "nota_objetivas", "nota_final", "nota_dissertativas",
+          "dissertativa_pendente", "status", "origem", "corrigida_em", "corrigida_por", "enviada_em", "criado_em"]));
       allow read: if admin() || donoDaProva(resource.data.avaliacao_id)
         || gestorDaEscola(prova(resource.data.avaliacao_id).get("escola_id", "-")) || secretariaDoMuni(prova(resource.data.avaliacao_id).get("municipio_id", "-"));
       allow update, delete: if admin() || donoDaProva(resource.data.avaliacao_id);
