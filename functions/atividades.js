@@ -164,9 +164,10 @@ async function salvar(bucket, caminho, resposta, tipo) {
   return { url: `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(caminho)}?alt=media&token=${token}`, tamanho: Number(meta.size || 0) };
 }
 async function miniatura(bucket, id, base) {
-  for (const u of [`https://drive.google.com/thumbnail?id=${id}&sz=w480`, `https://lh3.googleusercontent.com/d/${id}=w480`]) {
+  // lh3 responde rápido; o endereço /thumbnail às vezes fica pendurado, então vem depois e com prazo curto
+  for (const u of [`https://lh3.googleusercontent.com/d/${id}=w480`, `https://drive.google.com/thumbnail?id=${id}&sz=w480`]) {
     try {
-      const r = await fetch(u, { headers: { Referer: REFERER }, signal: AbortSignal.timeout(30000) });
+      const r = await fetch(u, { headers: { Referer: REFERER }, signal: AbortSignal.timeout(12000) });
       const tipo = r.headers.get('content-type') || '';
       if (r.ok && tipo.startsWith('image/')) return (await salvar(bucket, base + '-mini.' + (tipo.includes('png') ? 'png' : 'jpg'), r, tipo)).url;
     } catch (e) {}
@@ -206,18 +207,23 @@ export async function atualizarResumo() {
   return r;
 }
 // uma rodada: lista o Drive, separa o que é novo e importa até "limite"
-export async function sincronizar({ limite = 40, etapas = Object.keys(RAIZES), log = () => {} } = {}) {
+export async function sincronizar({ limite = 40, etapas = Object.keys(RAIZES), log = () => {}, paralelo = 4 } = {}) {
   const ja = await conhecidos(), novos = [];
   for (const e of etapas) {
     const grupos = agrupar(await listarEtapa(e));
     grupos.filter(g => !g.ids.some(id => ja.has(id))).forEach(g => novos.push(g));
     log(e + ': ' + grupos.length + ' atividades no Drive');
   }
-  let ok = 0, erro = 0; const erros = [];
-  for (const g of novos.slice(0, limite)) {
-    try { await importarGrupo(g); ok++; log('OK ' + g.principal.etapa + ' · ' + consertarAcentos(g.principal.name)); }
-    catch (e) { erro++; erros.push(consertarAcentos(g.principal.name) + ': ' + e.message); log('ERRO ' + g.principal.name + ' ' + e.message); }
-  }
+  let ok = 0, erro = 0; const erros = [], fila = novos.slice(0, limite);
+  // várias ao mesmo tempo (o tempo é quase todo de espera de rede)
+  const trabalhador = async () => {
+    while (fila.length) {
+      const g = fila.shift();
+      try { await importarGrupo(g); ok++; log('OK ' + g.principal.etapa + ' · ' + consertarAcentos(g.principal.name)); }
+      catch (e) { erro++; erros.push(consertarAcentos(g.principal.name) + ': ' + e.message); log('ERRO ' + g.principal.name + ' ' + e.message); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(paralelo, fila.length)) }, trabalhador));
   if (ok) await atualizarResumo();
   return { novos: novos.length, importadas: ok, erros: erro, restantes: Math.max(0, novos.length - ok - erro), detalhes: erros.slice(0, 10) };
 }

@@ -35,7 +35,7 @@ if (!GRAVAR) {
 let rodada = 0;
 while (true) {
   rodada++;
-  const r = await A.sincronizar({ limite: Math.min(limite, 400), etapas, log: m => console.log(m) });
+  const r = await A.sincronizar({ limite: Math.min(limite, 400), etapas, log: m => console.log(m), paralelo: 8 });
   console.log(`RODADA ${rodada}: ${r.importadas} importadas, ${r.erros} com erro, ${r.restantes} restantes`);
   if (!r.importadas || !r.restantes || rodada * 400 >= limite) break;
 }
