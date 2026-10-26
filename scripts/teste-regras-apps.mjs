@@ -723,6 +723,32 @@ await t('autorizados: gestor de outra escola nao le', assertFails(getDoc(doc(ges
 await t('autorizados: mais de 6', assertFails(setDoc(doc(sece, 'alunos_autorizados/alN'), { ...aut, lista: Array(7).fill(aut.lista[0]) })));
 await t('autorizados: campo extra', assertFails(setDoc(doc(sece, 'alunos_autorizados/alN'), { ...aut, cpf: 'x' })));
 
+// ---------- Ficha do Servidor
+const sv = (o = {}) => ({ email: 'prof@x.com', nome: 'Paula Prof', municipio_id: 'm1', escolas_ids: ['e1'], cargo: 'professor', vinculo: 'efetivo',
+  lotacao: [{ escola_id: 'e1', escola_nome: 'EM Centro', funcao: 'Professor regente', turno: 'Matutino', turmas: '5A', ch: 20 }], formacao: { escolaridade: 'superior', graduacoes: [], pos: [], especificas: [] },
+  cursos_portal: [], documentos: [], validacao: { status: 'pendente', por_nome: '', em: '', obs: '' }, origem: 'autosservico', atualizado_em: serverTimestamp(), atualizado_por: 'prof', atualizado_por_nome: 'P', ...o });
+await t('servidor: professor cria a propria ficha', assertSucceeds(setDoc(doc(prof, 'servidores/prof@x.com'), sv())));
+await t('servidor: professor nao se valida', assertFails(setDoc(doc(prof, 'servidores/prof@x.com'), sv({ validacao: { status: 'validado', por_nome: 'P', em: '2026-10-26', obs: '' } }))));
+await t('servidor: professor nao cria ficha de outro e-mail', assertFails(setDoc(doc(prof, 'servidores/outro@x.com'), sv({ email: 'outro@x.com' }))));
+await t('servidor: campo extra', assertFails(setDoc(doc(prof, 'servidores/prof@x.com'), sv({ salario: 1 }))));
+await t('servidor: foto de outra pasta', assertFails(setDoc(doc(prof, 'servidores/prof@x.com'), sv({ foto: 'servidores/outro@x.com/foto-a.jpg' }))));
+await t('servidor: foto da propria pasta', assertSucceeds(setDoc(doc(prof, 'servidores/prof@x.com'), sv({ foto: 'servidores/prof@x.com/foto-a1.jpg' }))));
+await t('servidor: professor de outro municipio nao le', assertFails(getDoc(doc(prof2, 'servidores/prof@x.com'))));
+await t('servidor: gestor da escola le', assertSucceeds(getDoc(doc(gest1, 'servidores/prof@x.com'))));
+await t('servidor: gestor de outra escola nao le', assertFails(getDoc(doc(gest, 'servidores/prof@x.com'))));
+await t('servidor: gestor lista a equipe da escola', assertSucceeds(getDocs(query(collection(gest1, 'servidores'), where('municipio_id', '==', 'm1'), where('escolas_ids', 'array-contains-any', ['e1'])))));
+await t('servidor: secretaria lista o municipio', assertSucceeds(getDocs(query(collection(sec, 'servidores'), where('municipio_id', '==', 'm1')))));
+await t('servidor: gestor valida', assertSucceeds(setDoc(doc(gest1, 'servidores/prof@x.com'), sv({ validacao: { status: 'validado', por_nome: 'G', em: '2026-10-26', obs: '' }, atualizado_por: 'gest1' }))));
+await t('servidor: professor edita e volta para a conferir', assertSucceeds(setDoc(doc(prof, 'servidores/prof@x.com'), sv({ telefone: '5567999990000' }))));
+await t('servidor: professor nao mantem validado ao editar', assertFails(setDoc(doc(prof, 'servidores/prof@x.com'), sv({ validacao: { status: 'validado', por_nome: 'G', em: '2026-10-26', obs: '' } }))));
+await t('servidor: gestor cria ficha de alguem da escola', assertSucceeds(setDoc(doc(gest1, 'servidores/novo@x.com'), sv({ email: 'novo@x.com', atualizado_por: 'gest1' }))));
+await t('servidor: gestor nao cria ficha so de outra escola', assertFails(setDoc(doc(gest1, 'servidores/novo2@x.com'), sv({ email: 'novo2@x.com', escolas_ids: ['e2'], lotacao: [], atualizado_por: 'gest1' }))));
+await t('servidor: secretaria cria ficha (planilha do RH)', assertSucceeds(setDoc(doc(sec, 'servidores/rh@x.com'), sv({ email: 'rh@x.com', escolas_ids: ['e2'], atualizado_por: 'sec', origem: 'planilha_rh' }))));
+await t('servidor: secretaria nao muda o municipio', assertFails(setDoc(doc(sec, 'servidores/rh@x.com'), sv({ email: 'rh@x.com', municipio_id: 'm2', atualizado_por: 'sec' }))));
+await t('servidor: gestor nao apaga', assertFails(deleteDoc(doc(gest1, 'servidores/novo@x.com'))));
+await t('servidor: secretaria apaga', assertSucceeds(deleteDoc(doc(sec, 'servidores/novo@x.com'))));
+await t('servidor: aluno nao le', assertFails(getDoc(doc(alu, 'servidores/prof@x.com'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

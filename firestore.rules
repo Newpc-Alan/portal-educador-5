@@ -451,6 +451,41 @@ service cloud.firestore {
         && novo().lista is list && novo().lista.size() <= 6 && texto(novo().get("restricoes", ""), 400) && texto(novo().get("turma_nome", ""), 80);
       allow delete: if admin() || gestorDaEscola(resource.data.escola_id);
     }
+    // ---------- Ficha do Servidor (professores, direção, coordenação, secretaria, apoio) ----------
+    // um documento por e-mail: o próprio servidor preenche (autosserviço); a gestão da escola e a Secretaria de Educação conferem e validam
+    function camposServidor() {
+      return ["email", "nome", "nome_social", "foto", "nascimento", "cpf", "telefone", "matricula_func", "municipio_id", "escolas_ids", "cargo", "vinculo",
+        "carga_horaria", "lotacao", "formacao", "cursos_portal", "documentos", "validacao", "origem", "atualizado_em", "atualizado_por", "atualizado_por_nome"];
+    }
+    function servidorOk(email) {
+      return novo().keys().hasOnly(camposServidor()) && novo().email == email
+        && novo().nome is string && novo().nome.size() >= 2 && novo().nome.size() <= 80
+        && novo().municipio_id is string && novo().municipio_id.size() > 0
+        && novo().escolas_ids is list && novo().escolas_ids.size() <= 10
+        && novo().get("lotacao", []) is list && novo().get("lotacao", []).size() <= 10
+        && novo().get("documentos", []) is list && novo().get("documentos", []).size() <= 20
+        && novo().get("cursos_portal", []) is list && novo().get("cursos_portal", []).size() <= 60
+        && novo().get("formacao", {}) is map && novo().get("validacao", {}) is map
+        && (novo().get("foto", "") == "" || (novo().foto.matches("^servidores/[^/]+/foto-[A-Za-z0-9_-]{1,40}[.]jpg$") && novo().foto.split("/")[1] == email))
+        && (novo().get("nascimento", "") == "" || novo().nascimento.matches("^(19|20)[0-9]{2}-[01][0-9]-[0-3][0-9]$"))
+        && texto(novo().get("cpf", ""), 11) && texto(novo().get("matricula_func", ""), 30) && texto(novo().get("telefone", ""), 13)
+        && novo().atualizado_por == request.auth.uid && texto(novo().get("atualizado_por_nome", ""), 80);
+    }
+    function proprioServidor(email) { return emailVerificado() && meuEmail() == email && ativo() && eu().perfil != "aluno"; }
+    function gestorDoServidor(d) { return ativo() && eu().perfil == "gestor" && d.municipio_id == eu().get("municipio_id", "-") && d.escolas_ids.hasAny(minhasEscolas()); }
+    function equipeDoServidor(d) { return admin() || secretariaDoMuni(d.municipio_id) || gestorDoServidor(d); }
+    // o próprio servidor não se valida: toda alteração dele volta para "pendente"
+    function semValidarASi() { return novo().get("validacao", {}).get("status", "pendente") == "pendente"; }
+    match /servidores/{email} {
+      allow read: if admin() || proprioServidor(email) || (resource == null && ativo() && eu().perfil in ["gestor", "secretaria"])
+        || (resource != null && (secretariaDoMuni(resource.data.municipio_id) || gestorDoServidor(resource.data)));
+      allow create: if servidorOk(email) && (equipeDoServidor(novo())
+        || (proprioServidor(email) && novo().municipio_id == eu().get("municipio_id", "-") && semValidarASi()));
+      allow update: if servidorOk(email) && novo().municipio_id == resource.data.municipio_id
+        && (equipeDoServidor(resource.data) || (proprioServidor(email) && semValidarASi()));
+      allow delete: if admin() || secretariaDoMuni(resource.data.municipio_id);
+    }
+
     // quem abriu a saúde, um anexo ou imprimiu a ficha (auditoria da direção): só cria, nunca altera nem apaga
     match /alunos_acessos/{id} {
       allow read: if admin() || gestorDaEscola(resource.data.escola_id);

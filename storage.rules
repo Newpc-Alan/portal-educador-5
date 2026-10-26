@@ -123,6 +123,20 @@ service firebase.storage {
       allow create: if (admin() || equipeEscolaSt(esc)) && fotoCadastro(arquivo);
       allow delete: if admin() || equipeEscolaSt(esc);
     }
+    // Ficha do Servidor: foto (crachá) e documentos (diploma, certificados, portaria). O próprio servidor, a gestão das escolas dele e a Secretaria de Educação
+    function servDoc(email) { return firestore.get(/databases/(default)/documents/servidores/$(email)).data; }
+    function donoServ(email) { return request.auth != null && request.auth.token.get("email", "") is string && request.auth.token.get("email", "").lower() == email && request.auth.token.get("email_verified", false) == true; }
+    function equipeServ(email) {
+      return request.auth != null && eu().status == "ativo" && (eu().perfil == "admin"
+        || (eu().perfil == "secretaria" && servDoc(email).municipio_id == eu().get("municipio_id", "-"))
+        || (eu().perfil == "gestor" && servDoc(email).escolas_ids.hasAny(eu().get("escolas_ids", [eu().get("escola_id", "")]))));
+    }
+    match /servidores/{email}/{arquivo} {
+      allow read, delete: if donoServ(email) || equipeServ(email);
+      allow create: if (donoServ(email) || equipeServ(email))
+        && ((arquivo.matches("^foto-[A-Za-z0-9_-]{1,40}[.]jpg$") && request.resource.size < 1024 * 1024 && request.resource.contentType == "image/jpeg")
+          || (arquivo.matches("^doc-[A-Za-z0-9_-]{1,80}[.](pdf|jpg|png)$") && request.resource.size < 15 * 1024 * 1024 && request.resource.contentType in ["application/pdf", "image/jpeg", "image/png"]));
+    }
     match /alunos_docs/{esc}/{aluno}/{arquivo} {
       allow read, delete: if admin() || equipeEscolaSt(esc);
       allow create: if (admin() || equipeEscolaSt(esc)) && arquivo.matches("^[A-Za-z0-9_-]{1,90}[.](pdf|jpg|png)$")
