@@ -893,10 +893,21 @@
         <div id="loginSenha" hidden>
           <div class="field"><label for="senha">Senha</label><input type="password" id="senha" placeholder="********" autocomplete="current-password"></div>
           <button class="btn btn-primary" id="btnEntrar">Entrar com senha</button>
+          <button type="button" class="link-senha" id="lnkEsqueci">Esqueci minha senha</button>
         </div>
         <button class="btn btn-primary" id="btnLink">Receber link de acesso</button>
         <p class="link-ajuda">Enviamos um link para o seu e-mail. É só tocar nele para entrar, sem senha. Funciona com qualquer e-mail.</p>
         <button type="button" class="link-senha" id="lnkSenha">Tenho senha</button>
+        <button type="button" class="link-senha" id="lnkCriar">Criar conta com e-mail e senha</button>
+      </div>
+      <div id="criarConta" hidden>
+        <div class="field"><label for="ccNome">Nome completo</label><input type="text" id="ccNome" maxlength="80" autocomplete="name"></div>
+        <div class="field"><label for="ccEmail">E-mail</label><input type="email" id="ccEmail" autocomplete="email" inputmode="email" placeholder="seu@email.com"></div>
+        <div class="field"><label for="ccSenha">Crie uma senha</label><input type="password" id="ccSenha" autocomplete="new-password" maxlength="64" placeholder="Pelo menos 8 caracteres, com letras e números"></div>
+        <div class="field"><label for="ccSenha2">Repita a senha</label><input type="password" id="ccSenha2" autocomplete="new-password" maxlength="64"></div>
+        <button class="btn btn-primary" id="btnCriar">Criar conta</button>
+        <p class="link-ajuda" id="ccAjuda">Depois de criar, enviamos um e-mail para você confirmar o endereço.</p>
+        <button type="button" class="link-senha" id="lnkJaTenho">Já tenho conta</button>
       </div>
       <div class="link-enviado" id="linkEnviado" hidden>
         <div class="ico">📧</div>
@@ -1121,7 +1132,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged,
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged,
     sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit }
@@ -1264,7 +1275,8 @@
     try{ sessionStorage.setItem("pde_como", como); }catch(e){}
     const al = como === "aluno";
     document.querySelectorAll(".como-op").forEach(b => { const on = b.dataset.como === como; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
-    $("lnkSenha").hidden = al; if(al) mostrarSenha(false); $("comoNota").hidden = !al; $("alCodBox").hidden = !al;
+    $("comoNota").hidden = !al; $("alCodBox").hidden = !al;
+    $("ccAjuda").textContent = al ? "Use o e-mail que a escola tem na sua ficha: depois de confirmar o e-mail, sua conta se liga à sua turma." : "Depois de criar, enviamos um e-mail para você confirmar o endereço. Você ganha 7 dias para conhecer o Portal.";
     $("loginTit").textContent = al ? "Entrar como aluno" : "Acesse sua conta";
     $("loginSub").textContent = al ? "Vídeos, jogos, desenhos, histórias e muito mais para aprender brincando." : "Recursos pedagógicos, turmas e avaliações em um só lugar.";
     $("loginFoot").textContent = al ? "Acesso para alunos das redes que usam o Portal" : "Acesso restrito a secretarias, escolas e professores";
@@ -1323,6 +1335,37 @@
   })();
   // ---------- entrar pelo e-mail: link de acesso (sem senha) ou senha ----------
   const EMAIL_OK = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+  // ---------- cadastro manual: nome, e-mail e senha (professor e aluno, sem Google) ----------
+  function telaCriar(on){ $("criarConta").hidden = !on; $("loginEmail").hidden = on; document.querySelector(".divider").hidden = on; $("btnGoogle").hidden = on; clearMsg();
+    if(on){ if(!$("ccEmail").value) $("ccEmail").value = $("email").value.trim(); setTimeout(() => $("ccNome").focus(), 30); } }
+  $("lnkCriar").addEventListener("click", () => telaCriar(true));
+  $("lnkJaTenho").addEventListener("click", () => { telaCriar(false); mostrarSenha(true); });
+  $("btnCriar").addEventListener("click", async () => {
+    const nome = $("ccNome").value.trim().replace(/\s+/g, " "), email = $("ccEmail").value.trim().toLowerCase(), s1 = $("ccSenha").value, s2 = $("ccSenha2").value;
+    if(nome.length < 3 || !/\s/.test(nome)){ showMsg("Digite o nome completo (nome e sobrenome).", "error"); $("ccNome").focus(); return; }
+    if(!EMAIL_OK(email)){ showMsg("Digite um e-mail válido.", "error"); $("ccEmail").focus(); return; }
+    if(email.endsWith("@" + ALUNO_DOM)){ showMsg("Este e-mail é reservado. Use o seu e-mail.", "error"); return; }
+    if(s1.length < 8 || !/[A-Za-z]/.test(s1) || !/\d/.test(s1)){ showMsg("A senha precisa ter pelo menos 8 caracteres, com letras e números.", "error"); $("ccSenha").focus(); return; }
+    if(s1 !== s2){ showMsg("As duas senhas não são iguais.", "error"); $("ccSenha2").focus(); return; }
+    const b = $("btnCriar"); b.disabled = true; b.textContent = "Criando...";
+    try{ sessionStorage.setItem("pde_nome_novo", nome); }catch(e){}
+    try{
+      const cred = await createUserWithEmailAndPassword(auth, email, s1);
+      try{ await updateProfile(cred.user, { displayName:nome }); }catch(e){}
+      try{ await sendEmailVerification(cred.user, { url:location.origin + "/entrar/" }); }catch(e){ console.warn("verificação:", e.code); }
+      toast("Conta criada! Confirme o seu e-mail pelo link que enviamos.");
+    }catch(e){ console.warn(e.code);
+      showMsg(e.code === "auth/email-already-in-use" ? "Este e-mail já tem conta. Use “Já tenho conta” ou “Esqueci minha senha”." : e.code === "auth/weak-password" ? "Senha fraca. Use pelo menos 8 caracteres, com letras e números." : traduzErro(e.code), "error"); }
+    finally{ b.disabled = false; b.textContent = "Criar conta"; }
+  });
+  $("lnkEsqueci").addEventListener("click", async () => {
+    const email = $("email").value.trim().toLowerCase();
+    if(!EMAIL_OK(email)){ showMsg("Digite o seu e-mail acima e toque de novo em “Esqueci minha senha”.", "error"); $("email").focus(); return; }
+    try{ await sendPasswordResetEmail(auth, email, { url:location.origin + "/entrar/" }); }catch(e){ console.warn(e.code); }
+    // mesma resposta exista ou não a conta (não revela quem tem cadastro)
+    showMsg("Se este e-mail tiver conta, enviamos um link para criar uma nova senha. Confira também o spam.", "success");
+  });
+  (function(){ const q = new URLSearchParams(location.search); if(q.get("criar") === "1") telaCriar(true); else if(q.get("senha") === "1") mostrarSenha(true); })();
   function mostrarSenha(on){ $("loginSenha").hidden = !on; $("btnLink").hidden = on; document.querySelector(".link-ajuda").hidden = on; $("lnkSenha").textContent = on ? "Entrar com link no e-mail" : "Tenho senha"; }
   $("lnkSenha").addEventListener("click", () => { mostrarSenha($("loginSenha").hidden); clearMsg(); });
   function telaLink(qual){ $("loginEmail").hidden = !!qual; $("linkEnviado").hidden = qual !== "enviado"; $("linkConfirmar").hidden = qual !== "confirmar"; document.querySelector(".divider").hidden = !!qual; $("btnGoogle").hidden = !!qual; }
@@ -1474,7 +1517,8 @@
 
   async function carregarUsuario(user){
     const ref = doc(db,"usuarios",user.uid);
-    let dados = { uid:user.uid, nome:user.displayName||(user.email?user.email.split("@")[0]:"Usuário"),
+    let nomeNovo = ""; try{ nomeNovo = sessionStorage.getItem("pde_nome_novo") || ""; }catch(e){}
+    let dados = { uid:user.uid, nome:user.displayName||nomeNovo||(user.email?user.email.split("@")[0]:"Usuário"),
                   email:user.email||"", perfil:"professor", municipio_id:null, escola_id:null };
     try{
       const snap = await getDoc(ref);
