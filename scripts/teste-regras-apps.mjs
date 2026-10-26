@@ -759,6 +759,13 @@ await t('cpf_receita: professor nao grava resultado', assertFails(setDoc(doc(pro
 await t('cpf_receita: gestor nao grava resultado', assertFails(setDoc(doc(gest1, 'cpf_receita/prof@x.com'), { status: 'confere' })));
 await t('cpf_receita: aluno nao le', assertFails(getDoc(doc(alu, 'cpf_receita/prof@x.com'))));
 
+// senha provisória: o usuário só lê a dele; ninguém grava pelo navegador
+await env.withSecurityRulesDisabled(async c => { await setDoc(doc(c.firestore(), 'senhas_provisorias/prof'), { email: 'prof@x.com' }); });
+await t('senha provisoria: o proprio le', assertSucceeds(getDoc(doc(prof, 'senhas_provisorias/prof'))));
+await t('senha provisoria: outro nao le', assertFails(getDoc(doc(gest1, 'senhas_provisorias/prof'))));
+await t('senha provisoria: o proprio nao apaga', assertFails(deleteDoc(doc(prof, 'senhas_provisorias/prof'))));
+await t('senha provisoria: ninguem cria', assertFails(setDoc(doc(gest1, 'senhas_provisorias/x'), { email: 'a' })));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

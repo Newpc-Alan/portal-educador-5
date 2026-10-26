@@ -314,6 +314,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
     <div class="fi-rod">
       <span class="pct" id="fiPct"></span><span class="falta-lista" id="fiFalta"></span><span class="esp"></span>
       <button class="btn btn-red" data-action="val-ajustar" id="btnAjustar" hidden>Pedir ajuste</button>
+      <button class="btn btn-gh" data-action="senha-prov" id="btnSenhaProv" hidden title="Para quem não consegue entrar">🔑 Senha provisória</button>
       <button class="btn btn-gh" data-action="val-validar" id="btnValidar" hidden>✔ Validar ficha</button>
       <button class="btn btn-gh" data-action="fechar">Cancelar</button>
       <button class="btn btn-ok" data-action="salvar" id="btnSalvar">Salvar</button>
@@ -470,6 +471,33 @@ function caixaVal(v){
     : "🕓 <div>Aguardando a conferência da direção da escola ou da Secretaria de Educação.</div>") + "</div>";
 }
 
+/* ===================== senha provisória ===================== */
+// mostra a senha provisória uma única vez, com botões para copiar e para mandar por WhatsApp
+function mostrarSenhaGerada(r){
+  const ate = new Date(r.expira_ms).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+  const txt = "Olá, " + r.nome + "! Sua senha provisória do Portal do Educador é: " + r.senha + "\nEntre em app.portaldoeducador.com.br/entrar com seu e-mail e esta senha (opção “Entrar com e-mail e senha”). No primeiro acesso você cria a sua senha pessoal. Ela vale até " + ate + ".";
+  const m = document.createElement("div"); m.className = "fundo"; m.style.zIndex = "120"; m.id = "modalSenhaGerada";
+  m.innerHTML = '<div class="modal" style="max-width:480px"><div class="cab"><div><div class="h2">Senha provisória gerada</div><div class="sub">' + escHtmlSP(r.nome) + ' · vale até ' + ate + '</div></div></div>' +
+    '<div><div style="font:800 26px/1.2 ui-monospace,Consolas,monospace;letter-spacing:2px;text-align:center;background:#eef6ee;border:1px dashed #1a6b2a;border-radius:12px;padding:16px;color:#0f2c4a" id="spSenha">' + escHtmlSP(r.senha) + '</div>' +
+    '<p style="font-size:13px;margin-top:10px">Ela aparece só agora. Repasse para a pessoa (pessoalmente ou por WhatsApp). No primeiro login ela é obrigada a criar a própria senha.' + (r.google ? ' A conta Google dela continua funcionando.' : '') + '</p></div>' +
+    '<div class="barra" style="margin-top:12px"><span class="esp"></span><button class="btn btn-gh" data-sp="texto">Copiar mensagem</button><button class="btn btn-gh" data-sp="senha">Copiar senha</button><button class="btn btn-ok" data-sp="ok">Fechar</button></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener("click", async e => { const b = e.target.closest("[data-sp]"); if(!b) return;
+    if(b.dataset.sp === "ok"){ m.remove(); return; }
+    try{ await navigator.clipboard.writeText(b.dataset.sp === "senha" ? r.senha : txt); b.textContent = "Copiado!"; }catch(x){ prompt("Copie:", b.dataset.sp === "senha" ? r.senha : txt); } });
+}
+function escHtmlSP(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]); }
+async function gerarSenhaProvisoria(email, nome, botao){
+  if(!confirm("Gerar uma senha provisória para " + (nome || email) + "?\n\nA senha atual do Portal (se houver) deixa de valer. A conta Google não muda.")) return;
+  const txt = botao ? botao.textContent : ""; if(botao){ botao.disabled = true; botao.textContent = "Gerando..."; }
+  try{
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "senhaProvisoria", { timeout:30000 })({ email })).data;
+    mostrarSenhaGerada(r);
+  }catch(e){ console.warn(e); (typeof toast === "function" ? toast : alert)(e.message || "Não foi possível gerar a senha agora.", true); }
+  finally{ if(botao){ botao.disabled = false; botao.textContent = txt; } }
+}
+
 /* ===================== CPF na Receita (Serpro) ===================== */
 // liga quando o contrato do Serpro estiver ativo e a função conferirCpfServidor publicada
 const RECEITA_ATIVA = false;
@@ -521,6 +549,7 @@ function abrir(d, minha){
   $("docTipo").innerHTML = Object.entries(DOCS).map(([k, v]) => '<option value="' + k + '">' + esc(v) + "</option>").join("");
   $("btnCursos").hidden = !proprio;
   $("btnValidar").hidden = $("btnAjustar").hidden = proprio || novo || !E.equipe;
+  $("btnSenhaProv").hidden = proprio || novo || !E.equipe;
   $("fiVal").innerHTML = novo ? "" : caixaVal(d.validacao || {});
   desenharLot(); desenharGrad(); desenharPos(); desenharCursos(); desenharDocs(); cabecalho(); aba("id"); $("modal").hidden = false; atualizarPct(); cpfRecCarregar(d);
   try{ history.replaceState(null, "", "#" + (minha ? "minha" : "s=" + encodeURIComponent(d.email || "nova"))); }catch(e){}
@@ -959,6 +988,7 @@ const ACOES = {
   editar:a => { const d = E.lista.find(x => x.id === a); if(d) abrir(d, d.id === meuEmail()); },
   filtro:a => { E.filtroVal = a; document.querySelectorAll("#segVal button").forEach(b => b.classList.toggle("on", b.dataset.arg === a)); desenhar(); },
   "cpf-receita":() => cpfRecConferir(),
+  "senha-prov":() => gerarSenhaProvisoria(E.edit.d.email, E.edit.d.nome, $("btnSenhaProv")),
   "fi-aba":a => aba(a), fechar:() => fechar(), salvar:() => salvar(null), "val-validar":() => validarFicha(true), "val-ajustar":() => validarFicha(false),
   "lot-mais":() => { lerLot(); if(E.edit.lot.length < 10){ E.edit.lot.push({ escola_id:"", funcao:"", turno:"", turmas:"", ch:null }); desenharLot(); } },
   "lot-rm":a => { lerLot(); E.edit.lot.splice(+a, 1); desenharLot(); atualizarPct(); },

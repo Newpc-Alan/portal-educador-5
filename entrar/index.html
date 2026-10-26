@@ -1088,6 +1088,7 @@
       <div class="usr-aviso" id="usrAviso"></div>
     </div>
     <div class="mf usr-mf">
+      <button class="btn btn-ghost" data-action="usr-senha" id="usrSenha" title="Para quem não consegue entrar">🔑 Senha provisória</button>
       <button class="btn btn-ghost" data-action="usr-cancelar">Cancelar</button>
       <button class="btn btn-primary" data-action="usr-salvar" id="usrSalvar">Salvar</button>
     </div>
@@ -1320,7 +1321,79 @@
   }).finally(() => { try{ sessionStorage.removeItem("pde_login_redirect"); }catch(err){} });
   $("btnSair").addEventListener("click", () => signOut(auth));
 
+  // ===================== SENHA PROVISÓRIA =====================
+  // mostra a senha provisória uma única vez, com botões para copiar e para mandar por WhatsApp
+  function mostrarSenhaGerada(r){
+    const ate = new Date(r.expira_ms).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
+    const txt = "Olá, " + r.nome + "! Sua senha provisória do Portal do Educador é: " + r.senha + "\nEntre em app.portaldoeducador.com.br/entrar com seu e-mail e esta senha (opção “Entrar com e-mail e senha”). No primeiro acesso você cria a sua senha pessoal. Ela vale até " + ate + ".";
+    const m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalSenhaGerada";
+    m.innerHTML = '<div class="modal"><div class="mh"><h3>Senha provisória gerada</h3><p>' + escHtmlSP(r.nome) + ' · vale até ' + ate + '</p></div>' +
+      '<div class="mb"><div style="font:800 26px/1.2 ui-monospace,Consolas,monospace;letter-spacing:2px;text-align:center;background:#eef6ee;border:1px dashed #1a6b2a;border-radius:12px;padding:16px;color:#0f2c4a" id="spSenha">' + escHtmlSP(r.senha) + '</div>' +
+      '<p style="font-size:13px;margin-top:10px">Ela aparece só agora. Repasse para a pessoa (pessoalmente ou por WhatsApp). No primeiro login ela é obrigada a criar a própria senha.' + (r.google ? ' A conta Google dela continua funcionando.' : '') + '</p></div>' +
+      '<div class="mf"><button class="btn btn-ghost" data-sp="texto">Copiar mensagem</button><button class="btn btn-ghost" data-sp="senha">Copiar senha</button><button class="btn btn-primary" data-sp="ok">Fechar</button></div></div>';
+    document.body.appendChild(m);
+    m.addEventListener("click", async e => { const b = e.target.closest("[data-sp]"); if(!b) return;
+      if(b.dataset.sp === "ok"){ m.remove(); return; }
+      try{ await navigator.clipboard.writeText(b.dataset.sp === "senha" ? r.senha : txt); b.textContent = "Copiado!"; }catch(x){ prompt("Copie:", b.dataset.sp === "senha" ? r.senha : txt); } });
+  }
+  function escHtmlSP(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]); }
+  async function gerarSenhaProvisoria(email, nome, botao){
+    if(!confirm("Gerar uma senha provisória para " + (nome || email) + "?\n\nA senha atual do Portal (se houver) deixa de valer. A conta Google não muda.")) return;
+    const txt = botao ? botao.textContent : ""; if(botao){ botao.disabled = true; botao.textContent = "Gerando..."; }
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "senhaProvisoria", { timeout:30000 })({ email })).data;
+      mostrarSenhaGerada(r);
+    }catch(e){ console.warn(e); (typeof toast === "function" ? toast : alert)(e.message || "Não foi possível gerar a senha agora.", true); }
+    finally{ if(botao){ botao.disabled = false; botao.textContent = txt; } }
+  }
+
+  // quem entrou com a senha provisória (gerada pela escola, Secretaria ou NEWPC) cria a própria senha antes de usar o Portal
+  let trocandoSenha = false;
+  async function precisaTrocarSenha(user){
+    try{
+      const tk = await user.getIdTokenResult();
+      if(tk.signInProvider !== "password") return false;
+      const s = await getDoc(doc(db, "senhas_provisorias", user.uid));
+      if(!s.exists()) return false;
+      const p = s.data();
+      if(p.expira_em && p.expira_em.toMillis && p.expira_em.toMillis() < Date.now()){ await signOut(auth); showMsg("A senha provisória venceu. Peça uma nova à escola ou à Secretaria de Educação.", "error"); return true; }
+      mostrarTrocaSenha(user); return true;
+    }catch(e){ console.warn("senha provisória:", e.code || e); return false; }
+  }
+  function mostrarTrocaSenha(user){
+    trocandoSenha = true;
+    $("appView").style.display = "none"; $("loginView").style.display = "flex";
+    let m = $("modalTrocaSenha");
+    if(!m){
+      m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalTrocaSenha";
+      m.innerHTML = '<div class="modal"><div class="mh"><h3>Crie sua nova senha</h3><p>Você entrou com uma senha provisória. Para continuar, escolha a sua senha pessoal.</p></div>'+
+        '<div class="mb"><div class="field"><label for="tsNova">Nova senha</label><input type="password" id="tsNova" autocomplete="new-password" maxlength="64" placeholder="Pelo menos 8 caracteres, com letras e números"></div>'+
+        '<div class="field"><label for="tsConf">Repita a nova senha</label><input type="password" id="tsConf" autocomplete="new-password" maxlength="64"></div>'+
+        '<p style="font-size:12px;color:var(--muted)">Se você também usa a conta Google, ela continua funcionando normalmente.</p><div class="msg" id="tsMsg"></div></div>'+
+        '<div class="mf"><button class="btn btn-ghost" data-action="ts-sair">Sair</button><button class="btn btn-primary" data-action="ts-salvar" id="tsSalvar">Salvar e entrar</button></div></div>';
+      document.body.appendChild(m);
+      m.addEventListener("click", e => { const b = e.target.closest("[data-action]"); if(!b) return; if(b.dataset.action === "ts-sair"){ m.remove(); trocandoSenha = false; signOut(auth); } else if(b.dataset.action === "ts-salvar") salvarTrocaSenha(user); });
+    } else m.classList.add("show");
+    setTimeout(() => $("tsNova").focus(), 50);
+  }
+  async function salvarTrocaSenha(user){
+    const nova = $("tsNova").value, conf = $("tsConf").value, msg = (t, tipo) => { $("tsMsg").className = "msg " + (tipo || "error"); $("tsMsg").textContent = t; };
+    if(nova.length < 8 || !/[A-Za-z]/.test(nova) || !/\d/.test(nova)){ msg("A senha precisa ter pelo menos 8 caracteres, com letras e números."); return; }
+    if(nova !== conf){ msg("As duas senhas não são iguais."); return; }
+    const b = $("tsSalvar"); b.disabled = true; b.textContent = "Salvando...";
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      await httpsCallable(getFunctions(app, "southamerica-east1"), "trocarSenhaProvisoria", { timeout:30000 })({ nova });
+      await signInWithEmailAndPassword(auth, user.email, nova);       // renova a sessão já com a senha nova
+      $("modalTrocaSenha").remove(); trocandoSenha = false;
+      await carregarUsuario(auth.currentUser); abrirApp(); toast("Senha criada. Use ela nos próximos acessos.");
+    }catch(e){ console.warn(e); msg(e.message || "Não foi possível salvar a senha agora."); b.disabled = false; b.textContent = "Salvar e entrar"; }
+  }
+
   onAuthStateChanged(auth, async (user) => {
+    if(user && trocandoSenha) return;
+    if(user && await precisaTrocarSenha(user)) return;
     if(user){ await carregarUsuario(user); abrirApp(); }
     else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null; usuarioReal=null; guardarVerComo(null);
       ["lsFab","lsOverlay"].forEach(id => { const el = $(id); if(el) el.remove(); });
@@ -3655,6 +3728,7 @@
     $("usrPerfil").disabled = ehEu;
     document.querySelectorAll('#usrStatus input').forEach(r => { r.disabled = ehEu; });
     desenharModalUsuario();
+    $("usrSenha").hidden = ehEu || u.perfil === "admin" || !u.email;
     $("modalUsuario").classList.add("show");
   }
   function fecharModalUsuario(){ $("modalUsuario").classList.remove("show"); usr.editando = null; }
@@ -3958,6 +4032,7 @@
     else if(acao === "imp-limpar"){ imp.linhas = []; $("impTexto").value = ""; $("impPrevia").innerHTML = ""; }
     else if(acao === "usr-cancelar"){ fecharModalUsuario(); }
     else if(acao === "usr-salvar"){ salvarUsuario(); }
+    else if(acao === "usr-senha"){ const u = usr.editando && usr.lista.find(x => x.id === usr.editando.uid); if(u) gerarSenhaProvisoria(u.email, u.nome, $("usrSenha")); }
     else if(acao === "sim-entrar"){
       const muni = $("simMuni") ? $("simMuni").value : "";
       if(el.dataset.arg !== "admin" && !muni){ toast("Escolha a rede do teste.", true); return; }

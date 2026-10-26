@@ -485,6 +485,11 @@ service cloud.firestore {
         && (equipeDoServidor(resource.data) || (proprioServidor(email) && semValidarASi()));
       allow delete: if admin() || secretariaDoMuni(resource.data.municipio_id);
     }
+    // senha provisória: o próprio usuário só vê que tem uma (e quando vence); só as funções gravam
+    match /senhas_provisorias/{uid} {
+      allow read: if logado() && request.auth.uid == uid;
+      allow write: if false;
+    }
     // conferência do CPF na Receita (Serpro): só a função conferirCpfServidor grava; lê quem lê a ficha do servidor
     match /cpf_receita/{email} {
       allow read: if admin() || proprioServidor(email) || (resource != null && (secretariaDoMuni(resource.data.municipio_id) || gestorDoServidor(resource.data)));
