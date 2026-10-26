@@ -122,6 +122,12 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 .fi-corpo{padding:18px 22px;max-height:64vh;overflow:auto}
 .fi-rod{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line);background:#fbfcfe}
 .fi-rod .esp{flex:1}
+.foto-slot{display:flex;align-items:center;gap:14px;border:1.5px dashed #9cc89f;background:#f3faf3;border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.foto-slot.tem{border-style:solid;border-color:#d9e4ec;background:#fff}
+.fs-img{width:76px;height:76px;border-radius:12px;border:0;background:#e3ecf3;font-size:1.8rem;cursor:pointer;overflow:hidden;padding:0;flex:none;display:flex;align-items:center;justify-content:center}
+.fs-img img{width:100%;height:100%;object-fit:cover;display:block}
+.fs-tx{flex:1;min-width:0}.fs-tx b{display:block;color:var(--azul,#0f2c4a)}.fs-tx small{color:var(--muted);font-size:.8rem}
+@media (max-width:560px){.foto-slot{flex-wrap:wrap}.foto-slot .btn{width:100%}}
 .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
 .grade .dupla{grid-column:span 2}
 @media (max-width:640px){ .grade .dupla{grid-column:auto} }
@@ -255,6 +261,9 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
     <div class="fi-corpo">
       <div id="fiVal"></div>
       <div id="fa-id">
+        <div class="foto-slot" id="fotoSlot"><button type="button" class="fs-img" id="fsImg" data-action="foto" aria-label="Foto do servidor">📷</button>
+          <div class="fs-tx"><b>Foto para o crachá</b><small id="fsSub">Rosto de frente, fundo claro. Sai no crachá e na lista da equipe.</small></div>
+          <button type="button" class="btn btn-pri" data-action="foto" id="fsBtn">📷 Tirar foto</button></div>
         <div class="bloco"><h4>Servidor</h4><div class="grade">
           <label class="campo dupla">Nome completo *<input class="inp" id="f_nome" maxlength="80" autocomplete="off"></label>
           <label class="campo">Nome social<input class="inp" id="f_social" maxlength="80"></label>
@@ -340,6 +349,7 @@ const limpa = (v, n) => String(v ?? "").trim().replace(/\s+/g, " ").slice(0, n);
 const soDig = (v, n) => String(v || "").replace(/\D/g, "").slice(0, n);
 const hojeMS = () => new Intl.DateTimeFormat("en-CA", { timeZone:"America/Campo_Grande", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
 const dataBR = d => d && /^\d{4}-\d\d-\d\d/.test(d) ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
+const cpfValido = d => { d = String(d || ""); if(!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false; const dv = n => { let s = 0; for(let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; }; return dv(9) === +d[9] && dv(10) === +d[10]; };
 const cpfBonito = d => d.length === 11 ? d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9) : d;
 const emailOk = e => /^[^\s@\/]+@[^\s@\/]+\.[^\s@\/]+$/.test(e);
 const iniciais = n => String(n || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase() || "?";
@@ -369,7 +379,7 @@ const nomeQuem = () => String(E.u.nome || E.user.email || "").slice(0, 80);
 /* ===================== completude ===================== */
 function itens(d){
   const f = d.formacao || {};
-  return [["Foto", !!d.foto], ["Nascimento", !!d.nascimento], ["CPF", (d.cpf || "").length === 11], ["Celular", !!d.telefone], ["Matrícula funcional", !!d.matricula_func],
+  return [["Foto", !!d.foto], ["Nascimento", !!d.nascimento], ["CPF", cpfValido(d.cpf)], ["Celular", !!d.telefone], ["Matrícula funcional", !!d.matricula_func],
     ["Cargo e vínculo", !!(d.cargo && d.vinculo)], ["Lotação", (d.lotacao || []).length > 0], ["Escolaridade", !!f.escolaridade], ["Diploma ou certificado anexado", (d.documentos || []).some(x => x.tipo !== "rg_cpf" && x.tipo !== "outro")]];
 }
 const pct = d => { const it = itens(d); return Math.round(100 * it.filter(x => x[1]).length / it.length); };
@@ -484,10 +494,12 @@ function cabecalho(){
   const n = $("f_social").value.trim() || $("f_nome").value.trim() || "Nova ficha";
   $("fiNome").textContent = n;
   $("fiSub").textContent = [rot(CARGOS, $("f_cargo").value), $("f_email").value].filter(x => x && x !== "–").join(" · ");
-  const f = E.edit.foto, el = $("fiAv");
-  if(f.url){ el.innerHTML = '<img alt="" src="' + f.url + '">'; return; }
-  el.textContent = iniciais(n);
-  if(f.atual && !f.remover) urlFoto(f.atual).then(u => { if(u && E.edit && E.edit.foto.atual === f.atual && !E.edit.foto.url && !E.edit.foto.remover) el.innerHTML = '<img alt="" src="' + u + '">'; });
+  const f = E.edit.foto, el = $("fiAv"), g = $("fsImg"), tem = !!(f.url || (f.atual && !f.remover));
+  $("fotoSlot").classList.toggle("tem", tem); $("fsBtn").textContent = tem ? "Trocar foto" : "📷 Tirar foto"; $("fsBtn").className = tem ? "btn btn-gh" : "btn btn-pri";
+  $("fsSub").textContent = f.url ? "Foto nova: será gravada ao salvar a ficha." : tem ? "Foto cadastrada. Sai no crachá e na lista da equipe." : "Rosto de frente, fundo claro. Sai no crachá e na lista da equipe.";
+  if(f.url){ el.innerHTML = '<img alt="" src="' + f.url + '">'; g.innerHTML = '<img alt="" src="' + f.url + '">'; return; }
+  el.textContent = iniciais(n); g.textContent = "📷";
+  if(f.atual && !f.remover) urlFoto(f.atual).then(u => { if(u && E.edit && E.edit.foto.atual === f.atual && !E.edit.foto.url && !E.edit.foto.remover){ el.innerHTML = '<img alt="" src="' + u + '">'; g.innerHTML = '<img alt="" src="' + u + '">'; } });
 }
 function aba(x){ ["id", "lot", "for", "doc"].forEach(k => { $("fa-" + k).hidden = k !== x; }); document.querySelectorAll("#fiTabs button").forEach(b => b.classList.toggle("on", b.dataset.arg === x)); document.querySelector(".fi-corpo").scrollTop = 0; }
 
@@ -612,7 +624,8 @@ async function salvar(validar){
   const ed = E.edit, d = montar();
   if(d.nome.length < 2){ aba("id"); toast("Informe o nome completo.", true); return; }
   if(!emailOk(d.email)){ aba("id"); toast("Informe um e-mail válido: é ele que liga a ficha ao login.", true); return; }
-  if(d.cpf && d.cpf.length !== 11){ aba("id"); toast("CPF incompleto: são 11 números.", true); return; }
+  if(d.cpf && !cpfValido(d.cpf)){ aba("id"); toast(d.cpf.length !== 11 ? "CPF incompleto: são 11 números." : "CPF inválido: os dígitos verificadores não conferem.", true); return; }
+  { const dono = d.cpf && (E.lista || []).find(x => x.cpf === d.cpf && x.id !== (E.edit.d.email || d.email)); if(dono){ aba("id"); toast("Este CPF já está na ficha de " + (dono.nome || dono.id) + ".", true); return; } }
   if($("f_tel").value.trim() && !d.telefone){ aba("id"); toast("Celular inválido (use DDD + número).", true); return; }
   if(!d.cargo){ aba("lot"); toast("Escolha o cargo.", true); return; }
   if(!d.lotacao.length){ aba("lot"); toast("Informe pelo menos uma escola de lotação.", true); return; }
@@ -752,7 +765,7 @@ async function gravarImp(){
     const f = { ...(a.formacao || {}) }, reg = { ...a };
     delete reg.id; delete reg.atualizado_em;
     reg.email = email; reg.municipio_id = a.municipio_id || E.muni;
-    reg.nome = pega(a.nome, limpa(d0.nome, 80)) || a.nome; reg.cpf = pega(a.cpf, soDig(d0.cpf, 11).length === 11 ? soDig(d0.cpf, 11) : ""); reg.nascimento = pega(a.nascimento, parseData(d0.nasc));
+    reg.nome = pega(a.nome, limpa(d0.nome, 80)) || a.nome; reg.cpf = pega(a.cpf, cpfValido(soDig(d0.cpf, 11)) ? soDig(d0.cpf, 11) : ""); reg.nascimento = pega(a.nascimento, parseData(d0.nasc));
     reg.telefone = pega(a.telefone, telefone(d0.tel) || ""); reg.matricula_func = pega(a.matricula_func, limpa(d0.mat, 30)); reg.cargo = pega(a.cargo, mapa(CARGO_MAP, d0.cargo) || (d0.cargo ? "outro" : ""));
     reg.vinculo = pega(a.vinculo, mapa(VINC_MAP, d0.vinc)); const ch = +soDig(d0.ch, 2); reg.carga_horaria = pega(a.carga_horaria, ch > 0 && ch <= 80 ? ch : null);
     f.escolaridade = pega(f.escolaridade, mapa(ESC_MAP, d0.escol) || (d0.grad ? "superior" : ""));
@@ -884,7 +897,7 @@ document.addEventListener("change", ev => {
   else if(t.id === "impArquivo" && t.files[0]){ lerArquivo(t.files[0]); t.value = ""; }
   else if(t.id === "docArq" && t.files[0]) anexar(t.files[0]);
   else if(t.id === "fotoArq" && t.files[0]){ deArquivo(t.files[0]); t.value = ""; }
-  else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && d.length !== 11); }
+  else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && !cpfValido(d)); }
   else if(t.dataset && t.dataset.c === "whatsapp"){ const w = telefone(t.value); t.classList.toggle("erro", w === null); if(w) t.value = telBonito(w); }
   if(t.closest && t.closest(".chips") && t.type === "checkbox") t.closest("label").classList.toggle("on", t.checked);
   if(E.edit && t.closest && t.closest(".fi-corpo")){ atualizarPct(); if(t.id === "f_cargo") cabecalho(); }

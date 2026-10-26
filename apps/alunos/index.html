@@ -428,6 +428,7 @@ function telefone(v){
 const telBonito = d => !d ? "" : "(" + d.slice(2, 4) + ") " + (d.length === 13 ? d.slice(4, 9) + "-" + d.slice(9) : d.slice(4, 8) + "-" + d.slice(8));
 const emailOk = e => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 const soDig = (v, n) => String(v || "").replace(/\D/g, "").slice(0, n);
+const cpfValido = d => { d = String(d || ""); if(!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false; const dv = n => { let s = 0; for(let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; }; return dv(9) === +d[9] && dv(10) === +d[10]; };
 const cpfBonito = d => d.length === 11 ? d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9) : d;
 function idade(nasc){ if(!nasc) return ""; const h = hojeMS(); let i = +h.slice(0, 4) - +nasc.slice(0, 4); if(h.slice(5) < nasc.slice(5)) i--; return i >= 0 && i < 80 ? i : ""; }
 const dataBR = d => d && /^\d{4}-\d\d-\d\d$/.test(d) ? d.slice(8) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : "";
@@ -759,7 +760,7 @@ async function salvar(){
   if(nome.length < 2){ aba("id"); toast("Informe o nome completo do aluno.", true); $("f_nome").focus(); return; }
   if(!t){ aba("id"); toast("Escolha a turma.", true); return; }
   const nasc = $("f_nasc").value; if(nasc && (nasc > hojeMS() || nasc < "1990-01-01")){ aba("id"); toast("Data de nascimento inválida.", true); return; }
-  const cpf = soDig($("f_cpf").value, 11); if(cpf && cpf.length !== 11){ aba("id"); toast("CPF incompleto: são 11 números.", true); return; }
+  const cpf = soDig($("f_cpf").value, 11); if(cpf && !cpfValido(cpf)){ aba("id"); toast(cpf.length !== 11 ? "CPF incompleto: são 11 números." : "CPF inválido: os dígitos verificadores não conferem.", true); return; }
   if($("f_em_tel").value.trim() && telefone($("f_em_tel").value) === null){ aba("sau"); toast("Telefone de emergência inválido.", true); return; }
   const { resp, erros } = respValidos(); if(erros.length){ aba("end"); toast(erros[0], true); return; }
   if(!ed.id){ const dup = E.alunos.find(a => norm(a.nome) === norm(nome) && (!nasc || !a.nascimento || a.nascimento === nasc));
@@ -1121,7 +1122,7 @@ async function previa(){
       r.turma = t; r.st = "novo"; r.txt = limpa(d.nome, 80) + " · " + t.nome;
     }
     for(const n of ["1", "2"]){ const w = d["w" + n]; if(w && telefone(w) === null) r.avisos.push("telefone " + n + " inválido"); if(d["e" + n] && !emailOk(String(d["e" + n]).trim())) r.avisos.push("e-mail " + n + " inválido"); }
-    if(d.cpf && soDig(d.cpf, 11).length !== 11) r.avisos.push("CPF incompleto");
+    if(d.cpf && !cpfValido(soDig(d.cpf, 11))) r.avisos.push(soDig(d.cpf, 11).length !== 11 ? "CPF incompleto" : "CPF inválido (ignorado)");
     r.msg = r.st === "novo" ? "Matrícula nova" : r.turma ? "Completa a ficha · muda para " + r.turma.nome : "Completa a ficha";
     return r;
   });
@@ -1156,7 +1157,7 @@ function linhaParaDocs(r, subst, alertasOn){
   // ficha
   const fx = E.impEx.fichas[id] || {}, fi = {}, en = {}, tr = {}, vi = {}, pr = {};
   const sx = norm(d.sexo); poe(fi, "sexo", pega(fx.sexo, /^f/.test(sx) ? "F" : /^m/.test(sx) ? "M" : "", subst));
-  poe(fi, "naturalidade", pega(fx.naturalidade, limpa(d.natural, 80), subst)); poe(fi, "cpf", pega(fx.cpf, soDig(d.cpf, 11).length === 11 ? soDig(d.cpf, 11) : "", subst));
+  poe(fi, "naturalidade", pega(fx.naturalidade, limpa(d.natural, 80), subst)); poe(fi, "cpf", pega(fx.cpf, cpfValido(soDig(d.cpf, 11)) ? soDig(d.cpf, 11) : "", subst));
   poe(fi, "nis", pega(fx.nis, soDig(d.nis, 14), subst)); poe(fi, "sus", pega(fx.sus, soDig(d.sus, 18), subst)); poe(fi, "certidao", pega(fx.certidao, limpa(d.certidao, 60), subst));
   const fen = fx.endereco || {}; poe(en, "cep", pega(fen.cep, soDig(d.cep, 8), subst)); poe(en, "rua", pega(fen.rua, limpa(d.rua, 120), subst)); poe(en, "numero", pega(fen.numero, limpa(d.numero, 12), subst));
   poe(en, "complemento", pega(fen.complemento, limpa(d.comp, 60), subst)); poe(en, "bairro", pega(fen.bairro, limpa(d.bairro, 80), subst)); poe(en, "cidade", pega(fen.cidade, limpa(d.cidade, 80), subst));
@@ -1336,7 +1337,7 @@ document.addEventListener("change", ev => {
   else if(t.id === "fotoArq" && t.files[0]){ fotoDeArquivo(t.files[0]); t.value = ""; }
   else if(t.dataset && t.dataset.c === "whatsapp"){ const w = telefone(t.value); t.classList.toggle("erro", w === null); if(w) t.value = telBonito(w); }
   else if(t.dataset && t.dataset.c === "email") t.classList.toggle("erro", !emailOk(String(t.value).trim()));
-  else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && d.length !== 11); }
+  else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && !cpfValido(d)); }
   else if(t.id === "f_cep"){ const d = soDig(t.value, 8); t.value = d.length === 8 ? d.slice(0, 5) + "-" + d.slice(5) : d; }
   else if(t.id === "f_nat_uf"){ $("dl_nat").innerHTML = ""; carregarCidades(t.value, "dl_nat").then(() => conferirCidade($("f_natural"), t.value, natDica)); }
   else if(t.id === "f_natural") conferirCidade(t, $("f_nat_uf").value, (x, k) => natDica(x || (!$("f_nat_uf").value && t.value.trim() ? "Escolha a UF" : ""), x ? k : (!$("f_nat_uf").value && t.value.trim() ? "erro" : "")));
