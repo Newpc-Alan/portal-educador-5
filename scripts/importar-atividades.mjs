@@ -41,3 +41,4 @@ while (true) {
 }
 await A.atualizarResumo();
 console.log('FIM');
+process.exit(0);   // o firebase-admin deixa conexões abertas: sem isto o processo não termina
