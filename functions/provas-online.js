@@ -36,15 +36,28 @@ async function guardarImagem(provaId, i, src) {
   return `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(caminho)}?alt=media&token=${token}`;
 }
 
-// alunos da turma: conta de aluno ativa na mesma escola e com o mesmo nome de turma (sem diferenciar acento, espaço e "º")
-async function alunosDaTurma(turma) {
+// alunos da turma:
+//  - pela MATRÍCULA (Ficha do Aluno): todo aluno ativo da turma, com ou sem conta; ele entra com código + PIN ou com o Google da escola
+//    e é reconhecido pelo claim aluno_id. A tentativa fica em po_tentativas/m-<id da matrícula>.
+//  - contas antigas de aluno sem matrícula ligada: mesma escola e mesmo nome de turma (sem diferenciar acento, espaço e "º")
+async function alunosDaTurma(turmaId, turma) {
   const db = getFirestore(), alvo = semAcento(turma.nome).replace(/\bano\b|º|ª/g, '').replace(/\s+/g, '');
-  const s = await db.collection('usuarios').where('perfil', '==', 'aluno').where('escola_id', '==', turma.escola_id).get();
-  const lista = [];
-  s.forEach(d => { const u = d.data(); if (u.status !== 'ativo') return;
+  const [sm, s] = await Promise.all([db.collection('alunos').where('turma_id', '==', turmaId).get(),
+    db.collection('usuarios').where('perfil', '==', 'aluno').where('escola_id', '==', turma.escola_id).get()]);
+  const mat = [], contas = [];
+  sm.forEach(d => { const a = d.data(); if (a.status === 'inativo' || !a.nome) return; mat.push({ uid: 'm-' + d.id, aluno_id: d.id, nome: txt(a.nome_social || a.nome, 80) }); });
+  s.forEach(d => { const u = d.data(); if (u.status !== 'ativo' || u.aluno_id) return;
     const t = semAcento(u.turma_nome).replace(/\bano\b|º|ª/g, '').replace(/\s+/g, '');
-    if (t && t === alvo) lista.push({ uid: d.id, nome: txt(u.nome || u.email, 80) }); });
-  return lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    if (t && t === alvo) contas.push({ uid: d.id, nome: txt(u.nome || u.email, 80) }); });
+  const ord = (a, b) => a.nome.localeCompare(b.nome, 'pt-BR');
+  return { lista: [...mat, ...contas].sort(ord), ids: mat.map(a => a.aluno_id), uids: contas.map(a => a.uid) };
+}
+// quem é o aluno nesta prova: a matrícula (claim aluno_id) ou, nas contas antigas, o próprio uid
+export const chaveAluno = (auth) => auth.token && auth.token.aluno_id ? 'm-' + auth.token.aluno_id : auth.uid;
+function alunoDaProva(p, auth) {
+  if (auth.token && auth.token.aluno_id && (p.alunos_ids || []).includes(auth.token.aluno_id)) return 'm-' + auth.token.aluno_id;
+  if ((p.alunos_uids || []).includes(auth.uid)) return auth.uid;
+  return '';
 }
 
 export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120, memory: '512MiB' }, async (req) => {
@@ -69,8 +82,8 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   const qs = Array.isArray(d.questoes) ? d.questoes.filter(q => q && TIPOS.includes(q.tipo) && String(q.enun || '').trim()) : [];
   if (!qs.length) throw new HttpsError('invalid-argument', 'A prova não tem questões.');
   if (qs.length > 100) throw new HttpsError('invalid-argument', 'Máximo de 100 questões.');
-  const alunos = await alunosDaTurma(turma);
-  if (!alunos.length) throw new HttpsError('failed-precondition', 'Nenhum aluno da turma "' + turma.nome + '" tem conta no Portal ainda.');
+  const R = await alunosDaTurma(d.turma_id, turma), alunos = R.lista;
+  if (!alunos.length) throw new HttpsError('failed-precondition', 'A turma "' + turma.nome + '" ainda não tem alunos matriculados. Cadastre na Ficha do Aluno.');
   const ref = db.collection('provas_online').doc(), pub = [], gab = {};
   let total = 0, objetivas = 0;
   for (let i = 0; i < qs.length; i++) {
@@ -94,12 +107,12 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     professor_uid: u.uid, professor_nome: txt(u.nome, 80), titulo: txt(d.titulo || 'Prova', 120), disciplina: txt(d.disciplina, 60),
     turma_id: d.turma_id, turma_nome: txt(turma.nome, 80), escola_id: turma.escola_id || '', municipio_id: turma.municipio_id || u.municipio_id || '',
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
-    questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: alunos.map(a => a.uid), alunos: alunos.slice(0, 200),
+    questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
     status: 'agendada', nota_liberada: false, criado_em: FieldValue.serverTimestamp()
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
-  return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length };
+  return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length, matriculas: R.ids.length };
 });
 
 // embaralha de forma determinística por aluno
@@ -111,9 +124,10 @@ function embaralhar(arr, semente) {
 export const iniciarProvaOnline = onCall({ region: REGIAO }, async (req) => {
   const u = await quem(req), id = String((req.data || {}).id || ''), db = getFirestore();
   const pref = db.doc(`provas_online/${id}`), p = (await pref.get()).data();
-  if (!p || !(p.alunos_uids || []).includes(u.uid)) throw new HttpsError('not-found', 'Prova não encontrada para você.');
+  const chave = p ? alunoDaProva(p, req.auth) : '';
+  if (!chave) throw new HttpsError('not-found', 'Prova não encontrada para você.');
   const agora = Date.now();
-  const tref = pref.collection('po_tentativas').doc(u.uid);
+  const tref = pref.collection('po_tentativas').doc(chave);
   return db.runTransaction(async tx => {
     const t = (await tx.get(tref)).data();
     if (t) return { situacao: t.status, prazo: ms(t.prazo), agora };
@@ -121,10 +135,10 @@ export const iniciarProvaOnline = onCall({ region: REGIAO }, async (req) => {
     if (agora < ms(p.abre_em)) throw new HttpsError('failed-precondition', 'A prova ainda não abriu.');
     if (agora > ms(p.fecha_em)) throw new HttpsError('failed-precondition', 'O horário da prova terminou.');
     const prazo = Math.min(agora + p.duracao_min * 60000, ms(p.fecha_em));
-    const ordem = p.embaralhar ? embaralhar(p.questoes.map(q => q.id), u.uid + id) : p.questoes.map(q => q.id);
+    const ordem = p.embaralhar ? embaralhar(p.questoes.map(q => q.id), chave + id) : p.questoes.map(q => q.id);
     const alts = {};
-    if (p.embaralhar) p.questoes.forEach(q => { if (q.alts) alts[q.id] = embaralhar(q.alts.map((_, i) => i), u.uid + q.id); });
-    tx.set(tref, { uid: u.uid, nome: txt(u.nome || u.email, 80), status: 'em_andamento', inicio: Timestamp.fromMillis(agora), prazo: Timestamp.fromMillis(prazo),
+    if (p.embaralhar) p.questoes.forEach(q => { if (q.alts) alts[q.id] = embaralhar(q.alts.map((_, i) => i), chave + q.id); });
+    tx.set(tref, { uid: chave, conta_uid: u.uid, nome: txt(((p.alunos || []).find(a => a.uid === chave) || {}).nome || u.nome || u.email, 80), status: 'em_andamento', inicio: Timestamp.fromMillis(agora), prazo: Timestamp.fromMillis(prazo),
       ordem, ordem_alts: alts, respostas: {}, desvios: 0, avisos_max: p.avisos_max, eventos: [], atualizado_em: FieldValue.serverTimestamp() });
     return { situacao: 'em_andamento', prazo, agora };
   });
@@ -161,11 +175,12 @@ async function finalizar(provaId, uid, motivo) {
   });
 }
 export const entregarProvaOnline = onCall({ region: REGIAO }, async (req) => {
-  const u = await quem(req), id = String((req.data || {}).id || '');
-  const t = (await getFirestore().doc(`provas_online/${id}/po_tentativas/${u.uid}`).get()).data();
+  await quem(req); const id = String((req.data || {}).id || '');
+  const p = (await getFirestore().doc(`provas_online/${id}`).get()).data() || {}, chave = alunoDaProva(p, req.auth) || chaveAluno(req.auth);
+  const t = (await getFirestore().doc(`provas_online/${id}/po_tentativas/${chave}`).get()).data();
   if (!t) throw new HttpsError('not-found', 'Tentativa não encontrada.');
   if (t.status === 'bloqueada') throw new HttpsError('failed-precondition', 'A prova está bloqueada. Chame o professor.');
-  const r = await finalizar(id, u.uid, ms(t.prazo) < Date.now() ? 'tempo' : 'aluno');
+  const r = await finalizar(id, chave, ms(t.prazo) < Date.now() ? 'tempo' : 'aluno');
   return { ok: true, ja: !!r.ja };
 });
 

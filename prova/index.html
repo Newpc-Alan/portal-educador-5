@@ -119,13 +119,13 @@ function aparelho(){
   return "Outro aparelho";
 }
 const ICO_AP = { "Chromebook":"💻", "Windows":"🖥️", "Mac":"🖥️", "Linux":"🖥️", "iPad":"📱", "Tablet Android":"📱", "iPhone":"📱", "Celular Android":"📱" };
-const tref = () => doc(db, "provas_online", E.prova.id, "po_tentativas", E.user.uid);
+const tref = () => doc(db, "provas_online", E.prova.id, "po_tentativas", E.chave);
 
 /* =================== LISTAS =================== */
 async function lista(){
   const prof = ["professor", "gestor", "admin"].includes(E.u.perfil);
   $("topoT").textContent = prof ? "Minhas provas online" : "Minhas provas";
-  const q = prof ? query(collection(db, "provas_online"), where("professor_uid", "==", E.user.uid)) : query(collection(db, "provas_online"), where("alunos_uids", "array-contains", E.user.uid));
+  const q = prof ? query(collection(db, "provas_online"), where("professor_uid", "==", E.user.uid)) : (E.alunoId ? query(collection(db, "provas_online"), where("alunos_ids", "array-contains", E.alunoId)) : query(collection(db, "provas_online"), where("alunos_uids", "array-contains", E.user.uid)));
   let l = [];
   try{ const s = await getDocs(q); s.forEach(d => l.push({ id:d.id, ...d.data() })); }catch(e){ $("tela").innerHTML = '<div class="card vazio">Não foi possível carregar ('+esc(e.code || "erro")+').</div>'; return; }
   l = l.filter(p => p.status !== "cancelada").sort((a, b) => ms(b.abre_em) - ms(a.abre_em));
@@ -146,7 +146,7 @@ async function telaAluno(id){
   try{ const s = await getDoc(doc(db, "provas_online", id)); if(!s.exists()) throw { code:"not-found" }; E.prova = { id:s.id, ...s.data() }; }
   catch(e){ $("tela").innerHTML = '<div class="card vazio">Prova não encontrada para você.</div>'; return; }
   $("topoT").textContent = E.prova.titulo;
-  const tref = doc(db, "provas_online", id, "po_tentativas", E.user.uid);
+  const tref = doc(db, "provas_online", id, "po_tentativas", E.chave);
   E.unsub.push(onSnapshot(tref, s => { E.tent = s.exists() ? s.data() : null; reagirTentativa(); }, () => { E.tent = null; reagirTentativa(); }));
 }
 function reagirTentativa(){
@@ -279,7 +279,7 @@ async function salvar(){
   const p = E.pend; if(!Object.keys(p).length) return;
   E.pend = {};
   const upd = { atualizado_em:serverTimestamp() }; Object.entries(p).forEach(([k, v]) => upd["respostas." + k] = v);
-  try{ await updateDoc(doc(db, "provas_online", E.prova.id, "po_tentativas", E.user.uid), upd); if($("exSalvo")) $("exSalvo").textContent = "✓ Salvo"; }
+  try{ await updateDoc(doc(db, "provas_online", E.prova.id, "po_tentativas", E.chave), upd); if($("exSalvo")) $("exSalvo").textContent = "✓ Salvo"; }
   catch(e){ E.pend = { ...p, ...E.pend }; if($("exSalvo")) $("exSalvo").textContent = "⚠ Sem conexão: tentando de novo..."; clearTimeout(E.salvarT); E.salvarT = setTimeout(salvar, 3000); }
 }
 function tique(){
@@ -303,7 +303,7 @@ async function entregar(tempo){
 function telaEntregue(){
   const p = E.prova, fe = ms(p.fecha_em);
   $("tela").innerHTML = '<div class="card" style="text-align:center"><div style="font-size:3rem">✅</div><h1>Prova entregue</h1><p class="sub">'+esc(p.titulo)+'</p><div id="nota" style="margin-top:16px"><p>A nota aparece depois das <b>'+hora(fe)+'</b> de '+dia(fe)+'.</p></div><p style="margin-top:18px"><a class="btn btn-pri" href="/entrar/">Voltar ao Portal</a></p></div>';
-  getDoc(doc(db, "provas_online", p.id, "po_resultados", E.user.uid)).then(s => {
+  getDoc(doc(db, "provas_online", p.id, "po_resultados", E.chave)).then(s => {
     if(!s.exists()) return;
     const r = s.data(), qs = p.questoes;
     $("nota").innerHTML = r.pendentes ? '<p style="font-size:1.1rem">Parcial: <b>'+r.pontos_auto+'</b> de '+r.total+' pontos</p><p class="sub">'+r.pendentes+' questão(ões) aguardando a correção do professor.</p>'
@@ -318,7 +318,7 @@ function desvio(motivo){
   if(!E.ativo || E.desarmar || E.entregando || !E.tent || E.tent.status !== "em_andamento") return;
   const t = Date.now(); if(t - E.ultDesvio < 2500) return; E.ultDesvio = t;
   const n = (E.tent.desvios || 0) + 1, max = E.tent.avisos_max ?? 1;
-  const tref = doc(db, "provas_online", E.prova.id, "po_tentativas", E.user.uid);
+  const tref = doc(db, "provas_online", E.prova.id, "po_tentativas", E.chave);
   const ev = { t:Date.now(), e:"desvio", m:motivo };
   if(n > max){
     clearTimeout(E.salvarT); salvar();
@@ -441,10 +441,13 @@ document.addEventListener("click", e => {
 
 /* =================== ENTRADA =================== */
 onAuthStateChanged(auth, async user => {
-  if(!user){ location.replace("/entrar/"); return; }
+  if(!user){ location.replace("/entrar/?como=aluno&volta=" + encodeURIComponent(location.pathname + location.search)); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
   E.user = user; E.u = u;
+  // aluno da matrícula (código + PIN ou Google da escola): a tentativa é da matrícula, não da conta
+  try{ const tk = await user.getIdTokenResult(); E.alunoId = tk.claims.aluno_id || ""; }catch(e){ E.alunoId = ""; }
+  E.chave = E.alunoId ? "m-" + E.alunoId : user.uid;
   if(params.get("painel")) painel(params.get("painel"));
   else if(params.get("id")) telaAluno(params.get("id"));
   else lista();

@@ -811,6 +811,7 @@
   .dc-vazio{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--muted)}
   @media (max-width:640px){ .dc-item{flex-wrap:wrap} .dc-acoes{width:100%;justify-content:flex-start} .dc-hist{margin-left:0} }
 </style>
+<script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
 </head>
 <body>
 
@@ -830,6 +831,21 @@
   .link-enviado p.pq{ font-size:12.5px;color:var(--muted) }
   .link-enviado .acoes{ display:flex;gap:8px;margin-top:10px }
   .link-enviado .field{ text-align:left;margin:10px 0 }
+  .al-cod{ border:2px solid #8DC63F;background:#f6fbef;border-radius:14px;padding:14px;margin:0 0 14px }
+  .al-cod .tit{ font-weight:800;color:#0c2338;font-size:15px;margin-bottom:8px;display:block }
+  .al-cod .lin{ display:grid;grid-template-columns:1.4fr 1fr;gap:8px }
+  .al-cod input{ width:100%;font:800 20px/1.2 ui-monospace,Consolas,monospace;letter-spacing:3px;text-transform:uppercase;text-align:center;padding:12px 8px;border:1.5px solid #cfdccf;border-radius:10px }
+  .al-cod small{ display:block;font-size:11.5px;color:#55657a;margin-top:2px;text-align:center }
+  .al-cod .acoes{ display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px }
+  .qr-palco{ position:relative;width:100%;max-width:340px;aspect-ratio:1;margin:0 auto;border-radius:14px;overflow:hidden;background:#0c2338 }
+  .qr-palco video{ width:100%;height:100%;object-fit:cover }
+  .acesso-passos{ display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0 16px }
+  .acesso-passos .ps{ background:#fff;border:1px solid var(--borda,#dfe7ef);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column }
+  .acesso-passos .ps p{ flex:1;line-height:1.4 } .acesso-passos .ps .btn{ text-decoration:none;width:100%;display:flex;justify-content:center;align-items:center;height:auto;min-height:40px;margin:0 }
+  .acesso-passos .ps b{ display:block;color:#0f2c4a;margin-bottom:4px } .acesso-passos .ps p{ font-size:12.5px;color:var(--muted);margin:0 0 8px }
+  .acesso-passos .n{ display:inline-flex;width:22px;height:22px;border-radius:50%;background:#1a6b2a;color:#fff;font-size:12px;font-weight:800;align-items:center;justify-content:center;margin-right:6px }
+  @media (max-width:760px){ .acesso-passos{ grid-template-columns:1fr } }
+  .cod-pin{ font:800 14px ui-monospace,Consolas,monospace;letter-spacing:1px;color:#0f2c4a }
   .como-nota{ font-size:13.5px;color:#0c2338;background:#f1f8e6;border:1px solid #d7ebb9;border-radius:10px;padding:10px 12px;margin:0 0 14px;line-height:1.45 }
   .aluno-aviso{ max-width:560px;margin:30px auto;text-align:center }
   .aluno-aviso .pico{ font-size:46px }
@@ -860,7 +876,13 @@
         <button type="button" class="como-op on" data-como="professor" role="radio" aria-checked="true"><span aria-hidden="true">👩‍🏫</span>Sou professor</button>
         <button type="button" class="como-op" data-como="aluno" role="radio" aria-checked="false"><span aria-hidden="true">🎒</span>Sou aluno</button>
       </div>
-      <p class="como-nota" id="comoNota" hidden>Entre com a <b>conta Google da sua escola</b> ou receba um <b>link de acesso</b> no e-mail que a escola te deu.</p>
+      <div class="al-cod" id="alCodBox" hidden>
+        <span class="tit">🎫 Entrar com o código da carteirinha</span>
+        <div class="lin"><div><input id="alCodigo" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CÓDIGO" aria-label="Código"><small>Código (6 letras/números)</small></div>
+          <div><input id="alPin" maxlength="4" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="PIN" type="password"><small>PIN (4 números)</small></div></div>
+        <div class="acoes"><button class="btn btn-primary" id="btnAlCodigo" type="button">Entrar</button><button class="btn btn-ghost" id="btnAlQr" type="button" title="Ler o QR da carteirinha">📷 Ler QR</button></div>
+      </div>
+      <p class="como-nota" id="comoNota" hidden>Tem e-mail da escola? Entre com a <b>conta Google da escola</b> ou receba um <b>link de acesso</b> no e-mail.</p>
 <button class="btn btn-google" id="btnGoogle">
         <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.6 2.4-7.2 2.4-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C39.9 36.5 44 31 44 24c0-1.3-.1-2.3-.4-3.5z"/></svg>
         Entrar com Google
@@ -1242,12 +1264,58 @@
     try{ sessionStorage.setItem("pde_como", como); }catch(e){}
     const al = como === "aluno";
     document.querySelectorAll(".como-op").forEach(b => { const on = b.dataset.como === como; b.classList.toggle("on", on); b.setAttribute("aria-checked", on ? "true" : "false"); });
-    $("lnkSenha").hidden = al; if(al) mostrarSenha(false); $("comoNota").hidden = !al;
+    $("lnkSenha").hidden = al; if(al) mostrarSenha(false); $("comoNota").hidden = !al; $("alCodBox").hidden = !al;
     $("loginTit").textContent = al ? "Entrar como aluno" : "Acesse sua conta";
     $("loginSub").textContent = al ? "Vídeos, jogos, desenhos, histórias e muito mais para aprender brincando." : "Recursos pedagógicos, turmas e avaliações em um só lugar.";
     $("loginFoot").textContent = al ? "Acesso para alunos das redes que usam o Portal" : "Acesso restrito a secretarias, escolas e professores";
     clearMsg();
   }
+  // ---------- aluno: código + PIN (conta técnica da matrícula) e QR da carteirinha ----------
+  const ALUNO_DOM = "aluno.portaldoeducador.com.br";
+  const codLimpo = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  $("alCodigo").addEventListener("input", e => { e.target.value = codLimpo(e.target.value); if(e.target.value.length === 6) $("alPin").focus(); });
+  $("alPin").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 4); if(e.target.value.length === 4) entrarComCodigo(); });
+  $("alPin").addEventListener("keydown", e => { if(e.key === "Enter") entrarComCodigo(); });
+  $("btnAlCodigo").addEventListener("click", () => entrarComCodigo());
+  async function entrarComCodigo(){
+    const c = codLimpo($("alCodigo").value), p = $("alPin").value.replace(/\D/g, "");
+    if(c.length !== 6){ showMsg("Digite o código de 6 letras e números da carteirinha.", "error"); $("alCodigo").focus(); return; }
+    if(p.length !== 4){ showMsg("Digite o PIN de 4 números.", "error"); $("alPin").focus(); return; }
+    const b = $("btnAlCodigo"); if(b.disabled) return; b.disabled = true; b.textContent = "Entrando...";
+    try{ await signInWithEmailAndPassword(auth, c.toLowerCase() + "@" + ALUNO_DOM, "pde." + c + "." + p); }
+    catch(e){ console.warn(e.code); $("alPin").value = "";
+      showMsg(e.code === "auth/too-many-requests" ? "Muitas tentativas. Espere alguns minutos e tente de novo." : "Código ou PIN não conferem. Confira na carteirinha ou peça ao professor.", "error"); $("alPin").focus(); }
+    finally{ b.disabled = false; b.textContent = "Entrar"; }
+  }
+  // QR da carteirinha: BarcodeDetector do navegador ou jsQR
+  const qrAl = { stream:null, ativo:false };
+  function pararQrAluno(){ qrAl.ativo = false; if(qrAl.stream){ qrAl.stream.getTracks().forEach(t => t.stop()); qrAl.stream = null; } const m = $("modalQrAluno"); if(m) m.remove(); }
+  $("btnAlQr").addEventListener("click", async () => {
+    pararQrAluno();
+    const m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalQrAluno";
+    m.innerHTML = '<div class="modal"><div class="mh"><h3>Mostre o QR da carteirinha</h3><p>Segure a carteirinha na frente da câmera.</p></div><div class="mb"><div class="qr-palco"><video id="qrAlVideo" playsinline muted></video></div><div class="msg" id="qrAlMsg"></div></div><div class="mf"><button class="btn btn-ghost" id="qrAlFechar" type="button">Cancelar</button></div></div>';
+    document.body.appendChild(m); $("qrAlFechar").addEventListener("click", pararQrAluno);
+    try{ qrAl.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" }, audio:false }); }
+    catch(e){ $("qrAlMsg").className = "msg error"; $("qrAlMsg").textContent = "Não foi possível ligar a câmera. Digite o código da carteirinha."; return; }
+    const v = $("qrAlVideo"); v.srcObject = qrAl.stream; await v.play().catch(() => {}); qrAl.ativo = true;
+    let det = null; try{ if("BarcodeDetector" in window) det = new window.BarcodeDetector({ formats:["qr_code"] }); }catch(e){}
+    const cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently:true });
+    const ler = async () => {
+      if(!qrAl.ativo) return; let txt = "";
+      try{
+        if(det){ const r = await det.detect(v); if(r && r[0]) txt = r[0].rawValue; }
+        else if(window.jsQR && v.videoWidth){ const w = 480, h = Math.round(w * v.videoHeight / v.videoWidth) || 360; cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h); const r = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts:"dontInvert" }); if(r && r.data) txt = r.data; }
+      }catch(e){}
+      if(txt && /^PDEA:/.test(txt)){ qrAl.ativo = false; $("qrAlMsg").className = "msg"; $("qrAlMsg").textContent = "Lendo...";
+        try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+          const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "codigoAlunoQr", { timeout:20000 })({ qr:txt })).data;
+          pararQrAluno(); $("alCodigo").value = r.codigo; $("alPin").value = ""; $("alPin").focus(); showMsg("Carteirinha lida. Agora digite o seu PIN.", "success"); }
+        catch(e){ $("qrAlMsg").className = "msg error"; $("qrAlMsg").textContent = e.message || "Não foi possível ler esta carteirinha."; setTimeout(() => { if($("modalQrAluno")){ qrAl.ativo = true; ler(); } }, 2500); }
+        return; }
+      setTimeout(ler, det ? 250 : 350);
+    };
+    ler();
+  });
   document.querySelector(".como").addEventListener("click", (e) => { const b = e.target.closest("[data-como]"); if(b) definirComo(b.dataset.como); });
   (function(){
     const q = new URLSearchParams(location.search).get("como");
@@ -1394,7 +1462,11 @@
   onAuthStateChanged(auth, async (user) => {
     if(user && trocandoSenha) return;
     if(user && await precisaTrocarSenha(user)) return;
-    if(user){ await carregarUsuario(user); abrirApp(); }
+    if(user){ await carregarUsuario(user);
+      // volta para a página que pediu o login (ex.: a prova online), só dentro do próprio Portal
+      const volta = new URLSearchParams(location.search).get("volta");
+      if(volta && /^\/(?!\/)[\w\-./?=&%]*$/.test(volta) && usuarioAtual && !usuarioAtual.semCadastro && usuarioAtual.status === "ativo"){ location.replace(volta); return; }
+      abrirApp(); }
     else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null; usuarioReal=null; guardarVerComo(null);
       ["lsFab","lsOverlay"].forEach(id => { const el = $(id); if(el) el.remove(); });
       lousa.montada = false; lousa.carregada = false; document.documentElement.style.overflow = ""; }
@@ -1406,7 +1478,15 @@
                   email:user.email||"", perfil:"professor", municipio_id:null, escola_id:null };
     try{
       const snap = await getDoc(ref);
-      if(snap.exists()){ dados = { ...dados, ...snap.data() }; }
+      let snapU = snap;
+      // aluno com o Google da escola: o e-mail está na Ficha do Aluno -> a conta se liga à matrícula (uma vez)
+      if(user.email && user.emailVerified && (!snap.exists() || (snap.data().perfil === "aluno" && !snap.data().aluno_id)) && !String(user.email).endsWith("@" + ALUNO_DOM)){
+        try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+          const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "vincularContaAluno", { timeout:20000 })({})).data;
+          if(r && r.renovar){ await user.getIdToken(true); snapU = await getDoc(ref); } }
+        catch(e){ console.warn("vínculo do aluno:", e.code || e); }
+      }
+      if(snapU.exists()){ dados = { ...dados, ...snapU.data() }; }
       else if(await aplicarPreCadastro(user, ref, dados)){
         // professor ou aluno importado pela secretaria/NEWPC: entra ja aprovado e vinculado
       }
@@ -2328,13 +2408,16 @@
   }
 
   // ---------- alunos da turma ----------
-  const al = { turma:null, lista:[] };
+  const al = { turma:null, lista:[], acesso:null, acessoInfo:null };
   async function verAlunosDaTurma(turmaId){
     const t = cacheTurmas.find(x => x.id === turmaId); if(!t) return;
-    al.turma = t; const dono = t.criado_por === usuarioAtual.uid;
+    al.turma = t; al.acesso = null; al.acessoInfo = null; const dono = t.criado_por === usuarioAtual.uid;
     $("conteudo").innerHTML =
       '<button class="voltar" data-action="mt-voltar">← Voltar para minhas turmas</button>'+
       '<div class="resumo-aval"><h3>Turma: '+escapeHtml(t.nome)+'</h3><div class="meta">'+escapeHtml([t.escola_nome, t.turno, t.ano_letivo].filter(Boolean).join(" · "))+'</div></div>'+
+      '<div class="acesso-passos"><div class="ps"><b><span class="n">1</span>Acesso dos alunos</b><p>Cada aluno recebe um código e um PIN para entrar no tablet ou no Chromebook, sem e-mail.</p><button class="btn btn-primary" data-action="al-acesso" id="alAcessoBtn">🔑 Gerar / ver códigos</button></div>'+
+        '<div class="ps"><b><span class="n">2</span>Monte a prova</b><p>No Gerador de Provas, escolha as questões e clique em “Aplicar online” para esta turma.</p><a class="btn btn-ghost" href="/provas/">📝 Abrir o Gerador</a></div>'+
+        '<div class="ps"><b><span class="n">3</span>Acompanhe ao vivo</b><p>Veja quem entrou, quem terminou e libere quem saiu da tela. A correção das objetivas é automática.</p><a class="btn btn-ghost" href="/prova/">📡 Provas online</a></div></div>'+
       (dono ? '<div class="imp-card"><h3>Adicionar alunos</h3><p class="d">Digite um aluno por linha. Se quiser, coloque a matrícula depois de um ponto e vírgula (ex: Ana Souza; 2026-0012).</p>'+
         '<textarea id="alNovos" class="al-novos" rows="4" placeholder="Ana Souza&#10;Bruno Lima; 2026-0013"></textarea>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="al-adicionar" id="alAdd">Adicionar à turma</button></div></div>' : '')+
@@ -2348,11 +2431,42 @@
       al.lista = []; sn.forEach(d => { const a = d.data(); if(a.status !== "inativo") al.lista.push({ id:d.id, ...a }); });
       al.lista.sort(porNome);
       $("alLista").innerHTML = !al.lista.length ? '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno nesta turma ainda.</div>' :
-        '<div class="sectionbar"><span class="count">'+al.lista.length+' aluno(s)</span></div><div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matrícula</th>'+(dono ? '<th></th>' : '')+'</tr></thead><tbody>'+
-        al.lista.map(a => '<tr><td><b>'+escapeHtml(a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td>'+
-          (dono ? '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="al-editar" data-id="'+escapeAttr(a.id)+'">Corrigir</button><button class="btn-mini btn-recusar" data-action="al-remover" data-id="'+escapeAttr(a.id)+'">Remover</button></div></td>' : '')+'</tr>').join("")+
+        '<div class="sectionbar"><span class="count">'+al.lista.length+' aluno(s)</span>'+(al.acesso ? '<button class="btn btn-primary btn-add" data-action="al-imprimir">🖨️ Imprimir cartões de acesso</button>' : '')+'</div><div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matrícula</th>'+(al.acesso ? '<th>Código</th><th>PIN</th>' : '')+(dono || al.acesso ? '<th></th>' : '')+'</tr></thead><tbody>'+
+        al.lista.map(a => { const ac = al.acesso && al.acesso[a.id]; return '<tr><td><b>'+escapeHtml(a.nome_social || a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td>'+(al.acesso ? '<td class="cod-pin">'+escapeHtml(ac ? ac.codigo : "-")+'</td><td class="cod-pin">'+escapeHtml(ac ? ac.pin : "-")+'</td>' : '')+
+          (dono || al.acesso ? '<td><div class="usr-acoes">'+(al.acesso && ac ? '<button class="btn-mini btn-ghost" data-action="al-novo-pin" data-id="'+escapeAttr(a.id)+'" title="Gera outro PIN (o antigo deixa de valer)">Novo PIN</button>' : '')+(dono ? '<button class="btn-mini btn-gerenciar" data-action="al-editar" data-id="'+escapeAttr(a.id)+'">Corrigir</button><button class="btn-mini btn-recusar" data-action="al-remover" data-id="'+escapeAttr(a.id)+'">Remover</button>' : '')+'</div></td>' : '')+'</tr>'; }).join("")+
         '</tbody></table></div>';
     }catch(e){ console.warn(e); $("alLista").innerHTML = '<div class="empty">Erro ao carregar alunos ('+escapeHtml(e.code||"erro")+').</div>'; }
+  }
+  // acesso dos alunos (código + PIN): gerado pela função, que cria a conta técnica de cada matrícula
+  async function acessoAlunos(alunoId){
+    const b = alunoId ? null : $("alAcessoBtn"); if(b){ b.disabled = true; b.textContent = "Gerando..."; }
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "gerarAcessoTurma", { timeout:300000 })({ turma_id:al.turma.id, ...(alunoId ? { aluno_id:alunoId, novo_pin:true } : {}) })).data;
+      al.acesso = al.acesso || {}; r.lista.forEach(x => { al.acesso[x.aluno_id] = x; }); al.acessoInfo = { turma:r.turma, escola:r.escola };
+      await listarAlunosTurma();
+      toast(alunoId ? "Novo PIN gerado. O antigo não vale mais." : r.lista.length + " aluno(s) com acesso. Imprima os cartões.");
+    }catch(e){ console.warn(e); toast(e.message || "Não foi possível gerar o acesso agora.", true); }
+    finally{ if(b && b.isConnected){ b.disabled = false; b.textContent = "🔑 Gerar / ver códigos"; } }
+  }
+  function carregarQrLib(){ return window.QRCode ? Promise.resolve() : new Promise((ok, erro) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = ok; sc.onerror = erro; document.head.appendChild(sc); }); }
+  async function imprimirCartoes(){
+    if(!al.acesso) return;
+    try{ await carregarQrLib(); }catch(e){ toast("Não foi possível carregar o gerador de QR.", true); return; }
+    const { qrDataUrl } = await import("/assets/js/carteirinha.js");
+    const info = al.acessoInfo || {}, l = al.lista.filter(a => al.acesso[a.id]);
+    const cards = l.map(a => { const x = al.acesso[a.id];
+      return '<div class="c"><div class="t">Portal do Educador · '+escapeHtml(info.turma || al.turma.nome)+'</div><div class="n">'+escapeHtml(x.nome)+'</div>'+
+        '<div class="g"><img src="'+qrDataUrl("PDEA:"+a.id)+'" alt=""><div><div class="r">CÓDIGO</div><div class="v">'+escapeHtml(x.codigo)+'</div><div class="r">PIN</div><div class="v">'+escapeHtml(x.pin)+'</div></div></div>'+
+        '<div class="i">Entre em <b>app.portaldoeducador.com.br/entrar</b> › <b>Sou aluno</b> › digite o código e o PIN (ou leia o QR).</div></div>'; }).join("");
+    const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
+    w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartões de acesso · '+escapeHtml(info.turma || al.turma.nome)+'</title><style>'+
+      '@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#0f2c4a}.f{display:grid;grid-template-columns:1fr 1fr;gap:6mm}'+
+      '.c{border:1.5px dashed #1a6b2a;border-radius:10px;padding:4mm 5mm;break-inside:avoid;height:50mm;box-sizing:border-box;display:flex;flex-direction:column}'+
+      '.t{font-size:9pt;color:#1a6b2a;font-weight:700}.n{font-size:12pt;font-weight:800;margin:1mm 0 2mm}.g{display:flex;gap:4mm;align-items:center;flex:1}.g img{width:26mm;height:26mm}'+
+      '.r{font-size:7.5pt;color:#667;font-weight:700}.v{font:800 17pt ui-monospace,Consolas,monospace;letter-spacing:2px;margin-bottom:1mm}.i{font-size:7.5pt;color:#445}'+
+      '</style></head><body><div class="f">'+cards+'</div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
+    w.document.close();
   }
   async function adicionarAlunos(){
     const t = al.turma;
@@ -3899,6 +4013,9 @@
     else if(acao === "mt-alunos"){ verAlunosDaTurma(el.dataset.id); }
     else if(acao === "mt-voltar"){ renderMinhasTurmas(); }
     else if(acao === "al-adicionar"){ adicionarAlunos(); }
+    else if(acao === "al-acesso"){ acessoAlunos(); }
+    else if(acao === "al-novo-pin"){ if(confirm("Gerar um novo PIN para este aluno? O PIN antigo deixa de valer.")) acessoAlunos(el.dataset.id); }
+    else if(acao === "al-imprimir"){ imprimirCartoes(); }
     else if(acao === "al-editar"){ editarAluno(el.dataset.id); }
     else if(acao === "al-gravar"){ gravarAluno(el.dataset.id); }
     else if(acao === "al-cancelar"){ listarAlunosTurma(); }
@@ -4385,7 +4502,7 @@
   async function faixaProvasAluno(){
     const el = $("iniProvas"); if(!el) return;
     let l = [];
-    try{ const s = await getDocs(query(collection(db,"provas_online"), where("alunos_uids","array-contains",usuarioAtual.uid))); s.forEach(d => l.push({ id:d.id, ...d.data() })); }
+    try{ const s = await getDocs(usuarioAtual.aluno_id ? query(collection(db,"provas_online"), where("alunos_ids","array-contains",usuarioAtual.aluno_id)) : query(collection(db,"provas_online"), where("alunos_uids","array-contains",usuarioAtual.uid))); s.forEach(d => l.push({ id:d.id, ...d.data() })); }
     catch(e){ console.warn("provas online:", e.code); return; }
     const agora = Date.now();
     l = l.filter(p => p.status !== "cancelada" && msDe(p.fecha_em) > agora - 7 * 864e5).sort((a, b) => msDe(a.abre_em) - msDe(b.abre_em));

@@ -660,6 +660,8 @@ const alu0 = { nome: 'Caio Lima', nome_social: '', matricula: '2026-1', inep_alu
   ficha_pct: 40, origem: 'manual', criado_em: serverTimestamp(), criado_por: 'gest1', atualizado_em: serverTimestamp(), atualizado_por: 'gest1' };
 await t('ficha: gestor matricula aluno na escola', assertSucceeds(setDoc(doc(gest1, 'alunos/alN'), alu0)));
 await t('ficha: secretaria escolar matricula aluno', assertSucceeds(setDoc(doc(sece, 'alunos/alS'), { ...alu0, criado_por: 'sece1', atualizado_por: 'sece1' })));
+await t('ficha: e-mail do aluno valido', assertSucceeds(setDoc(doc(gest1, 'alunos/alE'), { ...alu0, email: 'ana@escola.br' })));
+await t('ficha: e-mail do aluno invalido', assertFails(setDoc(doc(gest1, 'alunos/alE2'), { ...alu0, email: 'nao-e-email' })));
 await t('ficha: matricula em turma de outra escola', assertFails(setDoc(doc(gest1, 'alunos/alX'), { ...alu0, turma_id: 'tx2' })));
 await t('ficha: matricula com campo extra', assertFails(setDoc(doc(gest1, 'alunos/alX'), { ...alu0, cid: 'F84' })));
 await t('ficha: matricula com situacao invalida', assertFails(setDoc(doc(gest1, 'alunos/alX'), { ...alu0, situacao: 'xx' })));

@@ -254,6 +254,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
           <label class="campo">Situação<select class="sel" id="f_sit"><option value="cursando">Cursando</option><option value="remanejado">Remanejado</option><option value="transferido">Transferido</option><option value="abandono">Abandono</option><option value="concluido">Concluído</option></select></label>
           <label class="campo">Matrícula na rede<input class="inp" id="f_mat" maxlength="40"></label>
           <label class="campo">Código INEP do aluno<input class="inp" id="f_inep" maxlength="20" inputmode="numeric"></label>
+          <label class="campo dupla">E-mail do aluno (Google da escola)<input class="inp" id="f_email" type="email" maxlength="120" autocomplete="off" placeholder="Opcional: liga a conta Google à matrícula"></label>
         </div><p class="nota">Transferido ou concluído sai da chamada e das listas da turma, mas a ficha continua guardada.</p></div>
         <div class="bloco"><h4>Documentos pessoais</h4><div class="grade">
           <label class="campo">CPF<input class="inp" id="f_cpf" maxlength="14" inputmode="numeric" placeholder="000.000.000-00"></label>
@@ -612,7 +613,7 @@ function preencherBasico(){
   $("fiNome").textContent = n; desenharAvatar();
   $("fiSub").textContent = E.edit.id ? [turmaNome(a.turma_id), a.matricula ? "matrícula " + a.matricula : "", E.escolasNomes[E.escola]].filter(Boolean).join(" · ") : "Matrícula nova · " + (E.escolasNomes[E.escola] || "");
   $("f_nome").value = a.nome || ""; $("f_social").value = a.nome_social || ""; $("f_nasc").value = a.nascimento || ""; $("f_nasc").max = hojeMS();
-  $("f_turma").innerHTML = opcoesTurma(a.turma_id); $("f_sit").value = situacao(a); $("f_mat").value = a.matricula || ""; $("f_inep").value = a.inep_aluno || "";
+  $("f_turma").innerHTML = opcoesTurma(a.turma_id); $("f_sit").value = situacao(a); $("f_mat").value = a.matricula || ""; $("f_inep").value = a.inep_aluno || ""; $("f_email").value = a.email || "";
   $("btnImprimir").hidden = !E.edit.id; $("btnCart").hidden = !E.edit.id;
 }
 function preencherFicha(f){
@@ -760,6 +761,7 @@ async function salvar(){
   if(nome.length < 2){ aba("id"); toast("Informe o nome completo do aluno.", true); $("f_nome").focus(); return; }
   if(!t){ aba("id"); toast("Escolha a turma.", true); return; }
   const nasc = $("f_nasc").value; if(nasc && (nasc > hojeMS() || nasc < "1990-01-01")){ aba("id"); toast("Data de nascimento inválida.", true); return; }
+  { const em = String($("f_email").value || "").trim().toLowerCase(); if(em && !emailOk(em)){ aba("id"); toast("E-mail do aluno inválido.", true); return; } const outro = em && E.alunos.find(x => x.email === em && x.id !== (ed.id || "")); if(outro){ aba("id"); toast("Este e-mail já está na matrícula de " + outro.nome + ".", true); return; } }
   const cpf = soDig($("f_cpf").value, 11); if(cpf && !cpfValido(cpf)){ aba("id"); toast(cpf.length !== 11 ? "CPF incompleto: são 11 números." : "CPF inválido: os dígitos verificadores não conferem.", true); return; }
   if($("f_em_tel").value.trim() && telefone($("f_em_tel").value) === null){ aba("sau"); toast("Telefone de emergência inválido.", true); return; }
   const { resp, erros } = respValidos(); if(erros.length){ aba("end"); toast(erros[0], true); return; }
@@ -770,7 +772,7 @@ async function salvar(){
   atualizarPct();
   const sit = $("f_sit").value, ref = ed.id ? doc(db, "alunos", ed.id) : doc(collection(db, "alunos")), id = ref.id;
   const muni = t.municipio_id || E.escolasMuni[E.escola] || ed.a.municipio_id || "";
-  const base = { nome, nome_social:limpa($("f_social").value, 80), matricula:limpa($("f_mat").value, 40), inep_aluno:soDig($("f_inep").value, 20), nascimento:nasc, situacao:sit,
+  const base = { nome, nome_social:limpa($("f_social").value, 80), matricula:limpa($("f_mat").value, 40), inep_aluno:soDig($("f_inep").value, 20), email:String($("f_email").value || "").trim().toLowerCase().slice(0, 120), nascimento:nasc, situacao:sit,
     turma_id:tid, turma_nome:String(t.nome || "").slice(0, 80), escola_id:E.escola, escola_nome:String(E.escolasNomes[E.escola] || "").slice(0, 120), municipio_id:muni,
     status:SAI(sit) ? "inativo" : "ativo", alertas, ficha_pct:ed.pct || 0, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
   if(!ed.id) Object.assign(base, { ano_letivo:+t.ano_letivo || +hojeMS().slice(0, 4), origem:"ficha", criado_em:serverTimestamp(), criado_por:E.user.uid });

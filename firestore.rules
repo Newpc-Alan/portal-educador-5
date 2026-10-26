@@ -734,12 +734,16 @@ service cloud.firestore {
 
     // prova online: só as funções criam e corrigem; o aluno lê as questões (sem gabarito) e grava as próprias respostas no prazo
     function provaOnline(id) { return get(/databases/$(database)/documents/provas_online/$(id)).data; }
+    // aluno da prova: pela matrícula (claim aluno_id, gravado só pelas funções) ou, nas contas antigas, pelo uid
+    function meuAlunoId() { return request.auth.token.get("aluno_id", ""); }
+    function souTentativa(t) { return request.auth.uid == t || (meuAlunoId() != "" && t == "m-" + meuAlunoId()); }
     match /provas_online/{id} {
-      allow read: if admin() || (logado() && (resource.data.professor_uid == request.auth.uid || request.auth.uid in resource.data.alunos_uids));
+      allow read: if admin() || (logado() && (resource.data.professor_uid == request.auth.uid || request.auth.uid in resource.data.alunos_uids
+        || (meuAlunoId() != "" && meuAlunoId() in resource.data.get("alunos_ids", []))));
       allow write: if false;
       match /po_tentativas/{uid} {
-        allow read: if admin() || (logado() && (request.auth.uid == uid || provaOnline(id).professor_uid == request.auth.uid));
-        allow update: if logado() && request.auth.uid == uid && resource.data.status == "em_andamento"
+        allow read: if admin() || (logado() && (souTentativa(uid) || provaOnline(id).professor_uid == request.auth.uid));
+        allow update: if logado() && souTentativa(uid) && resource.data.status == "em_andamento"
           && request.time < resource.data.prazo + duration.value(2, "m")
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["respostas", "desvios", "eventos", "status", "bloqueado_em", "atualizado_em",
                "sessao", "disp", "aparelho", "trocas"])
@@ -759,7 +763,7 @@ service cloud.firestore {
       }
       match /po_resultados/{uid} {
         allow read: if admin() || (logado() && (provaOnline(id).professor_uid == request.auth.uid
-          || (request.auth.uid == uid && (provaOnline(id).fecha_em < request.time || provaOnline(id).get("nota_liberada", false) == true))));
+          || (souTentativa(uid) && (provaOnline(id).fecha_em < request.time || provaOnline(id).get("nota_liberada", false) == true))));
         allow write: if false;
       }
     }
@@ -876,12 +880,13 @@ service cloud.firestore {
     // campos que a escola grava no aluno (o professor lê): nada de saúde aqui, só os alertas curtos escolhidos pela gestão
     function camposAlunoEscola() {
       return ["nome", "nome_social", "matricula", "inep_aluno", "nascimento", "situacao", "turma_id", "turma_nome", "escola_id", "escola_nome",
-        "municipio_id", "municipio_nome", "ano_letivo", "status", "alertas", "ficha_pct", "foto", "saida_em", "origem", "criado_em", "criado_por", "atualizado_em", "atualizado_por"];
+        "municipio_id", "municipio_nome", "ano_letivo", "status", "alertas", "ficha_pct", "foto", "saida_em", "origem", "email", "criado_em", "criado_por", "atualizado_em", "atualizado_por"];
     }
     function alunoEscolaOk() {
       return turmaDoc(novo().turma_id).escola_id == novo().escola_id
         && novo().nome is string && novo().nome.size() >= 2 && novo().nome.size() <= 80
         && texto(novo().get("nome_social", ""), 80) && texto(novo().get("matricula", ""), 40) && texto(novo().get("inep_aluno", ""), 20)
+        && (novo().get("email", "") == "" || (novo().email is string && novo().email.size() <= 120 && novo().email.matches("^[^@\\s]+@[^@\\s]+[.][^@\\s]+$")))
         && (novo().get("nascimento", "") == "" || novo().nascimento.matches("^(19|20)[0-9]{2}-[01][0-9]-[0-3][0-9]$"))
         && novo().get("situacao", "cursando") in ["cursando", "remanejado", "transferido", "abandono", "concluido"]
         && novo().get("status", "ativo") in ["ativo", "inativo"]

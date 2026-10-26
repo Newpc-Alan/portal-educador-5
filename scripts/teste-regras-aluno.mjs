@@ -166,6 +166,29 @@ await t('prova online: nota visivel depois do fim', assertSucceeds(getDoc(doc(po
 await t('prova online: professor ve a nota', assertSucceeds(getDoc(doc(poP, 'provas_online/po1/po_resultados/alu'))));
 await t('prova online: aluno nao grava nota', assertFails(setDoc(doc(poA, 'provas_online/po1/po_resultados/alu'), { nota: 10 })));
 
+// prova online pela matrícula: o aluno é reconhecido pelo claim aluno_id (código + PIN ou Google da escola)
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+  await setDoc(doc(f, 'provas_online/po3'), { professor_uid: 'prof', alunos_uids: [], alunos_ids: ['mat1'], status: 'agendada', fecha_em: Timestamp.fromMillis(Date.now() + 3600000), nota_liberada: false, questoes: [] });
+  await setDoc(doc(f, 'provas_online/po3/po_tentativas/m-mat1'), { uid: 'm-mat1', status: 'em_andamento', prazo: Timestamp.fromMillis(Date.now() + 3000000), respostas: {}, desvios: 0, avisos_max: 1, eventos: [] });
+  await setDoc(doc(f, 'provas_online/po3/po_tentativas/m-mat2'), { uid: 'm-mat2', status: 'em_andamento', prazo: Timestamp.fromMillis(Date.now() + 3000000), respostas: {}, desvios: 0, avisos_max: 1, eventos: [] });
+  await setDoc(doc(f, 'provas_online/po3/po_resultados/m-mat1'), { nota: 5 }); });
+const mPin = env.authenticatedContext('al-mat1', { email: 'abc123@aluno.portaldoeducador.com.br', aluno_id: 'mat1' }).firestore();
+const mGoogle = env.authenticatedContext('googleuid', { email: 'ana@escola.br', email_verified: true, aluno_id: 'mat1' }).firestore();
+const mOutro = env.authenticatedContext('al-mat2', { email: 'zzz999@aluno.portaldoeducador.com.br', aluno_id: 'mat2' }).firestore();
+const semClaim = env.authenticatedContext('al-mat1x', { email: 'x@x.com' }).firestore();
+await t('matricula: aluno (PIN) le a prova', assertSucceeds(getDoc(doc(mPin, 'provas_online/po3'))));
+await t('matricula: aluno lista pela matricula', assertSucceeds(getDocs(query(collection(mPin, 'provas_online'), where('alunos_ids', 'array-contains', 'mat1')))));
+await t('matricula: mesmo aluno pelo Google le a prova', assertSucceeds(getDoc(doc(mGoogle, 'provas_online/po3'))));
+await t('matricula: aluno de fora nao le', assertFails(getDoc(doc(mOutro, 'provas_online/po3'))));
+await t('matricula: sem claim nao le', assertFails(getDoc(doc(semClaim, 'provas_online/po3'))));
+await t('matricula: responde na tentativa da matricula', assertSucceeds(updateDoc(doc(mPin, 'provas_online/po3/po_tentativas/m-mat1'), { 'respostas.q1': 1 })));
+await t('matricula: Google responde na mesma tentativa', assertSucceeds(updateDoc(doc(mGoogle, 'provas_online/po3/po_tentativas/m-mat1'), { 'respostas.q1': 2 })));
+await t('matricula: nao mexe na do colega', assertFails(updateDoc(doc(mPin, 'provas_online/po3/po_tentativas/m-mat2'), { 'respostas.q1': 1 })));
+await t('matricula: le a propria tentativa', assertSucceeds(getDoc(doc(mPin, 'provas_online/po3/po_tentativas/m-mat1'))));
+await t('matricula: nao le a tentativa do colega', assertFails(getDoc(doc(mPin, 'provas_online/po3/po_tentativas/m-mat2'))));
+await t('matricula: nota escondida antes do fim', assertFails(getDoc(doc(mPin, 'provas_online/po3/po_resultados/m-mat1'))));
+await t('matricula: nao le acesso de aluno', assertFails(getDoc(doc(mPin, 'alunos_acesso/mat1'))));
+
 console.log(`REGRAS ALUNO: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);
