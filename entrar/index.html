@@ -33,6 +33,9 @@
   .field input, .field select{ width:100%;padding:12px 14px;border:1.5px solid var(--line); border-radius:10px;font-size:14.5px;color:var(--ink); background:#fbfcfe; transition:border-color .15s, box-shadow .15s; }
   .field input:focus, .field select:focus{ outline:none;border-color:var(--cyan); box-shadow:0 0 0 3px rgba(55,177,218,.15); background:#fff; }
   .row2{ display:flex;gap:12px } .row2 .field{ flex:1 }
+  .row2 .esc-ddd{ flex:0 0 72px } .row2 .esc-num{ flex:0 0 96px } .row2 .esc-cep{ flex:0 0 140px }
+  #modalEscola .modal{ max-width:620px;width:calc(100% - 24px) } .row2 .esc-cnpj{ flex:1.5 }
+  .esc-linha{ display:flex;gap:6px } .esc-linha input{ flex:1;min-width:0 } .esc-linha button{ background:#0f2c4a;color:#fff;border:0;border-radius:10px;padding:0 14px;font-weight:700;font-size:13px;cursor:pointer } .esc-linha button:hover{ background:#1a6b2a } .esc-st{ display:block;min-height:15px;font-size:11.5px;color:var(--muted);margin-top:3px } .esc-st.erro{ color:#b42318 } .esc-st.ok{ color:#1a6b2a }
   .btn{ width:100%;padding:13px;border:none;border-radius:10px; font-size:14.5px;font-weight:700;cursor:pointer; transition:transform .08s, box-shadow .15s, background .15s; }
   .btn:active{ transform:translateY(1px) }
   .btn-primary{ background:linear-gradient(135deg,var(--navy),var(--navy-2)); color:#fff; box-shadow:0 8px 20px -10px rgba(15,44,74,.8); }
@@ -696,7 +699,7 @@
     .usr-tabs{ flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px }
     .usr-tab{ white-space:nowrap;flex:none }
     .usr-busca{ min-width:0;width:100% }
-    .row2{ flex-direction:column;gap:0 }
+    .row2{ flex-direction:column;gap:0 } .row2 .esc-ddd,.row2 .esc-num,.row2 .esc-cep{ flex:1 1 auto }
     .modal-bg{ padding:10px;align-items:flex-end }
     .modal, .modal.usr, .modal.big{ max-width:100%;max-height:92vh;display:flex;flex-direction:column }
     .modal .mb{ overflow-y:auto }
@@ -942,10 +945,15 @@
       <div class="field"><label for="escNome">Nome da escola</label><input type="text" id="escNome" placeholder="Ex: Escola Municipal Centro"></div>
       <div class="field"><label for="escMuni">Município</label><select id="escMuni"><option value="">Carregando...</option></select></div>
       <div class="row2"><div class="field"><label for="escInep">Código INEP</label><input type="text" id="escInep" inputmode="numeric" maxlength="8" placeholder="8 dígitos"></div>
-        <div class="field"><label for="escTel">Telefone</label><input type="text" id="escTel" placeholder="(67) 3000-0000"></div></div>
-      <div class="field"><label for="escEnd">Endereço</label><input type="text" id="escEnd" placeholder="Rua, número, bairro"></div>
-      <div class="row2"><div class="field"><label for="escCep">CEP</label><input type="text" id="escCep" placeholder="79000-000"></div>
+        <div class="field esc-cnpj"><label for="escCnpj">CNPJ <small>(escola ou unidade executora)</small></label><div class="esc-linha"><input type="text" id="escCnpj" maxlength="18" placeholder="00.000.000/0000-00" autocomplete="off"><button type="button" data-action="esc-cnpj" title="Preencher com os dados da Receita">Buscar</button></div><small class="esc-st" id="escCnpjSt"></small></div></div>
+      <div class="row2"><div class="field esc-ddd"><label for="escDdd">DDD</label><input type="text" id="escDdd" inputmode="numeric" maxlength="2" placeholder="67"></div>
+        <div class="field"><label for="escFone">Telefone</label><input type="text" id="escFone" inputmode="numeric" maxlength="10" placeholder="3000-0000"></div>
         <div class="field"><label for="escEmail">E-mail</label><input type="email" id="escEmail" placeholder="escola@semed.gov.br"></div></div>
+      <div class="row2"><div class="field esc-cep"><label for="escCep">CEP</label><input type="text" id="escCep" inputmode="numeric" maxlength="9" placeholder="79000-000"><small class="esc-st" id="escCepSt"></small></div>
+        <div class="field"><label for="escRua">Logradouro</label><input type="text" id="escRua" placeholder="Rua, avenida..."></div></div>
+      <div class="row2"><div class="field esc-num"><label for="escNum">Número</label><input type="text" id="escNum" maxlength="12" placeholder="S/N"></div>
+        <div class="field"><label for="escComp">Complemento</label><input type="text" id="escComp" maxlength="60" placeholder="Bloco, sala..."></div>
+        <div class="field"><label for="escBairro">Bairro</label><input type="text" id="escBairro" maxlength="80"></div></div>
       <div class="row2"><div class="field"><label for="escDir">Diretor(a)</label><input type="text" id="escDir"></div>
         <div class="field"><label for="escCoord">Coordenador(a) pedagógico(a)</label><input type="text" id="escCoord"></div></div>
       <div class="field"><label for="escAto">Ato de autorização / criação <small>(opcional)</small></label><input type="text" id="escAto" placeholder="Ex.: Decreto nº 123/1998"></div>
@@ -1845,13 +1853,89 @@
     }catch(e){ console.warn(e); $("escTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
   let escEditando = null;
-  const ESC_CAMPOS = { escInep:"inep", escTel:"telefone", escEnd:"endereco", escCep:"cep", escEmail:"email", escDir:"diretor", escCoord:"coordenador", escAto:"ato" };
+  const ESC_CAMPOS = { escInep:"inep", escCnpj:"cnpj", escEmail:"email", escRua:"logradouro", escNum:"numero", escComp:"complemento", escBairro:"bairro", escDir:"diretor", escCoord:"coordenador", escAto:"ato" };
+  // máscaras e validações do cadastro da escola
+  const escDig = v => String(v || "").replace(/\D/g, "");
+  const escFmtCep = d => d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5, 8) : d;
+  const escFmtFone = d => d.length > 8 ? d.slice(0, 5) + "-" + d.slice(5, 9) : d.length > 4 ? d.slice(0, 4) + "-" + d.slice(4) : d;
+  // CNPJ: aceita o formato numérico e o alfanumérico da Receita (emitido a partir de jul/2026)
+  const cnpjLimpo = v => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 14);
+  const cnpjFmt = c => { let r = c.slice(0, 2); if(c.length > 2) r += "." + c.slice(2, 5); if(c.length > 5) r += "." + c.slice(5, 8); if(c.length > 8) r += "/" + c.slice(8, 12); if(c.length > 12) r += "-" + c.slice(12, 14); return r; };
+  function cnpjValido(c){
+    if(!/^[A-Z0-9]{12}\d{2}$/.test(c) || /^(.)\1{13}$/.test(c)) return false;
+    const dv = base => { let soma = 0, peso = 2; for(let i = base.length - 1; i >= 0; i--){ soma += (base.charCodeAt(i) - 48) * peso; peso = peso === 9 ? 2 : peso + 1; } const r = soma % 11; return r < 2 ? 0 : 11 - r; };
+    const d1 = dv(c.slice(0, 12)), d2 = dv(c.slice(0, 12) + d1);
+    return c.slice(12) === String(d1) + String(d2);
+  }
+  const escSemAcento = v => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  function escStatus(id, txt, tipo){ const el = $(id); el.textContent = txt || ""; el.className = "esc-st" + (tipo ? " " + tipo : ""); }
+  async function escFetch(url){
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 7000);
+    try{ const r = await fetch(url, { signal:ac.signal }); if(!r.ok) return null; return await r.json(); }
+    catch(e){ return null; } finally{ clearTimeout(t); }
+  }
+  let escCepBuscado = "";
+  async function escBuscarCep(forcar){
+    const cep = escDig($("escCep").value);
+    if(cep.length !== 8){ if(cep.length) escStatus("escCepSt", "CEP com 8 dígitos", "erro"); return; }
+    if(cep === escCepBuscado && !forcar) return;
+    escCepBuscado = cep; escStatus("escCepSt", "Buscando...");
+    let end = null;
+    const v = await escFetch("https://viacep.com.br/ws/" + cep + "/json/");
+    if(v && !v.erro) end = { rua:v.logradouro || "", bairro:v.bairro || "", cidade:v.localidade || "", uf:v.uf || "" };
+    else { const b = await escFetch("https://brasilapi.com.br/api/cep/v2/" + cep); if(b && b.city) end = { rua:b.street || "", bairro:b.neighborhood || "", cidade:b.city || "", uf:b.state || "" }; }
+    if(escDig($("escCep").value) !== cep) return;           // o usuário mudou o CEP enquanto buscava
+    if(!end){ escStatus("escCepSt", "CEP não encontrado. Preencha à mão.", "erro"); return; }
+    if(end.rua) $("escRua").value = end.rua;
+    if(end.bairro) $("escBairro").value = end.bairro;
+    const opt = $("escMuni").options[$("escMuni").selectedIndex], muni = opt && opt.value ? opt.dataset.nome : "";
+    if(muni && escSemAcento(muni) !== escSemAcento(end.cidade)) escStatus("escCepSt", "CEP de " + end.cidade + "/" + end.uf + ", outro município", "erro");
+    else escStatus("escCepSt", end.rua ? end.cidade + "/" + end.uf : "CEP geral: digite o logradouro", end.rua ? "ok" : "");
+    (end.rua ? $("escNum") : $("escRua")).focus();
+  }
+  async function escBuscarCnpj(){
+    const c = cnpjLimpo($("escCnpj").value);
+    if(!cnpjValido(c)){ escStatus("escCnpjSt", "CNPJ inválido", "erro"); return; }
+    if(!/^\d{14}$/.test(c)){ escStatus("escCnpjSt", "CNPJ alfanumérico: busca ainda indisponível, preencha à mão"); return; }
+    escStatus("escCnpjSt", "Consultando a Receita...");
+    const r = await escFetch("https://brasilapi.com.br/api/cnpj/v1/" + c);
+    if(cnpjLimpo($("escCnpj").value) !== c) return;
+    if(!r || !r.razao_social){ escStatus("escCnpjSt", "Não encontrado na base pública. Preencha à mão.", "erro"); return; }
+    const vazio = id => !$(id).value.trim(), poe = (id, v) => { if(v && vazio(id)) $(id).value = v; };
+    poe("escNome", String(r.nome_fantasia || r.razao_social || "").trim());
+    const tel = escDig(r.ddd_telefone_1);
+    if(tel.length >= 10 && vazio("escFone")){ $("escDdd").value = tel.slice(0, 2); $("escFone").value = escFmtFone(tel.slice(2)); }
+    poe("escEmail", String(r.email || "").toLowerCase());
+    if(vazio("escRua")){
+      const cep = escDig(r.cep);
+      if(cep.length === 8){ $("escCep").value = escFmtCep(cep); escCepBuscado = cep; }
+      poe("escRua", [r.descricao_tipo_de_logradouro, r.logradouro].filter(Boolean).join(" ").trim());
+      poe("escNum", String(r.numero || "").trim()); poe("escComp", String(r.complemento || "").trim()); poe("escBairro", String(r.bairro || "").trim());
+    }
+    const sit = String(r.descricao_situacao_cadastral || "").toUpperCase();
+    escStatus("escCnpjSt", r.razao_social + (sit ? " · " + sit : ""), sit && sit !== "ATIVA" ? "erro" : "ok");
+  }
+  $("escCnpj").addEventListener("input", e => { const c = cnpjLimpo(e.target.value); e.target.value = cnpjFmt(c); escStatus("escCnpjSt", c.length === 14 ? (cnpjValido(c) ? "CNPJ válido" : "CNPJ inválido") : "", c.length === 14 ? (cnpjValido(c) ? "ok" : "erro") : ""); });
+  $("escDdd").addEventListener("input", e => { e.target.value = escDig(e.target.value).slice(0, 2); if(e.target.value.length === 2) $("escFone").focus(); });
+  $("escFone").addEventListener("input", e => { e.target.value = escFmtFone(escDig(e.target.value).slice(0, 9)); });
+  $("escCep").addEventListener("input", e => { const d = escDig(e.target.value).slice(0, 8); e.target.value = escFmtCep(d); if(d.length === 8) escBuscarCep(); else { escCepBuscado = ""; escStatus("escCepSt", ""); } });
+  $("escCep").addEventListener("blur", () => escBuscarCep());
+  $("modalEscola").addEventListener("click", e => { if(e.target.closest('[data-action="esc-cnpj"]')) escBuscarCnpj(); });
+
   async function abrirModalEscola(ev, esc){
     escEditando = esc && esc.id ? esc : null;
+    const E0 = escEditando || {};
     $("escTit").textContent = escEditando ? "Dados da escola" : "Nova Escola";
     $("escSalvar").textContent = escEditando ? "Salvar dados" : "Salvar escola";
-    $("escNome").value = escEditando ? (escEditando.nome || "") : "";
-    Object.entries(ESC_CAMPOS).forEach(([i, k]) => { $(i).value = escEditando ? (escEditando[k] || "") : ""; });
+    $("escNome").value = E0.nome || "";
+    Object.entries(ESC_CAMPOS).forEach(([i, k]) => { $(i).value = E0[k] || ""; });
+    // cadastros antigos: telefone e endereço vinham num campo só
+    const tel = E0.tel_numero ? "" : escDig(E0.telefone);
+    $("escDdd").value = E0.tel_ddd || (tel.length >= 10 ? tel.slice(0, 2) : "");
+    $("escFone").value = E0.tel_numero ? escFmtFone(E0.tel_numero) : tel.length >= 10 ? escFmtFone(tel.slice(2)) : escFmtFone(tel);
+    if(!E0.logradouro && E0.endereco) $("escRua").value = E0.endereco;
+    $("escCep").value = escFmtCep(escDig(E0.cep)); escCepBuscado = escDig(E0.cep);
+    escStatus("escCepSt", ""); escStatus("escCnpjSt", "");
     const sel = $("escMuni"); sel.innerHTML = '<option value="">Carregando...</option>';
     $("modalEscola").classList.add("show");
     try{
@@ -1872,7 +1956,18 @@
     if(!muniId){ toast("Selecione o município.", true); return; }
     const inep = $("escInep").value.trim();
     if(inep && !/^\d{8}$/.test(inep)){ toast("O código INEP tem 8 dígitos.", true); return; }
+    const cnpj = cnpjLimpo($("escCnpj").value);
+    if(cnpj && !cnpjValido(cnpj)){ toast("CNPJ inválido. Confira os dígitos.", true); $("escCnpj").focus(); return; }
+    const ddd = escDig($("escDdd").value), fone = escDig($("escFone").value);
+    if(fone && (!/^[1-9]\d$/.test(ddd) || fone.length < 8)){ toast("Telefone: informe o DDD (2 dígitos) e o número (8 ou 9 dígitos).", true); $(ddd.length === 2 ? "escFone" : "escDdd").focus(); return; }
+    const cep = escDig($("escCep").value);
+    if(cep && cep.length !== 8){ toast("O CEP tem 8 dígitos.", true); $("escCep").focus(); return; }
     const extra = {}; Object.entries(ESC_CAMPOS).forEach(([i, k]) => { extra[k] = $(i).value.trim(); });
+    extra.cnpj = cnpj ? cnpjFmt(cnpj) : "";
+    extra.cep = escFmtCep(cep); extra.tel_ddd = fone ? ddd : ""; extra.tel_numero = fone;
+    extra.telefone = fone ? "(" + ddd + ") " + escFmtFone(fone) : "";
+    // texto pronto para o cabeçalho dos documentos (relatórios e declarações leem "endereco")
+    extra.endereco = extra.logradouro ? extra.logradouro + (extra.numero ? ", " + extra.numero : ", S/N") + (extra.complemento ? " - " + extra.complemento : "") + (extra.bairro ? ", " + extra.bairro : "") : "";
     $("escSalvar").disabled=true; $("escSalvar").textContent="Salvando...";
     try{
       const base = { nome, municipio_id:muniId, municipio_nome:opt.dataset.nome||"", municipio_uf:opt.dataset.uf||"", ...extra, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
