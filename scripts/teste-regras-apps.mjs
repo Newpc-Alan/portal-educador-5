@@ -617,6 +617,17 @@ await t('datas: professor nao edita', assertFails(updateDoc(doc(prof, 'datas_com
 await t('datas: admin cria', assertSucceeds(setDoc(doc(ctx('adm'), 'datas_comemorativas/d3'), { nome: 'x', publicado: true })));
 await t('datas: anonimo nao le', assertFails(getDoc(doc(anon, 'datas_comemorativas/d1'))));
 
+// atividades prontas
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore(); await setDoc(doc(f, 'atividades/a1'), { titulo: 'Formas', publicado: true }); await setDoc(doc(f, 'atividades/a2'), { titulo: 'Oculta', publicado: false }); });
+await t('atividades: professor le publicadas', assertSucceeds(getDocs(query(collection(prof, 'atividades'), where('publicado', '==', true)))));
+await t('atividades: professor nao le oculta', assertFails(getDoc(doc(prof, 'atividades/a2'))));
+await t('atividades: professor nao grava', assertFails(updateDoc(doc(prof, 'atividades/a1'), { titulo: 'x' })));
+await t('atividades: admin grava', assertSucceeds(setDoc(doc(ctx('adm'), 'atividades/a3'), { titulo: 'x', publicado: true })));
+await t('atividades: anonimo nao le', assertFails(getDoc(doc(anon, 'atividades/a1'))));
+await t('atividades: professor reage', assertSucceeds(setDoc(doc(prof, 'atividades_reacoes/a1_prof'), { atividade_id: 'a1', uid: 'prof', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
+await t('atividades: reacao em oculta', assertFails(setDoc(doc(prof, 'atividades_reacoes/a2_prof'), { atividade_id: 'a2', uid: 'prof', reacao: 'amei', perfil: 'professor', em: serverTimestamp() })));
+await t('atividades: ignoradas so admin', assertFails(getDocs(collection(prof, 'atividades_ignoradas'))));
+
 console.log(`REGRAS DOS APLICATIVOS: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

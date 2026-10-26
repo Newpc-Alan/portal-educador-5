@@ -69,3 +69,19 @@ export const contarRespostaPesquisa = onDocumentWritten({ region: REGIAO_FIRESTO
   try { await getFirestore().doc('noticias/' + nid).update(mudar); }
   catch (e) { console.warn('pesquisa: noticia', nid, e.code || e.message); }
 });
+
+// E para as Atividades: atividades_reacoes/{atividade}_{uid} -> atividades/{id}.reacoes
+export const contarReacaoAtividade = onDocumentWritten({ region: REGIAO_FIRESTORE, document: 'atividades_reacoes/{id}', maxInstances: 10 }, async (event) => {
+  const antes = event.data.before.exists ? event.data.before.data() : null;
+  const depois = event.data.after.exists ? event.data.after.data() : null;
+  const r0 = antes && VALIDAS.includes(antes.reacao) ? antes.reacao : null;
+  const r1 = depois && VALIDAS.includes(depois.reacao) ? depois.reacao : null;
+  if (r0 === r1) return;
+  const aid = (depois || antes).atividade_id;
+  if (!aid || typeof aid !== 'string') return;
+  const mudar = {};
+  if (r0) mudar['reacoes.' + r0] = FieldValue.increment(-1);
+  if (r1) mudar['reacoes.' + r1] = FieldValue.increment(1);
+  try { await getFirestore().doc('atividades/' + aid).update(mudar); }
+  catch (e) { console.warn('reacao: atividade', aid, e.code || e.message); }
+});

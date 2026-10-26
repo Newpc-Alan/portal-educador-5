@@ -630,6 +630,24 @@ service cloud.firestore {
       allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
     }
 
+    // atividades prontas (Banco Curricular): professor com licença lê as publicadas; só o administrador e as funções gravam
+    match /atividades/{id} {
+      allow read: if admin() || (licenciado() && resource.data.publicado == true);
+      allow write: if admin();
+    }
+    // arquivos do Drive que o administrador excluiu do Portal (a sincronização não traz de novo)
+    match /atividades_ignoradas/{id} { allow read, write: if admin(); }
+    match /atividades_reacoes/{id} {
+      allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);
+      allow create, update: if logado() && id == novo().atividade_id + "_" + request.auth.uid
+        && novo().keys().hasOnly(["atividade_id", "uid", "reacao", "perfil", "em"])
+        && novo().uid == request.auth.uid && novo().reacao in ["amei", "gostei", "meh", "nao"] && novo().perfil == eu().perfil
+        && (admin() || licenciado())
+        && exists(/databases/$(database)/documents/atividades/$(novo().atividade_id))
+        && get(/databases/$(database)/documents/atividades/$(novo().atividade_id)).data.publicado == true;
+      allow delete: if admin() || (logado() && resource.data.uid == request.auth.uid);
+    }
+
     // datas comemorativas: catálogo da NEWPC; quem entra no Portal lê as publicadas (o kit aponta para conteúdos com regras próprias)
     match /datas_comemorativas/{id} {
       allow read: if admin() || (logado() && resource.data.publicado == true);

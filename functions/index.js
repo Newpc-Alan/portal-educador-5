@@ -375,4 +375,4 @@ export { freqResumo, emailBuscaAtiva } from './frequencia.js';
 export { portaria, limparFotosPortaria } from './portaria.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
-export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa } from './videos.js';
+export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';

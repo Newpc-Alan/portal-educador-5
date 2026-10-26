@@ -19,18 +19,37 @@ export const RAIZES = {
 const PASTA = 'application/vnd.google-apps.folder';
 const ACEITOS = { 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg' };
 
-// ---------- nomes: conserta acentos quebrados (UTF-8 lido como CP437 ao extrair .zip) ----------
-const CP437 = 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ';
-const DE437 = new Map([...CP437].map((c, i) => [c, 128 + i]));
+// ---------- nomes: conserta acentos quebrados (UTF-8 lido como CP850 ao extrair .zip no Windows) ----------
+const CP850 = 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´\u00ad±‗¾¶§÷¸°¨·¹³²■\u00a0';
+const DE850 = new Map([...CP850].map((c, i) => [c, 128 + i]));
 export function consertarAcentos(s) {
   s = String(s || '');
   if (!/[├┬╞╟]/.test(s)) return s;
   const bytes = [];
-  for (const c of s) { const cp = c.codePointAt(0); if (cp < 128) bytes.push(cp); else if (DE437.has(c)) bytes.push(DE437.get(c)); else return s; }
+  for (const c of s) { const cp = c.codePointAt(0); if (cp < 128) bytes.push(cp); else if (DE850.has(c)) bytes.push(DE850.get(c)); else return s; }
   const t = Buffer.from(bytes).toString('utf8');
   return t.includes('�') ? s : t;
 }
 const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// nomes de arquivo sem acento (ex.: localizacao_espacial): devolve os acentos mais comuns
+const PALAVRAS = { numero:'número', numeros:'números', indigena:'indígena', indigenas:'indígenas', historia:'história', historias:'histórias', matematica:'matemática',
+  ciencia:'ciência', ciencias:'ciências', musica:'música', pratica:'prática', praticas:'práticas', logica:'lógica', fabula:'fábula', fabulas:'fábulas', genero:'gênero',
+  generos:'gêneros', silaba:'sílaba', silabas:'sílabas', grafico:'gráfico', graficos:'gráficos', area:'área', areas:'áreas', agua:'água', familia:'família', familias:'famílias',
+  analise:'análise', basico:'básico', basica:'básica', calculo:'cálculo', calculos:'cálculos', geometrica:'geométrica', geometricas:'geométricas', poesia:'poesia', poetica:'poética',
+  periodo:'período', espaco:'espaço', espacos:'espaços', tambem:'também', voce:'você', ate:'até', tres:'três', medio:'médio', proprio:'próprio', unidade:'unidade', dezenas:'dezenas',
+  numerica:'numérica', numericas:'numéricas', simbolos:'símbolos', simbolo:'símbolo', estatistica:'estatística', energia:'energia', sistema:'sistema', solido:'sólido', solidos:'sólidos',
+  liquido:'líquido', liquidos:'líquidos', planeta:'planeta', grafica:'gráfica', publica:'pública', publico:'público', economia:'economia', climatica:'climática', climaticas:'climáticas',
+  ortografica:'ortográfica', paragrafo:'parágrafo', paragrafos:'parágrafos', pontuacao:'pontuação', acentuacao:'acentuação', adjetivo:'adjetivo', substantivo:'substantivo', sinonimos:'sinônimos', antonimos:'antônimos' };
+function devolverAcentos(t) {
+  if (/[^\x00-\x7f]/.test(t)) return t;
+  return t.replace(/[A-Za-z]+/g, w => {
+    const l = w.toLowerCase(); let r = PALAVRAS[l];
+    if (!r && l.length >= 5) r = l.replace(/coes$/, 'ções').replace(/cao$/, 'ção').replace(/soes$/, 'sões').replace(/sao$/, 'são').replace(/([^aeiou])ao$/, '$1ão');
+    if (!r || r === l) return w;
+    return w[0] === w[0].toUpperCase() ? r[0].toUpperCase() + r.slice(1) : r;
+  });
+}
 
 // componentes: nome da pasta -> nome oficial
 const COMPONENTES = [
@@ -79,7 +98,7 @@ export function classificar(etapa, caminho, nome) {
   const prim = semAcento(resto.split(' ')[0] || '');
   if (CATEGORIAS[prim]) { categoria = CATEGORIAS[prim]; resto = resto.split(' ').slice(1).join(' '); }
   resto = resto.replace(/^[-–\s]+|[-–\s]+$/g, '');
-  let titulo = resto || comp;
+  let titulo = devolverAcentos(resto) || comp;
   if (titulo.length > 6 && titulo === titulo.toUpperCase()) titulo = titulo.toLowerCase();   // NOME TODO EM MAIÚSCULAS
   titulo = titulo[0].toUpperCase() + titulo.slice(1);
   const plano = caminho.some(s => /plano/i.test(semAcento(s))) || categoria === 'Plano de aula';
