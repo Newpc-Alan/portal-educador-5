@@ -24,8 +24,8 @@ if [ ! -d "$BASE/android-sdk/build-tools/34.0.0" ]; then
   curl -sSL -o cmd.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
   unzip -q -o cmd.zip -d android-sdk/cmdline-tools && rm cmd.zip
   rm -rf android-sdk/cmdline-tools/latest && mv android-sdk/cmdline-tools/cmdline-tools android-sdk/cmdline-tools/latest
-  yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$BASE/android-sdk" --licenses >/dev/null
-  android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$BASE/android-sdk" "platforms;android-34" "build-tools;34.0.0" "platform-tools" >/dev/null
+  set +o pipefail; yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$BASE/android-sdk" --licenses >/dev/null; set -o pipefail
+  android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root="$BASE/android-sdk" "platforms;android-34" "build-tools;34.0.0" "platform-tools" | tail -2
 fi
 export ANDROID_HOME="$BASE/android-sdk"
 
