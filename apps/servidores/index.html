@@ -165,9 +165,13 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 .val.pendente{background:#fff8e6;border:1px solid #f3dfa6;color:#6d5300}
 .val.validado{background:#e9f5dc;border:1px solid #c5e3a5;color:#2f5a0b}
 .val.ajustar{background:#fde8e6;border:1px solid #f0b7b0;color:#8a1f16}
-.lot{display:grid;grid-template-columns:1.6fr 1.2fr .9fr 1.4fr .6fr auto;gap:8px;align-items:end;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
+.lot{display:grid;grid-template-columns:1.6fr 1.3fr 1fr .6fr auto;gap:8px;align-items:end;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
 .lin3{display:grid;grid-template-columns:1.6fr 1fr 1.2fr .6fr auto;gap:8px;align-items:end;border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
 @media (max-width:760px){ .lot,.lin3{grid-template-columns:1fr 1fr} }
+.lot-tur{grid-column:1/-1;display:grid;grid-template-columns:1fr 260px;gap:10px;align-items:start;border-top:1px dashed var(--line);padding-top:8px}
+.lot-tur .tit{font-size:.72rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.lot-tur .turmas-sel{margin-top:4px}.lot-tur .turmas-sel small{font-weight:600;color:var(--muted);font-size:.72rem}
+@media (max-width:760px){ .lot-tur{grid-template-columns:1fr} }
 .lot .rm,.lin3 .rm{border:0;background:none;color:var(--red);font-size:1.1rem;padding-bottom:10px}
 .minha{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .minha .fi-av{width:72px;height:72px;font-size:1.5rem}
@@ -337,9 +341,8 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytes, getBlob, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
@@ -490,6 +493,7 @@ async function cpfRecConferir(){
   if(!d.nascimento){ toast("A Receita exige a data de nascimento. Preencha e salve a ficha.", true); return; }
   b.disabled = true; b.textContent = "Consultando...";
   try{
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
     const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "conferirCpfServidor", { timeout:40000 })({ email:d.email })).data;
     await cpfRecCarregar(d); toast(r.reaproveitado ? "Já conferido antes, sem nova consulta: " + r.texto : r.texto, r.status !== "confere");
   }catch(e){ console.warn(e); toast(e.message || "Não foi possível consultar a Receita agora.", true); }
@@ -536,17 +540,46 @@ function aba(x){ ["id", "lot", "for", "doc"].forEach(k => { $("fa-" + k).hidden 
 
 /* lotação, graduação, pós */
 const opcoes = (l, sel) => l.map(v => "<option" + (v === sel ? " selected" : "") + ">" + esc(v) + "</option>").join("");
+// turmas de cada escola, para marcar na lotação (em vez de digitar "5º A e B")
+const TURMAS_ESC = {};
+function turmasDaEscola(id){
+  if(!id) return Promise.resolve([]);
+  if(!TURMAS_ESC[id]) TURMAS_ESC[id] = getDocs(query(collection(db, "turmas"), where("escola_id", "==", id))).then(sn => { const l = []; sn.forEach(d => { const t = d.data(); if(t.status !== "inativa") l.push({ id:d.id, nome:t.nome || "Turma", turno:t.turno || "", ano:t.ano_letivo || "" }); });
+    return l.sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR", { numeric:true })); }).catch(e => { console.warn("turmas:", e.code); delete TURMAS_ESC[id]; return null; });
+  return TURMAS_ESC[id];
+}
+const textoTurmas = x => { const nomes = (x.turmas_ids || []).map(id => (x.turmas_nomes || {})[id]).filter(Boolean); return [nomes.join(", "), x.componentes || ""].filter(Boolean).join(" · ").slice(0, 120); };
 function lerLot(){ document.querySelectorAll("#f_lot .lot").forEach((el, i) => { const x = E.edit.lot[i]; if(!x) return; x.escola_id = el.querySelector("[data-l=escola]").value; x.escola_nome = E.escolasNomes[x.escola_id] || x.escola_nome || "";
-  x.funcao = el.querySelector("[data-l=funcao]").value; x.turno = el.querySelector("[data-l=turno]").value; x.turmas = el.querySelector("[data-l=turmas]").value; x.ch = +el.querySelector("[data-l=ch]").value || null; }); }
+  x.funcao = el.querySelector("[data-l=funcao]").value; x.turno = el.querySelector("[data-l=turno]").value; x.ch = +el.querySelector("[data-l=ch]").value || null;
+  x.componentes = limpa(el.querySelector("[data-l=comp]").value, 80);
+  const box = el.querySelector("[data-l=turmas]");
+  if(box && box.dataset.pronto === "1"){ x.turmas_nomes = {}; x.turmas_ids = [...box.querySelectorAll("input:checked")].slice(0, 20).map(c => { x.turmas_nomes[c.value] = c.dataset.nome; return c.value; }); }
+  x.turmas = textoTurmas(x) || x.turmas || ""; }); }
+function desenharTurmasLot(i){
+  const x = E.edit.lot[i], el = document.querySelectorAll("#f_lot .lot")[i]; if(!x || !el) return;
+  const box = el.querySelector("[data-l=turmas]");
+  if(!x.escola_id){ box.innerHTML = '<small>Escolha a escola para ver as turmas.</small>'; return; }
+  box.innerHTML = '<small>Carregando turmas...</small>';
+  turmasDaEscola(x.escola_id).then(l => {
+    if(!E.edit || E.edit.lot[i] !== x || box.dataset.esc !== x.escola_id) return;
+    if(l === null){ box.innerHTML = '<small>Não foi possível listar as turmas desta escola. Use o campo de componentes.</small>'; return; }
+    if(!l.length){ box.innerHTML = '<small>Esta escola ainda não tem turmas cadastradas.</small>'; return; }
+    const marc = new Set(x.turmas_ids || []);
+    box.innerHTML = l.map(t => '<label class="' + (marc.has(t.id) ? "on" : "") + '"><input type="checkbox" value="' + esc(t.id) + '" data-nome="' + esc(t.nome) + '"' + (marc.has(t.id) ? " checked" : "") + ">" + esc(t.nome) + (t.turno ? " <small>" + esc(t.turno.slice(0, 3)) + "</small>" : "") + "</label>").join("");
+    box.dataset.pronto = "1";
+  });
+}
 function desenharLot(){
   const pode = E.edit.proprio ? E.escolas : escopoEscolas();
   $("f_lot").innerHTML = E.edit.lot.length ? E.edit.lot.map((x, i) => { const lista = pode.includes(x.escola_id) || !x.escola_id ? pode : [x.escola_id, ...pode];
     return '<div class="lot"><label class="campo">Escola<select class="sel" data-l="escola"><option value="">Escolha...</option>' + lista.map(id => '<option value="' + esc(id) + '"' + (id === x.escola_id ? " selected" : "") + ">" + esc(E.escolasNomes[id] || x.escola_nome || id) + "</option>").join("") + "</select></label>" +
       '<label class="campo">Função<select class="sel" data-l="funcao"><option value=""></option>' + opcoes(FUNCOES, x.funcao) + "</select></label>" +
       '<label class="campo">Turno<select class="sel" data-l="turno">' + opcoes(TURNOS, x.turno || "") + "</select></label>" +
-      '<label class="campo">Turmas e componentes<input class="inp" data-l="turmas" maxlength="120" placeholder="Ex.: 5º A e B · Matemática" value="' + esc(x.turmas || "") + '"></label>' +
       '<label class="campo">CH<input class="inp" type="number" data-l="ch" min="0" max="60" value="' + esc(x.ch || "") + '"></label>' +
-      '<button class="rm" data-action="lot-rm" data-arg="' + i + '" aria-label="Remover lotação">🗑</button></div>'; }).join("") : '<p class="sub" style="margin-bottom:8px">Nenhuma escola. Adicione onde o servidor trabalha.</p>';
+      '<button class="rm" data-action="lot-rm" data-arg="' + i + '" aria-label="Remover lotação">🗑</button>' +
+      '<div class="lot-tur"><div><span class="tit">Turmas</span><div class="turmas-sel" data-l="turmas" data-esc="' + esc(x.escola_id || "") + '"></div></div>' +
+      '<label class="campo">Componentes<input class="inp" data-l="comp" maxlength="80" placeholder="Ex.: Matemática, Ciências" value="' + esc(x.componentes != null ? x.componentes : ((x.turmas_ids || []).length ? "" : x.turmas || "")) + '"></label></div></div>'; }).join("") : '<p class="sub" style="margin-bottom:8px">Nenhuma escola. Adicione onde o servidor trabalha.</p>';
+  E.edit.lot.forEach((x, i) => desenharTurmasLot(i));
   $("btnLotMais").hidden = E.edit.lot.length >= 10;
 }
 function lerGrad(){ document.querySelectorAll("#f_grad .lin3").forEach((el, i) => { const x = E.edit.grad[i]; if(!x) return; x.curso = el.querySelector("[data-g=curso]").value; x.grau = el.querySelector("[data-g=grau]").value; x.instituicao = el.querySelector("[data-g=inst]").value; x.ano = +el.querySelector("[data-g=ano]").value || null; }); }
@@ -633,7 +666,7 @@ async function gravarParcial(campos){
 /* ===================== salvar e validar ===================== */
 function montar(){
   lerLot(); lerGrad(); lerPos();
-  const lot = E.edit.lot.filter(x => x.escola_id).map(x => ({ escola_id:x.escola_id, escola_nome:String(E.escolasNomes[x.escola_id] || x.escola_nome || "").slice(0, 120), funcao:x.funcao || "", turno:x.turno || "", turmas:limpa(x.turmas, 120), ch:x.ch || null })).slice(0, 10);
+  const lot = E.edit.lot.filter(x => x.escola_id).map(x => ({ escola_id:x.escola_id, escola_nome:String(E.escolasNomes[x.escola_id] || x.escola_nome || "").slice(0, 120), funcao:x.funcao || "", turno:x.turno || "", turmas:limpa(x.turmas, 120), turmas_ids:(x.turmas_ids || []).slice(0, 20), turmas_nomes:Object.fromEntries((x.turmas_ids || []).slice(0, 20).map(id => [id, String((x.turmas_nomes || {})[id] || "").slice(0, 40)])), componentes:limpa(x.componentes || "", 80), ch:x.ch || null })).slice(0, 10);
   return {
     email:String($("f_email").value || "").trim().toLowerCase(), nome:limpa($("f_nome").value, 80), nome_social:limpa($("f_social").value, 80), nascimento:$("f_nasc").value, cpf:soDig($("f_cpf").value, 11), telefone:telefone($("f_tel").value) || "",
     matricula_func:limpa($("f_mat").value, 30), cargo:$("f_cargo").value, vinculo:$("f_vinc").value, carga_horaria:+$("f_ch").value || null,
@@ -650,6 +683,21 @@ function atualizarPct(){
   const it = itens(d), p = Math.round(100 * it.filter(x => x[1]).length / it.length), falta = it.filter(x => !x[1]).map(x => x[0]);
   $("fiPct").innerHTML = '<i><s style="width:' + p + '%"></s></i>Ficha ' + p + "%";
   $("fiFalta").textContent = falta.length ? "Falta: " + falta.slice(0, 3).join(", ") + (falta.length > 3 ? "..." : "") : "Ficha completa ✓";
+}
+// as turmas marcadas na lotação passam a aparecer para o professor (chamada, notas, prova online): só acrescenta, nunca tira
+async function sincronizarTurmas(d){
+  const ids = [...new Set((d.lotacao || []).flatMap(x => x.turmas_ids || []))]; if(!ids.length) return "";
+  try{
+    let uid = "", atuais = [];
+    if(d.email === meuEmail() && E.perfil === "professor"){ uid = E.user.uid; atuais = E.u.turmas_ids || []; }
+    else if(E.admin){ const sn = await getDocs(query(collection(db, "usuarios"), where("email", "==", d.email), limit(1))); if(!sn.empty){ uid = sn.docs[0].id; const u = sn.docs[0].data(); if(u.perfil !== "professor") return ""; atuais = u.turmas_ids || []; } }
+    if(!uid) return E.perfil === "gestor" || E.perfil === "secretaria" ? "As turmas aparecem para o professor quando ele confirmar a própria ficha." : "";
+    const novas = ids.filter(id => !atuais.includes(id)); if(!novas.length) return "";
+    const todas = [...atuais, ...novas].slice(0, 60);
+    await updateDoc(doc(db, "usuarios", uid), { turmas_ids:todas, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid });
+    if(uid === E.user.uid) E.u.turmas_ids = todas;
+    return novas.length + (novas.length > 1 ? " turmas liberadas" : " turma liberada") + " para o professor.";
+  }catch(e){ console.warn("turmas do usuário:", e.code); return "Não foi possível liberar as turmas no acesso do professor (" + (e.code || "erro") + ")."; }
 }
 async function salvar(validar){
   const ed = E.edit, d = montar();
@@ -680,7 +728,8 @@ async function salvar(validar){
     const loc = { ...reg, id:d.email, atualizado_em:null };
     const i = E.lista.findIndex(x => x.id === d.email); if(i >= 0) E.lista[i] = loc; else if(E.equipe && loc.municipio_id === E.muni) E.lista.push(loc);
     if(ed.proprio){ E.minha = loc; desenharMinha(); }
-    fechar(); toast(validar ? (validar.status === "validado" ? "Ficha validada." : "Pedido de ajuste enviado ao servidor.") : ed.proprio ? "Sua ficha foi salva e vai para a conferência da direção." : "Ficha salva.");
+    const sinc = await sincronizarTurmas(d);
+    fechar(); toast((validar ? (validar.status === "validado" ? "Ficha validada." : "Pedido de ajuste enviado ao servidor.") : ed.proprio ? "Sua ficha foi salva e vai para a conferência da direção." : "Ficha salva.") + (sinc ? " " + sinc : ""));
     if(E.equipe) desenhar();
   }catch(e){ console.warn(e); toast(e.code === "permission-denied" ? "Sem permissão para gravar esta ficha." : "Não foi possível salvar agora. Tente de novo.", true); }
   $("btnSalvar").disabled = false; $("btnSalvar").textContent = "Salvar";
@@ -929,6 +978,8 @@ document.addEventListener("change", ev => {
   else if(t.id === "impArquivo" && t.files[0]){ lerArquivo(t.files[0]); t.value = ""; }
   else if(t.id === "docArq" && t.files[0]) anexar(t.files[0]);
   else if(t.id === "fotoArq" && t.files[0]){ deArquivo(t.files[0]); t.value = ""; }
+  else if(t.dataset && t.dataset.l === "escola"){ lerLot(); desenharLot(); }
+  else if(t.closest && t.closest(".turmas-sel") && t.type === "checkbox") t.closest("label").classList.toggle("on", t.checked);
   else if(t.id === "f_cpf"){ const d = soDig(t.value, 11); t.value = cpfBonito(d); t.classList.toggle("erro", !!d && !cpfValido(d)); }
   else if(t.dataset && t.dataset.c === "whatsapp"){ const w = telefone(t.value); t.classList.toggle("erro", w === null); if(w) t.value = telBonito(w); }
   if(t.closest && t.closest(".chips") && t.type === "checkbox") t.closest("label").classList.toggle("on", t.checked);
