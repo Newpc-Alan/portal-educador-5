@@ -80,7 +80,7 @@ cat > twa-manifest.json <<JSON
   "isChromeOSOnly": false,
   "isMetaQuest": false,
   "fullScopeUrl": "https://$HOST/aluno/",
-  "minSdkVersion": 21
+  "minSdkVersion": 24
 }
 JSON
 echo "Gerando o projeto Android..."
