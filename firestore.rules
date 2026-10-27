@@ -766,6 +766,18 @@ service cloud.firestore {
           || (souTentativa(uid) && ((provaOnline(id).fecha_em < request.time && provaOnline(id).get("notas", "fim") != "reter") || provaOnline(id).get("nota_liberada", false) == true))));
         allow write: if false;
       }
+      // sala de espera ("aplicar agora"): o aluno avisa que entrou e está pronto; o professor vê quem já está na sala antes de iniciar
+      match /po_sala/{uid} {
+        allow read: if admin() || (logado() && (souTentativa(uid) || provaOnline(id).professor_uid == request.auth.uid));
+        allow create, update: if logado() && souTentativa(uid) && provaOnline(id).status == "agendada"
+          && (request.auth.uid in provaOnline(id).get("alunos_uids", []) || (meuAlunoId() != "" && meuAlunoId() in provaOnline(id).get("alunos_ids", [])))
+          && request.resource.data.keys().hasOnly(["nome", "aparelho", "em", "pronto", "foto"])
+          && request.resource.data.em == request.time
+          && request.resource.data.get("nome", "") is string && request.resource.data.get("nome", "").size() <= 80
+          && request.resource.data.get("aparelho", "") is string && request.resource.data.get("aparelho", "").size() <= 40
+          && request.resource.data.get("pronto", false) is bool && request.resource.data.get("foto", false) is bool;
+        allow delete: if false;
+      }
     }
     match /provas_online_gab/{id} {
       allow read: if admin() || (logado() && resource.data.professor_uid == request.auth.uid);

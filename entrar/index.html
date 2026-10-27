@@ -561,6 +561,8 @@
   @media (max-width:820px){ .at-hero{ flex-direction:column } .at-hero-num{ flex-direction:row;gap:8px;padding:10px } .at-modal{ flex-direction:column;padding:0 } .at-vis{ border-radius:0;flex:1 } .at-info{ width:auto;border-radius:0;max-height:45vh } }
   .pv-faixa{ margin-bottom:18px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid var(--line) }
   .pv-tit{ display:block;font-size:14px;color:var(--ink);margin-bottom:10px }
+  .pv-hist{ font-size:13px;font-weight:700;color:var(--pde-azul,#2671AB);text-decoration:none;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:#f5f8fb;margin-bottom:10px }
+  .pv-so-hist{ padding:8px 12px } .pv-so-hist .pv-hist{ margin:0;display:inline-block }
   .pv-lista{ display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px }
   .pv-card{ display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-decoration:none;color:inherit;background:#fbfcfe }
   .pv-card.aberta{ border-color:#8DC63F;background:#f4faea;box-shadow:0 0 0 3px rgba(141,198,63,.18) }
@@ -4627,7 +4629,21 @@
   // ===================== PROVA ONLINE: card no Início do aluno =====================
   // ao vivo: a prova que o professor aplica agora aparece sozinha, sem o aluno recarregar a página
   const PV = { unsub:null, lista:[], vistas:null, relogio:0 };
+  // tablet do aluno fica com o Portal aberto o dia todo: quando sai uma versão nova do site, recarrega sozinho
+  // (só no Início, sem nada sendo digitado), para a prova sempre aparecer do jeito novo
+  let versaoSite = "";
+  async function conferirVersao(){
+    try{
+      const r = await fetch(location.pathname + "?v=" + Date.now(), { method:"HEAD", cache:"no-store" });
+      const v = r.headers.get("etag") || r.headers.get("last-modified") || "";
+      if(!v) return;
+      if(!versaoSite){ versaoSite = v; return; }
+      const digitando = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+      if(v !== versaoSite && !digitando && $("iniProvas")) location.reload();
+    }catch(e){}
+  }
   function faixaProvasAluno(){
+    if(!PV.versao){ PV.versao = setInterval(conferirVersao, 180000); conferirVersao(); }
     if(PV.unsub){ PV.unsub(); PV.unsub = null; }
     const q = usuarioAtual.aluno_id ? query(collection(db,"provas_online"), where("alunos_ids","array-contains",usuarioAtual.aluno_id)) : query(collection(db,"provas_online"), where("alunos_uids","array-contains",usuarioAtual.uid));
     PV.unsub = onSnapshot(q, s => {
@@ -4643,20 +4659,22 @@
   function desenharProvasAluno(){
     const el = $("iniProvas"); if(!el) return;
     const agora = Date.now();
-    // ordem: abertas, depois as que vão abrir, depois as encerradas mais recentes (antes, a mais nova ficava fora das 4 que aparecem)
-    const grupo = p => { const ab = msDe(p.abre_em), fe = msDe(p.fecha_em); return p.status === "agendada" && agora <= fe ? (agora >= ab ? 0 : 1) : 2; };
-    const l = PV.lista.filter(p => p.status !== "cancelada" && msDe(p.fecha_em) > agora - 7 * 864e5)
-      .sort((a, b) => grupo(a) - grupo(b) || (grupo(a) === 2 ? msDe(b.fecha_em) - msDe(a.fecha_em) : msDe(a.abre_em) - msDe(b.abre_em)));
-    if(!l.length){ el.innerHTML = ""; return; }
+    // na tela inicial só a prova que vai ser feita (aberta, na sala de espera ou marcada); as antigas ficam no Histórico
+    const atual = p => p.status === "agendada" && (p.aguardando || msDe(p.fecha_em) >= agora);
+    const l = PV.lista.filter(atual).sort((a, b) => (b.aguardando || msDe(b.abre_em) <= agora) - (a.aguardando || msDe(a.abre_em) <= agora) || msDe(a.abre_em) - msDe(b.abre_em));
+    const antigas = PV.lista.filter(p => p.status === "encerrada" || (p.status === "agendada" && !p.aguardando && msDe(p.fecha_em) < agora)).length;
+    const hist = antigas ? '<a class="pv-hist" href="/prova/">\u{1F4DA} Histórico de provas ('+antigas+')</a>' : '';
+    if(!l.length){ el.innerHTML = hist ? '<div class="pv-faixa pv-so-hist">'+hist+'</div>' : ""; return; }
     const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), dd = m => new Date(m).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
-    const html = '<div class="pv-faixa"><b class="pv-tit">\u{1F4DD} Minhas provas</b><div class="pv-lista">'+l.slice(0, 4).map(p => {
-      const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), aberta = p.status === "agendada" && agora >= ab && agora <= fe, fut = p.status === "agendada" && agora < ab, logo = fut && ab - agora < 120000;
-      return '<a class="pv-card'+(aberta || logo ? " aberta" : "")+'" href="/prova/?id='+encodeURIComponent(p.id)+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : fut ? (logo ? "\u{23F3}" : "\u{1F512}") : "\u{1F4CA}")+'</span>'+
-        '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+(logo ? "abre em instantes: entre agora" : fut ? "abre "+dd(ab)+" às "+hm(ab) : aberta ? "aberta até "+hm(fe) : "encerrada · ver nota")+'</small></span>'+
-        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : logo ? '<span class="pv-btn">Entrar</span>' : '')+'</a>'; }).join("")+'</div>'+
-      (l.length > 4 ? '<a href="/prova/" style="display:inline-block;margin-top:8px;font-weight:700">Ver todas as provas ('+l.length+') \u2192</a>' : '')+'</div>';
+    const html = '<div class="pv-faixa"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b class="pv-tit">\u{1F4DD} Prova de hoje</b>'+hist+'</div><div class="pv-lista">'+l.map(p => {
+      const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), espera = !!p.aguardando, aberta = !espera && agora >= ab && agora <= fe, logo = !espera && agora < ab && ab - agora < 120000;
+      const txt = espera ? "o professor vai iniciar: entre e toque em \u201CEstou pronto\u201D" : aberta ? "aberta até "+hm(fe) : logo ? "abre em instantes: entre agora" : "abre "+dd(ab)+" às "+hm(ab);
+      return '<a class="pv-card'+(aberta || espera || logo ? " aberta" : "")+'" href="/prova/?id='+encodeURIComponent(p.id)+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : espera || logo ? "\u{23F3}" : "\u{1F512}")+'</span>'+
+        '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+txt+'</small></span>'+
+        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : espera || logo ? '<span class="pv-btn">Entrar</span>' : '')+'</a>'; }).join("")+'</div></div>';
     if(el.innerHTML !== html) el.innerHTML = html;
   }
+
 
   // ===================== ATIVIDADES PRONTAS (Banco Curricular) =====================
   // atividades/{id}: etapa, componente, anos, bncc, categoria, tipo (atividade/plano), url, mini_url. Vêm do Drive pela sincronização

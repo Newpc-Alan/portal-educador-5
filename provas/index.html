@@ -4139,7 +4139,7 @@ function olAbrir(){
       '<div id="ol-class-res" class="ol-class-res"></div></div>'
       : '<p style="color:#C2362C;margin:0">Você ainda não tem turmas no Portal. Cadastre a turma em Minhas Turmas para aplicar online.</p>')+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" role="radiogroup" aria-label="Quando abrir">'+
-      '<label class="ol-modo on" data-modo="agora"><input type="radio" name="ol-modo" value="agora" checked><div class="t">▶️ Aplicar agora</div><div class="d">Abre 10 segundos depois de aplicar, para todos começarem juntos. Você controla o tempo e encerra quando quiser.</div></label>'+
+      '<label class="ol-modo on" data-modo="agora"><input type="radio" name="ol-modo" value="agora" checked><div class="t">▶️ Aplicar agora</div><div class="d">A prova vai para a sala de espera dos alunos. Quando todos estiverem prontos, você clica em Iniciar: contagem de 10 s e a prova abre junto para todos.</div></label>'+
       '<label class="ol-modo" data-modo="horario"><input type="radio" name="ol-modo" value="horario"><div class="t">🗓️ Horário marcado</div><div class="d">Abre e fecha sozinha no dia e horário escolhidos.</div></label></div>'+
     '<div id="ol-agora" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label class="pde-label" for="ol-dur-a">Tempo de prova (minutos)</label><input type="number" id="ol-dur-a" class="pde-input" min="5" max="300" value="50"></div>'+
       '<div><label class="pde-label" for="ol-tol">Tolerância para entrar (minutos)</label><input type="number" id="ol-tol" class="pde-input" min="0" max="120" value="10"></div></div>'+
@@ -4153,7 +4153,7 @@ function olAbrir(){
     '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:600"><input type="checkbox" id="ol-fotos" checked style="margin-top:3px"><span>📸 Foto de confirmação do aluno no começo e na entrega<small style="display:block;font-weight:500;color:#62758a">Fica no painel e no relatório de auditoria, ao lado da foto da matrícula. Só você e a direção veem; apagada no fim do ano letivo.</small></span></label>'+
     '<div style="background:#f5f8fb;border-radius:12px;padding:10px 12px;font-size:.88rem">📋 '+qs.length+' questões · ⭐ '+dados.totalPontos+' pontos'+(manuais ? ' · ✍️ '+manuais+' para você corrigir depois' : '')+(semGab ? '<br><b style="color:#C2362C">⚠ '+semGab+' questão(ões) objetiva(s) sem gabarito marcado: elas ficam para correção manual.</b>' : '')+'</div>'+
     '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap"><a href="/prova/" target="_blank" rel="noopener" style="font-weight:700">Ver provas online já aplicadas ↗</a>'+
-    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Aplicar agora</button></div>';
+    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Enviar para a sala de espera</button></div>';
   $("ol-bg").classList.add("show");
   ["ol-turma", "ol-fin", "ol-per"].forEach(i => { const el = $(i); if(el) el.addEventListener("change", olClassif); });
   olClassif();
@@ -4170,7 +4170,7 @@ function olClassif(){
 function olModo(){ const m = (document.querySelector('input[name="ol-modo"]:checked') || {}).value || "agora";
   document.querySelectorAll(".ol-modo").forEach(l => l.classList.toggle("on", l.dataset.modo === m));
   $("ol-agora").style.display = m === "agora" ? "grid" : "none"; $("ol-horario").style.display = m === "horario" ? "grid" : "none";
-  $("ol-ok").textContent = m === "agora" ? "Aplicar agora" : "Agendar para a turma"; }
+  $("ol-ok").textContent = m === "agora" ? "Enviar para a sala de espera" : "Agendar para a turma"; }
 async function olAplicar(){
   if(OL.enviando) return;
   const dados = G().collectData(), modo = (document.querySelector('input[name="ol-modo"]:checked') || {}).value || "agora";
@@ -4196,7 +4196,7 @@ async function olAplicar(){
     const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "publicarProvaOnline", { timeout:120000 })({
       titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, finalidade:fin, periodo:per, periodos:dados.header.periodos, ano_letivo:dados.header.ano, modo, notas:$("ol-notas").value, tolerancia_min:tol, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, fotos:$("ol-fotos").checked, avisos:1,
       questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
-    $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">'+(r.modo === "agora" ? "Prova aberta agora" : "Prova agendada")+'</h3><p style="color:#62758a">'+(r.modo === "agora" ? r.alunos+' alunos. Ela abre em 10 segundos (peça para a turma entrar na tela da prova) e fica aberta até as '+new Date(r.fecha_em).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })+' (tempo de prova + tolerância) ou até você encerrar no painel. ' : r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. ')+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
+    $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">'+(r.modo === "agora" ? "Prova na sala de espera" : "Prova agendada")+'</h3><p style="color:#62758a">'+(r.modo === "agora" ? r.alunos+' alunos já veem a prova no Início do tablet. Peça para entrarem e tocarem em “Estou pronto”. No painel ao vivo você vê quem está pronto e clica em <b>Iniciar</b>: contagem de 10 s e a prova abre para todos. ' : r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. ')+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
       '<a class="pde-btn pde-btn-primary" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Abrir o painel ao vivo ↗</a></div>';
   }catch(e){ G().toast(e.message || "Não foi possível aplicar.", "err"); btn.disabled = false; olModo(); }
   finally{ OL.enviando = false; }

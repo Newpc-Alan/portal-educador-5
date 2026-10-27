@@ -12,7 +12,8 @@ import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
 
 const REGIAO = 'southamerica-east1';
-const ABRE_EM_MS = 10000;   // "aplicar agora": a prova abre 10 s depois (todos começam juntos)
+const ABRE_EM_MS = 10000;
+const ESPERA_MAX_MS = 6 * 3600e3;   // sala de espera sem o professor iniciar: cancela depois de 6 h   // "aplicar agora": a prova abre 10 s depois (todos começam juntos)
 const TIPOS = ['multipla', 'checkbox', 'vf', 'curta', 'dissertativa', 'grade_radio', 'grade_check'];
 const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const txt = (s, n) => String(s == null ? '' : s).slice(0, n);
@@ -94,8 +95,9 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   // "aplicar agora": o horário vem do servidor (relógio errado em tablet ou computador não atrapalha);
   // fica aberta pelo tempo de prova + a tolerância para entrar, e o professor encerra quando quiser
   const agoraModo = d.modo === 'agora', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
-  // abre 10 s depois de aplicar: dá tempo de os alunos estarem na tela da prova e todos começarem juntos
-  const abre = agoraModo ? Date.now() + ABRE_EM_MS : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
+  // "aplicar agora": a prova vai para a SALA DE ESPERA dos alunos e só abre quando o professor clicar em "Iniciar"
+  // (contagem de 10 s no tablet). Até lá a janela fica num prazo de segurança: se ninguém iniciar em 6 h, ela é cancelada.
+  const abre = agoraModo ? Date.now() + ESPERA_MAX_MS : Number(d.abre_em), fecha = agoraModo ? abre + 60000 : Number(d.fecha_em);
   if (!(abre > 0 && fecha > abre)) throw new HttpsError('invalid-argument', 'Confira o horário de abertura e de encerramento.');
   if (fecha < Date.now()) throw new HttpsError('invalid-argument', 'O encerramento já passou.');
   const qs = Array.isArray(d.questoes) ? d.questoes.filter(q => q && TIPOS.includes(q.tipo) && String(q.enun || '').trim()) : [];
@@ -128,7 +130,7 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
     questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
     status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp(),
-    fotos: d.fotos === true, ...(d.fotos === true ? { fotos_ate: Timestamp.fromMillis(fimDoAnoLetivo()) } : {}), ...cls
+    aguardando: agoraModo, fotos: d.fotos === true, ...(d.fotos === true ? { fotos_ate: Timestamp.fromMillis(fimDoAnoLetivo()) } : {}), ...cls
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
@@ -188,6 +190,7 @@ export const iniciarProvaOnline = onCall({ region: REGIAO }, async (req) => {
     const t = (await tx.get(tref)).data();
     if (t) return { situacao: t.status, prazo: ms(t.prazo), agora };
     if (p.status !== 'agendada') throw new HttpsError('failed-precondition', 'Esta prova foi encerrada.');
+    if (p.aguardando) throw new HttpsError('failed-precondition', 'Aguarde: o professor ainda não iniciou a prova.');
     if (agora < ms(p.abre_em)) throw new HttpsError('failed-precondition', 'A prova ainda não abriu.');
     if (agora > ms(p.fecha_em)) throw new HttpsError('failed-precondition', 'O horário da prova terminou.');
     const prazo = Math.min(agora + p.duracao_min * 60000, ms(p.fecha_em));
@@ -273,9 +276,11 @@ export const acaoProvaOnline = onCall({ region: REGIAO }, async (req) => {
   // professor abre antes do horário marcado: abre já (hora do servidor) e garante a janela do tempo de prova + 10 min
   if (d.acao === 'abrir_agora') {
     if (p.status !== 'agendada') throw new HttpsError('failed-precondition', 'Esta prova já foi encerrada.');
-    if (ms(p.abre_em) <= agora) return { ok: true, ja: true };
-    await pref.update({ abre_em: Timestamp.fromMillis(agora - 5000), fecha_em: Timestamp.fromMillis(Math.max(ms(p.fecha_em), agora + (p.duracao_min + 10) * 60000)), aberta_pelo_professor_em: FieldValue.serverTimestamp() });
-    return { ok: true };
+    if (!p.aguardando && ms(p.abre_em) <= agora) return { ok: true, ja: true };
+    // o professor inicia: os tablets mostram 10, 9, 8... e a prova abre junto para todos
+    const abre = agora + ABRE_EM_MS, fecha = p.aguardando ? abre + (p.duracao_min + (p.tolerancia_min ?? 10)) * 60000 : Math.max(ms(p.fecha_em), abre + (p.duracao_min + 10) * 60000);
+    await pref.update({ aguardando: false, abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), aberta_pelo_professor_em: FieldValue.serverTimestamp(), aberta_por: txt(u.nome, 60) });
+    return { ok: true, abre_em: abre, fecha_em: fecha };
   }
   if (d.acao === 'liberar_notas') { await pref.update({ nota_liberada: true, notas: 'liberada', notas_liberadas_em: FieldValue.serverTimestamp(), notas_liberadas_por: txt(u.nome, 60) }); return { ok: true }; }
   if (d.acao === 'reter_notas') { await pref.update({ nota_liberada: false, notas: 'reter' }); return { ok: true }; }
@@ -292,6 +297,8 @@ export const fecharProvasOnline = onSchedule({ region: REGIAO, schedule: 'every 
   for (const p of ps.docs) {
     const b = await p.ref.collection('po_tentativas').where('status', '==', 'bloqueada').get();
     for (const x of b.docs) await finalizar(p.id, x.id, 'bloqueada_no_fim');
+    // sala de espera que o professor nunca iniciou: cancelada (não aparece como prova feita)
+    if (p.data().aguardando) { await p.ref.update({ status: 'cancelada', aguardando: false, cancelada_em: FieldValue.serverTimestamp(), motivo_cancelamento: 'nao_iniciada' }); continue; }
     await p.ref.update({ status: 'encerrada', encerrada_em: FieldValue.serverTimestamp() });
   }
 });

@@ -75,6 +75,16 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0c2338;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1} .toast.err{background:var(--red)}
 @media (max-width:720px){ .kpis{grid-template-columns:repeat(3,1fr)} .tabela{font-size:.82rem} .ex-q{padding:16px} }
+/* sala de espera e contagem */
+.espera{text-align:center;border:2px dashed #b9dcc1;background:#f6fbf7;border-radius:16px;padding:18px;margin-top:6px}
+.espera .pulso{font-size:2.6rem;animation:pulso 1.6s ease-in-out infinite}
+.espera b{display:block;font-size:1.15rem;color:#0f2c4a;margin:6px 0}
+@keyframes pulso{50%{transform:scale(1.12);opacity:.7}}
+@media (prefers-reduced-motion:reduce){.espera .pulso{animation:none}}
+.contagem{position:fixed;inset:0;background:rgba(15,44,74,.94);display:grid;place-items:center;z-index:90;color:#fff;text-align:center}
+.contagem b{display:block;font-size:min(42vw,13rem);line-height:1;font-weight:800;color:#8DC63F}
+.contagem p{font-size:1.2rem;margin-top:10px}
+.chip.c-sala{background:#e7f5ea;color:#1a6b2a}
 /* foto de confirmação */
 .foto-box{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border:1.5px solid #cfe0d3;background:#f6fbf7;border-radius:14px;padding:12px;margin:12px 0}
 .foto-box .cam{width:160px;height:120px;border-radius:10px;background:#0f2c4a;overflow:hidden;display:grid;place-items:center;color:#fff;font-size:2rem;flex-shrink:0}
@@ -100,7 +110,7 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, updateDoc, onSnapshot, collection, query, where, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot, collection, query, where, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { getStorage, ref as stRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -158,6 +168,7 @@ function desenharLista(prof, l){
 }
 function situacaoProva(p){
   const t = agora();
+  if(p.status === "agendada" && p.aguardando) return ["Sala de espera", "c-age"];
   if(p.status === "encerrada" || ms(p.fecha_em) < t) return ["Encerrada", "c-ent"];
   if(ms(p.abre_em) > t) return ["Agendada", "c-age"];
   return ["Aberta agora", "c-and"];
@@ -195,21 +206,64 @@ function introAluno(){
   const aberta = p.status === "agendada" && t >= ab && t <= fe;
   $("tela").innerHTML = '<div class="card"><span class="chip '+situacaoProva(p)[1]+'">'+situacaoProva(p)[0]+'</span><h1 style="margin-top:10px">'+esc(p.titulo)+'</h1>'+
     '<p class="sub">'+esc([p.disciplina, p.turma_nome, classif(p), "Prof. " + (p.professor_nome || "")].filter(Boolean).join(" · "))+'</p>'+
-    '<p style="margin-top:12px"><b>'+dia(ab)+'</b>, das <b>'+hora(ab)+'</b> às <b>'+hora(fe)+'</b> · você terá <b>'+p.duracao_min+' minutos</b> · '+p.questoes.length+' questões · '+p.total_pontos+' pontos</p>'+
+    '<p style="margin-top:12px">'+(p.aguardando ? '<b>Começa quando o professor iniciar</b>' : '<b>'+dia(ab)+'</b>, das <b>'+hora(ab)+'</b> às <b>'+hora(fe)+'</b>')+' · você terá <b>'+p.duracao_min+' minutos</b> · '+p.questoes.length+' questões · '+p.total_pontos+' pontos</p>'+
     '<div class="regras"><div><span>🖥️</span><p>A prova abre em tela cheia. Não saia dela até entregar.</p></div>'+
       '<div><span>📱</span><p>Faça a prova em <b>um aparelho só</b>. Se abrir em outro, o primeiro sai da prova e a troca fica registrada para o professor.</p></div>'+
       '<div><span>⚠️</span><p>'+(p.avisos_max ? 'Se sair da prova ('+SAIDAS+'), você recebe '+(p.avisos_max === 1 ? "1 aviso" : p.avisos_max+" avisos")+'. Na próxima saída, a prova é <b>bloqueada</b> e só o professor libera.' : 'Se sair da prova ('+SAIDAS+'), ela é <b>bloqueada</b> na hora e só o professor libera.')+'</p></div>'+
       '<div><span>💾</span><p>Cada resposta é salva na hora. Se a internet cair, entre de novo: você continua de onde parou.</p></div>'+
       '<div><span>⏱️</span><p>Quando o tempo acabar, a prova é entregue sozinha.</p></div>'+
-      '<div><span>📊</span><p>'+(p.notas === "reter" ? 'A nota será divulgada pelo professor no fechamento do bimestre.' : 'A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.')+'</p></div></div>'+
+      '<div><span>📊</span><p>'+(p.notas === "reter" ? 'A nota será divulgada pelo professor no fechamento do bimestre.' : (p.aguardando ? 'A nota aparece quando a prova terminar para todos.' : 'A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.'))+'</p></div></div>'+
     (p.fotos && p.status === "agendada" && t <= fe ? '<div class="foto-box"><div class="cam" id="fotoCam">'+(E.fotoUrl ? '<img alt="Sua foto" src="'+E.fotoUrl+'">' : E.fotoFeita ? '🚫' : '📸')+'</div><div class="tx"><b>Foto de confirmação</b><p>O professor pediu uma foto sua no começo e na entrega da prova. Só o professor e a direção da escola veem, e ela é apagada no fim do ano letivo.</p>'+
       '<button class="btn btn-gh" data-action="foto-ligar" id="btnFoto">'+(E.fotoUrl ? '🔄 Tirar de novo' : '📷 Ligar a câmera')+'</button></div></div>' : '')+
-    (aberta ? '<button class="btn btn-ok" data-action="comecar" id="btnComecar" style="width:100%;font-size:1.05rem;padding:16px"'+(p.fotos && !E.fotoFeita ? ' disabled' : '')+'>'+(p.fotos && !E.fotoFeita ? 'Tire a foto para começar' : 'Começar a prova')+'</button>' :
-      t < ab ? '<div class="card vazio" style="margin:0">🔒 '+(ab - t < 600000 ? 'A prova abre em <b data-abre="'+ab+'">'+mmss((ab - t) / 1000)+'</b>. Fique nesta tela.' : 'A prova abre '+dia(ab)+' às '+hora(ab)+'.')+'</div>' : '<div class="card vazio" style="margin:0">O horário desta prova terminou.</div>')+'</div>';
-  // contagem regressiva até abrir (relógio do servidor) e a tela troca sozinha para "Começar a prova"
+    acaoAluno(p, t, ab, fe, aberta)+'</div>';
+  // sala de espera: o professor vê quem já entrou
+  if(p.status === "agendada" && (p.aguardando || t < ab) && !E.salaAvisada) avisarSala(false);
+  // contagem até abrir (relógio do servidor): nos últimos 10 s a tela inteira mostra 10, 9, 8... e a prova abre sozinha
   clearInterval(E.contagem);
-  if(p.status === "agendada" && t < ab && ab - t < 600000) E.contagem = setInterval(() => { const r = ab - agora(), el = document.querySelector("[data-abre]");
-    if(r <= 0){ clearInterval(E.contagem); if(!E.ativo && !E.tent) introAluno(); return; } if(el) el.textContent = mmss(r / 1000); }, 500);
+  if(p.status === "agendada" && !p.aguardando && t < ab && ab - t < 600000) E.contagem = setInterval(() => {
+    const r = ab - agora(), el = document.querySelector("[data-abre]");
+    if(el) el.textContent = mmss(Math.max(0, r) / 1000);
+    if(r <= 10500) mostrarContagem(Math.max(1, Math.ceil(r / 1000)));
+    if(r <= 0){ clearInterval(E.contagem); fecharContagem(); if(!E.ativo && !E.tent){ if(E.pronto) iniciarAuto(); else introAluno(); } }
+  }, 200);
+}
+// o que aparece embaixo das regras: começar (prova aberta), "estou pronto" ou a sala de espera
+function acaoAluno(p, t, ab, fe, aberta){
+  const falta = p.fotos && !E.fotoFeita;
+  if(aberta) return '<button class="btn btn-ok" data-action="comecar" id="btnComecar" style="width:100%;font-size:1.05rem;padding:16px"'+(falta ? ' disabled' : '')+'>'+(falta ? 'Tire a foto para começar' : 'Começar a prova')+'</button>';
+  if(p.status !== "agendada" || (!p.aguardando && t > fe)) return '<div class="card vazio" style="margin:0">O horário desta prova terminou.</div>';
+  const quando = p.aguardando ? "" : (ab - t < 600000 ? 'A prova abre em <b data-abre="'+ab+'">'+mmss((ab - t) / 1000)+'</b>.' : 'A prova abre '+dia(ab)+' às '+hora(ab)+'.');
+  if(!E.pronto) return (quando ? '<p style="text-align:center;margin:4px 0 10px">🔒 '+quando+'</p>' : '')+
+    '<button class="btn btn-ok" data-action="pronto" id="btnPronto" style="width:100%;font-size:1.1rem;padding:16px"'+(falta ? ' disabled' : '')+'>'+(falta ? 'Tire a foto para ficar pronto' : '✋ Estou pronto')+'</button>'+
+    '<p class="sub" style="text-align:center;margin-top:8px">Ao tocar, a tela fica cheia e a prova começa sozinha quando '+(p.aguardando ? 'o professor iniciar' : 'chegar a hora')+'.</p>';
+  return '<div class="espera"><div class="pulso">⏳</div><b>'+(p.aguardando ? 'Aguardando o professor iniciar a prova' : 'Você está pronto. '+quando)+'</b><p>Fique nesta tela. Quando '+(p.aguardando ? 'o professor iniciar' : 'chegar a hora')+', aparece a contagem 10, 9, 8... e a prova abre sozinha.</p>'+
+    (document.fullscreenElement || !temTelaCheia() ? '' : '<button class="btn btn-gh" data-action="pronto" style="margin-top:6px">🖥️ Voltar para a tela cheia</button>')+'</div>';
+}
+async function ficarPronto(){
+  await telaCheia(); E.pronto = true; introAluno(); avisarSala(true);
+}
+// sala de espera: avisa o professor que o aluno entrou (e se está pronto); nunca atrapalha o aluno
+async function avisarSala(pronto){
+  E.salaAvisada = true;
+  try{ await setDoc(doc(db, "provas_online", E.prova.id, "po_sala", E.chave), { nome:String((E.u && E.u.nome) || "").slice(0, 80), aparelho:aparelho(), em:serverTimestamp(), pronto:!!pronto, foto:!!E.fotoUrl }); }
+  catch(e){ console.warn("sala:", e.code || e); }
+}
+function mostrarContagem(n){
+  let c = $("contagem");
+  if(!c){ c = document.createElement("div"); c.id = "contagem"; c.className = "contagem"; c.setAttribute("role", "status"); document.body.appendChild(c); }
+  const html = '<div><b>'+n+'</b><p>'+(E.pronto ? 'A prova vai abrir. Prepare-se!' : 'A prova vai abrir. Toque em "Começar a prova" quando aparecer.')+'</p></div>';
+  if(c.innerHTML !== html) c.innerHTML = html;
+}
+function fecharContagem(){ const c = $("contagem"); if(c) c.remove(); }
+// abre a prova sozinha no fim da contagem (o aluno tocou em "Estou pronto": a tela cheia já está ligada)
+async function iniciarAuto(tentativa){
+  if(E.iniciando) return; E.iniciando = true;
+  try{ const r = await chamar("iniciarProvaOnline", { id:E.prova.id }); E.offset = r.agora - Date.now(); }
+  catch(e){
+    E.iniciando = false;
+    if((tentativa || 0) < 4 && /ainda n[aã]o/i.test(e.message || "")){ setTimeout(() => iniciarAuto((tentativa || 0) + 1), 1200); return; }
+    toast(e.message || "Não foi possível começar.", true); introAluno();
+  }
 }
 async function comecar(btn){
   btn.disabled = true; btn.textContent = "Abrindo...";
@@ -253,6 +307,7 @@ async function fotoTirar(){
     await enviarFoto(blob, "inicio"); E.fotoUrl = url;
     E.fotoFeita = true; b.textContent = "🔄 Tirar de novo"; b.dataset.action = "foto-ligar"; b.disabled = false;
     const c = $("btnComecar"); if(c){ c.disabled = false; c.textContent = "Começar a prova"; }
+    const pr = $("btnPronto"); if(pr){ pr.disabled = false; pr.textContent = "✋ Estou pronto"; }
   }catch(e){ console.warn("foto:", e.code || e); toast("Não consegui enviar a foto. Tente de novo.", true); b.textContent = "📷 Ligar a câmera"; b.dataset.action = "foto-ligar"; b.disabled = false; }
 }
 // sem câmera (negada ou aparelho sem câmera): o aluno começa mesmo assim e o professor vê que ficou sem foto
@@ -261,6 +316,7 @@ function fotoSemCamera(){
   $("fotoCam").textContent = "🚫";
   const b = $("btnFoto"); b.textContent = "Câmera indisponível"; b.disabled = true;
   const c = $("btnComecar"); if(c){ c.disabled = false; c.textContent = "Começar a prova (sem foto)"; }
+  const pr = $("btnPronto"); if(pr){ pr.disabled = false; pr.textContent = "✋ Estou pronto (sem foto)"; }
   toast("Não consegui usar a câmera. A prova fica registrada sem foto para o professor.", true);
 }
 // foto da entrega: depois que o servidor registrou a entrega (não conta como saída); nunca atrapalha a entrega
@@ -457,6 +513,8 @@ function fecharCapa(){ document.querySelectorAll("[data-capa]").forEach(x => x.r
 document.addEventListener("visibilitychange", () => { if(document.hidden) desvio("saiu da aba ou minimizou"); });
 window.addEventListener("blur", () => setTimeout(() => { if(!document.hasFocus()) desvio("saiu da janela da prova"); }, 300));
 document.addEventListener("fullscreenchange", () => {
+  // na sala de espera: mostra o botão "Voltar para a tela cheia" (sair aqui não conta como saída da prova)
+  if(!E.ativo && E.pronto && E.prova && !E.tent && !$("contagem")) setTimeout(introAluno, 100);
   if(document.fullscreenElement || !E.ativo || !temTelaCheia()) return;
   // no tablet o teclado ou um gesto podem tirar da tela cheia: pede para voltar, sem contar como saída
   if(TOQUE) setTimeout(pedirTelaCheia, 300); else desvio("saiu da tela cheia");
@@ -467,7 +525,7 @@ document.addEventListener("keydown", e => { if(E.ativo && (e.ctrlKey || e.metaKe
 window.addEventListener("beforeunload", e => { if(E.ativo && !E.desarmar){ salvar(); e.preventDefault(); e.returnValue = ""; } });
 
 /* =================== PAINEL DO PROFESSOR =================== */
-const PN = { tent:{}, res:{}, timer:null };
+const PN = { tent:{}, res:{}, sala:{}, timer:null };
 async function painel(id){
   try{ const s = await getDoc(doc(db, "provas_online", id)); if(!s.exists()) throw 0; E.prova = { id:s.id, ...s.data() }; }
   catch(e){ $("tela").innerHTML = '<div class="card vazio">Prova não encontrada.</div>'; return; }
@@ -475,28 +533,35 @@ async function painel(id){
   E.unsub.push(onSnapshot(doc(db, "provas_online", id), s => { if(s.exists()){ E.prova = { id:s.id, ...s.data() }; desenharPainel(); } }));
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_tentativas"), s => { PN.tent = {}; s.forEach(d => PN.tent[d.id] = d.data()); desenharPainel(); }));
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_resultados"), s => { PN.res = {}; s.forEach(d => PN.res[d.id] = d.data()); desenharPainel(); }));
+  // sala de espera: quem já entrou e quem tocou em "Estou pronto"
+  E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_sala"), s => { PN.sala = {}; s.forEach(d => PN.sala[d.id] = d.data()); desenharPainel(); }, () => {}));
   clearInterval(PN.timer); PN.timer = setInterval(() => document.querySelectorAll("[data-prazo]").forEach(el => { el.textContent = mmss((+el.dataset.prazo - agora()) / 1000); }), 1000);
 }
 function situacaoAluno(uid){
-  const t = PN.tent[uid];
-  if(!t) return ["Não entrou", "c-nao"];
+  const t = PN.tent[uid], sl = PN.sala[uid];
+  if(!t) return sl ? [sl.pronto ? "Pronto ✋" : "Na sala", "c-sala"] : ["Não entrou", "c-nao"];
   return { em_andamento:["Fazendo", "c-and"], bloqueada:["Bloqueado", "c-blo"], entregue:["Entregou", "c-ent"] }[t.status] || [t.status, "c-nao"];
 }
 function desenharPainel(){
   const p = E.prova; if(!p) return;
   const alunos = p.alunos || [], nq = p.questoes.length, st = situacaoProva(p), aberta = st[0] !== "Encerrada";
-  const c = { nao:0, and:0, blo:0, ent:0 }; alunos.forEach(a => { const s = situacaoAluno(a.uid)[1]; c[s.slice(2)]++; });
+  const c = { nao:0, and:0, blo:0, ent:0, sala:0 }; alunos.forEach(a => { const s = situacaoAluno(a.uid)[1]; c[s.slice(2)]++; });
+  const prontos = alunos.filter(a => !PN.tent[a.uid] && PN.sala[a.uid] && PN.sala[a.uid].pronto).length;
   const respondidas = t => Object.values(t.respostas || {}).filter(v => v != null && !(typeof v === "string" && !v.trim())).length;
   $("tela").innerHTML = '<div class="card"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between"><div><span class="chip '+st[1]+'">'+st[0]+'</span>'+
-    '<h1 style="margin-top:8px">'+esc(p.titulo)+'</h1><p class="sub">'+esc([p.disciplina, p.turma_nome, classif(p)].filter(Boolean).join(" · "))+' · '+dia(ms(p.abre_em))+' das '+hora(ms(p.abre_em))+' às '+hora(ms(p.fecha_em))+' · '+p.duracao_min+' min · '+nq+' questões ('+p.objetivas+' corrigidas sozinhas) · '+p.total_pontos+' pts</p></div>'+
+    '<h1 style="margin-top:8px">'+esc(p.titulo)+'</h1><p class="sub">'+esc([p.disciplina, p.turma_nome, classif(p)].filter(Boolean).join(" · "))+' · '+(p.aguardando ? 'começa quando você iniciar' : dia(ms(p.abre_em))+' das '+hora(ms(p.abre_em))+' às '+hora(ms(p.fecha_em)))+' · '+p.duracao_min+' min · '+nq+' questões ('+p.objetivas+' corrigidas sozinhas) · '+p.total_pontos+' pts</p></div>'+
     (p.recuperacao_de ? '<p class="sub" style="margin-top:4px">🔁 Recuperação da prova <a href="?painel='+encodeURIComponent(p.recuperacao_de)+'">'+esc(p.recuperacao_de_titulo || "original")+'</a> · vale a <b>maior nota</b> entre a original e a recuperação</p>' : '')+
     ((p.recuperacoes || []).length ? '<p class="sub" style="margin-top:4px">🔁 Recuperações: '+p.recuperacoes.map(x => '<a href="?painel='+encodeURIComponent(x.id)+'">'+dia(x.em)+' ('+x.alunos+' aluno'+(x.alunos > 1 ? "s" : "")+')</a>').join(" · ")+'</p>' : '')+
     '<p style="margin-top:6px">'+(p.nota_liberada ? '<span class="chip c-ent">Notas visíveis para os alunos</span>' : p.notas === "reter" ? '<span class="chip c-age">🔒 Notas guardadas até o fechamento do bimestre</span>' : '<span class="chip c-nao">Notas aparecem para os alunos quando a prova terminar</span>')+'</p></div>'+
-    '<div class="acoes">'+(st[0] === "Agendada" ? '<button class="btn btn-ok btn-sm" data-action="pn-abrir">▶️ Abrir agora</button>' : '')+(aberta ? '<button class="btn btn-red btn-sm" data-action="pn-encerrar">Encerrar agora</button>' : '')+
+    '<div class="acoes">'+(st[0] === "Agendada" && !p.aguardando ? '<button class="btn btn-ok btn-sm" data-action="pn-abrir">▶️ Abrir agora (contagem de 10 s)</button>' : '')+(aberta ? '<button class="btn btn-red btn-sm" data-action="pn-encerrar">Encerrar agora</button>' : '')+
       (!p.nota_liberada ? '<button class="btn btn-gh btn-sm" data-action="pn-notas">'+(p.notas === "reter" || !aberta ? "Liberar notas aos alunos" : "Mostrar notas já")+'</button>' : '')+
       (aberta && !p.nota_liberada && p.notas !== "reter" ? '<button class="btn btn-gh btn-sm" data-action="pn-reter">🔒 Guardar notas até o bimestre</button>' : '')+
       (!p.recuperacao_de && c.ent ? '<button class="btn btn-gh btn-sm" data-action="pn-recup">🔁 Recuperação</button>' : '')+'</div></div>'+
-    '<div class="kpis"><div class="kpi"><b>'+alunos.length+'</b><span>Alunos</span></div><div class="kpi"><b>'+c.nao+'</b><span>Não entraram</span></div><div class="kpi"><b style="color:#1b5f93">'+c.and+'</b><span>Fazendo</span></div><div class="kpi"><b style="color:var(--red)">'+c.blo+'</b><span>Bloqueados</span></div><div class="kpi"><b style="color:var(--verde)">'+c.ent+'</b><span>Entregaram</span></div></div></div>'+
+    (p.status === "agendada" && p.aguardando ? '<div class="espera" style="margin-top:14px"><div class="pulso">🚪</div><b>Sala de espera: '+(c.sala)+' de '+alunos.length+' aluno(s) entraram · '+prontos+' pronto(s)</b>'+
+      '<p>Os alunos veem a prova no Início e tocam em "Estou pronto". Quando você iniciar, os tablets mostram 10, 9, 8... e a prova abre junto para todos, em tela cheia.</p>'+
+      '<button class="btn btn-ok" data-action="pn-abrir" style="font-size:1.1rem;padding:14px 26px;margin-top:6px">▶️ Iniciar a prova agora</button></div>' :
+     p.status === "agendada" && ms(p.abre_em) > agora() && ms(p.abre_em) - agora() < 60000 ? '<div class="espera" style="margin-top:14px"><b>A prova abre em <span data-prazo="'+ms(p.abre_em)+'">'+mmss((ms(p.abre_em) - agora()) / 1000)+'</span></b><p>Os tablets estão mostrando a contagem.</p></div>' : '')+
+    '<div class="kpis"><div class="kpi"><b>'+alunos.length+'</b><span>Alunos</span></div><div class="kpi"><b>'+(c.nao + c.sala)+'</b><span>'+(c.sala ? 'Ainda não começaram ('+c.sala+' na sala)' : 'Não entraram')+'</span></div><div class="kpi"><b style="color:#1b5f93">'+c.and+'</b><span>Fazendo</span></div><div class="kpi"><b style="color:var(--red)">'+c.blo+'</b><span>Bloqueados</span></div><div class="kpi"><b style="color:var(--verde)">'+c.ent+'</b><span>Entregaram</span></div></div></div>'+
     '<table class="tabela"><thead><tr><th>Aluno</th><th>Situação</th><th>Respondidas</th><th>Saídas</th><th>Tempo</th><th>Nota</th><th></th></tr></thead><tbody>'+
     alunos.map(a => { const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid);
       const ev = t ? (t.eventos || []).filter(x => x.e === "desvio").map(x => hora(x.t)+" "+x.m).join(" · ") : "";
@@ -508,7 +573,7 @@ function desenharPainel(){
         '<td><div class="acoes">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">Dar nova chance</button>' : '')+
           (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'">+10 min</button>' : '')+
           (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Prova respondida, correção e registro de horários (para imprimir ou PDF)">📄 Relatório</button>' : '')+'</div></td></tr>'; }).join("")+
-    '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles depois das '+hora(ms(p.fecha_em))+'.'+
+    '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles '+(p.aguardando ? 'quando a prova terminar' : 'depois das '+hora(ms(p.fecha_em)))+'.'+
     ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>'+
     '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button>'+(p.fotos ? '<button class="btn btn-gh btn-sm" data-action="pn-fotos">📸 Fotos de confirmação</button>' : '')+'</div>';
 }
@@ -628,6 +693,7 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "comecar") comecar(el);
+  else if(a === "pronto") ficarPronto();
   else if(a === "foto-ligar") fotoLigar();
   else if(a === "foto-tirar") fotoTirar();
   else if(a === "pn-fotos") painelFotos();
