@@ -670,8 +670,9 @@ async function abrirImportar(){
   const ja = new Set(E.P.avaliacoes.map(a => a.origem).filter(Boolean)), jaRec = new Set(E.P.avaliacoes.flatMap(a => a.recs || []));
   const fim = x => x.status === "encerrada" || (x.fecha_em && x.fecha_em.toMillis && x.fecha_em.toMillis() < Date.now());
   const htmlPo = po.map(x => { const rec = !!x.recuperacao_de, feito = ja.has("po:" + x.id) || jaRec.has(x.id), semOrig = rec && !ja.has("po:" + x.recuperacao_de), naoVale = x.vale_nota === false;
-    return '<button data-action="importar-po" data-arg="' + esc(x.id) + '"' + (feito || semOrig || naoVale ? " disabled" : "") + "><b>📡 " + esc(x.titulo) + "</b>" + seloClassif(x) + "<small>" +
-      esc([rec ? "recuperação: atualiza a coluna da prova original (vale a maior)" : x.finalidade === "recuperacao" ? "entra na coluna de recuperação do período" : "prova online", "vale " + fmt(x.total_pontos, 2) + " pontos", fim(x) ? "" : "ainda aberta", feito ? "já puxada" : semOrig ? "puxe antes a prova original" : ""].filter(Boolean).join(" · ")) + "</small></button>"; }).join("");
+    // já puxada: pode puxar de novo para atualizar (o professor corrigiu as questões abertas depois)
+    return '<button data-action="importar-po" data-arg="' + esc(x.id) + '"' + (semOrig || naoVale ? " disabled" : "") + "><b>" + (feito && !naoVale ? "🔄 " : "📡 ") + esc(x.titulo) + "</b>" + seloClassif(x) + "<small>" +
+      esc([rec ? "recuperação: atualiza a coluna da prova original (vale a maior)" : x.finalidade === "recuperacao" ? "entra na coluna de recuperação do período" : "prova online", "vale " + fmt(x.total_pontos, 2) + " pontos", fim(x) ? "" : "ainda aberta", feito ? "já puxada: toque para atualizar as notas" : semOrig ? "puxe antes a prova original" : ""].filter(Boolean).join(" · ")) + "</small></button>"; }).join("");
   l.sort((a, b) => (a.bimestre || 0) - (b.bimestre || 0) || String(a.titulo).localeCompare(String(b.titulo), "pt-BR"));
   l.forEach(a => { a.periodo = a.periodo || a.bimestre; });
   $("listaImp").innerHTML = (htmlPo ? '<p class="sub" style="margin:4px 0">Provas online</p>' + htmlPo + '<p class="sub" style="margin:10px 0 4px">Corretor de Gabarito</p>' : "") + (l.length ? l.map(a => '<button data-action="importar-av" data-arg="' + esc(a.id) + '"' + (ja.has(a.id) || jaRec.has(a.id) || a.vale_nota === false ? " disabled" : "") + "><b>" + esc(a.titulo) + "</b>" + seloClassif(a) + "<small>" +
@@ -738,13 +739,15 @@ async function importarPo(id){
     toast("Recuperação puxada: " + n + " nota(s) melhoraram na coluna " + col.nome + "." + (pend ? " " + pend + " com questão aberta ainda sem correção (entrou a parte já corrigida)." : ""));
     return;
   }
-  const D = colunaDestino({ ...x, titulo:x.titulo || "Prova online" }, "po:" + id), col = D.col;
+  const existente = E.P.avaliacoes.find(a => a.origem === "po:" + id && a.tipo === "nota");
+  const D = existente ? { col:existente, periodo:existente.periodo, rec:false, nova:false, atualizar:true } : colunaDestino({ ...x, titulo:x.titulo || "Prova online" }, "po:" + id), col = D.col;
   E.alunos.forEach(a => { const r = res[a.id]; if(!r) return; if(r.pendentes) pend++;
     const N = E.P.notas[a.id] = E.P.notas[a.id] || {}, nota = conv(r.nota || 0);
-    if(!D.rec || N[col.id] === undefined || nota > N[col.id]){ N[col.id] = nota; n++; } });
+    const manterMaior = D.rec || (D.atualizar && (col.recs || []).length);   // recuperação já puxada nesta coluna: fica a maior
+    if(!manterMaior || N[col.id] === undefined || nota > N[col.id]){ N[col.id] = nota; n++; } });
   if(D.nova) E.P.avaliacoes.push(col); E.per = D.periodo;
   $("mImp").hidden = true; salvar(); desenhar();
-  toast(n + " nota(s) da prova online " + (D.rec ? "na recuperação do " : "no ") + perNome(D.periodo) + "." + (pend ? " " + pend + " com questão aberta ainda sem correção (entrou a parte já corrigida)." : "") + (n < E.alunos.length ? " Quem não fez fica em branco." : ""));
+  toast((D.atualizar ? "Notas atualizadas: " : "") + n + " nota(s) da prova online " + (D.rec ? "na recuperação do " : "no ") + perNome(D.periodo) + "." + (pend ? " " + pend + " com questão aberta ainda sem correção (entrou a parte já corrigida)." : "") + (n < E.alunos.length ? " Quem não fez fica em branco." : ""));
 }
 
 /* ===================== regra (secretaria e equipe NEWPC) ===================== */

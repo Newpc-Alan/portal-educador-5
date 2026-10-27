@@ -74,6 +74,9 @@ export function classificar(d) {
   // sem finalidade = prova aplicada por uma versão antiga da tela: fica como antes (o professor escolhe na hora de puxar)
   return { finalidade, vale_nota: finalidade ? FINALIDADES[finalidade] : null, periodo, periodos, ano_letivo: ano };
 }
+// erros de português: em Língua Portuguesa contam na nota; nas outras disciplinas avalia-se o conteúdo (o professor pode mudar)
+export const criterioPadrao = disc => /portugu|reda[cç][aã]o|l[ií]ngua materna|literatura/i.test(String(disc || '')) ? 'descontar' : 'conteudo';
+export const CRITERIOS = ['conteudo', 'apontar', 'descontar'];
 export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120, memory: '512MiB' }, async (req) => {
   const u = await quem(req); if (!ehProf(u)) throw new HttpsError('permission-denied', 'Somente professores.');
   const d = req.data || {}, db = getFirestore();
@@ -130,7 +133,7 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
     questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
     status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp(),
-    aguardando: agoraModo, fotos: d.fotos === true, ...(d.fotos === true ? { fotos_ate: Timestamp.fromMillis(fimDoAnoLetivo()) } : {}), ...cls
+    aguardando: agoraModo, fotos: d.fotos === true, criterio_lingua: criterioPadrao(d.disciplina), ...(d.fotos === true ? { fotos_ate: Timestamp.fromMillis(fimDoAnoLetivo()) } : {}), ...cls
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
@@ -203,6 +206,32 @@ export const iniciarProvaOnline = onCall({ region: REGIAO }, async (req) => {
   });
 });
 
+// resposta curta: além de ignorar acento e maiúscula, aceita erro pequeno de digitação e número escrito de outro jeito
+export function distancia(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+// "3,5", "3.5", "7/2", "R$ 3,50", "12 cm" -> { n, resto }
+export function numero(s) {
+  const m = /^\s*(?:r\$\s*)?(-?\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+(?:[.,]\d+)?))?\s*(.*)$/i.exec(String(s == null ? '' : s).replace(/^\s*=\s*/, ''));
+  if (!m) return null;
+  const v = parseFloat(m[1].replace(',', '.')), q = m[2] ? parseFloat(m[2].replace(',', '.')) : 1;
+  if (!isFinite(v) || !q) return null;
+  return { n: v / q, resto: semAcento(m[3]) };
+}
+export function conferirCurta(g, r) {
+  const resp = semAcento(r); if (!resp) return null;
+  if (g.aceitas.includes(resp)) return 'exata';
+  const nr = numero(r), esperadas = String(g.exp || '').split(/[;|\n]/).map(x => x.trim()).filter(Boolean);
+  if (nr && esperadas.some(e => { const ne = numero(e); return ne && Math.abs(ne.n - nr.n) < 1e-9 && (!ne.resto || !nr.resto || ne.resto === nr.resto); })) return 'numero';
+  // erro de digitação: até 1 letra em palavras curtas (5 a 9) e até 2 nas longas; números não entram aqui
+  if (!/\d/.test(resp) && g.aceitas.some(a => !/\d/.test(a) && a.length >= 5 && distancia(a, resp) <= (a.length >= 10 ? 2 : 1))) return 'aproximada';
+  return null;
+}
 // correção: objetivas automáticas; curta confere com as respostas aceitas; o resto fica para o professor
 export function corrigir(p, gab, respostas) {
   const por = {}; let pontos = 0, max = 0, pendentes = 0;
@@ -211,8 +240,8 @@ export function corrigir(p, gab, respostas) {
     if (q.tipo === 'multipla' && 'gab' in g) { const ok = Number(r) === g.gab; por[q.id] = { auto: true, ok, pontos: ok ? q.valor : 0 }; }
     else if (q.tipo === 'vf' && 'gab' in g) { const ok = r === g.gab; por[q.id] = { auto: true, ok, pontos: ok ? q.valor : 0 }; }
     else if (q.tipo === 'curta' && g.aceitas && g.aceitas.length) {
-      const ok = g.aceitas.includes(semAcento(r));
-      por[q.id] = ok ? { auto: true, ok: true, pontos: q.valor } : (r == null || String(r).trim() === '' ? { auto: true, ok: false, pontos: 0 } : { auto: false, pendente: true, pontos: 0 });
+      const como = conferirCurta(g, r);
+      por[q.id] = como ? { auto: true, ok: true, pontos: q.valor, ...(como === 'aproximada' ? { aproximada: true } : {}) } : (r == null || String(r).trim() === '' ? { auto: true, ok: false, pontos: 0 } : { auto: false, pendente: true, pontos: 0 });
       if (por[q.id].pendente) pendentes++;
     } else if (r == null || (typeof r === 'string' && !r.trim()) || (typeof r === 'object' && !Object.keys(r).length)) por[q.id] = { auto: true, ok: false, pontos: 0, branco: true };
     else { por[q.id] = { auto: false, pendente: true, pontos: 0 }; pendentes++; }
@@ -286,6 +315,46 @@ export const acaoProvaOnline = onCall({ region: REGIAO }, async (req) => {
   if (d.acao === 'reter_notas') { await pref.update({ nota_liberada: false, notas: 'reter' }); return { ok: true }; }
   if (d.acao === 'cancelar') { await pref.update({ status: 'cancelada' }); return { ok: true }; }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
+});
+
+// Correção do professor (questões abertas, ou revisão de qualquer questão): pontos, comentário e observação de português.
+//   itens: [{ uid, qid, pontos, comentario, lingua }]  (até 80 por chamada: uma questão da turma inteira)
+// A nota é recalculada no servidor; o aluno e o Notas e Médias leem o resultado já somado.
+export function aplicarCorrecao(r, q, it, porQuem) {
+  const pontos = Math.round(Math.min(q.valor, Math.max(0, Number(String(it.pontos).replace(',', '.')))) * 100) / 100;
+  if (!isFinite(pontos)) throw new HttpsError('invalid-argument', 'Pontuação inválida.');
+  const por = { ...(r.por_questao || {}) };
+  por[q.id] = { ...(por[q.id] || {}), auto: false, pendente: false, manual: true, ok: pontos >= q.valor, pontos,
+    comentario: txt(String(it.comentario || '').trim(), 600), lingua: txt(String(it.lingua || '').trim(), 600), corrigido_por: porQuem, corrigido_em: Date.now() };
+  delete por[q.id].aproximada;
+  const nota = Math.round(Object.values(por).reduce((t, x) => t + (Number(x.pontos) || 0), 0) * 100) / 100;
+  const pendentes = Object.values(por).filter(x => x.pendente).length;
+  return { por_questao: por, nota, pendentes, situacao: pendentes ? 'aguardando_correcao' : 'corrigida' };
+}
+export const corrigirProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 60 }, async (req) => {
+  const u = await quem(req), d = req.data || {}, db = getFirestore(), id = String(d.id || '');
+  const pref = db.doc(`provas_online/${id}`), p = (await pref.get()).data();
+  if (!p) throw new HttpsError('not-found', 'Prova não encontrada.');
+  if (p.professor_uid !== u.uid && u.perfil !== 'admin') throw new HttpsError('permission-denied', 'Somente o professor da prova corrige.');
+  if (d.criterio !== undefined) {
+    if (!CRITERIOS.includes(d.criterio)) throw new HttpsError('invalid-argument', 'Critério inválido.');
+    await pref.update({ criterio_lingua: d.criterio });
+  }
+  const itens = Array.isArray(d.itens) ? d.itens.slice(0, 80) : [];
+  const qs = Object.fromEntries((p.questoes || []).map(q => [q.id, q])), feitos = [];
+  for (const it of itens) {
+    const q = qs[String(it.qid || '')], chave = String(it.uid || '');
+    if (!q || !/^[A-Za-z0-9_-]{1,80}$/.test(chave)) throw new HttpsError('invalid-argument', 'Questão ou aluno inválido.');
+    const rref = pref.collection('po_resultados').doc(chave);
+    await db.runTransaction(async tx => {
+      const r = (await tx.get(rref)).data();
+      if (!r) throw new HttpsError('failed-precondition', 'Este aluno ainda não entregou a prova.');
+      const novo = aplicarCorrecao(r, q, it, txt(u.nome, 60));
+      tx.update(rref, { ...novo, corrigido_em: FieldValue.serverTimestamp() });
+      feitos.push({ uid: chave, nota: novo.nota, pendentes: novo.pendentes });
+    });
+  }
+  return { ok: true, feitos };
 });
 
 // a cada 5 minutos: entrega as tentativas com prazo vencido e encerra as provas que passaram do horário
