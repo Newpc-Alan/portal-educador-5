@@ -34,6 +34,9 @@ async function exigirLicenca(uid){
     return u;
   }
   const fim=ms(u.licenca_fim); if(!fim || fim<Date.now()) fail('Sua licença do Portal do Educador expirou.');
+  // licença avulsa no pacote Básico não inclui a Formação (Intermediário e Completo incluem), salvo liberação exclusiva do admin
+  const extraF=Array.isArray(u.modulos_extra) && u.modulos_extra.includes('formacao');
+  if(u.plano_avulso==='basico' && !extraF) fail('A Formação Continuada não faz parte do pacote da sua licença.');
   return u;
 }
 const arr = snap => snap.docs.map(d=>({ ...d.data(), id:d.id }));
