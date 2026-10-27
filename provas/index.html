@@ -565,6 +565,7 @@ html.pde-quiosque-ativo .s-hn { display: none !important; }
   #pde-painel * { animation: none !important; transition: none !important; }
 }
 @media print { body * { visibility: hidden; } }
+.ol-modo{position:relative;display:flex;flex-direction:column;gap:2px;border:2px solid #dfe7ef;border-radius:12px;padding:10px 12px;cursor:pointer}.ol-modo input{position:absolute;opacity:0;pointer-events:none}#ol-corpo .ol-modo{display:block;padding:10px 12px;margin:0}.ol-modo .t{font-weight:800;color:#0f2c4a;margin-bottom:2px}.ol-modo .d{color:#62758a;font-size:.8rem;line-height:1.35;font-weight:500;text-transform:none;letter-spacing:0}.ol-modo.on{border-color:#1a6b2a;background:#f1f8ec}
 </style>
 <style>
 /* ═══ Identidade visual do Portal do Educador 5.0 (camada sobre o gerador v5) ═══ */
@@ -3827,37 +3828,54 @@ function olAbrir(){
   const turmaTxt = (dados.header.turma || "").toLowerCase();
   const sugerida = turmas.find(t => turmaTxt && t.nome.toLowerCase().includes(turmaTxt)) || turmas[0];
   const h0 = new Date(Date.now() + 60 * 60000);
-  corpo.innerHTML = '<p style="margin:0;color:#62758a">Os alunos da turma veem a prova no Início do Portal do Aluno no horário marcado. Ela abre em tela cheia: se o aluno sair, recebe 1 aviso e, na segunda saída, a prova é bloqueada até você liberar. As objetivas são corrigidas sozinhas; a nota aparece para o aluno quando o horário terminar.</p>'+
+  corpo.innerHTML = '<p style="margin:0;color:#62758a">Os alunos da turma veem a prova no Início do Portal do Aluno. Ela abre em tela cheia: se o aluno sair, recebe 1 aviso e, na segunda saída, a prova é bloqueada até você liberar. As objetivas são corrigidas sozinhas; a nota aparece para o aluno quando o horário terminar.</p>'+
     (turmas.length ? '<label class="pde-label" for="ol-turma">Turma</label><select id="ol-turma" class="pde-select">'+turmas.map(t => '<option value="'+escH(t.id)+'"'+(sugerida && t.id === sugerida.id ? " selected" : "")+'>'+escH(t.nome)+'</option>').join("")+'</select>'
       : '<p style="color:#C2362C;margin:0">Você ainda não tem turmas no Portal. Cadastre a turma em Minhas Turmas para aplicar online.</p>')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" role="radiogroup" aria-label="Quando abrir">'+
+      '<label class="ol-modo on" data-modo="agora"><input type="radio" name="ol-modo" value="agora" checked><div class="t">▶️ Aplicar agora</div><div class="d">Abre na hora para a turma. Você controla o tempo e encerra quando quiser.</div></label>'+
+      '<label class="ol-modo" data-modo="horario"><input type="radio" name="ol-modo" value="horario"><div class="t">🗓️ Horário marcado</div><div class="d">Abre e fecha sozinha no dia e horário escolhidos.</div></label></div>'+
+    '<div id="ol-agora" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label class="pde-label" for="ol-dur-a">Tempo de prova (minutos)</label><input type="number" id="ol-dur-a" class="pde-input" min="5" max="300" value="50"></div>'+
+      '<div><label class="pde-label" for="ol-tol">Tolerância para entrar (minutos)</label><input type="number" id="ol-tol" class="pde-input" min="0" max="120" value="10"></div></div>'+
+    '<div id="ol-horario" style="display:none;gap:10px">'+
     '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"><div><label class="pde-label" for="ol-dia">Dia</label><input type="date" id="ol-dia" class="pde-input" value="'+hojeISO()+'"></div>'+
       '<div><label class="pde-label" for="ol-ini">Abre às</label><input type="time" id="ol-ini" class="pde-input" value="'+String(h0.getHours()).padStart(2, "0")+':00"></div>'+
       '<div><label class="pde-label" for="ol-fim">Fecha às</label><input type="time" id="ol-fim" class="pde-input" value="'+String((h0.getHours() + 1) % 24).padStart(2, "0")+':40"></div></div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end"><div><label class="pde-label" for="ol-dur">Tempo de prova (minutos)</label><input type="number" id="ol-dur" class="pde-input" min="5" max="300" value="50"></div>'+
-      '<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ol-emb" checked> Embaralhar questões e alternativas</label></div>'+
+    '<div><label class="pde-label" for="ol-dur">Tempo de prova (minutos)</label><input type="number" id="ol-dur" class="pde-input" min="5" max="300" value="50"></div></div>'+
+    '<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ol-emb" checked> Embaralhar questões e alternativas</label>'+
     '<div style="background:#f5f8fb;border-radius:12px;padding:10px 12px;font-size:.88rem">📋 '+qs.length+' questões · ⭐ '+dados.totalPontos+' pontos'+(manuais ? ' · ✍️ '+manuais+' para você corrigir depois' : '')+(semGab ? '<br><b style="color:#C2362C">⚠ '+semGab+' questão(ões) objetiva(s) sem gabarito marcado: elas ficam para correção manual.</b>' : '')+'</div>'+
     '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap"><a href="/prova/" target="_blank" rel="noopener" style="font-weight:700">Ver provas online já aplicadas ↗</a>'+
-    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Aplicar para a turma</button></div>';
+    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Aplicar agora</button></div>';
   $("ol-bg").classList.add("show");
 }
+function olModo(){ const m = (document.querySelector('input[name="ol-modo"]:checked') || {}).value || "agora";
+  document.querySelectorAll(".ol-modo").forEach(l => l.classList.toggle("on", l.dataset.modo === m));
+  $("ol-agora").style.display = m === "agora" ? "grid" : "none"; $("ol-horario").style.display = m === "horario" ? "grid" : "none";
+  $("ol-ok").textContent = m === "agora" ? "Aplicar agora" : "Agendar para a turma"; }
 async function olAplicar(){
   if(OL.enviando) return;
-  const dados = G().collectData(), dia = $("ol-dia").value, ini = $("ol-ini").value, fim = $("ol-fim").value;
-  if(!dia || !ini || !fim){ G().toast("Preencha o dia e os horários.", "warn"); return; }
-  const abre = new Date(dia + "T" + ini + ":00").getTime(), fecha = new Date(dia + "T" + fim + ":00").getTime(), dur = parseInt($("ol-dur").value, 10);
-  if(!(fecha > abre)){ G().toast("O horário de fechar precisa ser depois do de abrir.", "warn"); return; }
-  if(!(dur >= 5)){ G().toast("O tempo de prova é de pelo menos 5 minutos.", "warn"); return; }
-  if(dur > (fecha - abre) / 60000) G().toast("Atenção: o tempo de prova é maior que a janela; quem começar tarde terá menos tempo.", "warn");
+  const dados = G().collectData(), modo = (document.querySelector('input[name="ol-modo"]:checked') || {}).value || "agora";
+  let abre = 0, fecha = 0, dur = 0, tol = 0;
+  if(modo === "agora"){
+    dur = parseInt($("ol-dur-a").value, 10); tol = Math.max(0, parseInt($("ol-tol").value, 10) || 0);
+    if(!(dur >= 5 && dur <= 300)){ G().toast("O tempo de prova vai de 5 a 300 minutos.", "warn"); return; }
+  } else {
+    const dia = $("ol-dia").value, ini = $("ol-ini").value, fim = $("ol-fim").value;
+    if(!dia || !ini || !fim){ G().toast("Preencha o dia e os horários.", "warn"); return; }
+    abre = new Date(dia + "T" + ini + ":00").getTime(); fecha = new Date(dia + "T" + fim + ":00").getTime(); dur = parseInt($("ol-dur").value, 10);
+    if(!(fecha > abre)){ G().toast("O horário de fechar precisa ser depois do de abrir.", "warn"); return; }
+    if(!(dur >= 5)){ G().toast("O tempo de prova é de pelo menos 5 minutos.", "warn"); return; }
+    if(dur > (fecha - abre) / 60000) G().toast("Atenção: o tempo de prova é maior que a janela; quem começar tarde terá menos tempo.", "warn");
+  }
   OL.enviando = true; const btn = $("ol-ok"); btn.disabled = true; btn.textContent = "Aplicando...";
   try{
     const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
     const titulo = (atual() && atual().titulo) || [dados.header.mat, dados.header.turma].filter(Boolean).join(" · ") || "Prova";
     const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "publicarProvaOnline", { timeout:120000 })({
-      titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, avisos:1,
+      titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, modo, tolerancia_min:tol, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, avisos:1,
       questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
-    $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">Prova aplicada</h3><p style="color:#62758a">'+r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. '+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
+    $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">'+(r.modo === "agora" ? "Prova aberta agora" : "Prova agendada")+'</h3><p style="color:#62758a">'+(r.modo === "agora" ? r.alunos+' alunos já podem entrar. Ela fica aberta até as '+new Date(r.fecha_em).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })+' (tempo de prova + tolerância) ou até você encerrar no painel. ' : r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. ')+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
       '<a class="pde-btn pde-btn-primary" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Abrir o painel ao vivo ↗</a></div>';
-  }catch(e){ G().toast(e.message || "Não foi possível aplicar.", "err"); btn.disabled = false; btn.textContent = "Aplicar para a turma"; }
+  }catch(e){ G().toast(e.message || "Não foi possível aplicar.", "err"); btn.disabled = false; olModo(); }
   finally{ OL.enviando = false; }
 }
 // "Recomeçar" do gerador vira "nova prova" quando a prova esta na nuvem (a salva continua guardada)
@@ -3866,7 +3884,7 @@ function registrar(){
   Object.assign(A, {
     mpAbrir, mpSalvar, mpNovaProva, mpNovaPasta, mpRenomearPasta, mpExcluirPasta,
     mpFechar: () => $("mp-bg").classList.remove("show"),
-    olAbrir, olAplicar, olFechar: () => $("ol-bg").classList.remove("show"),
+    olAbrir, olAplicar, olModo, olFechar: () => $("ol-bg").classList.remove("show"),
     mpPasta: (v) => { N.pasta = v === null ? "" : v; desenharMP(); },
     mpAbrirProva: (v) => abrirProva(v),
     mpDuplicar: (v) => mpDuplicar(v), mpRenomear: (v) => mpRenomear(v), mpExcluir: (v, b) => mpExcluir(v, b),
@@ -3877,6 +3895,7 @@ function registrar(){
   A.limparTudo = async (...args) => { const a = N.uid && atual(); if(a && a.id){ await mpNovaProva(); } else return limpar(...args); };
   document.addEventListener("input", (e) => { if(e.target.id === "mp-busca"){ N.busca = e.target.value; desenharMP(); } });
   document.addEventListener("change", (e) => {
+    if(e.target.name === "ol-modo"){ olModo(); return; }
     if(e.target.id === "mp-ordem"){ N.ordem = e.target.value; desenharMP(); }
     else if(e.target.dataset && e.target.dataset.mover){ moverProva(e.target.dataset.mover, e.target.value); }
   });

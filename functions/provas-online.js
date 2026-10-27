@@ -75,10 +75,14 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     if (!m || !Array.isArray(m.recursos) || !m.recursos.includes('prova_online'))
       throw new HttpsError('failed-precondition', 'A Prova online não está incluída no plano da sua rede. Fale com a NEWPC.');
   }
-  const abre = Number(d.abre_em), fecha = Number(d.fecha_em), dur = Math.round(Number(d.duracao_min));
+  const dur = Math.round(Number(d.duracao_min));
+  if (!(dur >= 5 && dur <= 300)) throw new HttpsError('invalid-argument', 'A duração vai de 5 a 300 minutos.');
+  // "aplicar agora": o horário vem do servidor (relógio errado em tablet ou computador não atrapalha);
+  // fica aberta pelo tempo de prova + a tolerância para entrar, e o professor encerra quando quiser
+  const agoraModo = d.modo === 'agora', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
+  const abre = agoraModo ? Date.now() - 5000 : Number(d.abre_em), fecha = agoraModo ? Date.now() + (dur + tol) * 60000 : Number(d.fecha_em);
   if (!(abre > 0 && fecha > abre)) throw new HttpsError('invalid-argument', 'Confira o horário de abertura e de encerramento.');
   if (fecha < Date.now()) throw new HttpsError('invalid-argument', 'O encerramento já passou.');
-  if (!(dur >= 5 && dur <= 300)) throw new HttpsError('invalid-argument', 'A duração vai de 5 a 300 minutos.');
   const qs = Array.isArray(d.questoes) ? d.questoes.filter(q => q && TIPOS.includes(q.tipo) && String(q.enun || '').trim()) : [];
   if (!qs.length) throw new HttpsError('invalid-argument', 'A prova não tem questões.');
   if (qs.length > 100) throw new HttpsError('invalid-argument', 'Máximo de 100 questões.');
@@ -108,11 +112,11 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     turma_id: d.turma_id, turma_nome: txt(turma.nome, 80), escola_id: turma.escola_id || '', municipio_id: turma.municipio_id || u.municipio_id || '',
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
     questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
-    status: 'agendada', nota_liberada: false, criado_em: FieldValue.serverTimestamp()
+    status: 'agendada', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp()
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
-  return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length, matriculas: R.ids.length };
+  return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length, matriculas: R.ids.length, modo: agoraModo ? 'agora' : 'horario', fecha_em: fecha };
 });
 
 // embaralha de forma determinística por aluno
@@ -211,6 +215,13 @@ export const acaoProvaOnline = onCall({ region: REGIAO }, async (req) => {
     for (const x of s.docs) await finalizar(pref.id, x.id, 'encerrada_professor');
     await pref.update({ status: 'encerrada', fecha_em: Timestamp.fromMillis(Math.min(ms(p.fecha_em), agora)), encerrada_em: FieldValue.serverTimestamp() });
     return { ok: true, finalizadas: s.size };
+  }
+  // professor abre antes do horário marcado: abre já (hora do servidor) e garante a janela do tempo de prova + 10 min
+  if (d.acao === 'abrir_agora') {
+    if (p.status !== 'agendada') throw new HttpsError('failed-precondition', 'Esta prova já foi encerrada.');
+    if (ms(p.abre_em) <= agora) return { ok: true, ja: true };
+    await pref.update({ abre_em: Timestamp.fromMillis(agora - 5000), fecha_em: Timestamp.fromMillis(Math.max(ms(p.fecha_em), agora + (p.duracao_min + 10) * 60000)), aberta_pelo_professor_em: FieldValue.serverTimestamp() });
+    return { ok: true };
   }
   if (d.acao === 'liberar_notas') { await pref.update({ nota_liberada: true }); return { ok: true }; }
   if (d.acao === 'cancelar') { await pref.update({ status: 'cancelada' }); return { ok: true }; }
