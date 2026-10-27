@@ -80,7 +80,8 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   // "aplicar agora": o horário vem do servidor (relógio errado em tablet ou computador não atrapalha);
   // fica aberta pelo tempo de prova + a tolerância para entrar, e o professor encerra quando quiser
   const agoraModo = d.modo === 'agora', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
-  const abre = agoraModo ? Date.now() - 5000 : Number(d.abre_em), fecha = agoraModo ? Date.now() + (dur + tol) * 60000 : Number(d.fecha_em);
+  // abre 30 s depois de aplicar: dá tempo de os alunos estarem na tela da prova e todos começarem juntos
+  const abre = agoraModo ? Date.now() + 30000 : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
   if (!(abre > 0 && fecha > abre)) throw new HttpsError('invalid-argument', 'Confira o horário de abertura e de encerramento.');
   if (fecha < Date.now()) throw new HttpsError('invalid-argument', 'O encerramento já passou.');
   const qs = Array.isArray(d.questoes) ? d.questoes.filter(q => q && TIPOS.includes(q.tipo) && String(q.enun || '').trim()) : [];
@@ -116,7 +117,7 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
-  return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length, matriculas: R.ids.length, modo: agoraModo ? 'agora' : 'horario', fecha_em: fecha };
+  return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length, matriculas: R.ids.length, modo: agoraModo ? 'agora' : 'horario', abre_em: abre, fecha_em: fecha };
 });
 
 // embaralha de forma determinística por aluno

@@ -180,7 +180,11 @@ function introAluno(){
       '<div><span>⏱️</span><p>Quando o tempo acabar, a prova é entregue sozinha.</p></div>'+
       '<div><span>📊</span><p>A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.</p></div></div>'+
     (aberta ? '<button class="btn btn-ok" data-action="comecar" id="btnComecar" style="width:100%;font-size:1.05rem;padding:16px">Começar a prova</button>' :
-      t < ab ? '<div class="card vazio" style="margin:0">🔒 A prova abre '+dia(ab)+' às '+hora(ab)+'.</div>' : '<div class="card vazio" style="margin:0">O horário desta prova terminou.</div>')+'</div>';
+      t < ab ? '<div class="card vazio" style="margin:0">🔒 '+(ab - t < 600000 ? 'A prova abre em <b data-abre="'+ab+'">'+mmss((ab - t) / 1000)+'</b>. Fique nesta tela.' : 'A prova abre '+dia(ab)+' às '+hora(ab)+'.')+'</div>' : '<div class="card vazio" style="margin:0">O horário desta prova terminou.</div>')+'</div>';
+  // contagem regressiva até abrir (relógio do servidor) e a tela troca sozinha para "Começar a prova"
+  clearInterval(E.contagem);
+  if(p.status === "agendada" && t < ab && ab - t < 600000) E.contagem = setInterval(() => { const r = ab - agora(), el = document.querySelector("[data-abre]");
+    if(r <= 0){ clearInterval(E.contagem); if(!E.ativo && !E.tent) introAluno(); return; } if(el) el.textContent = mmss(r / 1000); }, 500);
 }
 async function comecar(btn){
   btn.disabled = true; btn.textContent = "Abrindo...";
