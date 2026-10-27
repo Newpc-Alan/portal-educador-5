@@ -113,6 +113,16 @@
   .userbox .out:hover{ background:rgba(255,255,255,.1) }
   .main{ flex:1; padding:32px 40px; overflow-y:auto; }
   .topbar{ display:flex;align-items:center;justify-content:space-between; margin-bottom:28px; }
+  .alu-top{ display:none }
+  body.modo-aluno .sidebar, body.modo-aluno .menu-btn, body.modo-aluno .menu-fundo, body.modo-aluno #secTitulo, body.modo-aluno #secBadge{ display:none!important }
+  body.modo-aluno .main{ padding:0 0 32px }
+  body.modo-aluno #conteudo, body.modo-aluno #avisoLicenca{ padding:0 32px }
+  body.modo-aluno .topbar{ margin-bottom:22px;background:#0f2c4a;padding:12px 32px;position:sticky;top:0;z-index:5 }
+  body.modo-aluno .alu-top{ display:flex;align-items:center;gap:14px;width:100% }
+  .alu-nome{ flex:1;color:#fff;font-weight:800;font-size:17px }
+  .alu-ini{ background:#1a6b2a!important;border-color:#1a6b2a!important }
+  .alu-sair{ background:transparent;color:#fff;border:1.5px solid #4c6987;border-radius:999px;padding:11px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer }
+  @media (max-width:700px){ body.modo-aluno #conteudo, body.modo-aluno #avisoLicenca{ padding:0 14px } body.modo-aluno .topbar{ padding:10px 14px } }
   .topbar h1{ font-size:23px;font-weight:700 }
   .topbar .badge{ font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px; padding:5px 13px;border-radius:20px; background:#eaf6fb;color:#1d6f8f; }
   .panel{ background:#fff;border:1px solid var(--line);border-radius:var(--radius); padding:40px;text-align:center;color:var(--muted); }
@@ -1051,7 +1061,7 @@
       </div>
     </aside>
     <main class="main">
-      <div class="topbar"><button class="menu-btn" data-action="menu-abrir" aria-label="Abrir menu" aria-controls="barraLateral" aria-expanded="false"><span></span><span></span><span></span></button><h1 id="secTitulo">-</h1><span class="badge" id="secBadge">-</span></div>
+      <div class="topbar"><button class="menu-btn" data-action="menu-abrir" aria-label="Abrir menu" aria-controls="barraLateral" aria-expanded="false"><span></span><span></span><span></span></button><h1 id="secTitulo">-</h1><span class="badge" id="secBadge">-</span><div class="alu-top"><img src="/assets/pde-logo-128.png" alt="" width="40" height="40"><span class="alu-nome" id="aluNome"></span><button type="button" class="alu-sair alu-ini" data-action="alu-inicio">&#x1F3E0; Início</button><button type="button" class="alu-sair" data-action="alu-sair">Sair</button></div></div>
       <div id="avisoLicenca"></div>
       <div id="conteudo"></div>
     </main>
@@ -1825,6 +1835,9 @@
     $("uPerfil").textContent = LABELS_PERFIL[perfil] || perfil;
     $("avisoLicenca").innerHTML = "";
     let menu = MENUS[perfil] || MENUS.professor;
+    // aluno (tablet): sem menu lateral; uma barra fina no topo com o nome e o botão Sair
+    document.body.classList.toggle("modo-aluno", perfil === "aluno");
+    if(perfil === "aluno") $("aluNome").textContent = String(usuarioAtual.nome || "").split(" ").slice(0, 2).join(" ");
     if(perfil === "aluno"){
       if(usuarioAtual.status !== "ativo"){ mostrarAlunoAviso("desativado"); return; }
       const licA = licencaDe(usuarioAtual, usuarioAtual._muni);
@@ -4322,6 +4335,8 @@
     else if(acao === "ini-conheca"){ abrirConheca(el); }
     else if(acao === "ini-conheca-fechar"){ fecharConheca(); }
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
+    else if(acao === "alu-sair"){ signOut(auth); }
+    else if(acao === "alu-inicio"){ selecionar(MENUS.aluno.itens[0]); window.scrollTo({ top:0 }); }
     else if(acao === "ini-turmas"){ const it = (MENUS.professor.itens || []).find(i => i.id === "turmas"); if(it) selecionar(it); }
     else if(acao === "ini-atividades"){ registrarModulo(el.dataset.mod); renderAtividades(); }
     else if(acao === "at-etapa"){ at.etapa = el.dataset.arg; at.comp = ""; at.ano = ""; at.cat = ""; at.tipo = "atividade"; at.favs = false; desenharHeroAt(); desenharAt(); }
