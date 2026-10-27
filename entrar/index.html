@@ -1197,6 +1197,8 @@
             <div class="field"><label for="usrLicValor">Valor (R$)</label><input type="text" id="usrLicValor" inputmode="decimal" placeholder="Ex: 29,90"></div>
             <div class="field"><label for="usrLicRef">Ref. do pagamento</label><input type="text" id="usrLicRef" placeholder="ID ou link da cobrança"></div>
           </div>
+          <div class="field"><label for="usrLicConteudo">Recursos liberados (pacote)</label>
+            <select id="usrLicConteudo"><option value="basico">Básico</option><option value="intermediario">Intermediário</option><option value="completo">Completo</option></select></div>
           <div class="field" id="usrLicPacoteBox"><label for="usrLicPacote">Escola / cliente do pacote</label><input type="text" id="usrLicPacote" placeholder="Ex: Colégio Aurora (10 licenças)"></div>
           <div class="usr-aviso" id="usrCadInfo" style="margin-top:4px"></div>
         </div>
@@ -4039,7 +4041,8 @@
       extras: new Set([...(Array.isArray(u.modulos_extra) ? u.modulos_extra : []), ...(Array.isArray(u.recursos_extra) ? u.recursos_extra.map(x => "rec:"+x) : [])]),
       lic: { tipo:u.licenca_tipo || "institucional", plano:u.licenca_plano || "mensal",
         ini: isoDe(msDe(u.licenca_inicio) || Date.now()), fim: isoDe(msDe(u.licenca_fim)),
-        valor:u.licenca_valor || "", ref:u.licenca_ref || "", pacote:u.licenca_pacote || "" },
+        valor:u.licenca_valor || "", ref:u.licenca_ref || "", pacote:u.licenca_pacote || "",
+        conteudo:["basico","intermediario","completo"].includes(u.plano_avulso) ? u.plano_avulso : "completo" },
       licOriginal: JSON.stringify([u.licenca_tipo||"institucional", u.licenca_plano||"", isoDe(msDe(u.licenca_fim))]),
       cad: u
     };
@@ -4059,7 +4062,7 @@
     $("usrPerfil").value = usr.editando.perfil;
     const L = usr.editando.lic;
     $("usrLicTipo").value = L.tipo; $("usrLicPlano").value = L.plano; $("usrLicIni").value = L.ini; $("usrLicFim").value = L.fim;
-    $("usrLicValor").value = L.valor; $("usrLicRef").value = L.ref; $("usrLicPacote").value = L.pacote;
+    $("usrLicValor").value = L.valor; $("usrLicRef").value = L.ref; $("usrLicPacote").value = L.pacote; $("usrLicConteudo").value = L.conteudo;
     $("usrPerfil").disabled = ehEu;
     document.querySelectorAll('#usrStatus input').forEach(r => { r.disabled = ehEu; });
     desenharModalUsuario();
@@ -4116,8 +4119,17 @@
     }
     $("usrTurCont").textContent = ed.turmas.size ? ed.turmas.size+" marcada(s)" : "";
     // recursos exclusivos: o que o plano do município não tem, liberado só para este professor
-    const blocoExt = $("usrBlocoExtras"), professorDaRede = ed.perfil === "professor" && inst && !!muniSel;
-    blocoExt.style.display = professorDaRede ? "" : "none";
+    const blocoExt = $("usrBlocoExtras"), professorDaRede = ed.perfil === "professor" && inst && !!muniSel, avulso = ed.perfil === "professor" && !inst;
+    blocoExt.style.display = professorDaRede || avulso ? "" : "none";
+    if(avulso){
+      // avulso: o que fica fora do pacote escolhido (sem prova online, que depende de turmas da rede)
+      const doPac = new Set(listaDoPacote(L.conteudo));
+      const opcoes = MODULOS.filter(m => !m.soAluno && !doPac.has(m.id) && m.id !== "gestao" && m.id !== "relatorios").map(m => ({ v:m.id, nome:m.nome }));
+      [...ed.extras].forEach(v => { if(!opcoes.some(o => o.v === v)) ed.extras.delete(v); });
+      $("usrExtInfo").textContent = !opcoes.length ? "O pacote Completo já libera tudo." : "Licença avulsa no pacote "+NOME_PLANO[L.conteudo]+". Marque o que este professor recebe a mais.";
+      $("usrExtras").innerHTML = opcoes.map(o => '<label class="chk"><input type="checkbox" data-action="usr-extra" value="'+escapeAttr(o.v)+'"'+(ed.extras.has(o.v) ? " checked" : "")+'> '+escapeHtml(o.nome)+'</label>').join("");
+      $("usrExtCont").textContent = ed.extras.size ? ed.extras.size+" liberado(s)" : "";
+    }
     if(professorDaRede){
       const temPlano = Array.isArray(muniSel.modulos_professor) && muniSel.modulos_professor.length;
       const doMuni = new Set(temPlano ? muniSel.modulos_professor : MODULOS.map(m => m.id));
@@ -4176,7 +4188,8 @@
         licenca_inicio: inst ? null : (L.ini || ""), licenca_fim: inst ? null : Timestamp.fromMillis(msDe(L.fim)),
         licenca_valor: inst ? "" : L.valor.trim(), licenca_ref: inst ? "" : L.ref.trim(), licenca_pacote: inst || L.plano!=="pacote" ? "" : L.pacote.trim() });
       if(!inst){ dados.escola_id = null; }   // avulso nao enxerga turmas/alunos da rede
-      const ext = inst ? [...ed.extras] : [];
+      const ext = [...ed.extras];
+      if(!inst) dados.plano_avulso = L.conteudo;
       dados.modulos_extra = ext.filter(v => !v.startsWith("rec:"));
       dados.recursos_extra = ext.filter(v => v.startsWith("rec:")).map(v => v.slice(4));
       if(JSON.stringify([L.tipo, inst ? "" : L.plano, inst ? "" : L.fim]) !== ed.licOriginal){ dados.licenca_alterada_em = serverTimestamp(); dados.licenca_alterada_por = usuarioAtual.uid; }
@@ -4431,6 +4444,7 @@
       else if(ed.lic.ini && ed.lic.plano === "teste"){ ed.lic.fim = somarMesesDias(ed.lic.ini, 7); $("usrLicFim").value = ed.lic.fim; }
       desenharModalUsuario(); }
     else if(t.id === "usrLicFim"){ ed.lic.fim = t.value; desenharModalUsuario(); }
+    else if(t.id === "usrLicConteudo"){ ed.lic.conteudo = t.value; desenharModalUsuario(); }
     else if(t.id === "usrPerfil"){ ed.perfil = t.value; desenharModalUsuario(); }
     else if(t.id === "usrMuni"){ ed.municipio_id = t.value; desenharModalUsuario(); }
     else if(t.dataset && t.dataset.action === "usr-escola"){ t.checked ? ed.escolas.add(t.value) : ed.escolas.delete(t.value); desenharModalUsuario(); }
@@ -4469,6 +4483,7 @@
   // liberações individuais (usuarios.modulos_extra / recursos_extra), gravadas só pelo administrador
   function extrasDe(u){ return { mods:Array.isArray(u && u.modulos_extra) ? u.modulos_extra : [], recs:Array.isArray(u && u.recursos_extra) ? u.recursos_extra : [] }; }
   const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro"]);
+  const listaDoPacote = (n) => n === "basico" ? PLANO_BASICO : n === "intermediario" ? PLANO_INTERMEDIARIO : MODULOS.map(m => m.id);
   // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
   function nomeDoPlano(prof, rec, sec){
     const p = new Set(prof || []), igual = (l) => p.size === l.length && l.every(x => p.has(x));
@@ -4540,6 +4555,12 @@
         }
       }catch(e){ console.warn("plano:", e.code); }
     }
+    // licença avulsa: o pacote vem do cadastro do professor (sem campo = Completo, como era antes)
+    if(!ehAluno && !admin && usuarioAtual._avulso){
+      const ex = extrasDe(usuarioAtual);
+      doPlano = new Set(listaDoPacote(usuarioAtual.plano_avulso).concat(ex.mods));
+      iniProf.recursos = new Set(ex.recs);
+    }
     // Maestro em destaque: o professor comeca a aula por ele
     const aula = ehAluno ? null : maestroDisponivel(doPlano, admin);
     // professor: o Maestro vira o card "Iniciar aula"; aluno nao tem a faixa
@@ -4608,7 +4629,9 @@
       (el.dataset.img ? '<div class="cq-img" style="background-image:url(\''+escapeAttr(el.dataset.img.replace(/'/g,"%27"))+'\')"></div>' : '')+
       '<div class="mb"><span class="cq-selo'+(plano ? "" : " breve")+'">'+(plano ? "Disponível em outros planos" : "Em breve no Portal")+'</span>'+
       '<h3 id="cqTit">'+escapeHtml(el.dataset.nome)+'</h3><p>'+escapeHtml(el.dataset.desc)+'</p>'+
-      '<p class="cq-obs">'+(plano ? "Este recurso ainda não faz parte do plano do seu município. Se ele ajudaria nas suas aulas, toque em \u201cTenho interesse\u201d: a Secretaria de Educação fica sabendo que os professores querem."
+      '<p class="cq-obs">'+(plano ? (usuarioAtual && usuarioAtual._avulso
+          ? "Este recurso não está no pacote da sua licença. Se ele ajudaria nas suas aulas, toque em \u201cTenho interesse\u201d: a equipe do Portal do Educador fica sabendo."
+          : "Este recurso ainda não faz parte do plano do seu município. Se ele ajudaria nas suas aulas, toque em \u201cTenho interesse\u201d: a Secretaria de Educação fica sabendo que os professores querem.")
         : "Este recurso está sendo preparado e chega em breve para todos.")+'</p></div>'+
       '<div class="mf">'+(plano ? '<button type="button" class="btn btn-primary" data-action="ini-interesse" data-mod="'+escapeAttr(el.dataset.mod)+'">Tenho interesse</button>' : '')+
       '<button type="button" class="btn btn-ghost" data-action="ini-conheca-fechar">Fechar</button></div></div>';
@@ -4803,6 +4826,7 @@
     let doPlano = null;
     const m = usuarioAtual._muni;
     if(m && Array.isArray(m.modulos_professor) && m.modulos_professor.length) doPlano = new Set(m.modulos_professor.concat(extrasDe(usuarioAtual).mods));
+    if(usuarioAtual._avulso) doPlano = new Set(listaDoPacote(usuarioAtual.plano_avulso).concat(extrasDe(usuarioAtual).mods));
     const aula = maestroDisponivel(doPlano, false);
     const nav = $("nav"); if(!aula || !nav || nav.querySelector('[data-sec="aula"]')) return;
     const a = document.createElement("a");
