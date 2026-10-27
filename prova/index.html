@@ -178,7 +178,7 @@ function introAluno(){
       '<div><span>⚠️</span><p>'+(p.avisos_max ? 'Se sair da prova ('+SAIDAS+'), você recebe '+(p.avisos_max === 1 ? "1 aviso" : p.avisos_max+" avisos")+'. Na próxima saída, a prova é <b>bloqueada</b> e só o professor libera.' : 'Se sair da prova ('+SAIDAS+'), ela é <b>bloqueada</b> na hora e só o professor libera.')+'</p></div>'+
       '<div><span>💾</span><p>Cada resposta é salva na hora. Se a internet cair, entre de novo: você continua de onde parou.</p></div>'+
       '<div><span>⏱️</span><p>Quando o tempo acabar, a prova é entregue sozinha.</p></div>'+
-      '<div><span>📊</span><p>A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.</p></div></div>'+
+      '<div><span>📊</span><p>'+(p.notas === "reter" ? 'A nota será divulgada pelo professor no fechamento do bimestre.' : 'A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.')+'</p></div></div>'+
     (aberta ? '<button class="btn btn-ok" data-action="comecar" id="btnComecar" style="width:100%;font-size:1.05rem;padding:16px">Começar a prova</button>' :
       t < ab ? '<div class="card vazio" style="margin:0">🔒 '+(ab - t < 600000 ? 'A prova abre em <b data-abre="'+ab+'">'+mmss((ab - t) / 1000)+'</b>. Fique nesta tela.' : 'A prova abre '+dia(ab)+' às '+hora(ab)+'.')+'</div>' : '<div class="card vazio" style="margin:0">O horário desta prova terminou.</div>')+'</div>';
   // contagem regressiva até abrir (relógio do servidor) e a tela troca sozinha para "Começar a prova"
@@ -311,7 +311,7 @@ async function entregar(tempo){
 }
 function telaEntregue(){
   const p = E.prova, fe = ms(p.fecha_em);
-  $("tela").innerHTML = '<div class="card" style="text-align:center"><div style="font-size:3rem">✅</div><h1>Prova entregue</h1><p class="sub">'+esc(p.titulo)+'</p><div id="nota" style="margin-top:16px"><p>A nota aparece depois das <b>'+hora(fe)+'</b> de '+dia(fe)+'.</p></div><p style="margin-top:18px"><a class="btn btn-pri" href="/entrar/">Voltar ao Portal</a></p></div>';
+  $("tela").innerHTML = '<div class="card" style="text-align:center"><div style="font-size:3rem">✅</div><h1>Prova entregue</h1><p class="sub">'+esc(p.titulo)+'</p><div id="nota" style="margin-top:16px"><p>'+(p.notas === "reter" && !p.nota_liberada ? 'A nota será divulgada pelo professor no <b>fechamento do bimestre</b>.' : 'A nota aparece depois das <b>'+hora(fe)+'</b> de '+dia(fe)+'.')+'</p></div><p style="margin-top:18px"><a class="btn btn-pri" href="/entrar/">Voltar ao Portal</a></p></div>';
   getDoc(doc(db, "provas_online", p.id, "po_resultados", E.chave)).then(s => {
     if(!s.exists()) return;
     const r = s.data(), qs = p.questoes;
@@ -388,7 +388,13 @@ function desenharPainel(){
   const respondidas = t => Object.values(t.respostas || {}).filter(v => v != null && !(typeof v === "string" && !v.trim())).length;
   $("tela").innerHTML = '<div class="card"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between"><div><span class="chip '+st[1]+'">'+st[0]+'</span>'+
     '<h1 style="margin-top:8px">'+esc(p.titulo)+'</h1><p class="sub">'+esc([p.disciplina, p.turma_nome].filter(Boolean).join(" · "))+' · '+dia(ms(p.abre_em))+' das '+hora(ms(p.abre_em))+' às '+hora(ms(p.fecha_em))+' · '+p.duracao_min+' min · '+nq+' questões ('+p.objetivas+' corrigidas sozinhas) · '+p.total_pontos+' pts</p></div>'+
-    '<div class="acoes">'+(st[0] === "Agendada" ? '<button class="btn btn-ok btn-sm" data-action="pn-abrir">▶️ Abrir agora</button>' : '')+(aberta ? '<button class="btn btn-red btn-sm" data-action="pn-encerrar">Encerrar agora</button>' : '')+(!p.nota_liberada && aberta ? '<button class="btn btn-gh btn-sm" data-action="pn-notas">Mostrar notas já</button>' : '')+'</div></div>'+
+    (p.recuperacao_de ? '<p class="sub" style="margin-top:4px">🔁 Recuperação da prova <a href="?painel='+encodeURIComponent(p.recuperacao_de)+'">'+esc(p.recuperacao_de_titulo || "original")+'</a> · vale a <b>maior nota</b> entre a original e a recuperação</p>' : '')+
+    ((p.recuperacoes || []).length ? '<p class="sub" style="margin-top:4px">🔁 Recuperações: '+p.recuperacoes.map(x => '<a href="?painel='+encodeURIComponent(x.id)+'">'+dia(x.em)+' ('+x.alunos+' aluno'+(x.alunos > 1 ? "s" : "")+')</a>').join(" · ")+'</p>' : '')+
+    '<p style="margin-top:6px">'+(p.nota_liberada ? '<span class="chip c-ent">Notas visíveis para os alunos</span>' : p.notas === "reter" ? '<span class="chip c-age">🔒 Notas guardadas até o fechamento do bimestre</span>' : '<span class="chip c-nao">Notas aparecem para os alunos quando a prova terminar</span>')+'</p></div>'+
+    '<div class="acoes">'+(st[0] === "Agendada" ? '<button class="btn btn-ok btn-sm" data-action="pn-abrir">▶️ Abrir agora</button>' : '')+(aberta ? '<button class="btn btn-red btn-sm" data-action="pn-encerrar">Encerrar agora</button>' : '')+
+      (!p.nota_liberada ? '<button class="btn btn-gh btn-sm" data-action="pn-notas">'+(p.notas === "reter" || !aberta ? "Liberar notas aos alunos" : "Mostrar notas já")+'</button>' : '')+
+      (aberta && !p.nota_liberada && p.notas !== "reter" ? '<button class="btn btn-gh btn-sm" data-action="pn-reter">🔒 Guardar notas até o bimestre</button>' : '')+
+      (!p.recuperacao_de && c.ent ? '<button class="btn btn-gh btn-sm" data-action="pn-recup">🔁 Recuperação</button>' : '')+'</div></div>'+
     '<div class="kpis"><div class="kpi"><b>'+alunos.length+'</b><span>Alunos</span></div><div class="kpi"><b>'+c.nao+'</b><span>Não entraram</span></div><div class="kpi"><b style="color:#1b5f93">'+c.and+'</b><span>Fazendo</span></div><div class="kpi"><b style="color:var(--red)">'+c.blo+'</b><span>Bloqueados</span></div><div class="kpi"><b style="color:var(--verde)">'+c.ent+'</b><span>Entregaram</span></div></div></div>'+
     '<table class="tabela"><thead><tr><th>Aluno</th><th>Situação</th><th>Respondidas</th><th>Saídas</th><th>Tempo</th><th>Nota</th><th></th></tr></thead><tbody>'+
     alunos.map(a => { const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid);
@@ -396,7 +402,8 @@ function desenharPainel(){
       return '<tr><td><b>'+esc(a.nome)+'</b>'+(t && t.aparelho ? '<small>'+(ICO_AP[t.aparelho] || "")+' '+esc(t.aparelho)+(t.trocas ? ' · trocou de aparelho '+t.trocas+'x' : '')+'</small>' : '')+'</td><td><span class="chip '+s[1]+'">'+s[0]+'</span>'+(t && t.liberacoes ? '<small>liberado '+t.liberacoes+'x</small>' : '')+'</td>'+
         '<td>'+(t ? respondidas(t)+' / '+nq : '-')+'</td><td>'+(t ? (t.desvios || 0) + (ev ? '<small title="'+esc(ev)+'">'+esc(ev.slice(0, 60))+'</small>' : '') : '-')+'</td>'+
         '<td>'+(t && t.status === "em_andamento" ? '<span data-prazo="'+ms(t.prazo)+'">'+mmss((ms(t.prazo) - agora()) / 1000)+'</span>' : '-')+'</td>'+
-        '<td>'+(r ? '<b>'+r.nota+'</b> / '+r.total+(r.pendentes ? '<small>'+r.pendentes+' para corrigir</small>' : '') : '-')+'</td>'+
+        '<td>'+(r ? '<b>'+r.nota+'</b> / '+r.total+(r.pendentes ? '<small>'+r.pendentes+' para corrigir</small>' : (r.total && r.nota / r.total < LIMIAR ? '<small style="color:var(--red)">baixo aproveitamento</small>' : '')) : '-')+
+          (p.recuperacao_de && p.notas_originais && p.notas_originais[a.uid] ? '<small>original: '+p.notas_originais[a.uid].nota+' · vale: <b>'+Math.max(p.notas_originais[a.uid].nota, r ? r.nota : 0)+'</b></small>' : '')+'</td>'+
         '<td><div class="acoes">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">Dar nova chance</button>' : '')+
           (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'">+10 min</button>' : '')+
           (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Prova respondida, correção e registro de horários (para imprimir ou PDF)">📄 Relatório</button>' : '')+'</div></td></tr>'; }).join("")+
@@ -451,7 +458,10 @@ async function relatorios(uids, btn){
         '<h1>' + esc(p.titulo) + "</h1><table class=\"id\"><tr><td>Aluno</td><td><b>" + esc(a.nome) + "</b></td><td>Turma</td><td>" + esc(p.turma_nome || "") + "</td></tr>" +
         "<tr><td>Disciplina</td><td>" + esc(p.disciplina || "-") + "</td><td>Professor(a)</td><td>" + esc(p.professor_nome || "") + "</td></tr>" +
         "<tr><td>Janela da prova</td><td>" + dataHora(ms(p.abre_em)) + " a " + dataHora(ms(p.fecha_em)) + "</td><td>Tempo de prova</td><td>" + p.duracao_min + " min" + (dur != null ? " · usou " + dur + " min" : "") + "</td></tr>" +
-        "<tr><td>Aparelho</td><td>" + esc(t.aparelho || "-") + (t.trocas ? " · trocou " + t.trocas + "x" : "") + "</td><td>Nota</td><td><b>" + (r ? r.nota + " / " + r.total : "-") + "</b>" + (r && r.pendentes ? " (" + r.pendentes + " questão(ões) aguardando correção)" : "") + "</td></tr></table>" +
+        "<tr><td>Aparelho</td><td>" + esc(t.aparelho || "-") + (t.trocas ? " · trocou " + t.trocas + "x" : "") + "</td><td>Nota</td><td><b>" + (r ? r.nota + " / " + r.total : "-") + "</b>" + (r && r.pendentes ? " (" + r.pendentes + " questão(ões) aguardando correção)" : "") + "</td></tr>" +
+        (p.recuperacao_de && p.notas_originais && p.notas_originais[uid] ? "<tr><td>Recuperação</td><td>Prova original: " + esc(p.recuperacao_de_titulo || "") + " · nota " + p.notas_originais[uid].nota + " / " + p.notas_originais[uid].total + "</td><td>Nota considerada</td><td><b>" + Math.max(p.notas_originais[uid].nota, r ? r.nota : 0) + "</b> (maior nota)</td></tr>" : "") +
+        ((p.recuperacoes || []).length ? "<tr><td>Recuperação</td><td colspan=\"3\">Recuperação aplicada em " + p.recuperacoes.map(x => dataHora(x.em)).join(", ") + " (ver o relatório da recuperação)</td></tr>" : "") +
+        "<tr><td>Divulgação da nota</td><td colspan=\"3\">" + (p.nota_liberada ? "liberada aos alunos" : p.notas === "reter" ? "guardada até o fechamento do bimestre" : "ao terminar a prova") + "</td></tr></table>" +
         "<h2>Registro de horários</h2><table class=\"tl\">" + linhaTempo(t).map(([m, x]) => "<tr><td>" + dataHora(m) + "</td><td>" + esc(x) + "</td></tr>").join("") + "</table>" +
         '<p class="nota">Saídas da prova: ' + (t.desvios || 0) + " · Liberações pelo professor: " + (t.liberacoes || 0) + ". Os horários de início e entrega são do servidor; os demais foram ajustados pela hora do servidor.</p>" +
         "<h2>Questões e respostas</h2>" + p.questoes.map((q, i) => '<div class="q"><p class="en"><b>' + (i + 1) + ".</b> " + esc(q.enun).replace(/\n/g, "<br>") + " <small>(" + q.valor + " pt)</small></p>" +
@@ -482,6 +492,24 @@ function auditoriaCsv(){
   const csv = "﻿" + linhas.map(l => l.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(";")).join("\r\n");
   const u = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" })), a = document.createElement("a");
   a.href = u; a.download = "auditoria-" + String(p.titulo || "prova").replace(/[^\w\-]+/g, "-").slice(0, 40) + ".csv"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000);
+}
+const LIMIAR = 0.6; // abaixo de 60% do total: baixo aproveitamento (sugestão de recuperação; o professor decide)
+function modalRecuperacao(){
+  const p = E.prova, l = (p.alunos || []).filter(a => PN.tent[a.uid] && PN.tent[a.uid].status === "entregue").map(a => { const r = PN.res[a.uid]; return { ...a, r, pc:r && r.total ? r.nota / r.total : null }; })
+    .sort((x, y) => (x.pc ?? 2) - (y.pc ?? 2));
+  if(!l.length){ toast("Ninguém entregou a prova ainda.", true); return; }
+  capa("🔁", "Recuperação", "Reaplica esta mesma prova só para os alunos marcados (sugeridos: abaixo de 60%). A prova original fica guardada como está; vale a maior nota. A LDB (art. 24, V, e) prevê estudos de recuperação para baixo rendimento, de preferência ao longo do período letivo.",
+    '<div style="text-align:left;max-height:40vh;overflow:auto;border:1px solid var(--linha,#dfe7ef);border-radius:10px;padding:6px 10px;margin-bottom:10px">'+l.map(a => '<label style="display:flex;gap:8px;align-items:center;padding:4px 0"><input type="checkbox" class="rec-al" value="'+esc(a.uid)+'"'+(a.pc != null && a.pc < LIMIAR ? " checked" : "")+'><span style="flex:1">'+esc(a.nome)+'</span><b style="color:'+(a.pc != null && a.pc < LIMIAR ? "var(--red)" : "inherit")+'">'+(a.r ? a.r.nota+" / "+a.r.total : "-")+'</b></label>').join("")+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left;margin-bottom:10px"><label>Tempo de prova (min)<input type="number" id="recDur" class="inp" min="5" max="300" value="'+p.duracao_min+'" style="width:100%"></label><label>Tolerância para entrar (min)<input type="number" id="recTol" class="inp" min="0" max="120" value="10" style="width:100%"></label></div>'+
+    '<div style="display:grid;gap:8px"><button class="btn btn-ok" data-action="pn-rec-ok">Aplicar a recuperação agora (abre em 30 s)</button><button class="btn btn-gh" data-action="fechar-capa">Cancelar</button></div>');
+}
+async function aplicarRecup(btn){
+  const uids = [...document.querySelectorAll(".rec-al:checked")].map(x => x.value);
+  if(!uids.length){ toast("Marque ao menos um aluno.", true); return; }
+  btn.disabled = true; btn.textContent = "Aplicando...";
+  try{ const r = await chamar("aplicarRecuperacao", { id:E.prova.id, uids, modo:"agora", duracao_min:+$("recDur").value, tolerancia_min:+$("recTol").value });
+    fecharCapa(); toast("Recuperação aplicada para " + r.alunos + " aluno(s). Abrindo o painel..."); setTimeout(() => { location.href = "?painel=" + encodeURIComponent(r.id); }, 900); }
+  catch(e){ toast(e.message || "Não foi possível aplicar.", true); btn.disabled = false; btn.textContent = "Aplicar a recuperação agora (abre em 30 s)"; }
 }
 async function acao(dados, btn){
   if(btn) btn.disabled = true;
@@ -516,10 +544,16 @@ document.addEventListener("click", e => {
   else if(a === "pn-lib-ok") acao({ acao:"liberar", uid:arg, modo:el.dataset.modo }, el);
   else if(a === "pn-tempo") acao({ acao:"tempo", uid:arg, min:10 }, el);
   else if(a === "pn-encerrar"){
-    if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar: entregar todas"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Encerrar agora"; } }, 4000); return; }
-    acao({ acao:"encerrar" }, el);
+    capa("⏹️", "Encerrar a prova agora?", "Quem ainda está fazendo terá a prova entregue com o que respondeu até agora. E a nota para os alunos?",
+      '<div style="display:grid;gap:8px"><button class="btn btn-ok" data-action="pn-enc-ok" data-notas="agora">Encerrar e mostrar a nota aos alunos agora</button>'+
+      '<button class="btn btn-gh" data-action="pn-enc-ok" data-notas="reter">Encerrar e guardar as notas até o fechamento do bimestre</button>'+
+      '<button class="btn btn-gh" data-action="fechar-capa">Cancelar (a prova continua)</button></div>');
   }
   else if(a === "pn-notas") acao({ acao:"liberar_notas" }, el);
+  else if(a === "pn-enc-ok") acao({ acao:"encerrar", notas:el.dataset.notas }, el);
+  else if(a === "pn-reter") acao({ acao:"reter_notas" }, el);
+  else if(a === "pn-recup") modalRecuperacao();
+  else if(a === "pn-rec-ok") aplicarRecup(el);
   else if(a === "pn-abrir") acao({ acao:"abrir_agora" }, el);
   else if(a === "pn-rel") relatorios([arg], el);
   else if(a === "pn-rel-turma") relatorios((E.prova.alunos || []).map(x => x.uid).filter(u => PN.tent[u]), el);

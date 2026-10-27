@@ -8,7 +8,7 @@ import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPubli
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
-export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline } from './provas-online.js';
+export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao } from './provas-online.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });

@@ -189,6 +189,16 @@ await t('matricula: nao le a tentativa do colega', assertFails(getDoc(doc(mPin, 
 await t('matricula: nota escondida antes do fim', assertFails(getDoc(doc(mPin, 'provas_online/po3/po_resultados/m-mat1'))));
 await t('matricula: nao le acesso de aluno', assertFails(getDoc(doc(mPin, 'alunos_acesso/mat1'))));
 
+// nota guardada até o fechamento do bimestre: nem depois do fim o aluno vê, até o professor liberar
+await env.withSecurityRulesDisabled(async (c) => { const f = c.firestore();
+  await setDoc(doc(f, 'provas_online/po4'), { professor_uid: 'prof', alunos_uids: ['alu'], status: 'encerrada', notas: 'reter', fecha_em: Timestamp.fromMillis(Date.now() - 60000), nota_liberada: false, questoes: [] });
+  await setDoc(doc(f, 'provas_online/po4/po_resultados/alu'), { nota: 4 });
+  await setDoc(doc(f, 'provas_online/po5'), { professor_uid: 'prof', alunos_uids: ['alu'], status: 'encerrada', notas: 'liberada', fecha_em: Timestamp.fromMillis(Date.now() - 60000), nota_liberada: true, questoes: [] });
+  await setDoc(doc(f, 'provas_online/po5/po_resultados/alu'), { nota: 6 }); });
+await t('nota guardada: aluno nao ve depois do fim', assertFails(getDoc(doc(poA, 'provas_online/po4/po_resultados/alu'))));
+await t('nota guardada: professor ve', assertSucceeds(getDoc(doc(poP, 'provas_online/po4/po_resultados/alu'))));
+await t('nota liberada: aluno ve', assertSucceeds(getDoc(doc(poA, 'provas_online/po5/po_resultados/alu'))));
+
 console.log(`REGRAS ALUNO: ${ok} ok, ${falhas} falha(s)`);
 await env.cleanup();
 process.exit(falhas ? 1 : 0);

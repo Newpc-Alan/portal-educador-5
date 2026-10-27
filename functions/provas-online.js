@@ -113,11 +113,46 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     turma_id: d.turma_id, turma_nome: txt(turma.nome, 80), escola_id: turma.escola_id || '', municipio_id: turma.municipio_id || u.municipio_id || '',
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
     questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
-    status: 'agendada', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp()
+    status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp()
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
   return { id: ref.id, alunos: alunos.length, objetivas, questoes: pub.length, matriculas: R.ids.length, modo: agoraModo ? 'agora' : 'horario', abre_em: abre, fecha_em: fecha };
+});
+
+// Recuperação (LDB art. 24, V, "e": estudos de recuperação para baixo rendimento, de preferência paralelos ao período letivo):
+// o professor reaplica a mesma prova só para os alunos escolhidos que já entregaram. A prova original NÃO é alterada
+// (fica o registro); a recuperação é uma prova nova, ligada à original, e guarda a nota original de cada aluno.
+export const aplicarRecuperacao = onCall({ region: REGIAO, timeoutSeconds: 60 }, async (req) => {
+  const u = await quem(req), d = req.data || {}, db = getFirestore(), id = String(d.id || '');
+  const oref = db.doc(`provas_online/${id}`), [os, gs] = await Promise.all([oref.get(), db.doc(`provas_online_gab/${id}`).get()]);
+  const o = os.data(); if (!o) throw new HttpsError('not-found', 'Prova não encontrada.');
+  if (o.professor_uid !== u.uid && u.perfil !== 'admin') throw new HttpsError('permission-denied', 'Somente o professor da prova.');
+  if (o.recuperacao_de) throw new HttpsError('failed-precondition', 'Aplique a recuperação a partir da prova original.');
+  const pedidos = [...new Set((Array.isArray(d.uids) ? d.uids : []).map(String))].slice(0, 200);
+  const [ts, rs] = await Promise.all([oref.collection('po_tentativas').get(), oref.collection('po_resultados').get()]);
+  const tent = {}, res = {}; ts.forEach(x => { tent[x.id] = x.data(); }); rs.forEach(x => { res[x.id] = x.data(); });
+  const alunos = (o.alunos || []).filter(a => pedidos.includes(a.uid) && tent[a.uid] && tent[a.uid].status === 'entregue');
+  if (!alunos.length) throw new HttpsError('invalid-argument', 'Escolha alunos que já entregaram a prova.');
+  const dur = Math.round(Number(d.duracao_min || o.duracao_min));
+  if (!(dur >= 5 && dur <= 300)) throw new HttpsError('invalid-argument', 'A duração vai de 5 a 300 minutos.');
+  const agoraModo = d.modo !== 'horario', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
+  const abre = agoraModo ? Date.now() + 30000 : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
+  if (!(abre > 0 && fecha > abre) || fecha < Date.now()) throw new HttpsError('invalid-argument', 'Confira o horário da recuperação.');
+  const ref = db.collection('provas_online').doc(), originais = {};
+  alunos.forEach(a => { const r = res[a.uid]; originais[a.uid] = r ? { nota: r.nota, total: r.total, pendentes: r.pendentes || 0 } : null; });
+  const doc = { professor_uid: o.professor_uid, professor_nome: o.professor_nome, titulo: txt('Recuperação · ' + o.titulo, 120), disciplina: o.disciplina || '',
+    turma_id: o.turma_id, turma_nome: o.turma_nome, escola_id: o.escola_id || '', municipio_id: o.municipio_id || '',
+    abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: d.embaralhar !== false, avisos_max: o.avisos_max ?? 1,
+    questoes: o.questoes, total_pontos: o.total_pontos, objetivas: o.objetivas,
+    alunos_uids: alunos.filter(a => !a.uid.startsWith('m-')).map(a => a.uid), alunos_ids: alunos.filter(a => a.uid.startsWith('m-')).map(a => a.uid.slice(2)), alunos,
+    status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false,
+    recuperacao_de: id, recuperacao_de_titulo: o.titulo, notas_originais: originais, regra_nota: 'maior', criado_em: FieldValue.serverTimestamp(), criado_por_nome: txt(u.nome, 60) };
+  const b = db.batch();
+  b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: o.professor_uid, gab: (gs.data() || {}).gab || {} });
+  b.update(oref, { recuperacoes: FieldValue.arrayUnion({ id: ref.id, alunos: alunos.length, em: Date.now(), por: txt(u.nome, 60) }) });
+  await b.commit();
+  return { id: ref.id, alunos: alunos.length, abre_em: abre, fecha_em: fecha };
 });
 
 // embaralha de forma determinística por aluno
@@ -214,7 +249,9 @@ export const acaoProvaOnline = onCall({ region: REGIAO }, async (req) => {
   if (d.acao === 'encerrar') {
     const s = await pref.collection('po_tentativas').where('status', 'in', ['em_andamento', 'bloqueada']).get();
     for (const x of s.docs) await finalizar(pref.id, x.id, 'encerrada_professor');
-    await pref.update({ status: 'encerrada', fecha_em: Timestamp.fromMillis(Math.min(ms(p.fecha_em), agora)), encerrada_em: FieldValue.serverTimestamp() });
+    // nota para o aluno: mostrar agora, ou guardar até o fechamento do bimestre (o professor libera depois)
+    const notas = d.notas === 'agora' ? { nota_liberada: true, notas: 'liberada' } : d.notas === 'reter' ? { nota_liberada: false, notas: 'reter' } : {};
+    await pref.update({ status: 'encerrada', fecha_em: Timestamp.fromMillis(Math.min(ms(p.fecha_em), agora)), encerrada_em: FieldValue.serverTimestamp(), encerrada_por: txt(u.nome, 60), ...notas });
     return { ok: true, finalizadas: s.size };
   }
   // professor abre antes do horário marcado: abre já (hora do servidor) e garante a janela do tempo de prova + 10 min
@@ -224,7 +261,8 @@ export const acaoProvaOnline = onCall({ region: REGIAO }, async (req) => {
     await pref.update({ abre_em: Timestamp.fromMillis(agora - 5000), fecha_em: Timestamp.fromMillis(Math.max(ms(p.fecha_em), agora + (p.duracao_min + 10) * 60000)), aberta_pelo_professor_em: FieldValue.serverTimestamp() });
     return { ok: true };
   }
-  if (d.acao === 'liberar_notas') { await pref.update({ nota_liberada: true }); return { ok: true }; }
+  if (d.acao === 'liberar_notas') { await pref.update({ nota_liberada: true, notas: 'liberada', notas_liberadas_em: FieldValue.serverTimestamp(), notas_liberadas_por: txt(u.nome, 60) }); return { ok: true }; }
+  if (d.acao === 'reter_notas') { await pref.update({ nota_liberada: false, notas: 'reter' }); return { ok: true }; }
   if (d.acao === 'cancelar') { await pref.update({ status: 'cancelada' }); return { ok: true }; }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
 });
