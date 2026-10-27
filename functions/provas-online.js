@@ -60,6 +60,17 @@ function alunoDaProva(p, auth) {
   return '';
 }
 
+// Classificação da prova (vem de Provas e Avaliações): diz se vale nota e em qual período entra em Notas e Médias.
+export const FINALIDADES = { avaliacao: true, trabalho: true, recuperacao: true, diagnostica: false, exercicio: false, simulado: false };
+export function classificar(d) {
+  const finalidade = Object.prototype.hasOwnProperty.call(FINALIDADES, d.finalidade) ? d.finalidade : null;
+  const periodos = [2, 3, 4].includes(Number(d.periodos)) ? Number(d.periodos) : 4;
+  const p = Number(d.periodo), periodo = Number.isInteger(p) && p >= 1 && p <= periodos ? p : null;
+  const a = Number(d.ano_letivo), ano = Number.isInteger(a) && a >= 2020 && a <= 2100 ? a : new Date().getFullYear();
+  if (finalidade && FINALIDADES[finalidade] && !periodo) throw new HttpsError('invalid-argument', 'Escolha o bimestre (ou trimestre/semestre) da prova.');
+  // sem finalidade = prova aplicada por uma versão antiga da tela: fica como antes (o professor escolhe na hora de puxar)
+  return { finalidade, vale_nota: finalidade ? FINALIDADES[finalidade] : null, periodo, periodos, ano_letivo: ano };
+}
 export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120, memory: '512MiB' }, async (req) => {
   const u = await quem(req); if (!ehProf(u)) throw new HttpsError('permission-denied', 'Somente professores.');
   const d = req.data || {}, db = getFirestore();
@@ -77,6 +88,7 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   }
   const dur = Math.round(Number(d.duracao_min));
   if (!(dur >= 5 && dur <= 300)) throw new HttpsError('invalid-argument', 'A duração vai de 5 a 300 minutos.');
+  const cls = classificar(d);
   // "aplicar agora": o horário vem do servidor (relógio errado em tablet ou computador não atrapalha);
   // fica aberta pelo tempo de prova + a tolerância para entrar, e o professor encerra quando quiser
   const agoraModo = d.modo === 'agora', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
@@ -113,7 +125,8 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     turma_id: d.turma_id, turma_nome: txt(turma.nome, 80), escola_id: turma.escola_id || '', municipio_id: turma.municipio_id || u.municipio_id || '',
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
     questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
-    status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp()
+    status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp(),
+    ...cls
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
@@ -147,6 +160,7 @@ export const aplicarRecuperacao = onCall({ region: REGIAO, timeoutSeconds: 60 },
     questoes: o.questoes, total_pontos: o.total_pontos, objetivas: o.objetivas,
     alunos_uids: alunos.filter(a => !a.uid.startsWith('m-')).map(a => a.uid), alunos_ids: alunos.filter(a => a.uid.startsWith('m-')).map(a => a.uid.slice(2)), alunos,
     status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false,
+    finalidade: 'recuperacao', vale_nota: true, periodo: o.periodo ?? null, periodos: o.periodos ?? null, ano_letivo: o.ano_letivo ?? new Date().getFullYear(),
     recuperacao_de: id, recuperacao_de_titulo: o.titulo, notas_originais: originais, regra_nota: 'maior', criado_em: FieldValue.serverTimestamp(), criado_por_nome: txt(u.nome, 60) };
   const b = db.batch();
   b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: o.professor_uid, gab: (gs.data() || {}).gab || {} });

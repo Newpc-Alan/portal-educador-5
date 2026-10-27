@@ -621,9 +621,12 @@ async function abrirGerador(){
   l.sort((a, b) => ((b.atualizado_em && b.atualizado_em.seconds) || 0) - ((a.atualizado_em && a.atualizado_em.seconds) || 0));
   const ja = new Set(E.avals.map(a => a.gerador_id).filter(Boolean));
   $("gerLista").innerHTML = l.length ? l.map(p => '<button class="ger-item" data-action="ger-usar" data-arg="' + esc(p.id) + '"><b>' + esc(p.titulo || "Prova sem nome") + "</b><small>" +
-    esc([p.disciplina, p.turma, (p.questoes || 0) + " questões"].filter(Boolean).join(" · ")) + (ja.has(p.id) ? " · já está nesta turma" : "") + "</small></button>").join("")
+    esc([p.disciplina, p.turma, FIN_NOME[p.finalidade] ? FIN_NOME[p.finalidade] + (p.vale_nota === false ? " (não vale nota)" : "") : "", p.periodo ? p.periodo + "º " + (PER_NOME[p.periodos] || "bimestre") : "sem bimestre definido", (p.questoes || 0) + " questões"].filter(Boolean).join(" · ")) +
+    (ja.has(p.id) ? " · já está nesta turma" : "") + (p.turma_id && E.turma && p.turma_id !== E.turma.id ? ' · <b style="color:#C2362C">⚠ feita para outra turma</b>' : "") + "</small></button>").join("")
     : '<div class="vazio">Nenhuma prova salva ainda. Em Provas e Avaliações, use "☁ Salvar" para guardar a prova em Minhas provas.</div>';
 }
+const FIN_NOME = { avaliacao:"Avaliação", trabalho:"Trabalho", recuperacao:"Recuperação", diagnostica:"Diagnóstica", exercicio:"Exercício", simulado:"Simulado" };
+const PER_NOME = { 4:"bimestre", 3:"trimestre", 2:"semestre" };
 async function usarDoGerador(id, btn){
   const existente = E.avals.find(a => a.gerador_id === id);
   if(existente){ $("mGer").hidden = true; $("selAval").value = existente.id; await escolherAval(existente.id); toast("Esta prova já estava no Corretor desta turma."); return; }
@@ -643,9 +646,10 @@ async function usarDoGerador(id, btn){
     });
     if(!questoes.length){ toast("Esta prova não tem questões de múltipla escolha com o gabarito marcado.", true); if(btn) btn.disabled = false; return; }
     const ignoradas = qs.length - questoes.length, t = E.turma;
-    const r = await addDoc(collection(db, "avaliacoes"), { titulo:String(ficha.titulo || "Prova").slice(0, 80), disciplina:String(ficha.disciplina || "").slice(0, 60), bimestre:1,
+    const r = await addDoc(collection(db, "avaliacoes"), { titulo:String(ficha.titulo || "Prova").slice(0, 80), disciplina:String(ficha.disciplina || "").slice(0, 60), bimestre:Math.min(4, Math.max(1, +ficha.periodo || 1)),
+      periodo:+ficha.periodo || null, finalidade:FIN_NOME[ficha.finalidade] ? ficha.finalidade : null, vale_nota:FIN_NOME[ficha.finalidade] ? ficha.vale_nota !== false : null,
       turma_id:t.id, turma_nome:t.nome || "", escola_id:t.escola_id || "", escola_nome:t.escola_nome || "", municipio_id:t.municipio_id || E.u.municipio_id || "",
-      ano_letivo:new Date().getFullYear(), professor_uid:E.user.uid, questoes, total_pontos:Math.round(questoes.reduce((s, q) => s + q.pontos, 0) * 100) / 100,
+      ano_letivo:+ficha.ano || new Date().getFullYear(), professor_uid:E.user.uid, questoes, total_pontos:Math.round(questoes.reduce((s, q) => s + q.pontos, 0) * 100) / 100,
       status:"impressa", formato:"cartao", origem:"gerador", gerador_id:id, codigo_acesso:null, liberada_em:null, encerra_em:null, criado_em:serverTimestamp() });
     $("mGer").hidden = true;
     toast(questoes.length + " questões no cartão" + (ignoradas ? " · " + ignoradas + " não objetiva(s) ficam para lançar em Notas e Médias" : "") + ".");

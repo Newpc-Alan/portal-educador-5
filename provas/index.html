@@ -444,6 +444,24 @@ html.pde-quiosque-ativo .s-hn { display: none !important; }
 #pde-painel .pde-resumo-label { font-size: .64rem; color: var(--muted); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 #pde-painel .pde-resumo-value { font-size: .86rem; color: var(--ink-2); font-weight: 600; margin-top: 1px; word-break: break-word; }
 #pde-painel .pde-resumo-value.empty { color: var(--muted-2); font-weight: 500; font-style: italic; font-size: .8rem; }
+#pde-painel .pde-obg { color: #C2362C; font-weight: 800; }
+#pde-painel .pde-input-wrap[hidden], #pde-painel .pde-obg[hidden] { display: none !important; }
+#pde-painel .ol-class { border: 1.5px solid #cfe0d3; background: #f6fbf7; border-radius: 14px; padding: 10px 12px; }
+#pde-painel .ol-class-t { font-weight: 800; color: #0f2c4a; margin-bottom: 6px; }
+#pde-painel .ol-class-t small { display: block; font-weight: 600; color: var(--muted); font-size: .76rem; }
+#pde-painel .ol-class-res { margin-top: 8px; border-radius: 10px; padding: 8px 11px; font-size: .86rem; border: 1px solid; }
+#pde-painel .ol-class-res.ok { background: #e7f5ea; border-color: #b9dcc1; color: #134D1F; }
+#pde-painel .ol-class-res.info { background: #eaf2fb; border-color: #c4d8ee; color: #1d466e; }
+#pde-painel .ol-class-res.falta { background: #fff4e0; border-color: #edd9ae; color: #6E4A12; }
+#pde-painel .pde-classif { margin-top: 14px; border: 1.5px solid #cfe0d3; background: #f6fbf7; border-radius: 14px; padding: 12px 14px 10px; }
+#pde-painel .pde-classif-t { font-weight: 800; color: #0f2c4a; margin-bottom: 8px; font-size: .95rem; }
+#pde-painel .pde-classif-t small { display: block; font-weight: 600; color: var(--muted); font-size: .76rem; margin-top: 2px; }
+#pde-painel .pde-classif-res { margin-top: 8px; border-radius: 10px; padding: 9px 12px; font-size: .86rem; line-height: 1.4; border: 1px solid; }
+#pde-painel .pde-classif-res small { color: inherit; opacity: .8; }
+#pde-painel .pde-classif-res.ok { background: #e7f5ea; border-color: #b9dcc1; color: #134D1F; }
+#pde-painel .pde-classif-res.info { background: #eaf2fb; border-color: #c4d8ee; color: #1d466e; }
+#pde-painel .pde-classif-res.falta { background: #fff4e0; border-color: #edd9ae; color: #6E4A12; }
+#pde-painel .pde-classif.alerta { border-color: #C2362C; box-shadow: 0 0 0 4px rgba(194,54,44,.12); }
 #pde-painel .pde-status-card { border-radius: var(--r-md); padding: 12px 14px; border: 1px solid; display: flex; align-items: flex-start; gap: 10px; }
 #pde-painel .pde-status-card.ok { background: var(--green-lt); border-color: #CDE5D2; color: #134D1F; }
 #pde-painel .pde-status-card.warn { background: var(--amber-lt); border-color: #EDD9AE; color: #6E4A12; }
@@ -778,7 +796,7 @@ html, body { background: #f4f7fa !important; }
       <div class="pde-card">
         <div class="pde-card-head">
           <div class="pde-card-ico">🏫</div>
-          <div><h2>Cabeçalho da prova</h2><p>Escola, professor(a), turma e data que vão impressos no topo</p></div>
+          <div><h2>Cabeçalho da prova</h2><p>Escola, professor(a), turma, data e classificação (bimestre e finalidade)</p></div>
         </div>
         <div class="pde-card-body">
           <div class="pde-grid-2">
@@ -907,13 +925,43 @@ html, body { background: #f4f7fa !important; }
           </div>
           <div class="pde-grid-2">
             <div class="pde-field">
-              <label class="pde-label" for="pd-turma">Turma / Série</label>
-              <div class="pde-input-wrap"><span class="pde-input-icon">👥</span><input id="pd-turma" list="pde-turmas-portal" class="pde-input" type="text" placeholder="Ex: 5º Ano B"></div>
+              <label class="pde-label" for="pd-turma-sel">Turma <span class="pde-obg">*</span></label>
+              <div class="pde-input-wrap" id="pd-turma-selwrap" hidden><span class="pde-input-icon">👥</span><select id="pd-turma-sel" class="pde-select"></select></div>
+              <div class="pde-input-wrap" id="pd-turma-txtwrap"><span class="pde-input-icon">👥</span><input id="pd-turma" list="pde-turmas-portal" class="pde-input" type="text" placeholder="Ex: 5º Ano B" aria-label="Turma"></div>
+              <input id="pd-turma-id" type="hidden">
             </div>
             <div class="pde-field">
               <label class="pde-label" for="pd-data">Data da avaliação</label>
               <div class="pde-input-wrap"><span class="pde-input-icon">📅</span><input id="pd-data" class="pde-input" type="date"></div>
             </div>
+          </div>
+          <div class="pde-classif">
+            <div class="pde-classif-t">🏷️ Classificação da prova <small>define se a nota vai para Notas e Médias, e em qual coluna</small></div>
+            <div class="pde-grid-2">
+              <div class="pde-field">
+                <label class="pde-label" for="pd-finalidade">Para que serve esta prova <span class="pde-obg">*</span></label>
+                <div class="pde-input-wrap"><span class="pde-input-icon">🎯</span>
+                  <select id="pd-finalidade" class="pde-select">
+                    <option value="">Escolha...</option>
+                    <optgroup label="✅ Vale nota (vai para Notas e Médias)">
+                      <option value="avaliacao">Avaliação</option>
+                      <option value="trabalho">Trabalho / atividade avaliativa</option>
+                      <option value="recuperacao">Recuperação</option>
+                    </optgroup>
+                    <optgroup label="ℹ️ Não vale nota">
+                      <option value="diagnostica">Avaliação diagnóstica</option>
+                      <option value="exercicio">Exercício de fixação</option>
+                      <option value="simulado">Simulado</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+              <div class="pde-field">
+                <label class="pde-label" for="pd-periodo"><span id="pd-periodo-nome">Bimestre</span> <span class="pde-obg" id="pd-periodo-obg">*</span></label>
+                <div class="pde-input-wrap"><span class="pde-input-icon">🗓️</span><select id="pd-periodo" class="pde-select"></select></div>
+              </div>
+            </div>
+            <div class="pde-classif-res falta" id="pd-classif" role="status"></div>
           </div>
         </div>
       </div>
@@ -1087,6 +1135,7 @@ html, body { background: #f4f7fa !important; }
         <div class="pde-resumo-row"><div class="pde-resumo-icon">🏫</div><div class="pde-resumo-text"><div class="pde-resumo-label">Escola</div><div class="pde-resumo-value empty" id="rs-escola">Não preenchida</div></div></div>
         <div class="pde-resumo-row"><div class="pde-resumo-icon">📚</div><div class="pde-resumo-text"><div class="pde-resumo-label">Disciplina</div><div class="pde-resumo-value empty" id="rs-mat">Não selecionada</div></div></div>
         <div class="pde-resumo-row"><div class="pde-resumo-icon">👥</div><div class="pde-resumo-text"><div class="pde-resumo-label">Turma / Série</div><div class="pde-resumo-value empty" id="rs-turma">Não preenchida</div></div></div>
+        <div class="pde-resumo-row"><div class="pde-resumo-icon">🏷️</div><div class="pde-resumo-text"><div class="pde-resumo-label">Classificação</div><div class="pde-resumo-value empty" id="rs-class">Não definida</div></div></div>
         <div class="pde-resumo-row"><div class="pde-resumo-icon">👤</div><div class="pde-resumo-text"><div class="pde-resumo-label">Professor(a)</div><div class="pde-resumo-value empty" id="rs-prof">Não preenchido</div></div></div>
         <div class="pde-resumo-row"><div class="pde-resumo-icon">📅</div><div class="pde-resumo-text"><div class="pde-resumo-label">Data</div><div class="pde-resumo-value" id="rs-data">23/10/2026</div></div></div>
         <div class="pde-resumo-row"><div class="pde-resumo-icon">❓</div><div class="pde-resumo-text"><div class="pde-resumo-label">Quantidade</div><div class="pde-resumo-value empty" id="rs-qtd">0 questões</div></div></div>
@@ -2065,6 +2114,7 @@ function saveState(){
         escola: id('pd-escola').value, prof: id('pd-prof').value,
         mat_sel: id('pd-mat').value, mat_custom: id('pd-mat-custom').value,
         turma: id('pd-turma').value, data: id('pd-data').value, inst: id('pd-inst').value,
+        turma_id: id('pd-turma-id').value, finalidade: id('pd-finalidade').value, periodo: id('pd-periodo').value, periodos: PERIODOS,
         logo: id('pd-logo-prev').classList.contains('show') ? id('pd-logo-prev').src : ''
       },
       questoes: $$('.pde-question', qsList).map((q,i) => extractQData(q,i))
@@ -2084,6 +2134,9 @@ function loadState(){
     id('pd-turma').value = h.turma || '';
     id('pd-data').value = h.data || '';
     id('pd-inst').value = h.inst || '';
+    id('pd-turma-id').value = h.turma_id || '';
+    id('pd-finalidade').value = FINALIDADES[h.finalidade] ? h.finalidade : '';
+    montarPeriodos(h.periodos || PERIODOS, h.periodo || '');
     if(h.logo){ const prev = id('pd-logo-prev'); prev.src = h.logo; prev.classList.add('show'); }
     if(h.mat_sel){
       id('pd-mat').value = h.mat_sel;
@@ -2097,7 +2150,8 @@ async function limparTudo(){
   const ok = await pdeConfirm('Todos os dados desta prova serão apagados. O banco de questões continua intacto.', {titulo:'Recomeçar do zero?', ok:'Sim, recomeçar', danger:true});
   if(!ok) return;
   localStorage.removeItem(LS_KEY);
-  ['pd-escola','pd-prof','pd-turma','pd-data','pd-inst','pd-mat-custom'].forEach(i => id(i).value = '');
+  ['pd-escola','pd-prof','pd-turma','pd-data','pd-inst','pd-mat-custom','pd-turma-id','pd-finalidade','pd-periodo'].forEach(i => id(i).value = '');
+  if(TURMAS.length){ id('pd-turma-sel').value = ''; turmaSel(false); }
   id('pd-mat').value = '';
   id('pd-mat-custom').style.display = 'none';
   const prev = id('pd-logo-prev'); prev.src = ''; prev.classList.remove('show');
@@ -2105,10 +2159,100 @@ async function limparTudo(){
   qCount = 0;
   ROOT.querySelectorAll('.pde-chip.recem-aplicado').forEach(b => b.classList.remove('recem-aplicado'));
   id('pd-data').value = new Date().toISOString().slice(0,10);
-  renumber(); updateStats(); showEmptyState(); refreshSidebar();
+  renumber(); updateStats(); showEmptyState(); refreshSidebar(); refreshClassif();
   goStep('dados');
   toast('Tudo limpo. Pronto para começar de novo.');
 }
+
+/* ══════════ CLASSIFICAÇÃO: turma do Portal, período e finalidade ══════════
+   É o que Notas e Médias usa para saber se a prova vale nota e em qual coluna (bimestre) ela entra.
+   A divisão do ano (bimestre, trimestre, semestre) vem da regra da rede em Notas e Médias. */
+const FINALIDADES = {
+  avaliacao:   { l:'Avaliação', nota:true },
+  trabalho:    { l:'Trabalho / atividade avaliativa', nota:true },
+  recuperacao: { l:'Recuperação', nota:true },
+  diagnostica: { l:'Avaliação diagnóstica', nota:false },
+  exercicio:   { l:'Exercício de fixação', nota:false },
+  simulado:    { l:'Simulado', nota:false }
+};
+const NOME_PER = { 4:'bimestre', 3:'trimestre', 2:'semestre' };
+let PERIODOS = 4, TURMAS = [];
+const semAc = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+const periodoTxt = (p, n) => p ? p + 'º ' + NOME_PER[n || PERIODOS] : '';
+function montarPeriodos(n, valor){
+  PERIODOS = [2, 3, 4].includes(+n) ? +n : 4;
+  const sel = id('pd-periodo'), v = valor !== undefined ? String(valor) : sel.value, nome = NOME_PER[PERIODOS];
+  id('pd-periodo-nome').textContent = nome.charAt(0).toUpperCase() + nome.slice(1);
+  sel.innerHTML = '<option value="">Escolha o ' + nome + '...</option>' + Array.from({ length:PERIODOS }, (_, k) => '<option value="' + (k + 1) + '">' + (k + 1) + 'º ' + nome + '</option>').join('');
+  sel.value = +v >= 1 && +v <= PERIODOS ? v : '';
+  refreshClassif();
+}
+function anoLetivo(){ const d = id('pd-data').value; return d ? +d.slice(0, 4) : new Date().getFullYear(); }
+function classificacao(){
+  const f = id('pd-finalidade').value, F = FINALIDADES[f];
+  return { finalidade:F ? f : '', periodo:parseInt(id('pd-periodo').value) || null, periodos:PERIODOS, ano:anoLetivo(), turma_id:id('pd-turma-id').value, vale_nota:!!(F && F.nota) };
+}
+// o que falta para não haver dúvida na hora de lançar a nota
+function faltaClassif(online){
+  const c = classificacao(), f = [];
+  if(online && !c.turma_id) f.push('a turma (da lista do Portal)');
+  if(!c.finalidade) f.push('para que serve a prova');
+  if(c.vale_nota && !c.periodo) f.push('o ' + NOME_PER[PERIODOS]);
+  return f;
+}
+function refreshClassif(){
+  const el = id('pd-classif'); if(!el) return;
+  const c = classificacao(), F = FINALIDADES[c.finalidade], turma = id('pd-turma').value.trim(), nome = NOME_PER[PERIODOS];
+  const turmaTxt = turma ? (c.turma_id ? ' · ' + esc(turma) : ' · ' + esc(turma) + ' <small>(turma digitada: para a nota entrar sozinha, escolha a turma da lista do Portal)</small>') : '';
+  id('pd-periodo-obg').hidden = !!F && !F.nota;
+  let cls, html;
+  if(!F){ cls = 'falta'; html = '⚠️ Escolha <b>para que serve</b> a prova e o <b>' + nome + '</b>. É isso que diz se ela vale nota e em qual coluna entra em Notas e Médias.'; }
+  else if(F.nota && !c.periodo){ cls = 'falta'; html = '⚠️ ' + esc(F.l) + ' vale nota: escolha o <b>' + nome + '</b> para a nota entrar na coluna certa.'; }
+  else if(F.nota){ cls = 'ok'; html = '✅ <b>Vale nota</b> · ' + esc(F.l) + ' do <b>' + periodoTxt(c.periodo) + '</b> de ' + c.ano + turmaTxt + '. ' +
+    (c.finalidade === 'recuperacao' ? 'Em Notas e Médias entra na coluna de recuperação do ' + nome + '.' : 'Em Notas e Médias entra como uma coluna do ' + periodoTxt(c.periodo) + '.'); }
+  else { cls = 'info'; html = 'ℹ️ <b>Não vale nota</b> · ' + esc(F.l) + (c.periodo ? ' do ' + periodoTxt(c.periodo) : '') + turmaTxt + '. Não aparece para puxar em Notas e Médias; na folha impressa sai "não vale nota".'; }
+  el.className = 'pde-classif-res ' + cls; el.innerHTML = html;
+  if(cls !== 'falta') id('pd-classif').parentNode.classList.remove('alerta');
+}
+// turmas do professor no Portal (o módulo de login chama depois de carregar)
+function definirTurmas(lista, comEscola){
+  TURMAS = Array.isArray(lista) ? lista.filter(t => t && t.id) : [];
+  const sel = id('pd-turma-sel');
+  if(!TURMAS.length){ id('pd-turma-selwrap').hidden = true; id('pd-turma-txtwrap').hidden = false; refreshClassif(); return; }
+  let tid = id('pd-turma-id').value;
+  if(!TURMAS.some(t => t.id === tid)){ const n = semAc(id('pd-turma').value), m = TURMAS.filter(t => n && semAc(t.nome) === n); tid = m.length === 1 ? m[0].id : ''; }
+  sel.innerHTML = '<option value="">Escolha a turma...</option>' + TURMAS.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome) + (comEscola && t.escola ? ' · ' + esc(t.escola) : '') + '</option>').join('') +
+    '<option value="__outra__">✏️ Outra turma (digitar, fora do Portal)</option>';
+  sel.value = tid ? tid : (id('pd-turma').value.trim() ? '__outra__' : '');
+  id('pd-turma-selwrap').hidden = false;
+  turmaSel(false);
+}
+function turmaSel(doUsuario){
+  const v = id('pd-turma-sel').value, t = TURMAS.find(x => x.id === v);
+  id('pd-turma-txtwrap').hidden = v !== '__outra__';
+  if(t){ id('pd-turma').value = t.nome; id('pd-turma-id').value = t.id; }
+  else{ id('pd-turma-id').value = ''; if(doUsuario && !v) id('pd-turma').value = ''; if(doUsuario && v === '__outra__'){ id('pd-turma').value = ''; id('pd-turma').focus(); } }
+  if(doUsuario){ refreshSidebar(); scheduleSave(); $$('.pde-question', qsList).forEach(updateBNCCBadge); }
+  refreshClassif();
+}
+// usado pela janela "Aplicar online": o que o professor escolhe lá volta para o cabeçalho
+function definirClassif(o){
+  if(o.turma_id && TURMAS.some(t => t.id === o.turma_id)){ id('pd-turma-sel').value = o.turma_id; turmaSel(false); }
+  if(o.finalidade !== undefined) id('pd-finalidade').value = FINALIDADES[o.finalidade] ? o.finalidade : '';
+  if(o.periodo !== undefined) id('pd-periodo').value = o.periodo ? String(o.periodo) : '';
+  refreshClassif(); refreshSidebar(); saveState();
+}
+function irParaClassif(){
+  goStep('dados');
+  const box = id('pd-classif').parentNode; box.classList.add('alerta');
+  try{ box.scrollIntoView({ behavior:reduzMov() ? 'auto' : 'smooth', block:'center' }); }catch(e){}
+  const alvo = !id('pd-finalidade').value ? 'pd-finalidade' : 'pd-periodo'; setTimeout(() => { try{ id(alvo).focus(); }catch(e){} }, 250);
+}
+id('pd-turma-sel').addEventListener('change', () => turmaSel(true));
+['pd-finalidade', 'pd-periodo'].forEach(i => id(i).addEventListener('change', () => { refreshClassif(); refreshSidebar(); scheduleSave(); }));
+id('pd-data').addEventListener('change', refreshClassif);
+id('pd-turma').addEventListener('input', () => { if(!TURMAS.length || id('pd-turma-sel').value === '__outra__'){ const t = TURMAS.find(x => x.id === id('pd-turma-id').value); if(!t || t.nome !== id('pd-turma').value) id('pd-turma-id').value = ''; } refreshClassif(); });
+montarPeriodos(4);
 
 /* ══════════ RESUMO (gaveta + status) ══════════ */
 function refreshSidebar(){
@@ -2121,6 +2265,7 @@ function refreshSidebar(){
   setVal('rs-mat', getDisciplina(), 'Não selecionada');
   setVal('rs-turma', id('pd-turma').value, 'Não preenchida');
   setVal('rs-prof', id('pd-prof').value, 'Não preenchido');
+  { const c = classificacao(), F = FINALIDADES[c.finalidade]; setVal('rs-class', F ? F.l + (c.periodo ? ' · ' + periodoTxt(c.periodo) : '') + (F.nota ? '' : ' (não vale nota)') : '', 'Não definida'); }
   const dataRaw = id('pd-data').value;
   if(dataRaw){ const [y,m,d] = dataRaw.split('-'); setVal('rs-data', d+'/'+m+'/'+y, 'Não definida'); }
   else setVal('rs-data', '', 'Não definida');
@@ -2455,6 +2600,7 @@ function collectData(){
   const header = {
     escola: id('pd-escola').value.trim(), prof: id('pd-prof').value.trim(), mat: getDisciplina(),
     turma: id('pd-turma').value.trim(), data: fmtDate(), inst: id('pd-inst').value.trim(),
+    ...classificacao(),
     logo: (id('pd-logo-prev').classList.contains('show') ? id('pd-logo-prev').src : '') || ''
   };
   let totalPontos = 0;
@@ -3091,9 +3237,9 @@ function buildProofHTML(data, ordersPerQuestion, versaoLabel){
   });
   const versaoBadge = versaoLabel ? ` · ${versaoLabel}` : '';
   return `<div class="pe-folha">
-    <div class="pe-cab">${H.logo ? `<img src="${H.logo}" alt="logo">` : ''}<div class="pe-cab-info"><div class="pe-cab-escola">${esc(H.escola||'Escola')}</div><div class="pe-cab-linha">${esc(H.mat||'')}${H.mat&&H.turma?' · ':''}${esc(H.turma||'')}${versaoBadge}</div></div></div>
+    <div class="pe-cab">${H.logo ? `<img src="${H.logo}" alt="logo">` : ''}<div class="pe-cab-info"><div class="pe-cab-escola">${esc(H.escola||'Escola')}</div><div class="pe-cab-linha">${esc(H.mat||'')}${H.mat&&H.turma?' · ':''}${esc(H.turma||'')}${versaoBadge}</div>${linhaClassif(H)}</div></div>
     <div class="pe-meta-box"><div><strong>Professor(a):</strong> ${esc(H.prof||'—')}</div><div><strong>Data:</strong> ${esc(H.data||'____/____/______')}</div><div><strong>Disciplina:</strong> ${esc(H.mat||'—')}</div><div><strong>Valor total:</strong> ${fmtPts(data.totalPontos)} pontos</div></div>
-    <div class="pe-aluno-linha"><div style="flex:1"><strong>Aluno(a):</strong> _______________________________________________</div><div><strong>Nota:</strong> _________</div></div>
+    <div class="pe-aluno-linha"><div style="flex:1"><strong>Aluno(a):</strong> _______________________________________________</div><div>${FINALIDADES[H.finalidade] && !FINALIDADES[H.finalidade].nota ? '<strong>Não vale nota</strong>' : '<strong>Nota:</strong> _________'}</div></div>
     ${H.inst ? `<div class="pe-inst"><strong>Instruções:</strong> ${esc(H.inst)}</div>` : ''}
     ${qsHTML}
     ${buildFooterPrint(data._code || genProofCode())}
@@ -3122,9 +3268,19 @@ function buildAnswerKeyPage(data, ordersPerQuestion, versaoLabel){
     ${buildFooterPrint(data._code || genProofCode())}
   </div>`;
 }
+function linhaClassif(H){
+  const F = FINALIDADES[H.finalidade]; if(!F) return '';
+  const per = H.periodo ? periodoTxt(H.periodo, H.periodos) : '';
+  return '<div class="pe-cab-linha"><strong>' + esc((per ? per.charAt(0).toUpperCase() + per.slice(1) + ' · ' : '') + F.l + (F.nota ? '' : ' (não vale nota)')) + '</strong></div>';
+}
 async function handlePrint(){
   const data = collectData();
   if(!data.questoes.length){ toast('Adicione ao menos uma questão antes de imprimir.', 'warn'); return; }
+  const falta = faltaClassif(false);
+  if(falta.length){
+    const ok = await pdeConfirm('Falta escolher ' + falta.join(' e ') + '. Sem isso, na hora de lançar a nota fica a dúvida de qual turma e qual ' + NOME_PER[PERIODOS] + ' é esta prova.', {titulo:'Classifique a prova antes de imprimir', ok:'Imprimir assim mesmo'});
+    if(!ok){ irParaClassif(); return; }
+  }
   const semEnun = data.questoes.filter(q => !q.enun).length;
   if(semEnun){
     const ok = await pdeConfirm('Há ' + semEnun + ' questão(ões) sem enunciado. Elas sairão em branco na prova.', {titulo:'Imprimir mesmo assim?', ok:'Imprimir'});
@@ -3263,7 +3419,7 @@ async function aplicarInstrucao(chave){
 ].forEach(([n,f]) => registerAction(n, f));
 
 /* API mínima para testes e integrações */
-window.PDEProvas = { goStep, addQuestion, collectData, Banco, TEMPLATES, BNCC, detectarBNCC, pdeDialog, pdeConfirm, toast, saveState, LS_KEY, bancoReady, refreshResumo, ACTIONS, buildProofHTML, wrapPrint, printInIframe, genProofCode, makeOrdersForVersion, TYPE_LABELS };
+window.PDEProvas = { definirTurmas, montarPeriodos, classificacao, faltaClassif, definirClassif, irParaClassif, FINALIDADES, NOME_PER, periodoTxt, goStep, addQuestion, collectData, Banco, TEMPLATES, BNCC, detectarBNCC, pdeDialog, pdeConfirm, toast, saveState, LS_KEY, bancoReady, refreshResumo, ACTIONS, buildProofHTML, wrapPrint, printInIframe, genProofCode, makeOrdersForVersion, TYPE_LABELS };
 
 /* ══════════ INIT ══════════ */
 (function init(){
@@ -3450,6 +3606,12 @@ async function escolasDoMuni(){
   }catch(e){ console.warn("escolas:", e.code); }
   const s = $("pde-portal-escola"); if(s) s.value = "";
 }
+// divisão do ano letivo da rede (bimestre, trimestre ou semestre), a mesma de Notas e Médias
+async function regraDaRede(){
+  const r = P.muni ? await ler("notas_regras", P.muni.id) : null;
+  P.periodos = r && [2, 3, 4].includes(+r.periodos) ? +r.periodos : 4;
+  G().montarPeriodos(P.periodos);
+}
 function escolaAtual(){ const s = $("pde-portal-escola"); return P.escolas.find(e => e.id === (s && s.value)) || P.escolas[0] || null; }
 function logoAtual(){ const e = escolaAtual(); return (e && e.logo_url) || (P.muni && P.muni.logo_url) || ""; }
 function disparar(i){ const el = $(i); if(el) el.dispatchEvent(new Event("input", { bubbles:true })); }
@@ -3505,7 +3667,7 @@ onAuthStateChanged(auth, async (user) => {
         sel.hidden = false; P.munis = lista; P.muni = lista[0];
         sel.addEventListener("change", async () => {
           P.muni = P.munis.find(m => m.id === sel.value) || null;
-          await escolasDoMuni(); desenharFaixa(); aplicar(true);
+          await escolasDoMuni(); desenharFaixa(); aplicar(true); regraDaRede();
         });
       }
     }catch(e){ console.warn("municipios:", e.code); }
@@ -3523,13 +3685,16 @@ onAuthStateChanged(auth, async (user) => {
       const minhas = new Set(u.turmas_ids || []), todas = [];
       sn.forEach(d => { const t = d.data(); if(t.status === "inativa") return;
         const nome = (/^\d$/.test(String(t.ano_serie || "")) && !/ano/i.test(t.nome || "") ? t.ano_serie + "º ano · " : "") + (t.nome || "");
-        todas.push({ id:d.id, nome, minha:minhas.has(d.id) || t.criado_por === user.uid }); });
+        const esc0 = P.escolas.find(e => e.id === t.escola_id);
+        todas.push({ id:d.id, nome, escola_id:t.escola_id || "", escola:esc0 ? esc0.nome : "", minha:minhas.has(d.id) || t.criado_por === user.uid }); });
       const l = todas.some(t => t.minha) ? todas.filter(t => t.minha) : todas;
       P.turmasObj = l.slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
       P.turmas = [...new Set(l.map(t => t.nome))].sort();
     }catch(e){ console.warn("turmas:", e.code); }
   }
   desenharFaixa();
+  G().definirTurmas(P.turmasObj || [], P.escolas.length > 1);
+  await regraDaRede();
   $("pde-portal-escola").addEventListener("change", () => { desenharFaixa(); aplicar(true); });
   const trocou = await prepararNuvem(user.uid);
   if(trocou) return;
@@ -3564,7 +3729,9 @@ function resumoDoEstado(txt){
   const h = d.header || {}, qs = Array.isArray(d.questoes) ? d.questoes : [];
   let pts = 0; qs.forEach(q => { const v = parseFloat(String(q && (q.valor ?? q.pontos ?? 0)).replace(",", ".")); if(!isNaN(v)) pts += v; });
   let disc = ""; try{ disc = G().collectData().mat || ""; }catch(e){}
-  return { disciplina: disc || h.mat_custom || "", turma: h.turma || "", escola: h.escola || "", data_prova: h.data || "", questoes: qs.length, pontos: Math.round(pts * 10) / 10 };
+  const per = parseInt(h.periodo) || null, fin = G().FINALIDADES[h.finalidade] ? h.finalidade : "";
+  return { disciplina: disc || h.mat_custom || "", turma: h.turma || "", turma_id: h.turma_id || "", escola: h.escola || "", data_prova: h.data || "", questoes: qs.length, pontos: Math.round(pts * 10) / 10,
+    finalidade: fin, vale_nota: !!(fin && G().FINALIDADES[fin].nota), periodo: per, periodos: [2, 3, 4].includes(+h.periodos) ? +h.periodos : 4, ano: h.data ? +String(h.data).slice(0, 4) : new Date().getFullYear() };
 }
 function chipNuvem(msg){
   const b = $("mp-salvar"); if(!b) return;
@@ -3706,7 +3873,7 @@ function desenharMP(){
   $("mp-lista").innerHTML = !l.length ? '<div class="mp-vazio">' + (N.provas.length ? "Nenhuma prova aqui." : "Você ainda não guardou nenhuma prova. Monte a prova e toque em ☁ Salvar.") + '</div>' :
     l.map(p => '<div class="mp-item' + (a && a.id === p.id ? " atual" : "") + '"><div class="mp-item-ico">📝</div>' +
       '<div class="mp-item-txt"><b>' + escH(p.titulo || "Prova sem nome") + (a && a.id === p.id ? ' <span class="mp-tag">aberta agora</span>' : "") + '</b>' +
-      '<small>' + escH([p.disciplina, p.turma, (p.questoes || 0) + " questões", (p.pontos || 0).toString().replace(".", ",") + " pts"].filter(Boolean).join(" · ")) + '</small>' +
+      '<small>' + escH([p.disciplina, p.turma, G().FINALIDADES[p.finalidade] ? G().FINALIDADES[p.finalidade].l + (p.periodo ? " " + G().periodoTxt(p.periodo, p.periodos) : "") : "", (p.questoes || 0) + " questões", (p.pontos || 0).toString().replace(".", ",") + " pts"].filter(Boolean).join(" · ")) + '</small>' +
       '<small>' + (N.pasta === "*" ? "📁 " + escH(nomePasta(p.pasta_id || "")) + " · " : "") + "Salva em " + escH(quando(msDe(p.atualizado_em))) + '</small></div>' +
       '<div class="mp-item-acoes"><button class="pde-btn pde-btn-primary" data-action="mpAbrirProva" data-arg="' + escH(p.id) + '">Abrir</button>' +
       '<button class="pde-btn pde-btn-ghost" data-action="mpDuplicar" data-arg="' + escH(p.id) + '">Duplicar</button>' +
@@ -3838,11 +4005,18 @@ function olAbrir(){
   const turmas = P.turmasObj || [];
   const semGab = qs.filter(q => (q.tipo === "multipla" && !(q.gab >= 0)) || (q.tipo === "vf" && !q.gab)).length;
   const manuais = qs.filter(q => ["dissertativa", "checkbox", "grade_radio", "grade_check"].includes(q.tipo) || (q.tipo === "curta" && !q.exp)).length;
-  const turmaTxt = (dados.header.turma || "").toLowerCase();
-  const sugerida = turmas.find(t => turmaTxt && t.nome.toLowerCase().includes(turmaTxt)) || turmas[0];
+  const H = dados.header, FIN = G().FINALIDADES, nomePer = G().NOME_PER[H.periodos] || "bimestre";
+  const sugerida = turmas.find(t => t.id === H.turma_id);
   const h0 = new Date(Date.now() + 60 * 60000);
   corpo.innerHTML = '<p style="margin:0;color:#62758a">Os alunos da turma veem a prova no Início do Portal do Aluno. Ela abre em tela cheia: se o aluno sair, recebe 1 aviso e, na segunda saída, a prova é bloqueada até você liberar. As objetivas são corrigidas sozinhas; a nota aparece para o aluno quando o horário terminar.</p>'+
-    (turmas.length ? '<label class="pde-label" for="ol-turma">Turma</label><select id="ol-turma" class="pde-select">'+turmas.map(t => '<option value="'+escH(t.id)+'"'+(sugerida && t.id === sugerida.id ? " selected" : "")+'>'+escH(t.nome)+'</option>').join("")+'</select>'
+    (turmas.length ? '<div class="ol-class"><div class="ol-class-t">🏷️ Confira antes de aplicar <small>é assim que a nota chega em Notas e Médias</small></div>'+
+      '<label class="pde-label" for="ol-turma">Turma <span class="pde-obg">*</span></label><select id="ol-turma" class="pde-select"><option value="">Escolha a turma...</option>'+turmas.map(t => '<option value="'+escH(t.id)+'"'+(sugerida && t.id === sugerida.id ? " selected" : "")+'>'+escH(t.nome)+(P.escolas.length > 1 && t.escola ? " · "+escH(t.escola) : "")+'</option>').join("")+'</select>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px"><div><label class="pde-label" for="ol-fin">Para que serve <span class="pde-obg">*</span></label><select id="ol-fin" class="pde-select"><option value="">Escolha...</option>'+
+        '<optgroup label="✅ Vale nota">'+["avaliacao","trabalho","recuperacao"].map(k => '<option value="'+k+'"'+(H.finalidade === k ? " selected" : "")+'>'+escH(FIN[k].l)+'</option>').join("")+'</optgroup>'+
+        '<optgroup label="ℹ️ Não vale nota">'+["diagnostica","exercicio","simulado"].map(k => '<option value="'+k+'"'+(H.finalidade === k ? " selected" : "")+'>'+escH(FIN[k].l)+'</option>').join("")+'</optgroup></select></div>'+
+      '<div><label class="pde-label" for="ol-per">'+nomePer.charAt(0).toUpperCase()+nomePer.slice(1)+' <span class="pde-obg">*</span></label><select id="ol-per" class="pde-select"><option value="">Escolha...</option>'+
+        Array.from({ length:H.periodos || 4 }, (_, k) => '<option value="'+(k + 1)+'"'+(H.periodo === k + 1 ? " selected" : "")+'>'+(k + 1)+'º '+nomePer+'</option>').join("")+'</select></div></div>'+
+      '<div id="ol-class-res" class="ol-class-res"></div></div>'
       : '<p style="color:#C2362C;margin:0">Você ainda não tem turmas no Portal. Cadastre a turma em Minhas Turmas para aplicar online.</p>')+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" role="radiogroup" aria-label="Quando abrir">'+
       '<label class="ol-modo on" data-modo="agora"><input type="radio" name="ol-modo" value="agora" checked><div class="t">▶️ Aplicar agora</div><div class="d">Abre 30 segundos depois de aplicar, para todos começarem juntos. Você controla o tempo e encerra quando quiser.</div></label>'+
@@ -3854,12 +4028,23 @@ function olAbrir(){
       '<div><label class="pde-label" for="ol-ini">Abre às</label><input type="time" id="ol-ini" class="pde-input" value="'+String(h0.getHours()).padStart(2, "0")+':00"></div>'+
       '<div><label class="pde-label" for="ol-fim">Fecha às</label><input type="time" id="ol-fim" class="pde-input" value="'+String((h0.getHours() + 1) % 24).padStart(2, "0")+':40"></div></div>'+
     '<div><label class="pde-label" for="ol-dur">Tempo de prova (minutos)</label><input type="number" id="ol-dur" class="pde-input" min="5" max="300" value="50"></div></div>'+
-    '<div><label class="pde-label" for="ol-notas">Nota para o aluno</label><select id="ol-notas" class="pde-select"><option value="fim">Mostrar quando a prova terminar</option><option value="reter">Guardar até o fechamento do bimestre (eu libero depois)</option></select></div>'+
+    '<div><label class="pde-label" for="ol-notas">Nota para o aluno</label><select id="ol-notas" class="pde-select"><option value="fim">Mostrar quando a prova terminar</option><option value="reter">Guardar até o fechamento do '+nomePer+' (eu libero depois)</option></select></div>'+
     '<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ol-emb" checked> Embaralhar questões e alternativas</label>'+
     '<div style="background:#f5f8fb;border-radius:12px;padding:10px 12px;font-size:.88rem">📋 '+qs.length+' questões · ⭐ '+dados.totalPontos+' pontos'+(manuais ? ' · ✍️ '+manuais+' para você corrigir depois' : '')+(semGab ? '<br><b style="color:#C2362C">⚠ '+semGab+' questão(ões) objetiva(s) sem gabarito marcado: elas ficam para correção manual.</b>' : '')+'</div>'+
     '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap"><a href="/prova/" target="_blank" rel="noopener" style="font-weight:700">Ver provas online já aplicadas ↗</a>'+
     '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Aplicar agora</button></div>';
   $("ol-bg").classList.add("show");
+  ["ol-turma", "ol-fin", "ol-per"].forEach(i => { const el = $(i); if(el) el.addEventListener("change", olClassif); });
+  olClassif();
+}
+// resumo da classificação na janela "Aplicar online"
+function olClassif(){
+  const el = $("ol-class-res"); if(!el) return;
+  const FIN = G().FINALIDADES, f = $("ol-fin").value, F = FIN[f], per = parseInt($("ol-per").value) || null, n = G().collectData().header.periodos, t = $("ol-turma");
+  const turma = t.value ? t.options[t.selectedIndex].textContent : "";
+  el.className = "ol-class-res " + (!turma || !F || (F.nota && !per) ? "falta" : F.nota ? "ok" : "info");
+  el.innerHTML = !turma ? "⚠️ Escolha a turma." : !F ? "⚠️ Escolha para que serve a prova." : F.nota && !per ? "⚠️ Escolha o " + G().NOME_PER[n] + "." :
+    F.nota ? "✅ <b>Vale nota</b>: " + escH(F.l) + " do <b>" + G().periodoTxt(per, n) + "</b> · " + escH(turma) + "." : "ℹ️ <b>Não vale nota</b>: " + escH(F.l) + (per ? " do " + G().periodoTxt(per, n) : "") + " · " + escH(turma) + ". Não vai para Notas e Médias.";
 }
 function olModo(){ const m = (document.querySelector('input[name="ol-modo"]:checked') || {}).value || "agora";
   document.querySelectorAll(".ol-modo").forEach(l => l.classList.toggle("on", l.dataset.modo === m));
@@ -3880,12 +4065,15 @@ async function olAplicar(){
     if(!(dur >= 5)){ G().toast("O tempo de prova é de pelo menos 5 minutos.", "warn"); return; }
     if(dur > (fecha - abre) / 60000) G().toast("Atenção: o tempo de prova é maior que a janela; quem começar tarde terá menos tempo.", "warn");
   }
+  const fin = $("ol-fin").value, F = G().FINALIDADES[fin], per = parseInt($("ol-per").value) || null;
+  if(!$("ol-turma").value || !F || (F.nota && !per)){ olClassif(); G().toast("Confira a turma, para que serve a prova e o " + G().NOME_PER[dados.header.periodos] + ".", "warn"); $("ol-class-res").scrollIntoView({ block:"center" }); return; }
+  G().definirClassif({ turma_id:$("ol-turma").value, finalidade:fin, periodo:per });
   OL.enviando = true; const btn = $("ol-ok"); btn.disabled = true; btn.textContent = "Aplicando...";
   try{
     const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-    const titulo = (atual() && atual().titulo) || [dados.header.mat, dados.header.turma].filter(Boolean).join(" · ") || "Prova";
+    const titulo = (atual() && atual().titulo) || [F.l + (per ? " " + G().periodoTxt(per, dados.header.periodos).replace(/(\d+º) (\w{3})\w*/, "$1 $2") : ""), dados.header.mat].filter(Boolean).join(" · ") || "Prova";
     const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "publicarProvaOnline", { timeout:120000 })({
-      titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, modo, notas:$("ol-notas").value, tolerancia_min:tol, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, avisos:1,
+      titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, finalidade:fin, periodo:per, periodos:dados.header.periodos, ano_letivo:dados.header.ano, modo, notas:$("ol-notas").value, tolerancia_min:tol, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, avisos:1,
       questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
     $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">'+(r.modo === "agora" ? "Prova aberta agora" : "Prova agendada")+'</h3><p style="color:#62758a">'+(r.modo === "agora" ? r.alunos+' alunos. Ela abre em 30 segundos (peça para a turma entrar na tela da prova) e fica aberta até as '+new Date(r.fecha_em).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })+' (tempo de prova + tolerância) ou até você encerrar no painel. ' : r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. ')+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
       '<a class="pde-btn pde-btn-primary" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Abrir o painel ao vivo ↗</a></div>';
