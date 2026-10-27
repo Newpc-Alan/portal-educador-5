@@ -12,6 +12,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
 
 const REGIAO = 'southamerica-east1';
+const ABRE_EM_MS = 10000;   // "aplicar agora": a prova abre 10 s depois (todos começam juntos)
 const TIPOS = ['multipla', 'checkbox', 'vf', 'curta', 'dissertativa', 'grade_radio', 'grade_check'];
 const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const txt = (s, n) => String(s == null ? '' : s).slice(0, n);
@@ -93,8 +94,8 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   // "aplicar agora": o horário vem do servidor (relógio errado em tablet ou computador não atrapalha);
   // fica aberta pelo tempo de prova + a tolerância para entrar, e o professor encerra quando quiser
   const agoraModo = d.modo === 'agora', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
-  // abre 30 s depois de aplicar: dá tempo de os alunos estarem na tela da prova e todos começarem juntos
-  const abre = agoraModo ? Date.now() + 30000 : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
+  // abre 10 s depois de aplicar: dá tempo de os alunos estarem na tela da prova e todos começarem juntos
+  const abre = agoraModo ? Date.now() + ABRE_EM_MS : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
   if (!(abre > 0 && fecha > abre)) throw new HttpsError('invalid-argument', 'Confira o horário de abertura e de encerramento.');
   if (fecha < Date.now()) throw new HttpsError('invalid-argument', 'O encerramento já passou.');
   const qs = Array.isArray(d.questoes) ? d.questoes.filter(q => q && TIPOS.includes(q.tipo) && String(q.enun || '').trim()) : [];
@@ -151,7 +152,7 @@ export const aplicarRecuperacao = onCall({ region: REGIAO, timeoutSeconds: 60 },
   const dur = Math.round(Number(d.duracao_min || o.duracao_min));
   if (!(dur >= 5 && dur <= 300)) throw new HttpsError('invalid-argument', 'A duração vai de 5 a 300 minutos.');
   const agoraModo = d.modo !== 'horario', tol = Math.min(120, Math.max(0, Math.round(Number(d.tolerancia_min ?? 10)) || 0));
-  const abre = agoraModo ? Date.now() + 30000 : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
+  const abre = agoraModo ? Date.now() + ABRE_EM_MS : Number(d.abre_em), fecha = agoraModo ? abre + (dur + tol) * 60000 : Number(d.fecha_em);
   if (!(abre > 0 && fecha > abre) || fecha < Date.now()) throw new HttpsError('invalid-argument', 'Confira o horário da recuperação.');
   const ref = db.collection('provas_online').doc(), originais = {};
   alunos.forEach(a => { const r = res[a.uid]; originais[a.uid] = r ? { nota: r.nota, total: r.total, pendentes: r.pendentes || 0 } : null; });
