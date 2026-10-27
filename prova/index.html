@@ -75,6 +75,21 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0c2338;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.show{opacity:1} .toast.err{background:var(--red)}
 @media (max-width:720px){ .kpis{grid-template-columns:repeat(3,1fr)} .tabela{font-size:.82rem} .ex-q{padding:16px} }
+/* foto de confirmação */
+.foto-box{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border:1.5px solid #cfe0d3;background:#f6fbf7;border-radius:14px;padding:12px;margin:12px 0}
+.foto-box .cam{width:160px;height:120px;border-radius:10px;background:#0f2c4a;overflow:hidden;display:grid;place-items:center;color:#fff;font-size:2rem;flex-shrink:0}
+.foto-box video,.foto-box img{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.foto-box .tx{flex:1;min-width:200px}
+.foto-box .tx p{margin:4px 0 8px;font-size:.9rem}
+.fotos-bg{position:fixed;inset:0;background:rgba(7,22,33,.55);display:grid;place-items:center;z-index:60;padding:16px}
+.fotos-bg .card{max-width:1000px;width:100%}
+.fotos-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;max-height:62vh;overflow:auto;text-align:left}
+.fotos-grade .fa{border:1px solid #dde5ee;border-radius:10px;padding:8px}
+.fotos-grade .fa b{display:block;font-size:.9rem;margin-bottom:6px}
+.fotos-grade .tr{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.fotos-grade figure{margin:0;text-align:center;font-size:.7rem;color:#62758a}
+.fotos-grade .im{aspect-ratio:4/3;border-radius:6px;background:#eef2f6;display:grid;place-items:center;overflow:hidden;font-size:.7rem;color:#8a97a6}
+.fotos-grade .im img{width:100%;height:100%;object-fit:cover}
 </style>
 </head>
 <body>
@@ -87,9 +102,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, updateDoc, onSnapshot, collection, query, where, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { getStorage, ref as stRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1");
+const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1"), st = getStorage(app);
 const chamar = (n, d) => httpsCallable(fns, n, { timeout:120000 })(d).then(r => r.data);
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -182,7 +198,9 @@ function introAluno(){
       '<div><span>💾</span><p>Cada resposta é salva na hora. Se a internet cair, entre de novo: você continua de onde parou.</p></div>'+
       '<div><span>⏱️</span><p>Quando o tempo acabar, a prova é entregue sozinha.</p></div>'+
       '<div><span>📊</span><p>'+(p.notas === "reter" ? 'A nota será divulgada pelo professor no fechamento do bimestre.' : 'A nota aparece depois das '+hora(fe)+', quando a prova terminar para todos.')+'</p></div></div>'+
-    (aberta ? '<button class="btn btn-ok" data-action="comecar" id="btnComecar" style="width:100%;font-size:1.05rem;padding:16px">Começar a prova</button>' :
+    (aberta && p.fotos ? '<div class="foto-box"><div class="cam" id="fotoCam">📸</div><div class="tx"><b>Foto de confirmação</b><p>O professor pediu uma foto sua no começo e na entrega da prova. Só o professor e a direção da escola veem, e ela é apagada no fim do ano letivo.</p>'+
+      '<button class="btn btn-gh" data-action="foto-ligar" id="btnFoto">📷 Ligar a câmera</button></div></div>' : '')+
+    (aberta ? '<button class="btn btn-ok" data-action="comecar" id="btnComecar" style="width:100%;font-size:1.05rem;padding:16px"'+(p.fotos && !E.fotoFeita ? ' disabled' : '')+'>'+(p.fotos && !E.fotoFeita ? 'Tire a foto para começar' : 'Começar a prova')+'</button>' :
       t < ab ? '<div class="card vazio" style="margin:0">🔒 '+(ab - t < 600000 ? 'A prova abre em <b data-abre="'+ab+'">'+mmss((ab - t) / 1000)+'</b>. Fique nesta tela.' : 'A prova abre '+dia(ab)+' às '+hora(ab)+'.')+'</div>' : '<div class="card vazio" style="margin:0">O horário desta prova terminou.</div>')+'</div>';
   // contagem regressiva até abrir (relógio do servidor) e a tela troca sozinha para "Começar a prova"
   clearInterval(E.contagem);
@@ -198,6 +216,80 @@ async function comecar(btn){
     if(r.situacao !== "em_andamento"){ btn.disabled = false; return; }
   }catch(e){ sairTelaCheia(); toast(e.message || "Não foi possível começar.", true); btn.disabled = false; btn.textContent = "Começar a prova"; return; }
   // o onSnapshot traz a tentativa e chama retomar()
+}
+/* ---------- foto de confirmação (início e entrega) ---------- */
+// guarda em provas_online/{prova}/fotos/{aluno}/{inicio|entrega}.jpg; regra do Storage: só o próprio aluno envia
+async function abrirCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("sem câmera");
+  return navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
+}
+function fotografar(video){
+  const c = document.createElement("canvas"), w = 480, h = Math.round(w * (video.videoHeight || 480) / (video.videoWidth || 640));
+  c.width = w; c.height = h; c.getContext("2d").drawImage(video, 0, 0, w, h);
+  return new Promise(ok => c.toBlob(b => ok(b), "image/jpeg", 0.7));
+}
+const fecharCamera = () => { if(E.cam){ E.cam.getTracks().forEach(t => t.stop()); E.cam = null; } };
+const caminhoFoto = (chave, momento) => "provas_online/" + E.prova.id + "/fotos/" + chave + "/" + momento + ".jpg";
+async function enviarFoto(blob, momento){ await uploadBytes(stRef(st, caminhoFoto(E.chave, momento)), blob, { contentType:"image/jpeg" }); }
+async function fotoLigar(){
+  const b = $("btnFoto"); b.disabled = true;
+  try{
+    E.cam = await abrirCamera();
+    const v = document.createElement("video"); v.playsInline = true; v.muted = true; v.srcObject = E.cam; $("fotoCam").innerHTML = ""; $("fotoCam").appendChild(v); await v.play();
+    b.textContent = "📸 Tirar a foto"; b.dataset.action = "foto-tirar"; b.disabled = false;
+  }catch(e){ fotoSemCamera(); }
+}
+async function fotoTirar(){
+  const b = $("btnFoto"), v = document.querySelector("#fotoCam video"); if(!v) return;
+  b.disabled = true; b.textContent = "Enviando...";
+  try{
+    const blob = await fotografar(v); fecharCamera();
+    $("fotoCam").innerHTML = '<img alt="Sua foto" src="' + URL.createObjectURL(blob) + '">';
+    await enviarFoto(blob, "inicio");
+    E.fotoFeita = true; b.textContent = "🔄 Tirar de novo"; b.dataset.action = "foto-ligar"; b.disabled = false;
+    const c = $("btnComecar"); if(c){ c.disabled = false; c.textContent = "Começar a prova"; }
+  }catch(e){ console.warn("foto:", e.code || e); toast("Não consegui enviar a foto. Tente de novo.", true); b.textContent = "📷 Ligar a câmera"; b.dataset.action = "foto-ligar"; b.disabled = false; }
+}
+// sem câmera (negada ou aparelho sem câmera): o aluno começa mesmo assim e o professor vê que ficou sem foto
+function fotoSemCamera(){
+  fecharCamera(); E.fotoFeita = true;
+  $("fotoCam").textContent = "🚫";
+  const b = $("btnFoto"); b.textContent = "Câmera indisponível"; b.disabled = true;
+  const c = $("btnComecar"); if(c){ c.disabled = false; c.textContent = "Começar a prova (sem foto)"; }
+  toast("Não consegui usar a câmera. A prova fica registrada sem foto para o professor.", true);
+}
+// foto da entrega: depois que o servidor registrou a entrega (não conta como saída); nunca atrapalha a entrega
+async function fotoEntrega(){
+  if(!E.prova || !E.prova.fotos) return;
+  try{
+    const cam = await Promise.race([abrirCamera(), new Promise((_, n) => setTimeout(() => n(new Error("tempo")), 6000))]);
+    const v = document.createElement("video"); v.playsInline = true; v.muted = true; v.srcObject = cam; await v.play();
+    await new Promise(r => setTimeout(r, 700));
+    const blob = await fotografar(v); cam.getTracks().forEach(t => t.stop());
+    await enviarFoto(blob, "entrega");
+  }catch(e){ console.warn("foto entrega:", e.code || e.message || e); }
+}
+// painel do professor: foto da matrícula, do começo e da entrega, lado a lado
+async function urlFoto(path){ try{ return await getDownloadURL(stRef(st, path)); }catch(e){ return ""; } }
+async function fotoMatricula(uid){
+  if(!uid.startsWith("m-")) return "";
+  try{ const s = await getDoc(doc(db, "alunos", uid.slice(2))); const f = s.exists() ? s.data().foto : ""; return typeof f === "string" && /^(https:|data:image\/)/.test(f) ? f : ""; }catch(e){ return ""; }
+}
+const imFoto = (src, txt) => '<div class="im">' + (src ? '<img alt="" src="' + esc(src) + '">' : txt) + "</div>";
+// foto que não existe (aluno sem câmera): troca pelo texto
+document.addEventListener("error", e => { const t = e.target; if(t && t.tagName === "IMG" && t.closest && t.closest(".fotos-grade")) t.replaceWith(document.createTextNode("sem foto")); }, true);
+async function painelFotos(){
+  const p = E.prova, alunos = (p.alunos || []).filter(a => PN.tent[a.uid]);
+  const bg = document.createElement("div"); bg.className = "fotos-bg"; bg.id = "fotosBg";
+  bg.innerHTML = '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><h2 style="margin:0">📸 Fotos de confirmação</h2><button class="btn btn-gh btn-sm" data-action="fotos-fechar">Fechar</button></div>' +
+    '<p class="sub" style="margin:0 0 10px">Compare a foto da matrícula com as do começo e da entrega. ' + (p.fotos_apagadas ? "<b>As fotos desta prova já foram apagadas (fim do ano letivo).</b>" : "As fotos são apagadas no fim do ano letivo.") + "</p>" +
+    '<div class="fotos-grade" id="fotosGrade">' + (alunos.length ? alunos.map(a => '<div class="fa" data-uid="' + esc(a.uid) + '"><b>' + esc(a.nome) + '</b><div class="tr"><figure>' + imFoto("", "...") + 'Matrícula</figure><figure>' + imFoto("", "...") + "Começo</figure><figure>" + imFoto("", "...") + "Entrega</figure></div></div>").join("") : '<p class="sub">Ninguém começou a prova ainda.</p>') + "</div></div>";
+  document.body.appendChild(bg);
+  for(const a of alunos){
+    const [m, i, f] = await Promise.all([fotoMatricula(a.uid), p.fotos_apagadas ? "" : urlFoto(caminhoFoto(a.uid, "inicio")), p.fotos_apagadas ? "" : urlFoto(caminhoFoto(a.uid, "entrega"))]);
+    const box = bg.querySelector('[data-uid="' + CSS.escape(a.uid) + '"] .tr'); if(!box) continue;
+    box.innerHTML = "<figure>" + imFoto(m, "sem foto") + "Matrícula</figure><figure>" + imFoto(i, "sem foto") + "Começo</figure><figure>" + imFoto(f, PN.tent[a.uid].status === "entregue" ? "sem foto" : "ainda fazendo") + "Entrega</figure>";
+  }
 }
 async function telaCheia(){ try{ if(!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen({ navigationUI:"hide" }); }catch(e){} }
 function sairTelaCheia(){ try{ if(document.fullscreenElement) document.exitFullscreen(); }catch(e){} }
@@ -311,6 +403,7 @@ async function entregar(tempo){
   try{ await chamar("entregarProvaOnline", { id:E.prova.id }); }
   catch(e){ E.entregando = false; toast("Não foi possível entregar ("+(e.message || "erro")+"). Tente de novo.", true); fecharCapa(); return; }
   E.desarmar = true;
+  fotoEntrega();
 }
 function telaEntregue(){
   const p = E.prova, fe = ms(p.fecha_em);
@@ -412,7 +505,7 @@ function desenharPainel(){
           (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Prova respondida, correção e registro de horários (para imprimir ou PDF)">📄 Relatório</button>' : '')+'</div></td></tr>'; }).join("")+
     '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles depois das '+hora(ms(p.fecha_em))+'.'+
     ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>'+
-    '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button></div>';
+    '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button>'+(p.fotos ? '<button class="btn btn-gh btn-sm" data-action="pn-fotos">📸 Fotos de confirmação</button>' : '')+'</div>';
 }
 function modalLiberar(uid){
   const a = (E.prova.alunos || []).find(x => x.uid === uid) || { nome:"aluno" }, t = PN.tent[uid] || {};
@@ -454,6 +547,8 @@ async function relatorios(uids, btn){
     const [gs, es] = await Promise.all([getDoc(doc(db, "provas_online_gab", p.id)).catch(() => null), p.escola_id ? getDoc(doc(db, "escolas", p.escola_id)).catch(() => null) : null]);
     const gab = gs && gs.exists() ? (gs.data().gab || {}) : {}, escola = es && es.exists() ? es.data() : {};
     const gerado = dataHora(agora());
+    const fotos = p.fotos && !p.fotos_apagadas ? Object.fromEntries(await Promise.all(uids.map(async u => [u, await Promise.all([fotoMatricula(u), urlFoto(caminhoFoto(u, "inicio")), urlFoto(caminhoFoto(u, "entrega"))])]))) : {};
+    const figFoto = (src, leg) => '<figure>' + (src ? '<img alt="" src="' + esc(src) + '">' : '<div class="sem">sem foto</div>') + "<figcaption>" + leg + "</figcaption></figure>";
     const folhas = uids.map(uid => {
       const a = (p.alunos || []).find(x => x.uid === uid) || { nome:"Aluno" }, t = PN.tent[uid] || {}, r = PN.res[uid] || null, rs = t.respostas || {};
       const dur = t.inicio && t.entregue_em ? Math.round((ms(t.entregue_em) - ms(t.inicio)) / 60000) : null;
@@ -465,6 +560,7 @@ async function relatorios(uids, btn){
         (p.recuperacao_de && p.notas_originais && p.notas_originais[uid] ? "<tr><td>Recuperação</td><td>Prova original: " + esc(p.recuperacao_de_titulo || "") + " · nota " + p.notas_originais[uid].nota + " / " + p.notas_originais[uid].total + "</td><td>Nota considerada</td><td><b>" + Math.max(p.notas_originais[uid].nota, r ? r.nota : 0) + "</b> (maior nota)</td></tr>" : "") +
         ((p.recuperacoes || []).length ? "<tr><td>Recuperação</td><td colspan=\"3\">Recuperação aplicada em " + p.recuperacoes.map(x => dataHora(x.em)).join(", ") + " (ver o relatório da recuperação)</td></tr>" : "") +
         "<tr><td>Divulgação da nota</td><td colspan=\"3\">" + (p.nota_liberada ? "liberada aos alunos" : p.notas === "reter" ? "guardada até o fechamento do bimestre" : "ao terminar a prova") + "</td></tr></table>" +
+        (fotos[uid] ? '<h2>Fotos de confirmação</h2><div class="fts">' + figFoto(fotos[uid][0], "Matrícula") + figFoto(fotos[uid][1], "Começo da prova") + figFoto(fotos[uid][2], "Entrega") + "</div>" : "") +
         "<h2>Registro de horários</h2><table class=\"tl\">" + linhaTempo(t).map(([m, x]) => "<tr><td>" + dataHora(m) + "</td><td>" + esc(x) + "</td></tr>").join("") + "</table>" +
         '<p class="nota">Saídas da prova: ' + (t.desvios || 0) + " · Liberações pelo professor: " + (t.liberacoes || 0) + ". Os horários de início e entrega são do servidor; os demais foram ajustados pela hora do servidor.</p>" +
         "<h2>Questões e respostas</h2>" + p.questoes.map((q, i) => '<div class="q"><p class="en"><b>' + (i + 1) + ".</b> " + esc(q.enun).replace(/\n/g, "<br>") + " <small>(" + q.valor + " pt)</small></p>" +
@@ -482,6 +578,7 @@ async function relatorios(uids, btn){
       '.alts{margin:2px 0 2px 18px;padding:0}.alts li{margin:1px 0}.alts li.on{font-weight:700}.alts li.ok{color:#1a6b2a}.pq{margin:3px 0 0;font-size:9pt;color:#0f2c4a;font-weight:700}' +
       '.resp{border:1px dashed #c9d5e0;border-radius:4px;padding:5px 7px;background:#fafcfd}.exp{font-size:9pt;color:#556;margin:3px 0 0}.gr td,.gr th{border:1px solid #dfe7ef;padding:2px 6px;font-size:9pt;text-align:center}.gr td:first-child{text-align:left}' +
       '.ass{display:flex;gap:30px;margin-top:26px}.ass div{flex:1;border-top:1px solid #333;text-align:center;padding-top:3px;font-size:9pt}footer{margin-top:10px;font-size:8pt;color:#889;text-align:center}' +
+      '.fts{display:flex;gap:10px;margin:4px 0 8px}.fts figure{margin:0;text-align:center;font-size:8pt;color:#556}.fts img,.fts .sem{width:42mm;height:32mm;object-fit:cover;border:1px solid #ccd;border-radius:4px;display:grid;place-items:center;color:#99a}' +
       '</style></head><body>' + folhas + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
     w.document.close();
   }catch(e){ console.warn(e); toast("Não foi possível gerar o relatório (" + (e.code || "erro") + ").", true); }
@@ -526,6 +623,10 @@ document.addEventListener("click", e => {
   const el = e.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "comecar") comecar(el);
+  else if(a === "foto-ligar") fotoLigar();
+  else if(a === "foto-tirar") fotoTirar();
+  else if(a === "pn-fotos") painelFotos();
+  else if(a === "fotos-fechar"){ const b = $("fotosBg"); if(b) b.remove(); }
   else if(a === "pn-copiar"){ const url = location.origin + "/prova/?id=" + encodeURIComponent(E.prova.id || params.get("painel"));
     (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(() => toast("Link copiado. No Portal Maestro, use Enviar conteúdo e cole o link."), () => { prompt("Copie o link da prova:", url); }); }
   else if(a === "continuar" || a === "usar-aqui"){ telaCheia().then(iniciarExec); }

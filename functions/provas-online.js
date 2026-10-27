@@ -5,6 +5,7 @@
 //   provas_online/{id}/po_tentativas/{uid}   respostas do aluno, prazo, desvios e situação
 //   provas_online/{id}/po_resultados/{uid}   nota e correção (o aluno só lê depois do fim da janela)
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { fimDoAnoLetivo } from './fotos-provas.js';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -126,7 +127,7 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     abre_em: Timestamp.fromMillis(abre), fecha_em: Timestamp.fromMillis(fecha), duracao_min: dur, embaralhar: !!d.embaralhar, avisos_max: Math.min(3, Math.max(0, Number(d.avisos ?? 1))),
     questoes: pub, total_pontos: Math.round(total * 100) / 100, objetivas, alunos_uids: R.uids, alunos_ids: R.ids, alunos: alunos.slice(0, 200).map(a => ({ uid: a.uid, nome: a.nome })),
     status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false, criado_em: FieldValue.serverTimestamp(),
-    ...cls
+    fotos: d.fotos === true, ...(d.fotos === true ? { fotos_ate: Timestamp.fromMillis(fimDoAnoLetivo()) } : {}), ...cls
   };
   if (JSON.stringify(doc).length > 900000) throw new HttpsError('invalid-argument', 'A prova ficou grande demais (imagens). Use imagens menores.');
   const b = db.batch(); b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: u.uid, gab }); await b.commit();
@@ -160,7 +161,7 @@ export const aplicarRecuperacao = onCall({ region: REGIAO, timeoutSeconds: 60 },
     questoes: o.questoes, total_pontos: o.total_pontos, objetivas: o.objetivas,
     alunos_uids: alunos.filter(a => !a.uid.startsWith('m-')).map(a => a.uid), alunos_ids: alunos.filter(a => a.uid.startsWith('m-')).map(a => a.uid.slice(2)), alunos,
     status: 'agendada', notas: d.notas === 'reter' ? 'reter' : 'fim', modo: agoraModo ? 'agora' : 'horario', tolerancia_min: agoraModo ? tol : null, nota_liberada: false,
-    finalidade: 'recuperacao', vale_nota: true, periodo: o.periodo ?? null, periodos: o.periodos ?? null, ano_letivo: o.ano_letivo ?? new Date().getFullYear(),
+    fotos: !!o.fotos && !o.fotos_apagadas, ...(o.fotos && !o.fotos_apagadas ? { fotos_ate: o.fotos_ate || Timestamp.fromMillis(fimDoAnoLetivo()) } : {}), finalidade: 'recuperacao', vale_nota: true, periodo: o.periodo ?? null, periodos: o.periodos ?? null, ano_letivo: o.ano_letivo ?? new Date().getFullYear(),
     recuperacao_de: id, recuperacao_de_titulo: o.titulo, notas_originais: originais, regra_nota: 'maior', criado_em: FieldValue.serverTimestamp(), criado_por_nome: txt(u.nome, 60) };
   const b = db.batch();
   b.set(ref, doc); b.set(db.doc(`provas_online_gab/${ref.id}`), { professor_uid: o.professor_uid, gab: (gs.data() || {}).gab || {} });

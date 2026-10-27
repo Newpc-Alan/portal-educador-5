@@ -9,6 +9,7 @@ export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRe
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
 export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao } from './provas-online.js';
+export { limparFotosProvas } from './fotos-provas.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });

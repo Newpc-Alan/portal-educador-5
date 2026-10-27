@@ -203,6 +203,25 @@ service firebase.storage {
       allow update, delete: if false;
     }
 
+    // Prova online: foto de confirmação do aluno no início e na entrega (só quando a prova pede fotos).
+    // O próprio aluno envia (pela matrícula "m-<id>" ou pela conta antiga); vê o professor da prova, a gestão da escola e o admin.
+    // As fotos são apagadas no fim do ano letivo (função limparFotosProvas).
+    function provaOnline(p) { return firestore.get(/databases/(default)/documents/provas_online/$(p)).data; }
+    function souAlunoDaFoto(chave) {
+      return request.auth != null && (chave == request.auth.uid
+        || (request.auth.token.get("aluno_id", "") != "" && chave == "m-" + request.auth.token.aluno_id));
+    }
+    match /provas_online/{p}/fotos/{chave}/{momento} {
+      allow create, update: if souAlunoDaFoto(chave) && momento in ["inicio.jpg", "entrega.jpg"]
+        && provaOnline(p).get("fotos", false) == true && provaOnline(p).status == "agendada"
+        && (chave in provaOnline(p).get("alunos_uids", []) || chave.replace("m-", "") in provaOnline(p).get("alunos_ids", []))
+        && request.resource.size < 400 * 1024 && request.resource.contentType == "image/jpeg";
+      allow read: if admin() || (request.auth != null && provaOnline(p).professor_uid == request.auth.uid)
+        || (request.auth != null && eu().status == "ativo" && eu().perfil == "gestor"
+            && provaOnline(p).get("escola_id", "-") in eu().get("escolas_ids", [eu().get("escola_id", "")]));
+      allow delete: if false;
+    }
+
     // qualquer outro caminho continua bloqueado
     match /{tudo=**} { allow read, write: if false; }
   }
