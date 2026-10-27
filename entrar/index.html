@@ -644,6 +644,21 @@
   .pv-card{ display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-decoration:none;color:inherit;background:#fbfcfe }
   .pv-card.aberta{ border-color:#8DC63F;background:#f4faea;box-shadow:0 0 0 3px rgba(141,198,63,.18) }
   .pv-ico{ font-size:24px } .pv-t{ flex:1;min-width:0;display:flex;flex-direction:column } .pv-t b{ font-size:14px;color:var(--ink) } .pv-t small{ font-size:12px;color:var(--muted) }
+  /* Inicio do aluno (tablet): prova de hoje em destaque, botoes grandes */
+  .pv-faixa:has(.pv-hero){ padding:0;border:0;background:transparent }
+  .pv-hero{ padding:12px;gap:20px;border:2px solid var(--line);border-radius:22px;background:#fff;margin-bottom:12px }
+  .pv-hero.aberta{ border-color:#8DC63F;background:#fff;box-shadow:0 0 0 4px rgba(141,198,63,.18) }
+  .pv-hero-foto{ width:200px;height:128px;flex:none;border-radius:14px;background:#dfe7ef url('/assets/inicio/provas-online.webp') center/cover no-repeat }
+  .pv-hero-tx{ flex:1;min-width:0;display:flex;flex-direction:column;gap:3px }
+  .pv-hero-tx small{ font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#1a6b2a }
+  .pv-hero-tx b{ font-size:24px;line-height:1.2;color:var(--ink) }
+  .pv-hero-tx em{ font-style:normal;font-size:14px;color:var(--muted) }
+  .pv-hero-tx span{ font-size:15px;color:#33475b;margin-top:4px }
+  .pv-hero-btn{ flex:none;background:#1a6b2a;color:#fff;font-size:19px;font-weight:800;padding:18px 28px;border-radius:14px;margin-right:6px }
+  .pv-hero-btn.pv-trava{ background:#eef2f6;color:#61758a;font-size:15px }
+  .pv-rodape{ margin-top:10px } .pv-rodape .pv-hist{ display:inline-block;margin:0;font-size:14.5px;padding:10px 16px }
+  .ini-alu .ac-tx b{ font-size:18px }
+  @media (max-width:700px){ .pv-hero{ flex-wrap:wrap } .pv-hero-foto{ width:100%;height:140px } .pv-hero-btn{ width:100%;text-align:center;margin:0 } }
   .pv-btn{ flex:none;background:#8DC63F;color:#071621;font-weight:800;font-size:12.5px;border-radius:999px;padding:7px 12px }
   .nt-adm-l{ display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line) }
   .nt-adm-l b{ font-size:14px }
@@ -4529,8 +4544,10 @@
       '</div>'+
       '</div>'+
       (ehAluno
-        ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniNoticias"></div><div id="iniDatas"></div>'+
-          '<div class="ini-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div>'
+        ? '<div id="iniAula"></div><div id="iniProvas"></div>'+
+          '<section class="ini-sec ini-alu" aria-labelledby="aluTit"><h3 id="aluTit">Aprender brincando</h3>'+
+          '<div class="ac-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></section>'+
+          '<div id="iniNoticias"></div><div id="iniDatas"></div>'
         // professor: o que tem para hoje, as acoes do dia a dia com foto e o resto do Portal recolhido em "Mais recursos"
         : '<div id="iniAulaHero"></div><section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo suas turmas...</div></div></section>'+
           '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
@@ -4612,7 +4629,8 @@
         '<span class="ac-tx"><b>'+escapeHtml(md.nome)+'</b><small>'+escapeHtml(desc)+'</small></span></'+abrir.tag+'>' : "";
       return { id:md.id, estado, mini, grande };
     }).filter(Boolean);
-    if(ehAluno){ $("iniGrid").innerHTML = itens.map(x => x.mini).join("") || '<div class="empty" style="grid-column:1/-1">Nenhum módulo disponível ainda.</div>'; return; }
+    // aluno: só o que está liberado, em cards grandes com foto (o administrador na prévia vê também o que está em breve)
+    if(ehAluno){ $("iniGrid").innerHTML = itens.map(x => x.estado === "ok" ? x.grande : (admin ? x.mini : "")).join("") || '<div class="empty" style="grid-column:1/-1">Nenhum módulo disponível ainda.</div>'; return; }
     // professor: contratados ficam grandes, o resto aparece menor em "Conheca mais do Portal"
     iniProf.mods = itens;
     iniProf.badges = {}; iniProf.links = {};
@@ -5059,12 +5077,21 @@
     const hist = antigas ? '<a class="pv-hist" href="/prova/">\u{1F4DA} Histórico de provas ('+antigas+')</a>' : '';
     if(!l.length){ el.innerHTML = hist ? '<div class="pv-faixa pv-so-hist">'+hist+'</div>' : ""; return; }
     const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), dd = m => new Date(m).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
-    const html = '<div class="pv-faixa"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b class="pv-tit">\u{1F4DD} Prova de hoje</b>'+hist+'</div><div class="pv-lista">'+l.map(p => {
+    // a primeira prova vira o destaque do tablet (foto, texto grande, botão grande); as demais ficam embaixo, menores
+    const linha = (p, destaque) => {
       const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), espera = !!p.aguardando, aberta = !espera && agora >= ab && agora <= fe, logo = !espera && agora < ab && ab - agora < 120000;
-      const txt = espera ? "o professor vai iniciar: entre e toque em \u201CEstou pronto\u201D" : aberta ? "aberta até "+hm(fe) : logo ? "abre em instantes: entre agora" : "abre "+dd(ab)+" às "+hm(ab);
-      return '<a class="pv-card'+(aberta || espera || logo ? " aberta" : "")+'" href="/prova/?id='+encodeURIComponent(p.id)+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : espera || logo ? "\u{23F3}" : "\u{1F512}")+'</span>'+
-        '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+txt+'</small></span>'+
-        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : espera || logo ? '<span class="pv-btn">Entrar</span>' : '')+'</a>'; }).join("")+'</div></div>';
+      const txt = espera ? "O professor vai iniciar: entre e toque em \u201CEstou pronto\u201D" : aberta ? "Aberta até "+hm(fe) : logo ? "Abre em instantes: entre agora" : "Abre "+dd(ab)+" às "+hm(ab);
+      const btn = aberta ? "Fazer a prova" : espera || logo ? "Entrar" : "";
+      const href = '/prova/?id='+encodeURIComponent(p.id), viva = aberta || espera || logo;
+      if(destaque) return '<a class="pv-card pv-hero'+(viva ? " aberta" : "")+'" href="'+href+'"><span class="pv-hero-foto" aria-hidden="true"></span>'+
+        '<span class="pv-hero-tx"><small>'+(espera ? "Sala de espera" : aberta ? "Prova aberta agora" : "Prova de hoje")+'</small><b>'+escapeHtml(p.titulo)+'</b>'+
+        '<em>'+escapeHtml([p.disciplina, p.turma_nome].filter(Boolean).join(" · "))+'</em><span>'+escapeHtml(txt)+'</span></span>'+
+        (btn ? '<span class="pv-hero-btn">'+btn+'</span>' : '<span class="pv-hero-btn pv-trava">\u{1F512} Ainda fechada</span>')+'</a>';
+      return '<a class="pv-card'+(viva ? " aberta" : "")+'" href="'+href+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : espera || logo ? "\u{23F3}" : "\u{1F512}")+'</span>'+
+        '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+txt+'</small></span>'+(btn ? '<span class="pv-btn">'+btn+'</span>' : '')+'</a>';
+    };
+    const html = '<div class="pv-faixa">'+linha(l[0], true)+(l.length > 1 ? '<div class="pv-lista">'+l.slice(1).map(p => linha(p, false)).join("")+'</div>' : '')+
+      (hist ? '<div class="pv-rodape">'+hist+'</div>' : '')+'</div>';
     if(el.innerHTML !== html) el.innerHTML = html;
   }
 
