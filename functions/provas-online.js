@@ -201,14 +201,14 @@ export const acaoProvaOnline = onCall({ region: REGIAO }, async (req) => {
     if (!t) throw new HttpsError('not-found', 'O aluno ainda não começou.');
     if (d.acao === 'tempo') {
       const min = Math.min(60, Math.max(1, Math.round(Number(d.min) || 10)));
-      await tref.update({ prazo: Timestamp.fromMillis(Math.max(ms(t.prazo), agora) + min * 60000), eventos: FieldValue.arrayUnion({ t: agora, e: 'mais_tempo', min }) });
+      await tref.update({ prazo: Timestamp.fromMillis(Math.max(ms(t.prazo), agora) + min * 60000), eventos: FieldValue.arrayUnion({ t: agora, e: 'mais_tempo', min, por: txt(u.nome, 60) }) });
       return { ok: true };
     }
     if (t.status === 'entregue') throw new HttpsError('failed-precondition', 'O aluno já entregou.');
     const zerar = d.modo === 'zerar';
     const restante = zerar ? p.duracao_min * 60000 : Math.max(5 * 60000, ms(t.prazo) - (ms(t.bloqueado_em) || agora));
     await tref.update({ status: 'em_andamento', desvios: 0, prazo: Timestamp.fromMillis(agora + restante), ...(zerar ? { respostas: {} } : {}),
-      eventos: FieldValue.arrayUnion({ t: agora, e: zerar ? 'liberada_zerada' : 'liberada' }), liberacoes: FieldValue.increment(1) });
+      eventos: FieldValue.arrayUnion({ t: agora, e: zerar ? 'liberada_zerada' : 'liberada', por: txt(u.nome, 60) }), liberacoes: FieldValue.increment(1) });
     return { ok: true };
   }
   if (d.acao === 'encerrar') {

@@ -214,7 +214,10 @@ function retomar(){
 function reivindicar(){
   const t = E.tent; if(t.sessao === E.sessao) return;
   const upd = { sessao:E.sessao, disp:E.disp, aparelho:aparelho(), atualizado_em:serverTimestamp() };
-  if(t.disp && t.disp !== E.disp){ upd.trocas = (t.trocas || 0) + 1; upd.eventos = arrayUnion({ t:Date.now(), e:"troca", m:"passou para " + upd.aparelho }); }
+  // auditoria: cada entrada na prova fica registrada (hora do servidor e aparelho)
+  const evs = [{ t:agora(), e:"entrou", m:upd.aparelho }];
+  if(t.disp && t.disp !== E.disp){ upd.trocas = (t.trocas || 0) + 1; evs.push({ t:agora(), e:"troca", m:"passou para " + upd.aparelho }); }
+  if(((t.eventos || []).length) < 70) upd.eventos = arrayUnion(...evs);
   updateDoc(tref(), upd).catch(e => console.warn("sessao:", e.code));
 }
 function outroAparelho(){
@@ -325,7 +328,7 @@ function desvio(motivo){
   const t = Date.now(); if(t - E.ultDesvio < 2500) return; E.ultDesvio = t;
   const n = (E.tent.desvios || 0) + 1, max = E.tent.avisos_max ?? 1;
   const tref = doc(db, "provas_online", E.prova.id, "po_tentativas", E.chave);
-  const ev = { t:Date.now(), e:"desvio", m:motivo };
+  const ev = { t:agora(), e:"desvio", m:motivo };
   if(n > max){
     clearTimeout(E.salvarT); salvar();
     updateDoc(tref, { desvios:n, status:"bloqueada", bloqueado_em:serverTimestamp(), eventos:arrayUnion(ev) }).catch(e => console.warn("bloqueio:", e.code));
@@ -395,9 +398,11 @@ function desenharPainel(){
         '<td>'+(t && t.status === "em_andamento" ? '<span data-prazo="'+ms(t.prazo)+'">'+mmss((ms(t.prazo) - agora()) / 1000)+'</span>' : '-')+'</td>'+
         '<td>'+(r ? '<b>'+r.nota+'</b> / '+r.total+(r.pendentes ? '<small>'+r.pendentes+' para corrigir</small>' : '') : '-')+'</td>'+
         '<td><div class="acoes">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">Dar nova chance</button>' : '')+
-          (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'">+10 min</button>' : '')+'</div></td></tr>'; }).join("")+
+          (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'">+10 min</button>' : '')+
+          (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Prova respondida, correção e registro de horários (para imprimir ou PDF)">📄 Relatório</button>' : '')+'</div></td></tr>'; }).join("")+
     '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles depois das '+hora(ms(p.fecha_em))+'.'+
-    ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>';
+    ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>'+
+    '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button></div>';
 }
 function modalLiberar(uid){
   const a = (E.prova.alunos || []).find(x => x.uid === uid) || { nome:"aluno" }, t = PN.tent[uid] || {};
@@ -405,6 +410,78 @@ function modalLiberar(uid){
   capa("🔓", "Dar nova chance para " + a.nome + "?", "Motivo do bloqueio:\n" + (ev || "saída da prova"),
     '<div style="display:grid;gap:8px"><button class="btn btn-ok" data-action="pn-lib-ok" data-arg="'+uid+'" data-modo="continuar">Continuar de onde parou</button><button class="btn btn-gh" data-action="pn-lib-ok" data-arg="'+uid+'" data-modo="zerar">Recomeçar do zero (apaga as respostas)</button><button class="btn btn-gh" data-action="fechar-capa">Cancelar</button></div>');
   document.querySelector("#capa p").style.whiteSpace = "pre-wrap";
+}
+/* ---------- auditoria: relatório por aluno (prova respondida + registro de horários) ---------- */
+const MOTIVO = { aluno:"entregue pelo aluno", tempo:"entregue automaticamente: tempo esgotado", encerrada_professor:"entregue quando o professor encerrou a prova", bloqueada_no_fim:"prova estava bloqueada no fim do horário" };
+const EVENTO = { entrou:"Entrou na prova", desvio:"Saiu da prova", troca:"Trocou de aparelho", liberada:"Professor liberou (continuar de onde parou)", liberada_zerada:"Professor liberou recomeçando do zero (respostas apagadas)", mais_tempo:"Professor deu mais tempo" };
+const dataHora = m => m ? new Date(m).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "-";
+function linhaTempo(t){
+  const l = [];
+  if(t.inicio) l.push([ms(t.inicio), "Começou a prova (registro do servidor)"]);
+  (t.eventos || []).forEach(x => l.push([x.t, (EVENTO[x.e] || x.e) + (x.min ? ": +" + x.min + " min" : "") + (x.m ? " · " + x.m : "") + (x.por ? " · por " + x.por : "")]));
+  if(t.bloqueado_em) l.push([ms(t.bloqueado_em), "Prova bloqueada (saídas acima do permitido)"]);
+  if(t.entregue_em) l.push([ms(t.entregue_em), "Prova entregue (registro do servidor): " + (MOTIVO[t.motivo_entrega] || t.motivo_entrega || "")]);
+  return l.sort((a, b) => a[0] - b[0]);
+}
+function respostaHtml(q, r, g, pq){
+  const marca = (on, certo) => (on ? "●" : "○") + (certo ? " ✓" : "");
+  let h = "";
+  if(q.tipo === "multipla" || q.tipo === "checkbox"){
+    const sel = q.tipo === "checkbox" ? new Set(Array.isArray(r) ? r : []) : null;
+    h = '<ol class="alts" type="a">' + (q.alts || []).map((a, i) => { const on = q.tipo === "multipla" ? (r !== undefined && r !== null && Number(r) === i) : sel.has(i), certo = g && g.gab === i;
+      return '<li class="' + (on ? "on " : "") + (certo ? "ok" : "") + '">' + marca(on, certo) + " " + esc(a) + "</li>"; }).join("") + "</ol>";
+  } else if(q.tipo === "vf"){ h = '<p>Resposta do aluno: <b>' + (r === "V" ? "Verdadeiro" : r === "F" ? "Falso" : "em branco") + "</b>" + (g && g.gab ? " · Correta: <b>" + (g.gab === "V" ? "Verdadeiro" : "Falso") + "</b>" : "") + "</p>"; }
+  else if(q.tipo.startsWith("grade")){ const v = r && typeof r === "object" ? r : {};
+    h = '<table class="gr"><tr><th></th>' + (q.cols || []).map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>" + (q.linhas || []).map((ln, li) => "<tr><td>" + esc(ln) + "</td>" + (q.cols || []).map((_, ci) => "<td>" + ((Array.isArray(v[li]) ? v[li].includes(ci) : v[li] === ci) ? "●" : "") + "</td>").join("") + "</tr>").join("") + "</table>"; }
+  else { const txt = String(r == null ? "" : r).trim(); h = '<div class="resp">' + (txt ? esc(txt).replace(/\n/g, "<br>") : "<i>em branco</i>") + "</div>" + (g && g.exp ? '<p class="exp">Resposta esperada: ' + esc(g.exp) + "</p>" : ""); }
+  const st = !pq ? "" : pq.pendente ? "aguardando correção do professor" : pq.branco ? "em branco · 0 pt" : (pq.ok ? "certa" : "errada") + " · " + (pq.pontos || 0) + " pt";
+  return h + (st ? '<p class="pq">' + st + "</p>" : "");
+}
+async function relatorios(uids, btn){
+  if(!uids.length){ toast("Nenhum aluno fez a prova ainda.", true); return; }
+  const p = E.prova; if(btn) btn.disabled = true;
+  try{
+    const [gs, es] = await Promise.all([getDoc(doc(db, "provas_online_gab", p.id)).catch(() => null), p.escola_id ? getDoc(doc(db, "escolas", p.escola_id)).catch(() => null) : null]);
+    const gab = gs && gs.exists() ? (gs.data().gab || {}) : {}, escola = es && es.exists() ? es.data() : {};
+    const gerado = dataHora(agora());
+    const folhas = uids.map(uid => {
+      const a = (p.alunos || []).find(x => x.uid === uid) || { nome:"Aluno" }, t = PN.tent[uid] || {}, r = PN.res[uid] || null, rs = t.respostas || {};
+      const dur = t.inicio && t.entregue_em ? Math.round((ms(t.entregue_em) - ms(t.inicio)) / 60000) : null;
+      return '<section class="folha"><header><div><b>' + esc(escola.nome || "Portal do Educador") + "</b>" + (escola.inep ? "<small>INEP " + esc(escola.inep) + "</small>" : "") + "</div><div class=\"r\">Prova online · Portal do Educador<small>Registro de aplicação</small></div></header>" +
+        '<h1>' + esc(p.titulo) + "</h1><table class=\"id\"><tr><td>Aluno</td><td><b>" + esc(a.nome) + "</b></td><td>Turma</td><td>" + esc(p.turma_nome || "") + "</td></tr>" +
+        "<tr><td>Disciplina</td><td>" + esc(p.disciplina || "-") + "</td><td>Professor(a)</td><td>" + esc(p.professor_nome || "") + "</td></tr>" +
+        "<tr><td>Janela da prova</td><td>" + dataHora(ms(p.abre_em)) + " a " + dataHora(ms(p.fecha_em)) + "</td><td>Tempo de prova</td><td>" + p.duracao_min + " min" + (dur != null ? " · usou " + dur + " min" : "") + "</td></tr>" +
+        "<tr><td>Aparelho</td><td>" + esc(t.aparelho || "-") + (t.trocas ? " · trocou " + t.trocas + "x" : "") + "</td><td>Nota</td><td><b>" + (r ? r.nota + " / " + r.total : "-") + "</b>" + (r && r.pendentes ? " (" + r.pendentes + " questão(ões) aguardando correção)" : "") + "</td></tr></table>" +
+        "<h2>Registro de horários</h2><table class=\"tl\">" + linhaTempo(t).map(([m, x]) => "<tr><td>" + dataHora(m) + "</td><td>" + esc(x) + "</td></tr>").join("") + "</table>" +
+        '<p class="nota">Saídas da prova: ' + (t.desvios || 0) + " · Liberações pelo professor: " + (t.liberacoes || 0) + ". Os horários de início e entrega são do servidor; os demais foram ajustados pela hora do servidor.</p>" +
+        "<h2>Questões e respostas</h2>" + p.questoes.map((q, i) => '<div class="q"><p class="en"><b>' + (i + 1) + ".</b> " + esc(q.enun).replace(/\n/g, "<br>") + " <small>(" + q.valor + " pt)</small></p>" +
+          (q.imgs || []).map(u => '<img src="' + esc(u) + '" alt="">').join("") + respostaHtml(q, rs[q.id], gab[q.id], r && r.por_questao ? r.por_questao[q.id] : null) + "</div>").join("") +
+        '<div class="ass"><div>Professor(a)</div><div>Responsável pelo aluno</div></div><footer>Gerado em ' + gerado + " pelo Portal do Educador · código " + esc(p.id) + "/" + esc(uid) + "</footer></section>";
+    }).join("");
+    const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para gerar o relatório.", true); return; }
+    w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório · ' + esc(p.titulo) + '</title><style>' +
+      '@page{size:A4;margin:14mm}body{font-family:Arial,Helvetica,sans-serif;color:#1d2b3a;font-size:11pt;margin:0}.folha{break-after:page;padding:0 2mm}.folha:last-child{break-after:auto}' +
+      'header{display:flex;justify-content:space-between;border-bottom:3px solid #1a6b2a;padding-bottom:6px;margin-bottom:10px}header small{display:block;color:#667;font-size:8.5pt}.r{text-align:right;color:#0f2c4a;font-weight:700}' +
+      'h1{font-size:15pt;margin:4px 0 8px;color:#0f2c4a}h2{font-size:11.5pt;color:#1a6b2a;margin:14px 0 6px;border-bottom:1px solid #dfe7ef;padding-bottom:3px}' +
+      'table{border-collapse:collapse;width:100%}.id td{border:1px solid #dfe7ef;padding:4px 6px;font-size:9.5pt}.id td:nth-child(odd){background:#f3f7fa;color:#556;width:15%}' +
+      '.tl td{border-bottom:1px solid #eef2f6;padding:3px 6px;font-size:9.5pt}.tl td:first-child{white-space:nowrap;width:30%;color:#445}.nota{font-size:8.5pt;color:#667}' +
+      '.q{break-inside:avoid;border:1px solid #e3eaf1;border-radius:6px;padding:6px 9px;margin-bottom:7px}.en{margin:0 0 4px}.q img{max-width:60%;max-height:45mm;display:block;margin:4px 0}' +
+      '.alts{margin:2px 0 2px 18px;padding:0}.alts li{margin:1px 0}.alts li.on{font-weight:700}.alts li.ok{color:#1a6b2a}.pq{margin:3px 0 0;font-size:9pt;color:#0f2c4a;font-weight:700}' +
+      '.resp{border:1px dashed #c9d5e0;border-radius:4px;padding:5px 7px;background:#fafcfd}.exp{font-size:9pt;color:#556;margin:3px 0 0}.gr td,.gr th{border:1px solid #dfe7ef;padding:2px 6px;font-size:9pt;text-align:center}.gr td:first-child{text-align:left}' +
+      '.ass{display:flex;gap:30px;margin-top:26px}.ass div{flex:1;border-top:1px solid #333;text-align:center;padding-top:3px;font-size:9pt}footer{margin-top:10px;font-size:8pt;color:#889;text-align:center}' +
+      '</style></head><body>' + folhas + '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
+    w.document.close();
+  }catch(e){ console.warn(e); toast("Não foi possível gerar o relatório (" + (e.code || "erro") + ").", true); }
+  finally{ if(btn) btn.disabled = false; }
+}
+function auditoriaCsv(){
+  const p = E.prova, linhas = [["Aluno", "Situação", "Aparelho", "Trocas de aparelho", "Saídas", "Liberações", "Início (servidor)", "Entrega (servidor)", "Motivo da entrega", "Nota", "Total", "Registro de horários"]];
+  (p.alunos || []).forEach(a => { const t = PN.tent[a.uid], r = PN.res[a.uid];
+    linhas.push([a.nome, situacaoAluno(a.uid)[0], t ? t.aparelho || "" : "", t ? t.trocas || 0 : "", t ? t.desvios || 0 : "", t ? t.liberacoes || 0 : "", t && t.inicio ? dataHora(ms(t.inicio)) : "", t && t.entregue_em ? dataHora(ms(t.entregue_em)) : "",
+      t ? MOTIVO[t.motivo_entrega] || t.motivo_entrega || "" : "", r ? r.nota : "", r ? r.total : "", t ? linhaTempo(t).map(([m, x]) => dataHora(m) + " " + x).join(" | ") : ""]); });
+  const csv = "﻿" + linhas.map(l => l.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(";")).join("\r\n");
+  const u = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" })), a = document.createElement("a");
+  a.href = u; a.download = "auditoria-" + String(p.titulo || "prova").replace(/[^\w\-]+/g, "-").slice(0, 40) + ".csv"; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000);
 }
 async function acao(dados, btn){
   if(btn) btn.disabled = true;
@@ -444,6 +521,9 @@ document.addEventListener("click", e => {
   }
   else if(a === "pn-notas") acao({ acao:"liberar_notas" }, el);
   else if(a === "pn-abrir") acao({ acao:"abrir_agora" }, el);
+  else if(a === "pn-rel") relatorios([arg], el);
+  else if(a === "pn-rel-turma") relatorios((E.prova.alunos || []).map(x => x.uid).filter(u => PN.tent[u]), el);
+  else if(a === "pn-auditoria") auditoriaCsv();
 });
 
 /* =================== ENTRADA =================== */
