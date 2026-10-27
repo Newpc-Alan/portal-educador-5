@@ -3793,7 +3793,9 @@ onAuthStateChanged(auth, async (user) => {
     }catch(e){ console.warn("municipios:", e.code); }
   }
   // Prova online é recurso do plano do município (o administrador vê sempre)
-  P.provaOnline = P.admin || !!(P.muni && Array.isArray(P.muni.recursos) && P.muni.recursos.includes("prova_online"));
+  // ... ou liberada só para este professor (usuarios.recursos_extra, gravado só pelo administrador)
+  P.provaOnline = P.admin || !!(P.muni && Array.isArray(P.muni.recursos) && P.muni.recursos.includes("prova_online"))
+    || (Array.isArray(u.recursos_extra) && u.recursos_extra.includes("prova_online"));
   document.querySelectorAll('[data-action="olAbrir"]').forEach(b => b.hidden = !P.provaOnline);
   const ids = (u.escolas_ids && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean).slice(0, 10);
   P.escolas = (await Promise.all(ids.map(i => ler("escolas", i)))).filter(Boolean).map(e => ({ id:e.id, nome:e.nome || "", logo_url:e.logo_url || "" }));

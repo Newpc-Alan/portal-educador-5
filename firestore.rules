@@ -85,7 +85,8 @@ service cloud.firestore {
 
     match /usuarios/{uid} {
       allow read: if logado() && (request.auth.uid == uid || admin());
-      allow create: if logado() && request.auth.uid == uid && (
+      // liberações exclusivas (modulos_extra, recursos_extra) só o administrador grava: ninguém nasce com elas
+      allow create: if logado() && request.auth.uid == uid && !novo().keys().hasAny(["modulos_extra", "recursos_extra"]) && (
         // 1) autocadastro: professor ganha 7 dias de teste, sem vinculo com rede
         ( novo().perfil == "professor" && novo().status == "ativo"
           && novo().licenca_tipo == "teste"

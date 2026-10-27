@@ -89,7 +89,9 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
   if (u.perfil !== 'admin') {
     const mid = turma.municipio_id || (turma.escola_id ? ((await db.doc(`escolas/${turma.escola_id}`).get()).data() || {}).municipio_id : '');
     const m = mid ? (await db.doc(`municipios/${mid}`).get()).data() : null;
-    if (!m || !Array.isArray(m.recursos) || !m.recursos.includes('prova_online'))
+    // ...ou liberada só para este professor pelo administrador (usuarios.recursos_extra; o usuário não grava esse campo)
+    const extra = Array.isArray(u.recursos_extra) && u.recursos_extra.includes('prova_online');
+    if (!extra && (!m || !Array.isArray(m.recursos) || !m.recursos.includes('prova_online')))
       throw new HttpsError('failed-precondition', 'A Prova online não está incluída no plano da sua rede. Fale com a NEWPC.');
   }
   const dur = Math.round(Number(d.duracao_min));

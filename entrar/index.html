@@ -228,6 +228,7 @@
   .chk small{ color:var(--muted);font-size:12px }
   .usr-aviso{ margin-top:14px;padding:10px 13px;border-radius:9px;font-size:12.5px;line-height:1.5;background:#eaf6fb;color:#1d6f8f }
   .usr-aviso.alerta{ background:#fff4e0;color:#8a5a00 }
+  .usr-ext-info{ font-size:12.5px;color:var(--muted);margin:-4px 0 8px;line-height:1.45 }
   .usr-status-row{ display:flex;gap:8px;flex-wrap:wrap }
   .usr-status-row label{ flex:1;min-width:130px;display:flex;align-items:center;gap:8px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;font-weight:600;cursor:pointer }
   .usr-status-row input{ accent-color:var(--green) }
@@ -1138,7 +1139,7 @@
         <h4>O que fica liberado <span id="planoCont"></span></h4>
         <div class="mod-atalhos">
           <button type="button" data-action="plano-basico" title="Conteúdos do pacote básico; lousa, calendário e notícias já vêm sempre">Plano básico</button>
-          <button type="button" data-action="plano-intermediario" title="Básico + Formação Continuada + Portal 360º VR">Plano intermediário</button>
+          <button type="button" data-action="plano-intermediario" title="Básico + Formação Continuada + Portal 360º VR + Portal Maestro">Plano intermediário</button>
           <button type="button" data-action="plano-todos" title="Todos os módulos, Prova online e Painel da Rede">Plano completo</button>
           <button type="button" data-action="plano-nenhum">Limpar</button>
           <button type="button" data-action="plano-alunos">Aluno igual ao professor</button>
@@ -1207,6 +1208,11 @@
       <div class="usr-sec" id="usrBlocoTurmas">
         <h4>Turmas <span id="usrTurCont"></span></h4>
         <div class="chk-lista" id="usrTurmas"><div class="vazio">Marque ao menos uma escola.</div></div>
+      </div>
+      <div class="usr-sec" id="usrBlocoExtras">
+        <h4>Recursos exclusivos deste professor <span id="usrExtCont"></span></h4>
+        <p class="usr-ext-info" id="usrExtInfo"></p>
+        <div class="chk-lista" id="usrExtras"></div>
       </div>
       <div class="usr-aviso" id="usrAviso"></div>
     </div>
@@ -4029,6 +4035,8 @@
       municipio_id: u.municipio_id || "",
       escolas: new Set(Array.isArray(u.escolas_ids) && u.escolas_ids.length ? u.escolas_ids : (u.escola_id ? [u.escola_id] : [])),
       turmas: new Set(Array.isArray(u.turmas_ids) ? u.turmas_ids.map(x=>String(x).trim()) : []),
+      // liberações individuais por cima do plano do município (só o administrador grava)
+      extras: new Set([...(Array.isArray(u.modulos_extra) ? u.modulos_extra : []), ...(Array.isArray(u.recursos_extra) ? u.recursos_extra.map(x => "rec:"+x) : [])]),
       lic: { tipo:u.licenca_tipo || "institucional", plano:u.licenca_plano || "mensal",
         ini: isoDe(msDe(u.licenca_inicio) || Date.now()), fim: isoDe(msDe(u.licenca_fim)),
         valor:u.licenca_valor || "", ref:u.licenca_ref || "", pacote:u.licenca_pacote || "" },
@@ -4107,6 +4115,22 @@
       $("usrTurmas").innerHTML = h;
     }
     $("usrTurCont").textContent = ed.turmas.size ? ed.turmas.size+" marcada(s)" : "";
+    // recursos exclusivos: o que o plano do município não tem, liberado só para este professor
+    const blocoExt = $("usrBlocoExtras"), professorDaRede = ed.perfil === "professor" && inst && !!muniSel;
+    blocoExt.style.display = professorDaRede ? "" : "none";
+    if(professorDaRede){
+      const temPlano = Array.isArray(muniSel.modulos_professor) && muniSel.modulos_professor.length;
+      const doMuni = new Set(temPlano ? muniSel.modulos_professor : MODULOS.map(m => m.id));
+      const recMuni = new Set(Array.isArray(muniSel.recursos) ? muniSel.recursos : []);
+      const opcoes = MODULOS.filter(m => !m.soAluno && !doMuni.has(m.id)).map(m => ({ v:m.id, nome:m.nome }))
+        .concat(recMuni.has("prova_online") ? [] : [{ v:"rec:prova_online", nome:"Prova online (aplicar no Portal do Aluno)" }]);
+      [...ed.extras].forEach(v => { if(!opcoes.some(o => o.v === v)) ed.extras.delete(v); });   // o município passou a ter: não precisa mais
+      const nm = NOME_PLANO[muniSel.plano_nome || nomeDoPlano(muniSel.modulos_professor, muniSel.recursos, muniSel.modulos_secretaria)];
+      $("usrExtInfo").textContent = !opcoes.length ? "O plano de "+muniSel.nome+" já libera tudo." :
+        "Plano de "+muniSel.nome+(nm ? ": "+nm : "")+". Marque o que este professor recebe a mais, só ele. Os outros professores da rede continuam vendo esses recursos em \u201cConheça mais\u201d.";
+      $("usrExtras").innerHTML = opcoes.map(o => '<label class="chk"><input type="checkbox" data-action="usr-extra" value="'+escapeAttr(o.v)+'"'+(ed.extras.has(o.v) ? " checked" : "")+'> '+escapeHtml(o.nome)+'</label>').join("");
+      $("usrExtCont").textContent = ed.extras.size ? ed.extras.size+" liberado(s)" : "";
+    }
     // aviso do que vai acontecer
     const av = $("usrAviso"); av.className = "usr-aviso";
     if(ed.ehEu){ av.textContent = "Este é o seu próprio cadastro: perfil e situação ficam travados para você não perder o acesso de administrador."; }
@@ -4152,6 +4176,9 @@
         licenca_inicio: inst ? null : (L.ini || ""), licenca_fim: inst ? null : Timestamp.fromMillis(msDe(L.fim)),
         licenca_valor: inst ? "" : L.valor.trim(), licenca_ref: inst ? "" : L.ref.trim(), licenca_pacote: inst || L.plano!=="pacote" ? "" : L.pacote.trim() });
       if(!inst){ dados.escola_id = null; }   // avulso nao enxerga turmas/alunos da rede
+      const ext = inst ? [...ed.extras] : [];
+      dados.modulos_extra = ext.filter(v => !v.startsWith("rec:"));
+      dados.recursos_extra = ext.filter(v => v.startsWith("rec:")).map(v => v.slice(4));
       if(JSON.stringify([L.tipo, inst ? "" : L.plano, inst ? "" : L.fim]) !== ed.licOriginal){ dados.licenca_alterada_em = serverTimestamp(); dados.licenca_alterada_por = usuarioAtual.uid; }
     }
     if(!ed.ehEu){ dados.perfil = ed.perfil; dados.status = ed.status; }
@@ -4407,6 +4434,7 @@
     else if(t.id === "usrPerfil"){ ed.perfil = t.value; desenharModalUsuario(); }
     else if(t.id === "usrMuni"){ ed.municipio_id = t.value; desenharModalUsuario(); }
     else if(t.dataset && t.dataset.action === "usr-escola"){ t.checked ? ed.escolas.add(t.value) : ed.escolas.delete(t.value); desenharModalUsuario(); }
+    else if(t.dataset && t.dataset.action === "usr-extra"){ t.checked ? ed.extras.add(t.value) : ed.extras.delete(t.value); $("usrExtCont").textContent = ed.extras.size ? ed.extras.size+" liberado(s)" : ""; }
     else if(t.dataset && t.dataset.action === "usr-turma"){ t.checked ? ed.turmas.add(t.value) : ed.turmas.delete(t.value); $("usrTurCont").textContent = ed.turmas.size ? ed.turmas.size+" marcada(s)" : ""; desenharModalUsuario(); }
   });
   $("modalUsuario").addEventListener("click", (e) => { if(e.target.id === "modalUsuario") fecharModalUsuario(); });
@@ -4438,7 +4466,9 @@
   ];
   // pacote básico (padrão de todo município novo). Lousa, calendário e notícias não dependem do plano: aparecem sempre
   const PLANO_BASICO = ["atividades","videos","jogos","ia","datas","colorir","historias","biblioteca","museus","dicas","apps"];
-  const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360"]);
+  // liberações individuais (usuarios.modulos_extra / recursos_extra), gravadas só pelo administrador
+  function extrasDe(u){ return { mods:Array.isArray(u && u.modulos_extra) ? u.modulos_extra : [], recs:Array.isArray(u && u.recursos_extra) ? u.recursos_extra : [] }; }
+  const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro"]);
   // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
   function nomeDoPlano(prof, rec, sec){
     const p = new Set(prof || []), igual = (l) => p.size === l.length && l.every(x => p.has(x));
@@ -4503,6 +4533,11 @@
         if(Array.isArray(lista) && lista.length) doPlano = new Set(lista);
         // recursos avulsos do plano (ex.: prova online), mesmo campo que Provas e Avaliações e as funções conferem
         iniProf.recursos = new Set(m.exists() && Array.isArray(m.data().recursos) ? m.data().recursos : []);
+        // liberações exclusivas deste professor somam ao plano do município
+        if(!ehAluno){
+          if(doPlano) extrasDe(usuarioAtual).mods.forEach(x => doPlano.add(x));
+          extrasDe(usuarioAtual).recs.forEach(x => iniProf.recursos.add(x));
+        }
       }catch(e){ console.warn("plano:", e.code); }
     }
     // Maestro em destaque: o professor comeca a aula por ele
@@ -4767,7 +4802,7 @@
     await carregarCfgModulos();
     let doPlano = null;
     const m = usuarioAtual._muni;
-    if(m && Array.isArray(m.modulos_professor) && m.modulos_professor.length) doPlano = new Set(m.modulos_professor);
+    if(m && Array.isArray(m.modulos_professor) && m.modulos_professor.length) doPlano = new Set(m.modulos_professor.concat(extrasDe(usuarioAtual).mods));
     const aula = maestroDisponivel(doPlano, false);
     const nav = $("nav"); if(!aula || !nav || nav.querySelector('[data-sec="aula"]')) return;
     const a = document.createElement("a");

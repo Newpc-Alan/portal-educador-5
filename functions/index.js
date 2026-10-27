@@ -29,7 +29,8 @@ async function exigirLicenca(uid){
     if(!u.escola_id || !u.municipio_id) fail('Seu cadastro ainda não está vinculado a uma escola. Fale com a secretaria.');
     const m=(await db.doc(`municipios/${u.municipio_id}`).get()).data()||{};
     const fim=ms(m.vigencia_fim_ts); if(fim && fim<Date.now()) fail('O contrato do seu município com o Portal está vencido.');
-    const plano=m.modulos_professor; if(Array.isArray(plano) && plano.length && !plano.includes('formacao')) fail('A Formação Continuada não faz parte do plano do seu município.');
+    const plano=m.modulos_professor, extra=Array.isArray(u.modulos_extra) && u.modulos_extra.includes('formacao');   // liberação exclusiva do professor (só o admin grava)
+    if(!extra && Array.isArray(plano) && plano.length && !plano.includes('formacao')) fail('A Formação Continuada não faz parte do plano do seu município.');
     return u;
   }
   const fim=ms(u.licenca_fim); if(!fim || fim<Date.now()) fail('Sua licença do Portal do Educador expirou.');
