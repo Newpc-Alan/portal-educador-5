@@ -3151,6 +3151,8 @@
     try{
       const snap = await getDocs(query(collection(db,"acervo"), where("publicado","==",true)));
       acv.itens = []; snap.forEach(d => acv.itens.push({ id:d.id, ...d.data() }));
+      // só o acervo dos botões que estão no plano de quem está usando
+      if(planoVigente) acv.itens = acv.itens.filter(i => !i.modulo || planoVigente.has(i.modulo));
       acv.itens.sort((a,b) => (a.titulo||"").localeCompare(b.titulo||""));
       desenharAcervo();
     }catch(e){ console.warn(e); $("acvLista").innerHTML = '<div class="empty">Não foi possível carregar o acervo ('+escapeHtml(e.code||"erro")+').</div>'; }
@@ -4508,6 +4510,10 @@
     return { status:c.status || "em_breve", url:c.url || md.urlPadrao || "", imagem:c.imagem || (comFoto.includes(id) ? "/assets/cards/"+id+".webp" : "") }; }
 
   const ini = { previa:"professor" };
+  // plano em vigor para quem está usando (null = tudo liberado); o kit das datas não abre o que está fora dele
+  let planoVigente = null;
+  const modDoKit = (c, it) => c === "biblioteca" && it && it.secao === "historias" ? "historias" : (c === "acervo" ? "" : c);
+  const kitLiberado = (c, it) => { const mod = modDoKit(c, it); return !mod || !planoVigente || planoVigente.has(mod); };
   async function renderInicio(){
     const admin = usuarioAtual.perfil === "admin";
     // aluno de verdade, ou o administrador vendo a previa do aluno
@@ -4561,6 +4567,7 @@
       doPlano = new Set(listaDoPacote(usuarioAtual.plano_avulso).concat(ex.mods));
       iniProf.recursos = new Set(ex.recs);
     }
+    planoVigente = admin ? null : doPlano;   // usado também pelo kit das Datas Comemorativas
     // Maestro em destaque: o professor comeca a aula por ele
     const aula = ehAluno ? null : maestroDisponivel(doPlano, admin);
     // professor: o Maestro vira o card "Iniciar aula"; aluno nao tem a faixa
@@ -5522,7 +5529,7 @@
     }));
     if(dtAb.d !== d || !$("dtKit")) return;
     const grupos = {};
-    kit.forEach(k => { const it = dtAb.itens[k.c+"/"+k.id]; if(it && (it.publicado !== false || usuarioAtual.perfil === "admin")) (grupos[k.c] = grupos[k.c] || []).push(it); });
+    kit.forEach(k => { const it = dtAb.itens[k.c+"/"+k.id]; if(it && (it.publicado !== false || usuarioAtual.perfil === "admin") && kitLiberado(k.c, it)) (grupos[k.c] = grupos[k.c] || []).push(it); });
     const tem = DT_ORD.filter(c => grupos[c]);
     el.innerHTML = !tem.length ? '<div class="dt-vazio">\u{1F9F0} O kit desta data está em preparação. Os conteúdos aparecem aqui assim que forem publicados.</div>' :
       '<h3 class="dt-h" style="margin-top:6px">\u{1F9F0} Kit da data</h3>'+tem.map(c => '<div class="dt-grupo"><h4>'+DT_KIT[c][0]+' '+DT_KIT[c][1]+'</h4><div class="dt-itens">'+grupos[c].map(it => itemKit(c, it)).join("")+'</div></div>').join("");
@@ -5540,7 +5547,7 @@
       '<span class="dt-item-t"><b>'+escapeHtml(it.titulo || it.nome || "")+'</b><small>'+escapeHtml(sub)+'</small></span></button>';
   }
   function abrirItemKit(c, id, btn){
-    const it = dtAb.itens[c+"/"+id]; if(!it) return;
+    const it = dtAb.itens[c+"/"+id]; if(!it || !kitLiberado(c, it)) return;
     if(c === "atividades"){ abrirAt(id); }
     else if(c === "videos"){ if(!vds.itens.some(x => x.id === id)) vds.itens.push(it); abrirVideo(id); }
     else if(c === "jogos"){ if(!jgs.itens.some(x => x.id === id)) jgs.itens.push(it); abrirJogo(id); }
