@@ -2813,6 +2813,35 @@
   }
 
   let painelAlunos = { total:null, hoje:0, sete:0 };
+  const nomeRecurso = (id) => id === "prova_online" ? "Prova online" : ((MODULOS.find(m => m.id === id) || {}).nome || id);
+  function painelInteresse(us, ac){
+    const porUid = {}; us.forEach(u => { porUid[u.id] = u; });
+    const grupos = {};   // município -> recurso -> Set(uid)
+    const total = {};    // recurso -> Set(uid)
+    ac.forEach(a => (a.interesse || []).forEach(id => {
+      const u = porUid[a.uid] || {}, inst = (u.licenca_tipo || "institucional") === "institucional";
+      const m = inst ? (cacheMunicipios.find(x => x.id === u.municipio_id) || null) : null;
+      const chave = m ? m.id : (inst ? "_semmuni" : "_avulso");
+      ((grupos[chave] = grupos[chave] || {})[id] = grupos[chave][id] || new Set()).add(a.uid);
+      (total[id] = total[id] || new Set()).add(a.uid);
+    }));
+    if(!Object.keys(total).length)
+      return '<div class="pn-card pn-largo"><h3>Interesse por recurso fora do plano</h3><div class="empty">Ainda ninguém tocou em \u201cTenho interesse\u201d nos últimos 30 dias.</div></div>';
+    const nomesTot = {}; Object.keys(total).forEach(id => { nomesTot[nomeRecurso(id)] = total[id].size; });
+    const linhas = [];
+    Object.keys(grupos).forEach(ch => {
+      const m = cacheMunicipios.find(x => x.id === ch);
+      const quem = m ? m.nome+(m.uf ? "/"+m.uf : "") : ch === "_avulso" ? "Licenças avulsas" : "Sem município";
+      const pl = m ? (NOME_PLANO[m.plano_nome || nomeDoPlano(m.modulos_professor, m.recursos, m.modulos_secretaria)] || "-") : "-";
+      Object.keys(grupos[ch]).forEach(id => linhas.push({ quem, pl, rec:nomeRecurso(id), n:grupos[ch][id].size }));
+    });
+    linhas.sort((a, b) => b.n - a.n || a.quem.localeCompare(b.quem, "pt-BR"));
+    return '<div class="pn-card"><h3>Recursos mais pedidos (fora do plano)</h3>'+barrasHorizontais(nomesTot, 10, "professor(es) com interesse")+'</div>'+
+      '<div class="pn-card pn-largo"><h3>Interesse por município <small style="font-weight:500;color:var(--muted)">professores que tocaram em \u201cTenho interesse\u201d, últimos 30 dias</small></h3>'+
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Município</th><th>Plano atual</th><th>Recurso pedido</th><th>Professores</th></tr></thead><tbody>'+
+      linhas.slice(0, 40).map(l => '<tr><td><b>'+escapeHtml(l.quem)+'</b></td><td class="usr-vinc">'+escapeHtml(l.pl)+'</td><td>'+escapeHtml(l.rec)+'</td><td><b>'+fmt(l.n)+'</b></td></tr>').join("")+
+      '</tbody></table></div></div>';
+  }
   function desenharPainel(us, ac, temAcessos){
     const hoje = hojeISO(), d7 = diasAtras(6), agora = Date.now();
     const profs = us.filter(u => u.perfil !== "admin");
@@ -2873,6 +2902,8 @@
     ac.forEach(a => (a.modulos||[]).forEach(id => { porMod[id] = (porMod[id]||0)+1; }));
     const nomesMod = {}; Object.keys(porMod).forEach(id => { const m = MODULOS.find(x => x.id === id); nomesMod[m ? m.nome : id] = porMod[id]; });
     h += '<div class="pn-card"><h3>Botões mais abertos</h3>'+(Object.keys(nomesMod).length ? barrasHorizontais(nomesMod, 10, "abertura(s) em dias distintos") : '<div class="empty">Ainda sem aberturas registradas.</div>')+'</div>';
+    // interesse por recurso fora do plano ("Tenho interesse" em "Conheça mais"): argumento de upgrade por município
+    h += painelInteresse(us, ac);
     // arquivos do acervo mais abertos
     const porArq = {};
     ac.forEach(a => (a.acervo||[]).forEach(id => { porArq[id] = (porArq[id]||0)+1; }));
