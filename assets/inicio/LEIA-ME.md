@@ -15,7 +15,7 @@ Formato: .webp, 800 x 600 px (4:3), até ~80 KB. O assunto deve ficar no centro,
 | corrigir-gabarito.webp | Corrigir gabarito | provas (produzir: celular lendo o cartão-resposta) |
 | corrigir-respostas.webp | Corrigir respostas | dicas de IA |
 | iniciar-aula.webp | Iniciar aula (card, quando o Maestro não está em destaque) | Maestro |
-| aula-destaque.webp | Faixa "Pronto para a aula?" (Maestro em destaque) | Maestro (provisória; produzir em 16:9, ver abaixo) |
+| aula-destaque.webp | Faixa "Pronto para a aula?" (Maestro em destaque) | professora com tablet e lousa (16:9, definitiva) |
 | lousa.webp | Abrir a lousa | vídeos (produzir: lousa digital na sala) |
 | atividades.webp | Atividades prontas | atividades |
 
