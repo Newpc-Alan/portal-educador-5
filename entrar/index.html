@@ -1137,7 +1137,7 @@
   import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged,
     sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit }
+  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref as stRef, uploadBytes, getDownloadURL, getBlob, deleteObject as stDelete } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -4625,20 +4625,33 @@
   }
 
   // ===================== PROVA ONLINE: card no Início do aluno =====================
-  async function faixaProvasAluno(){
+  // ao vivo: a prova que o professor aplica agora aparece sozinha, sem o aluno recarregar a página
+  const PV = { unsub:null, lista:[], vistas:null, relogio:0 };
+  function faixaProvasAluno(){
+    if(PV.unsub){ PV.unsub(); PV.unsub = null; }
+    const q = usuarioAtual.aluno_id ? query(collection(db,"provas_online"), where("alunos_ids","array-contains",usuarioAtual.aluno_id)) : query(collection(db,"provas_online"), where("alunos_uids","array-contains",usuarioAtual.uid));
+    PV.unsub = onSnapshot(q, s => {
+      const l = []; s.forEach(d => l.push({ id:d.id, ...d.data() }));
+      const novas = PV.vistas ? l.filter(p => !PV.vistas.has(p.id) && p.status === "agendada") : [];
+      PV.vistas = new Set(l.map(p => p.id)); PV.lista = l;
+      desenharProvasAluno();
+      if(novas.length) toast("\u{1F4DD} Nova prova: " + (novas[0].titulo || "prova online"));
+    }, e => console.warn("provas online:", e.code));
+    // a prova "abre em 10 segundos": o card troca sozinho para "Fazer a prova" na hora certa
+    clearInterval(PV.relogio); PV.relogio = setInterval(() => { if(!$("iniProvas")){ clearInterval(PV.relogio); if(PV.unsub){ PV.unsub(); PV.unsub = null; } return; } desenharProvasAluno(); }, 5000);
+  }
+  function desenharProvasAluno(){
     const el = $("iniProvas"); if(!el) return;
-    let l = [];
-    try{ const s = await getDocs(usuarioAtual.aluno_id ? query(collection(db,"provas_online"), where("alunos_ids","array-contains",usuarioAtual.aluno_id)) : query(collection(db,"provas_online"), where("alunos_uids","array-contains",usuarioAtual.uid))); s.forEach(d => l.push({ id:d.id, ...d.data() })); }
-    catch(e){ console.warn("provas online:", e.code); return; }
     const agora = Date.now();
-    l = l.filter(p => p.status !== "cancelada" && msDe(p.fecha_em) > agora - 7 * 864e5).sort((a, b) => msDe(a.abre_em) - msDe(b.abre_em));
-    if(!$("iniProvas") || !l.length){ if($("iniProvas")) $("iniProvas").innerHTML = ""; return; }
+    const l = PV.lista.filter(p => p.status !== "cancelada" && msDe(p.fecha_em) > agora - 7 * 864e5).sort((a, b) => msDe(a.abre_em) - msDe(b.abre_em));
+    if(!l.length){ el.innerHTML = ""; return; }
     const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), dd = m => new Date(m).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
-    el.innerHTML = '<div class="pv-faixa"><b class="pv-tit">\u{1F4DD} Minhas provas</b><div class="pv-lista">'+l.slice(0, 4).map(p => {
-      const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), aberta = p.status === "agendada" && agora >= ab && agora <= fe, fut = agora < ab;
-      return '<a class="pv-card'+(aberta ? " aberta" : "")+'" href="/prova/?id='+encodeURIComponent(p.id)+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : fut ? "\u{1F512}" : "\u{1F4CA}")+'</span>'+
-        '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+(fut ? "abre "+dd(ab)+" às "+hm(ab) : aberta ? "aberta até "+hm(fe) : "encerrada · ver nota")+'</small></span>'+
-        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : '')+'</a>'; }).join("")+'</div></div>';
+    const html = '<div class="pv-faixa"><b class="pv-tit">\u{1F4DD} Minhas provas</b><div class="pv-lista">'+l.slice(0, 4).map(p => {
+      const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), aberta = p.status === "agendada" && agora >= ab && agora <= fe, fut = p.status === "agendada" && agora < ab, logo = fut && ab - agora < 120000;
+      return '<a class="pv-card'+(aberta || logo ? " aberta" : "")+'" href="/prova/?id='+encodeURIComponent(p.id)+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : fut ? (logo ? "\u{23F3}" : "\u{1F512}") : "\u{1F4CA}")+'</span>'+
+        '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+(logo ? "abre em instantes: entre agora" : fut ? "abre "+dd(ab)+" às "+hm(ab) : aberta ? "aberta até "+hm(fe) : "encerrada · ver nota")+'</small></span>'+
+        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : logo ? '<span class="pv-btn">Entrar</span>' : '')+'</a>'; }).join("")+'</div></div>';
+    if(el.innerHTML !== html) el.innerHTML = html;
   }
 
   // ===================== ATIVIDADES PRONTAS (Banco Curricular) =====================
