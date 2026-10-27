@@ -4736,6 +4736,8 @@
     { id:"atividades", titulo:"Atividades prontas", sub:"Alinhadas à BNCC, para imprimir",   foto:"atividades",         cor:"navy",  mod:"atividades", acao:"ini-atividades" }
   ];
   const fotoAcao = (f) => "/assets/inicio/" + f + ".webp";
+  // correção das questões abertas: só aparece quando a função estiver publicada no servidor (mesma chave do painel da prova)
+  const CORRECAO_NO_AR = false;
   // ok | breve | plano | oculto (mesma regra dos cards do Inicio)
   function estadoMod(id, doPlano, admin){
     const c = cfgDe(id);
@@ -4765,6 +4767,7 @@
       if(estado === "oculto") return;
       if(a.rede && usuarioAtual._avulso) return;   // licença avulsa: sem turmas da rede
       if(a.hero && aula) return;                   // com o Maestro liberado, aula e lousa ficam na faixa de destaque
+      if(a.id === "respostas" && !CORRECAO_NO_AR) return;
       if(estado !== "ok"){
         // fora do plano ou em breve: continua visivel, menor, em "Conheca mais do Portal"
         pequenos.push(chipConheca({ id:(a.rec && !temRecurso(a.rec)) ? a.rec : (a.mod || a.id), nome:a.titulo, desc:a.sub, img:fotoAcao(a.foto), motivo:estado }));
@@ -4849,7 +4852,7 @@
       const cont = await Promise.all(recentes.map(p =>
         getDocs(query(collection(db,"provas_online",p.id,"po_resultados"), where("situacao","==","aguardando_correcao")))
           .then(r => ({ p, n:r.size })).catch(() => ({ p, n:0 }))));
-      const com = cont.filter(x => x.n);
+      const com = CORRECAO_NO_AR ? cont.filter(x => x.n) : [];
       if(com.length){
         const tot = com.reduce((t, x) => t + x.n, 0);
         iniProf.badges.respostas = tot + " para corrigir";

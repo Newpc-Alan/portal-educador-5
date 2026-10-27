@@ -601,7 +601,9 @@ function desenharPainel(){
     ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>'+
     '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button>'+(p.fotos ? '<button class="btn btn-gh btn-sm" data-action="pn-fotos">📸 Fotos de confirmação</button>' : '')+'</div>';
   const pendTotal = Object.values(PN.res).reduce((t, r) => t + (r.pendentes || 0), 0), temAbertas = p.questoes.some(q => !["multipla", "vf"].includes(q.tipo));
-  if(temAbertas && Object.keys(PN.res).length) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">✍️ Corrigir questões abertas'+(pendTotal ? " ("+pendTotal+" para corrigir)" : "")+'</button>');
+  // a função de correção ainda não foi publicada no servidor: mostra o aviso no lugar do botão (troca para true na publicação)
+  if(temAbertas && Object.keys(PN.res).length && !CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<span class="btn btn-gh btn-sm" aria-disabled="true" style="cursor:default;opacity:.75">✍️ Correção das questões abertas: em ativação</span>');
+  if(temAbertas && Object.keys(PN.res).length && CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">✍️ Corrigir questões abertas'+(pendTotal ? " ("+pendTotal+" para corrigir)" : "")+'</button>');
 }
 function modalLiberar(uid){
   const a = (E.prova.alunos || []).find(x => x.uid === uid) || { nome:"aluno" }, t = PN.tent[uid] || {};
@@ -611,6 +613,7 @@ function modalLiberar(uid){
   document.querySelector("#capa p").style.whiteSpace = "pre-wrap";
 }
 /* ---------- correção das questões abertas (professor) ---------- */
+const CORRECAO_NO_AR = false;   // vira true quando corrigirProvaOnline estiver publicada (GitHub Actions ou Cloud Shell)
 // por questão: todas as respostas da turma, uma embaixo da outra, com a resposta esperada no topo
 const CRIT = { conteudo:"Avaliar só o conteúdo: erros de português não tiram ponto", apontar:"Apontar erros de português sem descontar (o aluno vê a observação)", descontar:"Erros de português contam na nota" };
 const CO = { qid:"", gab:null, sujo:{} };
@@ -786,7 +789,7 @@ document.addEventListener("click", e => {
   else if(a === "foto-ligar") fotoLigar();
   else if(a === "foto-tirar") fotoTirar();
   else if(a === "pn-fotos") painelFotos();
-  else if(a === "pn-corrigir") abrirCorrecao();
+  else if(a === "pn-corrigir"){ if(CORRECAO_NO_AR) abrirCorrecao(); }
   else if(a === "corr-q"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; abrirCorrecao(arg); }
   else if(a === "corr-pt") marcarPontos(arg);
   else if(a === "corr-salvar") salvarCorrecao(el);
