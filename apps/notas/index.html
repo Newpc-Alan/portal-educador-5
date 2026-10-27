@@ -140,6 +140,8 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .anexos{display:grid;gap:6px;margin:4px 0 8px}.anexo{display:flex;align-items:center;gap:8px;border:1px solid var(--line,#dfe7ef);border-radius:10px;padding:6px 10px;font-size:.88rem}.anexo b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.anexo button{border:0;background:none;cursor:pointer;font-size:1rem}
 .anexo-add{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.anexo-add input[type=url]{flex:1;min-width:160px;border:1.5px solid var(--line,#dfe7ef);border-radius:10px;padding:8px 10px;font:inherit}
 .th-anx{display:block;font-size:.7rem;color:#1b5f93}
+.puxar{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:-4px 0 14px}.puxar-bt{justify-content:flex-start;gap:12px;padding:12px 16px;white-space:normal;text-align:left;border-radius:14px}.puxar-bt>span:first-child{font-size:1.6rem}.puxar-bt b{display:block;font-size:.95rem}.puxar-bt small{display:block;font-weight:500;opacity:.85;font-size:.78rem;margin-top:2px}.btn-gh.puxar-bt{border-width:1.5px;border-color:#1b5f93;color:#0f2c4a}
+@media (max-width:640px){.puxar{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -179,8 +181,11 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
         <span class="esp"></span>
         <label class="sub" for="aulasPer">Aulas dadas no período</label><input class="inp" id="aulasPer" type="number" min="0" max="400" style="width:90px">
         <button class="btn btn-ok btn-sm" data-action="nova-av">＋ Avaliação</button>
-        <button class="btn btn-gh btn-sm" data-action="importar">⬇ Puxar notas (prova online e Corretor)</button>
         <button class="btn btn-gh btn-sm" data-action="rec-col" id="btnRec">＋ Recuperação</button>
+      </div>
+      <div class="puxar">
+        <button class="btn btn-pri puxar-bt" data-action="importar"><span>📡</span><span><b>Puxar notas da prova online</b><small>e das provas já corrigidas no Corretor</small></span></button>
+        <button class="btn btn-gh puxar-bt" data-action="abrir-corretor"><span>📷</span><span><b>Corretor de Gabarito</b><small>corrigir provas impressas pela câmera</small></span></button>
       </div>
       <div class="freq-aviso" id="freqAviso" hidden></div>
       <div class="grade-wrap" id="gradeBox"></div>
@@ -766,7 +771,7 @@ const ACOES = {
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
   "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "av-link": () => anexarLink(), "av-abrir-anexo": i => abrirAnexo(i), "av-tirar-anexo": i => tirarAnexo(i), "excluir-av": () => excluirAv(),
   "rec-col": () => { E.P.avaliacoes.push({ id:novoId(), periodo:E.per, nome:"Recuperação", peso:1, max:E.regra.nota_max, tipo:"rec" }); salvar(); desenhar(); },
-  "importar": () => abrirImportar(), "importar-av": id => importarAv(id), "importar-po": id => importarPo(id), "exportar": () => exportar(),
+  "importar": () => abrirImportar(), "abrir-corretor": () => { location.href = "/apps/corretor/" + (E.P && E.P.turma_id ? "?turma=" + encodeURIComponent(E.P.turma_id) : ""); }, "importar-av": id => importarAv(id), "importar-po": id => importarPo(id), "exportar": () => exportar(),
   "conselho": id => { E.consAluno = id; const c = E.P.conselho[id] || {}; $("consAluno").textContent = (E.alunos.find(a => a.id === id) || {}).nome || ""; $("consAprov").checked = !!c.aprovado; $("consJust").value = c.justificativa || ""; $("mCons").hidden = false; },
   "salvar-cons": () => { const j = $("consJust").value.trim().slice(0, 300); if($("consAprov").checked && !j){ toast("Escreva a justificativa do conselho.", true); return; }
     if($("consAprov").checked) E.P.conselho[E.consAluno] = { aprovado:true, justificativa:j }; else delete E.P.conselho[E.consAluno]; $("mCons").hidden = true; salvar(); desenhar(); },
