@@ -1,0 +1,79 @@
+# Publica regras e funções do Firebase (projeto portal-educador-5) sem depender do Cloud Shell.
+# Roda só quando alguém clica em "Run workflow" na aba Actions do GitHub (nunca sozinho a cada commit).
+#
+# Configuração única (feita pelo Alan, a chave nunca passa pelo chat):
+#   Settings > Secrets and variables > Actions > New repository secret
+#   Nome: FIREBASE_SERVICE_ACCOUNT   Valor: o conteúdo inteiro do arquivo .json da conta de serviço
+name: Publicar no Firebase
+
+on:
+  workflow_dispatch:
+    inputs:
+      alvo:
+        description: "O que publicar (formato do --only do Firebase)"
+        required: true
+        default: "firestore:rules,functions:publicarProvaOnline,functions:entregarProvaOnline,functions:acaoProvaOnline,functions:fecharProvasOnline,functions:corrigirProvaOnline,functions:iniciarAula,functions:sortearProva,functions:emitirCertificado,functions:vincularContaFormacao"
+      testar_regras:
+        description: "Rodar os testes das regras antes (recomendado quando publicar regras)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publicar-firebase
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROJETO: portal-educador-5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        if: ${{ inputs.testar_regras }}
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Ferramentas
+        run: |
+          npm i -g firebase-tools@13
+          cd functions && npm ci
+
+      - name: Conferir sintaxe das funções
+        run: for f in functions/*.js; do node --check "$f"; done
+
+      - name: Testar regras (emulador, não toca no banco real)
+        if: ${{ inputs.testar_regras }}
+        run: |
+          mkdir -p /tmp/rt && cp scripts/teste-regras-*.mjs firestore.rules storage.rules /tmp/rt/
+          cd /tmp/rt && npm init -y >/dev/null && npm i --silent @firebase/rules-unit-testing@3 firebase@10
+          echo '{"firestore":{"rules":"firestore.rules"},"storage":{"rules":"storage.rules"}}' > firebase.json
+          for t in teste-regras-*.mjs; do
+            echo "== $t"
+            firebase emulators:exec --only firestore,storage --project demo-pe5 "node $t $( [ "$t" = teste-regras-fotos.mjs ] && echo storage.rules || echo firestore.rules )"
+          done
+
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo FIREBASE_SERVICE_ACCOUNT no repositório."; exit 1; fi
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+
+      - name: Publicar
+        run: firebase deploy --only "${{ inputs.alvo }}" --project "$PROJETO" --non-interactive
+
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
