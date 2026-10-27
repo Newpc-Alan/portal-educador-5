@@ -176,7 +176,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
         <span class="esp"></span>
         <label class="sub" for="aulasPer">Aulas dadas no período</label><input class="inp" id="aulasPer" type="number" min="0" max="400" style="width:90px">
         <button class="btn btn-ok btn-sm" data-action="nova-av">＋ Avaliação</button>
-        <button class="btn btn-gh btn-sm" data-action="importar">⬇ Puxar notas do Corretor</button>
+        <button class="btn btn-gh btn-sm" data-action="importar">⬇ Puxar notas (prova online e Corretor)</button>
         <button class="btn btn-gh btn-sm" data-action="rec-col" id="btnRec">＋ Recuperação</button>
       </div>
       <div class="freq-aviso" id="freqAviso" hidden></div>
@@ -260,8 +260,8 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 
 <!-- importar -->
 <div class="modal" id="mImp" hidden><div class="modal-box">
-  <h3>Puxar notas do Corretor de Gabarito</h3>
-  <p class="sub">Provas desta turma corrigidas no Corretor de Gabarito. A nota de cada aluno entra numa coluna nova do período escolhido, convertida para a escala da rede.</p>
+  <h3>Puxar notas para a planilha</h3>
+  <p class="sub">Provas desta turma aplicadas online ou corrigidas no Corretor de Gabarito. A nota de cada aluno entra numa coluna nova do período aberto, convertida para a escala da rede.</p>
   <div class="lista-av" id="listaImp"></div>
   <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Fechar</button></div>
 </div></div>
@@ -597,11 +597,21 @@ async function abrirImportar(){
   const l = [];
   try{ const s = await getDocs(query(collection(db, "avaliacoes"), where("professor_uid", "==", E.user.uid), where("turma_id", "==", E.P.turma_id))); s.forEach(d => l.push({ id:d.id, ...d.data() })); }
   catch(e){ console.warn("avaliacoes:", e.code); }
-  const ja = new Set(E.P.avaliacoes.map(a => a.origem).filter(Boolean));
+  // provas online desta turma (as recuperações não viram coluna: atualizam a coluna da prova original, valendo a maior nota)
+  const po = [];
+  try{ const s = await getDocs(query(collection(db, "provas_online"), where("professor_uid", "==", E.user.uid), where("turma_id", "==", E.P.turma_id))); s.forEach(d => { const x = d.data(); if(x.status !== "cancelada") po.push({ id:d.id, ...x }); }); }
+  catch(e){ console.warn("provas online:", e.code); }
+  po.sort((a, b) => (a.abre_em && a.abre_em.toMillis ? a.abre_em.toMillis() : 0) - (b.abre_em && b.abre_em.toMillis ? b.abre_em.toMillis() : 0));
+  E.impPo = po;
+  const ja = new Set(E.P.avaliacoes.map(a => a.origem).filter(Boolean)), jaRec = new Set(E.P.avaliacoes.flatMap(a => a.recs || []));
+  const fim = x => x.status === "encerrada" || (x.fecha_em && x.fecha_em.toMillis && x.fecha_em.toMillis() < Date.now());
+  const htmlPo = po.map(x => { const rec = !!x.recuperacao_de, feito = rec ? jaRec.has(x.id) : ja.has("po:" + x.id), semOrig = rec && !ja.has("po:" + x.recuperacao_de);
+    return '<button data-action="importar-po" data-arg="' + esc(x.id) + '"' + (feito || semOrig ? " disabled" : "") + "><b>📡 " + esc(x.titulo) + "</b><small>" +
+      esc([rec ? "recuperação: atualiza a coluna da prova original (vale a maior)" : "prova online", "vale " + fmt(x.total_pontos, 2) + " pontos", fim(x) ? "" : "ainda aberta", feito ? "já puxada" : semOrig ? "puxe antes a prova original" : ""].filter(Boolean).join(" · ")) + "</small></button>"; }).join("");
   l.sort((a, b) => (a.bimestre || 0) - (b.bimestre || 0) || String(a.titulo).localeCompare(String(b.titulo), "pt-BR"));
-  $("listaImp").innerHTML = l.length ? l.map(a => '<button data-action="importar-av" data-arg="' + esc(a.id) + '"' + (ja.has(a.id) ? " disabled" : "") + "><b>" + esc(a.titulo) + "</b><small>" +
+  $("listaImp").innerHTML = (htmlPo ? '<p class="sub" style="margin:4px 0">Provas online</p>' + htmlPo + '<p class="sub" style="margin:10px 0 4px">Corretor de Gabarito</p>' : "") + (l.length ? l.map(a => '<button data-action="importar-av" data-arg="' + esc(a.id) + '"' + (ja.has(a.id) ? " disabled" : "") + "><b>" + esc(a.titulo) + "</b><small>" +
     esc([a.disciplina, a.bimestre ? a.bimestre + "º " + NOME_PER[E.regra.periodos] : "", "vale " + fmt(a.total_pontos, 2) + " pontos", ja.has(a.id) ? "já puxada" : ""].filter(Boolean).join(" · ")) + "</small></button>").join("")
-    : '<p class="sub">Nenhuma prova desta turma corrigida no Corretor de Gabarito ainda.</p>';
+    : '<p class="sub">Nenhuma prova desta turma corrigida no Corretor de Gabarito ainda.</p>');
   E.impLista = l;
 }
 async function importarAv(id){
@@ -622,6 +632,32 @@ async function importarAv(id){
   E.P.avaliacoes.push(col); E.per = periodo;
   $("mImp").hidden = true; salvar(); desenhar();
   toast(n + " notas puxadas para o " + perNome(periodo) + (pend ? ". " + pend + " ainda com dissertativa sem correção." : "."));
+}
+
+// prova online: a nota (resultado) é da matrícula: po_resultados/m-<id do aluno>
+async function importarPo(id){
+  const x = (E.impPo || []).find(p => p.id === id); if(!x) return;
+  const res = {};
+  try{ const s = await getDocs(collection(db, "provas_online", id, "po_resultados")); s.forEach(d => { if(d.id.startsWith("m-")) res[d.id.slice(2)] = d.data(); }); }
+  catch(e){ console.warn("po_resultados:", e.code); toast("Não foi possível ler as notas da prova online.", true); return; }
+  const mx = E.regra.nota_max, total = +x.total_pontos || mx, conv = v => Math.round(Math.min(total, v) / total * mx * 100) / 100;
+  let n = 0, pend = 0;
+  if(x.recuperacao_de){
+    const col = E.P.avaliacoes.find(a => a.origem === "po:" + x.recuperacao_de); if(!col){ toast("Puxe antes a prova original.", true); return; }
+    E.alunos.forEach(a => { const r = res[a.id]; if(!r) return; if(r.pendentes) pend++;
+      const nota = conv(r.nota || 0), N = E.P.notas[a.id] = E.P.notas[a.id] || {};
+      if(N[col.id] === undefined || nota > N[col.id]){ N[col.id] = nota; n++; } });
+    col.recs = [...new Set([...(col.recs || []), id])];   // fica na própria coluna (registro de qual recuperação já entrou)
+    $("mImp").hidden = true; salvar(); desenhar();
+    toast("Recuperação puxada: " + n + " nota(s) melhoraram na coluna " + col.nome + "." + (pend ? " " + pend + " com questão aberta ainda sem correção (entrou a parte já corrigida)." : ""));
+    return;
+  }
+  const col = { id:novoId(), periodo:E.per, nome:String(x.titulo || "Prova online").slice(0, 40), peso:1, max:mx, tipo:"nota", origem:"po:" + id };
+  E.alunos.forEach(a => { const r = res[a.id]; if(!r) return; if(r.pendentes) pend++;
+    const N = E.P.notas[a.id] = E.P.notas[a.id] || {}; N[col.id] = conv(r.nota || 0); n++; });
+  E.P.avaliacoes.push(col);
+  $("mImp").hidden = true; salvar(); desenhar();
+  toast(n + " nota(s) da prova online no " + perNome(E.per) + "." + (pend ? " " + pend + " com questão aberta ainda sem correção (entrou a parte já corrigida)." : "") + (n < E.alunos.length ? " Quem não fez fica em branco." : ""));
 }
 
 /* ===================== regra (secretaria e equipe NEWPC) ===================== */
@@ -675,7 +711,7 @@ const ACOES = {
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
   "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "excluir-av": () => excluirAv(),
   "rec-col": () => { E.P.avaliacoes.push({ id:novoId(), periodo:E.per, nome:"Recuperação", peso:1, max:E.regra.nota_max, tipo:"rec" }); salvar(); desenhar(); },
-  "importar": () => abrirImportar(), "importar-av": id => importarAv(id), "exportar": () => exportar(),
+  "importar": () => abrirImportar(), "importar-av": id => importarAv(id), "importar-po": id => importarPo(id), "exportar": () => exportar(),
   "conselho": id => { E.consAluno = id; const c = E.P.conselho[id] || {}; $("consAluno").textContent = (E.alunos.find(a => a.id === id) || {}).nome || ""; $("consAprov").checked = !!c.aprovado; $("consJust").value = c.justificativa || ""; $("mCons").hidden = false; },
   "salvar-cons": () => { const j = $("consJust").value.trim().slice(0, 300); if($("consAprov").checked && !j){ toast("Escreva a justificativa do conselho.", true); return; }
     if($("consAprov").checked) E.P.conselho[E.consAluno] = { aprovado:true, justificativa:j }; else delete E.P.conselho[E.consAluno]; $("mCons").hidden = true; salvar(); desenhar(); },
