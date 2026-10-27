@@ -460,6 +460,9 @@ html.pde-quiosque-ativo .s-hn { display: none !important; }
 #pde-painel .pde-cr-info.falta { background: #fff4e0; border-color: #edd9ae; color: #6E4A12; }
 #pde-painel .pde-cr-info ul { margin: 6px 0 0 18px; padding: 0; }
 #pde-painel .pde-cr-info .pde-btn { margin-top: 8px; }
+#pde-painel .pde-eco { margin-top: 14px; border: 1.5px solid #cfe0d3; background: #f6fbf7; border-radius: 12px; padding: 10px 12px; }
+#pde-painel .pde-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 760px) { #pde-painel .pde-grid-3 { grid-template-columns: 1fr; } }
 #pde-painel .pde-cr-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 #pde-painel a.pde-btn[hidden] { display: none !important; }
 #pde-painel .pde-classif { margin-top: 14px; border: 1.5px solid #cfe0d3; background: #f6fbf7; border-radius: 14px; padding: 12px 14px 10px; }
@@ -1070,6 +1073,14 @@ html, body { background: #f4f7fa !important; }
               <div class="pde-hint">Cada cópia sai com a ordem das questões e das alternativas sorteada, e o gabarito acompanha a versão</div>
             </div>
           </div>
+          <div class="pde-eco">
+            <label class="pde-label" for="pd-papel">🌱 Economia de papel</label>
+            <select id="pd-papel" class="pde-select">
+              <option value="eco">Econômica: 2 colunas, letra 10 e margens menores (recomendado)</option>
+              <option value="normal">Normal: 1 coluna e letra 11</option>
+            </select>
+            <div class="pde-hint">A econômica costuma usar perto da metade das folhas. Gabaritos de várias versões saem juntos, numa folha só. Para alunos com baixa visão, use a ♿ Versão adaptada.</div>
+          </div>
         </div>
       </div>
 
@@ -1116,10 +1127,15 @@ html, body { background: #f4f7fa !important; }
         </div>
         <div class="pde-card-body">
           <div id="cr-info" class="pde-cr-info">Carregando...</div>
-          <div class="pde-grid-2" style="margin-top:12px">
+          <div class="pde-grid-3" style="margin-top:12px">
             <div class="pde-field">
               <label class="pde-label" for="cr-nomes">Cartões</label>
               <select id="cr-nomes" class="pde-select"><option value="sim">Com o nome de cada aluno da turma</option><option value="nao">Só em branco</option></select>
+            </div>
+            <div class="pde-field">
+              <label class="pde-label" for="cr-fmt">Cartões por folha 🌱</label>
+              <select id="cr-fmt" class="pde-select"><option value="auto">Automático: o máximo que couber</option><option value="a6">4 por folha (até 20 questões)</option><option value="a5">2 por folha (até 30 questões)</option><option value="a4">1 por folha (até 51 questões)</option></select>
+              <div class="pde-hint">Com 2 ou 4 por folha, corte na linha tracejada. No scanner do Corretor a folha pode ir inteira.</div>
             </div>
             <div class="pde-field">
               <label class="pde-label" for="cr-branco">Cartões extras em branco</label>
@@ -3164,9 +3180,10 @@ const LOGO_PDE = 'data:image/webp;base64,UklGRowZAABXRUJQVlA4WAoAAAAQAAAAfwAAfwA
 function buildFooterPrint(code){
   return `<div class="pe-rodape"><span class="pe-rod-l"><img src="${LOGO_PDE}" alt="">Documento gerado no Portal do Educador · portaldoeducador.com.br</span><span class="pe-cod">Código de autenticidade: ${code}</span></div>`;
 }
-function wrapPrint(inner, title){
+function wrapPrint(inner, title, eco){
   return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
 <title>${esc(title)}</title>
+${eco ? '<style>@page { size:A4; margin:9mm 10mm 10mm 10mm; }</style>' : ''}
 <style>
   @page { size:A4; margin:14mm 14mm 16mm 14mm; }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -3211,7 +3228,38 @@ function wrapPrint(inner, title){
   .pe-gab-item{border:1px solid #ccd;border-radius:5px;padding:7px;text-align:center;font-size:9.5pt}
   .pe-gab-item .n{font-weight:700;color:#0F2C4A}
   .pe-gab-item .r{color:#1A6B2A;font-weight:700;font-size:11pt}
-</style></head><body>${inner}</body></html>`;
+  /* economia de papel: 2 colunas, letra 10, espaços menores */
+  body.eco{font-size:10pt;line-height:1.35}
+  body.eco .pe-folha{padding-bottom:8mm}
+  body.eco .pe-cab{padding-bottom:5px;margin-bottom:7px;gap:10px;border-bottom-width:1.5px}
+  body.eco .pe-cab img{max-height:42px;max-width:70px}
+  body.eco .pe-cab-escola{font-size:12pt}
+  body.eco .pe-cab-linha{font-size:8.5pt;margin-top:1px}
+  body.eco .pe-meta-box{padding:4px 9px;margin-bottom:5px;font-size:8.5pt;grid-template-columns:repeat(4,auto);gap:2px 14px}
+  body.eco .pe-aluno-linha{margin-bottom:7px;padding:3px 0;font-size:9.5pt}
+  body.eco .pe-inst{padding:5px 9px;margin-bottom:8px;font-size:8.5pt}
+  body.eco .pe-qs{column-count:2;column-gap:7mm;column-rule:0.5px solid #ccd}
+  body.eco .pe-q{margin-bottom:9px;break-inside:avoid}
+  body.eco .pe-q-n{min-width:20px;height:20px;font-size:9pt}
+  body.eco .pe-q-txt{font-size:9.5pt}
+  body.eco .pe-q-val{font-size:7.5pt}
+  body.eco .pe-alts,body.eco .pe-vf,body.eco .pe-linhas,body.eco .pe-grade,body.eco .pe-q-img{margin-left:26px}
+  body.eco .pe-alt{font-size:9pt;margin-bottom:2px}
+  body.eco .pe-alts.alts2{display:grid;grid-template-columns:1fr 1fr;column-gap:8px}
+  body.eco .pe-alts.alts4{display:grid;grid-template-columns:repeat(4,auto);column-gap:12px;justify-content:start}
+  body.eco .pe-alt-l{width:17px;height:17px;font-size:7.5pt}
+  body.eco .pe-q-img img{max-width:100%;max-height:150px}
+  body.eco .pe-linha-resp{height:18px}
+  body.eco .pe-grade{font-size:8pt;max-width:calc(100% - 26px)}
+  body.eco .pe-grade th,body.eco .pe-grade td{padding:3px 5px}
+  body.eco .pe-rodape{margin-top:8px}
+  /* gabaritos de várias versões numa folha só */
+  .pe-gv{border:1px solid #ccd;border-radius:6px;padding:6px 9px;margin-bottom:7px;break-inside:avoid;page-break-inside:avoid}
+  .pe-gv b{color:#0F2C4A;font-size:9.5pt}
+  .pe-gv-l{display:flex;flex-wrap:wrap;gap:3px 10px;margin-top:3px;font-size:9pt}
+  .pe-gv-l span{white-space:nowrap}
+  .pe-gv-l i{font-style:normal;font-weight:700;color:#1A6B2A;margin-left:2px}
+</style></head><body${eco ? ' class="eco"' : ''}>${inner}</body></html>`;
 }
 function printInIframe(html){
   const old = document.getElementById('pe-print-frame');
@@ -3252,8 +3300,10 @@ function buildProofHTML(data, ordersPerQuestion, versaoLabel){
     const imgs = q.imgs && q.imgs.length ? q.imgs : (q.img ? [q.img] : []);
     imgs.forEach(src => { bloco += `<div class="pe-q-img"><img src="${src}" alt=""></div>`; });
     if(q.tipo === 'multipla' || q.tipo === 'checkbox'){
-      bloco += `<div class="${q.tipo==='checkbox'?'pe-alts pe-checkbox':'pe-alts'}">`;
       const show = orders ? orders.map(i => q.alts[i]) : q.alts;
+      // alternativas curtas lado a lado (só na impressão econômica)
+      const maior = Math.max(0, ...(show || []).map(a => String(a || '').length)), curtas = maior <= 10 ? ' alts4' : maior <= 24 ? ' alts2' : '';
+      bloco += `<div class="${q.tipo==='checkbox'?'pe-alts pe-checkbox':'pe-alts'}${curtas}">`;
       (show || []).forEach((alt,ai) => { bloco += `<div class="pe-alt"><div class="pe-alt-l">${String.fromCharCode(65+ai)}</div><div>${esc(alt)}</div></div>`; });
       bloco += `</div>`;
     }
@@ -3279,7 +3329,34 @@ function buildProofHTML(data, ordersPerQuestion, versaoLabel){
     <div class="pe-meta-box"><div><strong>Professor(a):</strong> ${esc(H.prof||'—')}</div><div><strong>Data:</strong> ${esc(H.data||'____/____/______')}</div><div><strong>Disciplina:</strong> ${esc(H.mat||'—')}</div><div><strong>Valor total:</strong> ${fmtPts(data.totalPontos)} pontos</div></div>
     <div class="pe-aluno-linha"><div style="flex:1"><strong>Aluno(a):</strong> _______________________________________________</div><div>${FINALIDADES[H.finalidade] && !FINALIDADES[H.finalidade].nota ? '<strong>Não vale nota</strong>' : '<strong>Nota:</strong> _________'}</div></div>
     ${H.inst ? `<div class="pe-inst"><strong>Instruções:</strong> ${esc(H.inst)}</div>` : ''}
-    ${qsHTML}
+    <div class="pe-qs">${qsHTML}</div>
+    ${buildFooterPrint(data._code || genProofCode())}
+  </div>`;
+}
+function respostasGab(data, ordersPerQuestion){
+  return data.questoes.map((q,qi) => {
+    if(q.tipo === 'multipla'){
+      if(Number.isInteger(q.gab) && q.gab >= 0 && q.alts && q.alts[q.gab] !== undefined){
+        let pos = q.gab;
+        if(ordersPerQuestion && ordersPerQuestion[qi]) pos = ordersPerQuestion[qi].indexOf(q.gab);
+        return String.fromCharCode(65 + pos);
+      }
+      return '—';
+    }
+    if(q.tipo === 'vf') return q.gab || '—';
+    if(q.tipo === 'checkbox') return 'Múltipla';
+    if(q.tipo === 'curta' || q.tipo === 'dissertativa') return 'Aberta';
+    if(q.tipo.includes('grade')) return 'Grade';
+    return '—';
+  });
+}
+// gabaritos de todas as versões juntos, compactos (uma linha por versão): economiza uma folha por cópia
+function buildAnswerKeysCompact(lista, data){
+  const blocos = lista.map(x => `<div class="pe-gv"><b>${esc(x.label)}</b><div class="pe-gv-l">${respostasGab(x.v, x.orders).map((r,i) => `<span>${i+1}<i>${esc(r)}</i></span>`).join('')}</div></div>`).join('');
+  return `<div class="pe-folha">
+    <div class="pe-gab-tit">🔑 GABARITOS DAS VERSÕES</div>
+    <div style="text-align:center;font-size:9.5pt;color:#556;margin-bottom:10px">${esc(data.header.escola||'')} · ${esc(data.header.mat||'')} · ${esc(data.header.turma||'')}</div>
+    ${blocos}
     ${buildFooterPrint(data._code || genProofCode())}
   </div>`;
 }
@@ -3343,15 +3420,19 @@ async function handlePrint(){
     paginas.push(buildAnswerKeyPage(data, orders, ''));
   }
   else if(modo === 'provas_gab_versao'){
+    const gabs = [];
     for(let c=0;c<nCopias;c++){
       const v = versaoDaProva(data, embQ);
       const orders = makeOrdersForVersion(v.questoes,emb);
       const label = `Versão ${c+1}`;
       paginas.push(buildProofHTML(v, orders, label));
-      paginas.push(buildAnswerKeyPage(v, orders, label));
+      gabs.push({ v, orders, label });
     }
+    paginas.push(buildAnswerKeysCompact(gabs, data));
   }
-  printInIframe(wrapPrint(paginas.join(pageBreak()), 'Prova - ' + (data.header.escola || 'Portal do Educador')));
+  const eco = id('pd-papel').value === 'eco';
+  try { localStorage.setItem('pe_provas_papel', id('pd-papel').value); } catch(e){}
+  printInIframe(wrapPrint(paginas.join(pageBreak()), 'Prova - ' + (data.header.escola || 'Portal do Educador'), eco));
   toast('🖨️ ' + nCopias + (nCopias > 1 ? ' cópias geradas!' : ' prova gerada!'));
 }
 
@@ -3457,10 +3538,11 @@ async function aplicarInstrucao(chave){
 ].forEach(([n,f]) => registerAction(n, f));
 
 /* API mínima para testes e integrações */
-window.PDEProvas = { definirTurmas, montarPeriodos, classificacao, faltaClassif, definirClassif, irParaClassif, FINALIDADES, NOME_PER, periodoTxt, goStep, addQuestion, collectData, Banco, TEMPLATES, BNCC, detectarBNCC, pdeDialog, pdeConfirm, toast, saveState, LS_KEY, bancoReady, refreshResumo, ACTIONS, buildProofHTML, wrapPrint, printInIframe, genProofCode, makeOrdersForVersion, TYPE_LABELS };
+window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montarPeriodos, classificacao, faltaClassif, definirClassif, irParaClassif, FINALIDADES, NOME_PER, periodoTxt, goStep, addQuestion, collectData, Banco, TEMPLATES, BNCC, detectarBNCC, pdeDialog, pdeConfirm, toast, saveState, LS_KEY, bancoReady, refreshResumo, ACTIONS, buildProofHTML, wrapPrint, printInIframe, genProofCode, makeOrdersForVersion, TYPE_LABELS };
 
 /* ══════════ INIT ══════════ */
 (function init(){
+  try { const pp = localStorage.getItem('pe_provas_papel'); if(pp === 'normal' || pp === 'eco') id('pd-papel').value = pp; } catch(e){}
   /* Quiosque é o padrão: só fica inline se o professor tiver saído dele nesta máquina */
   let pref = '1';
   try { pref = localStorage.getItem(LS_QUIOSQUE) || '1'; } catch(e){}
@@ -4122,7 +4204,14 @@ async function olAplicar(){
 /* ═══════════ CARTÃO-RESPOSTA: o mesmo do Corretor de Gabarito ═══════════
    Cria (ou reaproveita) a prova no Corretor (coleção avaliacoes) para a turma do cabeçalho e gera o PDF
    com /assets/js/cartao-resposta.js, o mesmo arquivo que o Corretor usa para imprimir e para ler. */
-const CR = { ocupado:false, mod:null };
+const CR = { ocupado:false, mod:null, nAlunos:{} };
+function crFormato(M, nQ){ const v = $("cr-fmt").value; return v === "auto" || !M.formatoValido(v, nQ) ? M.formatoAuto(nQ) : v; }
+async function alunosDaTurmaCR(t){
+  const l = [], sa = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id)));
+  sa.forEach(x => { const a = x.data(); if(a.nome && a.status !== "inativo") l.push({ id:x.id, nome:String(a.nome).trim() }); });
+  return l.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+}
+async function crContarAlunos(t){ if(CR.contando) return; CR.contando = true; try{ CR.nAlunos[t.id] = (await alunosDaTurmaCR(t)).length; }catch(e){ CR.nAlunos[t.id] = 0; } CR.contando = false; crAtualizar(); }
 async function crModulo(){ return CR.mod || (CR.mod = await import("/assets/js/cartao-resposta.js")); }
 function crTurma(H){ return (P.turmasObj || []).find(t => t.id === H.turma_id) || null; }
 async function crAtualizar(){
@@ -4138,9 +4227,15 @@ async function crAtualizar(){
   if(!r.questoes.length && !r.semGab.length) prob.push("A prova não tem questão de múltipla escolha. O cartão-resposta serve para as objetivas.");
   if(r.questoes.length > M.MAX_QUESTOES) prob.push("O cartão comporta até " + M.MAX_QUESTOES + " questões objetivas (esta tem " + r.questoes.length + ").");
   const ok = !prob.length;
+  let papel = "";
+  if(ok){
+    const fmt = crFormato(M, r.questoes.length), n = (CR.nAlunos[t.id] ?? 0) * ($("cr-nomes").value === "sim" ? 1 : 0) + Math.max(0, Math.min(60, parseInt($("cr-branco").value, 10) || 0)), f = M.folhasPara(n, fmt);
+    papel = "<br>🌱 " + (CR.nAlunos[t.id] === undefined ? "Cartões" : n + " cartões") + " em <b>" + M.FORMATOS[fmt].curto + "</b>" + (CR.nAlunos[t.id] === undefined ? "" : ": <b>" + f + " folha(s)</b>" + (f < n ? " em vez de " + n + " (economia de " + (n - f) + ")" : "")) + ".";
+    if(CR.nAlunos[t.id] === undefined) crContarAlunos(t);
+  }
   el.className = "pde-cr-info " + (ok ? "ok" : "falta");
   el.innerHTML = ok
-    ? "✅ <b>" + r.questoes.length + " questões objetivas</b> no cartão · turma <b>" + escH(t.nome) + "</b>" + (r.fora.length ? " · " + r.fora.length + " aberta(s) ficam para corrigir na prova e lançar em Notas e Médias" : "") + "."
+    ? "✅ <b>" + r.questoes.length + " questões objetivas</b> no cartão · turma <b>" + escH(t.nome) + "</b>" + (r.fora.length ? " · " + r.fora.length + " aberta(s) ficam para corrigir na prova e lançar em Notas e Médias" : "") + "." + papel
     : "⚠️ Para gerar os cartões:<ul>" + prob.map(x => "<li>" + x + "</li>").join("") + "</ul>";
   $("cr-gerar").disabled = !ok || CR.ocupado;
   return ok ? { M, d, H, r, t } : null;
@@ -4181,21 +4276,16 @@ async function crGerar(){
     }
     // alunos da turma (mesma consulta do Corretor)
     let alunos = [];
-    if($("cr-nomes").value === "sim"){
-      const sa = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id)));
-      sa.forEach(x => { const a = x.data(); if(a.nome && a.status !== "inativo") alunos.push({ id:x.id, nome:String(a.nome).trim() }); });
-      alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-    }
+    if($("cr-nomes").value === "sim"){ alunos = await alunosDaTurmaCR(t); CR.nAlunos[t.id] = alunos.length; }
     const branco = Math.max(0, Math.min(60, parseInt($("cr-branco").value, 10) || 0)), lista = [...alunos, ...Array.from({ length:branco }, () => null)];
     if(!lista.length){ G().toast($("cr-nomes").value === "sim" ? "A turma ainda não tem alunos matriculados. Gere cartões em branco ou cadastre os alunos." : "Informe quantos cartões em branco.", "warn"); return; }
-    const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), lay = M.layoutDaProva(aval), turmaCartao = { nome:base.turma_nome, escola_nome:base.escola_nome };
-    lista.forEach((al, i) => { if(i) pdf.addPage(); M.desenharCartao(pdf, { lay, aval, turma:turmaCartao, aluno:al }); });
+    const fmt = crFormato(M, r.questoes.length), pdf = M.gerarPdfCartoes({ aval, turma:{ nome:base.turma_nome, escola_nome:base.escola_nome }, lista, fmt }), folhas = M.folhasPara(lista.length, fmt);
     window.__ultimoPdf = pdf.output("datauristring");
     pdf.save("cartoes-" + titulo.normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().slice(0, 40) + ".pdf");
     try{ localStorage.setItem("pde_corretor_turma", t.id); localStorage.setItem("pde_corretor_aval", aval.id); }catch(e){}
     const link = $("cr-corretor"); link.href = "/apps/corretor/?turma=" + encodeURIComponent(t.id); link.hidden = false;
     CR.ultima = aval.id;
-    G().toast(lista.length + " cartões gerados (" + alunos.length + " com nome)." + aviso + " Imprima em tamanho real (100%).");
+    G().toast(lista.length + " cartões em " + folhas + " folha(s)" + (fmt !== "a4" ? ", corte na linha tracejada" : "") + "." + aviso + " Imprima em tamanho real (100%).");
   }catch(e){ console.warn("cartao:", e); G().toast("Não foi possível gerar os cartões (" + (e.code || e.message || "erro") + ").", "err"); }
   finally{ CR.ocupado = false; btn.textContent = "📋 Gerar cartões-resposta (PDF)"; crAtualizar(); }
 }
@@ -4204,6 +4294,7 @@ async function crGerar(){
   const passo = $("step-impressao"); if(!passo) return;
   new MutationObserver(() => { if(passo.style.display !== "none") crAtualizar(); }).observe(passo, { attributes:true, attributeFilter:["style"] });
   $("pd-embaralhar").addEventListener("change", () => crAtualizar());
+  ["cr-fmt", "cr-nomes", "cr-branco"].forEach(i => $(i).addEventListener("change", () => crAtualizar()));
 })();
 
 function registrar(){

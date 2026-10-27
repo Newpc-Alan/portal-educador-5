@@ -194,10 +194,11 @@ table.res{width:100%;border-collapse:collapse}
   <section class="sec" id="s-cartoes">
     <div class="card">
       <div class="h2">🖨️ Cartões-resposta</div>
-      <p class="sub" style="margin:4px 0 14px">Um cartão por aluno, com o nome e um código QR. Imprima em A4, sem ajustar à página (tamanho real, 100%). Os 4 quadrados pretos dos cantos precisam aparecer inteiros.</p>
+      <p class="sub" style="margin:4px 0 14px">Um cartão por aluno, com o nome e um código QR. Imprima em A4, sem ajustar à página (tamanho real, 100%). Com 2 ou 4 por folha, corte na linha tracejada: cada cartão tem os seus 4 quadrados pretos. No scanner, a folha pode ir inteira, sem cortar.</p>
       <div class="grade4">
         <label class="campo"><span style="font-size:.78rem;font-weight:700;color:var(--ink-2)">Cartões com nome</span><select id="cNomes"><option value="sim">Um para cada aluno da turma</option><option value="nao">Nenhum (só em branco)</option></select></label>
         <div class="campo"><label for="cBranco">Cartões em branco a mais</label><input id="cBranco" type="number" min="0" max="60" value="2"></div>
+        <label class="campo"><span style="font-size:.78rem;font-weight:700;color:var(--ink-2)">Cartões por folha 🌱</span><select id="cFmt"><option value="auto">Automático: o máximo que couber</option><option value="a6">4 por folha (até 20 questões)</option><option value="a5">2 por folha (até 30 questões)</option><option value="a4">1 por folha (até 51 questões)</option></select></label>
       </div>
       <div class="barra" style="margin-top:14px"><span class="sub" id="cResumo"></span><span class="esp"></span><button class="btn btn-pri btn-lg" data-action="gerar-pdf" id="btnPdf">📄 Gerar cartões em PDF</button></div>
     </div>
@@ -308,7 +309,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, getBlob } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-import { LETRAS, FID, FIDS, QR, layout, objetivas, nAltDe, desenharCartao as cartaoPdf, questoesDoGerador } from "/assets/js/cartao-resposta.js";
+import { LETRAS, FID, FIDS, QR, QR_COMPACTO, FORMATOS, layout, layoutDaProva, objetivas, nAltDe, questoesDoGerador, lerTextoQr, formatoPelaMarca, formatoAuto, folhasPara, gerarPdfCartoes } from "/assets/js/cartao-resposta.js";
 
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(fb), db = getFirestore(fb), st = getStorage(fb);
@@ -337,8 +338,8 @@ function reduzir(G, maxW){
   return { g, w, h, k };
 }
 // procura os 4 quadrados pretos: limiar adaptativo + manchas conectadas bem "cheias" e quadradas
-function acharMarcas(G0){
-  const G = reduzir(G0, 720), { g, w, h } = G;
+function acharCartoes(G0){
+  const G = reduzir(G0, 900), { g, w, h } = G;
   const I = new Float64Array((w + 1) * (h + 1));
   for(let y = 0; y < h; y++){ let s = 0; for(let x = 0; x < w; x++){ s += g[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + s; } }
   const rr = Math.max(8, Math.round(w / 18)), esc_ = new Uint8Array(w * h);
@@ -371,28 +372,46 @@ function acharMarcas(G0){
     if(asp < 0.6 || asp > 1.65 || cheio < 0.6) continue;
     cand.push({ x:sx / area, y:sy / area, area, lado:Math.sqrt(area), cheio });
   }
-  if(cand.length < 4) return null;
+  if(cand.length < 4) return [];
   cand.sort((a, b) => b.area - a.area);
-  const c = cand.slice(0, 14);
-  let melhor = null;
+  const c = cand.slice(0, 24), validos = [];
   for(let a = 0; a < c.length; a++) for(let b = a + 1; b < c.length; b++) for(let d = b + 1; d < c.length; d++) for(let e = d + 1; e < c.length; e++){
     const q = [c[a], c[b], c[d], c[e]], ls = q.map(p => p.lado), lmin = Math.min(...ls), lmax = Math.max(...ls);
-    if(lmax / lmin > 2.2) continue;
+    if(lmax / lmin > 1.75) continue;  // os 4 cantos do mesmo cartão têm o mesmo tamanho (bolinha pintada e centro do QR são menores)
     const o = ordenar(q); if(!o) continue;
     const dist = (p, r) => Math.hypot(p.x - r.x, p.y - r.y);
     const topoL = dist(o[0], o[1]), base = dist(o[3], o[2]), esq = dist(o[0], o[3]), dir = dist(o[1], o[2]);
     const razao = ((topoL + base) / 2) / ((esq + dir) / 2);          // no papel: 182 / 269 = 0,677
     if(razao < 0.45 || razao > 1.0) continue;
     if(Math.max(topoL, base) / Math.min(topoL, base) > 1.6 || Math.max(esq, dir) / Math.min(esq, dir) > 1.6) continue;
+    // cantos perto de 90° (perspectiva entorta um pouco; quadrilátero "deitado" com cantos de cartões diferentes, não)
+    if(o.some((p, i) => { const a1 = o[(i + 3) % 4], b1 = o[(i + 1) % 4], ux = a1.x - p.x, uy = a1.y - p.y, vx = b1.x - p.x, vy = b1.y - p.y;
+      return Math.abs(ux * vx + uy * vy) / (Math.hypot(ux, uy) * Math.hypot(vx, vy)) > 0.5; })) continue;
     const lado = (topoL + base) / 2, ladoEsp = lado / 182 * FID;    // tamanho esperado da marca nessa escala
-    if(lmin < ladoEsp * 0.45 || lmax > ladoEsp * 2.2) continue;
+    // tamanho do quadrado em relação ao cartão: 7 (folha inteira), 9,5 (meia) ou 12,8 (um quarto) no A4 virtual
+    if(lmin < ladoEsp * 0.72 || lmax > ladoEsp * 2.3) continue;
+    // folha com vários cartões (meia folha, um quarto): o quadrilátero de um cartão não tem outro quadrado preto dentro
+    const lmed = ls.reduce((s, v) => s + v, 0) / 4;
+    if(cand.some(p => !q.includes(p) && p.cheio >= 0.85 && p.lado >= lmed * 0.8 && dentroQuad(o, p, lmed * 0.6))) continue;
     const area = Math.abs(areaQuad(o)), media = q.reduce((s, p) => s + p.cheio, 0) / 4;
-    const nota = area * (0.5 + media);
-    if(!melhor || nota > melhor.nota) melhor = { nota, o };
+    validos.push({ nota:area * (0.5 + media), o, q, ladoVirtual:lmed / lado * 182 });
   }
-  if(!melhor) return null;
-  return melhor.o.map(p => ({ x:p.x * G.k, y:p.y * G.k }));
+  // cada quadrado preto pertence a um cartão só
+  validos.sort((a, b) => b.nota - a.nota);
+  const usados = new Set(), cartoes = [];
+  // os outros cartões da folha têm o tamanho do primeiro e ficam fora dele (4 bolinhas pintadas não viram "cartão")
+  const ctr = o => ({ x:o.reduce((t, p) => t + p.x, 0) / 4, y:o.reduce((t, p) => t + p.y, 0) / 4 });
+  validos.forEach(v => { if(v.q.some(p => usados.has(p))) return;
+    if(cartoes.length){ const a0 = Math.abs(areaQuad(cartoes[0].o)), a1 = Math.abs(areaQuad(v.o));
+      if(a1 < a0 * 0.6 || a1 > a0 * 1.6 || cartoes.some(c => dentroQuad(c.o, ctr(v.o)) || dentroQuad(v.o, ctr(c.o)))) return; }
+    v.q.forEach(p => usados.add(p));
+    const cantos = v.o.map(p => ({ x:p.x * G.k, y:p.y * G.k })); cantos.fmt = formatoPelaMarca(v.ladoVirtual); cantos.nota = v.nota; cantos.o = v.o; cartoes.push(cantos); });
+  return cartoes;
 }
+// o maior cartão da imagem (câmera e foto: o que está mais perto)
+function acharMarcas(G0){ const l = acharCartoes(G0); return l.length ? l[0] : null; }
+// ponto dentro do quadrilátero (ou em cima da borda, com folga "tol" em pixels)
+function dentroQuad(o, p, tol){ for(let i = 0; i < 4; i++){ const a = o[i], b = o[(i + 1) % 4], d = Math.hypot(b.x - a.x, b.y - a.y) || 1; if(((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / d <= -(tol || 0)) return false; } return true; }
 // ordena: sup. esq., sup. dir., inf. dir., inf. esq.
 function ordenar(q){
   const cx = q.reduce((s, p) => s + p.x, 0) / 4, cy = q.reduce((s, p) => s + p.y, 0) / 4;
@@ -423,6 +442,9 @@ function homografia(src, dst){
   const h = B.map((b, i) => b / A[i][i]); h.push(1); return h;
 }
 const proj = (H, x, y) => { const z = H[6] * x + H[7] * y + H[8]; return [(H[0] * x + H[1] * y + H[2]) / z, (H[3] * x + H[4] * y + H[5]) / z]; };
+// bilinear: o QR de um cartão pequeno (4 por folha) fica legível mesmo com poucos pixels por módulo
+function amostraB(G, x, y){ const x0 = Math.floor(x), y0 = Math.floor(y), fx = x - x0, fy = y - y0; if(x0 < 0 || y0 < 0 || x0 >= G.w - 1 || y0 >= G.h - 1) return amostra(G, x, y);
+  const i = y0 * G.w + x0, g = G.g; return (g[i] * (1 - fx) + g[i + 1] * fx) * (1 - fy) + (g[i + G.w] * (1 - fx) + g[i + G.w + 1] * fx) * fy; }
 function amostra(G, x, y){ const xi = Math.round(x), yi = Math.round(y); if(xi < 0 || yi < 0 || xi >= G.w || yi >= G.h) return 255; return G.g[yi * G.w + xi]; }
 // lê as bolinhas: escurecimento dentro do círculo comparado com o papel em volta
 function lerBolhas(G, H, L){
@@ -454,14 +476,16 @@ function decidir(leit){
 function retificar(G, H, x0, y0, wmm, hmm, pxmm){
   const W = Math.round(wmm * pxmm), Hh = Math.round(hmm * pxmm), out = new ImageData(W, Hh), d = out.data;
   for(let y = 0; y < Hh; y++) for(let x = 0; x < W; x++){
-    const [u, v] = proj(H, x0 + x / pxmm, y0 + y / pxmm), c = amostra(G, u, v), i = (y * W + x) * 4;
+    const [u, v] = proj(H, x0 + x / pxmm, y0 + y / pxmm), c = amostraB(G, u, v), i = (y * W + x) * 4;
     d[i] = d[i + 1] = d[i + 2] = c; d[i + 3] = 255;
   }
   return out;
 }
-async function lerQR(G, H){
-  for(const px of [8, 6, 10]){
-    const im = retificar(G, H, QR.x - 4, QR.y - 4, QR.s + 8, QR.s + 8, px);
+async function lerQR(G, H, fmt){
+  // cartão de folha inteira: QR no canto; meia folha e um quarto: QR maior, um pouco mais para dentro
+  const areas = fmt && fmt !== "a4" ? [QR_COMPACTO, QR] : [QR, QR_COMPACTO];
+  for(const A of areas) for(const px of [8, 6, 10]){
+    const im = retificar(G, H, A.x - 4, A.y - 4, A.s + 8, A.s + 8, px);
     if(window.jsQR){ const r = window.jsQR(im.data, im.width, im.height, { inversionAttempts:"dontInvert" }); if(r && r.data) return r.data; }
   }
   return "";
@@ -471,13 +495,13 @@ async function processar(img, L){
   const G = cinza(img), cantos = acharMarcas(G);
   if(!cantos) return { erro:"Não achei os 4 quadrados pretos dos cantos." };
   const H = homografia(FIDS, cantos); if(!H) return { erro:"Cartão muito inclinado." };
-  const qr = await lerQR(G, H);
-  const info = lerInfoQR(qr);
-  const lay = L || (info && E.aval && info.av === E.aval.id ? E.lay : null);
-  if(!lay) return { cantos, H, G, qr, info, erro:info ? "" : "Não consegui ler o QR do cartão." };
-  return { cantos, H, G, qr, info, lay, leitura:decidir(lerBolhas(G, H, lay)) };
+  const qr = await lerQR(G, H, cantos.fmt);
+  const info = lerInfoQR(qr), fmt = (info && info.fmt) || cantos.fmt;
+  const lay = L || (info && E.aval && info.av === E.aval.id ? layoutDaProva(E.aval, fmt) : null);
+  if(!lay) return { cantos, H, G, qr, info, fmt, erro:info ? "" : "Não consegui ler o QR do cartão." };
+  return { cantos, H, G, qr, info, fmt, lay, leitura:decidir(lerBolhas(G, H, lay)) };
 }
-const lerInfoQR = s => { const m = /^PDE1:([A-Za-z0-9]{6,40}):([A-Za-z0-9_-]{0,40})$/.exec(s || ""); return m ? { av:m[1], aluno:m[2] || "" } : null; };
+const lerInfoQR = s => lerTextoQr(s);
 
 /* =====================================================================
    ESTADO, TURMAS, PROVAS
@@ -569,7 +593,7 @@ function desenhar(){
   document.querySelectorAll(".passo").forEach(b => { b.classList.toggle("on", b.dataset.arg === E.sec); b.disabled = !["gabarito", "analise", "lote"].includes(b.dataset.arg) && !E.aval; });
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + E.sec));
   if(E.sec === "gabarito") desenharGabarito();
-  else if(E.sec === "cartoes") $("cResumo").textContent = E.aval ? E.alunos.length + " alunos · " + E.lay.nQ + " questões (" + LETRAS.slice(0, E.lay.nAlt).split("").join(", ") + ")" : "";
+  else if(E.sec === "cartoes") $("cResumo").textContent = E.aval ? resumoCartoes() : "";
   else if(E.sec === "resultados") desenharResultados();
   else if(E.sec === "analise") prepararAnalise();
   else if(E.sec === "lote") desenharLote();
@@ -655,7 +679,13 @@ async function criarGab(){
 /* =====================================================================
    PDF DOS CARTÕES
    ===================================================================== */
-const desenharCartao = (pdf, aluno) => cartaoPdf(pdf, { lay:E.lay, aval:E.aval, turma:E.turma, aluno });
+function resumoCartoes(){
+  const n = ($("cNomes").value === "sim" ? E.alunos.length : 0) + Math.max(0, Math.min(60, +$("cBranco").value || 0)), fmt = formatoEscolhido(), f = folhasPara(n, fmt);
+  return E.alunos.length + " alunos · " + E.lay.nQ + " questões (" + LETRAS.slice(0, E.lay.nAlt).split("").join(", ") + ") · " + n + " cartões em " + f + " folha(s)" + (f < n ? ", economia de " + (n - f) + " folha(s)" : "");
+}
+["cNomes", "cBranco", "cFmt"].forEach(i => { const el = $(i); if(el) el.addEventListener("change", () => { if(E.aval) $("cResumo").textContent = resumoCartoes(); }); });
+// formato escolhido em "Cartões por folha" (auto = o menor em que as questões cabem)
+function formatoEscolhido(){ const n = E.lay ? E.lay.nQ : 0, v = ($("cFmt") || {}).value || "auto"; return v === "auto" || !FORMATOS[v] || n > FORMATOS[v].max ? formatoAuto(n) : v; }
 async function gerarPdf(){
   if(!window.jspdf || !window.QRCode){ toast("Carregando os componentes do PDF. Tente de novo em instantes.", true); return; }
   const nomes = $("cNomes").value === "sim" ? E.alunos : [], branco = Math.max(0, Math.min(60, +$("cBranco").value || 0));
@@ -663,13 +693,12 @@ async function gerarPdf(){
   if(!lista.length){ toast("Nenhum cartão para gerar.", true); return; }
   $("btnPdf").disabled = true; $("btnPdf").textContent = "Gerando...";
   await new Promise(r => setTimeout(r, 30));
-  const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" });
-  lista.forEach((al, i) => { if(i) pdf.addPage(); desenharCartao(pdf, al); });
+  const fmt = formatoEscolhido(), pdf = gerarPdfCartoes({ aval:E.aval, turma:E.turma, lista, fmt });
   const nome = "cartoes-" + String(E.aval.titulo || "prova").normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().slice(0, 40) + ".pdf";
   window.__ultimoPdf = pdf.output("datauristring");
   pdf.save(nome);
   $("btnPdf").disabled = false; $("btnPdf").textContent = "📄 Gerar cartões em PDF";
-  toast(lista.length + " cartões gerados. Imprima em tamanho real (100%).");
+  toast(lista.length + " cartões em " + folhasPara(lista.length, fmt) + " folha(s)" + (fmt !== "a4" ? ": corte na linha tracejada" : "") + ". Imprima em tamanho real (100%).");
 }
 
 /* =====================================================================
@@ -733,13 +762,14 @@ async function lerFoto(arquivo){
     if(E.avals.some(a => a.id === r.info.av)){ $("selAval").value = r.info.av; await escolherAval(r.info.av); E.sec = "corrigir"; desenhar(); }
     else { toast("Este cartão é de outra prova ou de outra turma.", true); return; }
   }
-  const r2 = r.leitura ? r : { ...r, lay:E.lay, leitura:decidir(lerBolhas(r.G, r.H, E.lay)), info:r.info || { av:E.aval.id, aluno:"" } };
+  const layF = layoutDaProva(E.aval, r.fmt);
+  const r2 = r.leitura ? r : { ...r, lay:layF, leitura:decidir(lerBolhas(r.G, r.H, layF)), info:r.info || { av:E.aval.id, aluno:"" } };
   abrirConferencia(r2);
 }
 // conferência: imagem endireitada com as marcações, aluno e nota; o professor pode trocar qualquer letra
 function abrirConferencia(r){
   pararCamera();
-  E.atual = { aluno:r.info ? r.info.aluno : "", leitura:r.leitura.map(x => ({ ...x })) };
+  E.atual = { aluno:r.info ? r.info.aluno : "", leitura:r.leitura.map(x => ({ ...x })), lay:r.lay || E.lay };
   const prev = $("prev"), im = retificar(r.G, r.H, 0, 0, 210, 297, 2.6);
   prev.width = im.width; prev.height = im.height; const c = prev.getContext("2d"); c.putImageData(im, 0, 0);
   E.atual.prevBase = im;
@@ -752,7 +782,7 @@ function abrirConferencia(r){
 }
 function nota(leit){ let n = 0, acertos = 0; leit.forEach(x => { const g = E.gab[x.q]; if(g && x.letra && x.letra === g.letra){ n += g.pontos; acertos++; } }); return { n, acertos }; }
 function desenharConferencia(){
-  const A = E.atual, L = E.lay, { n, acertos } = nota(A.leitura), total = Object.values(E.gab).reduce((s, g) => s + g.pontos, 0);
+  const A = E.atual, L = A.lay || E.lay, { n, acertos } = nota(A.leitura), total = Object.values(E.gab).reduce((s, g) => s + g.pontos, 0);
   $("confNota").innerHTML = fmt(n) + " <small>de " + fmt(total) + " · " + acertos + "/" + L.nQ + " acertos</small>";
   const duv = A.leitura.filter(x => x.duvida && !x.conferida).length, aluno = $("confAluno").value, ja = aluno && E.resp[aluno];
   $("confAviso").hidden = !(duv || ja || !aluno);
@@ -1012,11 +1042,11 @@ async function paginasDe(arquivos){
 async function imagemDe(pg){
   const c = document.createElement("canvas"), cx = c.getContext("2d", { willReadFrequently:true });
   if(pg.doc){
-    const page = await pg.doc.getPage(pg.p), v0 = page.getViewport({ scale:1 }), v = page.getViewport({ scale:Math.min(3, 2000 / Math.max(v0.width, v0.height)) });
+    const page = await pg.doc.getPage(pg.p), v0 = page.getViewport({ scale:1 }), v = page.getViewport({ scale:Math.min(4, 2800 / Math.max(v0.width, v0.height)) });
     c.width = Math.round(v.width); c.height = Math.round(v.height); cx.fillStyle = "#fff"; cx.fillRect(0, 0, c.width, c.height);
     await page.render({ canvasContext:cx, viewport:v }).promise; page.cleanup && page.cleanup();
   } else {
-    const bmp = await createImageBitmap(pg.file); const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const bmp = await createImageBitmap(pg.file); const k = Math.min(1, 2800 / Math.max(bmp.width, bmp.height));
     c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); cx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
   }
   return cx.getImageData(0, 0, c.width, c.height);
@@ -1031,16 +1061,19 @@ function girar(img, graus){
 function emBranco(G){ let s = 0, s2 = 0, n = 0; for(let i = 0; i < G.g.length; i += 37){ const v = G.g[i]; s += v; s2 += v * v; n++; } const m = s / n; return m > 225 && Math.sqrt(s2 / n - m * m) < 18; }
 // acha cantos e QR; se o cartão entrou de cabeça para baixo ou deitado, tenta girando
 async function lerPagina(img, graus0){
+  // uma página pode ter 1, 2 ou 4 cartões (economia de papel); devolve todos, na ordem de leitura
   let primeiro = null;
   for(const graus of graus0 !== undefined ? [graus0] : [0, 180, 90, 270]){
-    const G = cinza(girar(img, graus)), cantos = acharMarcas(G);
-    if(!cantos){ if(graus === 0 && emBranco(G)) return { branco:true }; continue; }
-    const H = homografia(FIDS, cantos); if(!H) continue;
-    const info = lerInfoQR(await lerQR(G, H));
-    if(info) return { G, H, info, graus };
-    if(!primeiro) primeiro = { G, H, graus };
+    const G = cinza(girar(img, graus)), lista = acharCartoes(G);
+    if(!lista.length){ if(graus === 0 && emBranco(G)) return { branco:true }; continue; }
+    const cards = [];
+    for(const cantos of lista){ const H = homografia(FIDS, cantos); if(!H) continue; const info = lerInfoQR(await lerQR(G, H, cantos.fmt)); cards.push({ H, info, cantos, fmt:(info && info.fmt) || cantos.fmt }); }
+    const centro = k => ({ x:k.cantos.reduce((t, p) => t + p.x, 0) / 4, y:k.cantos.reduce((t, p) => t + p.y, 0) / 4 });
+    cards.sort((a, b) => { const A = centro(a), B = centro(b); return Math.abs(A.y - B.y) > G.h * 0.15 ? A.y - B.y : A.x - B.x; });
+    if(cards.some(k => k.info)) return { G, graus, cards };
+    if(!primeiro && cards.length) primeiro = { G, graus, cards };
   }
-  return primeiro ? { ...primeiro, info:null } : { semCantos:true };
+  return primeiro || { semCantos:true };
 }
 // prova do cartão: gabarito, layout, turma, alunos e respostas já salvas (uma vez por prova)
 async function contexto(avId){
@@ -1071,20 +1104,22 @@ async function processarLote(arquivos){
   LOTE.paginas.push(...novas); LOTE.total = LOTE.paginas.length;
   const vistos = {}; LOTE.itens.forEach(it => { if(it.av && it.aluno && it.estado !== "ignorado") vistos[it.av + "|" + it.aluno] = true; });
   for(let i = base; i < LOTE.paginas.length && !LOTE.parar; i++){
-    const pg = LOTE.paginas[i], it = { pag:i, rot:pg.arq + (pg.doc ? " · pág. " + pg.p : ""), estado:"", motivo:"" };
-    LOTE.itens.push(it);
-    try{
-      const img = await imagemDe(pg), r = await lerPagina(img);
-      if(r.branco){ it.estado = "ignorado"; it.motivo = "Página em branco (verso)"; }
-      else if(r.semCantos){ it.estado = "naolido"; it.motivo = "Não achei os 4 quadrados dos cantos (página cortada, torta demais ou não é cartão)"; }
-      else {
-        it.graus = r.graus; it.mini = miniatura(r.G, r.H);
-        if(!r.info){ it.estado = "naolido"; it.motivo = "QR não lido: escolha a prova e confira"; }
+    const pg = LOTE.paginas[i], rot = pg.arq + (pg.doc ? " · pág. " + pg.p : "");
+    let r;
+    try{ r = await lerPagina(await imagemDe(pg)); }catch(e){ console.warn("lote:", e.code || e); r = { erro:true }; }
+    if(r.erro || r.branco || r.semCantos)
+      LOTE.itens.push({ pag:i, rot, estado:r.branco ? "ignorado" : "naolido", motivo:r.branco ? "Página em branco (verso)" : r.erro ? "Erro ao ler a página" : "Não achei os 4 quadrados dos cantos (página cortada, torta demais ou não é cartão)" });
+    else for(let k = 0; k < r.cards.length; k++){
+      const K = r.cards[k], it = { pag:i, k, rot:rot + (r.cards.length > 1 ? " · cartão " + (k + 1) + " de " + r.cards.length : ""), estado:"", motivo:"", graus:r.graus, fmt:K.fmt };
+      LOTE.itens.push(it);
+      try{
+        it.mini = miniatura(r.G, K.H);
+        if(!K.info){ it.estado = "naolido"; it.motivo = "QR não lido: escolha a prova e confira"; }
         else {
-          const C = await contexto(r.info.av); it.av = r.info.av; it.prova = C.titulo || "";
+          const C = await contexto(K.info.av); it.av = K.info.av; it.prova = C.titulo || "";
           if(C.erro){ it.estado = "ignorado"; it.motivo = C.erro; }
           else {
-            it.leitura = decidir(lerBolhas(r.G, r.H, C.lay)); it.aluno = r.info.aluno; const al = C.alunos.find(a => a.id === it.aluno); it.alunoNome = al ? al.nome : "";
+            it.leitura = decidir(lerBolhas(r.G, K.H, layoutDaProva(C.aval, K.fmt))); it.aluno = K.info.aluno; const al = C.alunos.find(a => a.id === it.aluno); it.alunoNome = al ? al.nome : "";
             const duv = it.leitura.filter(x => x.duvida).length, chave = it.av + "|" + it.aluno;
             if(!al) { it.estado = "conferir"; it.motivo = it.aluno ? "Aluno do QR não está mais na turma" : "Cartão em branco: escolha o aluno"; }
             else if(vistos[chave]){ it.estado = "conferir"; it.motivo = "Cartão repetido neste lote"; }
@@ -1096,8 +1131,8 @@ async function processarLote(arquivos){
             if(al) vistos[chave] = true;
           }
         }
-      }
-    }catch(e){ console.warn("lote:", e.code || e); it.estado = "naolido"; it.motivo = e.code ? "Não salvou (" + e.code + ")" : "Erro ao ler a página"; }
+      }catch(e){ console.warn("lote:", e.code || e); it.estado = "naolido"; it.motivo = e.code ? "Não salvou (" + e.code + ")" : "Erro ao ler o cartão"; }
+    }
     LOTE.feitas = i + 1;
     if(i % 3 === 0 || i === LOTE.paginas.length - 1) { progressoLote(); await new Promise(r => setTimeout(r, 0)); }
   }
@@ -1143,11 +1178,12 @@ async function conferirLote(i){
   const avId = it.av || it.escolhida; if(!avId){ toast("Escolha a prova deste cartão.", true); return; }
   const C = await contexto(avId); if(C.erro){ toast(C.erro, true); return; }
   try{
-    const img = await imagemDe(LOTE.paginas[it.pag]), r = await lerPagina(img, it.graus || 0);
-    if(!r.G){ toast("Não consegui reabrir esta página.", true); return; }
+    const img = await imagemDe(LOTE.paginas[it.pag]), r0 = await lerPagina(img, it.graus || 0), K = r0.cards && r0.cards[it.k || 0];
+    if(!r0.G || !K){ toast("Não consegui reabrir esta página.", true); return; }
+    const r = { G:r0.G, H:K.H, info:K.info }, layK = layoutDaProva(C.aval, it.fmt || K.fmt);
     E.aval = C.aval; E.lay = C.lay; E.gab = C.gab; E.turma = C.turma; E.alunos = C.alunos; E.resp = C.resp; E.loteItem = it; E.modoCamera = false;
     E.sec = "corrigir"; desenhar(); $("corrigirInicio").hidden = true;
-    abrirConferencia({ G:r.G, H:r.H, info:{ av:avId, aluno:it.aluno || (r.info && r.info.aluno) || "" }, leitura:it.leitura || decidir(lerBolhas(r.G, r.H, C.lay)) });
+    abrirConferencia({ G:r.G, H:r.H, lay:layK, info:{ av:avId, aluno:it.aluno || (r.info && r.info.aluno) || "" }, leitura:it.leitura || decidir(lerBolhas(r.G, r.H, layK)) });
   }catch(e){ console.warn("conferir:", e); toast("Não consegui reabrir esta página.", true); }
 }
 async function substituirLote(){
@@ -1192,7 +1228,7 @@ document.addEventListener("visibilitychange", () => { if(document.hidden) pararC
 ["dragleave", "drop"].forEach(n => document.addEventListener(n, ev => { const d = ev.target.closest && ev.target.closest("#loteDrop"); if(d) d.classList.remove("sobre"); }));
 document.addEventListener("drop", ev => { if(ev.target.closest && ev.target.closest("#loteDrop")){ ev.preventDefault(); const f = [...(ev.dataTransfer.files || [])]; if(f.length) processarLote(f); } });
 window.addEventListener("beforeunload", ev => { if(LOTE.rodando){ ev.preventDefault(); ev.returnValue = ""; } });
-window.__corretor = { LOTE:() => LOTE, codigosBncc, descBncc, AN:() => AN, layout, processar, decidir, lerBolhas, homografia, acharMarcas, cinza, FIDS, estado:E };
+window.__corretor = { LOTE:() => LOTE, codigosBncc, descBncc, AN:() => AN, layout, processar, decidir, lerBolhas, homografia, acharMarcas, acharCartoes, lerPagina, lerQR, retificar, cinza, FIDS, estado:E };
 
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
