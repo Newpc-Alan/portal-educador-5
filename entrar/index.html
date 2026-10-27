@@ -1137,6 +1137,7 @@
       <div class="usr-sec">
         <h4>O que fica liberado <span id="planoCont"></span></h4>
         <div class="mod-atalhos">
+          <button type="button" data-action="plano-basico" title="Conteúdos do pacote básico; lousa, calendário e notícias já vêm sempre">Plano básico</button>
           <button type="button" data-action="plano-todos">Liberar tudo</button>
           <button type="button" data-action="plano-nenhum">Limpar</button>
           <button type="button" data-action="plano-alunos">Aluno igual ao professor</button>
@@ -2112,7 +2113,7 @@
     if(!uf){ toast("Selecione o estado (UF).", true); return; }
     $("muniSalvar").disabled=true; $("muniSalvar").textContent="Salvando...";
     try{
-      await addDoc(collection(db,"municipios"), { nome, uf, status:"piloto",
+      await addDoc(collection(db,"municipios"), { nome, uf, status:"piloto", modulos_professor:PLANO_BASICO.slice(), modulos_aluno:PLANO_BASICO_ALUNO(), recursos:[],
         criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
       fecharModalMunicipio(); toast("Município cadastrado!"); await listarMunicipios();
     }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
@@ -4362,7 +4363,7 @@
     else if(acao === "muni-plano"){ abrirModalPlano(el.dataset.id); }
     else if(acao === "plano-cancelar"){ fecharModalPlano(); }
     else if(acao === "plano-salvar"){ salvarPlano(); }
-    else if(acao === "plano-todos" || acao === "plano-nenhum" || acao === "plano-alunos"){ atalhoPlano(acao); }
+    else if(acao === "plano-todos" || acao === "plano-nenhum" || acao === "plano-alunos" || acao === "plano-basico"){ atalhoPlano(acao); }
     else if(acao === "imp-tipo"){ /* tratado no change */ }
     else if(acao === "imp-modelo"){ baixarModelo(); }
     else if(acao === "imp-previa"){ gerarPrevia(); }
@@ -4434,6 +4435,9 @@
     { id:"maestro",     nome:"Portal Maestro",         aluno:false, ico:"\u{1F3BC}", desc:"Conduza a turma nos dispositivos em tempo real", obs:"gestão da sala de aula",
       urlPadrao:"https://sala.portaldoeducador.com.br/" }
   ];
+  // pacote básico (padrão de todo município novo). Lousa, calendário e notícias não dependem do plano: aparecem sempre
+  const PLANO_BASICO = ["atividades","videos","jogos","ia","datas","colorir","historias","biblioteca","museus","dicas","apps"];
+  const PLANO_BASICO_ALUNO = () => MODULOS.filter(m => m.aluno && PLANO_BASICO.includes(m.id)).map(m => m.id);
   const plano = { muniId:null, prof:new Set(), alu:new Set(), sec:new Set(), rec:new Set() };
 
   // ===================== INICIO: botoes principais do Portal =====================
@@ -6863,7 +6867,12 @@
   }
   function contarPlano(){ $("planoCont").textContent = plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : "")+(plano.rec && plano.rec.has("prova_online") ? " · Prova online" : ""); }
   function atalhoPlano(acao){
-    if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); }
+    if(acao === "plano-basico"){
+      // pacote básico: só os conteúdos; prova online, Painel da Rede, gestão, provas, Maestro, VR e formação ficam de fora
+      plano.prof = new Set(PLANO_BASICO); plano.alu = new Set(MODULOS.filter(m => m.aluno && PLANO_BASICO.includes(m.id)).map(m => m.id));
+      plano.sec.clear(); plano.rec.clear();
+    }
+    else if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); }
     else if(acao === "plano-nenhum"){ plano.prof.clear(); plano.alu.clear(); plano.sec.clear(); plano.rec.clear(); }
     else if(acao === "plano-alunos"){ plano.alu = new Set(MODULOS.filter(m => m.aluno && plano.prof.has(m.id)).map(m => m.id)); }
     desenharPlano();
@@ -7226,7 +7235,7 @@
             if(!idMuni.has(r.muniNovo)){
               const ref = doc(collection(db,"municipios"));
               idMuni.set(r.muniNovo, ref.id);
-              ops.push([ref, { nome:r.muniNovo.nome, uf:r.muniNovo.uf, status:"piloto", modulos_professor:[], modulos_aluno:[],
+              ops.push([ref, { nome:r.muniNovo.nome, uf:r.muniNovo.uf, status:"piloto", modulos_professor:PLANO_BASICO.slice(), modulos_aluno:PLANO_BASICO_ALUNO(), recursos:[],
                 criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, ...quem }, "set"]);
             }
             muniId = idMuni.get(r.muniNovo); muniNome = r.muniNovo.nome; muniUf = r.muniNovo.uf;
