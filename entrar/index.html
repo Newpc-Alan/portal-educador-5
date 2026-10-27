@@ -4643,14 +4643,18 @@
   function desenharProvasAluno(){
     const el = $("iniProvas"); if(!el) return;
     const agora = Date.now();
-    const l = PV.lista.filter(p => p.status !== "cancelada" && msDe(p.fecha_em) > agora - 7 * 864e5).sort((a, b) => msDe(a.abre_em) - msDe(b.abre_em));
+    // ordem: abertas, depois as que vão abrir, depois as encerradas mais recentes (antes, a mais nova ficava fora das 4 que aparecem)
+    const grupo = p => { const ab = msDe(p.abre_em), fe = msDe(p.fecha_em); return p.status === "agendada" && agora <= fe ? (agora >= ab ? 0 : 1) : 2; };
+    const l = PV.lista.filter(p => p.status !== "cancelada" && msDe(p.fecha_em) > agora - 7 * 864e5)
+      .sort((a, b) => grupo(a) - grupo(b) || (grupo(a) === 2 ? msDe(b.fecha_em) - msDe(a.fecha_em) : msDe(a.abre_em) - msDe(b.abre_em)));
     if(!l.length){ el.innerHTML = ""; return; }
     const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), dd = m => new Date(m).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
     const html = '<div class="pv-faixa"><b class="pv-tit">\u{1F4DD} Minhas provas</b><div class="pv-lista">'+l.slice(0, 4).map(p => {
       const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), aberta = p.status === "agendada" && agora >= ab && agora <= fe, fut = p.status === "agendada" && agora < ab, logo = fut && ab - agora < 120000;
       return '<a class="pv-card'+(aberta || logo ? " aberta" : "")+'" href="/prova/?id='+encodeURIComponent(p.id)+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : fut ? (logo ? "\u{23F3}" : "\u{1F512}") : "\u{1F4CA}")+'</span>'+
         '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+(logo ? "abre em instantes: entre agora" : fut ? "abre "+dd(ab)+" às "+hm(ab) : aberta ? "aberta até "+hm(fe) : "encerrada · ver nota")+'</small></span>'+
-        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : logo ? '<span class="pv-btn">Entrar</span>' : '')+'</a>'; }).join("")+'</div></div>';
+        (aberta ? '<span class="pv-btn">Fazer a prova</span>' : logo ? '<span class="pv-btn">Entrar</span>' : '')+'</a>'; }).join("")+'</div>'+
+      (l.length > 4 ? '<a href="/prova/" style="display:inline-block;margin-top:8px;font-weight:700">Ver todas as provas ('+l.length+') \u2192</a>' : '')+'</div>';
     if(el.innerHTML !== html) el.innerHTML = html;
   }
 
