@@ -1138,7 +1138,8 @@
         <h4>O que fica liberado <span id="planoCont"></span></h4>
         <div class="mod-atalhos">
           <button type="button" data-action="plano-basico" title="Conteúdos do pacote básico; lousa, calendário e notícias já vêm sempre">Plano básico</button>
-          <button type="button" data-action="plano-todos">Liberar tudo</button>
+          <button type="button" data-action="plano-intermediario" title="Básico + Formação Continuada + Portal 360º VR">Plano intermediário</button>
+          <button type="button" data-action="plano-todos" title="Todos os módulos, Prova online e Painel da Rede">Plano completo</button>
           <button type="button" data-action="plano-nenhum">Limpar</button>
           <button type="button" data-action="plano-alunos">Aluno igual ao professor</button>
         </div>
@@ -2070,7 +2071,7 @@
         const venceu = m.vigencia_fim && msDe(m.vigencia_fim) < Date.now();
         const ctr = (m.contrato_numero ? escapeHtml(m.contrato_numero) : '<span class="muni-tag">sem nº</span>')+(m.vigencia_fim ? '<br><small>até '+escapeHtml(dataBR(m.vigencia_fim))+'</small>'+(venceu ? ' <span class="pill expirado">vencido</span>' : '') : '');
         html += '<tr><td>'+logoCelula("municipios", m)+'</td><td><b>'+escapeHtml(m.nome)+'</b></td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+st+'</span></td>'+
-          '<td class="usr-vinc">'+(np||na ? np+' p/ professor · '+na+' p/ aluno' : 'Nenhum ainda')+'</td><td class="usr-vinc">'+ctr+'</td>'+
+          '<td class="usr-vinc">'+(np||na ? (NOME_PLANO[nomeDoPlano(m.modulos_professor, m.recursos, m.modulos_secretaria)] ? '<b>'+NOME_PLANO[nomeDoPlano(m.modulos_professor, m.recursos, m.modulos_secretaria)]+'</b><br>' : '')+np+' p/ professor · '+na+' p/ aluno' : 'Nenhum ainda')+'</td><td class="usr-vinc">'+ctr+'</td>'+
           '<td><button class="btn-mini btn-gerenciar" data-action="muni-plano" data-id="'+escapeAttr(m.id)+'">Plano e módulos</button></td></tr>'; });
       html += '</tbody></table>'; $("muniTabela").innerHTML = html;
     }catch(e){ console.warn(e); $("muniTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
@@ -2113,7 +2114,7 @@
     if(!uf){ toast("Selecione o estado (UF).", true); return; }
     $("muniSalvar").disabled=true; $("muniSalvar").textContent="Salvando...";
     try{
-      await addDoc(collection(db,"municipios"), { nome, uf, status:"piloto", modulos_professor:PLANO_BASICO.slice(), modulos_aluno:PLANO_BASICO_ALUNO(), recursos:[],
+      await addDoc(collection(db,"municipios"), { nome, uf, status:"piloto", modulos_professor:PLANO_BASICO.slice(), modulos_aluno:PLANO_BASICO_ALUNO(), recursos:[], plano_nome:"basico",
         criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
       fecharModalMunicipio(); toast("Município cadastrado!"); await listarMunicipios();
     }catch(e){ console.warn(e); toast("Erro ao salvar ("+e.code+").", true); }
@@ -4363,7 +4364,7 @@
     else if(acao === "muni-plano"){ abrirModalPlano(el.dataset.id); }
     else if(acao === "plano-cancelar"){ fecharModalPlano(); }
     else if(acao === "plano-salvar"){ salvarPlano(); }
-    else if(acao === "plano-todos" || acao === "plano-nenhum" || acao === "plano-alunos" || acao === "plano-basico"){ atalhoPlano(acao); }
+    else if(acao === "plano-todos" || acao === "plano-nenhum" || acao === "plano-alunos" || acao === "plano-basico" || acao === "plano-intermediario"){ atalhoPlano(acao); }
     else if(acao === "imp-tipo"){ /* tratado no change */ }
     else if(acao === "imp-modelo"){ baixarModelo(); }
     else if(acao === "imp-previa"){ gerarPrevia(); }
@@ -4437,6 +4438,15 @@
   ];
   // pacote básico (padrão de todo município novo). Lousa, calendário e notícias não dependem do plano: aparecem sempre
   const PLANO_BASICO = ["atividades","videos","jogos","ia","datas","colorir","historias","biblioteca","museus","dicas","apps"];
+  const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360"]);
+  // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
+  function nomeDoPlano(prof, rec, sec){
+    const p = new Set(prof || []), igual = (l) => p.size === l.length && l.every(x => p.has(x));
+    if(MODULOS.every(m => p.has(m.id)) && (rec || []).includes("prova_online") && (sec || []).includes("painel")) return "completo";
+    if(!(rec || []).length && !(sec || []).length){ if(igual(PLANO_BASICO)) return "basico"; if(igual(PLANO_INTERMEDIARIO)) return "intermediario"; }
+    return p.size ? "personalizado" : "";
+  }
+  const NOME_PLANO = { basico:"Básico", intermediario:"Intermediário", completo:"Completo", personalizado:"Personalizado" };
   const PLANO_BASICO_ALUNO = () => MODULOS.filter(m => m.aluno && PLANO_BASICO.includes(m.id)).map(m => m.id);
   const plano = { muniId:null, prof:new Set(), alu:new Set(), sec:new Set(), rec:new Set() };
 
@@ -6865,11 +6875,12 @@
         : '<input type="checkbox" disabled title="Exclusivo do professor" aria-label="Exclusivo do professor">')+'</td></tr>').join("");
     contarPlano();
   }
-  function contarPlano(){ $("planoCont").textContent = plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : "")+(plano.rec && plano.rec.has("prova_online") ? " · Prova online" : ""); }
+  function contarPlano(){ const nm = NOME_PLANO[nomeDoPlano([...plano.prof], [...plano.rec], [...plano.sec])]; $("planoCont").textContent = (nm ? "Plano "+nm+" · " : "")+plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : "")+(plano.rec && plano.rec.has("prova_online") ? " · Prova online" : ""); }
   function atalhoPlano(acao){
-    if(acao === "plano-basico"){
-      // pacote básico: só os conteúdos; prova online, Painel da Rede, gestão, provas, Maestro, VR e formação ficam de fora
-      plano.prof = new Set(PLANO_BASICO); plano.alu = new Set(MODULOS.filter(m => m.aluno && PLANO_BASICO.includes(m.id)).map(m => m.id));
+    if(acao === "plano-basico" || acao === "plano-intermediario"){
+      // básico: só os conteúdos; intermediário: básico + Formação Continuada + Portal 360º VR; o completo é "Plano completo"
+      const lista = acao === "plano-basico" ? PLANO_BASICO : PLANO_INTERMEDIARIO;
+      plano.prof = new Set(lista); plano.alu = new Set(MODULOS.filter(m => m.aluno && lista.includes(m.id)).map(m => m.id));
       plano.sec.clear(); plano.rec.clear();
     }
     else if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); }
@@ -6889,6 +6900,7 @@
       modulos_aluno: MODULOS.filter(m => m.aluno && plano.alu.has(m.id)).map(m => m.id),
       modulos_secretaria: ["painel"].filter(x => plano.sec.has(x)),
       recursos: ["prova_online"].filter(x => plano.rec.has(x)),
+      plano_nome: nomeDoPlano([...plano.prof], [...plano.rec], [...plano.sec]),
       atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
     };
     // dominios de aluno: valida, confere se nao pertencem a outro municipio e sincroniza dominios_aluno/{dominio}
@@ -7235,7 +7247,7 @@
             if(!idMuni.has(r.muniNovo)){
               const ref = doc(collection(db,"municipios"));
               idMuni.set(r.muniNovo, ref.id);
-              ops.push([ref, { nome:r.muniNovo.nome, uf:r.muniNovo.uf, status:"piloto", modulos_professor:PLANO_BASICO.slice(), modulos_aluno:PLANO_BASICO_ALUNO(), recursos:[],
+              ops.push([ref, { nome:r.muniNovo.nome, uf:r.muniNovo.uf, status:"piloto", modulos_professor:PLANO_BASICO.slice(), modulos_aluno:PLANO_BASICO_ALUNO(), recursos:[], plano_nome:"basico",
                 criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, ...quem }, "set"]);
             }
             muniId = idMuni.get(r.muniNovo); muniNome = r.muniNovo.nome; muniUf = r.muniNovo.uf;
