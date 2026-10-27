@@ -7,6 +7,11 @@
 <link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
 <link rel="apple-touch-icon" href="/assets/pde-logo-256.png">
 <meta name="theme-color" content="#071621">
+<script>
+  // quem ja estava logado nao ve a tela de login piscando ao voltar de um app: mostra "Carregando" ate o login confirmar
+  try{ if(localStorage.getItem("pde_sessao") === "1"){ document.documentElement.classList.add("voltando");
+    setTimeout(function(){ document.documentElement.classList.remove("voltando"); }, 8000); } }catch(e){}
+</script>
 <style>
   :root{
     --navy:#0F2C4A; --navy-2:#143a61; --cyan:#37B1DA; --green:#1A6B2A;
@@ -884,6 +889,13 @@
   .link-enviado{ text-align:center;background:#f4f8fc;border:1px solid var(--line);border-radius:14px;padding:18px 16px;margin-top:4px }
   .link-enviado .ico{ font-size:34px;margin-bottom:4px }
   #loginView [hidden]{ display:none!important }
+  /* volta de um app: carregando no lugar do login */
+  #pdeSplash{ display:none }
+  html.voltando #loginView{ display:none!important }
+  html.voltando #pdeSplash{ display:flex;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:var(--bg);color:var(--muted);font-size:14px;font-weight:600 }
+  #pdeSplash img{ width:64px;height:64px;animation:pdePulso 1.2s ease-in-out infinite }
+  @keyframes pdePulso{ 0%,100%{ opacity:.55;transform:scale(.96) } 50%{ opacity:1;transform:scale(1) } }
+  @media (prefers-reduced-motion:reduce){ #pdeSplash img{ animation:none } }
   .link-enviado .tit{ display:block;font-size:16px;font-weight:800;color:#0c2338;margin-bottom:6px }
   .link-enviado p{ font-size:13.5px;color:#41556b;line-height:1.5;margin:0 0 8px }
   .link-enviado p.pq{ font-size:12.5px;color:var(--muted) }
@@ -922,6 +934,7 @@
   .sim-acoes button{ border:1px solid #e3c27d;background:#fff;border-radius:8px;padding:6px 10px;font:inherit;font-weight:700;cursor:pointer;color:#6b4a00 }
   @media (max-width:700px){ .sim-ops{ grid-template-columns:1fr } }
 </style>
+<div id="pdeSplash" role="status"><img src="/assets/pde-logo-128.png" alt="">Carregando o Portal...</div>
 <div id="loginView">
   <div class="card">
     <div class="head">
@@ -1560,14 +1573,18 @@
     }catch(e){ console.warn(e); msg(e.message || "Não foi possível salvar a senha agora."); b.disabled = false; b.textContent = "Salvar e entrar"; }
   }
 
+  const tirarSplash = () => document.documentElement.classList.remove("voltando");
   onAuthStateChanged(auth, async (user) => {
-    if(user && trocandoSenha) return;
-    if(user && await precisaTrocarSenha(user)) return;
-    if(user){ await carregarUsuario(user);
+    try{ user ? localStorage.setItem("pde_sessao", "1") : localStorage.removeItem("pde_sessao"); }catch(e){}
+    if(!user) tirarSplash();
+    if(user && trocandoSenha){ tirarSplash(); return; }
+    if(user && await precisaTrocarSenha(user)){ tirarSplash(); return; }
+    if(user){
+      try{ await carregarUsuario(user); }catch(e){ tirarSplash(); throw e; }
       // volta para a página que pediu o login (ex.: a prova online), só dentro do próprio Portal
       const volta = new URLSearchParams(location.search).get("volta");
       if(volta && /^\/(?!\/)[\w\-./?=&%]*$/.test(volta) && usuarioAtual && !usuarioAtual.semCadastro && usuarioAtual.status === "ativo"){ location.replace(volta); return; }
-      abrirApp(); }
+      try{ abrirApp(); } finally { tirarSplash(); } }
     else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null; usuarioReal=null; guardarVerComo(null);
       ["lsFab","lsOverlay"].forEach(id => { const el = $(id); if(el) el.remove(); });
       lousa.montada = false; lousa.carregada = false; document.documentElement.style.overflow = ""; }
