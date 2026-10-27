@@ -137,6 +137,9 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 @media (max-width:700px){ .rg-campo.largo{grid-column:auto} .rg-bloco{padding:14px} .rg-num{width:28px;height:28px} }
 @media (max-width:700px){ .topo{position:static} .grade .nome{min-width:140px;max-width:150px} }
 .tb.voltar{background:var(--lima);border-color:var(--lima);color:#071621;font-weight:800}.tb.voltar:hover{background:#9fd655;border-color:#9fd655}
+.anexos{display:grid;gap:6px;margin:4px 0 8px}.anexo{display:flex;align-items:center;gap:8px;border:1px solid var(--line,#dfe7ef);border-radius:10px;padding:6px 10px;font-size:.88rem}.anexo b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.anexo button{border:0;background:none;cursor:pointer;font-size:1rem}
+.anexo-add{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.anexo-add input[type=url]{flex:1;min-width:160px;border:1.5px solid var(--line,#dfe7ef);border-radius:10px;padding:8px 10px;font:inherit}
+.th-anx{display:block;font-size:.7rem;color:#1b5f93}
 </style>
 </head>
 <body>
@@ -255,6 +258,11 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
   <div class="campo"><label for="avNome">Nome</label><input id="avNome" maxlength="40" placeholder="Ex.: Prova 1, Trabalho em grupo"></div>
   <div class="campo"><label for="avPeso">Peso</label><input id="avPeso" type="text" inputmode="decimal" value="1"></div>
   <div class="campo"><label for="avMax">Vale quantos pontos</label><input id="avMax" type="text" inputmode="decimal"></div>
+  <div class="campo"><label>Anexos <small style="font-weight:500;color:var(--muted)">(opcional: a prova, o roteiro, fotos do trabalho, vídeo)</small></label>
+    <div class="anexos" id="avAnexos"></div>
+    <div class="anexo-add"><label class="btn btn-gh btn-sm">📎 Foto, PDF ou Word<input type="file" id="avArq" accept="image/*,application/pdf,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple hidden></label>
+      <input id="avLink" type="url" placeholder="Cole um link (YouTube, Drive...)" maxlength="500"><button class="btn btn-gh btn-sm" data-action="av-link">🔗 Adicionar</button></div>
+    <small class="sub" id="avAnexoSt">Até 10 anexos, 20 MB por arquivo. Ficam guardados na sua conta.</small></div>
   <div class="modal-acoes"><button class="btn btn-red" data-action="excluir-av" id="btnExcAv" hidden>Excluir coluna</button><span style="flex:1"></span><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="salvar-av">Salvar</button></div>
 </div></div>
 
@@ -504,7 +512,7 @@ function desenharNotas(){
   $("btnRec").hidden = !!rec || R.rec_periodo === "nao";
   if(!E.alunos.length){ $("gradeBox").innerHTML = '<div class="vazio"><b>Esta turma não tem alunos cadastrados</b>Cadastre os alunos em Turmas, no Portal.</div>'; return; }
   let h = '<table class="grade"><thead><tr><th class="nome">Aluno</th>' +
-    cols.map(a => '<th><button data-action="editar-av" data-arg="' + a.id + '" title="Editar avaliação">' + esc(a.nome) + " ✎</button><small>peso " + fmt(a.peso, 2) + " · vale " + fmt(a.max || mx, c) + "</small></th>").join("") +
+    cols.map(a => '<th><button data-action="editar-av" data-arg="' + a.id + '" title="Editar avaliação">' + esc(a.nome) + " ✎</button><small>peso " + fmt(a.peso, 2) + " · vale " + fmt(a.max || mx, c) + "</small>" + ((a.anexos || []).length ? '<small class="th-anx">📎 ' + a.anexos.length + " anexo" + (a.anexos.length > 1 ? "s" : "") + "</small>" : "") + "</th>").join("") +
     (rec ? '<th><button data-action="editar-av" data-arg="' + rec.id + '">Recuperação ✎</button><small>' + (R.rec_periodo === "maior" ? "fica a maior" : "média") + "</small></th>" : "") +
     "<th>Média<small>" + perNome(p) + "</small></th><th>Faltas<small>no período</small></th></tr></thead><tbody>";
   E.alunos.forEach((al, i) => {
@@ -574,18 +582,65 @@ function abrirAv(id){
   $("avTit").textContent = a ? (rec ? "Recuperação do " + perNome(a.periodo) : "Editar avaliação") : "Nova avaliação · " + perNome(E.per);
   $("avNome").value = a ? a.nome : ""; $("avNome").disabled = rec; $("avPeso").value = a ? fmt(a.peso, 2) : "1"; $("avPeso").disabled = rec;
   $("avMax").value = fmt(a ? a.max || E.regra.nota_max : E.regra.nota_max, 2);
+  E.avId = a ? a.id : novoId(); E.avAnexos = (a && a.anexos || []).map(x => ({ ...x })); E.avRemover = []; desenharAnexos();
   $("btnExcAv").hidden = !a; $("mAv").hidden = false; setTimeout(() => $("avNome").focus(), 50);
 }
+/* ---------- anexos da avaliação (arquivos na pasta do professor no Storage, links guardados na coluna) ---------- */
+const ICO_ANX = t => /^image\//.test(t) ? "🖼️" : /pdf/.test(t) ? "📄" : /word|msword/.test(t) ? "📝" : "📎";
+let ST = null;
+async function storage(){ if(!ST){ const m = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js"); ST = { m, st:m.getStorage(app) }; } return ST; }
+function desenharAnexos(){
+  const l = E.avAnexos || [];
+  $("avAnexos").innerHTML = l.length ? l.map((x, i) => '<div class="anexo"><span>' + (x.tipo === "link" ? (/youtu/.test(x.url) ? "▶️" : "🔗") : ICO_ANX(x.ct || "")) + '</span><b title="' + esc(x.nome) + '">' + esc(x.nome) + '</b>' +
+    (x.enviando ? '<small>enviando...</small>' : '<button data-action="av-abrir-anexo" data-arg="' + i + '" title="Abrir">↗</button><button data-action="av-tirar-anexo" data-arg="' + i + '" title="Remover">🗑</button>') + "</div>").join("") : '<small class="sub">Nenhum anexo.</small>';
+}
+async function anexarArquivos(files){
+  for(const f of files){
+    if((E.avAnexos || []).length >= 10){ toast("Até 10 anexos por avaliação.", true); break; }
+    if(f.size > 20 * 1024 * 1024){ toast(f.name + ": acima de 20 MB.", true); continue; }
+    const ok = /^image\//.test(f.type) || /pdf|msword|wordprocessingml/.test(f.type) || /\.(pdf|docx?)$/i.test(f.name);
+    if(!ok){ toast(f.name + ": envie foto, PDF ou Word.", true); continue; }
+    const ct = f.type || (/\.pdf$/i.test(f.name) ? "application/pdf" : /\.docx$/i.test(f.name) ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/msword");
+    const item = { tipo:"arquivo", nome:String(f.name).slice(0, 80), ct, tam:f.size, enviando:true }; E.avAnexos.push(item); desenharAnexos();
+    try{
+      const { m, st } = await storage(), nome = String(f.name).normalize("NFD").replace(/[^\w.\-]+/g, "_").slice(-60);
+      const path = "professores/" + E.user.uid + "/notas/" + E.pid + "/" + E.avId + "-" + Date.now().toString(36) + "-" + nome;
+      await m.uploadBytes(m.ref(st, path), f, { contentType:ct });
+      item.path = path; delete item.enviando;
+    }catch(e){ console.warn(e); E.avAnexos = E.avAnexos.filter(x => x !== item); toast("Não foi possível enviar " + f.name + " (" + (e.code || "erro") + ").", true); }
+    desenharAnexos();
+  }
+}
+function anexarLink(){
+  const u = $("avLink").value.trim();
+  if(!/^https:\/\/[^\s]+\.[^\s]+/.test(u)){ toast("Cole um link completo, começando com https://", true); return; }
+  if((E.avAnexos || []).length >= 10){ toast("Até 10 anexos por avaliação.", true); return; }
+  let nome = u; try{ const x = new URL(u); nome = (/youtu/.test(x.hostname) ? "Vídeo · " : "") + x.hostname.replace(/^www\./, "") + x.pathname.slice(0, 30); }catch(e){}
+  E.avAnexos.push({ tipo:"link", nome:nome.slice(0, 80), url:u.slice(0, 500) }); $("avLink").value = ""; desenharAnexos();
+}
+async function abrirAnexo(i){
+  const x = (E.avAnexos || [])[+i]; if(!x) return;
+  if(x.tipo === "link"){ window.open(x.url, "_blank", "noopener"); return; }
+  const w = window.open("", "_blank");
+  try{ const { m, st } = await storage(); const u = await m.getDownloadURL(m.ref(st, x.path)); if(w) w.location = u; else window.open(u, "_blank"); }
+  catch(e){ if(w) w.close(); toast("Não foi possível abrir (" + (e.code || "erro") + ").", true); }
+}
+function tirarAnexo(i){ const x = (E.avAnexos || [])[+i]; if(!x) return; if(x.path) E.avRemover.push(x.path); E.avAnexos.splice(+i, 1); desenharAnexos(); }
+async function apagarArquivos(paths){ if(!paths.length) return; try{ const { m, st } = await storage(); await Promise.all(paths.map(p => m.deleteObject(m.ref(st, p)).catch(() => {}))); }catch(e){} }
 function salvarAv(){
   const nome = $("avNome").value.trim().slice(0, 40) || "Avaliação", peso = lerNum($("avPeso").value) || 1, max = lerNum($("avMax").value) || E.regra.nota_max;
-  if(E.avEdit){ Object.assign(E.avEdit, E.avEdit.tipo === "rec" ? { max } : { nome, peso, max }); }
-  else E.P.avaliacoes.push({ id:novoId(), periodo:E.per, nome, peso, max, tipo:"nota" });
+  if((E.avAnexos || []).some(x => x.enviando)){ toast("Espere terminar o envio dos anexos.", true); return; }
+  const anexos = (E.avAnexos || []).map(x => x.tipo === "link" ? { tipo:"link", nome:x.nome, url:x.url } : { tipo:"arquivo", nome:x.nome, ct:x.ct, tam:x.tam, path:x.path });
+  if(E.avEdit){ Object.assign(E.avEdit, E.avEdit.tipo === "rec" ? { max, anexos } : { nome, peso, max, anexos }); }
+  else E.P.avaliacoes.push({ id:E.avId || novoId(), periodo:E.per, nome, peso, max, tipo:"nota", anexos });
+  apagarArquivos(E.avRemover || []); E.avRemover = [];
   $("mAv").hidden = true; salvar(); desenhar();
 }
 let excluirEm = 0;
 function excluirAv(){
   const a = E.avEdit; if(!a) return;
   if(Date.now() - excluirEm > 3000){ excluirEm = Date.now(); toast("Toque de novo em Excluir coluna. As notas desta coluna serão apagadas."); return; }
+  apagarArquivos((a.anexos || []).filter(x => x.path).map(x => x.path));
   E.P.avaliacoes = E.P.avaliacoes.filter(x => x.id !== a.id);
   Object.values(E.P.notas).forEach(n => delete n[a.id]);
   $("mAv").hidden = true; salvar(); desenhar();
@@ -709,7 +764,7 @@ async function salvarRegra(){
 const ACOES = {
   "ir": s => { E.sec = s; if(s === "regra" && E.admin){ carregarRegra($("selMuni").value).then(desenhar); return; } desenhar(); },
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
-  "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "excluir-av": () => excluirAv(),
+  "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "av-link": () => anexarLink(), "av-abrir-anexo": i => abrirAnexo(i), "av-tirar-anexo": i => tirarAnexo(i), "excluir-av": () => excluirAv(),
   "rec-col": () => { E.P.avaliacoes.push({ id:novoId(), periodo:E.per, nome:"Recuperação", peso:1, max:E.regra.nota_max, tipo:"rec" }); salvar(); desenhar(); },
   "importar": () => abrirImportar(), "importar-av": id => importarAv(id), "importar-po": id => importarPo(id), "exportar": () => exportar(),
   "conselho": id => { E.consAluno = id; const c = E.P.conselho[id] || {}; $("consAluno").textContent = (E.alunos.find(a => a.id === id) || {}).nome || ""; $("consAprov").checked = !!c.aprovado; $("consJust").value = c.justificativa || ""; $("mCons").hidden = false; },
@@ -734,6 +789,7 @@ function lancar(el){
   salvar();
 }
 document.addEventListener("change", ev => {
+  if(ev.target.id === "avArq" && ev.target.files.length){ anexarArquivos([...ev.target.files]); ev.target.value = ""; return; }
   const t = ev.target;
   if(t.dataset.nota || t.dataset.falta){ lancar(t); atualizarLinha(t); if(t.dataset.falta) avisoFreq(); }
   else if(t.dataset.exame){ lancar(t); desenhar(); }
