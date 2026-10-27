@@ -4482,10 +4482,13 @@
     await carregarCfgModulos();
     // plano do municipio: so vale quando o administrador ja configurou a lista
     let doPlano = null;
+    iniProf.recursos = null;   // null = sem restrição (administrador ou município sem plano configurado)
     if(!admin && usuarioAtual.municipio_id){
       try{ const m = await getDoc(doc(db,"municipios",usuarioAtual.municipio_id));
         const lista = m.exists() ? m.data()[ehAluno ? "modulos_aluno" : "modulos_professor"] : null;
         if(Array.isArray(lista) && lista.length) doPlano = new Set(lista);
+        // recursos avulsos do plano (ex.: prova online), mesmo campo que Provas e Avaliações e as funções conferem
+        iniProf.recursos = new Set(m.exists() && Array.isArray(m.data().recursos) ? m.data().recursos : []);
       }catch(e){ console.warn("plano:", e.code); }
     }
     // Maestro em destaque: o professor comeca a aula por ele
@@ -4582,9 +4585,9 @@
     { rede:true, id:"notas",      titulo:"Lançar notas",       sub:"Notas e médias do bimestre",        foto:"notas",              cor:"azul",  mod:"gestao",     href:"/apps/notas/" },
     { rede:true, id:"turmas",     titulo:"Minhas turmas",      sub:"Alunos, código e PIN de acesso",    foto:"turmas",             cor:"azul",  acao:"ini-turmas" },
     { id:"criarprova", titulo:"Criar prova",        sub:"Impressa ou online, em minutos",    foto:"criar-prova",        cor:"verde", mod:"provas",     acao:"ini-provas" },
-    { rede:true, id:"provasol",   titulo:"Provas online",      sub:"Sala de espera e prova ao vivo",    foto:"provas-online",      cor:"verde", mod:"provas",     href:"/prova/" },
+    { rede:true, rec:"prova_online", id:"provasol",   titulo:"Provas online",      sub:"Sala de espera e prova ao vivo",    foto:"provas-online",      cor:"verde", mod:"provas",     href:"/prova/" },
     { rede:true, id:"gabarito",   titulo:"Corrigir gabarito",  sub:"Fotografe os cartões-resposta",     foto:"corrigir-gabarito",  cor:"verde", mod:"gestao",     href:"/apps/corretor/" },
-    { rede:true, id:"respostas",  titulo:"Corrigir respostas", sub:"Questões abertas da prova online",  foto:"corrigir-respostas", cor:"verde", mod:"provas",     href:"/prova/" },
+    { rede:true, rec:"prova_online", id:"respostas",  titulo:"Corrigir respostas", sub:"Questões abertas da prova online",  foto:"corrigir-respostas", cor:"verde", mod:"provas",     href:"/prova/" },
     { hero:true, id:"aula",       titulo:"Iniciar aula",       sub:"Conduza a turma no Portal Maestro", foto:"iniciar-aula",       cor:"navy",  maestro:true },
     { hero:true, id:"lousa",      titulo:"Abrir a lousa",      sub:"Quadro digital na tela da sala",    foto:"lousa",              cor:"navy",  acao:"lousa-abrir" },
     { id:"atividades", titulo:"Atividades prontas", sub:"Alinhadas à BNCC, para imprimir",   foto:"atividades",         cor:"navy",  mod:"atividades", acao:"ini-atividades" }
@@ -4598,7 +4601,9 @@
     if(e === "ok" && doPlano && !doPlano.has(id) && !(id === "gestao" && doPlano.has("relatorios"))) e = "plano";
     return e;
   }
-  const iniProf = { badges:{}, links:{}, doPlano:null, admin:false, aula:null };
+  const iniProf = { badges:{}, links:{}, doPlano:null, admin:false, aula:null, recursos:null };
+  // recurso avulso do plano: sem plano configurado (ou administrador) vale tudo; com plano, só o que foi marcado
+  const temRecurso = (r) => !iniProf.recursos || iniProf.recursos.has(r);
   function desenharAcoesProf(doPlano, admin, aula){
     Object.assign(iniProf, { doPlano, admin, aula });
     const hero = $("iniAulaHero");
@@ -4613,12 +4618,13 @@
       let estado = "ok";
       if(a.maestro) estado = aula ? "ok" : (cfgDe("maestro").status === "oculto" && !admin ? "oculto" : "breve");
       else if(a.mod) estado = estadoMod(a.mod, doPlano, admin);
+      if(estado === "ok" && a.rec && !temRecurso(a.rec)) estado = "plano";   // ex.: Provas online é marcado à parte no plano
       if(estado === "oculto") return;
       if(a.rede && usuarioAtual._avulso) return;   // licença avulsa: sem turmas da rede
       if(a.hero && aula) return;                   // com o Maestro liberado, aula e lousa ficam na faixa de destaque
       if(estado !== "ok"){
         // fora do plano ou em breve: continua visivel, menor, em "Conheca mais do Portal"
-        pequenos.push(chipConheca({ id:a.mod || a.id, nome:a.titulo, desc:a.sub, img:fotoAcao(a.foto), motivo:estado }));
+        pequenos.push(chipConheca({ id:(a.rec && !temRecurso(a.rec)) ? a.rec : (a.mod || a.id), nome:a.titulo, desc:a.sub, img:fotoAcao(a.foto), motivo:estado }));
         return;
       }
       const badge = iniProf.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(iniProf.badges[a.id])+'</span>' : "";
@@ -4653,7 +4659,8 @@
       return;
     }
     const itens = [], uid = usuarioAtual.uid, agora = Date.now();
-    const okGestao = estadoMod("gestao", doPlano, admin) === "ok", okProvas = estadoMod("provas", doPlano, admin) === "ok";
+    // as pendencias de prova do "Para hoje" sao todas da prova online
+    const okGestao = estadoMod("gestao", doPlano, admin) === "ok", okProvas = estadoMod("provas", doPlano, admin) === "ok" && temRecurso("prova_online");
     // plano sem chamada, notas nem provas: nao ha pendencia do dia para mostrar
     const sec = $("iniHojeSec"); if(sec) sec.hidden = !okGestao && !okProvas;
     if(!okGestao && !okProvas) return;
