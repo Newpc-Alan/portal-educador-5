@@ -453,6 +453,15 @@ html.pde-quiosque-ativo .s-hn { display: none !important; }
 #pde-painel .ol-class-res.ok { background: #e7f5ea; border-color: #b9dcc1; color: #134D1F; }
 #pde-painel .ol-class-res.info { background: #eaf2fb; border-color: #c4d8ee; color: #1d466e; }
 #pde-painel .ol-class-res.falta { background: #fff4e0; border-color: #edd9ae; color: #6E4A12; }
+#pde-painel .pde-cr { border: 2px solid #1a6b2a; box-shadow: 0 10px 26px -18px rgba(26,107,42,.7); }
+#pde-painel .pde-cr-tag { display: inline-block; vertical-align: middle; margin-left: 6px; font-size: .62rem; font-weight: 800; letter-spacing: .06em; background: #1a6b2a; color: #fff; padding: 2px 7px; border-radius: 999px; }
+#pde-painel .pde-cr-info { border-radius: 12px; padding: 10px 12px; font-size: .88rem; line-height: 1.5; background: #f5f8fb; border: 1px solid #dde5ee; }
+#pde-painel .pde-cr-info.ok { background: #e7f5ea; border-color: #b9dcc1; color: #134D1F; }
+#pde-painel .pde-cr-info.falta { background: #fff4e0; border-color: #edd9ae; color: #6E4A12; }
+#pde-painel .pde-cr-info ul { margin: 6px 0 0 18px; padding: 0; }
+#pde-painel .pde-cr-info .pde-btn { margin-top: 8px; }
+#pde-painel .pde-cr-acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+#pde-painel a.pde-btn[hidden] { display: none !important; }
 #pde-painel .pde-classif { margin-top: 14px; border: 1.5px solid #cfe0d3; background: #f6fbf7; border-radius: 14px; padding: 12px 14px 10px; }
 #pde-painel .pde-classif-t { font-weight: 800; color: #0f2c4a; margin-bottom: 8px; font-size: .95rem; }
 #pde-painel .pde-classif-t small { display: block; font-weight: 600; color: var(--muted); font-size: .76rem; margin-top: 2px; }
@@ -928,7 +937,7 @@ html, body { background: #f4f7fa !important; }
               <label class="pde-label" for="pd-turma-sel">Turma <span class="pde-obg">*</span></label>
               <div class="pde-input-wrap" id="pd-turma-selwrap" hidden><span class="pde-input-icon">👥</span><select id="pd-turma-sel" class="pde-select"></select></div>
               <div class="pde-input-wrap" id="pd-turma-txtwrap"><span class="pde-input-icon">👥</span><input id="pd-turma" list="pde-turmas-portal" class="pde-input" type="text" placeholder="Ex: 5º Ano B" aria-label="Turma"></div>
-              <input id="pd-turma-id" type="hidden">
+              <input id="pd-turma-id" type="hidden"><input id="pd-prova-uid" type="hidden">
             </div>
             <div class="pde-field">
               <label class="pde-label" for="pd-data">Data da avaliação</label>
@@ -1097,6 +1106,32 @@ html, body { background: #f4f7fa !important; }
             </label>
           </div>
           <div class="pde-warn" id="modo-warn" style="display:none">⚠️ <span id="modo-warn-txt"></span></div>
+        </div>
+      </div>
+
+      <div class="pde-card pde-cr" id="pde-cr">
+        <div class="pde-card-head">
+          <div class="pde-card-ico ci-lime">📋</div>
+          <div><h2>Cartão-resposta para o Corretor de Gabarito <span class="pde-cr-tag">NOVO</span></h2><p>Um cartão por aluno, com nome e QR. Corrija com a câmera do celular e a nota vai para Notas e Médias.</p></div>
+        </div>
+        <div class="pde-card-body">
+          <div id="cr-info" class="pde-cr-info">Carregando...</div>
+          <div class="pde-grid-2" style="margin-top:12px">
+            <div class="pde-field">
+              <label class="pde-label" for="cr-nomes">Cartões</label>
+              <select id="cr-nomes" class="pde-select"><option value="sim">Com o nome de cada aluno da turma</option><option value="nao">Só em branco</option></select>
+            </div>
+            <div class="pde-field">
+              <label class="pde-label" for="cr-branco">Cartões extras em branco</label>
+              <input id="cr-branco" class="pde-input" type="number" min="0" max="60" value="2">
+              <div class="pde-hint">Para aluno novo ou cartão rasurado (o aluno é escolhido na hora de corrigir)</div>
+            </div>
+          </div>
+          <div class="pde-cr-acoes">
+            <button class="pde-btn pde-btn-online pde-btn-lg" data-action="crGerar" id="cr-gerar" disabled>📋 Gerar cartões-resposta (PDF)</button>
+            <a class="pde-btn pde-btn-ghost pde-btn-lg" id="cr-corretor" href="/apps/corretor/" target="_blank" rel="noopener" hidden>📷 Corrigir no Corretor ↗</a>
+          </div>
+          <div class="pde-hint" style="margin-top:8px">Imprima em A4, tamanho real (100%), sem "ajustar à página". O cartão é o mesmo do Corretor de Gabarito.</div>
         </div>
       </div>
 
@@ -2114,7 +2149,7 @@ function saveState(){
         escola: id('pd-escola').value, prof: id('pd-prof').value,
         mat_sel: id('pd-mat').value, mat_custom: id('pd-mat-custom').value,
         turma: id('pd-turma').value, data: id('pd-data').value, inst: id('pd-inst').value,
-        turma_id: id('pd-turma-id').value, finalidade: id('pd-finalidade').value, periodo: id('pd-periodo').value, periodos: PERIODOS,
+        turma_id: id('pd-turma-id').value, prova_uid: provaUid(), finalidade: id('pd-finalidade').value, periodo: id('pd-periodo').value, periodos: PERIODOS,
         logo: id('pd-logo-prev').classList.contains('show') ? id('pd-logo-prev').src : ''
       },
       questoes: $$('.pde-question', qsList).map((q,i) => extractQData(q,i))
@@ -2135,6 +2170,7 @@ function loadState(){
     id('pd-data').value = h.data || '';
     id('pd-inst').value = h.inst || '';
     id('pd-turma-id').value = h.turma_id || '';
+    id('pd-prova-uid').value = h.prova_uid || '';
     id('pd-finalidade').value = FINALIDADES[h.finalidade] ? h.finalidade : '';
     montarPeriodos(h.periodos || PERIODOS, h.periodo || '');
     if(h.logo){ const prev = id('pd-logo-prev'); prev.src = h.logo; prev.classList.add('show'); }
@@ -2150,7 +2186,7 @@ async function limparTudo(){
   const ok = await pdeConfirm('Todos os dados desta prova serão apagados. O banco de questões continua intacto.', {titulo:'Recomeçar do zero?', ok:'Sim, recomeçar', danger:true});
   if(!ok) return;
   localStorage.removeItem(LS_KEY);
-  ['pd-escola','pd-prof','pd-turma','pd-data','pd-inst','pd-mat-custom','pd-turma-id','pd-finalidade','pd-periodo'].forEach(i => id(i).value = '');
+  ['pd-escola','pd-prof','pd-turma','pd-data','pd-inst','pd-mat-custom','pd-turma-id','pd-prova-uid','pd-finalidade','pd-periodo'].forEach(i => id(i).value = '');
   if(TURMAS.length){ id('pd-turma-sel').value = ''; turmaSel(false); }
   id('pd-mat').value = '';
   id('pd-mat-custom').style.display = 'none';
@@ -2187,6 +2223,8 @@ function montarPeriodos(n, valor){
   sel.value = +v >= 1 && +v <= PERIODOS ? v : '';
   refreshClassif();
 }
+// identidade desta prova no aparelho (liga a prova aos cartões-resposta no Corretor quando ela não está em Minhas provas)
+function provaUid(){ const el = id('pd-prova-uid'); if(!el.value) el.value = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); return el.value; }
 function anoLetivo(){ const d = id('pd-data').value; return d ? +d.slice(0, 4) : new Date().getFullYear(); }
 function classificacao(){
   const f = id('pd-finalidade').value, F = FINALIDADES[f];
@@ -2600,7 +2638,7 @@ function collectData(){
   const header = {
     escola: id('pd-escola').value.trim(), prof: id('pd-prof').value.trim(), mat: getDisciplina(),
     turma: id('pd-turma').value.trim(), data: fmtDate(), inst: id('pd-inst').value.trim(),
-    ...classificacao(),
+    ...classificacao(), prova_uid: provaUid(),
     logo: (id('pd-logo-prev').classList.contains('show') ? id('pd-logo-prev').src : '') || ''
   };
   let totalPontos = 0;
@@ -3584,7 +3622,7 @@ window.PDEProvas = { definirTurmas, montarPeriodos, classificacao, faltaClassif,
 /* ═══ Portal 5.0: login e dados do professor (escola, município, logo, turmas) ═══ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection, getDocs, query, where, limit, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytes, getBlob, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const app = initializeApp({
@@ -3686,7 +3724,7 @@ onAuthStateChanged(auth, async (user) => {
       sn.forEach(d => { const t = d.data(); if(t.status === "inativa") return;
         const nome = (/^\d$/.test(String(t.ano_serie || "")) && !/ano/i.test(t.nome || "") ? t.ano_serie + "º ano · " : "") + (t.nome || "");
         const esc0 = P.escolas.find(e => e.id === t.escola_id);
-        todas.push({ id:d.id, nome, escola_id:t.escola_id || "", escola:esc0 ? esc0.nome : "", minha:minhas.has(d.id) || t.criado_por === user.uid }); });
+        todas.push({ id:d.id, nome, nome_turma:t.nome || nome, escola_id:t.escola_id || "", escola:esc0 ? esc0.nome : "", minha:minhas.has(d.id) || t.criado_por === user.uid }); });
       const l = todas.some(t => t.minha) ? todas.filter(t => t.minha) : todas;
       P.turmasObj = l.slice().sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
       P.turmas = [...new Set(l.map(t => t.nome))].sort();
@@ -4081,12 +4119,101 @@ async function olAplicar(){
   finally{ OL.enviando = false; }
 }
 // "Recomeçar" do gerador vira "nova prova" quando a prova esta na nuvem (a salva continua guardada)
+/* ═══════════ CARTÃO-RESPOSTA: o mesmo do Corretor de Gabarito ═══════════
+   Cria (ou reaproveita) a prova no Corretor (coleção avaliacoes) para a turma do cabeçalho e gera o PDF
+   com /assets/js/cartao-resposta.js, o mesmo arquivo que o Corretor usa para imprimir e para ler. */
+const CR = { ocupado:false, mod:null };
+async function crModulo(){ return CR.mod || (CR.mod = await import("/assets/js/cartao-resposta.js")); }
+function crTurma(H){ return (P.turmasObj || []).find(t => t.id === H.turma_id) || null; }
+async function crAtualizar(){
+  const el = $("cr-info"); if(!el) return null;
+  let M; try{ M = await crModulo(); }catch(e){ el.className = "pde-cr-info falta"; el.textContent = "Não foi possível carregar o cartão-resposta. Recarregue a página."; return null; }
+  const d = G().collectData(), H = d.header, r = M.questoesDoGerador(d.questoes), t = crTurma(H), falta = G().faltaClassif(true), emb = $("pd-embaralhar").value !== "nao";
+  const prob = [], lista = n => n.length > 6 ? n.slice(0, 6).join(", ") + "..." : n.join(", ");
+  if(!N.uid) prob.push("Entre na sua conta do Portal.");
+  if(!t || falta.length) prob.push("No cabeçalho, escolha " + (falta.length ? falta.join(", ") : "a turma da lista do Portal") + '. <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="crIrCabecalho">Ir para o cabeçalho</button>');
+  if(emb) prob.push('O cartão usa um gabarito só: deixe <b>Embaralhar</b> em "Não embaralhar". <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="crDesembaralhar">Desligar embaralhamento</button>');
+  if(r.semGab.length) prob.push("Marque a alternativa correta da(s) questão(ões) " + lista(r.semGab) + '. <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="crIrQuestoes">Ir para as questões</button>');
+  if(r.muitas.length) prob.push("O cartão vai até a letra E: a(s) questão(ões) " + lista(r.muitas) + " têm mais de 5 alternativas.");
+  if(!r.questoes.length && !r.semGab.length) prob.push("A prova não tem questão de múltipla escolha. O cartão-resposta serve para as objetivas.");
+  if(r.questoes.length > M.MAX_QUESTOES) prob.push("O cartão comporta até " + M.MAX_QUESTOES + " questões objetivas (esta tem " + r.questoes.length + ").");
+  const ok = !prob.length;
+  el.className = "pde-cr-info " + (ok ? "ok" : "falta");
+  el.innerHTML = ok
+    ? "✅ <b>" + r.questoes.length + " questões objetivas</b> no cartão · turma <b>" + escH(t.nome) + "</b>" + (r.fora.length ? " · " + r.fora.length + " aberta(s) ficam para corrigir na prova e lançar em Notas e Médias" : "") + "."
+    : "⚠️ Para gerar os cartões:<ul>" + prob.map(x => "<li>" + x + "</li>").join("") + "</ul>";
+  $("cr-gerar").disabled = !ok || CR.ocupado;
+  return ok ? { M, d, H, r, t } : null;
+}
+async function crGerar(){
+  if(CR.ocupado) return;
+  const X = await crAtualizar(); if(!X) { G().toast("Confira os itens do cartão-resposta.", "warn"); return; }
+  const { M, d, H, r, t } = X, btn = $("cr-gerar");
+  CR.ocupado = true; btn.disabled = true; btn.textContent = "Gerando...";
+  try{
+    await M.carregarLibs();
+    const F = G().FINALIDADES[H.finalidade], escola = P.escolas.find(e => e.id === t.escola_id), mp = atual() && atual().id;
+    const titulo = String((mp && atual().titulo) || [F.l + (H.periodo ? " " + G().periodoTxt(H.periodo, H.periodos) : ""), H.mat].filter(Boolean).join(" · ") || "Prova").slice(0, 80);
+    const total = Math.round(r.questoes.reduce((s, q) => s + q.pontos, 0) * 100) / 100, assin = M.assinaturaGab(r.questoes);
+    const base = { titulo, disciplina:String(H.mat || "").slice(0, 60), bimestre:Math.min(4, Math.max(1, H.periodo || 1)), periodo:H.periodo || null, periodos:H.periodos,
+      finalidade:H.finalidade, vale_nota:F.nota, turma_id:t.id, turma_nome:String(t.nome_turma || t.nome).slice(0, 80), escola_id:t.escola_id || "", escola_nome:escola ? escola.nome : "",
+      municipio_id:(P.muni && P.muni.id) || "", ano_letivo:H.ano, questoes:r.questoes, total_pontos:total, assinatura_gab:assin, atualizado_em:serverTimestamp() };
+    // a mesma prova nesta turma já está no Corretor? (Minhas provas: id da nuvem; prova só do aparelho: id local)
+    const sn = await getDocs(query(collection(db, "avaliacoes"), where("professor_uid", "==", N.uid), where("turma_id", "==", t.id)));
+    const minhas = []; sn.forEach(x => { const a = x.data(); if(a.status !== "excluida" && (a.gerador_id === mp || a.gerador_id === H.prova_uid) && a.gerador_id) minhas.push({ id:x.id, ...a }); });
+    minhas.sort((a, b) => ((b.criado_em && b.criado_em.seconds) || 0) - ((a.criado_em && a.criado_em.seconds) || 0));
+    let aval = minhas.find(a => (a.assinatura_gab || M.assinaturaGab(M.objetivas(a))) === assin), aviso = "";
+    if(aval){ await updateDoc(doc(db, "avaliacoes", aval.id), { ...base, gerador_id:mp || aval.gerador_id }); aval = { ...aval, ...base }; }
+    else if(minhas.length){
+      // o gabarito mudou: sem cartão corrigido, atualiza; com cartões já corrigidos, vira outra prova (os corrigidos não mudam de nota)
+      let usada = false; (await getDocs(query(collection(db, "respostas"), where("avaliacao_id", "==", minhas[0].id), limit(1)))).forEach(() => { usada = true; });
+      if(!usada){ await updateDoc(doc(db, "avaliacoes", minhas[0].id), { ...base, gerador_id:mp || minhas[0].gerador_id }); aval = { ...minhas[0], ...base }; aviso = " O gabarito foi atualizado no Corretor."; }
+      else{
+        const okNova = await G().pdeConfirm("Já existem cartões corrigidos com o gabarito anterior desta prova. Os cartões novos vão como outra prova no Corretor; as notas já corrigidas continuam como estão. Os cartões antigos não servem para esta versão.", { titulo:"O gabarito mudou", ok:"Gerar como nova versão" });
+        if(!okNova) return;
+        base.titulo = (titulo + " (nova versão)").slice(0, 80);
+      }
+    }
+    if(!aval){
+      const ref = await addDoc(collection(db, "avaliacoes"), { ...base, professor_uid:N.uid, status:"impressa", formato:"cartao", origem:"gerador", gerador_id:mp || H.prova_uid,
+        codigo_acesso:null, liberada_em:null, encerra_em:null, criado_em:serverTimestamp() });
+      aval = { id:ref.id, ...base };
+    }
+    // alunos da turma (mesma consulta do Corretor)
+    let alunos = [];
+    if($("cr-nomes").value === "sim"){
+      const sa = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id)));
+      sa.forEach(x => { const a = x.data(); if(a.nome && a.status !== "inativo") alunos.push({ id:x.id, nome:String(a.nome).trim() }); });
+      alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    }
+    const branco = Math.max(0, Math.min(60, parseInt($("cr-branco").value, 10) || 0)), lista = [...alunos, ...Array.from({ length:branco }, () => null)];
+    if(!lista.length){ G().toast($("cr-nomes").value === "sim" ? "A turma ainda não tem alunos matriculados. Gere cartões em branco ou cadastre os alunos." : "Informe quantos cartões em branco.", "warn"); return; }
+    const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), lay = M.layoutDaProva(aval), turmaCartao = { nome:base.turma_nome, escola_nome:base.escola_nome };
+    lista.forEach((al, i) => { if(i) pdf.addPage(); M.desenharCartao(pdf, { lay, aval, turma:turmaCartao, aluno:al }); });
+    window.__ultimoPdf = pdf.output("datauristring");
+    pdf.save("cartoes-" + titulo.normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase().slice(0, 40) + ".pdf");
+    try{ localStorage.setItem("pde_corretor_turma", t.id); localStorage.setItem("pde_corretor_aval", aval.id); }catch(e){}
+    const link = $("cr-corretor"); link.href = "/apps/corretor/?turma=" + encodeURIComponent(t.id); link.hidden = false;
+    CR.ultima = aval.id;
+    G().toast(lista.length + " cartões gerados (" + alunos.length + " com nome)." + aviso + " Imprima em tamanho real (100%).");
+  }catch(e){ console.warn("cartao:", e); G().toast("Não foi possível gerar os cartões (" + (e.code || e.message || "erro") + ").", "err"); }
+  finally{ CR.ocupado = false; btn.textContent = "📋 Gerar cartões-resposta (PDF)"; crAtualizar(); }
+}
+// atualiza o quadro do cartão sempre que o passo 3 aparece ou muda o embaralhamento
+(function(){
+  const passo = $("step-impressao"); if(!passo) return;
+  new MutationObserver(() => { if(passo.style.display !== "none") crAtualizar(); }).observe(passo, { attributes:true, attributeFilter:["style"] });
+  $("pd-embaralhar").addEventListener("change", () => crAtualizar());
+})();
+
 function registrar(){
   const A = G().ACTIONS;
   Object.assign(A, {
     mpAbrir, mpSalvar, mpNovaProva, mpNovaPasta, mpRenomearPasta, mpExcluirPasta,
     mpFechar: () => $("mp-bg").classList.remove("show"),
     olAbrir, olAplicar, olModo, olFechar: () => $("ol-bg").classList.remove("show"),
+    crGerar, crDesembaralhar: () => { const e = $("pd-embaralhar"); e.value = "nao"; e.dispatchEvent(new Event("change", { bubbles:true })); crAtualizar(); },
+    crIrCabecalho: () => G().irParaClassif(), crIrQuestoes: () => G().goStep("questoes"),
     mpPasta: (v) => { N.pasta = v === null ? "" : v; desenharMP(); },
     mpAbrirProva: (v) => abrirProva(v),
     mpDuplicar: (v) => mpDuplicar(v), mpRenomear: (v) => mpRenomear(v), mpExcluir: (v, b) => mpExcluir(v, b),

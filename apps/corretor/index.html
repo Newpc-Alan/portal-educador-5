@@ -308,6 +308,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, addDoc, updateDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, getBlob } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { LETRAS, FID, FIDS, QR, layout, objetivas, nAltDe, desenharCartao as cartaoPdf, questoesDoGerador } from "/assets/js/cartao-resposta.js";
 
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(fb), db = getFirestore(fb), st = getStorage(fb);
@@ -315,24 +316,11 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3400); }
 const fmt = n => (Math.round(n * 100) / 100).toLocaleString("pt-BR", { maximumFractionDigits:2 });
-const LETRAS = "ABCDE";
 
 /* =====================================================================
    GEOMETRIA DO CARTÃO (milímetros, A4 em pé). O PDF e a leitura usam a mesma conta.
    ===================================================================== */
-const FID = 7;                                     // lado das marcas pretas dos cantos
-const FIDS = [[14, 14], [196, 14], [196, 283], [14, 283]]; // centros: sup. esq., sup. dir., inf. dir., inf. esq.
-const QR = { x:162, y:22, s:28 };
-function layout(nQ, nAlt){
-  const cols = nQ <= 17 ? 1 : nQ <= 34 ? 2 : 3, linhas = Math.ceil(nQ / cols), r = 2.6, passoY = 8.5, passoX = 8;
-  const x0s = cols === 1 ? [72] : cols === 2 ? [40, 118] : [22, 86, 150];
-  const y0 = 100, bolhas = [];
-  for(let q = 0; q < nQ; q++){
-    const c = Math.floor(q / linhas), l = q % linhas, x0 = x0s[c], y = y0 + l * passoY;
-    bolhas.push({ q:q + 1, nx:x0, y, alts:Array.from({ length:nAlt }, (_, k) => ({ letra:LETRAS[k], x:x0 + 14 + k * passoX, y })) });
-  }
-  return { nQ, nAlt, cols, linhas, r, y0, x0s, passoX, passoY, bolhas };
-}
+// geometria do cartão (FID, FIDS, QR, layout): /assets/js/cartao-resposta.js, a mesma usada por Provas e Avaliações
 
 /* =====================================================================
    VISÃO: tons de cinza, marcas dos cantos, homografia e leitura das bolinhas
@@ -535,10 +523,9 @@ async function carregarAvals(selecionar){
   const alvo = selecionar || (() => { try{ return localStorage.getItem("pde_corretor_aval"); }catch(e){ return ""; } })();
   if(alvo && E.avals.some(a => a.id === alvo)){ $("selAval").value = alvo; await escolherAval(alvo); } else desenhar();
 }
-const objetivas = a => (a.questoes || []).filter(q => q.tipo === "multipla").sort((x, y) => x.numero - y.numero);
 // layout do cartão e gabarito de uma prova (o mesmo para câmera, foto e lote)
 function montarGab(a){
-  const obj = objetivas(a), nAlt = Math.max(4, Math.min(5, Math.max(...obj.map(q => (q.alternativas || []).length || 5)))), gab = {};
+  const obj = objetivas(a), nAlt = nAltDe(obj), gab = {};
   obj.forEach((q, i) => { const c = (q.alternativas || []).find(x => x.correta); gab[i + 1] = { letra:c ? c.letra : null, pontos:+q.pontos || 0, numero:q.numero, bncc:codigosBncc(q.bncc).join(" ") }; });
   return { lay:layout(obj.length, nAlt), gab };
 }
@@ -596,7 +583,7 @@ function desenharGabarito(){
     (falta ? '<span class="pill cinza">' + falta + " sem resposta certa</span>" : '<span class="pill ok">Gabarito completo</span>') + "</div>" +
     ((E.aval.questoes || []).some(q => q.tipo !== "multipla") ? '<div class="aviso" style="margin-top:10px">Esta prova tem questões dissertativas. O cartão cobre só as objetivas; as questões abertas você lança direto em Notas e Médias.</div>' : "") +
     '<p class="sub" style="margin:10px 0">' + (edit ? "Toque na alternativa certa de cada questão. Salva sozinho." : "Gabarito da prova criada no Portal.") + " Ao lado, o código da habilidade BNCC (opcional, ex.: EF05MA08) para o relatório por habilidade.</p>" +
-    '<div class="gab">' + L.bolhas.map(b => '<div class="gq"><b>' + b.q + "</b>" + b.alts.map(a => '<button data-action="gab" data-arg="' + b.q + ":" + a.letra + '" class="' + (E.gab[b.q].letra === a.letra ? "on" : "") + '"' + (edit ? "" : " disabled") + ">" + a.letra + "</button>").join("") + '<input class="bn" data-bncc="' + b.q + '" value="' + esc(E.gab[b.q].bncc || "") + '" placeholder="BNCC" maxlength="40" aria-label="Habilidade BNCC da questão ' + b.q + '" title="' + esc(codigosBncc(E.gab[b.q].bncc).map(descBncc).join(" | ")) + '"></div>').join("") + "</div></div>" +
+    '<div class="gab">' + L.bolhas.map(b => '<div class="gq"><b>' + (E.gab[b.q].numero || b.q) + "</b>" + b.alts.map(a => '<button data-action="gab" data-arg="' + b.q + ":" + a.letra + '" class="' + (E.gab[b.q].letra === a.letra ? "on" : "") + '"' + (edit ? "" : " disabled") + ">" + a.letra + "</button>").join("") + '<input class="bn" data-bncc="' + b.q + '" value="' + esc(E.gab[b.q].bncc || "") + '" placeholder="BNCC" maxlength="40" aria-label="Habilidade BNCC da questão ' + b.q + '" title="' + esc(codigosBncc(E.gab[b.q].bncc).map(descBncc).join(" | ")) + '"></div>').join("") + "</div></div>" +
     '<div class="barra"><span class="esp"></span><button class="btn btn-pri btn-lg" data-action="ir" data-arg="cartoes"' + (falta ? " disabled" : "") + ">Próximo: imprimir cartões →</button></div>";
 }
 let gabT = 0;
@@ -637,13 +624,7 @@ async function usarDoGerador(id, btn){
     let txt; try{ txt = ficha.tipo_arquivo === "application/json" || typeof DecompressionStream === "undefined" ? await b.text() : await new Response(b.stream().pipeThrough(new DecompressionStream("gzip"))).text(); }
     catch(e){ txt = await b.text(); }
     const estado = JSON.parse(txt || "{}"), qs = Array.isArray(estado.questoes) ? estado.questoes : [];
-    const questoes = [];
-    qs.forEach((q, i) => {
-      if(!q || q.tipo !== "multipla" || !Array.isArray(q.alts) || !(q.gab >= 0) || q.alts.length < 2) return;
-      const alts = q.alts.slice(0, 5);
-      questoes.push({ numero:i + 1, tipo:"multipla", enunciado:String(q.enun || "Questão " + (i + 1)).slice(0, 400), pontos:Math.max(0, +q.valor || 1), bncc:String(q.bncc || "").slice(0, 40),
-        alternativas:alts.map((t, k) => ({ letra:LETRAS[k], texto:String(t || "").slice(0, 200), correta:k === q.gab })) });
-    });
+    const { questoes } = questoesDoGerador(qs);
     if(!questoes.length){ toast("Esta prova não tem questões de múltipla escolha com o gabarito marcado.", true); if(btn) btn.disabled = false; return; }
     const ignoradas = qs.length - questoes.length, t = E.turma;
     const r = await addDoc(collection(db, "avaliacoes"), { titulo:String(ficha.titulo || "Prova").slice(0, 80), disciplina:String(ficha.disciplina || "").slice(0, 60), bimestre:Math.min(4, Math.max(1, +ficha.periodo || 1)),
@@ -674,44 +655,7 @@ async function criarGab(){
 /* =====================================================================
    PDF DOS CARTÕES
    ===================================================================== */
-function qrDataUrl(texto){
-  const box = document.createElement("div");
-  new window.QRCode(box, { text:texto, width:300, height:300, correctLevel:window.QRCode.CorrectLevel.M });
-  const c = box.querySelector("canvas"); return c ? c.toDataURL("image/png") : (box.querySelector("img") || {}).src;
-}
-function desenharCartao(pdf, aluno){
-  const L = E.lay, a = E.aval, t = E.turma;
-  pdf.setFillColor(0, 0, 0); FIDS.forEach(([x, y]) => pdf.rect(x - FID / 2, y - FID / 2, FID, FID, "F"));
-  pdf.setTextColor(12, 35, 56); pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text("PORTAL DO EDUCADOR · CARTÃO-RESPOSTA", 24, 20);
-  pdf.setFontSize(15); pdf.text(pdf.splitTextToSize(a.titulo || "Prova", 128)[0], 24, 28);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9.5); pdf.setTextColor(60, 75, 95);
-  pdf.text([t.escola_nome, "Turma " + (t.nome || ""), a.disciplina].filter(Boolean).join("  ·  ").slice(0, 95), 24, 34);
-  pdf.setDrawColor(150, 160, 175); pdf.setLineWidth(0.3); pdf.roundedRect(22, 39, 134, 13, 2, 2);
-  pdf.setFontSize(7.5); pdf.text("ALUNO(A)", 25, 43);
-  pdf.setTextColor(12, 35, 56); pdf.setFont("helvetica", "bold"); pdf.setFontSize(aluno ? 13 : 10);
-  pdf.text(aluno ? aluno.nome.slice(0, 48) : "", 25, 49.5);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(60, 75, 95); pdf.text("DATA ____/____/______", 120, 43);
-  pdf.addImage(qrDataUrl("PDE1:" + a.id + ":" + (aluno ? aluno.id : "")), "PNG", QR.x, QR.y, QR.s, QR.s);
-  pdf.setFontSize(8.5); pdf.setTextColor(12, 35, 56); pdf.setFont("helvetica", "bold");
-  pdf.text("Pinte a bolinha inteira com caneta azul ou preta.", 24, 62);
-  pdf.setFont("helvetica", "normal"); pdf.setTextColor(60, 75, 95);
-  pdf.text("Uma alternativa por questão. Não rasure e não dobre o cartão.", 24, 67);
-  pdf.text("Certo:", 128, 64.5); pdf.setFillColor(20, 20, 20); pdf.circle(141, 63.6, 2.3, "F");
-  pdf.text("Errado:", 148, 64.5); pdf.setDrawColor(20, 20, 20); pdf.setLineWidth(0.5); pdf.circle(162, 63.6, 2.3); pdf.line(160.4, 62, 163.6, 65.2); pdf.line(163.6, 62, 160.4, 65.2);
-  pdf.setLineWidth(0.25); pdf.setDrawColor(180, 190, 200); pdf.line(22, 74, 188, 74);
-  // cabeçalho das colunas
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.setTextColor(100, 115, 130);
-  L.x0s.slice(0, L.cols).forEach(x0 => LETRAS.slice(0, L.nAlt).split("").forEach((l, k) => pdf.text(l, x0 + 14 + k * L.passoX, L.y0 - 6.5, { align:"center" })));
-  L.bolhas.forEach(b => {
-    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9.5); pdf.setTextColor(12, 35, 56); pdf.text(String(b.q).padStart(2, "0"), b.nx + 6, b.y + 1.2, { align:"right" });
-    b.alts.forEach(al => {
-      pdf.setDrawColor(55, 65, 80); pdf.setLineWidth(0.3); pdf.circle(al.x, al.y, L.r);
-      pdf.setFont("helvetica", "normal"); pdf.setFontSize(6.5); pdf.setTextColor(185, 192, 200); pdf.text(al.letra, al.x, al.y + 0.9, { align:"center" });
-    });
-  });
-  pdf.setFontSize(7); pdf.setTextColor(140, 150, 160);
-  pdf.text("Não escreva perto dos quadrados pretos dos cantos. Corrigido pelo Corretor de Gabarito do Portal do Educador.", 105, 276, { align:"center" });
-}
+const desenharCartao = (pdf, aluno) => cartaoPdf(pdf, { lay:E.lay, aval:E.aval, turma:E.turma, aluno });
 async function gerarPdf(){
   if(!window.jspdf || !window.QRCode){ toast("Carregando os componentes do PDF. Tente de novo em instantes.", true); return; }
   const nomes = $("cNomes").value === "sim" ? E.alunos : [], branco = Math.max(0, Math.min(60, +$("cBranco").value || 0));
@@ -814,7 +758,7 @@ function desenharConferencia(){
   $("confAviso").hidden = !(duv || ja || !aluno);
   $("confAviso").innerHTML = [!aluno ? "Escolha o aluno deste cartão." : "", duv ? duv + " questão(ões) em laranja para conferir." : "", ja ? "Este aluno já tem resposta salva: salvar vai substituir." : ""].filter(Boolean).join(" ");
   $("confResp").innerHTML = A.leitura.map(x => { const g = E.gab[x.q], cls = x.letra ? (g && g.letra === x.letra ? "certo" : "errado") : "";
-    return '<div class="rq ' + cls + (x.duvida && !x.conferida ? " duvida" : "") + '"><b>' + x.q + "</b>" + LETRAS.slice(0, L.nAlt).split("").map(l => '<button data-action="trocar" data-arg="' + x.q + ":" + l + '" class="' + (x.letra === l ? "m" : "") + '">' + l + "</button>").join("") +
+    return '<div class="rq ' + cls + (x.duvida && !x.conferida ? " duvida" : "") + '"><b>' + ((g && g.numero) || x.q) + "</b>" + LETRAS.slice(0, L.nAlt).split("").map(l => '<button data-action="trocar" data-arg="' + x.q + ":" + l + '" class="' + (x.letra === l ? "m" : "") + '">' + l + "</button>").join("") +
       (x.letra ? (cls === "certo" ? '<span class="ok">✓</span>' : '<span class="x">✗</span>') : '<span class="x" title="em branco">–</span>') + "</div>"; }).join("");
   // marcações na imagem
   const c = $("prev").getContext("2d"), px = 2.6; c.putImageData(A.prevBase, 0, 0);
