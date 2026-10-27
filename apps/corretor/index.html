@@ -176,7 +176,7 @@ table.res{width:100%;border-collapse:collapse}
     <select class="sel" id="selTurma" aria-label="Turma"><option value="">Carregando turmas...</option></select>
     <select class="sel" id="selAval" aria-label="Prova" disabled><option value="">Escolha a turma primeiro</option></select>
     <span class="esp"></span>
-    <button class="btn btn-pri btn-sm" data-action="ger-abrir" id="btnGer" disabled>📥 Trazer do Gerador de Provas</button>
+    <button class="btn btn-pri btn-sm" data-action="ger-abrir" id="btnGer" disabled>📥 Trazer de Provas e Avaliações</button>
     <button class="btn btn-ok btn-sm" data-action="novo-gab" id="btnNovo" disabled>＋ Gabarito de prova impressa</button>
   </div>
 
@@ -281,7 +281,7 @@ table.res{width:100%;border-collapse:collapse}
 </div>
 
 <div class="modal" id="mGer" hidden><div class="modal-box">
-  <h3>Trazer do Gerador de Provas</h3>
+  <h3>Trazer de Provas e Avaliações</h3>
   <p class="sub" style="margin-bottom:10px">Suas provas salvas em <b>Minhas provas</b>. As questões de múltipla escolha com gabarito marcado viram o cartão-resposta desta turma.</p>
   <div class="aviso" style="margin-bottom:10px">Para corrigir com o cartão, imprima a prova com a opção <b>Não embaralhar</b>: todas as cópias precisam ter a mesma ordem de questões e alternativas.</div>
   <div id="gerLista" class="ger-lista"><div class="vazio">Carregando...</div></div>
@@ -588,8 +588,8 @@ function desenhar(){
   else if(E.sec === "lote") desenharLote();
 }
 function desenharGabarito(){
-  if(!E.turma){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a turma</b>Depois, a prova: traga uma de Minhas provas do Gerador ou crie o gabarito de uma prova impressa.</div>'; return; }
-  if(!E.aval){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a prova ou crie um gabarito</b>Use "📥 Trazer do Gerador de Provas" para uma prova salva em Minhas provas, ou "＋ Gabarito de prova impressa" para prova feita fora do Portal.</div>'; return; }
+  if(!E.turma){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a turma</b>Depois, a prova: traga uma de Minhas provas (Provas e Avaliações) ou crie o gabarito de uma prova impressa.</div>'; return; }
+  if(!E.aval){ $("gabBox").innerHTML = '<div class="vazio card"><b>Escolha a prova ou crie um gabarito</b>Use "📥 Trazer de Provas e Avaliações" para uma prova salva em Minhas provas, ou "＋ Gabarito de prova impressa" para prova feita fora do Portal.</div>'; return; }
   const edit = E.aval.formato === "cartao", L = E.lay, falta = Object.values(E.gab).filter(g => !g.letra).length;
   const total = Object.values(E.gab).reduce((s, g) => s + g.pontos, 0);
   $("gabBox").innerHTML = '<div class="card"><div class="barra"><div><div class="h2">' + esc(E.aval.titulo) + '</div><div class="sub">' + esc([E.aval.disciplina, E.aval.bimestre ? E.aval.bimestre + "º bimestre" : "", L.nQ + " questões objetivas", "vale " + fmt(total) + " pontos"].filter(Boolean).join(" · ")) + "</div></div><span class=\"esp\"></span>" +
@@ -622,7 +622,7 @@ async function abrirGerador(){
   const ja = new Set(E.avals.map(a => a.gerador_id).filter(Boolean));
   $("gerLista").innerHTML = l.length ? l.map(p => '<button class="ger-item" data-action="ger-usar" data-arg="' + esc(p.id) + '"><b>' + esc(p.titulo || "Prova sem nome") + "</b><small>" +
     esc([p.disciplina, p.turma, (p.questoes || 0) + " questões"].filter(Boolean).join(" · ")) + (ja.has(p.id) ? " · já está nesta turma" : "") + "</small></button>").join("")
-    : '<div class="vazio">Nenhuma prova salva ainda. No Gerador de Provas, use "☁ Salvar" para guardar a prova em Minhas provas.</div>';
+    : '<div class="vazio">Nenhuma prova salva ainda. Em Provas e Avaliações, use "☁ Salvar" para guardar a prova em Minhas provas.</div>';
 }
 async function usarDoGerador(id, btn){
   const existente = E.avals.find(a => a.gerador_id === id);
@@ -643,7 +643,7 @@ async function usarDoGerador(id, btn){
     });
     if(!questoes.length){ toast("Esta prova não tem questões de múltipla escolha com o gabarito marcado.", true); if(btn) btn.disabled = false; return; }
     const ignoradas = qs.length - questoes.length, t = E.turma;
-    const r = await addDoc(collection(db, "avaliacoes"), { titulo:String(ficha.titulo || "Prova do Gerador").slice(0, 80), disciplina:String(ficha.disciplina || "").slice(0, 60), bimestre:1,
+    const r = await addDoc(collection(db, "avaliacoes"), { titulo:String(ficha.titulo || "Prova").slice(0, 80), disciplina:String(ficha.disciplina || "").slice(0, 60), bimestre:1,
       turma_id:t.id, turma_nome:t.nome || "", escola_id:t.escola_id || "", escola_nome:t.escola_nome || "", municipio_id:t.municipio_id || E.u.municipio_id || "",
       ano_letivo:new Date().getFullYear(), professor_uid:E.user.uid, questoes, total_pontos:Math.round(questoes.reduce((s, q) => s + q.pontos, 0) * 100) / 100,
       status:"impressa", formato:"cartao", origem:"gerador", gerador_id:id, codigo_acesso:null, liberada_em:null, encerra_em:null, criado_em:serverTimestamp() });
