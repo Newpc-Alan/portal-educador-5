@@ -291,12 +291,13 @@ service cloud.firestore {
     match /notas_regras/{m} {
       allow get: if admin() || (ativo() && eu().perfil != "aluno" && eu().get("municipio_id", "-") == m);
       allow create, update: if (admin() || secretariaDoMuni(m))
-        && novo().keys().hasOnly(["periodos", "pesos", "media_minima", "nota_max", "arredondamento", "composicao", "rec_periodo", "rec_final",
+        && novo().keys().hasOnly(["periodos", "pesos", "media_minima", "nota_max", "arredondamento", "composicao", "rec_periodo", "rec_final", "sem_retencao",
           "peso_media", "peso_exame", "media_final_minima", "freq_minima", "atualizado_em", "atualizado_por"])
         && novo().periodos in [2, 3, 4] && novo().pesos is list && novo().pesos.size() == novo().periodos
         && novo().nota_max in [10, 100] && novo().media_minima is number && novo().media_minima > 0 && novo().media_minima <= novo().nota_max
         && novo().arredondamento in ["decimo", "meio_cima", "inteiro"] && novo().composicao in ["media", "soma"]
-        && novo().rec_periodo in ["maior", "media", "nao"] && novo().rec_final is bool && novo().freq_minima is number && novo().freq_minima <= 100;
+        && novo().rec_periodo in ["maior", "media", "nao"] && novo().rec_final is bool && novo().freq_minima is number && novo().freq_minima <= 100
+        && novo().get("sem_retencao", []) is list && novo().get("sem_retencao", []).size() <= 9;
     }
     // planilha de notas do professor: uma por turma, disciplina e ano; o ID comeca com o uid do dono
     // ---------- Calendário e Dias Letivos ----------
@@ -389,6 +390,21 @@ service cloud.firestore {
         && novo().notas is map && novo().notas.size() <= 80 && novo().faltas is map && novo().faltas.size() <= 80 && novo().aulas is map && novo().aulas.size() <= 4 && novo().get("exame", {}) is map && novo().get("exame", {}).size() <= 80
         && (admin() || turmaDoc(novo().turma_id).escola_id == novo().escola_id);
       allow delete: if admin() || equipeEscola(resource.data.escola_id);
+    }
+    // fechamento dos períodos e a cópia oficial das notas fechadas: só as funções escrevem
+    match /fechamentos/{id} {
+      allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id)
+        || (vinculado() && resource.data.escola_id in minhasEscolas());
+      allow write: if false;
+    }
+    match /notas_fechadas/{id} {
+      allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id);
+      allow write: if false;
+    }
+    // histórico de alterações das notas (a função registra a cada gravação)
+    match /notas_historico/{id} {
+      allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id);
+      allow write: if false;
     }
     match /substituicoes/{id} {
       allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id)

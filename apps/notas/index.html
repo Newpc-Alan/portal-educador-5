@@ -98,6 +98,12 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .chave input{width:20px;height:20px;accent-color:var(--verde);flex:none}
 .chave small{display:block;font-weight:500;color:var(--muted);font-size:.76rem}
 .ferr{margin-bottom:8px}
+.fech-aviso{background:#fff3d6;border:1px solid #f3d88f;color:#6b4500;border-radius:12px;padding:10px 14px;font-size:.86rem;margin-bottom:10px}
+.fech-lista{display:flex;flex-direction:column;gap:8px}
+.fech-item{display:flex;align-items:center;gap:12px;flex-wrap:wrap;border:1.5px solid var(--line);border-left:5px solid #b8c6d6;border-radius:12px;padding:10px 14px;background:#fff}
+.fech-item b{min-width:110px}.fech-item span{flex:1;color:var(--muted);font-size:.86rem}
+.fech-item.fc{border-left-color:var(--verde)}
+.hist td{padding:6px 10px;font-size:.8rem}.hist tr.apos td{background:#fff1f0;color:#9c2a20}
 .ferr2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}
 .ferr2 .esp{flex:1}
 .regra-mini{background:#eef6fc;border:1px solid #cfe4f4;border-radius:12px;padding:8px 14px;font-size:.82rem;color:#1f5f91;margin-bottom:10px}
@@ -207,6 +213,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
         <button class="btn btn-gh btn-sm" data-action="pdf-mapa">📄 Mapa de notas (PDF)</button>
       </div>
       <details class="regra-mini" id="regraResumo"></details>
+      <div class="fech-aviso" id="fechAviso" hidden></div>
       <div class="freq-aviso" id="freqAviso" hidden></div>
       <div class="grade-wrap" id="gradeBox"></div>
       <p class="sub" style="margin-top:8px">Lançamento manual: toque na célula e digite a nota (vírgula ou ponto). Enter desce para o próximo aluno. Tudo é salvo sozinho.</p>
@@ -223,7 +230,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
     <div class="card">
       <div class="h2">🧾 Boletim escolar</div>
       <p class="sub" style="margin-top:4px">Junta as notas de todas as disciplinas da turma com a frequência das chamadas. As notas vêm dos professores (Notas e Médias) ou são digitadas aqui pela escola, a partir do diário de papel. Uma página por aluno, pronta para imprimir.</p>
-      <div class="seg" id="segBol" style="margin-top:10px"><button data-action="bol-modo" data-arg="lancar">✏️ Lançar notas da turma</button><button data-action="bol-modo" data-arg="emitir">🧾 Emitir boletins</button></div>
+      <div class="seg" id="segBol" style="margin-top:10px"><button data-action="bol-modo" data-arg="lancar">✏️ Lançar notas da turma</button><button data-action="bol-modo" data-arg="emitir">🧾 Emitir boletins</button><button data-action="bol-modo" data-arg="fechar">🔒 Fechamento e histórico</button></div>
       <div class="barra" style="margin-top:12px">
         <select class="sel" id="bEscola" aria-label="Escola" hidden></select>
         <select class="sel" id="bTurma" aria-label="Turma"></select>
@@ -287,6 +294,17 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
           </div>
         </div>
       </div>
+      <div class="rg-bloco">
+        <div class="rg-num">5</div>
+        <div class="rg-corpo">
+          <h3>Anos sem retenção por nota</h3>
+          <div class="rg-campos">
+            <div class="rg-campo largo"><label>Marque os anos do Ensino Fundamental em que o aluno não fica retido por nota (ciclo de alfabetização, progressão continuada)</label>
+              <div class="rg-pesos" id="rSemRet"><label><input type="checkbox" data-semret="1"> 1º ano</label><label><input type="checkbox" data-semret="2"> 2º ano</label><label><input type="checkbox" data-semret="3"> 3º ano</label><label><input type="checkbox" data-semret="4"> 4º ano</label><label><input type="checkbox" data-semret="5"> 5º ano</label><label><input type="checkbox" data-semret="6"> 6º ano</label><label><input type="checkbox" data-semret="7"> 7º ano</label><label><input type="checkbox" data-semret="8"> 8º ano</label><label><input type="checkbox" data-semret="9"> 9º ano</label></div>
+              <small>Nesses anos o boletim mostra "Aprovado · progressão continuada" em vez de reprovado por nota. A frequência mínima continua valendo.</small></div>
+          </div>
+        </div>
+      </div>
       <div class="rg-exemplo" id="rExemplo"></div>
       <div class="rg-acoes"><button class="btn btn-ok" data-action="salvar-regra" id="btnRegra">Salvar regra da rede</button></div>
     </div>
@@ -329,7 +347,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
@@ -401,6 +419,8 @@ function calcAluno(aid, P = E.P){
   }
   if(res.freqBaixa){ res.sit = ["ruim", "Reprovado por frequência"]; return res; }
   if(res.ma >= R.media_minima){ res.sit = ["ok", "Aprovado"]; return res; }
+  // ano sem retenção por nota (ciclo de alfabetização, progressão continuada): segue para o ano seguinte
+  if(P.turma_id && semRetencao(P.turma_id)){ res.sit = ["az", "Aprovado · progressão continuada"]; return res; }
   if(R.rec_final){
     const ex = (P.exame || {})[aid];
     const pm = R.peso_media || 1, pe = R.peso_exame || 1;
@@ -485,6 +505,7 @@ async function abrirPlanilha(turmaId, disciplina, ano){
   E.ultimoPid = E.pid;
   E.per = Math.min(E.per, E.regra.periodos);
   await lerFrequencia();
+  E.fechP = t.escola_id ? await lerFechamento(t.escola_id, +ano) : null;
   $("carregando").hidden = true; desenhar();
 }
 
@@ -563,6 +584,10 @@ function desenhar(){
 }
 function desenharNotas(){
   $("semPlanilha").hidden = true; $("boxNotas").hidden = false;
+  const fP = fechado(E.fechP, E.per), fx = fP ? E.fechP.periodos[E.per] : null;
+  $("fechAviso").hidden = !fP;
+  if(fP) $("fechAviso").innerHTML = "🔒 O " + perNome(E.per) + " foi fechado pela escola em " + esc(dataHora(fx.em)) + (fx.por_nome ? " por " + esc(fx.por_nome) : "") + ". As notas ficam só para consulta: para corrigir, peça à Direção para reabrir o período.";
+  document.querySelectorAll('[data-action="nova-av"],[data-action="rec-col"],.ferr2 [data-action="importar"]').forEach(b => { b.disabled = fP; });
   { const R0 = E.regra, c0 = R0.nota_max === 100 ? 0 : 1;
     $("regraResumo").innerHTML = "<summary>Regra da rede: média " + fmt(R0.media_minima, c0) + " · " + R0.periodos + " " + NOME_PER[R0.periodos] + "s · frequência mínima " + R0.freq_minima + "%" + (E.regraExiste ? "" : " (padrão)") + "</summary><p>" + resumoRegra() + "</p>"; }
   const R = E.regra, P = E.P, p = E.per, mx = R.nota_max, c = mx === 100 ? 0 : 1;
@@ -585,6 +610,7 @@ function desenharNotas(){
       '<td class="fal"><input inputmode="numeric" data-falta="' + al.id + '" data-lin="' + i + '" value="' + esc((P.faltas[al.id] || {})[p] ?? "") + '" aria-label="Faltas de ' + esc(al.nome) + '"></td></tr>';
   });
   $("gradeBox").innerHTML = h + "</tbody></table>";
+  if(fP) document.querySelectorAll("#gradeBox input").forEach(el => { el.disabled = true; });
 }
 
 /* ===================== desenho: resultado da turma ===================== */
@@ -811,6 +837,7 @@ function desenharRegra(){
   $("rPer").value = R.periodos; $("rMax").value = R.nota_max; $("rMin").value = fmt(R.media_minima, 2); $("rComp").value = R.composicao; $("rArr").value = R.arredondamento;
   $("rRecP").value = R.rec_periodo; $("rFreq").value = R.freq_minima; $("rFinal").checked = !!R.rec_final; $("rPm").value = R.peso_media; $("rPe").value = R.peso_exame; $("rMfm").value = fmt(R.media_final_minima, 2);
   desenharPesos(R.pesos);
+  document.querySelectorAll("[data-semret]").forEach(el => { el.checked = (R.sem_retencao || []).includes(+el.dataset.semret); });
   document.querySelectorAll("#regraForm input,#regraForm select").forEach(el => el.disabled = !pode);
   $("btnRegra").hidden = !pode;
   $("regraInfo").hidden = E.regraExiste;
@@ -841,7 +868,8 @@ async function salvarRegra(){
   const r = { periodos:n, pesos:[...document.querySelectorAll("[data-peso]")].map(el => Math.max(1, Math.min(9, +el.value || 1))), nota_max:mx,
     media_minima:lerNum($("rMin").value) ?? 6, arredondamento:$("rArr").value, composicao:$("rComp").value, rec_periodo:$("rRecP").value, rec_final:$("rFinal").checked,
     peso_media:Math.max(1, +$("rPm").value || 1), peso_exame:Math.max(1, +$("rPe").value || 1), media_final_minima:lerNum($("rMfm").value) ?? 5,
-    freq_minima:Math.max(0, Math.min(100, +$("rFreq").value || 75)), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+    freq_minima:Math.max(0, Math.min(100, +$("rFreq").value || 75)), sem_retencao:[...document.querySelectorAll("[data-semret]:checked")].map(el => +el.dataset.semret),
+    atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
   if(r.media_minima <= 0 || r.media_minima > mx){ toast("A média mínima precisa estar entre 0 e " + mx + ".", true); return; }
   try{ await setDoc(doc(db, "notas_regras", m), r); toast("Regra da rede salva."); if(m === E.regraDe || !E.P){ E.regra = { ...PADRAO, ...r }; E.regraExiste = true; } }
   catch(e){ console.warn("regra:", e.code); toast("Não foi possível salvar a regra.", true); }
@@ -852,6 +880,7 @@ const ACOES = {
   "ir": s => { E.sec = s; if(s === "regra" && E.admin){ carregarRegra($("selMuni").value).then(desenhar); return; } desenhar(); },
   "bol-modo": m => { gravarPendentesEscola().then(() => { B.modo = m; if(m === "emitir"){ B.dados = null; abrirBoletins(); } else desenharModoBol(); }); },
   "lanc-per": p => { L.per = p === "exame" ? "exame" : +p; desenharLanc(); }, "lanc-tipo": x => { L.tipo = x; desenharLanc(); },
+  "fech-fechar": p => fecharPer(+p), "fech-reabrir": p => pedirReabrir(+p), "fech-reabrir-ok": p => reabrirPer(+p),
   "pdf-mapa": () => pdfMapa(), "bol-turma": () => pdfBoletins(""), "bol-aluno": id => pdfBoletins(id),
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
   "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "av-link": () => anexarLink(), "av-abrir-anexo": i => abrirAnexo(i), "av-tirar-anexo": i => tirarAnexo(i), "excluir-av": () => excluirAv(),
@@ -918,6 +947,21 @@ document.addEventListener("keydown", ev => {
 });
 document.addEventListener("visibilitychange", () => { if(document.hidden && E.salvarT){ clearTimeout(E.salvarT); gravar(); } if(document.hidden) gravarPendentesEscola(); });
 
+/* ===================== fechamento, fontes por período e etapa ===================== */
+// o professor "tem" o período quando lançou ao menos uma nota nele (aí vale a planilha dele naquele período)
+function profTem(P, p){ const ids = new Set((P.avaliacoes || []).filter(a => a.periodo === p).map(a => a.id)); return Object.values(P.notas || {}).some(n => Object.entries(n || {}).some(([k, v]) => ids.has(k) && v !== null && v !== undefined)); }
+const FECH = {};
+async function lerFechamento(escola, ano){
+  const k = escola + "_" + ano; if(FECH[k]) return FECH[k];
+  let f = { periodos:{}, registro:[] }; try{ const d = await getDoc(doc(db, "fechamentos", k)); if(d.exists()) f = { periodos:{}, registro:[], ...d.data() }; }catch(e){ console.warn("fechamento:", e.code); }
+  return (FECH[k] = f);
+}
+const fechado = (f, p) => !!(f && f.periodos && f.periodos[p] && f.periodos[p].fechado);
+const dataHora = ms => ms ? new Date(ms).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "";
+// ano do fundamental pela turma ("3º Ano A" -> 3); fora do fundamental, null
+const anoDaTurma = t => { const m = String((t && (t.ano_serie || t.nome)) || "").match(/(\d)\s*º\s*ano/i); return m ? +m[1] : null; };
+const semRetencao = turmaId => { const t = E.turmas.find(x => x.id === turmaId), a = anoDaTurma(t); return !!(a && (E.regra.sem_retencao || []).includes(a)); };
+
 /* ===================== lançamento pela secretaria da escola: a nota do bimestre direto, todas as disciplinas ===================== */
 // notas_escola/{escola}_{turma}_{disciplina}_{ano}: { notas:{ aluno:{ "1":n } }, faltas:{ aluno:{ "1":n } }, aulas:{ "1":n } }
 // Disciplina com planilha do professor fica só para leitura: o boletim usa a do professor.
@@ -943,7 +987,8 @@ function desenharLanc(){
   if(D.erro){ box.innerHTML = '<div class="vazio card"><b>Sem permissão para lançar notas nesta turma</b>O lançamento é da Direção e da Secretaria da escola.</div>'; return; }
   if(!D.alunos.length){ box.innerHTML = '<div class="vazio card"><b>Esta turma não tem alunos cadastrados</b>Cadastre os alunos na Ficha do Aluno.</div>'; return; }
   if(L.per !== "exame" && L.per > R.periodos) L.per = 1;
-  const discs = disciplinasLanc(), prof = {}; (D.profPlan || []).forEach(p => { prof[slug(p.disciplina)] = p; });
+  const discs = disciplinasLanc(), prof = {}; (D.profPlan || []).forEach(p => { if(L.per === "exame" || profTem(p, L.per)) prof[slug(p.disciplina)] = p; });
+  const perFechado = L.per !== "exame" && fechado(D.fech, L.per);
   const faltando = DISC.filter(x => !discs.includes(x));
   if(L.per === "exame" && !R.rec_final) L.per = 1;
   if(L.per === "exame") return desenharLancExame(discs, prof, faltando);
@@ -964,7 +1009,9 @@ function desenharLanc(){
       return '<td><input inputmode="' + (L.tipo === "notas" ? "decimal" : "numeric") + '" data-lanc="' + esc(did + "|" + a.id) + '" data-disc="' + esc(x) + '" data-lin="' + i + '" value="' + (v === null || v === undefined ? "" : L.tipo === "notas" ? fmt(v, 2) : esc(String(v))) + '"' +
         (L.tipo === "notas" && v > R.nota_max ? ' class="fora"' : "") + ' aria-label="' + esc(x + " de " + a.nome) + '"></td>'; }).join("") + "</tr>";
   });
-  box.innerHTML = h + "</tbody></table></div>" + '<p class="sub" style="margin-top:8px">Quando o professor lança a disciplina em Notas e Médias, ela fica travada aqui e o boletim usa as notas dele.</p>';
+  box.innerHTML = (perFechado ? '<div class="fech-aviso">🔒 O ' + L.per + "º " + NOME_PER[R.periodos] + " está fechado. As notas ficam só para consulta: para corrigir, a Direção reabre o período em Fechamento.</div>" : "") + h + "</tbody></table></div>" +
+    '<p class="sub" style="margin-top:8px">Quando o professor lança notas de um ' + NOME_PER[R.periodos] + " em Notas e Médias, aquele " + NOME_PER[R.periodos] + " da disciplina fica travado aqui e o boletim usa as notas dele. Os outros continuam com o que a escola digitou.</p>";
+  if(perFechado) document.querySelectorAll("#boxBoletins .grade.lanc input").forEach(el => { el.disabled = true; });
 }
 // exame final: só para quem fechou o ano abaixo da média na disciplina (o resto aparece com traço)
 function desenharLancExame(discs, prof, faltando){
@@ -1009,6 +1056,50 @@ async function gravarEscola(did){
     await setDoc(doc(db, "notas_escola", idEscolaDoc(D.t, did, D.ano)), { ...d, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid, atualizado_por_nome:String(E.u.nome || "").slice(0, 80) });
     $("status").textContent = "Notas salvas";
   }catch(e){ console.warn("notas_escola:", e.code || e); $("status").textContent = "Não salvou"; toast(e.code === "permission-denied" ? "Sem permissão para lançar notas nesta turma." : "Não foi possível salvar agora. Confira a internet.", true); }
+}
+
+/* ===================== fechamento do período e histórico de alterações ===================== */
+async function desenharFechamento(){
+  const D = B.dados, R = E.regra, box = $("boxBoletins"); if(!D || !D.t){ box.innerHTML = '<div class="vazio card"><b>Escolha a turma</b></div>'; return; }
+  const f = D.fech, gestor = E.admin || E.u.perfil === "gestor";
+  let h = '<div class="card"><div class="h2">🔒 Fechamento dos ' + NOME_PER[R.periodos] + 's · ' + esc(D.t.escola_nome || "escola") + " · " + D.ano + '</div><p class="sub" style="margin:4px 0 12px">Fechar um período vale para todas as turmas da escola: o Portal guarda uma cópia oficial das notas e o boletim passa a usar essa cópia. Depois disso as notas daquele período não mudam mais, a não ser que a Direção reabra com um motivo.</p><div class="fech-lista">';
+  for(let p = 1; p <= R.periodos; p++){ const x = (f.periodos || {})[p] || {}, fc = !!x.fechado;
+    h += '<div class="fech-item' + (fc ? " fc" : "") + '"><b>' + p + "º " + NOME_PER[R.periodos] + "</b><span>" + (fc ? "Fechado em " + esc(dataHora(x.em)) + (x.por_nome ? " por " + esc(x.por_nome) : "") : x.motivo ? "Reaberto em " + esc(dataHora(x.em)) + ": " + esc(x.motivo) : "Aberto") + "</span>" +
+      (fc ? (gestor ? '<button class="btn btn-gh btn-sm" data-action="fech-reabrir" data-arg="' + p + '">Reabrir</button>' : "") : '<button class="btn btn-ok btn-sm" data-action="fech-fechar" data-arg="' + p + '">Fechar o ' + p + "º " + NOME_PER[R.periodos] + "</button>") + "</div>"; }
+  h += '</div><div id="reabrirBox"></div>' + ((f.registro || []).length ? '<details class="regra-mini" style="margin-top:12px"><summary>Registro de fechamentos e reaberturas</summary><p>' + (f.registro || []).slice().sort((a, b) => b.em - a.em).map(r => esc(dataHora(r.em)) + " · " + (r.acao === "fechou" ? "fechou" : "reabriu") + " o " + r.periodo + "º " + NOME_PER[R.periodos] + (r.por_nome ? " (" + esc(r.por_nome) + ")" : "") + (r.motivo ? ": " + esc(r.motivo) : "")).join("<br>") + "</p></details>" : "") + "</div>" +
+    '<div class="card"><div class="h2">🕘 Histórico de alterações · ' + esc(D.t.nome) + '</div><p class="sub" style="margin:4px 0 10px">Toda nota que muda fica registrada aqui: de quanto para quanto, quem mudou e quando. Mudança depois do fechamento aparece em vermelho.</p><div id="histNotas"><div class="sub">Carregando...</div></div></div>';
+  box.innerHTML = h;
+  let l = [];
+  try{ const s = await getDocs(query(collection(db, "notas_historico"), where("escola_id", "==", D.t.escola_id), where("turma_id", "==", D.t.id), orderBy("em", "desc"), limit(200))); s.forEach(d => l.push(d.data())); }
+  catch(e){ console.warn("historico:", e.code, e.message); $("histNotas").innerHTML = '<div class="sub">Não foi possível carregar o histórico agora.</div>'; return; }
+  const nome = id => (D.alunos.find(a => a.id === id) || {}).nome || "Aluno";
+  const linhas = [];
+  l.filter(x => +x.ano === D.ano).forEach(x => (x.mudancas || []).forEach(m => linhas.push({ x, m })));
+  $("histNotas").innerHTML = linhas.length ? '<div class="grade-wrap"><table class="grade resultado hist"><thead><tr><th>Quando</th><th>Disciplina</th><th class="nome">Aluno</th><th>O quê</th><th>De</th><th>Para</th><th>Quem</th></tr></thead><tbody>' +
+    linhas.slice(0, 400).map(({ x, m }) => '<tr' + (m.apos_fechamento ? ' class="apos"' : "") + "><td>" + esc(x.em && x.em.toDate ? x.em.toDate().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "") + "</td><td>" + esc(x.disciplina) +
+      '</td><td class="nome">' + esc(nome(m.aluno_id)) + "</td><td>" + esc(m.campo) + (m.periodo ? " · " + m.periodo + "º" : "") + (m.apos_fechamento ? " ⚠ após o fechamento" : "") + "</td><td>" + (m.de === null ? "–" : fmt(m.de, 2)) + "</td><td><b>" + (m.para === null ? "apagada" : fmt(m.para, 2)) + "</b></td><td>" +
+      esc(x.por_nome || "") + (x.origem === "escola" ? " (escola)" : "") + "</td></tr>").join("") + "</tbody></table></div>"
+    : '<div class="sub">Nenhuma alteração registrada nesta turma ainda. O histórico começa a contar a partir de hoje.</div>';
+}
+async function fecharPer(p){
+  const D = B.dados, R = E.regra;
+  if(!confirm("Fechar o " + p + "º " + NOME_PER[R.periodos] + " de todas as turmas da escola? As notas desse período passam a valer como documento oficial e só a Direção reabre.")) return;
+  try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    const r = await httpsCallable(getFunctions(app, "southamerica-east1"), "fecharPeriodo", { timeout:120000 })({ escola_id:D.t.escola_id, ano:D.ano, periodo:p });
+    toast(p + "º " + NOME_PER[R.periodos] + " fechado em " + ((r.data && r.data.turmas) || 0) + " turma(s)."); delete FECH[D.t.escola_id + "_" + D.ano]; B.dados = null; await carregarBoletim(); desenharModoBol(); }
+  catch(e){ console.warn("fechar:", e.code, e.message); toast(e.message || "Não foi possível fechar agora.", true); }
+}
+function pedirReabrir(p){
+  $("reabrirBox").innerHTML = '<div class="fech-aviso" style="margin-top:12px"><b>Reabrir o ' + p + "º " + NOME_PER[E.regra.periodos] + '</b><br>Escreva o motivo (fica registrado): <input class="inp" id="motReabrir" maxlength="200" placeholder="Ex.: correção da nota de Matemática pedida pelo professor" style="margin:6px 0"> <button class="btn btn-pri btn-sm" data-action="fech-reabrir-ok" data-arg="' + p + '">Reabrir</button></div>';
+  $("motReabrir").focus();
+}
+async function reabrirPer(p){
+  const D = B.dados, mot = String($("motReabrir").value || "").trim();
+  if(mot.length < 5){ toast("Escreva o motivo da reabertura.", true); return; }
+  try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    await httpsCallable(getFunctions(app, "southamerica-east1"), "reabrirPeriodo", { timeout:30000 })({ escola_id:D.t.escola_id, ano:D.ano, periodo:+p, motivo:mot });
+    toast("Período reaberto. Lembre de fechar de novo depois da correção."); delete FECH[D.t.escola_id + "_" + D.ano]; B.dados = null; await carregarBoletim(); desenharModoBol(); }
+  catch(e){ console.warn("reabrir:", e.code, e.message); toast(e.message || "Não foi possível reabrir agora.", true); }
 }
 
 /* ===================== PDF: mapa de notas (professor) e boletim escolar (escola) ===================== */
@@ -1143,7 +1234,7 @@ function desenharModoBol(){
   if(!B.modo) B.modo = E.u.perfil === "secretaria_escolar" ? "lancar" : "emitir";
   document.querySelectorAll("#segBol button").forEach(b => b.classList.toggle("on", b.dataset.arg === B.modo));
   $("bPer").hidden = B.modo !== "emitir";
-  if(B.modo === "lancar") desenharLanc(); else desenharBoletim();
+  if(B.modo === "lancar") desenharLanc(); else if(B.modo === "fechar") desenharFechamento(); else desenharBoletim();
 }
 function desenharTurmasBol(){
   const esc0 = $("bEscola").value || (E.turmas[0] || {}).escola_id, l = E.turmas.filter(t => t.escola_id === esc0);
@@ -1151,6 +1242,27 @@ function desenharTurmasBol(){
 }
 async function mudouBoletim(id){ if(id === "bEscola") desenharTurmasBol(); if(id !== "bPer"){ await gravarPendentesEscola(); B.dados = null; L.novas = []; } if(!B.dados) await carregarBoletim(); desenharModoBol(); }
 async function gravarPendentesEscola(){ const ks = Object.keys(L.salvarT); ks.forEach(k => clearTimeout(L.salvarT[k])); await Promise.all(ks.map(k => gravarEscola(k))); }
+// uma "planilha efetiva" por disciplina: cada período vem do fechamento (se fechado), do professor (se ele lançou) ou da escola
+function montarEfetivas(t, porDisc, escolaDocs, snaps, fech, alunos){
+  const R = E.regra, n = R.periodos, ks = new Set([...Object.keys(porDisc), ...Object.keys(escolaDocs)]), nomes = {};
+  Object.entries(porDisc).forEach(([k, p]) => { nomes[k] = p.disciplina; }); Object.values(escolaDocs).forEach(d => { nomes[d.disc_id] = nomes[d.disc_id] || d.disciplina; });
+  Object.values(snaps).forEach(sn => Object.entries(sn.disciplinas || {}).forEach(([k, x]) => { ks.add(k); nomes[k] = nomes[k] || x.nome; }));
+  const out = [];
+  ks.forEach(k => {
+    const P = porDisc[k], Es = escolaDocs[k], av = Array.from({ length:n }, (_, i) => ({ id:"e" + (i + 1), periodo:i + 1, nome:"Nota", peso:1, max:R.nota_max, tipo:"nota" }));
+    const ef = { disciplina:nomes[k], turma_id:t.id, avaliacoes:av, notas:{}, faltas:{}, aulas:{}, exame:{}, conselho:(P && P.conselho) || {}, professor_nome:(P && P.professor_nome) || "", fontes:new Set(), _escola:!P };
+    let algum = false;
+    for(let p = 1; p <= n; p++){
+      const put = (aid, m, f) => { if(m !== null && m !== undefined){ (ef.notas[aid] = ef.notas[aid] || {})["e" + p] = m; algum = true; } if(f){ (ef.faltas[aid] = ef.faltas[aid] || {})[p] = f; } };
+      if(fechado(fech, p) && snaps[p]){ const x = (snaps[p].disciplinas || {})[k]; if(x){ ef.fontes.add(x.fonte); if(x.aulas) ef.aulas[p] = x.aulas; Object.entries(x.alunos || {}).forEach(([aid, v]) => put(aid, v.m, v.f)); } continue; }
+      if(P && profTem(P, p)){ ef.fontes.add("professor"); if((P.aulas || {})[p]) ef.aulas[p] = P.aulas[p]; alunos.forEach(a => put(a.id, calcAluno(a.id, P).per[p - 1].m, +(((P.faltas || {})[a.id] || {})[p]) || 0)); }
+      else if(Es){ ef.fontes.add("escola"); if((Es.aulas || {})[p]) ef.aulas[p] = Es.aulas[p]; Object.keys({ ...Es.notas, ...Es.faltas }).forEach(aid => { const v = (Es.notas[aid] || {})[p]; put(aid, v === undefined || v === null ? null : +v, +((Es.faltas[aid] || {})[p]) || 0); }); }
+    }
+    alunos.forEach(a => { const ex = P && P.exame && P.exame[a.id] !== undefined && P.exame[a.id] !== null ? P.exame[a.id] : Es && Es.exame ? Es.exame[a.id] : undefined; if(ex !== undefined && ex !== null){ ef.exame[a.id] = ex; algum = true; } });
+    if(algum) out.push(ef);
+  });
+  return out.sort((a, b) => ordemDisc(a.disciplina) - ordemDisc(b.disciplina) || a.disciplina.localeCompare(b.disciplina, "pt-BR"));
+}
 async function carregarBoletim(){
   const t = E.turmas.find(x => x.id === $("bTurma").value), ano = +$("bAno").value;
   $("boxBoletins").innerHTML = '<div class="carregando"><div class="giro"></div>Juntando as notas da turma...</div>';
@@ -1163,18 +1275,19 @@ async function carregarBoletim(){
     getDoc(doc(db, "freq_resumo", t.id + "_" + ano)).then(s => s.exists() ? s.data() : null).catch(() => null),
     pegaL(query(collection(db, "notas_escola"), where("escola_id", "==", t.escola_id), where("turma_id", "==", t.id)))
   ]);
-  // uma planilha por disciplina: a mais recente (dois professores na mesma disciplina = a última atualizada)
+  // planilha do professor por disciplina (a mais recente quando há duas)
   const porDisc = {};
   (pls || []).filter(p => +p.ano_letivo === ano).forEach(p => { const k = slug(p.disciplina), x = porDisc[k], tm = v => v && v.toMillis ? v.toMillis() : 0; if(!x || tm(p.atualizado_em) > tm(x.atualizado_em)) porDisc[k] = p; });
-  const planilhas = Object.values(porDisc).sort((a, b) => ordemDisc(a.disciplina) - ordemDisc(b.disciplina) || a.disciplina.localeCompare(b.disciplina, "pt-BR"));
-  planilhas.forEach(p => ["notas", "faltas", "aulas", "exame", "conselho"].forEach(k => { if(!p[k] || typeof p[k] !== "object") p[k] = {}; }));
-  // notas digitadas pela escola: entram nas disciplinas que o professor não lançou
+  Object.values(porDisc).forEach(p => ["notas", "faltas", "aulas", "exame", "conselho"].forEach(k => { if(!p[k] || typeof p[k] !== "object") p[k] = {}; }));
   const escolaDocs = {}; (nes || []).filter(d => +d.ano_letivo === ano).forEach(d => { ["notas", "faltas", "aulas", "exame"].forEach(k => { if(!d[k] || typeof d[k] !== "object") d[k] = {}; }); escolaDocs[d.disc_id] = d; });
-  const profPlan = planilhas.slice();
-  Object.values(escolaDocs).forEach(d => { if(!porDisc[d.disc_id] && Object.keys(d.notas).length) planilhas.push(planilhaDeEscola(d)); });
-  planilhas.sort((a, b) => ordemDisc(a.disciplina) - ordemDisc(b.disciplina) || a.disciplina.localeCompare(b.disciplina, "pt-BR"));
+  const profPlan = Object.values(porDisc);
+  // períodos fechados: vale a cópia oficial gravada no fechamento
+  const fech = await lerFechamento(t.escola_id, ano), snaps = {};
+  await Promise.all(Array.from({ length:E.regra.periodos }, (_, k) => k + 1).filter(p => fechado(fech, p)).map(p =>
+    getDoc(doc(db, "notas_fechadas", t.escola_id + "_" + t.id + "_" + ano + "_" + p)).then(d => { if(d.exists()) snaps[p] = d.data(); }).catch(() => {})));
   const alunos = (als || []).filter(a => a.nome && a.status !== "inativo").sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  B.dados = { t, ano, planilhas, alunos, resumo:rs, escolaDocs, profPlan, erro:pls === null };
+  const planilhas = montarEfetivas(t, porDisc, escolaDocs, snaps, fech, alunos);
+  B.dados = { t, ano, planilhas, alunos, resumo:rs, escolaDocs, profPlan, fech, snaps, erro:pls === null };
   const per = $("bPer").value; $("bPer").innerHTML = '<option value="">Ano todo</option>' + Array.from({ length:E.regra.periodos }, (_, k) => '<option value="' + (k + 1) + '">Até o ' + (k + 1) + "º " + NOME_PER[E.regra.periodos] + "</option>").join(""); $("bPer").value = per && +per <= E.regra.periodos ? per : "";
 }
 // situação geral do aluno no conjunto das disciplinas e na frequência da turma (chamadas)
@@ -1199,7 +1312,8 @@ function desenharBoletim(){
   if(D.erro){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Sem permissão para ver as notas desta turma</b>O boletim é emitido pela Direção e pela Secretaria da escola.</div>'; return; }
   if(!D.planilhas.length){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Nenhum professor lançou notas nesta turma em ' + D.ano + '</b>As disciplinas entram no boletim conforme os professores lançam as notas em Notas e Médias.</div>'; return; }
   const L = D.alunos.map(linhaBoletim);
-  $("boxBoletins").innerHTML = '<div class="card barra"><div><div class="h2">' + esc(D.t.nome) + " · " + D.ano + '</div><div class="sub">Disciplinas com notas: ' + D.planilhas.map(p => esc(p.disciplina) + " (" + (p._escola ? "digitada pela escola" : esc(String(p.professor_nome || "").split(" ")[0])) + ")").join(", ") + '</div></div><span class="esp"></span>' +
+  $("boxBoletins").innerHTML = '<div class="card barra"><div><div class="h2">' + esc(D.t.nome) + " · " + D.ano + '</div><div class="sub">Disciplinas com notas: ' + D.planilhas.map(p => esc(p.disciplina) + " (" + [p.fontes.has("professor") ? esc(String(p.professor_nome || "professor").split(" ")[0]) : "", p.fontes.has("escola") ? "escola" : ""].filter(Boolean).join(" + ") + ")").join(", ") +
+        (Array.from({ length:E.regra.periodos }, (_, k) => k + 1).some(p => fechado(D.fech, p)) ? '<br>🔒 Fechados: ' + Array.from({ length:E.regra.periodos }, (_, k) => k + 1).filter(p => fechado(D.fech, p)).map(p => p + "º").join(", ") + " " + NOME_PER[E.regra.periodos] + " (vale a cópia oficial do fechamento)" : "") + '</div></div><span class="esp"></span>' +
       '<button class="btn btn-ok" data-action="bol-turma">📄 Boletins da turma (PDF)</button></div>' +
     '<div class="grade-wrap"><table class="grade resultado bol-tab"><thead><tr><th class="nome">Aluno</th>' + D.planilhas.map(p => "<th>" + esc(p.disciplina) + "<small>média</small></th>").join("") + "<th>Freq.<small>chamadas</small></th><th>Situação</th><th></th></tr></thead><tbody>" +
     L.map((l, i) => '<tr><td class="nome">' + (i + 1) + ". " + esc(l.a.nome) + "</td>" + l.rs.map(({ r }) => '<td class="med ' + (r.ma === null ? "" : r.ma >= R.media_minima ? "ok" : "baixa") + '">' + (r.ma === null ? "–" : fmt(r.ma, c)) + "</td>").join("") +
@@ -1239,7 +1353,8 @@ async function pdfBoletins(soAluno){
     y += 18;
     const obs = l.rs.map(({ p }) => { const cs = (p.conselho || {})[l.a.id]; return cs && cs.aprovado ? p.disciplina + ": aprovado pelo conselho de classe" + (cs.justificativa ? " (" + cs.justificativa + ")" : "") : ""; }).filter(Boolean);
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(90, 110, 130);
-    const leg = "Média mínima " + fmt(R.media_minima, c) + (R.rec_final ? " · média final após exame " + fmt(R.media_final_minima, c) : "") + " · frequência mínima " + R.freq_minima + "% · * média parcial";
+    const fechs = Array.from({ length:R.periodos }, (_, k) => k + 1).filter(p => p <= ate && fechado(D.fech, p));
+    const leg = (fechs.length ? fechs.map(p => p + "º").join(", ") + " " + NOME_PER[R.periodos] + (fechs.length > 1 ? "s fechados" : " fechado") + " pela escola" + (fechs.length < ate ? "; os demais ainda podem mudar" : "") + ". " : "Notas sujeitas a alteração até o fechamento do período. ") + "Média mínima " + fmt(R.media_minima, c) + (R.rec_final ? " · média final após exame " + fmt(R.media_final_minima, c) : "") + " · frequência mínima " + R.freq_minima + "% · * média parcial";
     pdf.text(pdfTx(leg), 12, y); y += 5;
     if(obs.length){ const t2 = pdf.splitTextToSize(pdfTx("Observações: " + obs.join("; ")), W - 24); pdf.text(t2, 12, y); y += t2.length * 4 + 2; }
     pdfAssinaturas(pdf, y + 8, ["Direção", "Secretaria escolar", "Responsável"]);

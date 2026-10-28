@@ -387,3 +387,4 @@ export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } 
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
 export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';
 export { professoresDaEscola } from './grade-turmas.js';
+export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } from './notas-fechamento.js';
