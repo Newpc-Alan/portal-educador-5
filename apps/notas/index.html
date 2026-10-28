@@ -983,6 +983,7 @@ function pdfTabela(pdf, y, cols, linhas, opt){
   });
   return y;
 }
+const sitCurta = t => { const x = String(t).replace(/^Cursando · /, ""); return x.charAt(0).toUpperCase() + x.slice(1); };
 const COR_SIT = { ok:[60, 110, 30], ruim:[185, 50, 40], att:[150, 100, 0], az:[31, 95, 145], cinza:[110, 130, 150] };
 const turnoDeT = t => NOME_TURNO[(String(t && t.turno || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().match(/^(mat|manha|vesp|tarde|not|int)/) || [""])[0]
   .replace(/^manha$/, "mat").replace(/^tarde$/, "vesp").replace(/^mat$/, "matutino").replace(/^vesp$/, "vespertino").replace(/^not$/, "noturno").replace(/^int$/, "integral")] || "";
@@ -1101,7 +1102,7 @@ async function pdfBoletins(soAluno){
         fim && r.ma !== null ? { v:fmt(r.ma, c) + (r.completo ? "" : "*"), b:true, cor:r.ma >= R.media_minima ? [60, 110, 30] : [185, 50, 40] } : "-",
         ...(R.rec_final ? [fim ? fmt((p.exame || {})[l.a.id], 2) || "-" : "-", fim && r.mf !== undefined ? fmt(r.mf, c) : "-"] : []),
         String(Object.entries((p.faltas || {})[l.a.id] || {}).filter(([k]) => +k <= ate).reduce((s, [, v]) => s + (+v || 0), 0)),
-        fim ? { v:r.sit[1], cor:COR_SIT[r.sit[0]] } : { v:"Cursando", cor:COR_SIT.cinza }]; });
+        { v:fim ? sitCurta(r.sit[1]) : (r.ma === null ? "Sem notas" : r.ma >= R.media_minima ? "Acima da média" : "Abaixo da média"), cor:fim ? COR_SIT[r.sit[0]] : r.ma === null ? COR_SIT.cinza : r.ma >= R.media_minima ? COR_SIT.ok : COR_SIT.att }]; });
     y = pdfTabela(pdf, y + 2, cols, linhas, { lh:6.6 });
     y += 6;
     pdf.setFillColor(244, 247, 250); pdf.roundedRect(12, y - 4, W - 24, 16, 2, 2, "F");
