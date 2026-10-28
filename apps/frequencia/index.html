@@ -70,6 +70,11 @@ button{cursor:pointer}
 .lista{display:flex;flex-direction:column;gap:6px}
 .al{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:10px;align-items:center;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:8px 10px}
 .al.falta{border-color:#f0b7b0;background:#fff7f6}
+/* chamada compacta: menos rolagem na sala (2 colunas a partir do tablet deitado) */
+.lista .al{padding:4px 8px;gap:8px}
+.lista .al .nm{padding:5px 0}
+.lista .pf{padding:8px 0;width:46px}
+@media(min-width:820px){ .lista{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px} .lista>.vazio,.lista>.aviso{grid-column:1/-1} }
 .al .num{font-weight:800;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
 .al .nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;padding:6px 0}
 .al .nm small{display:block;font-weight:600;color:var(--muted);font-size:.74rem}
@@ -317,7 +322,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
       <div class="card">
         <div class="barra">
           <div class="contagem" id="contagem"></div><span class="esp"></span>
-          <button class="btn btn-gh btn-sm" data-action="todos-presentes">Todos presentes</button>
+          <button class="btn btn-gh btn-sm" data-action="pdf-dia" title="Lista da chamada para imprimir">📄 PDF</button><button class="btn btn-gh btn-sm" data-action="todos-presentes">Todos presentes</button>
         </div>
         <div class="lista" id="lista"></div>
       </div>
@@ -333,7 +338,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
   <section class="sec" id="s-historico">
     <div class="card">
       <div class="barra"><div><div class="h2" id="histTit">Histórico</div><div class="sub" id="histSub"></div></div><span class="esp"></span>
-        <button class="btn btn-gh btn-sm" data-action="csv-hist">⬇️ Planilha (CSV)</button></div>
+        <button class="btn btn-gh btn-sm" data-action="pdf-mes" title="Grade do mês com P e F, totais e registro das aulas">📄 Diário do mês (PDF)</button><button class="btn btn-gh btn-sm" data-action="csv-hist">⬇️ Planilha (CSV)</button></div>
     </div>
     <div class="card"><div class="h2">Alunos</div><div class="sub" id="histAlSub" style="margin-bottom:10px"></div><div class="tab-wrap"><table class="tab" id="tabAlunos"></table></div></div>
     <div class="card"><div class="h2">Chamadas lançadas</div><div class="sub" style="margin-bottom:10px">Toque numa chamada para abrir e corrigir.</div><div class="tab-wrap"><table class="tab" id="tabChamadas"></table></div></div>
@@ -562,7 +567,7 @@ async function carregarTurmas(){
   const minhas = new Set((E.u.turmas_ids || []).map(String)), ehMinha = t => minhas.has(t.id) || t.criado_por === E.user.uid;
   E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
   $("selTurma").innerHTML = '<option value="">' + (E.turmas.length ? "Escolha a turma..." : "Nenhuma turma cadastrada") + "</option>" +
-    E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (ids.length > 1 || E.admin ? " · " + esc(t.escola_nome || "") : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("");
+    E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (turnoDe(t) ? " · " + turnoDe(t) : "") + (ids.length > 1 || E.admin ? " · " + esc(t.escola_nome || "") : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("");
 }
 async function abrirTurma(id){
   const t = E.turmas.find(x => x.id === id); E.turma = t || null; E.alunos = [];
@@ -678,6 +683,150 @@ async function excluir(){
 }
 
 /* ===================== histórico (do professor, na turma) ===================== */
+/* ===================== PDF para imprimir (chamada do dia e diário do mês) ===================== */
+const NOME_TURNO = { matutino:"Matutino", vespertino:"Vespertino", noturno:"Noturno", integral:"Integral" };
+const turnoDe = t => NOME_TURNO[turnoNorm(t && t.turno)] || "";
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+// texto seguro para a fonte padrão do PDF (sem emoji)
+const pdfTx = s => String(s == null ? "" : s).replace(/[^\u0000-ÿ–—•]/g, "").replace(/\s+/g, " ").trim();
+function pdfNovo(paisagem){
+  if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return null; }
+  return new window.jspdf.jsPDF({ unit:"mm", format:"a4", orientation:paisagem ? "landscape" : "portrait" });
+}
+// cabeçalho: faixa com o município e a escola, título do documento e a linha de identificação
+function pdfCabecalho(pdf, titulo, linhas){
+  const W = pdf.internal.pageSize.getWidth(), t = E.turma || {};
+  pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 20, "F");
+  pdf.setFillColor(26, 107, 42); pdf.rect(0, 20, W, 1.4, "F");
+  pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(12.5);
+  pdf.text(pdfTx(t.escola_nome || E.escolasNomes[t.escola_id] || "Escola"), 12, 9);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
+  pdf.text(pdfTx((t.municipio_nome ? "Rede municipal de " + t.municipio_nome : "") + (t.municipio_nome ? " · " : "") + "Ano letivo " + ($("dia").value || hojeMS()).slice(0, 4)), 12, 15);
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text("PORTAL DO EDUCADOR", W - 12, 9, { align:"right" });
+  pdf.setTextColor(15, 44, 74); pdf.setFontSize(14); pdf.text(pdfTx(titulo), 12, 31);
+  pdf.setFontSize(9.2); let y = 37.5;
+  linhas.forEach(par => { let x = 12; par.forEach(([rot, val]) => { pdf.setFont("helvetica", "bold"); pdf.text(pdfTx(rot) + ": ", x, y); const w = pdf.getTextWidth(pdfTx(rot) + ": ");
+    pdf.setFont("helvetica", "normal"); pdf.text(pdfTx(val || "-"), x + w, y); x += Math.max(w + pdf.getTextWidth(pdfTx(val || "-")) + 9, (W - 24) / par.length); }); y += 5.2; });
+  pdf.setDrawColor(210, 220, 230); pdf.line(12, y - 2, W - 12, y - 2);
+  return y + 3;
+}
+// rodapé em todas as páginas: quem gerou, quando e "página x de y"
+function pdfRodapes(pdf){
+  const n = pdf.getNumberOfPages(), W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const quando = new Date().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  for(let i = 1; i <= n; i++){
+    pdf.setPage(i); pdf.setDrawColor(210, 220, 230); pdf.line(12, H - 12, W - 12, H - 12);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(110, 130, 150);
+    pdf.text(pdfTx("Gerado por " + (E.u.nome || "") + " em " + quando + " · Portal do Educador · app.portaldoeducador.com.br"), 12, H - 7.5);
+    pdf.text("Página " + i + " de " + n, W - 12, H - 7.5, { align:"right" });
+  }
+}
+function pdfAssinaturas(pdf, y, nomes){
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  if(y > H - 34){ pdf.addPage(); y = 30; }
+  const larg = (W - 24 - (nomes.length - 1) * 16) / nomes.length;
+  pdf.setDrawColor(90, 110, 130); pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5); pdf.setTextColor(60, 80, 100);
+  nomes.forEach((n, i) => { const x = 12 + i * (larg + 16); pdf.line(x, y + 12, x + larg, y + 12); pdf.text(pdfTx(n), x + larg / 2, y + 16.5, { align:"center" }); });
+  return y + 22;
+}
+function pdfSalvar(pdf, nome){ pdfRodapes(pdf); pdf.save(nome); }
+
+// 1) chamada do dia, como está na tela
+function pdfChamadaDia(){
+  if(!E.turma || !discAtual() || !E.alunos.length){ toast("Escolha a turma e a disciplina antes de gerar o PDF.", true); return; }
+  const pdf = pdfNovo(false); if(!pdf) return;
+  const d = $("dia").value, W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const nF = E.alunos.filter(a => E.faltas[a.id]).length;
+  let y = pdfCabecalho(pdf, "Registro de frequência", [
+    [["Turma", (E.turma.nome || "") + (turnoDe(E.turma) ? " · " + turnoDe(E.turma) : "")], ["Disciplina", discAtual()]],
+    [["Professor(a)", E.u.nome || ""], ["Data", dataBr(d) + "/" + d.slice(0, 4) + " (" + SEMANA[new Date(d + "T12:00:00").getDay()] + ")"], ["Aulas", String(E.aulas)]],
+    [["Presentes", String(E.alunos.length - nF)], ["Faltas", String(nF)], ["Situação", E.existe && !E.sujo ? "chamada salva" : "rascunho, ainda não salvo"]]
+  ]);
+  const col = [12, 22, 132, W - 12], lh = 5.8;
+  const cab = () => { pdf.setFillColor(238, 243, 248); pdf.rect(12, y - 4.3, W - 24, lh, "F"); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5); pdf.setTextColor(60, 80, 100);
+    pdf.text("Nº", col[0] + 2, y); pdf.text("Aluno", col[1], y); pdf.text("Situação", col[2], y); y += lh; };
+  cab();
+  E.alunos.slice(0, 80).forEach((a, i) => {
+    if(y > H - 22){ pdf.addPage(); y = 20; cab(); }
+    const f = E.faltas[a.id] || 0, j = !!E.just[a.id];
+    if(i % 2) { pdf.setFillColor(248, 250, 252); pdf.rect(12, y - 4.3, W - 24, lh, "F"); }
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(15, 44, 74);
+    pdf.text(String(i + 1), col[0] + 2, y); pdf.text(pdfTx(a.nome).slice(0, 60), col[1], y);
+    if(f){ pdf.setTextColor(185, 50, 40); pdf.setFont("helvetica", "bold"); } else pdf.setTextColor(60, 110, 30);
+    pdf.text(f ? (f < E.aulas ? "Falta em " + f + " de " + E.aulas + " aulas" : "Falta") + (j ? " (justificada)" : "") : "Presente", col[2], y);
+    y += lh;
+  });
+  const reg = String($("conteudo").value || "").trim();
+  y += 4;
+  if(reg){ if(y > H - 40){ pdf.addPage(); y = 20; }
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9.5); pdf.setTextColor(15, 44, 74); pdf.text("Registro da aula", 12, y); y += 5;
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); const l = pdf.splitTextToSize(pdfTx(reg), W - 24); pdf.text(l, 12, y); y += l.length * 4.6 + 4; }
+  pdfAssinaturas(pdf, y + 6, ["Professor(a): " + (E.u.nome || ""), "Coordenação pedagógica"]);
+  pdfSalvar(pdf, "chamada-" + slug(E.turma.nome) + "-" + slug(discAtual()) + "-" + d + ".pdf");
+}
+
+// 2) diário do mês: grade aluno x dia com P/F, totais e o registro das aulas (as chamadas suas na disciplina)
+async function pdfDiarioMes(){
+  if(!E.turma){ toast("Escolha a turma na Chamada.", true); return; }
+  const disc = discAtual(), ds = slug(disc);
+  if(!ds){ toast("Escolha a disciplina na Chamada: o diário é por disciplina.", true); return; }
+  await carregarHistorico();
+  const mes = ($("dia").value || hojeMS()).slice(0, 7);
+  const cs = E.hist.filter(c => c.dia.slice(0, 7) === mes && (c.disc_id === ds || c.disc_id === POLI)).sort((a, b) => a.dia.localeCompare(b.dia));
+  if(!cs.length){ toast("Nenhuma chamada sua de " + disc + " em " + MESES[+mes.slice(5) - 1] + ".", true); return; }
+  const pdf = pdfNovo(true); if(!pdf) return;
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const aulas = cs.reduce((s, c) => s + (c.aulas || 0), 0);
+  let y = pdfCabecalho(pdf, "Diário de frequência · " + MESES[+mes.slice(5) - 1] + " de " + mes.slice(0, 4), [
+    [["Turma", (E.turma.nome || "") + (turnoDe(E.turma) ? " · " + turnoDe(E.turma) : "")], ["Disciplina", disc], ["Professor(a)", E.u.nome || ""]],
+    [["Dias com chamada", String(cs.length)], ["Aulas dadas", String(aulas)], ["Legenda", "P presente · F faltou todas as aulas · F1 faltou 1 aula · J justificada · - fora da turma"]]
+  ]);
+  const xNome = 12, wNum = 7, wNome = 62, xDias = xNome + wNum + wNome, wTot = 13, larg = Math.min(9, (W - 12 - xDias - wTot * 3) / cs.length), lh = 5.6;
+  const xTot = xDias + larg * cs.length;
+  const cab = () => {
+    pdf.setFillColor(238, 243, 248); pdf.rect(12, y - 4, W - 24, lh * 2, "F");
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.5); pdf.setTextColor(60, 80, 100);
+    pdf.text("Nº", xNome + 1, y + 2); pdf.text("Aluno", xNome + wNum, y + 2);
+    cs.forEach((c, i) => { const x = xDias + larg * i + larg / 2; pdf.text(c.dia.slice(8), x, y, { align:"center" }); pdf.setFont("helvetica", "normal"); pdf.text(String(c.aulas), x, y + lh - 0.6, { align:"center" }); pdf.setFont("helvetica", "bold"); });
+    ["Aulas", "Faltas", "Freq."].forEach((t, i) => pdf.text(t, xTot + wTot * i + wTot / 2, y + 2, { align:"center" }));
+    y += lh * 2;
+  };
+  cab();
+  E.alunos.slice(0, 80).forEach((a, i) => {
+    if(y > H - 20){ pdf.addPage(); y = 20; cab(); }
+    if(i % 2){ pdf.setFillColor(248, 250, 252); pdf.rect(12, y - 4, W - 24, lh, "F"); }
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(15, 44, 74);
+    pdf.text(String(i + 1), xNome + 1, y); pdf.text(pdfTx(a.nome).slice(0, 38), xNome + wNum, y);
+    let au = 0, fa = 0;
+    cs.forEach((c, k) => {
+      const x = xDias + larg * k + larg / 2, naLista = (c.lista || []).includes(a.id);
+      if(!naLista){ pdf.setTextColor(170, 180, 190); pdf.text("-", x, y, { align:"center" }); return; }
+      const f = Math.min(c.aulas, +(c.faltas || {})[a.id] || 0), j = f && (c.just || {})[a.id];
+      au += c.aulas; fa += f;
+      if(f){ pdf.setTextColor(185, 50, 40); pdf.setFont("helvetica", "bold"); pdf.text(j ? "J" : f < c.aulas ? "F" + f : "F", x, y, { align:"center" }); pdf.setFont("helvetica", "normal"); }
+      else { pdf.setTextColor(60, 110, 30); pdf.text("P", x, y, { align:"center" }); }
+    });
+    const p = au ? 100 * (au - fa) / au : null;
+    pdf.setTextColor(15, 44, 74); pdf.text(String(au), xTot + wTot / 2, y, { align:"center" }); pdf.text(String(fa), xTot + wTot * 1.5, y, { align:"center" });
+    if(p !== null && p < 75){ pdf.setTextColor(185, 50, 40); pdf.setFont("helvetica", "bold"); }
+    pdf.text(p === null ? "-" : Math.round(p) + "%", xTot + wTot * 2.5, y, { align:"center" });
+    pdf.setDrawColor(232, 238, 244); pdf.line(12, y + 1.6, W - 12, y + 1.6);
+    y += lh;
+  });
+  // registro das aulas (conteúdo de cada chamada)
+  y += 6; if(y > H - 40){ pdf.addPage(); y = 20; }
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(10); pdf.setTextColor(15, 44, 74); pdf.text("Registro das aulas", 12, y); y += 6;
+  pdf.setFontSize(8.5);
+  cs.forEach(c => {
+    const t = pdf.splitTextToSize(pdfTx(c.conteudo || "Sem registro."), W - 60);
+    if(y + t.length * 4.2 > H - 20){ pdf.addPage(); y = 20; }
+    pdf.setFont("helvetica", "bold"); pdf.text(dataBr(c.dia) + " (" + SEMANA[new Date(c.dia + "T12:00:00").getDay()].slice(0, 3) + ") · " + c.aulas + (c.aulas > 1 ? " aulas" : " aula"), 12, y);
+    pdf.setFont("helvetica", "normal"); pdf.text(t, 52, y); y += t.length * 4.2 + 1.6;
+  });
+  pdfAssinaturas(pdf, y + 6, ["Professor(a): " + (E.u.nome || ""), "Coordenação pedagógica", "Direção"]);
+  pdfSalvar(pdf, "diario-" + slug(E.turma.nome) + "-" + slug(disc) + "-" + mes + ".pdf");
+}
+
 async function carregarHistorico(){
   if(!E.turma){ $("histTit").textContent = "Histórico"; $("histSub").textContent = "Escolha a turma na Chamada."; $("tabAlunos").innerHTML = ""; $("tabChamadas").innerHTML = ""; return; }
   const ano = +$("dia").value.slice(0, 4) || +hojeMS().slice(0, 4);
@@ -1361,6 +1510,8 @@ const ACOES = {
   falta:id => { E.faltas[id] = E.aulas; mexeu(); },
   alternar:id => { if(E.faltas[id]){ delete E.faltas[id]; delete E.just[id]; } else E.faltas[id] = E.aulas; mexeu(); },
   just:id => { if(E.just[id]) delete E.just[id]; else E.just[id] = true; mexeu(); },
+  "pdf-dia":() => pdfChamadaDia(),
+  "pdf-mes":() => pdfDiarioMes(),
   "todos-presentes":() => { E.faltas = {}; E.just = {}; mexeu(); },
   salvar:() => salvar(),
   excluir:() => excluir(),
