@@ -39,5 +39,6 @@ await t('professor não lança pela escola', assertFails(setDoc(doc(fs('p1'), 'n
 await t('id fora do padrão: não', assertFails(setDoc(doc(fs('se1'), 'notas_escola/qualquer'), ne())));
 await t('campo estranho: não', assertFails(setDoc(doc(fs('se1'), 'notas_escola/e1_t1_arte_2026'), ne({ conselho: {} }))));
 await t('portaria não lê', assertFails(getDoc(doc(fs('po'), 'notas_escola/e1_t1_arte_2026'))));
+await t('secretaria lança o exame final', assertSucceeds(setDoc(doc(fs('se1'), 'notas_escola/e1_t1_arte_2026'), ne({ exame: { a1: 6 } }))));
 console.log(`grade: ${ok} ok, ${falha} falha(s)`);
 await env.cleanup(); process.exit(falha ? 1 : 0);
