@@ -386,3 +386,4 @@ export { criarUsuarioManual, contasSemCadastro } from './usuario-manual.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
 export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';
+export { professoresDaEscola } from './grade-turmas.js';

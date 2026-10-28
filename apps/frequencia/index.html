@@ -569,7 +569,7 @@ async function carregarTurmas(){
     if(E.admin){ const s = await getDocs(query(collection(db, "turmas"), limit(300))); s.forEach(d => { const t = d.data(); if(t.status !== "inativa") E.turmas.push({ id:d.id, ...t }); }); }
     else if(ids.length){ const s = await getDocs(query(collection(db, "turmas"), where("escola_id", "in", ids))); s.forEach(d => { const t = d.data(); if(t.status !== "inativa") E.turmas.push({ id:d.id, ...t }); }); }
   }catch(e){ console.warn("turmas:", e.code); }
-  const minhas = new Set((E.u.turmas_ids || []).map(String)), ehMinha = t => minhas.has(t.id) || t.criado_por === E.user.uid;
+  const minhas = new Set((E.u.turmas_ids || []).map(String)), ehMinha = t => minhas.has(t.id) || t.criado_por === E.user.uid || discDaGrade(t).length > 0;
   E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
   $("selTurma").innerHTML = '<option value="">' + (E.turmas.length ? "Escolha a turma..." : "Nenhuma turma cadastrada") + "</option>" +
     E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (turnoDe(t) ? " · " + turnoDe(t) : "") + (ids.length > 1 || E.admin ? " · " + esc(t.escola_nome || "") : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("");
@@ -583,6 +583,9 @@ async function abrirTurma(id){
     s.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo") E.alunos.push({ id:d.id, nome:String(a.nome_social || a.nome).trim().slice(0, 80), alertas:Array.isArray(a.alertas) ? a.alertas.slice(0, 8) : [], foto:typeof a.foto === "string" ? a.foto : "" }); });
   }catch(e){ console.warn("alunos:", e.code); toast("Não foi possível carregar os alunos desta turma.", true); }
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  // com grade, a chamada já abre numa disciplina deste professor na turma
+  const daGrade = discDaGrade(t);
+  if(daGrade.length && !daGrade.includes(discAtual())){ $("disciplina").value = daGrade[0]; E.discOutra = false; }
   await carregarCalendario(t);
   await abrirChamada();
 }
@@ -622,9 +625,11 @@ function alertasAluno(a){
   return ' <button class="al-alerta" data-action="ver-alertas" data-arg="' + esc(a.id) + '" aria-label="Alertas da escola sobre ' + esc(a.nome) + '" title="' + esc(a.alertas.map(x => x.x).join(" · ")) + '">' + ics + "</button>";
 }
 // disciplina numa caixa de seleção (a lista do navegador não aparece no celular); "Outra" abre o campo de texto
+// disciplinas deste professor na grade da turma (montada pela Direção ou pela Secretaria da escola)
+function discDaGrade(t){ return t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g.professor_uid === E.user.uid && g.disciplina).map(g => g.disciplina))] : []; }
 function desenharSelDisc(){
   const sel = $("selDisc"), inp = $("disciplina"); if(!sel) return;
-  const v = discAtual(), lista = [...new Set([...DISC, ...(v ? [v] : [])])];
+  const v = discAtual(), daGrade = discDaGrade(E.turma), lista = [...new Set([...(daGrade.length ? daGrade : DISC), ...(v ? [v] : [])])];
   sel.innerHTML = '<option value="">Escolha a disciplina...</option>' + lista.map(d => '<option value="' + esc(d) + '"' + (d === v ? " selected" : "") + ">" + esc(d) + "</option>").join("") +
     '<option value="__outra"' + (E.discOutra ? " selected" : "") + ">Outra disciplina...</option>";
   inp.hidden = !E.discOutra;

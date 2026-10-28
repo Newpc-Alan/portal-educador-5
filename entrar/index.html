@@ -4864,7 +4864,13 @@
     let alunosHoje = 0, ausentes = 0;
     Object.values(porTurma).forEach(t => { t.lista.forEach(id => { alunosHoje++; if(t.a && (t.f[id] || 0) >= t.a) ausentes++; }); });
     const ativas = (turmas || []).filter(t => t.status !== "inativa");
-    const semChamada = ativas.filter(t => !porTurma[t.id]);
+    // turma com grade e dias marcados: a pendência é por disciplina (só as que têm aula hoje); sem grade, pela turma
+    const comGradeHoje = t => Array.isArray(t.grade) && t.grade.some(g => Array.isArray(g.dias) && g.dias.includes(semana));
+    const discFeitas = new Set((chamadas || []).map(c => c.turma_id + "|" + (c.disc_id || "")));
+    const aulasSem = [];
+    ativas.filter(comGradeHoje).forEach(t => t.grade.forEach(g => { if((g.dias || []).includes(semana) && !discFeitas.has(t.id + "|" + g.disc_id) && !discFeitas.has(t.id + "|polivalente-anos-iniciais"))
+      aulasSem.push({ turma:t.nome, disc:g.disciplina, prof:String(g.professor_nome || "").split(" ")[0] }); }));
+    const semChamada = ativas.filter(t => !porTurma[t.id] && !comGradeHoje(t));
     let seguidos = 0, abaixo = 0;
     (resumos || []).forEach(r => Object.values(r.alunos || {}).forEach(a => { if(a.at) seguidos++; else if(a.r) abaixo++; }));
     const alerta = seguidos + abaixo;
@@ -4883,6 +4889,8 @@
       tile("Chamados abertos", chamados === null ? "-" : fmt(abertos.length), abertos.length ? (maisVelho >= 3 ? "o mais antigo há "+maisVelho+" dias" : "dentro do prazo") : "nenhum aberto", abertos.length && maisVelho >= 3 ? "alerta" : "", "/apps/recursos/#chamados", "gestao");
     // Para hoje
     const itens = [];
+    if(diaUtil && aulasSem.length && okMod("gestao")) itens.push({ cor:"", foto:"chamada", titulo:aulasSem.length === 1 ? "1 aula sem chamada hoje" : aulasSem.length+" aulas sem chamada hoje",
+      det:aulasSem.slice(0, 4).map(a => a.disc+" no "+a.turma+(a.prof ? " ("+a.prof+")" : "")).join(", ")+(aulasSem.length > 4 ? " e mais "+(aulasSem.length - 4) : "")+".", btn:"Ver frequência", href:"/apps/frequencia/" });
     if(diaUtil && semChamada.length && okMod("gestao")) itens.push({ cor:"", foto:"chamada", titulo:semChamada.length === 1 ? "1 turma sem chamada" : semChamada.length+" turmas sem chamada",
       det:semChamada.slice(0, 4).map(t => t.nome).join(", ")+(semChamada.length > 4 ? " e mais "+(semChamada.length - 4) : "")+".", btn:"Ver frequência", href:"/apps/frequencia/" });
     if(alerta && okMod("gestao")) itens.push({ cor:"alerta", foto:"busca-ativa", titulo:alerta === 1 ? "1 aluno em alerta de frequência" : alerta+" alunos em alerta de frequência",

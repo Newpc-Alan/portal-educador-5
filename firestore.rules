@@ -79,7 +79,11 @@ service cloud.firestore {
       allow create: if admin() || (vinculado() && novo().criado_por == request.auth.uid
         && novo().escola_id in minhasEscolas() && novo().municipio_id == eu().municipio_id);
       allow update: if admin() || (vinculado() && resource.data.get("criado_por", "") == request.auth.uid
-        && novo().criado_por == request.auth.uid && novo().escola_id in minhasEscolas());
+        && novo().criado_por == request.auth.uid && novo().escola_id in minhasEscolas())
+        // grade da turma (qual professor dá qual disciplina): a Direção e a Secretaria da escola, só esses campos
+        || (equipeEscola(resource.data.escola_id)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["grade", "grade_em", "grade_por", "grade_por_nome"])
+          && novo().grade is list && novo().grade.size() <= 30);
       allow delete: if admin();
     }
 
