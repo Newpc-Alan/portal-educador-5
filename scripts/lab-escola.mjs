@@ -46,7 +46,7 @@ async function diagnostico() {
     const p = (await db.doc(`pre_cadastros/${email}`).get()).exists;
     contas.push(`${email.split('@')[0]}: ${u ? `uid ${u.id} perfil=${u.data().perfil || '-'} status=${u.data().status || '-'} muni=${u.data().municipio_id || '-'} escola=${u.data().escola_id || '-'} turmas=${(u.data().turmas_ids || []).join('+') || '-'}` : 'ainda não entrou no Portal'}${p ? ' (tem pré-cadastro)' : ''}`);
   }
-  aviso('CONTAS: ' + contas.join(' || '));
+  aviso('CONTAS 1: ' + contas.slice(0, 4).join(' || ')); aviso('CONTAS 2: ' + contas.slice(4).join(' || '));
 }
 
 const FREQ = await import(pathToFileURL(process.cwd() + '/frequencia-nucleo.js').href);
@@ -135,6 +135,11 @@ async function historico() {
     if (u) uid[email.split('@')[0]] = { id: u.id, ...u.data() }; else faltam.push(email.split('@')[0]);
   }
   const profs = Object.keys(GRADE).filter(k => uid[k]);
+  // professor cadastrado sem a turma: liga ao 6º Ano A (só contas do laboratório)
+  const ligados = [];
+  for (const k of profs) { const u = uid[k];
+    if (u.municipio_id === MUNI && !(u.turmas_ids || []).includes(TUR)) { const t = [...new Set([...(u.turmas_ids || []), TUR])]; await db.doc(`usuarios/${u.id}`).update({ turmas_ids: t }); u.turmas_ids = t; ligados.push(k); } }
+  if (ligados.length) aviso('Turma 6º Ano A ligada a: ' + ligados.join(', '));
   if (!profs.length) { aviso('Nenhum professor entrou ainda. Entre com as contas prof.* antes do histórico.'); process.exit(1); }
   const lista = ALUNOS.map((_, i) => `lab-a${p2(i + 1)}`), nomes = Object.fromEntries(ALUNOS.map((n, i) => [`lab-a${p2(i + 1)}`, n]));
   const dias = []; for (let d = '2026-09-14'; d < hoje; d = soma(d, 1)) if (semana(d) >= 1 && semana(d) <= 5 && d !== '2026-10-12') dias.push(d);
