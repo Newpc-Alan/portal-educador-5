@@ -334,6 +334,25 @@
   .dir-esc{ display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--muted) }
   .dir-esc select{ font:inherit;font-weight:700;color:var(--ink);padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff }
   .ac-card.laranja .ac-tx{ border-top-color:#c2571a }
+  .sec-duas{ display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start }
+  .sec-duas{ margin-bottom:26px }
+  .sec-duas .ini-sec{ margin:0 }
+  .sec-lista{ display:flex;flex-direction:column;gap:10px }
+  .sec-esc{ display:flex;align-items:center;gap:14px;background:#fff;border:1.5px solid var(--line);border-left:5px solid #c2571a;border-radius:16px;padding:12px 14px }
+  .sec-esc-tx{ flex:1;min-width:0;display:flex;flex-direction:column;gap:6px } .sec-esc-tx b{ font-size:15.5px }
+  .sec-mot{ display:flex;flex-wrap:wrap;gap:6px } .sec-mot span{ background:#fff1e6;color:#8a3a0b;font-size:12.5px;font-weight:700;border-radius:999px;padding:4px 10px }
+  .sec-mot.grande span{ font-size:14px;padding:7px 14px }
+  .sec-ver{ flex-shrink:0;background:#1a6b2a;color:#fff;border:0;border-radius:10px;padding:10px 16px;font:inherit;font-size:14px;font-weight:800;cursor:pointer;min-height:44px }
+  .sec-ver:hover{ background:#14531f }
+  .sec-barras{ background:#fff;border:1.5px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:4px }
+  .sec-bar{ display:grid;grid-template-columns:minmax(0,150px) 1fr 48px;align-items:center;gap:10px;background:none;border:0;border-radius:8px;padding:6px 4px;font:inherit;color:var(--ink);cursor:pointer;text-align:left;min-height:36px }
+  .sec-bar:hover{ background:#f2f5f8 }
+  .sec-bn{ font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .sec-bt{ height:14px;background:#eef2f6;border-radius:999px;overflow:hidden } .sec-bt span{ display:block;height:100%;background:#2671ab;border-radius:999px }
+  .sec-bar b{ font-size:14px;font-weight:800;text-align:right;color:#2671ab }
+  .sec-bar.baixo .sec-bt span{ background:#c2571a } .sec-bar.baixo b{ color:#c2571a }
+  .sec-obs{ margin:6px 0 0;font-size:12.5px;color:var(--muted) }
+  .sec-voltar{ background:none;border:0;padding:0 0 6px;font:inherit;font-size:14px;font-weight:700;color:#2671ab;cursor:pointer }
   .dir-fora{ grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px }
   .dir-fora .ini-card{ flex-direction:row;align-items:center;gap:12px;padding:7px;border-radius:14px;cursor:pointer }
   .dir-fora .ini-img{ width:78px;height:58px;aspect-ratio:auto;flex:none;border-radius:10px }
@@ -1326,6 +1345,7 @@
       { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
+      { id:"inicio",     ico:"\u{1F3E0}", label:"Início" },
       { id:"painelRede", ico:"\u{1F4CA}", label:"Painel da Rede" },
       { id:"gestaoLink", ico:"\u{1F3EB}", label:"Gestão Escolar" },
       { id:"calendarioLink", ico:"\u{1F4C5}", label:"Calendário Letivo" },
@@ -1898,7 +1918,7 @@
     faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
-    if(perfil === "portaria" || perfil === "secretaria_escolar"){ montarMiniCal(); return; } // equipe de apoio: sem Lousa
+    if(perfil === "portaria" || perfil === "secretaria_escolar" || perfil === "secretaria"){ montarMiniCal(); return; } // equipe de apoio e Secretaria de Educação: sem Lousa nem aula
     atalhoAulaNoMenu();
     if(perfil === "admin") contarPendentesEmSegundoPlano();
     montarLousa();
@@ -4541,7 +4561,9 @@
     else if(acao === "sim-sair"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo({ perfil:"admin" }); abrirApp(); }
     else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} signOut(auth); }
     else if(acao === "aluno-sou-professor"){ try{ sessionStorage.setItem("pde_como","professor"); }catch(e){} usuarioAtual.alunoSemAcesso = false; abrirApp(); }
-    else if(acao === "ini-previa"){ ini.previa = ["aluno", "gestor"].includes(el.dataset.arg) ? el.dataset.arg : "professor"; renderInicio(); }
+    else if(acao === "ini-previa"){ ini.previa = ["aluno", "gestor", "secretaria"].includes(el.dataset.arg) ? el.dataset.arg : "professor"; renderInicio(); }
+    else if(acao === "sec-escola"){ verEscolaSec(el.dataset.arg); }
+    else if(acao === "sec-voltar"){ renderInicio(); }
     else if(acao === "espera-verificar"){
       el.disabled = true; el.textContent = "Verificando...";
       if(auth.currentUser){ await carregarUsuario(auth.currentUser); abrirApp(); }
@@ -4633,6 +4655,8 @@
     const admin = usuarioAtual.perfil === "admin";
     // direção da escola (perfil gestor), ou o administrador na prévia da direção
     if(usuarioAtual.perfil === "gestor" || (admin && ini.previa === "gestor")) return renderInicioDirecao(admin);
+    // Secretaria de Educação, ou o administrador na prévia da secretaria
+    if(usuarioAtual.perfil === "secretaria" || (admin && ini.previa === "secretaria")) return renderInicioSecretaria(admin);
     // aluno de verdade, ou o administrador vendo a previa do aluno
     const ehAluno = usuarioAtual.perfil === "aluno" || (admin && ini.previa === "aluno");
     const primeiro = String(usuarioAtual.nome||"").split(" ")[0];
@@ -4642,7 +4666,7 @@
       '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial do "+quem : "Olá, "+escapeHtml(primeiro)+"!")+'</h2>'+
       '<p>'+(admin ? "Assim o "+quem+" vê os botões. Os que estão \u201cEm breve\u201d você libera em Módulos do Portal."
         : escapeHtml(local || (ehAluno ? "Bem-vindo ao Portal do Aluno" : "Bem-vindo ao Portal do Educador")))+'</p>'+
-      (admin ? '<div class="ini-previa"><button class="usr-tab'+(ehAluno?"":" on")+'" data-action="ini-previa" data-arg="professor">Professor</button><button class="usr-tab'+(ehAluno?" on":"")+'" data-action="ini-previa" data-arg="aluno">Aluno</button><button class="usr-tab" data-action="ini-previa" data-arg="gestor">Direção</button></div>' : '')+
+      (admin ? abasPrevia(ehAluno ? "aluno" : "professor") : '')+
       '</div>'+
       '</div>'+
       (ehAluno
@@ -4772,7 +4796,7 @@
     $("conteudo").innerHTML =
       '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial da direção" : saudacao()+", "+escapeHtml(primeiro)+"!")+'</h2>'+
       '<p>'+escapeHtml(dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1))+(nomeEsc ? ' · '+escapeHtml(nomeEsc) : '')+'</p>'+
-      (admin ? '<div class="ini-previa"><button class="usr-tab" data-action="ini-previa" data-arg="professor">Professor</button><button class="usr-tab" data-action="ini-previa" data-arg="aluno">Aluno</button><button class="usr-tab on" data-action="ini-previa" data-arg="gestor">Direção</button></div>' : '')+
+      (admin ? abasPrevia("gestor") : '')+
       '</div>'+(escolas.length > 1 ? '<label class="dir-esc">Escola <select id="dirEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(e.id === esc ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></label>' : '')+'</div>'+
       (esc ? '' : '<div class="hj-vazio">Seu cadastro ainda não está ligado a uma escola. Fale com a Secretaria de Educação.</div>')+
       '<section class="ini-sec" aria-labelledby="dirIndTit"><h3 id="dirIndTit">A escola hoje</h3><div class="dir-ind" id="dirInd"><div class="hj-vazio">Conferindo a escola...</div></div></section>'+
@@ -4874,6 +4898,170 @@
       : '<div class="hj-lista"><div class="hj-card ok"><span class="hj-img" style="background-image:url(\''+fotoAcao("painel-escola")+'\')"></span><span class="hj-tx"><b>Tudo em dia na escola</b><small>Chamadas feitas, nenhum aluno em alerta e nenhum chamado aberto.</small></span></div></div>';
     const muni = usuarioAtual._muni || null;
     desenharAcoesDir(okMod, usuarioAtual.perfil === "admin" || !!(muni && Array.isArray(muni.modulos_secretaria) && muni.modulos_secretaria.includes("painel")));
+  }
+
+  // ===================== INÍCIO DA SECRETARIA DE EDUCAÇÃO =====================
+  // A rede hoje (4 números) · escolas que pedem atenção · presença por escola (85%) · 8 atalhos com foto
+  // Os números vêm do painelSecretaria (só totais, sem nomes de alunos). "Ver escola" abre a escola só para leitura.
+  const META_PRESENCA = 85;   // presença do dia abaixo disso fica laranja (a frequência mínima anual de 75% é outra régua)
+  const ACOES_SEC = [
+    { id:"painel",    titulo:"Painel da Rede",        sub:"Indicadores completos da rede",                 foto:"painel-rede",         cor:"verde",  href:"/painel/",                  mod:"painel" },
+    { id:"freq",      titulo:"Frequência da rede",    sub:"Busca ativa por escola, sem nomes de alunos",   foto:"frequencia-rede",     cor:"alerta", href:"/painel/#frequencia",       mod:"painel" },
+    { id:"apr",       titulo:"Aprendizagem",          sub:"Acerto nas provas e habilidades BNCC",          foto:"aprendizagem",        cor:"verde",  href:"/painel/#aprendizagem",     mod:"painel" },
+    { id:"calend",    titulo:"Calendário letivo",     sub:"Dias letivos e eventos da rede",                foto:"calendario",          cor:"azul",   href:"/apps/calendario/",         mod:"" },
+    { id:"chamados",  titulo:"Chamados da rede",      sub:"Equipamentos, prazos e atendimento",            foto:"chamados-rede",       cor:"alerta", href:"/apps/recursos/#rede",      mod:"" },
+    { id:"comunicado",titulo:"Comunicado às escolas", sub:"Aviso nas TVs das escolas",                     foto:"comunicado",          cor:"navy",   href:"/apps/tv/#avisos",          mod:"" },
+    { id:"servidores",titulo:"Servidores",            sub:"Professores e equipes por escola",              foto:"servidores",          cor:"azul",   href:"/apps/servidores/",         mod:"" },
+    { id:"relatorio", titulo:"Relatório executivo",   sub:"Resumo da rede em PDF, para o prefeito",        foto:"relatorio-executivo", cor:"navy",   href:"/painel/#relatorio",        mod:"painel" }
+  ];
+  const sec = { muni:"", dados:null, em:0, badges:{}, okPainel:false, admin:false };
+  const pctDe = (a, b) => b ? Math.round(100 * a / b) : null;
+  function abasPrevia(atual){
+    return '<div class="ini-previa">'+[["professor","Professor"],["aluno","Aluno"],["gestor","Direção"],["secretaria","Secretaria"]]
+      .map(([k, r]) => '<button class="usr-tab'+(k === atual ? " on" : "")+'" data-action="ini-previa" data-arg="'+k+'">'+r+'</button>').join("")+'</div>';
+  }
+  const diaUtilHoje = () => { const s = new Date(Date.now() - 4*3600000).getUTCDay(); return s >= 1 && s <= 5; };
+  async function renderInicioSecretaria(admin){
+    sec.admin = admin; sec.badges = {};
+    const primeiro = String(usuarioAtual.nome || "").split(" ")[0];
+    const muni = usuarioAtual._muni || null;
+    sec.okPainel = admin || !!(muni && Array.isArray(muni.modulos_secretaria) && muni.modulos_secretaria.includes("painel"));
+    // o administrador escolhe o município da prévia
+    let munis = [];
+    if(admin){
+      try{ munis = cacheMunicipios.length ? cacheMunicipios : await carregarCacheMunicipios(); }catch(e){ munis = []; }
+      let m = ""; try{ m = localStorage.getItem("pde_sec_muni") || ""; }catch(e){}
+      if(!munis.some(x => x.id === m)) m = (munis.find(x => x.id === usuarioAtual.municipio_id) || munis[0] || {}).id || "";
+      sec.muni = m;
+    } else sec.muni = usuarioAtual.municipio_id || "";
+    const nomeMuni = admin ? ((munis.find(x => x.id === sec.muni) || {}).nome || "") : (usuarioAtual.municipio_nome || (muni && muni.nome) || "");
+    const dataHoje = new Date().toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
+    $("conteudo").innerHTML =
+      '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial da Secretaria" : saudacao()+", "+escapeHtml(primeiro)+"!")+'</h2>'+
+      '<p>'+escapeHtml(dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1))+(nomeMuni ? ' · Secretaria Municipal de Educação de '+escapeHtml(nomeMuni) : '')+'<span id="secQtd"></span></p>'+
+      (admin ? abasPrevia("secretaria") : '')+'</div>'+
+      (admin && munis.length > 1 ? '<label class="dir-esc">Município <select id="secMuni">'+munis.map(x => '<option value="'+escapeAttr(x.id)+'"'+(x.id === sec.muni ? " selected" : "")+'>'+escapeHtml(x.nome || x.id)+'</option>').join("")+'</select></label>' : '')+'</div>'+
+      '<section class="ini-sec" aria-labelledby="secIndTit"><h3 id="secIndTit">A rede hoje</h3><div class="dir-ind" id="secInd"><div class="hj-vazio">'+(sec.okPainel ? "Somando os números das escolas..." : "")+'</div></div></section>'+
+      '<div class="sec-duas" id="secDuas"></div>'+
+      '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
+      '<div id="iniNoticias"></div><div id="iniDatas"></div>';
+    const sel = $("secMuni");
+    if(sel) sel.addEventListener("change", () => { try{ localStorage.setItem("pde_sec_muni", sel.value); }catch(e){} sec.dados = null; renderInicioSecretaria(admin); });
+    await carregarCfgModulos();
+    planoVigente = null;
+    desenharAcoesSec();
+    faixaNoticias(false); faixaDatas();
+    if(!sec.okPainel){
+      $("secInd").innerHTML = '<div class="hj-lista"><div class="hj-card"><span class="hj-img" style="background-image:url(\''+fotoAcao("painel-rede")+'\')"></span>'+
+        '<span class="hj-tx"><b>Os números da rede fazem parte do Painel da Rede</b><small>Presença do dia, alunos em alerta e chamados de todas as escolas, num lugar só. Ele ainda não está no plano do município.</small>'+
+        '<button type="button" class="hj-btn" data-action="ini-conheca" data-mod="painel" data-nome="Painel da Rede" data-desc="Presença do dia, alunos em alerta, aprendizagem, calendário e chamados de todas as escolas, sem expor nomes de alunos." data-img="'+escapeAttr(fotoAcao("painel-rede"))+'" data-motivo="plano">Saiba mais</button></span></div></div>';
+      return;
+    }
+    await dadosSecretaria();
+  }
+  async function dadosSecretaria(){
+    const m = sec.muni;
+    if(!sec.dados || sec.dados.municipio.id !== m || Date.now() - sec.em > 5*60000){
+      try{
+        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+        const r = await httpsCallable(getFunctions(app, "southamerica-east1"), "painelSecretaria", { timeout:120000 })(sec.admin ? { municipio_id:m } : {});
+        sec.dados = r.data; sec.em = Date.now();
+      }catch(e){
+        console.warn("secretaria:", e.code, e.message);
+        if(sec.muni === m && $("secInd")) $("secInd").innerHTML = '<div class="hj-vazio">Não foi possível somar os números agora. '+escapeHtml(e.message || "Tente de novo em instantes.")+'</div>';
+        return;
+      }
+    }
+    if(sec.muni !== m || !$("secInd")) return;   // trocou de município ou de tela enquanto carregava
+    desenharSecretaria(sec.dados);
+  }
+  // motivos de atenção de uma escola (só números)
+  function motivosEscola(e, util){
+    const out = [], p = pctDe(e.hojePresentes, e.hojeAlunos);
+    if(util && e.hojeTurmas && !e.hojeTurmasCom) out.push({ t:"Nenhuma chamada hoje", peso:3 });
+    else if(p !== null && p < META_PRESENCA) out.push({ t:"Presença "+p+"% hoje", peso:3 });
+    if(e.chamadosParados) out.push({ t:e.chamadosParados === 1 ? "1 chamado parado há mais de 3 dias" : e.chamadosParados+" chamados parados há mais de 3 dias", peso:2 });
+    const al = e.freqAlerta || 0;
+    if(al) out.push({ t:al === 1 ? "1 aluno em alerta" : al+" alunos em alerta", peso:al >= 5 ? 2 : 1 });
+    return out;
+  }
+  function desenharSecretaria(d){
+    const h = d.hoje || { turmas:0, turmasCom:0, alunos:0, presentes:0, escolasAtivas:0, escolasCom:0 };
+    const f = d.frequencia || {}, inf = d.infra || {}, util = diaUtilHoje();
+    const alerta = f.alerta !== undefined ? f.alerta : (f.risco || 0) + (f.atencao || 0);
+    $("secQtd").textContent = " · "+fmt(d.totais.escolas)+(d.totais.escolas === 1 ? " escola" : " escolas");
+    const pres = pctDe(h.presentes, h.alunos);
+    const tile = (rot, val, det, cls, href, mod) => '<a class="dir-tile'+(cls ? " "+cls : "")+'" href="'+href+'" data-action="ini-abrir" data-mod="'+mod+'"><span>'+rot+'</span><b>'+val+'</b><small>'+det+'</small></a>';
+    const semCham = h.escolasAtivas - h.escolasCom;
+    $("secInd").innerHTML =
+      tile("Presença média hoje", pres === null ? "-" : pres+"%", pres === null ? (util ? "ainda sem chamada hoje" : "hoje não é dia útil") : fmt(h.presentes)+" de "+fmt(h.alunos)+" alunos nas chamadas", pres !== null && pres < META_PRESENCA ? "alerta" : "", "/painel/#frequencia", "painel") +
+      tile("Escolas com chamada", fmt(h.escolasCom)+" de "+fmt(h.escolasAtivas), !util ? "hoje não é dia útil" : semCham ? (semCham === 1 ? "1 escola sem nenhuma chamada" : semCham+" escolas sem nenhuma chamada") : "todas com chamada hoje", util && semCham ? "alerta" : "", "/painel/#frequencia", "painel") +
+      tile("Alunos em alerta", fmt(alerta), f.atencao ? fmt(f.atencao)+" com 3 faltas seguidas" : "abaixo da frequência mínima", alerta ? "alerta" : "", "/painel/#frequencia", "painel") +
+      tile("Chamados parados", fmt(inf.parados3d || 0), (inf.parados3d ? "há mais de 3 dias" : "nenhum parado")+" · "+fmt(inf.abertos || 0)+" abertos", inf.parados3d ? "alerta" : "", "/apps/recursos/#rede", "gestao");
+    if(alerta) sec.badges.freq = String(alerta);
+    if(inf.parados3d) sec.badges.chamados = String(inf.parados3d);
+    desenharAcoesSec();
+    // escolas que pedem atenção (as mais urgentes primeiro) e presença por escola
+    const lista = (d.escolas || []).map(e => ({ e, ms:motivosEscola(e, util) })).filter(x => x.ms.length)
+      .sort((a, b) => b.ms.reduce((s, m) => s + m.peso, 0) - a.ms.reduce((s, m) => s + m.peso, 0) || a.e.nome.localeCompare(b.e.nome, "pt-BR"));
+    const MAX = 5;
+    const atencao = lista.length
+      ? lista.slice(0, MAX).map(({ e, ms }) => '<div class="sec-esc"><div class="sec-esc-tx"><b>'+escapeHtml(e.nome)+'</b><div class="sec-mot">'+ms.map(m => '<span>'+escapeHtml(m.t)+'</span>').join("")+'</div></div>'+
+          '<button type="button" class="sec-ver" data-action="sec-escola" data-arg="'+escapeAttr(e.id)+'">Ver escola</button></div>').join("")+
+        (lista.length > MAX ? '<p class="sec-obs">E mais '+(lista.length - MAX)+' escola(s). Veja todas no Painel da Rede.</p>' : '')
+      : '<div class="hj-card ok"><span class="hj-img" style="background-image:url(\''+fotoAcao("painel-rede")+'\')"></span><span class="hj-tx"><b>Nenhuma escola pedindo atenção agora</b><small>Chamadas em dia, presença acima de '+META_PRESENCA+'% e nenhum chamado parado.</small></span></div>';
+    const comTurma = (d.escolas || []).filter(e => e.hojeTurmas).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const barras = comTurma.length ? comTurma.map(e => {
+      const p = pctDe(e.hojePresentes, e.hojeAlunos), baixo = p !== null && p < META_PRESENCA;
+      return '<button type="button" class="sec-bar'+(baixo ? " baixo" : "")+'" data-action="sec-escola" data-arg="'+escapeAttr(e.id)+'" title="Ver escola"><span class="sec-bn">'+escapeHtml(e.nome)+'</span>'+
+        '<span class="sec-bt"><span style="width:'+(p || 0)+'%"></span></span><b>'+(p === null ? "-" : p+"%")+'</b></button>';
+    }).join("") : '<div class="hj-vazio">Nenhuma escola com turmas cadastradas ainda.</div>';
+    $("secDuas").innerHTML =
+      '<section class="ini-sec" aria-labelledby="secAtTit"><h3 id="secAtTit">Escolas que pedem atenção</h3><div class="sec-lista">'+atencao+'</div></section>'+
+      '<section class="ini-sec" aria-labelledby="secPrTit"><h3 id="secPrTit">Presença por escola hoje</h3><div class="sec-barras">'+barras+
+        '<p class="sec-obs">Laranja: abaixo de '+META_PRESENCA+'%. Escola sem chamada aparece com traço. Toque na escola para ver os números dela.</p></div></section>';
+  }
+  function desenharAcoesSec(){
+    const box = $("iniAcoes"); if(!box) return;
+    const COR = { verde:"verde", azul:"", navy:"navy", alerta:"laranja" };
+    const grandes = [], pequenos = [];
+    ACOES_SEC.forEach(a => {
+      const img = fotoAcao(a.foto);
+      if(a.mod === "painel" && !sec.okPainel){ pequenos.push(chipConheca({ id:"painel", nome:a.titulo, desc:a.sub, img, motivo:"plano" })); return; }
+      const badge = sec.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(sec.badges[a.id])+'</span>' : "";
+      grandes.push('<a class="ac-card '+COR[a.cor]+'" href="'+a.href+'" data-action="ini-abrir" data-mod="'+(a.mod || "gestao")+'" data-ac="'+a.id+'">'+
+        '<span class="ac-img" style="background-image:url(\''+img+'\')"></span><span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge+'</a>');
+    });
+    box.innerHTML = grandes.join("") + (pequenos.length ? '<div class="dir-fora">'+pequenos.join("")+'</div>' : '');
+  }
+  // "Ver escola": a tela da direção daquela escola, só para leitura e só com números (nenhum nome de aluno)
+  function verEscolaSec(id){
+    const d = sec.dados, e = d && (d.escolas || []).find(x => x.id === id); if(!e) return;
+    const util = diaUtilHoje(), p = pctDe(e.hojePresentes, e.hojeAlunos), rede = d.frequencia || {};
+    const pc = v => v === null || v === undefined ? "-" : Math.round(v * 100)+"%";
+    const tile = (rot, val, det, cls) => '<div class="dir-tile'+(cls ? " "+cls : "")+'"><span>'+rot+'</span><b>'+val+'</b><small>'+det+'</small></div>';
+    const semCham = Math.max(0, e.hojeTurmas - e.hojeTurmasCom);
+    const ms = motivosEscola(e, util);
+    $("conteudo").innerHTML =
+      '<div class="ini-ola"><div><button type="button" class="sec-voltar" data-action="sec-voltar">← Voltar para a rede</button><h2>'+escapeHtml(e.nome)+'</h2>'+
+      '<p>Visão da Secretaria, só para leitura. Os nomes dos alunos ficam com a direção da escola.</p></div></div>'+
+      '<section class="ini-sec"><h3>A escola hoje</h3><div class="dir-ind">'+
+        tile("Presença hoje", p === null ? "-" : p+"%", p === null ? (util ? "ainda sem chamada hoje" : "hoje não é dia útil") : fmt(e.hojePresentes)+" de "+fmt(e.hojeAlunos)+" alunos nas chamadas", p !== null && p < META_PRESENCA ? "alerta" : "")+
+        tile("Chamadas feitas", fmt(e.hojeTurmasCom)+" de "+fmt(e.hojeTurmas), util ? (semCham ? semCham+" turma(s) sem chamada" : "turmas com chamada hoje") : "hoje não é dia útil", util && semCham ? "alerta" : "")+
+        tile("Alunos em alerta", fmt(e.freqAlerta || 0), e.freqAtencao ? fmt(e.freqAtencao)+" com 3 faltas seguidas" : "abaixo da frequência mínima", e.freqAlerta ? "alerta" : "")+
+        tile("Chamados abertos", fmt(e.chamadosAbertos || 0), e.chamadosParados ? e.chamadosParados+" parado(s) há mais de 3 dias" : "nenhum parado", e.chamadosParados ? "alerta" : "")+
+      '</div></section>'+
+      '<section class="ini-sec"><h3>O ano até agora</h3><div class="dir-ind">'+
+        tile("Frequência no ano", pc(e.freq), "rede: "+pc(rede.freq)+" · mínimo 75%", e.freq !== null && e.freq < 0.75 ? "alerta" : "")+
+        tile("Busca ativa", fmt(e.casosAbertos || 0), "fichas abertas pela escola", "")+
+        tile("Professores ativos", fmt(e.ativos30 || 0)+" de "+fmt(e.professores || 0), "usaram o Portal em 30 dias", "")+
+        tile("Acerto nas provas", pc(e.acerto), e.provas ? fmt(e.provas)+" prova(s) corrigida(s)" : "nenhuma prova corrigida", "")+
+        tile("Dias letivos", e.dias === null ? "-" : fmt(e.dias)+" de "+fmt(e.metaDias), "calendário da escola", e.dias !== null && e.dias < e.metaDias ? "alerta" : "")+
+        tile("Alunos", fmt(e.alunos || 0), "cadastrados no Portal", "")+
+      '</div></section>'+
+      (ms.length ? '<section class="ini-sec"><h3>Pontos de atenção</h3><div class="sec-mot grande">'+ms.map(m => '<span>'+escapeHtml(m.t)+'</span>').join("")+'</div></section>' : '')+
+      '<div style="margin-top:6px"><a class="btn btn-primary" href="/painel/" data-action="ini-abrir" data-mod="painel">Abrir o Painel da Rede</a></div>';
+    window.scrollTo(0, 0);
   }
 
   // card pequeno de um recurso fora do plano (ou em breve): abre a apresentacao e registra o interesse

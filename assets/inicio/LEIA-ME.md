@@ -40,3 +40,18 @@ O rosto do professor deve ficar na metade de CIMA da foto: no celular a faixa mo
 | calendario.webp | Calendário |
 
 Fotos provisórias: as capas da Gestão Escolar. Mesmo formato das outras (800 x 600, .webp).
+
+## Início da Secretaria de Educação
+
+| Arquivo | Botão |
+|---|---|
+| painel-rede.webp | Painel da Rede |
+| frequencia-rede.webp | Frequência da rede (e o alerta de alunos) |
+| aprendizagem.webp | Aprendizagem |
+| calendario.webp | Calendário letivo (o mesmo da Direção) |
+| chamados-rede.webp | Chamados da rede (e o alerta de chamados parados) |
+| comunicado.webp | Comunicado às escolas |
+| servidores.webp | Servidores |
+| relatorio-executivo.webp | Relatório executivo |
+
+Fotos provisórias: cópias das capas da Direção e dos módulos. Mesmo formato (800 x 600, .webp).

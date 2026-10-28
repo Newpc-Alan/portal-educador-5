@@ -88,13 +88,13 @@ export function emRisco(resumos) {
 
 // números da escola para o Painel (sem nomes)
 export function agregar(resumos, hoje) {
-  let alunos = 0, a = 0, f = 0, risco = 0, atencao = 0, turmas = 0, turmas7 = 0;
+  let alunos = 0, a = 0, f = 0, risco = 0, atencao = 0, alerta = 0, turmas = 0, turmas7 = 0;
   const lim = hoje ? semanaAntes(hoje) : '';
   (resumos || []).forEach(r => {
     turmas++; if (lim && (r.ultimo_dia || '') >= lim) turmas7++;
-    Object.values(r.alunos || {}).forEach(x => { if (!x.a) return; alunos++; a += x.a; f += x.f; if (x.r) risco++; if (x.at) atencao++; });
+    Object.values(r.alunos || {}).forEach(x => { if (!x.a) return; alunos++; a += x.a; f += x.f; if (x.r) risco++; if (x.at) atencao++; if (x.r || x.at) alerta++; });
   });
-  return { turmas, turmas7, alunos, aulas: a, faltas: f, freq: a ? (a - f) / a : null, risco, atencao };
+  return { turmas, turmas7, alunos, aulas: a, faltas: f, freq: a ? (a - f) / a : null, risco, atencao, alerta };
 }
 function semanaAntes(d) { const t = Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) - 6 * 864e5, x = new Date(t); return x.toISOString().slice(0, 10); }
 

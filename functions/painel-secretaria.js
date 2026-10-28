@@ -63,6 +63,8 @@ export function daEscola(d, ids) {
     calendario: { ...d.calendario, escolasAbaixo: abaixo },
     infra: { abertos: soma('chamadosAbertos'), atrasados48h: soma('chamadosAtrasados'), resolvidos30: null, horasMedia: null, equipamentos: soma('equipamentos'), tvs: soma('tvs'), tvsOnline: soma('tvsOnline'), problemas: [] },
     relatorios: null, escolas,
+    hoje: { dia: (d.hoje || {}).dia || '', turmas: soma('hojeTurmas'), turmasCom: soma('hojeTurmasCom'), alunos: soma('hojeAlunos'), presentes: soma('hojePresentes'),
+      escolasAtivas: escolas.filter(e => e.hojeTurmas).length, escolasCom: escolas.filter(e => e.hojeTurmasCom).length },
     frequencia: (() => { const a = soma('freqAulas'), f = soma('freqFaltas'); return { turmas: soma('freqTurmas'), turmas7: soma('freqTurmas7'), alunos: soma('freqAlunos'), freq: a ? (a - f) / a : null, risco: soma('freqRisco'), atencao: soma('freqAtencao'), casosAbertos: soma('casosAbertos'), casosEncaminhados: soma('casosEncaminhados'), casosResolvidos: null }; })(),
     rede: { acerto: d.aprendizagem.acerto, ativos30: (d.uso.professores + d.uso.gestores) ? d.uso.ativos30 / (d.uso.professores + d.uso.gestores) : null, escolas: d.totais.escolas, baseDias: d.calendario.baseDias, freq: d.frequencia ? d.frequencia.freq : null }
   };
@@ -76,7 +78,8 @@ export async function montar(db, m) {
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const E = {}; escolas.forEach(e => { E[e.id] = { id: e.id, nome: e.nome, professores: 0, ativos30: 0, alunos: 0, provas: 0, respostas: 0, ac: 0, tot: 0,
     dias: null, horas: null, metaDias: 200, metaHoras: 800, chamadosAbertos: 0, chamadosAtrasados: 0, equipamentos: 0, tvs: 0, tvsOnline: 0,
-    freq: null, freqAlunos: 0, freqRisco: 0, freqAtencao: 0, freqTurmas: 0, freqTurmas7: 0, freqAulas: 0, freqFaltas: 0, casosAbertos: 0, casosEncaminhados: 0 }; });
+    freq: null, freqAlunos: 0, freqRisco: 0, freqAtencao: 0, freqTurmas: 0, freqTurmas7: 0, freqAulas: 0, freqFaltas: 0, freqAlerta: 0, casosAbertos: 0, casosEncaminhados: 0,
+    chamadosParados: 0, hojeTurmas: 0, hojeTurmasCom: 0, hojeAlunos: 0, hojePresentes: 0 }; });
   const erros = [];
   const tenta = async (nome, f) => { try { return await f(); } catch (e) { erros.push(nome); console.error('painelSecretaria', m, nome, e.message); return null; } };
 
@@ -150,12 +153,13 @@ export async function montar(db, m) {
   });
 
   // ---------- infraestrutura ----------
-  const inf = { abertos: 0, atrasados48h: 0, resolvidos30: 0, horasMedia: null, equipamentos: 0, tvs: 0, tvsOnline: 0, problemas: [] };
+  const inf = { abertos: 0, atrasados48h: 0, parados3d: 0, resolvidos30: 0, horasMedia: null, equipamentos: 0, tvs: 0, tvsOnline: 0, problemas: [] };
   await tenta('chamados', async () => {
     const s = await db.collection('rec_chamados').where('municipio_id', '==', m).get(); let soma = 0, n = 0; const probs = {};
     s.forEach(d => {
       const x = d.data(), ini = msDe(x.criado_em), e = E[x.escola_id];
-      if (x.status !== 'resolvido') { inf.abertos++; if (e) e.chamadosAbertos++; if (ini && agora - ini > 48 * 36e5) { inf.atrasados48h++; if (e) e.chamadosAtrasados++; } }
+      if (x.status !== 'resolvido') { inf.abertos++; if (e) e.chamadosAbertos++; if (ini && agora - ini > 48 * 36e5) { inf.atrasados48h++; if (e) e.chamadosAtrasados++; }
+        if (ini && agora - ini > 72 * 36e5) { inf.parados3d++; if (e) e.chamadosParados++; } }
       else { const fim = msDe(x.resolvido_em); if (fim >= agora - 30 * DIA) { inf.resolvidos30++; if (ini) { soma += (fim - ini) / 36e5; n++; } } }
       if (ini >= agora - 90 * DIA && x.problema) probs[x.problema] = (probs[x.problema] || 0) + 1;
     });
@@ -172,15 +176,36 @@ export async function montar(db, m) {
   });
 
   // ---------- frequência digital (chamadas dos professores): só totais, sem nomes ----------
-  const frq = { turmas: 0, turmas7: 0, alunos: 0, freq: null, risco: 0, atencao: 0, casosAbertos: 0, casosEncaminhados: 0, casosResolvidos: 0 };
+  const frq = { turmas: 0, turmas7: 0, alunos: 0, freq: null, risco: 0, atencao: 0, alerta: 0, casosAbertos: 0, casosEncaminhados: 0, casosResolvidos: 0 };
   await tenta('frequencia', async () => {
     const s = await db.collection('freq_resumo').where('municipio_id', '==', m).where('ano', '==', ano).get();
     const porE = {}; s.forEach(d => { const r = d.data(); (porE[r.escola_id] = porE[r.escola_id] || []).push(r); });
     let a = 0, f = 0;
     Object.entries(porE).forEach(([id, rs]) => { const g = FREQ.agregar(rs, hoje), e = E[id];
       frq.turmas += g.turmas; frq.turmas7 += g.turmas7; frq.alunos += g.alunos; frq.risco += g.risco; frq.atencao += g.atencao; a += g.aulas; f += g.faltas;
-      if (e) Object.assign(e, { freq: g.freq, freqAlunos: g.alunos, freqRisco: g.risco, freqAtencao: g.atencao, freqTurmas: g.turmas, freqTurmas7: g.turmas7, freqAulas: g.aulas, freqFaltas: g.faltas }); });
+      if (e) Object.assign(e, { freq: g.freq, freqAlunos: g.alunos, freqRisco: g.risco, freqAtencao: g.atencao, freqTurmas: g.turmas, freqTurmas7: g.turmas7, freqAulas: g.aulas, freqFaltas: g.faltas, freqAlerta: g.alerta }); });
+    frq.alerta = Object.values(E).reduce((t, e) => t + e.freqAlerta, 0);
     frq.freq = a ? (a - f) / a : null;
+  });
+  // ---------- hoje: chamadas feitas no dia (só totais). Presente = não faltou o dia inteiro ----------
+  const hj = { dia: hoje, turmas: 0, turmasCom: 0, alunos: 0, presentes: 0, escolasAtivas: 0, escolasCom: 0 };
+  await tenta('hoje', async () => {
+    for (const ids of pedacos(escolas.map(e => e.id), 10)) {
+      await Promise.all(ids.map(async id => {
+        const s = await db.collection('turmas').where('escola_id', '==', id).get();
+        E[id].hojeTurmas = s.docs.filter(d => !['inativa', 'excluida'].includes(d.data().status)).length;
+      }));
+    }
+    const s = await db.collection('freq_chamadas').where('municipio_id', '==', m).where('dia', '==', hoje).get();
+    const porT = {}; s.forEach(d => { const x = d.data(); if (!E[x.escola_id]) return; (porT[x.turma_id] = porT[x.turma_id] || { e: x.escola_id, cs: [] }).cs.push(x); });
+    Object.values(porT).forEach(({ e, cs }) => {
+      const g = FREQ.dia(cs); if (!g.a) return;
+      const x = E[e]; x.hojeTurmasCom++; x.hojeAlunos += g.lista.length;
+      x.hojePresentes += g.lista.filter(id => (g.f[id] || 0) < g.a).length;
+    });
+    Object.values(E).forEach(x => {
+      hj.turmas += x.hojeTurmas; hj.turmasCom += x.hojeTurmasCom; hj.alunos += x.hojeAlunos; hj.presentes += x.hojePresentes;
+      if (x.hojeTurmas) hj.escolasAtivas++; if (x.hojeTurmasCom) hj.escolasCom++; });
   });
   // fichas de busca ativa das escolas (só contagem por situação)
   await tenta('busca_ativa', async () => {
@@ -201,7 +226,7 @@ export async function montar(db, m) {
     gerado_em: agora, ano, municipio: { id: m, nome: muni.nome || '', uf: muni.uf || '', logo_url: muni.logo_url || '' },
     totais: { escolas: escolas.length, alunos: Object.values(E).reduce((s, e) => s + e.alunos, 0) },
     uso, aprendizagem: { provas: apr.provas, respostas: apr.respostas, acerto: apr.tot ? apr.ac / apr.tot : null, habilidades: apr.habilidades.slice(0, 40), semHab: apr.semHab },
-    calendario: cal, infra: inf, relatorios: rel, frequencia: frq,
+    calendario: cal, infra: inf, relatorios: rel, frequencia: frq, hoje: hj,
     escolas: Object.values(E).map(e => ({ ...e, acerto: e.tot ? e.ac / e.tot : null, qtot: e.tot, ac: undefined, tot: undefined })),
     erros
   };

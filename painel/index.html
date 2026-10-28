@@ -96,13 +96,13 @@ table.tab{width:100%;border-collapse:collapse}
       <div class="card"><div class="h2">🧩 Módulos mais abertos</div><div class="sub">Últimos 30 dias</div><div id="gMod" style="margin-top:10px"></div></div>
     </div>
 
-    <div class="secao">Aprendizagem</div>
+    <div class="secao" id="aprendizagem">Aprendizagem</div>
     <div class="grid2">
       <div class="card"><div class="h2">🎯 Acerto nas provas por escola</div><div class="sub" id="aprSub"></div><div id="gAcerto" style="margin-top:10px"></div></div>
       <div class="card"><div class="h2">📉 Habilidades BNCC que pedem reforço</div><div class="sub">Menor acerto da rede no ano</div><div id="gHab"></div></div>
     </div>
 
-    <div class="secao blocoFreq">Frequência</div>
+    <div class="secao blocoFreq" id="frequencia">Frequência</div>
     <div class="grid2 blocoFreq">
       <div class="card"><div class="h2">🙋 Frequência por escola</div><div class="sub" id="frqSub"></div><div id="gFrq" style="margin-top:10px"></div></div>
       <div class="card"><div class="h2">🔎 Busca ativa</div><div class="sub">Alunos abaixo da frequência mínima ou faltando seguido (sem nomes neste painel)</div><div id="gBusca" style="margin-top:10px"></div></div>
@@ -153,10 +153,20 @@ async function carregar(forcar){
   try{
     const r = await chamar({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined, escolas:S.sim && S.sim.perfil === "gestor" ? (S.sim.escolas || []) : undefined, forcar:!!forcar });
     S.d = r.data; desenhar(); $("carregando").hidden = true; $("corpo").hidden = false;
+    irParaHash();
   }catch(e){
     console.warn("painel:", e.code, e.message);
     $("carregando").innerHTML = "<b>Não foi possível montar o painel agora</b>" + esc(e.message || "Tente de novo em instantes.");
   }
+}
+// atalhos do Início da Secretaria: #aprendizagem e #frequencia rolam até o bloco; #relatorio já gera o PDF (uma vez)
+let hashFeito = false;
+function irParaHash(){
+  if(hashFeito) return; hashFeito = true;
+  const h = (location.hash || "").slice(1);
+  if(h === "relatorio"){ setTimeout(() => relatorio(), 300); return; }
+  const el = ["aprendizagem", "frequencia"].includes(h) ? $(h) : null;
+  if(el && !el.hidden) setTimeout(() => el.scrollIntoView({ behavior:"smooth", block:"start" }), 100);
 }
 function kpi(rot, val, extra, cls){ return '<div class="kpi ' + (cls || "") + '"><small>' + rot + "</small><b>" + val + "</b><span>" + (extra || "") + "</span></div>"; }
 function desenhar(){
