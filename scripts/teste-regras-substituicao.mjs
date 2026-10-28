@@ -18,7 +18,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'turmas/t1'), { nome: '6º Ano A', escola_id: 'e1', municipio_id: 'm1', criado_por: 'x' });
 });
 let ok = 0, falha = 0;
-const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('FALHA:', nome, e.message); } };
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
 const fs = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore();
 const D = '2026-10-28', SID = `e1_${D}_t1_ciencias`;
 const sub = (o) => ({ escola_id: 'e1', municipio_id: 'm1', dia: D, turma_id: 't1', turma_nome: '6º Ano A', disciplina: 'Ciências', disc_id: 'ciencias',

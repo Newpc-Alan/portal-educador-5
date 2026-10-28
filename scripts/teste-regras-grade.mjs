@@ -16,7 +16,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'turmas/t1'), { nome: '6º Ano A', escola_id: 'e1', municipio_id: 'm1', criado_por: 'outro' });
 });
 let ok = 0, falha = 0;
-const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('FALHA:', nome, e.message); } };
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
 const fs = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore();
 const grade = [{ disciplina: 'Ciências', disc_id: 'ciencias', professor_uid: 'p1', professor_nome: 'Júlia', dias: [2, 4] }];
 await t('direção grava a grade', assertSucceeds(updateDoc(doc(fs('g1'), 'turmas/t1'), { grade, grade_por: 'g1' })));

@@ -31,7 +31,7 @@ await env.withSecurityRulesDisabled(async (c) => {
 });
 
 let ok = 0, falha = 0;
-const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('FALHA:', nome, e.message); } };
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
 const st = (uid, claims) => (uid ? env.authenticatedContext(uid, claims || {}) : env.unauthenticatedContext()).storage();
 const jpg = new Uint8Array(1000), meta = { contentType: 'image/jpeg' };
 const up = (s, p, dados = jpg, m = meta) => uploadBytes(ref(s, p), dados, m);

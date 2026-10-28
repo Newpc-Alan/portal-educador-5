@@ -37,7 +37,7 @@ await env.withSecurityRulesDisabled(async (c) => {
 });
 
 let ok = 0, falhas = 0;
-async function t(nome, p) { try { await p; ok++; } catch (e) { falhas++; console.log('FALHA:', nome, '-', String(e.message || e).slice(0, 160)); } }
+async function t(nome, p) { try { await p; ok++; } catch (e) { falhas++; console.log('::error::FALHA: ' + nome + ' - ' + String(e.message || e).split('\n')[0].slice(0, 160)); } }
 const ctx = (uid, email, verificado = true) => env.authenticatedContext(uid, { email, email_verified: verificado }).firestore();
 const agora = () => serverTimestamp();
 const alunoNovo = (uid, email, extra = {}) => ({ uid, nome: 'Novo', email, perfil: 'aluno', status: 'ativo', licenca_tipo: 'institucional', municipio_id: 'm1', municipio_nome: 'Ribas', escola_id: null, origem: 'dominio', criado_em: agora(), criado_por: uid, atualizado_em: agora(), atualizado_por: uid, ...extra });

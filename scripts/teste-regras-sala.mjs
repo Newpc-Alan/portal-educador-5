@@ -19,7 +19,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await s('provas_online/pe', { ...base, status: 'encerrada' });
 });
 let ok = 0, falha = 0;
-const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('FALHA:', nome, e.message); } };
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
 const db = (uid, claims) => env.authenticatedContext(uid, claims || {}).firestore();
 const sala = (d, prova, chave, dados) => setDoc(doc(d, 'provas_online', prova, 'po_sala', chave), dados);
 const ok1 = { nome: 'Ana', aparelho: 'Tablet Android', em: serverTimestamp(), pronto: true, foto: true };

@@ -13,7 +13,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'usuarios/p2'), { perfil: 'professor', status: 'ativo', nome: 'P2', licenca_tipo: 'institucional' });
 });
 let ok = 0, falha = 0;
-const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('FALHA:', nome, e.message); } };
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
 const fs = (uid, email) => env.authenticatedContext(uid, { email: email || uid + '@x.com', email_verified: true }).firestore();
 const teste = () => ({ nome: 'Novo', email: 'novo@x.com', perfil: 'professor', status: 'ativo', licenca_tipo: 'teste',
   licenca_fim: Timestamp.fromMillis(Date.now() + 6 * 86400000), escola_id: null, municipio_id: null, turmas_ids: [], escolas_ids: [] });
