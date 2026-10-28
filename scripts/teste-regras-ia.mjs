@@ -24,6 +24,8 @@ await t('não guarda em nome de outro', assertFails(setDoc(doc(fs('p2'), 'ia_mat
 await t('campo estranho: não', assertFails(setDoc(doc(fs('p1'), 'ia_materiais/m3'), mat({ comando: 'x' }))));
 await t('título grande demais: não', assertFails(setDoc(doc(fs('p1'), 'ia_materiais/m4'), mat({ titulo: 'x'.repeat(161) }))));
 await t('aluno não guarda', assertFails(setDoc(doc(fs('al'), 'ia_materiais/m5'), mat({ uid: 'al' }))));
+await t('pedido do motor novo (com entrega, tipo, tema, série e BNCC)', assertSucceeds(setDoc(doc(fs('p1'), 'ia_materiais/m6'), mat({ entrega: 'atividade', tipo: 'ciclos', tipo_nome: 'Ciclos e Processos', tema: 'Ciclo da água', serie: '6º Ano', bncc: 'EF06CI04', motor: 'atividade-1', valores: { v: 2, pedido: { area: 'ciencias', tipo: 'ciclos' } } }))));
+await t('BNCC grande demais: não', assertFails(setDoc(doc(fs('p1'), 'ia_materiais/m7'), mat({ bncc: 'x'.repeat(121) }))));
 await t('dono lê', assertSucceeds(getDoc(doc(fs('p1'), 'ia_materiais/m1'))));
 await t('dono lista os seus', assertSucceeds(getDocs(query(collection(fs('p1'), 'ia_materiais'), where('uid', '==', 'p1')))));
 await t('outro professor não lê', assertFails(getDoc(doc(fs('p2'), 'ia_materiais/m1'))));

@@ -159,6 +159,7 @@ h2{font-size:1.12rem;font-weight:800}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, limit, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { montar as montarMotor, ATIVIDADE, tipoDe, tituloDe, VERSAO_MOTOR } from "/apps/ia-studio/motor.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
 const $ = id => document.getElementById(id);
@@ -174,10 +175,10 @@ const IA_BASE = "https://studio.portaldoeducador.com.br/";
 const IAS = { chatgpt:{ nome:"ChatGPT", url:"https://chatgpt.com/" }, gemini:{ nome:"Gemini", url:"https://gemini.google.com/app" } };
 // áreas da "Atividade para imprimir": nativo = a escolha acontece aqui e a ferramenta original monta o comando por trás
 const AREAS = [
-  { k:"ciencias",   nome:"Ciências",          pasta:"atividades-de-ciencias",          nativo:true,  grade:["ciencias"] },
-  { k:"matematica", nome:"Matemática",        pasta:"atividades-de-matematica",        nativo:true,  grade:["matematica"] },
+  { k:"ciencias",   nome:"Ciências",          pasta:"atividades-de-ciencias",          nativo:true, motor:true,  grade:["ciencias"] },
+  { k:"matematica", nome:"Matemática",        pasta:"atividades-de-matematica",        nativo:true, motor:true,  grade:["matematica"] },
   { k:"portugues",  nome:"Português",         pasta:"atividades-de-portugues",         nativo:false, grade:["lingua-portuguesa","portugues"] },
-  { k:"historia",   nome:"História",          pasta:"atividades-de-historia",          nativo:true,  grade:["historia"] },
+  { k:"historia",   nome:"História",          pasta:"atividades-de-historia",          nativo:true, motor:true,  grade:["historia"] },
   { k:"geografia",  nome:"Geografia",         pasta:"atividades-de-geografia",         nativo:true,  grade:["geografia"] },
   { k:"ingles",     nome:"Inglês",            pasta:"atividades-de-ingles",            nativo:true,  grade:["lingua-inglesa","ingles"] },
   { k:"arte",       nome:"Arte",              pasta:"atividades-de-arte",              nativo:true,  grade:["arte"] },
@@ -218,6 +219,13 @@ const ENTREGAS = [
     pastas:["cartazes-para-a-escola","cartazes-e-comunicados","rotina-e-combinados"] }
 ];
 const TEXTOS_LEITURA = ["historias-poemas-e-teatro"];
+// o que o professor vê das regras da área (o texto completo vai no comando)
+const REGRAS_RESUMO = {
+  ciencias:["Conteúdo científico correto e atualizado, sem mitos escolares", "Experimento só com material caseiro seguro e aviso de supervisão", "Código da BNCC real e do ano certo"],
+  matematica:["Todas as contas recalculadas antes de entregar", "Vírgula decimal e símbolos certos para a série", "Gabarito fora da folha do aluno"],
+  historia:["Nenhuma data, nome ou citação inventada", "Retratos marcados como representação artística", "Temas sensíveis tratados com seriedade"]
+};
+const PILOTO = (() => { try{ if(/[?&]piloto=1/.test(location.search)) sessionStorage.setItem("pde_ia_piloto", "1"); return sessionStorage.getItem("pde_ia_piloto") === "1"; }catch(e){ return false; } })();
 const pastaDe = url => { const m = String(url || "").match(/studio\.portaldoeducador\.com\.br\/([^/?#]+)/); return m ? m[1] : ""; };
 const capaDe = pasta => IA_BASE + "capas/" + pasta + ".webp";
 
@@ -490,7 +498,7 @@ function chipArea(a, extra){
   return '<button type="button" class="chip' + (on ? " on" : "") + '" data-action="area" data-arg="' + a.k + '" aria-pressed="' + on + '">' + esc(a.nome) + (extra ? '<span class="ext">' + extra + "</span>" : "") + "</button>";
 }
 function escolherArea(a){
-  E.area = a; E.estr = null; E.modo = ""; E.valores = null;
+  E.area = a; E.estr = null; E.motorArea = null; E.modo = ""; E.valores = null;
   try{ localStorage.setItem("pde_ia_area_" + E.user.uid, a.k); }catch(e){}
 }
 function telaFicha(){
@@ -513,15 +521,21 @@ function telaFicha(){
   '<aside class="estreita aside">' +
     '<section class="resumo" aria-labelledby="tRes"><h2 id="tRes">Seu material</h2><p id="resumo" style="font-size:.93rem;color:var(--texto)"></p>' +
       '<div class="cab-doc"><b style="display:block;font-size:.78rem;color:var(--muted)">Cabeçalho do seu cadastro</b>' + esc([E.ident.escola, E.ident.municipio, E.ident.prof].filter(Boolean).join(" · ") || "Complete seu cadastro no Portal para sair no cabeçalho.") + "</div></section>" +
-    '<section class="regras"><b>Regras da área entram sozinhas.</b> O comando é montado pela mesma ferramenta que os professores já usam, com as regras de ' + esc(E.area.nome) + " sem nenhuma alteração.</section>" +
+    '<section class="regras" id="regrasArea">' + regrasHtml() + "</section>" +
     '<section class="gerar" aria-labelledby="tGer"><h2 id="tGer">Gerar o material</h2><p>O comando vai copiado e a IA abre em outra aba. Funciona na conta gratuita.</p>' +
       '<button type="button" class="btn btn-gpt" data-action="gerar" data-arg="chatgpt">Gerar no ChatGPT</button>' +
       '<button type="button" class="btn btn-gem" data-action="gerar" data-arg="gemini">Gerar no Gemini</button><div id="gerAviso"></div></section>' +
   "</aside></div></div>";
   prepararArea();
 }
+function regrasHtml(){
+  const a = E.area, l = REGRAS_RESUMO[a.k];
+  if(a.motor && l) return "<b>Regras de " + esc(a.nome) + " que entram sozinhas</b><ul style=\"margin:8px 0 0 18px;display:flex;flex-direction:column;gap:4px\">" + l.map(x => "<li>" + esc(x) + "</li>").join("") + "</ul>";
+  return "<b>Regras da área entram sozinhas.</b> O comando é montado pela mesma ferramenta que os professores já usam, com as regras de " + esc(a.nome) + " sem nenhuma alteração.";
+}
 async function prepararArea(){
   const a = E.area;
+  if(a.motor){ prepararMotor(); return; }
   if(!a.nativo){
     $("areaAviso").innerHTML = '<div class="aviso">' + esc(a.nome) + ' ainda abre a ferramenta completa nesta versão de teste. <button type="button" class="btn btn-nv btn-sm" style="margin-left:6px" data-action="abrir-pasta-completa" data-arg="' + a.pasta + '">Abrir ' + esc(a.nome) + "</button></div>";
     $("tipos").innerHTML = '<p class="peq">Escolha outra disciplina para montar aqui, ou abra a ferramenta completa.</p>'; $("comuns").innerHTML = ""; resumo(); return;
@@ -540,6 +554,103 @@ async function prepararArea(){
     $("tipos").innerHTML = '<div class="aviso err">Não deu para preparar ' + esc(a.nome) + " aqui (" + esc(e.message || e) + '). <button type="button" class="btn btn-nv btn-sm" style="margin-left:6px" data-action="abrir-pasta-completa" data-arg="' + a.pasta + '">Abrir a ferramenta completa</button></div>';
   }
   resumo();
+}
+/* ---------- motor novo (piloto): o comando é montado aqui, sem a ferramenta antiga ---------- */
+const OPC_FOLHA = [["retrato", "Imprimir na folha (A4 em pé)"], ["paisagem", "Projetar na lousa (A4 deitada)"]];
+const OPC_COR = [["colorido", "Colorido"], ["pb", "Preto e branco (para copiadora)"]];
+function municipioBonito(){ const m = String(E.ident.municipio || ""); const i = m.lastIndexOf("/"); return i > 0 ? m.slice(0, i) + " (" + m.slice(i + 1) + ")" : m; }
+function prepararMotor(){
+  const area = ATIVIDADE.areas.find(x => x.k === E.area.k);
+  E.estr = null; E.motorArea = area;
+  const p = E.valores && E.valores.v === 2 && E.valores.pedido && E.valores.pedido.area === area.k ? E.valores.pedido : null;
+  E.modo = p && area.tipos.some(t => t.k === p.tipo) ? p.tipo : area.tipos[0].k;
+  desenharTiposMotor(p); desenharComunsMotor(p);
+}
+function campoMotor(c, val){
+  const idm = "mm-" + c.id, attrs = ' id="' + esc(idm) + '" data-mcampo="' + esc(c.id) + '"';
+  const extra = (c.outroDe || c.soSe) ? ' data-depende="' + esc(c.outroDe || c.soSe[0]) + '" data-quando="' + esc(c.outroDe ? "outro" : c.soSe[1]) + '"' : "";
+  if(c.tipo === "chips"){
+    const marc = Array.isArray(val) ? val : [];
+    return '<div class="campo largo"' + extra + '><span>' + esc(c.rot) + (c.ajuda ? ' <span class="peq" style="font-weight:600">(' + esc(c.ajuda) + ")</span>" : "") + '</span><div class="marcas" data-mchips="' + esc(c.id) + '">' +
+      c.ops.map(o => { const on = marc.includes(o); return '<button type="button" class="marca-op' + (on ? " on" : "") + '" data-action="marca" data-val="' + esc(o) + '" aria-pressed="' + on + '">' + esc(o) + "</button>"; }).join("") + "</div></div>";
+  }
+  if(c.tipo === "select"){
+    const v = val !== undefined ? val : (c.padrao || c.ops[0][0]);
+    return '<label class="campo" for="' + esc(idm) + '"' + extra + ">" + esc(c.rot) + '<select class="sel"' + attrs + ">" + c.ops.map(o => '<option value="' + esc(o[0]) + '"' + (o[0] === v ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>";
+  }
+  const v = val !== undefined ? val : (c.doMunicipio ? municipioBonito() : "");
+  return '<label class="campo" for="' + esc(idm) + '"' + extra + ">" + esc(c.rot) + (c.obrig ? " *" : "") + '<input class="inp" type="text"' + attrs + ' placeholder="' + esc(c.ph || "") + '" value="' + esc(v) + '" autocomplete="off"></label>';
+}
+function dependencias(){
+  document.querySelectorAll("[data-depende]").forEach(el => {
+    const pai = document.querySelector('[data-mcampo="' + CSS.escape(el.dataset.depende) + '"]'); if(!pai) return;
+    const q = el.dataset.quando; el.hidden = q === "outro" ? pai.value !== "outro" : !pai.value.startsWith(q);
+  });
+}
+function desenharTiposMotor(p){
+  const area = E.motorArea, tipo = area.tipos.find(t => t.k === E.modo);
+  const val = id => p && p.tipo === E.modo ? (p.campos && id in p.campos ? p.campos[id] : p.chips && id in p.chips ? p.chips[id] : undefined) : undefined;
+  const bt = t => { const on = t.k === E.modo;
+    return '<button type="button" class="tipo' + (on ? " on" : "") + '" data-action="modo" data-arg="' + esc(t.k) + '" aria-pressed="' + on + '"><b>' + esc(t.nome) + "</b><small>" + esc(t.desc) + "</small></button>"; };
+  const proprios = area.tipos.filter(t => !t.novo), gerais = area.tipos.filter(t => t.novo);
+  $("tipos").innerHTML = '<div class="tipos">' + proprios.map(bt).join("") + "</div>" +
+    '<span class="rot" style="display:block;margin:14px 0 8px">Novos, para qualquer disciplina</span><div class="tipos">' + gerais.map(bt).join("") + "</div>" +
+    '<div class="campos" style="margin-top:6px" id="camposModo">' + tipo.campos.map(c => campoMotor(c, val(c.id))).join("") + "</div>";
+  dependencias(); resumo();
+}
+function desenharComunsMotor(p){
+  const n = serieDaTurma(), serie = p ? p.serie : (n ? n + "º Ano" : "6º Ano");
+  const s = (id, rot, ops, v) => '<label class="campo" for="mc-' + id + '">' + rot + '<select class="sel" id="mc-' + id + '" data-mc="' + id + '">' + ops.map(o => '<option value="' + esc(o[0]) + '"' + (o[0] === v ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select></label>";
+  const t = (id, rot, ph, v) => '<label class="campo largo" for="mc-' + id + '">' + rot + '<input class="inp" type="text" id="mc-' + id + '" data-mc="' + id + '" placeholder="' + esc(ph) + '" value="' + esc(v || "") + '" autocomplete="off"></label>';
+  $("comuns").innerHTML = '<div class="campos">' +
+    s("serie", "Série / Ano", ATIVIDADE.series.map(x => [x, x]), ATIVIDADE.series.includes(serie) ? serie : "6º Ano") +
+    s("incl", "Adaptação inclusiva", ATIVIDADE.inclusao, p ? p.incl || "" : "") +
+    s("orient", "Onde vai ser usado", OPC_FOLHA, p ? p.orient : "retrato") +
+    s("cor", "Cores", OPC_COR, p ? p.cor : "colorido") +
+    s("roteiro", "Roteiro de aula do professor", [["nao", "Não incluir"], ["sim", "Incluir"]], p && p.roteiro ? "sim" : "nao") +
+    t("bncc", "Habilidade da BNCC (opcional)", "Ex.: EF06CI04. Sem nada, a IA escolhe a habilidade certa do ano", p && p.bncc) +
+    t("livre", "Tema com as suas palavras (opcional)", "Ex.: a água na nossa cidade, a festa junina da escola", p && p.temaLivre) + "</div>";
+}
+function coletarMotor(){
+  const tipo = tipoDe(E.area.k, E.modo), campos = {}, chips = {}, faltam = [];
+  tipo.campos.forEach(c => {
+    if(c.tipo === "chips"){ const g = document.querySelector('[data-mchips="' + CSS.escape(c.id) + '"]'); chips[c.id] = g ? [...g.querySelectorAll(".marca-op.on")].map(b => b.dataset.val) : []; return; }
+    const el = document.querySelector('[data-mcampo="' + CSS.escape(c.id) + '"]'); if(!el) return;
+    campos[c.id] = el.value; el.classList.remove("erro");
+    if(c.obrig && !el.value.trim()){ faltam.push(c.rot); el.classList.add("erro"); }
+  });
+  const mc = id => { const el = document.querySelector('[data-mc="' + id + '"]'); return el ? el.value : ""; };
+  const pedido = { area:E.area.k, tipo:E.modo, campos, chips, serie:mc("serie"), orient:mc("orient"), cor:mc("cor"), incl:mc("incl"), roteiro:mc("roteiro") === "sim",
+    bncc:mc("bncc").trim().slice(0, 120), temaLivre:mc("livre").trim().slice(0, 200) };
+  return { pedido, faltam };
+}
+function cabecalho(){ const t = turmaAtual(); return { escola:E.ident.escola, professor:E.ident.prof, turma:t ? String(t.nome || "") : "" }; }
+function gerarMotor(qual, pedido, mat){
+  const ia = IAS[qual]; if(!ia) return;
+  let cmd;
+  try{ cmd = montarMotor({ ...pedido, cab:cabecalho() }); }
+  catch(e){ const el = $("gerAviso"), msg = "Não deu para montar o comando: " + (e.message || e); if(el) el.innerHTML = '<div class="aviso err">' + esc(msg) + "</div>"; else toast(msg, true); return; }
+  // tudo no mesmo clique: copia e abre a IA sem esperar nada
+  const ok = copiar(cmd);
+  let aberta = false; try{ aberta = !!window.open(ia.url, "_blank"); }catch(e){}
+  const comparar = E.admin || PILOTO;
+  E.ultimo = { cmd, ia:qual, val:{ v:2, pedido }, titulo:mat ? mat.titulo : tituloDe(pedido), copiado:ok, aberta, legado:comparar ? montarMotor(pedido, { legado:true }) : null };
+  registrarUso((AREAS.find(z => z.k === pedido.area) || {}).pasta);   // o uso continua contado na ferramenta da área
+  guardarMaterialMotor(mat, pedido, qual, E.ultimo.titulo);
+  ir("pronto");
+}
+async function guardarMaterialMotor(mat, pedido, ia, titulo){
+  if(!E.matOk) return;
+  const t = turmaAtual(), tipo = tipoDe(pedido.area, pedido.tipo);
+  try{
+    if(mat){ await updateDoc(doc(db, "ia_materiais", mat.id), { ia, usado_em:serverTimestamp() }); mat.ia = ia; mat.usado_em = { __ms:Date.now() }; return; }
+    const tema = titulo.split(" · ").slice(1, -1).join(" · ");
+    const d = { uid:E.user.uid, titulo, entrega:"atividade", area:pedido.area, area_nome:(E.area && E.area.nome) || "", tipo:pedido.tipo, tipo_nome:tipo ? tipo.nome : "", tema:tema.slice(0, 120),
+      serie:pedido.serie || "", bncc:pedido.bncc || "", motor:VERSAO_MOTOR, pasta:"motor/atividade", modo:pedido.tipo, valores:{ v:2, pedido },
+      turma_id:t ? t.id : "", turma_nome:t ? String(t.nome || "").slice(0, 60) : "", ia, favorito:false, criado_em:serverTimestamp(), usado_em:serverTimestamp() };
+    const r = await addDoc(collection(db, "ia_materiais"), d);
+    E.materiais.unshift({ id:r.id, ...d, usado_em:{ __ms:Date.now() } });
+  }catch(e){ console.warn("guardar:", e.code || e); }
 }
 function campoHtml(c, valor){
   const vv = valor !== undefined ? valor : c.valor;
@@ -602,11 +713,19 @@ function coletar(){
 }
 function resumo(){
   const el = $("resumo"); if(!el) return;
+  if(E.area && E.area.motor && E.motorArea){
+    const r = coletarMotorQuieto(), t = turmaAtual();
+    el.innerHTML = esc(tituloDe(r).replace(/ · [^·]+$/, "")) + (t ? ", para " + esc(t.nome) : "") + ".";
+    return;
+  }
   const est = E.estr, m = est && est.modos.find(x => x.modo === E.modo), t = turmaAtual();
   const tema = (() => { const c = document.querySelector("#camposModo [data-campo]"); if(!c) return ""; return c.tagName === "SELECT" ? c.options[c.selectedIndex] && c.options[c.selectedIndex].text : c.value; })();
   el.innerHTML = m ? "<b>" + esc(m.nome) + "</b> de <b>" + esc(E.area.nome) + "</b>" + (tema ? " sobre <b>" + esc(tema) + "</b>" : "") + (t ? ", para " + esc(t.nome) : "") + "."
     : "Escolha a disciplina e o tipo de material.";
 }
+function coletarMotorQuieto(){ const tipo = tipoDe(E.area.k, E.modo), campos = {};
+  if(tipo) tipo.campos.forEach(c => { const el = document.querySelector('[data-mcampo="' + CSS.escape(c.id) + '"]'); if(el) campos[c.id] = el.value; });
+  return { area:E.area.k, tipo:E.modo, campos }; }
 function tituloMaterial(val){
   const est = E.estr, m = est && est.modos.find(x => x.modo === val.modo);
   const c = (est.porModo[val.modo] || []).find(x => x.tipo !== "chips" && x.tipo !== "check" && String(val.campos[x.id] || "").trim());
@@ -666,7 +785,11 @@ function telaPronto(){
       '<button type="button" class="btn btn-gh" data-action="ver-cmd" aria-expanded="false">Ver o comando</button>' +
       '<button type="button" class="btn btn-cl" data-action="variar-ultimo">Fazer uma variação</button>' +
       '<button type="button" class="btn btn-pri" data-action="ir-inicio">Preparar outro material</button></div>' +
-    '<pre class="cmd" id="cmd" hidden></pre></section>';
+    '<pre class="cmd" id="cmd" hidden></pre></section>' +
+    (u.legado ? '<section class="caixa pronto pilha" style="gap:14px;margin-top:18px;border-color:#E8B64A"><div><span class="olho" style="color:#8A5A00">Piloto · comparação</span><h2 style="margin-top:4px">Compare com o comando antigo</h2>' +
+      '<p class="sub" style="margin-top:4px">O comando antigo é o que a ferramenta de hoje gera para o mesmo pedido. Gere os dois na mesma IA e compare o resultado.</p></div>' +
+      '<div class="linha"><button type="button" class="btn btn-gh" data-action="copiar-legado">Copiar o comando antigo</button><button type="button" class="btn btn-gh" data-action="ver-mudancas" aria-expanded="false">Ver o que mudou</button></div>' +
+      '<div id="mudancas" hidden></div></section>' : "");
   $("cmd").textContent = u.cmd;   // por texto: o <pre> engoliria a primeira quebra de linha do comando
 }
 /* ---------- famílias e catálogo ---------- */
@@ -716,8 +839,29 @@ document.addEventListener("click", async ev => {
   if(a === "abrir-pasta-completa"){ abrirCompleta(arg); return; }
   if(a === "fechar-palco"){ fecharPalco(); return; }
   if(a === "area"){ const x = [...AREAS, ...TEMAS].find(z => z.k === arg); if(!x || (E.area && E.area.k === x.k)) return; escolherArea(x); telaFicha(); return; }
+  if(a === "modo" && E.area && E.area.motor){ if(arg === E.modo) return; E.modo = arg; desenharTiposMotor(null); return; }
   if(a === "modo"){ if(arg === E.modo) return; trocarEfeitos(E.modo, arg); E.modo = arg; E.valores = null; desenharTipos(); return; }
   if(a === "marca"){ const on = !b.classList.contains("on"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); return; }
+  if(a === "gerar" && E.area && E.area.motor){
+    const r = coletarMotor();
+    if(r.faltam.length){ $("gerAviso").innerHTML = '<div class="aviso" style="margin-top:6px">Preencha: ' + esc(r.faltam.join(", ")) + ".</div>"; const e = document.querySelector(".erro"); if(e) e.focus(); return; }
+    $("gerAviso").innerHTML = ""; gerarMotor(arg, r.pedido, null); return;
+  }
+  if(a === "copiar-legado"){ if(E.ultimo && E.ultimo.legado) toast(copiar(E.ultimo.legado) ? "Comando antigo copiado." : "Não deu para copiar.", false); return; }
+  if(a === "ver-mudancas"){
+    const c = $("mudancas"), u = E.ultimo; if(!c || !u || !u.legado) return;
+    if(c.hidden){
+      const antes = new Set(u.legado.split("\n")), depois = new Set(u.cmd.split("\n"));
+      const novos = u.cmd.split("\n").filter(l => l.trim() && !antes.has(l)), saiu = u.legado.split("\n").filter(l => l.trim() && !depois.has(l));
+      c.innerHTML = (novos.length ? '<p class="rot">Entrou no comando novo</p><pre class="cmd" style="max-height:none;border-color:#C9E5CF;background:#F3FAF4"></pre>' : "") +
+        (saiu.length ? '<p class="rot" style="margin-top:10px">Saiu do comando antigo</p><pre class="cmd" style="max-height:none;border-color:#E3A29C;background:#FDF3F2"></pre>' : "") +
+        (!novos.length && !saiu.length ? '<p class="peq">Os dois comandos são iguais para este pedido.</p>' : "");
+      const pres = c.querySelectorAll("pre"); let i = 0;
+      if(novos.length) pres[i++].textContent = novos.join("\n\n");
+      if(saiu.length) pres[i].textContent = saiu.join("\n\n");
+    }
+    c.hidden = !c.hidden; b.setAttribute("aria-expanded", !c.hidden); return;
+  }
   if(a === "gerar"){
     const val = coletar(); if(!val){ toast("Espere as opções carregarem.", true); return; }
     if(val.faltam.length){ $("gerAviso").innerHTML = '<div class="aviso" style="margin-top:6px">Preencha: ' + esc(val.faltam.join(", ")) + ".</div>"; const e = document.querySelector(".erro"); if(e) e.focus(); return; }
@@ -727,6 +871,7 @@ document.addEventListener("click", async ev => {
   if(a === "ver-cmd"){ const c = $("cmd"); c.hidden = !c.hidden; b.setAttribute("aria-expanded", !c.hidden); b.textContent = c.hidden ? "Ver o comando" : "Esconder o comando"; return; }
   if(a === "variar-ultimo"){ if(!E.ultimo) return; variar(E.ultimo.val); return; }
   const m = arg && E.materiais.find(x => x.id === arg);
+  if(a === "mat-gerar" && m && m.valores && m.valores.v === 2){ const x = AREAS.find(z => z.k === m.valores.pedido.area); if(x) E.area = x; gerarMotor(m.ia || "chatgpt", m.valores.pedido, m); return; }
   if(a === "mat-gerar" && m){ const x = [...AREAS, ...TEMAS].find(z => z.pasta === m.pasta); E.area = x || E.area; gerar(m.ia || "chatgpt", m.valores, m); return; }
   if(a === "mat-variar" && m){ variar(m.valores); return; }
   if(a === "mat-fav" && m){
@@ -741,12 +886,13 @@ document.addEventListener("click", async ev => {
   }
 });
 function variar(val){
+  if(val && val.v === 2){ const y = AREAS.find(z => z.k === val.pedido.area); if(!y) return; E.area = y; E.estr = null; E.valores = val; E.modo = val.pedido.tipo; ir("ficha"); return; }
   const x = [...AREAS, ...TEMAS].find(z => z.pasta === val.pasta); if(!x){ toast("Esta ferramenta não está mais disponível.", true); return; }
   E.area = x; E.estr = null; E.valores = { ...val }; E.modo = val.modo; ir("ficha");
 }
 document.addEventListener("change", ev => {
   if(ev.target.id === "selTurma"){ E.turma = ev.target.value; try{ localStorage.setItem("pde_ia_turma_" + E.user.uid, E.turma); }catch(e){} infoTurma(); return; }
-  if(ev.target.closest("#camposModo")) resumo();
+  if(ev.target.closest("#camposModo")){ dependencias(); resumo(); }
 });
 document.addEventListener("input", ev => {
   if(ev.target.id === "busca"){ E.busca = ev.target.value; desenharBusca(); return; }
