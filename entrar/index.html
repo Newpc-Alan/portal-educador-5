@@ -324,6 +324,20 @@
   .cq-selo{ display:inline-block;background:#fff4e0;color:#9a6700;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:20px }
   .cq-selo.breve{ background:#e8f1fa;color:#2671AB }
   .cq-modal .mf{ display:flex;gap:10px;justify-content:flex-end;padding:12px 22px 18px }
+  .dir-ind{ display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px }
+  .dir-tile{ display:flex;flex-direction:column;gap:3px;background:#fff;border:1.5px solid var(--line);border-top:5px solid #2671AB;border-radius:16px;padding:14px 16px;text-decoration:none;color:var(--ink) }
+  .dir-tile:hover{ box-shadow:0 12px 26px -16px rgba(15,44,74,.5);color:var(--ink) }
+  .dir-tile span{ font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted) }
+  .dir-tile b{ font-size:32px;line-height:1.1;font-weight:800 }
+  .dir-tile small{ font-size:13px;color:var(--muted) }
+  .dir-tile.alerta{ border-top-color:#c2571a } .dir-tile.alerta b{ color:#c2571a }
+  .dir-esc{ display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--muted) }
+  .dir-esc select{ font:inherit;font-weight:700;color:var(--ink);padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff }
+  .ac-card.laranja .ac-tx{ border-top-color:#c2571a }
+  .dir-fora{ grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px }
+  .dir-fora .ini-card{ flex-direction:row;align-items:center;gap:12px;padding:7px;border-radius:14px;cursor:pointer }
+  .dir-fora .ini-img{ width:78px;height:58px;aspect-ratio:auto;flex:none;border-radius:10px }
+  .dir-fora .ini-txt{ border-top:0;padding:0 } .dir-fora .ini-txt small{ display:none }
   details.ini-mais{ margin:4px 0 24px }
   details.ini-mais[hidden]{ display:none }
   details.ini-mais > summary{ cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:800;color:var(--ink);
@@ -4527,7 +4541,7 @@
     else if(acao === "sim-sair"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo({ perfil:"admin" }); abrirApp(); }
     else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} signOut(auth); }
     else if(acao === "aluno-sou-professor"){ try{ sessionStorage.setItem("pde_como","professor"); }catch(e){} usuarioAtual.alunoSemAcesso = false; abrirApp(); }
-    else if(acao === "ini-previa"){ ini.previa = el.dataset.arg === "aluno" ? "aluno" : "professor"; renderInicio(); }
+    else if(acao === "ini-previa"){ ini.previa = ["aluno", "gestor"].includes(el.dataset.arg) ? el.dataset.arg : "professor"; renderInicio(); }
     else if(acao === "espera-verificar"){
       el.disabled = true; el.textContent = "Verificando...";
       if(auth.currentUser){ await carregarUsuario(auth.currentUser); abrirApp(); }
@@ -4617,6 +4631,8 @@
   const kitLiberado = (c, it) => { const mod = modDoKit(c, it); return !mod || !planoVigente || planoVigente.has(mod); };
   async function renderInicio(){
     const admin = usuarioAtual.perfil === "admin";
+    // direção da escola (perfil gestor), ou o administrador na prévia da direção
+    if(usuarioAtual.perfil === "gestor" || (admin && ini.previa === "gestor")) return renderInicioDirecao(admin);
     // aluno de verdade, ou o administrador vendo a previa do aluno
     const ehAluno = usuarioAtual.perfil === "aluno" || (admin && ini.previa === "aluno");
     const primeiro = String(usuarioAtual.nome||"").split(" ")[0];
@@ -4626,7 +4642,7 @@
       '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial do "+quem : "Olá, "+escapeHtml(primeiro)+"!")+'</h2>'+
       '<p>'+(admin ? "Assim o "+quem+" vê os botões. Os que estão \u201cEm breve\u201d você libera em Módulos do Portal."
         : escapeHtml(local || (ehAluno ? "Bem-vindo ao Portal do Aluno" : "Bem-vindo ao Portal do Educador")))+'</p>'+
-      (admin ? '<div class="ini-previa"><button class="usr-tab'+(ehAluno?"":" on")+'" data-action="ini-previa" data-arg="professor">Professor</button><button class="usr-tab'+(ehAluno?" on":"")+'" data-action="ini-previa" data-arg="aluno">Aluno</button></div>' : '')+
+      (admin ? '<div class="ini-previa"><button class="usr-tab'+(ehAluno?"":" on")+'" data-action="ini-previa" data-arg="professor">Professor</button><button class="usr-tab'+(ehAluno?" on":"")+'" data-action="ini-previa" data-arg="aluno">Aluno</button><button class="usr-tab" data-action="ini-previa" data-arg="gestor">Direção</button></div>' : '')+
       '</div>'+
       '</div>'+
       (ehAluno
@@ -4722,6 +4738,142 @@
     iniProf.badges = {}; iniProf.links = {};
     desenharAcoesProf(doPlano, admin, aula);
     paraHoje(doPlano, admin);
+  }
+
+  // ===================== INÍCIO DA DIREÇÃO (perfil gestor) =====================
+  // A escola hoje (4 números) · Para hoje (pendências reais) · atalhos com foto · Minhas aulas (quem também dá aula)
+  const ACOES_DIR = [
+    { id:"painel",   titulo:"Painel da escola",        sub:"Presença, aprendizagem e uso, comparados com a rede", foto:"painel-escola", cor:"verde",   href:"/painel/",                 mod:"painel" },
+    { id:"busca",    titulo:"Busca ativa",             sub:"Alunos faltando e contato com a família",           foto:"busca-ativa",   cor:"alerta",  href:"/apps/frequencia/#busca",  mod:"gestao" },
+    { id:"notas",    titulo:"Notas da escola",         sub:"Lançamentos por turma e bimestre",                  foto:"notas-escola",  cor:"azul",    href:"/apps/notas/",             mod:"gestao" },
+    { id:"equipe",   titulo:"Equipe",                  sub:"Professores, secretaria e portaria",                foto:"equipe",        cor:"azul",    href:"/apps/equipe/",            mod:"gestao" },
+    { id:"familias", titulo:"Famílias",                sub:"Contatos e comunicados aos responsáveis",           foto:"familias",      cor:"navy",    href:"/apps/familias/",          mod:"gestao" },
+    { id:"chamados", titulo:"Equipamentos e chamados", sub:"Lousas, Chromebooks, rede e reservas",              foto:"equipamentos",  cor:"alerta",  href:"/apps/recursos/#chamados", mod:"gestao" },
+    { id:"tv",       titulo:"TV da escola",            sub:"Avisos no corredor e na entrada",                   foto:"tv-escola",     cor:"navy",    href:"/apps/tv/",                mod:"gestao" },
+    { id:"calend",   titulo:"Calendário",              sub:"Dias letivos, eventos e reuniões",                  foto:"calendario",    cor:"azul",    href:"/apps/calendario/",        mod:"" }
+  ];
+  const dir = { escola:"", badges:{} };
+  const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
+  async function renderInicioDirecao(admin){
+    const primeiro = String(usuarioAtual.nome || "").split(" ")[0];
+    // escolas que ele dirige (até 5); o administrador escolhe qualquer uma na prévia
+    let escolas = [];
+    if(admin){ if(!cacheEscolas.length){ try{ await carregarCacheEscolas(); }catch(e){} } escolas = cacheEscolas.map(e => ({ id:e.id, nome:e.nome || "Escola" })); }
+    else{
+      const ids = (usuarioAtual.escolas_ids && usuarioAtual.escolas_ids.length ? usuarioAtual.escolas_ids : [usuarioAtual.escola_id]).filter(Boolean);
+      escolas = ids.map((id, i) => ({ id, nome:(usuarioAtual.escolas_nomes || [])[i] || usuarioAtual.escola_nome || "Escola" }));
+    }
+    let esc = ""; try{ esc = localStorage.getItem("pde_dir_escola") || ""; }catch(e){}
+    if(!escolas.some(e => e.id === esc)) esc = escolas.length ? escolas[0].id : "";
+    dir.escola = esc; dir.badges = {};
+    const nomeEsc = (escolas.find(e => e.id === esc) || {}).nome || "";
+    const dataHoje = new Date().toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
+    const daAula = !admin && minhasTurmasIds().length > 0;
+    $("conteudo").innerHTML =
+      '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial da direção" : saudacao()+", "+escapeHtml(primeiro)+"!")+'</h2>'+
+      '<p>'+escapeHtml(dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1))+(nomeEsc ? ' · '+escapeHtml(nomeEsc) : '')+'</p>'+
+      (admin ? '<div class="ini-previa"><button class="usr-tab" data-action="ini-previa" data-arg="professor">Professor</button><button class="usr-tab" data-action="ini-previa" data-arg="aluno">Aluno</button><button class="usr-tab on" data-action="ini-previa" data-arg="gestor">Direção</button></div>' : '')+
+      '</div>'+(escolas.length > 1 ? '<label class="dir-esc">Escola <select id="dirEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(e.id === esc ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></label>' : '')+'</div>'+
+      (esc ? '' : '<div class="hj-vazio">Seu cadastro ainda não está ligado a uma escola. Fale com a Secretaria de Educação.</div>')+
+      '<section class="ini-sec" aria-labelledby="dirIndTit"><h3 id="dirIndTit">A escola hoje</h3><div class="dir-ind" id="dirInd"><div class="hj-vazio">Conferindo a escola...</div></div></section>'+
+      '<section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo as pendências...</div></div></section>'+
+      '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
+      (daAula ? '<details class="ini-mais" id="dirAulas"><summary>Minhas aulas</summary><div class="ac-grid" id="dirAulasGrid"></div></details>' : '')+
+      '<div id="iniNoticias"></div><div id="iniDatas"></div>';
+    const sel = $("dirEscola");
+    if(sel) sel.addEventListener("change", () => { try{ localStorage.setItem("pde_dir_escola", sel.value); }catch(e){} renderInicioDirecao(admin); });
+    await carregarCfgModulos();
+    // plano do município: atalhos de gestão seguem o módulo Gestão (ou Relatórios); o Painel, o plano da Secretaria
+    const muni = usuarioAtual._muni || null;
+    const lista = muni && Array.isArray(muni.modulos_professor) && muni.modulos_professor.length ? new Set(muni.modulos_professor.concat(extrasDe(usuarioAtual).mods)) : null;
+    const okMod = (m) => admin || !m || !lista || lista.has(m) || (m === "gestao" && lista.has("relatorios"));
+    const okPainel = admin || !!(muni && Array.isArray(muni.modulos_secretaria) && muni.modulos_secretaria.includes("painel"));
+    planoVigente = admin ? null : lista;
+    desenharAcoesDir(okMod, okPainel);
+    if(daAula){
+      const g = $("dirAulasGrid");
+      g.innerHTML = [["Fazer chamada","/apps/frequencia/","chamada","azul"],["Lançar notas","/apps/notas/","notas","azul"],["Criar prova","/provas/","criar-prova","verde"],["Provas online","/prova/","provas-online","verde"]]
+        .map(([t, h, f, c]) => '<a class="ac-card '+c+'" href="'+h+'" data-action="ini-abrir" data-mod="gestao"><span class="ac-img" style="background-image:url(\''+fotoAcao(f)+'\')"></span><span class="ac-tx"><b>'+t+'</b></span></a>').join("") +
+        '<button type="button" class="ac-card azul" data-action="ini-turmas"><span class="ac-img" style="background-image:url(\''+fotoAcao("turmas")+'\')"></span><span class="ac-tx"><b>Minhas turmas</b></span></button>';
+      const d = $("dirAulas"); try{ d.open = localStorage.getItem("pde_dir_aulas") === "1"; }catch(e){}
+      d.addEventListener("toggle", () => { try{ localStorage.setItem("pde_dir_aulas", d.open ? "1" : "0"); }catch(e){} });
+    }
+    faixaNoticias(false); faixaDatas();
+    if(esc) await dadosDirecao(esc, okMod);
+  }
+  function desenharAcoesDir(okMod, okPainel){
+    const box = $("iniAcoes"); if(!box) return;
+    const COR = { verde:"verde", azul:"", navy:"navy", alerta:"laranja" };
+    const grandes = [], pequenos = [];
+    ACOES_DIR.forEach(a => {
+      const ok = a.mod === "painel" ? okPainel : okMod(a.mod);
+      const corpoImg = fotoAcao(a.foto);
+      if(!ok){
+        pequenos.push(chipConheca({ id:a.mod === "painel" ? "painel" : a.mod, nome:a.titulo, desc:a.sub, img:corpoImg, motivo:"plano" }));
+        return;
+      }
+      const badge = dir.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(dir.badges[a.id])+'</span>' : "";
+      grandes.push('<a class="ac-card '+COR[a.cor]+'" href="'+a.href+'" data-action="ini-abrir" data-mod="'+(a.mod || "gestao")+'" data-ac="'+a.id+'">'+
+        '<span class="ac-img" style="background-image:url(\''+corpoImg+'\')"></span><span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge+'</a>');
+    });
+    box.innerHTML = grandes.join("") + (pequenos.length ? '<div class="dir-fora">'+pequenos.join("")+'</div>' : '');
+  }
+  async function dadosDirecao(esc, okMod){
+    const hoje = hojeISO(), ano = Number(hoje.slice(0, 4));
+    const semana = new Date(Date.now() - 4*3600000).getUTCDay(), diaUtil = semana >= 1 && semana <= 5;
+    const pega = (q) => getDocs(q).then(s => { const l = []; s.forEach(d => l.push({ id:d.id, ...d.data() })); return l; }).catch(e => { console.warn("direção:", e.code || e); return null; });
+    const [turmas, chamadas, resumos, chamados] = await Promise.all([
+      pega(query(collection(db,"turmas"), where("escola_id","==",esc))),
+      pega(query(collection(db,"freq_chamadas"), where("escola_id","==",esc), where("dia","==",hoje))),
+      pega(query(collection(db,"freq_resumo"), where("escola_id","==",esc), where("ano","==",ano))),
+      pega(query(collection(db,"rec_chamados"), where("escola_id","==",esc)))
+    ]);
+    if(dir.escola !== esc || !$("dirInd")) return;   // trocou de escola ou de tela enquanto carregava
+    // presença: por turma, falta = perdeu todas as aulas do dia
+    const porTurma = {};
+    (chamadas || []).forEach(c => {
+      const t = porTurma[c.turma_id] = porTurma[c.turma_id] || { a:0, f:{}, lista:new Set(), nome:c.turma_nome || "" };
+      const aulas = Math.max(0, Math.min(6, Number(c.aulas) || 0)); t.a += aulas;
+      (c.lista || []).forEach(id => t.lista.add(String(id)));
+      Object.entries(c.faltas || {}).forEach(([id, n]) => { t.f[id] = (t.f[id] || 0) + Math.min(aulas, Number(n) || 0); });
+    });
+    let alunosHoje = 0, ausentes = 0;
+    Object.values(porTurma).forEach(t => { t.lista.forEach(id => { alunosHoje++; if(t.a && (t.f[id] || 0) >= t.a) ausentes++; }); });
+    const ativas = (turmas || []).filter(t => t.status !== "inativa");
+    const semChamada = ativas.filter(t => !porTurma[t.id]);
+    let seguidos = 0, abaixo = 0;
+    (resumos || []).forEach(r => Object.values(r.alunos || {}).forEach(a => { if(a.at) seguidos++; else if(a.r) abaixo++; }));
+    const alerta = seguidos + abaixo;
+    const abertos = (chamados || []).filter(c => c.status !== "resolvido");
+    const diasDe = (c) => Math.floor((Date.now() - (msDe(c.criado_em) || Date.now())) / 86400000);
+    const maisVelho = abertos.reduce((m, c) => Math.max(m, diasDe(c)), 0);
+    if(alerta) dir.badges.busca = String(alerta);
+    if(abertos.length) dir.badges.chamados = String(abertos.length);
+    // A escola hoje
+    const tile = (rot, val, det, cls, href, mod) => '<a class="dir-tile'+(cls ? " "+cls : "")+'" href="'+href+'" data-action="ini-abrir" data-mod="'+mod+'"><span>'+rot+'</span><b>'+val+'</b><small>'+det+'</small></a>';
+    const pres = alunosHoje ? Math.round(100 * (alunosHoje - ausentes) / alunosHoje) : null;
+    $("dirInd").innerHTML =
+      tile("Presença hoje", chamadas === null ? "-" : pres === null ? "-" : pres+"%", pres === null ? "ainda sem chamada hoje" : fmt(alunosHoje - ausentes)+" de "+fmt(alunosHoje)+" alunos nas chamadas", "", "/apps/frequencia/", "gestao") +
+      tile("Chamadas feitas", turmas === null || chamadas === null ? "-" : fmt(ativas.length - semChamada.length)+" de "+fmt(ativas.length), diaUtil ? "turmas com chamada hoje" : "hoje não é dia útil", "", "/apps/frequencia/", "gestao") +
+      tile("Alunos em alerta", resumos === null ? "-" : fmt(alerta), seguidos ? fmt(seguidos)+" com 3 faltas seguidas" : "abaixo da frequência mínima", alerta ? "alerta" : "", "/apps/frequencia/#busca", "gestao") +
+      tile("Chamados abertos", chamados === null ? "-" : fmt(abertos.length), abertos.length ? (maisVelho >= 3 ? "o mais antigo há "+maisVelho+" dias" : "dentro do prazo") : "nenhum aberto", abertos.length && maisVelho >= 3 ? "alerta" : "", "/apps/recursos/#chamados", "gestao");
+    // Para hoje
+    const itens = [];
+    if(diaUtil && semChamada.length && okMod("gestao")) itens.push({ cor:"", foto:"chamada", titulo:semChamada.length === 1 ? "1 turma sem chamada" : semChamada.length+" turmas sem chamada",
+      det:semChamada.slice(0, 4).map(t => t.nome).join(", ")+(semChamada.length > 4 ? " e mais "+(semChamada.length - 4) : "")+".", btn:"Ver frequência", href:"/apps/frequencia/" });
+    if(alerta && okMod("gestao")) itens.push({ cor:"alerta", foto:"busca-ativa", titulo:alerta === 1 ? "1 aluno em alerta de frequência" : alerta+" alunos em alerta de frequência",
+      det:(seguidos ? seguidos+" com 3 faltas seguidas. " : "")+(abaixo ? abaixo+" abaixo da frequência mínima." : "")+" A família precisa ser procurada.", btn:"Abrir busca ativa", href:"/apps/frequencia/#busca" });
+    if(abertos.length && okMod("gestao")){
+      const velho = abertos.slice().sort((a, b) => (msDe(a.criado_em) || 0) - (msDe(b.criado_em) || 0))[0];
+      itens.push({ cor:maisVelho >= 3 ? "alerta" : "", foto:"equipamentos", titulo:abertos.length === 1 ? "1 chamado técnico aberto" : abertos.length+" chamados técnicos abertos",
+        det:(velho.item_nome || velho.problema || "Equipamento")+(velho.local ? " ("+velho.local+")" : "")+", aberto há "+diasDe(velho)+" dia(s).", btn:"Acompanhar", href:"/apps/recursos/#chamados" });
+    }
+    $("iniHoje").innerHTML = itens.length
+      ? '<div class="hj-lista">'+itens.map(i => '<div class="hj-card '+i.cor+'"><span class="hj-img" style="background-image:url(\''+fotoAcao(i.foto)+'\')"></span>'+
+          '<span class="hj-tx"><b>'+escapeHtml(i.titulo)+'</b><small>'+escapeHtml(i.det)+'</small><a class="hj-btn" href="'+i.href+'" data-action="ini-abrir" data-mod="gestao">'+escapeHtml(i.btn)+'</a></span></div>').join("")+'</div>'
+      : '<div class="hj-lista"><div class="hj-card ok"><span class="hj-img" style="background-image:url(\''+fotoAcao("painel-escola")+'\')"></span><span class="hj-tx"><b>Tudo em dia na escola</b><small>Chamadas feitas, nenhum aluno em alerta e nenhum chamado aberto.</small></span></div></div>';
+    const muni = usuarioAtual._muni || null;
+    desenharAcoesDir(okMod, usuarioAtual.perfil === "admin" || !!(muni && Array.isArray(muni.modulos_secretaria) && muni.modulos_secretaria.includes("painel")));
   }
 
   // card pequeno de um recurso fora do plano (ou em breve): abre a apresentacao e registra o interesse

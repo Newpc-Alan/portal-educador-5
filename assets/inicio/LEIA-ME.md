@@ -25,3 +25,18 @@ O navegador guarda as fotos em cache. Depois de trocar, pode levar alguns minuto
 
 Formato diferente das outras: 16:9, 1600 x 900 px, .webp até ~150 KB.
 O rosto do professor deve ficar na metade de CIMA da foto: no celular a faixa mostra só a parte de cima.
+
+## Início da Direção
+
+| Arquivo | Botão |
+|---|---|
+| painel-escola.webp | Painel da escola |
+| busca-ativa.webp | Busca ativa (e o alerta de alunos faltando) |
+| notas-escola.webp | Notas da escola |
+| equipe.webp | Equipe |
+| familias.webp | Famílias |
+| equipamentos.webp | Equipamentos e chamados (e o alerta de chamados) |
+| tv-escola.webp | TV da escola |
+| calendario.webp | Calendário |
+
+Fotos provisórias: as capas da Gestão Escolar. Mesmo formato das outras (800 x 600, .webp).
