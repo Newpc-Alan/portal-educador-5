@@ -1,0 +1,37 @@
+# Consultas só de leitura no banco (relatórios para decisão). Roda só quando alguém clica em "Run workflow".
+name: Consulta (só leitura)
+
+on:
+  workflow_dispatch:
+    inputs:
+      consulta:
+        description: "Qual consulta"
+        type: choice
+        options: [uso-ia]
+        default: uso-ia
+
+permissions:
+  contents: read
+
+jobs:
+  consultar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd functions && npm ci
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Consultar
+        run: cd functions && node "../scripts/consulta-${{ inputs.consulta }}.mjs"
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
