@@ -738,6 +738,11 @@
   #lsFab em{ display:none;position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;font-style:normal;font-size:10px;font-weight:800;background:var(--pde-lima);color:var(--pde-escuro);padding:3px 8px;border-radius:20px }
   #lsFab.ativa{ background:linear-gradient(145deg,#1a6b2a,#23883a) }
   #lsFab.ativa em{ display:block }
+  #aulaMenu{ position:fixed;z-index:72;display:flex;flex-direction:column;gap:4px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 40px -16px rgba(7,22,33,.45);min-width:270px }
+  #aulaMenu button, #aulaMenu a{ display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-radius:12px;background:transparent;font:inherit;color:var(--ink);text-decoration:none;text-align:left;cursor:pointer;min-height:52px }
+  #aulaMenu button:hover, #aulaMenu a:hover, #aulaMenu button:focus-visible, #aulaMenu a:focus-visible{ background:#eef4fa;outline:none }
+  #aulaMenu svg{ width:24px;height:24px;flex:none;color:#0f2c4a } #aulaMenu img{ border-radius:6px;flex:none }
+  #aulaMenu b{ display:block;font-size:15px } #aulaMenu small{ display:block;font-size:12.5px;color:var(--muted) }
   #lsFab:focus-visible{ outline:3px solid var(--pde-azul-2);outline-offset:3px }
   #lsOverlay{ position:fixed;inset:0;z-index:90;display:none;flex-direction:column;background:var(--pde-escuro) }
   #lsOverlay.aberto{ display:flex }
@@ -3415,6 +3420,37 @@
     }catch(e){ toast(e.message || "Erro ao excluir.", true); btn.disabled = false; }
   }
 
+  // ===================== BOTÃO FLUTUANTE "AULA": Lousa + Maestro =====================
+  // com o Maestro liberado, o botão da Lousa abre duas opções; sem ele, abre a Lousa direto (como sempre foi)
+  let aulaMaestro = null;
+  function abrirMenuAula(fab){
+    fecharMenuAula();
+    const r = fab.getBoundingClientRect();
+    const m = document.createElement("div"); m.id = "aulaMenu"; m.setAttribute("role", "menu"); m.setAttribute("aria-label", "Aula");
+    m.innerHTML = '<button type="button" role="menuitem" data-action="aula-lousa">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="13" rx="1.8"/><path d="M8 20.5h8M12 16.5v4"/></svg>'+
+      '<span><b>Abrir a lousa</b><small>Quadro digital por cima do Portal</small></span></button>'+
+      '<a role="menuitem" href="'+escapeAttr(aulaMaestro.url)+'" target="_blank" rel="noopener" data-action="aula-maestro" data-mod="maestro">'+
+      '<img src="/assets/maestro/icone-64.png" alt="" width="24" height="24"><span><b>Iniciar aula no Maestro</b><small>Conduzir a turma nos aparelhos</small></span></a>';
+    document.body.appendChild(m);
+    // acima do botão, alinhado pela borda que estiver mais perto do canto da tela
+    const w = m.offsetWidth, h = m.offsetHeight;
+    let x = r.right - w; if(x < 8) x = r.left;
+    let y = r.top - h - 10; if(y < 8) y = r.bottom + 10;
+    m.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + "px"; m.style.top = y + "px";
+    fab.setAttribute("aria-expanded", "true");
+    const b = m.querySelector("button"); if(b) b.focus();
+  }
+  // com o Maestro, o botão se chama "Aula" (vale se a Lousa for montada antes ou depois de saber do Maestro)
+  function rotularFabAula(){
+    const f = $("lsFab"); if(!f || !aulaMaestro) return;
+    f.setAttribute("aria-label", "Aula: abrir a Lousa ou iniciar no Maestro"); f.title = "Aula: Lousa ou Maestro (arraste para mudar de lugar)"; f.setAttribute("aria-haspopup", "menu");
+    const sp = f.querySelector("span"); if(sp) sp.textContent = "Aula";
+  }
+  function fecharMenuAula(){ const m = $("aulaMenu"); if(m) m.remove(); const f = $("lsFab"); if(f) f.setAttribute("aria-expanded", "false"); }
+  document.addEventListener("keydown", (e) => { if(e.key === "Escape" && $("aulaMenu")){ fecharMenuAula(); const f = $("lsFab"); if(f) f.focus(); } });
+  document.addEventListener("pointerdown", (e) => { const m = $("aulaMenu"); if(m && !m.contains(e.target) && !e.target.closest("#lsFab")) fecharMenuAula(); });
+
   // ===================== LOUSA INTERATIVA (dentro do Portal) =====================
   const LOUSA_URL = "/lousa/";
   const lousa = { montada:false, carregada:false, ativa:false, paginas:0, v3:false, pedido:"" };
@@ -3426,6 +3462,7 @@
     fab.title = "Abrir a Lousa (arraste para mudar de lugar)";
     fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="13" rx="1.8"/><path d="M7 20.5l2-4M17 20.5l-2-4"/><path d="M6.5 8h7M6.5 11.5h10" stroke="#8DC63F"/></svg><span>Lousa</span><em id="lsSelo">Continuar</em>';
     document.body.appendChild(fab);
+    rotularFabAula();
     arrastavel(fab);
     const ov = document.createElement("div");
     ov.id = "lsOverlay"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-label","Lousa Interativa");
@@ -4344,7 +4381,10 @@
     else if(acao === "mc-escolas"){ salvarMinhasEscolas(); }
     else if(acao === "lousa-abrir"){
       if(el.dataset.arrastou){ delete el.dataset.arrastou; return; }   // terminou de arrastar: nao abre
+      if(el.id === "lsFab" && aulaMaestro){ $("aulaMenu") ? fecharMenuAula() : abrirMenuAula(el); return; }   // Aula: Lousa ou Maestro
       abrirLousa(el.dataset.id || ""); }
+    else if(acao === "aula-lousa"){ fecharMenuAula(); abrirLousa(""); }
+    else if(acao === "aula-maestro"){ fecharMenuAula(); registrarModulo("maestro"); }
     else if(acao === "lousa-min"){ minimizarLousa(); }
     else if(acao === "lousa-tela"){ alternarTelaCheia(); }
     else if(acao === "lousa-fim"){ pedirEncerrarLousa(); }
@@ -4902,6 +4942,8 @@
     if(m && Array.isArray(m.modulos_professor) && m.modulos_professor.length) doPlano = new Set(m.modulos_professor.concat(extrasDe(usuarioAtual).mods));
     if(usuarioAtual._avulso) doPlano = new Set(listaDoPacote(usuarioAtual.plano_avulso).concat(extrasDe(usuarioAtual).mods));
     const aula = maestroDisponivel(doPlano, false);
+    aulaMaestro = aula;   // o botão flutuante "Aula" passa a oferecer o Maestro junto com a Lousa
+    rotularFabAula();
     const nav = $("nav"); if(!aula || !nav || nav.querySelector('[data-sec="aula"]')) return;
     const a = document.createElement("a");
     a.dataset.sec = "aula"; a.href = aula.url; a.target = "_blank"; a.rel = "noopener"; a.className = "nav-aula";
