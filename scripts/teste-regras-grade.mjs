@@ -31,5 +31,13 @@ await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(
 await t('secretaria da escola lê as notas (boletim)', assertSucceeds(getDoc(doc(fs('se1'), 'notas_planilhas/p1_t1_ciencias_2026'))));
 await t('secretaria da escola não grava notas', assertFails(setDoc(doc(fs('se1'), 'notas_planilhas/se1_t1_ciencias_2026'), { professor_uid: 'se1', escola_id: 'e1', municipio_id: 'm1', turma_id: 't1' })));
 await t('portaria não lê as notas', assertFails(getDoc(doc(fs('po'), 'notas_planilhas/p1_t1_ciencias_2026'))));
+const ne = (o) => ({ escola_id: 'e1', municipio_id: 'm1', turma_id: 't1', turma_nome: '6º Ano A', disciplina: 'Arte', disc_id: 'arte', ano_letivo: 2026, notas: { a1: { 1: 7 } }, faltas: {}, aulas: { 1: 10 }, ...o });
+await t('secretaria da escola lança nota do diário', assertSucceeds(setDoc(doc(fs('se1'), 'notas_escola/e1_t1_arte_2026'), ne())));
+await t('direção lança nota do diário', assertSucceeds(setDoc(doc(fs('g1'), 'notas_escola/e1_t1_arte_2026'), ne({ notas: { a1: { 1: 8 } } }))));
+await t('direção de outra escola não lança', assertFails(setDoc(doc(fs('g2'), 'notas_escola/e1_t1_arte_2026'), ne())));
+await t('professor não lança pela escola', assertFails(setDoc(doc(fs('p1'), 'notas_escola/e1_t1_arte_2026'), ne())));
+await t('id fora do padrão: não', assertFails(setDoc(doc(fs('se1'), 'notas_escola/qualquer'), ne())));
+await t('campo estranho: não', assertFails(setDoc(doc(fs('se1'), 'notas_escola/e1_t1_arte_2026'), ne({ conselho: {} }))));
+await t('portaria não lê', assertFails(getDoc(doc(fs('po'), 'notas_escola/e1_t1_arte_2026'))));
 console.log(`grade: ${ok} ok, ${falha} falha(s)`);
 await env.cleanup(); process.exit(falha ? 1 : 0);

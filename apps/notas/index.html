@@ -104,6 +104,9 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .regra-mini summary{cursor:pointer;font-weight:700}
 .regra-mini p{margin-top:6px}
 .bol-tab td,.bol-tab th{padding:7px 10px}
+.grade.lanc th{min-width:92px;white-space:normal;line-height:1.2}
+.grade.lanc tr.aulas td{background:#fffaf0;font-weight:700}
+.lanc-barra{gap:8px}
 .bol-tab td.disc{text-align:left;white-space:normal;min-width:120px}
 .regra-resumo{background:#eef6fc;border:1px solid #cfe4f4;border-radius:12px;padding:10px 14px;font-size:.84rem;color:#1f5f91;margin-bottom:12px}
 .modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
@@ -219,7 +222,8 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
   <section class="sec" id="s-boletins">
     <div class="card">
       <div class="h2">🧾 Boletim escolar</div>
-      <p class="sub" style="margin-top:4px">Junta as notas de todas as disciplinas da turma, lançadas pelos professores, com a frequência das chamadas. Uma página por aluno, pronta para imprimir e entregar à família.</p>
+      <p class="sub" style="margin-top:4px">Junta as notas de todas as disciplinas da turma com a frequência das chamadas. As notas vêm dos professores (Notas e Médias) ou são digitadas aqui pela escola, a partir do diário de papel. Uma página por aluno, pronta para imprimir.</p>
+      <div class="seg" id="segBol" style="margin-top:10px"><button data-action="bol-modo" data-arg="lancar">✏️ Lançar notas da turma</button><button data-action="bol-modo" data-arg="emitir">🧾 Emitir boletins</button></div>
       <div class="barra" style="margin-top:12px">
         <select class="sel" id="bEscola" aria-label="Escola" hidden></select>
         <select class="sel" id="bTurma" aria-label="Turma"></select>
@@ -846,6 +850,8 @@ async function salvarRegra(){
 /* ===================== eventos ===================== */
 const ACOES = {
   "ir": s => { E.sec = s; if(s === "regra" && E.admin){ carregarRegra($("selMuni").value).then(desenhar); return; } desenhar(); },
+  "bol-modo": m => { gravarPendentesEscola().then(() => { B.modo = m; if(m === "emitir"){ B.dados = null; abrirBoletins(); } else desenharModoBol(); }); },
+  "lanc-per": p => { L.per = +p; desenharLanc(); }, "lanc-tipo": x => { L.tipo = x; desenharLanc(); },
   "pdf-mapa": () => pdfMapa(), "bol-turma": () => pdfBoletins(""), "bol-aluno": id => pdfBoletins(id),
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
   "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "av-link": () => anexarLink(), "av-abrir-anexo": i => abrirAnexo(i), "av-tirar-anexo": i => tirarAnexo(i), "excluir-av": () => excluirAv(),
@@ -882,6 +888,9 @@ document.addEventListener("change", ev => {
   else if(t.id === "selDisc"){ E.discOutra = t.value === "__outra"; $("disciplina").value = E.discOutra ? "" : t.value; desenharSelDisc(); if(E.discOutra) $("disciplina").focus(); else abrirAuto(); }
   else if(t.id === "disciplina" || t.id === "selAno") abrirAuto();
   else if(["bEscola", "bTurma", "bAno", "bPer"].includes(t.id)) mudouBoletim(t.id);
+  else if(t.dataset && (t.dataset.lanc || t.dataset.laulas)) lancarEscola(t);
+  else if(t.id === "lNova" && t.value){ if(t.value === "__outra"){ t.outerHTML = '<input class="inp" id="lNovaTx" maxlength="60" placeholder="Nome da disciplina e Enter" style="max-width:220px">'; $("lNovaTx").focus(); } else { L.novas.push(t.value); desenharLanc(); } }
+  else if(t.id === "lNovaTx"){ const v = t.value.trim().replace(/\s+/g, " ").slice(0, 60); if(v){ L.novas.push(v); } desenharLanc(); }
   else if(t.id === "selMinhas" && t.value){ const [tu, d, a] = t.value.split("|"); t.value = ""; abrirPlanilha(tu, d, a); }
   else if(t.id === "rPer"){ desenharPesos([...document.querySelectorAll("[data-peso]")].map(el => +el.value)); ajudaRegra(); }
   else if(t.closest && t.closest("#regraForm")) ajudaRegra();
@@ -890,6 +899,13 @@ document.addEventListener("change", ev => {
 document.addEventListener("input", ev => { if(ev.target.closest && ev.target.closest("#regraForm")) ajudaRegra(); });
 document.addEventListener("keydown", ev => {
   const t = ev.target;
+  if(ev.key === "Enter" && t.id === "lNovaTx"){ ev.preventDefault(); t.blur(); return; }
+  if(ev.key === "Enter" && t.dataset && t.dataset.lanc){
+    // lançamento da escola: desce para o próximo aluno na mesma disciplina
+    ev.preventDefault(); const did = t.dataset.lanc.split("|")[0], lin = +t.dataset.lin + 1; t.blur();
+    setTimeout(() => { const el = [...document.querySelectorAll('[data-lanc^="' + did + '|"]')].find(x => +x.dataset.lin === lin); if(el){ el.focus(); el.select(); } }, 0);
+    return;
+  }
   if(ev.key === "Enter" && t.dataset && t.dataset.lin !== undefined){
     ev.preventDefault();
     const attr = t.dataset.nota ? "nota" : t.dataset.falta ? "falta" : ""; if(!attr) return;
@@ -898,7 +914,75 @@ document.addEventListener("keydown", ev => {
     t.blur(); if(prox){ setTimeout(() => { const el = document.querySelector(attr === "nota" ? '[data-nota="' + prox.dataset.nota + '"]' : '[data-falta="' + prox.dataset.falta + '"]'); if(el){ el.focus(); el.select(); } }, 0); }
   } else if(ev.key === "Escape") ACOES.fechar();
 });
-document.addEventListener("visibilitychange", () => { if(document.hidden && E.salvarT){ clearTimeout(E.salvarT); gravar(); } });
+document.addEventListener("visibilitychange", () => { if(document.hidden && E.salvarT){ clearTimeout(E.salvarT); gravar(); } if(document.hidden) gravarPendentesEscola(); });
+
+/* ===================== lançamento pela secretaria da escola: a nota do bimestre direto, todas as disciplinas ===================== */
+// notas_escola/{escola}_{turma}_{disciplina}_{ano}: { notas:{ aluno:{ "1":n } }, faltas:{ aluno:{ "1":n } }, aulas:{ "1":n } }
+// Disciplina com planilha do professor fica só para leitura: o boletim usa a do professor.
+const L = { tipo:"notas", per:1, salvarT:{}, novas:[] };
+const idEscolaDoc = (t, did, ano) => t.escola_id + "_" + t.id + "_" + did + "_" + ano;
+function planilhaDeEscola(d){
+  const R = E.regra, n = R.periodos, av = Array.from({ length:n }, (_, k) => ({ id:"p" + (k + 1), periodo:k + 1, nome:"Nota do " + (k + 1) + "º " + NOME_PER[n], peso:1, max:R.nota_max, tipo:"nota" }));
+  const notas = {}; Object.entries(d.notas || {}).forEach(([aid, v]) => { notas[aid] = {}; Object.entries(v || {}).forEach(([p, x]) => { if(x !== null && x !== undefined) notas[aid]["p" + p] = x; }); });
+  return { ...d, _escola:true, professor_nome:"Lançado pela secretaria", avaliacoes:av, notas, faltas:d.faltas || {}, aulas:d.aulas || {}, exame:d.exame || {}, conselho:{} };
+}
+function disciplinasLanc(){
+  const D = B.dados, t = D.t, ds = new Set();
+  const grade = Array.isArray(t.grade) ? t.grade.map(g => g.disciplina) : [];
+  (grade.length ? grade : DISC.filter(x => !/^Polivalente/.test(x))).forEach(x => ds.add(x));
+  Object.values(D.escolaDocs || {}).forEach(x => ds.add(x.disciplina));
+  (D.profPlan || []).forEach(p => ds.add(p.disciplina));
+  L.novas.forEach(x => ds.add(x));
+  return [...ds].sort((a, b) => ordemDisc(a) - ordemDisc(b) || a.localeCompare(b, "pt-BR"));
+}
+function desenharLanc(){
+  const D = B.dados, R = E.regra, c = R.nota_max === 100 ? 0 : 1, box = $("boxBoletins");
+  if(!D || !D.t){ box.innerHTML = '<div class="vazio card"><b>Escolha a turma</b></div>'; return; }
+  if(D.erro){ box.innerHTML = '<div class="vazio card"><b>Sem permissão para lançar notas nesta turma</b>O lançamento é da Direção e da Secretaria da escola.</div>'; return; }
+  if(!D.alunos.length){ box.innerHTML = '<div class="vazio card"><b>Esta turma não tem alunos cadastrados</b>Cadastre os alunos na Ficha do Aluno.</div>'; return; }
+  if(L.per > R.periodos) L.per = 1;
+  const discs = disciplinasLanc(), prof = {}; (D.profPlan || []).forEach(p => { prof[slug(p.disciplina)] = p; });
+  const faltando = DISC.filter(x => !discs.includes(x));
+  let h = '<div class="card barra lanc-barra"><div class="seg">' + Array.from({ length:R.periodos }, (_, k) => '<button class="' + (k + 1 === L.per ? "on" : "") + '" data-action="lanc-per" data-arg="' + (k + 1) + '">' + (k + 1) + "º " + NOME_PER[R.periodos] + "</button>").join("") + "</div>" +
+    '<div class="seg"><button class="' + (L.tipo === "notas" ? "on" : "") + '" data-action="lanc-tipo" data-arg="notas">Notas</button><button class="' + (L.tipo === "faltas" ? "on" : "") + '" data-action="lanc-tipo" data-arg="faltas">Faltas</button></div><span class="esp"></span>' +
+    '<select class="sel" id="lNova" aria-label="Adicionar disciplina" style="max-width:220px"><option value="">＋ Disciplina</option>' + faltando.map(x => "<option>" + esc(x) + "</option>").join("") + '<option value="__outra">Outra...</option></select></div>' +
+    '<p class="sub" style="margin:0 0 8px">' + (L.tipo === "notas" ? "Digite a nota do " + L.per + "º " + NOME_PER[R.periodos] + " de cada aluno (de 0 a " + fmt(R.nota_max, c) + "), já com a recuperação, como está no diário do professor." : "Digite as faltas de cada aluno no " + L.per + "º " + NOME_PER[R.periodos] + " e, na primeira linha, as aulas dadas da disciplina.") + " Enter desce para o próximo aluno. Tudo é salvo sozinho.</p>" +
+    '<div class="grade-wrap"><table class="grade lanc"><thead><tr><th class="nome">Aluno</th>' + discs.map(x => { const p = prof[slug(x)];
+      return "<th>" + esc(x) + "<small>" + (p ? "🔒 lançado pelo professor" : L.tipo === "notas" ? "nota" : "faltas") + "</small></th>"; }).join("") + "</tr></thead><tbody>";
+  if(L.tipo === "faltas") h += '<tr class="aulas"><td class="nome">Aulas dadas</td>' + discs.map(x => { const did = slug(x), p = prof[did], d = (D.escolaDocs || {})[did];
+    return p ? '<td class="med">' + esc(String((p.aulas || {})[L.per] ?? "–")) + "</td>" : '<td><input inputmode="numeric" data-laulas="' + esc(did) + '" data-disc="' + esc(x) + '" value="' + esc(String(((d || {}).aulas || {})[L.per] ?? "")) + '" aria-label="Aulas dadas de ' + esc(x) + '"></td>'; }).join("") + "</tr>";
+  D.alunos.forEach((a, i) => {
+    h += '<tr><td class="nome" title="' + esc(a.nome) + '">' + (i + 1) + ". " + esc(a.nome) + "</td>" + discs.map(x => { const did = slug(x), p = prof[did], d = (D.escolaDocs || {})[did];
+      if(p){ const r = calcAluno(a.id, p), m = L.tipo === "notas" ? r.per[L.per - 1].m : (((p.faltas || {})[a.id] || {})[L.per] ?? null);
+        return '<td class="med ' + (L.tipo === "notas" && m !== null ? (m >= R.media_minima ? "ok" : "baixa") : "") + '">' + (m === null || m === undefined ? "–" : L.tipo === "notas" ? fmt(m, c) : esc(String(m))) + "</td>"; }
+      const v = (((d || {})[L.tipo] || {})[a.id] || {})[L.per];
+      return '<td><input inputmode="' + (L.tipo === "notas" ? "decimal" : "numeric") + '" data-lanc="' + esc(did + "|" + a.id) + '" data-disc="' + esc(x) + '" data-lin="' + i + '" value="' + (v === null || v === undefined ? "" : L.tipo === "notas" ? fmt(v, 2) : esc(String(v))) + '"' +
+        (L.tipo === "notas" && v > R.nota_max ? ' class="fora"' : "") + ' aria-label="' + esc(x + " de " + a.nome) + '"></td>'; }).join("") + "</tr>";
+  });
+  box.innerHTML = h + "</tbody></table></div>" + '<p class="sub" style="margin-top:8px">Quando o professor lança a disciplina em Notas e Médias, ela fica travada aqui e o boletim usa as notas dele.</p>';
+}
+// grava a disciplina alterada (1 s depois da última digitação)
+function lancarEscola(el){
+  const D = B.dados, t = D.t, R = E.regra, disc = el.dataset.disc, did = slug(disc);
+  const d = D.escolaDocs[did] || (D.escolaDocs[did] = { escola_id:t.escola_id, municipio_id:t.municipio_id || E.u.municipio_id || "", turma_id:t.id, turma_nome:String(t.nome || "").slice(0, 80), disciplina:disc, disc_id:did, ano_letivo:D.ano, notas:{}, faltas:{}, aulas:{} });
+  if(el.dataset.laulas){ const v = parseInt(el.value, 10); if(isFinite(v) && v >= 0) d.aulas[L.per] = Math.min(400, v); else delete d.aulas[L.per]; }
+  else {
+    const aid = el.dataset.lanc.split("|")[1], campo = L.tipo === "notas" ? "notas" : "faltas", alvo = (d[campo][aid] = d[campo][aid] || {});
+    if(campo === "notas"){ const v = lerNum(el.value); if(v === null) delete alvo[L.per]; else alvo[L.per] = Math.max(0, Math.round(v * 100) / 100); el.classList.toggle("fora", v !== null && v > R.nota_max); el.value = fmt(v, 2); }
+    else { const v = parseInt(el.value, 10); if(isFinite(v) && v >= 0) alvo[L.per] = Math.min(400, v); else delete alvo[L.per]; }
+    if(!Object.keys(alvo).length) delete d[campo][aid];
+  }
+  $("status").textContent = "Salvando...";
+  clearTimeout(L.salvarT[did]); L.salvarT[did] = setTimeout(() => gravarEscola(did), 1000);
+}
+async function gravarEscola(did){
+  const D = B.dados, d = D && D.escolaDocs[did]; if(!d) return;
+  delete L.salvarT[did];
+  try{
+    await setDoc(doc(db, "notas_escola", idEscolaDoc(D.t, did, D.ano)), { ...d, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid, atualizado_por_nome:String(E.u.nome || "").slice(0, 80) });
+    $("status").textContent = "Notas salvas";
+  }catch(e){ console.warn("notas_escola:", e.code || e); $("status").textContent = "Não salvou"; toast(e.code === "permission-denied" ? "Sem permissão para lançar notas nesta turma." : "Não foi possível salvar agora. Confira a internet.", true); }
+}
 
 /* ===================== PDF: mapa de notas (professor) e boletim escolar (escola) ===================== */
 const pdfTx = s => String(s == null ? "" : s).replace(/[^\u0000-ÿ–—•]/g, "").replace(/\s+/g, " ").trim();
@@ -1026,31 +1110,44 @@ async function abrirBoletins(){
     desenharTurmasBol();
   }
   if(!B.dados) await carregarBoletim();
-  desenharBoletim();
+  desenharModoBol();
+}
+function desenharModoBol(){
+  if(!B.modo) B.modo = E.u.perfil === "secretaria_escolar" ? "lancar" : "emitir";
+  document.querySelectorAll("#segBol button").forEach(b => b.classList.toggle("on", b.dataset.arg === B.modo));
+  $("bPer").hidden = B.modo !== "emitir";
+  if(B.modo === "lancar") desenharLanc(); else desenharBoletim();
 }
 function desenharTurmasBol(){
   const esc0 = $("bEscola").value || (E.turmas[0] || {}).escola_id, l = E.turmas.filter(t => t.escola_id === esc0);
   $("bTurma").innerHTML = l.length ? l.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (turnoDeT(t) ? " · " + turnoDeT(t) : "") + "</option>").join("") : '<option value="">Nenhuma turma</option>';
 }
-async function mudouBoletim(id){ if(id === "bEscola") desenharTurmasBol(); if(id !== "bPer") B.dados = null; if(!B.dados) await carregarBoletim(); desenharBoletim(); }
+async function mudouBoletim(id){ if(id === "bEscola") desenharTurmasBol(); if(id !== "bPer"){ await gravarPendentesEscola(); B.dados = null; L.novas = []; } if(!B.dados) await carregarBoletim(); desenharModoBol(); }
+async function gravarPendentesEscola(){ const ks = Object.keys(L.salvarT); ks.forEach(k => clearTimeout(L.salvarT[k])); await Promise.all(ks.map(k => gravarEscola(k))); }
 async function carregarBoletim(){
   const t = E.turmas.find(x => x.id === $("bTurma").value), ano = +$("bAno").value;
   $("boxBoletins").innerHTML = '<div class="carregando"><div class="giro"></div>Juntando as notas da turma...</div>';
   if(!t){ B.dados = { t:null }; return; }
   await carregarRegra(t.municipio_id || E.u.municipio_id || "");
   const pegaL = q => getDocs(q).then(s => { const l = []; s.forEach(d => l.push({ id:d.id, ...d.data() })); return l; }).catch(e => { console.warn("boletim:", e.code); return null; });
-  const [pls, als, rs] = await Promise.all([
+  const [pls, als, rs, nes] = await Promise.all([
     pegaL(query(collection(db, "notas_planilhas"), where("escola_id", "==", t.escola_id), where("turma_id", "==", t.id))),
     pegaL(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id))),
-    getDoc(doc(db, "freq_resumo", t.id + "_" + ano)).then(s => s.exists() ? s.data() : null).catch(() => null)
+    getDoc(doc(db, "freq_resumo", t.id + "_" + ano)).then(s => s.exists() ? s.data() : null).catch(() => null),
+    pegaL(query(collection(db, "notas_escola"), where("escola_id", "==", t.escola_id), where("turma_id", "==", t.id)))
   ]);
   // uma planilha por disciplina: a mais recente (dois professores na mesma disciplina = a última atualizada)
   const porDisc = {};
   (pls || []).filter(p => +p.ano_letivo === ano).forEach(p => { const k = slug(p.disciplina), x = porDisc[k], tm = v => v && v.toMillis ? v.toMillis() : 0; if(!x || tm(p.atualizado_em) > tm(x.atualizado_em)) porDisc[k] = p; });
   const planilhas = Object.values(porDisc).sort((a, b) => ordemDisc(a.disciplina) - ordemDisc(b.disciplina) || a.disciplina.localeCompare(b.disciplina, "pt-BR"));
   planilhas.forEach(p => ["notas", "faltas", "aulas", "exame", "conselho"].forEach(k => { if(!p[k] || typeof p[k] !== "object") p[k] = {}; }));
+  // notas digitadas pela escola: entram nas disciplinas que o professor não lançou
+  const escolaDocs = {}; (nes || []).filter(d => +d.ano_letivo === ano).forEach(d => { ["notas", "faltas", "aulas"].forEach(k => { if(!d[k] || typeof d[k] !== "object") d[k] = {}; }); escolaDocs[d.disc_id] = d; });
+  const profPlan = planilhas.slice();
+  Object.values(escolaDocs).forEach(d => { if(!porDisc[d.disc_id] && Object.keys(d.notas).length) planilhas.push(planilhaDeEscola(d)); });
+  planilhas.sort((a, b) => ordemDisc(a.disciplina) - ordemDisc(b.disciplina) || a.disciplina.localeCompare(b.disciplina, "pt-BR"));
   const alunos = (als || []).filter(a => a.nome && a.status !== "inativo").sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  B.dados = { t, ano, planilhas, alunos, resumo:rs, erro:pls === null };
+  B.dados = { t, ano, planilhas, alunos, resumo:rs, escolaDocs, profPlan, erro:pls === null };
   const per = $("bPer").value; $("bPer").innerHTML = '<option value="">Ano todo</option>' + Array.from({ length:E.regra.periodos }, (_, k) => '<option value="' + (k + 1) + '">Até o ' + (k + 1) + "º " + NOME_PER[E.regra.periodos] + "</option>").join(""); $("bPer").value = per && +per <= E.regra.periodos ? per : "";
 }
 // situação geral do aluno no conjunto das disciplinas e na frequência da turma (chamadas)
@@ -1064,8 +1161,10 @@ function situacaoGeral(rs, fg){
 }
 function linhaBoletim(a){
   const D = B.dados, rs = D.planilhas.map(p => ({ p, r:calcAluno(a.id, p) })), x = D.resumo && D.resumo.alunos ? D.resumo.alunos[a.id] : null;
-  const fg = x && x.a ? 100 * (x.a - x.f) / x.a : null;
-  return { a, rs, fg, aulas:x ? x.a : 0, faltas:x ? x.f : 0, sit:situacaoGeral(rs.map(y => y.r), fg) };
+  let fg = x && x.a ? 100 * (x.a - x.f) / x.a : null, aulas = x ? x.a : 0, faltas = x ? x.f : 0;
+  // sem chamadas no Portal: a frequência sai das aulas dadas e faltas lançadas por disciplina
+  if(fg === null){ rs.forEach(({ p }) => { Object.values(p.aulas || {}).forEach(v => { aulas += +v || 0; }); Object.values((p.faltas || {})[a.id] || {}).forEach(v => { faltas += +v || 0; }); }); fg = aulas ? Math.max(0, 100 * (aulas - faltas) / aulas) : null; }
+  return { a, rs, fg, aulas, faltas, sit:situacaoGeral(rs.map(y => y.r), fg) };
 }
 function desenharBoletim(){
   const D = B.dados, R = E.regra, c = R.nota_max === 100 ? 0 : 1;
@@ -1073,7 +1172,7 @@ function desenharBoletim(){
   if(D.erro){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Sem permissão para ver as notas desta turma</b>O boletim é emitido pela Direção e pela Secretaria da escola.</div>'; return; }
   if(!D.planilhas.length){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Nenhum professor lançou notas nesta turma em ' + D.ano + '</b>As disciplinas entram no boletim conforme os professores lançam as notas em Notas e Médias.</div>'; return; }
   const L = D.alunos.map(linhaBoletim);
-  $("boxBoletins").innerHTML = '<div class="card barra"><div><div class="h2">' + esc(D.t.nome) + " · " + D.ano + '</div><div class="sub">Disciplinas com notas: ' + D.planilhas.map(p => esc(p.disciplina) + " (" + esc(String(p.professor_nome || "").split(" ")[0]) + ")").join(", ") + '</div></div><span class="esp"></span>' +
+  $("boxBoletins").innerHTML = '<div class="card barra"><div><div class="h2">' + esc(D.t.nome) + " · " + D.ano + '</div><div class="sub">Disciplinas com notas: ' + D.planilhas.map(p => esc(p.disciplina) + " (" + (p._escola ? "digitada pela escola" : esc(String(p.professor_nome || "").split(" ")[0])) + ")").join(", ") + '</div></div><span class="esp"></span>' +
       '<button class="btn btn-ok" data-action="bol-turma">📄 Boletins da turma (PDF)</button></div>' +
     '<div class="grade-wrap"><table class="grade resultado bol-tab"><thead><tr><th class="nome">Aluno</th>' + D.planilhas.map(p => "<th>" + esc(p.disciplina) + "<small>média</small></th>").join("") + "<th>Freq.<small>chamadas</small></th><th>Situação</th><th></th></tr></thead><tbody>" +
     L.map((l, i) => '<tr><td class="nome">' + (i + 1) + ". " + esc(l.a.nome) + "</td>" + l.rs.map(({ r }) => '<td class="med ' + (r.ma === null ? "" : r.ma >= R.media_minima ? "ok" : "baixa") + '">' + (r.ma === null ? "–" : fmt(r.ma, c)) + "</td>").join("") +

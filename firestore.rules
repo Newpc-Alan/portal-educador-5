@@ -377,6 +377,19 @@ service cloud.firestore {
         && texto(novo().get("conteudo", ""), 600) && texto(novo().turma_nome, 80) && texto(novo().professor_nome, 80);
       allow delete: if logado() && (resource.data.professor_uid == request.auth.uid || admin());
     }
+    // notas digitadas pela escola (diário de papel): a nota de cada período, por disciplina; só a Direção e a Secretaria da escola
+    match /notas_escola/{id} {
+      allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id);
+      allow create, update: if (admin() || equipeEscola(novo().escola_id))
+        && (resource == null || admin() || equipeEscola(resource.data.escola_id))
+        && id == novo().escola_id + "_" + novo().turma_id + "_" + novo().disc_id + "_" + string(novo().ano_letivo)
+        && novo().keys().hasOnly(["escola_id", "municipio_id", "turma_id", "turma_nome", "disciplina", "disc_id", "ano_letivo", "notas", "faltas", "aulas",
+          "atualizado_em", "atualizado_por", "atualizado_por_nome"])
+        && novo().ano_letivo is int && novo().disc_id is string && novo().disc_id.matches("^[a-z0-9-]{1,40}$") && texto(novo().disciplina, 60)
+        && novo().notas is map && novo().notas.size() <= 80 && novo().faltas is map && novo().faltas.size() <= 80 && novo().aulas is map && novo().aulas.size() <= 4
+        && (admin() || turmaDoc(novo().turma_id).escola_id == novo().escola_id);
+      allow delete: if admin() || equipeEscola(resource.data.escola_id);
+    }
     match /substituicoes/{id} {
       allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id)
         || resource.data.substituto_uid == request.auth.uid || resource.data.titular_uid == request.auth.uid;
