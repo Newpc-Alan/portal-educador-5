@@ -335,7 +335,9 @@ service cloud.firestore {
 
     match /notas_planilhas/{id} {
       allow read: if logado() && (resource.data.professor_uid == request.auth.uid || admin()
-        || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id));
+        || gestorDaEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id)
+        // Secretaria da escola: só leitura, para emitir o boletim escolar
+        || secEscolar(resource.data.escola_id));
       allow create, update: if logado() && novo().professor_uid == request.auth.uid && id.matches("^" + request.auth.uid + "_.+")
         && (licenciado() || eu().perfil in ["gestor", "secretaria"])
         && (resource == null || resource.data.professor_uid == request.auth.uid)

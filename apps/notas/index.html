@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Notas e Médias · Portal do Educador</title>
 <meta name="theme-color" content="#071621">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -96,6 +97,14 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .chave{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#f6f9fc;border:1px solid var(--line);border-radius:10px;margin-top:10px;font-size:.86rem;font-weight:700;cursor:pointer}
 .chave input{width:20px;height:20px;accent-color:var(--verde);flex:none}
 .chave small{display:block;font-weight:500;color:var(--muted);font-size:.76rem}
+.ferr{margin-bottom:8px}
+.ferr2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.ferr2 .esp{flex:1}
+.regra-mini{background:#eef6fc;border:1px solid #cfe4f4;border-radius:12px;padding:8px 14px;font-size:.82rem;color:#1f5f91;margin-bottom:10px}
+.regra-mini summary{cursor:pointer;font-weight:700}
+.regra-mini p{margin-top:6px}
+.bol-tab td,.bol-tab th{padding:7px 10px}
+.bol-tab td.disc{text-align:left;white-space:normal;min-width:120px}
 .regra-resumo{background:#eef6fc;border:1px solid #cfe4f4;border-radius:12px;padding:10px 14px;font-size:.84rem;color:#1f5f91;margin-bottom:12px}
 .modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
 .modal-box{background:#fff;border-radius:16px;padding:20px;width:min(520px,100%);max-height:92vh;overflow:auto}
@@ -139,7 +148,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 .rg-exemplo b{color:var(--escuro-2)}
 .rg-acoes{display:flex;justify-content:flex-end}
 @media (max-width:700px){ .rg-campo.largo{grid-column:auto} .rg-bloco{padding:14px} .rg-num{width:28px;height:28px} }
-@media (max-width:700px){ .topo{position:static} .grade .nome{min-width:140px;max-width:150px} }
+@media (max-width:700px){ .topo{position:static} .grade .nome{min-width:130px;max-width:140px;white-space:normal;line-height:1.2;font-size:.8rem} .grade td input{width:54px} }
 .tb.voltar{background:var(--lima);border-color:var(--lima);color:#071621;font-weight:800}.tb.voltar:hover{background:#9fd655;border-color:#9fd655}
 .anexos{display:grid;gap:6px;margin:4px 0 8px}.anexo{display:flex;align-items:center;gap:8px;border:1px solid var(--line,#dfe7ef);border-radius:10px;padding:6px 10px;font-size:.88rem}.anexo b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.anexo button{border:0;background:none;cursor:pointer;font-size:1rem}
 .anexo-add{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.anexo-add input[type=url]{flex:1;min-width:160px;border:1.5px solid var(--line,#dfe7ef);border-radius:10px;padding:8px 10px;font:inherit}
@@ -151,11 +160,12 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 <body>
 <div class="app">
   <header class="topo">
-    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Aplicativos Úteis</small><b>Notas e Médias</b><span id="quem">Carregando...</span></div></div>
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Gestão Escolar</small><b>Notas e Médias</b><span id="quem">Carregando...</span></div></div>
     <div>
       <nav class="topo-acoes" aria-label="Seções">
         <button class="tb on" data-action="ir" data-arg="notas">✏️ Notas</button>
         <button class="tb" data-action="ir" data-arg="resultado">📊 Resultado da turma</button>
+        <button class="tb" data-action="ir" data-arg="boletins" id="tabBoletins" hidden>🧾 Boletins</button>
         <button class="tb" data-action="ir" data-arg="regra">⚖️ Regra da rede</button>
         <a class="tb voltar" href="/gestao/">← Gestão Escolar</a>
       </nav>
@@ -168,7 +178,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
     <select class="sel" id="selDisc" aria-label="Disciplina" style="min-width:220px"></select><input class="inp" id="disciplina" maxlength="60" placeholder="Escreva o nome da disciplina" aria-label="Outra disciplina" style="min-width:220px" hidden>
     <datalist id="listaDisc"></datalist>
     <select class="sel" id="selAno" aria-label="Ano letivo"></select>
-    <button class="btn btn-pri" data-action="abrir-planilha">Abrir</button>
+    <button class="btn btn-pri" data-action="abrir-planilha" hidden>Abrir</button>
     <span class="esp"></span>
     <select class="sel" id="selMinhas" aria-label="Minhas planilhas"><option value="">🗂️ Minhas planilhas</option></select>
   </div>
@@ -179,27 +189,45 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
   <section class="sec" id="s-notas">
     <div class="vazio card" id="semPlanilha"><b>Escolha a turma e a disciplina</b>Os alunos vêm do cadastro da turma. As notas ficam salvas na sua conta e o cálculo segue a regra da sua rede.</div>
     <div id="boxNotas" hidden>
-      <div class="regra-resumo" id="regraResumo"></div>
-      <div class="card barra">
+      <div class="card barra ferr">
         <div class="seg" id="segPer"></div>
         <span class="esp"></span>
-        <label class="sub" for="aulasPer">Aulas dadas no período</label><input class="inp" id="aulasPer" type="number" min="0" max="400" style="width:90px">
+        <label class="sub" for="aulasPer">Aulas dadas</label><input class="inp" id="aulasPer" type="number" min="0" max="400" style="width:76px">
         <button class="btn btn-ok btn-sm" data-action="nova-av">＋ Avaliação</button>
         <button class="btn btn-gh btn-sm" data-action="rec-col" id="btnRec">＋ Recuperação</button>
       </div>
-      <div class="puxar">
-        <button class="btn btn-pri puxar-bt" data-action="importar"><span>📡</span><span><b>Puxar notas da prova online</b><small>e das provas já corrigidas no Corretor</small></span></button>
-        <button class="btn btn-gh puxar-bt" data-action="abrir-corretor"><span>📷</span><span><b>Corretor de Gabarito</b><small>corrigir provas impressas pela câmera</small></span></button>
+      <div class="ferr2">
+        <span class="sub">Trazer notas de:</span>
+        <button class="btn btn-gh btn-sm" data-action="importar">📡 Prova online</button>
+        <button class="btn btn-gh btn-sm" data-action="abrir-corretor">📷 Corretor de Gabarito</button>
+        <span class="esp"></span>
+        <button class="btn btn-gh btn-sm" data-action="pdf-mapa">📄 Mapa de notas (PDF)</button>
       </div>
+      <details class="regra-mini" id="regraResumo"></details>
       <div class="freq-aviso" id="freqAviso" hidden></div>
       <div class="grade-wrap" id="gradeBox"></div>
-      <p class="sub" style="margin-top:8px">Digite as notas com vírgula ou ponto. Enter desce para o próximo aluno. Tudo é salvo sozinho.</p>
+      <p class="sub" style="margin-top:8px">Lançamento manual: toque na célula e digite a nota (vírgula ou ponto). Enter desce para o próximo aluno. Tudo é salvo sozinho.</p>
     </div>
   </section>
 
   <!-- RESULTADO -->
   <section class="sec" id="s-resultado">
     <div id="boxResultado"></div>
+  </section>
+
+  <!-- BOLETINS (Direção e Secretaria da escola) -->
+  <section class="sec" id="s-boletins">
+    <div class="card">
+      <div class="h2">🧾 Boletim escolar</div>
+      <p class="sub" style="margin-top:4px">Junta as notas de todas as disciplinas da turma, lançadas pelos professores, com a frequência das chamadas. Uma página por aluno, pronta para imprimir e entregar à família.</p>
+      <div class="barra" style="margin-top:12px">
+        <select class="sel" id="bEscola" aria-label="Escola" hidden></select>
+        <select class="sel" id="bTurma" aria-label="Turma"></select>
+        <select class="sel" id="bAno" aria-label="Ano letivo"></select>
+        <select class="sel" id="bPer" aria-label="Até qual período"></select>
+      </div>
+    </div>
+    <div id="boxBoletins"></div>
   </section>
 
   <!-- REGRA -->
@@ -332,8 +360,8 @@ function resumoRegra(){
 }
 
 /* ===================== cálculo do aluno ===================== */
-function calcAluno(aid){
-  const P = E.P, R = E.regra, N = (P.notas || {})[aid] || {}, mx = R.nota_max, res = { per:[], parcial:false };
+function calcAluno(aid, P = E.P){
+  const R = E.regra, N = (P.notas || {})[aid] || {}, mx = R.nota_max, res = { per:[], parcial:false };
   let soma = 0, pesoLanc = 0, pesoTot = 0;
   for(let p = 1; p <= R.periodos; p++){
     const cols = P.avaliacoes.filter(a => a.periodo === p && a.tipo === "nota"), rec = P.avaliacoes.find(a => a.periodo === p && a.tipo === "rec");
@@ -518,17 +546,21 @@ async function gravar(){
 }
 
 /* ===================== desenho: notas do período ===================== */
+// a planilha abre sozinha quando turma e disciplina estão escolhidas (sem botão "Abrir")
+function abrirAuto(){ const t = $("selTurma").value, d = String($("disciplina").value || "").trim(); if(t && d) abrirPlanilha(t, d, $("selAno").value); }
 function desenhar(){
   document.querySelectorAll('[data-action="ir"]').forEach(b => b.classList.toggle("on", b.dataset.arg === E.sec));
   document.querySelectorAll(".sec").forEach(s => s.classList.toggle("on", s.id === "s-" + E.sec));
   $("barPlan").hidden = E.sec === "regra";
   if(E.sec === "regra"){ desenharRegra(); return; }
+  if(E.sec === "boletins"){ $("barPlan").hidden = true; abrirBoletins(); return; }
   if(!E.P){ $("semPlanilha").hidden = false; $("boxNotas").hidden = true; $("boxResultado").innerHTML = '<div class="vazio card"><b>Abra uma planilha primeiro</b>Escolha a turma e a disciplina lá em cima.</div>'; return; }
   if(E.sec === "notas") desenharNotas(); else desenharResultado();
 }
 function desenharNotas(){
   $("semPlanilha").hidden = true; $("boxNotas").hidden = false;
-  $("regraResumo").innerHTML = resumoRegra();
+  { const R0 = E.regra, c0 = R0.nota_max === 100 ? 0 : 1;
+    $("regraResumo").innerHTML = "<summary>Regra da rede: média " + fmt(R0.media_minima, c0) + " · " + R0.periodos + " " + NOME_PER[R0.periodos] + "s · frequência mínima " + R0.freq_minima + "%" + (E.regraExiste ? "" : " (padrão)") + "</summary><p>" + resumoRegra() + "</p>"; }
   const R = E.regra, P = E.P, p = E.per, mx = R.nota_max, c = mx === 100 ? 0 : 1;
   $("segPer").innerHTML = Array.from({ length:R.periodos }, (_, k) => '<button class="' + (k + 1 === p ? "on" : "") + '" data-action="per" data-arg="' + (k + 1) + '"' + (E.calPer ? ' title="' + dataBr(E.calPer[k].inicio) + " a " + dataBr(E.calPer[k].fim) + '"' : "") + ">" + perNome(k + 1) + (E.calPer ? '<small class="per-datas">' + dataBr(E.calPer[k].inicio) + " a " + dataBr(E.calPer[k].fim) + "</small>" : "") + "</button>").join("");
   $("aulasPer").value = P.aulas[p] ?? "";
@@ -560,7 +592,7 @@ function desenharResultado(){
     '<div class="kpis"><div class="kpi"><small>Alunos</small><b>' + rs.length + '</b></div><div class="kpi"><small>Aprovados</small><b style="color:var(--verde)">' + conta("Aprovado") + "</b></div>" +
     '<div class="kpi"><small>Exame final</small><b style="color:#8a5a00">' + conta("Exame final") + '</b></div><div class="kpi"><small>Reprovados</small><b style="color:var(--red)">' + (conta("Reprovado") + conta("Reprovado por frequência")) + "</b></div>" +
     '<div class="kpi"><small>Abaixo da média agora</small><b>' + rs.filter(x => !x.r.completo && x.r.ma !== null && x.r.ma < R.media_minima).length + "</b></div></div>" +
-    '<div class="card barra"><span class="sub">' + esc(P.turma_nome + " · " + P.disciplina + " · " + P.ano_letivo) + '</span><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="exportar">⬇ Planilha para o sistema da rede</button></div>' +
+    '<div class="card barra"><span class="sub">' + esc(P.turma_nome + " · " + P.disciplina + " · " + P.ano_letivo) + '</span><span class="esp"></span><button class="btn btn-gh btn-sm" data-action="pdf-mapa">📄 Mapa de notas (PDF)</button> <button class="btn btn-gh btn-sm" data-action="exportar">⬇ Planilha para o sistema da rede</button></div>' +
     '<div class="grade-wrap"><table class="grade resultado"><thead><tr><th class="nome">Aluno</th>' + Array.from({ length:R.periodos }, (_, k) => "<th>" + (k + 1) + "º<small>peso " + R.pesos[k] + "</small></th>").join("") +
     "<th>Média anual</th><th>Freq.</th>" + (R.rec_final ? "<th>Exame<small>final</small></th><th>Média final</th>" : "") + "<th>Situação</th><th>O que falta</th><th>Conselho</th></tr></thead><tbody>";
   rs.forEach(({ a, r }, i) => {
@@ -814,6 +846,7 @@ async function salvarRegra(){
 /* ===================== eventos ===================== */
 const ACOES = {
   "ir": s => { E.sec = s; if(s === "regra" && E.admin){ carregarRegra($("selMuni").value).then(desenhar); return; } desenhar(); },
+  "pdf-mapa": () => pdfMapa(), "bol-turma": () => pdfBoletins(""), "bol-aluno": id => pdfBoletins(id),
   "abrir-planilha": () => abrirPlanilha($("selTurma").value, $("disciplina").value, $("selAno").value),
   "per": p => { E.per = +p; desenhar(); }, "usar-freq": () => { aplicarFreq(E.per); salvar(); desenhar(); toast("Aulas e faltas do período atualizadas pela Frequência."); }, "nova-av": () => abrirAv(null), "editar-av": id => abrirAv(id), "salvar-av": () => salvarAv(), "av-link": () => anexarLink(), "av-abrir-anexo": i => abrirAnexo(i), "av-tirar-anexo": i => tirarAnexo(i), "excluir-av": () => excluirAv(),
   "rec-col": () => { E.P.avaliacoes.push({ id:novoId(), periodo:E.per, nome:"Recuperação", peso:1, max:E.regra.nota_max, tipo:"rec" }); salvar(); desenhar(); },
@@ -845,8 +878,10 @@ document.addEventListener("change", ev => {
   if(t.dataset.nota || t.dataset.falta){ lancar(t); atualizarLinha(t); if(t.dataset.falta) avisoFreq(); }
   else if(t.dataset.exame){ lancar(t); desenhar(); }
   else if(t.id === "aulasPer"){ const v = lerNum(t.value); if(v === null) delete E.P.aulas[E.per]; else E.P.aulas[E.per] = Math.max(0, Math.round(v)); salvar(); desenhar(); }
-  else if(t.id === "selTurma"){ const g = discDaGrade(E.turmas.find(x => x.id === t.value)); if(g.length && !g.includes(String($("disciplina").value || "").trim())){ $("disciplina").value = g[0]; E.discOutra = false; } desenharSelDisc(); }
-  else if(t.id === "selDisc"){ E.discOutra = t.value === "__outra"; $("disciplina").value = E.discOutra ? "" : t.value; desenharSelDisc(); if(E.discOutra) $("disciplina").focus(); }
+  else if(t.id === "selTurma"){ const g = discDaGrade(E.turmas.find(x => x.id === t.value)); if(g.length && !g.includes(String($("disciplina").value || "").trim())){ $("disciplina").value = g[0]; E.discOutra = false; } desenharSelDisc(); abrirAuto(); }
+  else if(t.id === "selDisc"){ E.discOutra = t.value === "__outra"; $("disciplina").value = E.discOutra ? "" : t.value; desenharSelDisc(); if(E.discOutra) $("disciplina").focus(); else abrirAuto(); }
+  else if(t.id === "disciplina" || t.id === "selAno") abrirAuto();
+  else if(["bEscola", "bTurma", "bAno", "bPer"].includes(t.id)) mudouBoletim(t.id);
   else if(t.id === "selMinhas" && t.value){ const [tu, d, a] = t.value.split("|"); t.value = ""; abrirPlanilha(tu, d, a); }
   else if(t.id === "rPer"){ desenharPesos([...document.querySelectorAll("[data-peso]")].map(el => +el.value)); ajudaRegra(); }
   else if(t.closest && t.closest("#regraForm")) ajudaRegra();
@@ -864,6 +899,227 @@ document.addEventListener("keydown", ev => {
   } else if(ev.key === "Escape") ACOES.fechar();
 });
 document.addEventListener("visibilitychange", () => { if(document.hidden && E.salvarT){ clearTimeout(E.salvarT); gravar(); } });
+
+/* ===================== PDF: mapa de notas (professor) e boletim escolar (escola) ===================== */
+const pdfTx = s => String(s == null ? "" : s).replace(/[^\u0000-ÿ–—•]/g, "").replace(/\s+/g, " ").trim();
+const NOME_TURNO = { matutino:"Matutino", vespertino:"Vespertino", noturno:"Noturno", integral:"Integral" };
+function pdfNovo(paisagem){
+  if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return null; }
+  return new window.jspdf.jsPDF({ unit:"mm", format:"a4", orientation:paisagem ? "landscape" : "portrait" });
+}
+function logoPng(url){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), t = setTimeout(() => ok(null), 7000);
+    img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(t); try{ const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k)); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      ok({ url:c.toDataURL("image/png"), w:c.width, h:c.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(t); ok(null); };
+    img.src = url;
+  });
+}
+// brasão do município e nome da escola (cache por escola)
+const MARCAS = {};
+async function pdfMarca(t){
+  const muni = (t && t.municipio_id) || E.u.municipio_id || "", ch = muni + "|" + ((t && t.escola_id) || "");
+  if(MARCAS[ch]) return MARCAS[ch];
+  let m = {}, escola = (t && t.escola_nome) || "";
+  try{ const d = await getDoc(doc(db, "municipios", muni)); if(d.exists()) m = d.data(); }catch(e){}
+  if(!escola && t && t.escola_id){ try{ const d = await getDoc(doc(db, "escolas", t.escola_id)); if(d.exists()) escola = d.data().nome || ""; }catch(e){} }
+  return (MARCAS[ch] = { municipio:m.nome || (t && t.municipio_nome) || "", uf:m.uf || "", escola, logo:await logoPng(m.logo_url) });
+}
+function pdfCabecalho(pdf, titulo, linhas, mc, ano){
+  const W = pdf.internal.pageSize.getWidth(), lado = 20;
+  pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 27, "F");
+  pdf.setFillColor(26, 107, 42); pdf.rect(0, 27, W, 1.4, "F");
+  let x = 12;
+  if(mc.logo){ pdf.setFillColor(255, 255, 255); pdf.roundedRect(12, 3.5, lado, lado, 2, 2, "F");
+    const m = 1.4, k = Math.min((lado - 2 * m) / mc.logo.w, (lado - 2 * m) / mc.logo.h), w = mc.logo.w * k, h = mc.logo.h * k;
+    pdf.addImage(mc.logo.url, "PNG", 12 + (lado - w) / 2, 3.5 + (lado - h) / 2, w, h); x = 12 + lado + 5; }
+  pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.text(pdfTx(mc.escola || "Escola").slice(0, 70), x, 12);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
+  pdf.text(pdfTx((mc.municipio ? "Secretaria Municipal de Educação de " + mc.municipio + (mc.uf ? "/" + mc.uf : "") + " · " : "") + "Ano letivo " + ano), x, 18.5);
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.text("PORTAL DO EDUCADOR", W - 12, 12, { align:"right" });
+  pdf.setTextColor(15, 44, 74); pdf.setFontSize(14); pdf.text(pdfTx(titulo), 12, 38);
+  pdf.setFontSize(9.2); let y = 44.5;
+  linhas.forEach(par => { let xx = 12; par.forEach(([rot, val]) => { pdf.setFont("helvetica", "bold"); pdf.text(pdfTx(rot) + ": ", xx, y); const w = pdf.getTextWidth(pdfTx(rot) + ": ");
+    pdf.setFont("helvetica", "normal"); pdf.text(pdfTx(val || "-"), xx + w, y); xx += Math.max(w + pdf.getTextWidth(pdfTx(val || "-")) + 9, (W - 24) / par.length); }); y += 5.2; });
+  pdf.setDrawColor(210, 220, 230); pdf.line(12, y - 2, W - 12, y - 2);
+  return y + 3;
+}
+function pdfRodapes(pdf){
+  const n = pdf.getNumberOfPages(), W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  const quando = new Date().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  for(let i = 1; i <= n; i++){ pdf.setPage(i); pdf.setDrawColor(210, 220, 230); pdf.line(12, H - 12, W - 12, H - 12);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(110, 130, 150);
+    pdf.text(pdfTx("Emitido por " + (E.u.nome || "") + " em " + quando + " · Portal do Educador · app.portaldoeducador.com.br"), 12, H - 7.5);
+    pdf.text("Página " + i + " de " + n, W - 12, H - 7.5, { align:"right" }); }
+}
+function pdfAssinaturas(pdf, y, nomes){
+  const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
+  if(y > H - 34){ pdf.addPage(); y = 30; }
+  const larg = (W - 24 - (nomes.length - 1) * 14) / nomes.length;
+  pdf.setDrawColor(90, 110, 130); pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5); pdf.setTextColor(60, 80, 100);
+  nomes.forEach((n, i) => { const x = 12 + i * (larg + 14); pdf.line(x, y + 12, x + larg, y + 12); pdf.text(pdfTx(n), x + larg / 2, y + 16.5, { align:"center" }); });
+  return y + 22;
+}
+// tabela simples: colunas [{t, w, a}] (a = "l" ou "c"); linhas = arrays de texto ou {v, cor, b}
+function pdfTabela(pdf, y, cols, linhas, opt){
+  const H = pdf.internal.pageSize.getHeight(), lh = (opt && opt.lh) || 6.2, x0 = 12;
+  const cab = () => { pdf.setFillColor(238, 243, 248); pdf.rect(x0, y - 4.4, cols.reduce((s, c) => s + c.w, 0), lh + 0.6, "F");
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.8); pdf.setTextColor(60, 80, 100); let x = x0;
+    cols.forEach(c => { pdf.text(pdfTx(c.t), c.a === "l" ? x + 2 : x + c.w / 2, y, { align:c.a === "l" ? "left" : "center" }); x += c.w; }); y += lh + 0.6; };
+  cab();
+  linhas.forEach((l, i) => {
+    if(y > H - 22){ pdf.addPage(); y = 20; cab(); }
+    if(i % 2){ pdf.setFillColor(248, 250, 252); pdf.rect(x0, y - 4.2, cols.reduce((s, c) => s + c.w, 0), lh, "F"); }
+    let x = x0;
+    l.forEach((v, k) => { const c = cols[k], o = v && typeof v === "object" ? v : { v };
+      pdf.setFont("helvetica", o.b ? "bold" : "normal"); pdf.setFontSize(8.6); const cor = o.cor || [15, 44, 74]; pdf.setTextColor(cor[0], cor[1], cor[2]);
+      let tx = pdfTx(o.v); while(tx.length > 2 && pdf.getTextWidth(tx) > c.w - 3) tx = tx.slice(0, -2);
+      pdf.text(tx, c.a === "l" ? x + 2 : x + c.w / 2, y, { align:c.a === "l" ? "left" : "center" }); x += c.w; });
+    y += lh;
+  });
+  return y;
+}
+const COR_SIT = { ok:[60, 110, 30], ruim:[185, 50, 40], att:[150, 100, 0], az:[31, 95, 145], cinza:[110, 130, 150] };
+const turnoDeT = t => NOME_TURNO[(String(t && t.turno || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().match(/^(mat|manha|vesp|tarde|not|int)/) || [""])[0]
+  .replace(/^manha$/, "mat").replace(/^tarde$/, "vesp").replace(/^mat$/, "matutino").replace(/^vesp$/, "vespertino").replace(/^not$/, "noturno").replace(/^int$/, "integral")] || "";
+
+// 1) mapa de notas da disciplina (professor): aluno x período, média anual, frequência e situação
+async function pdfMapa(){
+  if(!E.P || !E.alunos.length){ toast("Abra a planilha da turma primeiro.", true); return; }
+  const pdf = pdfNovo(true); if(!pdf) return;
+  const P = E.P, R = E.regra, c = R.nota_max === 100 ? 0 : 1, t = E.turmas.find(x => x.id === P.turma_id) || { escola_id:P.escola_id, municipio_id:P.municipio_id, nome:P.turma_nome };
+  const mc = await pdfMarca(t);
+  let y = pdfCabecalho(pdf, "Mapa de notas · " + P.disciplina, [
+    [["Turma", (P.turma_nome || "") + (turnoDeT(t) ? " · " + turnoDeT(t) : "")], ["Professor(a)", P.professor_nome || E.u.nome || ""], ["Ano letivo", String(P.ano_letivo)]],
+    [["Regra", "média " + fmt(R.media_minima, c) + " · " + R.periodos + " " + NOME_PER[R.periodos] + "s · frequência mínima " + R.freq_minima + "%"]]
+  ], mc, P.ano_letivo);
+  const cols = [{ t:"Nº", w:9, a:"c" }, { t:"Aluno", w:70, a:"l" }, ...Array.from({ length:R.periodos }, (_, k) => ({ t:(k + 1) + "º " + NOME_PER[R.periodos].slice(0, 3) + ".", w:17, a:"c" })),
+    { t:"Média anual", w:20, a:"c" }, { t:"Faltas", w:14, a:"c" }, { t:"Freq.", w:14, a:"c" }, ...(R.rec_final ? [{ t:"Exame", w:14, a:"c" }, { t:"Média final", w:18, a:"c" }] : []), { t:"Situação", w:0, a:"l" }];
+  const usado = cols.reduce((s, x) => s + x.w, 0); cols[cols.length - 1].w = pdf.internal.pageSize.getWidth() - 24 - usado;
+  const nota = (v, ok) => v === null || v === undefined ? "-" : { v:fmt(v, c), cor:v >= ok ? [60, 110, 30] : [185, 50, 40] };
+  const linhas = E.alunos.map((a, i) => { const r = calcAluno(a.id);
+    return [String(i + 1), a.nome, ...r.per.map(x => nota(x.m, R.media_minima)), r.ma === null ? "-" : { v:fmt(r.ma, c) + (r.completo ? "" : "*"), b:true, cor:r.ma >= R.media_minima ? [60, 110, 30] : [185, 50, 40] },
+      String(r.faltas || 0), r.freq === null ? "-" : fmt(r.freq, 0) + "%", ...(R.rec_final ? [fmt((P.exame || {})[a.id], 2) || "-", r.mf !== undefined ? fmt(r.mf, c) : "-"] : []), { v:r.sit[1], cor:COR_SIT[r.sit[0]] }]; });
+  y = pdfTabela(pdf, y + 2, cols, linhas, { lh:5.8 });
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.8); pdf.setTextColor(110, 130, 150);
+  pdf.text("* média parcial: ainda faltam notas de algum período.", 12, y + 4);
+  pdfAssinaturas(pdf, y + 8, ["Professor(a): " + (P.professor_nome || E.u.nome || ""), "Coordenação pedagógica", "Direção"]);
+  pdfRodapes(pdf); pdf.save("mapa-de-notas-" + slug(P.turma_nome) + "-" + slug(P.disciplina) + "-" + P.ano_letivo + ".pdf");
+}
+
+// 2) boletim escolar: todas as disciplinas da turma, uma página por aluno (Direção e Secretaria da escola)
+const B = { iniciado:false, dados:null };
+const ordemDisc = d => { const i = DISC.indexOf(d); return i < 0 ? 99 : i; };
+async function abrirBoletins(){
+  if(!B.iniciado){
+    B.iniciado = true;
+    const escolas = [...new Set(E.turmas.map(t => t.escola_id))];
+    $("bEscola").hidden = escolas.length < 2;
+    $("bEscola").innerHTML = escolas.map(id => '<option value="' + esc(id) + '">' + esc((E.turmas.find(t => t.escola_id === id) || {}).escola_nome || id) + "</option>").join("");
+    const ano = new Date().getFullYear();
+    $("bAno").innerHTML = [ano, ano - 1].map(a => '<option value="' + a + '">' + a + "</option>").join("");
+    desenharTurmasBol();
+  }
+  if(!B.dados) await carregarBoletim();
+  desenharBoletim();
+}
+function desenharTurmasBol(){
+  const esc0 = $("bEscola").value || (E.turmas[0] || {}).escola_id, l = E.turmas.filter(t => t.escola_id === esc0);
+  $("bTurma").innerHTML = l.length ? l.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (turnoDeT(t) ? " · " + turnoDeT(t) : "") + "</option>").join("") : '<option value="">Nenhuma turma</option>';
+}
+async function mudouBoletim(id){ if(id === "bEscola") desenharTurmasBol(); if(id !== "bPer") B.dados = null; if(!B.dados) await carregarBoletim(); desenharBoletim(); }
+async function carregarBoletim(){
+  const t = E.turmas.find(x => x.id === $("bTurma").value), ano = +$("bAno").value;
+  $("boxBoletins").innerHTML = '<div class="carregando"><div class="giro"></div>Juntando as notas da turma...</div>';
+  if(!t){ B.dados = { t:null }; return; }
+  await carregarRegra(t.municipio_id || E.u.municipio_id || "");
+  const pegaL = q => getDocs(q).then(s => { const l = []; s.forEach(d => l.push({ id:d.id, ...d.data() })); return l; }).catch(e => { console.warn("boletim:", e.code); return null; });
+  const [pls, als, rs] = await Promise.all([
+    pegaL(query(collection(db, "notas_planilhas"), where("escola_id", "==", t.escola_id), where("turma_id", "==", t.id))),
+    pegaL(query(collection(db, "alunos"), where("turma_id", "==", t.id), where("escola_id", "==", t.escola_id))),
+    getDoc(doc(db, "freq_resumo", t.id + "_" + ano)).then(s => s.exists() ? s.data() : null).catch(() => null)
+  ]);
+  // uma planilha por disciplina: a mais recente (dois professores na mesma disciplina = a última atualizada)
+  const porDisc = {};
+  (pls || []).filter(p => +p.ano_letivo === ano).forEach(p => { const k = slug(p.disciplina), x = porDisc[k], tm = v => v && v.toMillis ? v.toMillis() : 0; if(!x || tm(p.atualizado_em) > tm(x.atualizado_em)) porDisc[k] = p; });
+  const planilhas = Object.values(porDisc).sort((a, b) => ordemDisc(a.disciplina) - ordemDisc(b.disciplina) || a.disciplina.localeCompare(b.disciplina, "pt-BR"));
+  planilhas.forEach(p => ["notas", "faltas", "aulas", "exame", "conselho"].forEach(k => { if(!p[k] || typeof p[k] !== "object") p[k] = {}; }));
+  const alunos = (als || []).filter(a => a.nome && a.status !== "inativo").sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  B.dados = { t, ano, planilhas, alunos, resumo:rs, erro:pls === null };
+  const per = $("bPer").value; $("bPer").innerHTML = '<option value="">Ano todo</option>' + Array.from({ length:E.regra.periodos }, (_, k) => '<option value="' + (k + 1) + '">Até o ' + (k + 1) + "º " + NOME_PER[E.regra.periodos] + "</option>").join(""); $("bPer").value = per && +per <= E.regra.periodos ? per : "";
+}
+// situação geral do aluno no conjunto das disciplinas e na frequência da turma (chamadas)
+function situacaoGeral(rs, fg){
+  const R = E.regra;
+  if(rs.some(r => /frequência/.test(r.sit[1]) && r.completo) || (fg !== null && fg < R.freq_minima && rs.length && rs.every(r => r.completo))) return ["ruim", "Reprovado por frequência"];
+  if(rs.some(r => r.sit[1] === "Reprovado")) return ["ruim", "Reprovado"];
+  if(rs.some(r => r.sit[1] === "Exame final")) return ["att", "Em exame final"];
+  if(rs.length && rs.every(r => r.completo && /^Aprovado/.test(r.sit[1]))) return ["ok", "Aprovado"];
+  return ["cinza", "Cursando"];
+}
+function linhaBoletim(a){
+  const D = B.dados, rs = D.planilhas.map(p => ({ p, r:calcAluno(a.id, p) })), x = D.resumo && D.resumo.alunos ? D.resumo.alunos[a.id] : null;
+  const fg = x && x.a ? 100 * (x.a - x.f) / x.a : null;
+  return { a, rs, fg, aulas:x ? x.a : 0, faltas:x ? x.f : 0, sit:situacaoGeral(rs.map(y => y.r), fg) };
+}
+function desenharBoletim(){
+  const D = B.dados, R = E.regra, c = R.nota_max === 100 ? 0 : 1;
+  if(!D || !D.t){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Escolha a turma</b></div>'; return; }
+  if(D.erro){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Sem permissão para ver as notas desta turma</b>O boletim é emitido pela Direção e pela Secretaria da escola.</div>'; return; }
+  if(!D.planilhas.length){ $("boxBoletins").innerHTML = '<div class="vazio card"><b>Nenhum professor lançou notas nesta turma em ' + D.ano + '</b>As disciplinas entram no boletim conforme os professores lançam as notas em Notas e Médias.</div>'; return; }
+  const L = D.alunos.map(linhaBoletim);
+  $("boxBoletins").innerHTML = '<div class="card barra"><div><div class="h2">' + esc(D.t.nome) + " · " + D.ano + '</div><div class="sub">Disciplinas com notas: ' + D.planilhas.map(p => esc(p.disciplina) + " (" + esc(String(p.professor_nome || "").split(" ")[0]) + ")").join(", ") + '</div></div><span class="esp"></span>' +
+      '<button class="btn btn-ok" data-action="bol-turma">📄 Boletins da turma (PDF)</button></div>' +
+    '<div class="grade-wrap"><table class="grade resultado bol-tab"><thead><tr><th class="nome">Aluno</th>' + D.planilhas.map(p => "<th>" + esc(p.disciplina) + "<small>média</small></th>").join("") + "<th>Freq.<small>chamadas</small></th><th>Situação</th><th></th></tr></thead><tbody>" +
+    L.map((l, i) => '<tr><td class="nome">' + (i + 1) + ". " + esc(l.a.nome) + "</td>" + l.rs.map(({ r }) => '<td class="med ' + (r.ma === null ? "" : r.ma >= R.media_minima ? "ok" : "baixa") + '">' + (r.ma === null ? "–" : fmt(r.ma, c)) + "</td>").join("") +
+      '<td class="med">' + (l.fg === null ? "–" : fmt(l.fg, 0) + "%") + '</td><td><span class="pill ' + l.sit[0] + '">' + esc(l.sit[1]) + '</span></td><td><button class="btn btn-gh btn-sm" data-action="bol-aluno" data-arg="' + esc(l.a.id) + '">PDF</button></td></tr>').join("") +
+    "</tbody></table></div><p class=\"sub\" style=\"margin-top:8px\">Média anual parcial enquanto faltarem notas. A frequência é a das chamadas da turma (todas as disciplinas).</p>";
+}
+async function pdfBoletins(soAluno){
+  const D = B.dados; if(!D || !D.t || !D.planilhas.length) return;
+  const pdf = pdfNovo(false); if(!pdf) return;
+  const R = E.regra, c = R.nota_max === 100 ? 0 : 1, ate = +$("bPer").value || R.periodos, mc = await pdfMarca(D.t);
+  const lista = D.alunos.filter(a => !soAluno || a.id === soAluno).map(linhaBoletim);
+  const W = pdf.internal.pageSize.getWidth();
+  lista.forEach((l, i) => {
+    if(i) pdf.addPage();
+    const nasc = l.a.nascimento ? String(l.a.nascimento).split("-").reverse().join("/") : "";
+    let y = pdfCabecalho(pdf, "Boletim escolar " + D.ano + (ate < R.periodos ? " · até o " + ate + "º " + NOME_PER[R.periodos] : ""), [
+      [["Aluno(a)", l.a.nome_social || l.a.nome], ["Matrícula", l.a.matricula || "-"]],
+      [["Turma", D.t.nome + (turnoDeT(D.t) ? " · " + turnoDeT(D.t) : "")], ["Nascimento", nasc || "-"], ["Nº", String(D.alunos.indexOf(l.a) + 1)]]
+    ], mc, D.ano);
+    const cols = [{ t:"Componente curricular", w:44, a:"l" }, ...Array.from({ length:R.periodos }, (_, k) => ({ t:(k + 1) + "º " + NOME_PER[R.periodos].slice(0, 3) + ".", w:52 / R.periodos, a:"c" })),
+      { t:"Média anual", w:18, a:"c" }, ...(R.rec_final ? [{ t:"Exame", w:13, a:"c" }, { t:"Média final", w:16, a:"c" }] : []), { t:"Faltas", w:12, a:"c" }, { t:"Situação", w:0, a:"l" }];
+    cols[cols.length - 1].w = W - 24 - cols.reduce((s, x) => s + x.w, 0);
+    const nota = v => v === null || v === undefined ? "-" : { v:fmt(v, c), cor:v >= R.media_minima ? [60, 110, 30] : [185, 50, 40] };
+    const linhas = l.rs.map(({ p, r }) => { const fim = ate >= R.periodos;
+      return [{ v:p.disciplina, b:true }, ...r.per.map((x, k) => k < ate ? nota(x.m) : "-"),
+        fim && r.ma !== null ? { v:fmt(r.ma, c) + (r.completo ? "" : "*"), b:true, cor:r.ma >= R.media_minima ? [60, 110, 30] : [185, 50, 40] } : "-",
+        ...(R.rec_final ? [fim ? fmt((p.exame || {})[l.a.id], 2) || "-" : "-", fim && r.mf !== undefined ? fmt(r.mf, c) : "-"] : []),
+        String(Object.entries((p.faltas || {})[l.a.id] || {}).filter(([k]) => +k <= ate).reduce((s, [, v]) => s + (+v || 0), 0)),
+        fim ? { v:r.sit[1], cor:COR_SIT[r.sit[0]] } : { v:"Cursando", cor:COR_SIT.cinza }]; });
+    y = pdfTabela(pdf, y + 2, cols, linhas, { lh:6.6 });
+    y += 6;
+    pdf.setFillColor(244, 247, 250); pdf.roundedRect(12, y - 4, W - 24, 16, 2, 2, "F");
+    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9.5); pdf.setTextColor(15, 44, 74);
+    pdf.text("Frequência geral: " + (l.fg === null ? "sem chamadas lançadas" : fmt(l.fg, 1) + "% (" + l.faltas + " faltas em " + l.aulas + " aulas)"), 16, y + 1.5);
+    const sg = ate >= R.periodos ? l.sit : ["cinza", "Cursando"], cor = COR_SIT[sg[0]];
+    pdf.text("Situação: ", 16, y + 8); pdf.setTextColor(cor[0], cor[1], cor[2]); pdf.text(pdfTx(sg[1]), 16 + pdf.getTextWidth("Situação: "), y + 8);
+    y += 18;
+    const obs = l.rs.map(({ p }) => { const cs = (p.conselho || {})[l.a.id]; return cs && cs.aprovado ? p.disciplina + ": aprovado pelo conselho de classe" + (cs.justificativa ? " (" + cs.justificativa + ")" : "") : ""; }).filter(Boolean);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(90, 110, 130);
+    const leg = "Média mínima " + fmt(R.media_minima, c) + (R.rec_final ? " · média final após exame " + fmt(R.media_final_minima, c) : "") + " · frequência mínima " + R.freq_minima + "% · * média parcial";
+    pdf.text(pdfTx(leg), 12, y); y += 5;
+    if(obs.length){ const t2 = pdf.splitTextToSize(pdfTx("Observações: " + obs.join("; ")), W - 24); pdf.text(t2, 12, y); y += t2.length * 4 + 2; }
+    pdfAssinaturas(pdf, y + 8, ["Direção", "Secretaria escolar", "Responsável"]);
+  });
+  pdfRodapes(pdf);
+  pdf.save(soAluno && lista[0] ? "boletim-" + slug(lista[0].a.nome) + "-" + D.ano + ".pdf" : "boletins-" + slug(D.t.nome) + "-" + D.ano + ".pdf");
+}
 
 /* ===================== início ===================== */
 onAuthStateChanged(auth, async user => {
@@ -885,6 +1141,11 @@ onAuthStateChanged(auth, async user => {
   await Promise.all([carregarTurmas(), carregarMinhas()]);
   $("carregando").hidden = true;
   if(u.perfil === "secretaria" && !E.turmas.length) E.sec = "regra";
+  // boletim escolar: Direção, Secretaria da escola e administrador
+  const podeBol = E.admin || ["gestor", "secretaria_escolar"].includes(u.perfil);
+  $("tabBoletins").hidden = !podeBol;
+  if(u.perfil === "secretaria_escolar" || location.hash === "#boletins" && podeBol){ E.sec = "boletins";
+    if(u.perfil === "secretaria_escolar") document.querySelectorAll('[data-action="ir"][data-arg="notas"],[data-action="ir"][data-arg="resultado"]').forEach(b => { b.hidden = true; }); desenhar(); return; }
   let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_notas_ultima_" + E.user.uid) || "null"); }catch(e){}
   if(ult && E.turmas.some(t => t.id === ult.t)) await abrirPlanilha(ult.t, ult.d, ult.a); else desenhar();
 });

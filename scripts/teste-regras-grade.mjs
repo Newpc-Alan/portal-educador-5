@@ -2,7 +2,7 @@
 //   firebase emulators:exec --only firestore --project demo-pe5 "node scripts/teste-regras-grade.mjs firestore.rules"
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
 const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
@@ -27,5 +27,9 @@ await t('portaria: não', assertFails(updateDoc(doc(fs('po'), 'turmas/t1'), { gr
 await t('professor que não criou a turma: não', assertFails(updateDoc(doc(fs('p1'), 'turmas/t1'), { grade })));
 await t('grade grande demais: não', assertFails(updateDoc(doc(fs('g1'), 'turmas/t1'), { grade: Array.from({ length: 31 }, () => grade[0]) })));
 await t('grade precisa ser lista', assertFails(updateDoc(doc(fs('g1'), 'turmas/t1'), { grade: 'x' })));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'notas_planilhas/p1_t1_ciencias_2026'), { professor_uid: 'p1', escola_id: 'e1', municipio_id: 'm1', turma_id: 't1' }); });
+await t('secretaria da escola lê as notas (boletim)', assertSucceeds(getDoc(doc(fs('se1'), 'notas_planilhas/p1_t1_ciencias_2026'))));
+await t('secretaria da escola não grava notas', assertFails(setDoc(doc(fs('se1'), 'notas_planilhas/se1_t1_ciencias_2026'), { professor_uid: 'se1', escola_id: 'e1', municipio_id: 'm1', turma_id: 't1' })));
+await t('portaria não lê as notas', assertFails(getDoc(doc(fs('po'), 'notas_planilhas/p1_t1_ciencias_2026'))));
 console.log(`grade: ${ok} ok, ${falha} falha(s)`);
 await env.cleanup(); process.exit(falha ? 1 : 0);
