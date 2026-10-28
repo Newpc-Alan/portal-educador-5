@@ -917,6 +917,19 @@ service cloud.firestore {
       allow read: if admin() || (licenciado() && resource.data.publicado == true);
       allow write: if admin();
     }
+    // Meus materiais do IA Studio: o pedido que o professor montou (para gerar de novo ou variar). So o dono le e mexe.
+    match /ia_materiais/{id} {
+      allow read, delete: if logado() && resource.data.uid == request.auth.uid;
+      allow create: if (licenciado() || admin()) && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(["uid", "titulo", "area", "area_nome", "pasta", "modo", "valores", "turma_id", "turma_nome", "ia", "favorito", "criado_em", "usado_em"])
+        && request.resource.data.titulo is string && request.resource.data.titulo.size() <= 160
+        && request.resource.data.pasta is string && request.resource.data.pasta.size() <= 80
+        && request.resource.data.valores is map && request.resource.data.valores.size() <= 6
+        && request.resource.data.favorito == false;
+      allow update: if logado() && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["favorito", "ia", "usado_em", "titulo"])
+        && request.resource.data.favorito is bool;
+    }
 
     // configuracao do Portal (ex.: quais botoes estao liberados)
     match /config/{id} { allow read: if licenciado() || aluno(); allow write: if admin(); }
