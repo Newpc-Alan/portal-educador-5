@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>IA Studio · Portal do Educador</title>
+<title>IA do Educador · Portal do Educador</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <meta name="theme-color" content="#071621">
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,8 +147,8 @@ h2{font-size:1.12rem;font-weight:800}
 <body>
 <div class="app">
   <header class="topo">
-    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>IA Studio</b><span id="quem">Carregando...</span></div></div>
-    <a class="tb" href="#inicio" data-action="ir-inicio" id="btnInicio" hidden>IA Studio</a>
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>IA do Educador</b><span id="quem">Carregando...</span></div></div>
+    <a class="tb" href="#inicio" data-action="ir-inicio" id="btnInicio" hidden>Início da IA</a>
     <a class="tb lima" href="/entrar/">Voltar ao Portal</a>
   </header>
   <div class="carreg" id="carregando" style="justify-content:center;padding:70px 0"><span class="giro"></span>Carregando...</div>
@@ -159,6 +160,7 @@ h2{font-size:1.12rem;font-weight:800}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where, limit, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import { montar as montarMotor, ATIVIDADE, tipoDe, tituloDe, VERSAO_MOTOR } from "/apps/ia-studio/motor.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
@@ -389,7 +391,7 @@ async function carregarTurmas(){
   try{ if(escId){ const s = await getDoc(doc(db, "escolas", escId)); if(s.exists()) E.ident.escola = s.data().nome || ""; } }catch(e){}
   try{
     const mid = E.u.municipio_id || "";
-    if(mid){ const s = await getDoc(doc(db, "municipios", mid)); if(s.exists()){ const m = s.data(); E.ident.municipio = (m.nome || "") + (m.uf ? "/" + m.uf : ""); } }
+    if(mid){ const s = await getDoc(doc(db, "municipios", mid)); if(s.exists()){ const m = s.data(); E.ident.municipio = (m.nome || "") + (m.uf ? "/" + m.uf : ""); E.marca = { municipio:m.nome || "", uf:m.uf || "", logo_url:m.logo_url || "" }; } }
   }catch(e){}
 }
 async function carregarMateriais(){
@@ -418,6 +420,7 @@ function desenhar(){
   if(v === "pronto") return telaPronto();
   if(v.startsWith("fam:")) return telaFamilia(v.slice(4));
   if(v === "catalogo") return telaCatalogo();
+  if(v === "material") return telaMaterial();
 }
 function cartaoApp(pasta, extra){
   const a = E.apps[pasta]; if(!a) return "";
@@ -434,7 +437,7 @@ function telaInicio(){
   const nFicha = [...AREAS, ...TEMAS, ...FORMATOS].filter(x => E.apps[x.pasta]).length;
   $("tela").innerHTML =
   '<div class="pilha">' +
-  '<section class="caixa hero"><div class="hero-top"><div><span class="olho">IA Studio</span><h1>O que você quer preparar hoje?</h1>' +
+  '<section class="caixa hero"><div class="hero-top"><div><span class="olho">IA do Educador</span><h1>O que você quer preparar hoje?</h1>' +
     '<p class="sub">Você escolhe e ajusta aqui. A IA gratuita que você já usa (ChatGPT ou Gemini) devolve o material pronto em PDF.</p></div>' +
     '<label class="campo">Para a turma<select class="sel" id="selTurma" style="min-width:260px">' + opTurmas() + "</select>" +
     '<span class="peq" id="turmaInfo"></span></label></div>' +
@@ -466,8 +469,8 @@ function desenharMateriais(){
   if(!E.materiais.length){ el.innerHTML = '<p class="peq" style="padding:6px 0">Quando você gerar um material, o pedido fica aqui para gerar de novo com um toque ou fazer uma variação.</p>'; return; }
   el.innerHTML = E.materiais.slice(0, 8).map(m =>
     '<div class="mat"><button type="button" class="estrela' + (m.favorito ? " on" : "") + '" data-action="mat-fav" data-arg="' + esc(m.id) + '" aria-pressed="' + (!!m.favorito) + '" aria-label="' + (m.favorito ? "Tirar dos favoritos" : "Marcar como favorito") + '">★</button>' +
-    '<div class="info"><b>' + esc(m.titulo || "Material") + '</b><span class="peq">' + esc([m.turma_nome, quando(m.usado_em || m.criado_em), m.ia ? "gerado no " + (IAS[m.ia] ? IAS[m.ia].nome : m.ia) : ""].filter(Boolean).join(" · ")) + "</span></div>" +
-    '<div class="acs"><button type="button" class="btn btn-gh btn-sm" data-action="mat-gerar" data-arg="' + esc(m.id) + '">Gerar de novo</button>' +
+    '<div class="info"><b>' + esc(m.titulo || "Material") + '</b><span class="peq">' + esc([m.turma_nome, quando(m.usado_em || m.criado_em), m.ia === "integrada" ? "feito pela IA do Educador" : m.ia ? "gerado no " + (IAS[m.ia] ? IAS[m.ia].nome : m.ia) : ""].filter(Boolean).join(" · ")) + "</span></div>" +
+    '<div class="acs">' + (m.conteudo ? '<button type="button" class="btn btn-nv btn-sm" data-action="mat-abrir" data-arg="' + esc(m.id) + '">Abrir a ficha</button>' : '<button type="button" class="btn btn-gh btn-sm" data-action="mat-gerar" data-arg="' + esc(m.id) + '">Gerar de novo</button>') +
     '<button type="button" class="btn btn-cl btn-sm" data-action="mat-variar" data-arg="' + esc(m.id) + '">Fazer variação</button>' +
     '<button type="button" class="btn btn-gh btn-sm" data-action="mat-del" data-arg="' + esc(m.id) + '" aria-label="Remover da lista">Remover</button></div></div>').join("") +
     (E.materiais.length > 8 ? '<p class="peq" style="margin-top:8px">Mostrando os 8 mais recentes de ' + E.materiais.length + ".</p>" : "");
@@ -522,7 +525,7 @@ function telaFicha(){
     '<section class="resumo" aria-labelledby="tRes"><h2 id="tRes">Seu material</h2><p id="resumo" style="font-size:.93rem;color:var(--texto)"></p>' +
       '<div class="cab-doc"><b style="display:block;font-size:.78rem;color:var(--muted)">Cabeçalho do seu cadastro</b>' + esc([E.ident.escola, E.ident.municipio, E.ident.prof].filter(Boolean).join(" · ") || "Complete seu cadastro no Portal para sair no cabeçalho.") + "</div></section>" +
     '<section class="regras" id="regrasArea">' + regrasHtml() + "</section>" +
-    '<section class="gerar" aria-labelledby="tGer"><h2 id="tGer">Gerar o material</h2><p>O comando vai copiado e a IA abre em outra aba. Funciona na conta gratuita.</p>' +
+    '<section class="gerar" aria-labelledby="tGer"><h2 id="tGer">Gerar o material</h2><div id="iaIntegrada"></div><p id="iaCopiar">O comando vai copiado e a IA abre em outra aba. Funciona na conta gratuita.</p>' +
       '<button type="button" class="btn btn-gpt" data-action="gerar" data-arg="chatgpt">Gerar no ChatGPT</button>' +
       '<button type="button" class="btn btn-gem" data-action="gerar" data-arg="gemini">Gerar no Gemini</button><div id="gerAviso"></div></section>' +
   "</aside></div></div>";
@@ -596,7 +599,7 @@ function desenharTiposMotor(p){
   $("tipos").innerHTML = '<div class="tipos">' + proprios.map(bt).join("") + "</div>" +
     '<span class="rot" style="display:block;margin:14px 0 8px">Novos, para qualquer disciplina</span><div class="tipos">' + gerais.map(bt).join("") + "</div>" +
     '<div class="campos" style="margin-top:6px" id="camposModo">' + tipo.campos.map(c => campoMotor(c, val(c.id))).join("") + "</div>";
-  dependencias(); resumo();
+  dependencias(); resumo(); painelIa();
 }
 function desenharComunsMotor(p){
   const n = serieDaTurma(), serie = p ? p.serie : (n ? n + "º Ano" : "6º Ano");
@@ -793,6 +796,169 @@ function telaPronto(){
   $("cmd").textContent = u.cmd;   // por texto: o <pre> engoliria a primeira quebra de linha do comando
 }
 /* ---------- famílias e catálogo ---------- */
+/* ===================== IA do Educador: a IA integrada ===================== */
+const PADRAO_IA = { ativo:true, municipios:["lab-muni"], todos:false };
+async function carregarIa(){
+  let c = {}; try{ const s = await getDoc(doc(db, "config", "ia")); if(s.exists()) c = s.data(); }catch(e){}
+  const cfg = { ...PADRAO_IA, ...c };
+  E.iaLiberada = E.admin || (cfg.ativo !== false && (cfg.todos || (cfg.municipios || []).includes(E.u.municipio_id)));
+}
+const iaServe = () => E.iaLiberada && E.area && E.area.motor && E.modo === "exercicios";
+function painelIa(){
+  const el = $("iaIntegrada"), cp = $("iaCopiar"); if(!el) return;
+  if(!iaServe()){ el.innerHTML = ""; if(cp) cp.textContent = "O comando vai copiado e a IA abre em outra aba. Funciona na conta gratuita."; return; }
+  el.innerHTML = '<button type="button" class="btn" style="width:100%;background:var(--lima);color:var(--escuro)" data-action="gerar-ia">Fazer com a IA do Educador</button>' +
+    '<p style="margin-top:6px">A ficha sai pronta aqui, com o cabeçalho da escola, em PDF para imprimir.</p>';
+  if(cp) cp.textContent = "Ou copie o comando para a sua IA:";
+}
+const fn = (nome, ms) => httpsCallable(getFunctions(app, "southamerica-east1"), nome, { timeout:ms || 180000 });
+async function gerarIa(){
+  const r = coletarMotor(); if(r.faltam.length){ $("gerAviso").innerHTML = '<div class="aviso" style="margin-top:6px">Preencha: ' + esc(r.faltam.join(", ")) + ".</div>"; return; }
+  const p = r.pedido, t = turmaAtual();
+  const dados = { entrega:"atividade", tipo:"exercicios", area:p.area, tema:p.campos["g-tema"], serie:p.serie, qtd:Number(p.campos["g-qtd"]), tipos:(p.chips["g-tipos"] || []),
+    temaLivre:p.temaLivre, bncc:p.bncc, incl:p.incl, turma_id:t ? t.id : "", turma_nome:t ? String(t.nome || "") : "" };
+  const esp = document.createElement("div"); esp.className = "palco"; esp.style.cssText = "background:rgba(7,22,33,.6);align-items:center;justify-content:center";
+  esp.innerHTML = '<div class="caixa" style="max-width:420px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center"><span class="giro" style="width:34px;height:34px"></span><b style="font-size:1.1rem">A IA do Educador está escrevendo sua ficha</b><span class="sub">Ela confere as respostas antes de entregar. Leva até um minuto.</span></div>';
+  document.body.appendChild(esp);
+  try{
+    const res = await fn("iaEducadorGerar")(dados);
+    const d = res.data || {};
+    E.material = { id:d.id, conteudo:d.conteudo, pedido:{ ...dados, cor:p.cor }, restante:d.restante };
+    const novo = { id:d.id, titulo:(d.conteudo.titulo || "Ficha") + " · " + E.area.nome, conteudo:d.conteudo, ia:"integrada", turma_nome:dados.turma_nome, usado_em:{ __ms:Date.now() },
+      valores:{ v:3, pedido:{ ...dados } }, area:p.area, tipo:"exercicios", favorito:false };
+    E.materiais.unshift(novo);
+    registrarUso((AREAS.find(z => z.k === p.area) || {}).pasta);
+    ir("material");
+  }catch(e){
+    console.warn("ia:", e.code, e.message);
+    const msg = e.message && !/internal/i.test(e.code || "") ? e.message : "A IA do Educador não conseguiu agora. Tente de novo ou use o modo copiar e colar.";
+    $("gerAviso").innerHTML = '<div class="aviso err" style="margin-top:6px">' + esc(msg) + "</div>";
+  }finally{ esp.remove(); }
+}
+const LETRAS = ["A", "B", "C", "D", "E"];
+function linhasDe(q){ return q.tipo === "aberta" ? Math.max(3, q.linhas || 4) : q.tipo === "curta" ? Math.max(2, q.linhas || 2) : 0; }
+function fichaHtml(c, gab){
+  const qs = (c.questoes || []).map((q, i) => {
+    let h = '<div style="margin-top:14px"><b>' + (i + 1) + ".</b> " + esc(q.enunciado) + "</div>";
+    if(q.tipo === "multipla") h += (q.alternativas || []).map((a, j) => '<div style="margin:4px 0 0 18px">( ) ' + LETRAS[j] + ") " + esc(a) + "</div>").join("");
+    if(q.tipo === "vf") h += (q.alternativas || []).map(a => '<div style="margin:4px 0 0 18px">(&nbsp;&nbsp;&nbsp;) ' + esc(a) + "</div>").join("");
+    if(q.tipo === "relacionar") h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:6px 0 0 18px"><div>' + (q.coluna_a || []).map((a, j) => "<div>" + (j + 1) + ". " + esc(a) + "</div>").join("") + "</div><div>" + (q.coluna_b || []).map(b => "<div>(&nbsp;&nbsp;&nbsp;) " + esc(b) + "</div>").join("") + "</div></div>";
+    const n = linhasDe(q); for(let k = 0; k < n; k++) h += '<div style="border-bottom:1px solid #b9c6d3;height:26px;margin-left:18px"></div>';
+    if(gab) h += '<div style="margin:6px 0 0 18px;padding:8px 10px;background:#EAF5EC;border-radius:8px;font-size:.88rem"><b>Resposta:</b> ' + esc(q.resposta) + (q.comentario ? "<br><span style=\"color:#3F6B49\">" + esc(q.comentario) + "</span>" : "") + "</div>";
+    return h;
+  }).join("");
+  return '<div style="font-size:1.25rem;font-weight:800">' + esc(c.titulo) + "</div>" +
+    (c.bncc_codigo || c.bncc_descricao ? '<div class="peq" style="margin-top:2px">' + esc([c.bncc_codigo, c.bncc_descricao].filter(Boolean).join(" · ")) + "</div>" : "") +
+    (c.para_lembrar ? '<div style="margin-top:12px;padding:10px 12px;border:1.5px solid #C9E5CF;background:#F3FAF4;border-radius:10px"><b>Para lembrar</b><br>' + esc(c.para_lembrar) + "</div>" : "") + qs;
+}
+function telaMaterial(){
+  const M = E.material; if(!M || !M.conteudo){ ir("inicio"); return; }
+  const c = M.conteudo, t = turmaAtual();
+  $("tela").innerHTML = '<div class="pilha" style="gap:18px"><div><span class="olho">IA do Educador · ficha pronta</span><h1>' + esc(c.titulo) + '</h1><p class="sub" style="margin-top:4px">' +
+    esc([E.area ? E.area.nome : "", M.pedido.serie, M.pedido.turma_nome].filter(Boolean).join(" · ")) + "</p></div>" +
+    '<div class="duas"><section class="caixa larga" aria-label="Prévia da ficha" style="font-size:.98rem;line-height:1.5">' +
+      '<div class="linha" style="margin-bottom:6px"><button type="button" class="chip on" data-action="ver-ficha" aria-pressed="true">Ficha do aluno</button><button type="button" class="chip" data-action="ver-gabarito" aria-pressed="false">Gabarito do professor</button></div>' +
+      '<div id="previa" style="border:1px solid var(--line);border-radius:12px;padding:20px;background:#fff"></div></section>' +
+    '<aside class="estreita aside"><section class="gerar"><h2>Imprimir</h2><p>PDF em A4 com o cabeçalho da escola e o brasão do município.</p>' +
+      '<button type="button" class="btn" style="background:var(--lima);color:var(--escuro)" data-action="pdf-ficha">Baixar a ficha do aluno</button>' +
+      '<button type="button" class="btn" style="background:transparent;color:#fff;border-color:var(--lima)" data-action="pdf-gabarito">Baixar o gabarito</button></section>' +
+    '<section class="resumo"><h2>Antes de imprimir</h2><p class="sub">Leia a ficha inteira. A IA confere as respostas, mas quem responde pelo material é o professor.</p>' +
+      (M.restante != null ? '<p class="peq">Você ainda pode fazer ' + M.restante + " materiais com a IA do Educador este mês.</p>" : "") +
+      '<button type="button" class="btn btn-cl" data-action="ia-outra">Fazer outra versão</button><button type="button" class="btn btn-gh" data-action="ir-inicio">Preparar outro material</button></section></aside></div></div>';
+  $("previa").innerHTML = fichaHtml(c, false);
+}
+/* ---------- PDF da ficha (jsPDF): a diagramação é do Portal, não da IA ---------- */
+const MAPA_PDF = { "π":"pi", "≤":"<=", "≥":">=", "≠":"diferente de", "√":"raiz de ", "−":"-", "–":"-", "—":", ", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'", "•":"-", "→":"->", "≈":"aprox. " };
+const pdfTx = s => String(s == null ? "" : s).replace(/[π≤≥≠√−–—…“”‘’•→≈]/g, ch => MAPA_PDF[ch]).replace(/[^\u0000-\u00ff]/g, "").replace(/\t/g, " ").replace(/ +([,.;:])/g, "$1").replace(/_{3,}/g, "_______________").trim();
+function logoPng(url){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), tm = setTimeout(() => ok(null), 7000);
+    img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(tm); try{ const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight)), cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(img.naturalWidth * k)); cv.height = Math.max(1, Math.round(img.naturalHeight * k)); cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+      ok({ url:cv.toDataURL("image/png"), w:cv.width, h:cv.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(tm); ok(null); };
+    img.src = url;
+  });
+}
+async function pdfFicha(gab){
+  if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
+  const M = E.material, c = M.conteudo, pb = M.pedido.cor === "pb", grande = M.pedido.incl === "baixavisao";
+  const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), W = 210, H = 297, mx = 15, larg = W - 2 * mx;
+  const corpo = grande ? 14 : 11, lh = corpo * 0.48, t = turmaAtual();
+  const logo = await logoPng((E.marca || {}).logo_url);
+  // cabeçalho da escola
+  if(pb){ pdf.setDrawColor(40, 40, 40); pdf.setLineWidth(0.4); pdf.rect(mx - 3, 8, larg + 6, 22); pdf.setTextColor(20, 20, 20); }
+  else { pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 31, "F"); pdf.setFillColor(26, 107, 42); pdf.rect(0, 31, W, 1.2, "F"); pdf.setTextColor(255, 255, 255); }
+  let x = mx;
+  if(logo){ const lado = 18; if(!pb){ pdf.setFillColor(255, 255, 255); pdf.roundedRect(mx, 10, lado, lado, 2, 2, "F"); }
+    const k = Math.min((lado - 2) / logo.w, (lado - 2) / logo.h); pdf.addImage(logo.url, "PNG", mx + (lado - logo.w * k) / 2, 10 + (lado - logo.h * k) / 2, logo.w * k, logo.h * k); x = mx + lado + 5; }
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(13); pdf.text(pdfTx(E.ident.escola || "Escola").slice(0, 70), x, 17);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5);
+  pdf.text(pdfTx(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : ""), x, 23);
+  pdf.setTextColor(15, 44, 74); let y = 42;
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(grande ? 17 : 15);
+  pdf.splitTextToSize(pdfTx(c.titulo + (gab ? " · Gabarito" : "")), gab ? larg : larg - 28).forEach(l => { pdf.text(l, mx, y); y += 7; });
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(70, 90, 110);
+  const linhaSub = [E.area ? E.area.nome : "", M.pedido.serie, c.bncc_codigo ? "BNCC " + c.bncc_codigo : ""].filter(Boolean).join(" · ");
+  pdf.text(pdfTx(linhaSub), mx, y); y += 6;
+  pdf.setTextColor(20, 30, 40); pdf.setFontSize(grande ? 12 : 10);
+  if(!gab){
+    pdf.text(pdfTx("Professor(a): " + (E.ident.prof || "")), mx, y); pdf.text(pdfTx("Turma: " + (M.pedido.turma_nome || (t ? t.nome : "") || "________")), mx + 110, y); y += 8;
+    pdf.text("Data: ____/____/______", W - mx, y, { align:"right" }); const wData = pdf.getTextWidth("Data: ____/____/______") + 6;
+    pdf.text("Aluno(a):", mx, y); const wA = pdf.getTextWidth("Aluno(a): "); pdf.setDrawColor(120, 140, 160); pdf.line(mx + wA, y + 0.8, W - mx - wData, y + 0.8);
+    pdf.setDrawColor(120, 140, 160); pdf.roundedRect(W - mx - 22, 34, 22, 14, 2, 2); pdf.setFontSize(7.5); pdf.text("Nota", W - mx - 11, 38, { align:"center" }); y += 5;
+  } else {
+    pdf.setFont("helvetica", "bold"); pdf.text("Para o professor: não entregar ao aluno.", mx, y); pdf.setFont("helvetica", "normal"); y += 6;
+    [["Objetivo", c.objetivo], ["Tempo estimado", c.tempo], ["Habilidade", [c.bncc_codigo, c.bncc_descricao].filter(Boolean).join(" · ")]].forEach(([r, v]) => { if(!v) return;
+      pdf.splitTextToSize(pdfTx(r + ": " + v), larg).forEach(l => { pdf.text(l, mx, y); y += 5; }); });
+  }
+  pdf.setDrawColor(210, 220, 230); pdf.line(mx, y, W - mx, y); y += 6;
+  const quebra = need => { if(y + need > H - 20){ pdf.addPage(); y = 20; } };
+  const escrever = (txt0, xx, w, bold) => { pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(corpo); const ls = pdf.splitTextToSize(pdfTx(txt0), w);
+    ls.forEach(l => { quebra(lh); pdf.text(l, xx, y); y += lh; }); };
+  if(!gab && c.para_lembrar){
+    pdf.setFontSize(corpo); const ls = pdf.splitTextToSize(pdfTx(c.para_lembrar), larg - 8), alt = 8 + ls.length * lh + 2;
+    quebra(alt); if(pb) pdf.setDrawColor(60, 60, 60); else { pdf.setFillColor(243, 250, 244); pdf.setDrawColor(201, 229, 207); }
+    pdf.roundedRect(mx, y - 4, larg, alt, 2, 2, pb ? "S" : "FD"); pdf.setFont("helvetica", "bold"); pdf.text("Para lembrar", mx + 4, y + 1.5); y += lh + 1.5;
+    pdf.setFont("helvetica", "normal"); ls.forEach(l => { pdf.text(l, mx + 4, y); y += lh; }); y += 6;
+  }
+  (c.questoes || []).forEach((q, i) => {
+    quebra(lh * 3); pdf.setFont("helvetica", "bold"); pdf.setFontSize(corpo); pdf.text((i + 1) + ".", mx, y);
+    escrever(q.enunciado, mx + 7, larg - 7, false); y += 1;
+    if(gab){
+      escrever("Resposta: " + q.resposta, mx + 7, larg - 7, true);
+      if(q.comentario){ pdf.setTextColor(70, 90, 110); escrever(q.comentario, mx + 7, larg - 7, false); pdf.setTextColor(20, 30, 40); }
+    } else {
+      // quadradinho desenhado (não depende de espaços no texto)
+      const caixa = () => { pdf.setDrawColor(90, 110, 130); pdf.setLineWidth(0.3); pdf.rect(mx + 9, y - lh * 0.72, lh * 0.8, lh * 0.8); };
+      if(q.tipo === "multipla") (q.alternativas || []).forEach((a, j) => { quebra(lh); caixa(); escrever(LETRAS[j] + ") " + a, mx + 9 + lh * 1.3, larg - 9 - lh * 1.3, false); });
+      if(q.tipo === "vf") (q.alternativas || []).forEach(a => { quebra(lh); pdf.setDrawColor(90, 110, 130); pdf.rect(mx + 9, y - lh * 0.72, lh * 1.4, lh * 0.8); escrever(a, mx + 9 + lh * 1.9, larg - 9 - lh * 1.9, false); });
+      if(q.tipo === "relacionar"){ const ca = q.coluna_a || [], cb = q.coluna_b || [], meia = (larg - 14) / 2; const y0 = y;
+        ca.forEach((a, j) => { quebra(lh); pdf.setFont("helvetica", "normal"); pdf.splitTextToSize(pdfTx((j + 1) + ". " + a), meia).forEach(l => { pdf.text(l, mx + 9, y); y += lh; }); });
+        const yA = y; y = y0; cb.forEach(b => { pdf.setDrawColor(90, 110, 130); pdf.rect(mx + 14 + meia, y - lh * 0.72, lh * 1.4, lh * 0.8);
+          pdf.splitTextToSize(pdfTx(b), meia - lh * 1.9).forEach(l => { pdf.text(l, mx + 14 + meia + lh * 1.9, y); y += lh; }); }); y = Math.max(y, yA); }
+      const n = linhasDe(q); for(let k = 0; k < n; k++){ quebra(9); y += 7; pdf.setDrawColor(170, 185, 200); pdf.line(mx + 7, y, W - mx, y); } if(n) y += 2;
+    }
+    y += 5;
+  });
+  // rodapé em todas as páginas
+  const np = pdf.getNumberOfPages();
+  for(let i = 1; i <= np; i++){ pdf.setPage(i); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(110, 130, 150);
+    pdf.setDrawColor(210, 220, 230); pdf.line(mx, H - 12, W - mx, H - 12);
+    pdf.text("portaldoeducador.com.br · Feito com a IA do Educador e revisado pelo professor", mx, H - 7.5); pdf.text("Página " + i + " de " + np, W - mx, H - 7.5, { align:"right" }); }
+  const nome = slug(c.titulo || "ficha").slice(0, 50) || "ficha";
+  pdf.save((gab ? "gabarito-" : "ficha-") + nome + ".pdf");
+}
+function abrirMaterial(m){
+  const p = (m.valores && m.valores.pedido) || {};
+  const x = AREAS.find(z => z.k === (p.area || m.area)); if(x) E.area = x;
+  E.material = { id:m.id, conteudo:m.conteudo, pedido:{ serie:p.serie || m.serie || "", turma_nome:p.turma_nome || m.turma_nome || "", incl:p.incl || "", cor:p.cor || "colorido" }, restante:null };
+  ir("material");
+}
+// pedido da IA integrada (v3) volta para a montagem como um pedido do motor (v2)
+function v3paraV2(p){ return { v:2, pedido:{ area:p.area, tipo:"exercicios", campos:{ "g-tema":p.tema || "", "g-qtd":String(p.qtd || 6) }, chips:{ "g-tipos":p.tipos || [] }, serie:p.serie, incl:p.incl || "", orient:"retrato", cor:p.cor || "colorido", roteiro:false, bncc:p.bncc || "", temaLivre:p.temaLivre || "" } }; }
 function telaFamilia(k){
   const en = ENTREGAS.find(x => x.k === k); if(!en){ ir("inicio"); return; }
   const l = en.pastas.filter(p => E.apps[p]);
@@ -803,7 +969,7 @@ function telaFamilia(k){
 function telaCatalogo(){
   const grupos = {};
   Object.entries(E.apps).sort((a, b) => (a[1].ordem || 999) - (b[1].ordem || 999)).forEach(([p, a]) => { (grupos[a.grupo || "Outras"] = grupos[a.grupo || "Outras"] || []).push(p); });
-  $("tela").innerHTML = '<div class="pilha" style="gap:18px"><div><span class="olho">IA Studio</span><h1>Todas as ferramentas</h1><p class="sub" style="margin-top:4px">As mesmas ferramentas de sempre, pelo nome.</p></div>' +
+  $("tela").innerHTML = '<div class="pilha" style="gap:18px"><div><span class="olho">IA do Educador</span><h1>Todas as ferramentas</h1><p class="sub" style="margin-top:4px">As mesmas ferramentas de sempre, pelo nome.</p></div>' +
     (Object.keys(grupos).length ? Object.entries(grupos).map(([g, ps]) => '<section><h2 class="grupo-t">' + esc(g) + '</h2><div class="cards">' + ps.map(p => cartaoApp(p)).join("") + "</div></section>").join("")
       : '<div class="caixa vazio"><b>As ferramentas estão sendo organizadas</b>Volte em breve.</div>') + "</div>";
 }
@@ -847,6 +1013,12 @@ document.addEventListener("click", async ev => {
     if(r.faltam.length){ $("gerAviso").innerHTML = '<div class="aviso" style="margin-top:6px">Preencha: ' + esc(r.faltam.join(", ")) + ".</div>"; const e = document.querySelector(".erro"); if(e) e.focus(); return; }
     $("gerAviso").innerHTML = ""; gerarMotor(arg, r.pedido, null); return;
   }
+  if(a === "gerar-ia"){ gerarIa(); return; }
+  if(a === "pdf-ficha"){ pdfFicha(false); return; }
+  if(a === "pdf-gabarito"){ pdfFicha(true); return; }
+  if(a === "ver-ficha" || a === "ver-gabarito"){ const g = a === "ver-gabarito"; $("previa").innerHTML = fichaHtml(E.material.conteudo, g);
+    document.querySelectorAll('[data-action="ver-ficha"],[data-action="ver-gabarito"]').forEach(x => { const on = x.dataset.action === a; x.classList.toggle("on", on); x.setAttribute("aria-pressed", on); }); return; }
+  if(a === "ia-outra"){ const m = E.materiais.find(z => z.id === E.material.id); variar(m && m.valores && m.valores.v === 3 ? v3paraV2(m.valores.pedido) : null); return; }
   if(a === "copiar-legado"){ if(E.ultimo && E.ultimo.legado) toast(copiar(E.ultimo.legado) ? "Comando antigo copiado." : "Não deu para copiar.", false); return; }
   if(a === "ver-mudancas"){
     const c = $("mudancas"), u = E.ultimo; if(!c || !u || !u.legado) return;
@@ -873,7 +1045,8 @@ document.addEventListener("click", async ev => {
   const m = arg && E.materiais.find(x => x.id === arg);
   if(a === "mat-gerar" && m && m.valores && m.valores.v === 2){ const x = AREAS.find(z => z.k === m.valores.pedido.area); if(x) E.area = x; gerarMotor(m.ia || "chatgpt", m.valores.pedido, m); return; }
   if(a === "mat-gerar" && m){ const x = [...AREAS, ...TEMAS].find(z => z.pasta === m.pasta); E.area = x || E.area; gerar(m.ia || "chatgpt", m.valores, m); return; }
-  if(a === "mat-variar" && m){ variar(m.valores); return; }
+  if(a === "mat-abrir" && m && m.conteudo){ abrirMaterial(m); return; }
+  if(a === "mat-variar" && m){ variar(m.valores && m.valores.v === 3 ? v3paraV2(m.valores.pedido) : m.valores); return; }
   if(a === "mat-fav" && m){
     m.favorito = !m.favorito; desenharMateriais();
     try{ await updateDoc(doc(db, "ia_materiais", m.id), { favorito:m.favorito }); }catch(e){ m.favorito = !m.favorito; desenharMateriais(); toast("Não deu para marcar agora.", true); }
@@ -886,6 +1059,7 @@ document.addEventListener("click", async ev => {
   }
 });
 function variar(val){
+  if(!val){ ir("ficha"); return; }
   if(val && val.v === 2){ const y = AREAS.find(z => z.k === val.pedido.area); if(!y) return; E.area = y; E.estr = null; E.valores = val; E.modo = val.pedido.tipo; ir("ficha"); return; }
   const x = [...AREAS, ...TEMAS].find(z => z.pasta === val.pasta); if(!x){ toast("Esta ferramenta não está mais disponível.", true); return; }
   E.area = x; E.estr = null; E.valores = { ...val }; E.modo = val.modo; ir("ficha");
@@ -906,7 +1080,7 @@ onAuthStateChanged(auth, async user => {
   if(!u || u.status !== "ativo" || u.perfil === "aluno"){ location.replace("/entrar/"); return; }
   E.user = user; E.u = u; E.admin = u.perfil === "admin";
   $("quem").textContent = (u.nome || user.email) + " · você ensina, a IA prepara";
-  await Promise.all([carregarApps(), carregarTurmas(), carregarMateriais()]);
+  await Promise.all([carregarApps(), carregarTurmas(), carregarMateriais(), carregarIa()]);
   $("carregando").hidden = true; $("tela").hidden = false;
   const h = location.hash.slice(1);
   ir(h === "catalogo" ? "catalogo" : h === "ficha" ? "ficha" : "inicio");
