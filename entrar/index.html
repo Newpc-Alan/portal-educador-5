@@ -336,6 +336,15 @@
   .ac-card.laranja .ac-tx{ border-top-color:#c2571a }
   .sec-duas{ display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px;align-items:start }
   .sec-duas{ margin-bottom:26px }
+  .sb-cab{ display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px } .sb-cab h3{ margin:0 } .sb-btn{ margin-left:auto;padding:10px 16px;width:auto !important }
+  .sb-lista{ display:flex;flex-direction:column;gap:8px }
+  .sb-item{ display:flex;align-items:center;gap:12px;background:#fff;border:1.5px solid var(--line);border-left:5px solid #d98a00;border-radius:14px;padding:10px 14px }
+  .sb-item > span{ flex:1;min-width:0;display:flex;flex-direction:column;gap:2px } .sb-item small{ font-size:13px;color:var(--muted) }
+  .sb-desf{ flex-shrink:0;padding:8px 12px;width:auto !important }
+  .sb-modal{ max-width:560px;max-height:calc(100vh - 40px);overflow:auto }
+  .sb-aulas{ display:flex;flex-direction:column;gap:6px }
+  .sb-aula{ display:flex !important;align-items:center;gap:10px;border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px !important;color:var(--ink) !important;cursor:pointer;margin:0 !important }
+  .sb-aula input{ width:18px !important;height:18px;flex-shrink:0 }
   .sec-duas .ini-sec{ margin:0 }
   .sec-lista{ display:flex;flex-direction:column;gap:10px }
   .sec-esc{ display:flex;align-items:center;gap:14px;background:#fff;border:1.5px solid var(--line);border-left:5px solid #c2571a;border-radius:16px;padding:12px 14px }
@@ -4561,6 +4570,10 @@
     else if(acao === "sim-sair"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo({ perfil:"admin" }); abrirApp(); }
     else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} signOut(auth); }
     else if(acao === "aluno-sou-professor"){ try{ sessionStorage.setItem("pde_como","professor"); }catch(e){} usuarioAtual.alunoSemAcesso = false; abrirApp(); }
+    else if(acao === "dir-faltou"){ abrirFaltou(); }
+    else if(acao === "sb-fechar"){ fecharFaltou(); }
+    else if(acao === "sb-salvar"){ salvarFaltou(); }
+    else if(acao === "sb-desfazer"){ desfazerSub(el.dataset.arg); }
     else if(acao === "ini-previa"){ ini.previa = ["aluno", "gestor", "secretaria"].includes(el.dataset.arg) ? el.dataset.arg : "professor"; renderInicio(); }
     else if(acao === "sec-escola"){ verEscolaSec(el.dataset.arg); }
     else if(acao === "sec-voltar"){ renderInicio(); }
@@ -4789,7 +4802,7 @@
     }
     let esc = ""; try{ esc = localStorage.getItem("pde_dir_escola") || ""; }catch(e){}
     if(!escolas.some(e => e.id === esc)) esc = escolas.length ? escolas[0].id : "";
-    dir.escola = esc; dir.badges = {};
+    dir.escola = esc; dir.badges = {}; dir.turmas = null; dir.subs = [];
     const nomeEsc = (escolas.find(e => e.id === esc) || {}).nome || "";
     const dataHoje = new Date().toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
     const daAula = !admin && minhasTurmasIds().length > 0;
@@ -4801,6 +4814,7 @@
       (esc ? '' : '<div class="hj-vazio">Seu cadastro ainda não está ligado a uma escola. Fale com a Secretaria de Educação.</div>')+
       '<section class="ini-sec" aria-labelledby="dirIndTit"><h3 id="dirIndTit">A escola hoje</h3><div class="dir-ind" id="dirInd"><div class="hj-vazio">Conferindo a escola...</div></div></section>'+
       '<section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo as pendências...</div></div></section>'+
+      (esc ? '<section class="ini-sec" aria-labelledby="sbTitH"><div class="sb-cab"><h3 id="sbTitH">Substituições de hoje</h3><button type="button" class="btn btn-primary sb-btn" data-action="dir-faltou">Professor faltou</button></div><div id="dirSubs"><div class="hj-vazio">Conferindo...</div></div></section>' : '')+
       '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
       (daAula ? '<details class="ini-mais" id="dirAulas"><summary>Minhas aulas</summary><div class="ac-grid" id="dirAulasGrid"></div></details>' : '')+
       '<div id="iniNoticias"></div><div id="iniDatas"></div>';
@@ -4823,7 +4837,7 @@
       d.addEventListener("toggle", () => { try{ localStorage.setItem("pde_dir_aulas", d.open ? "1" : "0"); }catch(e){} });
     }
     faixaNoticias(false); faixaDatas();
-    if(esc) await dadosDirecao(esc, okMod);
+    if(esc){ await desenharSubsHoje(esc); await dadosDirecao(esc, okMod); }
   }
   function desenharAcoesDir(okMod, okPainel){
     const box = $("iniAcoes"); if(!box) return;
@@ -4864,12 +4878,13 @@
     let alunosHoje = 0, ausentes = 0;
     Object.values(porTurma).forEach(t => { t.lista.forEach(id => { alunosHoje++; if(t.a && (t.f[id] || 0) >= t.a) ausentes++; }); });
     const ativas = (turmas || []).filter(t => t.status !== "inativa");
+    if(turmas) dir.turmas = ativas;
     // turma com grade e dias marcados: a pendência é por disciplina (só as que têm aula hoje); sem grade, pela turma
     const comGradeHoje = t => Array.isArray(t.grade) && t.grade.some(g => Array.isArray(g.dias) && g.dias.includes(semana));
     const discFeitas = new Set((chamadas || []).map(c => c.turma_id + "|" + (c.disc_id || "")));
     const aulasSem = [];
     ativas.filter(comGradeHoje).forEach(t => t.grade.forEach(g => { if((g.dias || []).includes(semana) && !discFeitas.has(t.id + "|" + g.disc_id) && !discFeitas.has(t.id + "|polivalente-anos-iniciais"))
-      aulasSem.push({ turma:t.nome, disc:g.disciplina, prof:String(g.professor_nome || "").split(" ")[0] }); }));
+      aulasSem.push({ turma:t.nome, disc:g.disciplina, prof:String(((dir.subs || []).find(x => x.turma_id === t.id && x.disc_id === g.disc_id) || {}).substituto_nome || g.professor_nome || "").split(" ")[0] }); }));
     const semChamada = ativas.filter(t => !porTurma[t.id] && !comGradeHoje(t));
     let seguidos = 0, abaixo = 0;
     (resumos || []).forEach(r => Object.values(r.alunos || {}).forEach(a => { if(a.at) seguidos++; else if(a.r) abaixo++; }));
@@ -5070,6 +5085,95 @@
       (ms.length ? '<section class="ini-sec"><h3>Pontos de atenção</h3><div class="sec-mot grande">'+ms.map(m => '<span>'+escapeHtml(m.t)+'</span>').join("")+'</div></section>' : '')+
       '<div style="margin-top:6px"><a class="btn btn-primary" href="/painel/" data-action="ini-abrir" data-mod="painel">Abrir o Painel da Rede</a></div>';
     window.scrollTo(0, 0);
+  }
+
+  // ===================== SUBSTITUIÇÃO: professor faltou =====================
+  // A Direção nomeia quem dá cada aula do professor ausente (pela grade da turma), por um ou vários dias.
+  // Um documento por aula e dia: substituicoes/{escola}_{dia}_{turma}_{disciplina}. O substituto faz a chamada no lugar da titular.
+  const MOTIVOS_FALTA = ["Atestado médico", "Licença", "Formação ou curso", "Particular", "Outro"];
+  const sb = { profs:null, escola:"" };
+  async function desenharSubsHoje(esc){
+    const box = $("dirSubs"); if(!box) return;
+    let l = [];
+    try{ const s = await getDocs(query(collection(db, "substituicoes"), where("escola_id", "==", esc), where("dia", "==", hojeISO()))); s.forEach(d => l.push({ id:d.id, ...d.data() })); }
+    catch(e){ console.warn("substituições:", e.code); }
+    dir.subs = l;
+    if(dir.escola !== esc || !$("dirSubs")) return;
+    l.sort((a, b) => String(a.turma_nome).localeCompare(String(b.turma_nome), "pt-BR", { numeric:true }));
+    box.innerHTML = l.length ? '<div class="sb-lista">' + l.map(x => '<div class="sb-item"><span><b>' + escapeHtml(x.disciplina) + " · " + escapeHtml(x.turma_nome || "") + "</b><small>" +
+        escapeHtml(String(x.titular_nome || "").split(" ")[0]) + " faltou" + (x.motivo ? " (" + escapeHtml(x.motivo) + ")" : "") + " · quem dá a aula: <b>" + escapeHtml(x.substituto_nome || "") + "</b></small></span>" +
+        '<button type="button" class="btn btn-ghost sb-desf" data-action="sb-desfazer" data-arg="' + escapeAttr(x.id) + '">Desfazer</button></div>').join("") + "</div>"
+      : '<div class="hj-vazio">Nenhuma substituição hoje. Se um professor faltar, toque em “Professor faltou”.</div>';
+  }
+  async function abrirFaltou(){
+    const esc = dir.escola; if(!esc) return;
+    if(sb.escola !== esc){ sb.profs = null; sb.escola = esc; }
+    if(!sb.profs){ try{ sb.profs = ((await chamarFn("professoresDaEscola", { escola_id:esc }, 20000)) || {}).professores || []; }catch(e){ console.warn("professores:", e.code); toast("Não foi possível carregar os professores agora.", true); return; } }
+    if(!dir.turmas){ try{ const s = await getDocs(query(collection(db, "turmas"), where("escola_id", "==", esc))); dir.turmas = []; s.forEach(d => { const t = d.data(); if(t.status !== "inativa") dir.turmas.push({ id:d.id, ...t }); }); }catch(e){ dir.turmas = []; } }
+    fecharFaltou();
+    const hj = hojeISO(), eu = { uid:usuarioAtual.uid, nome:usuarioAtual.nome || "Eu" };
+    const m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalFaltou";
+    m.innerHTML = '<div class="modal sb-modal" role="dialog" aria-modal="true" aria-labelledby="sbTit"><div class="mh"><h3 id="sbTit">Professor faltou</h3><p>Escolha quem faltou e quem dá as aulas. O substituto faz a chamada no lugar dele.</p></div><div class="mb">' +
+      '<div class="field"><label for="sbProf">Quem faltou</label><select id="sbProf"><option value="">Escolha o professor...</option>' + sb.profs.map(p => '<option value="' + escapeAttr(p.uid) + '">' + escapeHtml(p.nome || p.email) + "</option>").join("") + "</select></div>" +
+      '<div class="row2"><div class="field"><label for="sbIni">De</label><input type="date" id="sbIni" value="' + hj + '"></div><div class="field"><label for="sbFim">Até</label><input type="date" id="sbFim" value="' + hj + '"></div></div>' +
+      '<div class="field"><label>Aulas</label><div id="sbAulas" class="sb-aulas"><span class="hj-vazio">Escolha o professor.</span></div></div>' +
+      '<div class="field"><label for="sbSub">Quem dá as aulas</label><select id="sbSub"><option value="">Escolha o substituto...</option><option value="' + escapeAttr(eu.uid) + '">Eu mesmo(a) · ' + escapeHtml(eu.nome) + "</option>" +
+        sb.profs.map(p => '<option value="' + escapeAttr(p.uid) + '">' + escapeHtml(p.nome || p.email) + "</option>").join("") + "</select></div>" +
+      '<div class="field"><label for="sbMot">Motivo (opcional)</label><select id="sbMot"><option value="">Não informar</option>' + MOTIVOS_FALTA.map(x => "<option>" + x + "</option>").join("") + "</select></div>" +
+      '</div><div class="mf"><button type="button" class="btn btn-ghost" data-action="sb-fechar">Cancelar</button><button type="button" class="btn btn-primary" data-action="sb-salvar" id="sbSalvar">Salvar substituição</button></div></div>';
+    document.body.appendChild(m);
+    ["sbProf", "sbIni", "sbFim"].forEach(id => $(id).addEventListener("change", aulasDoFaltoso));
+    $("sbProf").focus();
+  }
+  function fecharFaltou(){ const m = $("modalFaltou"); if(m) m.remove(); }
+  // dias úteis do intervalo (até 31) e, em cada um, as aulas do professor pela grade (linha sem dias marcados vale todos os dias)
+  function aulasFaltoso(){
+    const uid = $("sbProf").value, ini = $("sbIni").value, fim = $("sbFim").value || ini, out = [];
+    if(!uid || !ini || fim < ini) return out;
+    for(let d = ini, n = 0; d <= fim && n < 31; n++){
+      const w = new Date(d + "T12:00:00").getDay();
+      if(w >= 1 && w <= 5) (dir.turmas || []).forEach(t => (t.grade || []).forEach(g => { if(g.professor_uid === uid && (!(g.dias || []).length || g.dias.includes(w))) out.push({ dia:d, t, g }); }));
+      const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + 1); d = x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+    }
+    return out;
+  }
+  function aulasDoFaltoso(){
+    const box = $("sbAulas"), uid = $("sbProf").value; if(!box) return;
+    if(!uid){ box.innerHTML = '<span class="hj-vazio">Escolha o professor.</span>'; return; }
+    if($("sbFim").value < $("sbIni").value) $("sbFim").value = $("sbIni").value;
+    const l = aulasFaltoso(), grupos = {};
+    l.forEach(a => { const k = a.t.id + "|" + a.g.disc_id; (grupos[k] = grupos[k] || { t:a.t, g:a.g, dias:0 }).dias++; });
+    const ks = Object.keys(grupos);
+    box.innerHTML = ks.length ? ks.map(k => { const x = grupos[k]; return '<label class="sb-aula"><input type="checkbox" data-sbaula="' + escapeAttr(k) + '" checked> <span><b>' + escapeHtml(x.g.disciplina) + " · " + escapeHtml(x.t.nome || "") + "</b> " +
+        (x.dias > 1 ? x.dias + " aulas no período" : "1 aula") + "</span></label>"; }).join("")
+      : '<span class="hj-vazio">Esse professor não tem aulas na grade desta escola nesses dias. A grade é montada em Gestão Escolar › Grade das turmas.</span>';
+  }
+  async function salvarFaltou(){
+    const tit = $("sbProf").value, subUid = $("sbSub").value, mot = $("sbMot").value;
+    if(!tit){ toast("Escolha quem faltou.", true); return; }
+    if(!subUid){ toast("Escolha quem dá as aulas.", true); return; }
+    if(subUid === tit){ toast("O substituto precisa ser outra pessoa.", true); return; }
+    const marcadas = new Set([...document.querySelectorAll("[data-sbaula]:checked")].map(i => i.dataset.sbaula));
+    const l = aulasFaltoso().filter(a => marcadas.has(a.t.id + "|" + a.g.disc_id));
+    if(!l.length){ toast("Marque ao menos uma aula.", true); return; }
+    const titNome = ((sb.profs || []).find(p => p.uid === tit) || {}).nome || "";
+    const subNome = subUid === usuarioAtual.uid ? (usuarioAtual.nome || "") : (((sb.profs || []).find(p => p.uid === subUid) || {}).nome || "");
+    const esc = dir.escola, lote = Date.now().toString(36), btn = $("sbSalvar"); btn.disabled = true; btn.textContent = "Salvando...";
+    try{
+      const b = writeBatch(db);
+      l.forEach(a => b.set(doc(db, "substituicoes", esc + "_" + a.dia + "_" + a.t.id + "_" + a.g.disc_id), { escola_id:esc, escola_nome:String(a.t.escola_nome || "").slice(0, 120), municipio_id:a.t.municipio_id || usuarioAtual.municipio_id || "",
+        dia:a.dia, turma_id:a.t.id, turma_nome:String(a.t.nome || "").slice(0, 80), disciplina:String(a.g.disciplina).slice(0, 60), disc_id:a.g.disc_id, titular_uid:tit, titular_nome:String(titNome).slice(0, 80),
+        substituto_uid:subUid, substituto_nome:String(subNome).slice(0, 80), motivo:mot, lote, criado_por:usuarioAtual.uid, criado_por_nome:String(usuarioAtual.nome || "").slice(0, 80), criado_em:serverTimestamp() }));
+      await b.commit();
+      fecharFaltou(); toast(l.length === 1 ? "Substituição salva." : l.length + " aulas com substituto.");
+      await desenharSubsHoje(esc);
+    }catch(e){ console.warn("substituição:", e.code || e); toast(e.code === "permission-denied" ? "Sem permissão para nomear substituto nesta escola." : "Não foi possível salvar agora.", true); btn.disabled = false; btn.textContent = "Salvar substituição"; }
+  }
+  async function desfazerSub(id){
+    const x = (dir.subs || []).find(s => s.id === id); if(!x) return;
+    if(!confirm("Desfazer a substituição de " + x.disciplina + " no " + x.turma_nome + "? Se o substituto já fez a chamada, ela continua valendo.")) return;
+    try{ await deleteDoc(doc(db, "substituicoes", id)); toast("Substituição desfeita."); desenharSubsHoje(dir.escola); }
+    catch(e){ toast("Não foi possível desfazer.", true); }
   }
 
   // card pequeno de um recurso fora do plano (ou em breve): abre a apresentacao e registra o interesse

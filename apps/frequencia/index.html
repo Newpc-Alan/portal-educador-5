@@ -61,6 +61,12 @@ button{cursor:pointer}
 .aviso.amarelo{background:#fff3d6;border:1px solid #f3d88f;color:#6b4500}
 .aviso.azul{background:#e8f2fb;border:1px solid #c4dcf1;color:#1f5f91}
 .aviso.verde{background:#e9f5dc;border:1px solid #c9e4a8;color:#3d6b0c}
+.ha-lista{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.ha{border:1.5px solid #f0c27a;background:#fff8ec;border-radius:12px;padding:8px 12px;text-align:left;min-width:180px}
+.ha b{display:block;font-size:.88rem}.ha small{display:block;font-size:.74rem;color:#8a5a00;font-weight:700}
+.ha.feita{border-color:#c9e4a8;background:#f3faea}.ha.feita small{color:#3d6b0c}
+.ha.sub{border-style:dashed}
+.ha.on{outline:3px solid #9cc7ea;outline-offset:1px}
 .pill{border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;display:inline-block}
 .pill.ok{background:#e9f5dc;color:#3d6b0c}.pill.ruim{background:#fbe3e0;color:#9c2a20}.pill.att{background:#fff3d6;color:#8a5a00}.pill.cinza{background:#eef2f6;color:var(--muted)}
 
@@ -313,6 +319,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
 
   <!-- ===================== chamada ===================== -->
   <section class="sec on" id="s-chamada">
+    <div id="minhasAulas"></div>
     <div class="card">
       <div class="barra">
         <label class="campo" style="flex:1;min-width:200px">Turma<select class="sel" id="selTurma"></select></label>
@@ -585,7 +592,7 @@ async function abrirTurma(id){
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   // com grade, a chamada já abre numa disciplina deste professor na turma
   const daGrade = discDaGrade(t);
-  if(daGrade.length && !daGrade.includes(discAtual())){ $("disciplina").value = daGrade[0]; E.discOutra = false; }
+  if(daGrade.length && !daGrade.includes(discAtual()) && !subDe(t.id, slug(discAtual()), $("dia").value)){ $("disciplina").value = daGrade[0]; E.discOutra = false; }
   await carregarCalendario(t);
   await abrirChamada();
 }
@@ -625,17 +632,51 @@ function alertasAluno(a){
   return ' <button class="al-alerta" data-action="ver-alertas" data-arg="' + esc(a.id) + '" aria-label="Alertas da escola sobre ' + esc(a.nome) + '" title="' + esc(a.alertas.map(x => x.x).join(" · ")) + '">' + ics + "</button>";
 }
 // disciplina numa caixa de seleção (a lista do navegador não aparece no celular); "Outra" abre o campo de texto
+// substituições em que fui nomeado (da última semana até hoje) e as chamadas que já fiz hoje
+async function carregarSubs(){
+  E.subs = [];
+  try{ const s = await getDocs(query(collection(db, "substituicoes"), where("substituto_uid", "==", E.user.uid))); s.forEach(d => E.subs.push({ id:d.id, ...d.data() })); }
+  catch(e){ console.warn("substituicoes:", e.code); }
+  const lim = new Date(Date.now() - 4 * 3600000 - 7 * 864e5).toISOString().slice(0, 10), hj = hojeMS();
+  E.subs = E.subs.filter(x => x.dia >= lim && x.dia <= hj);
+}
+const subDe = (turmaId, did, dia) => (E.subs || []).find(x => x.turma_id === turmaId && x.disc_id === did && x.dia === dia) || null;
+async function carregarFeitasHoje(){
+  E.feitasHoje = new Set();
+  try{ const s = await getDocs(query(collection(db, "freq_chamadas"), where("professor_uid", "==", E.user.uid), where("dia", "==", hojeMS()))); s.forEach(d => { const c = d.data(); E.feitasHoje.add(c.turma_id + "|" + c.disc_id); }); }
+  catch(e){ console.warn("feitas hoje:", e.code); }
+}
+// "Suas aulas de hoje": as aulas da grade (todas as escolas e disciplinas do professor) e as substituições do dia, com a situação da chamada
+function desenharMinhasAulas(){
+  const box = $("minhasAulas"); if(!box) return;
+  const hj = hojeMS(), w = new Date(hj + "T12:00:00").getDay(), aulas = [];
+  (E.turmas || []).forEach(t => (t.grade || []).forEach(g => { if(g.professor_uid === E.user.uid && (g.dias || []).includes(w)) aulas.push({ t, disc:g.disciplina, did:g.disc_id }); }));
+  (E.subs || []).filter(x => x.dia === hj).forEach(x => { const t = (E.turmas || []).find(y => y.id === x.turma_id); if(t) aulas.push({ t, disc:x.disciplina, did:x.disc_id, sub:x }); });
+  if(!aulas.length){ box.innerHTML = ""; return; }
+  const multiEsc = new Set(aulas.map(a => a.t.escola_id)).size > 1, sel = E.turma && $("dia").value === hj ? E.turma.id + "|" + slug(discAtual()) : "";
+  box.innerHTML = '<div class="card"><div class="h2">📅 Suas aulas de hoje</div><div class="sub">Toque numa aula para abrir a chamada dela.</div><div class="ha-lista">' + aulas.map(a => {
+    const k = a.t.id + "|" + a.did, feita = !!(E.feitasHoje && E.feitasHoje.has(k));
+    return '<button class="ha' + (feita ? " feita" : "") + (k === sel ? " on" : "") + (a.sub ? " sub" : "") + '" data-action="aula-hoje" data-arg="' + esc(a.t.id + "|" + a.disc) + '"><b>' + esc(a.t.nome || "Turma") + " · " + esc(a.disc) + "</b><small>" +
+      (a.sub ? "Substituindo " + esc(String(a.sub.titular_nome || "").split(" ")[0]) + " · " : "") + (multiEsc ? esc(a.t.escola_nome || "") + " · " : "") + (feita ? "✓ chamada feita" : "chamada pendente") + "</small></button>"; }).join("") + "</div></div>";
+}
+async function abrirAulaHoje(arg){
+  const i = arg.indexOf("|"), tid = arg.slice(0, i), disc = arg.slice(i + 1);
+  if(E.sujo && !confirm("A chamada aberta tem mudanças não salvas. Trocar de aula assim mesmo?")) return;
+  $("dia").value = hojeMS(); $("disciplina").value = disc; E.discOutra = false; $("selTurma").value = tid;
+  await abrirTurma(tid);
+}
 // disciplinas deste professor na grade da turma (montada pela Direção ou pela Secretaria da escola)
 function discDaGrade(t){ return t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g.professor_uid === E.user.uid && g.disciplina).map(g => g.disciplina))] : []; }
 function desenharSelDisc(){
   const sel = $("selDisc"), inp = $("disciplina"); if(!sel) return;
-  const v = discAtual(), daGrade = discDaGrade(E.turma), lista = [...new Set([...(daGrade.length ? daGrade : DISC), ...(v ? [v] : [])])];
+  const v = discAtual(), daGrade = discDaGrade(E.turma).concat((E.subs || []).filter(x => E.turma && x.turma_id === E.turma.id).map(x => x.disciplina));
+  const lista = [...new Set([...(daGrade.length ? daGrade : DISC), ...(v ? [v] : [])])];
   sel.innerHTML = '<option value="">Escolha a disciplina...</option>' + lista.map(d => '<option value="' + esc(d) + '"' + (d === v ? " selected" : "") + ">" + esc(d) + "</option>").join("") +
     '<option value="__outra"' + (E.discOutra ? " selected" : "") + ">Outra disciplina...</option>";
   inp.hidden = !E.discOutra;
 }
 function desenharChamada(){
-  desenharSelDisc();
+  desenharSelDisc(); desenharMinhasAulas();
   $("segAulas").innerHTML = [1, 2, 3, 4, 5, 6].map(n => '<button class="' + (n === E.aulas ? "on" : "") + '" data-action="aulas" data-arg="' + n + '">' + n + "</button>").join("");
   const d = $("dia").value, hj = hojeMS(), disc = discAtual();
   let info = "";
@@ -645,6 +686,8 @@ function desenharChamada(){
       info = '<div class="aviso amarelo">Pelo calendário da rede, ' + esc(dataLonga(d)) + " não é dia letivo (" + esc(motivo) + "). Se houve aula (reposição), a chamada pode ser lançada assim mesmo.</div>"; }
     else if(x) info = '<div class="aviso azul">' + esc(dataLonga(d)) + " · dia letivo" + (x.eventos.length ? " · " + esc(x.eventos.map(e => e.nome || e.tipo).join(", ")) : "") + "</div>"; }
   if(slug(disc) === POLI) info += '<div class="aviso verde">Polivalente: uma chamada vale para o dia todo. Use o número de aulas do dia (normalmente 4 ou 5).</div>';
+  const sbI = E.turma && disc ? subDe(E.turma.id, slug(disc), d) : null;
+  if(sbI) info += '<div class="aviso amarelo">Substituição: você faz esta chamada no lugar de ' + esc(sbI.titular_nome || "outro professor") + (sbI.motivo ? " (" + esc(sbI.motivo) + ")" : "") + ". Ela aparece no histórico da titular.</div>";
   if(E.existe) info += '<div class="aviso azul">Esta chamada já foi lançada. As mudanças substituem a anterior quando você salvar.</div>';
   $("infoDia").innerHTML = info;
   if(!E.turma){ $("lista").innerHTML = '<div class="vazio"><b>Escolha a turma</b>Os alunos vêm do cadastro de turmas do Portal.</div>'; $("contagem").innerHTML = ""; return; }
@@ -684,11 +727,14 @@ async function salvar(){
   const d = { professor_uid:E.user.uid, professor_nome:String(E.u.nome || "").slice(0, 80), escola_id:t.escola_id || "", municipio_id:t.municipio_id || E.u.municipio_id || "",
     turma_id:t.id, turma_nome:String(t.nome || "").slice(0, 80), disciplina:disc, disc_id:slug(disc), dia, ano:+dia.slice(0, 4), aulas:E.aulas,
     lista:ids, nomes, faltas, just, conteudo:String($("conteudo").value || "").slice(0, 600), atualizado_em:serverTimestamp() };
+  const sb = subDe(t.id, slug(disc), dia);
+  if(sb){ d.titular_uid = sb.titular_uid; d.titular_nome = String(sb.titular_nome || "").slice(0, 80); }
   $("btnSalvar").disabled = true; $("status").textContent = "Salvando...";
   try{
     await setDoc(doc(db, "freq_chamadas", chaveDoc()), d);
     try{ localStorage.removeItem(chaveRascunho()); }catch(e){}
     E.existe = true; E.sujo = false; E.histTurma = "";
+    if(dia === hojeMS() && E.feitasHoje){ E.feitasHoje.add(t.id + "|" + slug(disc)); }
     $("status").textContent = "Chamada salva às " + new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
     toast("Chamada salva: " + Object.keys(faltas).length + (Object.keys(faltas).length === 1 ? " falta" : " faltas") + ".");
   }catch(e){ console.warn("salvar:", e.code || e); $("status").textContent = "Não salvou"; toast(e.code === "permission-denied" ? "Sem permissão para lançar chamada nesta turma." : "Não foi possível salvar agora. O rascunho continua neste aparelho.", true); }
@@ -866,7 +912,7 @@ async function pdfDiarioMes(){
   pdf.setFont("helvetica", "bold"); pdf.setFontSize(10); pdf.setTextColor(15, 44, 74); pdf.text("Registro das aulas", 12, y); y += 6;
   pdf.setFontSize(8.5);
   cs.forEach(c => {
-    const t = pdf.splitTextToSize(pdfTx(c.conteudo || "Sem registro."), W - 60);
+    const t = pdf.splitTextToSize(pdfTx((c._sub ? "[Substituição: " + (c.professor_nome || "") + "] " : "") + (c.conteudo || "Sem registro.")), W - 60);
     if(y + t.length * 4.2 > H - 20){ pdf.addPage(); y = 20; }
     pdf.setFont("helvetica", "bold"); pdf.text(dataBr(c.dia) + " (" + SEMANA[new Date(c.dia + "T12:00:00").getDay()].slice(0, 3) + ") · " + c.aulas + (c.aulas > 1 ? " aulas" : " aula"), 12, y);
     pdf.setFont("helvetica", "normal"); pdf.text(t, 52, y); y += t.length * 4.2 + 1.6;
@@ -882,6 +928,9 @@ async function carregarHistorico(){
     E.hist = [];
     try{ const s = await getDocs(query(collection(db, "freq_chamadas"), where("professor_uid", "==", E.user.uid), where("turma_id", "==", E.turma.id))); s.forEach(d => { const c = d.data(); if(c.ano === ano) E.hist.push(c); }); }
     catch(e){ console.warn("historico:", e.code); }
+    // chamadas que um substituto fez no seu lugar (entram no seu histórico e no diário, marcadas)
+    try{ const s = await getDocs(query(collection(db, "freq_chamadas"), where("titular_uid", "==", E.user.uid), where("turma_id", "==", E.turma.id))); s.forEach(d => { const c = d.data(); if(c.ano === ano) E.hist.push({ ...c, _sub:true }); }); }
+    catch(e){ console.warn("historico substituto:", e.code); }
     E.hist.sort((a, b) => b.dia.localeCompare(a.dia) || a.disciplina.localeCompare(b.disciplina));
     E.resumoTurma = null;
     try{ const r = await getDoc(doc(db, "freq_resumo", E.turma.id + "_" + ano)); if(r.exists()) E.resumoTurma = r.data(); }catch(e){}
@@ -901,8 +950,8 @@ async function carregarHistorico(){
       return "<tr><td><b>" + esc(al.nome) + '</b></td><td class="n">' + x.a + '</td><td class="n">' + x.f + (x.j ? ' <span class="sub">(' + x.j + " just.)</span>" : "") + '</td><td class="n"' + (p !== null && p < min ? ' style="color:var(--red);font-weight:800"' : "") + ">" + pct(p) +
         '</td><td class="n">' + (r && r.a ? pct(r.p) : "–") + "</td><td>" + sit + "</td></tr>"; }).join("") + "</tbody>";
   $("tabChamadas").innerHTML = E.hist.length ? "<thead><tr><th>Dia</th><th>Disciplina</th><th class=n>Aulas</th><th class=n>Faltas</th><th>Registro da aula</th></tr></thead><tbody>" +
-    E.hist.map(c => '<tr class="clic" data-action="abrir-hist" data-arg="' + esc(c.dia + "|" + c.disciplina + "|" + c.aulas) + '"><td><b>' + esc(dataBr(c.dia)) + '</b> <span class="sub">' + SEMANA[new Date(c.dia + "T12:00:00").getDay()].slice(0, 3) + "</span></td><td>" + esc(c.disciplina) +
-      '</td><td class="n">' + c.aulas + '</td><td class="n">' + Object.keys(c.faltas || {}).length + '</td><td class="txt">' + esc(String(c.conteudo || "").slice(0, 120)) + "</td></tr>").join("") + "</tbody>"
+    E.hist.map(c => (c._sub ? '<tr title="Chamada feita pelo substituto">' : '<tr class="clic" data-action="abrir-hist" data-arg="' + esc(c.dia + "|" + c.disciplina + "|" + c.aulas) + '">') + '<td><b>' + esc(dataBr(c.dia)) + '</b> <span class="sub">' + SEMANA[new Date(c.dia + "T12:00:00").getDay()].slice(0, 3) + "</span></td><td>" + esc(c.disciplina) +
+      '</td><td class="n">' + c.aulas + '</td><td class="n">' + Object.keys(c.faltas || {}).length + '</td><td class="txt">' + (c._sub ? '<span class="pill att">Substituição: ' + esc(c.professor_nome || "") + "</span> " : "") + esc(String(c.conteudo || "").slice(0, 120)) + "</td></tr>").join("") + "</tbody>"
     : '<tbody><tr><td class="sub" style="padding:20px">Nenhuma chamada sua nesta turma em ' + ano + ".</td></tr></tbody>";
 }
 function csv(nome, linhas){
@@ -1560,6 +1609,7 @@ const ACOES = {
   just:id => { if(E.just[id]) delete E.just[id]; else E.just[id] = true; mexeu(); },
   "pdf-dia":() => pdfChamadaDia(),
   "pdf-mes":() => pdfDiarioMes(),
+  "aula-hoje":a => abrirAulaHoje(a),
   "todos-presentes":() => { E.faltas = {}; E.just = {}; mexeu(); },
   salvar:() => salvar(),
   excluir:() => excluir(),
@@ -1649,8 +1699,12 @@ onAuthStateChanged(auth, async user => {
     $("lnkVoltar").href = "/entrar/"; $("lnkVoltar").textContent = "← Início";
     ir("portaria"); return;
   }
-  if(E.escolar){ $("tabChamada").hidden = $("tabHist").hidden = true; E.hashInicial = location.hash; ir(location.hash.startsWith("#mural") ? "mural" : location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
-  await carregarTurmas();
+  // direção nomeada substituta: abre a chamada só das aulas da substituição
+  if(E.gestor){ await carregarSubs(); E.soSubs = E.subs.length > 0; }
+  if(E.soSubs){ $("tabHist").hidden = true; }
+  else if(E.escolar){ $("tabChamada").hidden = $("tabHist").hidden = true; E.hashInicial = location.hash; ir(location.hash.startsWith("#mural") ? "mural" : location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
+  await Promise.all([carregarTurmas(), E.soSubs ? null : carregarSubs(), carregarFeitasHoje()]);
+  if(E.soSubs){ const ids = new Set(E.subs.map(x => x.turma_id)); E.turmas = E.turmas.filter(t => ids.has(t.id)); $("selTurma").innerHTML = '<option value="">Escolha a turma...</option>' + E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + "</option>").join(""); }
   let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima_" + E.user.uid) || "null"); }catch(e){}
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }
   if(ult && E.turmas.some(t => t.id === ult.t)){ $("selTurma").value = ult.t; await abrirTurma(ult.t); } else desenharChamada();

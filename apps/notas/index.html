@@ -466,6 +466,10 @@ async function lerFrequencia(){
   try{ const s = await getDocs(query(collection(db, "freq_chamadas"), where("professor_uid", "==", E.user.uid), where("turma_id", "==", E.P.turma_id)));
     s.forEach(d => { const c = d.data(); if(c.ano === +E.P.ano_letivo && (c.disc_id === ds || c.disc_id === POLI)) l.push(c); }); }
   catch(e){ console.warn("frequencia:", e.code); return; }
+  // aulas dadas por substituto no lugar deste professor também contam nas faltas do período
+  try{ const s = await getDocs(query(collection(db, "freq_chamadas"), where("titular_uid", "==", E.user.uid), where("turma_id", "==", E.P.turma_id)));
+    s.forEach(d => { const c = d.data(); if(c.ano === +E.P.ano_letivo && (c.disc_id === ds || c.disc_id === POLI)) l.push(c); }); }
+  catch(e){ console.warn("frequencia substituto:", e.code); }
   if(!l.length) return;
   if(!E.calPer){ E.freqSemCal = l.length; return; }
   const F = {};

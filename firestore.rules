@@ -350,13 +350,19 @@ service cloud.firestore {
     // chamada: um professor, uma turma, um dia, uma disciplina; ID = {uid}_{turma}_{dia}_{disciplina}
     // escola e municipio precisam ser os da turma; o resumo por aluno (freq_resumo) so a funcao escreve
     function turmaDoc(t) { return get(/databases/$(database)/documents/turmas/$(t)).data; }
+    // substituição (professor faltou): ID = {escola}_{dia}_{turma}_{disciplina}; quem foi nomeado faz a chamada daquela aula naquele dia
+    function subPath(c) { return /databases/$(database)/documents/substituicoes/$(c.escola_id + "_" + c.dia + "_" + c.turma_id + "_" + c.disc_id); }
+    function substitutoDe(c) { return exists(subPath(c)) && get(subPath(c)).data.substituto_uid == request.auth.uid; }
     match /freq_chamadas/{id} {
-      allow read: if logado() && (resource == null || resource.data.professor_uid == request.auth.uid || admin() || equipeEscola(resource.data.escola_id));
-      allow create, update: if vinculado() && novo().professor_uid == request.auth.uid
+      // a titular também lê a chamada que o substituto fez na turma dela (histórico e diário do mês)
+      allow read: if logado() && (resource == null || resource.data.professor_uid == request.auth.uid || resource.data.get("titular_uid", "") == request.auth.uid
+        || admin() || equipeEscola(resource.data.escola_id));
+      allow create, update: if (vinculado() || (ativo() && eu().perfil == "gestor" && substitutoDe(novo()))) && novo().professor_uid == request.auth.uid
         && id == request.auth.uid + "_" + novo().turma_id + "_" + novo().dia + "_" + novo().disc_id
         && (resource == null || (resource.data.professor_uid == request.auth.uid && resource.data.turma_id == novo().turma_id && resource.data.dia == novo().dia))
         && novo().keys().hasOnly(["professor_uid", "professor_nome", "escola_id", "municipio_id", "turma_id", "turma_nome", "disciplina", "disc_id",
-          "dia", "ano", "aulas", "lista", "nomes", "faltas", "just", "conteudo", "atualizado_em"])
+          "dia", "ano", "aulas", "lista", "nomes", "faltas", "just", "conteudo", "atualizado_em", "titular_uid", "titular_nome"])
+        && (!("titular_uid" in novo()) || (substitutoDe(novo()) && get(subPath(novo())).data.titular_uid == novo().titular_uid))
         && (admin() || (turmaDoc(novo().turma_id).escola_id == novo().escola_id && novo().escola_id in minhasEscolas()
           && turmaDoc(novo().turma_id).municipio_id == novo().municipio_id))
         && dataOk(novo().dia) && novo().ano is int && int(novo().dia.split("-")[0]) == novo().ano
@@ -366,6 +372,20 @@ service cloud.firestore {
         && novo().faltas is map && novo().faltas.size() <= 80 && novo().just is map && novo().just.size() <= 80
         && texto(novo().get("conteudo", ""), 600) && texto(novo().turma_nome, 80) && texto(novo().professor_nome, 80);
       allow delete: if logado() && (resource.data.professor_uid == request.auth.uid || admin());
+    }
+    match /substituicoes/{id} {
+      allow read: if admin() || equipeEscola(resource.data.escola_id) || secretariaDoMuni(resource.data.municipio_id)
+        || resource.data.substituto_uid == request.auth.uid || resource.data.titular_uid == request.auth.uid;
+      allow create, update: if (admin() || equipeEscola(novo().escola_id))
+        && (resource == null || admin() || equipeEscola(resource.data.escola_id))
+        && id == novo().escola_id + "_" + novo().dia + "_" + novo().turma_id + "_" + novo().disc_id
+        && novo().keys().hasOnly(["escola_id", "escola_nome", "municipio_id", "dia", "turma_id", "turma_nome", "disciplina", "disc_id",
+          "titular_uid", "titular_nome", "substituto_uid", "substituto_nome", "motivo", "lote", "criado_por", "criado_por_nome", "criado_em"])
+        && dataOk(novo().dia) && novo().disc_id is string && novo().disc_id.matches("^[a-z0-9-]{1,40}$")
+        && novo().substituto_uid is string && novo().titular_uid is string && novo().substituto_uid != novo().titular_uid
+        && texto(novo().get("motivo", ""), 120)
+        && (admin() || turmaDoc(novo().turma_id).escola_id == novo().escola_id);
+      allow delete: if admin() || equipeEscola(resource.data.escola_id);
     }
     match /freq_resumo/{id} {
       allow read: if admin() || equipeEscola(resource.data.escola_id) || (vinculado() && resource.data.escola_id in minhasEscolas());
