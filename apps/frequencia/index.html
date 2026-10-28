@@ -693,20 +693,47 @@ function pdfNovo(paisagem){
   if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return null; }
   return new window.jspdf.jsPDF({ unit:"mm", format:"a4", orientation:paisagem ? "landscape" : "portrait" });
 }
-// cabeçalho: faixa com o município e a escola, título do documento e a linha de identificação
-function pdfCabecalho(pdf, titulo, linhas){
-  const W = pdf.internal.pageSize.getWidth(), t = E.turma || {};
-  pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 20, "F");
-  pdf.setFillColor(26, 107, 42); pdf.rect(0, 20, W, 1.4, "F");
-  pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(12.5);
-  pdf.text(pdfTx(t.escola_nome || E.escolasNomes[t.escola_id] || "Escola"), 12, 9);
+// brasão/logo do município (cadastrado em Municípios) e nome da escola para o cabeçalho; sem logo, segue só com o texto
+function logoPng(url){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), t = setTimeout(() => ok(null), 7000);
+    img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(t); try{ const k = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k)); c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      ok({ url:c.toDataURL("image/png"), w:c.width, h:c.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(t); ok(null); };
+    img.src = url;
+  });
+}
+async function pdfMarca(){
+  const t = E.turma || {}, muni = t.municipio_id || E.u.municipio_id || "";
+  if(!E.marca || E.marca.chave !== muni + "|" + t.escola_id){
+    let m = {}, escola = t.escola_nome || E.escolasNomes[t.escola_id] || "";
+    try{ const d = await getDoc(doc(db, "municipios", muni)); if(d.exists()) m = d.data(); }catch(e){ console.warn("municipio:", e.code); }
+    if(!escola && t.escola_id){ try{ const d = await getDoc(doc(db, "escolas", t.escola_id)); if(d.exists()) escola = d.data().nome || ""; }catch(e){} }
+    E.marca = { chave:muni + "|" + t.escola_id, municipio:m.nome || t.municipio_nome || "", uf:m.uf || "", escola, logo:await logoPng(m.logo_url) };
+  }
+  return E.marca;
+}
+// cabeçalho: brasão do município, nome da escola e da rede, título do documento e a linha de identificação
+function pdfCabecalho(pdf, titulo, linhas, mc){
+  const W = pdf.internal.pageSize.getWidth(), lado = 20;
+  pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 27, "F");
+  pdf.setFillColor(26, 107, 42); pdf.rect(0, 27, W, 1.4, "F");
+  let x = 12;
+  if(mc.logo){ pdf.setFillColor(255, 255, 255); pdf.roundedRect(12, 3.5, lado, lado, 2, 2, "F");
+    const m = 1.4, k = Math.min((lado - 2 * m) / mc.logo.w, (lado - 2 * m) / mc.logo.h), w = mc.logo.w * k, h = mc.logo.h * k;
+    pdf.addImage(mc.logo.url, "PNG", 12 + (lado - w) / 2, 3.5 + (lado - h) / 2, w, h); x = 12 + lado + 5; }
+  pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(14);
+  pdf.text(pdfTx(mc.escola || "Escola").slice(0, 70), x, 12);
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
-  pdf.text(pdfTx((t.municipio_nome ? "Rede municipal de " + t.municipio_nome : "") + (t.municipio_nome ? " · " : "") + "Ano letivo " + ($("dia").value || hojeMS()).slice(0, 4)), 12, 15);
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text("PORTAL DO EDUCADOR", W - 12, 9, { align:"right" });
-  pdf.setTextColor(15, 44, 74); pdf.setFontSize(14); pdf.text(pdfTx(titulo), 12, 31);
-  pdf.setFontSize(9.2); let y = 37.5;
-  linhas.forEach(par => { let x = 12; par.forEach(([rot, val]) => { pdf.setFont("helvetica", "bold"); pdf.text(pdfTx(rot) + ": ", x, y); const w = pdf.getTextWidth(pdfTx(rot) + ": ");
-    pdf.setFont("helvetica", "normal"); pdf.text(pdfTx(val || "-"), x + w, y); x += Math.max(w + pdf.getTextWidth(pdfTx(val || "-")) + 9, (W - 24) / par.length); }); y += 5.2; });
+  pdf.text(pdfTx((mc.municipio ? "Secretaria Municipal de Educação de " + mc.municipio + (mc.uf ? "/" + mc.uf : "") + " · " : "") + "Ano letivo " + ($("dia").value || hojeMS()).slice(0, 4)), x, 18.5);
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.text("PORTAL DO EDUCADOR", W - 12, 12, { align:"right" });
+  pdf.setTextColor(15, 44, 74); pdf.setFontSize(14); pdf.text(pdfTx(titulo), 12, 38);
+  pdf.setFontSize(9.2); let y = 44.5;
+  linhas.forEach(par => { let xx = 12; par.forEach(([rot, val]) => { pdf.setFont("helvetica", "bold"); pdf.text(pdfTx(rot) + ": ", xx, y); const w = pdf.getTextWidth(pdfTx(rot) + ": ");
+    pdf.setFont("helvetica", "normal"); pdf.text(pdfTx(val || "-"), xx + w, y); xx += Math.max(w + pdf.getTextWidth(pdfTx(val || "-")) + 9, (W - 24) / par.length); }); y += 5.2; });
   pdf.setDrawColor(210, 220, 230); pdf.line(12, y - 2, W - 12, y - 2);
   return y + 3;
 }
@@ -732,16 +759,17 @@ function pdfAssinaturas(pdf, y, nomes){
 function pdfSalvar(pdf, nome){ pdfRodapes(pdf); pdf.save(nome); }
 
 // 1) chamada do dia, como está na tela
-function pdfChamadaDia(){
+async function pdfChamadaDia(){
   if(!E.turma || !discAtual() || !E.alunos.length){ toast("Escolha a turma e a disciplina antes de gerar o PDF.", true); return; }
   const pdf = pdfNovo(false); if(!pdf) return;
+  const mc = await pdfMarca();
   const d = $("dia").value, W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const nF = E.alunos.filter(a => E.faltas[a.id]).length;
   let y = pdfCabecalho(pdf, "Registro de frequência", [
     [["Turma", (E.turma.nome || "") + (turnoDe(E.turma) ? " · " + turnoDe(E.turma) : "")], ["Disciplina", discAtual()]],
     [["Professor(a)", E.u.nome || ""], ["Data", dataBr(d) + "/" + d.slice(0, 4) + " (" + SEMANA[new Date(d + "T12:00:00").getDay()] + ")"], ["Aulas", String(E.aulas)]],
     [["Presentes", String(E.alunos.length - nF)], ["Faltas", String(nF)], ["Situação", E.existe && !E.sujo ? "chamada salva" : "rascunho, ainda não salvo"]]
-  ]);
+  ], mc);
   const col = [12, 22, 132, W - 12], lh = 5.8;
   const cab = () => { pdf.setFillColor(238, 243, 248); pdf.rect(12, y - 4.3, W - 24, lh, "F"); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5); pdf.setTextColor(60, 80, 100);
     pdf.text("Nº", col[0] + 2, y); pdf.text("Aluno", col[1], y); pdf.text("Situação", col[2], y); y += lh; };
@@ -775,12 +803,13 @@ async function pdfDiarioMes(){
   const cs = E.hist.filter(c => c.dia.slice(0, 7) === mes && (c.disc_id === ds || c.disc_id === POLI)).sort((a, b) => a.dia.localeCompare(b.dia));
   if(!cs.length){ toast("Nenhuma chamada sua de " + disc + " em " + MESES[+mes.slice(5) - 1] + ".", true); return; }
   const pdf = pdfNovo(true); if(!pdf) return;
+  const mc = await pdfMarca();
   const W = pdf.internal.pageSize.getWidth(), H = pdf.internal.pageSize.getHeight();
   const aulas = cs.reduce((s, c) => s + (c.aulas || 0), 0);
   let y = pdfCabecalho(pdf, "Diário de frequência · " + MESES[+mes.slice(5) - 1] + " de " + mes.slice(0, 4), [
     [["Turma", (E.turma.nome || "") + (turnoDe(E.turma) ? " · " + turnoDe(E.turma) : "")], ["Disciplina", disc], ["Professor(a)", E.u.nome || ""]],
     [["Dias com chamada", String(cs.length)], ["Aulas dadas", String(aulas)], ["Legenda", "P presente · F faltou todas as aulas · F1 faltou 1 aula · J justificada · - fora da turma"]]
-  ]);
+  ], mc);
   const xNome = 12, wNum = 7, wNome = 62, xDias = xNome + wNum + wNome, wTot = 13, larg = Math.min(9, (W - 12 - xDias - wTot * 3) / cs.length), lh = 5.6;
   const xTot = xDias + larg * cs.length;
   const cab = () => {
