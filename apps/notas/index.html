@@ -431,7 +431,7 @@ async function abrirPlanilha(turmaId, disciplina, ano){
     s.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo") E.alunos.push({ id:d.id, nome:String(a.nome).trim() }); });
   }catch(e){ console.warn("alunos:", e.code); }
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
-  try{ localStorage.setItem("pde_notas_ultima", JSON.stringify({ t:turmaId, d:disciplina, a:ano })); }catch(e){}
+  try{ localStorage.setItem("pde_notas_ultima_" + E.user.uid, JSON.stringify({ t:turmaId, d:disciplina, a:ano })); }catch(e){}
   $("selTurma").value = turmaId; $("disciplina").value = disciplina; $("selAno").value = String(ano);
   // datas dos períodos vêm do Calendário da rede (quando a secretaria já montou): abre no período de hoje
   E.calPer = null;
@@ -867,7 +867,7 @@ onAuthStateChanged(auth, async user => {
   await Promise.all([carregarTurmas(), carregarMinhas()]);
   $("carregando").hidden = true;
   if(u.perfil === "secretaria" && !E.turmas.length) E.sec = "regra";
-  let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_notas_ultima") || "null"); }catch(e){}
+  let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_notas_ultima_" + E.user.uid) || "null"); }catch(e){}
   if(ult && E.turmas.some(t => t.id === ult.t)) await abrirPlanilha(ult.t, ult.d, ult.a); else desenhar();
 });
 </script>

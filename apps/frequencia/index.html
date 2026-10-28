@@ -600,7 +600,7 @@ async function abrirChamada(){
       if(s.exists()){ const c = s.data(); E.existe = true; E.aulas = c.aulas || 1; E.faltas = { ...(c.faltas || {}) }; E.just = { ...(c.just || {}) }; $("conteudo").value = c.conteudo || ""; }
     }catch(e){ console.warn("chamada:", e.code); }
     if(!E.existe){ try{ const r = JSON.parse(localStorage.getItem(chaveRascunho()) || "null"); if(r){ E.aulas = r.aulas || E.aulas; E.faltas = r.faltas || {}; E.just = r.just || {}; $("conteudo").value = r.conteudo || ""; E.sujo = true; } }catch(e){} }
-    try{ localStorage.setItem("pde_freq_ultima", JSON.stringify({ t:E.turma.id, d:disc, a:E.aulas })); }catch(e){}
+    try{ localStorage.setItem("pde_freq_ultima_" + E.user.uid, JSON.stringify({ t:E.turma.id, d:disc, a:E.aulas })); }catch(e){}
   }
   desenharChamada();
 }
@@ -1448,7 +1448,7 @@ onAuthStateChanged(auth, async user => {
   }
   if(E.escolar){ $("tabChamada").hidden = $("tabHist").hidden = true; E.hashInicial = location.hash; ir(location.hash.startsWith("#mural") ? "mural" : location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
   await carregarTurmas();
-  let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima") || "null"); }catch(e){}
+  let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima_" + E.user.uid) || "null"); }catch(e){}
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }
   if(ult && E.turmas.some(t => t.id === ult.t)){ $("selTurma").value = ult.t; await abrirTurma(ult.t); } else desenharChamada();
   E.hashInicial = location.hash; const h = location.hash.replace("#", "").replace(/^mural-publico$/, "mural");
