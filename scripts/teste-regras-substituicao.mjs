@@ -3,7 +3,7 @@
 //   firebase emulators:exec --only firestore --project demo-pe5 "node scripts/teste-regras-substituicao.mjs firestore.rules"
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
 const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
@@ -42,6 +42,10 @@ await t('titular falsa: não', assertFails(setDoc(doc(fs('sub'), `freq_chamadas/
 await t('gestor sem nomeação não faz chamada', assertFails(setDoc(doc(fs('g1'), `freq_chamadas/g1_t1_${D}_ciencias`), cham('g1'))));
 await t('direção se nomeia substituta', assertSucceeds(setDoc(doc(fs('g1'), 'substituicoes/' + SID), sub({ substituto_uid: 'g1', substituto_nome: 'Marta' }))));
 await t('direção nomeada faz a chamada', assertSucceeds(setDoc(doc(fs('g1'), `freq_chamadas/g1_t1_${D}_ciencias`), cham('g1', { titular_uid: 'tit', titular_nome: 'Júlia' }))));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'turmas/t2'), { nome: '7º Ano A', escola_id: 'e1', municipio_id: 'm1', criado_por: 'x', grade_chaves: ['g1|historia'] }); });
+await t('coordenação com aula fixa faz a chamada da disciplina dela', assertSucceeds(setDoc(doc(fs('g1'), `freq_chamadas/g1_t2_${D}_historia`), cham('g1', { turma_id: 't2', turma_nome: '7º Ano A', disciplina: 'História', disc_id: 'historia' }))));
+await t('coordenação não faz chamada de outra disciplina', assertFails(setDoc(doc(fs('g1'), `freq_chamadas/g1_t2_${D}_arte`), cham('g1', { turma_id: 't2', turma_nome: '7º Ano A', disciplina: 'Arte', disc_id: 'arte' }))));
+await t('direção grava grade com as chaves', assertSucceeds(updateDoc(doc(fs('g1'), 'turmas/t2'), { grade: [], grade_chaves: [] })));
 await t('direção desfaz a nomeação', assertSucceeds(deleteDoc(doc(fs('g1'), 'substituicoes/' + SID))));
 console.log(`substituição: ${ok} ok, ${falha} falha(s)`);
 await env.cleanup(); process.exit(falha ? 1 : 0);

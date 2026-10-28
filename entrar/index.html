@@ -4828,17 +4828,20 @@
     const okPainel = admin || !!(muni && Array.isArray(muni.modulos_secretaria) && muni.modulos_secretaria.includes("painel"));
     planoVigente = admin ? null : lista;
     desenharAcoesDir(okMod, okPainel);
-    if(daAula){
+    if(daAula) montarDirAulas();
+    faixaNoticias(false); faixaDatas();
+    if(esc){ await desenharSubsHoje(esc); await dadosDirecao(esc, okMod); }
+  }
+  // "Minhas aulas" da direção: quem tem turma no cadastro ou aula fixa na grade da turma
+  function montarDirAulas(){
+    if(!$("dirAulas")){ const sec = $("iniHojeSec"); if(!sec) return; sec.insertAdjacentHTML("afterend", '<details class="ini-mais" id="dirAulas"><summary>Minhas aulas</summary><div class="ac-grid" id="dirAulasGrid"></div></details>'); }
       const g = $("dirAulasGrid");
       g.innerHTML = [["Fazer chamada","/apps/frequencia/","chamada","azul"],["Lançar notas","/apps/notas/","notas","azul"],["Criar prova","/provas/","criar-prova","verde"],["Provas online","/prova/","provas-online","verde"]]
         .map(([t, h, f, c]) => '<a class="ac-card '+c+'" href="'+h+'" data-action="ini-abrir" data-mod="gestao"><span class="ac-img" style="background-image:url(\''+fotoAcao(f)+'\')"></span><span class="ac-tx"><b>'+t+'</b></span></a>').join("") +
         '<button type="button" class="ac-card azul" data-action="ini-turmas"><span class="ac-img" style="background-image:url(\''+fotoAcao("turmas")+'\')"></span><span class="ac-tx"><b>Minhas turmas</b></span></button>';
       const d = $("dirAulas"); try{ d.open = localStorage.getItem("pde_dir_aulas") === "1"; }catch(e){}
       d.addEventListener("toggle", () => { try{ localStorage.setItem("pde_dir_aulas", d.open ? "1" : "0"); }catch(e){} });
-    }
-    faixaNoticias(false); faixaDatas();
-    if(esc){ await desenharSubsHoje(esc); await dadosDirecao(esc, okMod); }
-  }
+      }
   function desenharAcoesDir(okMod, okPainel){
     const box = $("iniAcoes"); if(!box) return;
     const COR = { verde:"verde", azul:"", navy:"navy", alerta:"laranja" };
@@ -4879,6 +4882,7 @@
     Object.values(porTurma).forEach(t => { t.lista.forEach(id => { alunosHoje++; if(t.a && (t.f[id] || 0) >= t.a) ausentes++; }); });
     const ativas = (turmas || []).filter(t => t.status !== "inativa");
     if(turmas) dir.turmas = ativas;
+    if(ativas.some(t => (t.grade_chaves || []).some(k => k.startsWith(usuarioAtual.uid + "|"))) && !$("dirAulas")) montarDirAulas();
     // turma com grade e dias marcados: a pendência é por disciplina (só as que têm aula hoje); sem grade, pela turma
     const comGradeHoje = t => Array.isArray(t.grade) && t.grade.some(g => Array.isArray(g.dias) && g.dias.includes(semana));
     const discFeitas = new Set((chamadas || []).map(c => c.turma_id + "|" + (c.disc_id || "")));

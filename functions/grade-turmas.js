@@ -29,7 +29,8 @@ export const professoresDaEscola = onCall({ region: 'southamerica-east1', maxIns
     db.collection('usuarios').where('escola_id', '==', escolaId).get()
   ]);
   const vistos = new Map();
-  [...a.docs, ...b.docs].forEach(d => { const u = d.data(); if (u.perfil === 'professor' && u.status === 'ativo' && !vistos.has(d.id))
-    vistos.set(d.id, { uid: d.id, nome: String(u.nome || '').slice(0, 80), email: String(u.email || '').slice(0, 120) }); });
+  // professores e também a direção/coordenação da escola (quem tem aula fixa entra na grade)
+  [...a.docs, ...b.docs].forEach(d => { const u = d.data(); if (['professor', 'gestor'].includes(u.perfil) && u.status === 'ativo' && !vistos.has(d.id))
+    vistos.set(d.id, { uid: d.id, nome: String(u.nome || '').slice(0, 80), email: String(u.email || '').slice(0, 120), perfil: u.perfil }); });
   return { professores: [...vistos.values()].sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR')) };
 });

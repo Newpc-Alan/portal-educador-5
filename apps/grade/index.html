@@ -195,7 +195,7 @@ function abrirTurma(id){
 }
 function opProf(uid, nome){
   const l = E.profs.slice(); if(uid && !l.some(p => p.uid === uid)) l.push({ uid, nome:(nome || "Professor") + " (fora da lista)" });
-  return '<option value="">Professor(a)...</option>' + l.map(p => '<option value="' + esc(p.uid) + '"' + (p.uid === uid ? " selected" : "") + ">" + esc(p.nome || p.email) + "</option>").join("");
+  return '<option value="">Professor(a)...</option>' + l.map(p => '<option value="' + esc(p.uid) + '"' + (p.uid === uid ? " selected" : "") + ">" + esc((p.nome || p.email) + (p.perfil === "gestor" ? " (Direção/Coordenação)" : "")) + "</option>").join("");
 }
 function desenharEditor(){
   const t = E.turmas.find(x => x.id === E.turma); if(!t) return;
@@ -224,7 +224,7 @@ async function salvar(){
     return { disciplina:l.disciplina.trim().replace(/\s+/g, " ").slice(0, 60), disc_id:slug(l.disciplina), professor_uid:l.professor_uid, professor_nome:String(p ? p.nome : l.professor_nome).slice(0, 80), dias:l.dias.slice().sort() }; });
   const b = $("btnSalvar"); b.disabled = true; b.textContent = "Salvando...";
   try{
-    const dados = { grade, grade_em:serverTimestamp(), grade_por:E.user.uid, grade_por_nome:String(E.u.nome || "").slice(0, 80) };
+    const dados = { grade, grade_chaves:[...new Set(grade.map(g => g.professor_uid + "|" + g.disc_id))], grade_em:serverTimestamp(), grade_por:E.user.uid, grade_por_nome:String(E.u.nome || "").slice(0, 80) };
     await updateDoc(doc(db, "turmas", t.id), dados);
     Object.assign(t, dados, { grade_em:null }); E.sujo = false;
     toast("Grade salva: " + (t.nome || "turma") + "."); desenharTurmas(); abrirTurma(t.id);

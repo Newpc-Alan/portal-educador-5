@@ -1699,12 +1699,12 @@ onAuthStateChanged(auth, async user => {
     $("lnkVoltar").href = "/entrar/"; $("lnkVoltar").textContent = "← Início";
     ir("portaria"); return;
   }
-  // direção nomeada substituta: abre a chamada só das aulas da substituição
-  if(E.gestor){ await carregarSubs(); E.soSubs = E.subs.length > 0; }
-  if(E.soSubs){ $("tabHist").hidden = true; }
+  // direção/coordenação: chamada só das aulas em que está na grade (aula fixa) ou das substituições
+  if(E.gestor){ await Promise.all([carregarSubs(), carregarTurmas()]); E.soSubs = E.subs.length > 0 || E.turmas.some(t => discDaGrade(t).length); }
+  if(E.soSubs){ $("tabHist").hidden = !E.turmas.some(t => discDaGrade(t).length); }
   else if(E.escolar){ $("tabChamada").hidden = $("tabHist").hidden = true; E.hashInicial = location.hash; ir(location.hash.startsWith("#mural") ? "mural" : location.hash === "#mural" || (["#portaria", "#carteirinhas", "#auditoria"].includes(location.hash) && podePortaria()) ? location.hash.slice(1) : "busca"); return; }
   await Promise.all([carregarTurmas(), E.soSubs ? null : carregarSubs(), carregarFeitasHoje()]);
-  if(E.soSubs){ const ids = new Set(E.subs.map(x => x.turma_id)); E.turmas = E.turmas.filter(t => ids.has(t.id)); $("selTurma").innerHTML = '<option value="">Escolha a turma...</option>' + E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + "</option>").join(""); }
+  if(E.soSubs){ const ids = new Set(E.subs.map(x => x.turma_id)); E.turmas = E.turmas.filter(t => ids.has(t.id) || discDaGrade(t).length); $("selTurma").innerHTML = '<option value="">Escolha a turma...</option>' + E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (turnoDe(t) ? " · " + turnoDe(t) : "") + "</option>").join(""); }
   let ult = null; try{ ult = JSON.parse(localStorage.getItem("pde_freq_ultima_" + E.user.uid) || "null"); }catch(e){}
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }
   if(ult && E.turmas.some(t => t.id === ult.t)){ $("selTurma").value = ult.t; await abrirTurma(ult.t); } else desenharChamada();
