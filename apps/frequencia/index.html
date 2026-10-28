@@ -123,7 +123,12 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .toast.err{background:var(--red)}
 .sim{background:#fff3d6;color:#6b4500;border:1px solid #f3d88f;border-radius:10px;padding:8px 12px;font-size:.82rem;margin-bottom:12px}
-@media (max-width:640px){ .topo{position:static} .al{grid-template-columns:26px minmax(0,1fr)} .al .bts{grid-column:1 / -1;justify-content:flex-start;padding-left:36px} }
+@media (max-width:640px){ .topo{position:static}
+  /* celular: P e F na mesma linha do nome (uma linha por aluno); só quem faltou abre a segunda linha (quantas aulas, justificada) */
+  .lista .al{grid-template-columns:22px minmax(0,1fr) auto;gap:6px}
+  .lista .al .nm{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.2;font-size:.92rem}
+  .lista .al .bts{flex-wrap:nowrap} .lista .pf{width:44px} .lista .pf.j{width:auto;padding:8px 10px}
+  .lista .al.falta .bts{grid-column:1 / -1;justify-content:flex-end;flex-wrap:wrap} }
 @media print{
   .topo,.rodape-salvar,.nao-imprime,.toast{display:none !important}
   body,html{background:#fff} .app{padding:0;max-width:none} .card,.tab-wrap{border:0;padding:0}
@@ -311,7 +316,7 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
     <div class="card">
       <div class="barra">
         <label class="campo" style="flex:1;min-width:200px">Turma<select class="sel" id="selTurma"></select></label>
-        <label class="campo" style="flex:1;min-width:200px">Disciplina<input class="inp" id="disciplina" list="listaDisc" maxlength="60" placeholder="Ex.: Matemática" autocomplete="off"></label>
+        <label class="campo" style="flex:1;min-width:200px">Disciplina<select class="sel" id="selDisc" aria-label="Disciplina"></select><input class="inp" id="disciplina" maxlength="60" placeholder="Escreva o nome da disciplina" autocomplete="off" aria-label="Outra disciplina" hidden></label>
         <label class="campo">Dia<input class="inp" type="date" id="dia"></label>
         <div class="campo">Aulas<div class="seg" id="segAulas"></div></div>
       </div>
@@ -616,7 +621,16 @@ function alertasAluno(a){
   const ics = [...new Set(a.alertas.map(x => ICO_AL[x.t] || ICO_AL.outro))].join("");
   return ' <button class="al-alerta" data-action="ver-alertas" data-arg="' + esc(a.id) + '" aria-label="Alertas da escola sobre ' + esc(a.nome) + '" title="' + esc(a.alertas.map(x => x.x).join(" · ")) + '">' + ics + "</button>";
 }
+// disciplina numa caixa de seleção (a lista do navegador não aparece no celular); "Outra" abre o campo de texto
+function desenharSelDisc(){
+  const sel = $("selDisc"), inp = $("disciplina"); if(!sel) return;
+  const v = discAtual(), lista = [...new Set([...DISC, ...(v ? [v] : [])])];
+  sel.innerHTML = '<option value="">Escolha a disciplina...</option>' + lista.map(d => '<option value="' + esc(d) + '"' + (d === v ? " selected" : "") + ">" + esc(d) + "</option>").join("") +
+    '<option value="__outra"' + (E.discOutra ? " selected" : "") + ">Outra disciplina...</option>";
+  inp.hidden = !E.discOutra;
+}
 function desenharChamada(){
+  desenharSelDisc();
   $("segAulas").innerHTML = [1, 2, 3, 4, 5, 6].map(n => '<button class="' + (n === E.aulas ? "on" : "") + '" data-action="aulas" data-arg="' + n + '">' + n + "</button>").join("");
   const d = $("dia").value, hj = hojeMS(), disc = discAtual();
   let info = "";
@@ -1586,7 +1600,11 @@ document.addEventListener("change", ev => {
   else if(t.id === "auDia"){ if(t.value > hojeMS()) t.value = hojeMS(); carregarDiaAuditoria(); }
   else if(t.id === "auTurma") desenharAuditoria();
   else if(t.id === "auMes") carregarVistas();
-  else if(t.id === "disciplina") abrirChamada();
+  else if(t.id === "disciplina"){ E.discOutra = false; abrirChamada(); }
+  else if(t.id === "selDisc"){
+    if(t.value === "__outra"){ E.discOutra = true; $("disciplina").value = ""; desenharSelDisc(); $("disciplina").focus(); abrirChamada(); }
+    else { E.discOutra = false; $("disciplina").value = t.value; abrirChamada(); }
+  }
   else if(t.id === "dia"){ if(t.value > hojeMS()) t.value = hojeMS(); if(E.turma){ carregarCalendario(E.turma).then(abrirChamada); } else desenharChamada(); E.histTurma = ""; }
   else if(t.dataset && t.dataset.qt){ E.faltas[t.dataset.qt] = +t.value; mexeu(); }
 });

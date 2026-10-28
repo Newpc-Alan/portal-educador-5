@@ -165,7 +165,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 
   <div class="card barra" id="barPlan">
     <select class="sel" id="selTurma" aria-label="Turma"><option value="">Carregando turmas...</option></select>
-    <input class="inp" id="disciplina" list="listaDisc" maxlength="60" placeholder="Disciplina (ex.: Matemática)" aria-label="Disciplina" style="min-width:220px">
+    <select class="sel" id="selDisc" aria-label="Disciplina" style="min-width:220px"></select><input class="inp" id="disciplina" maxlength="60" placeholder="Escreva o nome da disciplina" aria-label="Outra disciplina" style="min-width:220px" hidden>
     <datalist id="listaDisc"></datalist>
     <select class="sel" id="selAno" aria-label="Ano letivo"></select>
     <button class="btn btn-pri" data-action="abrir-planilha">Abrir</button>
@@ -396,12 +396,20 @@ async function carregarTurmas(){
   $("selTurma").innerHTML = '<option value="">' + (E.turmas.length ? "Escolha a turma..." : "Nenhuma turma cadastrada") + "</option>" +
     E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (ids.length > 1 || E.admin ? " · " + esc(t.escola_nome || "") : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("");
 }
+// disciplina numa caixa de seleção (a lista do navegador não aparece no celular); "Outra" abre o campo de texto
+function desenharSelDisc(){
+  const sel = $("selDisc"), inp = $("disciplina"); if(!sel) return;
+  const v = String(inp.value || "").trim(), lista = [...new Set([...(E.discMinhas || []), ...DISC, ...(v ? [v] : [])])];
+  sel.innerHTML = '<option value="">Disciplina...</option>' + lista.map(d => '<option value="' + esc(d) + '"' + (d === v && !E.discOutra ? " selected" : "") + ">" + esc(d) + "</option>").join("") +
+    '<option value="__outra"' + (E.discOutra ? " selected" : "") + ">Outra disciplina...</option>";
+  inp.hidden = !E.discOutra;
+}
 async function carregarMinhas(){
   const l = [];
   try{ const s = await getDocs(query(collection(db, "notas_planilhas"), where("professor_uid", "==", E.user.uid))); s.forEach(d => l.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("minhas:", e.code); }
   l.sort((a, b) => String(a.turma_nome + a.disciplina).localeCompare(String(b.turma_nome + b.disciplina), "pt-BR", { numeric:true }));
   $("selMinhas").innerHTML = '<option value="">🗂️ Minhas planilhas (' + l.length + ")</option>" + l.map(p => '<option value="' + esc(p.turma_id + "|" + p.disciplina + "|" + p.ano_letivo) + '">' + esc(p.turma_nome + " · " + p.disciplina + " · " + p.ano_letivo) + "</option>").join("");
-  $("listaDisc").innerHTML = [...new Set([...l.map(p => p.disciplina), ...DISC])].map(d => '<option value="' + esc(d) + '">').join("");
+  E.discMinhas = l.map(p => p.disciplina); desenharSelDisc();
 }
 async function carregarRegra(m){
   E.regra = { ...PADRAO, pesos:[...PADRAO.pesos] }; E.regraDe = m || ""; E.regraExiste = false;
@@ -412,7 +420,7 @@ async function abrirPlanilha(turmaId, disciplina, ano){
   const t = E.turmas.find(x => x.id === turmaId);
   disciplina = String(disciplina || "").trim().replace(/\s+/g, " ");
   if(!t){ toast("Escolha a turma.", true); return; }
-  if(!disciplina){ toast("Escreva a disciplina.", true); $("disciplina").focus(); return; }
+  if(!disciplina){ toast("Escolha a disciplina.", true); (E.discOutra ? $("disciplina") : $("selDisc")).focus(); return; }
   $("carregando").hidden = false;
   E.pid = E.user.uid + "_" + turmaId + "_" + slug(disciplina) + "_" + ano;
   const muni = t.municipio_id || E.u.municipio_id || "";
@@ -432,7 +440,7 @@ async function abrirPlanilha(turmaId, disciplina, ano){
   }catch(e){ console.warn("alunos:", e.code); }
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   try{ localStorage.setItem("pde_notas_ultima_" + E.user.uid, JSON.stringify({ t:turmaId, d:disciplina, a:ano })); }catch(e){}
-  $("selTurma").value = turmaId; $("disciplina").value = disciplina; $("selAno").value = String(ano);
+  $("selTurma").value = turmaId; $("disciplina").value = disciplina; E.discOutra = false; desenharSelDisc(); $("selAno").value = String(ano);
   // datas dos períodos vêm do Calendário da rede (quando a secretaria já montou): abre no período de hoje
   E.calPer = null;
   try{ const c = await getDoc(doc(db, "cal_rede", muni + "_" + ano)); const per = c.exists() ? c.data().periodos : null; if(Array.isArray(per) && per.length === E.regra.periodos) E.calPer = per; }catch(e){}
@@ -829,6 +837,7 @@ document.addEventListener("change", ev => {
   if(t.dataset.nota || t.dataset.falta){ lancar(t); atualizarLinha(t); if(t.dataset.falta) avisoFreq(); }
   else if(t.dataset.exame){ lancar(t); desenhar(); }
   else if(t.id === "aulasPer"){ const v = lerNum(t.value); if(v === null) delete E.P.aulas[E.per]; else E.P.aulas[E.per] = Math.max(0, Math.round(v)); salvar(); desenhar(); }
+  else if(t.id === "selDisc"){ E.discOutra = t.value === "__outra"; $("disciplina").value = E.discOutra ? "" : t.value; desenharSelDisc(); if(E.discOutra) $("disciplina").focus(); }
   else if(t.id === "selMinhas" && t.value){ const [tu, d, a] = t.value.split("|"); t.value = ""; abrirPlanilha(tu, d, a); }
   else if(t.id === "rPer"){ desenharPesos([...document.querySelectorAll("[data-peso]")].map(el => +el.value)); ajudaRegra(); }
   else if(t.closest && t.closest("#regraForm")) ajudaRegra();
