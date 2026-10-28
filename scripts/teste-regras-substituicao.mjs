@@ -16,6 +16,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'usuarios/sub'), prof('e1'));
   await setDoc(doc(db, 'usuarios/outro'), prof('e1'));
   await setDoc(doc(db, 'turmas/t1'), { nome: '6º Ano A', escola_id: 'e1', municipio_id: 'm1', criado_por: 'x' });
+  await setDoc(doc(db, 'municipios/m1'), { nome: 'Laboratório' });
 });
 let ok = 0, falha = 0;
 const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
