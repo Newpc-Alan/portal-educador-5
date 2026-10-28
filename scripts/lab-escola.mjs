@@ -44,7 +44,7 @@ async function diagnostico() {
   for (const [email, perfil] of CONTAS) {
     const u = (await db.collection('usuarios').where('email', '==', email).limit(2).get()).docs[0];
     const p = (await db.doc(`pre_cadastros/${email}`).get()).exists;
-    contas.push(`${email.split('@')[0]}: ${u ? `uid ${u.id} perfil=${u.data().perfil || '-'} status=${u.data().status || '-'} escola=${u.data().escola_id || '-'}` : 'ainda não entrou no Portal'}${p ? ' (tem pré-cadastro)' : ''}`);
+    contas.push(`${email.split('@')[0]}: ${u ? `uid ${u.id} perfil=${u.data().perfil || '-'} status=${u.data().status || '-'} muni=${u.data().municipio_id || '-'} escola=${u.data().escola_id || '-'} turmas=${(u.data().turmas_ids || []).join('+') || '-'}` : 'ainda não entrou no Portal'}${p ? ' (tem pré-cadastro)' : ''}`);
   }
   aviso('CONTAS: ' + contas.join(' || '));
 }
