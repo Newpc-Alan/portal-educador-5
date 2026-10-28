@@ -1,0 +1,43 @@
+# Escola de laboratório NEWPC (contas de teste). Roda só quando alguém clica em "Run workflow".
+# "diagnostico" só lê o banco. Os modos que gravam só são usados com o ok do Alan.
+name: Escola de laboratório
+
+on:
+  workflow_dispatch:
+    inputs:
+      modo:
+        description: "O que fazer"
+        type: choice
+        options: [diagnostico]
+        default: diagnostico
+
+permissions:
+  contents: read
+
+concurrency:
+  group: escola-laboratorio
+  cancel-in-progress: false
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd functions && npm ci
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo FIREBASE_SERVICE_ACCOUNT no repositório."; exit 1; fi
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Rodar
+        run: cd functions && node ../scripts/lab-escola.mjs "--${{ inputs.modo }}"
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
