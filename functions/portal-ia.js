@@ -59,8 +59,8 @@ export const ESQUEMA_DOC = {
       itens: AS('Lista de itens da seção (pode ser vazia)'),
       questoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
         tipo: { type: 'STRING', enum: ['multipla', 'vf', 'lacuna', 'curta', 'relacionar', 'aberta'] },
-        enunciado: S('Enunciado completo; em lacuna use ______ no lugar de cada palavra que falta'),
-        alternativas: AS('multipla: exatamente 4 alternativas, sem letra na frente; vf: de 3 a 5 afirmativas; demais: vazio'),
+        enunciado: S('Enunciado completo, SEM número na frente; em lacuna use ______ no lugar de cada palavra que falta; em vf só a instrução, sem as afirmativas'),
+        alternativas: AS('multipla: exatamente 4 alternativas, sem letra na frente; vf: de 3 a 5 afirmativas completas (cada uma é uma frase para o aluno julgar, nunca combinações como V-F-V); demais: vazio'),
         coluna_a: AS('relacionar: de 3 a 5 itens'), coluna_b: AS('relacionar: os correspondentes, embaralhados'),
         linhas: { type: 'INTEGER', description: 'linhas para responder: curta 2, aberta 4, demais 0' },
         valor: { type: 'NUMBER', description: 'pontos da questão (só em prova)' }
@@ -121,8 +121,18 @@ async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
 
 /* ------------------------------------------------------------------ limpeza e conferência */
 const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]|\d+[).])\s*/, '').trim();
+const ehCombinacao = a => /^[VF](\s*[-,;/]?\s*[VF])+$/i.test(String(a || '').trim());
 export function limparDoc(d) {
-  (d.secoes || []).forEach(s => (s.questoes || []).forEach(q => ['alternativas', 'coluna_a', 'coluna_b'].forEach(k => { if (Array.isArray(q[k])) q[k] = q[k].map(semMarca).filter(Boolean); })));
+  (d.secoes || []).forEach(s => (s.questoes || []).forEach(q => {
+    q.enunciado = String(q.enunciado || '').replace(/^\s*(quest[aã]o\s*)?\d{1,2}\s*[).:\-–]\s*/i, '').trim();
+    // V ou F com as afirmativas dentro do enunciado e combinações nas alternativas: separa do jeito certo
+    if (q.tipo === 'vf' && (q.alternativas || []).length && q.alternativas.every(ehCombinacao)) {
+      const linhas = q.enunciado.split(/\n|\s\|\s/).map(x => x.trim()).filter(Boolean);
+      const afirm = linhas.filter(x => /^\(\s*\)/.test(x)).map(semMarca);
+      if (afirm.length >= 2) { q.alternativas = afirm; q.enunciado = linhas.filter(x => !/^\(\s*\)/.test(x)).join(' '); }
+    }
+    ['alternativas', 'coluna_a', 'coluna_b'].forEach(k => { if (Array.isArray(q[k])) q[k] = q[k].map(semMarca).filter(Boolean); });
+  }));
   return d;
 }
 export function conferirDoc(d, tipo, qtd) {
@@ -142,6 +152,7 @@ export function conferirDoc(d, tipo, qtd) {
     const n = i + 1, alt = (q.alternativas || []).filter(a => String(a).trim());
     if (!String(q.enunciado || '').trim()) prob.push('questão ' + n + ' sem enunciado');
     if (q.tipo === 'multipla' && alt.length !== 4) prob.push('questão ' + n + ' de múltipla escolha sem 4 alternativas');
+    if (q.tipo === 'vf' && (alt.length < 2 || alt.some(ehCombinacao))) prob.push('questão ' + n + ' de V ou F sem as afirmativas nas alternativas');
     if (q.tipo === 'relacionar' && ((q.coluna_a || []).length < 2 || (q.coluna_a || []).length !== (q.coluna_b || []).length)) prob.push('questão ' + n + ' de relacionar com colunas desiguais');
   });
   if (tipo === 'prova' && qs.length) { const soma = qs.reduce((a, q) => a + (Number(q.valor) || 0), 0); if (soma > 0 && Math.abs(soma - 10) > 0.05 && !/total|pontos|valendo/i.test(d._pedido || '')) prob.push('valores somando ' + soma + ' em vez de 10'); }
@@ -209,7 +220,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       NOMES.map(k => k + ' (' + TIPOS[k].nome + ')').join(', ') + '. Use "fora" só se o pedido não tiver relação com o trabalho do professor.\n' +
       'Pergunte no máximo 2 coisas, e só o que for indispensável e não estiver no pedido nem no contexto. Série e disciplina já estão no contexto: não pergunte. ' +
       'Exemplos do que costuma ser indispensável: na correção de redação, o texto da redação (livre); no parecer, as observações do professor sobre o aluno (livre); na adaptação, a necessidade e o que adaptar; no recado, o assunto e a data quando houver evento. ' +
-      'Para atividade e prova, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade e 10 na prova. Responda somente no formato JSON pedido.';
+      'Para atividade e prova, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade e 10 na prova. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
     const pedido = 'CONTEXTO\n' + contextoTexto(cx) + (tipoDado ? '\nTipo escolhido pelo professor no atalho: ' + tipoDado : '') + '\n\nPEDIDO DO PROFESSOR\n' + (texto || '(o professor só tocou no atalho)') +
       (d.respostas && typeof d.respostas === 'object' ? '\n\nRESPOSTAS ÀS PERGUNTAS ANTERIORES\n' + Object.entries(d.respostas).slice(0, 4).map(([k, v]) => k + ': ' + txt(v, 6000)).join('\n') : '');
     const r = await geminiJson(chave, [ctx.cfg.modelo_rapido, ...RESERVA_TEXTO], sistema, pedido, ESQUEMA_ENTENDER, 0.2);
@@ -243,7 +254,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
         r = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
-        prob = r.json ? conferirDoc(r.json, tipo, anterior ? 0 : qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo') + ', ' + r.saida + ' tokens'];
+        prob = r.json ? conferirDoc(limparDoc(r.json), tipo, anterior ? 0 : qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo') + ', ' + r.saida + ' tokens'];
         if (!prob.length) break;
         console.warn('portal-ia: conferência reprovou', tipo, prob.join('; '));
       }

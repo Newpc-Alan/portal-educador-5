@@ -32,7 +32,7 @@ const c0 = await portal({ acao: 'cota' }, 'cota'); if (c0) aviso('cota: plano ' 
 const e1 = await portal({ acao: 'entender', texto: 'preciso de uma prova sobre o ciclo da água', contexto: ctx }, 'entender prova');
 if (e1) aviso('entender em ' + e1.s + 's · tipo ' + e1.tipo + ' · tema ' + e1.tema + ' · perguntas: ' + (e1.perguntas.map(p => p.pergunta + ' [' + p.opcoes.join(' / ') + ']').join(' ; ') || 'nenhuma'));
 const e2 = await portal({ acao: 'entender', texto: 'corrige a redação do meu aluno', contexto: ctx }, 'entender redação');
-if (e2) aviso('entender em ' + e2.s + 's · tipo ' + e2.tipo + ' · perguntas: ' + (e2.perguntas.map(p => p.pergunta + (p.livre ? ' (livre)' : '')).join(' ; ') || 'nenhuma'));
+if (e2 && e1) aviso('entender em ' + e2.s + 's · tipo ' + e2.tipo + ' · perguntas: ' + (e2.perguntas.map(p => p.pergunta + (p.livre ? ' (livre)' : '')).join(' ; ') || 'nenhuma'));
 const casos = [
   { tipo: 'prova', tema: 'ciclo da água', resumo: 'Prova do 2º bimestre sobre o ciclo da água, 8 questões, valendo 10.', qtd: 8 },
   { tipo: 'plano', tema: 'frações equivalentes', resumo: 'Plano de 2 aulas de 50 minutos sobre frações equivalentes, com atividade em dupla.', contexto: { disciplina: 'Matemática', serie: '5º ano' } },
@@ -44,7 +44,9 @@ for (const c of casos) {
   if (c.tipo === 'prova') idProva = r.id;
   aviso(c.tipo + ' OK em ' + r.s + 's · ' + r.doc.titulo + ' · ' + resumoDoc(r.doc) + ' · gabarito ' + (r.doc.gabarito || []).length + ' · BNCC ' + (r.doc.bncc || []).map(b => b.codigo).join(', ') + ' · restam ' + r.cota.textos);
   const qs = (r.doc.secoes || []).flatMap(x => x.questoes || []);
-  qs.slice(0, 4).forEach((x, i) => aviso('  Q' + (i + 1) + ' [' + x.tipo + ', ' + (x.valor || 0) + ' pt] ' + x.enunciado + ' ' + (x.alternativas || []).join(' / ')));
+  // o GitHub mostra só 10 avisos por etapa: uma amostra por material
+  const vf = qs.find(x => x.tipo === 'vf') || qs[0];
+  if (vf) aviso('  ' + c.tipo + ' amostra [' + vf.tipo + ', ' + (vf.valor || 0) + ' pt] ' + vf.enunciado + ' :: ' + (vf.alternativas || []).join(' / ') + ' · soma ' + qs.reduce((a, x) => a + (Number(x.valor) || 0), 0));
   if (r.doc.versao_whatsapp) aviso('  WhatsApp: ' + r.doc.versao_whatsapp);
 }
 if (idProva) { const a = await portal({ acao: 'ajustar', id: idProva, instrucao: 'Mais fácil', contexto: ctx }, 'ajustar'); if (a) aviso('ajustar OK em ' + a.s + 's · ' + a.doc.titulo + ' · ' + resumoDoc(a.doc)); }
