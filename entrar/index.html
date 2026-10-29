@@ -1346,7 +1346,7 @@
       { id:"acervoadm",  ico:"\u{1F5C2}\u{FE0F}", label:"Acervo" },
       { id:"videosadm",  ico:"\u{1F3AC}", label:"Vídeos" },
       { id:"jogosadm",   ico:"\u{1F3AE}", label:"Jogos" },
-      { id:"iaadm",      ico:"\u{1F916}", label:"IA do Educador" },
+      { id:"iaadm",      ico:"\u{1F916}", label:"IA Studio (arquivo)" },
       { id:"dicasLink", ico:"\u{1F4A1}", label:"Dicas recebidas" },
       { id:"formacaoLink", ico:"\u{1F393}", label:"Formação Continuada" },
       { grupo:"Sistema", ico:"\u2699\u{FE0F}" },
@@ -4513,7 +4513,7 @@
     else if(acao === "ini-gestao"){ registrarModulo(el.dataset.mod); location.href = "/gestao/"; }
     else if(acao === "ini-dicasaluno"){ registrarModulo(el.dataset.mod); location.href = "/dicas/"+(usuarioAtual.perfil === "admin" ? "?aluno=1" : ""); }
     else if(acao === "ini-portalia"){ registrarModulo(el.dataset.mod); location.href = "/apps/portal-ia/"; }
-    else if(acao === "ini-ia"){ registrarModulo(el.dataset.mod); location.href = "/apps/ia-studio/"; }   // novo IA Studio (a vitrine antiga renderIa fica para o admin conferir)
+    else if(acao === "ini-ia"){ location.href = "/apps/portal-ia/"; }   // a IA do Educador foi retirada: link antigo leva ao Portal IA
     else if(acao === "ia-abrir"){ abrirIa(el.dataset.id); }
     else if(acao === "ia-grupo"){ ias.grupo = el.dataset.grupo; desenharIa(); }
     else if(acao === "iaadm-importar"){ importarIaStudio(el); }
@@ -4612,8 +4612,7 @@
   const MODULOS = [
     { id:"videos",      nome:"Vídeos Educativos",      aluno:true,  ico:"\u{1F3AC}", descAluno:"Vídeos para aprender e revisar a matéria", desc:"Conteúdos em vídeo para enriquecer suas aulas" },
     { id:"jogos",       nome:"Jogos Educacionais",     aluno:true,  ico:"\u{1F3AE}", descAluno:"Aprenda jogando, no seu ritmo", desc:"Aprender brincando, com jogos para a turma" },
-    { id:"portalia",    nome:"Portal IA",              aluno:false, ico:"\u{2728}", desc:"Plano de aula, atividade, prova, parecer, recado e correção numa caixa só, com a IA embarcada", obs:"versão nova em teste", urlPadrao:"#portalia" },
-    { id:"ia",          nome:"IA do Educador",         aluno:false, ico:"\u{1F916}", desc:"Fichas, provas e materiais da aula feitos com inteligência artificial", obs:"IA integrada ao Portal" },
+    { id:"portalia",    nome:"Portal IA",              aluno:false, ico:"\u{2728}", desc:"Plano de aula, atividade, prova, parecer, recado e correção numa caixa só, com a IA embarcada", obs:"planos Intermediário e Completo", urlPadrao:"#portalia", status:"liberado" },
     { id:"provas",      nome:"Provas e Avaliações",    aluno:false, ico:"\u{1F4DD}", desc:"Impressa e online: monte em minutos, imprima ou aplique no Portal do Aluno" },
     { id:"portal360",   nome:"Portal 360º VR",         aluno:true,  ico:"\u{1F97D}", descAluno:"Viaje pelo espaço, pelo corpo humano e muito mais em 3D", desc:"Experiências imersivas em 3D e realidade virtual", obs:"catálogo imersivo 3D e VR",
       urlPadrao:"https://portal360.portaldoeducador.com.br/", logo:"https://portal360.portaldoeducador.com.br/assets/marca/p360-simbolo-animado.svg" },
@@ -4633,15 +4632,19 @@
       urlPadrao:"https://sala.portaldoeducador.com.br/" }
   ];
   // pacote básico (padrão de todo município novo). Lousa, calendário e notícias não dependem do plano: aparecem sempre
-  const PLANO_BASICO = ["atividades","videos","jogos","ia","datas","colorir","historias","biblioteca","museus","dicas","apps"];
+  const PLANO_BASICO = ["atividades","videos","jogos","datas","colorir","historias","biblioteca","museus","dicas","apps"];
   // liberações individuais (usuarios.modulos_extra / recursos_extra), gravadas só pelo administrador
   function extrasDe(u){ return { mods:Array.isArray(u && u.modulos_extra) ? u.modulos_extra : [], recs:Array.isArray(u && u.recursos_extra) ? u.recursos_extra : [] }; }
-  const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro"]);
+  const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro","portalia"]);
+  // o Portal IA segue o plano do município: Intermediário (sem imagens) e Completo (com imagens); Básico não tem
+  const PLANOS_COM_PORTAL_IA = ["intermediario","completo"];
   const listaDoPacote = (n) => n === "basico" ? PLANO_BASICO : n === "intermediario" ? PLANO_INTERMEDIARIO : MODULOS.map(m => m.id);
   // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
   function nomeDoPlano(prof, rec, sec){
-    const p = new Set(prof || []), igual = (l) => p.size === l.length && l.every(x => p.has(x));
-    if(MODULOS.every(m => m.id === "portalia" || p.has(m.id)) && (rec || []).includes("prova_online") && (sec || []).includes("painel")) return "completo";
+    // "ia" (IA do Educador, retirada) e "portalia" (decidido pelo plano) não contam na comparação
+    const fora = x => x !== "ia" && x !== "portalia";
+    const p = new Set((prof || []).filter(fora)), igual = (l) => { const b = l.filter(fora); return p.size === b.length && b.every(x => p.has(x)); };
+    if(MODULOS.every(m => !fora(m.id) || p.has(m.id)) && (rec || []).includes("prova_online") && (sec || []).includes("painel")) return "completo";
     if(!(rec || []).length && !(sec || []).length){ if(igual(PLANO_BASICO)) return "basico"; if(igual(PLANO_INTERMEDIARIO)) return "intermediario"; }
     return p.size ? "personalizado" : "";
   }
@@ -4658,8 +4661,8 @@
     return cfgModulos;
   }
   function cfgDe(id){ const c = (cfgModulos||{})[id] || {}; const md = MODULOS.find(m => m.id === id) || {};
-    const comFoto = ["videos","jogos","ia","atividades","relatorios","datas","colorir","biblioteca","formacao","museus","dicas","maestro","portal360","provas","historias","apps","gestao","dicasaluno"];
-    return { status:c.status || "em_breve", url:c.url || md.urlPadrao || "", imagem:c.imagem || (comFoto.includes(id) ? "/assets/cards/"+id+".webp" : "") }; }
+    const comFoto = ["videos","jogos","portalia","atividades","relatorios","datas","colorir","biblioteca","formacao","museus","dicas","maestro","portal360","provas","historias","apps","gestao","dicasaluno"];
+    return { status:c.status || md.status || "em_breve", url:c.url || md.urlPadrao || "", imagem:c.imagem || (comFoto.includes(id) ? "/assets/cards/"+id+".webp" : "") }; }
 
   const ini = { previa:"professor" };
   // plano em vigor para quem está usando (null = tudo liberado); o kit das datas não abre o que está fora dele
@@ -4710,6 +4713,7 @@
       try{ const m = await getDoc(doc(db,"municipios",usuarioAtual.municipio_id));
         const lista = m.exists() ? m.data()[ehAluno ? "modulos_aluno" : "modulos_professor"] : null;
         if(Array.isArray(lista) && lista.length) doPlano = new Set(lista);
+        if(doPlano && !ehAluno){ const pn = m.data().plano_nome || ""; if(PLANOS_COM_PORTAL_IA.includes(pn)) doPlano.add("portalia"); else if(pn === "basico") doPlano.delete("portalia"); }
         // recursos avulsos do plano (ex.: prova online), mesmo campo que Provas e Avaliações e as funções conferem
         iniProf.recursos = new Set(m.exists() && Array.isArray(m.data().recursos) ? m.data().recursos : []);
         // liberações exclusivas deste professor somam ao plano do município
@@ -7304,7 +7308,7 @@
   async function renderIa(){
     ias.grupo = ""; ias.busca = "";
     document.querySelectorAll("#nav a").forEach(a => a.classList.remove("active"));
-    $("secTitulo").textContent = "IA do Educador";
+    $("secTitulo").textContent = "IA Studio (arquivo)";
     $("conteudo").innerHTML =
       '<div class="acv-filtros"><input type="search" id="iaBusca" class="usr-busca" placeholder="O que você quer preparar? (ex: prova, cartaz, alfabetização)" aria-label="Buscar aplicações"></div>'+
       '<div class="acv-mods" id="iaGrupos"></div><div id="iaLista"><div class="empty">Carregando...</div></div>'+

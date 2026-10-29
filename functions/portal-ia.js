@@ -12,9 +12,10 @@ const GEMINI = defineSecret('GEMINI_API_KEY');
 
 // config/portal_ia sobrepõe tudo isto. Cotas por professor por mês, por plano do município.
 export const PADRAO = {
-  ativo: true, todos: false, municipios: ['lab-muni'],
+  ativo: true, todos: true, municipios: ['lab-muni'],
   modelo_texto: 'gemini-3.6-flash', modelo_rapido: 'gemini-3.1-flash-lite', modelo_imagem: 'gemini-3.1-flash-image',
-  planos: { basico: { textos: 30, imagens: 0 }, intermediario: { textos: 80, imagens: 10 }, completo: { textos: 200, imagens: 40 }, personalizado: { textos: 80, imagens: 10 } }
+  // Portal IA: Intermediário sem imagens, Completo com imagens; Básico não tem
+  planos: { basico: { textos: 0, imagens: 0 }, intermediario: { textos: 80, imagens: 0 }, completo: { textos: 200, imagens: 40 }, personalizado: { textos: 80, imagens: 0 } }
 };
 // o Google desliga versões antigas; se a escolhida sumir, a função tenta a próxima sem o professor ver erro
 const RESERVA_TEXTO = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
@@ -245,6 +246,7 @@ async function contexto(db, uid) {
   else if (eu.municipio_id) { const m = await db.doc(`municipios/${eu.municipio_id}`).get(); plano = (m.exists && m.data().plano_nome) || 'basico'; }
   else if (eu.plano_avulso) plano = eu.plano_avulso;
   const limites = cfg.planos[plano] || cfg.planos.basico;
+  if (!admin && !(limites.textos > 0)) throw new HttpsError('permission-denied', 'O Portal IA faz parte dos planos Intermediário e Completo. Fale com a Secretaria de Educação ou com a NEWPC.');
   return { eu, cfg, admin, plano, limites, usoRef: db.doc(`portal_ia_uso/${uid}_${mesAtual()}`) };
 }
 // reserva 1 da cota (texto ou imagem); devolve se a geração falhar

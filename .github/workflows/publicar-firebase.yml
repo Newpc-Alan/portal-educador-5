@@ -17,6 +17,10 @@ on:
         description: "Rodar os testes das regras antes (recomendado quando publicar regras)"
         type: boolean
         default: true
+      apagar_funcoes:
+        description: "Funções para APAGAR do Firebase, separadas por vírgula (deixe vazio para não apagar nada)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -72,7 +76,20 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
 
       - name: Publicar
+        if: inputs.alvo != 'nada'
         run: firebase deploy --only "${{ inputs.alvo }}" --project "$PROJETO" --non-interactive
+
+      - name: Apagar funções retiradas
+        if: inputs.apagar_funcoes != ''
+        env:
+          LISTA: ${{ inputs.apagar_funcoes }}
+        run: |
+          IFS=',' read -ra FS <<< "$LISTA"
+          for f in "${FS[@]}"; do
+            f="$(echo "$f" | tr -d ' ')"
+            if ! [[ "$f" =~ ^[A-Za-z][A-Za-z0-9]*$ ]]; then echo "::error::nome inválido: $f"; exit 1; fi
+            firebase functions:delete "$f" --region southamerica-east1 --project "$PROJETO" --force
+          done
 
       - name: Apagar a credencial do runner
         if: always()
