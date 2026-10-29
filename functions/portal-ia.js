@@ -47,17 +47,17 @@ const REGRAS_GERAIS =
 'REGRAS DA CASA\n1) Português do Brasil, frases curtas e claras, linguagem adequada à série. Sem travessão como conector de frase.\n2) Conteúdo correto e atualizado. Na dúvida, não afirme.\n3) Código da BNCC só se tiver certeza de que é real e do ano certo; se não tiver, deixe o código vazio e descreva a habilidade.\n4) Nunca invente citação entre aspas atribuída a pessoa real, nem dado, lei, livro ou site.\n5) Matemática: recalcule todas as contas; vírgula decimal. Ciências: experimento só com material caseiro seguro e supervisão de adulto. História: datas e nomes verificáveis, temas sensíveis com seriedade.\n6) Contexto de escola pública brasileira: material simples, nada que dependa de equipamento caro.\n7) Responda somente no formato JSON pedido.';
 
 const S = d => ({ type: 'STRING', description: d });
-const AS = d => ({ type: 'ARRAY', maxItems: 20, items: { type: 'STRING' }, description: d });
+const AS = d => ({ type: 'ARRAY', items: { type: 'STRING' }, description: d });
 export const ESQUEMA_DOC = {
   type: 'OBJECT',
   properties: {
     titulo: S('Título curto e claro do material'),
     subtitulo: S('Uma linha: disciplina, série e tema, ou vazio'),
-    secoes: { type: 'ARRAY', maxItems: 14, items: { type: 'OBJECT', properties: {
+    secoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
       titulo: S('Título da seção'),
       texto: S('Parágrafos da seção (pode ser vazio)'),
       itens: AS('Lista de itens da seção (pode ser vazia)'),
-      questoes: { type: 'ARRAY', maxItems: 25, items: { type: 'OBJECT', properties: {
+      questoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
         tipo: { type: 'STRING', enum: ['multipla', 'vf', 'lacuna', 'curta', 'relacionar', 'aberta'] },
         enunciado: S('Enunciado completo, SEM número na frente; em lacuna use exatamente seis sublinhados (______) no lugar de cada palavra que falta; em vf só a instrução, sem as afirmativas'),
         alternativas: AS('multipla: exatamente 4 alternativas, sem letra na frente; vf: de 3 a 5 afirmativas completas (cada uma é uma frase para o aluno julgar, nunca combinações como V-F-V); demais: vazio'),
@@ -67,7 +67,7 @@ export const ESQUEMA_DOC = {
       }, required: ['tipo', 'enunciado'] } },
       tabela: { type: 'OBJECT', properties: { colunas: AS('cabeçalho'), linhas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { celulas: AS('células da linha') } } } } }
     }, required: ['titulo'] } },
-    gabarito: { type: 'ARRAY', maxItems: 30, items: { type: 'OBJECT', properties: {
+    gabarito: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
       questao: { type: 'INTEGER', description: 'número da questão, contando todas as questões do documento a partir de 1' },
       resposta: S('multipla: a letra; vf: V, F, V; lacuna: as palavras; relacionar: 1-C, 2-A; demais: a resposta esperada'),
       comentario: S('por que, em uma ou duas frases, ou o critério de correção') }, required: ['questao', 'resposta'] } },
