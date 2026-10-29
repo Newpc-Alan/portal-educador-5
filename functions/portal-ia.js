@@ -29,7 +29,7 @@ export const TIPOS = {
   atividade: { nome: 'Atividade com gabarito', publico: 'aluno', questoes: true, instrucao:
 'Escreva uma FICHA DE ATIVIDADE para o aluno. Primeira seção "Para lembrar" com a ideia central em até 3 frases curtas (texto). Segunda seção "Atividades" com as questões, alternando os tipos (multipla, vf, lacuna, curta, relacionar, aberta), em dificuldade crescente, com pelo menos uma questão que pede para explicar com as próprias palavras. Gabarito completo em "gabarito", nunca dentro das questões.' },
   prova: { nome: 'Prova com gabarito', publico: 'aluno', questoes: true, instrucao:
-'Escreva uma AVALIAÇÃO (prova). Uma seção "Questões" com as questões numeradas, cada uma com o "valor" em pontos (a soma dos valores é 10, salvo outro total pedido). Mistura de tipos, maioria objetiva, ao menos uma dissertativa curta. Enunciados claros e completos, sem pegadinhas. Gabarito completo em "gabarito", com o critério de correção das dissertativas no comentário.' },
+'Escreva uma AVALIAÇÃO (prova). Seja direto: enunciados de até 3 linhas, sem textos longos de apoio. Uma seção "Questões" com as questões numeradas, cada uma com o "valor" em pontos (a soma dos valores é 10, salvo outro total pedido). Mistura de tipos, maioria objetiva, ao menos uma dissertativa curta. Enunciados claros e completos, sem pegadinhas. Gabarito completo em "gabarito", com o critério de correção das dissertativas no comentário.' },
   parecer: { nome: 'Parecer do aluno', publico: 'professor', instrucao:
 'Escreva um PARECER DESCRITIVO do aluno, em linguagem respeitosa, objetiva e acolhedora, baseado SOMENTE nas observações que o professor escreveu: não invente fatos, comportamentos nem dificuldades. Seções: "Aspectos cognitivos", "Aspectos socioemocionais", "Participação e autonomia", "Encaminhamentos" (o que a escola e a família podem fazer). Use só o primeiro nome do aluno, como o professor escreveu. Sem diagnóstico médico ou psicológico.' },
   inclusao: { nome: 'Adaptação para inclusão', publico: 'aluno', questoes: true, instrucao:
@@ -47,19 +47,19 @@ const REGRAS_GERAIS =
 'REGRAS DA CASA\n1) Português do Brasil, frases curtas e claras, linguagem adequada à série. Sem travessão como conector de frase.\n2) Conteúdo correto e atualizado. Na dúvida, não afirme.\n3) Código da BNCC só se tiver certeza de que é real e do ano certo; se não tiver, deixe o código vazio e descreva a habilidade.\n4) Nunca invente citação entre aspas atribuída a pessoa real, nem dado, lei, livro ou site.\n5) Matemática: recalcule todas as contas; vírgula decimal. Ciências: experimento só com material caseiro seguro e supervisão de adulto. História: datas e nomes verificáveis, temas sensíveis com seriedade.\n6) Contexto de escola pública brasileira: material simples, nada que dependa de equipamento caro.\n7) Responda somente no formato JSON pedido.';
 
 const S = d => ({ type: 'STRING', description: d });
-const AS = d => ({ type: 'ARRAY', items: { type: 'STRING' }, description: d });
+const AS = d => ({ type: 'ARRAY', maxItems: 20, items: { type: 'STRING' }, description: d });
 export const ESQUEMA_DOC = {
   type: 'OBJECT',
   properties: {
     titulo: S('Título curto e claro do material'),
     subtitulo: S('Uma linha: disciplina, série e tema, ou vazio'),
-    secoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    secoes: { type: 'ARRAY', maxItems: 14, items: { type: 'OBJECT', properties: {
       titulo: S('Título da seção'),
       texto: S('Parágrafos da seção (pode ser vazio)'),
       itens: AS('Lista de itens da seção (pode ser vazia)'),
-      questoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      questoes: { type: 'ARRAY', maxItems: 25, items: { type: 'OBJECT', properties: {
         tipo: { type: 'STRING', enum: ['multipla', 'vf', 'lacuna', 'curta', 'relacionar', 'aberta'] },
-        enunciado: S('Enunciado completo, SEM número na frente; em lacuna use ______ no lugar de cada palavra que falta; em vf só a instrução, sem as afirmativas'),
+        enunciado: S('Enunciado completo, SEM número na frente; em lacuna use exatamente seis sublinhados (______) no lugar de cada palavra que falta; em vf só a instrução, sem as afirmativas'),
         alternativas: AS('multipla: exatamente 4 alternativas, sem letra na frente; vf: de 3 a 5 afirmativas completas (cada uma é uma frase para o aluno julgar, nunca combinações como V-F-V); demais: vazio'),
         coluna_a: AS('relacionar: de 3 a 5 itens'), coluna_b: AS('relacionar: os correspondentes, embaralhados'),
         linhas: { type: 'INTEGER', description: 'linhas para responder: curta 2, aberta 4, demais 0' },
@@ -67,7 +67,7 @@ export const ESQUEMA_DOC = {
       }, required: ['tipo', 'enunciado'] } },
       tabela: { type: 'OBJECT', properties: { colunas: AS('cabeçalho'), linhas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { celulas: AS('células da linha') } } } } }
     }, required: ['titulo'] } },
-    gabarito: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+    gabarito: { type: 'ARRAY', maxItems: 30, items: { type: 'OBJECT', properties: {
       questao: { type: 'INTEGER', description: 'número da questão, contando todas as questões do documento a partir de 1' },
       resposta: S('multipla: a letra; vf: V, F, V; lacuna: as palavras; relacionar: 1-C, 2-A; demais: a resposta esperada'),
       comentario: S('por que, em uma ou duas frases, ou o critério de correção') }, required: ['questao', 'resposta'] } },
@@ -96,8 +96,15 @@ const ESQUEMA_ENTENDER = {
 /* ------------------------------------------------------------------ chamadas ao Gemini */
 async function gemini(chave, modelos, corpo) {
   for (const mod of [...new Set(modelos.filter(Boolean))]) {
-    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(mod) + ':generateContent', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(110000) });
+    let r;
+    try {
+      r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(mod) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(85000) });
+    } catch (e) {
+      // a IA às vezes entra em repetição e não termina: corta e deixa a função tentar de novo
+      if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) { console.warn('portal-ia: tempo esgotado', mod); return { modelo: mod, partes: [], fim: 'TEMPO', pensou: 0, entrada: 0, saida: 0 }; }
+      throw e;
+    }
     if (r.status === 404) { console.warn('portal-ia: modelo fora do ar', mod); continue; }
     const j = await r.json().catch(() => ({}));
     // se o modelo não aceitar o ajuste de raciocínio, repete a chamada sem ele
@@ -113,7 +120,7 @@ async function gemini(chave, modelos, corpo) {
 }
 async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
   const r = await gemini(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
-    generationConfig: { temperature: temp ?? 0.6, responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 32000, thinkingConfig: { thinkingLevel: 'low' } } });
+    generationConfig: { temperature: temp ?? 0.6, responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 12000, thinkingConfig: { thinkingLevel: 'low' } } });
   const bruto = r.partes.filter(p => !p.thought).map(p => p.text || '').join('');
   let json = null; try { json = JSON.parse(bruto); } catch (e) { json = null; console.warn('portal-ia: JSON inválido', r.modelo, 'fim', r.fim, 'pensou', r.pensou, 'tamanho', bruto.length, bruto.slice(-200)); }
   return { ...r, json };
