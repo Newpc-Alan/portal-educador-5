@@ -70,6 +70,13 @@ export function montarPedidoExercicios(p) {
   return { sistema, pedido, esquema: ESQUEMA_EXERCICIOS };
 }
 
+// tira marcas que a IA às vezes repete (a folha já desenha o quadradinho e a letra): "( ) ", "A) ", "a. "
+const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]|\d+[).])\s*/, '').trim();
+export function limpar(c) {
+  (c.questoes || []).forEach(q => { ['alternativas', 'coluna_a', 'coluna_b'].forEach(k => { if (Array.isArray(q[k])) q[k] = q[k].map(semMarca); }); });
+  return c;
+}
+
 // confere o que a IA devolveu antes de entregar ao professor
 export function conferirExercicios(c, qtd) {
   const prob = [];
@@ -163,7 +170,7 @@ export const iaEducadorGerar = onCall({ region: 'southamerica-east1', secrets: [
   if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
   if (prob.length) throw new HttpsError('internal', 'A IA devolveu um material com problema (' + prob[0] + '). Tente de novo.');
 
-  const c = r.conteudo;
+  const c = limpar(r.conteudo);
   const doc = { uid, titulo: txt(c.titulo + ' · ' + AREAS[p.area].nome, 160), entrega: 'atividade', area: p.area, area_nome: AREAS[p.area].nome, tipo: 'exercicios', tipo_nome: 'Exercícios variados',
     tema: p.tema.slice(0, 120), serie: p.serie, bncc: txt(c.bncc_codigo || p.bncc, 40), motor: 'ia-educador-1', modelo: usado, pasta: 'ia/integrada', modo: 'exercicios',
     valores: { v: 3, pedido: { ...p, entrega: 'atividade', tipo: 'exercicios' } }, conteudo: c, turma_id: txt(d.turma_id, 64), turma_nome: txt(d.turma_nome, 60),
