@@ -28,7 +28,7 @@ async function portal(dados, rotulo) {
 }
 const ctx = { disciplina: 'Ciências', serie: '6º ano', turma: 'Teste' };
 const resumoDoc = d => (d.secoes || []).map(x => x.titulo + ((x.questoes || []).length ? ' (' + x.questoes.length + ' questões: ' + x.questoes.map(y => y.tipo).join(', ') + ')' : '') + ((x.itens || []).length ? ' (' + x.itens.length + ' itens)' : '')).join(' · ');
-const c0 = await portal({ acao: 'cota' }, 'cota'); if (c0) aviso('cota: plano ' + c0.plano + ' · textos ' + c0.textos + ' · imagens ' + c0.imagens);
+const c0 = await portal({ acao: 'cota' }, 'cota'); if (c0) aviso('créditos: plano ' + c0.plano + ' · rede ' + (c0.rede ? c0.rede.saldo + ' (restam ' + c0.rede.restante_mes + ' no mês, teto ' + c0.rede.teto + ', imagem ' + c0.rede.imagem + ')' : 'nenhuma') + ' · avulso ' + (c0.pessoal ? c0.pessoal.saldo : '-') + ' · pode usar ' + c0.pode_usar);
 const e1 = await portal({ acao: 'entender', texto: 'preciso de uma prova sobre o ciclo da água', contexto: ctx }, 'entender prova');
 if (e1) aviso('entender em ' + e1.s + 's · tipo ' + e1.tipo + ' · tema ' + e1.tema + ' · perguntas: ' + (e1.perguntas.map(p => p.pergunta + ' [' + p.opcoes.join(' / ') + ']').join(' ; ') || 'nenhuma'));
 const e2 = await portal({ acao: 'entender', texto: 'corrige a redação do meu aluno', contexto: ctx }, 'entender redação');
@@ -42,7 +42,7 @@ let idProva = '';
 for (const c of casos) {
   const r = await portal({ acao: 'gerar', ...c, contexto: c.contexto || ctx }, 'gerar ' + c.tipo); if (!r) continue;
   if (c.tipo === 'prova') idProva = r.id;
-  aviso(c.tipo + ' OK em ' + r.s + 's · ' + r.doc.titulo + ' · ' + resumoDoc(r.doc) + ' · gabarito ' + (r.doc.gabarito || []).length + ' · BNCC ' + (r.doc.bncc || []).map(b => b.codigo).join(', ') + ' · restam ' + r.cota.textos);
+  aviso(c.tipo + ' OK em ' + r.s + 's · ' + r.doc.titulo + ' · ' + resumoDoc(r.doc) + ' · gabarito ' + (r.doc.gabarito || []).length + ' · BNCC ' + (r.doc.bncc || []).map(b => b.codigo).join(', ') + ' · rede depois: ' + (r.cota.rede ? r.cota.rede.saldo : '-'));
   const qs = (r.doc.secoes || []).flatMap(x => x.questoes || []);
   // o GitHub mostra só 10 avisos por etapa: uma amostra por material
   const vf = qs.find(x => x.tipo === 'vf') || qs[0];
@@ -51,5 +51,5 @@ for (const c of casos) {
 }
 if (idProva) { const a = await portal({ acao: 'ajustar', id: idProva, instrucao: 'Mais fácil', contexto: ctx }, 'ajustar'); if (a) aviso('ajustar OK em ' + a.s + 's · ' + a.doc.titulo + ' · ' + resumoDoc(a.doc)); }
 if (idProva) { const im = await portal({ acao: 'imagem', id: idProva, descricao: 'o ciclo da água com o Sol, um rio, nuvens e chuva sobre um morro', estilo: 'didatica' }, 'imagem');
-  if (im) aviso('imagem OK em ' + im.s + 's · ' + im.mime + ' · ' + Math.round(im.dados.length * 0.75 / 1024) + ' KB · ' + im.caminho + ' · imagens restantes ' + im.cota.imagens); }
+  if (im) aviso('imagem OK em ' + im.s + 's · ' + im.mime + ' · ' + Math.round(im.dados.length * 0.75 / 1024) + ' KB · ' + im.caminho + ' · rede depois: ' + (im.cota.rede ? im.cota.rede.saldo : '-')); }
 process.exit(falhas ? 1 : 0);
