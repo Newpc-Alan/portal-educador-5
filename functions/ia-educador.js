@@ -9,7 +9,9 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 const GEMINI = defineSecret('GEMINI_API_KEY');
 
 // configuração padrão (config/ia no Firestore sobrepõe): piloto restrito ao laboratório e aos administradores
-export const PADRAO_IA = { ativo: true, modelo: 'gemini-2.5-flash', limite_mensal: 60, municipios: ['lab-muni'], todos: false };
+export const PADRAO_IA = { ativo: true, modelo: 'gemini-3.6-flash', limite_mensal: 60, municipios: ['lab-muni'], todos: false };
+// o Google desliga versões de modelo (o 2.5 saiu do ar em 16/10/2026): se o modelo escolhido não existir mais, tenta os seguintes
+const RESERVAS = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 
 const AREAS = {
   ciencias: { nome: 'Ciências', regras:
@@ -92,12 +94,13 @@ async function chamarGemini(chave, modelo, m) {
     systemInstruction: { parts: [{ text: m.sistema }] },
     contents: [{ role: 'user', parts: [{ text: m.pedido }] }],
     generationConfig: { temperature: 0.6, responseMimeType: 'application/json', responseSchema: m.esquema, maxOutputTokens: 12000,
-      ...(/^gemini-2\.5/.test(modelo) ? { thinkingConfig: { thinkingBudget: 2048 } } : {}) }
+    }
   };
   const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(90000)
   });
   const j = await r.json().catch(() => ({}));
+  if (r.status === 404) return { naoExiste: true };
   if (!r.ok) { console.error('gemini', r.status, JSON.stringify(j).slice(0, 400)); throw new HttpsError('unavailable', 'A IA não respondeu agora (' + r.status + '). Tente de novo em instantes.'); }
   const texto = (((j.candidates || [])[0] || {}).content || {}).parts?.map(p => p.text || '').join('') || '';
   let conteudo = null; try { conteudo = JSON.parse(texto); } catch (e) { conteudo = null; }
@@ -138,10 +141,15 @@ export const iaEducadorGerar = onCall({ region: 'southamerica-east1', secrets: [
   }
 
   const m = montarPedidoExercicios(p);
-  let r = null, prob = ['sem resposta'], entrada = 0, saida = 0, erro = null;
+  let r = null, prob = ['sem resposta'], entrada = 0, saida = 0, erro = null, usado = cfg.modelo;
   try {
     for (let tentativa = 0; tentativa < 2; tentativa++) {
-      r = await chamarGemini(GEMINI.value(), cfg.modelo, m);
+      for (const mod of [...new Set([cfg.modelo, ...RESERVAS])]) {
+        r = await chamarGemini(GEMINI.value(), mod, m);
+        if (!r.naoExiste) { usado = mod; break; }
+        console.warn('ia-educador: modelo fora do ar', mod);
+      }
+      if (r.naoExiste) throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
       entrada += r.entrada; saida += r.saida;
       prob = conferirExercicios(r.conteudo, p.qtd);
       if (!prob.length) break;
@@ -157,10 +165,10 @@ export const iaEducadorGerar = onCall({ region: 'southamerica-east1', secrets: [
 
   const c = r.conteudo;
   const doc = { uid, titulo: txt(c.titulo + ' · ' + AREAS[p.area].nome, 160), entrega: 'atividade', area: p.area, area_nome: AREAS[p.area].nome, tipo: 'exercicios', tipo_nome: 'Exercícios variados',
-    tema: p.tema.slice(0, 120), serie: p.serie, bncc: txt(c.bncc_codigo || p.bncc, 40), motor: 'ia-educador-1', modelo: cfg.modelo, pasta: 'ia/integrada', modo: 'exercicios',
+    tema: p.tema.slice(0, 120), serie: p.serie, bncc: txt(c.bncc_codigo || p.bncc, 40), motor: 'ia-educador-1', modelo: usado, pasta: 'ia/integrada', modo: 'exercicios',
     valores: { v: 3, pedido: { ...p, entrega: 'atividade', tipo: 'exercicios' } }, conteudo: c, turma_id: txt(d.turma_id, 64), turma_nome: txt(d.turma_nome, 60),
     ia: 'integrada', tokens_entrada: entrada, tokens_saida: saida, favorito: false, criado_em: FieldValue.serverTimestamp(), usado_em: FieldValue.serverTimestamp() };
   const ref = await db.collection('ia_materiais').add(doc);
   const us2 = admin ? null : await usoRef.get();
-  return { id: ref.id, conteudo: c, restante: admin ? null : Math.max(0, cfg.limite_mensal - ((us2 && us2.data().n) || 0)) };
+  return { id: ref.id, conteudo: c, modelo: usado, restante: admin ? null : Math.max(0, cfg.limite_mensal - ((us2 && us2.data().n) || 0)) };
 });
