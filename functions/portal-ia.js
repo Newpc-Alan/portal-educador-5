@@ -216,7 +216,11 @@ export function paraProvas(lista, total) {
     const tipo = ['multipla', 'vf', 'curta', 'dissertativa'].includes(q.tipo) ? q.tipo : 'dissertativa';
     const o = { tipo, enun: String(q.enunciado || '').replace(/^\s*(quest[aã]o\s*)?\d{1,2}\s*[).:\-–]\s*/i, '').trim(), valor: Number(q.valor) > 0 ? Number(q.valor) : 1,
       bncc: (String(q.bncc || '').toUpperCase().match(/E[FIM]\d{2}[A-Z]{2}\d{2,3}/) || [''])[0] };
-    if (tipo === 'multipla') { o.alts = (q.alternativas || []).map(semMarca).filter(Boolean).slice(0, 5); const c = Number(q.correta); o.gab = Number.isInteger(c) && c >= 0 && c < o.alts.length ? c : -1; }
+    if (tipo === 'multipla') {
+      o.alts = (q.alternativas || []).map(semMarca).filter(Boolean).slice(0, 5); const c = Number(q.correta); o.gab = Number.isInteger(c) && c >= 0 && c < o.alts.length ? c : -1;
+      // a IA tende a pôr a correta sempre na mesma letra: embaralha e acompanha o gabarito
+      if (o.gab >= 0) { const certa = o.alts[o.gab]; for (let i = o.alts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o.alts[i], o.alts[j]] = [o.alts[j], o.alts[i]]; } o.gab = o.alts.indexOf(certa); }
+    }
     if (tipo === 'vf') { const v = String(q.vf || '').trim().toUpperCase().charAt(0); o.gab = v === 'V' || v === 'F' ? v : ''; }
     if (tipo === 'curta' || tipo === 'dissertativa') o.exp = String(q.esperado || '').trim();
     return o;
