@@ -11,6 +11,6 @@ const cli = await new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/clo
 try { const r = await cli.request({ url: `https://firestore.googleapis.com/v1/projects/${P}/databases` });
   (r.data.databases || []).forEach(d => console.log('::notice::banco ' + d.name.split('/').pop() + ': regiao ' + d.locationId + ' tipo ' + d.type));
 } catch (e) { console.log('::notice::banco: nao consegui ler (' + e.message.slice(0, 80) + ')'); }
-try { const [bs] = await getStorage().bucket().storage.getBuckets({ project: P });
+try { const { Storage } = await import(pathToFileURL(req.resolve('@google-cloud/storage')).href); const [bs] = await new Storage({ projectId: P }).getBuckets();
   bs.forEach(b => console.log('::notice::arquivos ' + b.name + ': regiao ' + (b.metadata.location || '?') + ' tipo ' + (b.metadata.locationType || '?')));
 } catch (e) { console.log('::notice::arquivos: nao consegui ler (' + e.message.slice(0, 80) + ')'); }
