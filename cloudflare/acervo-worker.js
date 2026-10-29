@@ -1,4 +1,5 @@
 // Portal do Educador · Worker do Acervo (Cloudflare R2)
+// ATENCAO: fora de uso desde out/2026. O Acervo passou para o Storage do Firebase (acervo/ e acervo-rede/). Mantido so como referencia caso se volte ao R2.
 // Confere o login (Firebase) e a licenca antes de entregar qualquer arquivo do bucket pde-acervo.
 //
 // Configuracao no painel da Cloudflare (Workers > este worker > Configuracoes):

@@ -1,0 +1,50 @@
+// Storage do Acervo: acervo/{botao}/... (NEWPC) e acervo-rede/{municipio}/... (Secretaria). Emulador; não toca no banco real.
+import { readFileSync } from 'node:fs';
+import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
+import { doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
+
+const [fh, fp] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
+const [sh, sp] = (process.env.FIREBASE_STORAGE_EMULATOR_HOST || '127.0.0.1:9199').split(':');
+const env = await initializeTestEnvironment({ projectId: 'demo-pe5',
+  firestore: { host: fh, port: Number(fp) }, storage: { rules: readFileSync(process.argv[2], 'utf8'), host: sh, port: Number(sp) } });
+const pdf = new Uint8Array(500), meta = { contentType: 'application/pdf' };
+await env.withSecurityRulesDisabled(async (c) => {
+  const db = c.firestore(), s = (p, d) => setDoc(doc(db, p), d);
+  await s('usuarios/p1', { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', municipio_id: 'm1' });
+  await s('usuarios/p3', { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e9', municipio_id: 'm2' });
+  await s('usuarios/pv', { perfil: 'professor', status: 'ativo', licenca_tipo: 'avulsa', licenca_fim: new Date(Date.now() - 86400000) });
+  await s('usuarios/al1', { perfil: 'aluno', status: 'ativo', escola_id: 'e1', municipio_id: 'm1' });
+  await s('usuarios/sec1', { perfil: 'secretaria', status: 'ativo', municipio_id: 'm1' });
+  await s('usuarios/sec2', { perfil: 'secretaria', status: 'ativo', municipio_id: 'm2' });
+  await s('usuarios/adm', { perfil: 'admin', status: 'ativo' });
+  const st = c.storage();
+  await uploadBytes(ref(st, 'acervo/atividades/a.pdf'), pdf, meta);
+  await uploadBytes(ref(st, 'acervo/historias/h.pdf'), pdf, meta);
+  await uploadBytes(ref(st, 'acervo-rede/m1/c.pdf'), pdf, meta);
+});
+let ok = 0, falha = 0;
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
+const st = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).storage();
+const le = (u, p) => getBytes(ref(st(u), p));
+const up = (u, p, dados = pdf) => uploadBytes(ref(st(u), p), dados, meta);
+await t('professor licenciado lê o acervo NEWPC', assertSucceeds(le('p1', 'acervo/atividades/a.pdf')));
+await t('licença avulsa vencida não lê', assertFails(le('pv', 'acervo/atividades/a.pdf')));
+await t('Secretaria lê o acervo NEWPC', assertSucceeds(le('sec1', 'acervo/atividades/a.pdf')));
+await t('aluno lê Histórias', assertSucceeds(le('al1', 'acervo/historias/h.pdf')));
+await t('aluno não lê Atividades', assertFails(le('al1', 'acervo/atividades/a.pdf')));
+await t('sem login não lê', assertFails(getBytes(ref(env.unauthenticatedContext().storage(), 'acervo/atividades/a.pdf'))));
+await t('administrador envia ao acervo NEWPC', assertSucceeds(up('adm', 'acervo/atividades/n.pdf')));
+await t('Secretaria não envia ao acervo NEWPC', assertFails(up('sec1', 'acervo/atividades/x.pdf')));
+await t('professor não envia ao acervo NEWPC', assertFails(up('p1', 'acervo/atividades/x.pdf')));
+await t('professor da rede lê o acervo da rede', assertSucceeds(le('p1', 'acervo-rede/m1/c.pdf')));
+await t('professor de outra rede não lê', assertFails(le('p3', 'acervo-rede/m1/c.pdf')));
+await t('aluno não lê o acervo da rede', assertFails(le('al1', 'acervo-rede/m1/c.pdf')));
+await t('Secretaria envia na própria rede', assertSucceeds(up('sec1', 'acervo-rede/m1/novo.pdf')));
+await t('Secretaria não envia em outra rede', assertFails(up('sec2', 'acervo-rede/m1/x.pdf')));
+await t('professor não envia no acervo da rede', assertFails(up('p1', 'acervo-rede/m1/x.pdf')));
+await t('Secretaria de outra rede não apaga', assertFails(deleteObject(ref(st('sec2'), 'acervo-rede/m1/c.pdf'))));
+await t('Secretaria apaga da própria rede', assertSucceeds(deleteObject(ref(st('sec1'), 'acervo-rede/m1/c.pdf'))));
+console.log('::notice::acervo no Storage: ' + ok + ' ok, ' + falha + ' falha(s)');
+await env.cleanup();
+process.exit(falha ? 1 : 0);

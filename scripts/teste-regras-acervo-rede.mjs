@@ -7,7 +7,7 @@ import { doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, query, 
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
 const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
 const ITEM = (mun, pub = true) => ({ titulo: 'Currículo municipal', categoria: 'curriculo', disciplina: '', etapas: ['Anos Iniciais'], bncc: [], descricao: '', municipio_id: mun,
-  arquivo_key: 'rede/' + mun + '/abc-curriculo.pdf', arquivo_nome: 'curriculo.pdf', mime: 'application/pdf', tamanho: 1000, publicado: pub, termo_aceito: true, criado_por: 'sec1' });
+  arquivo_key: 'acervo-rede/' + mun + '/abc-curriculo.pdf', arquivo_nome: 'curriculo.pdf', mime: 'application/pdf', tamanho: 1000, publicado: pub, termo_aceito: true, criado_por: 'sec1' });
 await env.withSecurityRulesDisabled(async (c) => {
   const db = c.firestore();
   await setDoc(doc(db, 'municipios/m1'), { nome: 'M1' });
@@ -36,14 +36,20 @@ await t('Secretaria de outra rede não lista', assertFails(getDocs(query(collect
 await t('Secretaria cria na própria rede', assertSucceeds(setDoc(doc(fs('sec1'), 'acervo_rede/n1'), ITEM('m1'))));
 await t('sem a declaração: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n2'), { ...ITEM('m1'), termo_aceito: false })));
 await t('chave fora da pasta da rede: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n3'), { ...ITEM('m1'), arquivo_key: 'atividades/x.pdf' })));
-await t('chave na pasta de outra rede: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n4'), { ...ITEM('m1'), arquivo_key: 'rede/m2/x.pdf' })));
+await t('chave na pasta de outra rede: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n4'), { ...ITEM('m1'), arquivo_key: 'acervo-rede/m2/x.pdf' })));
 await t('Secretaria não cria para outra rede', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n5'), ITEM('m2'))));
 await t('categoria inválida: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n6'), { ...ITEM('m1'), categoria: 'xxx' })));
 await t('campo estranho: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n7'), { ...ITEM('m1'), hack: 1 })));
+const LINK = { ...ITEM('m1'), arquivo_key: '', arquivo_nome: '', mime: 'link', tamanho: 0, link: 'https://drive.google.com/drive/folders/abc' };
+await t('Secretaria cadastra link do Drive', assertSucceeds(setDoc(doc(fs('sec1'), 'acervo_rede/l1'), LINK)));
+await t('link sem https: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/l2'), { ...LINK, link: 'http://x.com/a' })));
+await t('link javascript: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/l3'), { ...LINK, link: 'javascript:alert(1)' })));
+await t('sem arquivo e sem link: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/l4'), { ...LINK, link: '' })));
+await t('Secretaria não troca o link depois', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/l1'), { link: 'https://outro.com/x' })));
 await t('professor não publica', assertFails(setDoc(doc(fs('p1'), 'acervo_rede/n8'), ITEM('m1'))));
 await t('Secretaria renomeia e oculta', assertSucceeds(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { titulo: 'Novo', publicado: false })));
-await t('Secretaria não troca o arquivo', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { arquivo_key: 'rede/m1/outro.pdf' })));
-await t('Secretaria não muda de rede', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { municipio_id: 'm2', arquivo_key: 'rede/m2/abc-curriculo.pdf' })));
+await t('Secretaria não troca o arquivo', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { arquivo_key: 'acervo-rede/m1/outro.pdf' })));
+await t('Secretaria não muda de rede', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { municipio_id: 'm2', arquivo_key: 'acervo-rede/m2/abc-curriculo.pdf' })));
 await t('Secretaria de outra rede não edita', assertFails(updateDoc(doc(fs('sec2'), 'acervo_rede/a1'), { titulo: 'x' })));
 await t('Secretaria de outra rede não exclui', assertFails(deleteDoc(doc(fs('sec2'), 'acervo_rede/a1'))));
 await t('Secretaria exclui da própria rede', assertSucceeds(deleteDoc(doc(fs('sec1'), 'acervo_rede/a1'))));

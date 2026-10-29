@@ -1,6 +1,6 @@
 rules_version = '2';
 // Storage do Portal 5.0: arquivos gerados por cada professor.
-// O acervo (atividades, colorir, biblioteca) fica no Cloudflare R2, fora daqui.
+// Acervo: o da NEWPC em acervo/{botao}/..., o de cada rede em acervo-rede/{municipio}/... (ate 100 MB por arquivo).
 service firebase.storage {
   match /b/{bucket}/o {
 
@@ -235,6 +235,22 @@ service firebase.storage {
     }
 
     // qualquer outro caminho continua bloqueado
+    // Acervo da NEWPC: professor licenciado e equipe da rede leem; aluno so Datas e Historias; so o administrador envia
+    match /acervo/{botao}/{arquivo} {
+      allow read: if admin() || (request.auth != null && eu().status == "ativo" && (
+        (eu().perfil != "aluno" && (licenciado() || (eu().perfil in ["secretaria", "gestor"] && eu().get("municipio_id", "") != "")))
+        || (eu().perfil == "aluno" && botao in ["datas", "historias"])));
+      allow create, update: if admin() && request.resource.size < 100 * 1024 * 1024;
+      allow delete: if admin();
+    }
+    // Acervo da rede: so quem e do municipio le; so a Secretaria dele (ou o administrador) envia e apaga
+    match /acervo-rede/{mun}/{arquivo} {
+      allow read: if admin() || (request.auth != null && eu().status == "ativo" && eu().perfil != "aluno" && eu().get("municipio_id", "") == mun);
+      allow create: if (admin() || (request.auth != null && eu().status == "ativo" && eu().perfil == "secretaria" && eu().get("municipio_id", "") == mun))
+        && request.resource.size < 100 * 1024 * 1024;
+      allow delete: if admin() || (request.auth != null && eu().status == "ativo" && eu().perfil == "secretaria" && eu().get("municipio_id", "") == mun);
+    }
+
     match /{tudo=**} { allow read, write: if false; }
   }
 }
