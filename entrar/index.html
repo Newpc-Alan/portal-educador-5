@@ -787,9 +787,18 @@
   #lsBarra .ls-fim{ background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25) }
   #lsBarra .ls-fim:hover{ background:#e5484d }
   #lsFrame{ flex:1;width:100%;border:0;background:#fff }
+  .tr-topo{ display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px } .tr-topo .usr-busca{ flex:1 1 240px;margin:0 }
+  .tr-filtros{ display:flex;gap:6px;flex-wrap:wrap } .tr-filtros small{ opacity:.7;font-weight:700;margin-left:2px }
+  .tr-cont{ font-size:12.5px;color:var(--muted);margin:0 0 10px }
+  .tr-tag{ position:absolute;left:8px;top:8px;color:#fff;font-size:11px;font-weight:800;border-radius:6px;padding:3px 8px;letter-spacing:.02em }
+  .tr-acoes{ display:flex;gap:6px;padding:0 12px 12px;margin-top:auto } .tr-card .tr-acoes .btn-mini{ margin:0;padding:6px 10px;font-size:12px;white-space:nowrap } .tr-card .tr-acoes .tr-del{ margin-left:auto !important }
+  .tr-sec{ background:#fff !important;color:var(--navy) !important;border:1px solid var(--line) !important }
+  .tr-sec:hover{ border-color:var(--navy) !important } .tr-del{ color:#b3261e !important } .tr-del:hover{ border-color:#b3261e !important }
+  .tr-nome{ width:100%;padding:8px 10px;border:1.5px solid var(--cyan, #2E9BD6);border-radius:8px;font:inherit;font-size:13.5px }
+  .tr-ed{ display:flex;gap:6px;margin-top:8px } .tr-card .tr-ed .btn-mini{ margin:0 }
   .tr-grade{ display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px }
   .tr-card{ background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column }
-  .tr-mini{ aspect-ratio:16/10;background:#eef3f7 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:34px }
+  .tr-mini{ position:relative;aspect-ratio:16/10;background:#eef3f7 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:34px }
   .tr-info{ padding:10px 12px;flex:1 } .tr-info b{ display:block;font-size:14px } .tr-info small{ font-size:12px;color:var(--muted) }
   .tr-card .btn-mini{ margin:0 12px 12px }
 
@@ -3627,21 +3636,105 @@
   }
 
   // ---------- Meus trabalhos (lista no Portal) ----------
+  // ===================== MEUS TRABALHOS: tudo o que o professor produziu, num lugar só =====================
+  // Cada item continua guardado na sua ferramenta; aqui só se reúne, abre, renomeia e exclui.
+  const TR_TIPOS = {
+    lousa:   { nome:"Lousa",     foto:"/assets/inicio/lousa.webp",       max:80,  cor:"#2671AB" },
+    portalia:{ nome:"Portal IA", foto:"/assets/cards/portalia.webp",     max:160, cor:"#0057FF" },
+    prova:   { nome:"Prova",     foto:"/assets/inicio/criar-prova.webp", max:120, cor:"#1a6b2a" },
+    roteiro: { nome:"Roteiro",   foto:"/assets/inicio/comunicado.webp",  max:100, cor:"#7a4fb5" },
+    folha:   { nome:"Folha",     foto:"/assets/inicio/atividades.webp",  max:60,  cor:"#d98a00" }
+  };
+  const trs = { itens:[], tipo:"", busca:"", editando:"" };
   async function renderTrabalhos(){
-    $("conteudo").innerHTML = '<div class="sectionbar"><span class="count" id="trCont">Carregando...</span>'+
-      '<button class="btn btn-primary btn-add" data-action="lousa-abrir">Abrir a Lousa</button></div><div id="trGrade" class="tr-grade"></div>';
-    try{
-      const snap = await getDocs(collection(db, "usuarios", usuarioAtual.uid, "trabalhos"));
-      const l = []; snap.forEach(d => l.push({ id:d.id, ...d.data() }));
-      l.sort((a,b) => (msDe(b.atualizado_em)||0) - (msDe(a.atualizado_em)||0));
-      $("trCont").textContent = l.length ? l.length+" trabalho(s) salvo(s)" : "Nenhum trabalho salvo ainda";
-      $("trGrade").innerHTML = !l.length
-        ? '<div class="panel" style="grid-column:1/-1"><div class="pico">\u{1F4C1}</div><h3>Seus trabalhos aparecem aqui</h3><p>Tudo o que você fizer na Lousa Interativa é salvo sozinho na sua conta. Você pode continuar em qualquer computador, é só entrar no Portal.</p></div>'
-        : l.map(t => '<article class="tr-card"><div class="tr-mini"'+(t.miniatura ? ' style="background-image:url(\''+t.miniatura+'\')"' : '')+'>'+(t.miniatura ? '' : '\u{1F4DD}')+'</div>'+
-          '<div class="tr-info"><b>'+escapeHtml(t.titulo||"Sem nome")+'</b><small>Lousa · '+(t.paginas||1)+' página(s) · '+dataCurta(t.atualizado_em)+'</small></div>'+
-          '<button class="btn-mini btn-gerenciar" data-action="lousa-abrir" data-id="'+escapeAttr(t.id)+'">Abrir na Lousa</button></article>').join("");
-    }catch(e){ console.warn(e); $("trGrade").innerHTML = '<div class="empty">Não foi possível carregar seus trabalhos ('+escapeHtml(e.code||"erro")+').</div>'; }
+    trs.tipo = ""; trs.busca = ""; trs.editando = "";
+    $("conteudo").innerHTML = '<div class="tr-topo"><input type="search" id="trBusca" class="usr-busca" placeholder="Buscar pelo nome" aria-label="Buscar nos meus trabalhos"><div class="tr-filtros" id="trFiltros"></div></div>'+
+      '<p class="tr-cont" id="trCont">Carregando seus trabalhos...</p><div id="trGrade" class="tr-grade"></div>';
+    const uid = usuarioAtual.uid, ms = v => msDe(v) || (v && v.seconds ? v.seconds * 1000 : 0), ler = (q, f) => getDocs(q).then(sn => { const l = []; sn.forEach(d => l.push(f(d.id, d.data()))); return l; }).catch(e => { console.warn("trabalhos:", e.code); return []; });
+    const partes = await Promise.all([
+      ler(collection(db,"usuarios",uid,"trabalhos"), (id, t) => ({ tipo:"lousa", id, titulo:t.titulo || "Lousa sem nome", det:(t.paginas || 1)+" página(s)", mini:t.miniatura || "", arquivo:t.arquivo || "", em:ms(t.atualizado_em) })),
+      ler(query(collection(db,"portal_ia_docs"), where("uid","==",uid)), (id, t) => ({ tipo:"portalia", id, titulo:t.titulo || t.tema || "Material sem nome", det:t.tipo_nome || "Material", em:ms(t.atualizado_em) })),
+      ler(collection(db,"usuarios",uid,"provas"), (id, t) => ({ tipo:"prova", id, titulo:t.titulo || "Prova sem nome", det:[t.disciplina, t.questoes ? t.questoes+" questões" : ""].filter(Boolean).join(" · ") || "Prova", em:ms(t.atualizado_em) })),
+      ler(collection(db,"usuarios",uid,"roteiros"), (id, t) => ({ tipo:"roteiro", id, titulo:t.titulo || "Roteiro sem título", det:"Teleprompter"+(t.palavras ? " · "+t.palavras+" palavras" : ""), em:ms(t.atualizado_em) })),
+      ler(collection(db,"usuarios",uid,"folhas"), (id, t) => ({ tipo:"folha", id, titulo:t.nome || "Folha sem nome", det:"Folha Mágica", em:ms(t.atualizado_em) }))
+    ]);
+    if(!$("trGrade")) return;   // saiu da tela enquanto carregava
+    trs.itens = partes.flat().sort((a, b) => b.em - a.em);
+    desenharTrabalhos();
   }
+  function desenharTrabalhos(){
+    const cont = {}; trs.itens.forEach(i => cont[i.tipo] = (cont[i.tipo] || 0) + 1);
+    $("trFiltros").innerHTML = ['', ...Object.keys(TR_TIPOS).filter(k => cont[k])].map(k => '<button class="usr-tab'+(trs.tipo === k ? " on" : "")+'" data-action="tr-filtro" data-tipo="'+k+'">'+(k ? TR_TIPOS[k].nome + (/^(prova|roteiro|folha)$/.test(k) ? "s" : "") : "Tudo")+' <small>'+(k ? cont[k] : trs.itens.length)+'</small></button>').join("");
+    const t = semAcento(trs.busca.trim());
+    const l = trs.itens.filter(i => (!trs.tipo || i.tipo === trs.tipo) && (!t || semAcento(i.titulo + " " + i.det).includes(t)));
+    $("trCont").textContent = !trs.itens.length ? "" : l.length + (l.length === 1 ? " trabalho" : " trabalhos");
+    if(!trs.itens.length){
+      $("trGrade").innerHTML = '<div class="panel" style="grid-column:1/-1"><div class="pico">\u{1F4C1}</div><h3>Seus trabalhos aparecem aqui</h3><p>Aulas da Lousa, materiais do Portal IA, provas, roteiros do Teleprompter e folhas da Folha Mágica: tudo o que você salvar fica reunido aqui, para abrir em qualquer computador.</p>'+
+        '<div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn btn-primary btn-add" data-action="lousa-abrir">Abrir a Lousa</button><a class="btn btn-ghost btn-add" href="/apps/portal-ia/">Portal IA</a></div></div>';
+      return;
+    }
+    if(!l.length){ $("trGrade").innerHTML = '<div class="empty" style="grid-column:1/-1">Nada encontrado com esse filtro.</div>'; return; }
+    $("trGrade").innerHTML = l.map(i => { const T = TR_TIPOS[i.tipo], chave = i.tipo + ":" + i.id;
+      return '<article class="tr-card" data-tr="'+escapeAttr(chave)+'"><div class="tr-mini" style="background-image:url(\''+escapeAttr(i.mini || T.foto)+'\')"><span class="tr-tag" style="background:'+T.cor+'">'+T.nome+'</span></div>'+
+        '<div class="tr-info">'+(trs.editando === chave
+          ? '<input type="text" class="tr-nome" id="trNome" maxlength="'+T.max+'" value="'+escapeAttr(i.titulo)+'" aria-label="Novo nome"><div class="tr-ed"><button class="btn-mini btn-gerenciar" data-action="tr-salvar-nome" data-tr="'+escapeAttr(chave)+'">Salvar</button><button class="btn-mini tr-sec" data-action="tr-cancelar">Cancelar</button></div>'
+          : '<b>'+escapeHtml(i.titulo)+'</b><small>'+escapeHtml(i.det)+(i.em ? ' · '+new Date(i.em).toLocaleDateString("pt-BR") : '')+'</small>')+'</div>'+
+        (trs.editando === chave ? '' : '<div class="tr-acoes"><button class="btn-mini btn-gerenciar" data-action="tr-abrir" data-tr="'+escapeAttr(chave)+'">Abrir</button>'+
+          '<button class="btn-mini tr-sec" data-action="tr-renomear" data-tr="'+escapeAttr(chave)+'">Renomear</button>'+
+          '<button class="btn-mini tr-sec tr-del" data-action="tr-excluir" data-tr="'+escapeAttr(chave)+'">Excluir</button></div>')+'</article>'; }).join("");
+    const n = $("trNome"); if(n){ n.focus(); n.select(); }
+  }
+  const trItem = (chave) => trs.itens.find(i => i.tipo + ":" + i.id === chave);
+  function abrirTrabalho(i){
+    if(i.tipo === "lousa") return abrirLousa(i.id);
+    if(i.tipo === "portalia") location.href = "/apps/portal-ia/#doc=" + encodeURIComponent(i.id);
+    else if(i.tipo === "prova") location.href = "/provas/#abrir=" + encodeURIComponent(i.id);
+    else if(i.tipo === "folha") location.href = "/apps/folha/#folha=" + encodeURIComponent(i.id);
+    else if(i.tipo === "roteiro"){ try{ localStorage.setItem("pde_tele_ultimo_" + usuarioAtual.uid, i.id); }catch(e){} location.href = "/apps/teleprompter/"; }
+  }
+  async function renomearTrabalho(i, nome){
+    const uid = usuarioAtual.uid, agora = serverTimestamp();
+    if(i.tipo === "lousa") await setDoc(doc(db,"usuarios",uid,"trabalhos",i.id), { titulo:nome, atualizado_em:agora }, { merge:true });
+    else if(i.tipo === "portalia") await updateDoc(doc(db,"portal_ia_docs",i.id), { titulo:nome, editado_em:agora });
+    else if(i.tipo === "prova") await updateDoc(doc(db,"usuarios",uid,"provas",i.id), { titulo:nome });
+    else if(i.tipo === "roteiro") await updateDoc(doc(db,"usuarios",uid,"roteiros",i.id), { titulo:nome, atualizado_em:agora });
+    else if(i.tipo === "folha") await updateDoc(doc(db,"usuarios",uid,"folhas",i.id), { nome, atualizado_em:agora });
+  }
+  async function excluirTrabalho(i){
+    const uid = usuarioAtual.uid, st = getStorage(app);
+    // o conteúdo da Lousa e da prova fica num arquivo no Storage: sai junto
+    if(i.tipo === "lousa"){ if(i.arquivo) await stDelete(stRef(st, i.arquivo)).catch(() => {}); await deleteDoc(doc(db,"usuarios",uid,"trabalhos",i.id)); }
+    else if(i.tipo === "prova"){ await stDelete(stRef(st, "professores/"+uid+"/provas/"+i.id+".json.gz")).catch(() => {}); await deleteDoc(doc(db,"usuarios",uid,"provas",i.id)); }
+    else if(i.tipo === "portalia") await deleteDoc(doc(db,"portal_ia_docs",i.id));
+    else if(i.tipo === "roteiro") await deleteDoc(doc(db,"usuarios",uid,"roteiros",i.id));
+    else if(i.tipo === "folha") await deleteDoc(doc(db,"usuarios",uid,"folhas",i.id));
+  }
+  document.addEventListener("click", async ev => {
+    const el = ev.target.closest("[data-action^='tr-']"); if(!el) return;
+    const a = el.dataset.action, i = el.dataset.tr ? trItem(el.dataset.tr) : null;
+    if(a === "tr-filtro"){ trs.tipo = el.dataset.tipo || ""; desenharTrabalhos(); }
+    else if(a === "tr-abrir" && i) abrirTrabalho(i);
+    else if(a === "tr-renomear" && i){ trs.editando = el.dataset.tr; desenharTrabalhos(); }
+    else if(a === "tr-cancelar"){ trs.editando = ""; desenharTrabalhos(); }
+    else if(a === "tr-salvar-nome" && i){
+      const nome = ($("trNome").value || "").trim().slice(0, TR_TIPOS[i.tipo].max);
+      if(!nome){ toast("Dê um nome ao trabalho.", true); return; }
+      if(nome === i.titulo){ trs.editando = ""; desenharTrabalhos(); return; }
+      el.disabled = true;
+      try{ await renomearTrabalho(i, nome); i.titulo = nome; i.em = Date.now(); trs.editando = ""; desenharTrabalhos(); toast("Nome alterado."); }
+      catch(e){ console.warn(e); el.disabled = false; toast("Não foi possível renomear ("+(e.code || "erro")+").", true); }
+    }
+    else if(a === "tr-excluir" && i){
+      if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar exclusão"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Excluir"; } }, 4000); return; }
+      el.disabled = true;
+      try{ await excluirTrabalho(i); trs.itens = trs.itens.filter(x => x !== i); desenharTrabalhos(); toast("“"+i.titulo+"” foi excluído."); }
+      catch(e){ console.warn(e); el.disabled = false; toast("Não foi possível excluir ("+(e.code || "erro")+").", true); }
+    }
+  });
+  document.addEventListener("input", ev => { if(ev.target.id === "trBusca"){ trs.busca = ev.target.value; desenharTrabalhos(); } });
+  document.addEventListener("keydown", ev => { if(ev.target.id !== "trNome") return;
+    if(ev.key === "Enter"){ ev.preventDefault(); const b = document.querySelector('[data-action="tr-salvar-nome"]'); if(b) b.click(); }
+    if(ev.key === "Escape"){ trs.editando = ""; desenharTrabalhos(); } });
 
   // ===================== LICENCA =====================
   const WHATS_NEWPC = "556730266571";
