@@ -18,26 +18,28 @@ const log = t => console.log('::notice::' + String(t).replace(/[{}"]/g, ' '));
 
 async function listar(b) { const [fs] = await b.getFiles(); return fs; }
 
-// percorre o banco inteiro (coleções e subcoleções) e devolve os documentos com algum texto contendo o bucket antigo
+// procura no banco os documentos com texto contendo o bucket antigo. Em vez de descer coleção por coleção (lento),
+// usa um collectionGroup por nome de coleção que aparece nas regras do Firestore (top-level e subcoleções).
+import { readFileSync } from 'node:fs';
+const NOMES = [...new Set([...readFileSync('../firestore.rules', 'utf8').matchAll(/match \/([a-z_]+)\/\{/g)].map(m => m[1]))].filter(n => n !== 'databases');
 async function docsComVelho(trocar) {
   let vistos = 0, achados = 0, trocados = 0; const porCol = {};
   const mexe = v => typeof v === 'string' ? (v.includes(VELHO) ? v.split(VELHO).join(NOVO) : v)
     : Array.isArray(v) ? v.map(mexe) : (v && typeof v === 'object' && v.constructor === Object) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, mexe(x)])) : v;
   const tem = v => typeof v === 'string' ? v.includes(VELHO) : Array.isArray(v) ? v.some(tem) : (v && typeof v === 'object' && v.constructor === Object) ? Object.values(v).some(tem) : false;
-  async function col(c) {
-    const sn = await c.get();
+  for (const nome of NOMES) {
+    const sn = await db.collectionGroup(nome).get();
+    let lote = db.batch(), n = 0;
     for (const d of sn.docs) {
       vistos++;
       const dados = d.data();
-      if (tem(dados)) {
-        achados++; const nome = c.path.replace(/\/[^/]+\/(?=[^/]+$)/g, '/*/'); porCol[nome] = (porCol[nome] || 0) + 1;
-        if (trocar) { await d.ref.set(mexe(dados)); trocados++; }
-      }
-      for (const sub of await d.ref.listCollections()) await col(sub);
+      if (!tem(dados)) continue;
+      achados++; porCol[nome] = (porCol[nome] || 0) + 1;
+      if (trocar) { lote.set(d.ref, mexe(dados)); n++; trocados++; if (n === 400) { await lote.commit(); lote = db.batch(); n = 0; } }
     }
+    if (trocar && n) await lote.commit();
   }
-  for (const c of await db.listCollections()) await col(c);
-  log('banco: ' + vistos + ' documentos lidos, ' + achados + ' com link do bucket antigo' + (trocar ? ', ' + trocados + ' trocados' : ''));
+  log('banco: ' + NOMES.length + ' colecoes, ' + vistos + ' documentos lidos, ' + achados + ' com link do bucket antigo' + (trocar ? ', ' + trocados + ' trocados' : ''));
   const l = Object.entries(porCol).map(([k, v]) => k + ' ' + v);
   for (let i = 0; i < l.length; i += 10) log('  ' + l.slice(i, i + 10).join(' | '));
 }
@@ -72,10 +74,14 @@ if (etapa === 'preparar') {
   // copia o que ainda não está lá (ou mudou de tamanho), preservando metadados e token de download
   const fs = await listar(velho), [ja] = await novo.getFiles(), tam = new Map(ja.map(f => [f.name, f.metadata.size]));
   let copiados = 0, pulados = 0, erros = 0;
-  for (const f of fs) {
-    if (tam.get(f.name) === f.metadata.size) { pulados++; continue; }
-    try { await f.copy(novo.file(f.name)); copiados++; } catch (e) { erros++; if (erros <= 5) log('erro ' + f.name + ': ' + String(e.message).slice(0, 100)); }
-  }
+  const fila = fs.filter(f => { if (tam.get(f.name) === f.metadata.size) { pulados++; return false; } return true; });
+  const t0 = Date.now();
+  await Promise.all(Array.from({ length: 24 }, async () => {
+    for (let f; (f = fila.shift());) {
+      try { await f.copy(novo.file(f.name)); copiados++; } catch (e) { erros++; if (erros <= 5) log('erro ' + f.name + ': ' + String(e.message).slice(0, 100)); }
+      if (Date.now() - t0 > 40 * 60000) { log('parei por tempo; rode de novo para continuar'); fila.length = 0; }
+    }
+  }));
   const [fim] = await novo.getFiles();
   log('copia: ' + copiados + ' copiados, ' + pulados + ' ja estavam, ' + erros + ' erros · antigo ' + fs.length + ' arquivos, novo ' + fim.length);
 }
