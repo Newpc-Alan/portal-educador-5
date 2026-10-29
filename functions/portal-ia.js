@@ -305,7 +305,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null;
     try {
       for (let t = 0; t < 4; t++) {
-        r = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
+        // se o modelo principal se perder duas vezes, tenta outros modelos (cada um se perde em momentos diferentes)
+        const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : t === 2 ? ['gemini-flash-latest', ctx.cfg.modelo_texto] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
         prob = r.json ? conferirDoc(limparDoc(r.json), tipo, anterior ? 0 : qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo') + ', ' + r.saida + ' tokens'];
