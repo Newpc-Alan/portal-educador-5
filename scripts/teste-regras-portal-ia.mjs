@@ -24,6 +24,10 @@ await t('dono lista os seus', assertSucceeds(getDocs(query(collection(fs('p1'), 
 await t('colega não lê', assertFails(getDoc(doc(fs('p2'), 'portal_ia_docs/d1'))));
 await t('colega não lista', assertFails(getDocs(query(collection(fs('p2'), 'portal_ia_docs'), where('uid', '==', 'p1')))));
 await t('dono salva edição do texto', assertSucceeds(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { doc: { ...DOC, titulo: 'Frações 2' }, titulo: 'Frações 2', editado_em: new Date() })));
+await t('dono salva o texto formatado', assertSucceeds(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { html: '<h1><b>Frações</b></h1>', titulo: 'Frações', editado_em: new Date() })));
+await t('texto formatado grande demais: não', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { html: 'x'.repeat(300001) })));
+await t('texto formatado tem que ser texto', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { html: 5 })));
+await t('colega não grava texto formatado', assertFails(updateDoc(doc(fs('p2'), 'portal_ia_docs/d1'), { html: '<p>x</p>' })));
 await t('dono favorita', assertSucceeds(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { favorito: true })));
 await t('favorito precisa ser sim/não', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { favorito: 'sim' })));
 await t('título grande demais: não', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { titulo: 'x'.repeat(161) })));

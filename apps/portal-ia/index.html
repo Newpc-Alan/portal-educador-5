@@ -138,8 +138,24 @@ h2{font-size:1.1rem;font-weight:800}
 .maisimg{border:1px dashed var(--line2);background:#fff;color:var(--azul);border-radius:8px;font-size:.76rem;font-weight:700;padding:3px 9px;margin:6px 0 0 22px}
 .maisimg:hover{border-color:var(--azul)}
 .ilus img{max-width:100%;max-height:420px;border-radius:10px;border:1px solid var(--line)}
-.editando [data-k]{outline:1px dashed #9cc3a4;outline-offset:2px;border-radius:3px;background:#fbfffb}
-.editando [data-k]:focus{outline:2px solid var(--verde);background:#fff}
+/* editor em tela cheia */
+.editor{position:fixed;inset:0;z-index:100;background:#E4EAF0;display:flex;flex-direction:column}
+.ed-barra{background:var(--navy);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 8px 20px -14px rgba(0,0,0,.6)}
+.ed-barra .tit{font-weight:800;font-size:.95rem;margin-right:6px}
+.ed-ferr{display:flex;gap:2px;flex-wrap:wrap;align-items:center;background:#fff;border-radius:12px;padding:5px 6px}
+.ed-ferr .sep{width:1px;height:22px;background:var(--line2);margin:0 2px}
+.fb{border:0;background:transparent;color:var(--ink);min-width:30px;height:32px;border-radius:8px;font-weight:800;font-size:.9rem;display:inline-flex;align-items:center;justify-content:center;padding:0 7px}
+.fb:hover{background:#EEF3F8}
+.fb svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+.fb .sw{width:16px;height:16px;border-radius:4px;border:1px solid rgba(0,0,0,.18);display:block}
+.ed-barra .esp{flex:1}
+.ed-barra .sair{background:transparent;border:0;color:rgba(255,255,255,.75);font-weight:700;font-size:.82rem;text-decoration:underline;padding:6px}
+.ed-area{flex:1;overflow:auto;padding:26px 16px 60px}
+.ed-folha{max-width:820px;margin:0 auto;outline:none;min-height:70vh}
+.ed-folha:focus{box-shadow:0 0 0 3px rgba(26,107,42,.25),0 18px 40px -30px rgba(15,44,74,.5)}
+.ed-folha img{pointer-events:none}
+.ed-dica{font-size:.78rem;color:rgba(255,255,255,.75)}
+.sem-botoes .nao-imp{display:none !important}
 .lado{display:flex;flex-direction:column;gap:12px;position:sticky;top:88px}
 .lado .caixa{padding:16px;border-radius:16px}
 .lado h4{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
@@ -154,7 +170,17 @@ h2{font-size:1.1rem;font-weight:800}
 .toast.err{background:var(--red)}
 @media (max-width:920px){ .docgrid{grid-template-columns:1fr} .lado{position:static} }
 @media (max-width:560px){ .q.cimg{grid-template-columns:1fr} .qimg{max-width:220px} .caixa{padding:18px} .folha{padding:20px 16px} .pede .pe .btn.pri{width:100%} .q .rel{grid-template-columns:1fr} }
-@media print{ .topo,.lado,.toast,.nao-imp{display:none !important} body,html{background:#fff} .folha{border:0;box-shadow:none;padding:0} .docgrid{display:block} }
+@media print{
+  @page{size:A4;margin:12mm}
+  .topo,.lado,.toast,.nao-imp,.editor{display:none !important}
+  body,html{background:#fff} .app{max-width:none;padding:0}
+  .folha{border:0;box-shadow:none;padding:0;border-radius:0} .docgrid{display:block}
+  .q,.ilus,tr,.gi,li{break-inside:avoid} h3{break-after:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body.imp-aluno .gab{display:none !important}
+  body.imp-gab #folha > :not(.cab):not(h1):not(.st):not(.gab):not(.bncc){display:none !important}
+  #folha::after{content:"portaldoeducador.com.br · Feito com o Portal IA e revisado pelo professor";display:block;margin-top:18px;font-size:8pt;color:#6e8296;border-top:1px solid #d2dce6;padding-top:6px}
+}
 </style>
 </head>
 <body>
@@ -213,7 +239,7 @@ const AJUSTES = ["Mais fácil", "Mais difícil", "Mais curto", "Mais questões",
 const ESTILOS = [["didatica", "Ilustração didática"], ["colorir", "Desenho para colorir"], ["cartoon", "Desenho infantil"], ["realista", "Foto realista"]];
 
 const E = { user:null, u:null, admin:false, turmas:[], turma:"", disc:"", serie:"", ident:{ prof:"", escola:"" }, marca:null, cota:null,
-  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editando:false, ocupado:false, imgs:{}, imgOnde:"topo", imgDescPre:"" };
+  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editor:false, edMudou:false, ocupado:false, imgs:{}, imgOnde:"topo", imgDescPre:"" };
 
 /* ===================== dados do professor ===================== */
 const turmaAtual = () => E.turmas.find(t => t.id === E.turma) || null;
@@ -355,7 +381,7 @@ async function gerar(){
     const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto() })).data;
     E.ocupado = false; clearInterval(E._passos);
     E.cota = r.cota || E.cota; E.texto = ""; E.tipo = "";
-    E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"" };
+    E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"", html:"" };
     E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
     ir("doc");
   }catch(e){ E.ocupado = false; clearInterval(E._passos); c.etapa = "erro"; c.erro = msgErro(e); desenhar(); }
@@ -365,14 +391,13 @@ async function gerar(){
 const LETRAS = ["A", "B", "C", "D", "E"];
 const todasQuestoes = d => (d.secoes || []).flatMap(s => s.questoes || []);
 const linhasDe = q => q.tipo === "aberta" ? Math.max(3, q.linhas || 4) : q.tipo === "curta" ? Math.max(2, q.linhas || 2) : 0;
-const ed = (k, v, tag, cls) => "<" + (tag || "span") + ' data-k="' + k + '"' + (cls ? ' class="' + cls + '"' : "") + ">" + esc(v) + "</" + (tag || "span") + ">";
+const ed = (k, v, tag, cls) => "<" + (tag || "span") + (cls ? ' class="' + cls + '"' : "") + ">" + esc(v) + "</" + (tag || "span") + ">";
 function htmlDoc(d, mostrarGab){
   const cx = E.atual.contexto || {}, aluno = E.atual.publico === "aluno";
-  let h = '<div class="cab">' + (E.marca && E.marca.logo_url ? '<img src="' + esc(E.marca.logo_url) + '" alt="">' : "") + "<div><b>" + esc(E.ident.escola || "Escola") + "</b><small>" +
+  let h = '<div class="cab"><img data-onde="logo" alt=""><div><b>' + esc(E.ident.escola || "Escola") + "</b><small>" +
     esc(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : "") + "</small></div></div>";
   h += ed("titulo", d.titulo, "h1") + (d.subtitulo ? ed("subtitulo", d.subtitulo, "div", "st") : '<div class="st">' + esc([cx.disciplina, cx.serie].filter(Boolean).join(" · ")) + "</div>");
   if(aluno) h += '<div class="alunol"><span>Aluno(a):</span><span>Data: ____/____</span></div>';
-  if(E.imgs.topo) h += '<div class="ilus"><span class="qimg" style="display:inline-block"><img src="' + esc(E.imgs.topo) + '" alt="Ilustração do material"><button type="button" class="tira nao-imp" data-action="img-remover" data-arg="topo">Tirar imagem</button></span></div>';
   let n = 0;
   (d.secoes || []).forEach((s, i) => {
     const b = "secoes." + i + ".";
@@ -383,33 +408,84 @@ function htmlDoc(d, mostrarGab){
       (s.tabela.linhas || []).map((l, j) => "<tr>" + (l.celulas || []).map((c, k) => ed(b + "tabela.linhas." + j + ".celulas." + k, c, "td")).join("") + "</tr>").join("") + "</tbody></table>";
     (s.questoes || []).forEach((q, j) => {
       n++; const qb = b + "questoes." + j + ".";
-      const qi = E.imgs["q" + n];
-      h += '<div class="q' + (qi ? " cimg" : "") + '"><div class="qc"><div class="en"><span class="n">' + n + ".</span>" + ed(qb + "enunciado", q.enunciado, "span") + (q.valor ? ' <span class="val">(' + String(q.valor).replace(".", ",") + " pt)</span>" : "") + "</div>";
+      h += '<div class="q" data-q="' + n + '"><div class="qc"><div class="en"><span class="n">' + n + ".</span>" + ed(qb + "enunciado", q.enunciado, "span") + (q.valor ? ' <span class="val">(' + String(q.valor).replace(".", ",") + " pt)</span>" : "") + "</div>";
       if(q.tipo === "multipla") h += "<ol>" + (q.alternativas || []).map((a, k) => '<li><span class="cx"></span><span>' + LETRAS[k] + ") </span>" + ed(qb + "alternativas." + k, a) + "</li>").join("") + "</ol>";
       if(q.tipo === "vf") h += "<ol>" + (q.alternativas || []).map((a, k) => '<li><span class="cx vf"></span>' + ed(qb + "alternativas." + k, a) + "</li>").join("") + "</ol>";
       if(q.tipo === "relacionar") h += '<div class="rel"><div>' + (q.coluna_a || []).map((a, k) => "<div>" + (k + 1) + ". " + ed(qb + "coluna_a." + k, a) + "</div>").join("") + "</div><div>" +
         (q.coluna_b || []).map((a, k) => '<div><span class="cx vf" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>' + ed(qb + "coluna_b." + k, a) + "</div>").join("") + "</div></div>";
       for(let k = 0; k < linhasDe(q); k++) h += '<div class="lin"></div>';
-      if(!qi && E.podeImg && !E.editando) h += '<button type="button" class="maisimg nao-imp" data-action="img-questao" data-arg="' + n + '">+ Imagem nesta questão</button>';
-      h += "</div>" + (qi ? '<div class="qimg"><img src="' + esc(qi) + '" alt="Imagem da questão ' + n + '"><button type="button" class="tira nao-imp" data-action="img-remover" data-arg="q' + n + '">Tirar</button></div>' : "") + "</div>";
+      h += "</div></div>";
     });
     h += "</section>";
   });
   if(mostrarGab && (d.gabarito || []).length) h += '<div class="gab"><h3>Gabarito (para o professor)</h3>' + d.gabarito.map((g, i) => '<div class="gi"><b>' + esc(g.questao) + ".</b> " + ed("gabarito." + i + ".resposta", g.resposta) + (g.comentario ? " <i>" + ed("gabarito." + i + ".comentario", g.comentario) + "</i>" : "") + "</div>").join("") + "</div>";
-  if((d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))) h += '<section><h3>Habilidades da BNCC</h3><ul>' + d.bncc.map(b => "<li>" + (b.codigo ? "<b>" + esc(b.codigo) + "</b> " : "") + esc(b.descricao) + "</li>").join("") + "</ul></section>";
+  if((d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))) h += '<section class="bncc"><h3>Habilidades da BNCC</h3><ul>' + d.bncc.map(b => "<li>" + (b.codigo ? "<b>" + esc(b.codigo) + "</b> " : "") + esc(b.descricao) + "</li>").join("") + "</ul></section>";
   return h;
+}
+// a folha do material: o texto editado pelo professor (com formatação) ou o montado a partir da IA
+function conteudoFolha(){ return E.atual.html ? limparHtml(E.atual.html) : htmlDoc(E.atual.doc, true); }
+// imagens e botões entram depois, por cima do conteúdo (o HTML guardado não leva as imagens, só o lugar delas)
+function decorar(el, editor){
+  el.querySelectorAll(".tira,.maisimg").forEach(x => x.remove());
+  const logo = el.querySelector('img[data-onde="logo"]');
+  if(logo){ if(E.marca && E.marca.logo_url) logo.src = E.marca.logo_url; else logo.remove(); }
+  el.querySelectorAll("img[data-onde]").forEach(im => { const k = im.dataset.onde; if(k === "logo") return;
+    if(E.imgs[k]){ im.src = E.imgs[k]; return; }
+    const q = im.closest(".q"); (im.closest(".qimg,.ilus") || im).remove(); if(q) q.classList.remove("cimg"); });
+  Object.keys(E.imgs).forEach(k => {
+    if(el.querySelector('img[data-onde="' + k + '"]')) return;
+    const img = document.createElement("img"); img.dataset.onde = k; img.src = E.imgs[k]; img.alt = k === "topo" ? "Ilustração do material" : "Imagem da questão " + k.slice(1);
+    if(k === "topo"){ const box = document.createElement("div"), sp = document.createElement("span"); box.className = "ilus"; sp.className = "qimg"; sp.style.display = "inline-block"; sp.appendChild(img); box.appendChild(sp);
+      const ref = el.querySelector(".alunol") || el.querySelector(".st") || el.querySelector("h1"); if(ref) ref.after(box); else el.prepend(box); }
+    else { const q = el.querySelector('.q[data-q="' + k.slice(1) + '"]'); if(!q) return; const box = document.createElement("div"); box.className = "qimg"; box.appendChild(img); q.appendChild(box); q.classList.add("cimg"); }
+  });
+  if(editor){ el.querySelectorAll("img").forEach(i => i.setAttribute("contenteditable", "false")); return; }
+  el.querySelectorAll("img[data-onde]").forEach(im => { const k = im.dataset.onde; if(k === "logo") return;
+    const b = document.createElement("button"); b.type = "button"; b.className = "tira nao-imp"; b.dataset.action = "img-remover"; b.dataset.arg = k; b.textContent = k === "topo" ? "Tirar imagem" : "Tirar"; b.contentEditable = "false"; im.parentElement.appendChild(b); });
+  if(E.podeImg) el.querySelectorAll(".q[data-q]").forEach(q => { if(q.classList.contains("cimg")) return;
+    const b = document.createElement("button"); b.type = "button"; b.className = "maisimg nao-imp"; b.dataset.action = "img-questao"; b.dataset.arg = q.dataset.q; b.textContent = "+ Imagem nesta questão"; (q.querySelector(".qc") || q).appendChild(b); });
+}
+// o que pode ficar no HTML editado: só formatação de texto, sem script, sem link, sem imagem de fora
+const TAGS_OK = new Set(["P","DIV","SPAN","B","STRONG","I","EM","U","S","MARK","FONT","BR","UL","OL","LI","H1","H2","H3","H4","SECTION","TABLE","THEAD","TBODY","TR","TH","TD","SMALL","SUB","SUP","IMG","BLOCKQUOTE","HR"]);
+const CLASSES_OK = new Set(["cab","st","alunol","q","qc","en","n","val","cx","vf","rel","lin","gab","gi","ilus","qimg","cimg","bncc"]);
+const ESTILO_OK = /^(color|background-color|font-size|font-weight|font-style|text-decoration(-line)?|text-align|display|vertical-align|margin-right)$/;
+function limparHtml(html){
+  const t = document.createElement("template"); t.innerHTML = String(html || "");
+  const passa = no => {
+    [...no.childNodes].forEach(f => {
+      if(f.nodeType === 3) return;
+      if(f.nodeType !== 1){ f.remove(); return; }
+      if(/^(SCRIPT|STYLE|IFRAME|OBJECT|EMBED|BUTTON|INPUT|TEXTAREA|SELECT|LINK|META|svg|SVG|FORM)$/i.test(f.tagName)){ f.remove(); return; }
+      passa(f);
+      if(!TAGS_OK.has(f.tagName)){ f.replaceWith(...f.childNodes); return; }
+      [...f.attributes].forEach(a => {
+        const n = a.name.toLowerCase();
+        if(n === "class"){ const c = a.value.split(/\s+/).filter(x => CLASSES_OK.has(x)); c.length ? f.setAttribute("class", c.join(" ")) : f.removeAttribute("class"); }
+        else if(n === "style"){ const ok = a.value.split(";").map(x => x.trim()).filter(x => { const [k, v] = x.split(":").map(y => (y || "").trim()); return k && v && ESTILO_OK.test(k.toLowerCase()) && !/url\(|expression|javascript/i.test(v); }); ok.length ? f.setAttribute("style", ok.join(";")) : f.removeAttribute("style"); }
+        else if(n === "data-q" && /^\d{1,2}$/.test(a.value)){}
+        else if(n === "data-onde" && /^(logo|topo|q\d{1,2})$/.test(a.value)){}
+        else if(f.tagName === "FONT" && (n === "color" || n === "size") && /^[#\w]{1,10}$/.test(a.value)){}
+        else if((n === "colspan" || n === "rowspan") && /^\d{1,2}$/.test(a.value)){}
+        else f.removeAttribute(a.name);
+      });
+      if(f.tagName === "IMG" && !f.hasAttribute("data-onde")) f.remove();
+    });
+  };
+  passa(t.content);
+  return t.innerHTML;
 }
 function telaDoc(){
   const A = E.atual, d = A.doc, temGab = (d.gabarito || []).length > 0, c = E.cota;
   const podeImg = E.podeImg = !c || c.imagens == null || c.imagens > 0;
   const nq = todasQuestoes(d).length;
-  $("tela").innerHTML = '<div class="docgrid"><article class="folha' + (E.editando ? " editando" : "") + '" id="folha">' + htmlDoc(d, true) + "</article>" +
+  $("tela").innerHTML = '<div class="docgrid"><article class="folha" id="folha">' + conteudoFolha() + "</article>" +
   '<aside class="lado">' +
   '<div class="caixa"><h4>' + esc(A.tipo_nome || "Material") + '</h4><div class="grupo">' +
     '<button type="button" class="btn pri" data-action="pdf" data-arg="aluno">' + (A.publico === "aluno" ? "Baixar PDF do aluno" : "Baixar PDF") + "</button>" +
     (temGab ? '<button type="button" class="btn" data-action="pdf" data-arg="gab">PDF do gabarito</button>' : "") +
     '<button type="button" class="btn" data-action="copiar">Copiar o texto</button>' +
-    '<button type="button" class="btn" data-action="editar">' + (E.editando ? "Salvar edição" : "Editar o texto") + "</button>" +
+    '<button type="button" class="btn" data-action="editar">Editar o texto</button>' +
+    (A.html ? '<p class="sub" style="font-size:.78rem;margin-top:2px">Material editado por você: o PDF sai pela impressão, igual à tela.</p>' : "") +
     '<button type="button" class="btn peq" data-action="favorito">' + (A.favorito ? "★ Favorito" : "☆ Marcar favorito") + "</button></div></div>" +
   (d.versao_whatsapp ? '<div class="caixa"><h4>Para o WhatsApp</h4><div class="wpp">' + esc(d.versao_whatsapp) + '</div><button type="button" class="btn peq" style="margin-top:8px" data-action="copiar-wpp">Copiar mensagem</button></div>' : "") +
   (d.nota_professor ? '<div class="nota"><b>Dica:</b> ' + esc(d.nota_professor) + "</div>" : "") +
@@ -425,26 +501,93 @@ function telaDoc(){
     : '<p class="sub" style="font-size:.86rem">Gerar imagens está disponível nos planos Intermediário e Completo. Fale com a Secretaria ou com a NEWPC.</p>') + "</div>" +
   '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>' +
   "</aside></div>";
-  if(E.editando) document.querySelectorAll("#folha [data-k]").forEach(el => el.contentEditable = "true");
+  decorar($("folha"), false);
 }
-function definir(obj, caminho, valor){ const p = caminho.split("."); let o = obj; for(let i = 0; i < p.length - 1; i++){ o = o[p[i]]; if(o == null) return; } o[p[p.length - 1]] = valor; }
-async function alternarEdicao(){
-  if(!E.editando){ E.editando = true; telaDoc(); toast("Clique no texto para editar. Depois toque em Salvar edição."); return; }
-  const d = JSON.parse(JSON.stringify(E.atual.doc));
-  document.querySelectorAll("#folha [data-k]").forEach(el => definir(d, el.dataset.k, el.innerText.replace(/ /g, " ").trim()));
-  E.editando = false; E.atual.doc = d;
-  try{ await updateDoc(doc(db, "portal_ia_docs", E.atual.id), { doc:d, titulo:String(d.titulo || "").slice(0, 160), editado_em:serverTimestamp() }); toast("Edição salva."); }
-  catch(e){ console.warn(e.code); toast("Não consegui salvar a edição. Ela continua na tela.", true); }
-  const r = E.recentes.find(x => x.id === E.atual.id); if(r) r.titulo = d.titulo;
-  telaDoc();
+/* ---------- editor de texto em tela cheia ---------- */
+const IC = { esq:'<path d="M4 6h16M4 10h10M4 14h16M4 18h10"/>', cen:'<path d="M4 6h16M7 10h10M4 14h16M7 18h10"/>', dir:'<path d="M4 6h16M10 10h10M4 14h16M10 18h10"/>', just:'<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>',
+  lista:'<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>', num:'<path d="M10 6h10M10 12h10M10 18h10M4 5l1.5-1v5M3.5 13.5a1.5 1.5 0 1 1 2.5 1.2L3.5 18H6"/>',
+  desf:'<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>', ref:'<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/>', limpar:'<path d="M5 19h8M14 5l-6 14M8 5h10"/><path d="M16 15l5 5M21 15l-5 5"/>' };
+const svg = k => '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[k] + "</svg>";
+const fb = (cmd, val, rot, conteudo) => '<button type="button" class="fb" data-cmd="' + cmd + '"' + (val ? ' data-val="' + val + '"' : "") + ' title="' + rot + '" aria-label="' + rot + '">' + conteudo + "</button>";
+function abrirEditor(){
+  E.editor = true; E.edMudou = false;
+  const cores = [["#1d2b3a", "Preto"], ["#0F2C4A", "Azul NEWPC"], ["#1A6B2A", "Verde NEWPC"], ["#B3261E", "Vermelho"]];
+  const marcas = [["#FFF59D", "Marca-texto amarelo"], ["#C8F0CF", "Marca-texto verde"], ["#CFE4FF", "Marca-texto azul"], ["transparent", "Tirar marca-texto"]];
+  const ov = document.createElement("div"); ov.className = "editor"; ov.id = "editor"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "Editar o material");
+  ov.innerHTML = '<div class="ed-barra"><span class="tit">Editando</span><div class="ed-ferr" id="edFerr">' +
+    fb("undo", "", "Desfazer (Ctrl+Z)", svg("desf")) + fb("redo", "", "Refazer (Ctrl+Y)", svg("ref")) + '<span class="sep"></span>' +
+    fb("bold", "", "Negrito (Ctrl+B)", "<b>N</b>") + fb("italic", "", "Itálico (Ctrl+I)", "<i>I</i>") + fb("underline", "", "Sublinhado (Ctrl+U)", "<u>S</u>") + fb("strikeThrough", "", "Tachado", "<s>T</s>") + '<span class="sep"></span>' +
+    fb("fontSize", "2", "Letra pequena", '<span style="font-size:.72rem">A</span>') + fb("fontSize", "3", "Letra normal", "A") + fb("fontSize", "5", "Letra grande", '<span style="font-size:1.15rem">A</span>') + fb("fontSize", "6", "Letra muito grande", '<span style="font-size:1.35rem">A</span>') + '<span class="sep"></span>' +
+    cores.map(([c, r]) => fb("foreColor", c, "Cor: " + r, '<span class="sw" style="background:' + c + '"></span>')).join("") + '<span class="sep"></span>' +
+    marcas.map(([c, r]) => fb("hiliteColor", c, r, '<span class="sw" style="background:' + (c === "transparent" ? "linear-gradient(135deg,#fff 45%,#B3261E 45%,#B3261E 55%,#fff 55%)" : c) + '"></span>')).join("") + '<span class="sep"></span>' +
+    fb("justifyLeft", "", "Alinhar à esquerda", svg("esq")) + fb("justifyCenter", "", "Centralizar", svg("cen")) + fb("justifyRight", "", "Alinhar à direita", svg("dir")) + fb("justifyFull", "", "Justificar", svg("just")) + '<span class="sep"></span>' +
+    fb("insertUnorderedList", "", "Lista com marcadores", svg("lista")) + fb("insertOrderedList", "", "Lista numerada", svg("num")) + fb("removeFormat", "", "Limpar formatação", svg("limpar")) +
+    '</div><span class="esp"></span><span class="ed-dica" id="edAviso"></span>' +
+    '<button type="button" class="sair" data-action="ed-sair">Sair sem salvar</button><button type="button" class="btn pri" data-action="ed-salvar">Salvar edição</button></div>' +
+    '<div class="ed-area"><article class="folha ed-folha" id="edFolha" contenteditable="true" spellcheck="true" lang="pt-BR">' + conteudoFolha() + "</article></div>";
+  document.body.appendChild(ov); document.body.style.overflow = "hidden";
+  const f = $("edFolha"); decorar(f, true);
+  f.addEventListener("input", () => { E.edMudou = true; $("edAviso").textContent = "Alterações não salvas"; });
+  // colar (do Word, do Google Docs, da internet): entra só o texto e a formatação simples, nunca código
+  f.addEventListener("paste", ev => {
+    const cd = ev.clipboardData; if(!cd) return;
+    ev.preventDefault();
+    const html = cd.getData("text/html");
+    if(html) document.execCommand("insertHTML", false, limparHtml(html.replace(/<!--[\s\S]*?-->/g, "")).replace(/<img[^>]*>/gi, ""));
+    else document.execCommand("insertText", false, cd.getData("text/plain"));
+  });
+  try{ document.execCommand("styleWithCSS", false, true); }catch(e){}
+  f.focus();
+}
+function fecharEditor(){ const ov = $("editor"); if(ov) ov.remove(); document.body.style.overflow = ""; E.editor = false; E.edMudou = false; }
+function htmlDoEditor(){
+  const c = $("edFolha").cloneNode(true);
+  c.querySelectorAll(".tira,.maisimg").forEach(x => x.remove());
+  c.querySelectorAll("img").forEach(i => { i.removeAttribute("src"); i.removeAttribute("contenteditable"); });   // a imagem fica no Storage; aqui só o lugar dela
+  c.querySelectorAll("[contenteditable]").forEach(x => x.removeAttribute("contenteditable"));
+  return limparHtml(c.innerHTML);
+}
+async function salvarEditor(){
+  const html = htmlDoEditor();
+  if(html.length > 300000){ toast("O material ficou grande demais para salvar. Tire parte do texto colado.", true); return; }
+  const h1 = $("edFolha").querySelector("h1"), titulo = h1 ? h1.innerText.trim().slice(0, 160) : (E.atual.doc.titulo || "");
+  const b = document.querySelector('[data-action="ed-salvar"]'); b.disabled = true; b.textContent = "Salvando...";
+  try{ await updateDoc(doc(db, "portal_ia_docs", E.atual.id), { html, titulo, editado_em:serverTimestamp() }); }
+  catch(e){ console.warn(e.code); b.disabled = false; b.textContent = "Salvar edição"; toast("Não consegui salvar. Confira a internet e tente de novo.", true); return; }
+  E.atual.html = html; if(titulo) E.atual.doc.titulo = titulo;
+  const r = E.recentes.find(x => x.id === E.atual.id); if(r) r.titulo = titulo;
+  fecharEditor(); telaDoc(); toast("Edição salva.");
+}
+function sairEditor(){ if(E.edMudou && !confirm("Sair sem salvar? O que você mudou agora será perdido.")) return; fecharEditor(); }
+// os botões da barra agem sobre o texto selecionado; mousedown com preventDefault mantém a seleção
+document.addEventListener("mousedown", ev => {
+  const b = ev.target.closest("#edFerr .fb"); if(!b) return;
+  ev.preventDefault();
+  const cmd = b.dataset.cmd, val = b.dataset.val || null;
+  try{
+    if(cmd === "hiliteColor" && !document.execCommand("hiliteColor", false, val)) document.execCommand("backColor", false, val);
+    else document.execCommand(cmd, false, val);
+  }catch(e){ console.warn("editor:", cmd, e); }
+  E.edMudou = true; const a = $("edAviso"); if(a) a.textContent = "Alterações não salvas";
+});
+// imprimir: o material editado sai igual à tela (o navegador oferece "Salvar como PDF")
+function imprimir(qual){
+  const t0 = document.title; document.title = (qual === "gab" ? "gabarito-" : "") + (slug(E.atual.doc.titulo || "material").slice(0, 50) || "material");
+  document.body.classList.add(qual === "gab" ? "imp-gab" : "imp-aluno");
+  toast("Na janela que abrir, escolha Salvar como PDF.");
+  const fim = () => { document.body.classList.remove("imp-gab", "imp-aluno"); document.title = t0; window.removeEventListener("afterprint", fim); };
+  window.addEventListener("afterprint", fim);
+  setTimeout(() => { window.print(); setTimeout(fim, 1000); }, 60);
 }
 async function ajustar(instrucao){
   if(E.ocupado || !instrucao) return;
+  if(E.atual.html && !confirm("A IA vai refazer o material a partir da versão dela. A formatação e as mudanças que você fez à mão serão perdidas. Continuar?")) return;
   E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true);
   toast("Ajustando: " + instrucao + "...");
   try{
     const r = (await chamar({ acao:"ajustar", id:E.atual.id, instrucao, contexto:E.atual.contexto || contexto() })).data;
     E.atual.doc = r.doc; E.cota = r.cota || E.cota; toast("Pronto. Material ajustado.");
+    if(E.atual.html){ E.atual.html = ""; updateDoc(doc(db, "portal_ia_docs", E.atual.id), { html:"", editado_em:serverTimestamp() }).catch(e => console.warn(e.code)); }
   }catch(e){ toast(msgErro(e), true); }
   E.ocupado = false; telaDoc();
 }
@@ -475,8 +618,8 @@ async function abrir(id){
   let r = null;
   try{ const s = await getDoc(doc(db, "portal_ia_docs", id)); if(s.exists()) r = { id:s.id, ...s.data() }; }catch(e){ console.warn(e.code); }
   if(!r || !r.doc){ toast("Não encontrei este material.", true); return; }
-  E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "professor", doc:r.doc, contexto:r.contexto || {}, imagem:r.imagem || "", favorito:!!r.favorito };
-  E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.editando = false; ir("doc");
+  E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "professor", doc:r.doc, contexto:r.contexto || {}, imagem:r.imagem || "", favorito:!!r.favorito, html:typeof r.html === "string" ? r.html : "" };
+  E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; ir("doc");
   const caminhos = {}; Object.entries(r.imagens || {}).forEach(([k, v]) => { if(v && v.caminho) caminhos[k] = v.caminho; });
   if(r.imagem && !caminhos.topo) caminhos.topo = r.imagem;
   for(const [k, cam] of Object.entries(caminhos)){
@@ -591,7 +734,7 @@ async function pdfDoc(qual){
 document.addEventListener("click", async ev => {
   const el = ev.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
-  if(a === "inicio"){ ev.preventDefault(); if(E.ocupado) return; E.editando = false; ir("inicio"); return; }
+  if(a === "inicio"){ ev.preventDefault(); if(E.ocupado || E.editor) return; ir("inicio"); return; }
   if(a === "atalho"){ E.tipo = arg; E.texto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
   if(a === "soltar"){ E.tipo = ""; E.texto = $("pedido").value; telaInicio(); return; }
   if(a === "exemplo"){ $("pedido").value = arg; $("pedido").focus(); return; }
@@ -599,10 +742,12 @@ document.addEventListener("click", async ev => {
   if(a === "resp"){ lerRespostas(); E.conversa.respostas[el.dataset.id] = arg; telaConversa(); return; }
   if(a === "gerar") return gerar();
   if(a === "abrir") return abrir(arg);
-  if(a === "pdf") return pdfDoc(arg);
-  if(a === "copiar") return copiar(textoPlano(E.atual.doc, true));
+  if(a === "pdf") return E.atual.html ? imprimir(arg) : pdfDoc(arg);
+  if(a === "copiar"){ if(!E.atual.html) return copiar(textoPlano(E.atual.doc, true)); const f = $("folha"); f.classList.add("sem-botoes"); const t = f.innerText; f.classList.remove("sem-botoes"); return copiar(t.replace(/\n{3,}/g, "\n\n").trim()); }
+  if(a === "ed-salvar") return salvarEditor();
+  if(a === "ed-sair") return sairEditor();
   if(a === "copiar-wpp") return copiar(E.atual.doc.versao_whatsapp || "");
-  if(a === "editar") return alternarEdicao();
+  if(a === "editar") return abrirEditor();
   if(a === "ajuste") return ajustar(arg);
   if(a === "ajuste-livre") return ajustar(String(($("ajusteLivre") || {}).value || "").trim());
   if(a === "imagem") return gerarImagem();
@@ -620,8 +765,9 @@ document.addEventListener("change", ev => {
   if(ev.target.id === "imgOnde"){ E.imgOnde = ev.target.value; const b = document.querySelector('[data-action="imagem"]'); if(b) b.textContent = E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem"; return; }
 });
 document.addEventListener("input", ev => { if(ev.target.id === "inSerie") E.serie = ev.target.value.trim(); });
-document.addEventListener("keydown", ev => { if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
+document.addEventListener("keydown", ev => { if(ev.key === "Escape" && E.editor){ sairEditor(); return; } if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
 
+window.addEventListener("beforeunload", ev => { if(E.editor && E.edMudou){ ev.preventDefault(); ev.returnValue = ""; } });
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
