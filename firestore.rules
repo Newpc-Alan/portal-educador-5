@@ -951,6 +951,14 @@ service cloud.firestore {
         && request.resource.data.get("favorito", false) is bool
         && request.resource.data.doc is map;
     }
+    // Portal IA na rede municipal: a função publica; professores do mesmo município veem o que está publicado
+    match /portal_ia_rede/{id} {
+      allow read: if logado() && (admin() || resource.data.uid == request.auth.uid
+        || (resource.data.status == "publicado" && eu().status == "ativo" && eu().perfil in ["professor", "gestor"]
+            && resource.data.municipio_id == eu().get("municipio_id", "-")));
+      allow write: if false;
+      match /denuncias/{u} { allow read: if admin(); allow write: if false; }
+    }
     match /portal_ia_uso/{id} {
       allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);
       allow write: if false;

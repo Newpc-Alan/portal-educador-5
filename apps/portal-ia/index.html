@@ -180,6 +180,23 @@ h2{font-size:1.1rem;font-weight:800}
 .lado select{width:100%;margin-top:8px;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px}
 .wpp{white-space:pre-wrap;background:#E7F8EE;border-radius:10px;padding:10px;font-size:.88rem}
 .nota{background:var(--verde-cl);border-radius:12px;padding:10px 12px;font-size:.86rem;color:#1d4d27}
+.abas{display:flex;gap:6px;margin-bottom:12px;border-bottom:2px solid var(--line)}
+.aba{border:0;background:transparent;padding:10px 14px;font-weight:800;font-size:1rem;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px}
+.aba.on{color:var(--ink);border-bottom-color:var(--verde)}
+.aba small{font-weight:700;color:var(--verde);margin-left:4px}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.filtros input,.filtros select{border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px;background:#fff;flex:1;min-width:150px}
+.rc .quem{display:block;font-size:.76rem;color:var(--muted);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc .meio{flex:1;min-width:0}
+.rc .meio b{display:block}
+.selo{display:inline-block;background:#E8F1FB;color:var(--azul);border-radius:6px;padding:2px 7px;font-size:.72rem;font-weight:800}
+.modal{position:fixed;inset:0;z-index:110;background:rgba(7,22,33,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .cx-m{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:24px;max-height:92vh;overflow:auto}
+.modal h2{margin-bottom:6px}
+.modal label.ck{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:.92rem;cursor:pointer}
+.modal label.ck input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--verde)}
+.modal textarea{width:100%;border:1px solid var(--line2);border-radius:10px;padding:10px;min-height:90px;margin-top:10px}
+.modal .acoes{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;z-index:120;max-width:92vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .toast.err{background:var(--red)}
@@ -254,7 +271,7 @@ const AJUSTES = ["Mais fácil", "Mais difícil", "Mais curto", "Mais questões",
 const ESTILOS = [["didatica", "Ilustração didática"], ["colorir", "Desenho para colorir"], ["cartoon", "Desenho infantil"], ["realista", "Foto realista"]];
 
 const E = { user:null, u:null, admin:false, turmas:[], turma:"", disc:"", serie:"", ident:{ prof:"", escola:"" }, marca:null, cota:null,
-  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editor:false, edMudou:false, ocupado:false, imgs:{}, imgOnde:"topo", imgDescPre:"" };
+  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editor:false, edMudou:false, aba:"meus", rede:null, redeF:{ q:"", disc:"", tipo:"" }, ocupado:false, imgs:{}, imgOnde:"topo", imgDescPre:"" };
 
 /* ===================== dados do professor ===================== */
 const turmaAtual = () => E.turmas.find(t => t.id === E.turma) || null;
@@ -325,10 +342,105 @@ function telaInicio(){
   '<section><h2 style="margin-bottom:10px">Atalhos do dia a dia</h2><div class="atalhos">' +
   ATALHOS.map(a => '<button type="button" class="at" data-action="atalho" data-arg="' + a.k + '"><div class="foto" style="background-image:url(\'' + CAPA(a.foto) + '\')"></div><div class="tx"><b>' + esc(a.t) + "</b><small>" + esc(a.d) + "</small></div></button>").join("") +
   "</div></section>" +
-  '<section><h2 style="margin-bottom:10px">Seus materiais</h2>' +
-  (E.recentes.length ? '<div class="rec">' + E.recentes.slice(0, 30).map(r => '<button type="button" class="rc" data-action="abrir" data-arg="' + esc(r.id) + '"><span class="tg">' + esc(r.tipo_nome || NOME_T[r.tipo] || "Material") + "</span><b>" + (r.favorito ? "★ " : "") + esc(r.titulo || r.tema || "Sem título") + "</b><small>" + esc(dataCurta(r.atualizado_em)) + "</small></button>").join("") + "</div>"
+  '<section><div class="abas" role="tablist"><button type="button" role="tab" class="aba' + (E.aba === "meus" ? " on" : "") + '" data-action="aba" data-arg="meus">Seus materiais</button>' +
+  '<button type="button" role="tab" class="aba' + (E.aba === "rede" ? " on" : "") + '" data-action="aba" data-arg="rede">Da sua rede' + (E.rede ? "<small>" + E.rede.length + "</small>" : "") + "</button></div>" +
+  (E.aba === "rede" ? '<div id="redeLista">' + htmlRede() + "</div>" : E.recentes.length ? '<div class="rec">' + E.recentes.slice(0, 30).map(r => '<button type="button" class="rc" data-action="abrir" data-arg="' + esc(r.id) + '"><span class="tg">' + esc(r.tipo_nome || NOME_T[r.tipo] || "Material") + "</span><b>" + (r.favorito ? "★ " : "") + esc(r.titulo || r.tema || "Sem título") + "</b><small>" + esc(dataCurta(r.atualizado_em)) + "</small></button>").join("") + "</div>"
     : '<div class="caixa" style="text-align:center;color:var(--muted)">O que você preparar aqui fica guardado nesta lista.</div>') +
   "</section></div>";
+}
+/* ---------- materiais compartilhados pela rede do município ---------- */
+async function carregarRede(){
+  E.rede = []; const mun = E.u.municipio_id || "";
+  if(!mun){ return; }
+  try{
+    const s = await getDocs(query(collection(db, "portal_ia_rede"), where("municipio_id", "==", mun), where("status", "==", "publicado"), limit(300)));
+    s.forEach(d => E.rede.push({ id:d.id, ...d.data() }));
+    const ms = x => x && (x.toMillis ? x.toMillis() : x.__ms || (x.seconds ? x.seconds * 1000 : 0)) || 0;
+    E.rede.sort((a, b) => ms(b.atualizado_em) - ms(a.atualizado_em));
+  }catch(e){ console.warn("rede:", e.code); E.redeErro = true; }
+}
+const semAcento = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+function htmlRede(){
+  if(!E.u.municipio_id) return '<div class="caixa" style="text-align:center;color:var(--muted)">Sua conta não está ligada a uma rede municipal.</div>';
+  if(!E.rede) return '<div class="carreg"><span class="giro"></span>Carregando os materiais da rede...</div>';
+  if(E.redeErro) return '<div class="caixa" style="text-align:center;color:var(--muted)">Não consegui abrir os materiais da rede agora.</div>';
+  const F = E.redeF, discs = [...new Set(E.rede.map(r => r.disciplina).filter(Boolean))].sort(), tipos = [...new Set(E.rede.map(r => r.tipo))];
+  const q = semAcento(F.q);
+  const l = E.rede.filter(r => (!F.disc || r.disciplina === F.disc) && (!F.tipo || r.tipo === F.tipo) &&
+    (!q || semAcento([r.titulo, r.tema, r.disciplina, r.serie, r.autor_nome, r.escola_nome, (r.bncc || []).join(" ")].join(" ")).includes(q)));
+  return '<div class="filtros"><input id="redeQ" type="search" placeholder="Buscar por tema, série, BNCC, professor..." value="' + esc(F.q) + '" aria-label="Buscar na rede">' +
+    '<select id="redeDisc" aria-label="Disciplina"><option value="">Todas as disciplinas</option>' + discs.map(x => "<option" + (x === F.disc ? " selected" : "") + ">" + esc(x) + "</option>").join("") + "</select>" +
+    '<select id="redeTipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map(x => '<option value="' + esc(x) + '"' + (x === F.tipo ? " selected" : "") + ">" + esc(NOME_T[x] || x) + "</option>").join("") + "</select></div>" +
+    (E.rede.length ? (l.length ? '<div class="rec">' + l.slice(0, 80).map(r => '<button type="button" class="rc" data-action="abrir-rede" data-arg="' + esc(r.id) + '"><span class="tg">' + esc(r.tipo_nome || NOME_T[r.tipo] || "Material") + '</span><span class="meio"><b>' + esc(r.titulo || r.tema || "Sem título") + '</b><span class="quem">' +
+      esc([r.disciplina, r.serie].filter(Boolean).join(" · ")) + " · " + esc(r.autor_nome || "Professor(a)") + (r.escola_nome ? ", " + esc(r.escola_nome) : "") + "</span></span>" + (r.usos ? '<span class="selo">usado ' + r.usos + "x</span>" : "") + "</button>").join("") + "</div>"
+      : '<div class="caixa" style="text-align:center;color:var(--muted)">Nada encontrado com esses filtros.</div>')
+    : '<div class="caixa" style="text-align:center;color:var(--muted)"><b style="color:var(--ink)">Ainda não há materiais da rede</b><br>Abra um material seu e toque em Compartilhar com a rede. Os colegas do município vão poder usar.</div>');
+}
+function abrirRede(id){
+  const r = (E.rede || []).find(x => x.id === id); if(!r){ toast("Este material não está mais na rede.", true); return; }
+  E.atual = { id:r.id, vistaRede:true, rede:r, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "aluno", doc:r.doc, contexto:{ disciplina:r.disciplina || "", serie:r.serie || "" }, html:typeof r.html === "string" ? r.html : "" };
+  E.imgs = {}; ir("doc"); carregarImagens(r.imagens || {}, "", id);
+}
+async function carregarImagens(mapa, legado, id){
+  const caminhos = {}; Object.entries(mapa || {}).forEach(([k, v]) => { if(v && v.caminho) caminhos[k] = v.caminho; });
+  if(legado && !caminhos.topo) caminhos.topo = legado;
+  for(const [k, cam] of Object.entries(caminhos)){
+    try{ const S = await storage(); const b = await S.m.getBlob(S.m.ref(S.st, cam)); const url = await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); });
+      if(E.vista === "doc" && E.atual.id === id){ E.imgs[k] = url; telaDoc(); } }catch(e){ console.warn("imagem:", e.code || e); }
+  }
+}
+function ladoRede(A){
+  const r = A.rede;
+  return '<div class="caixa"><h4>Da sua rede</h4><p style="font-size:.9rem;margin-bottom:10px">Compartilhado por <b>' + esc(r.autor_nome || "um(a) colega") + "</b>" + (r.escola_nome ? ", " + esc(r.escola_nome) : "") + "." +
+    (r.usos ? " Já foi usado " + r.usos + (r.usos === 1 ? " vez." : " vezes.") : "") + '</p><div class="grupo">' +
+    '<button type="button" class="btn pri" data-action="usar-rede">Usar este material</button>' +
+    '<p class="sub" style="font-size:.8rem">Cria uma cópia sua, com o cabeçalho da sua escola, para editar, ajustar com a IA e imprimir. Não gasta a sua cota.</p>' +
+    '<button type="button" class="btn peq" data-action="denunciar">Avisar sobre um erro</button></div></div>';
+}
+function boxRede(A){
+  if(!TIPOS_REDE.includes(A.tipo)) return '<div class="caixa"><h4>Compartilhar</h4><p class="sub" style="font-size:.84rem">Parecer e recado aos pais não vão para a rede: eles têm dados de alunos e famílias.</p></div>';
+  if(!E.u.municipio_id) return "";
+  return '<div class="caixa"><h4>Compartilhar com a rede</h4>' + (A.redeInfo
+    ? '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo">Na rede do município</span> Os colegas já podem usar este material.</p><div class="grupo"><button type="button" class="btn peq" data-action="compartilhar">Atualizar na rede</button><button type="button" class="btn peq" data-action="descompartilhar">Parar de compartilhar</button></div>'
+    : '<p class="sub" style="font-size:.84rem;margin-bottom:8px">Os professores do seu município poderão ver e usar uma cópia. Seu nome e sua escola aparecem como autoria.</p><button type="button" class="btn nav peq" style="width:100%" data-action="compartilhar">Compartilhar com a rede</button>') + "</div>";
+}
+const TIPOS_REDE = ["plano", "sequencia", "atividade", "prova", "explicar", "inclusao"];
+function modal(html){ fecharModal(); const m = document.createElement("div"); m.className = "modal"; m.id = "modal"; m.innerHTML = '<div class="cx-m" role="dialog" aria-modal="true">' + html + "</div>"; document.body.appendChild(m); const f = m.querySelector("input,textarea,button"); if(f) f.focus(); }
+function fecharModal(){ const m = $("modal"); if(m) m.remove(); }
+function pedirCompartilhar(){
+  modal('<h2>Compartilhar com a rede</h2><p class="sub">Os professores do seu município vão ver este material e poderão fazer uma cópia para usar. Seu nome e sua escola aparecem como autoria. Você pode tirar da rede quando quiser.</p>' +
+    '<label class="ck"><input type="checkbox" id="ck1"> <span>Este material <b>não tem nome de aluno</b>, nem dado pessoal de aluno ou família.</span></label>' +
+    '<label class="ck"><input type="checkbox" id="ck2"> <span>O conteúdo foi feito por mim com o Portal IA ou é de uso livre. <b>Não copiei texto de livro</b> ou de material protegido.</span></label>' +
+    '<label class="ck"><input type="checkbox" id="ck3"> <span>Revisei o material e ele está pronto para outros professores usarem.</span></label>' +
+    '<div class="acoes"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="button" class="btn pri" data-action="confirmar-compartilhar">Compartilhar</button></div>');
+}
+async function compartilhar(){
+  if(!["ck1", "ck2", "ck3"].every(k => $(k) && $(k).checked)){ toast("Marque as três confirmações para compartilhar.", true); return; }
+  const b = document.querySelector('[data-action="confirmar-compartilhar"]'); b.disabled = true; b.textContent = "Compartilhando...";
+  try{ await chamar({ acao:"compartilhar", id:E.atual.id, aceite:true }); E.atual.redeInfo = { em:Date.now() }; E.rede = null; fecharModal(); telaDoc(); toast("Pronto. O material está na rede do município."); }
+  catch(e){ b.disabled = false; b.textContent = "Compartilhar"; toast(msgErro(e), true); }
+}
+async function descompartilhar(){
+  if(!confirm("Tirar este material da rede? Quem já fez uma cópia continua com a cópia.")) return;
+  try{ await chamar({ acao:"descompartilhar", id:E.atual.id }); E.atual.redeInfo = null; E.rede = null; telaDoc(); toast("O material saiu da rede."); }catch(e){ toast(msgErro(e), true); }
+}
+async function usarRede(){
+  if(E.ocupado) return; E.ocupado = true;
+  const b = document.querySelector('[data-action="usar-rede"]'); if(b){ b.disabled = true; b.textContent = "Fazendo a sua cópia..."; }
+  try{ const r = (await chamar({ acao:"usar", id:E.atual.id })).data; E.ocupado = false; await carregarRecentes(); const x = E.rede && E.rede.find(z => z.id === E.atual.id); if(x) x.usos = (x.usos || 0) + 1;
+    toast("Cópia criada em Seus materiais."); E.aba = "meus"; abrir(r.id); }
+  catch(e){ E.ocupado = false; if(b){ b.disabled = false; b.textContent = "Usar este material"; } toast(msgErro(e), true); }
+}
+function pedirDenuncia(){
+  modal('<h2>Avisar sobre um erro</h2><p class="sub">Conte o que está errado (conteúdo incorreto, gabarito errado, algo impróprio). Quando três colegas avisam, o material sai da rede até ser revisado.</p>' +
+    '<textarea id="motivo" maxlength="500" placeholder="Ex.: a resposta da questão 3 no gabarito está errada"></textarea>' +
+    '<div class="acoes"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="button" class="btn pri" data-action="confirmar-denuncia">Enviar aviso</button></div>');
+}
+async function denunciar(){
+  const motivo = String(($("motivo") || {}).value || "").trim(); if(motivo.length < 5){ toast("Conte em poucas palavras qual é o problema.", true); return; }
+  try{ const r = (await chamar({ acao:"denunciar", id:E.atual.id, motivo })).data; fecharModal(); toast(r.oculto ? "Obrigado. O material saiu da rede para revisão." : "Obrigado. O aviso foi registrado.");
+    if(r.oculto){ E.rede = (E.rede || []).filter(x => x.id !== E.atual.id); ir("inicio"); } }
+  catch(e){ toast(msgErro(e), true); }
 }
 function dataCurta(x){ const ms = x && (x.toMillis ? x.toMillis() : x.__ms || (x.seconds ? x.seconds * 1000 : 0)); return ms ? new Date(ms).toLocaleDateString("pt-BR", { day:"2-digit", month:"short" }) : ""; }
 
@@ -409,8 +521,7 @@ const linhasDe = q => q.tipo === "aberta" ? Math.max(3, q.linhas || 4) : q.tipo 
 const ed = (k, v, tag, cls) => "<" + (tag || "span") + (cls ? ' class="' + cls + '"' : "") + ">" + esc(v) + "</" + (tag || "span") + ">";
 function htmlDoc(d, mostrarGab){
   const cx = E.atual.contexto || {}, aluno = E.atual.publico === "aluno";
-  let h = '<div class="cab"><img data-onde="logo" alt=""><div><b>' + esc(E.ident.escola || "Escola") + "</b><small>" +
-    esc(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : "") + "</small></div></div>";
+  let h = '<div class="cab">' + cabHtml() + "</div>";
   h += ed("titulo", d.titulo, "h1") + (d.subtitulo ? ed("subtitulo", d.subtitulo, "div", "st") : '<div class="st">' + esc([cx.disciplina, cx.serie].filter(Boolean).join(" · ")) + "</div>");
   if(aluno) h += '<div class="alunol"><span>Aluno(a):</span><span>Data: ____/____</span></div>';
   let n = 0;
@@ -440,8 +551,12 @@ function htmlDoc(d, mostrarGab){
 // a folha do material: o texto editado pelo professor (com formatação) ou o montado a partir da IA
 function conteudoFolha(){ return E.atual.html ? limparHtml(E.atual.html) : htmlDoc(E.atual.doc, true); }
 // imagens e botões entram depois, por cima do conteúdo (o HTML guardado não leva as imagens, só o lugar delas)
+function cabHtml(){ return '<img data-onde="logo" alt=""><div><b>' + esc(E.ident.escola || "Escola") + "</b><small>" +
+    esc(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : "") + "</small></div>"; }
 function decorar(el, editor){
   el.querySelectorAll(".tira,.maisimg").forEach(x => x.remove());
+  // o cabeçalho é sempre o da escola de quem está usando (material da rede vem com a escola do autor)
+  const cab = el.querySelector(".cab"); if(cab){ cab.innerHTML = cabHtml(); if(editor) cab.setAttribute("contenteditable", "false"); }
   const logo = el.querySelector('img[data-onde="logo"]');
   if(logo){ if(E.marca && E.marca.logo_url) logo.src = E.marca.logo_url; else logo.remove(); }
   el.querySelectorAll("img[data-onde]").forEach(im => { const k = im.dataset.onde; if(k === "logo") return;
@@ -455,6 +570,7 @@ function decorar(el, editor){
     else { const q = el.querySelector('.q[data-q="' + k.slice(1) + '"]'); if(!q) return; const box = document.createElement("div"); box.className = "qimg"; box.appendChild(img); q.appendChild(box); q.classList.add("cimg"); }
   });
   if(editor){ el.querySelectorAll("img").forEach(i => i.setAttribute("contenteditable", "false")); return; }
+  if(E.atual && E.atual.vistaRede) return;   // material de colega: só leitura
   el.querySelectorAll("img[data-onde]").forEach(im => { const k = im.dataset.onde; if(k === "logo") return;
     const b = document.createElement("button"); b.type = "button"; b.className = "tira nao-imp"; b.dataset.action = "img-remover"; b.dataset.arg = k; b.textContent = k === "topo" ? "Tirar imagem" : "Tirar"; b.contentEditable = "false"; im.parentElement.appendChild(b); });
   if(E.podeImg) el.querySelectorAll(".q[data-q]").forEach(q => { if(q.classList.contains("cimg") || q.querySelector("img[data-onde]")) return;
@@ -494,13 +610,15 @@ function telaDoc(){
   const podeImg = E.podeImg = !c || c.imagens == null || c.imagens > 0;
   const nq = todasQuestoes(d).length;
   $("tela").innerHTML = '<div class="docgrid"><article class="folha" id="folha">' + conteudoFolha() + "</article>" +
-  '<aside class="lado">' +
+  '<aside class="lado">' + (A.vistaRede ? ladoRede(A) +
+  '<div class="caixa"><h4>Ver antes de usar</h4><div class="grupo"><button type="button" class="btn peq" data-action="pdf" data-arg="aluno">Baixar PDF</button></div></div>' : (
   '<div class="caixa"><h4>' + esc(A.tipo_nome || "Material") + '</h4><div class="grupo">' +
     '<button type="button" class="btn pri" data-action="pdf" data-arg="aluno">' + (A.publico === "aluno" ? "Baixar PDF do aluno" : "Baixar PDF") + "</button>" +
     (temGab ? '<button type="button" class="btn" data-action="pdf" data-arg="gab">PDF do gabarito</button>' : "") +
     '<button type="button" class="btn" data-action="copiar">Copiar o texto</button>' +
     '<button type="button" class="btn" data-action="editar">Editar o texto</button>' +
     (A.html ? '<p class="sub" style="font-size:.78rem;margin-top:2px">Material editado por você: o PDF sai pela impressão, igual à tela.</p>' : "") +
+    (A.origemRede ? '<p class="sub" style="font-size:.78rem">Cópia do material de ' + esc(A.origemRede.autor_nome || "um(a) colega") + (A.origemRede.escola_nome ? ", " + esc(A.origemRede.escola_nome) : "") + ".</p>" : "") +
     '<button type="button" class="btn peq" data-action="favorito">' + (A.favorito ? "★ Favorito" : "☆ Marcar favorito") + "</button></div></div>" +
   (d.versao_whatsapp ? '<div class="caixa"><h4>Para o WhatsApp</h4><div class="wpp">' + esc(d.versao_whatsapp) + '</div><button type="button" class="btn peq" style="margin-top:8px" data-action="copiar-wpp">Copiar mensagem</button></div>' : "") +
   (d.nota_professor ? '<div class="nota"><b>Dica:</b> ' + esc(d.nota_professor) + "</div>" : "") +
@@ -514,7 +632,8 @@ function telaDoc(){
     '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem") + "</button>" +
     (c && c.imagens != null ? '<div class="cota" style="margin-top:6px">' + c.imagens + " imagens restantes no mês</div>" : "")
     : '<p class="sub" style="font-size:.86rem">Gerar imagens está disponível nos planos Intermediário e Completo. Fale com a Secretaria ou com a NEWPC.</p>') + "</div>" +
-  '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>' +
+  boxRede(A) +
+  '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>')) +
   "</aside></div>";
   decorar($("folha"), false);
 }
@@ -719,14 +838,9 @@ async function abrir(id){
   let r = null;
   try{ const s = await getDoc(doc(db, "portal_ia_docs", id)); if(s.exists()) r = { id:s.id, ...s.data() }; }catch(e){ console.warn(e.code); }
   if(!r || !r.doc){ toast("Não encontrei este material.", true); return; }
-  E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "professor", doc:r.doc, contexto:r.contexto || {}, imagem:r.imagem || "", favorito:!!r.favorito, html:typeof r.html === "string" ? r.html : "" };
+  E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "professor", doc:r.doc, contexto:r.contexto || {}, imagem:r.imagem || "", favorito:!!r.favorito, html:typeof r.html === "string" ? r.html : "", redeInfo:r.rede || null, origemRede:r.origem_rede || null };
   E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; ir("doc");
-  const caminhos = {}; Object.entries(r.imagens || {}).forEach(([k, v]) => { if(v && v.caminho) caminhos[k] = v.caminho; });
-  if(r.imagem && !caminhos.topo) caminhos.topo = r.imagem;
-  for(const [k, cam] of Object.entries(caminhos)){
-    try{ const S = await storage(); const b = await S.m.getBlob(S.m.ref(S.st, cam)); const url = await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); });
-      if(E.vista === "doc" && E.atual.id === id){ E.imgs[k] = url; telaDoc(); } }catch(e){ console.warn("imagem:", e.code || e); }
-  }
+  await carregarImagens(r.imagens, r.imagem, id);
 }
 function textoPlano(d, gab){
   const L = [d.titulo, d.subtitulo || ""]; let n = 0;
@@ -843,6 +957,15 @@ document.addEventListener("click", async ev => {
   if(a === "resp"){ lerRespostas(); E.conversa.respostas[el.dataset.id] = arg; telaConversa(); return; }
   if(a === "gerar") return gerar();
   if(a === "abrir") return abrir(arg);
+  if(a === "aba"){ E.aba = arg; telaInicio(); if(arg === "rede" && !E.rede){ await carregarRede(); if(E.vista === "inicio" && E.aba === "rede") telaInicio(); } return; }
+  if(a === "abrir-rede") return abrirRede(arg);
+  if(a === "usar-rede") return usarRede();
+  if(a === "denunciar") return pedirDenuncia();
+  if(a === "confirmar-denuncia") return denunciar();
+  if(a === "compartilhar") return pedirCompartilhar();
+  if(a === "confirmar-compartilhar") return compartilhar();
+  if(a === "descompartilhar") return descompartilhar();
+  if(a === "fechar-modal") return fecharModal();
   if(a === "pdf") return E.atual.html ? imprimir(arg) : pdfDoc(arg);
   if(a === "copiar"){ if(!E.atual.html) return copiar(textoPlano(E.atual.doc, true)); const f = $("folha"); f.classList.add("sem-botoes"); const t = f.innerText; f.classList.remove("sem-botoes"); return copiar(t.replace(/\n{3,}/g, "\n\n").trim()); }
   if(a === "ed-salvar") return salvarEditor();
@@ -863,10 +986,12 @@ document.addEventListener("click", async ev => {
 document.addEventListener("change", ev => {
   if(ev.target.id === "selTurma"){ definirTurma(ev.target.value); try{ localStorage.setItem("pde_pia_turma_" + E.user.uid, E.turma); }catch(e){} E.texto = ($("pedido") || {}).value || ""; telaInicio(); return; }
   if(ev.target.id === "selDisc"){ E.disc = ev.target.value; return; }
+  if(ev.target.id === "redeDisc" || ev.target.id === "redeTipo"){ E.redeF[ev.target.id === "redeDisc" ? "disc" : "tipo"] = ev.target.value; $("redeLista").innerHTML = htmlRede(); return; }
   if(ev.target.id === "imgOnde"){ E.imgOnde = ev.target.value; const b = document.querySelector('[data-action="imagem"]'); if(b) b.textContent = E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem"; return; }
 });
-document.addEventListener("input", ev => { if(ev.target.id === "inSerie") E.serie = ev.target.value.trim(); });
-document.addEventListener("keydown", ev => { if(ev.key === "Escape" && E.editor){ sairEditor(); return; } if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
+document.addEventListener("input", ev => { if(ev.target.id === "inSerie") E.serie = ev.target.value.trim();
+  if(ev.target.id === "redeQ"){ E.redeF.q = ev.target.value; const p = ev.target.selectionStart; $("redeLista").innerHTML = htmlRede(); const i = $("redeQ"); i.focus(); try{ i.setSelectionRange(p, p); }catch(e){} } });
+document.addEventListener("keydown", ev => { if(ev.key === "Escape" && $("modal")){ fecharModal(); return; } if(ev.key === "Escape" && E.editor){ sairEditor(); return; } if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
 
 window.addEventListener("beforeunload", ev => { if(E.editor && E.edMudou){ ev.preventDefault(); ev.returnValue = ""; } });
 onAuthStateChanged(auth, async user => {

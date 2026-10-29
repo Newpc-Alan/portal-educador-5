@@ -42,6 +42,8 @@ export const TIPOS = {
 'Escreva uma EXPLICAÇÃO do conteúdo para o aluno da série informada. Seções: "O que é" (texto claro, frases curtas), "Como funciona" ou "Passo a passo" (itens), "Exemplos do dia a dia" (itens), "Palavras importantes" (tabela com Palavra e Significado), "Teste rápido" (3 questões curtas, com as respostas no gabarito). Nada de informação incerta como se fosse certa.' }
 };
 const NOMES = Object.keys(TIPOS);
+// o que pode ir para a rede: parecer e recado têm dados de alunos e famílias (LGPD) e ficam de fora
+export const TIPOS_REDE = ['plano', 'sequencia', 'atividade', 'prova', 'explicar', 'inclusao'];
 
 const REGRAS_GERAIS =
 'REGRAS DA CASA\n1) Português do Brasil, frases curtas e claras, linguagem adequada à série. Sem travessão como conector de frase.\n2) Conteúdo correto e atualizado. Na dúvida, não afirme.\n3) Código da BNCC só se tiver certeza de que é real e do ano certo; se não tiver, deixe o código vazio e descreva a habilidade.\n4) Nunca invente citação entre aspas atribuída a pessoa real, nem dado, lei, livro ou site.\n5) Matemática: recalcule todas as contas; vírgula decimal. Ciências: experimento só com material caseiro seguro e supervisão de adulto. História: datas e nomes verificáveis, temas sensíveis com seriedade.\n6) Contexto de escola pública brasileira: material simples, nada que dependa de equipamento caro.\n7) Responda somente no formato JSON pedido.';
@@ -381,6 +383,86 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     await docRef.update({ ['imagens.' + onde]: FieldValue.delete(), ...(onde === 'topo' ? { imagem: '' } : {}), atualizado_em: FieldValue.serverTimestamp() });
     if (cam) await getStorage().bucket().file(cam).delete().catch(() => {});
     return { ok: true };
+  }
+
+  /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */
+  if (d.acao === 'compartilhar') {
+    if (!d.aceite) throw new HttpsError('failed-precondition', 'Confirme o termo de compartilhamento.');
+    const origRef = db.doc(`portal_ia_docs/${txt(d.id, 64)}`); const os = await origRef.get();
+    if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
+    const o = os.data(), mun = ctx.eu.municipio_id || '';
+    if (!TIPOS_REDE.includes(o.tipo)) throw new HttpsError('failed-precondition', 'Parecer e recado aos pais não são compartilhados: eles têm dados de alunos e famílias.');
+    if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede municipal.');
+    let escola = '';
+    if (ctx.eu.escola_id) { const es = await db.doc(`escolas/${ctx.eu.escola_id}`).get(); escola = es.exists ? txt(es.data().nome, 120) : ''; }
+    const redeId = os.id, bucket = getStorage().bucket();
+    // imagens: cópia numa pasta da rede (a do professor continua só dele)
+    const fontes = {}; Object.entries(o.imagens || {}).forEach(([k, v]) => { if (v && v.caminho) fontes[k] = v.caminho; });
+    if (o.imagem && !fontes.topo) fontes.topo = o.imagem;
+    await bucket.deleteFiles({ prefix: `portal-ia-rede/${mun}/${redeId}/` }).catch(() => {});
+    const imagens = {};
+    for (const [k, cam] of Object.entries(fontes)) {
+      const destino = `portal-ia-rede/${mun}/${redeId}/${k}.${cam.split('.').pop()}`;
+      try { await bucket.file(cam).copy(bucket.file(destino)); imagens[k] = { caminho: destino }; } catch (e) { console.warn('portal-ia: imagem não copiada', cam, e.message); }
+    }
+    const cx2 = o.contexto || {};
+    const bncc = ((o.doc && o.doc.bncc) || []).map(b => txt(b.codigo, 12)).filter(Boolean).slice(0, 8);
+    const antes = await db.doc(`portal_ia_rede/${redeId}`).get();
+    await db.doc(`portal_ia_rede/${redeId}`).set({
+      uid, origem_id: os.id, municipio_id: mun, escopo: 'municipio', status: 'publicado',
+      autor_nome: txt(ctx.eu.nome || '', 80), escola_nome: escola, escola_id: ctx.eu.escola_id || '',
+      tipo: o.tipo, tipo_nome: o.tipo_nome || (TIPOS[o.tipo] || {}).nome || '', publico: o.publico || 'aluno',
+      titulo: txt(o.titulo || (o.doc && o.doc.titulo), 160), tema: txt(o.tema, 160), disciplina: txt(cx2.disciplina, 60), serie: txt(cx2.serie, 30), bncc,
+      doc: o.doc, html: typeof o.html === 'string' ? o.html : '', imagens,
+      usos: antes.exists ? (antes.data().usos || 0) : 0, denuncias: antes.exists ? (antes.data().denuncias || 0) : 0,
+      termo_aceito_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(), ...(antes.exists ? {} : { criado_em: FieldValue.serverTimestamp() })
+    });
+    await origRef.set({ rede: { municipio_id: mun, em: FieldValue.serverTimestamp() } }, { merge: true });
+    return { ok: true, id: redeId };
+  }
+  if (d.acao === 'descompartilhar') {
+    const id = txt(d.id, 64), ref = db.doc(`portal_ia_rede/${id}`), rs = await ref.get();
+    if (!rs.exists) return { ok: true };
+    if (rs.data().uid !== uid && !ctx.admin) throw new HttpsError('permission-denied', 'Só quem compartilhou pode tirar da rede.');
+    await getStorage().bucket().deleteFiles({ prefix: `portal-ia-rede/${rs.data().municipio_id}/${id}/` }).catch(() => {});
+    await ref.delete();
+    await db.doc(`portal_ia_docs/${rs.data().origem_id}`).set({ rede: FieldValue.delete() }, { merge: true }).catch(() => {});
+    return { ok: true };
+  }
+  if (d.acao === 'usar') {
+    const rs = await db.doc(`portal_ia_rede/${txt(d.id, 64)}`).get();
+    if (!rs.exists) throw new HttpsError('not-found', 'Este material não está mais na rede.');
+    const r = rs.data();
+    if (!ctx.admin && (r.status !== 'publicado' || r.municipio_id !== ctx.eu.municipio_id)) throw new HttpsError('permission-denied', 'Este material não é da sua rede.');
+    const novo = db.collection('portal_ia_docs').doc(), bucket = getStorage().bucket(), imagens = {};
+    for (const [k, v] of Object.entries(r.imagens || {})) {
+      if (!v || !v.caminho) continue;
+      const destino = `portal-ia/${uid}/${novo.id}-${k}.${v.caminho.split('.').pop()}`;
+      try { await bucket.file(v.caminho).copy(bucket.file(destino)); imagens[k] = { caminho: destino }; } catch (e) { console.warn('portal-ia: imagem não copiada', v.caminho, e.message); }
+    }
+    await novo.set({ uid, tipo: r.tipo, tipo_nome: r.tipo_nome, publico: r.publico, titulo: r.titulo, tema: r.tema, resumo: r.tema || r.titulo,
+      contexto: { disciplina: r.disciplina || '', serie: r.serie || '', turma: '' }, doc: r.doc, html: r.html || '', imagens, imagem: (imagens.topo && imagens.topo.caminho) || '',
+      favorito: false, ajustes: 0, modelo: 'rede', origem_rede: { id: rs.id, autor_nome: r.autor_nome || '', escola_nome: r.escola_nome || '' },
+      criado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp() });
+    if (r.uid !== uid) await rs.ref.update({ usos: FieldValue.increment(1) });
+    return { ok: true, id: novo.id };
+  }
+  if (d.acao === 'denunciar') {
+    const ref = db.doc(`portal_ia_rede/${txt(d.id, 64)}`), motivo = txt(d.motivo, 500);
+    if (motivo.length < 5) throw new HttpsError('invalid-argument', 'Conte em poucas palavras qual é o problema.');
+    const oculto = await db.runTransaction(async t => {
+      const rs = await t.get(ref); if (!rs.exists) throw new HttpsError('not-found', 'Este material não está mais na rede.');
+      const r = rs.data();
+      if (!ctx.admin && r.municipio_id !== ctx.eu.municipio_id) throw new HttpsError('permission-denied', 'Este material não é da sua rede.');
+      if (r.uid === uid) throw new HttpsError('failed-precondition', 'Para corrigir o seu material, edite e use Atualizar na rede.');
+      const dr = ref.collection('denuncias').doc(uid), ds = await t.get(dr);
+      t.set(dr, { uid, nome: txt(ctx.eu.nome, 80), motivo, em: FieldValue.serverTimestamp() });
+      const n = (r.denuncias || 0) + (ds.exists ? 0 : 1);
+      // 3 professores diferentes apontando erro: sai da vitrine até a revisão
+      t.update(ref, { denuncias: n, ...(n >= 3 ? { status: 'oculto' } : {}) });
+      return n >= 3;
+    });
+    return { ok: true, oculto };
   }
 
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
