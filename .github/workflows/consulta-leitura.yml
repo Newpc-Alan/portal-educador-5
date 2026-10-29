@@ -8,7 +8,7 @@ on:
       consulta:
         description: "Qual consulta"
         type: choice
-        options: [uso-ia, portal-ia, logs-portal-ia, portal-ia-provas, portal-ia-rede, portal-ia-planos, creditos-implantacao, portal-ia-questoes, acervo, regiao]
+        options: [uso-ia, portal-ia, logs-portal-ia, portal-ia-provas, portal-ia-rede, portal-ia-planos, creditos-implantacao, portal-ia-questoes, acervo, regiao, arquivos-levantar, arquivos-preparar, arquivos-links]
         default: uso-ia
 
 permissions:
@@ -32,7 +32,13 @@ jobs:
           printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
       - name: Consultar
+        if: ${{ !startsWith(inputs.consulta, 'arquivos-') }}
         run: cd functions && node "../scripts/${{ inputs.consulta == 'portal-ia' && 'teste-portal-ia' || format('consulta-{0}', inputs.consulta) }}.mjs"
+      - name: Migrar arquivos para Sao Paulo
+        if: ${{ startsWith(inputs.consulta, 'arquivos-') }}
+        env:
+          ETAPA: ${{ inputs.consulta }}
+        run: cd functions && node ../scripts/migrar-arquivos-sp.mjs "${ETAPA#arquivos-}"
       - name: Apagar a credencial do runner
         if: always()
         run: rm -f "$RUNNER_TEMP/conta.json"
