@@ -28,7 +28,8 @@ for (const c of casos) {
     body: JSON.stringify({ data: { entrega: 'atividade', tipo: 'exercicios', ...c, temaLivre: '', bncc: '', incl: '', turma_id: '', turma_nome: 'Teste' } }) });
   const j = await r.json().catch(() => ({}));
   const s = ((Date.now() - t0) / 1000).toFixed(1);
-  if (!j.result) { falhas++; console.log('::error::' + c.area + ' falhou em ' + s + 's: ' + JSON.stringify(j).slice(0, 500)); continue; }
+  // sem chaves e aspas na saída: o GitHub esconde linhas iguais às da credencial (como "}")
+  if (!j.result) { falhas++; const e = j.error || {}; console.log('::error::' + c.area + ' falhou em ' + s + 's · HTTP ' + r.status + ' · ' + (e.status || '') + ' · ' + String(e.message || '').replace(/[{}"]/g, ' ').slice(0, 400)); continue; }
   const k = j.result.conteudo;
   aviso(`${c.area} OK em ${s}s · "${k.titulo}" · BNCC ${k.bncc_codigo || '(vazio)'} · ${k.questoes.length} questões (${k.questoes.map(x => x.tipo).join(', ')}) · restante ${j.result.restante}`);
   k.questoes.forEach((x, i) => aviso(`  ${c.area} Q${i + 1} [${x.tipo}] ${x.enunciado} ${(x.alternativas || []).length ? '{' + x.alternativas.join(' / ') + '}' : ''} => ${x.resposta}`));
