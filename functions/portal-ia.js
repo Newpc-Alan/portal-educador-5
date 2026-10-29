@@ -119,9 +119,65 @@ async function gemini(chave, modelos, corpo) {
   }
   throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
 }
+// Versão em fluxo (SSE) para as respostas em JSON: vai lendo o texto enquanto a IA escreve e,
+// se um campo de texto passar do tamanho de qualquer conteúdo de aula (sinal de que o modelo entrou em repetição),
+// corta na hora em vez de esperar ela gastar 12 mil tokens. Quem chamou tenta de novo.
+const LIMITE_CAMPO = 3500;
+export async function geminiFluxo(chave, modelos, corpo) {
+  for (const mod of [...new Set(modelos.filter(Boolean))]) {
+    const ctl = new AbortController(), relogio = setTimeout(() => ctl.abort(), 85000);
+    let r;
+    try {
+      r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(mod) + ':streamGenerateContent?alt=sse', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: ctl.signal });
+    } catch (e) {
+      clearTimeout(relogio);
+      if (e && e.name === 'AbortError') { console.warn('portal-ia: tempo esgotado', mod); return { modelo: mod, partes: [], fim: 'TEMPO', pensou: 0, entrada: 0, saida: 0 }; }
+      throw e;
+    }
+    if (r.status === 404) { clearTimeout(relogio); console.warn('portal-ia: modelo fora do ar', mod); continue; }
+    if (!r.ok) {
+      clearTimeout(relogio); const j = await r.json().catch(() => ({}));
+      if (r.status === 400 && corpo.generationConfig && corpo.generationConfig.thinkingConfig && /think/i.test(JSON.stringify(j))) {
+        console.warn('portal-ia: sem thinkingConfig em', mod); const c2 = JSON.parse(JSON.stringify(corpo)); delete c2.generationConfig.thinkingConfig; return geminiFluxo(chave, [mod, ...modelos.filter(m => m !== mod)], c2);
+      }
+      console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400)); throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
+    }
+    let texto = '', fim = '', u = {}, buf = '', semAspas = 0, cortou = false;
+    const dec = new TextDecoder();
+    try {
+      for await (const pedaco of r.body) {
+        buf += dec.decode(pedaco, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n')) >= 0) {
+          const linha = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+          if (!linha.startsWith('data:')) continue;
+          let ev; try { ev = JSON.parse(linha.slice(5)); } catch (e) { continue; }
+          if (ev.usageMetadata) u = ev.usageMetadata;
+          const cand = (ev.candidates || [])[0] || {};
+          if (cand.finishReason) fim = cand.finishReason;
+          for (const p of (cand.content || {}).parts || []) {
+            if (p.thought || !p.text) continue;
+            texto += p.text;
+            // conta quantos caracteres vieram desde a última aspa: um campo de texto aberto há tempo demais
+            const k = p.text.lastIndexOf('"'); semAspas = k >= 0 ? p.text.length - k - 1 : semAspas + p.text.length;
+          }
+          if (semAspas > LIMITE_CAMPO) { cortou = true; break; }
+        }
+        if (cortou) break;
+      }
+    } catch (e) {
+      if (!(e && e.name === 'AbortError')) throw e;
+      fim = fim || 'TEMPO';
+    } finally { clearTimeout(relogio); if (cortou) ctl.abort(); }
+    if (cortou) { fim = 'REPETICAO'; console.warn('portal-ia: repetição cortada', mod, texto.length, texto.slice(-160)); }
+    return { modelo: mod, partes: [{ text: texto }], fim, pensou: u.thoughtsTokenCount || 0, entrada: u.promptTokenCount || 0, saida: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) || Math.round(texto.length / 4) };
+  }
+  throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
+}
 async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
   // Gemini 3 em diante: temperatura padrão (1.0), como o Google recomenda; abaixo disso ele entra em repetição e estoura o limite
-  const r = await gemini(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
+  const r = await geminiFluxo(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
     generationConfig: { ...(/gemini-[3-9]/.test(modelos[0] || '') ? {} : { temperature: temp ?? 0.6 }), responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 12000, thinkingConfig: { thinkingLevel: 'low' } } });
   const bruto = r.partes.filter(p => !p.thought).map(p => p.text || '').join('');
   let json = null; try { json = JSON.parse(bruto); } catch (e) { json = null; console.warn('portal-ia: JSON inválido', r.modelo, 'fim', r.fim, 'pensou', r.pensou, 'tamanho', bruto.length, 'inicio', bruto.slice(0, 1400).replace(/\s+/g, ' '), 'fim', bruto.slice(-200)); }
@@ -261,7 +317,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       '\nDevolva o material inteiro já ajustado, no mesmo formato, mudando só o que o ajuste pede.';
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null;
     try {
-      for (let t = 0; t < 3; t++) {
+      for (let t = 0; t < 4; t++) {
         r = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
