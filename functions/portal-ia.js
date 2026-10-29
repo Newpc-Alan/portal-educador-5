@@ -60,7 +60,8 @@ export const ESQUEMA_DOC = {
       questoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
         tipo: { type: 'STRING', enum: ['multipla', 'vf', 'lacuna', 'curta', 'relacionar', 'aberta'] },
         enunciado: S('Enunciado completo, SEM número na frente; em lacuna use exatamente seis sublinhados (______) no lugar de cada palavra que falta; em vf só a instrução, sem as afirmativas'),
-        alternativas: AS('multipla: exatamente 4 alternativas, sem letra na frente; vf: de 3 a 5 afirmativas completas (cada uma é uma frase para o aluno julgar, nunca combinações como V-F-V); demais: vazio'),
+        alternativas: AS('Só em multipla: exatamente 4 opções curtas, sem letra na frente. Nos outros tipos, vazio.'),
+        afirmativas: AS('Só em vf: de 3 a 5 frases curtas (até 20 palavras cada) para o aluno marcar V ou F. Nos outros tipos, vazio.'),
         coluna_a: AS('relacionar: de 3 a 5 itens'), coluna_b: AS('relacionar: os correspondentes, embaralhados'),
         linhas: { type: 'INTEGER', description: 'linhas para responder: curta 2, aberta 4, demais 0' },
         valor: { type: 'NUMBER', description: 'pontos da questão (só em prova)' }
@@ -134,6 +135,8 @@ export function limparDoc(d) {
   (d.secoes || []).forEach(s => (s.questoes || []).forEach(q => {
     q.enunciado = String(q.enunciado || '').replace(/^\s*(quest[aã]o\s*)?\d{1,2}\s*[).:\-–]\s*/i, '').trim();
     // V ou F com as afirmativas dentro do enunciado e combinações nas alternativas: separa do jeito certo
+    if (q.tipo === 'vf' && Array.isArray(q.afirmativas) && q.afirmativas.length) q.alternativas = q.afirmativas;
+    delete q.afirmativas;
     if (q.tipo === 'vf' && (q.alternativas || []).length && q.alternativas.every(ehCombinacao)) {
       const linhas = q.enunciado.split(/\n|\s\|\s/).map(x => x.trim()).filter(Boolean);
       const afirm = linhas.filter(x => /^\(\s*\)/.test(x)).map(semMarca);
