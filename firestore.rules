@@ -769,6 +769,26 @@ service cloud.firestore {
     }
 
     // acervo: metadados dos arquivos (os arquivos ficam no Cloudflare R2)
+    // Acervo da rede: material da propria Secretaria (documentos, curriculo, livros...). So a rede dela ve.
+    // O arquivo fica no R2 em rede/{municipio}/...; o Worker confere o municipio de novo na hora de entregar.
+    match /acervo_rede/{id} {
+      allow read: if admin() || (ativo() && eu().perfil != "aluno" && resource.data.municipio_id == eu().get("municipio_id", "-")
+        && (resource.data.publicado == true || eu().perfil == "secretaria"));
+      allow create: if (admin() || secretariaDoMuni(request.resource.data.municipio_id)) && acervoRedeOk()
+        && request.resource.data.arquivo_key.matches("^rede/" + request.resource.data.municipio_id + "/[^/]{1,200}$");
+      allow update: if (admin() || secretariaDoMuni(resource.data.municipio_id)) && acervoRedeOk()
+        && request.resource.data.municipio_id == resource.data.municipio_id && request.resource.data.arquivo_key == resource.data.arquivo_key;
+      allow delete: if admin() || secretariaDoMuni(resource.data.municipio_id);
+    }
+    function acervoRedeOk() {
+      return novo().keys().hasOnly(["titulo", "categoria", "disciplina", "etapas", "bncc", "descricao", "municipio_id", "arquivo_key", "arquivo_nome", "mime", "tamanho",
+          "publicado", "termo_aceito", "criado_em", "criado_por", "criado_por_nome", "atualizado_em", "atualizado_por"])
+        && novo().titulo is string && novo().titulo.size() > 0 && novo().titulo.size() <= 160
+        && novo().categoria in ["documentos", "curriculo", "livros", "modelos", "formacao", "projetos", "outros"]
+        && novo().publicado is bool && novo().termo_aceito == true && novo().tamanho is int && novo().etapas is list && novo().bncc is list;
+    }
+    // endereco do servico do acervo: a Secretaria tambem precisa (envia o acervo da rede)
+    match /config/acervo { allow read: if ativo() && eu().perfil == "secretaria"; }
     match /acervo/{id} {
       allow read: if admin() || (licenciado() && resource.data.publicado == true)
         || (aluno() && resource.data.publicado == true && resource.data.modulo in ["datas", "historias"] && alunoPode(resource.data.modulo));

@@ -10,11 +10,16 @@
 //   GET    /link?key=...                  -> (professor licenciado) devolve link de download valido por 5 min
 //   GET    /baixar?key=...&exp=...&sig=.. -> entrega o arquivo (so com link assinado e dentro do prazo)
 //   PUT    /arquivo?key=...               -> (admin) envia arquivo para o bucket
-//   DELETE /arquivo?key=...               -> (admin) apaga arquivo do bucket
+//                                            (Secretaria) so em rede/{seu municipio}/..., dentro da cota da rede
+//   DELETE /arquivo?key=...               -> (admin) apaga arquivo do bucket; (Secretaria) so na pasta da rede
+//
+// Acervo da rede: arquivos da propria Secretaria ficam em rede/{municipio_id}/... e so a rede dela abre.
 
 const PROJETO = "portal-educador-5";
 const ORIGENS = ["https://app.portaldoeducador.com.br", "https://www.portaldoeducador.com.br", "http://localhost:8811"];
 const VALIDADE_LINK = 5 * 60; // segundos
+const COTA_REDE_MB = 2048;          // padrao por municipio (campo acervo_cota_mb no municipio muda)
+const MAX_ARQUIVO = 100 * 1024 * 1024;
 const JWKS_URL = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
 const FIRESTORE = "https://firestore.googleapis.com/v1/projects/" + PROJETO + "/databases/(default)/documents/";
 
@@ -44,15 +49,28 @@ export default {
         if (!(await licencaValida(usuario, token))) return json({ erro: "licenca expirada ou sem acesso" }, 403, cors);
         // aluno: so arquivos dos modulos liberados para alunos (a chave comeca pelo modulo, ex.: datas/...)
         if (usuario.perfil === "aluno" && !(await alunoPodeChave(usuario, key, token))) return json({ erro: "arquivo nao liberado para alunos" }, 403, cors);
+        // acervo da rede: so quem e do mesmo municipio
+        const mun = munDaChave(key);
+        if (mun !== null && !ehAdmin(usuario) && (usuario.perfil === "aluno" || !mun || usuario.municipio_id !== mun)) return json({ erro: "arquivo de outra rede" }, 403, cors);
         const exp = Math.floor(Date.now() / 1000) + VALIDADE_LINK;
         const sig = await assinar(env.SEGREDO, key + "|" + exp);
         const link = url.origin + "/baixar?key=" + encodeURIComponent(key) + "&exp=" + exp + "&sig=" + sig;
         return json({ link, expira_em: exp }, 200, cors);
       }
 
-      // rotas de administracao
-      if (!ehAdmin(usuario)) return json({ erro: "somente administrador" }, 403, cors);
+      // rotas de envio: administrador em qualquer pasta; Secretaria so na pasta da propria rede
+      const secRede = !ehAdmin(usuario) && ehSecretaria(usuario) && munDaChave(key) === usuario.municipio_id;
+      if (!ehAdmin(usuario) && !secRede) return json({ erro: "somente administrador" }, 403, cors);
       if (url.pathname === "/arquivo" && req.method === "PUT") {
+        const tam = parseInt(req.headers.get("Content-Length") || "0", 10);
+        if (tam > MAX_ARQUIVO) return json({ erro: "arquivo acima de 100 MB" }, 413, cors);
+        if (secRede) {
+          if (!(await licencaValida(usuario, token))) return json({ erro: "contrato da rede vencido" }, 403, cors);
+          const m = await lerDoc("municipios/" + usuario.municipio_id, token);
+          const cota = (m && Number(m.acervo_cota_mb) > 0 ? Number(m.acervo_cota_mb) : COTA_REDE_MB) * 1024 * 1024;
+          const usado = await tamanhoPasta(env, "rede/" + usuario.municipio_id + "/");
+          if (usado + tam > cota) return json({ erro: "espaco do acervo da rede esgotado (" + Math.round(usado / 1048576) + " de " + Math.round(cota / 1048576) + " MB)" }, 413, cors);
+        }
         const tipo = req.headers.get("Content-Type") || "application/octet-stream";
         const nome = req.headers.get("X-Nome-Arquivo") || key.split("/").pop();
         const obj = await env.BUCKET.put(key, req.body, {
@@ -91,6 +109,14 @@ async function baixar(url, env) {
 
 // ---------- licenca (mesma logica do Portal e das regras do Firestore) ----------
 function ehAdmin(u) { return u.perfil === "admin" && u.status === "ativo"; }
+function ehSecretaria(u) { return u.perfil === "secretaria" && u.status === "ativo" && !!u.municipio_id; }
+// rede/{municipio}/arquivo -> municipio; outras pastas -> null (acervo da NEWPC)
+function munDaChave(key) { const p = String(key).split("/"); return p[0] === "rede" ? (p.length >= 3 ? p[1] : "") : null; }
+async function tamanhoPasta(env, prefixo) {
+  let total = 0, cursor;
+  do { const r = await env.BUCKET.list({ prefix: prefixo, cursor }); r.objects.forEach(o => total += o.size); cursor = r.truncated ? r.cursor : undefined; } while (cursor);
+  return total;
+}
 const MODULOS_ACERVO_ALUNO = ["datas", "historias"];
 async function alunoPodeChave(u, key, token) {
   const mod = String(key).split("/")[0];
@@ -107,6 +133,12 @@ async function licencaValida(u, token) {
     const m = await lerDoc("municipios/" + u.municipio_id, token);
     if (!m) return false;
     return !m.vigencia_fim_ts || new Date(m.vigencia_fim_ts).getTime() > Date.now();
+  }
+  // equipe da rede (Secretaria e gestores): vale o contrato do municipio
+  if (u.perfil === "secretaria" || u.perfil === "gestor") {
+    if (!u.municipio_id) return false;
+    const m = await lerDoc("municipios/" + u.municipio_id, token);
+    return !m || !m.vigencia_fim_ts || new Date(m.vigencia_fim_ts).getTime() > Date.now();
   }
   const tipo = u.licenca_tipo || "institucional";
   if (tipo === "institucional") {

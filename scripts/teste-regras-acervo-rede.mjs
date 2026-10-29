@@ -1,0 +1,55 @@
+// Acervo da rede (acervo_rede): a Secretaria publica para o próprio município; só a rede dela vê.
+//   firebase emulators:exec --only firestore --project demo-pe5 "node scripts/teste-regras-acervo-rede.mjs firestore.rules"
+import { readFileSync } from 'node:fs';
+import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
+import { doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, query, where } from 'firebase/firestore';
+
+const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
+const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
+const ITEM = (mun, pub = true) => ({ titulo: 'Currículo municipal', categoria: 'curriculo', disciplina: '', etapas: ['Anos Iniciais'], bncc: [], descricao: '', municipio_id: mun,
+  arquivo_key: 'rede/' + mun + '/abc-curriculo.pdf', arquivo_nome: 'curriculo.pdf', mime: 'application/pdf', tamanho: 1000, publicado: pub, termo_aceito: true, criado_por: 'sec1' });
+await env.withSecurityRulesDisabled(async (c) => {
+  const db = c.firestore();
+  await setDoc(doc(db, 'municipios/m1'), { nome: 'M1' });
+  await setDoc(doc(db, 'municipios/m2'), { nome: 'M2' });
+  await setDoc(doc(db, 'usuarios/p1'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/p3'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e9', municipio_id: 'm2' });
+  await setDoc(doc(db, 'usuarios/al1'), { perfil: 'aluno', status: 'ativo', escola_id: 'e1', municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/sec1'), { perfil: 'secretaria', status: 'ativo', municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/sec2'), { perfil: 'secretaria', status: 'ativo', municipio_id: 'm2' });
+  await setDoc(doc(db, 'usuarios/adm'), { perfil: 'admin', status: 'ativo' });
+  await setDoc(doc(db, 'acervo_rede/a1'), ITEM('m1'));
+  await setDoc(doc(db, 'acervo_rede/a2'), ITEM('m1', false));
+  await setDoc(doc(db, 'config/acervo'), { api: 'https://x.workers.dev' });
+});
+let ok = 0, falha = 0;
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
+const fs = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore();
+const pub = (u, m) => query(collection(fs(u), 'acervo_rede'), where('municipio_id', '==', m), where('publicado', '==', true));
+await t('professor da rede lista os publicados', assertSucceeds(getDocs(pub('p1', 'm1'))));
+await t('professor da rede não lê o oculto', assertFails(getDoc(doc(fs('p1'), 'acervo_rede/a2'))));
+await t('professor de outra rede não lista', assertFails(getDocs(pub('p3', 'm1'))));
+await t('professor de outra rede não lê', assertFails(getDoc(doc(fs('p3'), 'acervo_rede/a1'))));
+await t('aluno não lê', assertFails(getDoc(doc(fs('al1'), 'acervo_rede/a1'))));
+await t('Secretaria lista tudo da rede, inclusive oculto', assertSucceeds(getDocs(query(collection(fs('sec1'), 'acervo_rede'), where('municipio_id', '==', 'm1')))));
+await t('Secretaria de outra rede não lista', assertFails(getDocs(query(collection(fs('sec2'), 'acervo_rede'), where('municipio_id', '==', 'm1')))));
+await t('Secretaria cria na própria rede', assertSucceeds(setDoc(doc(fs('sec1'), 'acervo_rede/n1'), ITEM('m1'))));
+await t('sem a declaração: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n2'), { ...ITEM('m1'), termo_aceito: false })));
+await t('chave fora da pasta da rede: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n3'), { ...ITEM('m1'), arquivo_key: 'atividades/x.pdf' })));
+await t('chave na pasta de outra rede: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n4'), { ...ITEM('m1'), arquivo_key: 'rede/m2/x.pdf' })));
+await t('Secretaria não cria para outra rede', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n5'), ITEM('m2'))));
+await t('categoria inválida: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n6'), { ...ITEM('m1'), categoria: 'xxx' })));
+await t('campo estranho: não', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede/n7'), { ...ITEM('m1'), hack: 1 })));
+await t('professor não publica', assertFails(setDoc(doc(fs('p1'), 'acervo_rede/n8'), ITEM('m1'))));
+await t('Secretaria renomeia e oculta', assertSucceeds(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { titulo: 'Novo', publicado: false })));
+await t('Secretaria não troca o arquivo', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { arquivo_key: 'rede/m1/outro.pdf' })));
+await t('Secretaria não muda de rede', assertFails(updateDoc(doc(fs('sec1'), 'acervo_rede/a1'), { municipio_id: 'm2', arquivo_key: 'rede/m2/abc-curriculo.pdf' })));
+await t('Secretaria de outra rede não edita', assertFails(updateDoc(doc(fs('sec2'), 'acervo_rede/a1'), { titulo: 'x' })));
+await t('Secretaria de outra rede não exclui', assertFails(deleteDoc(doc(fs('sec2'), 'acervo_rede/a1'))));
+await t('Secretaria exclui da própria rede', assertSucceeds(deleteDoc(doc(fs('sec1'), 'acervo_rede/a1'))));
+await t('administrador lê tudo', assertSucceeds(getDoc(doc(fs('adm'), 'acervo_rede/a2'))));
+await t('Secretaria lê o endereço do serviço do acervo', assertSucceeds(getDoc(doc(fs('sec1'), 'config/acervo'))));
+await t('Secretaria não grava o endereço', assertFails(setDoc(doc(fs('sec1'), 'config/acervo'), { api: 'x' })));
+console.log('::notice::acervo da rede: ' + ok + ' ok, ' + falha + ' falha(s)');
+await env.cleanup();
+process.exit(falha ? 1 : 0);
