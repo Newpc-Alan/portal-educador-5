@@ -100,6 +100,14 @@
   .mini-cal .mc-lem .mc-add{ color:var(--pde-lima);font-weight:700 }
   .mini-cal .mc-info{ margin-top:7px;line-height:1.4;color:rgba(255,255,255,.75) }
   .mini-cal .mc-info b{ color:#fff }
+  .ia-saldo{ display:block;margin:-6px 12px 14px;padding:9px 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:11.5px;color:rgba(255,255,255,.85);text-decoration:none }
+  .ia-saldo[hidden]{ display:none } .ia-saldo:hover{ background:rgba(255,255,255,.09) } .ia-saldo b{ color:#fff;font-size:12.5px }
+  .ia-saldo .is-bar{ display:block;height:4px;border-radius:4px;background:rgba(255,255,255,.12);margin-top:6px;overflow:hidden }
+  .ia-saldo .is-bar i{ display:block;height:100%;background:var(--pde-lima, #8BC53F);border-radius:4px }
+  .ia-saldo .is-msg{ display:block;margin-top:6px;line-height:1.35;color:rgba(255,255,255,.75) }
+  .ia-saldo .is-btn{ display:inline-block;margin-top:7px;padding:5px 9px;border-radius:7px;background:#e53935;color:#fff;font-weight:700 }
+  .ia-saldo.baixo{ border-color:rgba(255,152,0,.55) } .ia-saldo.baixo .is-bar i{ background:#ff9800 } .ia-saldo.baixo b{ color:#ffb74d }
+  .ia-saldo.zero{ border-color:rgba(229,57,53,.6);background:rgba(229,57,53,.1) } .ia-saldo.zero b{ color:#ff8a80 }
   .mini-cal .mc-prox{ margin-top:3px;color:rgba(255,255,255,.6) }
   /* o calendário fica logo abaixo do menu; o usuário continua no rodapé */
   .sidebar .nav{ flex:0 0 auto }
@@ -1126,6 +1134,7 @@
       <div class="logo"><img class="logo-img" src="/assets/pde-logo-128.png" alt="Portal do Educador" width="48" height="48"><div class="t">Portal do Educador<small>uma solução NEWPC</small></div></div>
       <nav class="nav" id="nav"></nav>
       <div class="mini-cal" id="miniCal" hidden></div>
+      <a class="ia-saldo" id="iaSaldo" href="/apps/portal-ia/" hidden></a>
       <div class="userbox">
         <div class="who"><div class="av" id="uAv">?</div><div style="overflow:hidden"><div class="nm" id="uNome">-</div><div class="pf" id="uPerfil">-</div></div></div>
         <button class="out" id="btnSair">Sair</button>
@@ -1957,6 +1966,40 @@
     if(perfil === "admin") contarPendentesEmSegundoPlano();
     montarLousa();
     montarMiniCal();
+    montarSaldoIA();
+  }
+
+  // ---------- créditos do Portal IA no menu: o que o professor pode usar, não o saldo da rede ----------
+  // A conta vem do servidor (a mesma que libera ou bloqueia o uso), guardada 5 min na aba; o Portal IA limpa ao gastar.
+  async function montarSaldoIA(){
+    const el = $("iaSaldo"); el.hidden = true; el.innerHTML = "";
+    const u = usuarioAtual || {};
+    if(!["professor","gestor"].includes(u.perfil) || (usuarioReal && usuarioReal.uid !== u.uid)) return;
+    let c = null;
+    try{ const g = JSON.parse(sessionStorage.getItem("pde_ia_saldo") || "null"); if(g && g.uid === u.uid && Date.now() - g.em < 300000) c = g.c; }catch(e){}
+    if(!c){
+      try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+        c = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data;
+        try{ sessionStorage.setItem("pde_ia_saldo", JSON.stringify({ uid:u.uid, em:Date.now(), c })); }catch(e){}
+      }catch(e){ console.warn("saldo IA:", e.code || e.message); return; }
+    }
+    if(!c || c.admin) return;
+    const rede = c.rede, pessoal = (c.pessoal && c.pessoal.saldo) || 0;
+    if(!rede && !pessoal) return;            // plano sem Portal IA e sem créditos próprios: nada a mostrar
+    const disp = (rede ? rede.restante_mes : 0) + pessoal;
+    // referência da barra: o teto do mês (ou o saldo, quando a rede não tem teto) mais os avulsos
+    const ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1), pct = Math.round(disp / ref * 100);
+    const est = !c.pode_usar ? "zero" : pct <= 20 ? "baixo" : "";
+    const nf = n => Number(n || 0).toLocaleString("pt-BR");
+    const det = [rede ? nf(rede.restante_mes)+" da rede"+(rede.teto > 0 ? " (limite de "+nf(rede.teto)+"/mês)" : "") : "", pessoal ? nf(pessoal)+" seus" : ""].filter(Boolean).join(" + ");
+    el.className = "ia-saldo" + (est ? " " + est : "");
+    el.href = est === "zero" ? "/apps/portal-ia/#comprar" : "/apps/portal-ia/";
+    el.title = det ? "Disponível para você: " + det : "";
+    el.innerHTML = '<span class="is-l">\u2728 Portal IA: <b>'+nf(disp)+'</b> '+(disp === 1 ? "crédito" : "créditos")+(rede && !pessoal ? " este mês" : "")+'</span>'+
+      '<span class="is-bar"><i style="width:'+Math.min(100, pct)+'%"></i></span>'+
+      (est === "zero" ? '<span class="is-msg">'+escapeHtml(c.motivo || "Seus créditos acabaram.")+'</span><span class="is-btn">Comprar créditos avulsos</span>'
+        : est === "baixo" ? '<span class="is-msg">Está acabando. '+(rede && rede.teto > 0 && rede.saldo > rede.restante_mes ? "O limite renova no dia 1º." : "")+'</span>' : "");
+    el.hidden = false;
   }
 
   // ---------- mini calendário do mês no menu (Calendário e Dias Letivos) ----------
