@@ -518,6 +518,12 @@
   .acv-api{ display:flex;gap:8px;flex-wrap:wrap }
   .acv-api input{ flex:1 1 320px;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:13.5px }
   .acv-status{ font-size:13px;color:var(--muted);margin-top:8px }
+  .acv-rede{ border-color:#c8dcf0;background:linear-gradient(180deg,#f5f9ff,#fff) }
+  .acvr-topo{ display:flex;gap:18px;align-items:center;flex-wrap:wrap } .acvr-topo > div:first-child{ flex:1 1 360px }
+  .acvr-uso{ flex:0 1 280px;font-size:13px;color:var(--navy) } .acvr-uso small{ display:block;color:var(--muted);margin-top:4px;font-size:12px }
+  .acvr-bar{ display:block;height:8px;border-radius:6px;background:#e6edf3;margin-top:6px;overflow:hidden } .acvr-bar i{ display:block;height:100%;background:#1a6b2a;border-radius:6px } .acvr-bar.cheio i{ background:#d32f2f }
+  .acvr-termo{ display:flex;gap:10px;align-items:flex-start;background:#fff8e1;border:1px solid #ffe08a;border-radius:10px;padding:10px 12px;margin:6px 0 12px;font-size:13px;line-height:1.45;cursor:pointer }
+  .acvr-termo input{ margin-top:3px;flex-shrink:0 }
   .acv-fila{ display:flex;flex-direction:column;gap:6px;margin-top:12px }
   .acv-fl{ display:grid;grid-template-columns:26px 1fr 70px 110px;gap:8px;align-items:center;font-size:13px }
   .acv-fl input{ padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px }
@@ -1374,6 +1380,7 @@
   const db = getFirestore(app);
   const $ = (id) => document.getElementById(id);
 
+  const ACERVO_REDE_NO_AR = false; // liga quando as regras do acervo_rede e o Worker novo estiverem publicados
   const MENUS = {
     // administrador: itens agrupados por área ({ grupo } abre um bloco recolhível no menu)
     admin: { itens: [
@@ -1411,6 +1418,7 @@
       { id:"calendarioLink", ico:"\u{1F4C5}", label:"Calendário Letivo" },
       { id:"relatoriosLink", ico:"\u{1F4CB}", label:"Central de Relatórios" },
       { id:"servidoresLink", ico:"\u{1FAAA}", label:"Servidores da rede" },
+      ...(ACERVO_REDE_NO_AR ? [{ id:"acervoRede", ico:"\u{1F3DB}\u{FE0F}", label:"Acervo da rede" }] : []),
       { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
     gestor: { itens: [
       { id:"inicio",      ico:"\u{1F3E0}", label:"Início" },
@@ -2166,6 +2174,7 @@
     if(item.id === "inicio"){ renderInicio(); return; }
     if(item.id === "meucadastro"){ renderMeuCadastro(); return; }
     if(item.id === "acervo"){ renderAcervo(""); return; }
+    if(item.id === "acervoRede"){ renderAcervoRede(); return; }
     if(item.id === "trabalhos"){ renderTrabalhos(); return; }
     if(usuarioAtual.perfil === "professor" && item.id === "planoaula"){ renderPlanoAula(); return; }
     if(usuarioAtual.perfil === "professor"){
@@ -3327,7 +3336,7 @@
     return "\u{1F4DD}";
   }
   function tamanhoLegivel(b){ if(!b && b !== 0) return ""; if(b < 1024*1024) return Math.max(1, Math.round(b/1024))+" KB"; return (b/1024/1024).toFixed(1).replace(".",",")+" MB"; }
-  function nomeModulo(id){ const m = MODULOS.find(x => x.id === id); return m ? m.nome : id; }
+  function nomeModulo(id){ if(id === "__rede") return "\u{1F3DB}\u{FE0F} Da minha rede"; const m = MODULOS.find(x => x.id === id); return m ? m.nome : id; }
 
   // ---------- professor: buscar e abrir ----------
   const acv = { itens:[], mod:"", etapa:"", disc:"", busca:"" };
@@ -3346,12 +3355,16 @@
       acv.itens = []; snap.forEach(d => acv.itens.push({ id:d.id, ...d.data() }));
       // só o acervo dos botões que estão no plano de quem está usando
       if(planoVigente) acv.itens = acv.itens.filter(i => !i.modulo || planoVigente.has(i.modulo));
+      // acervo da propria rede (publicado pela Secretaria): aparece como "Da minha rede"
+      const mun = usuarioAtual.municipio_id;
+      if(mun){ try{ const sr = await getDocs(query(collection(db,"acervo_rede"), where("municipio_id","==",mun), where("publicado","==",true)));
+        sr.forEach(d => acv.itens.push({ id:d.id, ...d.data(), modulo:"__rede", rede:true })); }catch(e){ console.warn("acervo da rede:", e.code); } }
       acv.itens.sort((a,b) => (a.titulo||"").localeCompare(b.titulo||""));
       desenharAcervo();
     }catch(e){ console.warn(e); $("acvLista").innerHTML = '<div class="empty">Não foi possível carregar o acervo ('+escapeHtml(e.code||"erro")+').</div>'; }
   }
   function desenharAcervo(){
-    const mods = [...new Set(acv.itens.map(i => i.modulo))];
+    const mods = [...new Set(acv.itens.map(i => i.modulo))].sort((a, b) => (b === "__rede") - (a === "__rede"));
     $("acvMods").innerHTML = mods.length > 1 ? ['', ...mods].map(m => '<button class="usr-tab'+(acv.mod===m?" on":"")+'" data-action="acv-mod" data-mod="'+escapeAttr(m)+'">'+(m ? escapeHtml(nomeModulo(m)) : "Tudo")+'</button>').join("") : "";
     const t = semAcento(acv.busca.trim());
     const lista = acv.itens.filter(i => (!acv.mod || i.modulo === acv.mod)
@@ -3359,13 +3372,13 @@
       && (!acv.disc || i.disciplina === acv.disc)
       && (!t || semAcento([i.titulo, i.descricao, (i.bncc||[]).join(" ")].join(" ")).includes(t)));
     if(!lista.length){
-      $("acvLista").innerHTML = '<div class="empty"><div class="ei">\u{1F5C2}\u{FE0F}</div>'+(acv.itens.length ? "Nenhum arquivo com esses filtros." : "O acervo deste botão está sendo preparado. Volte em breve.")+'</div>';
+      $("acvLista").innerHTML = '<div class="empty"><div class="ei">\u{1F5C2}\u{FE0F}</div>'+(acv.itens.length ? "Nenhum arquivo com esses filtros." : "Ainda não há materiais publicados para o seu plano. A NEWPC e a Secretaria de Educação estão preparando.")+'</div>';
       return;
     }
     $("acvLista").innerHTML = '<p class="acv-cont">'+lista.length+' arquivo(s)</p><div class="acv-grade">'+lista.map(i =>
-      '<article class="acv-item"><div class="acv-ico" aria-hidden="true">'+icoArquivo(i.mime, i.arquivo_nome)+'</div>'+
+      '<article class="acv-item'+(i.rede ? " acv-rede" : "")+'"><div class="acv-ico" aria-hidden="true">'+icoArquivo(i.mime, i.arquivo_nome)+'</div>'+
       '<div class="acv-txt"><h4>'+escapeHtml(i.titulo||"Sem título")+'</h4>'+
-      '<p>'+escapeHtml([nomeModulo(i.modulo), i.disciplina, (i.etapas||[]).join(", ")].filter(Boolean).join(" · "))+'</p>'+
+      '<p>'+escapeHtml([i.rede ? "Secretaria de Educação · "+(CATS_REDE[i.categoria] || "Material da rede") : nomeModulo(i.modulo), i.disciplina, (i.etapas||[]).join(", ")].filter(Boolean).join(" · "))+'</p>'+
       ((i.bncc||[]).length ? '<div class="acv-bncc">'+i.bncc.slice(0,4).map(c => '<span>'+escapeHtml(c)+'</span>').join("")+'</div>' : '')+
       '</div><button class="btn-mini btn-gerenciar" data-action="acv-abrir" data-id="'+escapeAttr(i.id)+'">Abrir</button></article>').join("")+'</div>';
   }
@@ -3398,6 +3411,150 @@
     setDoc(doc(db,"acessos_dia",hojeISO()+"_"+u.uid), { dia:hojeISO(), uid:u.uid, acervo:arrayUnion(id), ultimo:serverTimestamp() }, { merge:true })
       .catch(e => console.warn("registro de download:", e.code));
   }
+
+  // ---------- Secretaria: acervo próprio da rede (documentos, currículo, livros...) ----------
+  const CATS_REDE = { documentos:"Documentos oficiais", curriculo:"Currículo e referenciais", livros:"Livros e obras", modelos:"Modelos e formulários", formacao:"Formação de professores", projetos:"Projetos da rede", outros:"Outros" };
+  const acvRede = { itens:[], fila:[], enviando:false, cota:2048, editando:"" };
+  async function renderAcervoRede(){
+    const mun = usuarioAtual.municipio_id;
+    if(!mun){ $("conteudo").innerHTML = '<div class="empty">Seu cadastro não está ligado a um município.</div>'; return; }
+    await carregarApiAcervo();
+    $("conteudo").innerHTML =
+      '<div class="imp-card acvr-topo"><div><h3>\u{1F3DB}\u{FE0F} O acervo da sua rede dentro do Portal</h3><p class="d">Publique documentos oficiais, currículo, livros e modelos da Secretaria. Só os professores do seu município veem, na tela Acervo, em "Da minha rede".</p></div>'+
+        '<div class="acvr-uso" id="acvrUso"></div></div>'+
+      '<div class="imp-card"><h3>Adicionar arquivos</h3><p class="d">As etiquetas valem para todos os arquivos deste envio. Depois ajuste o título de cada um. Até 100 MB por arquivo.</p>'+
+        '<div class="row2"><div class="field"><label for="acvrCat">Categoria</label><select id="acvrCat">'+Object.entries(CATS_REDE).map(([k, v]) => '<option value="'+k+'">'+v+'</option>').join("")+'</select></div>'+
+        '<div class="field"><label for="acvrDisc">Disciplina</label><select id="acvrDisc"><option value="">Não se aplica</option>'+DISCIPLINAS.map(d => '<option>'+d+'</option>').join("")+'</select></div></div>'+
+        '<div class="field"><label>Etapas</label><div class="cad-etapas">'+ETAPAS_CURTAS.map(e => '<label><input type="checkbox" name="acvrEtapa" value="'+escapeAttr(e)+'"> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
+        '<div class="field"><label for="acvrBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="acvrBncc" placeholder="EF03MA01, EF03MA02"></div>'+
+        '<label class="acvr-termo"><input type="checkbox" id="acvrTermo"> <span>Declaro que a Secretaria tem direito de distribuir estes arquivos aos professores da rede (material próprio, licenciado ou de domínio público) e que eles <b>não contêm dados pessoais de alunos</b>.</span></label>'+
+        '<label class="imp-arquivo" style="display:inline-block">Escolher arquivos<input type="file" id="acvrArq" multiple accept=".pdf,image/*,audio/*,video/mp4,.doc,.docx,.ppt,.pptx,.xls,.xlsx"></label>'+
+        '<div id="acvrFila"></div></div>'+
+      '<div class="imp-card"><h3>Arquivos da rede</h3><div id="acvrLista"><div class="empty">Carregando...</div></div></div>';
+    try{ const m = await getDoc(doc(db,"municipios",mun)); const c = m.exists() ? Number(m.data().acervo_cota_mb) : 0; acvRede.cota = c > 0 ? c : 2048; }catch(e){}
+    await listarAcervoRede();
+  }
+  async function listarAcervoRede(){
+    try{
+      const sn = await getDocs(query(collection(db,"acervo_rede"), where("municipio_id","==",usuarioAtual.municipio_id)));
+      acvRede.itens = []; sn.forEach(d => acvRede.itens.push({ id:d.id, ...d.data() }));
+      acvRede.itens.sort((a, b) => (msDe(b.criado_em)||0) - (msDe(a.criado_em)||0));
+    }catch(e){ console.warn(e); $("acvrLista").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code||"erro")+').</div>'; return; }
+    desenharAcervoRede();
+  }
+  const usoRedeMb = () => acvRede.itens.reduce((t, i) => t + (i.tamanho || 0), 0) / 1048576;
+  function desenharAcervoRede(){
+    const uso = usoRedeMb(), pct = Math.min(100, Math.round(uso / acvRede.cota * 100));
+    const fmt = mb => mb >= 1024 ? (mb / 1024).toFixed(1).replace(".", ",")+" GB" : mb < 10 ? mb.toFixed(1).replace(".", ",")+" MB" : Math.round(mb)+" MB";
+    $("acvrUso").innerHTML = '<b>'+fmt(uso)+'</b> de '+fmt(acvRede.cota)+' usados<span class="acvr-bar'+(pct >= 90 ? " cheio" : "")+'"><i style="width:'+pct+'%"></i></span><small>'+acvRede.itens.length+' arquivo(s) · '+acvRede.itens.filter(i => i.publicado).length+' visível(is) para os professores</small>';
+    const l = acvRede.itens;
+    $("acvrLista").innerHTML = !l.length ? '<div class="empty">Nenhum arquivo ainda. Comece pelos documentos que os professores mais pedem: currículo, calendário, modelos de plano e de relatório.</div>' :
+      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Arquivo</th><th>Categoria</th><th>Etiquetas</th><th>Situação</th><th></th></tr></thead><tbody>'+
+      l.map(i => '<tr><td class="usr-nome">'+(acvRede.editando === i.id
+          ? '<input type="text" id="acvrNome" class="tr-nome" maxlength="160" value="'+escapeAttr(i.titulo)+'"><div class="tr-ed"><button class="btn-mini btn-gerenciar" data-action="acvr-salvar" data-id="'+escapeAttr(i.id)+'">Salvar</button><button class="btn-mini tr-sec" data-action="acvr-cancelar">Cancelar</button></div>'
+          : '<b>'+icoArquivo(i.mime, i.arquivo_nome)+' '+escapeHtml(i.titulo||"")+'</b><small>'+escapeHtml(i.arquivo_nome||"")+' · '+tamanhoLegivel(i.tamanho)+(i.criado_por_nome ? ' · por '+escapeHtml(i.criado_por_nome) : '')+'</small>')+'</td>'+
+        '<td class="usr-vinc">'+escapeHtml(CATS_REDE[i.categoria] || "-")+'</td>'+
+        '<td class="usr-vinc">'+escapeHtml([i.disciplina, (i.etapas||[]).join(", "), (i.bncc||[]).join(", ")].filter(Boolean).join(" · ") || "-")+'</td>'+
+        '<td><span class="pill '+(i.publicado ? "ativo" : "inativo")+'">'+(i.publicado ? "Publicado" : "Oculto")+'</span></td>'+
+        '<td><div class="usr-acoes"><button class="btn-mini tr-sec" data-action="acv-abrir-rede" data-id="'+escapeAttr(i.id)+'">Ver</button>'+
+        '<button class="btn-mini tr-sec" data-action="acvr-renomear" data-id="'+escapeAttr(i.id)+'">Renomear</button>'+
+        '<button class="btn-mini btn-gerenciar" data-action="acvr-pub" data-id="'+escapeAttr(i.id)+'">'+(i.publicado ? "Ocultar" : "Publicar")+'</button>'+
+        '<button class="btn-mini btn-recusar" data-action="acvr-del" data-id="'+escapeAttr(i.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
+    const n = $("acvrNome"); if(n){ n.focus(); n.select(); }
+    desenharFilaRede();
+  }
+  function desenharFilaRede(){
+    const el = $("acvrFila"); if(!el) return;
+    if(!acvRede.fila.length){ el.innerHTML = ""; return; }
+    el.innerHTML = '<div class="acv-fila">'+acvRede.fila.map((f, i) =>
+      '<div class="acv-fl"><span aria-hidden="true">'+icoArquivo(f.arquivo.type, f.arquivo.name)+'</span>'+
+      '<input type="text" data-filarede="'+i+'" value="'+escapeAttr(f.titulo)+'" maxlength="160" aria-label="Título do arquivo"'+(acvRede.enviando?" disabled":"")+'>'+
+      '<small>'+tamanhoLegivel(f.arquivo.size)+'</small>'+
+      (f.estado ? '<em class="acv-est '+(f.estado==="erro"?"erro":f.estado==="ok"?"ok":"")+'">'+(f.estado==="ok" ? "Enviado" : f.estado==="erro" ? escapeHtml(f.erro||"Erro") : f.pct+"%")+'</em>'
+        : '<button class="btn-mini btn-recusar" data-action="acvr-tirar" data-i="'+i+'" aria-label="Tirar da lista">\u2715</button>')+'</div>').join("")+'</div>'+
+      '<div class="imp-acoes"><button class="btn btn-primary" data-action="acvr-enviar"'+(acvRede.enviando?" disabled":"")+'>Enviar '+acvRede.fila.filter(f => f.estado!=="ok").length+' arquivo(s)</button>'+
+      '<button class="btn btn-ghost" data-action="acvr-limpar"'+(acvRede.enviando?" disabled":"")+'>Limpar lista</button></div>';
+  }
+  document.addEventListener("change", ev => {
+    if(ev.target.id !== "acvrArq" || !ev.target.files) return;
+    const livre = acvRede.cota - usoRedeMb() - acvRede.fila.reduce((t, f) => t + f.arquivo.size, 0) / 1048576;
+    let soma = 0;
+    [...ev.target.files].forEach(f => {
+      if(f.size > 100*1024*1024){ toast(f.name+": acima de 100 MB.", true); return; }
+      if((soma + f.size) / 1048576 > livre){ toast(f.name+": não cabe no espaço do acervo da rede.", true); return; }
+      soma += f.size;
+      acvRede.fila.push({ arquivo:f, titulo:f.name.replace(/\.[^.]+$/,"").replace(/[_-]+/g," ").trim().slice(0,160), estado:"", pct:0 });
+    });
+    ev.target.value = ""; desenharFilaRede();
+  });
+  document.addEventListener("input", ev => { if(ev.target.dataset && ev.target.dataset.filarede !== undefined){ const f = acvRede.fila[+ev.target.dataset.filarede]; if(f) f.titulo = ev.target.value; } });
+  async function enviarAcervoRede(){
+    if(acvRede.enviando) return;
+    const api = (apiAcervo || "").replace(/\/$/,"");
+    if(!api){ toast("O serviço do acervo ainda não foi configurado pela NEWPC.", true); return; }
+    if(!$("acvrTermo").checked){ toast("Marque a declaração de direitos e dados pessoais antes de enviar.", true); $("acvrTermo").focus(); return; }
+    const mun = usuarioAtual.municipio_id, cat = $("acvrCat").value, disc = $("acvrDisc").value;
+    const etapas = [...document.querySelectorAll('input[name="acvrEtapa"]:checked')].map(i => i.value);
+    const bncc = $("acvrBncc").value.split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+    const ruins = bncc.filter(c => !/^E[FIM]\d{2}[A-Z]{2}\d{2,3}[A-Z]?$/.test(c));
+    if(ruins.length){ toast("Código BNCC fora do padrão: "+ruins.join(", "), true); return; }
+    acvRede.enviando = true; desenharFilaRede();
+    const token = await auth.currentUser.getIdToken();
+    for(const f of acvRede.fila){
+      if(f.estado === "ok") continue;
+      if(!f.titulo.trim()){ f.estado = "erro"; f.erro = "Sem título"; continue; }
+      const ext = (f.arquivo.name.match(/\.[a-z0-9]+$/i) || [""])[0].toLowerCase();
+      const key = "rede/"+mun+"/"+Date.now().toString(36)+"-"+slug(f.titulo)+ext;
+      try{
+        f.estado = "env"; f.pct = 0; desenharFilaRede();
+        await enviarComProgresso(api+"/arquivo?key="+encodeURIComponent(key), token, f.arquivo, p => { f.pct = p; desenharFilaRede(); });
+        await addDoc(collection(db,"acervo_rede"), { titulo:f.titulo.trim().slice(0,160), categoria:cat, disciplina:disc, etapas, bncc, descricao:"", municipio_id:mun,
+          arquivo_key:key, arquivo_nome:f.arquivo.name.slice(0,200), mime:f.arquivo.type || "", tamanho:f.arquivo.size, publicado:true, termo_aceito:true,
+          criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, criado_por_nome:(usuarioAtual.nome || "").slice(0,80), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+        f.estado = "ok";
+      }catch(e){ console.warn(e); f.estado = "erro"; f.erro = e.message || "Erro"; }
+      desenharFilaRede();
+    }
+    acvRede.enviando = false;
+    const ok = acvRede.fila.filter(f => f.estado === "ok").length, err = acvRede.fila.filter(f => f.estado === "erro").length;
+    toast(ok+" enviado(s)"+(err ? ", "+err+" com erro" : "")+".", !!err);
+    acvRede.fila = acvRede.fila.filter(f => f.estado !== "ok");
+    await listarAcervoRede();
+  }
+  async function abrirArquivoRede(id, btn){
+    const i = acvRede.itens.find(x => x.id === id); if(!i) return;
+    if(!acv.itens.some(x => x.id === id)) acv.itens.push({ ...i, rede:true });
+    abrirArquivo(id, btn);
+  }
+  document.addEventListener("click", async ev => {
+    const el = ev.target.closest("[data-action^='acvr-'],[data-action='acv-abrir-rede']"); if(!el) return;
+    const a = el.dataset.action, i = acvRede.itens.find(x => x.id === el.dataset.id);
+    if(a === "acvr-enviar") return enviarAcervoRede();
+    if(a === "acvr-limpar"){ acvRede.fila = []; return desenharFilaRede(); }
+    if(a === "acvr-tirar"){ acvRede.fila.splice(+el.dataset.i, 1); return desenharFilaRede(); }
+    if(a === "acvr-cancelar"){ acvRede.editando = ""; return desenharAcervoRede(); }
+    if(!i) return;
+    if(a === "acv-abrir-rede") return abrirArquivoRede(i.id, el);
+    if(a === "acvr-renomear"){ acvRede.editando = i.id; return desenharAcervoRede(); }
+    if(a === "acvr-salvar"){
+      const t = ($("acvrNome").value || "").trim().slice(0,160); if(!t){ toast("Dê um título.", true); return; }
+      try{ await updateDoc(doc(db,"acervo_rede",i.id), { titulo:t, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }); i.titulo = t; acvRede.editando = ""; desenharAcervoRede(); toast("Título alterado."); }
+      catch(e){ toast("Não foi possível salvar ("+(e.code||"erro")+").", true); }
+    }
+    if(a === "acvr-pub"){
+      try{ await updateDoc(doc(db,"acervo_rede",i.id), { publicado:!i.publicado, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }); i.publicado = !i.publicado; desenharAcervoRede(); toast(i.publicado ? "Visível para os professores." : "Oculto dos professores."); }
+      catch(e){ toast("Não foi possível alterar ("+(e.code||"erro")+").", true); }
+    }
+    if(a === "acvr-del"){
+      if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Excluir"; } }, 4000); return; }
+      el.disabled = true;
+      try{
+        const api = (apiAcervo || "").replace(/\/$/,""), token = await auth.currentUser.getIdToken();
+        if(api){ const r = await fetch(api+"/arquivo?key="+encodeURIComponent(i.arquivo_key), { method:"DELETE", headers:{ Authorization:"Bearer "+token } }); if(!r.ok && r.status !== 404) throw new Error("serviço do acervo ("+r.status+")"); }
+        await deleteDoc(doc(db,"acervo_rede",i.id)); acvRede.itens = acvRede.itens.filter(x => x !== i); desenharAcervoRede(); toast("Arquivo excluído.");
+      }catch(e){ el.disabled = false; toast("Não foi possível excluir ("+(e.code || e.message || "erro")+").", true); }
+    }
+  });
 
   // ---------- admin: enviar e organizar ----------
   const acvAdm = { itens:[], fila:[], enviando:false, filtro:"" };
