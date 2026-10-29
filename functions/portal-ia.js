@@ -4,6 +4,7 @@
 // e monta o PDF com a identidade da escola. Imagem só para os planos que a incluem.
 // Independente da IA do Educador (ia-educador.js), que fica guardada como está.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -538,4 +539,18 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
   }
 
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
+});
+
+// Material excluído (pelo Portal IA ou por Meus trabalhos): as imagens dele saem do Storage junto.
+// A cópia compartilhada com a rede tem imagens próprias e continua no ar até o autor tirar da rede.
+export const portalIaLimpar = onDocumentDeleted({ document: 'portal_ia_docs/{id}', region: 'southamerica-east1' }, async ev => {
+  const d = (ev.data && ev.data.data()) || {}, uid = d.uid, id = ev.params.id;
+  if (!uid || !/^[\w-]{4,64}$/.test(id)) return;
+  const pasta = `portal-ia/${uid}/`, bucket = getStorage().bucket(), cams = new Set();
+  Object.values(d.imagens || {}).forEach(v => { if (v && typeof v.caminho === 'string') cams.add(v.caminho); });
+  if (typeof d.imagem === 'string' && d.imagem) cams.add(d.imagem);
+  let n = 0;
+  for (const c of cams) if (c.startsWith(pasta)) { await bucket.file(c).delete().then(() => n++).catch(() => {}); }
+  await bucket.deleteFiles({ prefix: `${pasta}${id}-` }).catch(() => {});   // sobras de imagens trocadas deste material
+  console.log('portal-ia: material excluido', id, 'imagens apagadas', n);
 });

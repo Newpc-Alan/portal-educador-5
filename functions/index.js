@@ -388,5 +388,5 @@ export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegad
 export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';
 export { professoresDaEscola } from './grade-turmas.js';
 export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } from './notas-fechamento.js';
-export { portalIa } from './portal-ia.js';
+export { portalIa, portalIaLimpar } from './portal-ia.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos } from './creditos.js';

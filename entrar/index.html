@@ -794,6 +794,7 @@
   .tr-acoes{ display:flex;gap:6px;padding:0 12px 12px;margin-top:auto } .tr-card .tr-acoes .btn-mini{ margin:0;padding:6px 10px;font-size:12px;white-space:nowrap } .tr-card .tr-acoes .tr-del{ margin-left:auto !important }
   .tr-sec{ background:#fff !important;color:var(--navy) !important;border:1px solid var(--line) !important }
   .tr-sec:hover{ border-color:var(--navy) !important } .tr-del{ color:#b3261e !important } .tr-del:hover{ border-color:#b3261e !important }
+  .tr-aviso{ margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fdecea;color:#8a1c14;font-size:12.5px;line-height:1.4 }
   .tr-nome{ width:100%;padding:8px 10px;border:1.5px solid var(--cyan, #2E9BD6);border-radius:8px;font:inherit;font-size:13.5px }
   .tr-ed{ display:flex;gap:6px;margin-top:8px } .tr-card .tr-ed .btn-mini{ margin:0 }
   .tr-grade{ display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px }
@@ -3653,7 +3654,7 @@
     const uid = usuarioAtual.uid, ms = v => msDe(v) || (v && v.seconds ? v.seconds * 1000 : 0), ler = (q, f) => getDocs(q).then(sn => { const l = []; sn.forEach(d => l.push(f(d.id, d.data()))); return l; }).catch(e => { console.warn("trabalhos:", e.code); return []; });
     const partes = await Promise.all([
       ler(collection(db,"usuarios",uid,"trabalhos"), (id, t) => ({ tipo:"lousa", id, titulo:t.titulo || "Lousa sem nome", det:(t.paginas || 1)+" página(s)", mini:t.miniatura || "", arquivo:t.arquivo || "", em:ms(t.atualizado_em) })),
-      ler(query(collection(db,"portal_ia_docs"), where("uid","==",uid)), (id, t) => ({ tipo:"portalia", id, titulo:t.titulo || t.tema || "Material sem nome", det:t.tipo_nome || "Material", em:ms(t.atualizado_em) })),
+      ler(query(collection(db,"portal_ia_docs"), where("uid","==",uid)), (id, t) => ({ tipo:"portalia", id, titulo:t.titulo || t.tema || "Material sem nome", det:(t.tipo_nome || "Material")+(t.rede ? " · na rede" : ""), rede:!!t.rede, imagens:Object.keys(t.imagens || {}).length, em:ms(t.atualizado_em) })),
       ler(collection(db,"usuarios",uid,"provas"), (id, t) => ({ tipo:"prova", id, titulo:t.titulo || "Prova sem nome", det:[t.disciplina, t.questoes ? t.questoes+" questões" : ""].filter(Boolean).join(" · ") || "Prova", em:ms(t.atualizado_em) })),
       ler(collection(db,"usuarios",uid,"roteiros"), (id, t) => ({ tipo:"roteiro", id, titulo:t.titulo || "Roteiro sem título", det:"Teleprompter"+(t.palavras ? " · "+t.palavras+" palavras" : ""), em:ms(t.atualizado_em) })),
       ler(collection(db,"usuarios",uid,"folhas"), (id, t) => ({ tipo:"folha", id, titulo:t.nome || "Folha sem nome", det:"Folha Mágica", em:ms(t.atualizado_em) }))
@@ -3683,6 +3684,16 @@
           '<button class="btn-mini tr-sec" data-action="tr-renomear" data-tr="'+escapeAttr(chave)+'">Renomear</button>'+
           '<button class="btn-mini tr-sec tr-del" data-action="tr-excluir" data-tr="'+escapeAttr(chave)+'">Excluir</button></div>')+'</article>'; }).join("");
     const n = $("trNome"); if(n){ n.focus(); n.select(); }
+  }
+  // o professor precisa saber exatamente o que some antes de confirmar
+  function avisoExclusao(i){
+    const fim = " Não dá para desfazer.";
+    if(i.tipo === "lousa") return "Apaga esta aula da Lousa com todas as páginas e desenhos."+fim;
+    if(i.tipo === "prova") return "Apaga a prova, as questões e o arquivo salvo."+fim;
+    if(i.tipo === "portalia") return "Apaga o material"+(i.imagens ? " e "+(i.imagens === 1 ? "a imagem gerada" : "as "+i.imagens+" imagens geradas") : "")+"."+fim+
+      (i.rede ? " A cópia compartilhada com a rede continua; para tirá-la, use \u201CTirar da rede\u201D no Portal IA." : "");
+    if(i.tipo === "roteiro") return "Apaga o roteiro do Teleprompter."+fim;
+    return "Apaga a configuração salva desta folha."+fim;
   }
   const trItem = (chave) => trs.itens.find(i => i.tipo + ":" + i.id === chave);
   function abrirTrabalho(i){
@@ -3725,7 +3736,10 @@
       catch(e){ console.warn(e); el.disabled = false; toast("Não foi possível renomear ("+(e.code || "erro")+").", true); }
     }
     else if(a === "tr-excluir" && i){
-      if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar exclusão"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Excluir"; } }, 4000); return; }
+      if(!el.dataset.confirma){
+        el.dataset.confirma = "1"; el.textContent = "Confirmar exclusão";
+        const card = el.closest(".tr-card"), av = document.createElement("p"); av.className = "tr-aviso"; av.textContent = avisoExclusao(i); card.querySelector(".tr-info").appendChild(av);
+        setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Excluir"; av.remove(); } }, 8000); return; }
       el.disabled = true;
       try{ await excluirTrabalho(i); trs.itens = trs.itens.filter(x => x !== i); desenharTrabalhos(); toast("“"+i.titulo+"” foi excluído."); }
       catch(e){ console.warn(e); el.disabled = false; toast("Não foi possível excluir ("+(e.code || "erro")+").", true); }
