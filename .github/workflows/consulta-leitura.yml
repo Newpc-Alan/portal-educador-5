@@ -1,4 +1,5 @@
-# Consultas só de leitura no banco (relatórios para decisão). Roda só quando alguém clica em "Run workflow".
+# Consultas no banco (relatórios para decisão). Roda só quando alguém clica em "Run workflow".
+# uso-ia: só leitura. ia-educador: teste real da IA do Educador com a conta de laboratório (grava 2 materiais nela).
 name: Consulta (só leitura)
 
 on:
@@ -7,7 +8,7 @@ on:
       consulta:
         description: "Qual consulta"
         type: choice
-        options: [uso-ia]
+        options: [uso-ia, ia-educador]
         default: uso-ia
 
 permissions:
@@ -31,7 +32,7 @@ jobs:
           printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
       - name: Consultar
-        run: cd functions && node "../scripts/consulta-${{ inputs.consulta }}.mjs"
+        run: cd functions && node "../scripts/${{ inputs.consulta == 'ia-educador' && 'teste-ia-educador' || format('consulta-{0}', inputs.consulta) }}.mjs"
       - name: Apagar a credencial do runner
         if: always()
         run: rm -f "$RUNNER_TEMP/conta.json"
