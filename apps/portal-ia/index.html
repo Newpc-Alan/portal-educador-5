@@ -241,6 +241,7 @@ import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
 const chamar = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:250000 });
+const chamarPedido = httpsCallable(getFunctions(app, "southamerica-east1"), "creditosPedido");
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const slug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -313,13 +314,19 @@ async function carregarRecentes(){
     E.recentes.sort((a, b) => (!!b.favorito - !!a.favorito) || (ms(b.atualizado_em) - ms(a.atualizado_em)));
   }catch(e){ console.warn("recentes:", e.code); }
 }
-async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } }
+async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; E.bloqueio = r.data && !r.data.pode_usar ? (r.data.motivo || "Sem créditos para o Portal IA.") : ""; }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } }
 const contexto = () => ({ disciplina:E.disc, serie:E.serie, turma:(turmaAtual() || {}).nome || "" });
+const nf = n => Number(n || 0).toLocaleString("pt-BR");
 function textoCota(){
   const c = E.cota; if(!c) return "";
-  if(c.textos == null) return "Uso livre (administrador)";
-  return "Restam " + c.textos + " materiais" + (c.imagens > 0 ? " e " + c.imagens + " imagens" : "") + " neste mês";
+  if(c.admin) return "Uso livre (administrador)";
+  const p = [];
+  if(c.rede) p.push("Rede: " + nf(c.rede.restante_mes) + " créditos para você este mês");
+  if(c.pessoal && c.pessoal.saldo) p.push("Seus créditos: " + nf(c.pessoal.saldo));
+  return p.join(" · ") || "Sem créditos";
 }
+// avisa e atualiza o saldo depois de cada uso
+function aposUso(cota){ if(cota){ E.cota = cota; E.bloqueio = cota.pode_usar ? "" : (cota.motivo || ""); } }
 
 /* ===================== telas ===================== */
 function ir(v){ E.vista = v; $("btnInicio").hidden = v === "inicio"; desenhar(); window.scrollTo(0, 0); }
@@ -335,7 +342,7 @@ function opDisc(){
 function telaInicio(){
   const at = E.tipo ? ATALHOS.find(a => a.k === E.tipo) : null;
   $("tela").innerHTML = '<div class="pilha">' +
-  (E.bloqueio ? '<div class="aviso"><b>' + esc(E.bloqueio) + "</b></div>" : "") +
+  (E.bloqueio ? '<div class="aviso" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><b style="flex:1;min-width:220px">' + esc(E.bloqueio) + '</b><button type="button" class="btn rede" style="width:auto" data-action="comprar">Comprar créditos avulsos</button></div>' : "") +
   '<section class="caixa"><span class="olho">Portal <span class="ia-azul">IA</span></span><h1>O que você precisa para sua aula?</h1>' +
   '<p class="sub" style="margin-top:4px">Escreva do seu jeito. A IA pergunta só o que faltar e entrega o material pronto para editar e imprimir.</p>' +
   '<div class="ctx"><label>Turma<select id="selTurma">' + opTurmas() + '</select></label>' +
@@ -343,7 +350,7 @@ function telaInicio(){
   '<label style="max-width:180px">Série<input id="inSerie" value="' + esc(E.serie) + '" placeholder="ex.: 6º ano" maxlength="30"></label></div>' +
   '<div class="pede"><textarea id="pedido" maxlength="6000" placeholder="' + esc(at ? at.ph : "Ex.: preciso de uma atividade sobre frações para o 5º ano, com gabarito") + '">' + esc(E.texto) + "</textarea>" +
   '<div class="pe">' + (at ? '<span class="fixo">' + esc(at.t) + '<button type="button" data-action="soltar" aria-label="Tirar o tipo">×</button></span>' : "") +
-  '<span class="cota">' + esc(textoCota()) + '</span><span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div></div>" +
+  '<span class="cota">' + esc(textoCota()) + (E.cota && !E.cota.admin ? ' · <a href="#" data-action="comprar">comprar créditos</a>' : "") + '</span><span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div></div>" +
   (at ? "" : '<div class="exs">' + EXEMPLOS.map(x => '<button type="button" class="ex" data-action="exemplo" data-arg="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div>") +
   "</section>" +
   '<section><h2 style="margin-bottom:10px">Atalhos do dia a dia</h2><div class="atalhos">' +
@@ -414,6 +421,27 @@ function boxRede(A){
 const TIPOS_REDE = ["plano", "sequencia", "atividade", "prova", "explicar", "inclusao"];
 function modal(html){ fecharModal(); const m = document.createElement("div"); m.className = "modal"; m.id = "modal"; m.innerHTML = '<div class="cx-m" role="dialog" aria-modal="true">' + html + "</div>"; document.body.appendChild(m); const f = m.querySelector("input,textarea,button"); if(f) f.focus(); }
 function fecharModal(){ const m = $("modal"); if(m) m.remove(); }
+/* ---------- créditos avulsos do professor (pré-pago) ---------- */
+const PACOTES_PADRAO = [{ id:"prof-100", nome:"100 créditos", creditos:100, valor:29.9 }, { id:"prof-300", nome:"300 créditos", creditos:300, valor:79.9 }];
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+async function abrirCompra(){
+  let pac = PACOTES_PADRAO, precos = (E.cota && E.cota.precos) || { texto:1, imagem:5 };
+  try{ const s = await getDoc(doc(db, "config", "portal_ia")); const c = s.exists() ? (s.data().creditos || {}) : {}; if(Array.isArray(c.pacotes_professor) && c.pacotes_professor.length) pac = c.pacotes_professor; }catch(e){ console.warn("pacotes:", e.code); }
+  let meus = [];
+  try{ const q = await getDocs(query(collection(db, "recargas_pedidos"), where("uid", "==", E.user.uid), limit(20))); q.forEach(d => meus.push(d.data())); }catch(e){ console.warn("pedidos:", e.code); }
+  const pend = meus.filter(p => p.status === "pendente");
+  modal('<h2>Comprar créditos avulsos</h2><p class="sub">Créditos seus, para usar no Portal IA quando os da rede não forem suficientes. 1 material = ' + precos.texto + " crédito, 1 imagem = " + precos.imagem + " créditos. Valem 12 meses. É pré-pago: você só paga o pacote escolhido.</p>" +
+    '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">' + pac.map((p, i) => '<label class="ck" style="border:1px solid var(--line2);border-radius:12px;padding:10px 12px;margin:0;align-items:center"><input type="radio" name="pac" value="' + esc(p.id) + '"' + (i === 0 ? " checked" : "") + '> <span style="flex:1"><b>' + esc(p.nome) + "</b><br><small class=\"sub\">cerca de " + nf(Math.floor(p.creditos / precos.texto)) + " materiais ou " + nf(Math.floor(p.creditos / precos.imagem)) + ' imagens</small></span><b>' + brl(p.valor) + "</b></label>").join("") + "</div>" +
+    '<p class="sub" style="font-size:.84rem;margin-top:12px">Depois do pedido, a NEWPC envia os dados de pagamento (Pix ou boleto) para <b>' + esc(E.u.email || E.user.email || "") + "</b>. Os créditos entram assim que o pagamento for confirmado.</p>" +
+    (pend.length ? '<p class="aviso">Você já tem ' + pend.length + " pedido(s) aguardando pagamento: " + pend.map(p => esc(p.pacote_nome)).join(", ") + ".</p>" : "") +
+    '<div class="acoes"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="button" class="btn pri" data-action="confirmar-compra">Fazer o pedido</button></div>');
+}
+async function confirmarCompra(){
+  const r = document.querySelector('input[name="pac"]:checked'); if(!r){ toast("Escolha um pacote.", true); return; }
+  const b = document.querySelector('[data-action="confirmar-compra"]'); b.disabled = true; b.textContent = "Enviando...";
+  try{ await chamarPedido({ tipo:"avulso", pacote_id:r.value }); fecharModal(); toast("Pedido enviado. A NEWPC vai mandar os dados de pagamento por e-mail."); }
+  catch(e){ b.disabled = false; b.textContent = "Fazer o pedido"; toast(msgErro(e), true); }
+}
 function pedirCompartilhar(){
   modal('<h2>Compartilhar com a rede</h2><p class="sub">Os professores do seu município vão ver este material e poderão fazer uma cópia para usar. Seu nome e sua escola aparecem como autoria. Você pode tirar da rede quando quiser.</p>' +
     '<label class="ck"><input type="checkbox" id="ck1"> <span>Este material <b>não tem nome de aluno</b>, nem dado pessoal de aluno ou família.</span></label>' +
@@ -514,7 +542,7 @@ async function gerar(){
   try{
     const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto() })).data;
     E.ocupado = false; clearInterval(E._passos);
-    E.cota = r.cota || E.cota; E.texto = ""; E.tipo = "";
+    aposUso(r.cota); E.texto = ""; E.tipo = "";
     E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"", html:"" };
     E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
     ir("doc");
@@ -614,7 +642,7 @@ function limparHtml(html){
 }
 function telaDoc(){
   const A = E.atual, d = A.doc, temGab = (d.gabarito || []).length > 0, c = E.cota;
-  const podeImg = E.podeImg = !c || c.imagens == null || c.imagens > 0;
+  const podeImg = E.podeImg = !c || c.admin || !!c.pode_imagem;
   const nq = todasQuestoes(d).length;
   $("tela").innerHTML = '<div class="docgrid"><article class="folha" id="folha">' + conteudoFolha() + "</article>" +
   '<aside class="lado">' + (A.vistaRede ? ladoRede(A) +
@@ -637,8 +665,8 @@ function telaDoc(){
     '<select id="imgOnde" aria-label="Onde colocar a imagem"><option value="topo">Onde: no topo do material</option>' + Array.from({ length:Math.min(nq, 30) }, (_, i) => '<option value="q' + (i + 1) + '"' + (E.imgOnde === "q" + (i + 1) ? " selected" : "") + ">Onde: ao lado da questão " + (i + 1) + "</option>").join("") + "</select>" +
     '<select id="imgEstilo" aria-label="Estilo da imagem">' + ESTILOS.map(([k, t]) => '<option value="' + k + '">' + t + "</option>").join("") + "</select>" +
     '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem") + "</button>" +
-    (c && c.imagens != null ? '<div class="cota" style="margin-top:6px">' + c.imagens + " imagens restantes no mês</div>" : "")
-    : '<p class="sub" style="font-size:.86rem">Gerar imagens faz parte do plano Completo. Fale com a Secretaria de Educação ou com a NEWPC.</p>') + "</div>" +
+    (c && !c.admin ? '<div class="cota" style="margin-top:6px">1 imagem usa ' + ((c.precos || {}).imagem || 5) + " créditos</div>" : "")
+    : '<p class="sub" style="font-size:.86rem;margin-bottom:8px">' + (c && c.rede && !c.rede.imagem ? "Gerar imagens pela rede faz parte do plano Completo. Com créditos avulsos você também pode gerar." : "Sem créditos para imagem agora.") + '</p><button type="button" class="btn peq" data-action="comprar">Comprar créditos avulsos</button>') + "</div>" +
   boxRede(A) +
   '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>')) +
   "</aside></div>";
@@ -813,7 +841,7 @@ async function ajustar(instrucao){
   toast("Ajustando: " + instrucao + "...");
   try{
     const r = (await chamar({ acao:"ajustar", id:E.atual.id, instrucao, contexto:E.atual.contexto || contexto() })).data;
-    E.atual.doc = r.doc; E.cota = r.cota || E.cota; toast("Pronto. Material ajustado.");
+    E.atual.doc = r.doc; aposUso(r.cota); toast("Pronto. Material ajustado.");
     if(E.atual.html){ E.atual.html = ""; updateDoc(doc(db, "portal_ia_docs", E.atual.id), { html:"", editado_em:serverTimestamp() }).catch(e => console.warn(e.code)); }
   }catch(e){ toast(msgErro(e), true); }
   E.ocupado = false; telaDoc();
@@ -830,7 +858,7 @@ async function gerarImagem(){
   E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true); toast("Desenhando a imagem... leva uns segundos.");
   try{
     const r = (await chamar({ acao:"imagem", id:E.atual.id, descricao, estilo, onde })).data;
-    E.imgs[r.onde || onde] = "data:" + r.mime + ";base64," + r.dados; E.cota = r.cota || E.cota;
+    E.imgs[r.onde || onde] = "data:" + r.mime + ";base64," + r.dados; aposUso(r.cota);
     toast((r.onde || onde) === "topo" ? "Imagem pronta no topo. Ela entra no PDF." : "Imagem pronta ao lado da questão " + (r.onde || onde).slice(1) + ". Ela entra no PDF.");
   }catch(e){ toast(msgErro(e), true); }
   E.ocupado = false; telaDoc();
@@ -973,6 +1001,8 @@ document.addEventListener("click", async ev => {
   if(a === "confirmar-compartilhar") return compartilhar();
   if(a === "descompartilhar") return descompartilhar();
   if(a === "fechar-modal") return fecharModal();
+  if(a === "comprar"){ ev.preventDefault(); return abrirCompra(); }
+  if(a === "confirmar-compra") return confirmarCompra();
   if(a === "pdf") return E.atual.html ? imprimir(arg) : pdfDoc(arg);
   if(a === "copiar"){ if(!E.atual.html) return copiar(textoPlano(E.atual.doc, true)); const f = $("folha"); f.classList.add("sem-botoes"); const t = f.innerText; f.classList.remove("sem-botoes"); return copiar(t.replace(/\n{3,}/g, "\n\n").trim()); }
   if(a === "ed-salvar") return salvarEditor();

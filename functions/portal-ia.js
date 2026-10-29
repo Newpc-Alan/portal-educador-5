@@ -7,6 +7,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
 
@@ -14,8 +15,8 @@ const GEMINI = defineSecret('GEMINI_API_KEY');
 export const PADRAO = {
   ativo: true, todos: true, municipios: ['lab-muni'],
   modelo_texto: 'gemini-3.6-flash', modelo_rapido: 'gemini-3.1-flash-lite', modelo_imagem: 'gemini-3.1-flash-image',
-  // Portal IA: Intermediário sem imagens, Completo com imagens; Básico não tem
-  planos: { basico: { textos: 0, imagens: 0 }, intermediario: { textos: 80, imagens: 0 }, completo: { textos: 200, imagens: 40 }, personalizado: { textos: 80, imagens: 0 } }
+  // quem usa e quanto: créditos pré-pagos (creditos.js). Rede Intermediário: só texto; Completo: texto e imagem; professor pode ter créditos avulsos
+  planos: {}
 };
 // o Google desliga versões antigas; se a escolhida sumir, a função tenta a próxima sem o professor ver erro
 const RESERVA_TEXTO = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
@@ -245,27 +246,8 @@ async function contexto(db, uid) {
   if (admin) plano = 'completo';
   else if (eu.municipio_id) { const m = await db.doc(`municipios/${eu.municipio_id}`).get(); plano = (m.exists && m.data().plano_nome) || 'basico'; }
   else if (eu.plano_avulso) plano = eu.plano_avulso;
-  const limites = cfg.planos[plano] || cfg.planos.basico;
-  if (!admin && !(limites.textos > 0)) throw new HttpsError('permission-denied', 'O Portal IA faz parte dos planos Intermediário e Completo. Fale com a Secretaria de Educação ou com a NEWPC.');
-  return { eu, cfg, admin, plano, limites, usoRef: db.doc(`portal_ia_uso/${uid}_${mesAtual()}`) };
-}
-// reserva 1 da cota (texto ou imagem); devolve se a geração falhar
-async function reservar(db, ctx, campo) {
-  if (ctx.admin) return;
-  const lim = ctx.limites[campo] || 0;
-  if (lim <= 0) throw new HttpsError('permission-denied', campo === 'imagens' ? 'Gerar imagens não faz parte do plano da sua rede.' : 'O plano da sua rede não inclui o Portal IA.');
-  const ok = await db.runTransaction(async t => { const s = await t.get(ctx.usoRef); const n = (s.exists && s.data()[campo]) || 0;
-    if (n >= lim) return false; t.set(ctx.usoRef, { uid: ctx.uid, [campo]: n + 1, mes: mesAtual(), municipio_id: ctx.eu.municipio_id || '', plano: ctx.plano, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); return true; });
-  if (!ok) throw new HttpsError('resource-exhausted', campo === 'imagens' ? 'Você já usou as ' + lim + ' imagens deste mês.' : 'Você já usou os ' + lim + ' materiais deste mês no Portal IA.');
-}
-async function registrar(ctx, campo, falhou, entrada, saida) {
-  await ctx.usoRef.set({ uid: ctx.uid, tokens_entrada: FieldValue.increment(entrada || 0), tokens_saida: FieldValue.increment(saida || 0),
-    ...(falhou && !ctx.admin && campo ? { [campo]: FieldValue.increment(-1), falhas: FieldValue.increment(1) } : {}), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
-}
-function quotaRestante(ctx, uso) {
-  if (ctx.admin) return { plano: ctx.plano, textos: null, imagens: null };
-  const u = uso || {};
-  return { plano: ctx.plano, textos: Math.max(0, (ctx.limites.textos || 0) - (u.textos || 0)), imagens: Math.max(0, (ctx.limites.imagens || 0) - (u.imagens || 0)) };
+  // quem pode usar e quanto: créditos da rede (plano Intermediário ou Completo) e créditos avulsos do professor (creditos.js)
+  return { eu, cfg, cfgRaw: c, admin, plano, uid, usoRef: db.doc(`portal_ia_uso/${uid}_${mesAtual()}`) };
 }
 function contextoTexto(cx) {
   return ['Disciplina: ' + (cx.disciplina || 'não informada'), 'Série: ' + (cx.serie || 'não informada'), cx.turma ? 'Turma: ' + cx.turma : '', cx.necessidade ? 'Necessidade da turma: ' + cx.necessidade : '']
@@ -281,7 +263,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
   const chave = GEMINI.value();
 
   // 0) como está a cota (a tela mostra ao abrir)
-  if (d.acao === 'cota') { const s = await ctx.usoRef.get(); return quotaRestante(ctx, s.exists ? s.data() : {}); }
+  if (d.acao === 'cota') return situacao(db, ctx);
 
   // 1) entender o pedido: tipo, tema e no máximo 2 perguntas (modelo rápido, não conta na cota)
   if (d.acao === 'entender') {
@@ -294,8 +276,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       'Para atividade e prova, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade e 10 na prova. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
     const pedido = 'CONTEXTO\n' + contextoTexto(cx) + (tipoDado ? '\nTipo escolhido pelo professor no atalho: ' + tipoDado : '') + '\n\nPEDIDO DO PROFESSOR\n' + (texto || '(o professor só tocou no atalho)') +
       (d.respostas && typeof d.respostas === 'object' ? '\n\nRESPOSTAS ÀS PERGUNTAS ANTERIORES\n' + Object.entries(d.respostas).slice(0, 4).map(([k, v]) => k + ': ' + txt(v, 6000)).join('\n') : '');
+    if (!ctx.admin) { const st = await situacao(db, ctx); if (!st.pode_usar) throw new HttpsError('resource-exhausted', st.motivo || 'Sem créditos para o Portal IA.'); }
     const r = await geminiJson(chave, [ctx.cfg.modelo_rapido, ...RESERVA_TEXTO], sistema, pedido, ESQUEMA_ENTENDER, 0.2);
-    await registrar(ctx, null, false, r.entrada, r.saida);
+    await registrarConsumo(db, ctx, null, { modelo: r.modelo, entrada: r.entrada, saida: r.saida });
     const j = r.json || {};
     let tipo = tipoDado || j.tipo; if (!NOMES.includes(tipo) && tipo !== 'fora') tipo = 'explicar';
     const perguntas = (Array.isArray(j.perguntas) ? j.perguntas : []).slice(0, 2).map(p => ({ id: txt(p.id, 30).replace(/\W+/g, '_') || 'p', pergunta: txt(p.pergunta, 200), opcoes: (p.opcoes || []).slice(0, 5).map(o => txt(o, 80)), livre: !!p.livre }));
@@ -313,7 +296,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (!TIPOS[tipo]) throw new HttpsError('invalid-argument', 'Tipo de material inválido.');
     if (resumo.length < 3) throw new HttpsError('invalid-argument', 'Pedido vazio.');
     const qtd = Math.min(20, Math.max(0, Number(d.qtd) || (tipo === 'prova' ? 10 : tipo === 'atividade' ? 6 : 0)));
-    await reservar(db, ctx, 'textos');
+    const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto');
     const T = TIPOS[tipo];
     const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
     let pedido = 'CONTEXTO\n' + contextoTexto(cx) + '\n\nPEDIDO\n' + resumo + (qtd && T.questoes ? '\nQuantidade de questões: ' + qtd + '.' : '');
@@ -331,7 +314,8 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       }
     } catch (e) { erro = e; }
     const falhou = !!erro || prob.length > 0;
-    await registrar(ctx, 'textos', falhou, ent, sai);
+    if (falhou) await estornarCreditos(db, res);   // não deu certo: o crédito volta
+    await registrarConsumo(db, ctx, falhou ? null : res, { modelo: r && r.modelo, entrada: ent, saida: sai, doc_id: docRef ? docRef.id : '' });
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu o material com problema (' + prob[0] + '). Tente de novo.');
     const doc = limparDoc(r.json); delete doc._pedido;
@@ -339,8 +323,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       modelo: r.modelo, tokens_entrada: FieldValue.increment(ent), tokens_saida: FieldValue.increment(sai), atualizado_em: FieldValue.serverTimestamp() };
     if (anterior) { await docRef.set({ ...reg, ajustes: FieldValue.increment(1), anterior: anterior.doc }, { merge: true }); }
     else { docRef = db.collection('portal_ia_docs').doc(); await docRef.set({ ...reg, imagem: '', favorito: false, ajustes: 0, criado_em: FieldValue.serverTimestamp() }); }
-    const s = await ctx.usoRef.get();
-    return { id: docRef.id, tipo, nome: T.nome, publico: T.publico, doc, cota: quotaRestante(ctx, s.exists ? s.data() : {}) };
+    return { id: docRef.id, tipo, nome: T.nome, publico: T.publico, doc, cota: await situacao(db, ctx) };
   }
 
   // 3) imagem para a aula (só nos planos que incluem; conta na cota de imagens)
@@ -353,14 +336,15 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     const onde = /^q([1-9]|[12]\d|30)$/.test(String(d.onde || '')) ? d.onde : 'topo';
     let docRef = null;
     if (docId) { docRef = db.doc(`portal_ia_docs/${docId}`); const s = await docRef.get(); if (!s.exists || s.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.'); }
-    await reservar(db, ctx, 'imagens');
+    const res = await reservarCreditos(db, ctx, 'imagem');
     const prompt = 'Crie uma imagem para uso em sala de aula de escola brasileira, adequada para crianças e adolescentes. Assunto: ' + descricao + '. Estilo: ' + estilo +
       '. Formato ' + (onde === 'topo' ? 'horizontal 4:3' : 'quadrado 1:1, com o assunto centralizado e fundo limpo, para ficar ao lado de uma questão') + '. NÃO escreva palavras, letras nem números na imagem. Nada de violência, marcas comerciais ou pessoas reais conhecidas. Pessoas, quando houver, diversas e representando o Brasil.';
     let r = null, erro = null;
     try { r = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }); }
     catch (e) { erro = e; }
     const parte = r && r.partes.find(p => p.inlineData && /^image\//.test(p.inlineData.mimeType || ''));
-    await registrar(ctx, 'imagens', !!erro || !parte, r && r.entrada, r && r.saida);
+    if (erro || !parte) await estornarCreditos(db, res);
+    await registrarConsumo(db, ctx, erro || !parte ? null : res, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida, imagem: !!parte, doc_id: docId });
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora.');
     if (!parte) throw new HttpsError('internal', 'A IA não devolveu a imagem desta vez (às vezes ela recusa um assunto). Tente descrever de outro jeito.');
     const ext = /png/.test(parte.inlineData.mimeType) ? 'png' : 'jpg';
@@ -371,8 +355,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       await docRef.set({ imagens: { [onde]: { caminho, descricao } }, ...(onde === 'topo' ? { imagem: caminho, imagem_descricao: descricao } : {}), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
       if (ant && ant.caminho) await getStorage().bucket().file(ant.caminho).delete().catch(() => {});   // a imagem trocada não fica ocupando espaço
     }
-    const s = await ctx.usoRef.get();
-    return { caminho, onde, mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: quotaRestante(ctx, s.exists ? s.data() : {}) };
+    return { caminho, onde, mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: await situacao(db, ctx) };
   }
 
   // 4) tirar uma imagem do material (não devolve cota)

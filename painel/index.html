@@ -73,6 +73,21 @@ table.tab{width:100%;border-collapse:collapse}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;z-index:99;background:var(--escuro-2);color:#fff;padding:11px 18px;border-radius:12px;font-size:.88rem;font-weight:600;transition:.2s;pointer-events:none}
 .toast.show{opacity:1;transform:translateX(-50%)}.toast.err{background:var(--red)}
 @media (max-width:640px){ .grid2{grid-template-columns:1fr} .hbar{grid-template-columns:minmax(0,1fr) 90px 50px} }
+.cr{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:center}
+.cr .barra{height:12px;background:#eef2f6;border-radius:9px;overflow:hidden;margin:8px 0 4px}
+.cr .barra i{display:block;height:100%;border-radius:9px}
+.cr .num{font-size:1.9rem;font-weight:800;line-height:1.1}
+.cr .acoes{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.btn-cr{border:0;border-radius:12px;padding:12px 16px;font-weight:800;color:#fff;background:linear-gradient(135deg,#0057FF,#00A6FF 55%,#00D4FF);box-shadow:0 10px 22px -10px rgba(0,87,255,.8)}
+.cr-ped{font-size:.82rem;color:var(--muted)}
+.mfundo{position:fixed;inset:0;background:rgba(7,22,33,.55);z-index:120;display:flex;align-items:center;justify-content:center;padding:16px}
+.mcx{background:#fff;border-radius:18px;max-width:520px;width:100%;padding:22px;max-height:92vh;overflow:auto}
+.mcx label.op{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;cursor:pointer}
+.mcx textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;min-height:70px;margin-top:10px;font:inherit}
+.mcx .acs{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.mcx .acs button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 16px;font-weight:700}
+.mcx .acs .pri{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+@media (max-width:700px){ .cr{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -89,6 +104,7 @@ table.tab{width:100%;border-collapse:collapse}
   <div id="corpo" hidden>
     <div class="aviso" id="avisoErros" hidden></div>
     <div class="kpis" id="kpis"></div>
+    <div id="creditosIA"></div>
 
     <div class="secao blocoUso">Uso do Portal</div>
     <div class="grid2 blocoUso">
@@ -132,6 +148,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, collection, query, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const fb = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(fb), db = getFirestore(fb), chamar = httpsCallable(getFunctions(fb, "southamerica-east1"), "painelSecretaria", { timeout:130000 });
@@ -153,6 +170,7 @@ async function carregar(forcar){
   try{
     const r = await chamar({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined, escolas:S.sim && S.sim.perfil === "gestor" ? (S.sim.escolas || []) : undefined, forcar:!!forcar });
     S.d = r.data; desenhar(); $("carregando").hidden = true; $("corpo").hidden = false;
+    carregarCreditos();
     irParaHash();
   }catch(e){
     console.warn("painel:", e.code, e.message);
@@ -325,6 +343,63 @@ document.addEventListener("click", ev => { const b = ev.target.closest("[data-ac
   if(b.dataset.action === "atualizar") carregar(true); else if(b.dataset.action === "pdf") relatorio(); });
 $("selMuni").addEventListener("change", () => { try{ localStorage.setItem("pde_painel_muni", $("selMuni").value); }catch(e){} carregar(false); });
 
+/* ---------- créditos do Portal IA da rede (pré-pago) ---------- */
+const PAC_REDE = [{ id:"rede-1000", nome:"1.000 créditos", creditos:1000, valor:250 }, { id:"rede-5000", nome:"5.000 créditos", creditos:5000, valor:1000 }, { id:"rede-20000", nome:"20.000 créditos", creditos:20000, valor:3600 }];
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+const msDe = v => !v ? 0 : v.toMillis ? v.toMillis() : v.seconds ? v.seconds * 1000 : v.__ms || 0;
+const CR = { muni:"", pac:PAC_REDE, alertas:[20, 5], teto:60 };
+const pedirRecarga = httpsCallable(getFunctions(fb, "southamerica-east1"), "creditosPedido");
+async function carregarCreditos(){
+  const box = $("creditosIA"); box.innerHTML = "";
+  const muni = (S.sim && S.sim.muni) || (S.admin ? $("selMuni").value : S.u.municipio_id) || "";
+  const souSec = S.u.perfil === "secretaria" || S.admin || (S.sim && S.sim.perfil === "secretaria");
+  if(!muni || !souSec) return;
+  CR.muni = muni;
+  try{
+    const [ms, cs, ks] = await Promise.all([getDoc(doc(db, "municipios", muni)), getDoc(doc(db, "config", "portal_ia")).catch(() => null), getDoc(doc(db, "creditos", "mun_" + muni)).catch(() => null)]);
+    const m = ms.exists() ? ms.data() : {}, plano = m.plano_nome || "";
+    const c = cs && cs.exists() ? (cs.data().creditos || {}) : {};
+    if(Array.isArray(c.pacotes_rede) && c.pacotes_rede.length) CR.pac = c.pacotes_rede; if(Array.isArray(c.alertas)) CR.alertas = c.alertas; if(c.teto_padrao != null) CR.teto = c.teto_padrao;
+    const temIA = ["intermediario", "completo", "personalizado"].includes(plano);
+    const k = ks && ks.exists() ? ks.data() : null;
+    if(!temIA && !k) return;
+    const agora = Date.now(), vivos = ((k && k.pacotes) || []).filter(p => msDe(p.validade) > agora);
+    const saldo = vivos.reduce((a, p) => a + (p.restante || 0), 0), total = vivos.reduce((a, p) => a + (p.creditos || 0), 0);
+    const venc = vivos.filter(p => p.restante > 0).map(p => msDe(p.validade)).sort((a, b) => a - b)[0];
+    const pct = total ? Math.round(saldo / total * 100) : 0, cor = pct <= CR.alertas[1] ? "#C2362C" : pct <= CR.alertas[0] ? "#F9A825" : "#5A9420";
+    const mes = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace("-", ""), cm = ((k && k.consumo) || {})[mes] || {};
+    let ped = [];
+    try{ const q = await getDocs(query(collection(db, "recargas_pedidos"), where("municipio_id", "==", muni), where("tipo", "==", "rede"), limit(20))); q.forEach(d => ped.push(d.data())); }catch(e){ console.warn("pedidos:", e.code); }
+    const pend = ped.filter(p => p.status === "pendente");
+    box.innerHTML = '<div class="secao">Portal IA</div><div class="card"><div class="cr"><div><div class="h2">✨ Créditos de IA da rede</div>' +
+      '<div class="sub">' + (plano === "completo" ? "Plano Completo: materiais e imagens." : "Plano " + (plano === "intermediario" ? "Intermediário" : plano) + ": materiais (sem imagens).") + " Pré-pago: quando o saldo acaba, a IA para. Não há cobrança além do contratado.</div>" +
+      '<div style="margin-top:12px"><span class="num">' + n(saldo) + '</span> <span class="sub">de ' + n(total) + " créditos</span></div>" +
+      '<div class="barra"><i style="width:' + pct + "%;background:" + cor + '"></i></div>' +
+      '<div class="sub">' + (total ? pct + "% disponível" + (venc ? " · vence em " + new Date(venc).toLocaleDateString("pt-BR") : "") : "Ainda sem créditos lançados.") +
+      " · uso no mês: " + n(cm.creditos) + " créditos em " + n(cm.usos) + " materiais · limite por professor: " + ((k && k.teto_professor != null ? k.teto_professor : CR.teto) || "sem limite") + "/mês</div></div>" +
+      '<div class="acoes"><button type="button" class="btn-cr" data-cr="pedir">Solicitar recarga</button>' +
+      (pend.length ? '<div class="cr-ped">Aguardando a NEWPC: ' + pend.map(p => esc(p.pacote_nome) + " (" + new Date(msDe(p.em)).toLocaleDateString("pt-BR") + ")").join(", ") + "</div>" : "") + "</div></div></div>";
+  }catch(e){ console.warn("créditos:", e.code || e); }
+}
+function modalRecarga(){
+  const m = document.createElement("div"); m.className = "mfundo"; m.id = "mRec";
+  m.innerHTML = '<div class="mcx" role="dialog" aria-modal="true"><div class="h2">Solicitar recarga de créditos</div><p class="sub">A NEWPC recebe o pedido e envia a proposta. Os créditos entram depois do empenho e valem 12 meses.</p>' +
+    CR.pac.map((p, i) => '<label class="op"><input type="radio" name="pacr" value="' + esc(p.id) + '"' + (i === 0 ? " checked" : "") + '><span style="flex:1"><b>' + esc(p.nome) + '</b></span><b>' + brl(p.valor) + "</b></label>").join("") +
+    '<textarea id="recObs" maxlength="500" placeholder="Observação (opcional): nº do processo, ata, contato do financeiro..."></textarea>' +
+    '<div class="acs"><button type="button" data-cr="fechar">Cancelar</button><button type="button" class="pri" data-cr="enviar">Enviar pedido</button></div></div>';
+  document.body.appendChild(m);
+}
+document.addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-cr]"); if(!b) return;
+  if(b.dataset.cr === "pedir") return modalRecarga();
+  if(b.dataset.cr === "fechar"){ const m = $("mRec"); if(m) m.remove(); return; }
+  if(b.dataset.cr === "enviar"){
+    const r = document.querySelector('input[name="pacr"]:checked'); if(!r) return;
+    b.disabled = true; b.textContent = "Enviando...";
+    try{ await pedirRecarga({ tipo:"rede", pacote_id:r.value, obs:($("recObs").value || "").trim(), municipio_id:CR.muni }); $("mRec").remove(); toast("Pedido enviado. A NEWPC vai entrar em contato com a proposta."); carregarCreditos(); }
+    catch(e){ b.disabled = false; b.textContent = "Enviar pedido"; toast(e.message || "Não foi possível enviar.", true); }
+  }
+});
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}

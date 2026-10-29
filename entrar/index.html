@@ -963,6 +963,29 @@
   .dc-form .acoes .btn{width:auto;padding:11px 18px}
   .dc-vazio{background:#fff;border:1px dashed var(--line);border-radius:14px;padding:30px;text-align:center;color:var(--muted)}
   @media (max-width:640px){ .dc-item{flex-wrap:wrap} .dc-acoes{width:100%;justify-content:flex-start} .dc-hist{margin-left:0} }
+  /* créditos do Portal IA (admin) */
+  .cr-kpis{ display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px }
+  .cr-kpi{ background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px }
+  .cr-kpi small{ display:block;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted) }
+  .cr-kpi b{ display:block;font-size:24px;font-weight:800;color:var(--navy) }
+  .cr-kpi span{ font-size:12px;color:var(--muted) }
+  .cr-bloco{ background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:16px }
+  .cr-bloco h3{ font-size:15px;margin-bottom:4px;color:var(--navy) }
+  .cr-bloco .sub{ font-size:12.5px;color:var(--muted);margin-bottom:10px }
+  .cr-form label[hidden]{ display:none }
+  .cr-form{ display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end }
+  .cr-form label{ display:flex;flex-direction:column;gap:4px;font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em }
+  .cr-form input,.cr-form select,.cr-tab input{ padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-size:13px;background:#fbfcfe;font-family:inherit;text-transform:none;letter-spacing:0;color:var(--ink) }
+  .cr-tab{ width:100%;border-collapse:collapse;font-size:13px }
+  .cr-tab th,.cr-tab td{ padding:8px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle }
+  .cr-tab th{ font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f6f9fc }
+  .cr-tab td.n{ text-align:right;font-variant-numeric:tabular-nums }
+  .cr-barra{ height:8px;background:#eef2f6;border-radius:6px;overflow:hidden;min-width:80px }
+  .cr-barra i{ display:block;height:100% }
+  .cr-tag{ display:inline-block;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:800 }
+  .cr-tag.ok{ background:#e6f4ea;color:#1a6b2a } .cr-tag.al{ background:#fff4e0;color:#8a5a00 } .cr-tag.ru{ background:#fde8e6;color:#b3261e } .cr-tag.ne{ background:#eef2f6;color:#5a6b7e }
+  .cr-tab input.cr-teto{ width:80px }
+  .cr-pac td input{ width:100% }
 </style>
 <script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
 </head>
@@ -1349,6 +1372,7 @@
       { id:"dicasLink", ico:"\u{1F4A1}", label:"Dicas recebidas" },
       { id:"formacaoLink", ico:"\u{1F393}", label:"Formação Continuada" },
       { grupo:"Sistema", ico:"\u2699\u{FE0F}" },
+      { id:"creditos",   ico:"\u{1FA99}", label:"Créditos de IA" },
       { id:"modulos",    ico:"\u{1F9E9}", label:"Módulos do Portal" },
       { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
@@ -1922,7 +1946,8 @@
       alvo.appendChild(a);
     });
     $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
-    selecionar(primeiro);
+    // link dos e-mails de créditos (/entrar/#creditos) abre direto a tela
+    selecionar((location.hash === "#creditos" && menu.itens.find(i => i.id === "creditos")) || primeiro);
     faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
@@ -2066,6 +2091,7 @@
       if(item.id === "usuarios"){ renderUsuarios(); return; }
       if(item.id === "importar"){ renderImportar(); return; }
       if(item.id === "modulos"){ renderModulosAdmin(); return; }
+      if(item.id === "creditos"){ renderCreditosAdmin(); return; }
       if(item.id === "painel"){ renderPainel(); return; }
       if(item.id === "acervoadm"){ renderAcervoAdmin(); return; }
       if(item.id === "videosadm"){ renderVideosAdmin(); return; }
@@ -7285,6 +7311,135 @@
 
   // ---------- admin: liberar modulos ----------
   const modAdm = { rasc:{} };
+  // ================= CRÉDITOS DE IA (pré-pago do Portal IA) =================
+  // Carteiras: creditos/mun_{municipio} e creditos/prof_{uid}. Só a função creditosAdmin grava; aqui o administrador
+  // lança créditos (depois do empenho ou do pagamento), define o teto por professor, atende os pedidos e ajusta preços e pacotes.
+  const CR_PADRAO = { precos:{ texto:1, ajuste:1, imagem:5 }, teto_padrao:60, alertas:[20,5], validade_meses:12, dolar:5.6,
+    pacotes_rede:[{ id:"rede-1000", nome:"1.000 créditos", creditos:1000, valor:250 }, { id:"rede-5000", nome:"5.000 créditos", creditos:5000, valor:1000 }, { id:"rede-20000", nome:"20.000 créditos", creditos:20000, valor:3600 }],
+    pacotes_professor:[{ id:"prof-100", nome:"100 créditos", creditos:100, valor:29.9 }, { id:"prof-300", nome:"300 créditos", creditos:300, valor:79.9 }] };
+  const crA = { cfg:null, cart:[], munis:[], pedidos:[], form:{} };
+  const crMs = v => !v ? 0 : v.toMillis ? v.toMillis() : v.seconds ? v.seconds * 1000 : v.__ms || (typeof v === "number" ? v : Date.parse(v) || 0);
+  const crNum = n => Number(n || 0).toLocaleString("pt-BR");
+  const crBrl = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+  const crData = ms => ms ? new Date(ms).toLocaleDateString("pt-BR") : "-";
+  const crMes = () => { const d = new Date(Date.now() - 4*3600e3); return d.toISOString().slice(0,7).replace("-",""); };
+  function crSaldo(c){ const agora = Date.now(), pac = (c && c.pacotes) || [];
+    const vivos = pac.filter(p => crMs(p.validade) > agora), ativos = vivos.filter(p => (p.restante || 0) > 0);
+    return { saldo:ativos.reduce((a,p) => a + (p.restante || 0), 0), total:vivos.reduce((a,p) => a + (p.creditos || 0), 0), validade:ativos.map(p => crMs(p.validade)).sort((a,b) => a-b)[0] || 0 }; }
+  async function crChamar(dados){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), "creditosAdmin", { timeout:60000 })(dados)).data; }
+  async function renderCreditosAdmin(){
+    $("conteudo").innerHTML = '<div class="sectionbar"><span class="count">Carregando os créditos...</span></div>';
+    const [cs, ks, ms, ps] = await Promise.all([
+      getDoc(doc(db,"config","portal_ia")).catch(() => null), getDocs(collection(db,"creditos")).catch(e => { console.warn(e.code); return null; }),
+      getDocs(collection(db,"municipios")).catch(() => null), getDocs(query(collection(db,"recargas_pedidos"), where("status","==","pendente"))).catch(e => { console.warn(e.code); return null; }) ]);
+    const c = cs && cs.exists() ? (cs.data().creditos || {}) : {};
+    crA.cfg = { ...CR_PADRAO, ...c, precos:{ ...CR_PADRAO.precos, ...(c.precos || {}) } };
+    crA.cart = []; if(ks) ks.forEach(d => crA.cart.push({ id:d.id, ...d.data() }));
+    crA.munis = []; if(ms) ms.forEach(d => crA.munis.push({ id:d.id, ...d.data() }));
+    crA.munis.sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
+    crA.pedidos = []; if(ps) ps.forEach(d => crA.pedidos.push({ id:d.id, ...d.data() }));
+    crA.pedidos.sort((a,b) => crMs(a.em) - crMs(b.em));
+    desenharCreditosAdmin();
+  }
+  function desenharCreditosAdmin(){
+    const cfg = crA.cfg, mes = crMes(), dol = Number(cfg.dolar) || 5.6;
+    const carteira = id => crA.cart.find(x => x.id === id) || null;
+    let saldoTot = 0, consMes = 0, custoMes = 0;
+    crA.cart.forEach(k => { if(k.id === "admin"){ custoMes += ((k.consumo || {})[mes] || {}).custo_usd || 0; return; }
+      saldoTot += crSaldo(k).saldo; const m = (k.consumo || {})[mes] || {}; consMes += m.creditos || 0; custoMes += m.custo_usd || 0; });
+    const custoCred = consMes ? custoMes * dol / consMes : 0;
+    const comIA = crA.munis.filter(m => ["intermediario","completo","personalizado"].includes(m.plano_nome));
+    const linhaMun = m => { const k = carteira("mun_"+m.id), s = crSaldo(k), pct = s.total ? Math.round(s.saldo / s.total * 100) : 0, cm = ((k && k.consumo) || {})[mes] || {};
+      const tag = !s.total ? '<span class="cr-tag ne">sem créditos</span>' : pct <= (cfg.alertas[1] || 5) ? '<span class="cr-tag ru">'+pct+'%</span>' : pct <= (cfg.alertas[0] || 20) ? '<span class="cr-tag al">'+pct+'%</span>' : '<span class="cr-tag ok">'+pct+'%</span>';
+      const cor = pct <= (cfg.alertas[1] || 5) ? "#b3261e" : pct <= (cfg.alertas[0] || 20) ? "#e0a100" : "#1a6b2a";
+      return '<tr><td><b>'+escapeHtml(m.nome || m.id)+(m.uf ? "/"+escapeHtml(m.uf) : "")+'</b><br><small style="color:var(--muted)">'+escapeHtml(({ intermediario:"Intermediário · só texto", completo:"Completo · texto e imagem", personalizado:"Personalizado · só texto" })[m.plano_nome] || m.plano_nome)+'</small></td>'+
+        '<td class="n"><b>'+crNum(s.saldo)+'</b><br><small>de '+crNum(s.total)+'</small></td><td><div class="cr-barra"><i style="width:'+pct+'%;background:'+cor+'"></i></div> '+tag+'</td>'+
+        '<td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'<br><small>'+crNum(cm.usos)+' usos</small></td><td class="n">'+crBrl((cm.custo_usd || 0) * dol)+'</td>'+
+        '<td><input class="cr-teto" type="number" min="0" step="1" data-cr-teto="mun_'+escapeAttr(m.id)+'" value="'+((k && k.teto_professor != null) ? k.teto_professor : cfg.teto_padrao)+'" aria-label="Teto por professor de '+escapeAttr(m.nome || "")+'"> <button class="btn-mini btn-gerenciar" data-action="cr-teto" data-conta="mun_'+escapeAttr(m.id)+'">Salvar</button></td>'+
+        '<td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="mun_'+escapeAttr(m.id)+'">+ Créditos</button></td></tr>'; };
+    const profs = crA.cart.filter(k => k.tipo === "professor" || String(k.id).startsWith("prof_"));
+    const linhaPedido = p => '<tr><td>'+crData(crMs(p.em))+'</td><td><b>'+escapeHtml(p.conta_nome || p.conta)+'</b><br><small>'+(p.tipo === "rede" ? "Rede municipal" : "Professor avulso")+' · '+escapeHtml(p.solicitante || "")+' · '+escapeHtml(p.email || "")+'</small>'+(p.obs ? '<br><small>Obs.: '+escapeHtml(p.obs)+'</small>' : "")+'</td>'+
+      '<td>'+escapeHtml(p.pacote_nome || "")+'</td><td class="n">'+crBrl(p.valor)+'</td>'+
+      '<td><button class="btn-mini btn-gerenciar" data-action="cr-liberar" data-id="'+escapeAttr(p.id)+'">Liberar</button> <button class="btn-mini btn-recusar" data-action="cr-cancelar" data-id="'+escapeAttr(p.id)+'">Cancelar</button></td></tr>';
+    const linhaPac = (lista, tipo) => lista.map((p, i) => '<tr><td><input data-pac="'+tipo+'" data-i="'+i+'" data-k="nome" value="'+escapeAttr(p.nome)+'"></td><td><input type="number" min="1" data-pac="'+tipo+'" data-i="'+i+'" data-k="creditos" value="'+p.creditos+'"></td><td><input type="number" min="0" step="0.01" data-pac="'+tipo+'" data-i="'+i+'" data-k="valor" value="'+p.valor+'"></td>'+
+      '<td class="n">'+crBrl(p.creditos ? p.valor / p.creditos : 0)+'</td><td><button class="btn-mini btn-recusar" data-action="cr-pac-tirar" data-tipo="'+tipo+'" data-i="'+i+'">Tirar</button></td></tr>').join("");
+    const f = crA.form;
+    $("conteudo").innerHTML =
+      '<div class="cr-kpis"><div class="cr-kpi"><small>Créditos ativos nas carteiras</small><b>'+crNum(saldoTot)+'</b><span>redes e professores</span></div>'+
+      '<div class="cr-kpi"><small>Consumo do mês</small><b>'+crNum(consMes)+'</b><span>créditos usados</span></div>'+
+      '<div class="cr-kpi"><small>Custo real de IA no mês</small><b>'+crBrl(custoMes * dol)+'</b><span>Google Gemini, dólar a '+crBrl(dol)+'</span></div>'+
+      '<div class="cr-kpi"><small>Custo real por crédito</small><b>'+crBrl(custoCred)+'</b><span>compare com o preço de venda</span></div>'+
+      '<div class="cr-kpi"><small>Pedidos aguardando</small><b>'+crA.pedidos.length+'</b><span>recargas para liberar</span></div></div>'+
+      (crA.pedidos.length ? '<div class="cr-bloco"><h3>Pedidos de recarga</h3><p class="sub">Rede: libere depois do empenho. Professor avulso: libere depois do pagamento (Pix ou boleto enviado por e-mail).</p><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Data</th><th>Quem</th><th>Pacote</th><th>Valor</th><th></th></tr></thead><tbody>'+crA.pedidos.map(linhaPedido).join("")+'</tbody></table></div></div>' : "")+
+      '<div class="cr-bloco" id="crForm"><h3>Lançar créditos</h3><p class="sub">Cada lançamento vira um pacote com validade própria. O consumo tira primeiro do pacote que vence antes.</p><div class="cr-form">'+
+        '<label>Conta<select id="crConta"><option value="">Escolha</option><optgroup label="Redes municipais">'+crA.munis.map(m => '<option value="mun_'+escapeAttr(m.id)+'"'+(f.conta === "mun_"+m.id ? " selected" : "")+'>'+escapeHtml(m.nome || m.id)+(m.uf ? "/"+escapeHtml(m.uf) : "")+(["intermediario","completo","personalizado"].includes(m.plano_nome) ? "" : " (plano sem Portal IA)")+'</option>').join("")+'</optgroup>'+
+        '<optgroup label="Professores avulsos">'+profs.map(k => '<option value="'+escapeAttr(k.id)+'"'+(f.conta === k.id ? " selected" : "")+'>'+escapeHtml(k.nome || k.id)+'</option>').join("")+(f.conta && f.conta.startsWith("prof_") && !profs.some(k => k.id === f.conta) ? '<option value="'+escapeAttr(f.conta)+'" selected>'+escapeHtml(f.nome || f.conta)+'</option>' : "")+'<option value="email">Outro professor (pelo e-mail)...</option></optgroup></select></label>'+
+        '<label id="crEmailBox"'+(f.conta === "email" ? "" : " hidden")+'>E-mail do professor<input id="crEmail" type="email" placeholder="professor@..."></label>'+
+        '<label>Créditos<input id="crQtd" type="number" min="1" step="1" value="'+escapeAttr(f.creditos || "")+'"></label>'+
+        '<label>Validade (meses)<input id="crMeses" type="number" min="1" max="36" value="'+(f.meses || cfg.validade_meses || 12)+'"></label>'+
+        '<label style="grid-column:span 2">Observação (nº do empenho, NF, Pix)<input id="crObs" maxlength="300" value="'+escapeAttr(f.obs || "")+'"></label>'+
+        '<button class="btn btn-primary" data-action="cr-salvar-lanc" id="crSalvarLanc">Lançar créditos</button></div>'+(f.pedido_id ? '<p class="usr-aviso">Liberando o pedido de <b>'+escapeHtml(f.nome || "")+'</b>. Ao lançar, o pedido fica como aprovado e quem pediu recebe um e-mail.</p>' : "")+'</div>'+
+      '<div class="cr-bloco"><h3>Redes com Portal IA</h3><p class="sub">Intermediário: só texto. Completo: texto e imagem. O teto é o máximo de créditos da rede que cada professor usa por mês (0 = sem teto). Alertas automáticos para a NEWPC e a Secretaria com '+cfg.alertas.join("% e ")+'% do saldo.</p>'+
+        (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
+      (profs.length ? '<div class="cr-bloco"><h3>Professores com créditos avulsos</h3><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+profs.map(k => { const s = crSaldo(k), cm = (k.consumo || {})[mes] || {};
+        return '<tr><td>'+escapeHtml(k.nome || k.id)+'</td><td class="n"><b>'+crNum(s.saldo)+'</b> de '+crNum(s.total)+'</td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'</td><td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(k.id)+'">+ Créditos</button></td></tr>'; }).join("")+'</tbody></table></div></div>' : "")+
+      '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
+        '<div class="cr-form"><label>Material (créditos)<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label>'+
+        '<label>Teto padrão por professor/mês<input id="crTetoPad" type="number" min="0" value="'+cfg.teto_padrao+'"></label><label>Alerta 1 (%)<input id="crAl1" type="number" min="1" max="90" value="'+cfg.alertas[0]+'"></label><label>Alerta 2 (%)<input id="crAl2" type="number" min="1" max="90" value="'+cfg.alertas[1]+'"></label>'+
+        '<label>Validade (meses)<input id="crVal" type="number" min="1" max="36" value="'+cfg.validade_meses+'"></label><label>Dólar (R$)<input id="crDol" type="number" min="1" step="0.01" value="'+dol+'"></label></div>'+
+        '<h3 style="margin-top:16px">Pacotes da rede</h3><table class="cr-tab cr-pac"><thead><tr><th>Nome</th><th>Créditos</th><th>Valor (R$)</th><th>R$ por crédito</th><th></th></tr></thead><tbody>'+linhaPac(cfg.pacotes_rede, "rede")+'</tbody></table><button class="btn-mini btn-gerenciar" style="margin-top:8px" data-action="cr-pac-mais" data-tipo="rede">+ Pacote da rede</button>'+
+        '<h3 style="margin-top:16px">Pacotes do professor (avulso)</h3><table class="cr-tab cr-pac"><thead><tr><th>Nome</th><th>Créditos</th><th>Valor (R$)</th><th>R$ por crédito</th><th></th></tr></thead><tbody>'+linhaPac(cfg.pacotes_professor, "professor")+'</tbody></table><button class="btn-mini btn-gerenciar" style="margin-top:8px" data-action="cr-pac-mais" data-tipo="professor">+ Pacote do professor</button>'+
+        '<div style="margin-top:14px"><button class="btn btn-primary" data-action="cr-salvar-cfg" id="crSalvarCfg">Salvar preços e pacotes</button></div></div>';
+  }
+  function crLerCfg(){
+    const c = crA.cfg, n = (id, min) => Math.max(min, Math.round(Number(($(id) || {}).value) || 0));
+    c.precos = { texto:n("crPTexto", 1), ajuste:n("crPAjuste", 0), imagem:n("crPImagem", 1) };
+    c.teto_padrao = n("crTetoPad", 0); c.alertas = [n("crAl1", 1), n("crAl2", 1)].sort((a,b) => b-a); c.validade_meses = Math.min(36, n("crVal", 1));
+    c.dolar = Math.max(1, Number(($("crDol") || {}).value) || 5.6);
+    document.querySelectorAll("[data-pac]").forEach(el => { const l = el.dataset.pac === "rede" ? c.pacotes_rede : c.pacotes_professor, p = l[+el.dataset.i]; if(!p) return;
+      p[el.dataset.k] = el.dataset.k === "nome" ? el.value.trim().slice(0, 60) : Math.max(0, Number(el.value) || 0); });
+  }
+  async function crSalvarCfg(){
+    crLerCfg(); const c = crA.cfg;
+    const ok = l => l.every(p => p.nome && p.creditos >= 1);
+    if(!ok(c.pacotes_rede) || !ok(c.pacotes_professor)){ toast("Todo pacote precisa de nome e quantidade de créditos.", true); return; }
+    const limpa = (l, pre) => l.map((p, i) => ({ id:p.id || (pre + "-" + Date.now().toString(36) + i), nome:p.nome, creditos:Math.round(p.creditos), valor:Math.round(p.valor * 100) / 100 }));
+    const b = $("crSalvarCfg"); b.disabled = true; b.textContent = "Salvando...";
+    try{ await setDoc(doc(db,"config","portal_ia"), { creditos:{ precos:c.precos, teto_padrao:c.teto_padrao, alertas:c.alertas, validade_meses:c.validade_meses, dolar:c.dolar,
+        pacotes_rede:limpa(c.pacotes_rede, "rede"), pacotes_professor:limpa(c.pacotes_professor, "prof") }, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }, { merge:true });
+      toast("Preços e pacotes salvos."); renderCreditosAdmin(); }
+    catch(e){ console.warn(e); toast("Não salvou ("+(e.code || "erro")+").", true); b.disabled = false; b.textContent = "Salvar preços e pacotes"; }
+  }
+  async function crSalvarLanc(){
+    let conta = ($("crConta") || {}).value || "";
+    const creditos = Math.round(Number(($("crQtd") || {}).value) || 0), meses = Math.round(Number(($("crMeses") || {}).value) || 12), obs = (($("crObs") || {}).value || "").trim();
+    if(conta === "email"){ const em = (($("crEmail") || {}).value || "").trim().toLowerCase(); if(!em){ toast("Informe o e-mail do professor.", true); return; }
+      const q = await getDocs(query(collection(db,"usuarios"), where("email","==",em), limit(1))); if(q.empty){ toast("Nenhum cadastro com esse e-mail.", true); return; } conta = "prof_" + q.docs[0].id; }
+    if(!conta){ toast("Escolha a conta.", true); return; }
+    if(creditos < 1){ toast("Informe a quantidade de créditos.", true); return; }
+    const b = $("crSalvarLanc"); b.disabled = true; b.textContent = "Lançando...";
+    try{ await crChamar({ acao:"recarregar", conta, creditos, meses, obs, pedido_id:crA.form.pedido_id || "" }); crA.form = {}; toast(crNum(creditos)+" créditos lançados."); renderCreditosAdmin(); }
+    catch(e){ toast(e.message || "Não lançou.", true); b.disabled = false; b.textContent = "Lançar créditos"; }
+  }
+  document.addEventListener("click", async ev => {
+    const el = ev.target.closest("[data-action^='cr-']"); if(!el) return;
+    const a = el.dataset.action;
+    if(a === "cr-lancar"){ crA.form = { conta:el.dataset.conta }; desenharCreditosAdmin(); $("crForm").scrollIntoView({ behavior:"smooth", block:"start" }); $("crQtd").focus(); }
+    else if(a === "cr-liberar"){ const p = crA.pedidos.find(x => x.id === el.dataset.id); if(!p) return;
+      crA.form = { conta:p.conta, creditos:p.creditos, meses:crA.cfg.validade_meses, obs:(p.tipo === "rede" ? "Empenho nº " : "Pagamento ") + "· " + (p.pacote_nome || ""), pedido_id:p.id, nome:p.conta_nome };
+      desenharCreditosAdmin(); $("crForm").scrollIntoView({ behavior:"smooth", block:"start" }); $("crObs").focus(); }
+    else if(a === "cr-cancelar"){ if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Cancelar"; } }, 4000); return; }
+      try{ await crChamar({ acao:"cancelar_pedido", id:el.dataset.id }); toast("Pedido cancelado."); renderCreditosAdmin(); }catch(e){ toast(e.message || "Erro.", true); } }
+    else if(a === "cr-teto"){ const inp = document.querySelector('[data-cr-teto="'+el.dataset.conta+'"]'); el.disabled = true;
+      try{ await crChamar({ acao:"teto", conta:el.dataset.conta, teto:Math.max(0, Math.round(Number(inp.value) || 0)) }); toast("Teto salvo."); renderCreditosAdmin(); }catch(e){ el.disabled = false; toast(e.message || "Erro.", true); } }
+    else if(a === "cr-salvar-lanc") crSalvarLanc();
+    else if(a === "cr-salvar-cfg") crSalvarCfg();
+    else if(a === "cr-pac-mais"){ crLerCfg(); (el.dataset.tipo === "rede" ? crA.cfg.pacotes_rede : crA.cfg.pacotes_professor).push({ id:"", nome:"", creditos:0, valor:0 }); desenharCreditosAdmin(); }
+    else if(a === "cr-pac-tirar"){ crLerCfg(); (el.dataset.tipo === "rede" ? crA.cfg.pacotes_rede : crA.cfg.pacotes_professor).splice(+el.dataset.i, 1); desenharCreditosAdmin(); }
+  });
+  document.addEventListener("change", ev => { if(ev.target.id === "crConta"){ crA.form.conta = ev.target.value; const b = $("crEmailBox"); if(b) b.hidden = ev.target.value !== "email"; } });
+
   async function renderModulosAdmin(){
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="modCount">Carregando...</span>'+

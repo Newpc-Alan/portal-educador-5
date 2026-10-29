@@ -959,6 +959,25 @@ service cloud.firestore {
       allow write: if false;
       match /denuncias/{u} { allow read: if admin(); allow write: if false; }
     }
+    // Créditos do Portal IA (pré-pago): só as funções gravam
+    match /creditos/{conta} {
+      allow read: if logado() && (admin() || conta == "prof_" + request.auth.uid
+        || (eu().perfil == "secretaria" && eu().status == "ativo" && conta == "mun_" + eu().get("municipio_id", "-")));
+      allow write: if false;
+      match /movimentos/{m} {
+        allow read: if logado() && (admin() || conta == "prof_" + request.auth.uid
+          || (eu().perfil == "secretaria" && eu().status == "ativo" && conta == "mun_" + eu().get("municipio_id", "-")));
+        allow write: if false;
+      }
+    }
+    match /recargas_pedidos/{id} {
+      allow read: if logado() && (admin() || resource.data.uid == request.auth.uid
+        || (eu().perfil == "secretaria" && eu().status == "ativo" && resource.data.tipo == "rede" && resource.data.municipio_id == eu().get("municipio_id", "-")));
+      allow write: if false;
+    }
+    match /creditos_alertas/{id} { allow read: if admin(); allow write: if false; }
+    // preços e pacotes do Portal IA: qualquer conta logada lê (Secretaria e professor escolhem o pacote)
+    match /config/portal_ia { allow read: if logado(); }
     match /portal_ia_uso/{id} {
       allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);
       allow write: if false;
