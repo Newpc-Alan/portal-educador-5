@@ -1240,14 +1240,10 @@ const DadosDemo = {
    CAMADA DE DADOS — Firebase
 --------------------------------------------------------------------------- */
 let fb = null;
-let analytics = null, logEvento = null;
-
-/* Registra um acontecimento no Google Analytics. Nunca quebra a aplicação:
-   se o Analytics não carregou (bloqueador, file://, sem rede), simplesmente
-   não faz nada. É o que responde "quantos professores usam, e até onde vão". */
-function evento(nome, dados = {}){
-  try { if (analytics && logEvento) logEvento(analytics, nome, dados); } catch {}
-}
+/* Sem Google Analytics desde out/2026 (LGPD: cookies de medição exigiriam consentimento).
+   O progresso, as notas e os certificados já ficam no banco do Portal, que é de onde saem os números de uso.
+   Mantida como ponto único caso se queira registrar eventos no próprio banco no futuro. */
+function evento(nome, dados = {}){}
 
 const DadosFirebase = {
   modo:"firebase",
@@ -1261,12 +1257,6 @@ const DadosFirebase = {
     const a = app.initializeApp(FIREBASE_CONFIG);
     fb = { auth, fs, fn, _auth:auth.getAuth(a), db:fs.getFirestore(a), funcs:fn.getFunctions(a, REGIAO) };
 
-    // Analytics: carregado em segundo plano e sempre dentro de try/catch.
-    // Ele não funciona em file:// nem com bloqueador de anúncios — e nesses
-    // casos a Academia tem que continuar funcionando normalmente.
-    import(base+"firebase-analytics.js")
-      .then(an => an.isSupported().then(ok => { if (ok) analytics = an.getAnalytics(a), logEvento = an.logEvent; }))
-      .catch(() => {});
 
     // Retorno do link mágico
     if (auth.isSignInWithEmailLink(fb._auth, location.href)){
