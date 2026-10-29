@@ -1,0 +1,43 @@
+// Testa o Portal IA (portal_ia_docs e portal_ia_uso) no emulador: o documento nasce só na função; o dono lê, edita o texto, favorita e exclui.
+//   firebase emulators:exec --only firestore --project demo-pe5 "node scripts/teste-regras-portal-ia.mjs firestore.rules"
+import { readFileSync } from 'node:fs';
+import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
+import { doc, setDoc, updateDoc, getDoc, getDocs, deleteDoc, collection, query, where } from 'firebase/firestore';
+
+const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
+const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
+const DOC = { titulo: 'Frações', secoes: [{ titulo: 'Para lembrar', texto: 'Fração é parte do todo.' }] };
+await env.withSecurityRulesDisabled(async (c) => {
+  const db = c.firestore();
+  await setDoc(doc(db, 'usuarios/p1'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/p2'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/adm'), { perfil: 'admin', status: 'ativo' });
+  await setDoc(doc(db, 'portal_ia_docs/d1'), { uid: 'p1', tipo: 'atividade', tipo_nome: 'Atividade', titulo: 'Frações', resumo: 'x', doc: DOC, favorito: false, modelo: 'm' });
+  await setDoc(doc(db, 'portal_ia_uso/p1_202610'), { uid: 'p1', textos: 3, imagens: 0 });
+});
+let ok = 0, falha = 0;
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
+const fs = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore();
+await t('professor não cria documento direto (só a função)', assertFails(setDoc(doc(fs('p1'), 'portal_ia_docs/d2'), { uid: 'p1', titulo: 'x', doc: DOC })));
+await t('dono lê', assertSucceeds(getDoc(doc(fs('p1'), 'portal_ia_docs/d1'))));
+await t('dono lista os seus', assertSucceeds(getDocs(query(collection(fs('p1'), 'portal_ia_docs'), where('uid', '==', 'p1')))));
+await t('colega não lê', assertFails(getDoc(doc(fs('p2'), 'portal_ia_docs/d1'))));
+await t('colega não lista', assertFails(getDocs(query(collection(fs('p2'), 'portal_ia_docs'), where('uid', '==', 'p1')))));
+await t('dono salva edição do texto', assertSucceeds(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { doc: { ...DOC, titulo: 'Frações 2' }, titulo: 'Frações 2', editado_em: new Date() })));
+await t('dono favorita', assertSucceeds(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { favorito: true })));
+await t('favorito precisa ser sim/não', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { favorito: 'sim' })));
+await t('título grande demais: não', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { titulo: 'x'.repeat(161) })));
+await t('dono não troca o dono', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { uid: 'p2' })));
+await t('dono não mexe no tipo nem no modelo', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { tipo: 'prova', modelo: 'outro' })));
+await t('doc tem que continuar sendo objeto', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_docs/d1'), { doc: 'texto' })));
+await t('colega não edita', assertFails(updateDoc(doc(fs('p2'), 'portal_ia_docs/d1'), { favorito: false })));
+await t('colega não exclui', assertFails(deleteDoc(doc(fs('p2'), 'portal_ia_docs/d1'))));
+await t('dono lê o próprio uso', assertSucceeds(getDoc(doc(fs('p1'), 'portal_ia_uso/p1_202610'))));
+await t('colega não lê o uso', assertFails(getDoc(doc(fs('p2'), 'portal_ia_uso/p1_202610'))));
+await t('administrador lê o uso', assertSucceeds(getDoc(doc(fs('adm'), 'portal_ia_uso/p1_202610'))));
+await t('ninguém altera a cota', assertFails(updateDoc(doc(fs('p1'), 'portal_ia_uso/p1_202610'), { textos: 0 })));
+await t('nem o administrador altera a cota pelo app', assertFails(setDoc(doc(fs('adm'), 'portal_ia_uso/x'), { textos: 0 })));
+await t('dono exclui', assertSucceeds(deleteDoc(doc(fs('p1'), 'portal_ia_docs/d1'))));
+console.log(`portal_ia: ${ok} ok, ${falha} falha(s)`);
+await env.cleanup();
+process.exit(falha ? 1 : 0);

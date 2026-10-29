@@ -4512,6 +4512,7 @@
     else if(acao === "ini-apps"){ registrarModulo(el.dataset.mod); location.href = "/apps/"; }
     else if(acao === "ini-gestao"){ registrarModulo(el.dataset.mod); location.href = "/gestao/"; }
     else if(acao === "ini-dicasaluno"){ registrarModulo(el.dataset.mod); location.href = "/dicas/"+(usuarioAtual.perfil === "admin" ? "?aluno=1" : ""); }
+    else if(acao === "ini-portalia"){ registrarModulo(el.dataset.mod); location.href = "/apps/portal-ia/"; }
     else if(acao === "ini-ia"){ registrarModulo(el.dataset.mod); location.href = "/apps/ia-studio/"; }   // novo IA Studio (a vitrine antiga renderIa fica para o admin conferir)
     else if(acao === "ia-abrir"){ abrirIa(el.dataset.id); }
     else if(acao === "ia-grupo"){ ias.grupo = el.dataset.grupo; desenharIa(); }
@@ -4611,6 +4612,7 @@
   const MODULOS = [
     { id:"videos",      nome:"Vídeos Educativos",      aluno:true,  ico:"\u{1F3AC}", descAluno:"Vídeos para aprender e revisar a matéria", desc:"Conteúdos em vídeo para enriquecer suas aulas" },
     { id:"jogos",       nome:"Jogos Educacionais",     aluno:true,  ico:"\u{1F3AE}", descAluno:"Aprenda jogando, no seu ritmo", desc:"Aprender brincando, com jogos para a turma" },
+    { id:"portalia",    nome:"Portal IA",              aluno:false, ico:"\u{2728}", desc:"Plano de aula, atividade, prova, parecer, recado e correção numa caixa só, com a IA embarcada", obs:"versão nova em teste", urlPadrao:"#portalia" },
     { id:"ia",          nome:"IA do Educador",         aluno:false, ico:"\u{1F916}", desc:"Fichas, provas e materiais da aula feitos com inteligência artificial", obs:"IA integrada ao Portal" },
     { id:"provas",      nome:"Provas e Avaliações",    aluno:false, ico:"\u{1F4DD}", desc:"Impressa e online: monte em minutos, imprima ou aplique no Portal do Aluno" },
     { id:"portal360",   nome:"Portal 360º VR",         aluno:true,  ico:"\u{1F97D}", descAluno:"Viaje pelo espaço, pelo corpo humano e muito mais em 3D", desc:"Experiências imersivas em 3D e realidade virtual", obs:"catálogo imersivo 3D e VR",
@@ -4639,7 +4641,7 @@
   // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
   function nomeDoPlano(prof, rec, sec){
     const p = new Set(prof || []), igual = (l) => p.size === l.length && l.every(x => p.has(x));
-    if(MODULOS.every(m => p.has(m.id)) && (rec || []).includes("prova_online") && (sec || []).includes("painel")) return "completo";
+    if(MODULOS.every(m => m.id === "portalia" || p.has(m.id)) && (rec || []).includes("prova_online") && (sec || []).includes("painel")) return "completo";
     if(!(rec || []).length && !(sec || []).length){ if(igual(PLANO_BASICO)) return "basico"; if(igual(PLANO_INTERMEDIARIO)) return "intermediario"; }
     return p.size ? "personalizado" : "";
   }
@@ -4735,7 +4737,7 @@
     const NAS_ACOES = ehAluno ? [] : ["provas", "atividades", "maestro", "gestao"];
     // a Central de Relatorios fica dentro do Gestao Escolar quando ele esta liberado (o card proprio sai do Inicio)
     const gestaoAtiva = cfgDe("gestao").status === "liberado";
-    const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia", "#provas":"ini-provas", "#relatorios":"ini-relatorios", "#formacao":"ini-formacao", "#museus":"ini-museus", "#dicas":"ini-dicas", "#colorir":"ini-colorir", "#biblioteca":"ini-biblioteca", "#historias":"ini-historias", "#datas":"ini-datas", "#atividades":"ini-atividades", "#apps":"ini-apps", "#gestao":"ini-gestao", "#dicasaluno":"ini-dicasaluno" };
+    const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia", "#portalia":"ini-portalia", "#provas":"ini-provas", "#relatorios":"ini-relatorios", "#formacao":"ini-formacao", "#museus":"ini-museus", "#dicas":"ini-dicas", "#colorir":"ini-colorir", "#biblioteca":"ini-biblioteca", "#historias":"ini-historias", "#datas":"ini-datas", "#atividades":"ini-atividades", "#apps":"ini-apps", "#gestao":"ini-gestao", "#dicasaluno":"ini-dicasaluno" };
     const itens = MODULOS.map(md => {
       if(NAS_ACOES.includes(md.id)) return null;
       if(md.id === "maestro" && aula) return null;
@@ -7463,7 +7465,7 @@
     $("modCount").textContent = n+" de "+MODULOS.length+" botões liberados";
   }
   // atalhos internos aceitos no campo de link (os mesmos de ROTA_INTERNA no Início)
-  const ROTAS_MODULO = ["#acervo","#videos","#jogos","#ia","#provas","#relatorios","#formacao","#museus","#dicas","#colorir","#biblioteca","#historias","#datas","#atividades","#apps","#gestao","#dicasaluno"];
+  const ROTAS_MODULO = ["#acervo","#videos","#jogos","#ia","#portalia","#provas","#relatorios","#formacao","#museus","#dicas","#colorir","#biblioteca","#historias","#datas","#atividades","#apps","#gestao","#dicasaluno"];
   function urlOk(u){ return !u || u === "https://" || ROTAS_MODULO.includes(u) || /^https:\/\/[^\s]+$/i.test(u) || /^\/?assets\/[\w\-\/.]+$/.test(u); }
   document.addEventListener("input", (ev) => {
     const t = ev.target; if(!t.dataset || !t.dataset.mod || !modAdm.rasc[t.dataset.mod]) return;

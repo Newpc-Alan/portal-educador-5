@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Portal IA · Portal do Educador</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<meta name="theme-color" content="#071621">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --escuro:#071621; --navy:#0F2C4A; --azul:#2671AB; --lima:#8DC63F; --verde:#1A6B2A; --verde-cl:#EAF5EC;
+  --bg:#F2F5F8; --ink:#0F2C4A; --texto:#24384F; --muted:#4A5D72; --line:#DCE4EC; --line2:#CBD6E2; --red:#B3261E; --amar:#FFF6DB;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font-family:'Plus Jakarta Sans','Segoe UI',system-ui,sans-serif;color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+a{color:var(--azul)}
+.app{max-width:1100px;margin:0 auto;padding:0 16px 70px}
+.topo{position:sticky;top:0;z-index:40;margin:0 -16px 20px;padding:12px 20px;border-radius:0 0 18px 18px;color:#fff;
+  background:radial-gradient(600px 200px at 0% 0%,rgba(141,198,63,.28),transparent 60%),linear-gradient(135deg,#071621,#123556);
+  box-shadow:0 14px 30px -20px rgba(7,22,33,.8);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.marca{display:flex;align-items:center;gap:12px;min-width:200px;flex:1}
+.marca img{width:44px;height:44px;flex:none}
+.marca small{display:block;font-size:.64rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--lima)}
+.marca b{display:block;font-size:1.08rem}
+.marca span{display:block;font-size:.78rem;color:rgba(255,255,255,.72)}
+.tb{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:9px 14px;font-size:.84rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-height:42px}
+.tb.lima{background:var(--lima);border-color:var(--lima);color:var(--escuro)}
+.caixa{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px}
+.olho{font-size:.76rem;font-weight:800;color:var(--verde);letter-spacing:.07em;text-transform:uppercase}
+h1{font-size:clamp(1.55rem,3.2vw,2.05rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
+h2{font-size:1.1rem;font-weight:800}
+.sub{color:var(--muted);font-size:.94rem}
+.pilha{display:flex;flex-direction:column;gap:20px}
+.btn{border:1px solid var(--line2);background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;font-size:.9rem;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--ink)}
+.btn:hover{border-color:var(--azul)}
+.btn.pri{background:var(--verde);border-color:var(--verde);color:#fff}
+.btn.pri:hover{background:#145522}
+.btn.nav{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.peq{min-height:36px;padding:6px 12px;font-size:.84rem;border-radius:10px}
+.btn:disabled{opacity:.55;cursor:default}
+/* contexto */
+.ctx{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:16px}
+.ctx label{display:flex;flex-direction:column;gap:4px;font-size:.74rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;flex:1;min-width:160px}
+.ctx select,.ctx input{border:1px solid var(--line2);border-radius:10px;padding:9px 10px;font-size:.92rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--ink);background:#fff;min-height:42px}
+/* caixa principal */
+.pede{margin-top:18px;border:2px solid var(--line2);border-radius:18px;background:#fff;transition:border-color .15s}
+.pede:focus-within{border-color:var(--verde);box-shadow:0 0 0 4px rgba(26,107,42,.1)}
+.pede textarea{width:100%;border:0;outline:0;resize:vertical;min-height:96px;padding:16px 18px 6px;font-size:1.02rem;background:transparent;border-radius:18px}
+.pede .pe{display:flex;align-items:center;gap:10px;padding:8px 10px 10px 14px;flex-wrap:wrap}
+.pede .pe .esp{flex:1}
+.fixo{display:inline-flex;align-items:center;gap:6px;background:var(--verde-cl);color:var(--verde);border-radius:99px;padding:5px 6px 5px 12px;font-weight:800;font-size:.82rem}
+.fixo button{border:0;background:#fff;border-radius:99px;width:24px;height:24px;font-weight:800;color:var(--verde)}
+.exs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ex{border:1px dashed var(--line2);background:#fff;border-radius:99px;padding:6px 12px;font-size:.84rem;color:var(--texto)}
+.ex:hover{border-color:var(--verde);color:var(--verde)}
+.cota{font-size:.8rem;color:var(--muted);font-weight:600}
+/* atalhos */
+.atalhos{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.at{border:1px solid var(--line);background:#fff;border-radius:16px;overflow:hidden;text-align:left;display:flex;flex-direction:column;transition:.15s}
+.at:hover{transform:translateY(-2px);box-shadow:0 14px 26px -18px rgba(15,44,74,.6);border-color:var(--line2)}
+.at .foto{height:96px;background:#dfe8ef center/cover no-repeat}
+.at .tx{padding:10px 12px 12px}
+.at b{display:block;font-size:.95rem}
+.at small{display:block;color:var(--muted);font-size:.8rem;line-height:1.35;margin-top:2px}
+/* recentes */
+.rec{display:flex;flex-direction:column;gap:8px}
+.rc{display:flex;align-items:center;gap:12px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:10px 12px;text-align:left;width:100%}
+.rc:hover{border-color:var(--azul)}
+.rc .tg{font-size:.7rem;font-weight:800;color:var(--verde);background:var(--verde-cl);border-radius:6px;padding:3px 7px;white-space:nowrap}
+.rc b{flex:1;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc small{color:var(--muted);font-size:.78rem;white-space:nowrap}
+/* conversa */
+.fala{display:flex;gap:12px;align-items:flex-start}
+.fala .av{width:38px;height:38px;border-radius:12px;background:var(--navy);color:var(--lima);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.8rem;flex:none}
+.fala .bl{flex:1;background:#fff;border:1px solid var(--line);border-radius:4px 16px 16px 16px;padding:14px 16px}
+.fala.eu{flex-direction:row-reverse}
+.fala.eu .av{background:var(--verde-cl);color:var(--verde)}
+.fala.eu .bl{background:#F6FAF6;border-radius:16px 4px 16px 16px}
+.perg{margin-top:12px}
+.perg b{display:block;margin-bottom:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line2);background:#fff;border-radius:99px;padding:7px 14px;font-weight:700;font-size:.86rem}
+.chip.on{background:var(--verde);border-color:var(--verde);color:#fff}
+.perg textarea,.perg input{width:100%;border:1px solid var(--line2);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:.95rem}
+.perg textarea{min-height:110px;resize:vertical}
+.aviso{background:var(--amar);border:1px solid #f0dca0;border-radius:12px;padding:10px 12px;font-size:.84rem;color:#5b4a14;margin-top:10px}
+.carreg{display:flex;align-items:center;gap:12px;color:var(--muted);font-weight:600;padding:18px 0}
+.giro{width:22px;height:22px;border-radius:50%;border:3px solid #cfe0ee;border-top-color:var(--verde);animation:g .8s linear infinite;flex:none}
+@keyframes g{to{transform:rotate(360deg)}}
+.passos{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:.88rem;color:var(--muted)}
+.passos span.ok{color:var(--verde);font-weight:700}
+/* documento */
+.docgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.folha{background:#fff;border:1px solid var(--line);border-radius:14px;padding:34px 38px;box-shadow:0 18px 40px -30px rgba(15,44,74,.5);color:#1d2b3a}
+.folha .cab{display:flex;gap:12px;align-items:center;border-bottom:3px solid var(--verde);padding-bottom:12px;margin-bottom:18px}
+.folha .cab img{width:46px;height:46px;object-fit:contain}
+.folha .cab b{display:block;font-size:1rem;color:var(--navy)}
+.folha .cab small{color:var(--muted);font-size:.8rem}
+.folha h1{font-size:1.45rem;color:var(--navy)}
+.folha .st{color:var(--muted);font-size:.9rem;margin-top:2px}
+.folha .alunol{display:flex;gap:12px;margin-top:14px;font-size:.9rem}
+.folha .alunol span{flex:1;border-bottom:1px solid #8aa0b5;padding-bottom:2px}
+.folha .alunol span:last-child{flex:0 0 150px}
+.folha section{margin-top:20px}
+.folha h3{font-size:1.02rem;color:var(--navy);margin-bottom:6px}
+.folha p{white-space:pre-wrap;margin-bottom:6px}
+.folha ul{padding-left:20px}
+.folha li{margin-bottom:3px}
+.folha table{border-collapse:collapse;width:100%;font-size:.9rem;margin-top:6px}
+.folha th,.folha td{border:1px solid #c9d5e1;padding:6px 8px;text-align:left;vertical-align:top}
+.folha th{background:#eef3f8}
+.q{margin-top:14px}
+.q .en{display:flex;gap:6px;font-weight:600}
+.q .en .n{flex:none;font-weight:800}
+.q .val{color:var(--muted);font-weight:600;font-size:.82rem;white-space:nowrap}
+.q ol{list-style:none;padding-left:22px;margin-top:6px}
+.q ol li{display:flex;gap:8px;align-items:flex-start}
+.q .cx{display:inline-block;width:14px;height:14px;border:1.5px solid #6a8196;border-radius:3px;margin-top:4px;flex:none}
+.q .cx.vf{width:26px}
+.q .rel{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;padding-left:22px;margin-top:6px}
+.q .lin{height:26px;border-bottom:1px solid #b6c4d2;margin-left:22px}
+.gab{margin-top:26px;border-top:2px dashed var(--line2);padding-top:16px}
+.gab .gi{margin-top:6px;font-size:.92rem}
+.gab .gi i{color:var(--muted)}
+.ilus{margin-top:16px;text-align:center}
+.ilus img{max-width:100%;max-height:420px;border-radius:10px;border:1px solid var(--line)}
+.editando [data-k]{outline:1px dashed #9cc3a4;outline-offset:2px;border-radius:3px;background:#fbfffb}
+.editando [data-k]:focus{outline:2px solid var(--verde);background:#fff}
+.lado{display:flex;flex-direction:column;gap:12px;position:sticky;top:88px}
+.lado .caixa{padding:16px;border-radius:16px}
+.lado h4{font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.lado .btn{width:100%}
+.lado .grupo{display:flex;flex-direction:column;gap:8px}
+.lado textarea{width:100%;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:64px;font-size:.88rem;resize:vertical}
+.lado select{width:100%;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px}
+.wpp{white-space:pre-wrap;background:#E7F8EE;border-radius:10px;padding:10px;font-size:.88rem}
+.nota{background:var(--verde-cl);border-radius:12px;padding:10px 12px;font-size:.86rem;color:#1d4d27}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;z-index:120;max-width:92vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.toast.err{background:var(--red)}
+@media (max-width:920px){ .docgrid{grid-template-columns:1fr} .lado{position:static} }
+@media (max-width:560px){ .caixa{padding:18px} .folha{padding:20px 16px} .pede .pe .btn.pri{width:100%} .q .rel{grid-template-columns:1fr} }
+@media print{ .topo,.lado,.toast{display:none !important} body,html{background:#fff} .folha{border:0;box-shadow:none;padding:0} .docgrid{display:block} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topo">
+    <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Portal IA</b><span id="quem">Carregando...</span></div></div>
+    <a class="tb" href="#inicio" data-action="inicio" id="btnInicio" hidden>Novo pedido</a>
+    <a class="tb lima" href="/entrar/">Voltar ao Portal</a>
+  </header>
+  <div class="carreg" id="carregando" style="justify-content:center;padding:70px 0"><span class="giro"></span>Carregando...</div>
+  <main id="tela" hidden></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, updateDoc, deleteDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
+const auth = getAuth(app), db = getFirestore(app);
+const chamar = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:250000 });
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const slug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 4800); }
+const msgErro = e => (e && e.message && !/^internal$/i.test(e.message) ? e.message : "Não deu certo agora. Tente de novo em instantes.");
+let ST = null;
+async function storage(){ if(!ST){ const m = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js"); ST = { m, st:m.getStorage(app) }; } return ST; }
+
+/* ===================== o que o professor mais procura ===================== */
+const CAPA = p => "https://studio.portaldoeducador.com.br/capas/" + p + ".webp";
+const ATALHOS = [
+  { k:"plano",     t:"Plano de aula",          d:"Objetivos, BNCC, passo a passo com tempo e avaliação.", foto:"planejamento-de-aulas",
+    ph:"Ex.: plano de 2 aulas de 50 min sobre frações equivalentes, com atividade em dupla" },
+  { k:"sequencia", t:"Sequência didática",     d:"Várias aulas encadeadas até um produto final.", foto:"projetos-escolares",
+    ph:"Ex.: sequência de 5 aulas sobre o ciclo da água terminando com uma maquete" },
+  { k:"atividade", t:"Atividade com gabarito", d:"Ficha para imprimir, questões variadas e respostas.", foto:"atividades-para-imprimir",
+    ph:"Ex.: 8 questões sobre sistema solar, com 2 de relacionar e 1 para explicar" },
+  { k:"prova",     t:"Prova com gabarito",     d:"Avaliação com valor por questão e critério de correção.", foto:"provas-e-avaliacoes",
+    ph:"Ex.: prova do 2º bimestre sobre Brasil Colônia, 10 questões, valendo 10" },
+  { k:"parecer",   t:"Parecer do aluno",       d:"Relatório descritivo a partir das suas observações.", foto:"avaliacao-diagnostica",
+    ph:"Ex.: parecer do João: lê com fluência, ainda troca letras na escrita, participa muito das rodas" },
+  { k:"inclusao",  t:"Adaptar para inclusão",  d:"A mesma atividade adaptada para TEA, TDAH, dislexia...", foto:"fichas-de-alfabetizacao",
+    ph:"Ex.: adaptar a atividade de frações para um aluno com TEA que lê pouco" },
+  { k:"redacao",   t:"Corrigir redação",       d:"Nota por critério, pontos fortes e devolutiva ao aluno.", foto:"interpretacao-de-texto",
+    ph:"Cole aqui a redação do aluno e diga o gênero (ex.: dissertativo-argumentativo)" },
+  { k:"recado",    t:"Recado aos pais",        d:"Comunicado formal e a versão curta para o WhatsApp.", foto:"cartazes-e-comunicados",
+    ph:"Ex.: reunião de pais na quinta, 19h, para falar das notas do bimestre" },
+  { k:"explicar",  t:"Explicar um conteúdo",   d:"Explicação simples, exemplos do dia a dia e teste rápido.", foto:"imagens-didaticas",
+    ph:"Ex.: explique fotossíntese de um jeito que um aluno do 6º ano entenda" }
+];
+const NOME_T = Object.fromEntries(ATALHOS.map(a => [a.k, a.t]));
+const EXEMPLOS = ["Plano de aula sobre frações para amanhã", "Prova de 10 questões sobre o corpo humano", "Recado aos pais sobre a festa junina", "Explique o que é democracia para o 5º ano"];
+const DISCIPLINAS = ["Língua Portuguesa", "Matemática", "Ciências", "História", "Geografia", "Arte", "Educação Física", "Língua Inglesa", "Ensino Religioso", "Polivalente (anos iniciais)", "Educação Infantil", "Biologia", "Física", "Química", "Filosofia", "Sociologia"];
+const AJUSTES = ["Mais fácil", "Mais difícil", "Mais curto", "Mais questões", "Linguagem mais simples", "Adaptar para TEA"];
+const ESTILOS = [["didatica", "Ilustração didática"], ["colorir", "Desenho para colorir"], ["cartoon", "Desenho infantil"], ["realista", "Foto realista"]];
+
+const E = { user:null, u:null, admin:false, turmas:[], turma:"", disc:"", serie:"", ident:{ prof:"", escola:"" }, marca:null, cota:null,
+  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editando:false, ocupado:false, imgUrl:"" };
+
+/* ===================== dados do professor ===================== */
+const turmaAtual = () => E.turmas.find(t => t.id === E.turma) || null;
+const discDaGrade = t => t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g.professor_uid === E.user.uid && g.disciplina).map(g => g.disciplina))] : [];
+function serieDe(t){ if(!t) return ""; if(t.serie) return String(t.serie); const m = String(t.nome || "").match(/(\d+)\s*[ºª°o]?\s*(ano|série|serie)/i); return m ? m[1] + "º ano" : ""; }
+async function carregarTurmas(){
+  const ids = (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 10);
+  try{ if(ids.length){ const s = await getDocs(query(collection(db, "turmas"), where("escola_id", "in", ids))); s.forEach(d => { const t = d.data(); if(t.status !== "inativa") E.turmas.push({ id:d.id, ...t }); }); } }catch(e){ console.warn("turmas:", e.code); }
+  const minhas = new Set((E.u.turmas_ids || []).map(String));
+  const ehMinha = t => minhas.has(t.id) || t.criado_por === E.user.uid || discDaGrade(t).length > 0;
+  E.turmas = E.turmas.filter(t => ehMinha(t) || E.turmas.length <= 12);
+  E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
+  let ult = ""; try{ ult = localStorage.getItem("pde_pia_turma_" + E.user.uid) || ""; }catch(e){}
+  E.turma = E.turmas.some(t => t.id === ult) ? ult : (E.turmas[0] ? E.turmas[0].id : "");
+  definirTurma(E.turma);
+  E.ident.prof = String(E.u.nome || E.user.displayName || "").slice(0, 80);
+  const escId = E.u.escola_id || ids[0] || "";
+  try{ if(escId){ const s = await getDoc(doc(db, "escolas", escId)); if(s.exists()) E.ident.escola = s.data().nome || ""; } }catch(e){}
+  try{ const mid = E.u.municipio_id || ""; if(mid){ const s = await getDoc(doc(db, "municipios", mid)); if(s.exists()){ const m = s.data(); E.marca = { municipio:m.nome || "", uf:m.uf || "", logo_url:m.logo_url || "" }; } } }catch(e){}
+}
+function definirTurma(id){
+  E.turma = id; const t = turmaAtual();
+  const ds = discDaGrade(t); E.disc = ds.includes(E.disc) ? E.disc : (ds[0] || E.disc || "");
+  E.serie = serieDe(t) || E.serie;
+}
+async function carregarRecentes(){
+  E.recentes = [];
+  try{
+    const s = await getDocs(query(collection(db, "portal_ia_docs"), where("uid", "==", E.user.uid), limit(120)));
+    s.forEach(d => E.recentes.push({ id:d.id, ...d.data() }));
+    const ms = x => x && (x.toMillis ? x.toMillis() : x.__ms || (x.seconds ? x.seconds * 1000 : 0)) || 0;
+    E.recentes.sort((a, b) => (!!b.favorito - !!a.favorito) || (ms(b.atualizado_em) - ms(a.atualizado_em)));
+  }catch(e){ console.warn("recentes:", e.code); }
+}
+async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } }
+const contexto = () => ({ disciplina:E.disc, serie:E.serie, turma:(turmaAtual() || {}).nome || "" });
+function textoCota(){
+  const c = E.cota; if(!c) return "";
+  if(c.textos == null) return "Uso livre (administrador)";
+  return "Restam " + c.textos + " materiais" + (c.imagens > 0 ? " e " + c.imagens + " imagens" : "") + " neste mês";
+}
+
+/* ===================== telas ===================== */
+function ir(v){ E.vista = v; $("btnInicio").hidden = v === "inicio"; desenhar(); window.scrollTo(0, 0); }
+function desenhar(){ if(E.vista === "inicio") return telaInicio(); if(E.vista === "conversa") return telaConversa(); if(E.vista === "doc") return telaDoc(); }
+function opTurmas(){
+  if(!E.turmas.length) return '<option value="">Sem turma vinculada</option>';
+  return E.turmas.map(t => '<option value="' + esc(t.id) + '"' + (t.id === E.turma ? " selected" : "") + ">" + esc(t.nome || "Turma") + "</option>").join("");
+}
+function opDisc(){
+  const ds = [...new Set([...discDaGrade(turmaAtual()), ...(E.disc ? [E.disc] : []), ...DISCIPLINAS])];
+  return ds.map(d => '<option' + (d === E.disc ? " selected" : "") + ">" + esc(d) + "</option>").join("");
+}
+function telaInicio(){
+  const at = E.tipo ? ATALHOS.find(a => a.k === E.tipo) : null;
+  $("tela").innerHTML = '<div class="pilha">' +
+  (E.bloqueio ? '<div class="aviso"><b>' + esc(E.bloqueio) + "</b></div>" : "") +
+  '<section class="caixa"><span class="olho">Portal IA</span><h1>O que você precisa para sua aula?</h1>' +
+  '<p class="sub" style="margin-top:4px">Escreva do seu jeito. A IA pergunta só o que faltar e entrega o material pronto para editar e imprimir.</p>' +
+  '<div class="ctx"><label>Turma<select id="selTurma">' + opTurmas() + '</select></label>' +
+  '<label>Disciplina<select id="selDisc"><option value="">Escolha</option>' + opDisc() + '</select></label>' +
+  '<label style="max-width:180px">Série<input id="inSerie" value="' + esc(E.serie) + '" placeholder="ex.: 6º ano" maxlength="30"></label></div>' +
+  '<div class="pede"><textarea id="pedido" maxlength="6000" placeholder="' + esc(at ? at.ph : "Ex.: preciso de uma atividade sobre frações para o 5º ano, com gabarito") + '">' + esc(E.texto) + "</textarea>" +
+  '<div class="pe">' + (at ? '<span class="fixo">' + esc(at.t) + '<button type="button" data-action="soltar" aria-label="Tirar o tipo">×</button></span>' : "") +
+  '<span class="cota">' + esc(textoCota()) + '</span><span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div></div>" +
+  (at ? "" : '<div class="exs">' + EXEMPLOS.map(x => '<button type="button" class="ex" data-action="exemplo" data-arg="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div>") +
+  "</section>" +
+  '<section><h2 style="margin-bottom:10px">Atalhos do dia a dia</h2><div class="atalhos">' +
+  ATALHOS.map(a => '<button type="button" class="at" data-action="atalho" data-arg="' + a.k + '"><div class="foto" style="background-image:url(\'' + CAPA(a.foto) + '\')"></div><div class="tx"><b>' + esc(a.t) + "</b><small>" + esc(a.d) + "</small></div></button>").join("") +
+  "</div></section>" +
+  '<section><h2 style="margin-bottom:10px">Seus materiais</h2>' +
+  (E.recentes.length ? '<div class="rec">' + E.recentes.slice(0, 30).map(r => '<button type="button" class="rc" data-action="abrir" data-arg="' + esc(r.id) + '"><span class="tg">' + esc(r.tipo_nome || NOME_T[r.tipo] || "Material") + "</span><b>" + (r.favorito ? "★ " : "") + esc(r.titulo || r.tema || "Sem título") + "</b><small>" + esc(dataCurta(r.atualizado_em)) + "</small></button>").join("") + "</div>"
+    : '<div class="caixa" style="text-align:center;color:var(--muted)">O que você preparar aqui fica guardado nesta lista.</div>') +
+  "</section></div>";
+}
+function dataCurta(x){ const ms = x && (x.toMillis ? x.toMillis() : x.__ms || (x.seconds ? x.seconds * 1000 : 0)); return ms ? new Date(ms).toLocaleDateString("pt-BR", { day:"2-digit", month:"short" }) : ""; }
+
+/* ---------- conversa: entender → perguntas → gerar ---------- */
+function telaConversa(){
+  const c = E.conversa;
+  let h = '<div class="pilha" style="max-width:820px;margin:0 auto;gap:14px">' +
+    '<div class="fala eu"><div class="av">Eu</div><div class="bl">' + esc(c.texto || ("Quero: " + (NOME_T[c.tipo] || ""))) + "</div></div>";
+  if(c.etapa === "entendendo") h += '<div class="fala"><div class="av">IA</div><div class="bl"><div class="carreg" style="padding:4px 0"><span class="giro"></span>Entendendo o seu pedido...</div></div></div>';
+  if(c.etapa === "perguntas" || c.etapa === "gerando" || c.etapa === "erro"){
+    h += '<div class="fala"><div class="av">IA</div><div class="bl"><b>' + esc(c.nome || "Material") + (c.tema ? ": " + esc(c.tema) : "") + "</b>";
+    if(c.perguntas.length){
+      h += '<p class="sub" style="margin-top:4px">' + (c.perguntas.length > 1 ? "Duas coisas" : "Só uma coisa") + " antes de começar:</p>";
+      c.perguntas.forEach(p => {
+        const v = c.respostas[p.id] || "";
+        h += '<div class="perg"><b>' + esc(p.pergunta) + "</b>" +
+          (p.opcoes.length ? '<div class="chips">' + p.opcoes.map(o => '<button type="button" class="chip' + (v === o ? " on" : "") + '" data-action="resp" data-id="' + esc(p.id) + '" data-arg="' + esc(o) + '">' + esc(o) + "</button>").join("") + "</div>" : "") +
+          (p.livre ? '<textarea data-resp="' + esc(p.id) + '" maxlength="6000" placeholder="Escreva aqui">' + esc(p.opcoes.includes(v) ? "" : v) + "</textarea>"
+            : (p.opcoes.length ? '<input data-resp="' + esc(p.id) + '" maxlength="200" placeholder="Ou escreva outra resposta" value="' + esc(p.opcoes.includes(v) ? "" : v) + '">' : '<input data-resp="' + esc(p.id) + '" maxlength="300" value="' + esc(v) + '">')) + "</div>";
+      });
+    } else h += '<p class="sub" style="margin-top:4px">Entendi tudo o que precisava.</p>';
+    if(c.tipo === "parecer" || c.tipo === "inclusao") h += '<div class="aviso">Use só o primeiro nome do aluno. Não coloque sobrenome, endereço nem diagnóstico com nome completo.</div>';
+    if(c.etapa === "perguntas") h += '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap"><button type="button" class="btn pri" data-action="gerar">Preparar o material</button><button type="button" class="btn" data-action="inicio">Mudar o pedido</button></div>';
+    h += "</div></div>";
+  }
+  if(c.etapa === "gerando") h += '<div class="fala"><div class="av">IA</div><div class="bl"><div class="carreg" style="padding:4px 0"><span class="giro"></span>Preparando ' + esc((c.nome || "o material").toLowerCase()) + '...</div><div class="passos" id="passos"></div></div></div>';
+  if(c.etapa === "erro") h += '<div class="fala"><div class="av">IA</div><div class="bl"><b style="color:var(--red)">' + esc(c.erro) + '</b><div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn pri" data-action="gerar">Tentar de novo</button><button type="button" class="btn" data-action="inicio">Voltar</button></div></div></div>';
+  if(c.etapa === "fora") h += '<div class="fala"><div class="av">IA</div><div class="bl">' + esc(c.mensagem || "O Portal IA prepara planos, atividades, provas, pareceres, adaptações, correções, recados e explicações para a sua aula.") + '<div style="margin-top:12px"><button type="button" class="btn" data-action="inicio">Fazer outro pedido</button></div></div></div>';
+  $("tela").innerHTML = h + "</div>";
+  if(c.etapa === "gerando") animarPassos();
+}
+function animarPassos(){
+  const P = ["Lendo o pedido e o contexto da turma", "Escrevendo o conteúdo", "Conferindo questões e gabarito", "Montando o documento"];
+  let i = 0; const el = $("passos"); if(!el) return;
+  const pinta = () => { el.innerHTML = P.map((p, j) => '<span class="' + (j < i ? "ok" : "") + '">' + (j < i ? "✓ " : j === i ? "• " : "  ") + esc(p) + "</span>").join(""); };
+  pinta(); clearInterval(E._passos); E._passos = setInterval(() => { if(!$("passos")){ clearInterval(E._passos); return; } if(i < P.length - 1){ i++; pinta(); } }, 5500);
+}
+async function enviar(){
+  if(E.ocupado) return;
+  const texto = String(($("pedido") || {}).value || "").trim();
+  E.texto = texto;
+  if(texto.length < 3 && !E.tipo){ toast("Escreva o que você precisa ou escolha um atalho.", true); return; }
+  E.conversa = { texto, tipo:E.tipo, etapa:"entendendo", perguntas:[], respostas:{}, nome:"", tema:"", resumo:"" };
+  E.ocupado = true; ir("conversa");
+  try{
+    const r = (await chamar({ acao:"entender", texto, tipo:E.tipo || undefined, contexto:contexto() })).data;
+    Object.assign(E.conversa, { tipo:r.tipo, nome:r.nome, tema:r.tema, resumo:r.resumo || texto, perguntas:r.perguntas || [], mensagem:r.mensagem });
+    if(r.tipo === "fora"){ E.conversa.etapa = "fora"; E.ocupado = false; desenhar(); return; }
+    E.ocupado = false;
+    if(!E.conversa.perguntas.length) return gerar();
+    E.conversa.etapa = "perguntas"; desenhar();
+  }catch(e){ E.ocupado = false; E.conversa.etapa = "erro"; E.conversa.erro = msgErro(e); E.conversa.tipo = E.conversa.tipo || E.tipo || ""; if(!E.conversa.tipo){ E.conversa.etapa = "fora"; E.conversa.mensagem = msgErro(e); } desenhar(); }
+}
+function lerRespostas(){ document.querySelectorAll("[data-resp]").forEach(el => { const v = el.value.trim(); if(v) E.conversa.respostas[el.dataset.resp] = v; }); }
+async function gerar(){
+  if(E.ocupado) return;
+  const c = E.conversa; if(c.etapa === "perguntas") lerRespostas();
+  const falta = c.perguntas.find(p => p.livre && !String(c.respostas[p.id] || "").trim());
+  if(falta){ toast("Responda: " + falta.pergunta, true); return; }
+  const extra = c.perguntas.map(p => c.respostas[p.id] ? p.pergunta + " " + c.respostas[p.id] : "").filter(Boolean).join("\n");
+  const resumo = (c.resumo || c.texto) + (extra ? "\n\nInformações do professor:\n" + extra : "");
+  const qtdM = (resumo.match(/(\d{1,2})\s*(quest|exerc|pergunt)/i) || [])[1];
+  c.etapa = "gerando"; E.ocupado = true; desenhar();
+  try{
+    const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto() })).data;
+    E.ocupado = false; clearInterval(E._passos);
+    E.cota = r.cota || E.cota; E.texto = ""; E.tipo = "";
+    E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"" };
+    E.imgUrl = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
+    ir("doc");
+  }catch(e){ E.ocupado = false; clearInterval(E._passos); c.etapa = "erro"; c.erro = msgErro(e); desenhar(); }
+}
+
+/* ---------- o documento ---------- */
+const LETRAS = ["A", "B", "C", "D", "E"];
+const todasQuestoes = d => (d.secoes || []).flatMap(s => s.questoes || []);
+const linhasDe = q => q.tipo === "aberta" ? Math.max(3, q.linhas || 4) : q.tipo === "curta" ? Math.max(2, q.linhas || 2) : 0;
+const ed = (k, v, tag, cls) => "<" + (tag || "span") + ' data-k="' + k + '"' + (cls ? ' class="' + cls + '"' : "") + ">" + esc(v) + "</" + (tag || "span") + ">";
+function htmlDoc(d, mostrarGab){
+  const cx = E.atual.contexto || {}, aluno = E.atual.publico === "aluno";
+  let h = '<div class="cab">' + (E.marca && E.marca.logo_url ? '<img src="' + esc(E.marca.logo_url) + '" alt="">' : "") + "<div><b>" + esc(E.ident.escola || "Escola") + "</b><small>" +
+    esc(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : "") + "</small></div></div>";
+  h += ed("titulo", d.titulo, "h1") + (d.subtitulo ? ed("subtitulo", d.subtitulo, "div", "st") : '<div class="st">' + esc([cx.disciplina, cx.serie].filter(Boolean).join(" · ")) + "</div>");
+  if(aluno) h += '<div class="alunol"><span>Aluno(a):</span><span>Data: ____/____</span></div>';
+  if(E.imgUrl) h += '<div class="ilus"><img src="' + esc(E.imgUrl) + '" alt="Ilustração do material"></div>';
+  let n = 0;
+  (d.secoes || []).forEach((s, i) => {
+    const b = "secoes." + i + ".";
+    h += "<section>" + ed(b + "titulo", s.titulo, "h3");
+    if(s.texto) String(s.texto).split(/\n{2,}/).length > 1 ? (h += ed(b + "texto", s.texto, "p")) : (h += ed(b + "texto", s.texto, "p"));
+    if((s.itens || []).length) h += "<ul>" + s.itens.map((it, j) => ed(b + "itens." + j, it, "li")).join("") + "</ul>";
+    if(s.tabela && (s.tabela.colunas || []).length) h += "<table><thead><tr>" + s.tabela.colunas.map((c, j) => ed(b + "tabela.colunas." + j, c, "th")).join("") + "</tr></thead><tbody>" +
+      (s.tabela.linhas || []).map((l, j) => "<tr>" + (l.celulas || []).map((c, k) => ed(b + "tabela.linhas." + j + ".celulas." + k, c, "td")).join("") + "</tr>").join("") + "</tbody></table>";
+    (s.questoes || []).forEach((q, j) => {
+      n++; const qb = b + "questoes." + j + ".";
+      h += '<div class="q"><div class="en"><span class="n">' + n + ".</span>" + ed(qb + "enunciado", q.enunciado, "span") + (q.valor ? ' <span class="val">(' + String(q.valor).replace(".", ",") + " pt)</span>" : "") + "</div>";
+      if(q.tipo === "multipla") h += "<ol>" + (q.alternativas || []).map((a, k) => '<li><span class="cx"></span><span>' + LETRAS[k] + ") </span>" + ed(qb + "alternativas." + k, a) + "</li>").join("") + "</ol>";
+      if(q.tipo === "vf") h += "<ol>" + (q.alternativas || []).map((a, k) => '<li><span class="cx vf"></span>' + ed(qb + "alternativas." + k, a) + "</li>").join("") + "</ol>";
+      if(q.tipo === "relacionar") h += '<div class="rel"><div>' + (q.coluna_a || []).map((a, k) => "<div>" + (k + 1) + ". " + ed(qb + "coluna_a." + k, a) + "</div>").join("") + "</div><div>" +
+        (q.coluna_b || []).map((a, k) => '<div><span class="cx vf" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>' + ed(qb + "coluna_b." + k, a) + "</div>").join("") + "</div></div>";
+      for(let k = 0; k < linhasDe(q); k++) h += '<div class="lin"></div>';
+      h += "</div>";
+    });
+    h += "</section>";
+  });
+  if(mostrarGab && (d.gabarito || []).length) h += '<div class="gab"><h3>Gabarito (para o professor)</h3>' + d.gabarito.map((g, i) => '<div class="gi"><b>' + esc(g.questao) + ".</b> " + ed("gabarito." + i + ".resposta", g.resposta) + (g.comentario ? " <i>" + ed("gabarito." + i + ".comentario", g.comentario) + "</i>" : "") + "</div>").join("") + "</div>";
+  if((d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))) h += '<section><h3>Habilidades da BNCC</h3><ul>' + d.bncc.map(b => "<li>" + (b.codigo ? "<b>" + esc(b.codigo) + "</b> " : "") + esc(b.descricao) + "</li>").join("") + "</ul></section>";
+  return h;
+}
+function telaDoc(){
+  const A = E.atual, d = A.doc, temGab = (d.gabarito || []).length > 0, c = E.cota;
+  const podeImg = !c || c.imagens == null || c.imagens > 0;
+  $("tela").innerHTML = '<div class="docgrid"><article class="folha' + (E.editando ? " editando" : "") + '" id="folha">' + htmlDoc(d, true) + "</article>" +
+  '<aside class="lado">' +
+  '<div class="caixa"><h4>' + esc(A.tipo_nome || "Material") + '</h4><div class="grupo">' +
+    '<button type="button" class="btn pri" data-action="pdf" data-arg="aluno">' + (A.publico === "aluno" ? "Baixar PDF do aluno" : "Baixar PDF") + "</button>" +
+    (temGab ? '<button type="button" class="btn" data-action="pdf" data-arg="gab">PDF do gabarito</button>' : "") +
+    '<button type="button" class="btn" data-action="copiar">Copiar o texto</button>' +
+    '<button type="button" class="btn" data-action="editar">' + (E.editando ? "Salvar edição" : "Editar o texto") + "</button>" +
+    '<button type="button" class="btn peq" data-action="favorito">' + (A.favorito ? "★ Favorito" : "☆ Marcar favorito") + "</button></div></div>" +
+  (d.versao_whatsapp ? '<div class="caixa"><h4>Para o WhatsApp</h4><div class="wpp">' + esc(d.versao_whatsapp) + '</div><button type="button" class="btn peq" style="margin-top:8px" data-action="copiar-wpp">Copiar mensagem</button></div>' : "") +
+  (d.nota_professor ? '<div class="nota"><b>Dica:</b> ' + esc(d.nota_professor) + "</div>" : "") +
+  '<div class="caixa"><h4>Ajustar com a IA</h4><div class="chips">' + AJUSTES.map(a => '<button type="button" class="chip" data-action="ajuste" data-arg="' + esc(a) + '">' + esc(a) + "</button>").join("") + "</div>" +
+    '<textarea id="ajusteLivre" maxlength="1000" placeholder="Ou diga o que mudar (ex.: troque a questão 3 por uma de relacionar)" style="margin-top:8px"></textarea>' +
+    '<button type="button" class="btn nav peq" style="margin-top:8px" data-action="ajuste-livre">Ajustar</button></div>' +
+  '<div class="caixa"><h4>Imagem para a aula</h4>' + (podeImg ?
+    '<textarea id="imgDesc" maxlength="600">' + esc(d.sugestao_imagem || d.titulo || "") + '</textarea><select id="imgEstilo" style="margin-top:8px">' + ESTILOS.map(([k, t]) => '<option value="' + k + '">' + t + "</option>").join("") + "</select>" +
+    '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgUrl ? "Gerar outra imagem" : "Gerar imagem") + "</button>" +
+    (c && c.imagens != null ? '<div class="cota" style="margin-top:6px">' + c.imagens + " imagens restantes no mês</div>" : "")
+    : '<p class="sub" style="font-size:.86rem">Gerar imagens está disponível nos planos Intermediário e Completo. Fale com a Secretaria ou com a NEWPC.</p>') + "</div>" +
+  '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>' +
+  "</aside></div>";
+  if(E.editando) document.querySelectorAll("#folha [data-k]").forEach(el => el.contentEditable = "true");
+}
+function definir(obj, caminho, valor){ const p = caminho.split("."); let o = obj; for(let i = 0; i < p.length - 1; i++){ o = o[p[i]]; if(o == null) return; } o[p[p.length - 1]] = valor; }
+async function alternarEdicao(){
+  if(!E.editando){ E.editando = true; telaDoc(); toast("Clique no texto para editar. Depois toque em Salvar edição."); return; }
+  const d = JSON.parse(JSON.stringify(E.atual.doc));
+  document.querySelectorAll("#folha [data-k]").forEach(el => definir(d, el.dataset.k, el.innerText.replace(/ /g, " ").trim()));
+  E.editando = false; E.atual.doc = d;
+  try{ await updateDoc(doc(db, "portal_ia_docs", E.atual.id), { doc:d, titulo:String(d.titulo || "").slice(0, 160), editado_em:serverTimestamp() }); toast("Edição salva."); }
+  catch(e){ console.warn(e.code); toast("Não consegui salvar a edição. Ela continua na tela.", true); }
+  const r = E.recentes.find(x => x.id === E.atual.id); if(r) r.titulo = d.titulo;
+  telaDoc();
+}
+async function ajustar(instrucao){
+  if(E.ocupado || !instrucao) return;
+  E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true);
+  toast("Ajustando: " + instrucao + "...");
+  try{
+    const r = (await chamar({ acao:"ajustar", id:E.atual.id, instrucao, contexto:E.atual.contexto || contexto() })).data;
+    E.atual.doc = r.doc; E.cota = r.cota || E.cota; toast("Pronto. Material ajustado.");
+  }catch(e){ toast(msgErro(e), true); }
+  E.ocupado = false; telaDoc();
+}
+async function gerarImagem(){
+  if(E.ocupado) return;
+  const descricao = String(($("imgDesc") || {}).value || "").trim(), estilo = ($("imgEstilo") || {}).value || "didatica";
+  if(descricao.length < 5){ toast("Descreva a imagem.", true); return; }
+  E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true); toast("Desenhando a imagem... leva uns segundos.");
+  try{
+    const r = (await chamar({ acao:"imagem", id:E.atual.id, descricao, estilo })).data;
+    E.imgUrl = "data:" + r.mime + ";base64," + r.dados; E.atual.imagem = r.caminho; E.cota = r.cota || E.cota; toast("Imagem pronta. Ela entra no PDF.");
+  }catch(e){ toast(msgErro(e), true); }
+  E.ocupado = false; telaDoc();
+}
+async function abrir(id){
+  let r = null;
+  try{ const s = await getDoc(doc(db, "portal_ia_docs", id)); if(s.exists()) r = { id:s.id, ...s.data() }; }catch(e){ console.warn(e.code); }
+  if(!r || !r.doc){ toast("Não encontrei este material.", true); return; }
+  E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "professor", doc:r.doc, contexto:r.contexto || {}, imagem:r.imagem || "", favorito:!!r.favorito };
+  E.imgUrl = ""; E.editando = false; ir("doc");
+  if(r.imagem){ try{ const S = await storage(); const b = await S.m.getBlob(S.m.ref(S.st, r.imagem)); E.imgUrl = await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); }); if(E.vista === "doc" && E.atual.id === id) telaDoc(); }catch(e){ console.warn("imagem:", e.code || e); } }
+}
+function textoPlano(d, gab){
+  const L = [d.titulo, d.subtitulo || ""]; let n = 0;
+  (d.secoes || []).forEach(s => { L.push("", String(s.titulo || "").toUpperCase()); if(s.texto) L.push(s.texto); (s.itens || []).forEach(i => L.push("- " + i));
+    if(s.tabela && (s.tabela.colunas || []).length){ L.push(s.tabela.colunas.join(" | ")); (s.tabela.linhas || []).forEach(l => L.push((l.celulas || []).join(" | "))); }
+    (s.questoes || []).forEach(q => { n++; L.push("", n + ". " + q.enunciado + (q.valor ? " (" + q.valor + " pt)" : ""));
+      if(q.tipo === "multipla") (q.alternativas || []).forEach((a, k) => L.push("   " + LETRAS[k] + ") " + a));
+      if(q.tipo === "vf") (q.alternativas || []).forEach(a => L.push("   (   ) " + a));
+      if(q.tipo === "relacionar"){ (q.coluna_a || []).forEach((a, k) => L.push("   " + (k + 1) + ". " + a)); (q.coluna_b || []).forEach(b => L.push("   (   ) " + b)); }
+    }); });
+  if(gab && (d.gabarito || []).length){ L.push("", "GABARITO"); d.gabarito.forEach(g => L.push(g.questao + ". " + g.resposta + (g.comentario ? " (" + g.comentario + ")" : ""))); }
+  return L.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+async function copiar(t){ try{ await navigator.clipboard.writeText(t); toast("Copiado."); }catch(e){ toast("Não consegui copiar. Selecione o texto e copie.", true); } }
+
+/* ---------- PDF: a diagramação é do Portal ---------- */
+const MAPA_PDF = { "π":"pi", "≤":"<=", "≥":">=", "≠":"diferente de", "√":"raiz de ", "−":"-", "–":"-", "—":", ", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'", "•":"-", "→":"->", "≈":"aprox. ", "★":"", "✓":"" };
+const pdfTx = s => String(s == null ? "" : s).replace(/[π≤≥≠√−–—…“”‘’•→≈★✓]/g, ch => MAPA_PDF[ch]).replace(/[^\u0000-ÿ\n]/g, "").replace(/\t/g, " ").replace(/ +([,.;:])/g, "$1").replace(/_{3,}/g, "_______________").trim();
+function imgPng(url, max){
+  return new Promise(ok => {
+    if(!url){ ok(null); return; }
+    const img = new Image(), tm = setTimeout(() => ok(null), 8000);
+    if(!/^data:/.test(url)) img.crossOrigin = "anonymous";
+    img.onload = () => { clearTimeout(tm); try{ const k = Math.min(1, (max || 400) / Math.max(img.naturalWidth, img.naturalHeight)), cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(img.naturalWidth * k)); cv.height = Math.max(1, Math.round(img.naturalHeight * k)); const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(img, 0, 0, cv.width, cv.height);
+      ok({ url:cv.toDataURL("image/jpeg", 0.9), w:cv.width, h:cv.height }); }catch(e){ ok(null); } };
+    img.onerror = () => { clearTimeout(tm); ok(null); };
+    img.src = url;
+  });
+}
+async function pdfDoc(qual){
+  if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
+  const A = E.atual, d = A.doc, gab = qual === "gab", aluno = A.publico === "aluno" && !gab, cx = A.contexto || {};
+  const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), W = 210, H = 297, mx = 15, larg = W - 2 * mx, corpo = 11, lh = corpo * 0.48;
+  const [logo, ilus] = await Promise.all([imgPng((E.marca || {}).logo_url, 400), gab ? null : imgPng(E.imgUrl, 1400)]);
+  pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 31, "F"); pdf.setFillColor(26, 107, 42); pdf.rect(0, 31, W, 1.2, "F"); pdf.setTextColor(255, 255, 255);
+  let x = mx;
+  if(logo){ const lado = 18; pdf.setFillColor(255, 255, 255); pdf.roundedRect(mx, 10, lado, lado, 2, 2, "F");
+    const k = Math.min((lado - 2) / logo.w, (lado - 2) / logo.h); pdf.addImage(logo.url, "JPEG", mx + (lado - logo.w * k) / 2, 10 + (lado - logo.h * k) / 2, logo.w * k, logo.h * k); x = mx + lado + 5; }
+  pdf.setFont("helvetica", "bold"); pdf.setFontSize(13); pdf.text(pdfTx(E.ident.escola || "Escola").slice(0, 70), x, 17);
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5);
+  pdf.text(pdfTx(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : ""), x, 23);
+  let y = 42; pdf.setTextColor(15, 44, 74); pdf.setFont("helvetica", "bold"); pdf.setFontSize(15);
+  pdf.splitTextToSize(pdfTx(d.titulo + (gab ? " · Gabarito" : "")), aluno ? larg - 28 : larg).forEach(l => { pdf.text(l, mx, y); y += 7; });
+  pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(70, 90, 110);
+  pdf.text(pdfTx(d.subtitulo || [cx.disciplina, cx.serie].filter(Boolean).join(" · ")), mx, y); y += 6;
+  pdf.setTextColor(20, 30, 40); pdf.setFontSize(10);
+  if(aluno){
+    pdf.text(pdfTx("Professor(a): " + (E.ident.prof || "")), mx, y); pdf.text(pdfTx("Turma: " + (cx.turma || "________")), mx + 110, y); y += 8;
+    pdf.text("Data: ____/____/______", W - mx, y, { align:"right" }); const wData = pdf.getTextWidth("Data: ____/____/______") + 6;
+    pdf.text("Aluno(a):", mx, y); const wA = pdf.getTextWidth("Aluno(a): "); pdf.setDrawColor(120, 140, 160); pdf.line(mx + wA, y + 0.8, W - mx - wData, y + 0.8);
+    pdf.roundedRect(W - mx - 22, 34, 22, 14, 2, 2); pdf.setFontSize(7.5); pdf.text("Nota", W - mx - 11, 38, { align:"center" }); y += 5;
+  } else if(gab){ pdf.setFont("helvetica", "bold"); pdf.text("Para o professor: não entregar ao aluno.", mx, y); pdf.setFont("helvetica", "normal"); y += 6; }
+  pdf.setDrawColor(210, 220, 230); pdf.line(mx, y, W - mx, y); y += 7;
+  const quebra = need => { if(y + need > H - 20){ pdf.addPage(); y = 20; } };
+  const escrever = (t, xx, w, bold, tam) => { pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(tam || corpo); const l2 = (tam || corpo) * 0.48;
+    String(t || "").split(/\n/).forEach(par => { pdf.splitTextToSize(pdfTx(par) || " ", w).forEach(l => { quebra(l2); pdf.text(l, xx, y); y += l2; }); }); };
+  if(ilus){ const lmax = Math.min(larg, 150), hmax = 95, k = Math.min(lmax / ilus.w, hmax / ilus.h); quebra(ilus.h * k + 4); pdf.addImage(ilus.url, "JPEG", mx + (larg - ilus.w * k) / 2, y - 2, ilus.w * k, ilus.h * k); y += ilus.h * k + 6; }
+  if(gab){
+    (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta, mx, larg, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
+    if((d.bncc || []).length){ y += 3; escrever("Habilidades da BNCC", mx, larg, true, 12); y += 1; d.bncc.forEach(b => escrever("- " + [b.codigo, b.descricao].filter(Boolean).join(": "), mx, larg, false)); }
+  } else {
+    let n = 0;
+    (d.secoes || []).forEach(s => {
+      quebra(lh * 4); pdf.setTextColor(15, 44, 74); escrever(s.titulo, mx, larg, true, 12.5); pdf.setTextColor(20, 30, 40); y += 1.5;
+      if(s.texto){ escrever(s.texto, mx, larg, false); y += 2; }
+      (s.itens || []).forEach(it => { quebra(lh); pdf.setFont("helvetica", "normal"); pdf.setFontSize(corpo); pdf.text("-", mx + 2, y); escrever(it, mx + 6, larg - 6, false); y += 0.8; });
+      if(s.tabela && (s.tabela.colunas || []).length){
+        const cols = s.tabela.colunas, nc = cols.length, cw = larg / nc;
+        const linha = (cel, bold) => { pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(9.5); const ls = cel.map(c => pdf.splitTextToSize(pdfTx(c) || " ", cw - 3)), alt = Math.max(...ls.map(l => l.length)) * 4.4 + 3;
+          quebra(alt); if(bold){ pdf.setFillColor(238, 243, 248); pdf.rect(mx, y - 4, larg, alt, "F"); } pdf.setDrawColor(201, 213, 225);
+          ls.forEach((l, i) => { pdf.rect(mx + i * cw, y - 4, cw, alt); l.forEach((t, j) => pdf.text(t, mx + i * cw + 1.5, y + j * 4.4)); }); y += alt; };
+        y += 2; linha(cols, true); (s.tabela.linhas || []).forEach(l => linha(cols.map((_, i) => (l.celulas || [])[i] || ""), false)); y += 4;
+      }
+      (s.questoes || []).forEach(q => {
+        n++; quebra(lh * 3); pdf.setFont("helvetica", "bold"); pdf.setFontSize(corpo); pdf.text(n + ".", mx, y);
+        escrever(q.enunciado + (q.valor ? " (" + String(q.valor).replace(".", ",") + " pt)" : ""), mx + 7, larg - 7, false); y += 1;
+        const caixa = w => { pdf.setDrawColor(90, 110, 130); pdf.setLineWidth(0.3); pdf.rect(mx + 9, y - lh * 0.72, lh * w, lh * 0.8); };
+        if(q.tipo === "multipla") (q.alternativas || []).forEach((a, j) => { quebra(lh); caixa(0.8); escrever(LETRAS[j] + ") " + a, mx + 9 + lh * 1.3, larg - 9 - lh * 1.3, false); });
+        if(q.tipo === "vf") (q.alternativas || []).forEach(a => { quebra(lh); caixa(1.4); escrever(a, mx + 9 + lh * 1.9, larg - 9 - lh * 1.9, false); });
+        if(q.tipo === "relacionar"){ const ca = q.coluna_a || [], cb = q.coluna_b || [], meia = (larg - 14) / 2; quebra(Math.max(ca.length, cb.length) * lh * 2); const y0 = y;
+          pdf.setFont("helvetica", "normal"); ca.forEach((a, j) => pdf.splitTextToSize(pdfTx((j + 1) + ". " + a), meia).forEach(l => { pdf.text(l, mx + 9, y); y += lh; }));
+          const yA = y; y = y0; cb.forEach(b => { pdf.setDrawColor(90, 110, 130); pdf.rect(mx + 14 + meia, y - lh * 0.72, lh * 1.4, lh * 0.8);
+            pdf.splitTextToSize(pdfTx(b), meia - lh * 1.9).forEach(l => { pdf.text(l, mx + 14 + meia + lh * 1.9, y); y += lh; }); }); y = Math.max(y, yA); }
+        const nl = linhasDe(q); for(let k = 0; k < nl; k++){ quebra(9); y += 7; pdf.setDrawColor(170, 185, 200); pdf.line(mx + 7, y, W - mx, y); } if(nl) y += 2;
+        y += 4.5;
+      });
+      y += 3;
+    });
+    if(!aluno && (d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))){ escrever("Habilidades da BNCC", mx, larg, true, 12); d.bncc.forEach(b => escrever("- " + [b.codigo, b.descricao].filter(Boolean).join(": "), mx, larg, false)); }
+    if(A.tipo === "recado" || A.tipo === "parecer"){ y += 10; quebra(20); pdf.setDrawColor(120, 140, 160); pdf.line(W - mx - 70, y, W - mx, y); pdf.setFontSize(9); pdf.text(pdfTx(E.ident.prof || "Professor(a)"), W - mx - 35, y + 5, { align:"center" }); }
+  }
+  const np = pdf.getNumberOfPages();
+  for(let i = 1; i <= np; i++){ pdf.setPage(i); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(110, 130, 150);
+    pdf.setDrawColor(210, 220, 230); pdf.line(mx, H - 12, W - mx, H - 12);
+    pdf.text("portaldoeducador.com.br · Feito com o Portal IA e revisado pelo professor", mx, H - 7.5); pdf.text("Página " + i + " de " + np, W - mx, H - 7.5, { align:"right" }); }
+  pdf.save((gab ? "gabarito-" : "") + (slug(d.titulo || A.tipo || "material").slice(0, 50) || "material") + ".pdf");
+}
+
+/* ===================== eventos ===================== */
+document.addEventListener("click", async ev => {
+  const el = ev.target.closest("[data-action]"); if(!el) return;
+  const a = el.dataset.action, arg = el.dataset.arg;
+  if(a === "inicio"){ ev.preventDefault(); if(E.ocupado) return; E.editando = false; ir("inicio"); return; }
+  if(a === "atalho"){ E.tipo = arg; E.texto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
+  if(a === "soltar"){ E.tipo = ""; E.texto = $("pedido").value; telaInicio(); return; }
+  if(a === "exemplo"){ $("pedido").value = arg; $("pedido").focus(); return; }
+  if(a === "enviar") return enviar();
+  if(a === "resp"){ lerRespostas(); E.conversa.respostas[el.dataset.id] = arg; telaConversa(); return; }
+  if(a === "gerar") return gerar();
+  if(a === "abrir") return abrir(arg);
+  if(a === "pdf") return pdfDoc(arg);
+  if(a === "copiar") return copiar(textoPlano(E.atual.doc, true));
+  if(a === "copiar-wpp") return copiar(E.atual.doc.versao_whatsapp || "");
+  if(a === "editar") return alternarEdicao();
+  if(a === "ajuste") return ajustar(arg);
+  if(a === "ajuste-livre") return ajustar(String(($("ajusteLivre") || {}).value || "").trim());
+  if(a === "imagem") return gerarImagem();
+  if(a === "favorito"){ E.atual.favorito = !E.atual.favorito; try{ await updateDoc(doc(db, "portal_ia_docs", E.atual.id), { favorito:E.atual.favorito }); }catch(e){ toast("Não consegui marcar.", true); }
+    const r = E.recentes.find(x => x.id === E.atual.id); if(r) r.favorito = E.atual.favorito; telaDoc(); return; }
+  if(a === "excluir"){ if(!confirm("Excluir este material? Não dá para desfazer.")) return;
+    try{ await deleteDoc(doc(db, "portal_ia_docs", E.atual.id)); E.recentes = E.recentes.filter(x => x.id !== E.atual.id); toast("Material excluído."); ir("inicio"); }catch(e){ toast("Não consegui excluir.", true); } return; }
+});
+document.addEventListener("change", ev => {
+  if(ev.target.id === "selTurma"){ definirTurma(ev.target.value); try{ localStorage.setItem("pde_pia_turma_" + E.user.uid, E.turma); }catch(e){} E.texto = ($("pedido") || {}).value || ""; telaInicio(); return; }
+  if(ev.target.id === "selDisc"){ E.disc = ev.target.value; return; }
+});
+document.addEventListener("input", ev => { if(ev.target.id === "inSerie") E.serie = ev.target.value.trim(); });
+document.addEventListener("keydown", ev => { if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
+
+onAuthStateChanged(auth, async user => {
+  if(!user){ location.replace("/entrar/"); return; }
+  let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
+  if(!u || u.status !== "ativo" || u.perfil === "aluno"){ location.replace("/entrar/"); return; }
+  E.user = user; E.u = u; E.admin = u.perfil === "admin";
+  $("quem").textContent = (u.nome || user.email) + " · sua aula, a IA prepara";
+  await Promise.all([carregarTurmas(), carregarRecentes(), carregarCota()]);
+  $("carregando").hidden = true; $("tela").hidden = false;
+  ir("inicio");
+});
+</script>
+</body>
+</html>
