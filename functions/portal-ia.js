@@ -100,17 +100,22 @@ async function gemini(chave, modelos, corpo) {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(110000) });
     if (r.status === 404) { console.warn('portal-ia: modelo fora do ar', mod); continue; }
     const j = await r.json().catch(() => ({}));
+    // se o modelo não aceitar o ajuste de raciocínio, repete a chamada sem ele
+    if (r.status === 400 && corpo.generationConfig && corpo.generationConfig.thinkingConfig && /think/i.test(JSON.stringify(j))) {
+      console.warn('portal-ia: sem thinkingConfig em', mod); const c2 = JSON.parse(JSON.stringify(corpo)); delete c2.generationConfig.thinkingConfig; return gemini(chave, [mod, ...modelos.filter(m => m !== mod)], c2);
+    }
     if (!r.ok) { console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400)); throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.'); }
-    const u = j.usageMetadata || {};
-    const partes = (((j.candidates || [])[0] || {}).content || {}).parts || [];
-    return { modelo: mod, partes, entrada: u.promptTokenCount || 0, saida: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) };
+    const u = j.usageMetadata || {}, cand = (j.candidates || [])[0] || {};
+    const partes = (cand.content || {}).parts || [];
+    return { modelo: mod, partes, fim: cand.finishReason || '', pensou: u.thoughtsTokenCount || 0, entrada: u.promptTokenCount || 0, saida: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) };
   }
   throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
 }
 async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
   const r = await gemini(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
-    generationConfig: { temperature: temp ?? 0.6, responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 16000 } });
-  let json = null; try { json = JSON.parse(r.partes.map(p => p.text || '').join('')); } catch (e) { json = null; }
+    generationConfig: { temperature: temp ?? 0.6, responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 32000, thinkingConfig: { thinkingLevel: 'low' } } });
+  const bruto = r.partes.filter(p => !p.thought).map(p => p.text || '').join('');
+  let json = null; try { json = JSON.parse(bruto); } catch (e) { json = null; console.warn('portal-ia: JSON inválido', r.modelo, 'fim', r.fim, 'pensou', r.pensou, 'tamanho', bruto.length, bruto.slice(-200)); }
   return { ...r, json };
 }
 
@@ -122,7 +127,7 @@ export function limparDoc(d) {
 }
 export function conferirDoc(d, tipo, qtd) {
   const prob = [];
-  if (!d || typeof d !== 'object') return ['resposta vazia'];
+  if (!d || typeof d !== 'object') return ['resposta incompleta'];
   if (!String(d.titulo || '').trim()) prob.push('sem título');
   const secoes = Array.isArray(d.secoes) ? d.secoes : [];
   if (!secoes.length) prob.push('sem conteúdo');
@@ -238,7 +243,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
         r = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
-        prob = conferirDoc(r.json, tipo, anterior ? 0 : qtd);
+        prob = r.json ? conferirDoc(r.json, tipo, anterior ? 0 : qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo') + ', ' + r.saida + ' tokens'];
         if (!prob.length) break;
         console.warn('portal-ia: conferência reprovou', tipo, prob.join('; '));
       }
