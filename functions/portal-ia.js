@@ -285,11 +285,13 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     const estilos = { didatica: 'ilustração didática colorida, traço limpo, fundo claro', colorir: 'desenho para colorir: só contornos pretos grossos sobre fundo branco, sem sombras nem cores', realista: 'fotografia realista e natural', cartoon: 'desenho animado infantil, alegre e acolhedor' };
     const estilo = estilos[d.estilo] || estilos.didatica;
     const docId = txt(d.id, 64);
+    // onde a imagem entra: no topo do material ou junto de uma questão (q1, q2...)
+    const onde = /^q([1-9]|[12]\d|30)$/.test(String(d.onde || '')) ? d.onde : 'topo';
     let docRef = null;
     if (docId) { docRef = db.doc(`portal_ia_docs/${docId}`); const s = await docRef.get(); if (!s.exists || s.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.'); }
     await reservar(db, ctx, 'imagens');
     const prompt = 'Crie uma imagem para uso em sala de aula de escola brasileira, adequada para crianças e adolescentes. Assunto: ' + descricao + '. Estilo: ' + estilo +
-      '. Formato horizontal 4:3. NÃO escreva palavras, letras nem números na imagem. Nada de violência, marcas comerciais ou pessoas reais conhecidas. Pessoas, quando houver, diversas e representando o Brasil.';
+      '. Formato ' + (onde === 'topo' ? 'horizontal 4:3' : 'quadrado 1:1, com o assunto centralizado e fundo limpo, para ficar ao lado de uma questão') + '. NÃO escreva palavras, letras nem números na imagem. Nada de violência, marcas comerciais ou pessoas reais conhecidas. Pessoas, quando houver, diversas e representando o Brasil.';
     let r = null, erro = null;
     try { r = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }); }
     catch (e) { erro = e; }
@@ -300,9 +302,25 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     const ext = /png/.test(parte.inlineData.mimeType) ? 'png' : 'jpg';
     const caminho = `portal-ia/${uid}/${docId || 'avulsa'}-${Date.now()}.${ext}`;
     await getStorage().bucket().file(caminho).save(Buffer.from(parte.inlineData.data, 'base64'), { contentType: parte.inlineData.mimeType, resumable: false, metadata: { cacheControl: 'private, max-age=86400' } });
-    if (docRef) await docRef.set({ imagem: caminho, imagem_descricao: descricao, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    if (docRef) {
+      const ant = (((await docRef.get()).data() || {}).imagens || {})[onde];
+      await docRef.set({ imagens: { [onde]: { caminho, descricao } }, ...(onde === 'topo' ? { imagem: caminho, imagem_descricao: descricao } : {}), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+      if (ant && ant.caminho) await getStorage().bucket().file(ant.caminho).delete().catch(() => {});   // a imagem trocada não fica ocupando espaço
+    }
     const s = await ctx.usoRef.get();
-    return { caminho, mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: quotaRestante(ctx, s.exists ? s.data() : {}) };
+    return { caminho, onde, mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: quotaRestante(ctx, s.exists ? s.data() : {}) };
+  }
+
+  // 4) tirar uma imagem do material (não devolve cota)
+  if (d.acao === 'remover_imagem') {
+    const docRef = db.doc(`portal_ia_docs/${txt(d.id, 64)}`); const s = await docRef.get();
+    if (!s.exists || s.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
+    const onde = /^(topo|q([1-9]|[12]\d|30))$/.test(String(d.onde || '')) ? d.onde : '';
+    if (!onde) throw new HttpsError('invalid-argument', 'Imagem inválida.');
+    const ims = s.data().imagens || {}, cam = (ims[onde] && ims[onde].caminho) || (onde === 'topo' ? s.data().imagem : '');
+    await docRef.update({ ['imagens.' + onde]: FieldValue.delete(), ...(onde === 'topo' ? { imagem: '' } : {}), atualizado_em: FieldValue.serverTimestamp() });
+    if (cam) await getStorage().bucket().file(cam).delete().catch(() => {});
+    return { ok: true };
   }
 
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');

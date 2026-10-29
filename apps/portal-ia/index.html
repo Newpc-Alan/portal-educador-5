@@ -130,7 +130,13 @@ h2{font-size:1.1rem;font-weight:800}
 .gab{margin-top:26px;border-top:2px dashed var(--line2);padding-top:16px}
 .gab .gi{margin-top:6px;font-size:.92rem}
 .gab .gi i{color:var(--muted)}
-.ilus{margin-top:16px;text-align:center}
+.ilus{margin-top:16px;text-align:center;position:relative}
+.q.cimg{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:14px;align-items:start}
+.qimg{position:relative}
+.qimg img{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+.tira{position:absolute;top:6px;right:6px;border:0;background:rgba(15,44,74,.85);color:#fff;border-radius:8px;font-size:.74rem;font-weight:700;padding:4px 8px}
+.maisimg{border:1px dashed var(--line2);background:#fff;color:var(--azul);border-radius:8px;font-size:.76rem;font-weight:700;padding:3px 9px;margin:6px 0 0 22px}
+.maisimg:hover{border-color:var(--azul)}
 .ilus img{max-width:100%;max-height:420px;border-radius:10px;border:1px solid var(--line)}
 .editando [data-k]{outline:1px dashed #9cc3a4;outline-offset:2px;border-radius:3px;background:#fbfffb}
 .editando [data-k]:focus{outline:2px solid var(--verde);background:#fff}
@@ -140,15 +146,15 @@ h2{font-size:1.1rem;font-weight:800}
 .lado .btn{width:100%}
 .lado .grupo{display:flex;flex-direction:column;gap:8px}
 .lado textarea{width:100%;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:64px;font-size:.88rem;resize:vertical}
-.lado select{width:100%;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px}
+.lado select{width:100%;margin-top:8px;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px}
 .wpp{white-space:pre-wrap;background:#E7F8EE;border-radius:10px;padding:10px;font-size:.88rem}
 .nota{background:var(--verde-cl);border-radius:12px;padding:10px 12px;font-size:.86rem;color:#1d4d27}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;border-radius:12px;padding:12px 18px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;z-index:120;max-width:92vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .toast.err{background:var(--red)}
 @media (max-width:920px){ .docgrid{grid-template-columns:1fr} .lado{position:static} }
-@media (max-width:560px){ .caixa{padding:18px} .folha{padding:20px 16px} .pede .pe .btn.pri{width:100%} .q .rel{grid-template-columns:1fr} }
-@media print{ .topo,.lado,.toast{display:none !important} body,html{background:#fff} .folha{border:0;box-shadow:none;padding:0} .docgrid{display:block} }
+@media (max-width:560px){ .q.cimg{grid-template-columns:1fr} .qimg{max-width:220px} .caixa{padding:18px} .folha{padding:20px 16px} .pede .pe .btn.pri{width:100%} .q .rel{grid-template-columns:1fr} }
+@media print{ .topo,.lado,.toast,.nao-imp{display:none !important} body,html{background:#fff} .folha{border:0;box-shadow:none;padding:0} .docgrid{display:block} }
 </style>
 </head>
 <body>
@@ -207,7 +213,7 @@ const AJUSTES = ["Mais fácil", "Mais difícil", "Mais curto", "Mais questões",
 const ESTILOS = [["didatica", "Ilustração didática"], ["colorir", "Desenho para colorir"], ["cartoon", "Desenho infantil"], ["realista", "Foto realista"]];
 
 const E = { user:null, u:null, admin:false, turmas:[], turma:"", disc:"", serie:"", ident:{ prof:"", escola:"" }, marca:null, cota:null,
-  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editando:false, ocupado:false, imgUrl:"" };
+  vista:"inicio", tipo:"", texto:"", conversa:null, atual:null, recentes:[], editando:false, ocupado:false, imgs:{}, imgOnde:"topo", imgDescPre:"" };
 
 /* ===================== dados do professor ===================== */
 const turmaAtual = () => E.turmas.find(t => t.id === E.turma) || null;
@@ -350,7 +356,7 @@ async function gerar(){
     E.ocupado = false; clearInterval(E._passos);
     E.cota = r.cota || E.cota; E.texto = ""; E.tipo = "";
     E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"" };
-    E.imgUrl = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
+    E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
     ir("doc");
   }catch(e){ E.ocupado = false; clearInterval(E._passos); c.etapa = "erro"; c.erro = msgErro(e); desenhar(); }
 }
@@ -366,7 +372,7 @@ function htmlDoc(d, mostrarGab){
     esc(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : "") + "</small></div></div>";
   h += ed("titulo", d.titulo, "h1") + (d.subtitulo ? ed("subtitulo", d.subtitulo, "div", "st") : '<div class="st">' + esc([cx.disciplina, cx.serie].filter(Boolean).join(" · ")) + "</div>");
   if(aluno) h += '<div class="alunol"><span>Aluno(a):</span><span>Data: ____/____</span></div>';
-  if(E.imgUrl) h += '<div class="ilus"><img src="' + esc(E.imgUrl) + '" alt="Ilustração do material"></div>';
+  if(E.imgs.topo) h += '<div class="ilus"><span class="qimg" style="display:inline-block"><img src="' + esc(E.imgs.topo) + '" alt="Ilustração do material"><button type="button" class="tira nao-imp" data-action="img-remover" data-arg="topo">Tirar imagem</button></span></div>';
   let n = 0;
   (d.secoes || []).forEach((s, i) => {
     const b = "secoes." + i + ".";
@@ -377,13 +383,15 @@ function htmlDoc(d, mostrarGab){
       (s.tabela.linhas || []).map((l, j) => "<tr>" + (l.celulas || []).map((c, k) => ed(b + "tabela.linhas." + j + ".celulas." + k, c, "td")).join("") + "</tr>").join("") + "</tbody></table>";
     (s.questoes || []).forEach((q, j) => {
       n++; const qb = b + "questoes." + j + ".";
-      h += '<div class="q"><div class="en"><span class="n">' + n + ".</span>" + ed(qb + "enunciado", q.enunciado, "span") + (q.valor ? ' <span class="val">(' + String(q.valor).replace(".", ",") + " pt)</span>" : "") + "</div>";
+      const qi = E.imgs["q" + n];
+      h += '<div class="q' + (qi ? " cimg" : "") + '"><div class="qc"><div class="en"><span class="n">' + n + ".</span>" + ed(qb + "enunciado", q.enunciado, "span") + (q.valor ? ' <span class="val">(' + String(q.valor).replace(".", ",") + " pt)</span>" : "") + "</div>";
       if(q.tipo === "multipla") h += "<ol>" + (q.alternativas || []).map((a, k) => '<li><span class="cx"></span><span>' + LETRAS[k] + ") </span>" + ed(qb + "alternativas." + k, a) + "</li>").join("") + "</ol>";
       if(q.tipo === "vf") h += "<ol>" + (q.alternativas || []).map((a, k) => '<li><span class="cx vf"></span>' + ed(qb + "alternativas." + k, a) + "</li>").join("") + "</ol>";
       if(q.tipo === "relacionar") h += '<div class="rel"><div>' + (q.coluna_a || []).map((a, k) => "<div>" + (k + 1) + ". " + ed(qb + "coluna_a." + k, a) + "</div>").join("") + "</div><div>" +
         (q.coluna_b || []).map((a, k) => '<div><span class="cx vf" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>' + ed(qb + "coluna_b." + k, a) + "</div>").join("") + "</div></div>";
       for(let k = 0; k < linhasDe(q); k++) h += '<div class="lin"></div>';
-      h += "</div>";
+      if(!qi && E.podeImg && !E.editando) h += '<button type="button" class="maisimg nao-imp" data-action="img-questao" data-arg="' + n + '">+ Imagem nesta questão</button>';
+      h += "</div>" + (qi ? '<div class="qimg"><img src="' + esc(qi) + '" alt="Imagem da questão ' + n + '"><button type="button" class="tira nao-imp" data-action="img-remover" data-arg="q' + n + '">Tirar</button></div>' : "") + "</div>";
     });
     h += "</section>";
   });
@@ -393,7 +401,8 @@ function htmlDoc(d, mostrarGab){
 }
 function telaDoc(){
   const A = E.atual, d = A.doc, temGab = (d.gabarito || []).length > 0, c = E.cota;
-  const podeImg = !c || c.imagens == null || c.imagens > 0;
+  const podeImg = E.podeImg = !c || c.imagens == null || c.imagens > 0;
+  const nq = todasQuestoes(d).length;
   $("tela").innerHTML = '<div class="docgrid"><article class="folha' + (E.editando ? " editando" : "") + '" id="folha">' + htmlDoc(d, true) + "</article>" +
   '<aside class="lado">' +
   '<div class="caixa"><h4>' + esc(A.tipo_nome || "Material") + '</h4><div class="grupo">' +
@@ -408,8 +417,10 @@ function telaDoc(){
     '<textarea id="ajusteLivre" maxlength="1000" placeholder="Ou diga o que mudar (ex.: troque a questão 3 por uma de relacionar)" style="margin-top:8px"></textarea>' +
     '<button type="button" class="btn nav peq" style="margin-top:8px" data-action="ajuste-livre">Ajustar</button></div>' +
   '<div class="caixa"><h4>Imagem para a aula</h4>' + (podeImg ?
-    '<textarea id="imgDesc" maxlength="600">' + esc(d.sugestao_imagem || d.titulo || "") + '</textarea><select id="imgEstilo" style="margin-top:8px">' + ESTILOS.map(([k, t]) => '<option value="' + k + '">' + t + "</option>").join("") + "</select>" +
-    '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgUrl ? "Gerar outra imagem" : "Gerar imagem") + "</button>" +
+    '<textarea id="imgDesc" maxlength="600">' + esc(E.imgDescPre || d.sugestao_imagem || d.titulo || "") + '</textarea>' +
+    '<select id="imgOnde" aria-label="Onde colocar a imagem"><option value="topo">Onde: no topo do material</option>' + Array.from({ length:Math.min(nq, 30) }, (_, i) => '<option value="q' + (i + 1) + '"' + (E.imgOnde === "q" + (i + 1) ? " selected" : "") + ">Onde: ao lado da questão " + (i + 1) + "</option>").join("") + "</select>" +
+    '<select id="imgEstilo" aria-label="Estilo da imagem">' + ESTILOS.map(([k, t]) => '<option value="' + k + '">' + t + "</option>").join("") + "</select>" +
+    '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem") + "</button>" +
     (c && c.imagens != null ? '<div class="cota" style="margin-top:6px">' + c.imagens + " imagens restantes no mês</div>" : "")
     : '<p class="sub" style="font-size:.86rem">Gerar imagens está disponível nos planos Intermediário e Completo. Fale com a Secretaria ou com a NEWPC.</p>') + "</div>" +
   '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>' +
@@ -439,13 +450,25 @@ async function ajustar(instrucao){
 }
 async function gerarImagem(){
   if(E.ocupado) return;
-  const descricao = String(($("imgDesc") || {}).value || "").trim(), estilo = ($("imgEstilo") || {}).value || "didatica";
+  let descricao = String(($("imgDesc") || {}).value || "").trim(), onde = ($("imgOnde") || {}).value || "topo";
+  const estilo = ($("imgEstilo") || {}).value || "didatica";
+  // "ao lado da questão 1" escrito na descrição também vale como lugar
+  const m = descricao.match(/(?:ao lado|junto|perto|dentro|na|no)\s+(?:d[aeo]\s+)?quest(?:ã|a)o\s*(\d{1,2})/i);
+  if(m && onde === "topo" && +m[1] >= 1 && +m[1] <= todasQuestoes(E.atual.doc).length){ onde = "q" + m[1]; descricao = descricao.replace(m[0], "").replace(/^[\s.,;:]+/, "").trim(); }
   if(descricao.length < 5){ toast("Descreva a imagem.", true); return; }
+  E.imgOnde = onde; E.imgDescPre = "";
   E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true); toast("Desenhando a imagem... leva uns segundos.");
   try{
-    const r = (await chamar({ acao:"imagem", id:E.atual.id, descricao, estilo })).data;
-    E.imgUrl = "data:" + r.mime + ";base64," + r.dados; E.atual.imagem = r.caminho; E.cota = r.cota || E.cota; toast("Imagem pronta. Ela entra no PDF.");
+    const r = (await chamar({ acao:"imagem", id:E.atual.id, descricao, estilo, onde })).data;
+    E.imgs[r.onde || onde] = "data:" + r.mime + ";base64," + r.dados; E.cota = r.cota || E.cota;
+    toast((r.onde || onde) === "topo" ? "Imagem pronta no topo. Ela entra no PDF." : "Imagem pronta ao lado da questão " + (r.onde || onde).slice(1) + ". Ela entra no PDF.");
   }catch(e){ toast(msgErro(e), true); }
+  E.ocupado = false; telaDoc();
+}
+async function removerImagem(onde){
+  if(E.ocupado || !E.imgs[onde]) return;
+  E.ocupado = true;
+  try{ await chamar({ acao:"remover_imagem", id:E.atual.id, onde }); delete E.imgs[onde]; toast("Imagem retirada."); }catch(e){ toast(msgErro(e), true); }
   E.ocupado = false; telaDoc();
 }
 async function abrir(id){
@@ -453,8 +476,13 @@ async function abrir(id){
   try{ const s = await getDoc(doc(db, "portal_ia_docs", id)); if(s.exists()) r = { id:s.id, ...s.data() }; }catch(e){ console.warn(e.code); }
   if(!r || !r.doc){ toast("Não encontrei este material.", true); return; }
   E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.tipo_nome, publico:r.publico || "professor", doc:r.doc, contexto:r.contexto || {}, imagem:r.imagem || "", favorito:!!r.favorito };
-  E.imgUrl = ""; E.editando = false; ir("doc");
-  if(r.imagem){ try{ const S = await storage(); const b = await S.m.getBlob(S.m.ref(S.st, r.imagem)); E.imgUrl = await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); }); if(E.vista === "doc" && E.atual.id === id) telaDoc(); }catch(e){ console.warn("imagem:", e.code || e); } }
+  E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.editando = false; ir("doc");
+  const caminhos = {}; Object.entries(r.imagens || {}).forEach(([k, v]) => { if(v && v.caminho) caminhos[k] = v.caminho; });
+  if(r.imagem && !caminhos.topo) caminhos.topo = r.imagem;
+  for(const [k, cam] of Object.entries(caminhos)){
+    try{ const S = await storage(); const b = await S.m.getBlob(S.m.ref(S.st, cam)); const url = await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); });
+      if(E.vista === "doc" && E.atual.id === id){ E.imgs[k] = url; telaDoc(); } }catch(e){ console.warn("imagem:", e.code || e); }
+  }
 }
 function textoPlano(d, gab){
   const L = [d.titulo, d.subtitulo || ""]; let n = 0;
@@ -489,7 +517,8 @@ async function pdfDoc(qual){
   if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
   const A = E.atual, d = A.doc, gab = qual === "gab", aluno = A.publico === "aluno" && !gab, cx = A.contexto || {};
   const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), W = 210, H = 297, mx = 15, larg = W - 2 * mx, corpo = 11, lh = corpo * 0.48;
-  const [logo, ilus] = await Promise.all([imgPng((E.marca || {}).logo_url, 400), gab ? null : imgPng(E.imgUrl, 1400)]);
+  const [logo, ilus] = await Promise.all([imgPng((E.marca || {}).logo_url, 400), gab ? null : imgPng(E.imgs.topo, 1400)]);
+  const imgQ = {}; if(!gab) await Promise.all(Object.keys(E.imgs).filter(k => k !== "topo").map(async k => { imgQ[k] = await imgPng(E.imgs[k], 700); }));
   pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 31, "F"); pdf.setFillColor(26, 107, 42); pdf.rect(0, 31, W, 1.2, "F"); pdf.setTextColor(255, 255, 255);
   let x = mx;
   if(logo){ const lado = 18; pdf.setFillColor(255, 255, 255); pdf.roundedRect(mx, 10, lado, lado, 2, 2, "F");
@@ -512,7 +541,7 @@ async function pdfDoc(qual){
   const quebra = need => { if(y + need > H - 20){ pdf.addPage(); y = 20; } };
   const escrever = (t, xx, w, bold, tam) => { pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(tam || corpo); const l2 = (tam || corpo) * 0.48;
     String(t || "").split(/\n/).forEach(par => { pdf.splitTextToSize(pdfTx(par) || " ", w).forEach(l => { quebra(l2); pdf.text(l, xx, y); y += l2; }); }); };
-  if(ilus){ const lmax = Math.min(larg, 150), hmax = 95, k = Math.min(lmax / ilus.w, hmax / ilus.h); quebra(ilus.h * k + 4); pdf.addImage(ilus.url, "JPEG", mx + (larg - ilus.w * k) / 2, y - 2, ilus.w * k, ilus.h * k); y += ilus.h * k + 6; }
+  if(ilus){ const lmax = Math.min(larg, 120), hmax = 78, k = Math.min(lmax / ilus.w, hmax / ilus.h); quebra(ilus.h * k + 4); pdf.addImage(ilus.url, "JPEG", mx + (larg - ilus.w * k) / 2, y - 2, ilus.w * k, ilus.h * k); y += ilus.h * k + 6; }
   if(gab){
     (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta, mx, larg, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
     if((d.bncc || []).length){ y += 3; escrever("Habilidades da BNCC", mx, larg, true, 12); y += 1; d.bncc.forEach(b => escrever("- " + [b.codigo, b.descricao].filter(Boolean).join(": "), mx, larg, false)); }
@@ -530,16 +559,20 @@ async function pdfDoc(qual){
         y += 2; linha(cols, true); (s.tabela.linhas || []).forEach(l => linha(cols.map((_, i) => (l.celulas || [])[i] || ""), false)); y += 4;
       }
       (s.questoes || []).forEach(q => {
-        n++; quebra(lh * 3); pdf.setFont("helvetica", "bold"); pdf.setFontSize(corpo); pdf.text(n + ".", mx, y);
-        escrever(q.enunciado + (q.valor ? " (" + String(q.valor).replace(".", ",") + " pt)" : ""), mx + 7, larg - 7, false); y += 1;
+        n++; const qi = imgQ["q" + n], LI = 38, dir = qi ? LI + 6 : 0, lq = larg - dir;   // imagem da questão: coluna da direita
+        quebra(qi ? LI + 4 : lh * 3); const yIni = y;
+        if(qi){ const k = Math.min(LI / qi.w, LI / qi.h); pdf.addImage(qi.url, "JPEG", W - mx - LI + (LI - qi.w * k) / 2, y - 3.5, qi.w * k, qi.h * k); }
+        pdf.setFont("helvetica", "bold"); pdf.setFontSize(corpo); pdf.text(n + ".", mx, y);
+        escrever(q.enunciado + (q.valor ? " (" + String(q.valor).replace(".", ",") + " pt)" : ""), mx + 7, lq - 7, false); y += 1;
         const caixa = w => { pdf.setDrawColor(90, 110, 130); pdf.setLineWidth(0.3); pdf.rect(mx + 9, y - lh * 0.72, lh * w, lh * 0.8); };
-        if(q.tipo === "multipla") (q.alternativas || []).forEach((a, j) => { quebra(lh); caixa(0.8); escrever(LETRAS[j] + ") " + a, mx + 9 + lh * 1.3, larg - 9 - lh * 1.3, false); });
-        if(q.tipo === "vf") (q.alternativas || []).forEach(a => { quebra(lh); caixa(1.4); escrever(a, mx + 9 + lh * 1.9, larg - 9 - lh * 1.9, false); });
-        if(q.tipo === "relacionar"){ const ca = q.coluna_a || [], cb = q.coluna_b || [], meia = (larg - 14) / 2; quebra(Math.max(ca.length, cb.length) * lh * 2); const y0 = y;
+        if(q.tipo === "multipla") (q.alternativas || []).forEach((a, j) => { quebra(lh); caixa(0.8); escrever(LETRAS[j] + ") " + a, mx + 9 + lh * 1.3, lq - 9 - lh * 1.3, false); });
+        if(q.tipo === "vf") (q.alternativas || []).forEach(a => { quebra(lh); caixa(1.4); escrever(a, mx + 9 + lh * 1.9, lq - 9 - lh * 1.9, false); });
+        if(q.tipo === "relacionar"){ const ca = q.coluna_a || [], cb = q.coluna_b || [], meia = (lq - 14) / 2; quebra(Math.max(ca.length, cb.length) * lh * 2); const y0 = y;
           pdf.setFont("helvetica", "normal"); ca.forEach((a, j) => pdf.splitTextToSize(pdfTx((j + 1) + ". " + a), meia).forEach(l => { pdf.text(l, mx + 9, y); y += lh; }));
           const yA = y; y = y0; cb.forEach(b => { pdf.setDrawColor(90, 110, 130); pdf.rect(mx + 14 + meia, y - lh * 0.72, lh * 1.4, lh * 0.8);
             pdf.splitTextToSize(pdfTx(b), meia - lh * 1.9).forEach(l => { pdf.text(l, mx + 14 + meia + lh * 1.9, y); y += lh; }); }); y = Math.max(y, yA); }
-        const nl = linhasDe(q); for(let k = 0; k < nl; k++){ quebra(9); y += 7; pdf.setDrawColor(170, 185, 200); pdf.line(mx + 7, y, W - mx, y); } if(nl) y += 2;
+        const nl = linhasDe(q); for(let k = 0; k < nl; k++){ quebra(9); y += 7; pdf.setDrawColor(170, 185, 200); pdf.line(mx + 7, y, W - mx - (qi && y < yIni + LI ? dir : 0), y); } if(nl) y += 2;
+        if(qi && y < yIni + LI) y = yIni + LI;
         y += 4.5;
       });
       y += 3;
@@ -573,6 +606,9 @@ document.addEventListener("click", async ev => {
   if(a === "ajuste") return ajustar(arg);
   if(a === "ajuste-livre") return ajustar(String(($("ajusteLivre") || {}).value || "").trim());
   if(a === "imagem") return gerarImagem();
+  if(a === "img-remover") return removerImagem(arg);
+  if(a === "img-questao"){ const q = todasQuestoes(E.atual.doc)[+arg - 1]; E.imgOnde = "q" + arg; E.imgDescPre = q ? "Ilustração que ajude o aluno a responder: " + q.enunciado : ""; telaDoc();
+    const t = $("imgDesc"); if(t){ t.scrollIntoView({ block:"center", behavior:"smooth" }); t.focus(); t.select(); } toast("Descreva a imagem da questão " + arg + " e toque em Gerar imagem."); return; }
   if(a === "favorito"){ E.atual.favorito = !E.atual.favorito; try{ await updateDoc(doc(db, "portal_ia_docs", E.atual.id), { favorito:E.atual.favorito }); }catch(e){ toast("Não consegui marcar.", true); }
     const r = E.recentes.find(x => x.id === E.atual.id); if(r) r.favorito = E.atual.favorito; telaDoc(); return; }
   if(a === "excluir"){ if(!confirm("Excluir este material? Não dá para desfazer.")) return;
@@ -581,6 +617,7 @@ document.addEventListener("click", async ev => {
 document.addEventListener("change", ev => {
   if(ev.target.id === "selTurma"){ definirTurma(ev.target.value); try{ localStorage.setItem("pde_pia_turma_" + E.user.uid, E.turma); }catch(e){} E.texto = ($("pedido") || {}).value || ""; telaInicio(); return; }
   if(ev.target.id === "selDisc"){ E.disc = ev.target.value; return; }
+  if(ev.target.id === "imgOnde"){ E.imgOnde = ev.target.value; const b = document.querySelector('[data-action="imagem"]'); if(b) b.textContent = E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem"; return; }
 });
 document.addEventListener("input", ev => { if(ev.target.id === "inSerie") E.serie = ev.target.value.trim(); });
 document.addEventListener("keydown", ev => { if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
