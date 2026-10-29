@@ -119,8 +119,9 @@ async function gemini(chave, modelos, corpo) {
   throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
 }
 async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
+  // Gemini 3 em diante: temperatura padrão (1.0), como o Google recomenda; abaixo disso ele entra em repetição e estoura o limite
   const r = await gemini(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
-    generationConfig: { temperature: temp ?? 0.6, responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 12000, thinkingConfig: { thinkingLevel: 'low' } } });
+    generationConfig: { ...(/gemini-[3-9]/.test(modelos[0] || '') ? {} : { temperature: temp ?? 0.6 }), responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 12000, thinkingConfig: { thinkingLevel: 'low' } } });
   const bruto = r.partes.filter(p => !p.thought).map(p => p.text || '').join('');
   let json = null; try { json = JSON.parse(bruto); } catch (e) { json = null; console.warn('portal-ia: JSON inválido', r.modelo, 'fim', r.fim, 'pensou', r.pensou, 'tamanho', bruto.length, bruto.slice(-200)); }
   return { ...r, json };
@@ -257,7 +258,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       '\nDevolva o material inteiro já ajustado, no mesmo formato, mudando só o que o ajuste pede.';
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null;
     try {
-      for (let t = 0; t < 2; t++) {
+      for (let t = 0; t < 3; t++) {
         r = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
