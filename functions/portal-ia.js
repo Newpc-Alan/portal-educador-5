@@ -191,6 +191,55 @@ async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
 /* ------------------------------------------------------------------ limpeza e conferência */
 const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]|\d+[).])\s*/, '').trim();
 const ehCombinacao = a => /^[VF](\s*[-,;/]?\s*[VF])+$/i.test(String(a || '').trim());
+/* ------------------------------------------------------------------ Provas e Avaliações: questões no formato da ferramenta */
+export const ESQUEMA_QUESTOES = {
+  type: 'OBJECT',
+  properties: {
+    questoes: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      tipo: { type: 'STRING', enum: ['multipla', 'vf', 'curta', 'dissertativa'] },
+      enunciado: S('Enunciado completo e claro, sem número na frente. Em vf, UMA afirmação para o aluno julgar.'),
+      alternativas: AS('Só em multipla: exatamente 4 opções curtas, sem letra na frente. Nos outros tipos, vazio.'),
+      correta: { type: 'INTEGER', description: 'Só em multipla: posição da alternativa correta (0 a 3).' },
+      vf: S('Só em vf: a letra V se a afirmação é verdadeira, F se é falsa. Nos outros tipos, vazio.'),
+      esperado: S('Em curta e dissertativa: a resposta esperada ou o critério de correção, para o professor.'),
+      valor: { type: 'NUMBER', description: 'Pontos da questão.' },
+      bncc: S('Código da habilidade da BNCC (ex.: EF05MA03) só se tiver certeza; senão vazio.')
+    }, required: ['tipo', 'enunciado'] } }
+  },
+  required: ['questoes']
+};
+const TIPOS_PROVA = { mista: 'mistas: a maioria de múltipla escolha, algumas de verdadeiro ou falso, 1 ou 2 de resposta curta e 1 dissertativa', multipla: 'todas de múltipla escolha',
+  vf: 'todas de verdadeiro ou falso', aberta: 'todas dissertativas', curta: 'todas de resposta curta' };
+// converte para o formato do Provas e Avaliações e ajusta os pontos ao total pedido
+export function paraProvas(lista, total) {
+  const qs = (lista || []).map(q => {
+    const tipo = ['multipla', 'vf', 'curta', 'dissertativa'].includes(q.tipo) ? q.tipo : 'dissertativa';
+    const o = { tipo, enun: String(q.enunciado || '').replace(/^\s*(quest[aã]o\s*)?\d{1,2}\s*[).:\-–]\s*/i, '').trim(), valor: Number(q.valor) > 0 ? Number(q.valor) : 1,
+      bncc: (String(q.bncc || '').toUpperCase().match(/E[FIM]\d{2}[A-Z]{2}\d{2,3}/) || [''])[0] };
+    if (tipo === 'multipla') { o.alts = (q.alternativas || []).map(semMarca).filter(Boolean).slice(0, 5); const c = Number(q.correta); o.gab = Number.isInteger(c) && c >= 0 && c < o.alts.length ? c : -1; }
+    if (tipo === 'vf') { const v = String(q.vf || '').trim().toUpperCase().charAt(0); o.gab = v === 'V' || v === 'F' ? v : ''; }
+    if (tipo === 'curta' || tipo === 'dissertativa') o.exp = String(q.esperado || '').trim();
+    return o;
+  }).filter(q => q.enun);
+  if (total > 0 && qs.length) {
+    const soma = qs.reduce((a, q) => a + q.valor, 0) || 1;
+    qs.forEach(q => { q.valor = Math.max(0.25, Math.round(q.valor / soma * total * 4) / 4); });
+    const dif = Math.round((total - qs.reduce((a, q) => a + q.valor, 0)) * 4) / 4;
+    if (dif) { const m = qs.reduce((a, q) => q.valor > a.valor ? q : a, qs[0]); m.valor = Math.max(0.25, Math.round((m.valor + dif) * 4) / 4); }
+  }
+  return qs;
+}
+export function conferirQuestoes(qs, qtd) {
+  const prob = [];
+  if (!qs.length) return ['sem questões'];
+  if (qtd && Math.abs(qs.length - qtd) > 1) prob.push('veio com ' + qs.length + ' questões em vez de ' + qtd);
+  qs.forEach((q, i) => {
+    if (q.tipo === 'multipla' && (q.alts.length !== 4 || q.gab < 0)) prob.push('questão ' + (i + 1) + ' de múltipla escolha sem 4 alternativas ou sem a correta');
+    if (q.tipo === 'vf' && !q.gab) prob.push('questão ' + (i + 1) + ' de V ou F sem a resposta');
+  });
+  return prob;
+}
+
 export function limparDoc(d) {
   (d.secoes || []).forEach(s => (s.questoes || []).forEach(q => {
     q.enunciado = String(q.enunciado || '').replace(/^\s*(quest[aã]o\s*)?\d{1,2}\s*[).:\-–]\s*/i, '').trim();
@@ -370,6 +419,38 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     await docRef.update({ ['imagens.' + onde]: FieldValue.delete(), ...(onde === 'topo' ? { imagem: '' } : {}), atualizado_em: FieldValue.serverTimestamp() });
     if (cam) await getStorage().bucket().file(cam).delete().catch(() => {});
     return { ok: true };
+  }
+
+  /* ---------------- questões para o Provas e Avaliações (1 crédito) ---------------- */
+  if (d.acao === 'questoes_prova') {
+    const tema = txt(d.tema, 300), qtd = Math.min(30, Math.max(1, Math.round(Number(d.qtd) || 10))), total = Math.min(100, Math.max(0, Number(d.total) || 0));
+    if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema ou conteúdo da prova.');
+    const tipos = TIPOS_PROVA[d.tipos] || TIPOS_PROVA.mista, nivel = txt(d.nivel, 40) || 'médio';
+    const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
+    const res = await reservarCreditos(db, ctx, 'texto');
+    const sistema = 'Você é um professor experiente da rede pública brasileira e elabora avaliações escolares. Crie exatamente ' + qtd + ' questões. ' +
+      'Múltipla escolha: 4 alternativas curtas, só uma correta, distratores plausíveis. Verdadeiro ou falso: cada questão é UMA afirmação clara, sem pegadinha. ' +
+      'Resposta curta e dissertativa: informe em "esperado" a resposta ou o critério de correção. Dificuldade crescente. Valores: 1 ponto para objetivas, 2 para dissertativas, salvo outro total pedido.\n\n' + REGRAS_GERAIS;
+    const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') + '\nTema: ' + tema + '\nQuantidade: ' + qtd + ' questões\nTipos: ' + tipos +
+      '\nNível: ' + nivel + (total ? '\nValor total da prova: ' + total + ' pontos' : '') + (obs ? '\nObservações do professor: ' + obs : '');
+    let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, qs = [];
+    try {
+      for (let t = 0; t < 4; t++) {
+        const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : t === 2 ? ['gemini-flash-latest', ctx.cfg.modelo_texto] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_QUESTOES, 0.6);
+        ent += r.entrada; sai += r.saida;
+        qs = r.json ? paraProvas(r.json.questoes, total) : [];
+        prob = r.json ? conferirQuestoes(qs, qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo')];
+        if (!prob.length) break;
+        console.warn('portal-ia: questões reprovadas', prob.join('; '));
+      }
+    } catch (e) { erro = e; }
+    const falhou = !!erro || prob.length > 0;
+    if (falhou) await estornarCreditos(db, res);
+    await registrarConsumo(db, ctx, falhou ? null : { ...res, acao: 'prova' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
+    if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
+    if (prob.length) throw new HttpsError('internal', 'A IA devolveu as questões com problema (' + prob[0] + '). Tente de novo.');
+    return { questoes: qs, cota: await situacao(db, ctx) };
   }
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */

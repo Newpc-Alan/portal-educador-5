@@ -681,6 +681,25 @@ html, body { background: #f4f7fa !important; }
 #pde-painel .ia-resp { width: 100%; font-family: inherit; resize: vertical; padding: 10px 12px; }
 #pde-painel .ia-previa { margin: 10px 0 12px; font-size: .84rem; }
 #pde-painel .ia-previa .ok { color: #3d6b0c; font-weight: 700; }
+#pde-painel .ia-gerar-btn { background: linear-gradient(135deg,#0057FF 0%,#00A6FF 55%,#00D4FF 100%); color: #fff; border: 0; font-weight: 800; box-shadow: 0 10px 22px -10px rgba(0,87,255,.8); }
+#pde-painel .ia-gerar-btn:hover { filter: brightness(1.08); }
+#pde-painel .ia-gerar-btn:disabled { opacity: .6; cursor: default; }
+#pde-painel .ia-saldo { background: #eef6ff; border: 1px solid #cfe2ff; color: #0b3b8a; border-radius: 10px; padding: 9px 12px; font-size: .84rem; margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#pde-painel .ia-saldo.sem { background: #fff4e0; border-color: #f2d28b; color: #7a5200; }
+#pde-painel .ia-saldo a { color: inherit; font-weight: 800; }
+#pde-painel .ia-st { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: .88rem; margin: 10px 0; }
+#pde-painel .ia-giro { width: 18px; height: 18px; border-radius: 50%; border: 3px solid #cfe0ee; border-top-color: #0057FF; animation: iagiro .8s linear infinite; flex: none; }
+@keyframes iagiro { to { transform: rotate(360deg); } }
+#pde-painel .ia-lista { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; }
+#pde-painel .ia-lista li { border: 1px solid var(--line, #dce4ec); border-radius: 10px; padding: 9px 11px; display: flex; gap: 10px; align-items: flex-start; background: #fff; }
+#pde-painel .ia-lista li.off { opacity: .5; }
+#pde-painel .ia-lista input[type=checkbox] { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: #1a6b2a; }
+#pde-painel .ia-lista .t { font-size: .72rem; font-weight: 800; color: #0057FF; text-transform: uppercase; letter-spacing: .04em; }
+#pde-painel .ia-lista .e { display: block; font-weight: 600; color: #0c2338; margin: 2px 0; }
+#pde-painel .ia-lista .a { font-size: .8rem; color: #4a5d72; }
+#pde-painel .ia-lista .a b { color: #1a6b2a; }
+#pde-painel .ia-fora { margin-top: 14px; border-top: 1px dashed #cbd6e2; padding-top: 10px; }
+#pde-painel .ia-fora summary { cursor: pointer; font-size: .84rem; font-weight: 700; color: #4a5d72; }
 #pde-painel .ia-previa .er { color: var(--red); font-weight: 700; }
 #pde-painel .ia-previa ol { margin: 6px 0 0 18px; max-height: 150px; overflow: auto; color: var(--ink-2); }
 #pde-painel .guia-modal { max-width: 560px; }
@@ -1017,7 +1036,7 @@ html, body { background: #f4f7fa !important; }
         <div class="pde-pill warn" id="sb-warn" style="display:none">⚠️ <span id="sb-warn-txt"></span></div>
         <div class="pde-ctx-right">
           <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="abrirBanco" title="Reaproveitar questões salvas">📚 Banco de questões</button>
-          <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="iaAbrir" title="Gerar questões no ChatGPT ou Gemini e trazer para cá">🤖 Trazer da IA</button>
+          <button class="pde-btn pde-btn-sm ia-gerar-btn" data-action="iaAbrir" title="Gerar questões com a IA do Portal, com gabarito e BNCC">✨ Gerar com IA</button>
           <button class="pde-btn pde-btn-green pde-btn-sm" data-action="showPreview">👁️ Visualizar</button>
         </div>
       </div>
@@ -1245,29 +1264,38 @@ html, body { background: #f4f7fa !important; }
 
   <!-- Modal: trazer questões da IA -->
   <div class="pde-modal-bg" id="ia-bg" data-close-on-bg="iaFechar">
-    <div class="pde-modal" style="max-width:760px">
-      <div class="pde-modal-head"><h3>🤖 Trazer questões da IA</h3><button class="pde-modal-close" data-action="iaFechar">×</button></div>
+    <div class="pde-modal" style="max-width:780px">
+      <div class="pde-modal-head"><h3>✨ Gerar questões com a IA</h3><button class="pde-modal-close" data-action="iaFechar">×</button></div>
       <div class="pde-modal-body">
+        <div class="ia-saldo" id="ia-saldo">Conferindo seus créditos...</div>
         <div class="ia-passo"><span class="ia-n">1</span><div><b>Diga o que você quer</b><small>A disciplina e a turma vêm do cabeçalho da prova.</small></div></div>
         <div class="pde-grid-2">
-          <div class="pde-field"><label class="pde-label" for="ia-tema">Tema ou conteúdo</label><input id="ia-tema" class="pde-input" placeholder="Ex: frações equivalentes, ciclo da água"></div>
-          <div class="pde-field"><label class="pde-label" for="ia-qtd">Quantas questões</label><input id="ia-qtd" class="pde-input" type="number" min="1" max="40" value="10"></div>
+          <div class="pde-field"><label class="pde-label" for="ia-tema">Tema ou conteúdo</label><input id="ia-tema" class="pde-input" maxlength="300" placeholder="Ex: frações equivalentes, ciclo da água"></div>
+          <div class="pde-field"><label class="pde-label" for="ia-qtd">Quantas questões</label><input id="ia-qtd" class="pde-input" type="number" min="1" max="30" value="10"></div>
         </div>
         <div class="pde-grid-2">
           <div class="pde-field"><label class="pde-label" for="ia-tipos">Tipos de questão</label>
-            <select id="ia-tipos" class="pde-select"><option value="multipla">Só múltipla escolha</option><option value="mista" selected>Mista (múltipla escolha, V ou F e abertas)</option><option value="vf">Só verdadeiro ou falso</option><option value="aberta">Só abertas (dissertativas)</option></select></div>
+            <select id="ia-tipos" class="pde-select"><option value="mista" selected>Mista (múltipla escolha, V ou F e abertas)</option><option value="multipla">Só múltipla escolha</option><option value="vf">Só verdadeiro ou falso</option><option value="curta">Só resposta curta</option><option value="aberta">Só abertas (dissertativas)</option></select></div>
           <div class="pde-field"><label class="pde-label" for="ia-nivel">Nível</label>
             <select id="ia-nivel" class="pde-select"><option>fácil</option><option selected>médio</option><option>difícil</option><option value="misturado">misturado (do fácil ao difícil)</option></select></div>
         </div>
-        <div class="ia-passo"><span class="ia-n">2</span><div><b>Copie o comando e cole na IA</b><small>Ele já pede o formato que a ferramenta entende.</small></div></div>
-        <div class="ia-botoes">
-          <button class="pde-btn pde-btn-primary" data-action="iaCopiar">📋 Copiar comando</button>
-          <button class="pde-btn ia-gpt" data-action="iaCopiarAbrir" data-arg="chatgpt">Copiar e abrir o ChatGPT</button>
-          <button class="pde-btn ia-gem" data-action="iaCopiarAbrir" data-arg="gemini">Copiar e abrir o Gemini</button>
+        <div class="pde-grid-2">
+          <div class="pde-field"><label class="pde-label" for="ia-total">Valor total da prova (opcional)</label><input id="ia-total" class="pde-input" type="number" min="0" max="100" step="0.5" placeholder="Ex: 10"></div>
+          <div class="pde-field"><label class="pde-label" for="ia-obs">Algum pedido a mais? (opcional)</label><input id="ia-obs" class="pde-input" maxlength="600" placeholder="Ex: uma questão com interpretação de gráfico"></div>
         </div>
-        <div class="ia-passo"><span class="ia-n">3</span><div><b>Cole aqui a resposta da IA</b><small>Confira o resultado antes de adicionar. Você pode editar tudo depois.</small></div></div>
-        <textarea id="ia-resp" class="pde-input ia-resp" rows="7" placeholder="Cole aqui o texto que a IA respondeu"></textarea>
+        <div class="ia-botoes"><button class="pde-btn ia-gerar-btn" data-action="iaGerar" id="ia-gerar">✨ Gerar questões</button></div>
+        <div id="ia-st"></div>
         <div id="ia-previa" class="ia-previa"></div>
+        <details class="ia-fora" id="ia-fora"><summary>Prefere usar o ChatGPT ou o Gemini por fora? (não gasta créditos)</summary>
+          <div class="ia-passo"><span class="ia-n">2</span><div><b>Copie o comando e cole na IA</b><small>Ele já pede o formato que a ferramenta entende.</small></div></div>
+          <div class="ia-botoes">
+            <button class="pde-btn pde-btn-primary" data-action="iaCopiar">📋 Copiar comando</button>
+            <button class="pde-btn ia-gpt" data-action="iaCopiarAbrir" data-arg="chatgpt">Copiar e abrir o ChatGPT</button>
+            <button class="pde-btn ia-gem" data-action="iaCopiarAbrir" data-arg="gemini">Copiar e abrir o Gemini</button>
+          </div>
+          <div class="ia-passo"><span class="ia-n">3</span><div><b>Cole aqui a resposta da IA</b><small>Confira o resultado antes de adicionar. Você pode editar tudo depois.</small></div></div>
+          <textarea id="ia-resp" class="pde-input ia-resp" rows="6" placeholder="Cole aqui o texto que a IA respondeu"></textarea>
+        </details>
         <div class="mp-form-acoes"><button class="pde-btn pde-btn-ghost" data-action="iaFechar">Cancelar</button><button class="pde-btn pde-btn-green" data-action="iaAdicionar" id="ia-add" disabled>Adicionar questões</button></div>
       </div>
     </div>
@@ -3567,7 +3595,7 @@ window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montar
   /* ---------- Guia do primeiro uso ---------- */
   const GUIA = [
     { ico:"🏫", t:"O cabeçalho já vem pronto", p:"Seu nome, a escola e o logo do município entram sozinhos, a partir do seu cadastro no Portal. Se der aula em mais de uma escola, escolha na faixa logo abaixo do topo." },
-    { ico:"⚡", t:"Não comece do zero", p:"Use um dos 12 modelos prontos, puxe questões do Banco (com os pacotes do Portal) ou gere questões no ChatGPT ou Gemini e traga com o botão 🤖 Trazer da IA." },
+    { ico:"⚡", t:"Não comece do zero", p:"Use um dos 12 modelos prontos, puxe questões do Banco (com os pacotes do Portal) ou gere as questões com o botão ✨ Gerar com IA: vêm com gabarito, valor e habilidade da BNCC, prontas para revisar." },
     { ico:"🎯", t:"BNCC automática", p:"Enquanto você escreve, cada questão ganha o selo da habilidade da BNCC. Essas habilidades vão direto para o Plano de aula que o gerador monta para a coordenação." },
     { ico:"🛡️", t:"Contra cola e inclusão", p:"Na impressão, gere uma versão diferente para cada aluno, cada uma com o seu gabarito, e a Versão adaptada com letra grande. Tudo fica guardado em 📁 Minhas provas, em pastas." }
   ];
@@ -3613,7 +3641,7 @@ window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montar
     try{ await navigator.clipboard.writeText(t); return true; }catch(e){}
     try{ const ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); return ok; }catch(e){ return false; }
   }
-  A.iaAbrir = () => { $("ia-bg").classList.add("show"); setTimeout(() => $("ia-tema").focus(), 50); };
+  A.iaAbrir = () => { $("ia-bg").classList.add("show"); setTimeout(() => $("ia-tema").focus(), 50); verSaldo(); };
   A.iaFechar = () => $("ia-bg").classList.remove("show");
   A.iaCopiar = async () => { const ok = await copiar(comando()); G.toast(ok ? "Comando copiado. Cole na IA." : "Não consegui copiar. Selecione e copie manualmente.", ok ? "ok" : "warn"); };
   A.iaCopiarAbrir = async (destino) => {
@@ -3656,26 +3684,68 @@ window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montar
     });
     return lista;
   }
-  let lidas = [];
-  function previa(){
-    lidas = interpretar($("ia-resp").value);
-    const el = $("ia-previa"), btn = $("ia-add");
-    if(!$("ia-resp").value.trim()){ el.innerHTML = ""; btn.disabled = true; btn.textContent = "Adicionar questões"; return; }
-    if(!lidas.length){ el.innerHTML = '<span class="er">Não encontrei questões no formato. Confira se a IA respondeu começando cada uma com Q1, Q2...</span>'; btn.disabled = true; return; }
-    const semGab = lidas.filter(q => (q.tipo === "multipla" && q.gab < 0) || (q.tipo === "vf" && !q.gab)).length;
-    const rot = { multipla:"múltipla escolha", vf:"V ou F", dissertativa:"aberta", curta:"resposta curta" };
-    el.innerHTML = '<span class="ok">✓ ' + lidas.length + ' questão(ões) encontradas</span>' + (semGab ? ' · <span class="er">' + semGab + ' sem gabarito</span>' : "") +
-      '<ol>' + lidas.map(q => '<li>[' + rot[q.tipo] + '] ' + esc(q.enun.slice(0, 110)) + (q.enun.length > 110 ? "…" : "") + '</li>').join("") + '</ol>';
-    btn.disabled = false; btn.textContent = "Adicionar " + lidas.length + " questão(ões)";
+  // questões prontas para adicionar (da IA do Portal ou coladas de uma IA de fora); cada uma pode ser desmarcada
+  let lidas = [], marcadas = [];
+  const ROT = { multipla:"múltipla escolha", vf:"V ou F", dissertativa:"aberta", curta:"resposta curta" };
+  const pts = v => String(v).replace(".", ",") + (v === 1 ? " pt" : " pts");
+  function mostrar(lista, origem){
+    lidas = lista; marcadas = lista.map(() => true);
+    const el = $("ia-previa");
+    if(!lista.length){ el.innerHTML = origem === "colar" ? '<span class="er">Não encontrei questões no formato. Confira se a IA respondeu começando cada uma com Q1, Q2...</span>' : ""; contar(); return; }
+    const semGab = lista.filter(q => (q.tipo === "multipla" && q.gab < 0) || (q.tipo === "vf" && !q.gab)).length;
+    const total = lista.reduce((a, q) => a + (Number(q.valor) || 0), 0);
+    el.innerHTML = '<span class="ok">✓ ' + lista.length + ' questões · ' + pts(Math.round(total * 100) / 100) + '</span>' + (semGab ? ' · <span class="er">' + semGab + ' sem gabarito</span>' : "") + ' · desmarque as que não quiser' +
+      '<ol class="ia-lista">' + lista.map((q, i) => '<li data-i="' + i + '"><input type="checkbox" checked data-ia-marca="' + i + '" aria-label="Incluir a questão ' + (i + 1) + '"><div><span class="t">' + (i + 1) + ' · ' + ROT[q.tipo] + ' · ' + pts(q.valor) + (q.bncc ? ' · ' + esc(q.bncc) : "") + '</span>' +
+        '<span class="e">' + esc(q.enun) + '</span>' +
+        (q.tipo === "multipla" ? '<span class="a">' + (q.alts || []).map((a, k) => k === q.gab ? '<b>' + String.fromCharCode(65 + k) + ') ' + esc(a) + ' ✓</b>' : String.fromCharCode(65 + k) + ') ' + esc(a)).join(" · ") + "</span>" : "") +
+        (q.tipo === "vf" ? '<span class="a">Gabarito: <b>' + (q.gab === "V" ? "Verdadeiro" : q.gab === "F" ? "Falso" : "?") + "</b></span>" : "") +
+        (q.exp ? '<span class="a">Esperado: ' + esc(q.exp) + "</span>" : "") + "</div></li>").join("") + "</ol>";
+    contar();
   }
+  function contar(){ const n = marcadas.filter(Boolean).length, btn = $("ia-add"); btn.disabled = !n; btn.textContent = n ? "Adicionar " + n + " questão(ões)" : "Adicionar questões"; }
+  function previa(){ if(!$("ia-resp").value.trim()){ if(lidas._origem === "colar") mostrar([], ""); return; } const l = interpretar($("ia-resp").value); l._origem = "colar"; mostrar(l, "colar"); }
   document.addEventListener("input", (e) => { if(e.target.id === "ia-resp") previa(); });
+  document.addEventListener("change", (e) => { const m = e.target.dataset && e.target.dataset.iaMarca; if(m === undefined) return; marcadas[+m] = e.target.checked; e.target.closest("li").classList.toggle("off", !e.target.checked); contar(); });
   A.iaAdicionar = () => {
-    if(!lidas.length) return;
+    const sel = lidas.filter((_, i) => marcadas[i]); if(!sel.length) return;
     G.goStep("questoes");
-    lidas.forEach(q => { const el = G.addQuestion(q); if(el && q.bncc && !el.dataset.bncc) el.dataset.bncc = q.bncc; });
+    sel.forEach(q => { const el = G.addQuestion(q); if(el && q.bncc && !el.dataset.bncc){ el.dataset.bncc = q.bncc; } });
     G.saveState();
-    G.toast(lidas.length + " questões adicionadas. Revise antes de imprimir.");
-    $("ia-resp").value = ""; previa(); A.iaFechar();
+    G.toast(sel.length + " questões adicionadas. Revise antes de imprimir.");
+    $("ia-resp").value = ""; mostrar([], ""); $("ia-st").innerHTML = ""; A.iaFechar();
+  };
+  /* ---------- IA embarcada: gera aqui mesmo, com créditos do Portal IA ---------- */
+  let saldo = null;
+  async function verSaldo(){
+    const el = $("ia-saldo");
+    if(!window.PDEPortalIA){ el.textContent = "Entrando na sua conta..."; return; }
+    try{
+      const c = saldo = await window.PDEPortalIA.chamar({ acao:"cota" });
+      const p = [];
+      if(c.admin) p.push("Uso livre (administrador)");
+      if(c.rede) p.push("Rede: " + c.rede.restante_mes.toLocaleString("pt-BR") + " créditos para você este mês");
+      if(c.pessoal && c.pessoal.saldo) p.push("Seus créditos: " + c.pessoal.saldo.toLocaleString("pt-BR"));
+      el.className = "ia-saldo" + (c.pode_usar ? "" : " sem");
+      el.innerHTML = c.pode_usar ? "✨ " + esc(p.join(" · ") || "Créditos disponíveis") + " · gerar estas questões usa " + ((c.precos || {}).texto || 1) + " crédito"
+        : "⚠️ " + esc(c.motivo || "Sem créditos para a IA agora.") + ' <a href="/apps/portal-ia/" target="_blank" rel="noopener">Ver créditos no Portal IA</a> · ou use o ChatGPT ou Gemini por fora, logo abaixo.';
+      $("ia-gerar").disabled = !c.pode_usar;
+      if(!c.pode_usar) $("ia-fora").open = true;
+    }catch(e){ el.className = "ia-saldo sem"; el.textContent = "⚠️ " + (e && e.message && !/internal/i.test(e.message) ? e.message : "Não consegui consultar os créditos agora.") + " Você pode usar o ChatGPT ou o Gemini por fora, logo abaixo."; $("ia-fora").open = true; }
+  }
+  let gerando = false;
+  A.iaGerar = async () => {
+    if(gerando) return;
+    const tema = $("ia-tema").value.trim(); if(tema.length < 3){ G.toast("Informe o tema ou conteúdo.", "warn"); $("ia-tema").focus(); return; }
+    let disc = "", turma = ""; try{ const d = G.collectData(); disc = d.header.mat || ""; turma = d.header.turma || ""; }catch(e){}
+    const qtd = Math.max(1, Math.min(30, parseInt($("ia-qtd").value, 10) || 10));
+    gerando = true; const b = $("ia-gerar"); b.disabled = true; b.textContent = "Gerando...";
+    $("ia-st").innerHTML = '<div class="ia-st"><span class="ia-giro"></span>Escrevendo ' + qtd + ' questões e conferindo o gabarito... leva de 15 a 60 segundos.</div>'; mostrar([], "");
+    try{
+      const r = await window.PDEPortalIA.chamar({ acao:"questoes_prova", tema, qtd, tipos:$("ia-tipos").value, nivel:$("ia-nivel").value, total:parseFloat($("ia-total").value) || 0, obs:$("ia-obs").value.trim(), disciplina:disc, turma });
+      $("ia-st").innerHTML = ""; mostrar(r.questoes || [], "ia"); if(r.cota){ saldo = r.cota; }
+      verSaldo();
+    }catch(e){ $("ia-st").innerHTML = '<div class="ia-st" style="color:#b3261e"><b>' + esc(e && e.message && !/^internal$/i.test(e.message) ? e.message : "Não deu certo agora. Tente de novo.") + "</b></div>"; }
+    gerando = false; b.disabled = false; b.textContent = "✨ Gerar de novo";
   };
   window.PDEImportarIA = interpretar;
 
@@ -3713,6 +3783,9 @@ const app = initializeApp({
 });
 const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
 const $ = (i) => document.getElementById(i);
+// IA embarcada (Portal IA): o modal "Gerar com IA" chama por aqui; os créditos são os mesmos do Portal IA
+window.PDEPortalIA = { async chamar(dados){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+  return (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:250000 })(dados)).data; } };
 const P = { prof:"", escolas:[], muni:null, turmas:[] };
 const ler = async (c, i) => { try{ const d = await getDoc(doc(db, c, i)); return d.exists() ? { id:d.id, ...d.data() } : null; }catch(e){ console.warn(c, e.code); return null; } };
 
