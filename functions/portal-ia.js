@@ -193,6 +193,30 @@ async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
 const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]|\d+[).])\s*/, '').trim();
 const ehCombinacao = a => /^[VF](\s*[-,;/]?\s*[VF])+$/i.test(String(a || '').trim());
 /* ------------------------------------------------------------------ Provas e Avaliações: questões no formato da ferramenta */
+// aula em slides para a Lousa: capa + slides de conteúdo; texto curto, para ler de longe na lousa ou na TV
+export const ESQUEMA_AULA = {
+  type: 'OBJECT',
+  properties: {
+    titulo: S('Título da aula, curto (até 60 caracteres).'),
+    subtitulo: S('Uma frase que convida a turma para o tema (até 90 caracteres).'),
+    slides: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      titulo: S('Título do slide, até 50 caracteres.'),
+      topicos: AS('De 2 a 4 tópicos curtos (até 90 caracteres cada), frases completas e simples. Sem marcador na frente.'),
+      pergunta: S('Uma pergunta para o professor fazer à turma sobre este slide (até 110 caracteres). Pode ficar vazia.')
+    }, required: ['titulo', 'topicos'] } }
+  },
+  required: ['titulo', 'slides']
+};
+// limpa e confere a aula devolvida pela IA
+export function paraAula(j, qtd) {
+  const c = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const slides = (Array.isArray(j && j.slides) ? j.slides : []).map(x => ({
+    titulo: c(x && x.titulo, 70),
+    topicos: (Array.isArray(x && x.topicos) ? x.topicos : []).map(t => c(t, 130).replace(/^[-•*\d.)\s]+/, '')).filter(Boolean).slice(0, 4),
+    pergunta: c(x && x.pergunta, 140)
+  })).filter(x => x.titulo && x.topicos.length).slice(0, qtd);
+  return { titulo: c(j && j.titulo, 80), subtitulo: c(j && j.subtitulo, 120), slides };
+}
 export const ESQUEMA_QUESTOES = {
   type: 'OBJECT',
   properties: {
@@ -456,6 +480,36 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu as questões com problema (' + prob[0] + '). Tente de novo.');
     return { questoes: qs, cota: await situacao(db, ctx) };
+  }
+
+  /* ---------------- aula em slides para a Lousa (1 crédito) ---------------- */
+  if (d.acao === 'aula_lousa') {
+    const tema = txt(d.tema, 300), qtd = Math.min(10, Math.max(3, Math.round(Number(d.qtd) || 6)));
+    if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
+    const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
+    const res = await reservarCreditos(db, ctx, 'texto');
+    const sistema = 'Você é um professor experiente da rede pública brasileira e prepara uma aula expositiva curta para mostrar na lousa digital. ' +
+      'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), numa sequência que comece pelo que a turma já conhece, explique o conceito com exemplos do dia a dia e termine com uma retomada. ' +
+      'Cada slide tem de 2 a 4 tópicos curtos, legíveis de longe. Nada de parágrafo longo. As perguntas são para o professor provocar a conversa.\n\n' + REGRAS_GERAIS;
+    const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') + '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
+    let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, aula = null;
+    try {
+      for (let t = 0; t < 3; t++) {
+        const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_AULA, 0.6);
+        ent += r.entrada; sai += r.saida;
+        aula = r.json ? paraAula(r.json, qtd) : null;
+        prob = !aula ? ['resposta incompleta, ' + (r.fim || 'sem motivo')] : aula.slides.length < Math.min(3, qtd) ? ['poucos slides (' + aula.slides.length + ')'] : !aula.titulo ? ['sem título'] : [];
+        if (!prob.length) break;
+        console.warn('portal-ia: aula reprovada', prob.join('; '));
+      }
+    } catch (e) { erro = e; }
+    const falhou = !!erro || prob.length > 0;
+    if (falhou) await estornarCreditos(db, res);
+    await registrarConsumo(db, ctx, falhou ? null : { ...res, acao: 'aula_lousa' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
+    if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
+    if (prob.length) throw new HttpsError('internal', 'A IA devolveu a aula com problema (' + prob[0] + '). Tente de novo.');
+    return { aula, cota: await situacao(db, ctx) };
   }
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */
