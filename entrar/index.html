@@ -541,6 +541,11 @@
   .vd-card:hover, .vd-card:focus-visible{ transform:translateY(-2px);box-shadow:0 12px 26px -16px rgba(15,44,74,.5) }
   .vd-capa{ position:relative;aspect-ratio:16/9;background:#0c2338 center/cover no-repeat }
   .vd-capa::after{ content:"";position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(7,22,33,.72) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M8 5v14l11-7z'/%3E%3C/svg%3E") 55% 50%/26px no-repeat }
+  /* editar vídeo: o formulário abre no meio da tela, por cima da lista */
+  .vd-edit-bg{ position:fixed;inset:0;background:rgba(15,44,74,.55);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto }
+  .vd-edit{ background:#fff;border-radius:16px;max-width:980px;width:100%;padding:20px 24px 24px;box-shadow:0 24px 60px rgba(7,22,33,.35) }
+  .vd-edit-top{ display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px }
+  .vd-edit-top h3{ margin:0;color:var(--pde-azul-escuro,#0f2c4a) }
   .vd-novo{ position:absolute;left:8px;top:8px;background:#8DC63F;color:#0f2c4a;font-size:11px;font-weight:900;letter-spacing:.04em;padding:3px 8px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25) }
   .vd-dur{ position:absolute;right:8px;bottom:8px;background:rgba(7,22,33,.85);color:#fff;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px }
   .vd-corpo{ padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px }
@@ -7223,9 +7228,10 @@
   // ---------- admin: cadastro um a um ----------
   const vdAdm = { itens:[], editando:null, ytid:"", filtro:"todos", busca:"" };
   async function renderVideosAdmin(){
+    const velha = $("vdEditBg"); if(velha){ velha.remove(); document.body.style.overflow = ""; }
     $("conteudo").innerHTML =
       '<div class="imp-card"><h3 id="vdFormTit">Cadastrar vídeo</h3><p class="d">Cole o link do YouTube: a capa e o título vêm sozinhos. Depois indique para qual série ou faixa de idade o vídeo serve. Pode salvar como rascunho e publicar quando terminar de revisar.</p>'+
-        '<div id="vdForm"></div></div>'+
+        '<div id="vdFormCasa"><div id="vdForm"></div></div></div>'+
       '<div class="imp-card"><h3>Vídeos cadastrados</h3><p class="vd-prog" id="vdProg"></p>'+
         '<div class="usr-tabs" id="vdAdmTabs" style="margin-bottom:10px"></div>'+
         '<div class="acv-filtros"><input type="search" id="vdAdmBusca" class="usr-busca" placeholder="Buscar por título, tema, canal ou BNCC"></div>'+
@@ -7233,9 +7239,27 @@
     formVideo(null);
     await listarVideosAdmin();
   }
+  // edição em janela no meio da tela: o mesmo formulário sai do card e volta quando termina
+  function janelaEdicaoVideo(abrir, titulo){
+    const f = $("vdForm"); if(!f) return;
+    if(!vdAdm.casa || !vdAdm.casa.isConnected) vdAdm.casa = $("vdFormCasa");
+    let bg = $("vdEditBg");
+    if(abrir){
+      if(!bg){ bg = document.createElement("div"); bg.id = "vdEditBg"; bg.className = "vd-edit-bg";
+        bg.innerHTML = '<div class="vd-edit" role="dialog" aria-modal="true" aria-labelledby="vdEditTit"><div class="vd-edit-top"><h3 id="vdEditTit"></h3><button type="button" class="btn btn-ghost" data-action="vdadm-limpar">Fechar</button></div><div id="vdEditCorpo"></div></div>';
+        document.body.appendChild(bg); }
+      $("vdEditTit").textContent = "Editar: " + (titulo || "vídeo");
+      $("vdEditCorpo").appendChild(f); document.body.style.overflow = "hidden"; bg.scrollTop = 0;
+      setTimeout(() => { const t = $("vdTitulo"); if(t) t.focus({ preventScroll:true }); }, 30);
+    } else {
+      if(vdAdm.casa && f.parentNode !== vdAdm.casa) vdAdm.casa.appendChild(f);
+      if(bg) bg.remove(); document.body.style.overflow = "";
+    }
+  }
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && $("vdEditBg")) formVideo(null); });
   function formVideo(v){
     vdAdm.editando = v ? v.id : null; vdAdm.ytid = v ? v.youtube_id : "";
-    if($("vdFormTit")) $("vdFormTit").textContent = v ? "Editar vídeo" : "Cadastrar vídeo";
+    if($("vdFormTit")) $("vdFormTit").textContent = "Cadastrar vídeo";
     const x = v || {};
     $("vdForm").innerHTML =
       '<div class="vd-form"><div><div class="vd-previa" id="vdPrevia"'+(vdAdm.ytid ? ' style="background-image:url(\''+capaVideo(vdAdm.ytid)+'\')"' : '')+'>'+(vdAdm.ytid ? '' : 'A capa aparece aqui')+'</div>'+
@@ -7263,6 +7287,7 @@
           '<button type="button" class="btn btn-ghost" data-action="vdadm-limpar">'+(v ? "Cancelar edição" : "Limpar")+'</button></div>'+
       '</div></div>';
     previaFaixa();
+    janelaEdicaoVideo(!!v, v && v.titulo);
   }
   function previaFaixa(){
     const el = $("vdFxPrevia"); if(!el) return;
