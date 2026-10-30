@@ -14,9 +14,10 @@ function varrer(onde, v, cam) {
   if (Array.isArray(v)) return v.forEach((x, i) => varrer(onde, x, cam + '[' + i + ']'));
   if (v && typeof v === 'object' && !v.toMillis) for (const [k, x] of Object.entries(v)) varrer(onde, x, cam ? cam + '.' + k : k);
 }
+const cont = [];
 for (const c of ['config', 'jogos', 'videos', 'museus', 'dicas', 'apps', 'aplicativos', 'noticias', 'acervo', 'municipios', 'cursos', 'datas', 'historias', 'colorir']) {
-  try { const s = await db.collection(c).get(); s.forEach(d => varrer(c + '/' + d.id, d.data(), '')); console.log('::notice::' + c + ': ' + s.size + ' docs varridos'); }
-  catch (e) { console.log('::warning::' + c + ': ' + limpo(e.message).slice(0, 80)); }
+  try { const s = await db.collection(c).get(); s.forEach(d => varrer(c + '/' + d.id, d.data(), '')); cont.push(c + ' ' + s.size); }
+  catch (e) { cont.push(c + ' ERRO'); }
 }
-console.log('::notice::links para o site antigo: ' + achados.length);
-for (let i = 0; i < achados.length; i += 10) console.log('::warning::' + limpo(achados.slice(i, i + 10).join(' | ')));
+console.log('::notice::varridos: ' + cont.join(', ') + ' · links para o site antigo: ' + achados.length);
+for (let i = 0; i < achados.length; i += 8) console.log('::warning::' + limpo(achados.slice(i, i + 8).join(' | ')));
