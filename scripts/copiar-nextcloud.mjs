@@ -145,10 +145,15 @@ async function gravarResumo(extra = {}) {
 
 if (etapa === 'conferir') {
   let ok = 0, falta = 0, dif = 0; const ex = [];
-  for (const [, m] of mapa) {
-    const t = await tamanhoNoNc(m.nc);
-    if (t < 0) { falta++; if (ex.length < 5) ex.push('faltando: ' + m.nc); } else if (t !== m.tamanho) { dif++; if (ex.length < 5) ex.push('tamanho diferente: ' + m.nc); } else ok++;
-  }
+  const todos = [...mapa.values()]; let k = 0;
+  await Promise.all(Array.from({ length: 8 }, async () => {   // 8 consultas em paralelo
+    while (k < todos.length) {
+      const m = todos[k++]; let t = -1;
+      try { t = await tamanhoNoNc(m.nc); } catch (e) {}
+      if (t < 0) { falta++; if (ex.length < 5) ex.push('faltando: ' + m.nc); } else if (t !== m.tamanho) { dif++; if (ex.length < 5) ex.push('tamanho diferente: ' + m.nc); } else ok++;
+      if ((ok + falta + dif) % 500 === 0) console.log('… conferidos ' + (ok + falta + dif) + '/' + todos.length);
+    }
+  }));
   log('conferência: ' + mapa.size + ' no mapa · ' + ok + ' ok · ' + falta + ' faltando · ' + dif + ' com tamanho diferente');
   await gravarResumo({ conferencia: { em: FieldValue.serverTimestamp(), no_mapa: mapa.size, ok, faltando: falta, diferentes: dif } });
   ex.forEach(aviso);
