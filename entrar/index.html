@@ -818,6 +818,10 @@
   #lsBarra button{ height:38px;border:none;border-radius:10px;padding:0 12px;background:rgba(255,255,255,.12);color:#fff;font:700 13.5px 'Segoe UI',sans-serif;cursor:pointer }
   #lsBarra .ls-min{ background:#1a6b2a;box-shadow:inset 0 0 0 1.5px rgba(141,198,63,.75) }
   #lsBarra .ls-min kbd{ font-size:10.5px;background:rgba(255,255,255,.18);border-radius:5px;padding:2px 5px;margin-left:4px }
+  #lsBarra .ls-ia{ height:38px;display:inline-flex;align-items:center;gap:4px;padding:0 12px;border-radius:10px;color:#fff;text-decoration:none;white-space:nowrap;font:600 13.5px 'Segoe UI',sans-serif;background:linear-gradient(135deg,rgba(141,198,63,.22),rgba(46,155,214,.22),rgba(123,92,255,.22));box-shadow:inset 0 0 0 1.5px rgba(141,198,63,.55) }
+  #lsBarra .ls-ia[hidden]{ display:none }
+  #lsBarra .ls-ia.baixo{ box-shadow:inset 0 0 0 1.5px #f2b632;color:#ffd36b }
+  #lsBarra .ls-ia.zero{ box-shadow:inset 0 0 0 1.5px #e5484d;color:#ffb3b5 }
   #lsBarra .ls-fim{ background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25) }
   #lsBarra .ls-fim:hover{ background:#e5484d }
   #lsFrame{ flex:1;width:100%;border:0;background:#fff }
@@ -3830,6 +3834,7 @@
     const ov = document.createElement("div");
     ov.id = "lsOverlay"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-label","Lousa Interativa");
     ov.innerHTML = '<div id="lsBarra"><b>Lousa Interativa</b><div>'+
+      '<a id="lsIA" class="ls-ia" href="/apps/portal-ia/#comprar" target="_blank" rel="noopener" hidden></a>'+
       '<button type="button" data-action="lousa-min" class="ls-min">Voltar ao Portal <kbd>Esc</kbd></button>'+
       '<button type="button" data-action="lousa-tela" aria-label="Tela cheia">\u26F6</button>'+
       '<button type="button" data-action="lousa-fim" class="ls-fim">Encerrar</button></div></div>'+
@@ -3841,9 +3846,18 @@
       if(d.tipo === "pde-lousa-pronta") lousa.v3 = true;
       else if(d.tipo === "pde-lousa-estado"){ lousa.v3 = true; lousa.ativa = !!d.temConteudo; lousa.paginas = d.paginas || 0; attSeloLousa(); }
       else if(d.tipo === "pde-lousa-minimizar") minimizarLousa();
+      else if(d.tipo === "pde-lousa-cota") chipIALousa(d.c);
       else if(d.tipo === "pde-lousa-encerrada"){ lousa.ativa = false; lousa.paginas = 0; minimizarLousa(); }
     });
     document.addEventListener("keydown", (e) => { if(e.key === "Escape" && lousaAberta() && !document.fullscreenElement) minimizarLousa(); });
+    // passador de slides / controle remoto com o foco fora da Lousa (na barra do topo): repassa a tecla para ela
+    document.addEventListener("keydown", (e) => {
+      if(!lousaAberta() || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+      if(!["ArrowRight","ArrowLeft","ArrowDown","ArrowUp","PageDown","PageUp","MediaTrackNext","MediaTrackPrevious"].includes(e.key)) return;
+      const t = e.target; if(t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+      const f = $("lsFrame"); if(!f || !f.contentWindow) return;
+      e.preventDefault(); f.contentWindow.postMessage({ tipo:"pde-lousa-cmd", cmd:"tecla", key:e.key }, location.origin);
+    });
   }
   // botao da Lousa: o professor arrasta para onde preferir; a posicao fica guardada neste navegador
   const CHAVE_POS_LOUSA = "pde_lousa_fab_pos";
@@ -3894,6 +3908,20 @@
         try{ localStorage.setItem(CHAVE_POS_LOUSA, JSON.stringify({ x:parseInt(fab.style.left,10), y:parseInt(fab.style.top,10) })); }catch(err){} }
       if(e.key === "0"){ e.preventDefault(); try{ localStorage.removeItem(CHAVE_POS_LOUSA); }catch(err){} restaurar(); }
     });
+  }
+  // créditos de IA no topo da Lousa (a Lousa manda a cota quando entra e a cada aula gerada)
+  function chipIALousa(c){
+    const el = $("lsIA"); if(!el || !c) return;
+    try{ if(usuarioAtual) sessionStorage.setItem("pde_ia_saldo", JSON.stringify({ uid:usuarioAtual.uid, em:Date.now(), c })); }catch(e){}
+    const nf = n => Number(n || 0).toLocaleString("pt-BR"), rede = c.rede, pessoal = (c.pessoal && c.pessoal.saldo) || 0;
+    if(c.admin){ el.className = "ls-ia"; el.textContent = "\u2728 IA: uso livre"; el.title = "Administrador: uso livre da IA"; el.hidden = false; return; }
+    if(!rede && !pessoal){ el.hidden = true; return; }
+    const disp = (rede ? rede.restante_mes : 0) + pessoal, ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1);
+    const est = !c.pode_usar ? "zero" : disp / ref <= 0.2 ? "baixo" : "";
+    el.className = "ls-ia" + (est ? " " + est : "");
+    el.innerHTML = est === "zero" ? "\u2728 0 créditos · <b>Comprar</b>" : "\u2728 <b>" + nf(disp) + "</b> " + (disp === 1 ? "crédito" : "créditos") + " IA";
+    el.title = [rede ? nf(rede.restante_mes) + " da rede este mês" : "", pessoal ? nf(pessoal) + " seus" : ""].filter(Boolean).join(" + ") + ". Clique para comprar mais.";
+    el.hidden = false;
   }
   function lousaAberta(){ const o = $("lsOverlay"); return !!(o && o.classList.contains("aberto")); }
   // Lousa com aula salva neste navegador (o professor saiu do Portal e voltou): o botão já nasce verde, piscando.

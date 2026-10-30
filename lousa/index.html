@@ -2633,10 +2633,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(e.key==="Delete" || e.key==="Backspace"){ excluirSel(); return; }
 
     if((e.key==="PageDown" || e.key==="PageUp") && mundoAtual().L){ e.preventDefault(); irParaBloco(blocoAtual() + (e.key==="PageDown" ? 1 : -1)); return; }
+    if(navegarPorTecla(e)) return;
     var mapa = {v:"select",p:"caneta",m:"marcatexto",l:"linha",a:"seta",r:"retangulo",c:"circulo",t:"texto",h:"mover",e:"borracha"};
     var f = mapa[e.key.toLowerCase()];
     if(f){ setFerramenta(f); }
   });
+
+  /* Setas do teclado, passador de slides e controle remoto: avançam e voltam a página.
+     Passadores mandam PageDown/PageUp (alguns mandam setas); fora de campos de texto e janelas abertas. */
+  var TECLAS_AVANCA = { ArrowRight:1, ArrowDown:1, PageDown:1, MediaTrackNext:1 }, TECLAS_VOLTA = { ArrowLeft:1, ArrowUp:1, PageUp:1, MediaTrackPrevious:1 };
+  function janelaAberta(){ return !!document.querySelector("#iaFundo.aberto, #iaBloq.aberto, #nvFundo.aberto, .dlg.aberto, #dlg.aberto"); }
+  function navegarPorTecla(e){
+    var dir = TECLAS_AVANCA[e.key] ? 1 : TECLAS_VOLTA[e.key] ? -1 : 0;
+    if(!dir || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false;
+    var t = e.target, tag = t && t.tagName;
+    if(tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (t && t.isContentEditable) || janelaAberta()) return false;
+    var ativo = canvas.getActiveObject(); if(ativo && ativo.isEditing) return false;
+    e.preventDefault();
+    var alvo = pagAtual + dir;
+    if(alvo >= 0 && alvo < paginas.length) irParaPagina(alvo); else msg(dir > 0 ? "Esta é a última página" : "Esta é a primeira página");
+    return true;
+  }
+  window.PDELousaTecla = function(key){ return navegarPorTecla({ key:key, target:document.body, preventDefault:function(){} }); };
 
   /* ================= confirmação na tela ================= */
   var dlg = document.getElementById("dlg"), dlgAcao = null, dlgFoco = null;
@@ -2906,6 +2924,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   window.addEventListener("message", function(e){
     if(e.source !== window.parent || !e.data || e.data.tipo !== "pde-lousa-cmd") return;
     if(e.data.cmd === "pedir-encerrar") pedirEncerrar();
+    else if(e.data.cmd === "tecla" && typeof e.data.key === "string") window.PDELousaTecla(e.data.key);
     else if(e.data.cmd === "salvar"){ salvarAgora(); if(window.PDENuvem && window.PDENuvem.ativa()) window.PDENuvem.salvarSeAlterou(); }
   });
   /* Esc dentro da lousa = voltar à aula (minimizar) quando aberta pelo Portal */
@@ -3743,16 +3762,18 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ia-bloq p{margin:0 0 10px;font-size:15.5px;font-weight:700}
   .ia-bloq p.ia-bloq-d{font-weight:400;font-size:14px;color:#4b5b6b;line-height:1.5}
   .ia-bloq button{margin-top:6px;background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:11px 26px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:44px}
-  #iaJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(560px,100%);max-height:92vh;overflow:auto;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
+  #iaJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(760px,100%);max-height:94vh;overflow-y:auto;overflow-x:hidden;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
   #iaTopo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#071621;color:#fff;border-bottom:3px solid #8DC63F}
   #iaTopo h2{font-size:18px;margin:0} #iaTopo button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
-  #iaCorpo{padding:16px 18px 18px;display:grid;gap:12px}
+  #iaCorpo{padding:16px 20px 18px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+  #iaCorpo > *, #iaCorpo label{min-width:0}
   #iaCorpo .ia-d{margin:0;font-size:14px;color:#4b5b6b;line-height:1.45}
   #iaCorpo label{display:grid;gap:5px;font-size:13px;font-weight:700;color:#0f2c4a}
   #iaCorpo label small{font-weight:400;color:#62758a}
-  #iaCorpo input, #iaCorpo select{font:inherit;font-weight:400;font-size:15px;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff;min-height:44px}
+  #iaCorpo input, #iaCorpo select{width:100%;box-sizing:border-box;min-width:0;max-width:100%;font:inherit;font-weight:400;font-size:15px;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff;min-height:44px}
   #iaCorpo input:focus, #iaCorpo select:focus{outline:2px solid #2E9BD6;outline-offset:1px}
-  #iaCorpo .ia-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #iaCorpo .ia-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  #iaCorpo .ia-3{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,.7fr);gap:10px}
   #iaCorpo label.ia-chk{display:flex;gap:10px;align-items:center;font-weight:600;font-size:14px}
   #iaCorpo label.ia-chk input{width:20px;height:20px;min-height:0;accent-color:#1a6b2a}
   #iaCorpo label.ia-ultra{align-items:flex-start;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(141,198,63,.14),rgba(46,155,214,.12),rgba(123,92,255,.12));border:1px solid #d5def0}
@@ -3762,7 +3783,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-acoes{display:flex;justify-content:flex-end}
   #iaCorpo .ia-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
   #iaCorpo .ia-pri:disabled{opacity:.6;cursor:wait}
-  @media (max-width:520px){ #iaCorpo .ia-2{grid-template-columns:1fr} }
+  @media (max-width:620px){ #iaCorpo .ia-2, #iaCorpo .ia-3{grid-template-columns:minmax(0,1fr)} }
   #nvFundo{position:fixed;inset:0;z-index:9000;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #nvFundo.aberto{display:flex}
   #nvJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(880px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
@@ -3975,6 +3996,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ---------- Aula com IA: o professor pede o tema e a aula entra como páginas da Lousa ---------- */
   const DISC_IA = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Inglês","Ensino Religioso","Educação Infantil","Interdisciplinar"];
+  // o topo da Lousa (no Portal) mostra os créditos de IA do professor
+  function avisarCotaIA(){
+    if(!cotaIA || window.parent === window) return;
+    try{ window.parent.postMessage({ tipo:"pde-lousa-cota", c:{ admin:!!cotaIA.admin, pode_usar:!!cotaIA.pode_usar, rede:cotaIA.rede || null, pessoal:cotaIA.pessoal || null } }, location.origin); }catch(e){}
+  }
   function avisoBloqueioIA(){
     let bg = document.getElementById("iaBloq");
     if(!bg){
@@ -3997,9 +4023,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       bg.innerHTML = '<div id="iaJanela" role="dialog" aria-modal="true" aria-labelledby="iaTit"><div id="iaTopo"><h2 id="iaTit">Aula com IA</h2><button type="button" data-ia="fechar">Fechar</button></div>' +
         '<div id="iaCorpo"><p class="ia-d">Diga o tema e a IA do Portal monta a aula em slides, direto aqui na Lousa. Você revisa e ajusta tudo antes de mostrar à turma. <b>Usa 1 crédito.</b></p>' +
         '<label>Tema da aula<input id="iaTema" maxlength="200" placeholder="Ex.: fases da Lua, frações equivalentes, Revolução Industrial"></label>' +
-        '<div class="ia-2"><label>Disciplina<select id="iaDisc"><option value="">Escolha...</option>' + DISC_IA.map(d => '<option>' + d + '</option>').join("") + '</select></label>' +
-        '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label></div>' +
-        '<div class="ia-2"><label>Quantos slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label><span></span></div>' +
+        '<div class="ia-3"><label>Disciplina<select id="iaDisc"><option value="">Escolha...</option>' + DISC_IA.map(d => '<option>' + d + '</option>').join("") + '</select></label>' +
+        '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label>' +
+        '<label>Slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label></div>' +
         '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
         '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
         '<div id="iaUltraBox" hidden><label class="ia-chk ia-ultra"><input type="checkbox" id="iaUltra"> <span><b>Lousa Ultra</b>: ilustrações geradas por IA na capa e em até 2 slides <small id="iaUltraCusto"></small></span></label>' +
@@ -4130,7 +4156,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
       const [r, continuar] = await Promise.all([httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:240000 })(dados).then(x => x.data), continuarIA(tema, dados.disciplina, "")]);
       try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){}
-      cotaIA = r.cota || null;
+      cotaIA = r.cota || null; avisarCotaIA();
       const imagens = {};
       for(const [k, im] of Object.entries(r.imagens || {})){ try{ imagens[k] = await comprimirIA(im); }catch(e){ console.warn("ilustração:", e); } }
       delete bg.dataset.gerando; bg.classList.remove("aberto");
@@ -4161,6 +4187,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     try{
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
       cotaIA = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data;
+      avisarCotaIA();
     }catch(e){ console.warn("cota IA:", e.code); }
     const rec = (cotaIA && cotaIA.recursos) || {};
     lousaCfg.podeBasica = adm || !!(rec.lousa_ia && rec.lousa_ia.ok);
