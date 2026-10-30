@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal Maestro · O professor conduz, a turma acompanha</title>
+<meta name="description" content="Portal Maestro: a sala de aula gerenciada do Portal do Educador. Os alunos digitam um número e cada Chromebook, computador ou tablet passa a seguir a regência do professor.">
+<meta name="theme-color" content="#071621">
+<link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --escuro:#071621; --escuro-2:#0d2438; --azul:#2671AB; --ciano:#2E9BD6; --lima:#8DC63F;
+    --papel:#F4F7FA; --tinta:#0F2233; --suave:#4D6275; --linha:#D9E3EC;
+    --display:"Bricolage Grotesque", "Segoe UI", sans-serif;
+    --texto:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0 }
+  html{ scroll-behavior:smooth }
+  body{ font-family:var(--texto); color:var(--tinta); background:var(--papel); font-size:17px; line-height:1.6; -webkit-font-smoothing:antialiased }
+  img{ display:block; max-width:100% }
+  a{ color:inherit }
+  .wrap{ width:min(1180px, 100% - 40px); margin-inline:auto }
+  h1, h2, h3{ font-family:var(--display); line-height:1.05; letter-spacing:-.02em }
+  h2{ font-size:clamp(30px, 4vw, 50px); font-weight:800 }
+  h3{ font-size:20px; font-weight:700; letter-spacing:-.01em }
+  p{ max-width:62ch }
+  :focus-visible{ outline:3px solid var(--lima); outline-offset:3px; border-radius:6px }
+
+  .bt{ display:inline-flex; align-items:center; justify-content:center; gap:10px; font-family:var(--texto); font-weight:700; font-size:16px;
+    padding:15px 24px; border-radius:999px; text-decoration:none; border:2px solid transparent; cursor:pointer; transition:transform .15s, background .15s, border-color .15s; text-align:center; line-height:1.25 }
+  .bt:hover{ transform:translateY(-2px) }
+  .bt small{ display:block; font-weight:400; font-size:13px; opacity:.8 }
+  .bt-lima{ background:var(--lima); color:var(--escuro) }
+  .bt-lima:hover{ background:#9fd451 }
+  .bt-linha{ border-color:rgba(255,255,255,.4); color:#fff }
+  .bt-linha:hover{ border-color:#fff; background:rgba(255,255,255,.06) }
+  .bt-azul{ background:var(--azul); color:#fff }
+  .bt-azul:hover{ background:#1f5f91 }
+  .bt-linha-escura{ border-color:var(--linha); color:var(--tinta); background:#fff }
+  .bt-linha-escura:hover{ border-color:var(--azul) }
+
+  /* topo */
+  .topo{ position:sticky; top:0; z-index:50; background:rgba(7,22,33,.9); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.08) }
+  .topo .wrap{ display:flex; align-items:center; gap:18px; height:70px }
+  .marca{ display:flex; align-items:center; gap:11px; text-decoration:none; color:#fff; font-family:var(--display); font-weight:700; font-size:18px; flex:none }
+  .marca img{ width:42px; height:42px }
+  .topo nav{ margin-left:auto; display:flex; gap:6px; align-items:center }
+  .topo nav a{ color:rgba(255,255,255,.82); text-decoration:none; font-weight:700; font-size:15px; padding:9px 12px; border-radius:999px; white-space:nowrap }
+  .topo nav a:hover{ color:#fff; background:rgba(255,255,255,.08) }
+  .topo nav .bt{ padding:10px 18px; font-size:15px; color:var(--escuro) }
+
+  /* hero */
+  .hero{ position:relative; background:var(--escuro); color:#fff; overflow:hidden; isolation:isolate }
+  .hero::before{ content:""; position:absolute; inset:0; z-index:-1;
+    background:radial-gradient(900px 520px at 8% 10%, rgba(46,155,214,.22), transparent 60%), radial-gradient(700px 500px at 75% 110%, rgba(141,198,63,.14), transparent 60%) }
+  .hero .wrap{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:52px; align-items:center; padding:64px 0 76px }
+  .selo{ display:inline-flex; align-items:center; gap:10px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); padding:6px 14px 6px 6px; border-radius:999px; font-weight:700; font-size:14.5px }
+  .selo img{ width:34px; height:34px; border-radius:10px }
+  .hero h1{ font-size:clamp(40px, 5.4vw, 72px); font-weight:800; letter-spacing:-.035em; line-height:.98; margin-top:22px }
+  .hero h1 em{ font-style:normal; color:var(--lima) }
+  .hero .lead{ font-size:20px; color:rgba(255,255,255,.8); margin-top:20px; max-width:44ch }
+  .entradas{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:30px; max-width:480px }
+  .entradas .bt{ flex-direction:column; gap:2px; padding:14px 18px; border-radius:18px }
+  .entradas .ico{ font-size:22px; line-height:1 }
+
+  /* cena: foto + painel de demonstração */
+  .cena{ position:relative }
+  .cena .foto{ border-radius:28px; overflow:hidden; aspect-ratio:4/3; box-shadow:0 40px 80px -30px rgba(46,155,214,.45) }
+  .cena .foto img{ width:100%; height:100%; object-fit:cover }
+  .demo{ position:absolute; left:-36px; bottom:-34px; width:min(340px, 82%); background:#fff; color:var(--tinta); border-radius:20px; padding:16px 18px 18px; box-shadow:0 30px 60px -20px rgba(0,0,0,.55) }
+  .demo-top{ display:flex; justify-content:space-between; align-items:baseline; gap:10px }
+  .demo-top small{ color:var(--suave); font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em }
+  .demo-top b{ font-family:var(--display); font-size:24px; letter-spacing:.06em; color:var(--azul) }
+  .demo-nums{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:10px }
+  .demo-nums div{ background:var(--papel); border-radius:12px; padding:8px 6px; text-align:center; font-size:11.5px; color:var(--suave); line-height:1.25 }
+  .demo-nums b{ display:block; font-family:var(--display); font-size:20px; color:var(--tinta) }
+  .demo-pesq{ margin-top:10px; font-size:13.5px; font-weight:700 }
+  .termo{ height:10px; border-radius:999px; background:linear-gradient(90deg, #8DC63F 0 72%, #f2b632 72% 90%, #e5574c 90%); margin-top:6px }
+  .demo-al{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px }
+  .demo-al span{ font-size:12px; font-weight:700; padding:3px 9px; border-radius:999px; background:#e5f1fa; color:var(--azul) }
+  .demo-al span.mao{ background:#fff4d6; color:#8a5a00 }
+
+  section{ padding:100px 0 }
+  .cab{ display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:end; margin-bottom:42px }
+  .cab p{ color:var(--suave); font-size:18px }
+  .rotulo{ display:block; font-size:13px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--azul); margin-bottom:12px; font-family:var(--texto) }
+
+  /* passos */
+  .passos{ display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; list-style:none }
+  .passo{ background:#fff; border:1px solid var(--linha); border-radius:22px; padding:28px 26px }
+  .passo .n{ font-family:var(--display); font-size:46px; font-weight:800; color:var(--lima); line-height:1; letter-spacing:-.03em }
+  .passo h3{ margin-top:12px; font-size:22px }
+  .passo p{ color:var(--suave); font-size:16px; margin-top:8px }
+
+  /* recursos */
+  .recursos{ background:#fff; border-top:1px solid var(--linha); border-bottom:1px solid var(--linha) }
+  .grade{ display:grid; grid-template-columns:repeat(4, 1fr); gap:16px }
+  .rec{ background:var(--papel); border:1px solid var(--linha); border-radius:20px; padding:22px 20px; display:flex; flex-direction:column; gap:8px }
+  .rec .sim{ width:48px; height:48px; border-radius:14px; display:grid; place-items:center; font-size:24px; background:#fff; border:1px solid var(--linha) }
+  .rec p{ color:var(--suave); font-size:15px }
+  .rec.seg{ background:var(--escuro); color:#fff; border-color:var(--escuro) }
+  .rec.seg p{ color:rgba(255,255,255,.78) }
+  .rec.seg .sim{ background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.16) }
+
+  /* dispositivos */
+  .disp{ background:var(--escuro-2); color:#fff }
+  .disp .cab p{ color:rgba(255,255,255,.75) }
+  .grade-disp{ display:grid; grid-template-columns:repeat(4, 1fr); gap:14px }
+  .d{ border-radius:20px; padding:24px 22px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12) }
+  .d .sim{ font-size:30px }
+  .d h3{ margin-top:10px }
+  .d p{ color:rgba(255,255,255,.75); font-size:15px; margin-top:6px }
+  .d a{ color:var(--lima); font-weight:700; text-decoration:none }
+
+  /* chamada final */
+  .final{ text-align:center; background:radial-gradient(800px 400px at 50% 120%, rgba(141,198,63,.18), transparent 70%), var(--papel) }
+  .final h2{ max-width:18ch; margin-inline:auto }
+  .final p{ margin:16px auto 0; color:var(--suave); font-size:19px }
+  .final .acoes{ display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:28px }
+
+  footer{ background:var(--escuro); color:rgba(255,255,255,.72); padding:44px 0 30px; font-size:15px }
+  footer .wrap{ display:flex; flex-wrap:wrap; gap:24px 40px; justify-content:space-between; align-items:flex-start }
+  footer a{ text-decoration:none }
+  footer a:hover{ color:#fff }
+  footer .links{ display:flex; flex-wrap:wrap; gap:8px 20px }
+  footer .base{ width:100%; border-top:1px solid rgba(255,255,255,.1); padding-top:18px; font-size:13.5px; color:rgba(255,255,255,.5); display:flex; flex-wrap:wrap; justify-content:space-between; gap:10px }
+
+  @media (max-width: 1020px){
+    .hero .wrap, .cab{ grid-template-columns:1fr; gap:30px }
+    .cena{ margin:0 0 30px 0 }
+    .demo{ left:12px; bottom:-30px }
+    .grade{ grid-template-columns:1fr 1fr }
+    .grade-disp{ grid-template-columns:1fr 1fr }
+    .passos{ grid-template-columns:1fr }
+    .topo nav a.so-largo{ display:none }
+    section{ padding:76px 0 }
+  }
+  @media (max-width: 600px){
+    body{ font-size:16px }
+    .wrap{ width:min(1180px, 100% - 32px) }
+    .hero .lead{ font-size:18px }
+    .entradas{ grid-template-columns:1fr }
+    .topo nav a:not(.bt){ display:none }
+    .marca{ font-size:16px }
+    .topo nav .bt{ padding:9px 14px; font-size:14px }
+    .grade, .grade-disp{ grid-template-columns:1fr }
+    .demo{ position:relative; left:auto; bottom:auto; width:auto; margin:-40px 12px 0 }
+    .cena{ margin:0 }
+    .final .acoes .bt{ width:100% }
+    section{ padding:60px 0 }
+  }
+  @media (prefers-reduced-motion: reduce){ html{ scroll-behavior:auto } .bt:hover{ transform:none } }
+</style>
+</head>
+<body>
+
+<header class="topo">
+  <div class="wrap">
+    <a class="marca" href="/"><img src="/assets/pde-logo-128.png" alt="" width="42" height="42">Portal do Educador</a>
+    <nav aria-label="Navegação">
+      <a class="so-largo" href="#como-funciona">Como funciona</a>
+      <a class="so-largo" href="#recursos">Recursos</a>
+      <a class="so-largo" href="#dispositivos">Dispositivos</a>
+      <a href="/">Voltar ao Portal</a>
+      <a class="bt bt-lima" href="https://sala.portaldoeducador.com.br/">Abrir uma aula</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <span class="selo"><img src="https://sala.portaldoeducador.com.br/assets/maestro-icone-256.png" alt="" width="34" height="34">Portal Maestro</span>
+        <h1>O professor conduz. <em>A turma acompanha.</em></h1>
+        <p class="lead">A sala de aula gerenciada do Portal do Educador. Os alunos digitam um número e cada dispositivo passa a seguir a regência do professor.</p>
+        <div class="entradas">
+          <a class="bt bt-lima" href="https://sala.portaldoeducador.com.br/"><span class="ico" aria-hidden="true">👩‍🏫</span>Sou professor<small>abrir uma aula</small></a>
+          <a class="bt bt-linha" href="https://sala.portaldoeducador.com.br/aluno/"><span class="ico" aria-hidden="true">🎒</span>Sou aluno<small>entrar na aula</small></a>
+        </div>
+      </div>
+      <div class="cena">
+        <div class="foto"><img src="/assets/cards/maestro.webp" alt="Professor conduzindo a aula com um tablet enquanto os alunos acompanham nos Chromebooks" width="800" height="600"></div>
+        <div class="demo" aria-label="Exemplo do painel do professor">
+          <div class="demo-top"><small>Número da aula</small><b>482 915</b></div>
+          <div class="demo-nums"><div><b>28</b>conectados</div><div><b>2</b>mãos levantadas</div><div><b>41</b>interações</div></div>
+          <div class="demo-pesq">Pesquisa rápida: "Entenderam as fases da Lua?"</div>
+          <div class="termo" aria-hidden="true"></div>
+          <div class="demo-al"><span>Ana</span><span class="mao">✋ Bruno</span><span>Carla</span><span>Davi</span><span class="mao">✋ Elisa</span><span>Felipe</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section id="como-funciona">
+    <div class="wrap">
+      <div class="cab">
+        <h2><span class="rotulo">Como funciona</span>Três passos e a aula está nas suas mãos.</h2>
+        <p>Sem instalar programa complicado e sem cadastrar aluno por aluno: o número da aula é a chave para a turma entrar.</p>
+      </div>
+      <ol class="passos">
+        <li class="passo"><span class="n">01</span><h3>Você abre a aula</h3><p>O painel gera um número de 6 dígitos para mostrar na lousa ou na TV.</p></li>
+        <li class="passo"><span class="n">02</span><h3>A turma entra</h3><p>Cada aluno digita o número e o nome. No Chromebook, a tela de entrada aparece assim que ele liga.</p></li>
+        <li class="passo"><span class="n">03</span><h3>Você conduz</h3><p>Envie conteúdos, faça perguntas e pause as telas, para a turma toda ou para um aluno só.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="recursos" id="recursos">
+    <div class="wrap">
+      <div class="cab">
+        <h2><span class="rotulo">Recursos</span>Tudo para conduzir a sua próxima aula.</h2>
+        <p>O que o professor faz hoje pedindo "olhem para cá", o Maestro faz com um toque, e todo mundo na mesma página.</p>
+      </div>
+      <div class="grade">
+        <article class="rec"><div class="sim" aria-hidden="true">📤</div><h3>Conteúdo na tela de todos</h3><p>Envie um app, jogo, vídeo ou site e ele abre em todos os dispositivos.</p></article>
+        <article class="rec"><div class="sim" aria-hidden="true">🌡️</div><h3>Pesquisa rápida</h3><p>Pergunte "Entenderam?" e veja o termômetro da turma na hora.</p></article>
+        <article class="rec"><div class="sim" aria-hidden="true">💬</div><h3>Pergunta individual</h3><p>Resposta livre ou por alternativas, visível só para o professor.</p></article>
+        <article class="rec"><div class="sim" aria-hidden="true">✋</div><h3>Mão levantada</h3><p>O aluno pede a palavra pelo dispositivo, sem tumulto.</p></article>
+        <article class="rec"><div class="sim" aria-hidden="true">⏱️</div><h3>Cronômetro da atividade</h3><p>O mesmo tempo correndo em todas as telas.</p></article>
+        <article class="rec"><div class="sim" aria-hidden="true">⏸️</div><h3>Pausar as telas</h3><p>Telas pausadas com mensagens motivacionais quando você precisa da atenção da turma.</p></article>
+        <article class="rec"><div class="sim" aria-hidden="true">📊</div><h3>Painel da aula</h3><p>Quem está conectado, o que cada aluno vê e a linha do tempo da aula.</p></article>
+        <article class="rec seg"><div class="sim" aria-hidden="true">🛡️</div><h3>Trava de segurança</h3><p>Se o painel do professor cair, as telas são liberadas sozinhas em 2 minutos.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="disp" id="dispositivos">
+    <div class="wrap">
+      <div class="cab">
+        <h2><span class="rotulo" style="color:var(--lima)">Cada realidade, um caminho</span>Um painel para todos os dispositivos da escola.</h2>
+        <p>A escola não precisa trocar de equipamento: o Maestro conversa com o que já está na sala.</p>
+      </div>
+      <div class="grade-disp">
+        <article class="d"><div class="sim" aria-hidden="true">💻</div><h3>Chromebook</h3><p>Extensão gerenciada pelo Google Admin da escola.</p></article>
+        <article class="d"><div class="sim" aria-hidden="true">🖥️</div><h3>Windows</h3><p>Pelo navegador Chrome, sem instalar nada.</p></article>
+        <article class="d"><div class="sim" aria-hidden="true">📱</div><h3>Tablets Android</h3><p>Com o app do aluno Portal Maestro.</p></article>
+        <article class="d"><div class="sim" aria-hidden="true">🥽</div><h3>Óculos de VR</h3><p>Integrado ao <a href="https://portal360.portaldoeducador.com.br/">Portal 360º VR</a>.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2>Pronto para reger a sua turma?</h2>
+      <p>Abra uma aula agora e veja o painel funcionando.</p>
+      <div class="acoes">
+        <a class="bt bt-lima" href="https://sala.portaldoeducador.com.br/">Abrir uma aula</a>
+        <a class="bt bt-linha-escura" data-action="whats" data-msg="Olá! Quero ver o Portal Maestro funcionando na minha escola." href="https://wa.me/556730266571">Pedir uma demonstração</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="marca" href="/"><img src="/assets/pde-logo-128.png" alt="" width="42" height="42">Portal do Educador</a>
+    <div class="links">
+      <a href="/">Página inicial</a>
+      <a href="/entrar/">Entrar no Portal</a>
+      <a href="mailto:suporte@portaldoeducador.com.br">suporte@portaldoeducador.com.br</a>
+      <a href="tel:+556730266571">(67) 3026-6571</a>
+      <a href="/privacidade/">Privacidade e cookies</a>
+    </div>
+    <div class="base"><span>© <span id="ano">2026</span> NEWPC Tecnologia · CNPJ 20.892.343/0001-15</span><span>Atendimento de segunda a sexta, das 8h às 18h</span></div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  // WhatsApp com a mensagem pronta (sem onclick: delegação por data-action)
+  document.addEventListener("click", function(e){
+    var el = e.target.closest("[data-action]"); if(!el) return;
+    if(el.dataset.action === "whats"){
+      e.preventDefault();
+      window.open("https://wa.me/556730266571?text=" + encodeURIComponent(el.dataset.msg || "Olá!"), "_blank", "noopener");
+    }
+  });
+  document.getElementById("ano").textContent = new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
