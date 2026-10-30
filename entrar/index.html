@@ -3823,6 +3823,7 @@
     fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="13" rx="1.8"/><path d="M7 20.5l2-4M17 20.5l-2-4"/><path d="M6.5 8h7M6.5 11.5h10" stroke="#8DC63F"/></svg><span>Lousa</span><em id="lsSelo">Continuar</em>';
     document.body.appendChild(fab);
     rotularFabAula();
+    setTimeout(verificarLousaSalva, 300);
     arrastavel(fab);
     const ov = document.createElement("div");
     ov.id = "lsOverlay"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-label","Lousa Interativa");
@@ -3893,6 +3894,24 @@
     });
   }
   function lousaAberta(){ const o = $("lsOverlay"); return !!(o && o.classList.contains("aberto")); }
+  // Lousa com aula salva neste navegador (o professor saiu do Portal e voltou): o botão já nasce verde, piscando.
+  // A Lousa guarda a aula em IndexedDB (pde_lousa / kv / pde_lousa_aula_v1) e apaga quando fica vazia ou é encerrada.
+  const LOUSA_HORAS = 4;   // mesmo prazo em que a Lousa retoma sozinha
+  function verificarLousaSalva(){
+    if(lousa.carregada) return;   // com a Lousa já carregada, quem avisa é ela mesma
+    const usar = (a) => {
+      if(lousa.carregada) return;
+      const ok = a && Array.isArray(a.paginas) && a.paginas.length && (Date.now() - (a.atualizado || 0)) < LOUSA_HORAS * 3600000;
+      lousa.ativa = !!ok; lousa.paginas = ok ? a.paginas.length : 0; attSeloLousa();
+    };
+    try{ const v = JSON.parse(localStorage.getItem("pde_lousa_aula_v1") || "null"); if(v){ usar(v); return; } }catch(e){}
+    try{
+      const r = indexedDB.open("pde_lousa", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => { try{ const g = r.result.transaction("kv", "readonly").objectStore("kv").get("pde_lousa_aula_v1"); g.onsuccess = () => usar(g.result || null); }catch(e){} };
+    }catch(e){}
+  }
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible" && lousa.montada) verificarLousaSalva(); });
   function attSeloLousa(){
     const fab = $("lsFab"); if(!fab) return;
     const mostrar = lousa.ativa && !lousaAberta();
