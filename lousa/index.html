@@ -4066,7 +4066,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(sel.value.startsWith("etapa:")) return sel.value.slice(6);
     return document.getElementById("iaTurma").value.trim();
   }
-  // Lousa Ultra: aparece quando o administrador ligou; fica indisponível (com o motivo) se o plano não inclui imagem
+  // Lousa Ultra: aparece quando a Central de IA liberou; fica indisponível (com o motivo) se não há crédito de imagem
   async function prepararUltra(){
     const box = document.getElementById("iaUltraBox"), chk = document.getElementById("iaUltra"), custo = document.getElementById("iaUltraCusto");
     box.hidden = !lousaCfg.podeUltra; if(box.hidden) return;
@@ -4156,13 +4156,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(!licenca) return;
     uid = user.uid;
     document.querySelectorAll(".so-nuvem").forEach(b => b.hidden = false);
-    // Lousa IA: chave geral + liberação do município (recursos) ou do professor (recursos_extra); o servidor confere de novo
-    try{ const c = await getDoc(doc(db, "config", "portal_ia")); lousaCfg = { basica:true, ultra:false, ...((c.exists() && c.data().lousa) || {}) }; }catch(e){}
-    const recs = new Set((eu && Array.isArray(eu.recursos_extra)) ? eu.recursos_extra : []);
-    if(eu && eu.municipio_id){ try{ const m = await getDoc(doc(db, "municipios", eu.municipio_id)); ((m.exists() && m.data().recursos) || []).forEach(r => recs.add(r)); }catch(e){} }
+    // Lousa IA: quem decide é a Central de IA, no servidor (a cota devolve o mapa de recursos liberados)
     const adm = !!(eu && eu.perfil === "admin");
-    lousaCfg.podeBasica = adm || (lousaCfg.basica && (recs.has("lousa_ia") || recs.has("lousa_ia_ultra")));
-    lousaCfg.podeUltra = adm || (lousaCfg.ultra && recs.has("lousa_ia_ultra"));
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      cotaIA = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data;
+    }catch(e){ console.warn("cota IA:", e.code); }
+    const rec = (cotaIA && cotaIA.recursos) || {};
+    lousaCfg.podeBasica = adm || !!(rec.lousa_ia && rec.lousa_ia.ok);
+    lousaCfg.podeUltra = adm || !!(rec.lousa_ia_ultra && rec.lousa_ia_ultra.ok);
+    lousaCfg.motivo = (rec.lousa_ia && rec.lousa_ia.motivo) || "";
     // sem liberação o botão continua à vista, com cadeado: no clique explica (desperta o interesse pelo recurso)
     const bIA = document.querySelector('[data-action="ia-aula"]');
     if(bIA){ bIA.style.display = ""; bIA.classList.toggle("bloq", !lousaCfg.podeBasica);

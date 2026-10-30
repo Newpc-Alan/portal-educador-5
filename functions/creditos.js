@@ -68,17 +68,19 @@ export function devolverPacotes(pacotes, tirado) {
 
 /* ---------------------------------------------------------------- uso pelo Portal IA */
 // quem paga: a rede (se o plano tem Portal IA, com teto mensal) e, depois, os créditos do professor
-export async function situacao(db, ctx) {
+// opc (Central de IA): redeTexto / redeImagem dizem se a carteira da rede paga texto e imagem para esta pessoa;
+// sem opc, vale a regra antiga do plano (Intermediário e Completo pagam texto; só o Completo paga imagem)
+export async function situacao(db, ctx, opc = {}) {
   const cc = cfgCreditos(ctx.cfgRaw);
   if (ctx.admin) return { admin: true, plano: ctx.plano, precos: cc.precos, pode_usar: true, pode_imagem: true, rede: null, pessoal: null };
-  const mun = ctx.eu.municipio_id || '', temRede = !!mun && PLANOS_COM_IA.includes(ctx.plano);
+  const mun = ctx.eu.municipio_id || '', temRede = !!mun && (opc.redeTexto ?? PLANOS_COM_IA.includes(ctx.plano));
   const [ms_, ps, us] = await Promise.all([temRede ? db.doc(`creditos/mun_${mun}`).get() : null, db.doc(`creditos/prof_${ctx.uid}`).get(), db.doc(`portal_ia_uso/${ctx.uid}_${mesAtual()}`).get()]);
   const uso = us.exists ? us.data() : {};
   let rede = null;
   if (temRede) {
     const c = ms_ && ms_.exists ? ms_.data() : {}, s = saldoDe(c), teto = c.teto_professor ?? cc.teto_padrao;
     const usado = uso.creditos_rede || 0;
-    rede = { saldo: s.saldo, validade: s.validade, teto, usado_mes: usado, restante_mes: teto > 0 ? Math.max(0, Math.min(teto - usado, s.saldo)) : s.saldo, imagem: ctx.plano === 'completo' };
+    rede = { saldo: s.saldo, validade: s.validade, teto, usado_mes: usado, restante_mes: teto > 0 ? Math.max(0, Math.min(teto - usado, s.saldo)) : s.saldo, imagem: opc.redeImagem ?? ctx.plano === 'completo' };
   }
   const p = ps.exists ? saldoDe(ps.data()) : { saldo: 0, validade: 0 };
   const pessoal = { saldo: p.saldo, validade: p.validade };
@@ -92,11 +94,12 @@ export async function situacao(db, ctx) {
 }
 
 // reserva o custo da ação (texto, ajuste ou imagem); devolve o que foi tirado para estornar se a IA falhar
-export async function reservarCreditos(db, ctx, acao) {
+// opc.rede (Central de IA): a carteira da rede pode pagar este uso? opc.nome: nome do recurso, para a mensagem
+export async function reservarCreditos(db, ctx, acao, opc = {}) {
   const cc = cfgCreditos(ctx.cfgRaw), custo = cc.precos[acao] || 1, campo = acao === 'imagem' ? 'imagens' : 'textos';
   const usoRef = db.doc(`portal_ia_uso/${ctx.uid}_${mesAtual()}`);
   if (ctx.admin) { await usoRef.set({ uid: ctx.uid, mes: mesAtual(), [campo]: FieldValue.increment(1), atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); return { conta: 'admin', custo: 0, campo, usoRef }; }
-  const mun = ctx.eu.municipio_id || '', temRede = !!mun && PLANOS_COM_IA.includes(ctx.plano), imagemRede = ctx.plano === 'completo';
+  const mun = ctx.eu.municipio_id || '', temRede = !!mun && (opc.rede ?? PLANOS_COM_IA.includes(ctx.plano)), imagemRede = opc.rede ?? ctx.plano === 'completo';
   const refMun = temRede ? db.doc(`creditos/mun_${mun}`) : null, refProf = db.doc(`creditos/prof_${ctx.uid}`);
   const r = await db.runTransaction(async t => {
     const [m, p, u] = await Promise.all([refMun ? t.get(refMun) : null, t.get(refProf), t.get(usoRef)]);
@@ -128,7 +131,7 @@ export async function reservarCreditos(db, ctx, acao) {
   });
   if (r.erro) {
     const avulso = ' Você pode comprar créditos avulsos no Portal IA.';
-    const msg = { plano: 'O Portal IA faz parte dos planos Intermediário e Completo da rede.' + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
+    const msg = { plano: (opc.rede === false ? 'Este uso não é pago pela sua rede e você não tem créditos avulsos suficientes.' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede.') + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
       teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A Secretaria de Educação já foi avisada.' + avulso }[r.erro];
     throw new HttpsError('resource-exhausted', msg);
   }

@@ -9,6 +9,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
+import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
 
@@ -359,13 +360,14 @@ async function contexto(db, uid) {
   const cfg = { ...PADRAO, ...c, planos: { ...PADRAO.planos, ...(c.planos || {}) } };
   const admin = eu.perfil === 'admin';
   if (!admin && !cfg.ativo) throw new HttpsError('failed-precondition', 'O Portal IA está em manutenção.');
-  if (!admin && !cfg.todos && !(cfg.municipios || []).includes(eu.municipio_id)) throw new HttpsError('failed-precondition', 'O Portal IA ainda não foi liberado para a sua rede.');
-  let plano = 'basico';
+  // quem usa cada recurso agora é decidido na Central de IA (ia-acesso.js), recurso a recurso
+  let plano = 'basico', muni = null;
   if (admin) plano = 'completo';
-  else if (eu.municipio_id) { const m = await db.doc(`municipios/${eu.municipio_id}`).get(); plano = (m.exists && m.data().plano_nome) || 'basico'; }
+  else if (eu.municipio_id) { const m = await db.doc(`municipios/${eu.municipio_id}`).get(); muni = m.exists ? m.data() : null; plano = (muni && muni.plano_nome) || 'basico'; }
   else if (eu.plano_avulso) plano = eu.plano_avulso;
   // quem pode usar e quanto: créditos da rede (plano Intermediário ou Completo) e créditos avulsos do professor (creditos.js)
-  return { eu, cfg, cfgRaw: c, admin, plano, uid, usoRef: db.doc(`portal_ia_uso/${uid}_${mesAtual()}`) };
+  const ia = { admin, geral: geralIA(c), rede: admin ? new Set() : iaDaRede(muni, plano), user: admin ? new Set() : iaDoUsuario(eu) };
+  return { eu, cfg, cfgRaw: c, admin, plano, muni, ia, uid, usoRef: db.doc(`portal_ia_uso/${uid}_${mesAtual()}`) };
 }
 function contextoTexto(cx) {
   return ['Disciplina: ' + (cx.disciplina || 'não informada'), 'Série: ' + (cx.serie || 'não informada'), cx.turma ? 'Turma: ' + cx.turma : '', cx.necessidade ? 'Necessidade da turma: ' + cx.necessidade : '']
@@ -379,9 +381,16 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
   const ctx = await contexto(db, uid); ctx.uid = uid;
   const cx = { disciplina: txt(d.contexto && d.contexto.disciplina, 60), serie: txt(d.contexto && d.contexto.serie, 30), turma: txt(d.contexto && d.contexto.turma, 60), necessidade: txt(d.contexto && d.contexto.necessidade, 60) };
   const chave = GEMINI.value();
+  // Central de IA: confere o recurso e diz se a carteira da rede paga (senão, só créditos próprios do professor)
+  const exigir = r => { const a = acessoIA(r, ctx.ia); if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso(r, a.motivo)); return { rede: a.via === 'rede' ? true : a.via === 'admin' ? undefined : false, nome: NOMES_IA[r] }; };
+  const cota = async () => {
+    const tx = ['portalia', 'provas_ia', 'lousa_ia'].some(r => ctx.ia.rede.has(r)), im = ['portalia_imagem', 'lousa_ia_ultra'].some(r => ctx.ia.rede.has(r));
+    const st = await situacao(db, ctx, ctx.admin ? {} : { redeTexto: tx, redeImagem: im });
+    st.recursos = mapaAcesso(ctx.ia); return st;
+  };
 
-  // 0) como está a cota (a tela mostra ao abrir)
-  if (d.acao === 'cota') return situacao(db, ctx);
+  // 0) como está a cota (a tela mostra ao abrir) e o que esta pessoa pode usar
+  if (d.acao === 'cota') return cota();
 
   // 1) entender o pedido: tipo, tema e no máximo 2 perguntas (modelo rápido, não conta na cota)
   if (d.acao === 'entender') {
@@ -394,7 +403,8 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       'Para atividade e prova, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade e 10 na prova. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
     const pedido = 'CONTEXTO\n' + contextoTexto(cx) + (tipoDado ? '\nTipo escolhido pelo professor no atalho: ' + tipoDado : '') + '\n\nPEDIDO DO PROFESSOR\n' + (texto || '(o professor só tocou no atalho)') +
       (d.respostas && typeof d.respostas === 'object' ? '\n\nRESPOSTAS ÀS PERGUNTAS ANTERIORES\n' + Object.entries(d.respostas).slice(0, 4).map(([k, v]) => k + ': ' + txt(v, 6000)).join('\n') : '');
-    if (!ctx.admin) { const st = await situacao(db, ctx); if (!st.pode_usar) throw new HttpsError('resource-exhausted', st.motivo || 'Sem créditos para o Portal IA.'); }
+    exigir('portalia');
+    if (!ctx.admin) { const st = await cota(); if (!st.pode_usar) throw new HttpsError('resource-exhausted', st.motivo || 'Sem créditos para o Portal IA.'); }
     const r = await geminiJson(chave, [ctx.cfg.modelo_rapido, ...RESERVA_TEXTO], sistema, pedido, ESQUEMA_ENTENDER, 0.2);
     await registrarConsumo(db, ctx, null, { modelo: r.modelo, entrada: r.entrada, saida: r.saida });
     const j = r.json || {};
@@ -414,7 +424,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (!TIPOS[tipo]) throw new HttpsError('invalid-argument', 'Tipo de material inválido.');
     if (resumo.length < 3) throw new HttpsError('invalid-argument', 'Pedido vazio.');
     const qtd = Math.min(20, Math.max(0, Number(d.qtd) || (tipo === 'prova' ? 10 : tipo === 'atividade' ? 6 : 0)));
-    const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto');
+    const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto', exigir('portalia'));
     const T = TIPOS[tipo];
     const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
     let pedido = 'CONTEXTO\n' + contextoTexto(cx) + '\n\nPEDIDO\n' + resumo + (qtd && T.questoes ? '\nQuantidade de questões: ' + qtd + '.' : '');
@@ -443,7 +453,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       modelo: r.modelo, tokens_entrada: FieldValue.increment(ent), tokens_saida: FieldValue.increment(sai), atualizado_em: FieldValue.serverTimestamp() };
     if (anterior) { await docRef.set({ ...reg, ajustes: FieldValue.increment(1), anterior: anterior.doc }, { merge: true }); }
     else { docRef = db.collection('portal_ia_docs').doc(); await docRef.set({ ...reg, imagem: '', favorito: false, ajustes: 0, criado_em: FieldValue.serverTimestamp() }); }
-    return { id: docRef.id, tipo, nome: T.nome, publico: T.publico, doc, cota: await situacao(db, ctx) };
+    return { id: docRef.id, tipo, nome: T.nome, publico: T.publico, doc, cota: await cota() };
   }
 
   // 3) imagem para a aula (só nos planos que incluem; conta na cota de imagens)
@@ -456,7 +466,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     const onde = /^q([1-9]|[12]\d|30)$/.test(String(d.onde || '')) ? d.onde : 'topo';
     let docRef = null;
     if (docId) { docRef = db.doc(`portal_ia_docs/${docId}`); const s = await docRef.get(); if (!s.exists || s.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.'); }
-    const res = await reservarCreditos(db, ctx, 'imagem');
+    const res = await reservarCreditos(db, ctx, 'imagem', exigir('portalia_imagem'));
     const prompt = 'Crie uma imagem para uso em sala de aula de escola brasileira, adequada para crianças e adolescentes. Assunto: ' + descricao + '. Estilo: ' + estilo +
       '. Formato ' + (onde === 'topo' ? 'horizontal 4:3' : 'quadrado 1:1, com o assunto centralizado e fundo limpo, para ficar ao lado de uma questão') + '. NÃO escreva palavras, letras nem números na imagem. Nada de violência, marcas comerciais ou pessoas reais conhecidas. Pessoas, quando houver, diversas e representando o Brasil.';
     let r = null, erro = null;
@@ -475,7 +485,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       await docRef.set({ imagens: { [onde]: { caminho, descricao } }, ...(onde === 'topo' ? { imagem: caminho, imagem_descricao: descricao } : {}), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
       if (ant && ant.caminho) await getStorage().bucket().file(ant.caminho).delete().catch(() => {});   // a imagem trocada não fica ocupando espaço
     }
-    return { caminho, onde, mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: await situacao(db, ctx) };
+    return { caminho, onde, mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: await cota() };
   }
 
   // 4) tirar uma imagem do material (não devolve cota)
@@ -496,7 +506,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema ou conteúdo da prova.');
     const tipos = TIPOS_PROVA[d.tipos] || TIPOS_PROVA.mista, nivel = txt(d.nivel, 40) || 'médio';
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
-    const res = await reservarCreditos(db, ctx, 'texto');
+    const res = await reservarCreditos(db, ctx, 'texto', exigir('provas_ia'));
     const sistema = 'Você é um professor experiente da rede pública brasileira e elabora avaliações escolares. Crie exatamente ' + qtd + ' questões. ' +
       'Múltipla escolha: 4 alternativas curtas, só uma correta, distratores plausíveis. Verdadeiro ou falso: cada questão é UMA afirmação clara, sem pegadinha. ' +
       'Resposta curta e dissertativa: informe em "esperado" a resposta ou o critério de correção. Dificuldade crescente. Valores: 1 ponto para objetivas, 2 para dissertativas, salvo outro total pedido.\n\n' + REGRAS_GERAIS;
@@ -519,23 +529,19 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     await registrarConsumo(db, ctx, falhou ? null : { ...res, acao: 'prova' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu as questões com problema (' + prob[0] + '). Tente de novo.');
-    return { questoes: qs, cota: await situacao(db, ctx) };
+    return { questoes: qs, cota: await cota() };
   }
 
   /* ---------------- aula em slides para a Lousa (1 crédito) ---------------- */
   if (d.acao === 'aula_lousa') {
-    // gestão: chave geral (config/portal_ia.lousa) + liberação do município (municipios.recursos) ou do professor (usuarios.recursos_extra).
-    // lousa_ia = Básica; lousa_ia_ultra = Ultra (ilustrações, inclui a Básica). O administrador sempre pode testar.
-    const gl = { basica: true, ultra: false, ...((ctx.cfgRaw && ctx.cfgRaw.lousa) || {}) };
-    const recs = new Set(Array.isArray(ctx.eu.recursos_extra) ? ctx.eu.recursos_extra : []);
-    if (!ctx.admin && ctx.eu.municipio_id) { const m = await db.doc(`municipios/${ctx.eu.municipio_id}`).get(); ((m.exists && m.data().recursos) || []).forEach(r => recs.add(r)); }
-    if (!ctx.admin && !(gl.basica && (recs.has('lousa_ia') || recs.has('lousa_ia_ultra'))))
-      throw new HttpsError('failed-precondition', gl.basica ? 'A Aula com IA na Lousa ainda não foi liberada para você. Fale com a Secretaria ou com a NEWPC.' : 'A Aula com IA na Lousa está desligada no momento.');
-    const ultra = d.ultra === true && (ctx.admin || (gl.ultra && recs.has('lousa_ia_ultra')));
+    // Central de IA: Lousa IA Básica (texto) e Ultra (ilustrações; inclui a Básica)
+    const opcLousa = exigir('lousa_ia');
+    const aUltra = acessoIA('lousa_ia_ultra', ctx.ia), ultra = d.ultra === true && aUltra.ok;
+    const opcUltra = { rede: aUltra.via === 'rede' ? true : aUltra.via === 'admin' ? undefined : false, nome: NOMES_IA.lousa_ia_ultra };
     const tema = txt(d.tema, 300), qtd = Math.min(10, Math.max(3, Math.round(Number(d.qtd) || 6)));
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
-    const res = await reservarCreditos(db, ctx, 'texto');
+    const res = await reservarCreditos(db, ctx, 'texto', opcLousa);
     const sistema = 'Você é um professor experiente da rede pública brasileira e prepara uma aula expositiva curta para mostrar na lousa digital. ' +
       'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), numa sequência que comece pelo que a turma já conhece, explique o conceito com exemplos do dia a dia e termine com uma retomada. ' +
       'Varie os formatos conforme o conteúdo: use conceito para definições, curiosidade para despertar interesse, linha_tempo quando houver datas (História), passos para procedimentos (Matemática, Ciências), comparacao para contrastes, uma atividade rápida no meio ou no fim e resumo no último slide. ' +
@@ -567,7 +573,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
         .concat(aula.slides.map((sl, i) => ({ onde: 's' + i, desc: sl.ilustracao })).filter(x => x.desc).slice(0, 2));
       const feitas = await Promise.all(pedidos.map(async pd => {
         let rv = null;
-        try { rv = await reservarCreditos(db, ctx, 'imagem'); }
+        try { rv = await reservarCreditos(db, ctx, 'imagem', opcUltra); }
         catch (e) { return { onde: pd.onde, erro: e.message || 'sem créditos para imagem' }; }
         const prompt = 'Crie UMA ilustração para uma aula de escola brasileira' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Assunto: ' + pd.desc +
           '. Tema da aula: ' + aula.titulo + '. Estilo: ' + estiloIlustracao(d.estilo, etapa) + '. Uma única cena, com um ponto de interesse claro: não faça colagem, grade, mosaico nem vários quadros. Formato horizontal 16:9. ' +
@@ -584,7 +590,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       const falhas = feitas.filter(f => f.erro);
       if (falhas.length) aviso = falhas.length === feitas.length ? 'As ilustrações não saíram (' + falhas[0].erro + '). A aula veio só com texto.' : falhas.length + ' ilustração(ões) não saíram; o resto da aula está completo.';
     }
-    return { aula, imagens, aviso, cota: await situacao(db, ctx) };
+    return { aula, imagens, aviso, cota: await cota() };
   }
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */

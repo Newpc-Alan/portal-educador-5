@@ -323,7 +323,11 @@ async function carregarRecentes(){
     E.recentes.sort((a, b) => (!!b.favorito - !!a.favorito) || (ms(b.atualizado_em) - ms(a.atualizado_em)));
   }catch(e){ console.warn("recentes:", e.code); }
 }
-async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; E.bloqueio = r.data && !r.data.pode_usar ? (r.data.motivo || "Sem créditos para o Portal IA.") : ""; }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } chipIA(); }
+// Central de IA: o servidor diz quais recursos esta pessoa pode usar (cota.recursos)
+function bloqueioCota(c){ const a = c && c.recursos && c.recursos.portalia;
+  if(a && !a.ok) return a.motivo === "desligado" ? "O Portal IA está desligado no momento." : "Sua licença ainda não está habilitada para o Portal IA. Fale com a Secretaria de Educação ou com a NEWPC.";
+  return c && !c.pode_usar ? (c.motivo || "Sem créditos para o Portal IA.") : ""; }
+async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; E.bloqueio = bloqueioCota(r.data); }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } chipIA(); }
 const contexto = () => ({ disciplina:E.disc, serie:E.serie, turma:(turmaAtual() || {}).nome || "" });
 const nf = n => Number(n || 0).toLocaleString("pt-BR");
 function textoCota(){
@@ -335,7 +339,7 @@ function textoCota(){
   return p.join(" · ") || "Sem créditos";
 }
 // avisa e atualiza o saldo depois de cada uso
-function aposUso(cota){ try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} if(cota){ E.cota = cota; E.bloqueio = cota.pode_usar ? "" : (cota.motivo || ""); } chipIA(); }
+function aposUso(cota){ try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} if(cota){ E.cota = cota; E.bloqueio = bloqueioCota(cota); } chipIA(); }
 // créditos no topo: mesma conta do menu do Portal e do Provas (rede no mês + créditos próprios)
 function chipIA(){
   const el = document.getElementById("iaChip"), c = E.cota; if(!el) return;
@@ -364,7 +368,7 @@ function opDisc(){
 function telaInicio(){
   const at = E.tipo ? ATALHOS.find(a => a.k === E.tipo) : null;
   $("tela").innerHTML = '<div class="pilha">' +
-  (E.bloqueio ? '<div class="aviso" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><b style="flex:1;min-width:220px">' + esc(E.bloqueio) + '</b><button type="button" class="btn rede" style="width:auto" data-action="comprar">Comprar créditos avulsos</button></div>' : "") +
+  (E.bloqueio ? '<div class="aviso" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><b style="flex:1;min-width:220px">' + esc(E.bloqueio) + '</b>' + (/licença|desligado/.test(E.bloqueio) ? "" : '<button type="button" class="btn rede" style="width:auto" data-action="comprar">Comprar créditos avulsos</button>') + '</div>' : "") +
   '<section class="caixa"><span class="olho">Portal <span class="ia-azul">IA</span></span><h1>O que você precisa para sua aula?</h1>' +
   '<p class="sub" style="margin-top:4px">Escreva do seu jeito. A IA pergunta só o que faltar e entrega o material pronto para editar e imprimir.</p>' +
   '<div class="ctx"><label>Turma<select id="selTurma">' + opTurmas() + '</select></label>' +
@@ -664,7 +668,7 @@ function limparHtml(html){
 }
 function telaDoc(){
   const A = E.atual, d = A.doc, temGab = (d.gabarito || []).length > 0, c = E.cota;
-  const podeImg = E.podeImg = !c || c.admin || !!c.pode_imagem;
+  const podeImg = E.podeImg = !c || c.admin || (!!c.pode_imagem && !(c.recursos && c.recursos.portalia_imagem && !c.recursos.portalia_imagem.ok));
   const nq = todasQuestoes(d).length;
   $("tela").innerHTML = '<div class="docgrid"><article class="folha" id="folha">' + conteudoFolha() + "</article>" +
   '<aside class="lado">' + (A.vistaRede ? ladoRede(A) +
