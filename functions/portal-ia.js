@@ -219,6 +219,23 @@ export const ESQUEMA_AULA = {
   },
   required: ['titulo', 'slides']
 };
+// etapa da turma pelo texto (ex.: "1º ano EM", "7º B", "Pré II"); vazio quando não dá para saber
+export function etapaDaTurma(t) {
+  const x = String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (/medio|\bem\b|\d\s*em\b|eja|tecnico|superior/.test(x)) return 'medio';
+  if (/infantil|pre\b|pre-?escola|maternal|bercario|creche|\bg[1-5]\b/.test(x)) return 'infantil';
+  const n = (x.match(/\b([1-9])\s*(o|º|ª|a)?\s*ano/) || [])[1];
+  if (n) return Number(n) <= 5 ? 'iniciais' : 'finais';
+  return '';
+}
+const ETAPA_TXT = { infantil: 'Educação Infantil (crianças de 4 a 5 anos)', iniciais: 'Anos iniciais do Ensino Fundamental (crianças de 6 a 10 anos)', finais: 'Anos finais do Ensino Fundamental (11 a 14 anos)', medio: 'Ensino Médio (adolescentes de 15 a 17 anos)' };
+// estilo das ilustrações: o professor escolhe; no automático, segue a etapa (nada de desenho infantil para adolescentes)
+export function estiloIlustracao(escolha, etapa) {
+  const E = { infantil: 'ilustração infantil colorida, traço simples e acolhedor', didatica: 'ilustração didática de livro escolar, semi-realista, cores naturais, sem aparência de desenho animado',
+    realista: 'imagem realista e sóbria, como fotografia documental ou pintura histórica, cores naturais' };
+  if (E[escolha]) return E[escolha];
+  return etapa === 'infantil' || etapa === 'iniciais' ? E.infantil : etapa === 'finais' ? E.didatica : E.realista;
+}
 // limpa e confere a aula devolvida pela IA (cada formato precisa do seu conteúdo; senão vira lista de tópicos)
 export function paraAula(j, qtd) {
   const c = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -523,7 +540,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), numa sequência que comece pelo que a turma já conhece, explique o conceito com exemplos do dia a dia e termine com uma retomada. ' +
       'Varie os formatos conforme o conteúdo: use conceito para definições, curiosidade para despertar interesse, linha_tempo quando houver datas (História), passos para procedimentos (Matemática, Ciências), comparacao para contrastes, uma atividade rápida no meio ou no fim e resumo no último slide. ' +
       'Texto curto, legível de longe, nada de parágrafo longo. Em cada slide escreva o roteiro do professor (o que falar ou fazer) e o tempo sugerido; as perguntas são para o professor provocar a conversa.\n\n' + REGRAS_GERAIS;
-    const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') + '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
+    const etapa = etapaDaTurma(turma);
+    const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') +
+      '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, aula = null;
     try {
       for (let t = 0; t < 3; t++) {
@@ -550,8 +569,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
         let rv = null;
         try { rv = await reservarCreditos(db, ctx, 'imagem'); }
         catch (e) { return { onde: pd.onde, erro: e.message || 'sem créditos para imagem' }; }
-        const prompt = 'Crie uma ilustração didática para uma aula de escola brasileira, adequada para crianças e adolescentes. Assunto: ' + pd.desc +
-          '. Tema da aula: ' + aula.titulo + '. Estilo: ilustração didática colorida, traço limpo, fundo claro. Formato horizontal 16:9. NÃO escreva palavras, letras nem números na imagem. Nada de violência, marcas comerciais ou pessoas reais conhecidas. Pessoas, quando houver, diversas e representando o Brasil.';
+        const prompt = 'Crie UMA ilustração para uma aula de escola brasileira' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Assunto: ' + pd.desc +
+          '. Tema da aula: ' + aula.titulo + '. Estilo: ' + estiloIlustracao(d.estilo, etapa) + '. Uma única cena, com um ponto de interesse claro: não faça colagem, grade, mosaico nem vários quadros. Formato horizontal 16:9. ' +
+          'NÃO escreva palavras, letras nem números na imagem. Adequada ao ambiente escolar: temas históricos e difíceis com seriedade, sem violência gráfica, sangue ou símbolos de ódio em destaque. Nada de marcas comerciais nem retratos de pessoas reais conhecidas. Pessoas, quando houver, diversas.';
         let ri = null, er = null;
         try { ri = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }); }
         catch (e) { er = e; }

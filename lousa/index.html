@@ -3747,6 +3747,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo label.ia-chk input{width:20px;height:20px;min-height:0;accent-color:#1a6b2a}
   #iaCorpo label.ia-ultra{align-items:flex-start;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(141,198,63,.14),rgba(46,155,214,.12),rgba(123,92,255,.12));border:1px solid #d5def0}
   #iaCorpo label.ia-ultra small{display:block;font-weight:400;color:#4b5b6b;margin-top:2px}
+  #iaCorpo #iaEstiloBox small{font-weight:400;color:#62758a}
   #iaCorpo .ia-msg{margin:0;min-height:18px;font-size:13.5px;color:#b3261e}
   #iaCorpo .ia-acoes{display:flex;justify-content:flex-end}
   #iaCorpo .ia-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
@@ -3976,17 +3977,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-2"><label>Quantos slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label><span></span></div>' +
         '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
         '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
-        '<label class="ia-chk ia-ultra" id="iaUltraBox" hidden><input type="checkbox" id="iaUltra"> <span><b>Lousa Ultra</b>: ilustrações geradas por IA na capa e em até 2 slides <small id="iaUltraCusto"></small></span></label>' +
+        '<div id="iaUltraBox" hidden><label class="ia-chk ia-ultra"><input type="checkbox" id="iaUltra"> <span><b>Lousa Ultra</b>: ilustrações geradas por IA na capa e em até 2 slides <small id="iaUltraCusto"></small></span></label>' +
+        '<label id="iaEstiloBox" hidden style="margin-top:8px">Estilo das ilustrações<select id="iaEstilo"><option value="auto">Automático (pela turma)</option><option value="realista">Realista (foto ou pintura histórica)</option><option value="didatica">Livro didático (semi-realista)</option><option value="infantil">Infantil (desenho colorido)</option></select><small id="iaEstiloInfo"></small></label></div>' +
         '<p id="iaMsg" class="ia-msg" role="status"></p>' +
         '<div class="ia-acoes"><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA(); });
-      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); });
+      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); });
+      bg.addEventListener("input", (e) => { if(e.target.id === "iaTurma") infoEstilo(); });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAulaIA(); } if(e.key === "Enter" && e.target.id === "iaTema") gerarAulaIA(); });
     }
     bg.classList.add("aberto"); document.getElementById("iaMsg").textContent = "";
     carregarPerfilIA().then(montarTurmasIA);
-    prepararUltra();
+    prepararUltra().then(infoEstilo);
     setTimeout(() => document.getElementById("iaTema").focus(), 50);
   }
   // turmas e disciplinas do professor (grade da turma) e escola, para já vir preenchido; ele pode trocar
@@ -4060,6 +4063,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
     return { src:cv.toDataURL("image/jpeg", 0.85), w:cv.width, h:cv.height };
   }
+  // mesmo critério do servidor: a etapa sai do texto da turma; no automático, adolescentes não recebem desenho infantil
+  function etapaTurma(t){
+    const x = String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    if(/medio|\bem\b|\d\s*em\b|eja|tecnico|superior/.test(x)) return "medio";
+    if(/infantil|pre\b|pre-?escola|maternal|bercario|creche|\bg[1-5]\b/.test(x)) return "infantil";
+    const n = (x.match(/\b([1-9])\s*(o|º|ª|a)?\s*ano/) || [])[1];
+    return n ? (Number(n) <= 5 ? "iniciais" : "finais") : "";
+  }
+  function infoEstilo(){
+    const box = document.getElementById("iaEstiloBox"); if(!box) return;
+    box.hidden = !document.getElementById("iaUltra").checked;
+    const et = etapaTurma(turmaIA()), info = document.getElementById("iaEstiloInfo");
+    const nome = { infantil:"Educação Infantil", iniciais:"anos iniciais", finais:"anos finais", medio:"Ensino Médio" }[et];
+    const estilo = et === "infantil" || et === "iniciais" ? "infantil" : et === "finais" ? "livro didático" : "realista";
+    info.textContent = document.getElementById("iaEstilo").value !== "auto" ? "" : nome ? "Pela turma (" + nome + "), o automático usa o estilo " + estilo + ". Se a turma for de outra etapa, escolha o estilo acima." : "Não deu para saber a etapa pela turma: o automático usa o estilo realista.";
+  }
   function fecharAulaIA(){ const bg = document.getElementById("iaFundo"); if(bg && !bg.dataset.gerando) bg.classList.remove("aberto"); }
   async function gerarAulaIA(){
     const bg = document.getElementById("iaFundo"), m = document.getElementById("iaMsg"), btn = document.getElementById("iaGerar");
@@ -4067,7 +4086,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const tema = document.getElementById("iaTema").value.trim();
     if(tema.length < 3){ m.textContent = "Escreva o tema da aula."; document.getElementById("iaTema").focus(); return; }
     const ultra = !document.getElementById("iaUltraBox").hidden && document.getElementById("iaUltra").checked;
-    const dados = { acao:"aula_lousa", tema, ultra, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
+    const dados = { acao:"aula_lousa", tema, ultra, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
       qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim() };
     bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
     try{
