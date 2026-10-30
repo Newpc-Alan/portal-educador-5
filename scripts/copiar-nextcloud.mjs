@@ -88,16 +88,24 @@ async function dav(metodo, caminho, opc = {}) {
     } catch (e) { if (t === 3) throw e; await new Promise(ok => setTimeout(ok, 3000 * (t + 1))); }
   }
 }
-const pastas = new Set();
+// pastas: cada uma é criada uma vez só (os 4 trabalhadores em paralelo esperam a mesma promessa);
+// 423 (pasta travada por outra criação em andamento) é repetido com calma
+const pastas = new Map();
+function criarUma(acc) {
+  if (!pastas.has(acc)) pastas.set(acc, (async () => {
+    for (let t = 0; t < 6; t++) {
+      const r = await dav('MKCOL', acc); await r.arrayBuffer().catch(() => {});
+      if ([201, 405].includes(r.status)) return;
+      if (r.status !== 423) throw new Error('não criou a pasta ' + acc + ' (HTTP ' + r.status + ')');
+      await new Promise(ok => setTimeout(ok, 1500 * (t + 1)));
+    }
+    throw new Error('pasta travada no Nextcloud: ' + acc);
+  })().catch(e => { pastas.delete(acc); throw e; }));
+  return pastas.get(acc);
+}
 async function garantirPasta(dir) {
-  const partes = dir.split('/'); let acc = '';
-  for (const p of partes) {
-    acc = acc ? acc + '/' + p : p;
-    if (pastas.has(acc)) continue;
-    const r = await dav('MKCOL', acc); await r.arrayBuffer().catch(() => {});
-    if (![201, 405].includes(r.status)) throw new Error('não criou a pasta ' + acc + ' (HTTP ' + r.status + ')');
-    pastas.add(acc);
-  }
+  let acc = '';
+  for (const p of dir.split('/')) { acc = acc ? acc + '/' + p : p; await criarUma(acc); }
 }
 async function tamanhoNoNc(caminho) {
   const r = await dav('PROPFIND', caminho, { headers: { Depth: '0', 'Content-Type': 'application/xml' }, body: '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:getcontentlength/></d:prop></d:propfind>' });
@@ -154,6 +162,7 @@ async function copiar(i) {
   await garantirPasta(i.nc.split('/').slice(0, -1).join('/'));
   const r = await dav('PUT', i.nc, { body: buf, headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(buf.length) }, prazo: 600000 });
   await r.arrayBuffer().catch(() => {});
+  if (r.status === 423) throw new Error('arquivo travado no Nextcloud (423), tente de novo: ' + i.nc);
   if (![201, 204].includes(r.status)) throw new Error('PUT HTTP ' + r.status + ' em ' + i.nc);
   await db.doc('nc_mapa/' + i.id).set({ col: i.col, doc: i.doc, campo: i.campo, storage: i.storage, nc: i.nc, raiz: RAIZ, usuario: USUARIO, tamanho: buf.length, copiado_em: FieldValue.serverTimestamp() });
   feitos++; bytes += buf.length; if (exemplos.length < 8) exemplos.push(i.nc);
