@@ -77,7 +77,13 @@ jobs:
 
       - name: Publicar
         if: inputs.alvo != 'nada'
-        run: firebase deploy --only "${{ inputs.alvo }}" --project "$PROJETO" --non-interactive
+        run: |
+          set -o pipefail
+          # em caso de erro, as últimas linhas viram aviso no resumo da execução (dá para ler sem abrir o log)
+          if ! firebase deploy --only "${{ inputs.alvo }}" --project "$PROJETO" --non-interactive 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
+            grep -iE "error|erro|denied|permission|failed|secret" "$RUNNER_TEMP/deploy.log" | tail -8 | sed 's/^/::error::/'
+            exit 1
+          fi
 
       - name: Apagar funções retiradas
         if: inputs.apagar_funcoes != ''
