@@ -3523,6 +3523,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       objs.push(tb((i + 2) + "", { left:X0 + W * 0.9, top:Y0 + H * 0.92, width:W * 0.05, fontSize:Math.max(12, Math.round(H * 0.025)), fill:"#8a97a6", textAlign:"right" }));
       novas.push(pagina(objs));
     });
+    // créditos: quem preparou a aula (o professor pode editar ou apagar a página)
+    var cr = meta && meta.creditos;
+    if(cr && (cr.autor || cr.escola)){
+      var hoje = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
+      var cab = tb("Créditos", { left:esq, top:Y0 + H * 0.2, width:larg, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:VERDE, textAlign:"center" });
+      var nome = caber(tb(cr.autor ? "Aula preparada por " + cr.autor : "Aula preparada pela equipe da escola", { left:esq, top:Y0 + H * 0.32, width:larg, fontSize:Math.round(H * 0.06), fontWeight:"bold", fill:AZUL, textAlign:"center" }), H * 0.2, 18);
+      var linhas = [cr.escola, [meta.disciplina, meta.turma].filter(Boolean).join(" · "), hoje].filter(Boolean).join("\n");
+      var info = tb(linhas, { left:esq, top:nome.top + nome.height + H * 0.05, width:larg, fontSize:Math.round(H * 0.038), lineHeight:1.4, fill:"#3e4c5a", textAlign:"center" });
+      novas.push(pagina([cab,
+        new fabric.Rect({ left:X0 + W / 2 - W * 0.05, top:Y0 + H * 0.28, width:W * 0.1, height:Math.max(4, H * 0.008), fill:LIMA, rx:3, ry:3 }),
+        nome, info,
+        tb("Com apoio do Portal IA · Portal do Educador", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.024)), fill:"#8a97a6", textAlign:"center" })]));
+    }
     var inicio;
     if(!aulaTemConteudo()){ paginas = novas; inicio = 0; }
     else { inicio = paginas.length; paginas = paginas.concat(novas); }
@@ -3608,6 +3621,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo input, #iaCorpo select{font:inherit;font-weight:400;font-size:15px;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff;min-height:44px}
   #iaCorpo input:focus, #iaCorpo select:focus{outline:2px solid #2E9BD6;outline-offset:1px}
   #iaCorpo .ia-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #iaCorpo label.ia-chk{display:flex;gap:10px;align-items:center;font-weight:600;font-size:14px}
+  #iaCorpo label.ia-chk input{width:20px;height:20px;min-height:0;accent-color:#1a6b2a}
   #iaCorpo .ia-msg{margin:0;min-height:18px;font-size:13.5px;color:#b3261e}
   #iaCorpo .ia-acoes{display:flex;justify-content:flex-end}
   #iaCorpo .ia-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
@@ -3658,7 +3673,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
   const L = () => window.PDELousa;
   const AUTO_MS = 120000;
-  let uid = null, licenca = false, salvando = null, lista = [], busca = "";
+  let uid = null, licenca = false, salvando = null, lista = [], busca = "", eu = null, perfilIA = null;
 
   function licencaOk(u){
     if(!u || u.status !== "ativo") return false;
@@ -3833,17 +3848,57 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div id="iaCorpo"><p class="ia-d">Diga o tema e a IA do Portal monta a aula em slides, direto aqui na Lousa. Você revisa e ajusta tudo antes de mostrar à turma. <b>Usa 1 crédito.</b></p>' +
         '<label>Tema da aula<input id="iaTema" maxlength="200" placeholder="Ex.: fases da Lua, frações equivalentes, Revolução Industrial"></label>' +
         '<div class="ia-2"><label>Disciplina<select id="iaDisc"><option value="">Escolha...</option>' + DISC_IA.map(d => '<option>' + d + '</option>').join("") + '</select></label>' +
-        '<label>Turma / ano<input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano"></label></div>' +
+        '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label></div>' +
         '<div class="ia-2"><label>Quantos slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label><span></span></div>' +
         '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
+        '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
         '<p id="iaMsg" class="ia-msg" role="status"></p>' +
         '<div class="ia-acoes"><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA(); });
+      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAulaIA(); } if(e.key === "Enter" && e.target.id === "iaTema") gerarAulaIA(); });
     }
     bg.classList.add("aberto"); document.getElementById("iaMsg").textContent = "";
+    carregarPerfilIA().then(montarTurmasIA);
     setTimeout(() => document.getElementById("iaTema").focus(), 50);
+  }
+  // turmas e disciplinas do professor (grade da turma) e escola, para já vir preenchido; ele pode trocar
+  async function carregarPerfilIA(){
+    if(perfilIA) return perfilIA;
+    const p = { nome:(eu && eu.nome) || (auth.currentUser && auth.currentUser.displayName) || "", escola:"", turmas:[] };
+    const ids = ((eu && eu.turmas_ids) || []).slice(0, 20);
+    const ts = await Promise.all(ids.map(id => getDoc(doc(db, "turmas", id)).then(x => x.exists() ? { id, ...x.data() } : null).catch(() => null)));
+    ts.filter(t => t && t.status !== "inativa").forEach(t => {
+      const discs = [...new Set((t.grade || []).filter(g => g && g.professor_uid === uid && g.disciplina).map(g => g.disciplina))];
+      p.turmas.push({ id:t.id, nome:t.nome || "", ano:t.ano_serie || "", discs });
+    });
+    p.turmas.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    const esc = eu && (eu.escola_id || (eu.escolas_ids || [])[0]);
+    if(esc){ try{ const e = await getDoc(doc(db, "escolas", esc)); if(e.exists()) p.escola = e.data().nome || ""; }catch(e){} }
+    perfilIA = p; return p;
+  }
+  function montarTurmasIA(p){
+    const sel = document.getElementById("iaTurmaSel"); if(!sel) return;
+    const atual = sel.value;
+    sel.innerHTML = p.turmas.map(t => '<option value="' + t.id + '">' + (t.nome || t.ano).replace(/</g, "&lt;") + '</option>').join("") + '<option value="__outra">Outra turma ou ano (digitar)</option>';
+    sel.value = p.turmas.some(t => t.id === atual) ? atual : (p.turmas[0] ? p.turmas[0].id : "__outra");
+    turmaEscolhida();
+  }
+  function turmaEscolhida(){
+    const sel = document.getElementById("iaTurmaSel"), inp = document.getElementById("iaTurma"), disc = document.getElementById("iaDisc");
+    const t = perfilIA && perfilIA.turmas.find(x => x.id === sel.value);
+    inp.hidden = !!t; if(!t) inp.focus();
+    if(t && t.discs.length){
+      const d = t.discs[0];
+      if(![...disc.options].some(o => o.value === d)) disc.insertAdjacentHTML("beforeend", '<option>' + d.replace(/</g, "&lt;") + '</option>');
+      disc.value = d;
+    }
+  }
+  function turmaIA(){
+    const sel = document.getElementById("iaTurmaSel"), t = perfilIA && perfilIA.turmas.find(x => x.id === sel.value);
+    if(t) return t.ano && !t.nome.includes(t.ano) ? t.nome + " (" + t.ano + ")" : t.nome;
+    return document.getElementById("iaTurma").value.trim();
   }
   function fecharAulaIA(){ const bg = document.getElementById("iaFundo"); if(bg && !bg.dataset.gerando) bg.classList.remove("aberto"); }
   async function gerarAulaIA(){
@@ -3851,7 +3906,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(bg.dataset.gerando) return;
     const tema = document.getElementById("iaTema").value.trim();
     if(tema.length < 3){ m.textContent = "Escreva o tema da aula."; document.getElementById("iaTema").focus(); return; }
-    const dados = { acao:"aula_lousa", tema, disciplina:document.getElementById("iaDisc").value, turma:document.getElementById("iaTurma").value.trim(),
+    const dados = { acao:"aula_lousa", tema, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
       qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim() };
     bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = "Isso leva uns 20 segundos.";
     try{
@@ -3859,7 +3914,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:120000 })(dados)).data;
       try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){}
       delete bg.dataset.gerando; bg.classList.remove("aberto");
-      L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma });
+      const cred = document.getElementById("iaCred").checked && perfilIA ? { autor:perfilIA.nome, escola:perfilIA.escola } : null;
+      L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma, creditos:cred });
     }catch(e){
       console.warn("aula IA:", e.code, e.message);
       m.style.color = "#b3261e"; m.textContent = e.code === "functions/resource-exhausted" || e.code === "functions/failed-precondition" || e.code === "functions/permission-denied" ? (e.message || "Sem créditos para o Portal IA.") : (e.message || "A IA não respondeu agora. Tente de novo.");
@@ -3874,6 +3930,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     try{
       const d = await getDoc(doc(db, "usuarios", user.uid));
       licenca = d.exists() && licencaOk(d.data());
+      eu = d.exists() ? d.data() : null; perfilIA = null;
     }catch(e){ console.warn("licenca:", e.code); }
     if(!licenca) return;
     uid = user.uid;
