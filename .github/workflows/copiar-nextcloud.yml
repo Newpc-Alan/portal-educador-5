@@ -1,0 +1,63 @@
+# Copia o acervo NEWPC (atividades, biblioteca, colorir, materiais) do Firebase para o Nextcloud da NEWPC.
+# O original no Firebase fica intacto. Roda só quando alguém clica em "Run workflow".
+# Secret necessário (criado pelo Alan, nunca passa pelo chat): NC_APP_SENHA = senha de aplicativo do Nextcloud.
+name: Copiar acervo para o Nextcloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      etapa:
+        description: "teste (amostra), copiar (tudo o que falta) ou conferir (só leitura)"
+        type: choice
+        options: [teste, copiar, conferir]
+        default: teste
+      usuario:
+        description: "Usuário do Nextcloud dono da pasta"
+        default: "alan"
+      raiz:
+        description: "Pasta raiz no Nextcloud"
+        default: "Drive Portal do Educador"
+      colecoes:
+        description: "O que copiar"
+        default: "atividades,biblioteca,colorir,materiais"
+      limite:
+        description: "Máximo de arquivos nesta rodada (0 = sem limite)"
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: copiar-nextcloud
+  cancel-in-progress: false
+
+jobs:
+  copiar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd functions && npm ci
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Copiar
+        env:
+          NC_URL: https://cloud.portaldoeducador.com.br
+          NC_USUARIO: ${{ inputs.usuario }}
+          NC_APP_SENHA: ${{ secrets.NC_APP_SENHA }}
+          NC_RAIZ: ${{ inputs.raiz }}
+          COLECOES: ${{ inputs.colecoes }}
+          LIMITE: ${{ inputs.limite }}
+          ETAPA: ${{ inputs.etapa }}
+        run: cd functions && node ../scripts/copiar-nextcloud.mjs "$ETAPA"
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
