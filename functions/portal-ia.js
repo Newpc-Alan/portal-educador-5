@@ -193,29 +193,52 @@ async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
 const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]|\d+[).])\s*/, '').trim();
 const ehCombinacao = a => /^[VF](\s*[-,;/]?\s*[VF])+$/i.test(String(a || '').trim());
 /* ------------------------------------------------------------------ Provas e Avaliações: questões no formato da ferramenta */
-// aula em slides para a Lousa: capa + slides de conteúdo; texto curto, para ler de longe na lousa ou na TV
+// aula em slides para a Lousa: capa + slides em formatos variados, com roteiro do professor; texto curto, para ler de longe
+export const TIPOS_SLIDE = ['topicos', 'conceito', 'curiosidade', 'linha_tempo', 'passos', 'comparacao', 'atividade', 'resumo'];
 export const ESQUEMA_AULA = {
   type: 'OBJECT',
   properties: {
     titulo: S('Título da aula, curto (até 60 caracteres).'),
     subtitulo: S('Uma frase que convida a turma para o tema (até 90 caracteres).'),
+    capa_ilustracao: S('Descrição de uma ilustração para a capa (uma frase, sem texto na imagem).'),
     slides: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      tipo: { type: 'STRING', enum: TIPOS_SLIDE, description: 'topicos: 2 a 4 tópicos. conceito: definição em "destaque" e um "exemplo" do dia a dia. curiosidade: um fato surpreendente em "destaque". linha_tempo: 3 a 5 "itens" com rotulo = data ou período. passos: 3 a 5 etapas em "topicos". comparacao: 2 "colunas" com titulo e 2 a 3 itens cada. atividade: um desafio em "destaque" e a "resposta". resumo: 3 a 5 ideias principais em "topicos" (use no último slide).' },
       titulo: S('Título do slide, até 50 caracteres.'),
-      topicos: AS('De 2 a 4 tópicos curtos (até 90 caracteres cada), frases completas e simples. Sem marcador na frente.'),
-      pergunta: S('Uma pergunta para o professor fazer à turma sobre este slide (até 110 caracteres). Pode ficar vazia.')
-    }, required: ['titulo', 'topicos'] } }
+      icone: S('Um único emoji que represente o slide.'),
+      topicos: AS('Frases curtas (até 90 caracteres), sem marcador na frente.'),
+      destaque: S('Texto principal de conceito, curiosidade ou atividade (até 160 caracteres).'),
+      exemplo: S('Em conceito: um exemplo do dia a dia do aluno (até 120 caracteres).'),
+      resposta: S('Em atividade: a resposta esperada (até 120 caracteres).'),
+      itens: { type: 'ARRAY', items: { type: 'OBJECT', properties: { rotulo: S('Data ou período curto'), texto: S('O que aconteceu, até 80 caracteres') }, required: ['rotulo', 'texto'] } },
+      colunas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { titulo: S('Título da coluna'), itens: AS('2 a 3 itens curtos') }, required: ['titulo', 'itens'] } },
+      pergunta: S('Uma pergunta para o professor fazer à turma (até 110 caracteres). Pode ficar vazia.'),
+      roteiro: S('O que o professor fala ou faz neste slide, em até 2 frases curtas.'),
+      minutos: { type: 'INTEGER', description: 'Tempo sugerido para o slide, em minutos (1 a 10).' },
+      ilustracao: S('Se uma imagem ajudar a entender este slide, descreva-a em uma frase; senão, vazio.')
+    }, required: ['tipo', 'titulo'] } }
   },
   required: ['titulo', 'slides']
 };
-// limpa e confere a aula devolvida pela IA
+// limpa e confere a aula devolvida pela IA (cada formato precisa do seu conteúdo; senão vira lista de tópicos)
 export function paraAula(j, qtd) {
   const c = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
-  const slides = (Array.isArray(j && j.slides) ? j.slides : []).map(x => ({
-    titulo: c(x && x.titulo, 70),
-    topicos: (Array.isArray(x && x.topicos) ? x.topicos : []).map(t => c(t, 130).replace(/^[-•*\d.)\s]+/, '')).filter(Boolean).slice(0, 4),
-    pergunta: c(x && x.pergunta, 140)
-  })).filter(x => x.titulo && x.topicos.length).slice(0, qtd);
-  return { titulo: c(j && j.titulo, 80), subtitulo: c(j && j.subtitulo, 120), slides };
+  const lista = (v, n, m) => (Array.isArray(v) ? v : []).map(t => c(t, m).replace(/^[-•*\d.)\s]+/, '')).filter(Boolean).slice(0, n);
+  const slides = (Array.isArray(j && j.slides) ? j.slides : []).map(x => {
+    x = x || {};
+    const sl = { tipo: TIPOS_SLIDE.includes(x.tipo) ? x.tipo : 'topicos', titulo: c(x.titulo, 70), icone: c(x.icone, 8), topicos: lista(x.topicos, 5, 130),
+      destaque: c(x.destaque, 200), exemplo: c(x.exemplo, 160), resposta: c(x.resposta, 160), pergunta: c(x.pergunta, 140), roteiro: c(x.roteiro, 240),
+      minutos: Number(x.minutos) > 0 ? Math.min(10, Math.max(1, Math.round(Number(x.minutos)))) : 0, ilustracao: c(x.ilustracao, 300),
+      itens: (Array.isArray(x.itens) ? x.itens : []).map(i => ({ rotulo: c(i && i.rotulo, 30), texto: c(i && i.texto, 110) })).filter(i => i.rotulo && i.texto).slice(0, 5),
+      colunas: (Array.isArray(x.colunas) ? x.colunas : []).map(k => ({ titulo: c(k && k.titulo, 40), itens: lista(k && k.itens, 3, 90) })).filter(k => k.titulo && k.itens.length).slice(0, 2) };
+    const ok = { topicos: sl.topicos.length, passos: sl.topicos.length >= 2, resumo: sl.topicos.length >= 2, conceito: !!sl.destaque, curiosidade: !!sl.destaque,
+      atividade: !!sl.destaque, linha_tempo: sl.itens.length >= 2, comparacao: sl.colunas.length === 2 }[sl.tipo];
+    if (!ok) {
+      const t = sl.topicos.length ? sl.topicos : [sl.destaque, sl.exemplo].filter(Boolean).concat(sl.itens.map(i => i.rotulo + ': ' + i.texto)).concat(sl.colunas.flatMap(k => k.itens.map(i => k.titulo + ': ' + i)));
+      sl.tipo = 'topicos'; sl.topicos = t.slice(0, 4);
+    }
+    return sl;
+  }).filter(x => x.titulo && (x.tipo !== 'topicos' || x.topicos.length)).slice(0, qtd);
+  return { titulo: c(j && j.titulo, 80), subtitulo: c(j && j.subtitulo, 120), capa_ilustracao: c(j && j.capa_ilustracao, 300), slides };
 }
 export const ESQUEMA_QUESTOES = {
   type: 'OBJECT',
@@ -484,13 +507,18 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
 
   /* ---------------- aula em slides para a Lousa (1 crédito) ---------------- */
   if (d.acao === 'aula_lousa') {
+    // gestão (config/portal_ia.lousa): Básica liga a aula em texto; Ultra libera as ilustrações. O administrador sempre pode testar.
+    const gl = { basica: true, ultra: false, ...((ctx.cfgRaw && ctx.cfgRaw.lousa) || {}) };
+    if (!ctx.admin && !gl.basica) throw new HttpsError('failed-precondition', 'A Aula com IA na Lousa está desligada no momento.');
+    const ultra = d.ultra === true && (ctx.admin || gl.ultra);
     const tema = txt(d.tema, 300), qtd = Math.min(10, Math.max(3, Math.round(Number(d.qtd) || 6)));
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
     const res = await reservarCreditos(db, ctx, 'texto');
     const sistema = 'Você é um professor experiente da rede pública brasileira e prepara uma aula expositiva curta para mostrar na lousa digital. ' +
       'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), numa sequência que comece pelo que a turma já conhece, explique o conceito com exemplos do dia a dia e termine com uma retomada. ' +
-      'Cada slide tem de 2 a 4 tópicos curtos, legíveis de longe. Nada de parágrafo longo. As perguntas são para o professor provocar a conversa.\n\n' + REGRAS_GERAIS;
+      'Varie os formatos conforme o conteúdo: use conceito para definições, curiosidade para despertar interesse, linha_tempo quando houver datas (História), passos para procedimentos (Matemática, Ciências), comparacao para contrastes, uma atividade rápida no meio ou no fim e resumo no último slide. ' +
+      'Texto curto, legível de longe, nada de parágrafo longo. Em cada slide escreva o roteiro do professor (o que falar ou fazer) e o tempo sugerido; as perguntas são para o professor provocar a conversa.\n\n' + REGRAS_GERAIS;
     const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') + '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, aula = null;
     try {
@@ -509,7 +537,30 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     await registrarConsumo(db, ctx, falhou ? null : { ...res, acao: 'aula_lousa' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu a aula com problema (' + prob[0] + '). Tente de novo.');
-    return { aula, cota: await situacao(db, ctx) };
+    // Lousa Ultra: capa + até 2 ilustrações dos slides que pediram imagem (cada uma cobra como imagem; a que falhar é estornada)
+    let imagens = {}, aviso = '';
+    if (ultra) {
+      const pedidos = [{ onde: 'capa', desc: aula.capa_ilustracao || aula.titulo }]
+        .concat(aula.slides.map((sl, i) => ({ onde: 's' + i, desc: sl.ilustracao })).filter(x => x.desc).slice(0, 2));
+      const feitas = await Promise.all(pedidos.map(async pd => {
+        let rv = null;
+        try { rv = await reservarCreditos(db, ctx, 'imagem'); }
+        catch (e) { return { onde: pd.onde, erro: e.message || 'sem créditos para imagem' }; }
+        const prompt = 'Crie uma ilustração didática para uma aula de escola brasileira, adequada para crianças e adolescentes. Assunto: ' + pd.desc +
+          '. Tema da aula: ' + aula.titulo + '. Estilo: ilustração didática colorida, traço limpo, fundo claro. Formato horizontal 16:9. NÃO escreva palavras, letras nem números na imagem. Nada de violência, marcas comerciais ou pessoas reais conhecidas. Pessoas, quando houver, diversas e representando o Brasil.';
+        let ri = null, er = null;
+        try { ri = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }); }
+        catch (e) { er = e; }
+        const parte = ri && ri.partes.find(p => p.inlineData && /^image\//.test(p.inlineData.mimeType || ''));
+        if (er || !parte) await estornarCreditos(db, rv);
+        await registrarConsumo(db, ctx, er || !parte ? null : { ...rv, acao: 'aula_lousa_imagem' }, { modelo: ri && ri.modelo, entrada: ri && ri.entrada, saida: ri && ri.saida, imagem: !!parte });
+        return parte ? { onde: pd.onde, mime: parte.inlineData.mimeType, dados: parte.inlineData.data } : { onde: pd.onde, erro: 'a IA não gerou a imagem' };
+      }));
+      feitas.forEach(f => { if (f.dados) imagens[f.onde] = { mime: f.mime, dados: f.dados }; });
+      const falhas = feitas.filter(f => f.erro);
+      if (falhas.length) aviso = falhas.length === feitas.length ? 'As ilustrações não saíram (' + falhas[0].erro + '). A aula veio só com texto.' : falhas.length + ' ilustração(ões) não saíram; o resto da aula está completo.';
+    }
+    return { aula, imagens, aviso, cota: await situacao(db, ctx) };
   }
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */

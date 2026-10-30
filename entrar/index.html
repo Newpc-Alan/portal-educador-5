@@ -7824,6 +7824,7 @@
       getDocs(collection(db,"municipios")).catch(() => null), getDocs(query(collection(db,"recargas_pedidos"), where("status","==","pendente"))).catch(e => { console.warn(e.code); return null; }) ]);
     const c = cs && cs.exists() ? (cs.data().creditos || {}) : {};
     crA.cfg = { ...CR_PADRAO, ...c, precos:{ ...CR_PADRAO.precos, ...(c.precos || {}) } };
+    crA.lousa = { basica:true, ultra:false, ...((cs && cs.exists() && cs.data().lousa) || {}) };
     crA.cart = []; if(ks) ks.forEach(d => crA.cart.push({ id:d.id, ...d.data() }));
     crA.munis = []; if(ms) ms.forEach(d => crA.munis.push({ id:d.id, ...d.data() }));
     crA.munis.sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
@@ -7873,6 +7874,11 @@
         (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
       (profs.length ? '<div class="cr-bloco"><h3>Professores com créditos avulsos</h3><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+profs.map(k => { const s = crSaldo(k), cm = (k.consumo || {})[mes] || {};
         return '<tr><td>'+escapeHtml(k.nome || k.id)+'</td><td class="n"><b>'+crNum(s.saldo)+'</b> de '+crNum(s.total)+'</td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'</td><td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(k.id)+'">+ Créditos</button></td></tr>'; }).join("")+'</tbody></table></div></div>' : "")+
+      // Lousa com IA: chaves de liga e desliga (a cobrança segue a mesma regra de créditos e planos do Portal IA)
+      '<div class="cr-bloco"><h3>\u2728 Lousa com IA</h3><p class="sub">Liga ou desliga o botão Aula IA da Lousa para todas as redes. Quem pode usar e quanto custa segue a mesma regra do Portal IA: créditos da rede nos planos Intermediário e Completo, ou créditos avulsos do professor. Você, como administrador, sempre consegue testar.</p>'+
+        '<label class="vd-check" style="margin:8px 0"><input type="checkbox" id="crLousaBas"'+(crA.lousa.basica ? " checked" : "")+'> <span><b>Lousa IA Básica</b> · aula em slides (formatos variados, roteiro do professor e conteúdos do Portal para continuar). Gasta '+cfg.precos.texto+' crédito(s).</span></label>'+
+        '<label class="vd-check" style="margin:8px 0"><input type="checkbox" id="crLousaUltra"'+(crA.lousa.ultra ? " checked" : "")+'> <span><b>Lousa IA Ultra</b> · a mesma aula com ilustrações geradas por IA (capa e até 2 slides). Cada ilustração gasta '+cfg.precos.imagem+' créditos, até '+(cfg.precos.texto + 3 * cfg.precos.imagem)+' por aula. Imagem só no plano Completo ou com créditos avulsos.</span></label>'+
+        '<div style="margin-top:10px"><button class="btn btn-primary" data-action="cr-salvar-lousa" id="crSalvarLousa">Salvar Lousa com IA</button></div></div>'+
       '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
         '<div class="cr-form"><label>Material (créditos)<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label>'+
         '<label>Teto padrão por professor/mês<input id="crTetoPad" type="number" min="0" value="'+cfg.teto_padrao+'"></label><label>Alerta 1 (%)<input id="crAl1" type="number" min="1" max="90" value="'+cfg.alertas[0]+'"></label><label>Alerta 2 (%)<input id="crAl2" type="number" min="1" max="90" value="'+cfg.alertas[1]+'"></label>'+
@@ -7888,6 +7894,14 @@
     c.dolar = Math.max(1, Number(($("crDol") || {}).value) || 5.6);
     document.querySelectorAll("[data-pac]").forEach(el => { const l = el.dataset.pac === "rede" ? c.pacotes_rede : c.pacotes_professor, p = l[+el.dataset.i]; if(!p) return;
       p[el.dataset.k] = el.dataset.k === "nome" ? el.value.trim().slice(0, 60) : Math.max(0, Number(el.value) || 0); });
+  }
+  async function crSalvarLousa(){
+    const v = { basica:!!($("crLousaBas") || {}).checked, ultra:!!($("crLousaUltra") || {}).checked };
+    const b = $("crSalvarLousa"); b.disabled = true;
+    try{ await setDoc(doc(db,"config","portal_ia"), { lousa:v, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }, { merge:true });
+      crA.lousa = v; toast("Lousa com IA: Básica "+(v.basica ? "ligada" : "desligada")+", Ultra "+(v.ultra ? "ligada" : "desligada")+"."); }
+    catch(e){ console.warn(e); toast("Não salvou ("+(e.code || "erro")+").", true); }
+    finally{ b.disabled = false; }
   }
   async function crSalvarCfg(){
     crLerCfg(); const c = crA.cfg;
@@ -7924,6 +7938,7 @@
       try{ await crChamar({ acao:"teto", conta:el.dataset.conta, teto:Math.max(0, Math.round(Number(inp.value) || 0)) }); toast("Teto salvo."); renderCreditosAdmin(); }catch(e){ el.disabled = false; toast(e.message || "Erro.", true); } }
     else if(a === "cr-salvar-lanc") crSalvarLanc();
     else if(a === "cr-salvar-cfg") crSalvarCfg();
+    else if(a === "cr-salvar-lousa") crSalvarLousa();
     else if(a === "cr-pac-mais"){ crLerCfg(); (el.dataset.tipo === "rede" ? crA.cfg.pacotes_rede : crA.cfg.pacotes_professor).push({ id:"", nome:"", creditos:0, valor:0 }); desenharCreditosAdmin(); }
     else if(a === "cr-pac-tirar"){ crLerCfg(); (el.dataset.tipo === "rede" ? crA.cfg.pacotes_rede : crA.cfg.pacotes_professor).splice(+el.dataset.i, 1); desenharCreditosAdmin(); }
   });

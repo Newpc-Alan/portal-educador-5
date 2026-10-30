@@ -1845,7 +1845,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var bg = canvas.backgroundColor, bgi = canvas.backgroundImage;
     canvas.backgroundColor = null; canvas.backgroundImage = null;
     var o;
-    try{ o = canvas.toDatalessJSON(extras || ["selectable","evented"]); }
+    try{ o = canvas.toDatalessJSON((extras || ["selectable","evented"]).concat("pdeLink")); }
     finally{ canvas.backgroundColor = bg; canvas.backgroundImage = bgi; }
     delete o.background; delete o.backgroundImage;
     return JSON.stringify(o);
@@ -3489,70 +3489,180 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   });
 
   /* ================= AULA COM IA: cada slide vira uma página ================= */
-  // a aula ocupa a área que está à vista (vale com zoom); a lousa vazia é trocada, senão as páginas entram no fim
+  // a aula ocupa a área que está à vista (vale com zoom); a lousa vazia é trocada, senão as páginas entram no fim.
+  // Formatos: tópicos, conceito, curiosidade, linha do tempo, passos, comparação, atividade (resposta coberta) e resumo.
+  // Cor e ícone da disciplina, roteiro do professor num post-it, ilustrações (Lousa Ultra), "Para continuar" e créditos.
+  var CORES_DISC = { "Língua Portuguesa":"#b4236f", "Matemática":"#2671AB", "Ciências":"#1a6b2a", "História":"#9a5b1e", "Geografia":"#0e7c86", "Arte":"#7048e8",
+    "Educação Física":"#d9480f", "Inglês":"#c92a2a", "Ensino Religioso":"#6b4f9e", "Educação Infantil":"#e8590c", "Interdisciplinar":"#0f2c4a" };
+  var ICONE_DISC = { "Língua Portuguesa":"📖", "Matemática":"➗", "Ciências":"🔬", "História":"🏛️", "Geografia":"🌎", "Arte":"🎨", "Educação Física":"⚽",
+    "Inglês":"🗣️", "Ensino Religioso":"🕊️", "Educação Infantil":"🧸", "Interdisciplinar":"💡" };
+  function semAcentoL(t){ return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(); }
+  function corClara(hex, a){ var n = parseInt(hex.slice(1), 16); return "rgba(" + (n >> 16) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")"; }
   function inserirAulaIA(aula, meta){
+    meta = meta || {};
     paginas[pagAtual] = estadoPaginaAtual();
     var vt = canvas.viewportTransform || [1,0,0,1,0,0];
     var W = canvas.getWidth() / vt[0], H = canvas.getHeight() / vt[3], X0 = -vt[4] / vt[0], Y0 = -vt[5] / vt[3];
-    var FONTE = "Segoe UI, Roboto, sans-serif", AZUL = "#0f2c4a", VERDE = "#1a6b2a", LIMA = "#8DC63F";
-    var ext = ["selectable","evented"];
-    function tb(t, o){ var x = new fabric.Textbox(t, Object.assign({ fontFamily:FONTE, fill:"#12202e", editable:true }, o)); x.initDimensions(); return x; }
+    var FONTE = "Segoe UI, Roboto, sans-serif", AZUL = "#0f2c4a", TINTA = "#12202e", CINZA = "#8a97a6";
+    var COR = CORES_DISC[meta.disciplina] || AZUL, ICO = ICONE_DISC[meta.disciplina] || "💡", LIMA = "#8DC63F";
+    var ext = ["selectable","evented","pdeLink"], imgs = meta.imagens || {};
+    function tb(t, o){ var x = new fabric.Textbox(String(t || ""), Object.assign({ fontFamily:FONTE, fill:TINTA, editable:true }, o)); x.initDimensions(); return x; }
     function caber(x, altMax, minFonte){ while(x.height > altMax && x.fontSize > minFonte){ x.set("fontSize", Math.round(x.fontSize * 0.92)); x.initDimensions(); } return x; }
-    function pagina(objs){ return { json: JSON.stringify({ version:"5.3.0", objects: objs.map(function(o){ return o.toObject(ext); }) }), fundo:"branco" }; }
-    var esq = X0 + W * 0.07, larg = W * 0.86;
-    var capaTit = caber(tb(aula.titulo || "Aula", { left:esq, top:0, width:larg, fontSize:Math.round(H * 0.1), fontWeight:"bold", fill:AZUL, textAlign:"center" }), H * 0.36, 24);
-    capaTit.set("top", Y0 + H * 0.36 - capaTit.height / 2);
-    var capa = [capaTit,
-      new fabric.Rect({ left:X0 + W / 2 - W * 0.07, top:capaTit.top + capaTit.height + H * 0.03, width:W * 0.14, height:Math.max(5, H * 0.012), fill:LIMA, rx:4, ry:4 })];
-    if(aula.subtitulo) capa.push(caber(tb(aula.subtitulo, { left:esq, top:capaTit.top + capaTit.height + H * 0.08, width:larg, fontSize:Math.round(H * 0.045), fill:"#3e4c5a", textAlign:"center" }), H * 0.2, 16));
-    var rotulo = [meta && meta.disciplina, meta && meta.turma].filter(Boolean).join(" · ");
-    if(rotulo) capa.push(tb(rotulo, { left:esq, top:Y0 + H * 0.12, width:larg, fontSize:Math.round(H * 0.035), fontWeight:"bold", fill:VERDE, textAlign:"center" }));
-    capa.push(tb("Preparado com o Portal IA · confira o conteúdo antes da aula", { left:esq, top:Y0 + H * 0.9, width:larg, fontSize:Math.max(12, Math.round(H * 0.022)), fill:"#8a97a6", textAlign:"center" }));
-    var novas = [pagina(capa)];
+    function ret(o){ return new fabric.Rect(Object.assign({ rx:14, ry:14, strokeWidth:0 }, o)); }
+    function imagemObj(im, x, y, w, h){   // cabe na caixa sem distorcer
+      var e = Math.min(w / im.w, h / im.h);
+      return { type:"image", version:"5.3.0", originX:"left", originY:"top", left:x + (w - im.w * e) / 2, top:y + (h - im.h * e) / 2, width:im.w, height:im.h,
+        scaleX:e, scaleY:e, src:im.src, crossOrigin:null, selectable:true, evented:true };
+    }
+    function pagina(objs, extras){ return { json: JSON.stringify({ version:"5.3.0", objects: objs.map(function(o){ return o.toObject ? o.toObject(ext) : o; }).concat(extras || []) }), fundo:"branco" }; }
+    var esq = X0 + W * 0.07, larg = W * 0.86, faixa = function(){ return ret({ left:X0, top:Y0, width:W, height:Math.max(6, H * 0.014), fill:COR, rx:0, ry:0 }); };
+    function numero(n){ return tb(String(n), { left:X0 + W * 0.9, top:Y0 + H * 0.93, width:W * 0.05, fontSize:Math.max(12, Math.round(H * 0.024)), fill:CINZA, textAlign:"right" }); }
+    var novas = [];
+
+    /* ---------- capa ---------- */
+    var capaImg = imgs.capa, cw = capaImg ? larg * 0.5 : larg, ca = capaImg ? "left" : "center";
+    var capa = [faixa()], extrasCapa = [];
+    var rot = [meta.disciplina, meta.turma].filter(Boolean).join(" · ");
+    if(rot) capa.push(tb(ICO + "  " + rot, { left:esq, top:Y0 + H * 0.12, width:cw, fontSize:Math.round(H * 0.034), fontWeight:"bold", fill:COR, textAlign:ca }));
+    var capaTit = caber(tb(aula.titulo || "Aula", { left:esq, top:0, width:cw, fontSize:Math.round(H * (capaImg ? 0.085 : 0.1)), fontWeight:"bold", fill:AZUL, textAlign:ca }), H * 0.36, 22);
+    capaTit.set("top", Y0 + H * 0.4 - capaTit.height / 2);
+    capa.push(capaTit, ret({ left:capaImg ? esq : X0 + W / 2 - W * 0.07, top:capaTit.top + capaTit.height + H * 0.03, width:W * 0.14, height:Math.max(5, H * 0.012), fill:COR, rx:4, ry:4 }));
+    if(aula.subtitulo) capa.push(caber(tb(aula.subtitulo, { left:esq, top:capaTit.top + capaTit.height + H * 0.08, width:cw, fontSize:Math.round(H * 0.042), fill:"#3e4c5a", textAlign:ca }), H * 0.2, 14));
+    capa.push(tb("Preparado com o Portal IA · confira o conteúdo antes da aula", { left:esq, top:Y0 + H * 0.9, width:larg, fontSize:Math.max(12, Math.round(H * 0.022)), fill:CINZA, textAlign:ca }));
+    if(capaImg) extrasCapa.push(imagemObj(capaImg, esq + larg * 0.54, Y0 + H * 0.12, larg * 0.46, H * 0.72));
+    novas.push(pagina(capa, extrasCapa));
+
+    /* ---------- slides ---------- */
     (aula.slides || []).forEach(function(sl, i){
-      var tit = caber(tb(sl.titulo, { left:esq, top:Y0 + H * 0.08, width:larg, fontSize:Math.round(H * 0.07), fontWeight:"bold", fill:AZUL }), H * 0.2, 20);
-      var barra = new fabric.Rect({ left:esq, top:tit.top + tit.height + H * 0.02, width:W * 0.1, height:Math.max(4, H * 0.009), fill:LIMA, rx:3, ry:3 });
-      var topo = barra.top + H * 0.05, fimTexto = Y0 + H * (sl.pergunta ? 0.74 : 0.9);
-      // um tópico por caixa, com marcador à parte: a segunda linha do tópico fica alinhada ao texto
-      var recuo = W * 0.035, fonte = Math.round(H * 0.046), itens;
-      for(;;){
-        var y = topo; itens = [];
-        (sl.topicos || []).forEach(function(t){
-          var c = tb(t, { left:esq + recuo, top:y, width:larg - recuo, fontSize:fonte, lineHeight:1.25 });
-          itens.push(new fabric.Circle({ left:esq + recuo * 0.25, top:y + fonte * 0.42, radius:Math.max(4, fonte * 0.16), fill:LIMA }), c);
-          y += c.height + fonte * 0.55;
-        });
-        if(y <= fimTexto || fonte <= 14) break;
-        fonte = Math.round(fonte * 0.92);
+      var img = imgs["s" + i], objs = [faixa()], extras = [];
+      var temRot = !!sl.roteiro, larTit = temRot ? larg * 0.7 : larg;
+      var tit = caber(tb((sl.icone || ICO) + "  " + sl.titulo, { left:esq, top:Y0 + H * 0.07, width:larTit, fontSize:Math.round(H * 0.064), fontWeight:"bold", fill:AZUL }), H * 0.18, 18);
+      var barra = ret({ left:esq, top:tit.top + tit.height + H * 0.018, width:W * 0.1, height:Math.max(4, H * 0.009), fill:COR, rx:3, ry:3 });
+      objs.push(tit, barra);
+      if(temRot){   // roteiro do professor: post-it no canto, ele apaga se não quiser
+        var rt = tb("Roteiro" + (sl.minutos ? " · " + sl.minutos + " min" : "") + "\n" + sl.roteiro, { left:X0 + W * 0.79, top:Y0 + H * 0.06, width:W * 0.16, fontSize:Math.max(12, Math.round(H * 0.022)), fill:"#5a4b00", lineHeight:1.2 });
+        caber(rt, H * 0.24, 10);
+        objs.push(ret({ left:rt.left - W * 0.01, top:rt.top - H * 0.012, width:W * 0.18, height:rt.height + H * 0.024, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1, rx:6, ry:6,
+          shadow:"rgba(0,0,0,0.12) 2px 3px 6px" }), rt);
       }
-      var objs = [tit, barra].concat(itens);
+      var topo = barra.top + H * 0.05, fim = Y0 + H * (sl.pergunta ? 0.74 : 0.9);
+      var cx = esq, cl = img ? larg * 0.56 : larg;
+      if(img) extras.push(imagemObj(img, esq + larg * 0.6, topo, larg * 0.4, fim - topo));
+      var f = Math.round(H * 0.044), y, it;
+      function lista(itens, marcador){   // tópicos com marcador à parte; passos com número no círculo
+        var fonte = f, out;
+        for(;;){
+          y = topo; out = [];
+          itens.forEach(function(t, k){
+            var recuo = marcador === "num" ? fonte * 1.6 : W * 0.035;
+            var c = tb(t, { left:cx + recuo, top:y, width:cl - recuo, fontSize:fonte, lineHeight:1.25 });
+            if(marcador === "num"){
+              out.push(new fabric.Circle({ left:cx, top:y - fonte * 0.05, radius:fonte * 0.6, fill:COR }),
+                tb(String(k + 1), { left:cx, top:y + fonte * 0.12, width:fonte * 1.2, fontSize:Math.round(fonte * 0.75), fontWeight:"bold", fill:"#fff", textAlign:"center" }), c);
+            } else out.push(new fabric.Circle({ left:cx + recuo * 0.25, top:y + fonte * 0.42, radius:Math.max(4, fonte * 0.16), fill:COR }), c);
+            y += Math.max(c.height, marcador === "num" ? fonte * 1.2 : 0) + fonte * 0.55;
+          });
+          if(y <= fim || fonte <= 14) break;
+          fonte = Math.round(fonte * 0.92);
+        }
+        return out;
+      }
+      if(sl.tipo === "conceito" || sl.tipo === "curiosidade" || sl.tipo === "atividade"){
+        var rotulo = { conceito:"Conceito", curiosidade:"Você sabia?", atividade:"Desafio rápido" }[sl.tipo];
+        var mesmo = semAcentoL(sl.titulo).indexOf(semAcentoL(rotulo).replace("?", "")) >= 0;   // título já diz "Você sabia?"
+        var lab = tb(mesmo ? "" : rotulo, { left:cx, top:topo, width:cl, fontSize:Math.round(H * 0.032), fontWeight:"bold", fill:COR });
+        if(mesmo) lab.set("height", 0);
+        var dz = caber(tb(sl.destaque, { left:cx + W * 0.025, top:(mesmo ? topo : lab.top + lab.height) + H * 0.03, width:cl - W * 0.05, fontSize:Math.round(H * 0.052), fontWeight:"bold", fill:AZUL, lineHeight:1.2 }),
+          (fim - topo) * (sl.tipo === "curiosidade" ? 0.7 : 0.5), 16);
+        if(!mesmo) objs.push(lab);
+        objs.push(ret({ left:cx, top:dz.top - H * 0.025, width:cl, height:dz.height + H * 0.05, fill:corClara(COR, 0.1), stroke:corClara(COR, 0.35), strokeWidth:1.5,
+          strokeDashArray:sl.tipo === "curiosidade" ? [10, 6] : null }), dz);
+        var abaixo = dz.top + dz.height + H * 0.06;
+        if(sl.tipo === "conceito" && sl.exemplo) objs.push(caber(tb("Exemplo: " + sl.exemplo, { left:cx, top:abaixo, width:cl, fontSize:Math.round(H * 0.04), fill:"#3e4c5a" }), fim - abaixo, 12));
+        if(sl.tipo === "atividade" && sl.resposta){   // resposta escondida: o professor arrasta ou apaga a capa para revelar
+          var rp = caber(tb("Resposta: " + sl.resposta, { left:cx + W * 0.02, top:abaixo + H * 0.02, width:cl - W * 0.04, fontSize:Math.round(H * 0.036), fill:"#1a6b2a", fontWeight:"bold" }), fim - abaixo - H * 0.04, 12);
+          var alt = rp.height + H * 0.04;
+          objs.push(ret({ left:cx, top:abaixo, width:cl, height:alt, fill:"#eef7e3" }), rp,
+            ret({ left:cx, top:abaixo, width:cl, height:alt, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1 }),
+            tb("Resposta coberta: arraste ou apague este post-it para revelar", { left:cx + W * 0.02, top:abaixo + alt / 2 - H * 0.018, width:cl - W * 0.04, fontSize:Math.max(12, Math.round(H * 0.026)), fill:"#5a4b00", textAlign:"center" }));
+        }
+      } else if(sl.tipo === "linha_tempo"){
+        var n = sl.itens.length, passo = cl / n, ly = topo + (fim - topo) * 0.32;
+        objs.push(ret({ left:cx, top:ly - 2, width:cl, height:4, fill:corClara(COR, 0.45), rx:2, ry:2 }));
+        sl.itens.forEach(function(x, k){
+          var px = cx + passo * k + passo / 2;
+          objs.push(new fabric.Circle({ left:px - H * 0.018, top:ly - H * 0.018, radius:H * 0.018, fill:COR, stroke:"#fff", strokeWidth:3 }),
+            tb(x.rotulo, { left:px - passo * 0.45, top:ly - H * 0.09, width:passo * 0.9, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:COR, textAlign:"center" }),
+            caber(tb(x.texto, { left:px - passo * 0.46, top:ly + H * 0.045, width:passo * 0.92, fontSize:Math.round(H * 0.032), fill:TINTA, textAlign:"center", lineHeight:1.2 }), fim - ly - H * 0.06, 11));
+        });
+      } else if(sl.tipo === "comparacao"){
+        var gap = W * 0.025, colW = (cl - gap) / 2, altCols = 0, caixas = [];
+        sl.colunas.forEach(function(k, j){
+          var x = cx + j * (colW + gap), yy = topo + H * 0.03;
+          var ct = tb(k.titulo, { left:x + W * 0.015, top:yy, width:colW - W * 0.03, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:j ? COR : AZUL });
+          var corpo = caber(tb(k.itens.map(function(t){ return "• " + t; }).join("\n"), { left:x + W * 0.015, top:yy + ct.height + H * 0.025, width:colW - W * 0.03, fontSize:Math.round(H * 0.036), lineHeight:1.3 }),
+            fim - yy - ct.height - H * 0.06, 12);
+          corpo.set("fontSize", Math.round(H * 0.04)); corpo.initDimensions(); caber(corpo, fim - yy - ct.height - H * 0.06, 12);
+          altCols = Math.max(altCols, ct.height + corpo.height + H * 0.1);
+          caixas.push([x, ret({ left:x, top:topo, width:colW, height:0, fill:corClara(j ? COR : "#0f2c4a", 0.07), stroke:corClara(j ? COR : "#0f2c4a", 0.3), strokeWidth:1.5 }), ct, corpo]);
+        });
+        caixas.forEach(function(c){ c[1].set("height", Math.min(fim - topo, altCols)); objs.push(c[1], c[2], c[3]); });
+      } else if(sl.tipo === "resumo"){
+        var gapR = W * 0.02, cols = sl.topicos.length > 3 ? 2 : 1, bw = (cl - gapR * (cols - 1)) / cols, linhas = Math.ceil(sl.topicos.length / cols), bh = Math.min(H * 0.17, (fim - topo - gapR * (linhas - 1)) / linhas);
+        sl.topicos.forEach(function(t, k){
+          var x = cx + (k % cols) * (bw + gapR), yy = topo + Math.floor(k / cols) * (bh + gapR);
+          var tx = caber(tb(t, { left:x + W * 0.02, top:yy + H * 0.025, width:bw - W * 0.04, fontSize:Math.round(H * 0.038), fontWeight:"bold", fill:AZUL, lineHeight:1.2 }), bh - H * 0.05, 11);
+          tx.set("top", yy + (bh - tx.height) / 2);
+          objs.push(ret({ left:x, top:yy, width:bw, height:bh, fill:corClara(COR, k % 2 ? 0.08 : 0.14) }), ret({ left:x, top:yy, width:Math.max(5, W * 0.006), height:bh, fill:COR, rx:3, ry:3 }), tx);
+        });
+      } else {
+        objs = objs.concat(lista(sl.topicos, sl.tipo === "passos" ? "num" : "dot"));
+      }
       if(sl.pergunta){
-        var perg = caber(tb("Pergunta para a turma: " + sl.pergunta, { left:esq + W * 0.02, top:0, width:larg - W * 0.04, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:VERDE }), H * 0.13, 12);
+        var perg = caber(tb("Pergunta para a turma: " + sl.pergunta, { left:esq + W * 0.02, top:0, width:larg - W * 0.04, fontSize:Math.round(H * 0.034), fontWeight:"bold", fill:COR }), H * 0.12, 11);
         var caixaTop = Y0 + H * 0.78;
         perg.set("top", caixaTop + H * 0.025);
-        objs.push(new fabric.Rect({ left:esq, top:caixaTop, width:larg, height:perg.height + H * 0.05, fill:"#eef7e3", stroke:"#cfe6b4", strokeWidth:1, rx:14, ry:14 }), perg);
+        objs.push(ret({ left:esq, top:caixaTop, width:larg, height:perg.height + H * 0.05, fill:corClara(COR, 0.08), stroke:corClara(COR, 0.3), strokeWidth:1 }), perg);
       }
-      objs.push(tb((i + 2) + "", { left:X0 + W * 0.9, top:Y0 + H * 0.92, width:W * 0.05, fontSize:Math.max(12, Math.round(H * 0.025)), fill:"#8a97a6", textAlign:"right" }));
-      novas.push(pagina(objs));
+      objs.push(numero(i + 2));
+      novas.push(pagina(objs, extras));
     });
-    // créditos: quem preparou a aula (o professor pode editar ou apagar a página)
-    var cr = meta && meta.creditos;
+
+    /* ---------- para continuar: vídeos e jogos do Portal sobre o tema ---------- */
+    var cont = (meta.continuar || []).slice(0, 5);
+    if(cont.length){
+      var pc = [faixa(), tb(ICO + "  Para continuar no Portal", { left:esq, top:Y0 + H * 0.07, width:larg, fontSize:Math.round(H * 0.064), fontWeight:"bold", fill:AZUL })];
+      pc.push(ret({ left:esq, top:Y0 + H * 0.17, width:W * 0.1, height:Math.max(4, H * 0.009), fill:COR, rx:3, ry:3 }));
+      var yc = Y0 + H * 0.23, hc = Math.min(H * 0.11, (H * 0.6) / cont.length - H * 0.02);
+      cont.forEach(function(c){
+        var t = tb((c.tipo === "jogo" ? "🎮  Jogo: " : "🎬  Vídeo: ") + c.titulo, { left:W * 0.02, top:0, width:larg - W * 0.04, fontSize:Math.round(Math.min(H * 0.036, hc * 0.45)), fontWeight:"bold", fill:AZUL });
+        t.set("top", (hc - t.height) / 2);
+        var g = new fabric.Group([ret({ left:0, top:0, width:larg, height:hc, fill:corClara(COR, 0.08), stroke:corClara(COR, 0.35), strokeWidth:1.5 }), t], { left:esq, top:yc, pdeLink:c.url, hoverCursor:"pointer" });
+        pc.push(g); yc += hc + H * 0.02;
+      });
+      pc.push(tb("Dica: com a ferramenta Selecionar, dê dois cliques num item para abrir.", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.024)), fill:CINZA }));
+      novas.push(pagina(pc));
+    }
+
+    /* ---------- créditos: quem preparou a aula ---------- */
+    var cr = meta.creditos;
     if(cr && (cr.autor || cr.escola)){
       var hoje = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
-      var cab = tb("Créditos", { left:esq, top:Y0 + H * 0.2, width:larg, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:VERDE, textAlign:"center" });
+      var cab = tb("Créditos", { left:esq, top:Y0 + H * 0.2, width:larg, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:COR, textAlign:"center" });
       var nome = caber(tb(cr.autor ? "Aula preparada por " + cr.autor : "Aula preparada pela equipe da escola", { left:esq, top:Y0 + H * 0.32, width:larg, fontSize:Math.round(H * 0.06), fontWeight:"bold", fill:AZUL, textAlign:"center" }), H * 0.2, 18);
-      var linhas = [cr.escola, [meta.disciplina, meta.turma].filter(Boolean).join(" · "), hoje].filter(Boolean).join("\n");
-      var info = tb(linhas, { left:esq, top:nome.top + nome.height + H * 0.05, width:larg, fontSize:Math.round(H * 0.038), lineHeight:1.4, fill:"#3e4c5a", textAlign:"center" });
-      novas.push(pagina([cab,
-        new fabric.Rect({ left:X0 + W / 2 - W * 0.05, top:Y0 + H * 0.28, width:W * 0.1, height:Math.max(4, H * 0.008), fill:LIMA, rx:3, ry:3 }),
-        nome, info,
-        tb("Com apoio do Portal IA · Portal do Educador", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.024)), fill:"#8a97a6", textAlign:"center" })]));
+      var linhas2 = [cr.escola, [meta.disciplina, meta.turma].filter(Boolean).join(" · "), hoje].filter(Boolean).join("\n");
+      novas.push(pagina([faixa(), cab, ret({ left:X0 + W / 2 - W * 0.05, top:Y0 + H * 0.28, width:W * 0.1, height:Math.max(4, H * 0.008), fill:COR, rx:3, ry:3 }),
+        nome, tb(linhas2, { left:esq, top:nome.top + nome.height + H * 0.05, width:larg, fontSize:Math.round(H * 0.038), lineHeight:1.4, fill:"#3e4c5a", textAlign:"center" }),
+        tb("Com apoio do Portal IA · Portal do Educador", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.024)), fill:CINZA, textAlign:"center" })]));
     }
+
     var inicio;
     if(!aulaTemConteudo()){ paginas = novas; inicio = 0; }
     else { inicio = paginas.length; paginas = paginas.concat(novas); }
     carregarPaginaDireto(inicio, function(){ agendarSalvar(); avisarPortal(); msg("Aula pronta: " + novas.length + " páginas. Revise e ajuste o que quiser."); });
   }
+  // itens com link (Para continuar): dois cliques com a ferramenta Selecionar abrem em outra aba
+  canvas.on("mouse:dblclick", function(o){ var t = o && o.target; if(t && t.pdeLink && /^https:\/\//.test(t.pdeLink)) window.open(t.pdeLink, "_blank", "noopener"); });
 
   /* ================= PONTE COM A NUVEM (Portal 5.0) ================= */
   window.PDELousa = {
@@ -3635,6 +3745,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   #iaCorpo label.ia-chk{display:flex;gap:10px;align-items:center;font-weight:600;font-size:14px}
   #iaCorpo label.ia-chk input{width:20px;height:20px;min-height:0;accent-color:#1a6b2a}
+  #iaCorpo label.ia-ultra{align-items:flex-start;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(141,198,63,.14),rgba(46,155,214,.12),rgba(123,92,255,.12));border:1px solid #d5def0}
+  #iaCorpo label.ia-ultra small{display:block;font-weight:400;color:#4b5b6b;margin-top:2px}
   #iaCorpo .ia-msg{margin:0;min-height:18px;font-size:13.5px;color:#b3261e}
   #iaCorpo .ia-acoes{display:flex;justify-content:flex-end}
   #iaCorpo .ia-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
@@ -3675,7 +3787,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getBlob, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   const app = initializeApp({
@@ -3685,7 +3797,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
   const L = () => window.PDELousa;
   const AUTO_MS = 120000;
-  let uid = null, licenca = false, salvando = null, lista = [], busca = "", eu = null, perfilIA = null;
+  let uid = null, licenca = false, salvando = null, lista = [], busca = "", eu = null, perfilIA = null, lousaCfg = { basica:true, ultra:false }, cotaIA = null;
 
   function licencaOk(u){
     if(!u || u.status !== "ativo") return false;
@@ -3864,6 +3976,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-2"><label>Quantos slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label><span></span></div>' +
         '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
         '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
+        '<label class="ia-chk ia-ultra" id="iaUltraBox" hidden><input type="checkbox" id="iaUltra"> <span><b>Lousa Ultra</b>: ilustrações geradas por IA na capa e em até 2 slides <small id="iaUltraCusto"></small></span></label>' +
         '<p id="iaMsg" class="ia-msg" role="status"></p>' +
         '<div class="ia-acoes"><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
@@ -3873,6 +3986,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
     bg.classList.add("aberto"); document.getElementById("iaMsg").textContent = "";
     carregarPerfilIA().then(montarTurmasIA);
+    prepararUltra();
     setTimeout(() => document.getElementById("iaTema").focus(), 50);
   }
   // turmas e disciplinas do professor (grade da turma) e escola, para já vir preenchido; ele pode trocar
@@ -3912,22 +4026,62 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(t) return t.ano && !t.nome.includes(t.ano) ? t.nome + " (" + t.ano + ")" : t.nome;
     return document.getElementById("iaTurma").value.trim();
   }
+  // Lousa Ultra: aparece quando o administrador ligou; fica indisponível (com o motivo) se o plano não inclui imagem
+  async function prepararUltra(){
+    const box = document.getElementById("iaUltraBox"), chk = document.getElementById("iaUltra"), custo = document.getElementById("iaUltraCusto");
+    const admin = eu && eu.perfil === "admin";
+    box.hidden = !(lousaCfg.ultra || admin); if(box.hidden) return;
+    try{
+      if(!cotaIA){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+        cotaIA = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data; }
+      const pi = (cotaIA.precos || {}).imagem || 5, pt = (cotaIA.precos || {}).texto || 1;
+      custo.textContent = "(até " + (pt + 3 * pi) + " créditos: " + pi + " por ilustração)";
+      chk.disabled = !cotaIA.pode_imagem;
+      if(!cotaIA.pode_imagem){ chk.checked = false; custo.textContent = "(disponível no plano Completo ou com créditos avulsos de imagem)"; }
+    }catch(e){ custo.textContent = ""; }
+  }
+  // vídeos e jogos do Portal sobre o tema, para a página "Para continuar"
+  function semAcentoIA(t){ return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
+  async function continuarIA(tema, disciplina, titulo){
+    const VAZIAS = new Set("para com sobre entre como mais pelo pela pelos pelas aula aulas anos turma tema ensino escola".split(" "));
+    const chaves = [...new Set(semAcentoIA(tema + " " + titulo).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !VAZIAS.has(w)))];
+    if(!chaves.length) return [];
+    const ler = async (col) => { try{ const sn = await getDocs(query(collection(db, col), where("publicado", "==", true))); const l = []; sn.forEach(d => l.push({ id:d.id, ...d.data() })); return l; }catch(e){ return []; } };
+    const [vs, js] = await Promise.all([ler("videos"), ler("jogos")]);
+    const nota = x => { const t = semAcentoIA([x.titulo, x.tema, x.descricao, (x.bncc || []).join(" ")].join(" ")); let n = 0; chaves.forEach(k => { if(t.includes(k)) n++; }); return n ? n + (x.componente === disciplina ? 0.5 : 0) : 0; };
+    const melhor = (l, n) => l.filter(x => x.para_professores !== false).map(x => ({ x, n:nota(x) })).filter(o => o.n > 0).sort((a, b) => b.n - a.n).slice(0, n).map(o => o.x);
+    return melhor(vs, 3).filter(v => /^[\w-]{11}$/.test(v.youtube_id || "")).map(v => ({ tipo:"video", titulo:v.titulo, url:"https://www.youtube.com/watch?v=" + v.youtube_id }))
+      .concat(melhor(js, 2).filter(j => /^https:\/\//.test(j.url || "")).map(j => ({ tipo:"jogo", titulo:j.titulo, url:j.url })));
+  }
+  // ilustração que chega da IA: reduz para no máximo 1280 px e vira JPEG (a aula salva fica leve)
+  async function comprimirIA(im){
+    const b = await (await fetch("data:" + im.mime + ";base64," + im.dados)).blob(), bmp = await createImageBitmap(b);
+    const e = Math.min(1, 1280 / bmp.width), cv = document.createElement("canvas");
+    cv.width = Math.round(bmp.width * e); cv.height = Math.round(bmp.height * e);
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    return { src:cv.toDataURL("image/jpeg", 0.85), w:cv.width, h:cv.height };
+  }
   function fecharAulaIA(){ const bg = document.getElementById("iaFundo"); if(bg && !bg.dataset.gerando) bg.classList.remove("aberto"); }
   async function gerarAulaIA(){
     const bg = document.getElementById("iaFundo"), m = document.getElementById("iaMsg"), btn = document.getElementById("iaGerar");
     if(bg.dataset.gerando) return;
     const tema = document.getElementById("iaTema").value.trim();
     if(tema.length < 3){ m.textContent = "Escreva o tema da aula."; document.getElementById("iaTema").focus(); return; }
-    const dados = { acao:"aula_lousa", tema, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
+    const ultra = !document.getElementById("iaUltraBox").hidden && document.getElementById("iaUltra").checked;
+    const dados = { acao:"aula_lousa", tema, ultra, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
       qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim() };
-    bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = "Isso leva uns 20 segundos.";
+    bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
     try{
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:120000 })(dados)).data;
+      const [r, continuar] = await Promise.all([httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:240000 })(dados).then(x => x.data), continuarIA(tema, dados.disciplina, "")]);
       try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){}
+      cotaIA = r.cota || null;
+      const imagens = {};
+      for(const [k, im] of Object.entries(r.imagens || {})){ try{ imagens[k] = await comprimirIA(im); }catch(e){ console.warn("ilustração:", e); } }
       delete bg.dataset.gerando; bg.classList.remove("aberto");
       const cred = document.getElementById("iaCred").checked && perfilIA ? { autor:perfilIA.nome, escola:perfilIA.escola } : null;
-      L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma, creditos:cred });
+      L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma, creditos:cred, imagens, continuar });
+      if(r.aviso) setTimeout(() => L().msg(r.aviso), 2500);
     }catch(e){
       console.warn("aula IA:", e.code, e.message);
       m.style.color = "#b3261e"; m.textContent = e.code === "functions/resource-exhausted" || e.code === "functions/failed-precondition" || e.code === "functions/permission-denied" ? (e.message || "Sem créditos para o Portal IA.") : (e.message || "A IA não respondeu agora. Tente de novo.");
@@ -3947,6 +4101,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(!licenca) return;
     uid = user.uid;
     document.querySelectorAll(".so-nuvem").forEach(b => b.hidden = false);
+    try{ const c = await getDoc(doc(db, "config", "portal_ia")); lousaCfg = { basica:true, ultra:false, ...((c.exists() && c.data().lousa) || {}) }; }catch(e){}
+    const bIA = document.querySelector('[data-action="ia-aula"]');
+    if(bIA) bIA.style.display = (!lousaCfg.basica && !(eu && eu.perfil === "admin")) ? "none" : "";   // Lousa IA desligada pelo administrador
     const pedido = new URLSearchParams(location.search).get("abrir");
     if(pedido){ await carregarLista().catch(() => {}); abrirTrabalho(pedido); }
   });
