@@ -28,7 +28,7 @@ A pasta raiz do Portal segue este formato:
 <pasta de dados>/<usuário dono da pasta>/files/Drive Portal do Educador
 ```
 
-Por exemplo: `/var/www/nextcloud/data/admin/files/Drive Portal do Educador`.
+Ela fica na conta **alan**. Por exemplo: `/var/www/nextcloud/data/alan/files/Drive Portal do Educador`.
 
 Confira que ela existe:
 
@@ -38,7 +38,7 @@ sudo -u www-data ls "/CAMINHO/DA/PASTA/Drive Portal do Educador"
 
 Deve listar 01-Acervo-NEWPC, 02-Formacao-Continuada e as demais pastas.
 
-> Enquanto a pasta não for renomeada, o nome dela ainda é "Banco Curricular". Use esse nome no caminho e ajuste depois da renomeação.
+> A pasta já existe com esse nome, com o acervo NEWPC copiado e conferido (4.384 arquivos). A antiga "Banco Curricular" não é usada.
 
 ## 2. Instalar o script
 
