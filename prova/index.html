@@ -47,7 +47,11 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .ex-paleta button{width:34px;height:34px;border-radius:9px;border:1.5px solid var(--line);background:#fff;font-weight:800;font-size:.85rem}
 .ex-paleta button.r{background:#e3f1fb;border-color:#9cc9ea} .ex-paleta button.on{border-color:var(--azul);box-shadow:0 0 0 3px rgba(38,113,171,.2)}
 .ex-corpo{flex:1;overflow:auto;padding:22px 18px}
-.ex-q{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px}
+.ex-q{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;zoom:var(--letra,1)}
+/* tamanho da letra da prova: o aluno aumenta ou diminui (fica guardado no aparelho) */
+.ex-letra{display:inline-flex;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.12)}
+.ex-letra button{border:0;background:transparent;color:#fff;font:800 1rem inherit;min-width:46px;min-height:40px;cursor:pointer} .ex-letra button+button{border-left:1px solid rgba(255,255,255,.2)}
+.ex-letra button:active{background:rgba(255,255,255,.22)} .ex-letra button:disabled{opacity:.35}
 .ex-q .num{font-size:.78rem;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.06em}
 .ex-q .en{font-size:1.12rem;margin:8px 0 16px;white-space:pre-wrap}
 .ex-q img{max-width:100%;max-height:340px;border-radius:12px;margin:0 0 14px;display:block}
@@ -429,7 +433,7 @@ function iniciarExec(){
   fecharCapa();
   E.ativo = true; E.fora = false; E.i = Math.min(E.i, (E.tent.ordem || []).length - 1);
   reivindicar();
-  document.body.insertAdjacentHTML("beforeend", '<div id="exec" role="main"><div class="ex-top"><span class="tt">'+esc(E.prova.titulo)+'</span><span class="ex-tempo" id="exTempo">--:--</span></div>'+
+  document.body.insertAdjacentHTML("beforeend", '<div id="exec" role="main"><div class="ex-top"><span class="tt">'+esc(E.prova.titulo)+'</span><span class="ex-letra" role="group" aria-label="Tamanho da letra"><button type="button" data-action="letra" data-arg="-1" aria-label="Diminuir a letra">A−</button><button type="button" data-action="letra" data-arg="1" aria-label="Aumentar a letra">A+</button></span><span class="ex-tempo" id="exTempo">--:--</span></div>'+
     '<div class="ex-paleta" id="exPaleta"></div><div class="ex-corpo"><div class="ex-q" id="exQ"></div></div>'+
     '<div class="ex-pe"><button class="btn btn-gh" data-action="ant" id="btnAnt">← Anterior</button><span class="salvo" id="exSalvo"></span><button class="btn btn-pri" data-action="prox" id="btnProx">Próxima →</button></div></div>');
   $("topo").hidden = true; $("tela").hidden = true;
@@ -445,6 +449,15 @@ function desenharPaleta(){
   $("exPaleta").innerHTML = qs.map((q, i) => '<button data-action="ir" data-arg="'+i+'" class="'+(respondida(q) ? "r" : "")+(i === E.i ? " on" : "")+'" aria-label="Questão '+(i+1)+'">'+(i+1)+'</button>').join("")+
     '<button data-action="entregar" style="width:auto;padding:0 14px;background:var(--lima);border-color:var(--lima)">Entregar</button>';
 }
+const TAM_LETRA = [0.9, 1, 1.15, 1.3, 1.5, 1.75, 2];
+function mudarLetra(passo){
+  let i = TAM_LETRA.indexOf(Number(document.documentElement.style.getPropertyValue("--letra")) || 1); if(i < 0) i = 1;
+  i = Math.max(0, Math.min(TAM_LETRA.length - 1, i + (passo || 0)));
+  document.documentElement.style.setProperty("--letra", TAM_LETRA[i]);
+  try{ localStorage.setItem("pde_prova_letra", TAM_LETRA[i]); }catch(e){}
+  document.querySelectorAll('[data-action="letra"]').forEach(b => { b.disabled = b.dataset.arg === "-1" ? i === 0 : i === TAM_LETRA.length - 1; });
+}
+try{ const z = Number(localStorage.getItem("pde_prova_letra")); if(TAM_LETRA.includes(z)) document.documentElement.style.setProperty("--letra", z); }catch(e){}
 function desenharQuestao(){
   const qs = questoesOrd(), q = qs[E.i], r = resp(q.id);
   let h = '<div class="num">Questão '+(E.i+1)+' de '+qs.length+' · '+q.valor+' ponto'+(q.valor === 1 ? "" : "s")+'</div><div class="en">'+esc(q.enun)+'</div>'+(q.imgs || []).map(s => '<img src="'+esc(s)+'" alt="" draggable="false">').join("");
@@ -879,6 +892,7 @@ document.addEventListener("click", e => {
   else if(a === "voltar-prova"){ fecharCapa(); telaCheia(); if(!$("exec")) iniciarExec(); }
   else if(a === "fechar-capa") fecharCapa();
   else if(a === "ir"){ salvar(); E.i = +arg; desenharQuestao(); desenharPaleta(); }
+  else if(a === "letra") mudarLetra(Number(arg));
   else if(a === "ant"){ if(E.i > 0){ E.i--; desenharQuestao(); desenharPaleta(); } }
   else if(a === "prox"){ const n = questoesOrd().length; if(E.i < n - 1){ E.i++; desenharQuestao(); desenharPaleta(); } else revisar(); }
   else if(a === "entregar") revisar();
