@@ -3522,144 +3522,247 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     paginas[pagAtual] = estadoPaginaAtual();
     var vt = canvas.viewportTransform || [1,0,0,1,0,0];
     var W = canvas.getWidth() / vt[0], H = canvas.getHeight() / vt[3], X0 = -vt[4] / vt[0], Y0 = -vt[5] / vt[3];
-    var FONTE = "Segoe UI, Roboto, sans-serif", AZUL = "#0f2c4a", TINTA = "#12202e", CINZA = "#8a97a6";
+    var FONTE = "Segoe UI, Roboto, sans-serif", AZUL = "#0f2c4a", TINTA = "#12202e", CINZA = "#7b8a99";
     var COR = CORES_DISC[meta.disciplina] || AZUL, ICO = ICONE_DISC[meta.disciplina] || "💡", LIMA = "#8DC63F";
-    var ext = ["selectable","evented","pdeLink"], imgs = meta.imagens || {};
-    function tb(t, o){ var x = new fabric.Textbox(String(t || ""), Object.assign({ fontFamily:FONTE, fill:TINTA, editable:true }, o)); x.initDimensions(); return x; }
+    var ESCURA = escurecer(COR, 0.45), ext = ["selectable","evented","pdeLink"], imgs = meta.imagens || {};
+    var SOMBRA = "rgba(15,44,74,0.13) 0px 6px 18px";
+    function escurecer(hex, k){ var n = parseInt(hex.slice(1), 16), f = function(v){ return Math.round(v * (1 - k)); };
+      return "#" + [f(n >> 16), f((n >> 8) & 255), f(n & 255)].map(function(v){ return ("0" + v.toString(16)).slice(-2); }).join(""); }
+    function grad(c1, c2){ return new fabric.Gradient({ type:"linear", gradientUnits:"percentage", coords:{ x1:0, y1:0, x2:1, y2:1 }, colorStops:[{ offset:0, color:c1 }, { offset:1, color:c2 }] }); }
+    function tb(t, o){ var x = new fabric.Textbox(String(t || ""), Object.assign({ fontFamily:FONTE, fill:TINTA, editable:true, lineHeight:1.18 }, o)); x.initDimensions(); return x; }
     function caber(x, altMax, minFonte){ while(x.height > altMax && x.fontSize > minFonte){ x.set("fontSize", Math.round(x.fontSize * 0.92)); x.initDimensions(); } return x; }
-    function ret(o){ return new fabric.Rect(Object.assign({ rx:14, ry:14, strokeWidth:0 }, o)); }
+    function ret(o){ return new fabric.Rect(Object.assign({ rx:16, ry:16, strokeWidth:0 }, o)); }
+    function cartao(x, y, w, h, o){ return ret(Object.assign({ left:x, top:y, width:w, height:h, fill:"#ffffff", shadow:SOMBRA }, o || {})); }
+    function circ(x, y, r, fill, o){ return new fabric.Circle(Object.assign({ left:x - r, top:y - r, radius:r, fill:fill }, o || {})); }
+    function emoji(e, cx, cy, tam){ var t = tb(e, { left:cx - tam, top:0, width:tam * 2, fontSize:tam, textAlign:"center" }); t.set("top", cy - t.height / 2); return t; }
     function imagemObj(im, x, y, w, h){   // cabe na caixa sem distorcer
       var e = Math.min(w / im.w, h / im.h);
       return { type:"image", version:"5.3.0", originX:"left", originY:"top", left:x + (w - im.w * e) / 2, top:y + (h - im.h * e) / 2, width:im.w, height:im.h,
-        scaleX:e, scaleY:e, src:im.src, crossOrigin:null, selectable:true, evented:true };
+        scaleX:e, scaleY:e, src:im.src, crossOrigin:null, selectable:true, evented:true, shadow:SOMBRA };
     }
     function pagina(objs, extras){ return { json: JSON.stringify({ version:"5.3.0", objects: objs.map(function(o){ return o.toObject ? o.toObject(ext) : o; }).concat(extras || []) }), fundo:"branco" }; }
-    var esq = X0 + W * 0.07, larg = W * 0.86, faixa = function(){ return ret({ left:X0, top:Y0, width:W, height:Math.max(6, H * 0.014), fill:COR, rx:0, ry:0 }); };
-    function numero(n){ return tb(String(n), { left:X0 + W * 0.9, top:Y0 + H * 0.93, width:W * 0.05, fontSize:Math.max(12, Math.round(H * 0.024)), fill:CINZA, textAlign:"right" }); }
+    var esq = X0 + W * 0.06, larg = W * 0.88, total = (aula.slides || []).length + 1;
+    var rotDisc = [meta.disciplina, meta.turma].filter(Boolean).join(" · ");
+    // fundo claro com a cor da disciplina + rodapé com disciplina e número da página
+    function base(n, semNumero){
+      var o = [ret({ left:X0, top:Y0, width:W, height:H, rx:0, ry:0, fill:grad("#ffffff", corClara(COR, 0.045)), selectable:false, evented:false })];
+      var yR = Y0 + H * 0.945, fr = Math.max(11, Math.round(H * 0.021));
+      o.push(ret({ left:X0, top:Y0 + H - Math.max(5, H * 0.008), width:W * (n / total), height:Math.max(5, H * 0.008), rx:0, ry:0, fill:COR, selectable:false, evented:false }));
+      if(rotDisc) o.push(tb(ICO + "  " + rotDisc, { left:esq, top:yR, width:larg * 0.6, fontSize:fr, fill:CINZA, fontWeight:"bold" }));
+      if(!semNumero) o.push(tb(n + " / " + total, { left:esq + larg * 0.7, top:yR, width:larg * 0.3, fontSize:fr, fill:CINZA, fontWeight:"bold", textAlign:"right" }));
+      return o;
+    }
+    // faixa do título: colorida, com o ícone num círculo branco
+    function cabecalho(sl, larTit){
+      var hB = H * 0.155, o = [ret({ left:X0, top:Y0, width:W, height:hB, rx:0, ry:0, fill:grad(COR, ESCURA) })];
+      o.push(circ(esq + H * 0.045, Y0 + hB / 2, H * 0.048, "#ffffff", { shadow:"rgba(0,0,0,0.18) 0px 3px 8px" }), emoji(sl.icone || ICO, esq + H * 0.045, Y0 + hB / 2, Math.round(H * 0.05)));
+      var tx = esq + H * 0.12, t = caber(tb(sl.titulo, { left:tx, top:0, width:larTit - H * 0.12, fontSize:Math.round(H * 0.058), fontWeight:"bold", fill:"#ffffff" }), hB * 0.86, 16);
+      t.set("top", Y0 + (hB - t.height) / 2); o.push(t);
+      return { objs:o, fim:Y0 + hB };
+    }
+    function roteiroPostit(sl){
+      if(!sl.roteiro) return [];
+      var w = W * 0.17, rt = caber(tb("📝 Roteiro" + (sl.minutos ? " · " + sl.minutos + " min" : "") + "\n" + sl.roteiro, { left:0, top:0, width:w - W * 0.02, fontSize:Math.max(11, Math.round(H * 0.02)), fill:"#5a4b00", lineHeight:1.2 }), H * 0.2, 9);
+      var x = X0 + W - w - W * 0.015, y = Y0 + H * 0.025;
+      rt.set({ left:x + W * 0.01, top:y + H * 0.012 });
+      return [ret({ left:x, top:y, width:w, height:rt.height + H * 0.024, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1, rx:6, ry:6, angle:1.2, shadow:"rgba(0,0,0,0.18) 2px 4px 8px" }), rt];
+    }
+    // tópicos em cartões (um por linha), com bolinha colorida
+    function cartoesLista(itens, cx, topo, cl, fim, numerado){
+      var n = itens.length, gap = H * 0.022, hc = Math.min(H * 0.135, (fim - topo - gap * (n - 1)) / n), out = [];
+      itens.forEach(function(t, k){
+        var y = topo + k * (hc + gap), pad = H * 0.11;
+        out.push(cartao(cx, y, cl, hc, { rx:14, ry:14 }), ret({ left:cx, top:y, width:Math.max(6, W * 0.006), height:hc, fill:COR, rx:3, ry:3 }));
+        out.push(circ(cx + pad * 0.5, y + hc / 2, Math.min(hc * 0.32, H * 0.032), numerado ? COR : corClara(COR, 0.18)));
+        if(numerado) out.push(emojiNum(k + 1, cx + pad * 0.5, y + hc / 2, Math.min(hc * 0.3, H * 0.03)));
+        else out.push(circ(cx + pad * 0.5, y + hc / 2, Math.min(hc * 0.1, H * 0.01), COR));
+        var tx = caber(tb(t, { left:cx + pad, top:0, width:cl - pad - W * 0.02, fontSize:Math.round(H * 0.038) }), hc * 0.86, 11);
+        tx.set("top", y + (hc - tx.height) / 2); out.push(tx);
+      });
+      return out;
+    }
+    function emojiNum(n, cx, cy, r){ var t = tb(String(n), { left:cx - r, top:0, width:r * 2, fontSize:Math.round(r * 1.2), fontWeight:"bold", fill:"#fff", textAlign:"center" }); t.set("top", cy - t.height / 2); return t; }
     var novas = [];
 
-    /* ---------- capa ---------- */
-    var capaImg = imgs.capa, cw = capaImg ? larg * 0.5 : larg, ca = capaImg ? "left" : "center";
-    var capa = [faixa()], extrasCapa = [];
-    var rot = [meta.disciplina, meta.turma].filter(Boolean).join(" · ");
-    if(rot) capa.push(tb(ICO + "  " + rot, { left:esq, top:Y0 + H * 0.12, width:cw, fontSize:Math.round(H * 0.034), fontWeight:"bold", fill:COR, textAlign:ca }));
-    var capaTit = caber(tb(aula.titulo || "Aula", { left:esq, top:0, width:cw, fontSize:Math.round(H * (capaImg ? 0.085 : 0.1)), fontWeight:"bold", fill:AZUL, textAlign:ca }), H * 0.36, 22);
-    capaTit.set("top", Y0 + H * 0.4 - capaTit.height / 2);
-    capa.push(capaTit, ret({ left:capaImg ? esq : X0 + W / 2 - W * 0.07, top:capaTit.top + capaTit.height + H * 0.03, width:W * 0.14, height:Math.max(5, H * 0.012), fill:COR, rx:4, ry:4 }));
-    if(aula.subtitulo) capa.push(caber(tb(aula.subtitulo, { left:esq, top:capaTit.top + capaTit.height + H * 0.08, width:cw, fontSize:Math.round(H * 0.042), fill:"#3e4c5a", textAlign:ca }), H * 0.2, 14));
-    capa.push(tb("Preparado com o Portal IA · confira o conteúdo antes da aula", { left:esq, top:Y0 + H * 0.9, width:larg, fontSize:Math.max(12, Math.round(H * 0.022)), fill:CINZA, textAlign:ca }));
-    if(capaImg) extrasCapa.push(imagemObj(capaImg, esq + larg * 0.54, Y0 + H * 0.12, larg * 0.46, H * 0.72));
+    /* ---------- capa: fundo da cor da disciplina, título grande em branco ---------- */
+    var capaImg = imgs.capa, cw = capaImg ? larg * 0.52 : larg * 0.8, ca = "left";
+    var capa = [ret({ left:X0, top:Y0, width:W, height:H, rx:0, ry:0, fill:grad(COR, ESCURA), selectable:false, evented:false }),
+      circ(X0 + W * 0.92, Y0 + H * 0.1, H * 0.32, "rgba(255,255,255,0.07)", { selectable:false, evented:false }),
+      circ(X0 + W * 0.05, Y0 + H * 1.02, H * 0.28, "rgba(255,255,255,0.06)", { selectable:false, evented:false })];
+    if(rotDisc){ var chip = tb(ICO + "  " + rotDisc, { left:esq + W * 0.015, top:Y0 + H * 0.15, width:cw, fontSize:Math.round(H * 0.03), fontWeight:"bold", fill:"#ffffff" });
+      capa.push(ret({ left:esq, top:chip.top - H * 0.012, width:Math.min(cw, chip.calcTextWidth() + W * 0.04), height:chip.height + H * 0.024, fill:"rgba(255,255,255,0.16)", rx:30, ry:30 }), chip); }
+    var capaTit = caber(tb(aula.titulo || "Aula", { left:esq, top:0, width:cw, fontSize:Math.round(H * 0.095), fontWeight:"bold", fill:"#ffffff", lineHeight:1.05 }), H * 0.34, 22);
+    capaTit.set("top", Y0 + H * 0.27); capa.push(capaTit);
+    var yc = capaTit.top + capaTit.height + H * 0.03;
+    capa.push(ret({ left:esq, top:yc, width:W * 0.1, height:Math.max(6, H * 0.012), fill:LIMA, rx:4, ry:4 })); yc += H * 0.04;
+    if(aula.subtitulo){ var sub = caber(tb(aula.subtitulo, { left:esq, top:yc, width:cw, fontSize:Math.round(H * 0.038), fill:"rgba(255,255,255,0.92)" }), H * 0.14, 13); capa.push(sub); yc += sub.height + H * 0.035; }
+    if(aula.objetivo){ var ob = caber(tb("🎯  Objetivo: " + aula.objetivo, { left:esq + W * 0.015, top:yc + H * 0.018, width:cw - W * 0.03, fontSize:Math.round(H * 0.026), fill:"#ffffff" }), H * 0.12, 11);
+      capa.push(ret({ left:esq, top:yc, width:cw, height:ob.height + H * 0.036, fill:"rgba(0,0,0,0.18)", rx:12, ry:12 }), ob); yc += ob.height + H * 0.05; }
+    if((aula.bncc || []).length) capa.push(tb("BNCC: " + aula.bncc.join(" · "), { left:esq, top:yc, width:cw, fontSize:Math.round(H * 0.022), fill:"rgba(255,255,255,0.75)", fontWeight:"bold" }));
+    capa.push(tb("Preparado com o Portal IA · confira o conteúdo antes da aula", { left:esq, top:Y0 + H * 0.92, width:larg, fontSize:Math.max(11, Math.round(H * 0.019)), fill:"rgba(255,255,255,0.65)", textAlign:ca }));
+    var extrasCapa = capaImg ? [Object.assign(imagemObj(capaImg, esq + larg * 0.56, Y0 + H * 0.14, larg * 0.44, H * 0.72), { stroke:"#ffffff", strokeWidth:Math.max(4, H * 0.008) })] : [];
+    if(!capaImg) capa.push(emoji(ICO, X0 + W * 0.84, Y0 + H * 0.52, Math.round(H * 0.22)));
     novas.push(pagina(capa, extrasCapa));
 
     /* ---------- slides ---------- */
     (aula.slides || []).forEach(function(sl, i){
-      var img = imgs["s" + i], objs = [faixa()], extras = [];
-      var temRot = !!sl.roteiro, larTit = temRot ? larg * 0.7 : larg;
-      var tit = caber(tb((sl.icone || ICO) + "  " + sl.titulo, { left:esq, top:Y0 + H * 0.07, width:larTit, fontSize:Math.round(H * 0.064), fontWeight:"bold", fill:AZUL }), H * 0.18, 18);
-      var barra = ret({ left:esq, top:tit.top + tit.height + H * 0.018, width:W * 0.1, height:Math.max(4, H * 0.009), fill:COR, rx:3, ry:3 });
-      objs.push(tit, barra);
-      if(temRot){   // roteiro do professor: post-it no canto, ele apaga se não quiser
-        var rt = tb("Roteiro" + (sl.minutos ? " · " + sl.minutos + " min" : "") + "\n" + sl.roteiro, { left:X0 + W * 0.79, top:Y0 + H * 0.06, width:W * 0.16, fontSize:Math.max(12, Math.round(H * 0.022)), fill:"#5a4b00", lineHeight:1.2 });
-        caber(rt, H * 0.24, 10);
-        objs.push(ret({ left:rt.left - W * 0.01, top:rt.top - H * 0.012, width:W * 0.18, height:rt.height + H * 0.024, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1, rx:6, ry:6,
-          shadow:"rgba(0,0,0,0.12) 2px 3px 6px" }), rt);
-      }
-      var topo = barra.top + H * 0.05, fim = Y0 + H * (sl.pergunta ? 0.74 : 0.9);
+      var img = imgs["s" + i], extras = [];
+      var objs = base(i + 2), cab = cabecalho(sl, sl.roteiro ? larg * 0.78 : larg);
+      objs = objs.concat(cab.objs);
+      var topo = cab.fim + H * 0.05, fim = Y0 + H * (sl.pergunta ? 0.76 : 0.91);
       var cx = esq, cl = img ? larg * 0.56 : larg;
       if(img) extras.push(imagemObj(img, esq + larg * 0.6, topo, larg * 0.4, fim - topo));
-      var f = Math.round(H * 0.044), y, it;
-      function lista(itens, marcador){   // tópicos com marcador à parte; passos com número no círculo
-        var fonte = f, out;
-        for(;;){
-          y = topo; out = [];
-          itens.forEach(function(t, k){
-            var recuo = marcador === "num" ? fonte * 1.6 : W * 0.035;
-            var c = tb(t, { left:cx + recuo, top:y, width:cl - recuo, fontSize:fonte, lineHeight:1.25 });
-            if(marcador === "num"){
-              out.push(new fabric.Circle({ left:cx, top:y - fonte * 0.05, radius:fonte * 0.6, fill:COR }),
-                tb(String(k + 1), { left:cx, top:y + fonte * 0.12, width:fonte * 1.2, fontSize:Math.round(fonte * 0.75), fontWeight:"bold", fill:"#fff", textAlign:"center" }), c);
-            } else out.push(new fabric.Circle({ left:cx + recuo * 0.25, top:y + fonte * 0.42, radius:Math.max(4, fonte * 0.16), fill:COR }), c);
-            y += Math.max(c.height, marcador === "num" ? fonte * 1.2 : 0) + fonte * 0.55;
+      var tipo = sl.tipo;
+
+      if(tipo === "conceito"){
+        var lado = !img && (sl.exemplo || sl.erro_comum), cw2 = lado ? cl * 0.6 : cl, gap = W * 0.02;
+        var dz = caber(tb(sl.destaque, { left:cx + W * 0.03, top:topo + H * 0.035, width:cw2 - W * 0.05, fontSize:Math.round(H * 0.048), fontWeight:"bold", fill:AZUL }), (fim - topo) * 0.48, 15);
+        var hD = dz.height + H * 0.07;
+        objs.push(cartao(cx, topo, cw2, hD), ret({ left:cx, top:topo, width:Math.max(8, W * 0.008), height:hD, fill:COR, rx:4, ry:4 }), dz);
+        var yx = topo + hD + H * 0.035;
+        if(sl.explicacao) objs.push(caber(tb("💭  " + sl.explicacao, { left:cx + W * 0.01, top:yx, width:cw2 - W * 0.02, fontSize:Math.round(H * 0.034), fill:"#33475b" }), fim - yx, 11));
+        var caixas = [];
+        if(sl.exemplo) caixas.push(["💡 Exemplo", sl.exemplo, "#e8f4fd", "#2671AB"]);
+        if(sl.erro_comum) caixas.push(["⚠️ Cuidado: erro comum", sl.erro_comum, "#fff1e6", "#c2410c"]);
+        if(caixas.length){
+          var bx = lado ? cx + cw2 + gap : cx, bw = lado ? cl - cw2 - gap : (cl - gap * (caixas.length - 1)) / caixas.length;
+          var by = lado ? topo : Math.min(fim - H * 0.2, yx + (sl.explicacao ? H * 0.13 : 0)), bh = lado ? (fim - topo - gap * (caixas.length - 1)) / caixas.length : fim - by;
+          caixas.forEach(function(k, j){
+            var x = lado ? bx : bx + j * (bw + gap), y = lado ? by + j * (bh + gap) : by;
+            var rt2 = tb(k[0], { left:x + W * 0.015, top:y + H * 0.02, width:bw - W * 0.03, fontSize:Math.round(H * 0.026), fontWeight:"bold", fill:k[3] });
+            var cp = caber(tb(k[1], { left:x + W * 0.015, top:rt2.top + rt2.height + H * 0.01, width:bw - W * 0.03, fontSize:Math.round(H * 0.031) }), bh - rt2.height - H * 0.06, 10);
+            objs.push(ret({ left:x, top:y, width:bw, height:bh, fill:k[2], rx:14, ry:14 }), rt2, cp);
           });
-          if(y <= fim || fonte <= 14) break;
-          fonte = Math.round(fonte * 0.92);
         }
-        return out;
-      }
-      if(sl.tipo === "conceito" || sl.tipo === "curiosidade" || sl.tipo === "atividade"){
-        var rotulo = { conceito:"Conceito", curiosidade:"Você sabia?", atividade:"Desafio rápido" }[sl.tipo];
-        var mesmo = semAcentoL(sl.titulo).indexOf(semAcentoL(rotulo).replace("?", "")) >= 0;   // título já diz "Você sabia?"
-        var lab = tb(mesmo ? "" : rotulo, { left:cx, top:topo, width:cl, fontSize:Math.round(H * 0.032), fontWeight:"bold", fill:COR });
-        if(mesmo) lab.set("height", 0);
-        var dz = caber(tb(sl.destaque, { left:cx + W * 0.025, top:(mesmo ? topo : lab.top + lab.height) + H * 0.03, width:cl - W * 0.05, fontSize:Math.round(H * 0.052), fontWeight:"bold", fill:AZUL, lineHeight:1.2 }),
-          (fim - topo) * (sl.tipo === "curiosidade" ? 0.7 : 0.5), 16);
-        if(!mesmo) objs.push(lab);
-        objs.push(ret({ left:cx, top:dz.top - H * 0.025, width:cl, height:dz.height + H * 0.05, fill:corClara(COR, 0.1), stroke:corClara(COR, 0.35), strokeWidth:1.5,
-          strokeDashArray:sl.tipo === "curiosidade" ? [10, 6] : null }), dz);
-        var abaixo = dz.top + dz.height + H * 0.06;
-        if(sl.tipo === "conceito" && sl.exemplo) objs.push(caber(tb("Exemplo: " + sl.exemplo, { left:cx, top:abaixo, width:cl, fontSize:Math.round(H * 0.04), fill:"#3e4c5a" }), fim - abaixo, 12));
-        if(sl.tipo === "atividade" && sl.resposta){   // resposta escondida: o professor arrasta ou apaga a capa para revelar
-          var rp = caber(tb("Resposta: " + sl.resposta, { left:cx + W * 0.02, top:abaixo + H * 0.02, width:cl - W * 0.04, fontSize:Math.round(H * 0.036), fill:"#1a6b2a", fontWeight:"bold" }), fim - abaixo - H * 0.04, 12);
-          var alt = rp.height + H * 0.04;
-          objs.push(ret({ left:cx, top:abaixo, width:cl, height:alt, fill:"#eef7e3" }), rp,
-            ret({ left:cx, top:abaixo, width:cl, height:alt, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1 }),
-            tb("Resposta coberta: arraste ou apague este post-it para revelar", { left:cx + W * 0.02, top:abaixo + alt / 2 - H * 0.018, width:cl - W * 0.04, fontSize:Math.max(12, Math.round(H * 0.026)), fill:"#5a4b00", textAlign:"center" }));
-        }
-      } else if(sl.tipo === "linha_tempo"){
-        var n = sl.itens.length, passo = cl / n, ly = topo + (fim - topo) * 0.32;
-        objs.push(ret({ left:cx, top:ly - 2, width:cl, height:4, fill:corClara(COR, 0.45), rx:2, ry:2 }));
+      } else if(tipo === "curiosidade"){
+        var rC = Math.min(H * 0.14, (fim - topo) * 0.32), cyC = topo + (fim - topo) * 0.42;
+        objs.push(circ(cx + rC, cyC, rC, corClara(COR, 0.14)), emoji(sl.icone || "🤔", cx + rC, cyC, Math.round(rC * 1.1)));
+        var qx = cx + rC * 2 + W * 0.03, qw = cl - rC * 2 - W * 0.03;
+        var dq = caber(tb("“" + sl.destaque + "”", { left:qx + W * 0.03, top:0, width:qw - W * 0.06, fontSize:Math.round(H * 0.048), fontWeight:"bold", fill:AZUL, fontStyle:"italic" }), (fim - topo) * 0.55, 14);
+        var ex2 = sl.explicacao ? caber(tb(sl.explicacao, { left:qx + W * 0.03, top:0, width:qw - W * 0.06, fontSize:Math.round(H * 0.032), fill:"#33475b" }), (fim - topo) * 0.3, 10) : null;
+        var hQ = dq.height + (ex2 ? ex2.height + H * 0.03 : 0) + H * 0.08, yQ = topo + Math.max(0, ((fim - topo) - hQ) / 2);
+        dq.set("top", yQ + H * 0.04); objs.push(cartao(qx, yQ, qw, hQ), dq); if(ex2){ ex2.set("top", dq.top + dq.height + H * 0.03); objs.push(ex2); }
+      } else if(tipo === "dado"){
+        var num = tb(sl.numero, { left:cx, top:0, width:cl, fontSize:Math.round(H * 0.17), fontWeight:"bold", fill:COR, textAlign:"center" });
+        caber(num, (fim - topo) * 0.42, 30);
+        var lg = caber(tb(sl.legenda, { left:cx + cl * 0.1, top:0, width:cl * 0.8, fontSize:Math.round(H * 0.042), fontWeight:"bold", fill:AZUL, textAlign:"center" }), (fim - topo) * 0.22, 13);
+        var ex3 = sl.explicacao ? caber(tb(sl.explicacao, { left:cx + cl * 0.12, top:0, width:cl * 0.76, fontSize:Math.round(H * 0.031), fill:"#33475b", textAlign:"center" }), (fim - topo) * 0.24, 10) : null;
+        var hT = num.height + lg.height + (ex3 ? ex3.height + H * 0.03 : 0) + H * 0.05, y0 = topo + Math.max(0, ((fim - topo) - hT) / 2);
+        num.set("top", y0); lg.set("top", num.top + num.height + H * 0.035);
+        objs.push(ret({ left:cx + cl * 0.4, top:num.top + num.height + H * 0.008, width:cl * 0.2, height:Math.max(5, H * 0.007), fill:LIMA, rx:3, ry:3 }), num, lg);
+        if(ex3){ ex3.set("top", lg.top + lg.height + H * 0.03); objs.push(ex3); }
+      } else if(tipo === "linha_tempo"){
+        var n = sl.itens.length, passo = cl / n, ly = topo + (fim - topo) * 0.5, cardH = (fim - topo) * 0.42;
+        objs.push(ret({ left:cx, top:ly - 3, width:cl, height:6, fill:corClara(COR, 0.45), rx:3, ry:3 }));
         sl.itens.forEach(function(x, k){
-          var px = cx + passo * k + passo / 2;
-          objs.push(new fabric.Circle({ left:px - H * 0.018, top:ly - H * 0.018, radius:H * 0.018, fill:COR, stroke:"#fff", strokeWidth:3 }),
-            tb(x.rotulo, { left:px - passo * 0.45, top:ly - H * 0.09, width:passo * 0.9, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:COR, textAlign:"center" }),
-            caber(tb(x.texto, { left:px - passo * 0.46, top:ly + H * 0.045, width:passo * 0.92, fontSize:Math.round(H * 0.032), fill:TINTA, textAlign:"center", lineHeight:1.2 }), fim - ly - H * 0.06, 11));
+          var px = cx + passo * k + passo / 2, cima = k % 2 === 0, cwd = passo * 0.92;
+          var yCard = cima ? ly - H * 0.035 - cardH : ly + H * 0.035;
+          var rr = tb(x.rotulo, { left:px - cwd / 2 + W * 0.008, top:yCard + H * 0.015, width:cwd - W * 0.016, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:COR, textAlign:"center" });
+          var tt = caber(tb(x.texto, { left:px - cwd / 2 + W * 0.01, top:rr.top + rr.height + H * 0.008, width:cwd - W * 0.02, fontSize:Math.round(H * 0.032), textAlign:"center" }), cardH - rr.height - H * 0.04, 10);
+          objs.push(new fabric.Line([px, cima ? yCard + cardH : ly, px, cima ? ly : yCard], { stroke:corClara(COR, 0.5), strokeWidth:2 }),
+            cartao(px - cwd / 2, yCard, cwd, cardH, { rx:12, ry:12 }), rr, tt, circ(px, ly, H * 0.019, COR, { stroke:"#fff", strokeWidth:4 }));
         });
-      } else if(sl.tipo === "comparacao"){
-        var gap = W * 0.025, colW = (cl - gap) / 2, altCols = 0, caixas = [];
-        sl.colunas.forEach(function(k, j){
-          var x = cx + j * (colW + gap), yy = topo + H * 0.03;
-          var ct = tb(k.titulo, { left:x + W * 0.015, top:yy, width:colW - W * 0.03, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:j ? COR : AZUL });
-          var corpo = caber(tb(k.itens.map(function(t){ return "• " + t; }).join("\n"), { left:x + W * 0.015, top:yy + ct.height + H * 0.025, width:colW - W * 0.03, fontSize:Math.round(H * 0.036), lineHeight:1.3 }),
-            fim - yy - ct.height - H * 0.06, 12);
-          corpo.set("fontSize", Math.round(H * 0.04)); corpo.initDimensions(); caber(corpo, fim - yy - ct.height - H * 0.06, 12);
-          altCols = Math.max(altCols, ct.height + corpo.height + H * 0.1);
-          caixas.push([x, ret({ left:x, top:topo, width:colW, height:0, fill:corClara(j ? COR : "#0f2c4a", 0.07), stroke:corClara(j ? COR : "#0f2c4a", 0.3), strokeWidth:1.5 }), ct, corpo]);
-        });
-        caixas.forEach(function(c){ c[1].set("height", Math.min(fim - topo, altCols)); objs.push(c[1], c[2], c[3]); });
-      } else if(sl.tipo === "resumo"){
-        var gapR = W * 0.02, cols = sl.topicos.length > 3 ? 2 : 1, bw = (cl - gapR * (cols - 1)) / cols, linhas = Math.ceil(sl.topicos.length / cols), bh = Math.min(H * 0.17, (fim - topo - gapR * (linhas - 1)) / linhas);
+      } else if(tipo === "passos" && sl.topicos.length <= 4 && !img){
+        var np = sl.topicos.length, gP = W * 0.03, pw = (cl - gP * (np - 1)) / np, ph = fim - topo;
         sl.topicos.forEach(function(t, k){
-          var x = cx + (k % cols) * (bw + gapR), yy = topo + Math.floor(k / cols) * (bh + gapR);
-          var tx = caber(tb(t, { left:x + W * 0.02, top:yy + H * 0.025, width:bw - W * 0.04, fontSize:Math.round(H * 0.038), fontWeight:"bold", fill:AZUL, lineHeight:1.2 }), bh - H * 0.05, 11);
-          tx.set("top", yy + (bh - tx.height) / 2);
-          objs.push(ret({ left:x, top:yy, width:bw, height:bh, fill:corClara(COR, k % 2 ? 0.08 : 0.14) }), ret({ left:x, top:yy, width:Math.max(5, W * 0.006), height:bh, fill:COR, rx:3, ry:3 }), tx);
+          var x = cx + k * (pw + gP), r = H * 0.045;
+          objs.push(cartao(x, topo + r, pw, ph - r, { rx:14, ry:14 }), circ(x + pw / 2, topo + r, r, COR, { stroke:"#fff", strokeWidth:4 }), emojiNum(k + 1, x + pw / 2, topo + r, r * 0.9));
+          objs.push(caber(tb(t, { left:x + W * 0.012, top:topo + r * 2 + H * 0.02, width:pw - W * 0.024, fontSize:Math.round(H * 0.034), textAlign:"center" }), ph - r * 2 - H * 0.05, 10));
+          if(k < np - 1) objs.push(tb("➜", { left:x + pw, top:topo + ph / 2, width:gP, fontSize:Math.round(H * 0.04), fill:corClara(COR, 0.7), textAlign:"center" }));
+        });
+      } else if(tipo === "comparacao"){
+        var gC = W * 0.05, colW = (cl - gC) / 2, hh = H * 0.085, corpos = [], altMax = 0;
+        sl.colunas.forEach(function(k){
+          var c2 = caber(tb(k.itens.map(function(t){ return "✔  " + t; }).join("\n"), { left:0, top:0, width:colW - W * 0.04, fontSize:Math.round(H * 0.044), lineHeight:1.5 }), fim - topo - hh - H * 0.06, 11);
+          corpos.push(c2); altMax = Math.max(altMax, c2.height);
+        });
+        var hCol = Math.min(fim - topo, hh + altMax + H * 0.08), topoC = topo + (fim - topo - hCol) / 2;
+        topo = topoC; fim = topoC + hCol;
+        sl.colunas.forEach(function(k, j){
+          var x = cx + j * (colW + gC), corC = j ? COR : AZUL;
+          var ct = caber(tb(k.titulo, { left:x + W * 0.015, top:0, width:colW - W * 0.03, fontSize:Math.round(H * 0.044), fontWeight:"bold", fill:"#fff", textAlign:"center" }), hh * 0.9, 12);
+          ct.set("top", topo + (hh - ct.height) / 2);
+          objs.push(cartao(x, topo, colW, fim - topo), ret({ left:x, top:topo, width:colW, height:hh, fill:corC }), ret({ left:x, top:topo + hh - 16, width:colW, height:16, fill:corC, rx:0, ry:0 }), ct);
+          var corpo = corpos[j]; corpo.set({ left:x + W * 0.02, top:topo + hh + H * 0.04 });
+          objs.push(corpo);
+        });
+        var rv = H * 0.045, mx = cx + colW + gC / 2, my = topo + (fim - topo) / 2;
+        objs.push(circ(mx, my, rv, LIMA, { stroke:"#fff", strokeWidth:4, shadow:SOMBRA }), (function(){ var t = tb("VS", { left:mx - rv, top:0, width:rv * 2, fontSize:Math.round(rv * 0.8), fontWeight:"bold", fill:AZUL, textAlign:"center" }); t.set("top", my - t.height / 2); return t; })());
+      } else if(tipo === "mapa"){
+        var ramos = sl.topicos.slice(0, 6), mcx = cx + cl / 2, mcy = topo + (fim - topo) / 2, rw = cl * 0.3, rh = (fim - topo) * 0.38;
+        var centro = caber(tb(sl.titulo, { left:mcx - cl * 0.12, top:0, width:cl * 0.24, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:"#fff", textAlign:"center" }), H * 0.14, 11);
+        var pos = ramos.map(function(_, k){ var a = -Math.PI / 2 + k * 2 * Math.PI / ramos.length; return [mcx + Math.cos(a) * cl * 0.33, mcy + Math.sin(a) * (fim - topo) * 0.36]; });
+        pos.forEach(function(p){ objs.push(new fabric.Line([mcx, mcy, p[0], p[1]], { stroke:corClara(COR, 0.45), strokeWidth:3 })); });
+        objs.push(new fabric.Ellipse({ left:mcx - cl * 0.14, top:mcy - H * 0.09, rx:cl * 0.14, ry:H * 0.09, fill:grad(COR, ESCURA), shadow:SOMBRA }));
+        centro.set("top", mcy - centro.height / 2); objs.push(centro);
+        ramos.forEach(function(t, k){
+          var p = pos[k], parts = t.split(":"), chave = parts.length > 1 ? parts.shift().trim() : "", resto = parts.join(":").trim();
+          var bw2 = Math.min(rw, cl * 0.29), bh2 = Math.min(rh * 0.62, H * 0.17), bx2 = Math.max(cx, Math.min(cx + cl - bw2, p[0] - bw2 / 2)), by2 = Math.max(topo, Math.min(fim - bh2, p[1] - bh2 / 2));
+          var tk = chave ? tb(chave, { left:bx2 + W * 0.01, top:by2 + H * 0.012, width:bw2 - W * 0.02, fontSize:Math.round(H * 0.034), fontWeight:"bold", fill:COR, textAlign:"center" }) : null;
+          var tr = caber(tb(resto, { left:bx2 + W * 0.01, top:(tk ? tk.top + tk.height : by2 + H * 0.015), width:bw2 - W * 0.02, fontSize:Math.round(H * 0.03), textAlign:"center" }), bh2 - (tk ? tk.height : 0) - H * 0.03, 9);
+          objs.push(cartao(bx2, by2, bw2, bh2, { rx:14, ry:14, stroke:corClara(COR, 0.35), strokeWidth:1.5 })); if(tk) objs.push(tk); objs.push(tr);
+        });
+      } else if(tipo === "quiz"){
+        var qq = caber(tb(sl.destaque, { left:cx, top:topo, width:cl, fontSize:Math.round(H * 0.044), fontWeight:"bold", fill:AZUL }), (fim - topo) * 0.26, 13);
+        objs.push(qq);
+        var ya = qq.top + qq.height + H * 0.035, hAl = sl.resposta ? (fim - ya) * 0.72 : fim - ya, gA = W * 0.018, aw = (cl - gA) / 2, ah = (hAl - gA) / 2;
+        sl.alternativas.forEach(function(t, k){
+          var x = cx + (k % 2) * (aw + gA), y = ya + Math.floor(k / 2) * (ah + gA), r = Math.min(ah * 0.3, H * 0.034);
+          objs.push(cartao(x, y, aw, ah, { rx:14, ry:14, stroke:corClara(COR, 0.3), strokeWidth:1.5 }), circ(x + W * 0.012 + r, y + ah / 2, r, COR),
+            (function(){ var l = tb("ABCD"[k], { left:x + W * 0.012, top:0, width:r * 2, fontSize:Math.round(r * 1.1), fontWeight:"bold", fill:"#fff", textAlign:"center" }); l.set("top", y + ah / 2 - l.height / 2); return l; })());
+          var tx = caber(tb(t, { left:x + W * 0.024 + r * 2, top:0, width:aw - W * 0.036 - r * 2, fontSize:Math.round(H * 0.033) }), ah * 0.86, 10); tx.set("top", y + (ah - tx.height) / 2); objs.push(tx);
+        });
+        if(sl.resposta){   // resposta coberta: o professor arrasta ou apaga o post-it depois da votação
+          var yr = ya + hAl + H * 0.025, hr = fim - yr;
+          var rp = caber(tb("✅ " + "ABCD"[sl.correta] + ") " + sl.resposta, { left:cx + W * 0.02, top:yr + H * 0.015, width:cl - W * 0.04, fontSize:Math.round(H * 0.03), fill:"#1a6b2a", fontWeight:"bold" }), hr - H * 0.03, 9);
+          objs.push(ret({ left:cx, top:yr, width:cl, height:hr, fill:"#eef7e3", rx:12, ry:12 }), rp,
+            ret({ left:cx, top:yr, width:cl, height:hr, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1, rx:12, ry:12 }),
+            (function(){ var t = tb("🗳️ Votação: cada aluno escolhe uma letra. Depois arraste ou apague este post-it para ver a resposta.", { left:cx + W * 0.02, top:0, width:cl - W * 0.04, fontSize:Math.max(11, Math.round(H * 0.024)), fill:"#5a4b00", textAlign:"center" }); t.set("top", yr + (hr - t.height) / 2); return t; })());
+        }
+      } else if(tipo === "atividade"){
+        var hA = (fim - topo) * (sl.resposta ? 0.6 : 1);
+        var da = caber(tb(sl.destaque, { left:cx + W * 0.03, top:0, width:cl - W * 0.06 - H * 0.12, fontSize:Math.round(H * 0.046), fontWeight:"bold", fill:AZUL }), hA - H * 0.08, 14);
+        da.set("top", topo + (hA - da.height) / 2);
+        objs.push(cartao(cx, topo, cl, hA), ret({ left:cx, top:topo, width:Math.max(8, W * 0.008), height:hA, fill:LIMA, rx:4, ry:4 }), emoji("✍️", cx + cl - H * 0.08, topo + hA / 2, Math.round(H * 0.07)), da);
+        if(sl.resposta){
+          var yr2 = topo + hA + H * 0.03, hr2 = fim - yr2;
+          var rp2 = caber(tb("Resposta: " + sl.resposta, { left:cx + W * 0.02, top:yr2 + H * 0.015, width:cl - W * 0.04, fontSize:Math.round(H * 0.031), fill:"#1a6b2a", fontWeight:"bold" }), hr2 - H * 0.03, 9);
+          objs.push(ret({ left:cx, top:yr2, width:cl, height:hr2, fill:"#eef7e3", rx:12, ry:12 }), rp2,
+            ret({ left:cx, top:yr2, width:cl, height:hr2, fill:"#fff3b0", stroke:"#e8d36a", strokeWidth:1, rx:12, ry:12 }),
+            (function(){ var t = tb("Resposta coberta: arraste ou apague este post-it para revelar", { left:cx + W * 0.02, top:0, width:cl - W * 0.04, fontSize:Math.max(11, Math.round(H * 0.025)), fill:"#5a4b00", textAlign:"center" }); t.set("top", yr2 + (hr2 - t.height) / 2); return t; })());
+        }
+      } else if(tipo === "resumo"){
+        var cols = sl.topicos.length > 2 ? 2 : 1, gR = W * 0.02, bwR = (cl - gR * (cols - 1)) / cols, lin = Math.ceil(sl.topicos.length / cols), bhR = (fim - topo - gR * (lin - 1)) / lin;
+        sl.topicos.forEach(function(t, k){
+          var x = cx + (k % cols) * (bwR + gR), y = topo + Math.floor(k / cols) * (bhR + gR), r = Math.min(bhR * 0.22, H * 0.035);
+          objs.push(cartao(x, y, bwR, bhR, { rx:14, ry:14 }), circ(x + W * 0.02 + r, y + bhR / 2, r, COR), emojiNum(k + 1, x + W * 0.02 + r, y + bhR / 2, r * 0.9));
+          var tx = caber(tb(t, { left:x + W * 0.035 + r * 2, top:0, width:bwR - W * 0.05 - r * 2, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:AZUL }), bhR * 0.86, 10);
+          tx.set("top", y + (bhR - tx.height) / 2); objs.push(tx);
         });
       } else {
-        objs = objs.concat(lista(sl.topicos, sl.tipo === "passos" ? "num" : "dot"));
+        objs = objs.concat(cartoesLista(sl.topicos, cx, topo, cl, fim, tipo === "passos"));
       }
       if(sl.pergunta){
-        var perg = caber(tb("Pergunta para a turma: " + sl.pergunta, { left:esq + W * 0.02, top:0, width:larg - W * 0.04, fontSize:Math.round(H * 0.034), fontWeight:"bold", fill:COR }), H * 0.12, 11);
-        var caixaTop = Y0 + H * 0.78;
-        perg.set("top", caixaTop + H * 0.025);
-        objs.push(ret({ left:esq, top:caixaTop, width:larg, height:perg.height + H * 0.05, fill:corClara(COR, 0.08), stroke:corClara(COR, 0.3), strokeWidth:1 }), perg);
+        var py = Y0 + H * 0.795, pp = caber(tb("💬  " + sl.pergunta, { left:esq + W * 0.025, top:0, width:larg - W * 0.05, fontSize:Math.round(H * 0.033), fontWeight:"bold", fill:"#fff" }), H * 0.1, 11);
+        var phh = pp.height + H * 0.04; pp.set("top", py + (phh - pp.height) / 2);
+        objs.push(ret({ left:esq, top:py, width:larg, height:phh, fill:grad(COR, ESCURA), rx:22, ry:22, shadow:SOMBRA }), pp);
       }
-      objs.push(numero(i + 2));
+      objs = objs.concat(roteiroPostit(sl));
       novas.push(pagina(objs, extras));
     });
 
     /* ---------- para continuar: vídeos e jogos do Portal sobre o tema ---------- */
     var cont = (meta.continuar || []).slice(0, 5);
     if(cont.length){
-      var pc = [faixa(), tb(ICO + "  Para continuar no Portal", { left:esq, top:Y0 + H * 0.07, width:larg, fontSize:Math.round(H * 0.064), fontWeight:"bold", fill:AZUL })];
-      pc.push(ret({ left:esq, top:Y0 + H * 0.17, width:W * 0.1, height:Math.max(4, H * 0.009), fill:COR, rx:3, ry:3 }));
-      var yc = Y0 + H * 0.23, hc = Math.min(H * 0.11, (H * 0.6) / cont.length - H * 0.02);
+      var pc = base(total, true).concat(cabecalho({ titulo:"Para continuar no Portal", icone:"🚀" }, larg).objs);
+      var yc2 = Y0 + H * 0.2, hc = Math.min(H * 0.11, (H * 0.6) / cont.length - H * 0.02);
       cont.forEach(function(c){
-        var t = tb((c.tipo === "jogo" ? "🎮  Jogo: " : "🎬  Vídeo: ") + c.titulo, { left:W * 0.02, top:0, width:larg - W * 0.04, fontSize:Math.round(Math.min(H * 0.036, hc * 0.45)), fontWeight:"bold", fill:AZUL });
+        var t = tb((c.tipo === "jogo" ? "🎮  Jogo: " : "🎬  Vídeo: ") + c.titulo, { left:W * 0.025, top:0, width:larg - W * 0.05, fontSize:Math.round(Math.min(H * 0.036, hc * 0.45)), fontWeight:"bold", fill:AZUL });
         t.set("top", (hc - t.height) / 2);
-        var g = new fabric.Group([ret({ left:0, top:0, width:larg, height:hc, fill:corClara(COR, 0.08), stroke:corClara(COR, 0.35), strokeWidth:1.5 }), t], { left:esq, top:yc, pdeLink:c.url, hoverCursor:"pointer" });
-        pc.push(g); yc += hc + H * 0.02;
+        var g = new fabric.Group([ret({ left:0, top:0, width:larg, height:hc, fill:"#ffffff", stroke:corClara(COR, 0.35), strokeWidth:1.5, shadow:SOMBRA }), t], { left:esq, top:yc2, pdeLink:c.url, hoverCursor:"pointer" });
+        pc.push(g); yc2 += hc + H * 0.02;
       });
-      pc.push(tb("Dica: com a ferramenta Selecionar, dê dois cliques num item para abrir.", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.024)), fill:CINZA }));
+      pc.push(tb("Dica: com a ferramenta Selecionar, dê dois cliques num item para abrir.", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.022)), fill:CINZA }));
       novas.push(pagina(pc));
     }
 
@@ -3667,12 +3770,30 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var cr = meta.creditos;
     if(cr && (cr.autor || cr.escola)){
       var hoje = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"long", year:"numeric" });
-      var cab = tb("Créditos", { left:esq, top:Y0 + H * 0.2, width:larg, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:COR, textAlign:"center" });
-      var nome = caber(tb(cr.autor ? "Aula preparada por " + cr.autor : "Aula preparada pela equipe da escola", { left:esq, top:Y0 + H * 0.32, width:larg, fontSize:Math.round(H * 0.06), fontWeight:"bold", fill:AZUL, textAlign:"center" }), H * 0.2, 18);
-      var linhas2 = [cr.escola, [meta.disciplina, meta.turma].filter(Boolean).join(" · "), hoje].filter(Boolean).join("\n");
-      novas.push(pagina([faixa(), cab, ret({ left:X0 + W / 2 - W * 0.05, top:Y0 + H * 0.28, width:W * 0.1, height:Math.max(4, H * 0.008), fill:COR, rx:3, ry:3 }),
-        nome, tb(linhas2, { left:esq, top:nome.top + nome.height + H * 0.05, width:larg, fontSize:Math.round(H * 0.038), lineHeight:1.4, fill:"#3e4c5a", textAlign:"center" }),
-        tb("Com apoio do Portal IA · Portal do Educador", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.024)), fill:CINZA, textAlign:"center" })]));
+      var fundoC = ret({ left:X0, top:Y0, width:W, height:H, rx:0, ry:0, fill:grad(COR, ESCURA), selectable:false, evented:false });
+      var cabC = tb("Créditos", { left:esq, top:Y0 + H * 0.22, width:larg, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:LIMA, textAlign:"center" });
+      var nome = caber(tb(cr.autor ? "Aula preparada por " + cr.autor : "Aula preparada pela equipe da escola", { left:esq, top:Y0 + H * 0.32, width:larg, fontSize:Math.round(H * 0.06), fontWeight:"bold", fill:"#fff", textAlign:"center" }), H * 0.2, 18);
+      var linhas2 = [cr.escola, rotDisc, hoje].filter(Boolean).join("\n");
+      novas.push(pagina([fundoC, cabC, nome, tb(linhas2, { left:esq, top:nome.top + nome.height + H * 0.05, width:larg, fontSize:Math.round(H * 0.036), lineHeight:1.4, fill:"rgba(255,255,255,0.88)", textAlign:"center" }),
+        tb("Com apoio do Portal IA · Portal do Educador", { left:esq, top:Y0 + H * 0.88, width:larg, fontSize:Math.max(12, Math.round(H * 0.022)), fill:"rgba(255,255,255,0.65)", textAlign:"center" })]));
+    }
+
+    /* ---------- guia do professor: aprofundamento de cada slide (não é para projetar) ---------- */
+    var guia = (aula.slides || []).map(function(sl, i){ return { n:i + 2, t:sl.titulo, a:sl.aprofundamento || "", m:sl.minutos }; }).filter(function(g){ return g.a; });
+    if(guia.length){
+      var porPag = 3;
+      for(var gp = 0; gp < guia.length; gp += porPag){
+        var gObjs = [ret({ left:X0, top:Y0, width:W, height:H, rx:0, ry:0, fill:"#fffdf3", selectable:false, evented:false }),
+          ret({ left:X0, top:Y0, width:W, height:H * 0.12, rx:0, ry:0, fill:"#fff3b0" }),
+          tb("📘  Guia do professor" + (guia.length > porPag ? " (" + (gp / porPag + 1) + "/" + Math.ceil(guia.length / porPag) + ")" : "") + "  ·  não projetar para a turma", { left:esq, top:Y0 + H * 0.035, width:larg, fontSize:Math.round(H * 0.04), fontWeight:"bold", fill:"#5a4b00" })];
+        var yg = Y0 + H * 0.16, hg = (H * 0.78) / porPag - H * 0.02;
+        guia.slice(gp, gp + porPag).forEach(function(g){
+          var tt2 = tb("Slide " + g.n + " · " + g.t + (g.m ? "  (" + g.m + " min)" : ""), { left:esq + W * 0.015, top:yg + H * 0.015, width:larg - W * 0.03, fontSize:Math.round(H * 0.03), fontWeight:"bold", fill:COR });
+          var ta = caber(tb(g.a, { left:esq + W * 0.015, top:tt2.top + tt2.height + H * 0.008, width:larg - W * 0.03, fontSize:Math.round(H * 0.026), fill:"#33475b", lineHeight:1.3 }), hg - tt2.height - H * 0.04, 9);
+          gObjs.push(cartao(esq, yg, larg, hg, { rx:12, ry:12 }), tt2, ta); yg += hg + H * 0.02;
+        });
+        novas.push(pagina(gObjs));
+      }
     }
 
     var inicio;

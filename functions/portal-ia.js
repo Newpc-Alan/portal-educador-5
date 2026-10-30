@@ -195,25 +195,45 @@ const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]
 const ehCombinacao = a => /^[VF](\s*[-,;/]?\s*[VF])+$/i.test(String(a || '').trim());
 /* ------------------------------------------------------------------ Provas e Avaliações: questões no formato da ferramenta */
 // aula em slides para a Lousa: capa + slides em formatos variados, com roteiro do professor; texto curto, para ler de longe
-export const TIPOS_SLIDE = ['topicos', 'conceito', 'curiosidade', 'linha_tempo', 'passos', 'comparacao', 'atividade', 'resumo'];
+export const TIPOS_SLIDE = ['topicos', 'conceito', 'curiosidade', 'dado', 'linha_tempo', 'passos', 'comparacao', 'mapa', 'quiz', 'atividade', 'resumo'];
 export const ESQUEMA_AULA = {
   type: 'OBJECT',
   properties: {
-    titulo: S('Título da aula, curto (até 60 caracteres).'),
-    subtitulo: S('Uma frase que convida a turma para o tema (até 90 caracteres).'),
+    titulo: S('Título da aula, curto e atraente (até 60 caracteres).'),
+    subtitulo: S('Uma frase que desperta a curiosidade da turma (até 110 caracteres).'),
+    objetivo: S('Objetivo de aprendizagem: o que o aluno será capaz de fazer ao final, começando com verbo (até 160 caracteres).'),
+    bncc: AS('Até 2 códigos de habilidade da BNCC, SÓ se tiver certeza de que existem e são do ano certo; senão, vazio.'),
     capa_ilustracao: S('Descrição de uma ilustração para a capa (uma frase, sem texto na imagem).'),
     slides: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
-      tipo: { type: 'STRING', enum: TIPOS_SLIDE, description: 'topicos: 2 a 4 tópicos. conceito: definição em "destaque" e um "exemplo" do dia a dia. curiosidade: um fato surpreendente em "destaque". linha_tempo: 3 a 5 "itens" com rotulo = data ou período. passos: 3 a 5 etapas em "topicos". comparacao: 2 "colunas" com titulo e 2 a 3 itens cada. atividade: um desafio em "destaque" e a "resposta". resumo: 3 a 5 ideias principais em "topicos" (use no último slide).' },
-      titulo: S('Título do slide, até 50 caracteres.'),
+      tipo: { type: 'STRING', enum: TIPOS_SLIDE, description:
+        'topicos: 3 a 4 tópicos, cada um com uma ideia completa. ' +
+        'conceito: definição precisa em "destaque", "explicacao" do porquê/como funciona, um "exemplo" do cotidiano brasileiro e, se houver, o "erro_comum" que alunos costumam cometer. ' +
+        'curiosidade: um fato surpreendente e verdadeiro em "destaque" e a "explicacao" do porquê. ' +
+        'dado: um número marcante e verificável em "numero" (ex.: "70%", "1,5 milhão", "1500"), o que ele significa em "legenda" e a "explicacao". Só use dado que você tem certeza. ' +
+        'linha_tempo: 3 a 5 "itens" com rotulo = data ou período e texto = o que aconteceu e por que importa. ' +
+        'passos: 3 a 5 etapas em "topicos", cada uma com o que fazer e por quê. ' +
+        'comparacao: 2 "colunas" com titulo e 3 itens cada, comparando as mesmas características. ' +
+        'mapa: mapa mental do tema, com 4 a 6 ramos em "topicos" no formato "Palavra-chave: explicação curta". ' +
+        'quiz: pergunta de verificação em "destaque", exatamente 4 "alternativas" plausíveis (só uma certa), "correta" = posição (0 a 3) e a "resposta" explicando por que é a certa. ' +
+        'atividade: um desafio para a turma fazer em dupla ou no caderno em "destaque" e a "resposta" esperada. ' +
+        'resumo: 4 ideias principais em "topicos" (use no último slide).' },
+      titulo: S('Título do slide, até 55 caracteres.'),
       icone: S('Um único emoji que represente o slide.'),
-      topicos: AS('Frases curtas (até 90 caracteres), sem marcador na frente.'),
-      destaque: S('Texto principal de conceito, curiosidade ou atividade (até 160 caracteres).'),
-      exemplo: S('Em conceito: um exemplo do dia a dia do aluno (até 120 caracteres).'),
-      resposta: S('Em atividade: a resposta esperada (até 120 caracteres).'),
-      itens: { type: 'ARRAY', items: { type: 'OBJECT', properties: { rotulo: S('Data ou período curto'), texto: S('O que aconteceu, até 80 caracteres') }, required: ['rotulo', 'texto'] } },
-      colunas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { titulo: S('Título da coluna'), itens: AS('2 a 3 itens curtos') }, required: ['titulo', 'itens'] } },
-      pergunta: S('Uma pergunta para o professor fazer à turma (até 110 caracteres). Pode ficar vazia.'),
+      topicos: AS('Frases completas e informativas (até 140 caracteres cada), sem marcador na frente.'),
+      destaque: S('Texto principal de conceito, curiosidade, quiz ou atividade (até 240 caracteres).'),
+      explicacao: S('Em conceito, curiosidade e dado: o porquê ou o como, em linguagem da turma (até 240 caracteres).'),
+      exemplo: S('Em conceito: um exemplo do cotidiano do aluno brasileiro (até 160 caracteres).'),
+      erro_comum: S('Em conceito: um erro ou confusão comum dos alunos sobre o assunto (até 150 caracteres). Pode ficar vazio.'),
+      numero: S('Em dado: o número em destaque, curto (até 14 caracteres).'),
+      legenda: S('Em dado: o que o número significa (até 140 caracteres).'),
+      alternativas: AS('Em quiz: exatamente 4 alternativas curtas (até 90 caracteres), sem letra na frente.'),
+      correta: { type: 'INTEGER', description: 'Em quiz: posição da alternativa correta (0 a 3).' },
+      resposta: S('Em quiz e atividade: a resposta com a justificativa (até 220 caracteres).'),
+      itens: { type: 'ARRAY', items: { type: 'OBJECT', properties: { rotulo: S('Data ou período curto'), texto: S('O que aconteceu e por que importa, até 120 caracteres') }, required: ['rotulo', 'texto'] } },
+      colunas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { titulo: S('Título da coluna'), itens: AS('3 itens, até 90 caracteres cada') }, required: ['titulo', 'itens'] } },
+      pergunta: S('Uma pergunta aberta para o professor fazer à turma, que faça pensar (até 130 caracteres). Pode ficar vazia.'),
       roteiro: S('O que o professor fala ou faz neste slide, em até 2 frases curtas.'),
+      aprofundamento: S('Só para o professor (vai para o Guia do professor, não aparece na tela): explicação aprofundada do conteúdo do slide, contexto, detalhes e como responder às dúvidas mais prováveis, em 3 a 5 frases (até 700 caracteres).'),
       minutos: { type: 'INTEGER', description: 'Tempo sugerido para o slide, em minutos (1 a 10).' },
       ilustracao: S('Se uma imagem ajudar a entender este slide, descreva-a em uma frase; senão, vazio.')
     }, required: ['tipo', 'titulo'] } }
@@ -243,20 +263,26 @@ export function paraAula(j, qtd) {
   const lista = (v, n, m) => (Array.isArray(v) ? v : []).map(t => c(t, m).replace(/^[-•*\d.)\s]+/, '')).filter(Boolean).slice(0, n);
   const slides = (Array.isArray(j && j.slides) ? j.slides : []).map(x => {
     x = x || {};
-    const sl = { tipo: TIPOS_SLIDE.includes(x.tipo) ? x.tipo : 'topicos', titulo: c(x.titulo, 70), icone: c(x.icone, 8), topicos: lista(x.topicos, 5, 130),
-      destaque: c(x.destaque, 200), exemplo: c(x.exemplo, 160), resposta: c(x.resposta, 160), pergunta: c(x.pergunta, 140), roteiro: c(x.roteiro, 240),
+    const alts = lista(x.alternativas, 4, 110).map(a => a.replace(/^[a-dA-D][).:-]\s*/, ''));
+    const sl = { tipo: TIPOS_SLIDE.includes(x.tipo) ? x.tipo : 'topicos', titulo: c(x.titulo, 70), icone: c(x.icone, 8), topicos: lista(x.topicos, 6, 170),
+      destaque: c(x.destaque, 280), explicacao: c(x.explicacao, 280), exemplo: c(x.exemplo, 200), erro_comum: c(x.erro_comum, 180), numero: c(x.numero, 16), legenda: c(x.legenda, 170),
+      alternativas: alts, correta: Number.isInteger(x.correta) && x.correta >= 0 && x.correta < alts.length ? x.correta : -1,
+      resposta: c(x.resposta, 260), pergunta: c(x.pergunta, 150), roteiro: c(x.roteiro, 240), aprofundamento: c(x.aprofundamento, 800),
       minutos: Number(x.minutos) > 0 ? Math.min(10, Math.max(1, Math.round(Number(x.minutos)))) : 0, ilustracao: c(x.ilustracao, 300),
-      itens: (Array.isArray(x.itens) ? x.itens : []).map(i => ({ rotulo: c(i && i.rotulo, 30), texto: c(i && i.texto, 110) })).filter(i => i.rotulo && i.texto).slice(0, 5),
-      colunas: (Array.isArray(x.colunas) ? x.colunas : []).map(k => ({ titulo: c(k && k.titulo, 40), itens: lista(k && k.itens, 3, 90) })).filter(k => k.titulo && k.itens.length).slice(0, 2) };
-    const ok = { topicos: sl.topicos.length, passos: sl.topicos.length >= 2, resumo: sl.topicos.length >= 2, conceito: !!sl.destaque, curiosidade: !!sl.destaque,
-      atividade: !!sl.destaque, linha_tempo: sl.itens.length >= 2, comparacao: sl.colunas.length === 2 }[sl.tipo];
+      itens: (Array.isArray(x.itens) ? x.itens : []).map(i => ({ rotulo: c(i && i.rotulo, 30), texto: c(i && i.texto, 140) })).filter(i => i.rotulo && i.texto).slice(0, 5),
+      colunas: (Array.isArray(x.colunas) ? x.colunas : []).map(k => ({ titulo: c(k && k.titulo, 40), itens: lista(k && k.itens, 4, 110) })).filter(k => k.titulo && k.itens.length).slice(0, 2) };
+    const ok = { topicos: sl.topicos.length, passos: sl.topicos.length >= 2, resumo: sl.topicos.length >= 2, mapa: sl.topicos.length >= 3, conceito: !!sl.destaque, curiosidade: !!sl.destaque,
+      atividade: !!sl.destaque, dado: !!(sl.numero && sl.legenda), quiz: !!sl.destaque && sl.alternativas.length === 4 && sl.correta >= 0,
+      linha_tempo: sl.itens.length >= 2, comparacao: sl.colunas.length === 2 }[sl.tipo];
     if (!ok) {
-      const t = sl.topicos.length ? sl.topicos : [sl.destaque, sl.exemplo].filter(Boolean).concat(sl.itens.map(i => i.rotulo + ': ' + i.texto)).concat(sl.colunas.flatMap(k => k.itens.map(i => k.titulo + ': ' + i)));
+      const t = sl.topicos.length ? sl.topicos : [sl.destaque, sl.explicacao, sl.exemplo, sl.numero && sl.legenda ? sl.numero + ': ' + sl.legenda : ''].filter(Boolean)
+        .concat(sl.itens.map(i => i.rotulo + ': ' + i.texto)).concat(sl.colunas.flatMap(k => k.itens.map(i => k.titulo + ': ' + i)));
       sl.tipo = 'topicos'; sl.topicos = t.slice(0, 4);
     }
     return sl;
   }).filter(x => x.titulo && (x.tipo !== 'topicos' || x.topicos.length)).slice(0, qtd);
-  return { titulo: c(j && j.titulo, 80), subtitulo: c(j && j.subtitulo, 120), capa_ilustracao: c(j && j.capa_ilustracao, 300), slides };
+  return { titulo: c(j && j.titulo, 80), subtitulo: c(j && j.subtitulo, 130), objetivo: c(j && j.objetivo, 180), bncc: lista(j && j.bncc, 2, 12).filter(b => /^E[IFM]\d{2}[A-Z]{2}\d{2,3}/.test(b)),
+    capa_ilustracao: c(j && j.capa_ilustracao, 300), slides };
 }
 export const ESQUEMA_QUESTOES = {
   type: 'OBJECT',
@@ -542,11 +568,14 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
     const res = await reservarCreditos(db, ctx, 'texto', opcLousa);
-    const sistema = 'Você é um professor experiente da rede pública brasileira e prepara uma aula expositiva curta para mostrar na lousa digital. ' +
-      'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), numa sequência que comece pelo que a turma já conhece, explique o conceito com exemplos do dia a dia e termine com uma retomada. ' +
-      'Varie os formatos conforme o conteúdo: use conceito para definições, curiosidade para despertar interesse, linha_tempo quando houver datas (História), passos para procedimentos (Matemática, Ciências), comparacao para contrastes, uma atividade rápida no meio ou no fim e resumo no último slide. ' +
-      'Texto curto, legível de longe, nada de parágrafo longo. Em cada slide escreva o roteiro do professor (o que falar ou fazer) e o tempo sugerido; as perguntas são para o professor provocar a conversa.\n\n' + REGRAS_GERAIS;
     const etapa = etapaDaTurma(turma);
+    const sistema = 'Você é um professor experiente e muito bem preparado da rede pública brasileira. Prepare uma aula rica e envolvente para projetar na lousa digital, com conteúdo de verdade, não superficial. ' +
+      'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), seguindo a sequência: 1) ativação (o que a turma já sabe ou vive, com uma pergunta), 2) problematização ou curiosidade, ' +
+      '3) conceito explicado com o porquê e o como, 4) aprofundamento com exemplos do Brasil, dados reais, causas e consequências, 5) aplicação (quiz para a turma votar ou atividade), 6) síntese no resumo final. ' +
+      'Varie os formatos: conceito para definições, curiosidade ou dado para despertar interesse, linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
+      'Use pelo menos 4 formatos diferentes e inclua 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
+      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. ' +
+      'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe).\n\n' + REGRAS_GERAIS;
     const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') +
       '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, aula = null;
