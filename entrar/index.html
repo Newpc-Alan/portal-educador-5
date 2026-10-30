@@ -3404,6 +3404,13 @@
     const aba = window.open("about:blank", "_blank");   // abre já no clique (evita bloqueio de pop-up)
     btn.disabled = true; const rot = btn.textContent; btn.textContent = "Abrindo...";
     try{
+      // arquivo no servidor da NEWPC: o Portal confere a licença e devolve um link assinado de poucos minutos
+      if(item.nc_caminho){
+        const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+        const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "linkArquivoNc", { timeout:20000 })({ colecao:item.rede ? "acervo_rede" : "acervo", id })).data;
+        if(aba) aba.location.href = r.url; else window.location.href = r.url;
+        registrarAcervo(id); return;
+      }
       const blob = await getBlob(stRef(getStorage(app), item.arquivo_key));
       const url = URL.createObjectURL(blob.type ? blob : new Blob([blob], { type:item.mime || "application/octet-stream" }));
       const ver = /^(application\/pdf|image\/|audio\/|video\/)/.test(item.mime || blob.type || "");
@@ -3411,7 +3418,7 @@
       else{ if(aba) aba.close(); const a = document.createElement("a"); a.href = url; a.download = item.arquivo_nome || "arquivo"; document.body.appendChild(a); a.click(); a.remove(); }
       setTimeout(() => URL.revokeObjectURL(url), 120000);
       registrarAcervo(id);
-    }catch(e){ if(aba) aba.close(); console.warn(e); toast(e.code === "storage/unauthorized" ? "Sua licença não permite abrir este arquivo." : e.code === "storage/object-not-found" ? "Arquivo não encontrado." : "Não foi possível abrir o arquivo.", true); }
+    }catch(e){ if(aba) aba.close(); console.warn(e); toast(e.code === "storage/unauthorized" || e.code === "functions/permission-denied" ? "Sua licença não permite abrir este arquivo." : e.code === "storage/object-not-found" || e.code === "functions/not-found" ? "Arquivo não encontrado." : "Não foi possível abrir o arquivo.", true); }
     finally{ btn.disabled = false; btn.textContent = rot; }
   }
   function enviarStorage(caminho, arq, aoProgresso){
@@ -3598,6 +3605,9 @@
         '<div class="field"><label for="acvAdmBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="acvAdmBncc" placeholder="EF03MA01, EF03MA02"></div>'+
         '<label class="imp-arquivo" style="display:inline-block">Escolher arquivos<input type="file" id="acvAdmArq" multiple accept=".pdf,image/*,audio/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx"></label>'+
         '<div id="acvFila"></div></div>'+
+      '<div class="imp-card"><h3>Vincular arquivos do servidor NEWPC</h3><p class="d">Para arquivos que já estão no Drive Portal do Educador (Nextcloud). Usa o botão e as etiquetas escolhidos acima. Cole um caminho por linha, a partir da pasta principal. Exemplo: <code>01-Acervo-NEWPC/Atividades/Anos-Iniciais/Frações 3º ano.pdf</code></p>'+
+        '<div class="field"><label for="acvNcCaminhos">Caminhos dos arquivos</label><textarea id="acvNcCaminhos" rows="4" spellcheck="false" placeholder="01-Acervo-NEWPC/..."></textarea></div>'+
+        '<div class="imp-acoes"><button class="btn btn-primary" data-action="acvadm-nc">Vincular ao acervo</button></div></div>'+
       '<div class="imp-card"><h3>Arquivos no acervo</h3><div class="acv-filtros"><input type="search" id="acvAdmBusca" class="usr-busca" placeholder="Buscar"></div><div id="acvAdmLista"><div class="empty">Carregando...</div></div></div>';
     desenharFila();
     await listarAcervoAdmin();
@@ -3615,11 +3625,11 @@
     const l = acvAdm.itens.filter(i => !t || semAcento([i.titulo, nomeModulo(i.modulo), (i.bncc||[]).join(" ")].join(" ")).includes(t));
     $("acvAdmLista").innerHTML = !l.length ? '<div class="empty">Nenhum arquivo ainda.</div>' :
       '<div class="tablewrap" style="border:0"><table><thead><tr><th>Arquivo</th><th>Botão</th><th>Etiquetas</th><th>Situação</th><th></th></tr></thead><tbody>'+
-      l.map(i => '<tr><td class="usr-nome"><b>'+icoArquivo(i.mime, i.arquivo_nome)+' '+escapeHtml(i.titulo||"")+'</b><small>'+escapeHtml(i.arquivo_nome||"")+' · '+tamanhoLegivel(i.tamanho)+'</small></td>'+
+      l.map(i => '<tr><td class="usr-nome"><b>'+icoArquivo(i.mime, i.arquivo_nome)+' '+escapeHtml(i.titulo||"")+'</b><small>'+escapeHtml(i.arquivo_nome||"")+' · '+(i.nc_caminho ? "Servidor NEWPC" : tamanhoLegivel(i.tamanho))+'</small></td>'+
         '<td class="usr-vinc">'+escapeHtml(nomeModulo(i.modulo))+'</td>'+
         '<td class="usr-vinc">'+escapeHtml([i.disciplina, (i.etapas||[]).join(", "), (i.bncc||[]).join(", ")].filter(Boolean).join(" · ") || "-")+'</td>'+
         '<td><span class="pill '+(i.publicado ? "ativo" : "inativo")+'">'+(i.publicado ? "Publicado" : "Oculto")+'</span></td>'+
-        '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="acvadm-pub" data-id="'+escapeAttr(i.id)+'">'+(i.publicado ? "Ocultar" : "Publicar")+'</button>'+
+        '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="acvadm-abrir" data-id="'+escapeAttr(i.id)+'">Abrir</button><button class="btn-mini btn-gerenciar" data-action="acvadm-pub" data-id="'+escapeAttr(i.id)+'">'+(i.publicado ? "Ocultar" : "Publicar")+'</button>'+
         '<button class="btn-mini btn-recusar" data-action="acvadm-del" data-id="'+escapeAttr(i.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
   }
   document.addEventListener("input", (ev) => {
@@ -3689,6 +3699,41 @@
     toast(env+" enviado(s)"+(err ? ", "+err+" com erro" : "")+".", !!err);
     acvAdm.fila = acvAdm.fila.filter(f => f.estado !== "ok");
     desenharFila(); await listarAcervoAdmin();
+  }
+  // arquivos que já estão no servidor da NEWPC: o Portal só guarda o caminho; quem abre recebe um link assinado (linkArquivoNc)
+  const MIME_EXT = { pdf:"application/pdf", png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", mp3:"audio/mpeg", m4a:"audio/mp4", wav:"audio/wav", mp4:"video/mp4", webm:"video/webm",
+    doc:"application/msword", docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document", ppt:"application/vnd.ms-powerpoint", pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    xls:"application/vnd.ms-excel", xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", zip:"application/zip" };
+  function caminhoNc(t){
+    let c = String(t || "").trim().replace(/\\/g, "/").replace(/^\/+/, "").replace(/^(Drive Portal do Educador|Banco Curricular)\//i, "");
+    return c && c.length <= 500 && c.split("/").every(p => p && p !== "." && p !== "..") && !/[\u0000\r\n]/.test(c) ? c : "";
+  }
+  async function vincularNc(){
+    if(acvAdm.enviando) return;
+    const linhas = $("acvNcCaminhos").value.split("\n").map(l => l.trim()).filter(Boolean);
+    if(!linhas.length){ toast("Cole pelo menos um caminho.", true); return; }
+    const ruinsC = linhas.filter(l => !caminhoNc(l));
+    if(ruinsC.length){ toast("Caminho inválido: "+ruinsC[0], true); return; }
+    const mod = $("acvAdmMod").value, disc = $("acvAdmDisc").value;
+    const etapas = [...document.querySelectorAll('input[name="acvAdmEtapa"]:checked')].map(i => i.value);
+    const bncc = $("acvAdmBncc").value.split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+    const ruins = bncc.filter(c => !/^E[FIM]\d{2}[A-Z]{2}\d{2,3}[A-Z]?$/.test(c));
+    if(ruins.length){ toast("Código BNCC fora do padrão: "+ruins.join(", "), true); return; }
+    acvAdm.enviando = true; let ok = 0, erro = 0;
+    for(const l of linhas){
+      const c = caminhoNc(l), nome = c.split("/").pop(), ext = (nome.match(/\.([a-z0-9]+)$/i) || ["",""])[1].toLowerCase();
+      const titulo = nome.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || nome;
+      try{
+        await addDoc(collection(db,"acervo"), { titulo:titulo.slice(0,160), modulo:mod, disciplina:disc, etapas, bncc, descricao:"",
+          arquivo_key:"", nc_caminho:c, arquivo_nome:nome.slice(0,200), mime:MIME_EXT[ext] || "application/octet-stream", tamanho:0, publicado:true,
+          criado_em:serverTimestamp(), criado_por:usuarioAtual.uid, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+        ok++;
+      }catch(e){ console.warn(e); erro++; }
+    }
+    acvAdm.enviando = false;
+    toast(ok+" arquivo(s) vinculado(s)"+(erro ? ", "+erro+" com erro" : "")+". Use Abrir na lista para testar.", !!erro);
+    if(ok && !erro) $("acvNcCaminhos").value = "";
+    await listarAcervoAdmin();
   }
   async function salvarApiAcervo(){
     const v = $("acvApi").value.trim().replace(/\/$/,"");
@@ -4924,6 +4969,8 @@
     else if(acao === "acvadm-api"){ salvarApiAcervo(); }
     else if(acao === "acvadm-testar"){ testarApiAcervo(); }
     else if(acao === "acvadm-enviar"){ enviarAcervo(); }
+    else if(acao === "acvadm-nc"){ vincularNc(); }
+    else if(acao === "acvadm-abrir"){ const it = acvAdm.itens.find(x => x.id === el.dataset.id); if(it){ if(!acv.itens.some(x => x.id === it.id)) acv.itens.push(it); abrirArquivo(it.id, el); } }
     else if(acao === "acvadm-limpar"){ acvAdm.fila = []; desenharFila(); }
     else if(acao === "acvadm-pub"){ alternarPublicado(el.dataset.id); }
     else if(acao === "acvadm-del"){ excluirAcervo(el.dataset.id, el); }
