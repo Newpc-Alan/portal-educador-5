@@ -1048,6 +1048,17 @@
   .cr-tag.ok{ background:#e6f4ea;color:#1a6b2a } .cr-tag.al{ background:#fff4e0;color:#8a5a00 } .cr-tag.ru{ background:#fde8e6;color:#b3261e } .cr-tag.ne{ background:#eef2f6;color:#5a6b7e }
   .cr-tab input.cr-teto{ width:80px }
   .cr-pac td input{ width:100% }
+  #bvAluno{ position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 30% 20%,#2E9BD6 0%,#0f2c4a 55%,#071621 100%);color:#fff;text-align:center;padding:24px;animation:bvEntra .35s ease-out }
+  #bvAluno .bv-av{ width:120px;height:120px;border-radius:50%;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font:800 60px 'Segoe UI',sans-serif;background:#8DC63F;color:#0f2c4a;box-shadow:0 0 0 8px rgba(141,198,63,.25) }
+  #bvAluno .bv-ola{ font:800 clamp(40px,8vw,84px)/1.05 'Segoe UI',sans-serif }
+  #bvAluno .bv-nome{ font:600 clamp(18px,3vw,28px) 'Segoe UI',sans-serif;opacity:.9;margin-top:8px }
+  #bvAluno .bv-txt{ font-size:clamp(15px,2.2vw,20px);opacity:.75;margin-top:18px }
+  #bvAluno .bv-barra{ width:min(320px,70vw);height:6px;border-radius:6px;background:rgba(255,255,255,.18);margin:26px auto 0;overflow:hidden }
+  #bvAluno .bv-barra span{ display:block;height:100%;width:0;background:#8DC63F;animation:bvBarra 3.6s linear forwards }
+  @keyframes bvEntra{ from{ opacity:0;transform:scale(.98) } to{ opacity:1;transform:none } } @keyframes bvBarra{ to{ width:100% } }
+  .qr-entrada{ margin-top:10px;padding:10px 12px;border-radius:10px;background:#f4f8f2;border:1px solid #cfe3c4;font-size:13px }
+  .qr-entrada.aberta{ background:#e9f6e3;border-color:#8DC63F } .qr-entrada b.st{ display:block;margin-bottom:6px;color:#0f2c4a }
+  .qr-entrada .lk{ display:flex;gap:6px;align-items:center;margin-top:8px } .qr-entrada code{ background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;word-break:break-all }
 </style>
 <script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
 </head>
@@ -1457,7 +1468,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged,
-    sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink }
+    sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithCustomToken }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit, onSnapshot, deleteField }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -1645,6 +1656,10 @@
         if(det){ const r = await det.detect(v); if(r && r[0]) txt = r[0].rawValue; }
         else if(window.jsQR && v.videoWidth){ const w = 480, h = Math.round(w * v.videoHeight / v.videoWidth) || 360; cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h); const r = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts:"dontInvert" }); if(r && r.data) txt = r.data; }
       }catch(e){}
+      if(txt && /#q=|^PDEQ:/.test(txt)){ qrAl.ativo = false; $("qrAlMsg").className = "msg"; $("qrAlMsg").textContent = "Entrando...";
+        const ok = await entrarComQr(txt, $("qrAlMsg"));
+        if(ok) pararQrAluno(); else setTimeout(() => { if($("modalQrAluno")){ qrAl.ativo = true; ler(); } }, 3000);
+        return; }
       if(txt && /^PDEA:/.test(txt)){ qrAl.ativo = false; $("qrAlMsg").className = "msg"; $("qrAlMsg").textContent = "Lendo...";
         try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
           const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "codigoAlunoQr", { timeout:20000 })({ qr:txt })).data;
@@ -1657,8 +1672,47 @@
   });
   document.querySelector(".como").addEventListener("click", (e) => { const b = e.target.closest("[data-como]"); if(b) definirComo(b.dataset.como); });
   (function(){
-    const q = new URLSearchParams(location.search).get("como");
-    definirComo(q === "aluno" || q === "professor" ? q : comoEntrar());
+    const ps = new URLSearchParams(location.search), q = ps.get("como");
+    definirComo(ps.has("qr") ? "aluno" : (q === "aluno" || q === "professor" ? q : comoEntrar()));
+  })();
+  // ---------- entrada por QR do cartão de acesso: aponta a câmera e entra, sem digitar nada ----------
+  // O link do cartão é .../entrar/#q=<matrícula>.<chave>: a parte depois do # nunca vai para o servidor nem para o histórico.
+  // Só funciona com a "aula aberta" (o professor abre a entrada da turma no Portal; vale 4 horas).
+  async function entrarComQr(texto, alvoMsg){
+    const aviso = (t, tipo) => { if(alvoMsg){ alvoMsg.className = "msg " + (tipo || ""); alvoMsg.textContent = t; } else showMsg(t, tipo || "success"); };
+    try{
+      aviso("Entrando...");
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entrarAlunoQr", { timeout:20000 })({ q:String(texto || "") })).data;
+      boasVindasAluno(r.nome);
+      if(auth.currentUser) await signOut(auth).catch(() => {});   // Chromebook da escola: quem estava logado sai antes
+      await signInWithCustomToken(auth, r.token);
+      if(location.search) history.replaceState(null, "", location.pathname);   // sem ?qr: recarregar não desloga o aluno
+      return true;
+    }catch(e){ console.warn(e.code); fecharBoasVindas(); aviso(e.message && !/internal/i.test(e.message) ? e.message : "Não foi possível entrar agora. Tente de novo.", "error"); return false; }
+  }
+  // tela grande de boas-vindas com o nome do aluno (some sozinha quando o Portal abre)
+  function boasVindasAluno(nome){
+    fecharBoasVindas();
+    const prim = String(nome || "").trim().split(/\s+/)[0] || "";
+    const d = document.createElement("div"); d.id = "bvAluno"; d.setAttribute("role", "status");
+    d.innerHTML = '<div class="bv-cx"><div class="bv-av" aria-hidden="true">'+escapeHtml((prim[0] || "\u{1F44B}").toUpperCase())+'</div>'+
+      '<div class="bv-ola">Olá, '+escapeHtml(prim || "aluno")+'!</div><div class="bv-nome">'+escapeHtml(nome || "")+'</div>'+
+      '<div class="bv-txt">Bem-vindo(a) ao Portal do Educador</div><div class="bv-barra"><span></span></div></div>';
+    document.body.appendChild(d);
+    setTimeout(fecharBoasVindas, 4000);
+  }
+  function fecharBoasVindas(){ const d = $("bvAluno"); if(d) d.remove(); }
+  (function(){
+    const h = location.hash || "";
+    if(/^#q=/.test(h)){
+      history.replaceState(null, "", location.pathname + location.search);   // tira a chave da barra de endereço
+      definirComo("aluno"); entrarComQr(h);
+    }else if(new URLSearchParams(location.search).has("qr")){
+      // link enviado pelo Maestro para os aparelhos da turma: quem estava logado sai (aparelho compartilhado) e a câmera já abre
+      (async () => { try{ await auth.authStateReady(); if(auth.currentUser) await signOut(auth); }catch(e){}
+        setTimeout(() => { const b = $("btnAlQr"); if(b) b.click(); }, 300); })();
+    }
   })();
   // ---------- entrar pelo e-mail: link de acesso (sem senha) ou senha ----------
   const EMAIL_OK = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
@@ -2958,14 +3012,34 @@
     $("conteudo").innerHTML =
       '<button class="voltar" data-action="mt-voltar">← Voltar para minhas turmas</button>'+
       '<div class="resumo-aval"><h3>Turma: '+escapeHtml(t.nome)+'</h3><div class="meta">'+escapeHtml([t.escola_nome, t.turno, t.ano_letivo].filter(Boolean).join(" · "))+'</div></div>'+
-      '<div class="acesso-passos"><div class="ps"><b><span class="n">1</span>Acesso dos alunos</b><p>Cada aluno recebe um código e um PIN para entrar no tablet ou no Chromebook, sem e-mail.</p><button class="btn btn-primary" data-action="al-acesso" id="alAcessoBtn">🔑 Gerar / ver códigos</button></div>'+
+      '<div class="acesso-passos"><div class="ps"><b><span class="n">1</span>Acesso dos alunos</b><p>Cada aluno recebe um cartão com QR: aponta para a câmera e já entra. O PIN fica só na sua lista, para quando a câmera falhar.</p><button class="btn btn-primary" data-action="al-acesso" id="alAcessoBtn">🔑 Gerar / ver cartões</button>'+
+          '<div class="qr-entrada" id="qrEntrada"><b class="st">Entrada por QR: verificando...</b></div></div>'+
         '<div class="ps"><b><span class="n">2</span>Monte a prova</b><p>Em Provas e Avaliações, escolha as questões e clique em “Aplicar online” para esta turma.</p><a class="btn btn-ghost" href="/provas/">📝 Abrir Provas e Avaliações</a></div>'+
         '<div class="ps"><b><span class="n">3</span>Acompanhe ao vivo</b><p>Veja quem entrou, quem terminou e libere quem saiu da tela. A correção das objetivas é automática.</p><a class="btn btn-ghost" href="/prova/">📡 Provas online</a></div></div>'+
       (dono ? '<div class="imp-card"><h3>Adicionar alunos</h3><p class="d">Digite um aluno por linha. Se quiser, coloque a matrícula depois de um ponto e vírgula (ex: Ana Souza; 2026-0012).</p>'+
         '<textarea id="alNovos" class="al-novos" rows="4" placeholder="Ana Souza&#10;Bruno Lima; 2026-0013"></textarea>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="al-adicionar" id="alAdd">Adicionar à turma</button></div></div>' : '')+
       '<div id="alLista"><div class="empty">Carregando alunos...</div></div>';
+    estadoEntradaQr("ver");
     await listarAlunosTurma();
+  }
+  // entrada por QR da turma: o professor abre (vale 4 horas) e os alunos entram mostrando o cartão para a câmera
+  const LINK_QR = "app.portaldoeducador.com.br/entrar/?qr";
+  async function estadoEntradaQr(acao, btn){
+    const box = $("qrEntrada"); if(!box || !al.turma) return;
+    if(btn){ btn.disabled = true; btn.textContent = acao === "abrir" ? "Abrindo..." : "Fechando..."; }
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })({ turma_id:al.turma.id, acao })).data;
+      if(!$("qrEntrada")) return;
+      const ate = r.aberta_ate ? new Date(r.aberta_ate).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : "";
+      box.className = "qr-entrada" + (ate ? " aberta" : "");
+      box.innerHTML = ate
+        ? '<b class="st">✅ Entrada por QR aberta até '+ate+'</b>Os alunos mostram o cartão para a câmera e entram direto. <button class="btn-mini btn-ghost" data-action="qr-fechar">Fechar agora</button>'+
+          '<div class="lk"><span>Link para enviar pelo Maestro:</span><code>'+LINK_QR+'</code><button class="btn-mini btn-gerenciar" data-action="qr-copiar">Copiar</button></div>'
+        : '<b class="st">🔒 Entrada por QR fechada</b>Abra no começo da aula: vale por 4 horas. <button class="btn-mini btn-liberar" data-action="qr-abrir">Abrir entrada por QR</button>';
+      if(acao === "abrir") toast("Entrada por QR aberta até "+ate+".");
+    }catch(e){ console.warn(e); if($("qrEntrada")) box.innerHTML = '<b class="st">Entrada por QR</b>'+escapeHtml(e.message && !/internal/i.test(e.message) ? e.message : "Não foi possível consultar agora.")+' <button class="btn-mini btn-ghost" data-action="qr-ver">Tentar de novo</button>'; }
   }
   async function listarAlunosTurma(){
     const t = al.turma, dono = t.criado_por === usuarioAtual.uid;
@@ -2974,9 +3048,9 @@
       al.lista = []; sn.forEach(d => { const a = d.data(); if(a.status !== "inativo") al.lista.push({ id:d.id, ...a }); });
       al.lista.sort(porNome);
       $("alLista").innerHTML = !al.lista.length ? '<div class="empty"><div class="ei">\u{1F9D2}</div>Nenhum aluno nesta turma ainda.</div>' :
-        '<div class="sectionbar"><span class="count">'+al.lista.length+' aluno(s)</span>'+(al.acesso ? '<button class="btn btn-primary btn-add" data-action="al-imprimir">🖨️ Imprimir cartões de acesso</button>' : '')+'</div><div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matrícula</th>'+(al.acesso ? '<th>Código</th><th>PIN</th>' : '')+(dono || al.acesso ? '<th></th>' : '')+'</tr></thead><tbody>'+
+        '<div class="sectionbar"><span class="count">'+al.lista.length+' aluno(s)</span>'+(al.acesso ? '<button class="btn btn-ghost btn-add" data-action="al-imprimir-lista">📋 Lista com PIN (professor)</button><button class="btn btn-primary btn-add" data-action="al-imprimir">🖨️ Imprimir cartões com QR</button>' : '')+'</div><div class="tablewrap"><table><thead><tr><th>Aluno</th><th>Matrícula</th>'+(al.acesso ? '<th>Código</th><th>PIN</th>' : '')+(dono || al.acesso ? '<th></th>' : '')+'</tr></thead><tbody>'+
         al.lista.map(a => { const ac = al.acesso && al.acesso[a.id]; return '<tr><td><b>'+escapeHtml(a.nome_social || a.nome)+'</b></td><td>'+escapeHtml(a.matricula||"-")+'</td>'+(al.acesso ? '<td class="cod-pin">'+escapeHtml(ac ? ac.codigo : "-")+'</td><td class="cod-pin">'+escapeHtml(ac ? ac.pin : "-")+'</td>' : '')+
-          (dono || al.acesso ? '<td><div class="usr-acoes">'+(al.acesso && ac ? '<button class="btn-mini btn-ghost" data-action="al-novo-pin" data-id="'+escapeAttr(a.id)+'" title="Gera outro PIN (o antigo deixa de valer)">Novo PIN</button>' : '')+(dono ? '<button class="btn-mini btn-gerenciar" data-action="al-editar" data-id="'+escapeAttr(a.id)+'">Corrigir</button><button class="btn-mini btn-recusar" data-action="al-remover" data-id="'+escapeAttr(a.id)+'">Remover</button>' : '')+'</div></td>' : '')+'</tr>'; }).join("")+
+          (dono || al.acesso ? '<td><div class="usr-acoes">'+(al.acesso && ac ? '<button class="btn-mini btn-ghost" data-action="al-novo-pin" data-id="'+escapeAttr(a.id)+'" title="Gera outro PIN e outro QR (o cartão antigo deixa de valer)">Novo PIN e QR</button>' : '')+(dono ? '<button class="btn-mini btn-gerenciar" data-action="al-editar" data-id="'+escapeAttr(a.id)+'">Corrigir</button><button class="btn-mini btn-recusar" data-action="al-remover" data-id="'+escapeAttr(a.id)+'">Remover</button>' : '')+'</div></td>' : '')+'</tr>'; }).join("")+
         '</tbody></table></div>';
     }catch(e){ console.warn(e); $("alLista").innerHTML = '<div class="empty">Erro ao carregar alunos ('+escapeHtml(e.code||"erro")+').</div>'; }
   }
@@ -2988,9 +3062,9 @@
       const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "gerarAcessoTurma", { timeout:300000 })({ turma_id:al.turma.id, ...(alunoId ? { aluno_id:alunoId, novo_pin:true } : {}) })).data;
       al.acesso = al.acesso || {}; r.lista.forEach(x => { al.acesso[x.aluno_id] = x; }); al.acessoInfo = { turma:r.turma, escola:r.escola };
       await listarAlunosTurma();
-      toast(alunoId ? "Novo PIN gerado. O antigo não vale mais." : r.lista.length + " aluno(s) com acesso. Imprima os cartões.");
+      toast(alunoId ? "Novo PIN e novo QR gerados. O cartão antigo deixa de valer: imprima outro." : r.lista.length + " aluno(s) com acesso. Imprima os cartões com QR.");
     }catch(e){ console.warn(e); toast(e.message || "Não foi possível gerar o acesso agora.", true); }
-    finally{ if(b && b.isConnected){ b.disabled = false; b.textContent = "🔑 Gerar / ver códigos"; } }
+    finally{ if(b && b.isConnected){ b.disabled = false; b.textContent = "🔑 Gerar / ver cartões"; } }
   }
   function carregarQrLib(){ return window.QRCode ? Promise.resolve() : new Promise((ok, erro) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = ok; sc.onerror = erro; document.head.appendChild(sc); }); }
   async function imprimirCartoes(){
@@ -3000,15 +3074,29 @@
     const info = al.acessoInfo || {}, l = al.lista.filter(a => al.acesso[a.id]);
     const cards = l.map(a => { const x = al.acesso[a.id];
       return '<div class="c"><div class="t">Portal do Educador · '+escapeHtml(info.turma || al.turma.nome)+'</div><div class="n">'+escapeHtml(x.nome)+'</div>'+
-        '<div class="g"><img src="'+qrDataUrl("PDEA:"+a.id)+'" alt=""><div><div class="r">CÓDIGO</div><div class="v">'+escapeHtml(x.codigo)+'</div><div class="r">PIN</div><div class="v">'+escapeHtml(x.pin)+'</div></div></div>'+
-        '<div class="i">Entre em <b>app.portaldoeducador.com.br/entrar</b> › <b>Sou aluno</b> › digite o código e o PIN (ou leia o QR).</div></div>'; }).join("");
+        '<div class="g"><img src="'+qrDataUrl(x.qr)+'" alt=""><div><div class="r">CÓDIGO</div><div class="v">'+escapeHtml(x.codigo)+'</div><div class="d">Aponte a câmera para o QR e entre direto, com a aula aberta pelo professor.</div></div></div>'+
+        '<div class="i">Sem câmera? Em <b>app.portaldoeducador.com.br/entrar</b> › <b>Sou aluno</b>, digite o código e o PIN que o professor tem.</div></div>'; }).join("");
     const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
     w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartões de acesso · '+escapeHtml(info.turma || al.turma.nome)+'</title><style>'+
       '@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#0f2c4a}.f{display:grid;grid-template-columns:1fr 1fr;gap:6mm}'+
       '.c{border:1.5px dashed #1a6b2a;border-radius:10px;padding:4mm 5mm;break-inside:avoid;height:50mm;box-sizing:border-box;display:flex;flex-direction:column}'+
       '.t{font-size:9pt;color:#1a6b2a;font-weight:700}.n{font-size:12pt;font-weight:800;margin:1mm 0 2mm}.g{display:flex;gap:4mm;align-items:center;flex:1}.g img{width:26mm;height:26mm}'+
-      '.r{font-size:7.5pt;color:#667;font-weight:700}.v{font:800 17pt ui-monospace,Consolas,monospace;letter-spacing:2px;margin-bottom:1mm}.i{font-size:7.5pt;color:#445}'+
+      '.d{font-size:8.5pt;color:#1a6b2a;font-weight:700;line-height:1.3;margin-top:1mm}.g img{width:30mm;height:30mm}.r{font-size:7.5pt;color:#667;font-weight:700}.v{font:800 17pt ui-monospace,Consolas,monospace;letter-spacing:2px;margin-bottom:1mm}.i{font-size:7.5pt;color:#445}'+
       '</style></head><body><div class="f">'+cards+'</div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
+    w.document.close();
+  }
+  // lista do professor: código e PIN de cada aluno (o PIN não vai no cartão)
+  function imprimirListaPin(){
+    if(!al.acesso) return;
+    const info = al.acessoInfo || {}, l = al.lista.filter(a => al.acesso[a.id]);
+    const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
+    w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Lista de acesso · '+escapeHtml(info.turma || al.turma.nome)+'</title><style>'+
+      '@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;color:#0f2c4a}h1{font-size:15pt;margin:0}p{font-size:9pt;color:#556;margin:2mm 0 5mm}'+
+      'table{width:100%;border-collapse:collapse}th,td{border:1px solid #c9d4df;padding:2.2mm 3mm;font-size:10pt;text-align:left}th{background:#eef3f7}td.m{font:700 12pt ui-monospace,Consolas,monospace;letter-spacing:1.5px}'+
+      '</style></head><body><h1>Lista de acesso · '+escapeHtml(info.turma || al.turma.nome)+'</h1><p>'+escapeHtml(info.escola || al.turma.escola_nome || "")+' · Uso do professor: o PIN não está nos cartões. Guarde esta lista.</p>'+
+      '<table><thead><tr><th>Aluno</th><th>Código</th><th>PIN</th></tr></thead><tbody>'+
+      l.map(a => { const x = al.acesso[a.id]; return '<tr><td>'+escapeHtml(x.nome)+'</td><td class="m">'+escapeHtml(x.codigo)+'</td><td class="m">'+escapeHtml(x.pin)+'</td></tr>'; }).join("")+
+      '</tbody></table><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
     w.document.close();
   }
   async function adicionarAlunos(){
@@ -5157,6 +5245,11 @@
     else if(acao === "al-acesso"){ acessoAlunos(); }
     else if(acao === "al-novo-pin"){ if(confirm("Gerar um novo PIN para este aluno? O PIN antigo deixa de valer.")) acessoAlunos(el.dataset.id); }
     else if(acao === "al-imprimir"){ imprimirCartoes(); }
+    else if(acao === "al-imprimir-lista"){ imprimirListaPin(); }
+    else if(acao === "qr-abrir"){ estadoEntradaQr("abrir", el); }
+    else if(acao === "qr-fechar"){ estadoEntradaQr("fechar", el); }
+    else if(acao === "qr-ver"){ estadoEntradaQr("ver"); }
+    else if(acao === "qr-copiar"){ try{ await navigator.clipboard.writeText("https://"+LINK_QR); toast("Link copiado. Cole no Maestro em Enviar link."); }catch(e){ toast("Copie: https://"+LINK_QR); } }
     else if(acao === "al-editar"){ editarAluno(el.dataset.id); }
     else if(acao === "al-gravar"){ gravarAluno(el.dataset.id); }
     else if(acao === "al-cancelar"){ listarAlunosTurma(); }

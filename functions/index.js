@@ -383,7 +383,7 @@ export { freqResumo, emailBuscaAtiva } from './frequencia.js';
 export { portaria, limparFotosPortaria } from './portaria.js';
 export { limparFotosAlunos } from './fichas.js';
 export { senhaProvisoria, trocarSenhaProvisoria, expirarSenhasProvisorias } from './senha-provisoria.js';
-export { gerarAcessoTurma, codigoAlunoQr, vincularContaAluno } from './acesso-aluno.js';
+export { gerarAcessoTurma, codigoAlunoQr, vincularContaAluno, entrarAlunoQr, entradaQrTurma } from './acesso-aluno.js';
 export { criarUsuarioManual, contasSemCadastro } from './usuario-manual.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
