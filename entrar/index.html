@@ -7885,10 +7885,19 @@
         (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
       (profs.length ? '<div class="cr-bloco"><h3>Professores com créditos avulsos</h3><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+profs.map(k => { const s = crSaldo(k), cm = (k.consumo || {})[mes] || {};
         return '<tr><td>'+escapeHtml(k.nome || k.id)+'</td><td class="n"><b>'+crNum(s.saldo)+'</b> de '+crNum(s.total)+'</td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'</td><td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(k.id)+'">+ Créditos</button></td></tr>'; }).join("")+'</tbody></table></div></div>' : "")+
-      // Lousa com IA: chaves de liga e desliga (a cobrança segue a mesma regra de créditos e planos do Portal IA)
-      '<div class="cr-bloco"><h3>\u2728 Lousa com IA</h3><p class="sub">Chave geral: desligada, ninguém usa (nem quem foi liberado). Ligada, vale para quem foi liberado: o <b>município</b> em Municípios › Plano › Recursos extras, ou um <b>professor</b> em Usuários › Gerenciar › Recursos exclusivos (vale também para licença avulsa). O gasto sai dos créditos da rede ou dos créditos avulsos do professor, como no Portal IA. Você, como administrador, sempre consegue testar.</p>'+
-        '<label class="vd-check" style="margin:8px 0"><input type="checkbox" id="crLousaBas"'+(crA.lousa.basica ? " checked" : "")+'> <span><b>Lousa IA Básica</b> · aula em slides (formatos variados, roteiro do professor e conteúdos do Portal para continuar). Gasta '+cfg.precos.texto+' crédito(s).</span></label>'+
-        '<label class="vd-check" style="margin:8px 0"><input type="checkbox" id="crLousaUltra"'+(crA.lousa.ultra ? " checked" : "")+'> <span><b>Lousa IA Ultra</b> · a mesma aula com ilustrações geradas por IA (capa e até 2 slides). Cada ilustração gasta '+cfg.precos.imagem+' créditos, até '+(cfg.precos.texto + 3 * cfg.precos.imagem)+' por aula. Imagem só no plano Completo ou com créditos avulsos.</span></label>'+
+      // Lousa com IA: chave geral + liberação por rede (municipios.recursos), tudo num lugar só
+      '<div class="cr-bloco" id="crLousa"><h3>\u2728 Lousa com IA</h3>'+
+        '<p class="sub"><b>Passo 1 · Chave geral</b> (vale para todo o Portal). Marcada = ligada. Desmarcada, ninguém usa, nem quem foi liberado.</p>'+
+        '<label class="vd-check" style="margin:6px 0"><input type="checkbox" id="crLousaBas"'+(crA.lousa.basica ? " checked" : "")+'> <span><b>Lousa IA Básica</b> '+(crA.lousa.basica ? '<span class="cr-tag ok">ligada</span>' : '<span class="cr-tag ru">desligada</span>')+' · aula em slides, '+cfg.precos.texto+' crédito(s) por aula.</span></label>'+
+        '<label class="vd-check" style="margin:6px 0"><input type="checkbox" id="crLousaUltra"'+(crA.lousa.ultra ? " checked" : "")+'> <span><b>Lousa IA Ultra</b> '+(crA.lousa.ultra ? '<span class="cr-tag ok">ligada</span>' : '<span class="cr-tag ru">desligada</span>')+' · com ilustrações, '+cfg.precos.imagem+' créditos por ilustração (até '+(cfg.precos.texto + 3 * cfg.precos.imagem)+' por aula).</span></label>'+
+        '<p class="sub" style="margin-top:14px"><b>Passo 2 · Quem pode usar.</b> Marque as redes liberadas. Para liberar só um professor (inclusive avulso), use Usuários › Gerenciar › Recursos exclusivos.</p>'+
+        '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Plano</th><th style="text-align:center">Básica</th><th style="text-align:center">Ultra</th></tr></thead><tbody>'+
+        crA.munis.map(m => { const r = new Set(m.recursos || []);
+          return '<tr><td><b>'+escapeHtml(m.nome || m.id)+(m.uf ? "/"+escapeHtml(m.uf) : "")+'</b></td><td>'+escapeHtml(({ basico:"Básico", intermediario:"Intermediário", completo:"Completo", personalizado:"Personalizado" })[m.plano_nome] || m.plano_nome || "-")+'</td>'+
+            '<td style="text-align:center"><input type="checkbox" data-lousa-mun="'+escapeAttr(m.id)+'" data-r="lousa_ia"'+(r.has("lousa_ia") || r.has("lousa_ia_ultra") ? " checked" : "")+' aria-label="Lousa IA Básica em '+escapeAttr(m.nome || "")+'"></td>'+
+            '<td style="text-align:center"><input type="checkbox" data-lousa-mun="'+escapeAttr(m.id)+'" data-r="lousa_ia_ultra"'+(r.has("lousa_ia_ultra") ? " checked" : "")+' aria-label="Lousa IA Ultra em '+escapeAttr(m.nome || "")+'"></td></tr>'; }).join("")+
+        '</tbody></table></div>'+
+        '<p class="sub" style="margin-top:8px">O gasto sai dos créditos da rede (planos Intermediário e Completo; imagem só no Completo) ou dos créditos avulsos do professor. Você, como administrador, sempre consegue testar.</p>'+
         '<div style="margin-top:10px"><button class="btn btn-primary" data-action="cr-salvar-lousa" id="crSalvarLousa">Salvar Lousa com IA</button></div></div>'+
       '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
         '<div class="cr-form"><label>Material (créditos)<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label>'+
@@ -7906,13 +7915,34 @@
     document.querySelectorAll("[data-pac]").forEach(el => { const l = el.dataset.pac === "rede" ? c.pacotes_rede : c.pacotes_professor, p = l[+el.dataset.i]; if(!p) return;
       p[el.dataset.k] = el.dataset.k === "nome" ? el.value.trim().slice(0, 60) : Math.max(0, Number(el.value) || 0); });
   }
+  // Ultra inclui a Básica: marcar a Ultra marca a Básica; desmarcar a Básica desmarca a Ultra
+  document.addEventListener("change", (e) => {
+    const t = e.target; if(!t || !t.dataset || !t.dataset.lousaMun) return;
+    const par = document.querySelector('[data-lousa-mun="'+CSS.escape(t.dataset.lousaMun)+'"][data-r="'+(t.dataset.r === "lousa_ia" ? "lousa_ia_ultra" : "lousa_ia")+'"]'); if(!par) return;
+    if(t.dataset.r === "lousa_ia_ultra" && t.checked) par.checked = true;
+    if(t.dataset.r === "lousa_ia" && !t.checked) par.checked = false;
+  });
   async function crSalvarLousa(){
     const v = { basica:!!($("crLousaBas") || {}).checked, ultra:!!($("crLousaUltra") || {}).checked };
-    const b = $("crSalvarLousa"); b.disabled = true;
-    try{ await setDoc(doc(db,"config","portal_ia"), { lousa:v, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }, { merge:true });
-      crA.lousa = v; toast("Lousa com IA: Básica "+(v.basica ? "ligada" : "desligada")+", Ultra "+(v.ultra ? "ligada" : "desligada")+"."); }
-    catch(e){ console.warn(e); toast("Não salvou ("+(e.code || "erro")+").", true); }
-    finally{ b.disabled = false; }
+    const b = $("crSalvarLousa"); b.disabled = true; b.textContent = "Salvando...";
+    try{
+      await setDoc(doc(db,"config","portal_ia"), { lousa:v, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }, { merge:true });
+      crA.lousa = v;
+      // redes: troca só os recursos da Lousa IA, mantendo os outros (ex.: prova online)
+      let mudou = 0;
+      for(const m of crA.munis){
+        const bas = document.querySelector('[data-lousa-mun="'+CSS.escape(m.id)+'"][data-r="lousa_ia"]'), ult = document.querySelector('[data-lousa-mun="'+CSS.escape(m.id)+'"][data-r="lousa_ia_ultra"]');
+        if(!bas || !ult) continue;
+        const outros = (m.recursos || []).filter(r => r !== "lousa_ia" && r !== "lousa_ia_ultra");
+        const novos = outros.concat(ult.checked ? ["lousa_ia_ultra"] : bas.checked ? ["lousa_ia"] : []);
+        if(novos.slice().sort().join() === (m.recursos || []).slice().sort().join()) continue;
+        await updateDoc(doc(db,"municipios",m.id), { recursos:novos, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+        m.recursos = novos; mudou++;
+      }
+      toast("Lousa com IA salva: Básica "+(v.basica ? "ligada" : "desligada")+", Ultra "+(v.ultra ? "ligada" : "desligada")+(mudou ? " · "+mudou+" rede(s) atualizada(s)" : "")+".");
+      desenharCreditosAdmin(); const el = $("crLousa"); if(el) el.scrollIntoView({ block:"start" });
+    }
+    catch(e){ console.warn(e); toast("Não salvou ("+(e.code || "erro")+").", true); b.disabled = false; b.textContent = "Salvar Lousa com IA"; }
   }
   async function crSalvarCfg(){
     crLerCfg(); const c = crA.cfg;
