@@ -125,6 +125,8 @@ export const publicarProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 120,
     const g = { tipo: q.tipo, valor };
     if (q.tipo === 'multipla' && Number.isInteger(q.gab) && q.gab >= 0 && q.gab < (p.alts || []).length) { g.gab = q.gab; objetivas++; }
     else if (q.tipo === 'vf' && (q.gab === 'V' || q.gab === 'F')) { g.gab = q.gab; objetivas++; }
+    else if (q.tipo === 'checkbox' && gabVarias(q.gab, (p.alts || []).length)) { g.gab = gabVarias(q.gab, p.alts.length); g.n = p.alts.length; if (q.pont === 'tudo') g.pont = 'tudo'; objetivas++; }
+    else if (q.tipo.startsWith('grade') && gabGrade(q.tipo, q.gab, p.linhas.length, p.cols.length)) { g.gab = gabGrade(q.tipo, q.gab, p.linhas.length, p.cols.length); objetivas++; }
     else if (q.tipo === 'curta' && String(q.exp || '').trim()) { g.aceitas = String(q.exp).split(/[;|\n]/).map(x => semAcento(x)).filter(Boolean).slice(0, 10); g.exp = txt(q.exp, 300); }
     else if (q.exp) g.exp = txt(q.exp, 1000);
     gab[id] = g;
@@ -234,6 +236,45 @@ export function conferirCurta(g, r) {
   if (!/\d/.test(resp) && g.aceitas.some(a => !/\d/.test(a) && a.length >= 5 && distancia(a, resp) <= (a.length >= 10 ? 2 : 1))) return 'aproximada';
   return null;
 }
+// gabarito de "várias respostas": índices únicos e válidos, pelo menos um
+export function gabVarias(gab, n) {
+  const c = [...new Set((Array.isArray(gab) ? gab : []).filter(x => Number.isInteger(x) && x >= 0 && x < n))].sort((a, b) => a - b);
+  return c.length ? c : null;
+}
+// gabarito da grade: uma resposta por linha (todas preenchidas). Na de várias respostas vira mapa
+// { "0": [..], "1": [..] }, porque o Firestore não guarda lista dentro de lista.
+export function gabGrade(tipo, gab, L, C) {
+  if (!Array.isArray(gab) || !L || !C || gab.length < L) return null;
+  const ok = c => Number.isInteger(c) && c >= 0 && c < C;
+  if (tipo === 'grade_radio') return gab.slice(0, L).every(ok) ? gab.slice(0, L) : null;
+  const m = {};
+  for (let i = 0; i < L; i++) { const x = Array.isArray(gab[i]) ? [...new Set(gab[i])].filter(ok).sort((a, b) => a - b) : []; if (!x.length) return null; m[String(i)] = x; }
+  return m;
+}
+const r2 = n => Math.round(n * 100) / 100;
+// várias respostas: cada certa marcada soma 1/(nº de certas); cada errada marcada desconta 1/(nº de erradas); mínimo zero.
+// Quem marca tudo fica com zero. Com "tudo ou nada", só pontua se marcar exatamente as certas.
+export function notaVarias(q, g, r) {
+  const marc = new Set((Array.isArray(r) ? r : []).map(Number).filter(Number.isInteger));
+  if (!marc.size) return { auto: true, ok: false, pontos: 0, branco: true };
+  const certas = g.gab.filter(i => marc.has(i)).length, erradas = [...marc].filter(i => !g.gab.includes(i)).length;
+  const nErr = Math.max(0, (g.n || (q.alts || []).length) - g.gab.length), ok = certas === g.gab.length && erradas === 0;
+  const frac = g.pont === 'tudo' ? (ok ? 1 : 0) : Math.max(0, certas / g.gab.length - (nErr ? erradas / nErr : 0));
+  return { auto: true, ok, pontos: r2(q.valor * frac), certas, erradas, n_certas: g.gab.length, ...(g.pont === 'tudo' ? { tudo: true } : {}) };
+}
+// grade: cada linha vale uma parte; na de várias respostas a linha só conta se estiver toda certa
+export function notaGrade(q, g, r) {
+  const v = r && typeof r === 'object' && !Array.isArray(r) ? r : {}, L = (q.linhas || []).length;
+  if (!Object.keys(v).length) return { auto: true, ok: false, pontos: 0, branco: true };
+  let lok = 0;
+  for (let i = 0; i < L; i++) {
+    const resp = v[i] ?? v[String(i)];
+    if (q.tipo === 'grade_radio') { if (resp != null && Number(resp) === g.gab[i]) lok++; }
+    else { const esp = g.gab[String(i)] || [], m = [...new Set((Array.isArray(resp) ? resp : []).map(Number))].sort((a, b) => a - b);
+      if (m.length === esp.length && m.every((x, k) => x === esp[k])) lok++; }
+  }
+  return { auto: true, ok: lok === L, pontos: r2(q.valor * lok / L), linhas_ok: lok, linhas: L };
+}
 // correção: objetivas automáticas; curta confere com as respostas aceitas; o resto fica para o professor
 export function corrigir(p, gab, respostas) {
   const por = {}; let pontos = 0, max = 0, pendentes = 0;
@@ -241,6 +282,8 @@ export function corrigir(p, gab, respostas) {
     const g = gab[q.id] || {}, r = respostas ? respostas[q.id] : undefined; max += q.valor;
     if (q.tipo === 'multipla' && 'gab' in g) { const ok = Number(r) === g.gab; por[q.id] = { auto: true, ok, pontos: ok ? q.valor : 0 }; }
     else if (q.tipo === 'vf' && 'gab' in g) { const ok = r === g.gab; por[q.id] = { auto: true, ok, pontos: ok ? q.valor : 0 }; }
+    else if (q.tipo === 'checkbox' && Array.isArray(g.gab) && g.gab.length) por[q.id] = notaVarias(q, g, r);
+    else if (q.tipo.startsWith('grade') && g.gab) por[q.id] = notaGrade(q, g, r);
     else if (q.tipo === 'curta' && g.aceitas && g.aceitas.length) {
       const como = conferirCurta(g, r);
       por[q.id] = como ? { auto: true, ok: true, pontos: q.valor, ...(como === 'aproximada' ? { aproximada: true } : {}) } : (r == null || String(r).trim() === '' ? { auto: true, ok: false, pontos: 0 } : { auto: false, pendente: true, pontos: 0 });

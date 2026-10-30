@@ -367,7 +367,14 @@ html.pde-quiosque-ativo .s-hn { display: none !important; }
 #pde-painel .alt-letter { width: 26px; height: 26px; border-radius: 50%; background: var(--white); border: 1px solid var(--line); color: var(--navy); display: grid; place-items: center; font-weight: 800; font-size: .74rem; flex-shrink: 0; }
 #pde-painel .alt-row input[type="text"] { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-xs); font-family: inherit; font-size: .85rem; font-weight: 500; outline: none; background: var(--white); }
 #pde-painel .alt-row input[type="text"]:focus { border-color: var(--cyan); box-shadow: var(--ring); }
-#pde-painel .alt-row .gab-radio { width: 18px; height: 18px; cursor: pointer; accent-color: var(--green); flex-shrink: 0; }
+#pde-painel .alt-row .gab-radio, #pde-painel .alt-row .gab-check { width: 18px; height: 18px; cursor: pointer; accent-color: var(--green); flex-shrink: 0; }
+#pde-painel .grade-prev .grade-gab { width: 17px; height: 17px; cursor: pointer; accent-color: var(--green); }
+#pde-painel .grade-prev .gg-tit { font-size: .7rem; font-weight: 800; color: var(--green); text-transform: uppercase; letter-spacing: .05em; margin: 2px 0 6px; }
+#pde-painel .pde-dica { font-size: .74rem; color: var(--slate); margin: 6px 0 0; }
+#pde-painel .pde-mais { margin-top: 8px; font-size: .78rem; }
+#pde-painel .pde-mais summary { cursor: pointer; color: var(--slate); font-weight: 700; }
+#pde-painel .pde-mais label { display: flex; gap: 8px; align-items: flex-start; margin-top: 6px; font-weight: 600; }
+#pde-painel .pde-mais small { display: block; color: var(--slate); font-weight: 500; }
 #pde-painel .alt-rm { background: transparent; border: 1px solid transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 800; width: 26px; height: 26px; border-radius: var(--r-xs); display: grid; place-items: center; flex-shrink: 0; }
 #pde-painel .alt-rm:hover { background: var(--red-lt); color: var(--red); }
 #pde-painel .pde-add-alt { display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; background: var(--white); color: var(--navy); border: 1.5px dashed var(--line); border-radius: var(--r-xs); font-size: .76rem; cursor: pointer; font-family: inherit; font-weight: 700; margin-top: 4px; }
@@ -2445,7 +2452,7 @@ function qDuplicar(_, btn){ const q = qOf(btn); if(q) duplicateQuestion(q); }
 function qSalvarBanco(_, btn){ const q = qOf(btn); if(q) salvarQuestaoNoBanco(q); }
 function qAddImg(_, btn){ const q = qOf(btn); if(q) q.querySelector('.q-img-input').click(); }
 function qRmImg(_, btn){ const w = btn.closest('.q-img-thumb-wrap'); if(w){ w.remove(); scheduleSave(); } }
-function qAddAlt(_, btn){ const q = qOf(btn); if(q){ addAltRow(q); scheduleSave(); } }
+function qAddAlt(_, btn){ const q = qOf(btn); if(q){ addAltRow(q, '', false, q.querySelector('.q-tipo').value === 'checkbox'); scheduleSave(); } }
 function qDelAlt(_, btn){ const q = qOf(btn); btn.closest('.alt-row')?.remove(); if(q){ reLetterAlts(q); scheduleSave(); } }
 function qAddLinha(_, btn){ const q = qOf(btn); if(q){ addLinha(q); drawGradePreview(q); scheduleSave(); } }
 function qAddCol(_, btn){ const q = qOf(btn); if(q){ addCol(q); drawGradePreview(q); scheduleSave(); } }
@@ -2466,7 +2473,8 @@ qsList.addEventListener('change', ev => {
     });
     t.value = '';
   }
-  if(t.matches('.gab-radio,.vf-sel')) scheduleSave();
+  if(t.matches('.gab-radio,.gab-check,.vf-sel,.cb-tudo')) scheduleSave();
+  if(t.matches('.grade-gab')){ lerGradeGab(q); scheduleSave(); }
 });
 qsList.addEventListener('input', ev => {
   const t = ev.target, q = qOf(t);
@@ -2591,9 +2599,12 @@ function renderOptions(qEl, data=null){
     initial.forEach((txt,i) => addAltRow(qEl, txt, data?.gab === i));
   }
   else if(tipo === 'checkbox'){
-    wrap.innerHTML = `<div class="pde-opts"><div class="pde-opts-title">Alternativas (várias respostas permitidas)</div><div class="q-alts-list"></div><button type="button" class="pde-add-alt" data-action="qAddAlt">+ Adicionar alternativa</button></div>`;
+    wrap.innerHTML = `<div class="pde-opts"><div class="pde-opts-title">Alternativas · marque as corretas nos quadrados</div><div class="q-alts-list"></div><button type="button" class="pde-add-alt" data-action="qAddAlt">+ Adicionar alternativa</button>
+      <p class="pde-dica">💡 Indicada a partir do 6º ano. Na prova online, cada certa marcada soma e cada errada marcada desconta (mínimo zero).</p>
+      <details class="pde-mais"${data?.pont === 'tudo' ? ' open' : ''}><summary>Mais opções</summary><label><input type="checkbox" class="cb-tudo"${data?.pont === 'tudo' ? ' checked' : ''}><span>Tudo ou nada<small>Só pontua se o aluno marcar exatamente as corretas.</small></span></label></details></div>`;
     const initial = data?.alts?.length ? data.alts : ['',''];
-    initial.forEach(txt => addAltRow(qEl, txt, false, true));
+    const certas = Array.isArray(data?.gab) ? data.gab : [];
+    initial.forEach((txt, i) => addAltRow(qEl, txt, certas.includes(i), true));
   }
   else if(tipo === 'curta'){
     wrap.innerHTML = `<div class="pde-opts"><div class="pde-opts-title">Resposta esperada (só para o professor)</div><input type="text" class="pde-input curta-exp" placeholder="Ex: Rio de Janeiro" value="${esc(data?.exp || '')}"></div>`;
@@ -2606,6 +2617,7 @@ function renderOptions(qEl, data=null){
   }
   else if(tipo.includes('grade')){
     wrap.innerHTML = `<div class="pde-opts"><div class="pde-grid-2"><div><div class="pde-opts-title">Linhas (afirmações)</div><div class="q-linhas"></div><button type="button" class="pde-add-alt" data-action="qAddLinha">+ Linha</button></div><div><div class="pde-opts-title">Colunas (opções)</div><div class="q-cols"></div><button type="button" class="pde-add-alt" data-action="qAddCol">+ Coluna</button></div></div><div class="grade-prev" style="margin-top:10px"></div></div>`;
+    if(data) qEl.dataset.gab = JSON.stringify(Array.isArray(data.gab) ? data.gab : []);
     const lins = data?.linhas?.length ? data.linhas : ['Afirmação 1','Afirmação 2'];
     const cols = data?.cols?.length ? data.cols : ['Opção A','Opção B'];
     lins.forEach(t => addLinha(qEl, t));
@@ -2621,7 +2633,7 @@ function addAltRow(qEl, txt='', checked=false, isCheckbox=false){
   const letra = String.fromCharCode(65 + list.children.length);
   const row = document.createElement('div');
   row.className = 'alt-row';
-  row.innerHTML = `<div class="alt-letter">${letra}</div>${!isCheckbox ? `<input type="radio" name="gab-${qid}" class="gab-radio" ${checked?'checked':''} title="Marcar como correta">` : ''}<input type="text" class="alt" placeholder="Alternativa ${letra}" value="${esc(txt)}"><button type="button" class="alt-rm" data-action="qDelAlt" title="Excluir alternativa">✕</button>`;
+  row.innerHTML = `<div class="alt-letter">${letra}</div>${!isCheckbox ? `<input type="radio" name="gab-${qid}" class="gab-radio" ${checked?'checked':''} title="Marcar como correta">` : `<input type="checkbox" class="gab-check" ${checked?'checked':''} title="Marcar como correta">`}<input type="text" class="alt" placeholder="Alternativa ${letra}" value="${esc(txt)}"><button type="button" class="alt-rm" data-action="qDelAlt" title="Excluir alternativa">✕</button>`;
   list.appendChild(row);
 }
 function reLetterAlts(qEl){
@@ -2648,12 +2660,42 @@ function drawGradePreview(qEl){
   const L = $$('.linha', qEl).map(i => i.value.trim()).filter(Boolean);
   const C = $$('.col', qEl).map(i => i.value.trim()).filter(Boolean);
   if(!L.length || !C.length){ prev.innerHTML = ''; return; }
-  let html = '<table><thead><tr><th></th>';
+  const multi = tipo === 'grade_check', g = gradeGab(qEl, multi), qid = qEl.dataset.qid;
+  let html = `<div class="gg-tit">Gabarito · ${multi ? 'marque as respostas certas de cada linha' : 'clique na resposta certa de cada linha'}</div><table><thead><tr><th></th>`;
   C.forEach(c => html += `<th>${esc(c)}</th>`);
   html += '</tr></thead><tbody>';
-  L.forEach(l => { html += `<tr><td>${esc(l)}</td>`; C.forEach(() => html += `<td>${tipo==='grade_check'?'☐':'○'}</td>`); html += '</tr>'; });
+  L.forEach((l, li) => { html += `<tr><td>${esc(l)}</td>`; C.forEach((c, ci) => { const on = multi ? (g[li] || []).includes(ci) : g[li] === ci;
+    html += `<td><input type="${multi ? 'checkbox' : 'radio'}" class="grade-gab" name="gg-${qid}-${li}" data-l="${li}" data-c="${ci}"${on ? ' checked' : ''} aria-label="${esc(l + ' · ' + c)}"></td>`; }); html += '</tr>'; });
   html += '</tbody></table>';
   prev.innerHTML = html;
+}
+// gabarito da grade: índice das linhas e colunas preenchidas (as vazias não entram na prova)
+function gradeGab(qEl, multi){
+  let g = []; try{ g = JSON.parse(qEl.dataset.gab || '[]'); }catch(e){}
+  if(!Array.isArray(g)) g = [];
+  return g.map(x => multi ? (Array.isArray(x) ? x : (Number.isInteger(x) && x >= 0 ? [x] : [])) : (Array.isArray(x) ? (x.length ? x[0] : -1) : (Number.isInteger(x) ? x : -1)));
+}
+function lerGradeGab(qEl){
+  const multi = qEl.querySelector('.q-tipo').value === 'grade_check', n = $$('.linha', qEl).filter(i => i.value.trim()).length, g = [];
+  for(let li = 0; li < n; li++){ const m = $$('.grade-gab[data-l="' + li + '"]', qEl).filter(x => x.checked).map(x => +x.dataset.c); g.push(multi ? m : (m.length ? m[0] : -1)); }
+  qEl.dataset.gab = JSON.stringify(g);
+}
+// alternativas e as marcadas como corretas; "filtrar" tira as vazias (o índice do gabarito acompanha)
+function lerAlts(qEl, filtrar){
+  const alts = [], certas = [];
+  $$('.q-alts-list .alt-row', qEl).forEach(row => { const t = row.querySelector('.alt').value.trim(); if(filtrar && !t) return;
+    if(row.querySelector('.gab-radio:checked,.gab-check:checked')) certas.push(alts.length); alts.push(t); });
+  return { alts, certas };
+}
+// questão com gabarito completo (corrigida sozinha na prova online)
+function gabCompleto(q){
+  if(q.tipo === 'multipla') return q.gab >= 0;
+  if(q.tipo === 'vf') return !!q.gab;
+  if(q.tipo === 'checkbox') return Array.isArray(q.gab) && q.gab.length > 0;
+  if(q.tipo === 'grade_radio') return Array.isArray(q.gab) && (q.linhas || []).length > 0 && q.linhas.every((_, i) => Number.isInteger(q.gab[i]) && q.gab[i] >= 0);
+  if(q.tipo === 'grade_check') return Array.isArray(q.gab) && (q.linhas || []).length > 0 && q.linhas.every((_, i) => Array.isArray(q.gab[i]) && q.gab[i].length > 0);
+  if(q.tipo === 'curta') return !!String(q.exp || '').trim();
+  return false;
 }
 function renumber(){
   $$('.pde-question', qsList).forEach((q,i) => { const n = q.querySelector('.pde-q-num'); if(n) n.textContent = i+1; });
@@ -2694,14 +2736,16 @@ function collectData(){
     const valor = parseFloat(q.querySelector('.q-valor').value) || 0;
     totalPontos += valor;
     const qd = {n:i+1, tipo, enun, img: imgs[0] || '', imgs, valor, bncc: q.dataset.bncc || ''};
-    if(tipo === 'multipla' || tipo === 'checkbox') qd.alts = $$('.alt', q).map(a => a.value.trim()).filter(Boolean);
-    if(tipo === 'multipla'){ let gi = -1; $$('.gab-radio', q).forEach((r,idx) => { if(r.checked) gi = idx; }); qd.gab = gi; }
+    if(tipo === 'multipla' || tipo === 'checkbox'){ const A = lerAlts(q, true); qd.alts = A.alts; qd.gab = tipo === 'multipla' ? (A.certas.length ? A.certas[0] : -1) : A.certas; }
+    if(tipo === 'checkbox' && q.querySelector('.cb-tudo')?.checked) qd.pont = 'tudo';
     if(tipo === 'vf') qd.gab = q.querySelector('.vf-sel')?.value || '';
     if(tipo === 'curta') qd.exp = q.querySelector('.curta-exp')?.value.trim() || '';
     if(tipo === 'dissertativa') qd.exp = q.querySelector('.disc-exp')?.value.trim() || '';
     if(tipo.includes('grade')){
       qd.linhas = $$('.linha', q).map(i => i.value.trim()).filter(Boolean);
       qd.cols = $$('.col', q).map(i => i.value.trim()).filter(Boolean);
+      const multi = tipo === 'grade_check';
+      qd.gab = qd.linhas.map((_, li) => { const x = gradeGab(q, multi)[li]; return multi ? (x || []).filter(c => c < qd.cols.length) : (Number.isInteger(x) && x < qd.cols.length ? x : -1); });
     }
     return qd;
   });
@@ -2715,12 +2759,12 @@ function extractQData(qEl){
     imgs: $$('.q-img-thumb-wrap', qEl).map(w => w.dataset.src).filter(Boolean),
     bncc: qEl.dataset.bncc || ''
   };
-  if(tipo === 'multipla' || tipo === 'checkbox') d.alts = $$('.alt', qEl).map(a => a.value.trim());
-  if(tipo === 'multipla'){ let gi = -1; $$('.gab-radio', qEl).forEach((r,ri) => { if(r.checked) gi = ri; }); d.gab = gi; }
+  if(tipo === 'multipla' || tipo === 'checkbox'){ const A = lerAlts(qEl, false); d.alts = A.alts; d.gab = tipo === 'multipla' ? (A.certas.length ? A.certas[0] : -1) : A.certas; }
+  if(tipo === 'checkbox' && qEl.querySelector('.cb-tudo')?.checked) d.pont = 'tudo';
   if(tipo === 'vf') d.gab = qEl.querySelector('.vf-sel')?.value || '';
   if(tipo === 'curta') d.exp = qEl.querySelector('.curta-exp')?.value || '';
   if(tipo === 'dissertativa') d.exp = qEl.querySelector('.disc-exp')?.value || '';
-  if(tipo.includes('grade')){ d.linhas = $$('.linha', qEl).map(i => i.value.trim()); d.cols = $$('.col', qEl).map(i => i.value.trim()); }
+  if(tipo.includes('grade')){ d.linhas = $$('.linha', qEl).map(i => i.value.trim()); d.cols = $$('.col', qEl).map(i => i.value.trim()); d.gab = gradeGab(qEl, tipo === 'grade_check'); }
   return d;
 }
 
@@ -3373,11 +3417,15 @@ function respostasGab(data, ordersPerQuestion){
       return '—';
     }
     if(q.tipo === 'vf') return q.gab || '—';
-    if(q.tipo === 'checkbox') return 'Múltipla';
+    if(q.tipo === 'checkbox') return letrasCertas(q, ordersPerQuestion && ordersPerQuestion[qi]) || 'Múltipla';
     if(q.tipo === 'curta' || q.tipo === 'dissertativa') return 'Aberta';
     if(q.tipo.includes('grade')) return 'Grade';
     return '—';
   });
+}
+function letrasCertas(q, ordem){
+  if(!Array.isArray(q.gab) || !q.gab.length || !q.alts) return '';
+  return q.gab.filter(g => q.alts[g] !== undefined).map(g => ordem ? ordem.indexOf(g) : g).filter(x => x >= 0).sort((a, b) => a - b).map(x => String.fromCharCode(65 + x)).join(',');
 }
 // gabaritos de todas as versões juntos, compactos (uma linha por versão): economiza uma folha por cópia
 function buildAnswerKeysCompact(lista, data){
@@ -3400,7 +3448,7 @@ function buildAnswerKeyPage(data, ordersPerQuestion, versaoLabel){
         resp = String.fromCharCode(65 + pos);
       }
     } else if(q.tipo === 'vf') resp = q.gab || '—';
-    else if(q.tipo === 'checkbox') resp = 'Múltipla';
+    else if(q.tipo === 'checkbox') resp = letrasCertas(q, ordersPerQuestion && ordersPerQuestion[qi]) || 'Múltipla';
     else if(q.tipo === 'curta' || q.tipo === 'dissertativa') resp = 'Aberta';
     else if(q.tipo.includes('grade')) resp = 'Grade';
     itens += `<div class="pe-gab-item"><div class="n">Q${qi+1}</div><div class="r">${resp}</div></div>`;
@@ -3567,7 +3615,7 @@ async function aplicarInstrucao(chave){
 ].forEach(([n,f]) => registerAction(n, f));
 
 /* API mínima para testes e integrações */
-window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montarPeriodos, classificacao, faltaClassif, definirClassif, irParaClassif, FINALIDADES, NOME_PER, periodoTxt, goStep, addQuestion, collectData, Banco, TEMPLATES, BNCC, detectarBNCC, pdeDialog, pdeConfirm, toast, saveState, LS_KEY, bancoReady, refreshResumo, ACTIONS, buildProofHTML, wrapPrint, printInIframe, genProofCode, makeOrdersForVersion, TYPE_LABELS };
+window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montarPeriodos, classificacao, faltaClassif, definirClassif, irParaClassif, FINALIDADES, NOME_PER, periodoTxt, goStep, addQuestion, collectData, Banco, TEMPLATES, BNCC, detectarBNCC, pdeDialog, pdeConfirm, toast, saveState, LS_KEY, bancoReady, refreshResumo, ACTIONS, buildProofHTML, wrapPrint, printInIframe, genProofCode, makeOrdersForVersion, TYPE_LABELS, gabCompleto };
 
 /* ══════════ INIT ══════════ */
 (function init(){
@@ -4202,8 +4250,9 @@ function olAbrir(){
   const corpo = $("ol-corpo");
   if(!qs.length){ G().toast("Monte a prova antes de aplicar online.", "warn"); return; }
   const turmas = P.turmasObj || [];
-  const semGab = qs.filter(q => (q.tipo === "multipla" && !(q.gab >= 0)) || (q.tipo === "vf" && !q.gab)).length;
-  const manuais = qs.filter(q => ["dissertativa", "checkbox", "grade_radio", "grade_check"].includes(q.tipo) || (q.tipo === "curta" && !q.exp)).length;
+  const gabC = G().gabCompleto;
+  const semGab = qs.filter(q => ["multipla", "vf", "checkbox", "grade_radio", "grade_check"].includes(q.tipo) && !gabC(q)).length;
+  const manuais = qs.filter(q => !gabC(q)).length;
   const H = dados.header, FIN = G().FINALIDADES, nomePer = G().NOME_PER[H.periodos] || "bimestre";
   const sugerida = turmas.find(t => t.id === H.turma_id);
   const h0 = new Date(Date.now() + 60 * 60000);
@@ -4274,7 +4323,7 @@ async function olAplicar(){
     const titulo = (atual() && atual().titulo) || [F.l + (per ? " " + G().periodoTxt(per, dados.header.periodos).replace(/(\d+º) (\w{3})\w*/, "$1 $2") : ""), dados.header.mat].filter(Boolean).join(" · ") || "Prova";
     const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "publicarProvaOnline", { timeout:120000 })({
       titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, finalidade:fin, periodo:per, periodos:dados.header.periodos, ano_letivo:dados.header.ano, modo, notas:$("ol-notas").value, tolerancia_min:tol, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, fotos:$("ol-fotos").checked, avisos:1,
-      questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
+      questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, pont:q.pont, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
     $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">'+(r.modo === "agora" ? "Prova na sala de espera" : "Prova agendada")+'</h3><p style="color:#62758a">'+(r.modo === "agora" ? r.alunos+' alunos já veem a prova no Início do tablet. Peça para entrarem e tocarem em “Estou pronto”. No painel ao vivo você vê quem está pronto e clica em <b>Iniciar</b>: contagem de 10 s e a prova abre para todos. ' : r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. ')+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
       '<a class="pde-btn pde-btn-primary" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Abrir o painel ao vivo ↗</a></div>';
   }catch(e){ G().toast(e.message || "Não foi possível aplicar.", "err"); btn.disabled = false; olModo(); }

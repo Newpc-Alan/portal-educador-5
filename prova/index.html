@@ -496,6 +496,13 @@ function telaEntregue(){
     $("nota").insertAdjacentHTML("beforeend", '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px">'+qs.map((q, i) => { const x = (r.por_questao || {})[q.id] || {};
       const parcial = !x.pendente && !x.ok && Number(x.pontos) > 0;
       return '<span class="chip '+(x.pendente ? "c-age" : x.ok ? "c-ent" : parcial ? "c-age" : "c-blo")+'">'+(i+1)+' '+(x.pendente ? "…" : x.ok ? "✓" : parcial ? String(x.pontos).replace(".", ",")+" pt" : "✗")+'</span>'; }).join("")+'</div>');
+    // várias respostas e grade: o aluno vê como a nota da questão foi calculada (sem revelar o gabarito)
+    const calc = qs.map((q, i) => { const x = (r.por_questao || {})[q.id] || {}; if(x.ok || x.pendente || x.manual || x.branco) return "";
+      const pt = String(x.pontos).replace(".", ",") + " de " + String(q.valor).replace(".", ",") + " pt";
+      if(x.certas != null) return '<li><b>Questão '+(i+1)+'</b>: você marcou '+x.certas+' de '+x.n_certas+' certa(s)'+(x.erradas ? ' e '+x.erradas+' errada(s)' : '')+' · '+pt+(x.tudo ? ' (esta questão só pontua com todas certas e nenhuma errada)' : x.erradas ? ' (cada errada marcada desconta)' : '')+'</li>';
+      if(x.linhas_ok != null) return '<li><b>Questão '+(i+1)+'</b>: '+x.linhas_ok+' de '+x.linhas+' linha(s) certa(s) · '+pt+'</li>';
+      return ""; }).join("");
+    if(calc) $("nota").insertAdjacentHTML("beforeend", '<div style="text-align:left;margin-top:14px"><h3 style="margin:0 0 6px">Como foram calculadas as questões parciais</h3><ul style="margin:0;padding-left:18px">'+calc+'</ul></div>');
     // comentários do professor (conteúdo e português)
     const obs = qs.map((q, i) => { const x = (r.por_questao || {})[q.id] || {}; return x.comentario || x.lingua ? '<div class="obs"><b>Questão '+(i+1)+'</b>'+(x.manual ? ' · '+String(x.pontos).replace(".", ",")+' de '+q.valor+' pt' : '')+
       (x.comentario ? '<p>💬 '+esc(x.comentario)+'</p>' : '')+(x.lingua ? '<p>✍️ Português: '+esc(x.lingua)+'</p>' : '')+'</div>' : ''; }).join("");
@@ -618,10 +625,12 @@ const CORRECAO_NO_AR = true;    // vira true quando corrigirProvaOnline estiver 
 const CRIT = { conteudo:"Avaliar só o conteúdo: erros de português não tiram ponto", apontar:"Apontar erros de português sem descontar (o aluno vê a observação)", descontar:"Erros de português contam na nota" };
 const CO = { qid:"", gab:null, sujo:{} };
 const corrigivel = (q, x) => !["multipla", "vf"].includes(q.tipo) || (x && x.manual);
+// objetiva = corrigida sozinha: múltipla e V/F sempre; várias respostas e grade quando o professor marcou o gabarito
+const objetiva = q => ["multipla", "vf"].includes(q.tipo) || (["checkbox", "grade_radio", "grade_check"].includes(q.tipo) && !!(CO.gab && CO.gab[q.id] && CO.gab[q.id].gab));
 async function abrirCorrecao(qid){
   const p = E.prova;
   if(!CO.gab){ try{ const g = await getDoc(doc(db, "provas_online_gab", p.id)); CO.gab = g.exists() ? (g.data().gab || {}) : {}; }catch(e){ CO.gab = {}; } }
-  const abertas = p.questoes.filter(q => !["multipla", "vf"].includes(q.tipo));
+  const abertas = p.questoes.filter(q => !objetiva(q));
   if(!abertas.length){ toast("Esta prova só tem questões objetivas: já foram corrigidas sozinhas."); return; }
   const pend = q => Object.values(PN.res).filter(r => ((r.por_questao || {})[q.id] || {}).pendente).length;
   CO.qid = qid || (abertas.find(q => pend(q)) || abertas[0]).id; CO.sujo = {};
@@ -673,7 +682,7 @@ async function salvarCorrecao(btn){
     toast(itens.length + " correção(ões) salvas. A nota de cada aluno já foi recalculada.");
     CO.sujo = {};
     // espera o resultado novo chegar e vai para a próxima questão com pendência
-    setTimeout(() => { const prox = E.prova.questoes.find(q => !["multipla", "vf"].includes(q.tipo) && Object.values(PN.res).some(r => ((r.por_questao || {})[q.id] || {}).pendente)); abrirCorrecao(prox ? prox.id : CO.qid); }, 900);
+    setTimeout(() => { const prox = E.prova.questoes.find(q => !objetiva(q) && Object.values(PN.res).some(r => ((r.por_questao || {})[q.id] || {}).pendente)); abrirCorrecao(prox ? prox.id : CO.qid); }, 900);
   }catch(e){ toast(e.message || "Não foi possível salvar.", true); btn.disabled = false; btn.textContent = "Salvar correções desta questão"; }
 }
 /* ---------- auditoria: relatório por aluno (prova respondida + registro de horários) ---------- */
@@ -693,13 +702,14 @@ function respostaHtml(q, r, g, pq){
   let h = "";
   if(q.tipo === "multipla" || q.tipo === "checkbox"){
     const sel = q.tipo === "checkbox" ? new Set(Array.isArray(r) ? r : []) : null;
-    h = '<ol class="alts" type="a">' + (q.alts || []).map((a, i) => { const on = q.tipo === "multipla" ? (r !== undefined && r !== null && Number(r) === i) : sel.has(i), certo = g && g.gab === i;
+    h = '<ol class="alts" type="a">' + (q.alts || []).map((a, i) => { const on = q.tipo === "multipla" ? (r !== undefined && r !== null && Number(r) === i) : sel.has(i), certo = g && (Array.isArray(g.gab) ? g.gab.includes(i) : g.gab === i);
       return '<li class="' + (on ? "on " : "") + (certo ? "ok" : "") + '">' + marca(on, certo) + " " + esc(a) + "</li>"; }).join("") + "</ol>";
   } else if(q.tipo === "vf"){ h = '<p>Resposta do aluno: <b>' + (r === "V" ? "Verdadeiro" : r === "F" ? "Falso" : "em branco") + "</b>" + (g && g.gab ? " · Correta: <b>" + (g.gab === "V" ? "Verdadeiro" : "Falso") + "</b>" : "") + "</p>"; }
   else if(q.tipo.startsWith("grade")){ const v = r && typeof r === "object" ? r : {};
-    h = '<table class="gr"><tr><th></th>' + (q.cols || []).map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>" + (q.linhas || []).map((ln, li) => "<tr><td>" + esc(ln) + "</td>" + (q.cols || []).map((_, ci) => "<td>" + ((Array.isArray(v[li]) ? v[li].includes(ci) : v[li] === ci) ? "●" : "") + "</td>").join("") + "</tr>").join("") + "</table>"; }
+    h = '<table class="gr"><tr><th></th>' + (q.cols || []).map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>" + (q.linhas || []).map((ln, li) => "<tr><td>" + esc(ln) + "</td>" + (q.cols || []).map((_, ci) => { const gl = g && g.gab ? (Array.isArray(g.gab) ? g.gab[li] : g.gab[String(li)]) : undefined, certo = Array.isArray(gl) ? gl.includes(ci) : gl === ci;
+      return "<td>" + ((Array.isArray(v[li]) ? v[li].includes(ci) : v[li] === ci) ? "●" : "") + (certo ? " ✓" : "") + "</td>"; }).join("") + "</tr>").join("") + "</table>"; }
   else { const txt = String(r == null ? "" : r).trim(); h = '<div class="resp">' + (txt ? esc(txt).replace(/\n/g, "<br>") : "<i>em branco</i>") + "</div>" + (g && g.exp ? '<p class="exp">Resposta esperada: ' + esc(g.exp) + "</p>" : ""); }
-  const st = !pq ? "" : pq.pendente ? "aguardando correção do professor" : pq.branco ? "em branco · 0 pt" : pq.manual ? "corrigida pelo professor · " + (pq.pontos || 0) + " pt" : (pq.ok ? "certa" : "errada") + (pq.aproximada ? " (aceita com erro de digitação)" : "") + " · " + (pq.pontos || 0) + " pt";
+  const st = !pq ? "" : pq.pendente ? "aguardando correção do professor" : pq.branco ? "em branco · 0 pt" : pq.manual ? "corrigida pelo professor · " + (pq.pontos || 0) + " pt" : (pq.ok ? "certa" : pq.pontos > 0 ? "parcial" : "errada") + (pq.aproximada ? " (aceita com erro de digitação)" : "") + (pq.certas != null && !pq.ok ? " · marcou " + pq.certas + " de " + pq.n_certas + " certa(s)" + (pq.erradas ? " e " + pq.erradas + " errada(s)" : "") : "") + (pq.linhas_ok != null && !pq.ok ? " · " + pq.linhas_ok + " de " + pq.linhas + " linha(s) certa(s)" : "") + " · " + (pq.pontos || 0) + " pt";
   return h + (st ? '<p class="pq">' + st + "</p>" : "") + (pq && pq.comentario ? '<p class="pq">Comentário: ' + esc(pq.comentario) + "</p>" : "") + (pq && pq.lingua ? '<p class="pq">Português: ' + esc(pq.lingua) + "</p>" : "");
 }
 async function relatorios(uids, btn){
