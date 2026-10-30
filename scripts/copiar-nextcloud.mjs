@@ -109,7 +109,12 @@ async function tamanhoNoNc(caminho) {
 async function conferirAcesso() {
   const r = await dav('PROPFIND', '', { headers: { Depth: '1' } }); const x = await r.text();
   if (r.status === 401) { console.log('::error::O Nextcloud recusou o usuário/senha de aplicativo (HTTP 401). Confira o usuário e o secret NC_APP_SENHA.'); process.exit(1); }
-  if (r.status === 404) { console.log('::error::A pasta "' + RAIZ + '" não existe na conta ' + USUARIO + '. Confira o nome (foi renomeada?) e o usuário dono.'); process.exit(1); }
+  if (r.status === 404) {   // a pasta raiz ainda não existe nesta conta: cria (só na etapa de cópia)
+    if (etapa === 'conferir') { console.log('::error::A pasta "' + RAIZ + '" não existe na conta ' + USUARIO + '.'); process.exit(1); }
+    const m = await dav('MKCOL', ''); await m.arrayBuffer().catch(() => {});
+    if (m.status !== 201) { console.log('::error::Não consegui criar a pasta "' + RAIZ + '" (HTTP ' + m.status + ').'); process.exit(1); }
+    log('pasta "' + RAIZ + '" criada na conta ' + USUARIO); return;
+  }
   if (r.status !== 207) { console.log('::error::Resposta inesperada do Nextcloud: HTTP ' + r.status); process.exit(1); }
   const nomes = [...x.matchAll(/<d:href>([^<]+)<\/d:href>/g)].map(m => decodeURIComponent(m[1]).replace(/\/$/, '').split('/').pop()).slice(1);
   log('Nextcloud ok: ' + USUARIO + ' / ' + RAIZ + ' · pastas: ' + nomes.join(', '));
