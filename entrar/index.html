@@ -1646,7 +1646,13 @@
     m.innerHTML = '<div class="modal"><div class="mh"><h3>Mostre o QR da carteirinha</h3><p>Segure a carteirinha na frente da câmera.</p></div><div class="mb"><div class="qr-palco"><video id="qrAlVideo" playsinline muted></video></div><div class="msg" id="qrAlMsg"></div></div><div class="mf"><button class="btn btn-ghost" id="qrAlFechar" type="button">Cancelar</button></div></div>';
     document.body.appendChild(m); $("qrAlFechar").addEventListener("click", pararQrAluno);
     try{ qrAl.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" }, audio:false }); }
-    catch(e){ $("qrAlMsg").className = "msg error"; $("qrAlMsg").textContent = "Não foi possível ligar a câmera. Digite o código da carteirinha."; return; }
+    catch(e){ console.warn("câmera:", e.name); $("qrAlMsg").className = "msg error";
+      const noQuadro = window.top !== window.self;
+      $("qrAlMsg").textContent = e.name === "NotAllowedError"
+        ? (noQuadro ? "A câmera foi bloqueada aqui dentro. Toque em \u201cAbrir fora\u201d, no alto da tela, e permita a câmera." : "A câmera foi bloqueada. Toque no cadeado ao lado do endereço, permita a câmera e tente de novo.")
+        : e.name === "NotFoundError" ? "Este aparelho não tem câmera. Digite o código e o PIN que o professor tem."
+        : "Não foi possível ligar a câmera. Feche outros apps que usam a câmera e tente de novo.";
+      return; }
     const v = $("qrAlVideo"); v.srcObject = qrAl.stream; await v.play().catch(() => {}); qrAl.ativo = true;
     let det = null; try{ if("BarcodeDetector" in window) det = new window.BarcodeDetector({ formats:["qr_code"] }); }catch(e){}
     const cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently:true });
