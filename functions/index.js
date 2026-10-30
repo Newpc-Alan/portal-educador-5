@@ -10,7 +10,8 @@ export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
 export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao, corrigirProvaOnline } from './provas-online.js';
 export { limparFotosProvas } from './fotos-provas.js';
-export { linkArquivoNc } from './arquivos-nc.js';
+// Liga quando o secret NC_ENTREGA_CHAVE existir no Google (sem ele, o deploy de QUALQUER função falha):
+// export { linkArquivoNc } from './arquivos-nc.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });
