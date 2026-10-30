@@ -66,6 +66,24 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .capa .ico{font-size:3rem;margin-bottom:8px} .capa h2{font-size:1.3rem} .capa p{color:var(--muted);margin:8px 0 18px}
 /* ---------- painel do professor ---------- */
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:14px 0}
+/* painel do professor: barra fixa com os números (filtros) e a turma em cartões */
+.pn-barra{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0 10px;margin-bottom:6px}
+.pn-kpis{margin:0} .pn-kpis .kpi{cursor:pointer;font:inherit;color:inherit;padding:8px} .pn-kpis .kpi b{font-size:1.35rem} .pn-kpis .kpi.on{border-color:var(--azul);box-shadow:0 0 0 3px rgba(38,113,171,.18)}
+.pn-kpis .kpi.pisca{animation:pnPisca 1.2s ease-in-out infinite;border-color:var(--red)} @keyframes pnPisca{50%{background:#fde8e6}}
+.pn-ferr{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.pn-modo{display:inline-flex;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;background:#fff} .pn-modo button{border:0;background:#fff;padding:7px 14px;font:inherit;font-weight:800;font-size:.85rem;color:var(--muted);cursor:pointer} .pn-modo button.on{background:var(--navy);color:#fff}
+.pn-alertas{margin-top:8px;background:#fde8e6;border:1.5px solid #f3b6b0;border-radius:12px;padding:8px 12px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:.9rem;color:#7a1f18} .pn-alertas .btn{grid-column:2;grid-row:1}
+.pn-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(176px,1fr));gap:8px}
+.pn-al{background:#fff;border:1px solid var(--line);border-left:6px solid #c9d4df;border-radius:12px;padding:8px 10px;display:flex;flex-direction:column;gap:5px}
+.pn-al.st-and{border-left-color:#2E9BD6} .pn-al.st-blo{border-left-color:var(--red);background:#fff7f6} .pn-al.st-ent{border-left-color:var(--verde);background:#f6fbf4} .pn-al.st-sala{border-left-color:var(--lima)}
+.pn-al.flash{animation:pnFlash .6s ease-in-out 6} @keyframes pnFlash{50%{box-shadow:0 0 0 4px rgba(194,54,44,.45)}}
+.pn-top{display:flex;justify-content:space-between;gap:6px;align-items:flex-start} .pn-top b{font-size:.92rem;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pn-st{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .pn-st .chip{font-size:.66rem;padding:2px 8px}
+.pn-saidas{font-size:.78rem;font-weight:800;color:var(--red);background:#fde8e6;border-radius:999px;padding:1px 7px} .pn-tempo{font-size:.8rem;font-weight:800;color:#1b5f93;margin-left:auto}
+.pn-prog{height:6px;border-radius:6px;background:#e6edf3;overflow:hidden} .pn-prog span{display:block;height:100%;background:var(--azul-2)}
+.pn-al small{font-size:.74rem;color:var(--muted)} .pn-motivo{color:var(--red) !important}
+.pn-nota{font-size:.9rem} .pn-nota b{font-size:1.15rem;color:var(--verde)}
+.pn-acts{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap} .pn-acts .btn{padding:4px 9px;font-size:.8rem}
 .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center} .kpi b{display:block;font-size:1.6rem} .kpi span{font-size:.75rem;color:var(--muted);text-transform:uppercase;font-weight:800}
 .tabela{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:.9rem}
 .tabela th{background:#f5f8fb;text-align:left;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px}
@@ -556,13 +574,13 @@ document.addEventListener("keydown", e => { if(E.ativo && (e.ctrlKey || e.metaKe
 window.addEventListener("beforeunload", e => { if(E.ativo && !E.desarmar){ salvar(); e.preventDefault(); e.returnValue = ""; } });
 
 /* =================== PAINEL DO PROFESSOR =================== */
-const PN = { tent:{}, res:{}, sala:{}, timer:null };
+const PN = { tent:{}, res:{}, sala:{}, timer:null, modo:(() => { try{ return localStorage.getItem("pde_pn_modo") || "grade"; }catch(e){ return "grade"; } })(), filtro:"", antes:{}, alertas:[], pronto:false };
 async function painel(id){
   try{ const s = await getDoc(doc(db, "provas_online", id)); if(!s.exists()) throw 0; E.prova = { id:s.id, ...s.data() }; }
   catch(e){ $("tela").innerHTML = '<div class="card vazio">Prova não encontrada.</div>'; return; }
   const p = E.prova; $("topoT").textContent = "Painel · " + p.titulo; $("lnkVoltar").href = "/prova/";
   E.unsub.push(onSnapshot(doc(db, "provas_online", id), s => { if(s.exists()){ E.prova = { id:s.id, ...s.data() }; desenharPainel(); } }));
-  E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_tentativas"), s => { PN.tent = {}; s.forEach(d => PN.tent[d.id] = d.data()); desenharPainel(); }));
+  E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_tentativas"), s => { PN.tent = {}; s.forEach(d => PN.tent[d.id] = d.data()); vigiarBloqueios(); desenharPainel(); }));
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_resultados"), s => { PN.res = {}; s.forEach(d => PN.res[d.id] = d.data()); desenharPainel(); }));
   // sala de espera: quem já entrou e quem tocou em "Estou pronto"
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_sala"), s => { PN.sala = {}; s.forEach(d => PN.sala[d.id] = d.data()); desenharPainel(); }, () => {}));
@@ -592,9 +610,15 @@ function desenharPainel(){
       '<p>Os alunos veem a prova no Início e tocam em "Estou pronto". Quando você iniciar, os tablets mostram 10, 9, 8... e a prova abre junto para todos, em tela cheia.</p>'+
       '<button class="btn btn-ok" data-action="pn-abrir" style="font-size:1.1rem;padding:14px 26px;margin-top:6px">▶️ Iniciar a prova agora</button></div>' :
      p.status === "agendada" && ms(p.abre_em) > agora() && ms(p.abre_em) - agora() < 60000 ? '<div class="espera" style="margin-top:14px"><b>A prova abre em <span data-prazo="'+ms(p.abre_em)+'">'+mmss((ms(p.abre_em) - agora()) / 1000)+'</span></b><p>Os tablets estão mostrando a contagem.</p></div>' : '')+
-    '<div class="kpis"><div class="kpi"><b>'+alunos.length+'</b><span>Alunos</span></div><div class="kpi"><b>'+(c.nao + c.sala)+'</b><span>'+(c.sala ? 'Ainda não começaram ('+c.sala+' na sala)' : 'Não entraram')+'</span></div><div class="kpi"><b style="color:#1b5f93">'+c.and+'</b><span>Fazendo</span></div><div class="kpi"><b style="color:var(--red)">'+c.blo+'</b><span>Bloqueados</span></div><div class="kpi"><b style="color:var(--verde)">'+c.ent+'</b><span>Entregaram</span></div></div></div>'+
-    '<table class="tabela"><thead><tr><th>Aluno</th><th>Situação</th><th>Respondidas</th><th>Saídas</th><th>Tempo</th><th>Nota</th><th></th></tr></thead><tbody>'+
-    alunos.map(a => { const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid);
+    '</div>'+
+    // barra fixa: números da turma (servem de filtro), troca grade/lista e alertas de quem foi bloqueado
+    '<div class="pn-barra"><div class="kpis pn-kpis">'+[["", alunos.length, "Alunos", ""], ["nao", c.nao + c.sala, c.sala ? "Não começaram ("+c.sala+" na sala)" : "Não entraram", ""], ["and", c.and, "Fazendo", "#1b5f93"], ["blo", c.blo, "Bloqueados", "var(--red)"], ["ent", c.ent, "Entregaram", "var(--verde)"]]
+      .map(([f, n, rot, cor]) => '<button type="button" class="kpi'+(PN.filtro === f ? " on" : "")+(f === "blo" && n ? " pisca" : "")+'" data-action="pn-filtro" data-arg="'+f+'"><b'+(cor ? ' style="color:'+cor+'"' : '')+'>'+n+'</b><span>'+rot+'</span></button>').join("")+'</div>'+
+      '<div class="pn-ferr"><div class="pn-modo" role="group" aria-label="Modo de ver"><button type="button" class="'+(PN.modo === "grade" ? "on" : "")+'" data-action="pn-modo" data-arg="grade">▦ Sala</button><button type="button" class="'+(PN.modo === "lista" ? "on" : "")+'" data-action="pn-modo" data-arg="lista">☰ Lista</button></div>'+
+        (PN.filtro ? '<button type="button" class="btn btn-gh btn-sm" data-action="pn-filtro" data-arg="">Mostrar todos</button>' : '')+'</div>'+
+      (PN.alertas.length ? '<div class="pn-alertas">'+PN.alertas.slice(-3).reverse().map(x => '<div>🔴 <b>'+esc(x.nome)+'</b> foi bloqueado(a) às '+x.hora+(x.motivo ? ' · '+esc(x.motivo) : '')+'</div>').join("")+'<button type="button" class="btn btn-gh btn-sm" data-action="pn-alertas-ok">Ok, visto</button></div>' : '')+'</div>'+
+    (PN.modo === "grade" ? gradePainel(alunos, nq, respondidas) : '<table class="tabela"><thead><tr><th>Aluno</th><th>Situação</th><th>Respondidas</th><th>Saídas</th><th>Tempo</th><th>Nota</th><th></th></tr></thead><tbody>'+
+    alunosFiltrados(alunos).map(a => { const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid);
       const ev = t ? (t.eventos || []).filter(x => x.e === "desvio").map(x => hora(x.t)+" "+x.m).join(" · ") : "";
       return '<tr><td><b>'+esc(a.nome)+'</b>'+(t && t.aparelho ? '<small>'+(ICO_AP[t.aparelho] || "")+' '+esc(t.aparelho)+(t.trocas ? ' · trocou de aparelho '+t.trocas+'x' : '')+'</small>' : '')+'</td><td><span class="chip '+s[1]+'">'+s[0]+'</span>'+(t && t.liberacoes ? '<small>liberado '+t.liberacoes+'x</small>' : '')+'</td>'+
         '<td>'+(t ? respondidas(t)+' / '+nq : '-')+'</td><td>'+(t ? (t.desvios || 0) + (ev ? '<small title="'+esc(ev)+'">'+esc(ev.slice(0, 60))+'</small>' : '') : '-')+'</td>'+
@@ -604,7 +628,7 @@ function desenharPainel(){
         '<td><div class="acoes">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">Dar nova chance</button>' : '')+
           (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'">+10 min</button>' : '')+
           (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Prova respondida, correção e registro de horários (para imprimir ou PDF)">📄 Relatório</button>' : '')+'</div></td></tr>'; }).join("")+
-    '</tbody></table><p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles '+(p.aguardando ? 'quando a prova terminar' : 'depois das '+hora(ms(p.fecha_em)))+'.'+
+    '</tbody></table>')+'<p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles '+(p.aguardando ? 'quando a prova terminar' : 'depois das '+hora(ms(p.fecha_em)))+'.'+
     ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>'+
     '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button>'+(p.fotos ? '<button class="btn btn-gh btn-sm" data-action="pn-fotos">📸 Fotos de confirmação</button>' : '')+'</div>';
   const pendTotal = Object.values(PN.res).reduce((t, r) => t + (r.pendentes || 0), 0), temAbertas = p.questoes.some(q => !["multipla", "vf"].includes(q.tipo));
@@ -612,6 +636,50 @@ function desenharPainel(){
   if(temAbertas && Object.keys(PN.res).length && !CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<span class="btn btn-gh btn-sm" aria-disabled="true" style="cursor:default;opacity:.75">✍️ Correção das questões abertas: em ativação</span>');
   if(temAbertas && Object.keys(PN.res).length && CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">✍️ Corrigir questões abertas'+(pendTotal ? " ("+pendTotal+" para corrigir)" : "")+'</button>');
 }
+// ordem de atenção: bloqueados primeiro, depois quem saiu da tela, quem está fazendo (menos avançado antes), sala, não entrou, entregou
+function prioridade(a, nq){
+  const t = PN.tent[a.uid], sl = PN.sala[a.uid];
+  if(t && t.status === "bloqueada") return 0;
+  if(t && t.status === "em_andamento") return (t.desvios ? 1 : 2);
+  if(!t) return sl ? 3 : 4;
+  return 5;
+}
+function alunosFiltrados(alunos){
+  const f = PN.filtro, nq = (E.prova.questoes || []).length;
+  return alunos.filter(a => { if(!f) return true; const s = situacaoAluno(a.uid)[1].slice(2); return f === "nao" ? (s === "nao" || s === "sala") : s === f; })
+    .slice().sort((x, y) => prioridade(x, nq) - prioridade(y, nq) || String(x.nome).localeCompare(String(y.nome), "pt-BR"));
+}
+// modo Sala: um cartão por aluno, a turma inteira numa tela (sem rolar), cor pela situação
+function gradePainel(alunos, nq, respondidas){
+  const lista = alunosFiltrados(alunos);
+  if(!lista.length) return '<div class="card vazio">Nenhum aluno nesta situação.</div>';
+  return '<div class="pn-grade">'+lista.map(a => {
+    const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid), cls = s[1].slice(2), resp = t ? respondidas(t) : 0, pct = nq ? Math.round(100 * resp / nq) : 0;
+    const ult = t ? (t.eventos || []).filter(x => x.e === "desvio").slice(-1)[0] : null;
+    return '<div class="pn-al st-'+cls+(PN.flash && PN.flash[a.uid] ? " flash" : "")+'">'+
+      '<div class="pn-top"><b title="'+esc(a.nome)+'">'+esc(a.nome)+'</b>'+(t && t.aparelho ? '<span title="'+esc(t.aparelho)+'">'+(ICO_AP[t.aparelho] || "")+'</span>' : '')+'</div>'+
+      '<div class="pn-st"><span class="chip '+s[1]+'">'+s[0]+'</span>'+(t && t.desvios ? '<span class="pn-saidas" title="'+esc(ult ? hora(ult.t)+" "+ult.m : "")+'">🚪 '+t.desvios+'</span>' : '')+
+        (t && t.status === "em_andamento" ? '<span class="pn-tempo">⏱ <span data-prazo="'+ms(t.prazo)+'">'+mmss((ms(t.prazo) - agora()) / 1000)+'</span></span>' : '')+'</div>'+
+      (t && t.status !== "entregue" ? '<div class="pn-prog" title="'+resp+' de '+nq+' respondidas"><span style="width:'+pct+'%"></span></div><small>'+resp+' de '+nq+' respondidas</small>' : '')+
+      (r ? '<div class="pn-nota"><b>'+r.nota+'</b> / '+r.total+(r.pendentes ? ' <small>'+r.pendentes+' p/ corrigir</small>' : '')+'</div>' : '')+
+      (ult && t.status === "bloqueada" ? '<small class="pn-motivo">'+esc(hora(ult.t)+" · "+ult.m)+'</small>' : '')+
+      '<div class="pn-acts">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">🔓 Nova chance</button>' : '')+
+        (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'" title="Mais 10 minutos">+10</button>' : '')+
+        (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Relatório do aluno">📄</button>' : '')+'</div></div>';
+  }).join("")+'</div>';
+}
+// quem acabou de ser bloqueado: alerta no topo, cartão piscando e um bipe curto (só depois da primeira carga)
+function vigiarBloqueios(){
+  const alunos = (E.prova && E.prova.alunos) || []; PN.flash = PN.flash || {};
+  alunos.forEach(a => { const t = PN.tent[a.uid], st = t ? t.status : "";
+    if(PN.pronto && st === "bloqueada" && PN.antes[a.uid] !== "bloqueada"){
+      const ult = (t.eventos || []).filter(x => x.e === "desvio").slice(-1)[0];
+      PN.alertas.push({ nome:a.nome, hora:hora(Date.now()), motivo:ult ? ult.m : "" }); PN.flash[a.uid] = true; setTimeout(() => { delete PN.flash[a.uid]; desenharPainel(); }, 6000); bipe();
+    }
+    PN.antes[a.uid] = st; });
+  PN.pronto = true;
+}
+function bipe(){ try{ const ac = new (window.AudioContext || window.webkitAudioContext)(), o = ac.createOscillator(), g = ac.createGain(); o.type = "sine"; o.frequency.value = 880; g.gain.value = .08; o.connect(g); g.connect(ac.destination); o.start(); o.frequency.setValueAtTime(660, ac.currentTime + .15); o.stop(ac.currentTime + .3); setTimeout(() => ac.close(), 500); }catch(e){} }
 function modalLiberar(uid){
   const a = (E.prova.alunos || []).find(x => x.uid === uid) || { nome:"aluno" }, t = PN.tent[uid] || {};
   const ev = (t.eventos || []).filter(x => x.e === "desvio" || x.e === "troca").map(x => "• " + hora(x.t) + ": " + (x.e === "troca" ? "trocou de aparelho, " : "") + x.m).join("\n");
@@ -823,6 +891,9 @@ document.addEventListener("click", e => {
   }
   else if(a === "vf"){ const q = questoesOrd()[E.i]; marcar(q.id, arg); desenharQuestao(); }
   else if(a === "pn-liberar") modalLiberar(arg);
+  else if(a === "pn-filtro"){ PN.filtro = arg || ""; desenharPainel(); }
+  else if(a === "pn-modo"){ PN.modo = arg; try{ localStorage.setItem("pde_pn_modo", arg); }catch(e){} desenharPainel(); }
+  else if(a === "pn-alertas-ok"){ PN.alertas = []; desenharPainel(); }
   else if(a === "pn-lib-ok") acao({ acao:"liberar", uid:arg, modo:el.dataset.modo }, el);
   else if(a === "pn-tempo") acao({ acao:"tempo", uid:arg, min:10 }, el);
   else if(a === "pn-encerrar"){
