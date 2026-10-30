@@ -32,6 +32,12 @@ a{color:var(--azul)}
 .marca span{display:block;font-size:.78rem;color:rgba(255,255,255,.72)}
 .tb{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:9px 14px;font-size:.84rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;min-height:42px}
 .tb.lima{background:var(--lima);border-color:var(--lima);color:var(--escuro)}
+/* créditos do professor sempre à vista no topo: amarelo acabando, vermelho acabou */
+.tb.ia-chip{cursor:pointer;font-family:inherit;white-space:nowrap}.tb.ia-chip[hidden]{display:none}
+.tb.ia-chip.baixo{border-color:#f2b632;color:#ffd36b}
+.tb.ia-chip.zero{background:#C2362C;border-color:#C2362C;color:#fff;animation:iaPulsa 1.8s ease-in-out infinite}
+@keyframes iaPulsa{50%{box-shadow:0 0 0 5px rgba(194,54,44,.25)}}
+@media (prefers-reduced-motion:reduce){.tb.ia-chip.zero{animation:none}}
 .caixa{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px}
 .olho{font-size:.76rem;font-weight:800;color:var(--verde);letter-spacing:.07em;text-transform:uppercase}
 h1{font-size:clamp(1.55rem,3.2vw,2.05rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
@@ -229,6 +235,7 @@ h2{font-size:1.1rem;font-weight:800}
   <header class="topo">
     <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador</small><b>Portal <span class="ia-luz">IA</span></b><span id="quem">Carregando...</span></div></div>
     <a class="tb" href="#inicio" data-action="inicio" id="btnInicio" hidden>Novo pedido</a>
+    <button type="button" class="tb ia-chip" id="iaChip" data-action="comprar" hidden></button>
     <a class="tb lima" href="/entrar/">Voltar ao Portal</a>
   </header>
   <div class="carreg" id="carregando" style="justify-content:center;padding:70px 0"><span class="giro"></span>Carregando...</div>
@@ -316,7 +323,7 @@ async function carregarRecentes(){
     E.recentes.sort((a, b) => (!!b.favorito - !!a.favorito) || (ms(b.atualizado_em) - ms(a.atualizado_em)));
   }catch(e){ console.warn("recentes:", e.code); }
 }
-async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; E.bloqueio = r.data && !r.data.pode_usar ? (r.data.motivo || "Sem créditos para o Portal IA.") : ""; }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } }
+async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; E.bloqueio = r.data && !r.data.pode_usar ? (r.data.motivo || "Sem créditos para o Portal IA.") : ""; }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } chipIA(); }
 const contexto = () => ({ disciplina:E.disc, serie:E.serie, turma:(turmaAtual() || {}).nome || "" });
 const nf = n => Number(n || 0).toLocaleString("pt-BR");
 function textoCota(){
@@ -328,7 +335,20 @@ function textoCota(){
   return p.join(" · ") || "Sem créditos";
 }
 // avisa e atualiza o saldo depois de cada uso
-function aposUso(cota){ try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} if(cota){ E.cota = cota; E.bloqueio = cota.pode_usar ? "" : (cota.motivo || ""); } }
+function aposUso(cota){ try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} if(cota){ E.cota = cota; E.bloqueio = cota.pode_usar ? "" : (cota.motivo || ""); } chipIA(); }
+// créditos no topo: mesma conta do menu do Portal e do Provas (rede no mês + créditos próprios)
+function chipIA(){
+  const el = document.getElementById("iaChip"), c = E.cota; if(!el) return;
+  const rede = c && c.rede, pessoal = (c && c.pessoal && c.pessoal.saldo) || 0;
+  if(!c || c.admin || (!rede && !pessoal)){ el.hidden = true; return; }
+  const nf = n => Number(n || 0).toLocaleString("pt-BR");
+  const disp = (rede ? rede.restante_mes : 0) + pessoal, ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1);
+  const est = !c.pode_usar ? "zero" : disp / ref <= 0.2 ? "baixo" : "";
+  el.className = "tb ia-chip" + (est ? " " + est : "");
+  el.innerHTML = est === "zero" ? "✨ 0 créditos · <b>Comprar</b>" : "✨ <b>" + nf(disp) + "</b> " + (disp === 1 ? "crédito" : "créditos");
+  el.title = [rede ? nf(rede.restante_mes) + " da rede este mês" + (rede.teto > 0 ? " (limite de " + nf(rede.teto) + "/mês)" : "") : "", pessoal ? nf(pessoal) + " seus" : ""].filter(Boolean).join(" + ") + ". Clique para comprar mais.";
+  el.hidden = false;
+}
 
 /* ===================== telas ===================== */
 function ir(v){ E.vista = v; $("btnInicio").hidden = v === "inicio"; desenhar(); window.scrollTo(0, 0); }

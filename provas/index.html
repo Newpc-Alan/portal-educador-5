@@ -646,6 +646,13 @@ html, body { background: #f4f7fa !important; }
 #pde-painel .pde-topbar .pde-btn-ghost:hover { background: rgba(255,255,255,.16); }
 #pde-painel .pde-topbar .pde-voltar { text-decoration: none; background: var(--lima); color: var(--escuro); border-color: var(--lima); }
 #pde-painel .pde-topbar .pde-voltar:hover { background: #9fd451; }
+/* créditos do Portal IA do professor, sempre à vista; amarelo quando está acabando, vermelho quando acabou */
+#pde-painel .pde-topbar .pde-ia-chip { text-decoration: none; white-space: nowrap; }
+#pde-painel .pde-topbar .pde-ia-chip[hidden] { display: none; }
+#pde-painel .pde-topbar .pde-ia-chip.baixo { border-color: #f2b632; color: #ffd36b; }
+#pde-painel .pde-topbar .pde-ia-chip.zero { background: #C2362C; border-color: #C2362C; color: #fff; animation: pdeIaPulsa 1.8s ease-in-out infinite; }
+@keyframes pdeIaPulsa { 50% { box-shadow: 0 0 0 5px rgba(194,54,44,.25); } }
+@media (prefers-reduced-motion: reduce) { #pde-painel .pde-topbar .pde-ia-chip.zero { animation: none; } }
 #pde-painel .pde-topbar-sep { background: rgba(255,255,255,.2); }
 /* botoes e passos no azul do Portal */
 #pde-painel .pde-btn-primary { background: #2671AB; }
@@ -787,6 +794,7 @@ html, body { background: #f4f7fa !important; }
         <span class="pde-topbar-sep"></span>
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="mpAbrir" title="Suas provas guardadas na nuvem, organizadas em pastas">📁 Minhas provas</button>
         <button class="pde-btn pde-btn-primary pde-btn-online pde-btn-sm" data-action="olAbrir" hidden title="Aplicar esta prova no Portal do Aluno, com horário marcado e correção automática">📡 Aplicar online</button>
+        <a class="pde-btn pde-btn-ghost pde-btn-sm pde-ia-chip" id="pde-ia-chip" href="/apps/portal-ia/#comprar" hidden></a>
         <button class="pde-btn pde-btn-ghost pde-btn-sm" data-action="guiaAbrir" title="Conheça os recursos de Provas e Avaliações">❔ Guia</button>
         <button class="pde-btn pde-btn-ghost pde-btn-sm pde-nuvem-btn" data-action="mpSalvar" id="mp-salvar" title="Guardar esta prova na sua conta">☁ Salvar</button>
         <a class="pde-btn pde-btn-ghost pde-btn-sm pde-voltar" href="/entrar/" title="Voltar ao Portal do Educador">← Voltar ao Portal</a>
@@ -3834,7 +3842,30 @@ const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
 const $ = (i) => document.getElementById(i);
 // IA embarcada (Portal IA): o modal "Gerar com IA" chama por aqui; os créditos são os mesmos do Portal IA
 window.PDEPortalIA = { async chamar(dados){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-  return (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:250000 })(dados)).data; } };
+  const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:250000 })(dados)).data;
+  // toda resposta do Portal IA traz a cota atualizada: o chip do topo e o menu do Portal ficam em dia
+  const c = dados && dados.acao === "cota" ? r : (r && r.cota);
+  if(c && auth.currentUser){ try{ sessionStorage.setItem("pde_ia_saldo", JSON.stringify({ uid:auth.currentUser.uid, em:Date.now(), c })); }catch(e){} chipIA(c); }
+  return r; } };
+// créditos do Portal IA no topo (mesma conta do menu do Portal: rede no mês + créditos próprios)
+function chipIA(c){
+  const el = $("pde-ia-chip"); if(!el) return;
+  const rede = c && c.rede, pessoal = (c && c.pessoal && c.pessoal.saldo) || 0;
+  if(!c || c.admin || (!rede && !pessoal)){ el.hidden = true; return; }
+  const nf = n => Number(n || 0).toLocaleString("pt-BR");
+  const disp = (rede ? rede.restante_mes : 0) + pessoal, ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1);
+  const est = !c.pode_usar ? "zero" : disp / ref <= 0.2 ? "baixo" : "";
+  el.className = "pde-btn pde-btn-ghost pde-btn-sm pde-ia-chip" + (est ? " " + est : "");
+  el.innerHTML = est === "zero" ? "✨ 0 créditos · <b>Comprar</b>" : "✨ <b>" + nf(disp) + "</b> " + (disp === 1 ? "crédito" : "créditos") + " IA";
+  el.title = [rede ? nf(rede.restante_mes) + " da rede este mês" + (rede.teto > 0 ? " (limite de " + nf(rede.teto) + "/mês)" : "") : "", pessoal ? nf(pessoal) + " seus" : ""].filter(Boolean).join(" + ") + ". Clique para comprar mais.";
+  el.hidden = false;
+}
+async function montarChipIA(uid){
+  let c = null;
+  try{ const g = JSON.parse(sessionStorage.getItem("pde_ia_saldo") || "null"); if(g && g.uid === uid && Date.now() - g.em < 300000) c = g.c; }catch(e){}
+  if(c){ chipIA(c); return; }
+  try{ await window.PDEPortalIA.chamar({ acao:"cota" }); }catch(e){ console.warn("créditos IA:", e.code || e.message); }
+}
 const P = { prof:"", escolas:[], muni:null, turmas:[] };
 const ler = async (c, i) => { try{ const d = await getDoc(doc(db, c, i)); return d.exists() ? { id:d.id, ...d.data() } : null; }catch(e){ console.warn(c, e.code); return null; } };
 
@@ -3896,6 +3927,7 @@ onAuthStateChanged(auth, async (user) => {
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
   P.prof = u.nome || user.displayName || "";
   P.admin = u.perfil === "admin";
+  if(["professor", "gestor"].includes(u.perfil)) montarChipIA(user.uid);
   $("pde-quem").textContent = "Conectado como " + (P.prof || user.email) + " · salva neste aparelho";
   if(u.municipio_id) P.muni = await ler("municipios", u.municipio_id);
   else if(P.admin){
