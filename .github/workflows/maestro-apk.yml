@@ -46,11 +46,14 @@ jobs:
             echo "::add-mask::$SENHA"; echo "MAESTRO_SENHA=$SENHA" >> "$GITHUB_ENV"; echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"; exit 0
           fi
           if [ -z "$B64" ] || [ -z "$SENHA" ]; then echo "::error::Faltam os segredos MAESTRO_KEYSTORE_B64 e MAESTRO_SENHA (veja maestro-app/LEIAME.md)."; exit 1; fi
-          printf '%s' "$B64" | base64 -d > "$RUNNER_TEMP/maestro.keystore"
+          printf '%s' "$B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/maestro.keystore"
+          # a senha copiada do Bloco de Notas pode vir com espaço ou quebra de linha no fim
+          LIMPA="$(printf '%s' "$SENHA" | tr -d ' \r\n')"; echo "::add-mask::$LIMPA"
+          echo "MAESTRO_SENHA=$LIMPA" >> "$GITHUB_ENV"
           echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"
       - name: Compilar e assinar
         env:
-          MAESTRO_SENHA: ${{ inputs.so_testar && env.MAESTRO_SENHA || secrets.MAESTRO_SENHA }}
+          MAESTRO_SENHA: ${{ env.MAESTRO_SENHA }}
           MAESTRO_VERSAO: ${{ inputs.versao }}
           MAESTRO_CODIGO: ${{ inputs.codigo }}
         run: |
