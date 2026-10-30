@@ -3733,6 +3733,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <style>
   #iaFundo{position:fixed;inset:0;z-index:9100;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #iaFundo.aberto{display:flex}
+  .ferr.ferr-ia.bloq{filter:saturate(.55) brightness(.92)}
+  .ferr.ferr-ia.bloq::after{content:"🔒";background:#fff;color:inherit;font-size:10px;padding:1px 4px}
+  .ia-bloq-fundo{position:fixed;inset:0;z-index:9200;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
+  .ia-bloq-fundo.aberto{display:flex}
+  .ia-bloq{background:#fff;color:#0f2c4a;border-radius:18px;width:min(440px,100%);padding:26px 24px 22px;text-align:center;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6);background-image:linear-gradient(90deg,#8DC63F,#2E9BD6,#7b5cff);background-size:100% 6px;background-repeat:no-repeat;background-color:#fff}
+  .ia-bloq-ico{font-size:34px}
+  .ia-bloq h2{margin:6px 0 6px;font-size:21px}
+  .ia-bloq p{margin:0 0 10px;font-size:15.5px;font-weight:700}
+  .ia-bloq p.ia-bloq-d{font-weight:400;font-size:14px;color:#4b5b6b;line-height:1.5}
+  .ia-bloq button{margin-top:6px;background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:11px 26px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:44px}
   #iaJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(560px,100%);max-height:92vh;overflow:auto;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
   #iaTopo{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;background:#071621;color:#fff;border-bottom:3px solid #8DC63F}
   #iaTopo h2{font-size:18px;margin:0} #iaTopo button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
@@ -3965,7 +3975,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ---------- Aula com IA: o professor pede o tema e a aula entra como páginas da Lousa ---------- */
   const DISC_IA = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Inglês","Ensino Religioso","Educação Infantil","Interdisciplinar"];
+  function avisoBloqueioIA(){
+    let bg = document.getElementById("iaBloq");
+    if(!bg){
+      bg = document.createElement("div"); bg.id = "iaBloq"; bg.className = "ia-bloq-fundo";
+      bg.innerHTML = '<div class="ia-bloq" role="dialog" aria-modal="true" aria-labelledby="iaBloqTit"><div class="ia-bloq-ico" aria-hidden="true">✨🔒</div>' +
+        '<h2 id="iaBloqTit">Aula com IA</h2><p>Sua licença ainda não está habilitada para este recurso.</p>' +
+        '<p class="ia-bloq-d">Com ele, você diz o tema e a IA do Portal monta a aula em slides direto na Lousa: linha do tempo, conceitos, desafios, roteiro para o professor e até ilustrações. Para liberar, fale com a Secretaria de Educação ou com a NEWPC.</p>' +
+        '<button type="button" data-ia-bloq="ok">Entendi</button></div>';
+      document.body.appendChild(bg);
+      bg.addEventListener("click", (e) => { if(e.target === bg || e.target.closest("[data-ia-bloq]")) bg.classList.remove("aberto"); });
+      bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); bg.classList.remove("aberto"); } });
+    }
+    bg.classList.add("aberto"); setTimeout(() => bg.querySelector("button").focus(), 30);
+  }
   function janelaAulaIA(){
+    if(!lousaCfg.podeBasica){ avisoBloqueioIA(); return; }
     let bg = document.getElementById("iaFundo");
     if(!bg){
       bg = document.createElement("div"); bg.id = "iaFundo";
@@ -4138,8 +4163,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const adm = !!(eu && eu.perfil === "admin");
     lousaCfg.podeBasica = adm || (lousaCfg.basica && (recs.has("lousa_ia") || recs.has("lousa_ia_ultra")));
     lousaCfg.podeUltra = adm || (lousaCfg.ultra && recs.has("lousa_ia_ultra"));
+    // sem liberação o botão continua à vista, com cadeado: no clique explica (desperta o interesse pelo recurso)
     const bIA = document.querySelector('[data-action="ia-aula"]');
-    if(bIA) bIA.style.display = lousaCfg.podeBasica ? "" : "none";
+    if(bIA){ bIA.style.display = ""; bIA.classList.toggle("bloq", !lousaCfg.podeBasica);
+      bIA.title = lousaCfg.podeBasica ? "Montar uma aula em slides com a IA do Portal (usa créditos de IA)" : "Aula com IA: recurso não incluído na sua licença"; }
     const pedido = new URLSearchParams(location.search).get("abrir");
     if(pedido){ await carregarLista().catch(() => {}); abrirTrabalho(pedido); }
   });
