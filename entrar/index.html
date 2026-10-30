@@ -1293,7 +1293,11 @@
           <td class="c"><input type="checkbox" id="planoPainel" data-plano="sec" value="painel" aria-label="Painel da Rede para a Secretaria"></td></tr></tbody></table>
         <table class="mod-tab" style="margin-top:10px"><thead><tr><th>Recursos extras</th><th class="c">Liberado</th></tr></thead>
           <tbody><tr><td>Prova online<small>em Provas e Avaliações: o professor aplica a prova no Portal do Aluno, com horário, modo protegido e correção automática</small></td>
-          <td class="c"><input type="checkbox" id="planoProvaOnline" data-plano="rec" value="prova_online" aria-label="Prova online"></td></tr></tbody></table>
+          <td class="c"><input type="checkbox" id="planoProvaOnline" data-plano="rec" value="prova_online" aria-label="Prova online"></td></tr>
+          <tr><td>Lousa IA Básica<small>na Lousa: o professor diz o tema e a IA monta a aula em slides (gasta créditos de IA da rede)</small></td>
+          <td class="c"><input type="checkbox" id="planoLousaIA" data-plano="rec" value="lousa_ia" aria-label="Lousa IA Básica"></td></tr>
+          <tr><td>Lousa IA Ultra<small>a mesma aula com ilustrações geradas por IA (créditos de imagem; inclui a Básica)</small></td>
+          <td class="c"><input type="checkbox" id="planoLousaUltra" data-plano="rec" value="lousa_ia_ultra" aria-label="Lousa IA Ultra"></td></tr></tbody></table>
       </div>
       <div class="usr-aviso">A liberação vale para todos os professores e alunos aprovados deste município. Os módulos marcados só para professor não aparecem no Portal do Aluno.</div>
     </div>
@@ -2970,7 +2974,8 @@
   }
 
   let painelAlunos = { total:null, hoje:0, sete:0 };
-  const nomeRecurso = (id) => id === "prova_online" ? "Prova online" : ((MODULOS.find(m => m.id === id) || {}).nome || id);
+  const NOMES_RECURSO = { prova_online:"Prova online", lousa_ia:"Lousa IA Básica", lousa_ia_ultra:"Lousa IA Ultra" };
+  const nomeRecurso = (id) => NOMES_RECURSO[id] || ((MODULOS.find(m => m.id === id) || {}).nome || id);
   function painelInteresse(us, ac){
     const porUid = {}; us.forEach(u => { porUid[u.id] = u; });
     const grupos = {};   // município -> recurso -> Set(uid)
@@ -4725,13 +4730,16 @@
       $("usrTurmas").innerHTML = h;
     }
     $("usrTurCont").textContent = ed.turmas.size ? ed.turmas.size+" marcada(s)" : "";
+    // Lousa com IA, liberada só para este professor (a Ultra já inclui a Básica)
+    const OPCOES_LOUSA_IA = [{ v:"rec:lousa_ia", nome:"Lousa IA Básica (aula em slides com IA)" }, { v:"rec:lousa_ia_ultra", nome:"Lousa IA Ultra (aula com ilustrações)" }];
     // recursos exclusivos: o que o plano do município não tem, liberado só para este professor
     const blocoExt = $("usrBlocoExtras"), professorDaRede = ed.perfil === "professor" && inst && !!muniSel, avulso = ed.perfil === "professor" && !inst;
     blocoExt.style.display = professorDaRede || avulso ? "" : "none";
     if(avulso){
       // avulso: o que fica fora do pacote escolhido (sem prova online, que depende de turmas da rede)
       const doPac = new Set(listaDoPacote(L.conteudo));
-      const opcoes = MODULOS.filter(m => !m.soAluno && !doPac.has(m.id) && m.id !== "gestao" && m.id !== "relatorios").map(m => ({ v:m.id, nome:m.nome }));
+      const opcoes = MODULOS.filter(m => !m.soAluno && !doPac.has(m.id) && m.id !== "gestao" && m.id !== "relatorios").map(m => ({ v:m.id, nome:m.nome }))
+        .concat(OPCOES_LOUSA_IA);
       [...ed.extras].forEach(v => { if(!opcoes.some(o => o.v === v)) ed.extras.delete(v); });
       $("usrExtInfo").textContent = !opcoes.length ? "O pacote Completo já libera tudo." : "Licença avulsa no pacote "+NOME_PLANO[L.conteudo]+". Marque o que este professor recebe a mais.";
       $("usrExtras").innerHTML = opcoes.map(o => '<label class="chk"><input type="checkbox" data-action="usr-extra" value="'+escapeAttr(o.v)+'"'+(ed.extras.has(o.v) ? " checked" : "")+'> '+escapeHtml(o.nome)+'</label>').join("");
@@ -4742,7 +4750,8 @@
       const doMuni = new Set(temPlano ? muniSel.modulos_professor : MODULOS.map(m => m.id));
       const recMuni = new Set(Array.isArray(muniSel.recursos) ? muniSel.recursos : []);
       const opcoes = MODULOS.filter(m => !m.soAluno && !doMuni.has(m.id)).map(m => ({ v:m.id, nome:m.nome }))
-        .concat(recMuni.has("prova_online") ? [] : [{ v:"rec:prova_online", nome:"Prova online (aplicar no Portal do Aluno)" }]);
+        .concat(recMuni.has("prova_online") ? [] : [{ v:"rec:prova_online", nome:"Prova online (aplicar no Portal do Aluno)" }])
+        .concat(OPCOES_LOUSA_IA.filter(o => !recMuni.has(o.v.slice(4)) && !(o.v === "rec:lousa_ia" && recMuni.has("lousa_ia_ultra"))));
       [...ed.extras].forEach(v => { if(!opcoes.some(o => o.v === v)) ed.extras.delete(v); });   // o município passou a ter: não precisa mais
       const nm = NOME_PLANO[muniSel.plano_nome || nomeDoPlano(muniSel.modulos_professor, muniSel.recursos, muniSel.modulos_secretaria)];
       $("usrExtInfo").textContent = !opcoes.length ? "O plano de "+muniSel.nome+" já libera tudo." :
@@ -7875,7 +7884,7 @@
       (profs.length ? '<div class="cr-bloco"><h3>Professores com créditos avulsos</h3><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+profs.map(k => { const s = crSaldo(k), cm = (k.consumo || {})[mes] || {};
         return '<tr><td>'+escapeHtml(k.nome || k.id)+'</td><td class="n"><b>'+crNum(s.saldo)+'</b> de '+crNum(s.total)+'</td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'</td><td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(k.id)+'">+ Créditos</button></td></tr>'; }).join("")+'</tbody></table></div></div>' : "")+
       // Lousa com IA: chaves de liga e desliga (a cobrança segue a mesma regra de créditos e planos do Portal IA)
-      '<div class="cr-bloco"><h3>\u2728 Lousa com IA</h3><p class="sub">Liga ou desliga o botão Aula IA da Lousa para todas as redes. Quem pode usar e quanto custa segue a mesma regra do Portal IA: créditos da rede nos planos Intermediário e Completo, ou créditos avulsos do professor. Você, como administrador, sempre consegue testar.</p>'+
+      '<div class="cr-bloco"><h3>\u2728 Lousa com IA</h3><p class="sub">Chave geral: desligada, ninguém usa (nem quem foi liberado). Ligada, vale para quem foi liberado: o <b>município</b> em Municípios › Plano › Recursos extras, ou um <b>professor</b> em Usuários › Gerenciar › Recursos exclusivos (vale também para licença avulsa). O gasto sai dos créditos da rede ou dos créditos avulsos do professor, como no Portal IA. Você, como administrador, sempre consegue testar.</p>'+
         '<label class="vd-check" style="margin:8px 0"><input type="checkbox" id="crLousaBas"'+(crA.lousa.basica ? " checked" : "")+'> <span><b>Lousa IA Básica</b> · aula em slides (formatos variados, roteiro do professor e conteúdos do Portal para continuar). Gasta '+cfg.precos.texto+' crédito(s).</span></label>'+
         '<label class="vd-check" style="margin:8px 0"><input type="checkbox" id="crLousaUltra"'+(crA.lousa.ultra ? " checked" : "")+'> <span><b>Lousa IA Ultra</b> · a mesma aula com ilustrações geradas por IA (capa e até 2 slides). Cada ilustração gasta '+cfg.precos.imagem+' créditos, até '+(cfg.precos.texto + 3 * cfg.precos.imagem)+' por aula. Imagem só no plano Completo ou com créditos avulsos.</span></label>'+
         '<div style="margin-top:10px"><button class="btn btn-primary" data-action="cr-salvar-lousa" id="crSalvarLousa">Salvar Lousa com IA</button></div></div>'+
@@ -8012,6 +8021,7 @@
   function desenharPlano(){
     $("planoPainel").checked = plano.sec.has("painel");
     $("planoProvaOnline").checked = plano.rec.has("prova_online");
+    $("planoLousaIA").checked = plano.rec.has("lousa_ia"); $("planoLousaUltra").checked = plano.rec.has("lousa_ia_ultra");
     $("planoModulos").innerHTML = MODULOS.map(md =>
       '<tr><td>'+escapeHtml(md.nome)+(md.obs ? '<small>'+escapeHtml(md.obs)+'</small>' : '')+'</td>'+
       '<td class="c"><input type="checkbox" data-plano="prof" value="'+md.id+'"'+(plano.prof.has(md.id)?" checked":"")+' aria-label="'+escapeAttr(md.nome)+' para professor"></td>'+
@@ -8020,7 +8030,7 @@
         : '<input type="checkbox" disabled title="Exclusivo do professor" aria-label="Exclusivo do professor">')+'</td></tr>').join("");
     contarPlano();
   }
-  function contarPlano(){ const nm = NOME_PLANO[nomeDoPlano([...plano.prof], [...plano.rec], [...plano.sec])]; $("planoCont").textContent = (nm ? "Plano "+nm+" · " : "")+plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : "")+(plano.rec && plano.rec.has("prova_online") ? " · Prova online" : ""); }
+  function contarPlano(){ const nm = NOME_PLANO[nomeDoPlano([...plano.prof], [...plano.rec], [...plano.sec])]; $("planoCont").textContent = (nm ? "Plano "+nm+" · " : "")+plano.prof.size+" p/ professor · "+plano.alu.size+" p/ aluno"+(plano.sec && plano.sec.has("painel") ? " · Painel da Rede" : "")+(plano.rec && plano.rec.has("prova_online") ? " · Prova online" : "")+(plano.rec && plano.rec.has("lousa_ia_ultra") ? " · Lousa IA Ultra" : plano.rec && plano.rec.has("lousa_ia") ? " · Lousa IA" : ""); }
   function atalhoPlano(acao){
     if(acao === "plano-basico" || acao === "plano-intermediario"){
       // básico: só os conteúdos; intermediário: básico + Formação Continuada + Portal 360º VR; o completo é "Plano completo"
@@ -8028,7 +8038,7 @@
       plano.prof = new Set(lista); plano.alu = new Set(MODULOS.filter(m => m.aluno && lista.includes(m.id)).map(m => m.id));
       plano.sec.clear(); plano.rec.clear();
     }
-    else if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); }
+    else if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); plano.rec.add("lousa_ia"); plano.rec.add("lousa_ia_ultra"); }
     else if(acao === "plano-nenhum"){ plano.prof.clear(); plano.alu.clear(); plano.sec.clear(); plano.rec.clear(); }
     else if(acao === "plano-alunos"){ plano.alu = new Set(MODULOS.filter(m => m.aluno && plano.prof.has(m.id)).map(m => m.id)); }
     desenharPlano();
@@ -8044,7 +8054,7 @@
       modulos_professor: MODULOS.filter(m => plano.prof.has(m.id)).map(m => m.id),
       modulos_aluno: MODULOS.filter(m => m.aluno && plano.alu.has(m.id)).map(m => m.id),
       modulos_secretaria: ["painel"].filter(x => plano.sec.has(x)),
-      recursos: ["prova_online"].filter(x => plano.rec.has(x)),
+      recursos: ["prova_online", "lousa_ia", "lousa_ia_ultra"].filter(x => plano.rec.has(x)),
       plano_nome: nomeDoPlano([...plano.prof], [...plano.rec], [...plano.sec]),
       atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
     };

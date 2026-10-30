@@ -507,10 +507,14 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
 
   /* ---------------- aula em slides para a Lousa (1 crédito) ---------------- */
   if (d.acao === 'aula_lousa') {
-    // gestão (config/portal_ia.lousa): Básica liga a aula em texto; Ultra libera as ilustrações. O administrador sempre pode testar.
+    // gestão: chave geral (config/portal_ia.lousa) + liberação do município (municipios.recursos) ou do professor (usuarios.recursos_extra).
+    // lousa_ia = Básica; lousa_ia_ultra = Ultra (ilustrações, inclui a Básica). O administrador sempre pode testar.
     const gl = { basica: true, ultra: false, ...((ctx.cfgRaw && ctx.cfgRaw.lousa) || {}) };
-    if (!ctx.admin && !gl.basica) throw new HttpsError('failed-precondition', 'A Aula com IA na Lousa está desligada no momento.');
-    const ultra = d.ultra === true && (ctx.admin || gl.ultra);
+    const recs = new Set(Array.isArray(ctx.eu.recursos_extra) ? ctx.eu.recursos_extra : []);
+    if (!ctx.admin && ctx.eu.municipio_id) { const m = await db.doc(`municipios/${ctx.eu.municipio_id}`).get(); ((m.exists && m.data().recursos) || []).forEach(r => recs.add(r)); }
+    if (!ctx.admin && !(gl.basica && (recs.has('lousa_ia') || recs.has('lousa_ia_ultra'))))
+      throw new HttpsError('failed-precondition', gl.basica ? 'A Aula com IA na Lousa ainda não foi liberada para você. Fale com a Secretaria ou com a NEWPC.' : 'A Aula com IA na Lousa está desligada no momento.');
+    const ultra = d.ultra === true && (ctx.admin || (gl.ultra && recs.has('lousa_ia_ultra')));
     const tema = txt(d.tema, 300), qtd = Math.min(10, Math.max(3, Math.round(Number(d.qtd) || 6)));
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
