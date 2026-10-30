@@ -93,8 +93,10 @@ jobs:
           IFS=',' read -ra FS <<< "$LISTA"
           for f in "${FS[@]}"; do
             f="$(echo "$f" | tr -d ' ')"
-            if ! [[ "$f" =~ ^[A-Za-z][A-Za-z0-9]*$ ]]; then echo "::error::nome inválido: $f"; exit 1; fi
-            firebase functions:delete "$f" --region southamerica-east1 --project "$PROJETO" --force
+            # nome ou nome@regiao (padrão: southamerica-east1)
+            if ! [[ "$f" =~ ^[A-Za-z][A-Za-z0-9]*(@[a-z0-9-]+)?$ ]]; then echo "::error::nome inválido: $f"; exit 1; fi
+            reg="southamerica-east1"; if [[ "$f" == *@* ]]; then reg="${f#*@}"; f="${f%@*}"; fi
+            firebase functions:delete "$f" --region "$reg" --project "$PROJETO" --force
           done
 
       - name: Apagar a credencial do runner

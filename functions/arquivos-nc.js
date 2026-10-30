@@ -26,7 +26,7 @@ export function caminhoValido(c) {
 
 // Mesmo cálculo do arquivo.php: v1, caminho, validade e nome do arquivo, separados por quebra de linha.
 export function assinar(caminho, exp, nome, chave) {
-  return createHmac('sha256', chave).update(`v1\n${caminho}\n${exp}\n${nome}`).digest('base64url');
+  return createHmac('sha256', String(chave).trim()).update(`v1\n${caminho}\n${exp}\n${nome}`).digest('base64url');
 }
 
 export function montarLink(base, caminho, exp, nome, chave) {
@@ -66,7 +66,7 @@ export function podeAcervoRede(u, item) {
   return item.publicado === true || u.perfil === 'secretaria';
 }
 
-export const linkArquivoNc = onCall({ secrets: [CHAVE], maxInstances: 20, timeoutSeconds: 20 }, async req => {
+export const linkArquivoNc = onCall({ region: 'southamerica-east1', secrets: [CHAVE], maxInstances: 20, timeoutSeconds: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const colecao = String(req.data?.colecao || ''), id = String(req.data?.id || '');
   if (!['acervo', 'acervo_rede'].includes(colecao) || !/^[A-Za-z0-9_-]{1,64}$/.test(id))
