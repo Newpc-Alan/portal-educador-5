@@ -3411,6 +3411,7 @@
       dicasAluNovas:conta("dicas_alunos", where("status","==","novo")), dicasAluPub:conta("dicas_alunos_pub"),
       relTotal:conta("relatorios"), relPend:conta("relatorios", where("status","==","enviado")), relAprov:conta("relatorios", where("status","==","aprovado")),
       avaliacoes:conta("avaliacoes"), respostas:conta("respostas"), maestro:conta("maestro_aulas"),
+      provasOn:conta("provas_online"), provasOn30:conta("provas_online", where("criado_em",">=",d30)),
       triPend:conta("biblioteca_triagem", where("status","==","pendente"))
     };
     // sem a Rede Modelo: desconta o que é da demonstração (tudo dela tem id começando com "demo-" ou demo: true)
@@ -3435,7 +3436,20 @@
     h += '<h3 class="pn-sec">Conteúdo publicado</h3><div class="pn-tiles pn-tiles-2">'+
       tile("Vídeos", v(n.videos), v(n.videosAlu)+" liberados para alunos", n.videos && n.videosAlu < n.videos/4 ? "pn-alerta" : "") + tile("Jogos", v(n.jogos)) +
       tile("Desenhos para colorir", v(n.colorir)) + tile("Biblioteca", v(n.biblioteca), v(n.triPend)+" na triagem") +
-      tile("Cursos da Formação", v(n.cursos)) + tile("Acervo (R2)", v(n.acervo), "atividades, datas, histórias") + '</div>';
+      tile("Cursos da Formação", v(n.cursos)) + tile("Acervo", v(n.acervo), "atividades, datas, histórias") + '</div>';
+    // novidades: Prova online, entrada por QR e IA (contadores gravados pelas funções em stats/)
+    const [eq, ia] = await Promise.all(["entrada_qr", "ia_uso"].map(id => getDoc(doc(db, "stats", id)).then(x => x.exists() ? x.data() : {}).catch(() => ({}))));
+    if(pn.aba !== "conteudo" || !$("pnCorpo")) return;
+    const dias30 = []; for(let i = 29; i >= 0; i--) dias30.push(diasAtras(i));
+    const qr30 = dias30.reduce((t, d) => t + ((eq.por_dia || {})[d] || 0), 0);
+    const mesIA = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7), iaMes = ia[mesIA] || {};
+    const iaU = k => (iaMes[k] || {}).usos || 0, iaTot = Object.values(iaMes).reduce((t, x) => t + (x.usos || 0), 0), iaUsd = Object.values(iaMes).reduce((t, x) => t + (x.custo_usd || 0), 0);
+    h += '<h3 class="pn-sec">Novidades em uso</h3><div class="pn-tiles pn-tiles-2">'+
+      tile("Provas online aplicadas", v(n.provasOn), v(n.provasOn30)+" nos últimos 30 dias") +
+      tile("Alunos que entraram pelo QR", fmt(qr30), "últimos 30 dias · total "+fmt(eq.total || 0)) +
+      tile("Aulas com IA na Lousa (mês)", fmt(iaU("aula_lousa")), fmt(iaU("aula_lousa_imagem"))+" ilustrações da Lousa Ultra") +
+      tile("Materiais do Portal IA (mês)", fmt(iaU("gerar") + iaU("ajustar")), fmt(iaU("imagem"))+" imagens · "+fmt(iaU("questoes_prova"))+" provas com IA") +
+      tile("Usos de IA no mês", fmt(iaTot), "custo estimado US$ "+iaUsd.toFixed(2).replace(".", ",")) + '</div>';
     h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
       tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados") +
       tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados") + tile("Aulas no Maestro", v(n.maestro)) +
@@ -3552,7 +3566,8 @@
       ["Banco (Firestore)","https://console.firebase.google.com/project/portal-educador-5/firestore/databases/-default-/usage"],
       ["Arquivos (Storage)","https://console.firebase.google.com/project/portal-educador-5/storage"],
       ["Funções e erros","https://console.cloud.google.com/run?project=portal-educador-5"],
-      ["Cloudflare (R2 e Workers)","https://dash.cloudflare.com/"]
+      ["Servidor NEWPC (Nextcloud)","https://cloud.portaldoeducador.com.br/"],
+      ["GitHub (publicações e robôs)","https://github.com/Newpc-Alan/portal-educador-5/actions"]
     ].map(([t, u]) => '<a href="'+u+'" target="_blank" rel="noopener">'+t+' ↗</a>').join("")+'</div>';
     let dados;
     try{
@@ -3593,14 +3608,32 @@
         ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Função</th><th>Execuções</th><th>Erros</th></tr></thead><tbody>'+
           fnLista.slice(0, 12).map(x => '<tr><td class="usr-vinc">'+escapeHtml(x.nome)+'</td><td>'+fmt(x.total)+'</td><td'+(x.erros ? ' style="color:#b3261e;font-weight:700"' : '')+'>'+fmt(x.erros)+'</td></tr>').join("")+'</tbody></table></div>'
         : '<div class="empty">Sem execuções registradas.</div>')+'</div></div>';
-    h += '<h3 class="pn-sec">Cloudflare · Acervo (R2)</h3><div class="pn-card pn-cf"><b>Ainda não ativado.</b> A conta Cloudflare ligada ao Portal não tem o R2 habilitado nem o Worker do Acervo publicado, e o Portal não tem o endereço do Acervo configurado. '+
-      'Quando o Acervo for ativado, este quadro passa a mostrar o espaço usado, o número de arquivos e as operações do mês (com um token só de leitura).</div>';
+    h += '<h3 class="pn-sec">Servidor NEWPC · acervo no Nextcloud</h3><div class="pn-tiles" id="pnNc"><div class="pn-tile"><span class="pn-rot">Carregando...</span></div></div>';
     h += '<p class="pn-nota">Fonte: Google Cloud Monitoring (dados oficiais, atraso de alguns minutos). As cotas grátis são do plano Blaze do Firebase; o valor cobrado de fato está em Faturamento. Ontem: '+fmt((fs.leituras||{})[ontem]||0)+' leituras e '+fmt((fs.gravacoes||{})[ontem]||0)+' gravações.'+
       ((dados.erros || []).length ? ' Métricas sem resposta: '+escapeHtml(dados.erros.map(x => x.split(":")[0]).join(", "))+'.' : '')+'</p>';
     $("pnCorpo").innerHTML = h + atalhos;
+    painelServidorNewpc();
     $("pnAtual").textContent = "Atualizado às "+new Date(dados.gerado_em).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · últimos 30 dias";
   }
 
+  // Servidor NEWPC: se está no ar, quanto do acervo está lá e quantos arquivos entregou (contadores em stats/)
+  async function painelServidorNewpc(){
+    const el = $("pnNc"); if(!el) return;
+    const ler = async (c, d) => { try{ const x = await getDoc(doc(db, c, d)); return x.exists() ? x.data() : null; }catch(e){ console.warn(c, d, e.code); return null; } };
+    const noAr = fetch("https://cloud.portaldoeducador.com.br/pde/arquivo.php", { mode:"no-cors", cache:"no-store" }).then(() => true).catch(() => false);
+    const [cp, ac, ok] = await Promise.all([ler("config", "nc_copia"), ler("stats", "nc_acessos"), noAr]);
+    if(!$("pnNc")) return;
+    const dias = []; for(let i = 29; i >= 0; i--) dias.push(diasAtras(i));
+    const pd = (ac && ac.por_dia) || {}, a30 = dias.reduce((t, d) => t + (pd[d] || 0), 0), aHoje = pd[hojeISO()] || 0;
+    const tile = (rot, val, sub, cls) => '<div class="pn-tile'+(cls?" "+cls:"")+'"><span class="pn-rot">'+rot+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
+    const conf = cp && cp.conferencia;
+    el.outerHTML = '<div class="pn-tiles" id="pnNc">'+
+      tile("Situação do servidor", ok ? "🟢 No ar" : "🔴 Fora do ar", ok ? "cloud.portaldoeducador.com.br respondeu agora" : "o Portal não conseguiu falar com o servidor", ok ? "" : "pn-alerta")+
+      tile("Acervo copiado", cp ? fmt(cp.copiados || 0)+" de "+fmt(cp.total || 0) : "-", cp ? tamB(cp.bytes)+(conf ? " · conferidos: "+fmt(conf.ok) : "") : "cópia ainda não feita", cp && cp.copiados < cp.total ? "pn-alerta" : "")+
+      tile("Arquivos entregues (30 dias)", fmt(a30), fmt(aHoje)+" hoje · total "+fmt((ac && ac.total) || 0))+
+      tile("Economia no Firebase", cp ? "até "+tamB(cp.bytes) : "-", "do acervo pesado pode sair do Storage depois de virar a chave")+'</div>'+
+      '<div class="pn-graficos"><div class="pn-card pn-largo"><h3>Arquivos entregues pelo servidor NEWPC por dia</h3>'+barrasEmpilhadas(dias, pd, {})+'</div></div>';
+  }
   // barras verticais por dia (1 ou 2 series empilhadas, 2px de respiro entre segmentos)
   function barrasEmpilhadas(dias, a, b){
     const tot = dias.map(d => (a[d]||0) + (b[d]||0));

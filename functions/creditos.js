@@ -153,7 +153,10 @@ export async function registrarConsumo(db, ctx, res, info) {
   const cc = cfgCreditos(ctx.cfgRaw), preco = cc.custo_modelo[info.modelo] || cc.custo_modelo['gemini-3.6-flash'];
   const usd = (info.entrada || 0) / 1e6 * preco[0] + (info.saida || 0) / 1e6 * preco[1] + (info.imagem ? cc.custo_imagem : 0);
   const mes = mesAtual(), usoRef = db.doc(`portal_ia_uso/${ctx.uid}_${mes}`);
-  const ops = [usoRef.set({ uid: ctx.uid, tokens_entrada: FieldValue.increment(info.entrada || 0), tokens_saida: FieldValue.increment(info.saida || 0), custo_usd: FieldValue.increment(usd), atualizado_em: FieldValue.serverTimestamp() }, { merge: true })];
+  // painel de uso: usos e custo por recurso de IA no mês (aula_lousa, gerar, imagem, questoes_prova...)
+  const acao = String((res && res.acao) || info.acao || 'outro').replace(/[^a-z_]/g, '').slice(0, 30) || 'outro';
+  const opsPainel = res && (info.entrada || info.saida || info.imagem) ? [db.doc('stats/ia_uso').set({ [mes]: { [acao]: { usos: FieldValue.increment(1), custo_usd: FieldValue.increment(usd) } } }, { merge: true })] : [];
+  const ops = [...opsPainel, usoRef.set({ uid: ctx.uid, tokens_entrada: FieldValue.increment(info.entrada || 0), tokens_saida: FieldValue.increment(info.saida || 0), custo_usd: FieldValue.increment(usd), atualizado_em: FieldValue.serverTimestamp() }, { merge: true })];
   if (res && res.conta && res.conta !== 'admin' && res.custo) {
     const ref = db.doc(`creditos/${res.conta}`);
     ops.push(ref.set({ consumo: { [mes]: { creditos: FieldValue.increment(res.custo), custo_usd: FieldValue.increment(usd), usos: FieldValue.increment(1) } } }, { merge: true }));

@@ -4,7 +4,7 @@
 // O link vale poucos minutos e não carrega nenhum dado do usuário.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret, defineString } from 'firebase-functions/params';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHmac } from 'node:crypto';
 
 const CHAVE = defineSecret('NC_ENTREGA_CHAVE');
@@ -84,5 +84,8 @@ export const linkArquivoNc = onCall({ region: 'southamerica-east1', secrets: [CH
   const caminho = item.nc_caminho;
   if (!caminhoValido(caminho)) throw new HttpsError('failed-precondition', 'Este arquivo não está no servidor da NEWPC.');
   const exp = validade(Math.floor(Date.now() / 1000));
+  // painel de uso: quantos arquivos o servidor NEWPC entregou por dia (só o número, sem dado de quem abriu)
+  const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  db.doc('stats/nc_acessos').set({ por_dia: { [dia]: FieldValue.increment(1) }, total: FieldValue.increment(1), atualizado_em: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
   return { url: montarLink(BASE.value(), caminho, exp, nomeSeguro(item.arquivo_nome, caminho), CHAVE.value()), expira: exp };
 });

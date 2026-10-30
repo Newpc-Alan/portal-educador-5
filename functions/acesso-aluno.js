@@ -106,6 +106,8 @@ export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
   if (ate <= agora) throw new HttpsError('failed-precondition', 'A entrada por QR da sua turma está fechada. Peça ao professor para abrir a aula.');
   const token = await auth.createCustomToken(uidAluno(r.alunoId));
   await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp() });
+  const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  await db.doc('stats/entrada_qr').set({ por_dia: { [dia]: FieldValue.increment(1) }, total: FieldValue.increment(1) }, { merge: true }).catch(() => {});
   return { token, nome: a.nome || '' };
 }
 // abrir/fechar/consultar a entrada por QR de uma turma (mesmas pessoas que geram o acesso)
