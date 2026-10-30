@@ -1,0 +1,64 @@
+# Gera o app Android do aluno do Portal Maestro (pasta maestro-app) e publica o .apk numa Release do GitHub,
+# com um link direto que o tablet abre para instalar. Roda só quando alguém clica em "Run workflow".
+# Segredos (criados pelo Alan, nunca passam pelo chat): MAESTRO_KEYSTORE_B64 (a chave em base64) e MAESTRO_SENHA.
+name: App do Maestro (aluno)
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão visível (ex.: 1.1.0)"
+        required: true
+        default: "1.1.0"
+      codigo:
+        description: "Número da versão (sempre maior que o do app instalado)"
+        required: true
+        default: "5"
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Chave de assinatura
+        env:
+          B64: ${{ secrets.MAESTRO_KEYSTORE_B64 }}
+          SENHA: ${{ secrets.MAESTRO_SENHA }}
+        run: |
+          if [ -z "$B64" ] || [ -z "$SENHA" ]; then echo "::error::Faltam os segredos MAESTRO_KEYSTORE_B64 e MAESTRO_SENHA (veja maestro-app/LEIAME.md)."; exit 1; fi
+          printf '%s' "$B64" | base64 -d > "$RUNNER_TEMP/maestro.keystore"
+          echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"
+      - name: Compilar e assinar
+        env:
+          MAESTRO_SENHA: ${{ secrets.MAESTRO_SENHA }}
+          MAESTRO_VERSAO: ${{ inputs.versao }}
+          MAESTRO_CODIGO: ${{ inputs.codigo }}
+        run: |
+          set -o pipefail
+          gradle -p maestro-app --no-daemon -q assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log" || { grep -iE "error|erro|failed" "$RUNNER_TEMP/build.log" | tail -8 | sed 's/^/::error::/'; exit 1; }
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)"
+          "${BT}apksigner" verify maestro-app/app/build/outputs/apk/release/app-release.apk
+          cp maestro-app/app/build/outputs/apk/release/app-release.apk "maestro-${{ inputs.versao }}.apk"
+      - name: Publicar o .apk (Release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="maestro-${{ inputs.versao }}"
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" "maestro-${{ inputs.versao }}.apk" --title "Portal Maestro · Aluno ${{ inputs.versao }}" \
+            --notes "App do aluno do Portal Maestro, versão ${{ inputs.versao }} (${{ inputs.codigo }}). No tablet, abra o link do arquivo .apk e toque em Instalar."
+          echo "::notice::Link para o tablet: https://github.com/${{ github.repository }}/releases/download/$TAG/maestro-${{ inputs.versao }}.apk"
+      - name: Apagar a chave do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/maestro.keystore"
