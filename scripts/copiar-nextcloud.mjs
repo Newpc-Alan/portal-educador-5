@@ -135,6 +135,13 @@ log('arquivos do acervo no Firebase: ' + lista.length + ' · ' + Object.entries(
 await conferirAcesso();
 
 const mapa = new Map(); (await db.collection('nc_mapa').get()).forEach(d => mapa.set(d.id, d.data()));
+// resumo para o painel "Servidor NEWPC" do Portal: só números por tipo (config/nc_copia)
+async function gravarResumo(extra = {}) {
+  const por = {};
+  for (const i of lista) { const p = (por[i.col] = por[i.col] || { total: 0, copiados: 0, bytes: 0 }); p.total++; const m = mapa.get(i.id); if (m && m.copiado_em) { p.copiados++; p.bytes += m.tamanho || 0; } }
+  await db.doc('config/nc_copia').set({ por, total: lista.length, copiados: Object.values(por).reduce((a, p) => a + p.copiados, 0),
+    bytes: Object.values(por).reduce((a, p) => a + p.bytes, 0), raiz: RAIZ, usuario: USUARIO, atualizado_em: FieldValue.serverTimestamp(), ...extra }, { merge: true });
+}
 
 if (etapa === 'conferir') {
   let ok = 0, falta = 0, dif = 0; const ex = [];
@@ -143,6 +150,7 @@ if (etapa === 'conferir') {
     if (t < 0) { falta++; if (ex.length < 5) ex.push('faltando: ' + m.nc); } else if (t !== m.tamanho) { dif++; if (ex.length < 5) ex.push('tamanho diferente: ' + m.nc); } else ok++;
   }
   log('conferência: ' + mapa.size + ' no mapa · ' + ok + ' ok · ' + falta + ' faltando · ' + dif + ' com tamanho diferente');
+  await gravarResumo({ conferencia: { em: FieldValue.serverTimestamp(), no_mapa: mapa.size, ok, faltando: falta, diferentes: dif } });
   ex.forEach(aviso);
   process.exit(0);
 }
@@ -165,9 +173,11 @@ async function copiar(i) {
   if (r.status === 423) throw new Error('arquivo travado no Nextcloud (423), tente de novo: ' + i.nc);
   if (![201, 204].includes(r.status)) throw new Error('PUT HTTP ' + r.status + ' em ' + i.nc);
   await db.doc('nc_mapa/' + i.id).set({ col: i.col, doc: i.doc, campo: i.campo, storage: i.storage, nc: i.nc, raiz: RAIZ, usuario: USUARIO, tamanho: buf.length, copiado_em: FieldValue.serverTimestamp() });
+  mapa.set(i.id, { tamanho: buf.length, copiado_em: true });
   feitos++; bytes += buf.length; if (exemplos.length < 8) exemplos.push(i.nc);
-  if (feitos % 250 === 0) console.log('… ' + feitos + '/' + fila.length + ' · ' + (bytes / 1048576).toFixed(0) + ' MB');
+  if (feitos % 100 === 0) { console.log('… ' + feitos + '/' + fila.length + ' · ' + (bytes / 1048576).toFixed(0) + ' MB'); gravarResumo({ situacao: 'copiando', erros }).catch(() => {}); }
 }
+await gravarResumo({ situacao: 'copiando', etapa, iniciado_em: FieldValue.serverTimestamp(), erros: 0, erros_ex: [] });
 let pos = 0;
 await Promise.all(Array.from({ length: PARALELO }, async () => {
   while (pos < fila.length) {
@@ -179,6 +189,7 @@ const min = ((Date.now() - t0) / 60000).toFixed(1);
 log('copiados: ' + feitos + ' · ' + (bytes / 1048576).toFixed(1) + ' MB em ' + min + ' min · erros: ' + erros);
 exemplos.forEach(e => log('  ' + RAIZ + '/' + e));
 errosEx.forEach(aviso);
-const resta = lista.length - (mapa.size + feitos);
+const resta = lista.filter(i => !(mapa.get(i.id) || {}).copiado_em).length;
+await gravarResumo({ situacao: resta > 0 ? 'parcial' : 'concluido', erros, erros_ex: errosEx.map(e => e.slice(0, 160)), terminado_em: FieldValue.serverTimestamp(), minutos: Number(min) });
 log(resta > 0 ? 'faltam ' + resta + ' arquivo(s): rode de novo a etapa copiar para continuar.' : 'acervo inteiro copiado.');
 if (erros && !feitos) process.exit(1);

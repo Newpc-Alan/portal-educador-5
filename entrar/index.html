@@ -3614,6 +3614,7 @@
       '<div class="imp-card" hidden><h3>Serviço do acervo</h3><p class="d">Endereço do Worker da Cloudflare que confere a licença e entrega os arquivos (termina em .workers.dev).</p>'+
         '<div class="acv-api"><input type="text" id="acvApi" placeholder="https://pde-acervo.SEU-SUBDOMINIO.workers.dev" value="'+escapeAttr(apiAcervo||"")+'">'+
         '<button class="btn btn-ghost btn-add" data-action="acvadm-testar">Testar</button><button class="btn btn-primary btn-add" data-action="acvadm-api">Salvar</button></div><p class="acv-status" id="acvApiStatus"></p></div>'+
+      '<div class="imp-card" id="ncCopia"><h3>\u2601\uFE0F Cópia para o servidor NEWPC</h3><div class="empty">Carregando...</div></div>'+
       '<div class="imp-card"><h3>Adicionar arquivos</h3><p class="d">Escolha o botão e as etiquetas que valem para todos os arquivos deste envio. Depois ajuste o título de cada um. Até 100 MB por arquivo.</p>'+
         '<div class="row2"><div class="field"><label for="acvAdmMod">Botão do Portal</label><select id="acvAdmMod">'+MODULOS.filter(m => MODULOS_ACERVO.includes(m.id)).map(m => '<option value="'+m.id+'">'+escapeHtml(m.nome)+'</option>').join("")+'</select></div>'+
         '<div class="field"><label for="acvAdmDisc">Disciplina</label><select id="acvAdmDisc"><option value="">Não se aplica</option>'+DISCIPLINAS.map(d => '<option>'+d+'</option>').join("")+'</select></div></div>'+
@@ -3626,7 +3627,38 @@
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="acvadm-nc">Vincular ao acervo</button></div></div>'+
       '<div class="imp-card"><h3>Arquivos no acervo</h3><div class="acv-filtros"><input type="search" id="acvAdmBusca" class="usr-busca" placeholder="Buscar"></div><div id="acvAdmLista"><div class="empty">Carregando...</div></div></div>';
     desenharFila();
+    painelNcCopia();
     await listarAcervoAdmin();
+  }
+  // Cópia do acervo (Firebase -> Nextcloud): o robô do GitHub grava o resumo em config/nc_copia
+  const NC_TIPOS = { atividades:"Atividades", biblioteca:"Biblioteca", colorir:"Para colorir", materiais:"Formação continuada" };
+  const NC_SITUACAO = { copiando:["Copiando agora","#2E9BD6"], parcial:["Cópia parcial: falta rodar de novo","#c98a00"], concluido:["Cópia concluída","#1a6b2a"] };
+  let ncTimer = null;
+  async function painelNcCopia(){
+    clearTimeout(ncTimer);
+    const el = $("ncCopia"); if(!el) return;
+    let r = null; try{ const d = await getDoc(doc(db,"config","nc_copia")); r = d.exists() ? d.data() : null; }catch(e){ console.warn("nc_copia:", e.code); }
+    if(!$("ncCopia")) return;
+    const mb = b => (Number(b || 0) / 1048576).toLocaleString("pt-BR", { maximumFractionDigits: b > 1073741824 ? 0 : 1 }) + " MB";
+    const quando = t => t && t.toDate ? t.toDate().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "-";
+    if(!r){ el.innerHTML = '<h3>\u2601\uFE0F Cópia para o servidor NEWPC</h3><p class="d">A cópia do acervo para o Nextcloud ainda não começou.</p>'; return; }
+    const pct = r.total ? Math.round(100 * r.copiados / r.total) : 0, sit = NC_SITUACAO[r.situacao] || ["-","#62758a"];
+    const barra = (c, t) => { const p = t ? Math.round(100 * c / t) : 0;
+      return '<div style="height:8px;border-radius:6px;background:#e6edf3;overflow:hidden"><div style="height:100%;width:'+p+'%;background:'+(p >= 100 ? "#1a6b2a" : "#2E9BD6")+'"></div></div>'; };
+    const conf = r.conferencia;
+    el.innerHTML = '<h3>\u2601\uFE0F Cópia para o servidor NEWPC</h3>'+
+      '<p class="d">Os arquivos do acervo NEWPC estão sendo copiados para <b>'+escapeHtml(r.raiz || "")+'</b> (conta '+escapeHtml(r.usuario || "")+') no Nextcloud. O original continua no Firebase e o professor não percebe nada até a ponte com o servidor ser ligada.</p>'+
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline;margin:6px 0 12px"><b style="font-size:28px;color:#0f2c4a">'+pct+'%</b>'+
+        '<span>'+r.copiados.toLocaleString("pt-BR")+' de '+r.total.toLocaleString("pt-BR")+' arquivos · '+mb(r.bytes)+'</span>'+
+        '<span style="font-weight:700;color:'+sit[1]+'">'+sit[0]+'</span><span style="color:#62758a;font-size:13px">atualizado '+quando(r.atualizado_em)+'</span></div>'+
+      barra(r.copiados, r.total)+
+      '<table class="cr-tab" style="margin-top:14px"><thead><tr><th>Tipo</th><th class="n">Copiados</th><th class="n">Total</th><th class="n">Tamanho</th><th style="width:30%"></th></tr></thead><tbody>'+
+      Object.entries(r.por || {}).map(([k, p]) => '<tr><td>'+escapeHtml(NC_TIPOS[k] || k)+'</td><td class="n">'+p.copiados.toLocaleString("pt-BR")+'</td><td class="n">'+p.total.toLocaleString("pt-BR")+'</td><td class="n">'+mb(p.bytes)+'</td><td>'+barra(p.copiados, p.total)+'</td></tr>').join("")+
+      '</tbody></table>'+
+      (r.erros ? '<p class="d" style="color:#b3261e;margin-top:10px">'+r.erros+' arquivo(s) com erro na última rodada. Eles entram de novo na próxima.</p>' : "")+
+      (conf ? '<p class="d" style="margin-top:10px">Conferência de '+quando(conf.em)+': <b>'+conf.ok.toLocaleString("pt-BR")+'</b> conferem com o original'+(conf.faltando ? ', <b style="color:#b3261e">'+conf.faltando+' faltando</b>' : "")+(conf.diferentes ? ', <b style="color:#b3261e">'+conf.diferentes+' com tamanho diferente</b>' : "")+'.</p>' : "")+
+      '<div class="imp-acoes" style="margin-top:10px"><button class="btn btn-ghost" data-action="nc-copia-atualizar">Atualizar</button></div>';
+    if(r.situacao === "copiando") ncTimer = setTimeout(painelNcCopia, 20000);
   }
   async function listarAcervoAdmin(){
     try{
@@ -5035,6 +5067,7 @@
     else if(acao === "acvadm-testar"){ testarApiAcervo(); }
     else if(acao === "acvadm-enviar"){ enviarAcervo(); }
     else if(acao === "acvadm-nc"){ vincularNc(); }
+    else if(acao === "nc-copia-atualizar"){ painelNcCopia(); }
     else if(acao === "acvadm-abrir"){ const it = acvAdm.itens.find(x => x.id === el.dataset.id); if(it){ if(!acv.itens.some(x => x.id === it.id)) acv.itens.push(it); abrirArquivo(it.id, el); } }
     else if(acao === "acvadm-limpar"){ acvAdm.fila = []; desenharFila(); }
     else if(acao === "acvadm-pub"){ alternarPublicado(el.dataset.id); }
