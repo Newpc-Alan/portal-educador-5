@@ -800,7 +800,10 @@
   #lsFab{ touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab }
   #lsFab.arrastando{ cursor:grabbing;opacity:.92;box-shadow:0 16px 34px rgba(7,22,33,.5) }
   #lsFab em{ display:none;position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);white-space:nowrap;font-style:normal;font-size:10px;font-weight:800;background:var(--pde-lima);color:var(--pde-escuro);padding:3px 8px;border-radius:20px }
-  #lsFab.ativa{ background:linear-gradient(145deg,#1a6b2a,#23883a) }
+  /* Lousa com trabalho aberto: o botão fica verde e pisca devagar até o professor voltar para ela */
+  #lsFab.ativa{ background:linear-gradient(145deg,#1a6b2a,#23883a); animation:lsPisca 1.6s ease-in-out infinite }
+  @keyframes lsPisca{ 0%,100%{ box-shadow:0 10px 24px rgba(7,22,33,.4), 0 0 0 0 rgba(141,198,63,.75) } 50%{ box-shadow:0 10px 24px rgba(7,22,33,.4), 0 0 0 10px rgba(141,198,63,0); filter:brightness(1.18) } }
+  @media (prefers-reduced-motion: reduce){ #lsFab.ativa{ animation:none; box-shadow:0 10px 24px rgba(7,22,33,.4), 0 0 0 3px #8DC63F } }
   #lsFab.ativa em{ display:block }
   #aulaMenu{ position:fixed;z-index:72;display:flex;flex-direction:column;gap:4px;padding:6px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 40px -16px rgba(7,22,33,.45);min-width:270px }
   #aulaMenu button, #aulaMenu a{ display:flex;align-items:center;gap:12px;padding:12px 14px;border:0;border-radius:12px;background:transparent;font:inherit;color:var(--ink);text-decoration:none;text-align:left;cursor:pointer;min-height:52px }
@@ -5836,15 +5839,13 @@
   // item "Iniciar aula" no menu lateral, logo abaixo de Inicio
   async function atalhoAulaNoMenu(){
     await carregarCfgModulos();
-    // administrador: o botão flutuante também oferece o Maestro (em prévia, mesmo antes de liberar aos professores)
-    if(usuarioAtual.perfil === "admin"){ aulaMaestro = maestroDisponivel(null, true); rotularFabAula(); return; }
+    if(usuarioAtual.perfil === "admin") return;
     let doPlano = null;
     const m = usuarioAtual._muni;
     if(m && Array.isArray(m.modulos_professor) && m.modulos_professor.length) doPlano = new Set(m.modulos_professor.concat(extrasDe(usuarioAtual).mods));
     if(usuarioAtual._avulso) doPlano = new Set(listaDoPacote(usuarioAtual.plano_avulso).concat(extrasDe(usuarioAtual).mods));
     const aula = maestroDisponivel(doPlano, false);
-    aulaMaestro = aula;   // o botão flutuante "Aula" passa a oferecer o Maestro junto com a Lousa
-    rotularFabAula();
+    // o botão flutuante fica só com a Lousa (decisão de 30/10/2026); o Maestro abre pelo menu e pelo Início
     const nav = $("nav"); if(!aula || !nav || nav.querySelector('[data-sec="aula"]')) return;
     const a = document.createElement("a");
     a.dataset.sec = "aula"; a.href = aula.url; a.target = "_blank"; a.rel = "noopener"; a.className = "nav-aula";
