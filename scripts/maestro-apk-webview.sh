@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # APK do aluno do Portal Maestro em WebView próprio (não depende do Chrome do tablet).
 # Usa o JDK, o Android SDK e a chave criados por scripts/maestro-apk.sh (rode aquele uma vez antes).
-# Uso no Cloud Shell:  bash scripts/maestro-apk-webview.sh 1.0.2 3
+# Uso no Cloud Shell:  bash scripts/maestro-apk-webview.sh 1.1.0 5   (o número final precisa ser maior que o do app instalado)
+# 1.1.0: câmera liberada para as páginas do Portal (entrada do aluno por QR)
 set -euo pipefail
-VER="${1:-1.0.2}"; COD="${2:-3}"
+VER="${1:-1.1.0}"; COD="${2:-5}"
 BASE="$HOME/maestro-apk"; P="$BASE/webview"
 [ -f "$BASE/maestro.keystore" ] && [ -d "$BASE/projeto/gradle" ] || { echo "Rode antes: bash scripts/maestro-apk.sh"; exit 1; }
 export JAVA_HOME="$BASE/jdk"; export PATH="$JAVA_HOME/bin:$PATH"; export ANDROID_HOME="$BASE/android-sdk"
@@ -50,6 +51,8 @@ cat > "$P/app/src/main/AndroidManifest.xml" <<'X'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <application android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher"
         android:allowBackup="false" android:usesCleartextTraffic="false" android:hardwareAccelerated="true">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTask"
@@ -67,7 +70,9 @@ X
 cat > "$P/app/src/main/java/br/com/portaldoeducador/maestro/MainActivity.java" <<'X'
 package br.com.portaldoeducador.maestro;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
@@ -78,6 +83,7 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
+import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -93,6 +99,8 @@ public class MainActivity extends Activity {
     private FrameLayout raiz;
     private View telaCheia;
     private WebChromeClient.CustomViewCallback telaCheiaCb;
+    private PermissionRequest pedidoCamera;
+    private static final int PEDIDO_CAMERA = 7;
 
     @Override
     protected void onCreate(Bundle salvo) {
@@ -138,6 +146,22 @@ public class MainActivity extends Activity {
             }
             @Override
             public void onHideCustomView() { sairTelaCheia(); }
+            // câmera: só para as páginas do Portal (entrada do aluno por QR); pede a permissão do Android na primeira vez
+            @Override
+            public void onPermissionRequest(final PermissionRequest r) {
+                runOnUiThread(() -> {
+                    String h = r.getOrigin() == null || r.getOrigin().getHost() == null ? "" : r.getOrigin().getHost();
+                    boolean video = false;
+                    for (String x : r.getResources()) if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(x)) video = true;
+                    if (!video || !h.endsWith("portaldoeducador.com.br")) { r.deny(); return; }
+                    if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                        r.grant(new String[]{ PermissionRequest.RESOURCE_VIDEO_CAPTURE });
+                    } else {
+                        pedidoCamera = r;
+                        requestPermissions(new String[]{ Manifest.permission.CAMERA }, PEDIDO_CAMERA);
+                    }
+                });
+            }
         });
 
         if (salvo != null) web.restoreState(salvo); else web.loadUrl(INICIO);
@@ -174,6 +198,15 @@ public class MainActivity extends Activity {
 
     @Override
     public void onWindowFocusChanged(boolean foco) { super.onWindowFocusChanged(foco); if (foco) esconderBarras(); }
+
+    @Override
+    public void onRequestPermissionsResult(int cod, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(cod, perms, res);
+        if (cod != PEDIDO_CAMERA || pedidoCamera == null) return;
+        if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) pedidoCamera.grant(new String[]{ PermissionRequest.RESOURCE_VIDEO_CAPTURE });
+        else pedidoCamera.deny();
+        pedidoCamera = null;
+    }
 
     @Override
     protected void onSaveInstanceState(Bundle b) { super.onSaveInstanceState(b); web.saveState(b); }
