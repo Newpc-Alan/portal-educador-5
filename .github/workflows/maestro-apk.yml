@@ -14,6 +14,10 @@ on:
         description: "Número da versão (sempre maior que o do app instalado)"
         required: true
         default: "5"
+      so_testar:
+        description: "Só testar a compilação, com uma chave descartável (não publica)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -36,12 +40,17 @@ jobs:
           B64: ${{ secrets.MAESTRO_KEYSTORE_B64 }}
           SENHA: ${{ secrets.MAESTRO_SENHA }}
         run: |
+          if [ "${{ inputs.so_testar }}" = "true" ]; then
+            SENHA="teste-$RANDOM-$RANDOM"; keytool -genkeypair -keystore "$RUNNER_TEMP/maestro.keystore" -alias maestro -keyalg RSA -keysize 2048 -validity 2 \
+              -storepass "$SENHA" -keypass "$SENHA" -dname "CN=teste" >/dev/null 2>&1
+            echo "::add-mask::$SENHA"; echo "MAESTRO_SENHA=$SENHA" >> "$GITHUB_ENV"; echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"; exit 0
+          fi
           if [ -z "$B64" ] || [ -z "$SENHA" ]; then echo "::error::Faltam os segredos MAESTRO_KEYSTORE_B64 e MAESTRO_SENHA (veja maestro-app/LEIAME.md)."; exit 1; fi
           printf '%s' "$B64" | base64 -d > "$RUNNER_TEMP/maestro.keystore"
           echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"
       - name: Compilar e assinar
         env:
-          MAESTRO_SENHA: ${{ secrets.MAESTRO_SENHA }}
+          MAESTRO_SENHA: ${{ inputs.so_testar && env.MAESTRO_SENHA || secrets.MAESTRO_SENHA }}
           MAESTRO_VERSAO: ${{ inputs.versao }}
           MAESTRO_CODIGO: ${{ inputs.codigo }}
         run: |
@@ -51,6 +60,7 @@ jobs:
           "${BT}apksigner" verify maestro-app/app/build/outputs/apk/release/app-release.apk
           cp maestro-app/app/build/outputs/apk/release/app-release.apk "maestro-${{ inputs.versao }}.apk"
       - name: Publicar o .apk (Release)
+        if: ${{ !inputs.so_testar }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
