@@ -5920,7 +5920,8 @@
   const pubVideo = v => msDe(v.publicado_em) || msDe(v.criado_em) || 0;
   const videoNovo = v => !!v.publicado && Date.now() - pubVideo(v) < DIAS_NOVO * 86400000;
   const prioVideo = v => [1, 2, 3].includes(v.prioridade) ? v.prioridade : 2;
-  const ordemVideo = v => prioVideo(v) === 3 ? 3 : (videoNovo(v) ? 0 : prioVideo(v));
+  // a posição manda (1, 2, 3); dentro da mesma posição, os novos vêm primeiro (o mais recente antes)
+  const ordemVideo = v => prioVideo(v) * 2 - (videoNovo(v) ? 1 : 0);
   // ---------- professor: catalogo ----------
   const vds = { itens:[], serie:"", comp:"", busca:"" };
   async function renderVideos(){
@@ -5945,8 +5946,8 @@
         ? query(collection(db,"videos"), where("publicado","==",true), where("para_alunos","==",true))
         : query(collection(db,"videos"), where("publicado","==",true)));
       vds.itens = []; snap.forEach(d => vds.itens.push({ id:d.id, ...d.data() }));
-      // ordem: lançamentos (Novo no Portal) e prioridade 1 na frente, 2 no meio, 3 no fim; depois série e título
-      vds.itens.sort((a,b) => (ordemVideo(a) - ordemVideo(b)) || (ordemVideo(a) === 0 && (pubVideo(b) - pubVideo(a)))
+      // ordem: posição 1, 2, 3; dentro de cada uma, os lançamentos (Novo no Portal) primeiro; depois série e título
+      vds.itens.sort((a,b) => (ordemVideo(a) - ordemVideo(b)) || (videoNovo(a) && (pubVideo(b) - pubVideo(a)))
         || (idxFaixa(a.faixa_de) - idxFaixa(b.faixa_de)) || (a.titulo||"").localeCompare(b.titulo||""));
       desenharDestaques();
       desenharVideos();
@@ -7281,7 +7282,7 @@
         '<div class="field"><label for="vdBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="vdBncc" placeholder="EF05CI11, EF05CI12" value="'+escapeAttr((x.bncc||[]).join(", "))+'"></div>'+
         '<div class="field"><label for="vdDesc2">Sugestão de uso em aula <small>(opcional)</small></label><textarea id="vdDesc2" rows="2" maxlength="400" placeholder="Ex: use na abertura da aula e peça hipóteses antes da explicação">'+escapeHtml(x.descricao||"")+'</textarea></div>'+
         '<div class="field"><label for="vdPrio">Posição na tela</label><select id="vdPrio">'+[[1,"1 · Aparece primeiro"],[2,"2 · Normal"],[3,"3 · Vai para o fim"]].map(([n, t]) => '<option value="'+n+'"'+(prioVideo(x) === n ? " selected" : "")+'>'+t+'</option>').join("")+'</select>'+
-          '<small class="acv-status">Vídeo recém-publicado ganha o selo <b>Novo no Portal</b> por '+DIAS_NOVO+' dias e vai para a frente (menos os de posição 3).</small></div>'+
+          '<small class="acv-status">Vídeo recém-publicado ganha o selo <b>Novo no Portal</b> por '+DIAS_NOVO+' dias e vai para o começo da sua posição.</small></div>'+
         '<div class="field"><label>Quem pode ver</label><div class="vd-checks">'+
           '<label class="vd-check"><input type="checkbox" id="vdParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
           '<label class="vd-check"><input type="checkbox" id="vdParaAluno"'+(x.para_alunos ? " checked" : "")+'> Alunos</label></div></div>'+
@@ -7516,8 +7517,8 @@
         ? query(collection(db,"jogos"), where("publicado","==",true), where("para_alunos","==",true))
         : query(collection(db,"jogos"), where("publicado","==",true)));
       jgs.itens = []; snap.forEach(d => jgs.itens.push({ id:d.id, ...d.data() }));
-      // mesma regra dos vídeos: destaque, depois lançamentos (Novo no Portal) e posição 1, 2 e 3; depois o nome
-      jgs.itens.sort((a,b) => (!!b.destaque - !!a.destaque) || (ordemVideo(a) - ordemVideo(b)) || (ordemVideo(a) === 0 && (pubVideo(b) - pubVideo(a))) || (a.titulo||"").localeCompare(b.titulo||""));
+      // mesma regra dos vídeos: destaque, depois posição 1, 2 e 3 (novos primeiro dentro de cada uma); depois o nome
+      jgs.itens.sort((a,b) => (!!b.destaque - !!a.destaque) || (ordemVideo(a) - ordemVideo(b)) || (videoNovo(a) && (pubVideo(b) - pubVideo(a))) || (a.titulo||"").localeCompare(b.titulo||""));
       desenharJogos();
     }catch(e){ console.warn(e); $("jgLista").innerHTML = '<div class="empty">Não foi possível carregar os jogos ('+escapeHtml(e.code||"erro")+').</div>'; }
   }
@@ -7621,7 +7622,7 @@
           '<label class="vd-check"><input type="checkbox" id="jgParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
           '<label class="vd-check"><input type="checkbox" id="jgParaAluno"'+(x.para_alunos !== false ? " checked" : "")+'> Alunos</label></div></div>'+
         '<div class="field"><label for="jgPrio">Posição na tela</label><select id="jgPrio">'+[[1,"1 · Aparece primeiro"],[2,"2 · Normal"],[3,"3 · Vai para o fim"]].map(([n, t]) => '<option value="'+n+'"'+(prioVideo(x) === n ? " selected" : "")+'>'+t+'</option>').join("")+'</select>'+
-          '<small class="acv-status">Jogo recém-publicado ganha o selo <b>Novo no Portal</b> por '+DIAS_NOVO+' dias e vai para a frente (menos os de posição 3).</small></div>'+
+          '<small class="acv-status">Jogo recém-publicado ganha o selo <b>Novo no Portal</b> por '+DIAS_NOVO+' dias e vai para o começo da sua posição.</small></div>'+
         '<div class="field"><label>Opções</label><div class="vd-checks">'+
           '<label class="vd-check"><input type="checkbox" id="jgDestaque"'+(x.destaque ? " checked" : "")+'> Destaque (aparece primeiro)</label>'+
           '<label class="vd-check"><input type="checkbox" id="jgAba"'+(x.abrir_em_aba ? " checked" : "")+'> Abrir em nova aba</label></div></div>'+
