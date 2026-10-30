@@ -768,6 +768,7 @@
   .jg-capa{ position:relative;aspect-ratio:16/10;background:linear-gradient(135deg,#0f2c4a,#2671AB) center/cover no-repeat;display:grid;place-items:center;font-size:54px }
   .jg-capa.tem{ font-size:0 }
   .jg-capa .jg-tag{ position:absolute;left:8px;top:8px;font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;background:#8DC63F;color:#071621 }
+  .jg-capa .jg-tag.novo{ left:auto;right:8px;border-radius:6px;font-weight:900;letter-spacing:.04em;box-shadow:0 2px 6px rgba(0,0,0,.25) }
   .jg-palco{ position:fixed;inset:0;z-index:90;background:#071621;display:none;flex-direction:column }
   .jg-palco.show{ display:flex }
   .jg-barra{ display:flex;align-items:center;gap:8px;padding:8px 12px;background:#0c2338;color:#fff;flex:none }
@@ -4965,7 +4966,7 @@
     else if(acao === "jg-serie"){ jgs.serie = el.dataset.serie; const s = $("jgSerie"); if(s) s.value = jgs.serie; desenharJogos(); }
     else if(acao === "jgadm-salvar"){ salvarJogo(); }
     else if(acao === "jgadm-limpar"){ formJogo(null); }
-    else if(acao === "jgadm-editar"){ formJogo(jgAdm.itens.find(v => v.id === el.dataset.id)); window.scrollTo({ top:0, behavior:"smooth" }); }
+    else if(acao === "jgadm-editar"){ formJogo(jgAdm.itens.find(v => v.id === el.dataset.id)); }
     else if(acao === "jgadm-pub"){ alternarJogoPublicado(el.dataset.id); }
     else if(acao === "jgadm-del"){ excluirJogo(el.dataset.id, el); }
     else if(acao === "jgadm-filtro"){ jgAdm.filtro = el.dataset.filtro; desenharJogosAdmin(); }
@@ -5914,7 +5915,7 @@
     return s.length ? '<div class="vd-selos">'+s.join("")+'</div>' : "";
   }
 
-  // lançamento: o vídeo fica "Novo no Portal" por 15 dias depois de publicado e sobe para a frente (prioridade 3 continua no fim)
+  // lançamento (vídeos e jogos): o item fica "Novo no Portal" por 15 dias depois de publicado e sobe para a frente (prioridade 3 continua no fim)
   const DIAS_NOVO = 15;
   const pubVideo = v => msDe(v.publicado_em) || msDe(v.criado_em) || 0;
   const videoNovo = v => !!v.publicado && Date.now() - pubVideo(v) < DIAS_NOVO * 86400000;
@@ -7228,7 +7229,7 @@
   // ---------- admin: cadastro um a um ----------
   const vdAdm = { itens:[], editando:null, ytid:"", filtro:"todos", busca:"" };
   async function renderVideosAdmin(){
-    const velha = $("vdEditBg"); if(velha){ velha.remove(); document.body.style.overflow = ""; }
+    fecharJanelaEdicao();
     $("conteudo").innerHTML =
       '<div class="imp-card"><h3 id="vdFormTit">Cadastrar vídeo</h3><p class="d">Cole o link do YouTube: a capa e o título vêm sozinhos. Depois indique para qual série ou faixa de idade o vídeo serve. Pode salvar como rascunho e publicar quando terminar de revisar.</p>'+
         '<div id="vdFormCasa"><div id="vdForm"></div></div></div>'+
@@ -7239,24 +7240,26 @@
     formVideo(null);
     await listarVideosAdmin();
   }
-  // edição em janela no meio da tela: o mesmo formulário sai do card e volta quando termina
-  function janelaEdicaoVideo(abrir, titulo){
-    const f = $("vdForm"); if(!f) return;
-    if(!vdAdm.casa || !vdAdm.casa.isConnected) vdAdm.casa = $("vdFormCasa");
-    let bg = $("vdEditBg");
+  // edição em janela no meio da tela (vídeos e jogos): o mesmo formulário sai do card e volta quando termina.
+  //   cfg: { form, casa, limpar (ação que fecha), foco }
+  function janelaEdicao(cfg, abrir, titulo){
+    const f = $(cfg.form); if(!f) return;
+    let bg = $("edJanelaBg");
     if(abrir){
-      if(!bg){ bg = document.createElement("div"); bg.id = "vdEditBg"; bg.className = "vd-edit-bg";
-        bg.innerHTML = '<div class="vd-edit" role="dialog" aria-modal="true" aria-labelledby="vdEditTit"><div class="vd-edit-top"><h3 id="vdEditTit"></h3><button type="button" class="btn btn-ghost" data-action="vdadm-limpar">Fechar</button></div><div id="vdEditCorpo"></div></div>';
+      if(!bg){ bg = document.createElement("div"); bg.id = "edJanelaBg"; bg.className = "vd-edit-bg";
+        bg.innerHTML = '<div class="vd-edit" role="dialog" aria-modal="true" aria-labelledby="edJanelaTit"><div class="vd-edit-top"><h3 id="edJanelaTit"></h3><button type="button" class="btn btn-ghost" id="edJanelaFechar">Fechar</button></div><div id="edJanelaCorpo"></div></div>';
         document.body.appendChild(bg); }
-      $("vdEditTit").textContent = "Editar: " + (titulo || "vídeo");
-      $("vdEditCorpo").appendChild(f); document.body.style.overflow = "hidden"; bg.scrollTop = 0;
-      setTimeout(() => { const t = $("vdTitulo"); if(t) t.focus({ preventScroll:true }); }, 30);
+      $("edJanelaFechar").dataset.action = cfg.limpar;
+      $("edJanelaTit").textContent = "Editar: " + (titulo || "");
+      $("edJanelaCorpo").appendChild(f); document.body.style.overflow = "hidden"; bg.scrollTop = 0;
+      setTimeout(() => { const t = $(cfg.foco); if(t) t.focus({ preventScroll:true }); }, 30);
     } else {
-      if(vdAdm.casa && f.parentNode !== vdAdm.casa) vdAdm.casa.appendChild(f);
+      const casa = $(cfg.casa); if(casa && f.parentNode !== casa) casa.appendChild(f);
       if(bg) bg.remove(); document.body.style.overflow = "";
     }
   }
-  document.addEventListener("keydown", e => { if(e.key === "Escape" && $("vdEditBg")) formVideo(null); });
+  function fecharJanelaEdicao(){ const b = $("edJanelaBg"); if(b){ b.remove(); document.body.style.overflow = ""; } }
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && $("edJanelaFechar")) $("edJanelaFechar").click(); });
   function formVideo(v){
     vdAdm.editando = v ? v.id : null; vdAdm.ytid = v ? v.youtube_id : "";
     if($("vdFormTit")) $("vdFormTit").textContent = "Cadastrar vídeo";
@@ -7287,7 +7290,7 @@
           '<button type="button" class="btn btn-ghost" data-action="vdadm-limpar">'+(v ? "Cancelar edição" : "Limpar")+'</button></div>'+
       '</div></div>';
     previaFaixa();
-    janelaEdicaoVideo(!!v, v && v.titulo);
+    janelaEdicao({ form:"vdForm", casa:"vdFormCasa", limpar:"vdadm-limpar", foco:"vdTitulo" }, !!v, v && v.titulo);
   }
   function previaFaixa(){
     const el = $("vdFxPrevia"); if(!el) return;
@@ -7513,7 +7516,8 @@
         ? query(collection(db,"jogos"), where("publicado","==",true), where("para_alunos","==",true))
         : query(collection(db,"jogos"), where("publicado","==",true)));
       jgs.itens = []; snap.forEach(d => jgs.itens.push({ id:d.id, ...d.data() }));
-      jgs.itens.sort((a,b) => (!!b.destaque - !!a.destaque) || (a.titulo||"").localeCompare(b.titulo||""));
+      // mesma regra dos vídeos: destaque, depois lançamentos (Novo no Portal) e posição 1, 2 e 3; depois o nome
+      jgs.itens.sort((a,b) => (!!b.destaque - !!a.destaque) || (ordemVideo(a) - ordemVideo(b)) || (ordemVideo(a) === 0 && (pubVideo(b) - pubVideo(a))) || (a.titulo||"").localeCompare(b.titulo||""));
       desenharJogos();
     }catch(e){ console.warn(e); $("jgLista").innerHTML = '<div class="empty">Não foi possível carregar os jogos ('+escapeHtml(e.code||"erro")+').</div>'; }
   }
@@ -7529,7 +7533,7 @@
       return;
     }
     $("jgLista").innerHTML = '<p class="acv-cont">'+lista.length+' jogo(s)</p><div class="vd-grade">'+lista.map(j =>
-      '<button type="button" class="vd-card" data-action="jg-abrir" data-id="'+escapeAttr(j.id)+'">'+capaJogo(j)+
+      '<button type="button" class="vd-card" data-action="jg-abrir" data-id="'+escapeAttr(j.id)+'">'+capaJogo(j, videoNovo(j) ? '<span class="jg-tag novo">NOVO NO PORTAL</span>' : '')+
         '<div class="vd-corpo"><h4>'+escapeHtml(j.titulo || "")+'</h4>'+(j.descricao ? '<p style="font-size:12.5px;color:var(--muted);line-height:1.4">'+escapeHtml(j.descricao)+'</p>' : '')+selosVideo(j, false)+'</div></button>').join("")+'</div>';
   }
   // o jogo abre em tela inteira dentro do Portal (com barra para sair, tela cheia ou nova aba)
@@ -7581,9 +7585,10 @@
   // ---------- admin: catalogo de jogos ----------
   const jgAdm = { itens:[], editando:null, filtro:"todos", busca:"" };
   async function renderJogosAdmin(){
+    fecharJanelaEdicao();
     $("conteudo").innerHTML =
       '<div class="imp-card"><h3 id="jgFormTit">Cadastrar jogo</h3><p class="d">Informe o link do jogo (os nossos ficam em jogos.portaldoeducador.com.br). Indique a série ou idade, o componente e, se quiser, a BNCC. Salve como rascunho e publique quando revisar.</p>'+
-        '<div id="jgForm"></div></div>'+
+        '<div id="jgFormCasa"><div id="jgForm"></div></div></div>'+
       '<div class="imp-card"><h3>Jogos cadastrados</h3><p class="vd-prog" id="jgProg"></p>'+
         '<div id="jgImport"></div>'+
         '<div class="usr-tabs" id="jgAdmTabs" style="margin-bottom:10px"></div>'+
@@ -7594,7 +7599,7 @@
   }
   function formJogo(j){
     jgAdm.editando = j ? j.id : null;
-    if($("jgFormTit")) $("jgFormTit").textContent = j ? "Editar jogo" : "Cadastrar jogo";
+    if($("jgFormTit")) $("jgFormTit").textContent = "Cadastrar jogo";
     const x = j || {};
     $("jgForm").innerHTML =
       '<div class="vd-form"><div><div id="jgPrevia">'+capaJogo(x)+'</div>'+
@@ -7615,6 +7620,8 @@
         '<div class="field"><label>Quem pode ver</label><div class="vd-checks">'+
           '<label class="vd-check"><input type="checkbox" id="jgParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
           '<label class="vd-check"><input type="checkbox" id="jgParaAluno"'+(x.para_alunos !== false ? " checked" : "")+'> Alunos</label></div></div>'+
+        '<div class="field"><label for="jgPrio">Posição na tela</label><select id="jgPrio">'+[[1,"1 · Aparece primeiro"],[2,"2 · Normal"],[3,"3 · Vai para o fim"]].map(([n, t]) => '<option value="'+n+'"'+(prioVideo(x) === n ? " selected" : "")+'>'+t+'</option>').join("")+'</select>'+
+          '<small class="acv-status">Jogo recém-publicado ganha o selo <b>Novo no Portal</b> por '+DIAS_NOVO+' dias e vai para a frente (menos os de posição 3).</small></div>'+
         '<div class="field"><label>Opções</label><div class="vd-checks">'+
           '<label class="vd-check"><input type="checkbox" id="jgDestaque"'+(x.destaque ? " checked" : "")+'> Destaque (aparece primeiro)</label>'+
           '<label class="vd-check"><input type="checkbox" id="jgAba"'+(x.abrir_em_aba ? " checked" : "")+'> Abrir em nova aba</label></div></div>'+
@@ -7623,6 +7630,7 @@
           '<button type="button" class="btn btn-ghost" data-action="jgadm-limpar">'+(j ? "Cancelar edição" : "Limpar")+'</button></div>'+
       '</div></div>';
     previaFaixaJogo();
+    janelaEdicao({ form:"jgForm", casa:"jgFormCasa", limpar:"jgadm-limpar", foco:"jgTitulo" }, !!j, j && j.titulo);
   }
   function previaFaixaJogo(){
     const el = $("jgFxPrevia"); if(!el) return;
@@ -7677,8 +7685,11 @@
     const dados = { url, titulo, descricao:$("jgDesc").value.trim(), faixa_de:de, faixa_ate:ate, series:faixa.map(f => f.c), etapas:[...new Set(faixa.map(f => f.etapa))],
       componente:$("jgComp2").value, tema:$("jgTema").value.trim(), capa, icone:$("jgIcone").value.trim() || "\u{1F3AE}", bncc,
       origem: ehDoPortal(url) ? "portal" : "externo", para_professores:paraProf, para_alunos:paraAluno,
-      destaque:$("jgDestaque").checked, abrir_em_aba:$("jgAba").checked, publicado:$("jgPub").checked,
+      destaque:$("jgDestaque").checked, abrir_em_aba:$("jgAba").checked, publicado:$("jgPub").checked, prioridade:Number($("jgPrio").value) || 2,
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    // data da publicação (selo Novo no Portal): na primeira vez que sai do rascunho; os já publicados usam a data do cadastro
+    const antes = jgAdm.editando ? jgAdm.itens.find(j => j.id === jgAdm.editando) : null;
+    if(dados.publicado && !(antes && antes.publicado_em)) dados.publicado_em = (antes && antes.publicado && antes.criado_em) || serverTimestamp();
     const btn = $("jgSalvar"); btn.disabled = true;
     try{
       if(jgAdm.editando) await updateDoc(doc(db,"jogos",jgAdm.editando), dados);
@@ -7702,17 +7713,17 @@
     const faltam = JOGOS_REPO.filter(r => !jgAdm.itens.some(j => j.url === JOGOS_BASE+r[0]+"/")).length;
     $("jgImport").innerHTML = faltam ? '<div class="usr-aviso" style="margin:0 0 12px">'+faltam+' jogo(s) do nosso site de jogos ainda não estão no catálogo. '+
       '<button class="btn-mini btn-gerenciar" data-action="jgadm-importar">Trazer como rascunho</button><br><small>Eles entram com nome, série e componente sugeridos, sem publicar. Você revisa um a um e publica.</small></div>' : "";
-    $("jgAdmTabs").innerHTML = [["todos","Todos"],["pub","Publicados"],["rasc","Rascunhos"],["dest","Destaques"],["ext","Externos"]].map(([k,n]) =>
+    $("jgAdmTabs").innerHTML = [["todos","Todos"],["pub","Publicados"],["rasc","Rascunhos"],["dest","Destaques"],["novo","Novos"],["ext","Externos"]].map(([k,n]) =>
       '<button class="usr-tab'+(jgAdm.filtro===k?" on":"")+'" data-action="jgadm-filtro" data-filtro="'+k+'">'+n+'</button>').join("");
     const t = semAcento(jgAdm.busca), f = jgAdm.filtro;
-    const l = jgAdm.itens.filter(j => (f === "todos" || (f === "pub" && j.publicado) || (f === "rasc" && !j.publicado) || (f === "dest" && j.destaque) || (f === "ext" && j.origem === "externo"))
+    const l = jgAdm.itens.filter(j => (f === "todos" || (f === "pub" && j.publicado) || (f === "rasc" && !j.publicado) || (f === "dest" && j.destaque) || (f === "novo" && videoNovo(j)) || (f === "ext" && j.origem === "externo"))
       && (!t || semAcento([j.titulo, j.tema, j.url, (j.bncc||[]).join(" ")].join(" ")).includes(t)));
     $("jgAdmLista").innerHTML = !l.length ? '<div class="empty">'+(tot ? "Nenhum jogo neste filtro." : "Nenhum jogo cadastrado ainda.")+'</div>' :
       '<div class="tablewrap" style="border:0"><table><thead><tr><th>Jogo</th><th>Faixa</th><th>Componente</th><th>Situação</th><th></th></tr></thead><tbody>'+
       l.map(j => '<tr><td><div class="vd-tab-nome"><span class="vd-tab-capa" style="display:grid;place-items:center;font-size:24px;'+(urlCapaJogo(j) ? "background-image:url('"+escapeAttr(urlCapaJogo(j).replace(/'/g,"%27"))+"')" : "background:#e9f1f8")+'">'+(urlCapaJogo(j) ? "" : escapeHtml(j.icone||"\u{1F3AE}"))+'</span><div class="usr-nome"><b>'+(j.destaque ? "★ " : "")+escapeHtml(j.titulo||"")+'</b><small>'+escapeHtml([j.origem === "externo" ? "Externo" : "Portal", (j.bncc||[]).slice(0,3).join(", ")].filter(Boolean).join(" · "))+'</small></div></div></td>'+
         '<td class="usr-vinc">'+escapeHtml(rotuloFaixa(j.faixa_de, j.faixa_ate) || "-")+'</td>'+
         '<td class="usr-vinc">'+escapeHtml(j.componente || "-")+'</td>'+
-        '<td><span class="pill '+(j.publicado ? "ativo" : "pendente")+'">'+(j.publicado ? "Publicado" : "Rascunho")+'</span></td>'+
+        '<td><span class="pill '+(j.publicado ? "ativo" : "pendente")+'">'+(j.publicado ? "Publicado" : "Rascunho")+'</span>'+(videoNovo(j) ? ' <span class="pill ativo">Novo</span>' : '')+(prioVideo(j) !== 2 ? ' <span class="pill pendente">Posição '+prioVideo(j)+'</span>' : '')+'</td>'+
         '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="jg-abrir" data-id="'+escapeAttr(j.id)+'">Jogar</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="jgadm-editar" data-id="'+escapeAttr(j.id)+'">Editar</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="jgadm-pub" data-id="'+escapeAttr(j.id)+'">'+(j.publicado ? "Ocultar" : "Publicar")+'</button>'+
@@ -7738,7 +7749,8 @@
   }
   async function alternarJogoPublicado(id){
     const j = jgAdm.itens.find(x => x.id === id); if(!j) return;
-    try{ await updateDoc(doc(db,"jogos",id), { publicado:!j.publicado, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+    try{ await updateDoc(doc(db,"jogos",id), { publicado:!j.publicado, ...(!j.publicado && !j.publicado_em ? { publicado_em:serverTimestamp() } : {}), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      if(!j.publicado && !j.publicado_em) j.publicado_em = { toMillis:() => Date.now() };
       j.publicado = !j.publicado; desenharJogosAdmin(); toast(j.publicado ? "Publicado." : "Ocultado dos professores."); }
     catch(e){ console.warn(e); toast("Erro ("+(e.code||"erro")+").", true); }
   }
