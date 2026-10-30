@@ -4007,17 +4007,28 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(esc){ try{ const e = await getDoc(doc(db, "escolas", esc)); if(e.exists()) p.escola = e.data().nome || ""; }catch(e){} }
     perfilIA = p; return p;
   }
+  const ETAPAS_IA = [
+    ["Educação Infantil", ["Creche (0 a 3 anos)", "Pré-escola (4 anos)", "Pré-escola (5 anos)"]],
+    ["Ensino Fundamental · anos iniciais", ["1º ano do Ensino Fundamental", "2º ano do Ensino Fundamental", "3º ano do Ensino Fundamental", "4º ano do Ensino Fundamental", "5º ano do Ensino Fundamental"]],
+    ["Ensino Fundamental · anos finais", ["6º ano do Ensino Fundamental", "7º ano do Ensino Fundamental", "8º ano do Ensino Fundamental", "9º ano do Ensino Fundamental"]],
+    ["Ensino Médio", ["1ª série do Ensino Médio", "2ª série do Ensino Médio", "3ª série do Ensino Médio"]],
+    ["EJA e outros", ["EJA · Ensino Fundamental (anos iniciais)", "EJA · Ensino Fundamental (anos finais)", "EJA · Ensino Médio", "Ensino Técnico", "Educação Especial (Atendimento Educacional Especializado)"]]
+  ];
   function montarTurmasIA(p){
     const sel = document.getElementById("iaTurmaSel"); if(!sel) return;
     const atual = sel.value;
-    sel.innerHTML = p.turmas.map(t => '<option value="' + t.id + '">' + (t.nome || t.ano).replace(/</g, "&lt;") + '</option>').join("") + '<option value="__outra">Outra turma ou ano (digitar)</option>';
-    sel.value = p.turmas.some(t => t.id === atual) ? atual : (p.turmas[0] ? p.turmas[0].id : "__outra");
+    // primeiro as turmas do professor; depois todas as etapas, para ele preparar aula para qualquer ano sem digitar
+    const esc = x => String(x).replace(/</g, "&lt;");
+    sel.innerHTML = (p.turmas.length ? '<optgroup label="Minhas turmas">' + p.turmas.map(t => '<option value="' + t.id + '">' + esc(t.nome || t.ano) + '</option>').join("") + '</optgroup>' : "") +
+      ETAPAS_IA.map(g => '<optgroup label="' + g[0] + '">' + g[1].map(x => '<option value="etapa:' + x + '">' + x + '</option>').join("") + '</optgroup>').join("") +
+      '<optgroup label="Outra"><option value="__outra">Outra turma ou ano (digitar)</option></optgroup>';
+    sel.value = [...sel.options].some(o => o.value === atual) && atual ? atual : (p.turmas[0] ? p.turmas[0].id : "etapa:5º ano do Ensino Fundamental");
     turmaEscolhida();
   }
   function turmaEscolhida(){
     const sel = document.getElementById("iaTurmaSel"), inp = document.getElementById("iaTurma"), disc = document.getElementById("iaDisc");
     const t = perfilIA && perfilIA.turmas.find(x => x.id === sel.value);
-    inp.hidden = !!t; if(!t) inp.focus();
+    inp.hidden = sel.value !== "__outra"; if(!inp.hidden) inp.focus();
     if(t && t.discs.length){
       const d = t.discs[0];
       if(![...disc.options].some(o => o.value === d)) disc.insertAdjacentHTML("beforeend", '<option>' + d.replace(/</g, "&lt;") + '</option>');
@@ -4027,6 +4038,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   function turmaIA(){
     const sel = document.getElementById("iaTurmaSel"), t = perfilIA && perfilIA.turmas.find(x => x.id === sel.value);
     if(t) return t.ano && !t.nome.includes(t.ano) ? t.nome + " (" + t.ano + ")" : t.nome;
+    if(sel.value.startsWith("etapa:")) return sel.value.slice(6);
     return document.getElementById("iaTurma").value.trim();
   }
   // Lousa Ultra: aparece quando o administrador ligou; fica indisponível (com o motivo) se o plano não inclui imagem
