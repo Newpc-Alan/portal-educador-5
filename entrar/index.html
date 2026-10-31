@@ -347,6 +347,11 @@
   .av-topo{ display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 20px;background:#0f2c4a;color:#fff;border-bottom:3px solid #8DC63F }
   .av-topo h3{ margin:0;font-size:20px;color:#fff } .av-topo select{ font:inherit;font-size:16px;font-weight:700;padding:8px 12px;border-radius:10px;border:0;min-height:42px }
   .av-esp{ flex:1 }
+  .ta-fundo{ z-index:9600 } .ta-jan{ width:min(520px,100%) } .ta-ops{ display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px }
+  .ta-op{ border:2px solid #cfe5b5;background:#f4faea;color:#1a5a24;border-radius:14px;padding:16px 10px;font:inherit;font-size:18px;font-weight:800;cursor:pointer } .ta-op:hover,.ta-op:focus-visible{ background:#1a6b2a;color:#fff;border-color:#1a6b2a }
+  .ta-enc{ color:#b3261e !important;margin-right:auto }
+  .fa-fundo{ position:fixed;inset:0;z-index:9900;background:rgba(15,44,74,.92);display:flex;align-items:center;justify-content:center;padding:20px }
+  .fa-caixa{ background:#fff;border-radius:20px;padding:30px 34px;display:grid;gap:8px;justify-items:center;text-align:center;max-width:420px } .fa-ic{ font-size:56px } .fa-caixa b{ font-size:24px;color:#0f2c4a } .fa-caixa span{ color:#5b6b7b }
   .av-qr{ border:0;border-radius:12px;padding:11px 16px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;min-height:42px;background:#e6edf3;color:#0f2c4a }
   .av-qr.fechado{ background:#fff3d6;color:#7a5200;box-shadow:inset 0 0 0 2px #f2c14e } .av-qr.aberto{ background:#1a6b2a;color:#fff } .av-qr:disabled{ opacity:.7;cursor:default }
   .av-env{ background:#8DC63F;color:#0f2c4a;border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:15px;font-weight:800;cursor:pointer }
@@ -1600,7 +1605,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged,
+  import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence,
     sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithCustomToken }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit, onSnapshot, deleteField }
@@ -1829,6 +1834,8 @@
       const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entrarAlunoQr", { timeout:20000 })({ q:String(texto || "") })).data;
       boasVindasAluno(r.nome);
       if(auth.currentUser) await signOut(auth).catch(() => {});   // Chromebook da escola: quem estava logado sai antes
+      // cartão em aparelho compartilhado: a sessão não fica guardada; fechou o navegador, saiu
+      try{ await setPersistence(auth, browserSessionPersistence); }catch(e){}
       await signInWithCustomToken(auth, r.token);
       if(location.search) history.replaceState(null, "", location.pathname);   // sem ?qr: recarregar não desloga o aluno
       return true;
@@ -2291,6 +2298,7 @@
     montarLousa();
     montarMiniCal();
     montarSaldoIA();
+    vigiarAulasProf();
   }
 
   // ---------- créditos do Portal IA no menu: o que o professor pode usar, não o saldo da rede ----------
@@ -3180,16 +3188,17 @@
     const box = $("qrEntrada"); if(!box || !al.turma) return;
     if(btn){ btn.disabled = true; btn.textContent = acao === "abrir" ? "Abrindo..." : "Fechando..."; }
     try{
-      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })({ turma_id:al.turma.id, acao })).data;
+      let r;
+      if(acao === "abrir"){ r = await abrirTempoAula(al.turma.id, al.turma.nome); if(!r){ if(btn){ btn.disabled = false; btn.textContent = "Abrir entrada por QR"; } return; } }
+      else r = await chamarEntradaQr({ turma_id:al.turma.id, acao });
       if(!$("qrEntrada")) return;
       const ate = r.aberta_ate ? new Date(r.aberta_ate).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : "";
       box.className = "qr-entrada" + (ate ? " aberta" : "");
       box.innerHTML = ate
         ? '<b class="st">✅ Entrada por QR aberta até '+ate+'</b>Os alunos mostram o cartão para a câmera e entram direto. <button class="btn-mini btn-ghost" data-action="qr-fechar">Fechar agora</button>'+
           '<div class="lk"><span>Link para enviar pelo Maestro:</span><code>'+LINK_QR+'</code><button class="btn-mini btn-gerenciar" data-action="qr-copiar">Copiar</button></div>'
-        : '<b class="st">🔒 Entrada por QR fechada</b>Abra no começo da aula: vale por 4 horas. <button class="btn-mini btn-liberar" data-action="qr-abrir">Abrir entrada por QR</button>';
-      if(acao === "abrir") toast("Entrada por QR aberta até "+ate+".");
+        : '<b class="st">🔒 Entrada por QR fechada</b>Abra no começo da aula e escolha o tempo: quando acabar, quem entrou pelo cartão sai sozinho. <button class="btn-mini btn-liberar" data-action="qr-abrir">Abrir entrada por QR</button>';
+
     }catch(e){ console.warn(e); if($("qrEntrada")) box.innerHTML = '<b class="st">Entrada por QR</b>'+escapeHtml(e.message && !/internal/i.test(e.message) ? e.message : "Não foi possível consultar agora.")+' <button class="btn-mini btn-ghost" data-action="qr-ver">Tentar de novo</button>'; }
   }
   async function listarAlunosTurma(){
@@ -6110,7 +6119,7 @@
     $("iniAula").innerHTML = "";
     faixaNoticias(ehAluno);
     faixaDatas();
-    if(usuarioAtual.perfil === "aluno"){ faixaProvasAluno(); materiaisAluno(); }
+    if(usuarioAtual.perfil === "aluno"){ faixaProvasAluno(); materiaisAluno(); vigiarFimAula(); }
     // modulos que viraram acoes no Inicio do professor nao se repetem em "Mais recursos"
     const NAS_ACOES = ehAluno ? [] : ["provas", "atividades", "maestro", "gestao"];
     // a Central de Relatorios fica dentro do Gestao Escolar quando ele esta liberado (o card proprio sai do Inicio)
@@ -7126,26 +7135,109 @@
     AV.relogio = setInterval(() => { desenharAoVivo(); pintarQrAoVivo(); }, 5000);   // quem parou de mandar sinal sai da sala em segundos; o QR vence sozinho
     desenharAoVivo();
   }
-  // entrada por QR da turma (cartão do aluno): abre por 4 horas, direto do painel ao vivo
+  /* ---------- Tempo de aula (entrada por QR) ----------
+     O professor abre a entrada escolhendo o tempo (30, 40, 50 min, 1 ou 2 h). Faltando 5 min, avisa; faltando 3, oferece prorrogar.
+     Quando o tempo acaba, a entrada fecha e quem entrou pelo cartão sai sozinho (a sessão do cartão vale só enquanto a aula estiver aberta). */
+  const TEMPOS_AULA = [[30, "30 min"], [40, "40 min"], [50, "50 min"], [60, "1 hora"], [120, "2 horas"]];
+  const TEMPOS_PRORROGA = [[10, "+10 min"], [15, "+15 min"], [20, "+20 min"], [30, "+30 min"], [60, "+1 hora"]];
+  async function chamarEntradaQr(dados){
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })(dados)).data;
+  }
+  // janela de escolha (tempo de aula ou prorrogação); devolve os minutos, "fechar" ou null
+  function escolherTempo({ titulo, texto, opcoes, extra }){
+    return new Promise(ok => {
+      const velho = $("taFundo"); if(velho) velho.remove();
+      const f = document.createElement("div"); f.id = "taFundo"; f.className = "et-fundo ta-fundo";
+      f.innerHTML = '<div class="et-jan ta-jan" role="dialog" aria-modal="true" aria-labelledby="taTit"><div class="et-topo"><h3 id="taTit">' + escapeHtml(titulo) + '</h3></div>' +
+        '<div class="et-corpo"><p class="et-d">' + texto + '</p><div class="ta-ops">' + opcoes.map(([m, t]) => '<button type="button" class="ta-op" data-ta="' + m + '">' + t + '</button>').join("") + '</div>' +
+        '<div class="et-acoes">' + (extra || "") + '<button type="button" class="btn btn-ghost" data-ta="nada">' + (extra ? "Deixar terminar" : "Cancelar") + '</button></div></div></div>';
+      document.body.appendChild(f);
+      const fim = v => { f.remove(); ok(v); };
+      f.addEventListener("click", e => { const b = e.target.closest("[data-ta]"); if(!b) return; const v = b.dataset.ta; fim(v === "nada" ? null : v === "fechar" ? "fechar" : Number(v)); });
+      f.addEventListener("keydown", e => { if(e.key === "Escape") fim(null); });
+      const p = f.querySelector(".ta-op"); if(p) p.focus();
+    });
+  }
+  async function abrirTempoAula(tid, nomeTurma){
+    const min = await escolherTempo({ titulo:"🔓 Abrir a entrada da aula", texto:"Quanto tempo dura a aula" + (nomeTurma ? " do <b>" + escapeHtml(nomeTurma) + "</b>" : "") + "? Os alunos entram com o cartão e saem sozinhos quando o tempo acabar. Faltando 5 minutos, você recebe um aviso para prorrogar se precisar.", opcoes:TEMPOS_AULA });
+    if(!min) return null;
+    const r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min });
+    toast("Aula aberta até " + horaCurta(r.aberta_ate) + ". Os alunos já podem entrar com o cartão.");
+    return r;
+  }
+  // professor: vigia as aulas que ele abriu, em qualquer tela do Portal
+  const TA = { aulas:{}, avisos:{}, relogio:null, unsub:null };
+  function vigiarAulasProf(){
+    if(TA.unsub || !usuarioAtual || usuarioAtual.perfil === "aluno") return;
+    TA.unsub = onSnapshot(query(collection(db, "qr_aulas"), where("por", "==", usuarioAtual.uid)), sn => {
+      TA.aulas = {}; sn.forEach(d => { const x = d.data(), ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; if(ate > Date.now()) TA.aulas[d.id] = { ate, nome:x.turma_nome || "turma" }; });
+      conferirAulasProf();
+    }, e => console.warn("aulas abertas:", e.code));
+    TA.relogio = setInterval(conferirAulasProf, 15000);
+  }
+  function bipe(){ try{ const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.frequency.value = 880; g.gain.value = .08; o.connect(g); g.connect(c.destination); o.start(); setTimeout(() => { o.stop(); c.close(); }, 350); }catch(e){} }
+  async function conferirAulasProf(){
+    const agora = Date.now();
+    for(const [tid, a] of Object.entries(TA.aulas)){
+      const falta = a.ate - agora, chave = tid + "_" + a.ate;
+      if(falta <= 0){ delete TA.aulas[tid]; continue; }
+      if(falta <= 5 * 60e3 && falta > 3 * 60e3 && !TA.avisos[chave + "_5"]){ TA.avisos[chave + "_5"] = 1; bipe(); toast("⏰ Faltam 5 minutos para encerrar a aula do " + a.nome + "."); }
+      if(falta <= 3 * 60e3 && !TA.avisos[chave + "_3"] && !$("taFundo")){
+        TA.avisos[chave + "_3"] = 1; bipe();
+        const v = await escolherTempo({ titulo:"⏰ A aula está acabando", texto:"A aula do <b>" + escapeHtml(a.nome) + "</b> termina às <b>" + horaCurta(a.ate) + "</b>. Quando acabar, quem entrou pelo cartão sai sozinho. Precisa de mais tempo?",
+          opcoes:TEMPOS_PRORROGA, extra:'<button type="button" class="btn btn-ghost ta-enc" data-ta="fechar">Encerrar agora</button>' });
+        try{
+          if(typeof v === "number"){ const r = await chamarEntradaQr({ turma_id:tid, acao:"prorrogar", minutos:v }); toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); }
+          else if(v === "fechar"){ await chamarEntradaQr({ turma_id:tid, acao:"fechar" }); toast("Aula encerrada. Os alunos que entraram pelo cartão saem agora."); }
+        }catch(e){ toast(e && e.message ? e.message : "Não deu para mudar o tempo agora.", true); }
+        if(AV.tid === tid) qrAoVivo("ver");
+      }
+    }
+  }
+  // aluno que entrou pelo cartão: sai sozinho quando a aula acaba (aviso 2 minutos antes)
+  const FA = { ate:null, unsub:null, relogio:null, avisou:0 };
+  async function vigiarFimAula(){
+    if(FA.unsub || !auth.currentUser) return;
+    FA.ate = null; FA.avisou = 0;
+    let cl = {}; try{ cl = (await auth.currentUser.getIdTokenResult()).claims || {}; }catch(e){}
+    if(!cl.via_qr || !cl.turma_id) return;
+    FA.unsub = onSnapshot(doc(db, "qr_aulas", cl.turma_id), s => { const x = s.data() || {}; FA.ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; conferirFimAula(); }, e => console.warn("fim da aula:", e.code));
+    FA.relogio = setInterval(conferirFimAula, 10000);
+  }
+  function conferirFimAula(){
+    if(FA.ate === null) return;
+    const falta = FA.ate - Date.now();
+    if(falta > 0 && falta <= 2 * 60e3 && FA.avisou !== FA.ate){ FA.avisou = FA.ate; toast("⏰ A aula termina em 2 minutos."); }
+    if(falta <= 0 && !$("faFundo")){
+      clearInterval(FA.relogio); if(FA.unsub){ FA.unsub(); FA.unsub = null; }
+      const f = document.createElement("div"); f.id = "faFundo"; f.className = "fa-fundo";
+      f.innerHTML = '<div class="fa-caixa"><div class="fa-ic">👋</div><b>A aula terminou</b><span>Saindo da sua conta para o próximo colega usar o aparelho.</span></div>';
+      document.body.appendChild(f);
+      setTimeout(async () => { try{ await signOut(auth); }catch(e){} f.remove(); }, 6000);
+    }
+  }
+  // entrada por QR da turma (cartão do aluno): o professor escolhe o tempo da aula, direto do painel ao vivo
   async function qrAoVivo(acao){
     const b = $("avQr"), tid = AV.tid; if(!b || !tid) return;
     if(acao === "fechar" && b.dataset.confirma !== "1"){ b.dataset.confirma = "1"; b.textContent = "Fechar a entrada? Toque de novo"; setTimeout(() => { if(b.dataset.confirma === "1"){ delete b.dataset.confirma; pintarQrAoVivo(); } }, 4000); return; }
-    delete b.dataset.confirma; b.disabled = true; if(acao !== "ver") b.textContent = acao === "abrir" ? "Abrindo..." : "Fechando...";
+    delete b.dataset.confirma; b.disabled = true; if(acao === "fechar") b.textContent = "Fechando...";
     try{
-      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })({ turma_id:tid, acao })).data;
+      let r;
+      if(acao === "abrir"){ const sel = $("avTurma"); r = await abrirTempoAula(tid, sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : ""); if(!r){ pintarQrAoVivo(); return; } }
+      else r = await chamarEntradaQr({ turma_id:tid, acao });
       if(AV.tid !== tid) return;
       AV.qrAte = r.aberta_ate || 0; pintarQrAoVivo();
-      if(acao === "abrir") toast("Entrada por QR aberta até " + new Date(AV.qrAte).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) + ". Os alunos já podem entrar com o cartão.");
-      if(acao === "fechar") toast("Entrada por QR fechada.");
+      if(acao === "fechar") toast("Aula encerrada. Quem entrou pelo cartão sai agora.");
     }catch(e){ console.warn("qr:", e); if(AV.tid === tid){ AV.qrAte = null; b.disabled = false; b.className = "av-qr"; b.textContent = "QR: tentar de novo"; b.dataset.prox = "ver"; } }
   }
   function pintarQrAoVivo(){
     const b = $("avQr"); if(!b || AV.qrAte === null || b.dataset.confirma) return;
     const aberto = AV.qrAte > Date.now(); b.disabled = false;
     b.className = "av-qr " + (aberto ? "aberto" : "fechado"); b.dataset.prox = aberto ? "fechar" : "abrir";
-    b.textContent = aberto ? "🔓 Entrada por QR aberta até " + new Date(AV.qrAte).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : "🔒 Abrir entrada por QR";
-    b.title = aberto ? "Os alunos entram mostrando o cartão para a câmera. Toque para fechar." : "Libera a entrada com o cartão por 4 horas.";
+    const falta = Math.ceil((AV.qrAte - Date.now()) / 60e3);
+    b.textContent = aberto ? "🔓 Aula aberta até " + horaCurta(AV.qrAte) + " · faltam " + (falta >= 60 ? Math.floor(falta / 60) + "h" + String(falta % 60).padStart(2, "0") : falta + " min") : "🔒 Abrir entrada da aula";
+    b.title = aberto ? "Os alunos entram com o cartão e saem sozinhos quando o tempo acabar. Toque para encerrar antes." : "Escolha o tempo da aula e libere a entrada com o cartão.";
   }
   const msAv = x => x && x.toMillis ? x.toMillis() : 0;
   const onlineAv = id => { const p = AV.pres[id]; return !!p && !p.fora && Date.now() - msAv(p.em) < ON_MS; };

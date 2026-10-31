@@ -104,23 +104,37 @@ export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
   const aula = (await db.doc(`qr_aulas/${a.turma_id}`).get()).data();
   const ate = aula && aula.aberta_ate && aula.aberta_ate.toMillis ? aula.aberta_ate.toMillis() : 0;
   if (ate <= agora) throw new HttpsError('failed-precondition', 'A entrada por QR da sua turma está fechada. Peça ao professor para abrir a aula.');
-  const token = await auth.createCustomToken(uidAluno(r.alunoId));
+  // via_qr: a tela do aluno sabe que esta sessão vale só enquanto a aula estiver aberta (sai sozinha quando o tempo acaba)
+  const token = await auth.createCustomToken(uidAluno(r.alunoId), { via_qr: true });
   await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp() });
   const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
   await db.doc('stats/entrada_qr').set({ por_dia: { [dia]: FieldValue.increment(1) }, total: FieldValue.increment(1) }, { merge: true }).catch(() => {});
   return { token, nome: a.nome || '' };
 }
 // abrir/fechar/consultar a entrada por QR de uma turma (mesmas pessoas que geram o acesso)
-export async function entradaTurma({ db, uid, turmaId, acao, agora = Date.now() }) {
+// tempo de aula escolhido pelo professor ao abrir (minutos) e as prorrogações; nunca passa de MAX_AULA_MIN a partir de agora
+export const TEMPOS_AULA = [30, 40, 50, 60, 120], TEMPOS_PRORROGA = [5, 10, 15, 20, 30, 60], MAX_AULA_MIN = 360;
+export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now() }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
   if (!ts.exists) throw new HttpsError('not-found', 'Turma não encontrada.');
   if (!podeGerar(us.data(), uid, ts.data(), turmaId)) throw new HttpsError('permission-denied', 'Você não pode abrir a entrada desta turma.');
   const ref = db.doc(`qr_aulas/${turmaId}`);
-  if (acao === 'abrir' || acao === 'fechar') {
-    const ate = acao === 'abrir' ? new Date(agora + HORAS_QR * 3600e3) : new Date(agora);
-    await ref.set({ aberta_ate: ate, por: uid, turma_nome: String(ts.data().nome || '').slice(0, 80), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
-    return { aberta_ate: acao === 'abrir' ? ate.getTime() : 0 };
+  if (acao === 'abrir' || acao === 'fechar' || acao === 'prorrogar') {
+    const nome = String(ts.data().nome || '').slice(0, 80);
+    if (acao === 'fechar') { await ref.set({ aberta_ate: new Date(agora), por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); return { aberta_ate: 0 }; }
+    let ate;
+    if (acao === 'abrir') {
+      const min = TEMPOS_AULA.includes(Number(minutos)) ? Number(minutos) : 60;
+      ate = new Date(agora + min * 60e3);
+      await ref.set({ aberta_ate: ate, aberta_em: new Date(agora), duracao_min: min, prorrogado_min: 0, por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    } else {
+      const min = TEMPOS_PRORROGA.includes(Number(minutos)) ? Number(minutos) : 10;
+      const d0 = (await ref.get()).data() || {}, atual = d0.aberta_ate && d0.aberta_ate.toMillis ? d0.aberta_ate.toMillis() : 0;
+      ate = new Date(Math.min(Math.max(atual, agora) + min * 60e3, agora + MAX_AULA_MIN * 60e3));
+      await ref.set({ aberta_ate: ate, por: uid, turma_nome: nome, prorrogado_min: FieldValue.increment(min), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    }
+    return { aberta_ate: ate.getTime() };
   }
   const d = (await ref.get()).data(), ate = d && d.aberta_ate && d.aberta_ate.toMillis ? d.aberta_ate.toMillis() : 0;
   return { aberta_ate: ate > agora ? ate : 0 };
@@ -157,7 +171,7 @@ export const entrarAlunoQr = onCall({ region: REGIAO, maxInstances: 20 }, async 
 export const entradaQrTurma = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const d = req.data || {};
-  return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar'].includes(d.acao) ? d.acao : 'ver' });
+  return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar', 'prorrogar'].includes(d.acao) ? d.acao : 'ver', minutos: d.minutos });
 });
 export const vincularContaAluno = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');

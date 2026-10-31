@@ -98,6 +98,11 @@ service cloud.firestore {
     function alunoDaTurma(tid) { return logado() && (request.auth.token.get("turma_id", "") == tid || (aluno() && eu().get("turma_id", "") == tid)); }
     function souChave(k) { return k == request.auth.token.get("aluno_id", "-") || k == request.auth.uid; }
     function equipeTurma(tid) { return (vinculado() || (ativo() && eu().perfil in ["gestor", "secretaria"])) && turmaDoc(tid).escola_id in minhasEscolas(); }
+    // Entrada por QR (tempo de aula): o aluno da turma lê quando a aula acaba (a tela dele sai sozinha); o professor que abriu e a equipe da escola acompanham. Só a função grava.
+    match /qr_aulas/{tid} {
+      allow read: if admin() || alunoDaTurma(tid) || (logado() && resource.data.get("por", "") == request.auth.uid) || equipeTurma(tid);
+      allow write: if false;
+    }
     // Histórico de aulas do aluno: o que ele já abriu e fechou (vale em qualquer aparelho); só o próprio aluno lê e grava
     match /turma_aluno_estado/{tid}/alunos/{k} {
       allow read: if alunoDaTurma(tid) && souChave(k);
