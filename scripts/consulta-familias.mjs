@@ -31,8 +31,7 @@ try {
   const cob = i2.result && i2.result.cobertura && i2.result.cobertura[turmaId];
   ok(i2.result && i2.result.turmas.includes(turmaId) && cob, 'escola ligada: turma liberada · cobertura ' + limpo(JSON.stringify(cob || i2.error)));
   const cota = await db.doc(`avisos_prof/${prof.id}_${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande' }).format(new Date())}`).get();
-  ok(cota.exists && cota.data().n >= 1, 'envio contou na cota do dia do professor (' + (cota.exists ? cota.data().n : 0) + ' de 5)');
-  await cota.ref.delete();
+  ok(!cota.exists || !cota.data().n, 'escola desligada não gastou a cota do dia do professor');
 } finally {
   if (antes) await cfgRef.set(antes); else await cfgRef.delete();
   aviso('configuração da escola devolvida');

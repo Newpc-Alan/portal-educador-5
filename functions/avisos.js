@@ -104,11 +104,12 @@ export async function coberturaFamilias(db, turmas) {
 }
 export async function enviarMaterialFamilias(db, { uid, nomeProf, emailProf, itemId, turmas, titulo, texto, link }) {
   const dia = hojeMS(), cota = db.doc(`avisos_prof/${uid}_${dia}`);
-  const ok = await db.runTransaction(async t => { const s = await t.get(cota), n = s.exists ? s.data().n || 0 : 0; if (n >= ENVIOS_PROF_DIA) return false; t.set(cota, { n: n + 1, uid, dia }, { merge: true }); return true; });
-  if (!ok) return { bloqueado: 'cota', limite: ENVIOS_PROF_DIA };
   const liberadas = new Set(await escolasComFamilias(db, turmas.map(t => t.escola_id)));
   const alvo = turmas.filter(t => liberadas.has(t.escola_id)), fora = turmas.filter(t => !liberadas.has(t.escola_id)).map(t => t.nome || 'Turma');
   const tot = { turmas: alvo.length, alunos: 0, enviados: 0, sem_contato: 0, limite: 0, erro: 0, irmaos: 0, fora };
+  if (!alvo.length) return tot;   // nenhuma escola liberou: não gasta a cota do dia
+  const ok = await db.runTransaction(async t => { const s = await t.get(cota), n = s.exists ? s.data().n || 0 : 0; if (n >= ENVIOS_PROF_DIA) return false; t.set(cota, { n: n + 1, uid, dia }, { merge: true }); return true; });
+  if (!ok) return { bloqueado: 'cota', limite: ENVIOS_PROF_DIA };
   const nomesEsc = {}, tr = transporte(), jaMandado = new Set();
   for (const t of alvo) {
     if (!(t.escola_id in nomesEsc)) nomesEsc[t.escola_id] = ((await db.doc(`escolas/${t.escola_id}`).get()).data() || {}).nome || 'Escola';
