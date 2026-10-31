@@ -8350,7 +8350,7 @@
       '<h3 style="margin-top:16px;font-size:15px">2 · Redes</h3><p class="sub">A carteira da rede paga o que estiver marcado aqui. Os botões aplicam o pacote de uma vez; depois ajuste caixa por caixa.</p>'+
       '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th class="n">Saldo</th>'+cab+'<th>Pacote</th></tr></thead><tbody>'+(crA.munis.map(linhaRede).join("") || '<tr><td colspan="9">Nenhuma rede cadastrada.</td></tr>')+'</tbody></table></div>'+
       '<h3 style="margin-top:16px;font-size:15px">3 · Professores (avulsos e exceções)</h3><p class="sub">Liberação só para a pessoa, paga com os créditos próprios dela. Avulso sem ajuste segue o pacote da licença.</p>'+
-      '<div class="cr-form" style="grid-template-columns:1fr auto;max-width:620px"><label>Adicionar professor pelo e-mail<input id="iaEmail" type="email" placeholder="professor@..."></label><button class="btn btn-ghost" data-action="ia-add-prof">Adicionar</button></div>'+
+      '<div class="cr-form" style="grid-template-columns:1fr auto;max-width:620px"><label>Adicionar professor pelo e-mail ou nome<input id="iaEmail" type="text" list="iaEmailLista" autocomplete="off" placeholder="Comece a digitar: e-mail ou nome do professor"><datalist id="iaEmailLista"></datalist></label><button class="btn btn-ghost" data-action="ia-add-prof">Adicionar</button></div>'+
       '<div style="overflow:auto;margin-top:8px"><table class="cr-tab"><thead><tr><th>Professor</th><th class="n">Saldo</th>'+cab+'<th></th></tr></thead><tbody id="iaProfs">'+(crA.profs.map(linhaProf).join("") || '<tr><td colspan="9">Nenhum professor avulso ou com exceção ainda.</td></tr>')+'</tbody></table></div>'+
       '<div style="margin-top:14px"><button class="btn btn-primary" data-action="ia-salvar" id="iaSalvar">Salvar Central de IA</button></div></div>';
   }
@@ -8365,6 +8365,25 @@
   function iaPacote(mun, p){
     const set = new Set(p === "nenhum" ? [] : iaDoPlanoC(p));
     IA_REC.forEach(([r]) => { const c = document.querySelector('[data-ia-mun="'+CSS.escape(mun)+'"][data-r="'+r+'"]'); if(c) c.checked = set.has(r); });
+  }
+  // sugestões enquanto digita: e-mails e nomes que começam com o que foi digitado (até 10, sem alunos)
+  let iaSugT = 0, iaSugUlt = "";
+  document.addEventListener("input", (ev) => {
+    if(ev.target.id !== "iaEmail") return;
+    clearTimeout(iaSugT); iaSugT = setTimeout(() => iaSugerirProf(ev.target.value), 250);
+  });
+  document.addEventListener("keydown", (ev) => { if(ev.target.id === "iaEmail" && ev.key === "Enter"){ ev.preventDefault(); iaAddProf(); } });
+  async function iaSugerirProf(txt){
+    const t = String(txt || "").trim(), dl = $("iaEmailLista"); if(!dl) return;
+    if(t.length < 1 || t === iaSugUlt) return; iaSugUlt = t;
+    const em = t.toLowerCase(), nm = t.charAt(0).toUpperCase() + t.slice(1);
+    const faixa = (campo, v) => getDocs(query(collection(db,"usuarios"), where(campo,">=",v), where(campo,"<=",v + "\uf8ff"), limit(10))).then(q => q.docs).catch(() => []);
+    const [a, b] = await Promise.all([faixa("email", em), em.includes("@") ? Promise.resolve([]) : faixa("nome", nm)]);
+    if(String(($("iaEmail") || {}).value || "").trim() !== t) return;   // o texto mudou enquanto buscava
+    const vistos = new Set(), itens = [];
+    a.concat(b).forEach(d => { const u = d.data() || {}; if(vistos.has(d.id) || !u.email || u.perfil === "aluno") return; vistos.add(d.id); itens.push(u); });
+    const esc = x => String(x || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    dl.innerHTML = itens.slice(0, 10).map(u => '<option value="' + esc(u.email) + '" label="' + esc((u.nome || "") + (u.perfil ? " · " + u.perfil : "")) + '"></option>').join("");
   }
   async function iaAddProf(){
     const em = (($("iaEmail") || {}).value || "").trim().toLowerCase(); if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){ toast("Informe um e-mail válido.", true); return; }
