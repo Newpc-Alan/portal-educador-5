@@ -7277,18 +7277,19 @@
   const MT = { unsub:null, lista:[], abertos:new Set(), primeira:true, tid:"", chave:"", pulso:null };
   // Turma ao vivo: enquanto o Portal do Aluno está aberto (e visível), avisa a cada minuto que o aluno está ali
   function pulsoAluno(forcarFora){
-    if(!MT.tid || !MT.chave) return;
+    if(!MT.tid || !MT.chave || !MT.viaQr) return;   // Turma ao Vivo é só de quem entrou pelo cartão (QR) na sala
     const fora = forcarFora === true || document.visibilityState !== "visible";   // saiu do Portal: avisa na hora, o professor vê sem esperar
     if(fora && MT.foraEnviado) return; MT.foraEnviado = fora;
     setDoc(doc(db, "turma_presenca", MT.tid, "alunos", MT.chave), { nome:String(usuarioAtual.nome || "Aluno").slice(0, 80), em:serverTimestamp(), fora }).catch(e => console.warn("presença:", e.code));
   }
   async function materiaisAluno(){
     let tid = usuarioAtual.turma_id || "", chave = usuarioAtual.aluno_id || "";
-    try{ const tk = await auth.currentUser.getIdTokenResult(); tid = tk.claims.turma_id || tid; chave = tk.claims.aluno_id || chave; }catch(e){}
+    MT.viaQr = false;
+    try{ const tk = await auth.currentUser.getIdTokenResult(); tid = tk.claims.turma_id || tid; chave = tk.claims.aluno_id || chave; MT.viaQr = tk.claims.via_qr === true; }catch(e){}
     if(!tid || !$("iniMateriais")) return;
     MT.tid = tid; MT.chave = chave || usuarioAtual.uid;
     try{ const est = await getDoc(doc(db, "turma_aluno_estado", tid, "alunos", MT.chave)); if(est.exists()) MT.fechadosNuvem = est.data().fechados || []; }catch(e){ console.warn("histórico:", e.code); }
-    if(!MT.pulso){ pulsoAluno(); MT.pulso = setInterval(() => pulsoAluno(), 20000); document.addEventListener("visibilitychange", () => pulsoAluno()); window.addEventListener("pagehide", () => { MT.foraEnviado = false; pulsoAluno(true); }); }
+    if(!MT.pulso && MT.viaQr){ pulsoAluno(); MT.pulso = setInterval(() => pulsoAluno(), 20000); document.addEventListener("visibilitychange", () => pulsoAluno()); window.addEventListener("pagehide", () => { MT.foraEnviado = false; pulsoAluno(true); }); }
     if(MT.unsub){ MT.unsub(); MT.unsub = null; }
     MT.unsub = onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(120)), sn => {
       const l = []; sn.forEach(d => l.push({ id:d.id, tid, ...d.data() })); MT.lista = l; MT.temMais = l.length >= 120; desenharMateriaisAluno();
@@ -7297,7 +7298,8 @@
       const ms = x => x && x.toMillis ? x.toMillis() : Date.now();
       const novo = l.find(m => !MT.abertos.has(m.id) && ms(m.criado_em) > visto && Date.now() - ms(m.criado_em) < 2 * 3600000);
       MT.primeira = false;
-      if(novo && !$("mtFundo")) abrirMaterialAluno(novo.id, true);
+      // abrir sozinho em tela cheia é coisa da aula ao vivo (entrada pelo cartão); quem entrou com Google ou senha vê na lista
+      if(novo && MT.viaQr && !$("mtFundo")) abrirMaterialAluno(novo.id, true);
     }, e => console.warn("materiais da turma:", e.code));
   }
   // aberto e fechado = vai para o Histórico de aulas (guardado neste aparelho, por aluno)
