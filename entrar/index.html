@@ -299,6 +299,15 @@
   .ini-selo.plano{ background:#9a6700 }
   /* ===== Inicio do professor: Para hoje + acoes com foto (fotos em /assets/inicio/) ===== */
   .ini-sec{ margin-bottom:24px }
+  .mt-lista{ display:grid;gap:8px }
+  .mt-card{ display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--line, #dfe7ef);border-radius:12px;padding:12px 14px;background:#fff;font:inherit;color:inherit;cursor:pointer;min-height:56px }
+  .mt-card:hover{ border-color:#8DC63F;background:#f6faf3 } .mt-card:focus-visible{ outline:2px solid #2E9BD6;outline-offset:2px }
+  .mt-tx{ flex:1;min-width:0 } .mt-tx b{ display:block;font-size:16px } .mt-tx small{ color:#6b7a89;font-size:13px }
+  .mt-fundo{ position:fixed;inset:0;z-index:9500;background:rgba(7,22,33,.6);display:flex;align-items:stretch;justify-content:center;padding:12px }
+  .mt-jan{ background:#fff;border-radius:14px;width:min(900px,100%);display:flex;flex-direction:column;overflow:hidden }
+  .mt-topo{ display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#0f2c4a;color:#fff } .mt-topo b{ font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+  .mt-topo span{ display:flex;gap:6px;flex:none } .mt-b{ background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer;min-height:40px }
+  .mt-if{ flex:1;border:0;width:100% }
   .rd-card{ background:#fff;border:1px solid var(--line, #dfe7ef);border-left:5px solid #1a6b2a;border-radius:14px;padding:14px 16px }
   .rd-top{ display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px } .rd-top h3{ margin:0 }
   .rd-x{ border:0;background:none;font-size:22px;line-height:1;color:#7b8a99;cursor:pointer;padding:4px 8px;border-radius:8px } .rd-x:hover{ background:#f1f4f7 }
@@ -5339,6 +5348,10 @@
     else if(acao === "ini-conheca-fechar"){ fecharConheca(); }
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
     else if(acao === "alu-sair"){ signOut(auth); }
+    else if(acao === "mt-abrir"){ abrirMaterialAluno(el.dataset.arg); desenharMateriaisAluno(); }
+    else if(acao === "mt-fechar"){ const f = $("mtFundo"); if(f) f.remove(); }
+    else if(acao === "mt-letra"){ const f = $("mtFundo"), fr = f && f.querySelector("iframe"); const d = fr && fr.contentDocument && fr.contentDocument.getElementById("folha");
+      if(d){ const z = Math.min(2, Math.max(0.8, (parseFloat(d.style.getPropertyValue("--z")) || 1) + Number(el.dataset.arg) * 0.15)); d.style.setProperty("--z", String(z)); } }
     else if(acao === "rede-fechar"){ try{ localStorage.setItem("pde_rede_fechado_" + usuarioAtual.uid, String(Date.now())); }catch(e){} const b = $("iniRede"); if(b) b.innerHTML = ""; }
     else if(acao === "rede-resumo"){
       const ligar = el.dataset.arg === "1"; el.disabled = true;
@@ -5604,7 +5617,7 @@
       '</div>'+
       '</div>'+
       (ehAluno
-        ? '<div id="iniAula"></div><div id="iniProvas"></div>'+
+        ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniMateriais"></div>'+
           '<section class="ini-sec ini-alu" aria-labelledby="aluTit"><h3 id="aluTit">Aprender brincando</h3>'+
           '<div class="ac-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></section>'+
           '<div id="iniNoticias"></div><div id="iniDatas"></div>'
@@ -5654,7 +5667,7 @@
     $("iniAula").innerHTML = "";
     faixaNoticias(ehAluno);
     faixaDatas();
-    if(usuarioAtual.perfil === "aluno") faixaProvasAluno();
+    if(usuarioAtual.perfil === "aluno"){ faixaProvasAluno(); materiaisAluno(); }
     // modulos que viraram acoes no Inicio do professor nao se repetem em "Mais recursos"
     const NAS_ACOES = ehAluno ? [] : ["provas", "atividades", "maestro", "gestao"];
     // a Central de Relatorios fica dentro do Gestao Escolar quando ele esta liberado (o card proprio sai do Inicio)
@@ -6531,6 +6544,39 @@
       const digitando = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if(v !== versaoSite && !digitando && $("iniProvas")) location.reload();
     }catch(e){}
+  }
+  /* Materiais da turma: o que os professores enviaram pelo Portal IA (versão do aluno, sem gabarito) */
+  const MT = { unsub:null, lista:[] };
+  async function materiaisAluno(){
+    let tid = usuarioAtual.turma_id || "";
+    try{ const tk = await auth.currentUser.getIdTokenResult(); tid = tk.claims.turma_id || tid; }catch(e){}
+    if(!tid || !$("iniMateriais")) return;
+    if(MT.unsub){ MT.unsub(); MT.unsub = null; }
+    MT.unsub = onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(20)), sn => {
+      const l = []; sn.forEach(d => l.push({ id:d.id, tid, ...d.data() })); MT.lista = l; desenharMateriaisAluno();
+    }, e => console.warn("materiais da turma:", e.code));
+  }
+  function desenharMateriaisAluno(){
+    const el = $("iniMateriais"); if(!el){ if(MT.unsub){ MT.unsub(); MT.unsub = null; } return; }
+    if(!MT.lista.length){ el.innerHTML = ""; return; }
+    let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
+    const ms = x => x && x.toMillis ? x.toMillis() : 0;
+    el.innerHTML = '<section class="ini-sec" aria-labelledby="mtTit"><h3 id="mtTit">📚 Materiais da turma</h3><div class="mt-lista">' +
+      MT.lista.map(m => '<button type="button" class="mt-card" data-action="mt-abrir" data-arg="' + escapeHtml(m.id) + '">' + (ms(m.criado_em) > visto ? '<span class="rd-novo">novo</span>' : '') +
+        '<span class="mt-tx"><b>' + escapeHtml(m.titulo || "Material") + '</b><small>' + escapeHtml([m.disciplina, m.autor_nome ? "Prof. " + m.autor_nome : ""].filter(Boolean).join(" · ")) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></button>').join("") + '</div></section>';
+  }
+  function abrirMaterialAluno(id){
+    const m = MT.lista.find(x => x.id === id); if(!m) return;
+    try{ localStorage.setItem("pde_mt_visto_" + usuarioAtual.uid, String(Date.now())); }catch(e){}
+    const fundo = document.createElement("div"); fundo.className = "mt-fundo"; fundo.id = "mtFundo";
+    fundo.innerHTML = '<div class="mt-jan" role="dialog" aria-modal="true" aria-label="' + escapeHtml(m.titulo || "Material") + '"><div class="mt-topo"><b>' + escapeHtml(m.titulo || "Material") + '</b>' +
+      '<span><button type="button" class="mt-b" data-action="mt-letra" data-arg="-1" aria-label="Diminuir a letra">A−</button><button type="button" class="mt-b" data-action="mt-letra" data-arg="1" aria-label="Aumentar a letra">A+</button>' +
+      '<button type="button" class="mt-b" data-action="mt-fechar">Fechar</button></span></div><iframe class="mt-if" sandbox="allow-same-origin" title="Material"></iframe></div>';
+    document.body.appendChild(fundo);
+    // HTML já limpo pela função; o iframe não roda script (sandbox sem allow-scripts)
+    fundo.querySelector("iframe").srcdoc = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank"><style>' + String(m.css || "") +
+      'html,body{background:#fff!important;margin:0} #folha{box-shadow:none!important;margin:0 auto!important;max-width:820px;zoom:var(--z,1)} .gab,.tira,.maisimg,.nao-imp{display:none!important}</style><article id="folha" class="folha">' + String(m.html || "") + '</article>';
+    fundo.querySelector('[data-action="mt-fechar"]').focus();
   }
   function faixaProvasAluno(){
     if(!PV.versao){ PV.versao = setInterval(conferirVersao, 180000); conferirVersao(); }

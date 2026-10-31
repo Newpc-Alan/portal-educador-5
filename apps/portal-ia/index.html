@@ -208,7 +208,9 @@ h2{font-size:1.1rem;font-weight:800}
 .modal .cx-m{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:24px;max-height:92vh;overflow:auto}
 .em-bl{display:grid;gap:6px;margin:0 0 12px} .em-bl textarea{width:100%;box-sizing:border-box;font:inherit;padding:10px 12px;border:1px solid var(--line2);border-radius:10px}
 .em-ck{display:flex;gap:8px;align-items:center;margin:2px 0;font-size:.9rem;cursor:pointer} .em-ck input{width:18px;height:18px;accent-color:#1a6b2a} .em-ck small{color:var(--muted)}
-.em-acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:14px} .em-acoes .btn{width:auto}
+.em-acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.em-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 10px;max-height:170px;overflow:auto}
+.em-det{border:1px solid var(--line2);border-radius:10px;padding:8px 12px;margin:0 0 12px} .em-det summary{cursor:pointer;font-weight:700;padding:4px 0} .em-det[open] summary{margin-bottom:8px} .em-acoes .btn{width:auto}
 .modal h2{margin-bottom:6px}
 .modal label.ck{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:.92rem;cursor:pointer}
 .modal label.ck input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--verde)}
@@ -758,6 +760,7 @@ function telaDoc(){
     (A.html ? '<p class="sub" style="font-size:.78rem;margin-top:2px">Material editado por você: o PDF sai pela impressão, igual à tela.</p>' : "") +
     (A.origemRede ? '<p class="sub" style="font-size:.78rem">Cópia do material de ' + esc(A.origemRede.autor_nome || "um(a) colega") + (A.origemRede.escola_nome ? ", " + esc(A.origemRede.escola_nome) : "") + ".</p>" : "") +
     '<button type="button" class="btn peq" data-action="favorito">' + (A.favorito ? "★ Favorito" : "☆ Marcar favorito") + "</button></div></div>" +
+  (A.publico === "aluno" && !["parecer", "recado"].includes(A.tipo) ? '<div class="caixa"><h4>Enviar para os alunos</h4><p class="sub" style="font-size:.82rem;margin:0 0 8px">Aparece em "Materiais da turma" no Portal do Aluno, sem o gabarito.</p><button type="button" class="btn pri" data-action="alunos-abrir">🎒 Enviar para os alunos</button></div>' : "") +
   (A.tipo !== "parecer" ? '<div class="caixa"><h4>Enviar por e-mail</h4><p class="sub" style="font-size:.82rem;margin:0 0 8px">Para os colegas da turma ou qualquer pessoa, em PDF.</p><button type="button" class="btn" data-action="email-abrir">✉️ Enviar por e-mail</button></div>' : "") +
   (d.versao_whatsapp ? '<div class="caixa"><h4>Para o WhatsApp</h4><div class="wpp">' + esc(d.versao_whatsapp) + '</div><button type="button" class="btn peq" style="margin-top:8px" data-action="copiar-wpp">Copiar mensagem</button></div>' : "") +
   (d.nota_professor ? '<div class="nota"><b>Dica:</b> ' + esc(d.nota_professor) + "</div>" : "") +
@@ -1086,17 +1089,65 @@ async function pdfDoc(qual, comoArquivo){
   pdf.save(nomeArq);
 }
 /* ---------- enviar por e-mail: colegas da turma (pela grade) e qualquer e-mail; vai em PDF ---------- */
-function colegasDaTurma(t){ return t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g && g.professor_uid && g.professor_uid !== E.user.uid).map(g => g.professor_uid))].length : 0; }
-function abrirEmail(){
+const ehRedePerfil = () => ["gestor", "secretaria", "admin"].includes(E.u && E.u.perfil);
+async function opcoesRede(){
+  if(!ehRedePerfil()) return null;
+  if(E.opRede) return E.opRede;
+  try{ E.opRede = (await chamar({ acao:"opcoes_envio" })).data; }catch(e){ E.opRede = null; }
+  return E.opRede;
+}
+const caixasFiltro = (op, pre) => (op.escolas.length > 1 ? '<div class="em-bl"><b>Escolas <small class="sub">(nenhuma marcada = todas)</small></b><div class="em-grade">' + op.escolas.map(e => '<label class="em-ck"><input type="checkbox" data-' + pre + '-esc="' + esc(e.id) + '"> ' + esc(e.nome) + "</label>").join("") + "</div></div>" : "") +
+  (op.series.length ? '<div class="em-bl"><b>Séries <small class="sub">(nenhuma marcada = todas)</small></b><div class="em-grade">' + op.series.map(x => '<label class="em-ck"><input type="checkbox" data-' + pre + '-serie="' + esc(x) + '"> ' + esc(x) + "</label>").join("") + "</div></div>" : "");
+const lerFiltro = pre => ({ escolas:[...document.querySelectorAll("[data-" + pre + "-esc]:checked")].map(x => x.getAttribute("data-" + pre + "-esc")),
+  series:[...document.querySelectorAll("[data-" + pre + "-serie]:checked")].map(x => x.getAttribute("data-" + pre + "-serie")),
+  disciplinas:[...document.querySelectorAll("[data-" + pre + "-disc]:checked")].map(x => x.getAttribute("data-" + pre + "-disc")) });
+// versão do aluno, montada a partir da folha na tela: sem gabarito, sem botões; imagens viram marcadores que o servidor troca pelo link
+function versaoAluno(){
+  const f = $("folha"); if(!f) return "";
+  const c = f.cloneNode(true);
+  c.querySelectorAll(".gab,.tira,.maisimg,.nao-imp,button").forEach(x => x.remove());
+  c.querySelectorAll("[contenteditable]").forEach(x => x.removeAttribute("contenteditable"));
+  c.querySelectorAll("img[data-onde]").forEach(im => { if(im.dataset.onde !== "logo") im.setAttribute("src", "__IMG_" + im.dataset.onde + "__"); });
+  return c.innerHTML;
+}
+const minhaTurma = t => discDaGrade(t).length > 0 || (E.u.turmas_ids || []).map(String).includes(t.id) || t.criado_por === E.user.uid;
+async function abrirAlunos(){
   const A = E.atual; if(!A || !A.id) return;
+  const op = await opcoesRede(), minhas = E.turmas.filter(minhaTurma);
+  modal('<h3 style="margin:0 0 4px">Enviar para os alunos</h3><p class="sub" style="margin:0 0 14px">' + esc(A.doc && A.doc.titulo || "Material") + ' aparece em "Materiais da turma" no Portal do Aluno (tablet ou computador), sem o gabarito.</p>' +
+    (minhas.length ? '<div class="em-bl"><b>Minhas turmas</b><div class="em-grade">' + minhas.map(t => '<label class="em-ck"><input type="checkbox" data-al-turma="' + esc(t.id) + '"' + (t.id === E.turma ? " checked" : "") + "> " + esc(t.nome || "Turma") + "</label>").join("") + "</div></div>" : "") +
+    (op && op.rede ? '<details class="em-det"' + (minhas.length ? "" : " open") + '><summary>Toda a rede, por escola e série</summary>' + caixasFiltro(op, "alr") +
+      '<label class="em-ck"><input type="checkbox" id="alRede"> Enviar para <b>todas as turmas</b> dessas escolas e séries</label></details>' : "") +
+    (!minhas.length && !(op && op.rede) ? '<p class="aviso">Você ainda não tem turma vinculada. Peça à coordenação para incluir você na grade da turma.</p>' : "") +
+    '<div class="em-acoes"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="button" class="btn pri" data-action="alunos-enviar" id="alEnviar">Enviar</button></div>');
+}
+async function enviarAlunos(){
+  const A = E.atual, b = $("alEnviar"); if(!A || !b || b.disabled) return;
+  const turmas = [...document.querySelectorAll("[data-al-turma]:checked")].map(x => x.dataset.alTurma), rede = $("alRede") && $("alRede").checked;
+  if(!turmas.length && !rede){ toast("Marque pelo menos uma turma.", true); return; }
+  const html = versaoAluno(); if(!html){ toast("Abra o material antes de enviar.", true); return; }
+  b.disabled = true; b.textContent = "Enviando...";
+  try{
+    const css = (document.querySelector("style") || {}).textContent || "";
+    const r = (await chamar(rede ? { acao:"enviar_turma", id:A.id, filtro:lerFiltro("alr"), html, css } : { acao:"enviar_turma", id:A.id, turmas, html, css })).data;
+    fecharModal(); toast("Enviado para " + r.turmas + (r.turmas === 1 ? " turma" : " turmas") + ": " + r.nomes.join(", ") + (r.turmas > r.nomes.length ? "..." : "") + ".");
+  }catch(e){ toast(e && e.message ? e.message : "Não deu para enviar agora.", true); b.disabled = false; b.textContent = "Enviar"; }
+}
+function colegasDaTurma(t){ return t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g && g.professor_uid && g.professor_uid !== E.user.uid).map(g => g.professor_uid))].length : 0; }
+async function abrirEmail(){
+  const A = E.atual; if(!A || !A.id) return;
+  const op = await opcoesRede();
   const temGab = ((A.doc && A.doc.gabarito) || []).length > 0;
   const turmas = E.turmas.filter(t => colegasDaTurma(t) > 0);
   modal('<h3 style="margin:0 0 4px">Enviar por e-mail</h3><p class="sub" style="margin:0 0 14px">' + esc(A.doc && A.doc.titulo || "Material") + ' vai em PDF. Quem receber responde direto para o seu e-mail.</p>' +
     (turmas.length ? '<div class="em-bl"><b>Colegas que dão aula nas suas turmas</b>' + turmas.map(t => '<label class="em-ck"><input type="checkbox" data-em-turma="' + esc(t.id) + '"> Professores do ' + esc(t.nome || "Turma") + ' <small>(' + colegasDaTurma(t) + ')</small></label>').join("") + "</div>" : "") +
+    (op && op.rede ? '<details class="em-det"><summary>Professores da rede, por escola, série e disciplina</summary>' + caixasFiltro(op, "emr") +
+      (op.disciplinas.length ? '<div class="em-bl"><b>Disciplinas <small class="sub">(nenhuma marcada = todas)</small></b><div class="em-grade">' + op.disciplinas.map(x => '<label class="em-ck"><input type="checkbox" data-emr-disc="' + esc(x) + '"> ' + esc(x) + "</label>").join("") + "</div></div>" : "") +
+      '<label class="em-ck"><input type="checkbox" id="emRede"> Enviar para <b>os professores</b> dessas escolas, séries e disciplinas</label></details>' : "") +
     '<label class="em-bl"><b>Outros e-mails</b><textarea id="emPara" rows="2" maxlength="1500" placeholder="ex.: colega@escola.com, coordenacao@prefeitura.gov.br"></textarea><small class="sub">Separe por vírgula. Pode ser gente de fora da rede.</small></label>' +
     (temGab ? '<label class="em-ck"><input type="checkbox" id="emGab"> Incluir o gabarito em arquivo separado <small>(mande só para professores)</small></label>' : "") +
     '<label class="em-bl"><b>Mensagem <small class="sub">(opcional)</small></b><textarea id="emMsg" rows="3" maxlength="500" placeholder="Ex.: Usei com o 6º ano e funcionou bem. Fique à vontade para adaptar!"></textarea></label>' +
-    '<p class="sub" style="font-size:.78rem;margin:6px 0 0">Até 30 pessoas por dia. Não coloque nome ou dado de aluno na mensagem.</p>' +
+    '<p class="sub" style="font-size:.78rem;margin:6px 0 0">' + (op && op.rede ? "Até 400 pessoas por dia." : "Até 30 pessoas por dia.") + ' Não coloque nome ou dado de aluno na mensagem.</p>' +
     '<div class="em-acoes"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="button" class="btn pri" data-action="email-enviar" id="emEnviar">Enviar</button></div>');
 }
 async function enviarEmail(){
@@ -1105,7 +1156,8 @@ async function enviarEmail(){
   const ruins = para.filter(x => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
   if(ruins.length){ toast("Confira este e-mail: " + ruins[0], true); return; }
   const turmas = [...document.querySelectorAll("[data-em-turma]:checked")].map(x => x.dataset.emTurma);
-  if(!para.length && !turmas.length){ toast("Escolha os colegas da turma ou escreva pelo menos um e-mail.", true); return; }
+  const rede = $("emRede") && $("emRede").checked ? lerFiltro("emr") : null;
+  if(!para.length && !turmas.length && !rede){ toast("Escolha os colegas da turma ou escreva pelo menos um e-mail.", true); return; }
   b.disabled = true; b.textContent = "Preparando o PDF...";
   try{
     let anexos = [], html = "";
@@ -1116,7 +1168,7 @@ async function enviarEmail(){
       if($("emGab") && $("emGab").checked){ const a2 = await pdfDoc("gab", true); if(a2) anexos.push(a2); }
     }
     b.textContent = "Enviando...";
-    const r = (await chamar({ acao:"enviar_email", id:A.id, para, turmas, mensagem:String(($("emMsg") || {}).value || "").trim(), anexos, html })).data;
+    const r = (await chamar({ acao:"enviar_email", id:A.id, para, turmas, rede, mensagem:String(($("emMsg") || {}).value || "").trim(), anexos, html })).data;
     fecharModal(); toast("Enviado para " + r.enviados + (r.enviados === 1 ? " pessoa." : " pessoas."));
   }catch(e){ toast(e && e.message ? e.message : "Não deu para enviar agora. Tente de novo.", true); b.disabled = false; b.textContent = "Enviar"; }
 }
@@ -1147,6 +1199,8 @@ document.addEventListener("click", async ev => {
   if(a === "comprar"){ ev.preventDefault(); return abrirCompra(); }
   if(a === "confirmar-compra") return confirmarCompra();
   if(a === "email-abrir") return abrirEmail();
+  if(a === "alunos-abrir") return abrirAlunos();
+  if(a === "alunos-enviar") return enviarAlunos();
   if(a === "email-enviar") return enviarEmail();
   if(a === "pdf") return E.atual.html ? imprimir(arg) : pdfDoc(arg);
   if(a === "copiar"){ if(!E.atual.html) return copiar(textoPlano(E.atual.doc, true)); const f = $("folha"); f.classList.add("sem-botoes"); const t = f.innerText; f.classList.remove("sem-botoes"); return copiar(t.replace(/\n{3,}/g, "\n\n").trim()); }
