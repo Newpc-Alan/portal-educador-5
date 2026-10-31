@@ -19,7 +19,8 @@ let falhas = 0; const ok = (c, t) => { if (!c) falhas++; aviso((c ? 'OK · ' : '
 const fnM = async (t, dados) => (await fetch('https://southamerica-east1-portal-educador-5.cloudfunctions.net/moderarRede', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }, body: JSON.stringify({ data: dados }) })).json();
 const munRef = db.doc('municipios/lab-muni'), modoAntes = ((await munRef.get()).data() || {}).rede_moderacao || null;
 const us = (await db.collection('usuarios').where('municipio_id', '==', 'lab-muni').where('status', '==', 'ativo').get()).docs;
-const profs = us.filter(u => u.data().perfil === 'professor'), autor = profs[0], colega = profs[1];
+// só contas de teste do Laboratório (@portaldoeducador.com.br): nada de e-mail para pessoas reais
+const profs = us.filter(u => u.data().perfil === 'professor' && /@portaldoeducador\.com\.br$/.test(u.data().email || '')), autor = profs.find(u => u.data().email === 'prof.ciencias@portaldoeducador.com.br') || profs[0], colega = profs.find(u => u.id !== autor.id);
 const admin = (await db.collection('usuarios').where('perfil', '==', 'admin').where('status', '==', 'ativo').limit(1).get()).docs[0];
 const tA = await tk(autor.id), tC = await tk(colega.id), tAdm = await tk(admin.id);
 const rot = db.collection('usuarios').doc(autor.id).collection('roteiros').doc('teste-moderacao');
