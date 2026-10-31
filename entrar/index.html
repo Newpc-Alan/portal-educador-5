@@ -966,6 +966,19 @@
   .md-ok{ background:#1a6b2a !important;color:#fff !important;border-color:#1a6b2a !important }
   .md-jan{ width:min(760px,100%) } .md-texto{ white-space:pre-wrap;max-height:46vh;overflow:auto;background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5 }
   .md-mini{ max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);justify-self:start } .md-den{ background:#fdeceb;border-radius:10px;padding:10px 12px;font-size:13.5px } .md-den p{ margin:6px 0 0 }
+  .sim-grade{ display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:16px;align-items:start }
+  .sim-box{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px } .sim-box h3{ font-size:15px;margin:14px 0 8px } .sim-box h3:first-child{ margin-top:0 }
+  .sim-res{ position:sticky;top:12px } .sim-c{ display:grid;gap:4px;font-size:12.5px;font-weight:700;color:#0f2c4a } .sim-c small{ font-weight:400;color:var(--muted) }
+  .sim-c input,.sim-c select{ font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;width:100%;box-sizing:border-box;font-weight:400 }
+  .sim-3{ display:grid;grid-template-columns:repeat(3,1fr);gap:8px } .sim-2{ display:grid;grid-template-columns:1fr 1fr;gap:8px } .sim-op{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px }
+  .sim-det{ margin-top:12px } .sim-det summary{ cursor:pointer;font-weight:700;font-size:15px;color:#0f2c4a;margin-bottom:8px } .sim-nota{ font-size:12px;color:var(--muted);margin:8px 0 0 }
+  .sim-cards{ display:grid;grid-template-columns:repeat(3,1fr);gap:10px } .sim-card{ text-align:left;display:grid;gap:5px;align-content:start;border:1.5px solid var(--line);border-radius:14px;background:#fff;padding:12px;font:inherit;cursor:pointer;color:#0f2c4a }
+  .sim-card.on{ border-color:#1a6b2a;box-shadow:0 0 0 3px #1a6b2a22 } .sim-card b{ font-size:15px } .sim-v{ font-size:24px;font-weight:800 } .sim-v small{ font-size:13px;font-weight:600 } .sim-card small{ color:var(--muted);font-size:12px }
+  .sim-l{ font-size:12.5px } .sim-m{ font-size:12.5px;font-weight:700;padding:4px 8px;border-radius:8px } .sim-m.ok{ background:#eef7e3;color:#1a5a24 } .sim-m.neg{ background:#fdeceb;color:#8c1d18 }
+  .sim-e{ font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:8px } .sim-e.disp{ background:#e6f1fb;color:#0f4c81 } .sim-e.preg{ background:#fff6e0;color:#7a5200 }
+  .sim-tab{ overflow-x:auto } .sim-tab table{ width:100%;border-collapse:collapse;font-size:13px } .sim-tab th,.sim-tab td{ border-bottom:1px solid var(--line);padding:7px 8px;text-align:left }
+  .sim-tab th{ background:#f4f7fb } .sim-tab td:nth-child(n+3){ text-align:right;white-space:nowrap } .sim-tab tfoot td{ font-weight:800;background:#eef7e3 } .sim-acoes{ display:flex;gap:8px;justify-content:flex-end;margin-top:10px }
+  @media (max-width:900px){ .sim-grade{ grid-template-columns:1fr } .sim-res{ position:static } .sim-cards{ grid-template-columns:1fr } }
   .md-acoes{ flex-wrap:wrap } .md-perigo{ color:#b3261e !important;margin-right:auto }
   @media (max-width:640px){ .tr-item{ flex-wrap:wrap } .tr-item .tr-acoes{ width:100%;padding:0 !important } }
   .tr-card .btn-mini{ margin:0 12px 12px }
@@ -1609,6 +1622,7 @@
       { id:"painel",     ico:"\u{1F4C8}", label:"Painel" },
       { id:"painelRedeLink", ico:"\u{1F4CA}", label:"Painel da Rede (secretarias)" },
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início (prévia)" },
+      { id:"simulador",  ico:"\u{1F9EE}", label:"Simulador de preços" },
       { grupo:"Redes e cadastros", ico:"\u{1F3DB}\u{FE0F}" },
       { id:"municipios", ico:"\u{1F3DB}\u{FE0F}", label:"Municípios" },
       { id:"escolas",    ico:"\u{1F3EB}", label:"Escolas" },
@@ -2446,6 +2460,7 @@
       if(item.id === "noticiasadm"){ renderNoticiasAdmin(); return; }
       if(item.id === "datasadm"){ renderDatasAdmin(); return; }
       if(item.id === "docs"){ renderDocumentacao(); return; }
+      if(item.id === "simulador"){ renderSimulador(); return; }
     }
     if(item.id === "ajuda"){ renderAjuda(); return; }
     if(item.id === "inicio"){ renderInicio(); return; }
@@ -4010,6 +4025,119 @@
   });
   document.addEventListener("input", ev => { if(ev.target && ev.target.id === "mdBusca"){ MOD.busca = ev.target.value; desenharModeracao(); } });
   document.addEventListener("change", ev => { if(ev.target && ev.target.id === "mdMuni"){ MOD.mun = ev.target.value; MOD.itens = null; MOD.filtro = "pendente"; renderModeracao(); } });
+  /* ---------- Simulador de preços (admin): planos do Portal por porte de município, avulso ou junto da locação ----------
+     Tudo é hipótese editável: preço por aluno/mês, implantação, formação, IA e custos. Guarda o último cenário só neste navegador. */
+  const DISPENSA_ANO = 65492.11;   // art. 75, II da Lei 14.133 em 2026 (Decreto 12.807/2025)
+  const SIM_PLANOS = [["basico","Básico"],["inter","Intermediário"],["compl","Completo"]];
+  const SIM_PADRAO = { muni:"", nome:"", alunos:0, escolas:0, profs:0, prazo:12, tipo:"avulso", basico:3, inter:5, compl:8, implantacao:20000, turmas:4, valorTurma:2500,
+    ia:6000, infra:0.35, suporte:1500, impostos:15, comissao:0, plano:"inter" };
+  const SIM_PRESETS = { "est-sonora":{ nome:"Sonora/MS (estimativa)", alunos:2200, escolas:8, profs:130 } };
+  let SIM = null, simMunis = null;
+  const reais = v => (Number(v) || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL", maximumFractionDigits:2 });
+  const reais0 = v => (Number(v) || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL", maximumFractionDigits:0 });
+  function simGuardar(){ try{ localStorage.setItem("pde_simulador", JSON.stringify(SIM)); }catch(e){} }
+  async function renderSimulador(){
+    if(!SIM){ SIM = { ...SIM_PADRAO }; try{ Object.assign(SIM, JSON.parse(localStorage.getItem("pde_simulador") || "{}")); }catch(e){} }
+    if(!simMunis){ try{ const sn = await getDocs(query(collection(db,"municipios"), orderBy("nome"))); simMunis = []; sn.forEach(d => { if(d.data().status !== "arquivado") simMunis.push({ id:d.id, nome:(d.data().nome || d.id) + (d.data().uf ? "/" + d.data().uf : "") }); }); }catch(e){ simMunis = []; } }
+    const campo = (k, rot, passo, dica) => '<label class="sim-c"><span>'+rot+'</span><input type="number" min="0" step="'+(passo || 1)+'" data-sim="'+k+'" value="'+escapeAttr(String(SIM[k]))+'">'+(dica ? '<small>'+dica+'</small>' : '')+'</label>';
+    $("conteudo").innerHTML =
+      '<div class="sim-grade"><section class="sim-box">' +
+      '<h3>1. Município</h3><label class="sim-c"><span>Escolha</span><select id="simMuni"><option value="">Digitar os números</option>' +
+        Object.entries(SIM_PRESETS).map(([k, p]) => '<option value="'+k+'"'+(SIM.muni === k ? " selected" : "")+'>'+escapeHtml(p.nome)+'</option>').join("") +
+        '<optgroup label="Cadastrados no Portal">' + simMunis.map(m => '<option value="'+escapeAttr(m.id)+'"'+(SIM.muni === m.id ? " selected" : "")+'>'+escapeHtml(m.nome)+'</option>').join("") + '</optgroup></select></label>' +
+      '<p id="simFonte" class="sim-nota"></p><div class="sim-3">' + campo("alunos", "Alunos") + campo("escolas", "Escolas") + campo("profs", "Professores") + '</div>' +
+      '<h3>2. Contrato</h3><div class="sim-op"><button type="button" class="md-pill'+(SIM.tipo === "avulso" ? " on" : "")+'" data-action="sim-tipo" data-arg="avulso">Portal avulso</button>' +
+        '<button type="button" class="md-pill'+(SIM.tipo === "locacao" ? " on" : "")+'" data-action="sim-tipo" data-arg="locacao">Junto da locação NEWPC</button></div>' +
+      '<div class="sim-3">' + campo("prazo", "Prazo (meses)") + '</div>' +
+      '<h3>3. Preço por aluno/mês</h3><div class="sim-3">' + campo("basico", "Básico", 0.1, SIM.tipo === "locacao" ? "sem custo na locação" : "") + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>' +
+      '<h3>4. Itens à parte</h3><div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) +
+        campo("turmas", "Formação: turmas de 4h") + campo("valorTurma", "Valor por turma", 100) + '</div>' +
+      '<details class="sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>5. Custos da NEWPC (para a margem)</summary><div class="sim-2">' +
+        campo("infra", "Infra por aluno/mês (R$)", 0.05, "Firebase, arquivos, e-mail") + campo("suporte", "Suporte e acompanhamento (R$/mês)", 100) +
+        campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) + '</div></details>' +
+      '<p class="sim-nota">Valores de partida são hipóteses para discussão. Antes de propor, confira a faixa de preços em contratos parecidos no PNCP (a prefeitura vai fazer essa pesquisa).</p>' +
+      '</section><section class="sim-box sim-res"><div id="simRes"></div></section></div>';
+    simAtualizar();
+  }
+  function simCalc(){
+    const A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12), anos = N / 12, P = +SIM.profs || 0;
+    const formacao = (+SIM.turmas || 0) * (+SIM.valorTurma || 0), custoMes = A * (+SIM.infra || 0) + (+SIM.suporte || 0);
+    return SIM_PLANOS.map(([k, nome]) => {
+      const gratis = SIM.tipo === "locacao" && k === "basico", preco = gratis ? 0 : (+SIM[k] || 0), mensal = A * preco;
+      const ano1 = mensal * Math.min(12, N) + (+SIM.implantacao || 0) + formacao + (+SIM.ia || 0);
+      const total = mensal * N + (+SIM.implantacao || 0) + formacao + (+SIM.ia || 0) * anos;
+      const liquido = mensal * (1 - ((+SIM.impostos || 0) + (+SIM.comissao || 0)) / 100), margem = liquido - custoMes;
+      return { k, nome, gratis, preco, mensal, anual:mensal * 12, ano1, total, porProf:P ? mensal / P : 0, custoMes, margem, margemPct:mensal ? margem / mensal * 100 : 0, formacao };
+    });
+  }
+  function simAtualizar(){
+    const box = $("simRes"); if(!box) return;
+    const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12);
+    if(!A){ box.innerHTML = '<div class="empty">Escolha um município ou digite o número de alunos.</div>'; return; }
+    box.innerHTML = '<h3>' + escapeHtml(SIM.nome || "Município") + ' · ' + A.toLocaleString("pt-BR") + ' alunos</h3>' +
+      '<div class="sim-cards">' + r.map(x => {
+        const disp = x.ano1 <= DISPENSA_ANO;
+        return '<button type="button" class="sim-card'+(x.k === sel.k ? " on" : "")+'" data-action="sim-plano" data-arg="'+x.k+'"><b>'+x.nome+'</b>' +
+          (x.gratis ? '<span class="sim-v">Sem custo</span><small>incluso na locação</small><span class="sim-l">Custo absorvido: '+reais0(x.custoMes)+'/mês</span>'
+            : '<span class="sim-v">'+reais0(x.mensal)+'<small>/mês</small></span><small>'+reais0(x.anual)+' por ano · '+reais(x.porProf)+' por professor/mês</small>' +
+              '<span class="sim-l">1º ano com itens à parte: <b>'+reais0(x.ano1)+'</b></span>' +
+              '<span class="sim-l">Contrato de '+N+' meses: <b>'+reais0(x.total)+'</b></span>' +
+              '<span class="sim-m '+(x.margem >= 0 ? "ok" : "neg")+'">Margem da licença: '+reais0(x.margem)+'/mês ('+x.margemPct.toFixed(0)+'%)</span>' +
+              '<span class="sim-e '+(disp ? "disp" : "preg")+'">'+(disp ? "Cabe em dispensa (art. 75, II)" : "Pregão eletrônico, de preferência com Ata de Registro de Preços")+'</span>') + '</button>'; }).join("") + '</div>' +
+      '<h3>Itens para proposta e TR · ' + sel.nome + '</h3>' + simTabela(sel, N) +
+      '<div class="sim-acoes"><button type="button" class="btn btn-ghost" data-action="sim-copiar">Copiar para planilha</button><button type="button" class="btn btn-primary" data-action="sim-imprimir">Imprimir / PDF</button></div>' +
+      '<p class="sim-nota">Dispensa: até ' + reais(DISPENSA_ANO) + ' somando tudo do mesmo ramo no ano (Decreto 12.807/2025). A conta usa o 1º ano deste contrato; se a prefeitura já contratou algo parecido no ano, o espaço é menor.</p>';
+  }
+  function simItens(x, N){
+    const it = [["Implantação: cadastros, importação de dados, domínio Google e configuração", "serviço", 1, +SIM.implantacao || 0]];
+    if(!x.gratis) it.push(["Licença do Portal do Educador · plano " + x.nome, "aluno/mês", (+SIM.alunos || 0) * N, x.preco]);
+    if(+SIM.turmas) it.push(["Formação docente (turma de 4h)", "turma", +SIM.turmas, +SIM.valorTurma || 0]);
+    if(+SIM.ia) it.push(["Créditos de IA do Portal (pacote anual)", "pacote", +(N / 12).toFixed(2), +SIM.ia]);
+    return it;
+  }
+  function simTabela(x, N){
+    const it = simItens(x, N), tot = it.reduce((s, i) => s + i[2] * i[3], 0);
+    return '<div class="sim-tab"><table><thead><tr><th>Item</th><th>Unidade</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead><tbody>' +
+      it.map((i, n) => '<tr><td>'+(n + 1)+'. '+escapeHtml(i[0])+'</td><td>'+i[1]+'</td><td>'+i[2].toLocaleString("pt-BR")+'</td><td>'+reais(i[3])+'</td><td>'+reais(i[2] * i[3])+'</td></tr>').join("") +
+      '</tbody><tfoot><tr><td colspan="4">Total do contrato ('+N+' meses)</td><td>'+reais(tot)+'</td></tr></tfoot></table></div>';
+  }
+  async function simEscolherMuni(v){
+    SIM.muni = v; const f = $("simFonte");
+    if(SIM_PRESETS[v]){ Object.assign(SIM, SIM_PRESETS[v]); if(f) f.textContent = "Números estimados a partir da população (IBGE 2022). Confirme com a secretaria ou no QEdu."; }
+    else if(v){
+      const m = simMunis.find(x => x.id === v); SIM.nome = m ? m.nome : v; if(f) f.textContent = "Contando o que está cadastrado no Portal...";
+      const conta = (col, ...w) => getCountFromServer(query(collection(db, col), where("municipio_id", "==", v), ...w)).then(r => r.data().count).catch(() => 0);
+      const [a, e, p] = await Promise.all([conta("alunos"), conta("escolas"), conta("usuarios", where("perfil", "==", "professor"))]);
+      Object.assign(SIM, { alunos:a, escolas:e, profs:p });
+      if(f) f.textContent = "Números cadastrados hoje no Portal. Se a rede ainda não importou tudo, ajuste à mão.";
+    } else { SIM.nome = ""; if(f) f.textContent = ""; }
+    ["alunos","escolas","profs"].forEach(k => { const i = document.querySelector('[data-sim="'+k+'"]'); if(i) i.value = SIM[k]; });
+    simGuardar(); simAtualizar();
+  }
+  function simTexto(){
+    const r = simCalc(), x = r.find(y => y.k === SIM.plano) || r[1], N = Math.max(1, +SIM.prazo || 12);
+    return [["Item","Unidade","Qtd.","Valor unit.","Total"].join("\t"), ...simItens(x, N).map((i, n) => [(n + 1) + ". " + i[0], i[1], String(i[2]).replace(".", ","), i[3].toFixed(2).replace(".", ","), (i[2] * i[3]).toFixed(2).replace(".", ",")].join("\t"))].join("\n");
+  }
+  document.addEventListener("input", ev => {
+    const k = ev.target && ev.target.dataset ? ev.target.dataset.sim : ""; if(!k || !SIM) return;
+    SIM[k] = ev.target.value === "" ? 0 : Number(ev.target.value); simGuardar(); simAtualizar();
+  });
+  document.addEventListener("change", ev => { if(ev.target && ev.target.id === "simMuni") simEscolherMuni(ev.target.value); });
+  document.addEventListener("toggle", ev => { if(ev.target && ev.target.classList && ev.target.classList.contains("sim-det") && SIM){ SIM.abrirCustos = ev.target.open; simGuardar(); } }, true);
+  document.addEventListener("click", async ev => {
+    const el = ev.target.closest("[data-action^='sim-']"); if(!el || !SIM) return;
+    const a = el.dataset.action;
+    if(a === "sim-tipo"){ SIM.tipo = el.dataset.arg; simGuardar(); renderSimulador(); }
+    else if(a === "sim-plano"){ SIM.plano = el.dataset.arg; simGuardar(); simAtualizar(); }
+    else if(a === "sim-copiar"){ try{ await navigator.clipboard.writeText(simTexto()); toast("Copiado. Cole no Excel ou no Google Planilhas."); }catch(e){ toast("Não consegui copiar neste navegador.", true); } }
+    else if(a === "sim-imprimir"){
+      const r = simCalc(), x = r.find(y => y.k === SIM.plano) || r[1], N = Math.max(1, +SIM.prazo || 12), w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
+      w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Proposta · Portal do Educador · '+escapeHtml(SIM.nome || "")+'</title><style>body{font-family:Arial,sans-serif;color:#0f2c4a;margin:32px}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 14px;color:#4a5b6c}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #cfdbe7;padding:7px 9px;text-align:left}th{background:#0f2c4a;color:#fff}td:nth-child(n+3){text-align:right}tfoot td{font-weight:bold;background:#eef7e3}.f{margin-top:18px;font-size:11px;color:#6b7c90}</style></head><body>' +
+        '<h1>Portal do Educador · plano '+x.nome+'</h1><p>'+escapeHtml(SIM.nome || "Município")+' · '+(+SIM.alunos || 0).toLocaleString("pt-BR")+' alunos · '+(+SIM.escolas || 0)+' escolas · '+(+SIM.profs || 0)+' professores · prazo de '+N+' meses</p>' + simTabela(x, N) +
+        '<p class="f">NEWPC Tecnologia · simulação gerada em '+new Date().toLocaleDateString("pt-BR")+'. Valores sujeitos a confirmação.</p><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
+      w.document.close();
+    }
+  });
   async function renderAcervoRede(){
     const mun = usuarioAtual.municipio_id;
     if(!mun){ $("conteudo").innerHTML = '<div class="empty">Seu cadastro não está ligado a um município.</div>'; return; }
