@@ -63,7 +63,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       const tipoArq = /pdf$/.test(ct) ? 'pdf' : /^image\//.test(ct) ? 'imagem' : /^video\//.test(ct) ? 'video' : /^audio\//.test(ct) ? 'audio' : /presentation|powerpoint/.test(ct) ? 'slides' : /word|msword/.test(ct) ? 'texto' : /sheet|excel/.test(ct) ? 'planilha' : '';
       if (!tipoArq) throw new HttpsError('invalid-argument', 'Esse tipo de arquivo não é aceito.');
       if ((Number(m.size) || 0) > 20 * 1024 * 1024) await exigirRecurso(db, c.eu, 'turma_ao_vivo', c.muni).catch(e => { f.delete().catch(() => {});
-        throw new HttpsError('failed-precondition', 'Arquivos acima de 20 MB (vídeos) fazem parte da Turma ao vivo, no plano Completo. Para vídeo, use um link do YouTube.'); });
+        throw new HttpsError('failed-precondition', 'Arquivos acima de 20 MB (vídeos) fazem parte da Turma ao Vivo, no plano Completo. Para vídeo, use um link do YouTube.'); });
       const url = await linkPublico(cam, `turma-materiais/${itemId}/${nome}`);
       Object.assign(item, { tipo_item: 'arquivo', arquivo_url: url, arquivo_nome: nome, arquivo_tipo: tipoArq, arquivo_ct: ct, tamanho: Number(m.size) || 0 });
       await f.delete().catch(() => {});   // o original era só o envio; a cópia da turma é a que fica

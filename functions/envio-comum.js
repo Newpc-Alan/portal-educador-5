@@ -138,9 +138,9 @@ export async function publicarNaTurma(db, turmas, chave, item) {
 export const RECURSOS_SALA = ['rede_colab', 'sala_digital', 'turma_ao_vivo'];
 export const recursosDoPlano = n => n === 'completo' ? RECURSOS_SALA.slice() : n === 'intermediario' ? ['rede_colab', 'sala_digital'] : ['rede_colab'];
 const MSG_REC = {
-  rede_colab: 'Compartilhar com a rede não está liberado para a sua rede. Fale com a coordenação ou com a NEWPC.',
-  sala_digital: 'Enviar para os alunos faz parte da Sala digital, disponível nos planos Intermediário e Completo. Fale com a coordenação ou com a NEWPC.',
-  turma_ao_vivo: 'Este envio faz parte da Turma ao vivo, disponível no plano Completo. Fale com a coordenação ou com a NEWPC.'
+  rede_colab: 'O Educador em Rede (compartilhar com a rede) não está liberado para a sua rede. Fale com a coordenação ou com a NEWPC.',
+  sala_digital: 'Enviar conteúdos aos alunos faz parte da Sala Conectada, disponível nos planos Intermediário e Completo. Fale com a coordenação ou com a NEWPC.',
+  turma_ao_vivo: 'Este envio faz parte da Turma ao Vivo, disponível no plano Completo. Fale com a coordenação ou com a NEWPC.'
 };
 export function recursoNoMunicipio(m, rec) {
   if (!m) return false;
