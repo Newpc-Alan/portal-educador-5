@@ -1,0 +1,39 @@
+name: Fotos candidatas para card do Início
+# Gera fotos pelo Portal IA (scripts/consulta-foto-card.mjs) e grava, já em 800x600 .webp, no ramo "fotos-candidatas" para revisão.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd functions && npm ci && sudo apt-get install -y -qq webp imagemagick >/dev/null
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Gerar
+        run: cd functions && node ../scripts/consulta-foto-card.mjs
+      - name: Converter e gravar no ramo fotos-candidatas
+        run: |
+          mkdir -p /tmp/fotos
+          for f in functions/saida/*; do
+            n=$(basename "${f%.*}")
+            convert "$f" -resize 800x600^ -gravity center -extent 800x600 /tmp/fotos/$n.png
+            cwebp -quiet -q 78 /tmp/fotos/$n.png -o /tmp/fotos/$n.webp && rm /tmp/fotos/$n.png
+          done
+          git config user.name "fotos-card"; git config user.email "suporte@portaldoeducador.com.br"
+          git checkout --orphan fotos-candidatas && git rm -rq --cached . && rm -rf -- * .gitignore 2>/dev/null || true
+          cp /tmp/fotos/*.webp . && git add *.webp && git commit -qm "Fotos candidatas" && git push -f origin fotos-candidatas
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
