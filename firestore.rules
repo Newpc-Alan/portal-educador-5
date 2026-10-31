@@ -98,6 +98,12 @@ service cloud.firestore {
     function alunoDaTurma(tid) { return logado() && (request.auth.token.get("turma_id", "") == tid || (aluno() && eu().get("turma_id", "") == tid)); }
     function souChave(k) { return k == request.auth.token.get("aluno_id", "-") || k == request.auth.uid; }
     function equipeTurma(tid) { return (vinculado() || (ativo() && eu().perfil in ["gestor", "secretaria"])) && turmaDoc(tid).escola_id in minhasEscolas(); }
+    // Histórico de aulas do aluno: o que ele já abriu e fechou (vale em qualquer aparelho); só o próprio aluno lê e grava
+    match /turma_aluno_estado/{tid}/alunos/{k} {
+      allow read: if alunoDaTurma(tid) && souChave(k);
+      allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["fechados", "em"])
+        && novo().fechados is list && novo().fechados.size() <= 500 && novo().em == request.time;
+    }
     match /turma_presenca/{tid}/alunos/{k} {
       allow read: if admin() || (logado() && equipeTurma(tid));
       allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["nome", "em", "fora"]) && novo().get("fora", false) is bool

@@ -4049,8 +4049,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #cpJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(640px,100%);max-height:94vh;overflow:auto;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
   #cpTopo{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:#071621;color:#fff;border-bottom:3px solid #8DC63F}
   #cpTopo h2{font-size:18px;margin:0} #cpTopo button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
-  .cp-abas{display:flex;gap:6px;padding:12px 18px 0} .cp-abas button{flex:1;border:1px solid #d5dfe9;background:#f6f9fc;border-radius:10px;padding:10px;font:inherit;font-weight:700;color:#0f2c4a;cursor:pointer}
+  .cp-abas{display:flex;gap:6px;padding:12px 18px 0;flex-wrap:wrap} .cp-abas button{flex:1;border:1px solid #d5dfe9;background:#f6f9fc;border-radius:10px;padding:10px;font:inherit;font-weight:700;color:#0f2c4a;cursor:pointer}
   .cp-abas button[aria-selected="true"]{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+  .cp-abas button.trava{opacity:.6} .cp-abas button.trava::after{content:" 🔒"}
+  .cp-trava{background:#f6f8fa;border:1px dashed #cfdbe7;border-radius:12px;padding:16px;text-align:center;color:#4b5b6b} .cp-trava p{margin:6px 0 0;font-size:13.5px}
   #cpCorpo{padding:12px 18px 4px;display:grid;gap:10px}
   #cpCorpo label{display:grid;gap:5px;font-size:13px;font-weight:700} #cpCorpo label small{font-weight:400;color:#62758a}
   #cpCorpo select,#cpCorpo textarea{width:100%;box-sizing:border-box;font:inherit;font-weight:400;font-size:14px;padding:9px 11px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff}
@@ -4274,7 +4276,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   const fnRede = async (dados) => { const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
     return (await httpsCallable(getFunctions(app, "southamerica-east1"), "trabalhoRede", { timeout:180000 })(dados)).data; };
   const escCp = x => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-  async function opcoesRedeCp(){ if(opRede !== undefined) return opRede; try{ opRede = await fnRede({ acao:"opcoes", tipo:"lousa" }); }catch(e){ opRede = null; } return opRede; }
+  async function opcoesRedeCp(){ if(!temSala("turma_ao_vivo")) return null; if(opRede !== undefined) return opRede; try{ opRede = await fnRede({ acao:"opcoes", tipo:"lousa" }); }catch(e){ opRede = null; } return opRede; }
   const filtroHtml = (op, pre, comDisc) => !op || !op.rede ? "" :
     '<details class="cp-det"><summary>' + (pre === "cpa" ? "Toda a rede, por escola e série" : "Professores da rede, por escola, série e disciplina") + '</summary>' +
     (op.escolas.length > 1 ? '<b class="cp-rot">Escolas <small>(nenhuma = todas)</small></b><div class="cp-grade">' + op.escolas.map(e => '<label><input type="checkbox" data-' + pre + '-esc="' + escCp(e.id) + '"> ' + escCp(e.nome) + "</label>").join("") + "</div>" : "") +
@@ -4296,11 +4298,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(!bg){
       bg = document.createElement("div"); bg.id = "cpFundo";
       bg.innerHTML = '<div id="cpJanela" role="dialog" aria-modal="true" aria-labelledby="cpTit"><div id="cpTopo"><h2 id="cpTit">Compartilhar a aula</h2><button type="button" data-cp="fechar">Fechar</button></div>' +
-        '<div class="cp-abas" role="tablist"><button type="button" role="tab" data-cp="aba" data-arg="rede">🤝 Rede</button><button type="button" role="tab" data-cp="aba" data-arg="email">✉️ E-mail</button><button type="button" role="tab" data-cp="aba" data-arg="alunos">🎒 Alunos</button></div>' +
+        '<div class="cp-abas" role="tablist"><button type="button" role="tab" data-cp="aba" data-arg="rede">🤝 Rede</button><button type="button" role="tab" data-cp="aba" data-arg="email">✉️ E-mail</button><button type="button" role="tab" data-cp="aba" data-arg="alunos">🎒 Alunos</button><button type="button" role="tab" data-cp="aba" data-arg="link">🔗 Link</button></div>' +
         '<div id="cpCorpo"></div><p id="cpMsg" class="cp-msg" role="status"></p></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { if(e.target.id === "cpFundo"){ fecharCp(); return; } const b = e.target.closest("[data-cp]"); if(!b) return;
-        const a = b.dataset.cp; if(a === "fechar") fecharCp(); else if(a === "aba") abaCp(b.dataset.arg); else if(a === "rede") acaoRedeCp(b); else if(a === "tirar") tirarRedeCp(b); else if(a === "email") emailCp(b); else if(a === "alunos") alunosCp(b); });
+        const a = b.dataset.cp; if(a === "fechar") fecharCp(); else if(a === "aba") abaCp(b.dataset.arg); else if(a === "rede") acaoRedeCp(b); else if(a === "tirar") tirarRedeCp(b); else if(a === "email") emailCp(b); else if(a === "alunos") alunosCp(b); else if(a === "link") linkCp(b); });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharCp(); } });
     }
     bg.classList.add("aberto"); document.getElementById("cpMsg").textContent = "";
@@ -4309,9 +4311,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   function fecharCp(){ const bg = document.getElementById("cpFundo"); if(bg && !bg.dataset.ocupado) bg.classList.remove("aberto"); }
   const msgCp = (t, erro) => { const m = document.getElementById("cpMsg"); m.textContent = t || ""; m.style.color = erro ? "#b3261e" : "#1a6b2a"; };
+  const temSala = r => !lousaCfg.sala || lousaCfg.sala.has(r);
+  const RECURSO_ABA = { rede:"rede_colab", email:"rede_colab", alunos:"sala_digital", link:"sala_digital" };
   async function abaCp(aba){
     const bg = document.getElementById("cpFundo"), c = document.getElementById("cpCorpo"); bg.dataset.aba = aba; msgCp("");
-    bg.querySelectorAll(".cp-abas [data-cp]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.arg === aba)));
+    bg.querySelectorAll(".cp-abas [data-cp]").forEach(b => { b.setAttribute("aria-selected", String(b.dataset.arg === aba)); b.classList.toggle("trava", !temSala(RECURSO_ABA[b.dataset.arg])); });
+    if(!temSala(RECURSO_ABA[aba])){
+      const rec = RECURSO_ABA[aba];
+      c.innerHTML = '<div class="cp-trava">🔒 <b>' + (rec === "rede_colab" ? "Educador em Rede" : "Sala Conectada") + '</b><p>' + (rec === "rede_colab" ? "Compartilhar com a rede e por e-mail não está liberado para a sua rede."
+        : "Enviar a aula e links para os alunos faz parte da Sala Conectada, disponível nos planos Intermediário e Completo.") + ' Fale com a coordenação ou com a NEWPC.</p></div>';
+      return;
+    }
     const titulo = L().nuvem().titulo || "esta aula", turmas = (perfilIA && perfilIA.turmas) || [];
     if(aba === "rede"){
       c.innerHTML = '<p class="cp-d">Os professores do seu município veem <b>' + escCp(titulo) + '</b> em "Da sua rede" e podem abrir uma cópia na Lousa deles. Eles também recebem o aviso no Início e no resumo do dia.</p><div id="cpSit" class="cp-d">Conferindo...</div>';
@@ -4334,6 +4344,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<label>Mensagem <small>(opcional)</small><textarea id="cpMsgTxt" rows="2" maxlength="500" placeholder="Ex.: usei com o 6º ano e a turma adorou!"></textarea></label>' +
         '<p class="cp-d" style="font-size:12px">' + (op && op.rede ? "Até 400 pessoas por dia." : "Até 30 pessoas por dia.") + ' Não coloque nome de aluno na mensagem.</p>' +
         '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="email">Enviar por e-mail</button></div>';
+    }
+    else if(aba === "link"){
+      c.innerHTML = '<p class="cp-d">Mande um <b>site ou vídeo</b> para a turma durante a aula, sem sair da Lousa. Vai para "Materiais da turma" e abre na hora em quem estiver com o Portal aberto.</p>' +
+        '<label>Link<input id="cpUrl" type="url" inputmode="url" placeholder="https://..." maxlength="2000" style="width:100%;box-sizing:border-box;font:inherit;padding:9px 11px;border:1px solid #cfdbe7;border-radius:10px"></label>' +
+        '<label>Título <small>(opcional)</small><input id="cpLinkTit" maxlength="120" placeholder="Ex.: Vídeo sobre fases da Lua" style="width:100%;box-sizing:border-box;font:inherit;padding:9px 11px;border:1px solid #cfdbe7;border-radius:10px"></label>' +
+        '<label>Orientação <small>(opcional)</small><textarea id="cpLinkOri" rows="2" maxlength="600" placeholder="Ex.: assistam até 5 minutos"></textarea></label>' +
+        (turmas.length ? '<b class="cp-rot">Turmas</b><div class="cp-grade">' + turmas.map((t, i) => '<label><input type="checkbox" data-cpl-turma="' + escCp(t.id) + '"' + (i === 0 ? " checked" : "") + "> " + escCp(t.nome || t.ano || "Turma") + "</label>").join("") + "</div>"
+          : '<p class="cp-d">Você ainda não tem turma vinculada.</p>') +
+        '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="link">Enviar o link</button></div>';
+      setTimeout(() => { const u = document.getElementById("cpUrl"); if(u) u.focus(); }, 30);
     }
     else{
       const op = await opcoesRedeCp();
@@ -4379,6 +4399,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       b.textContent = "Enviando...";
       const r = await fnRede(rede ? { acao:"alunos", tipo:"lousa", id, filtro:lerFiltroCp("cpa"), paginas:paginasB64 } : { acao:"alunos", tipo:"lousa", id, turmas, paginas:paginasB64 });
       msgCp("Enviado para " + r.turmas + (r.turmas === 1 ? " turma: " : " turmas: ") + r.nomes.join(", ") + "."); });
+  }
+  function linkCp(b){
+    let url = String(document.getElementById("cpUrl").value || "").trim(); if(url && !/^https?:\/\//i.test(url)) url = "https://" + url;
+    if(!/^https:\/\/[^\s]+\.[^\s]+/.test(url)){ msgCp("Cole um link que comece com https://", true); return; }
+    const turmas = [...document.querySelectorAll("[data-cpl-turma]:checked")].map(x => x.dataset.cplTurma);
+    if(!turmas.length){ msgCp("Marque pelo menos uma turma.", true); return; }
+    const titulo = String(document.getElementById("cpLinkTit").value || "").trim() || url.replace(/^https:\/\/(www\.)?/, "").slice(0, 80);
+    ocupadoCp(b, "Enviando...", async () => {
+      const r = await fnRede({ acao:"enviar_link", url, titulo, orientacao:String(document.getElementById("cpLinkOri").value || "").trim(), turmas });
+      msgCp("Enviado para " + r.turmas + (r.turmas === 1 ? " turma: " : " turmas: ") + r.nomes.join(", ") + ".");
+      document.getElementById("cpUrl").value = ""; document.getElementById("cpLinkTit").value = ""; document.getElementById("cpLinkOri").value = ""; });
   }
   window.PDENuvem = {
     compartilhar: () => janelaCompartilhar(),
@@ -4677,6 +4708,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     lousaCfg.podeBasica = adm || !!(rec.lousa_ia && rec.lousa_ia.ok);
     lousaCfg.podeUltra = adm || !!(rec.lousa_ia_ultra && rec.lousa_ia_ultra.ok);
     lousaCfg.motivo = (rec.lousa_ia && rec.lousa_ia.motivo) || "";
+    // Educador em Rede, Sala Conectada e Turma ao Vivo: mesma regra do plano que as funções conferem
+    lousaCfg.sala = null;
+    if(!adm && eu && eu.municipio_id){ try{ const m = await getDoc(doc(db, "municipios", eu.municipio_id)); if(m.exists()){ const x = m.data(), RS = ["rede_colab", "sala_digital", "turma_ao_vivo"];
+      const base = x.recursos_ajustado ? (x.recursos || []) : !(Array.isArray(x.modulos_professor) && x.modulos_professor.length) ? RS : x.plano_nome === "completo" ? RS : x.plano_nome === "intermediario" ? RS.slice(0, 2) : RS.slice(0, 1);
+      lousaCfg.sala = new Set([...base, ...(Array.isArray(eu.recursos_extra) ? eu.recursos_extra : [])]); } }catch(e){ console.warn("plano:", e.code); } }
     // sem liberação o botão continua à vista, com cadeado: no clique explica (desperta o interesse pelo recurso)
     const bIA = document.querySelector('[data-action="ia-aula"]');
     if(bIA){ bIA.style.display = ""; bIA.classList.toggle("bloq", !lousaCfg.podeBasica);
