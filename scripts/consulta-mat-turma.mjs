@@ -11,5 +11,5 @@ const [meta] = await getStorage().bucket().getMetadata(); aviso('CORS do bucket:
 const ts = await db.collection('turmas').where('escola_id', '!=', '').limit(1).get();
 for (const t of (await db.collection('turma_materiais').listDocuments())) {
   const it = await t.collection('itens').orderBy('criado_em', 'desc').limit(4).get();
-  it.forEach(d => { const x = d.data(); aviso(t.id + ' · ' + x.titulo + ' · ' + x.tipo_item + ' · ' + x.arquivo_tipo + ' · ' + x.arquivo_ct + ' · ' + (x.arquivo_url || '').slice(0, 120)); });
+  it.forEach(d => { const x = d.data(); console.log('::notice::' + t.id + ' · ' + x.titulo + ' · ' + x.tipo_item + ' · ' + x.arquivo_tipo + ' · ' + x.arquivo_ct + ' · ' + ' · ' + (x.arquivo_tipo === 'pdf' ? (x.arquivo_url || '') : '')); });
 }
