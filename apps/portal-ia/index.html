@@ -318,7 +318,9 @@ async function carregarTurmas(){
   try{ const mid = E.u.municipio_id || ""; if(mid){ const s = await getDoc(doc(db, "municipios", mid)); if(s.exists()){ const m = s.data(); E.marca = { municipio:m.nome || "", uf:m.uf || "", logo_url:m.logo_url || "" }; } } }catch(e){}
 }
 function definirTurma(id){
-  E.turma = id; const t = turmaAtual();
+  E.turma = id;
+  if(String(id).startsWith("etapa:")){ E.serie = id.slice(6); return; }   // série escolhida livremente: mantém a disciplina
+  const t = turmaAtual();
   const ds = discDaGrade(t); E.disc = ds.includes(E.disc) ? E.disc : (ds[0] || E.disc || "");
   E.serie = serieDe(t) || E.serie;
 }
@@ -336,7 +338,7 @@ function bloqueioCota(c){ const a = c && c.recursos && c.recursos.portalia;
   if(a && !a.ok) return a.motivo === "desligado" ? "O Portal IA está desligado no momento." : "Sua licença ainda não está habilitada para o Portal IA. Fale com a Secretaria de Educação ou com a NEWPC.";
   return c && !c.pode_usar ? (c.motivo || "Sem créditos para o Portal IA.") : ""; }
 async function carregarCota(){ try{ const r = await chamar({ acao:"cota" }); E.cota = r.data; E.bloqueio = bloqueioCota(r.data); }catch(e){ E.cota = null; console.warn("cota:", e.code, e.message); E.bloqueio = msgErro(e); } chipIA(); }
-const contexto = () => ({ disciplina:E.disc, serie:E.serie, turma:(turmaAtual() || {}).nome || "" });
+const contexto = () => ({ disciplina:E.disc, serie:E.serie, turma:(turmaAtual() || {}).nome || (String(E.turma).startsWith("etapa:") ? E.turma.slice(6) : "") });
 const nf = n => Number(n || 0).toLocaleString("pt-BR");
 function textoCota(){
   const c = E.cota; if(!c) return "";
@@ -365,9 +367,18 @@ function chipIA(){
 /* ===================== telas ===================== */
 function ir(v){ E.vista = v; $("btnInicio").hidden = v === "inicio"; desenhar(); window.scrollTo(0, 0); }
 function desenhar(){ if(E.vista === "inicio") return telaInicio(); if(E.vista === "conversa") return telaConversa(); if(E.vista === "doc") return telaDoc(); }
+// primeiro as turmas do professor (já vem escolhida a dele); depois todas as etapas, para preparar material para qualquer série
+const ETAPAS = [
+  ["Educação Infantil", ["Creche (0 a 3 anos)", "Pré-escola (4 anos)", "Pré-escola (5 anos)"]],
+  ["Ensino Fundamental · anos iniciais", ["1º ano do Ensino Fundamental", "2º ano do Ensino Fundamental", "3º ano do Ensino Fundamental", "4º ano do Ensino Fundamental", "5º ano do Ensino Fundamental"]],
+  ["Ensino Fundamental · anos finais", ["6º ano do Ensino Fundamental", "7º ano do Ensino Fundamental", "8º ano do Ensino Fundamental", "9º ano do Ensino Fundamental"]],
+  ["Ensino Médio", ["1ª série do Ensino Médio", "2ª série do Ensino Médio", "3ª série do Ensino Médio"]],
+  ["EJA e outros", ["EJA · Ensino Fundamental (anos iniciais)", "EJA · Ensino Fundamental (anos finais)", "EJA · Ensino Médio", "Ensino Técnico", "Educação Especial (Atendimento Educacional Especializado)"]]
+];
 function opTurmas(){
-  if(!E.turmas.length) return '<option value="">Sem turma vinculada</option>';
-  return E.turmas.map(t => '<option value="' + esc(t.id) + '"' + (t.id === E.turma ? " selected" : "") + ">" + esc(t.nome || "Turma") + "</option>").join("");
+  const minhas = E.turmas.length ? '<optgroup label="Minhas turmas">' + E.turmas.map(t => '<option value="' + esc(t.id) + '"' + (t.id === E.turma ? " selected" : "") + ">" + esc(t.nome || "Turma") + "</option>").join("") + "</optgroup>"
+    : '<option value=""' + (!E.turma ? " selected" : "") + ">Sem turma vinculada</option>";
+  return minhas + ETAPAS.map(g => '<optgroup label="' + esc(g[0]) + '">' + g[1].map(x => '<option value="etapa:' + esc(x) + '"' + (E.turma === "etapa:" + x ? " selected" : "") + ">" + esc(x) + "</option>").join("") + "</optgroup>").join("");
 }
 function opDisc(){
   const ds = [...new Set([...discDaGrade(turmaAtual()), ...(E.disc ? [E.disc] : []), ...DISCIPLINAS])];
@@ -1112,7 +1123,7 @@ document.addEventListener("click", async ev => {
     try{ await deleteDoc(doc(db, "portal_ia_docs", E.atual.id)); E.recentes = E.recentes.filter(x => x.id !== E.atual.id); toast("Material excluído."); ir("inicio"); }catch(e){ toast("Não consegui excluir.", true); } return; }
 });
 document.addEventListener("change", ev => {
-  if(ev.target.id === "selTurma"){ definirTurma(ev.target.value); try{ localStorage.setItem("pde_pia_turma_" + E.user.uid, E.turma); }catch(e){} E.texto = ($("pedido") || {}).value || ""; telaInicio(); return; }
+  if(ev.target.id === "selTurma"){ definirTurma(ev.target.value); try{ if(!E.turma.startsWith("etapa:")) localStorage.setItem("pde_pia_turma_" + E.user.uid, E.turma); }catch(e){} E.texto = ($("pedido") || {}).value || ""; telaInicio(); return; }
   if(ev.target.id === "selDisc"){ E.disc = ev.target.value; sugTodas = false; pintarSugTemas(); return; }
   if(ev.target.id === "redeDisc" || ev.target.id === "redeTipo"){ E.redeF[ev.target.id === "redeDisc" ? "disc" : "tipo"] = ev.target.value; $("redeLista").innerHTML = htmlRede(); return; }
   if(ev.target.id === "imgOnde"){ E.imgOnde = ev.target.value; const b = document.querySelector('[data-action="imagem"]'); if(b) b.textContent = E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem"; return; }
