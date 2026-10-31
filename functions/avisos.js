@@ -44,6 +44,12 @@ export function montar(tipo, x) {
     `<p>A escola está verificando. Se você souber de algum motivo, fale com a coordenação.</p>` };
   if (tipo === 'chegada') return { assunto: `${primeiro(x.aluno)} chegou à escola às ${x.hora}`, html: oi +
     `<p><b>${al}</b> passou a carteirinha na entrada da <b>${escola}</b> hoje, ${dia}, às <b>${esc(x.hora)}</b>.</p>` };
+  if (tipo === 'material') return { assunto: `${x.titulo} · material da turma${x.turma ? ' ' + x.turma : ''}`, html: oi +
+    `<p>${esc(x.por || 'O(a) professor(a)')} enviou um material para a turma${x.turma ? ' <b>' + esc(x.turma) + '</b>' : ''}, de <b>${al}</b>, na <b>${escola}</b>:</p>` +
+    `<p style="font-size:16px;margin:14px 0 6px"><b>${esc(x.titulo)}</b></p>` +
+    (x.texto ? String(x.texto).split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('') : '') +
+    (x.link ? `<p style="margin:16px 0"><a href="${esc(x.link)}" style="display:inline-block;background:#1a6b2a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Abrir o material</a></p>` : '') +
+    `<p>${pri} também encontra este material no Portal do Aluno, em "Materiais da turma". Para falar com ${esc(x.por || 'o professor')}, é só responder este e-mail.</p>` };
   return { assunto: `${x.titulo} · ${x.escola}`, html: oi + `<p style="font-size:16px"><b>${esc(x.titulo)}</b></p>` +
     String(x.texto || '').split(/\n{2,}/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('') + `<p style="color:#6b7c90">Mensagem enviada pela gestão da escola${x.por ? ' (' + esc(x.por) + ')' : ''}.</p>` };
 }
@@ -71,9 +77,55 @@ async function avisar(db, tr, { tipo, id, f, escola, aluno, base, dados }) {
   const resp = (f.responsaveis.find(r => r.principal) || f.responsaveis[0] || {}).nome || '';
   const m = montar(tipo, { ...dados, aluno, escola, resp, dia: base.dia });
   try {
-    await tr.sendMail({ from: `"${escola.replace(/"/g, '')} · Portal do Educador" <${SMTP_USUARIO.value()}>`, to: d.para.join(', '), subject: m.assunto, html: moldura(escola, m.html) });
+    await tr.sendMail({ from: `"${escola.replace(/"/g, '')} · Portal do Educador" <${SMTP_USUARIO.value()}>`, to: d.para.join(', '), subject: m.assunto, html: moldura(escola, m.html),
+      ...(dados && dados.replyTo ? { replyTo: dados.replyTo } : {}) });
     await ref.update({ status: 'enviado', para: d.para, assunto: m.assunto.slice(0, 200) }); return 'enviado';
   } catch (e) { await ref.update({ status: 'erro', erro: String(e.message || e).slice(0, 200) }); return 'erro'; }
+}
+
+// ===== material do professor para as famílias (Enviar conteúdo para a turma) =====
+// Só nas escolas em que o gestor ligou avisos_config.professor_familias; até ENVIOS_PROF_DIA envios por professor por dia;
+// um e-mail por aluno (irmãos com o mesmo e-mail recebem uma vez), só para quem aceita avisos; registro em avisos_familia.
+export const ENVIOS_PROF_DIA = 5;
+export async function escolasComFamilias(db, escolaIds) {
+  const ids = [...new Set(escolaIds.filter(Boolean))].slice(0, 30); if (!ids.length) return [];
+  const cs = await db.getAll(...ids.map(i => db.doc(`avisos_config/${i}`)));
+  return cs.filter(c => c.exists && c.data().professor_familias === true).map(c => c.id);
+}
+// quantos alunos de cada turma têm e-mail de família (para o professor saber o alcance antes de enviar)
+export async function coberturaFamilias(db, turmas) {
+  const out = {};
+  for (const t of turmas.slice(0, 30)) {
+    const al = (await db.collection('alunos').where('turma_id', '==', t.id).get()).docs.filter(d => d.data().status !== 'inativo');
+    const fs = al.length ? await db.getAll(...al.map(d => db.doc(`alunos_familia/${d.id}`))) : [];
+    out[t.id] = { alunos: al.length, com_email: fs.filter(f => f.exists && destinatarios(f.data()).st === 'ok').length };
+  }
+  return out;
+}
+export async function enviarMaterialFamilias(db, { uid, nomeProf, emailProf, itemId, turmas, titulo, texto, link }) {
+  const dia = hojeMS(), cota = db.doc(`avisos_prof/${uid}_${dia}`);
+  const ok = await db.runTransaction(async t => { const s = await t.get(cota), n = s.exists ? s.data().n || 0 : 0; if (n >= ENVIOS_PROF_DIA) return false; t.set(cota, { n: n + 1, uid, dia }, { merge: true }); return true; });
+  if (!ok) return { bloqueado: 'cota', limite: ENVIOS_PROF_DIA };
+  const liberadas = new Set(await escolasComFamilias(db, turmas.map(t => t.escola_id)));
+  const alvo = turmas.filter(t => liberadas.has(t.escola_id)), fora = turmas.filter(t => !liberadas.has(t.escola_id)).map(t => t.nome || 'Turma');
+  const tot = { turmas: alvo.length, alunos: 0, enviados: 0, sem_contato: 0, limite: 0, erro: 0, irmaos: 0, fora };
+  const nomesEsc = {}, tr = transporte(), jaMandado = new Set();
+  for (const t of alvo) {
+    if (!(t.escola_id in nomesEsc)) nomesEsc[t.escola_id] = ((await db.doc(`escolas/${t.escola_id}`).get()).data() || {}).nome || 'Escola';
+    const al = (await db.collection('alunos').where('turma_id', '==', t.id).get()).docs.map(d => ({ id: d.id, ...d.data() })).filter(a => a.nome && a.status !== 'inativo');
+    const fs = al.length ? await db.getAll(...al.map(a => db.doc(`alunos_familia/${a.id}`))) : [];
+    tot.alunos += al.length;
+    for (let i = 0; i < al.length; i++) {
+      const a = al[i], f = fs[i].exists ? fs[i].data() : null, d = destinatarios(f);
+      if (d.st === 'ok' && d.para.every(e => jaMandado.has(e))) { tot.irmaos++; continue; }
+      const base = { tipo: 'material', item_id: itemId, escola_id: t.escola_id, municipio_id: a.municipio_id || '', aluno_id: a.id, aluno_nome: String(a.nome).slice(0, 80),
+        turma_id: t.id, turma_nome: String(t.nome || '').slice(0, 60), dia, por_uid: uid, por_nome: String(nomeProf || '').slice(0, 80) };
+      const r = await avisar(db, tr, { tipo: 'material', id: `mat_${itemId}_${a.id}`, f, escola: nomesEsc[t.escola_id], aluno: a.nome, base,
+        dados: { titulo, texto, link, turma: t.nome || '', por: nomeProf ? 'Prof. ' + String(nomeProf).split(' ')[0] : '', replyTo: /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailProf || '') ? emailProf : '' } });
+      if (r === 'enviado') { tot.enviados++; d.para.forEach(e => jaMandado.add(e)); } else if (r === 'erro') tot.erro++; else if (r === 'limite') tot.limite++; else if (r !== 'repetido') tot.sem_contato++;
+    }
+  }
+  return tot;
 }
 
 // ===== fim de turno: falta, 3 dias seguidos e "entrou, mas está com falta" =====

@@ -334,6 +334,8 @@
   .et-corpo{ padding:14px 18px 16px;display:grid;gap:10px } .et-corpo label{ display:grid;gap:5px;font-weight:700;font-size:13.5px } .et-corpo label small{ font-weight:400;color:#62758a }
   .et-corpo input[type=url],.et-corpo input:not([type]),.et-corpo textarea,.et-corpo input[type=file]{ width:100%;box-sizing:border-box;font:inherit;font-weight:400;padding:9px 11px;border:1px solid var(--line, #cfdbe7);border-radius:10px }
   .et-corpo [hidden]{ display:none !important }
+  .et-fam{ display:grid;gap:4px;background:#f4faea;border:1px solid #cfe5b5;border-radius:10px;padding:9px 12px } .et-fam small{ font-size:12.5px;color:#3d5a2a } .et-fam .et-fam-off{ color:#62758a }
+  .et-fam:has(.et-fam-off){ background:#f6f8fb;border-color:var(--line, #dce4ed) }
   .tc-h{ margin:6px 0 0;font-size:15px } .tc-ok{ margin:0;padding:8px 12px;border-radius:10px;background:#eef7e3;color:#1a5a24;font-size:13.5px }
   .tc-2{ display:grid;grid-template-columns:1fr 1fr;gap:10px } .et-corpo select{ width:100%;box-sizing:border-box;font:inherit;font-weight:400;padding:9px 11px;border:1px solid var(--line, #cfdbe7);border-radius:10px }
   @media (max-width:560px){ .tc-2{ grid-template-columns:1fr } }
@@ -7011,10 +7013,27 @@
         (op.series.length ? '<b class="et-rot">Séries <small>(nenhuma = todas)</small></b><div class="et-grade">' + op.series.map(x => '<label><input type="checkbox" data-et-serie="' + escapeAttr(x) + '"> ' + escapeHtml(x) + "</label>").join("") + "</div>" : "") +
         '<label class="et-ck"><input type="checkbox" id="etRede"> Enviar para <b>todas as turmas</b> desse filtro</label></details>' : "") +
       (!ts.length && !(op && op.rede) ? '<p class="et-d">Você ainda não tem turma vinculada. Peça à coordenação para incluir você na grade.</p>' : "") +
+      (ts.length ? '<div id="etFam" class="et-fam" hidden></div>' : '') +
       '<p id="etMsg" class="et-msg" role="status"></p><div class="et-acoes"><button type="button" class="btn btn-ghost" data-action="et-fechar">Cancelar</button><button type="button" class="btn btn-primary" data-action="et-enviar">Enviar</button></div></div></div>';
     document.body.appendChild(f); f.dataset.modo = "link"; $("etUrl").focus();
     f.addEventListener("keydown", e => { if(e.key === "Escape" && !f.dataset.ocupado) f.remove(); });
     $("etArq").addEventListener("change", () => { const a = $("etArq").files[0]; if(a && !$("etTit2").value) $("etTit2").value = a.name.replace(/\.[^.]+$/, "").slice(0, 120); });
+    // famílias: a escola libera (Famílias > Avisos); o professor vê quantas famílias de cada turma têm e-mail
+    if(ts.length){ ET_FAM.info = null; fnTrab({ acao:"familias_info" }).then(r => { ET_FAM.info = r; desenharEtFam(); }).catch(e => console.warn("familias:", e)); }
+    f.addEventListener("change", e => { if(e.target.matches("[data-et-turma], #etFamOk")) desenharEtFam(); });
+  }
+  const ET_FAM = { info:null };
+  function desenharEtFam(){
+    const box = $("etFam"), f = $("etFundo"); if(!box || !f || !ET_FAM.info) return;
+    const lib = new Set(ET_FAM.info.turmas || []), cob = ET_FAM.info.cobertura || {}, marcado = $("etFamOk") && $("etFamOk").checked;
+    const sel = [...f.querySelectorAll("[data-et-turma]:checked")].map(x => x.dataset.etTurma);
+    if(!lib.size){ box.hidden = false; box.innerHTML = '<small class="et-fam-off">👪 Envio às famílias: a gestão da sua escola ainda não liberou (Famílias › Avisos).</small>'; return; }
+    const okSel = sel.filter(t => lib.has(t)), fora = sel.filter(t => !lib.has(t)).length;
+    const al = okSel.reduce((n, t) => n + ((cob[t] || {}).alunos || 0), 0), com = okSel.reduce((n, t) => n + ((cob[t] || {}).com_email || 0), 0);
+    box.hidden = false;
+    box.innerHTML = '<label class="et-ck"><input type="checkbox" id="etFamOk"' + (marcado ? " checked" : "") + '> 👪 Também enviar às <b>famílias</b> por e-mail</label>' +
+      '<small>' + (okSel.length ? com + " de " + al + " alunos dessas turmas têm e-mail de família que aceita avisos." + (com < al ? " Os outros só veem no Portal do Aluno." : "") : "Marque uma turma da escola que liberou o envio.") +
+      (fora ? " " + fora + (fora === 1 ? " turma marcada é" : " turmas marcadas são") + " de escola que não liberou." : "") + " Vai com seu nome, e a família responde direto para o seu e-mail.</small>";
   }
   function etModo(m){ const f = $("etFundo"); if(!f) return; f.dataset.modo = m; $("etBoxLink").hidden = m !== "link"; $("etBoxArq").hidden = m !== "arquivo";
     f.querySelectorAll(".et-modos button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.arg === m))); }
@@ -7023,7 +7042,7 @@
     const titulo = $("etTit2").value.trim(), turmas = [...f.querySelectorAll("[data-et-turma]:checked")].map(x => x.dataset.etTurma), rede = $("etRede") && $("etRede").checked;
     const filtro = rede ? { escolas:[...f.querySelectorAll("[data-et-esc]:checked")].map(x => x.dataset.etEsc), series:[...f.querySelectorAll("[data-et-serie]:checked")].map(x => x.dataset.etSerie) } : null;
     if(!turmas.length && !rede){ msg("Marque pelo menos uma turma.", true); return; }
-    const dados = { acao:"enviar_link", titulo, orientacao:$("etOri").value.trim(), ...(rede ? { filtro } : { turmas }) };
+    const dados = { acao:"enviar_link", titulo, orientacao:$("etOri").value.trim(), ...(rede ? { filtro } : { turmas }), familias:!rede && !!($("etFamOk") && $("etFamOk").checked) };
     if(f.dataset.modo === "link"){
       let url = $("etUrl").value.trim(); if(url && !/^https?:\/\//i.test(url)) url = "https://" + url;
       if(!/^https:\/\/[^\s]+\.[^\s]+/.test(url)){ msg("Cole um link que comece com https://", true); return; }
@@ -7042,7 +7061,10 @@
       }
       b.textContent = "Publicando na turma...";
       const r = await fnTrab(dados);
-      msg("Enviado para " + r.turmas + (r.turmas === 1 ? " turma: " : " turmas: ") + r.nomes.join(", ") + ".");
+      const fm = r.familias, txtFam = !fm ? "" : fm.bloqueado === "cota" ? " Às famílias: você já fez " + fm.limite + " envios hoje, tente amanhã." : fm.erro_geral ? " Às famílias: não deu para enviar agora."
+        : " Às famílias: " + fm.enviados + (fm.enviados === 1 ? " e-mail enviado" : " e-mails enviados") + (fm.sem_contato ? ", " + fm.sem_contato + " sem e-mail cadastrado" : "") + (fm.limite ? ", " + fm.limite + " pararam no limite do dia" : "") + ".";
+      msg("Enviado para " + r.turmas + (r.turmas === 1 ? " turma: " : " turmas: ") + r.nomes.join(", ") + "." + txtFam);
+      if($("etFamOk")) $("etFamOk").checked = false;
       b.textContent = "Enviar outro"; b.disabled = false; delete f.dataset.ocupado;
       $("etUrl").value = ""; $("etArq").value = ""; $("etTit2").value = ""; $("etOri").value = "";
     }catch(e){ console.warn("enviar para a turma:", e); msg(e && e.message ? e.message : "Não deu para enviar agora.", true); b.disabled = false; b.textContent = "Enviar"; delete f.dataset.ocupado; }

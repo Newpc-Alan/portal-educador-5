@@ -9,6 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { SMTP_SENHA } from './dicas.js';
 import { feedRede } from './rede-feed.js';
 import { statusAoCompartilhar, avisarModeradores } from './moderacao-rede.js';
+import { escolasComFamilias, coberturaFamilias, enviarMaterialFamilias } from './avisos.js';
 import { exigirRecurso } from './envio-comum.js';
 import { opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 
@@ -37,10 +38,19 @@ async function contexto(db, uid) {
   return { eu, admin, muni, escola };
 }
 
-export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMTP_SENHA], timeoutSeconds: 120, memory: '512MiB', maxInstances: 20 }, async req => {
+export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMTP_SENHA], timeoutSeconds: 300, memory: '512MiB', maxInstances: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {}, c = await contexto(db, uid);
   if (d.acao === 'opcoes') return opcoesEnvio(db, c.eu);
+
+  /* famílias: quais turmas do professor podem receber (escola liberou) e quantos alunos têm e-mail de família */
+  if (d.acao === 'familias_info') {
+    const ids = (Array.isArray(c.eu.turmas_ids) ? c.eu.turmas_ids : []).slice(0, 30);
+    const ts = (await Promise.all(ids.map(i => db.doc(`turmas/${i}`).get()))).filter(x => x.exists).map(x => ({ id: x.id, ...x.data() }));
+    const lib = new Set(await escolasComFamilias(db, ts.map(t => t.escola_id)));
+    const ok = ts.filter(t => lib.has(t.escola_id));
+    return { turmas: ok.map(t => t.id), cobertura: ok.length ? await coberturaFamilias(db, ok) : {} };
+  }
 
   /* link ou arquivo do professor para a turma (site, vídeo, PDF, slides...): vai para "Materiais da turma" */
   if (d.acao === 'enviar_link') {
@@ -70,7 +80,12 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       await f.delete().catch(() => {});   // o original era só o envio; a cópia da turma é a que fica
     } else throw new HttpsError('invalid-argument', 'Cole um link ou escolha um arquivo.');
     await publicarNaTurma(db, turmas, itemId, { ...item, origem: 'link', autor_uid: uid, autor_nome: txt(c.eu.nome || '', 80), escola_nome: c.escola, disciplina: txt(d.disciplina, 60), tipo_nome: item.tipo_item === 'link' ? 'Link' : 'Arquivo' });
-    return { ok: true, turmas: turmas.length, nomes: turmas.slice(0, 8).map(t => t.nome || 'Turma') };
+    // também às famílias (só turmas escolhidas a dedo; a escola precisa ter liberado)
+    let familias = null;
+    if (d.familias && !d.filtro) familias = await enviarMaterialFamilias(db, { uid, nomeProf: c.eu.nome || '', emailProf: c.eu.email || '', itemId,
+      turmas: turmas.map(t => ({ id: t.id, nome: t.nome || '', escola_id: t.escola_id || '' })), titulo, texto: orientacao, link: item.url || item.arquivo_url || '' })
+      .catch(e => { console.warn('familias', e.message); return { erro_geral: true }; });
+    return { ok: true, turmas: turmas.length, nomes: turmas.slice(0, 8).map(t => t.nome || 'Turma'), familias };
   }
 
   const tipo = String(d.tipo || ''), T = TIPOS[tipo];
