@@ -3961,6 +3961,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo label.ia-chk input{width:20px;height:20px;min-height:0;accent-color:#1a6b2a}
   #iaCorpo label.ia-ultra{align-items:flex-start;padding:10px 12px;border-radius:12px;background:linear-gradient(135deg,rgba(141,198,63,.14),rgba(46,155,214,.12),rgba(123,92,255,.12));border:1px solid #d5def0}
   #iaCorpo label.ia-ultra small{display:block;font-weight:400;color:#4b5b6b;margin-top:2px}
+  #iaCorpo #iaQtdImgBox{display:grid;gap:7px;margin-top:10px}
+  #iaCorpo .ia-qimg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  #iaCorpo .ia-qi{display:grid;gap:2px;justify-items:center;padding:8px 4px;border:2px solid #d5dfe9;border-radius:10px;background:#fff;cursor:pointer;font:inherit;color:#0f2c4a}
+  #iaCorpo .ia-qi b{font-size:20px;line-height:1}
+  #iaCorpo .ia-qi small{font-size:11px;color:#62758a;text-align:center}
+  #iaCorpo .ia-qi[aria-pressed="true"]{border-color:#7b5cff;background:#f3f0ff;box-shadow:0 0 0 2px rgba(123,92,255,.2)}
+  #iaCorpo .ia-qi:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
+  #iaCorpo .ia-custo{margin:0;padding:9px 12px;border-radius:10px;background:#fff8e1;border:1px solid #f2d27a;color:#5a4b00;font-size:13px;line-height:1.4}
   #iaCorpo #iaEstiloBox small{font-weight:400;color:#62758a}
   #iaCorpo .ia-msg{margin:0;min-height:18px;font-size:13.5px;color:#b3261e}
   #iaCorpo .ia-acoes{display:flex;justify-content:flex-end}
@@ -4298,13 +4306,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           FUNDOS_TEMA_IA.map(f => '<button type="button" class="ia-fd" data-ia="fundo" data-fundo="' + f[0] + '"><span class="ia-mini ia-mini-' + f[0] + '"><i></i><b></b><b></b></span>' + f[1] + '<small>' + f[2] + '</small></button>').join("") + '</div></div></div>' +
         '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
         '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
-        '<div id="iaUltraBox" hidden><label class="ia-chk ia-ultra"><input type="checkbox" id="iaUltra"> <span><b>Lousa Ultra</b>: ilustrações geradas por IA na capa e em até 2 slides <small id="iaUltraCusto"></small></span></label>' +
+        '<div id="iaUltraBox" hidden><label class="ia-chk ia-ultra"><input type="checkbox" id="iaUltra"> <span><b>Lousa Ultra</b>: ilustrações geradas por IA na capa e nos slides <small id="iaUltraCusto"></small></span></label>' +
+        '<div id="iaQtdImgBox" hidden><span class="ia-rot">Quantas ilustrações</span><div class="ia-qimg" id="iaQtdImg" role="group" aria-label="Quantas ilustrações">' +
+          [[1, "só a capa"], [2, "capa + 1 slide"], [3, "capa + 2 slides"], [4, "capa + 3 slides"]].map(q => '<button type="button" class="ia-qi" data-ia="qimg" data-n="' + q[0] + '"><b>' + q[0] + '</b><small>' + q[1] + '</small></button>').join("") +
+          '</div><p id="iaCustoImg" class="ia-custo" role="status"></p></div>' +
         '<label id="iaEstiloBox" hidden style="margin-top:8px">Estilo das ilustrações<select id="iaEstilo"><option value="auto">Automático (pela turma)</option><option value="realista">Realista (foto ou pintura histórica)</option><option value="didatica">Livro didático (semi-realista)</option><option value="infantil">Infantil (desenho colorido)</option></select><small id="iaEstiloInfo"></small></label></div>' +
         '<p id="iaMsg" class="ia-msg" role="status"></p>' +
         '<div class="ia-acoes"><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA();
         if(b.dataset.ia === "sug"){ const tm = document.getElementById("iaTema"); tm.value = b.dataset.tema; temaSel = { chave:b.dataset.chave, id:b.dataset.id, texto:b.dataset.tema }; pintarSugestoes(); tm.focus(); }
+        if(b.dataset.ia === "qimg"){ qtdImgIA = Number(b.dataset.n); try{ localStorage.setItem("pde_aula_qimg", String(qtdImgIA)); }catch(e){} pintarQtdImg(); }
         if(b.dataset.ia === "sug-mais"){ sugTodas = !sugTodas; pintarSugestoes(); }
         if(b.dataset.ia === "cor"){ temaIA.cor = b.dataset.cor; salvarTemaIA(); pintarTemaIA(); }
         if(b.dataset.ia === "fundo"){ temaIA.fundo = b.dataset.fundo; salvarTemaIA(); pintarTemaIA(); } });
@@ -4377,7 +4389,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(!cotaIA){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
         cotaIA = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data; }
       const pi = (cotaIA.precos || {}).imagem || 5, pt = (cotaIA.precos || {}).texto || 1;
-      custo.textContent = "(até " + (pt + 3 * pi) + " créditos: " + pi + " por ilustração)";
+      custo.textContent = "(" + pi + " créditos por ilustração)";
       chk.disabled = !cotaIA.pode_imagem;
       if(!cotaIA.pode_imagem){ chk.checked = false; custo.textContent = "(disponível no plano Completo ou com créditos avulsos de imagem)"; }
     }catch(e){ custo.textContent = ""; }
@@ -4411,9 +4423,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const n = (x.match(/\b([1-9])\s*(o|º|ª|a)?\s*ano/) || [])[1];
     return n ? (Number(n) <= 5 ? "iniciais" : "finais") : "";
   }
+  // Lousa Ultra: o professor escolhe de 1 a 4 ilustrações e vê antes quanto a aula vai gastar
+  let qtdImgIA = (() => { try{ const n = Number(localStorage.getItem("pde_aula_qimg")); return n >= 1 && n <= 4 ? n : 3; }catch(e){ return 3; } })();
+  function pintarQtdImg(){
+    const box = document.getElementById("iaQtdImgBox"), ultra = document.getElementById("iaUltra"), btn = document.getElementById("iaGerar"); if(!box) return;
+    const ligado = !document.getElementById("iaUltraBox").hidden && ultra.checked;
+    box.hidden = !ligado;
+    const pi = ((cotaIA && cotaIA.precos) || {}).imagem || 5, pt = ((cotaIA && cotaIA.precos) || {}).texto || 1;
+    document.querySelectorAll("#iaQtdImg .ia-qi").forEach(b => { const n = Number(b.dataset.n); b.setAttribute("aria-pressed", String(n === qtdImgIA)); b.title = n + " × " + pi + " = " + n * pi + " créditos de ilustração"; });
+    const total = pt + qtdImgIA * pi;
+    document.getElementById("iaCustoImg").innerHTML = "⚠️ Cada ilustração gasta <b>" + pi + " créditos</b>. Esta aula vai usar até <b>" + total + " créditos</b> (" + pt + " da aula + " + qtdImgIA + " × " + pi + "). Ilustração que não sair é devolvida.";
+    if(btn && !btn.disabled) btn.textContent = ligado ? "Montar a aula · até " + total + " créditos" : "Montar a aula · " + pt + " crédito" + (pt > 1 ? "s" : "");
+  }
   function infoEstilo(){
     const box = document.getElementById("iaEstiloBox"); if(!box) return;
     box.hidden = !document.getElementById("iaUltra").checked;
+    pintarQtdImg();
     const et = etapaTurma(turmaIA()), info = document.getElementById("iaEstiloInfo");
     const nome = { infantil:"Educação Infantil", iniciais:"anos iniciais", finais:"anos finais", medio:"Ensino Médio" }[et];
     const estilo = et === "infantil" || et === "iniciais" ? "infantil" : et === "finais" ? "livro didático" : "realista";
@@ -4426,7 +4451,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const tema = document.getElementById("iaTema").value.trim();
     if(tema.length < 3){ m.textContent = "Escreva o tema da aula."; document.getElementById("iaTema").focus(); return; }
     const ultra = !document.getElementById("iaUltraBox").hidden && document.getElementById("iaUltra").checked;
-    const dados = { acao:"aula_lousa", tema, ultra, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
+    const dados = { acao:"aula_lousa", tema, ultra, imagens:qtdImgIA, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
       qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim(),
       ...(temaSel && temaSel.texto === tema ? { tema_chave:temaSel.chave, tema_id:temaSel.id } : {}) };
     bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
@@ -4444,7 +4469,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }catch(e){
       console.warn("aula IA:", e.code, e.message);
       m.style.color = "#b3261e"; m.textContent = e.code === "functions/resource-exhausted" || e.code === "functions/failed-precondition" || e.code === "functions/permission-denied" ? (e.message || "Sem créditos para o Portal IA.") : (e.message || "A IA não respondeu agora. Tente de novo.");
-    }finally{ delete bg.dataset.gerando; btn.disabled = false; btn.textContent = "Montar a aula"; }
+    }finally{ delete bg.dataset.gerando; btn.disabled = false; pintarQtdImg(); }
   }
   window.PDENuvem.aulaIA = janelaAulaIA;
 

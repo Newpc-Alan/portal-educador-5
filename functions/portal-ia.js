@@ -600,11 +600,15 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     const chaveTema = String(d.tema_chave || ''), idTema = String(d.tema_id || '');
     if (/^(ei|ef[1-9]|em[1-3])\|[A-Za-zÀ-ú ]{3,30}$/.test(chaveTema) && /^[a-z0-9-]{3,60}$/.test(idTema))
       db.doc('temas_populares/' + chaveTema.replace('|', '__').replace(/ /g, '_')).set({ [idTema]: FieldValue.increment(1) }, { merge: true }).catch(() => {});
-    // Lousa Ultra: capa + até 2 ilustrações dos slides que pediram imagem (cada uma cobra como imagem; a que falhar é estornada)
+    // Lousa Ultra: o professor escolhe de 1 a 4 ilustrações (capa + até 3 slides); cada uma cobra como imagem e a que falhar é estornada.
+    // Primeiro os slides em que a IA pediu imagem; se faltar, slides de conteúdo (nunca quiz, atividade ou resumo).
     let imagens = {}, aviso = '';
     if (ultra) {
-      const pedidos = [{ onde: 'capa', desc: aula.capa_ilustracao || aula.titulo }]
-        .concat(aula.slides.map((sl, i) => ({ onde: 's' + i, desc: sl.ilustracao })).filter(x => x.desc).slice(0, 2));
+      const nImg = Math.min(4, Math.max(1, Math.round(Number(d.imagens) || 3)));
+      const pediram = aula.slides.map((sl, i) => ({ onde: 's' + i, desc: sl.ilustracao })).filter(x => x.desc);
+      const extras = aula.slides.map((sl, i) => ({ sl, i })).filter(x => !x.sl.ilustracao && ['topicos', 'conceito', 'curiosidade', 'dado', 'passos'].includes(x.sl.tipo))
+        .map(x => ({ onde: 's' + x.i, desc: x.sl.titulo + (x.sl.destaque ? ': ' + x.sl.destaque : '') }));
+      const pedidos = [{ onde: 'capa', desc: aula.capa_ilustracao || aula.titulo }].concat(pediram, extras).slice(0, nImg);
       const feitas = await Promise.all(pedidos.map(async pd => {
         let rv = null;
         try { rv = await reservarCreditos(db, ctx, 'imagem', opcUltra); }
