@@ -31,6 +31,14 @@ const lp = await fetch(base + `turma_presenca/${turma.id}/alunos`, { headers: { 
 ok(lp.status === 200, 'professor da escola lê quem está online (HTTP ' + lp.status + ')');
 const la = await fetch(base + `turma_presenca/${turma.id}/alunos`, { headers: { Authorization: 'Bearer ' + tA } });
 ok(la.status === 403, 'aluno NÃO lê a lista de presença (HTTP ' + la.status + ')');
+const gravarEst = async (t, cam, extra) => (await fetch(base.replace('/documents/', '/documents:commit'), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t },
+  body: JSON.stringify({ writes: [{ update: { name: 'projects/portal-educador-5/databases/(default)/documents/' + cam, fields: { fechados: { arrayValue: { values: [{ stringValue: 'item-x' }] } }, ...(extra || {}) } }, updateTransforms: [{ fieldPath: 'em', setToServerValue: 'REQUEST_TIME' }] }] }) })).status;
+ok(await gravarEst(tA, `turma_aluno_estado/${turma.id}/alunos/${al[0].id}`) === 200, 'aluno guarda os materiais que fechou (servidor)');
+const le = await fetch(base + `turma_aluno_estado/${turma.id}/alunos/${al[0].id}`, { headers: { Authorization: 'Bearer ' + tA } });
+ok(le.status === 200, 'aluno lê o próprio estado em outro aparelho (HTTP ' + le.status + ')');
+if (al[1]) ok(await gravarEst(tA, `turma_aluno_estado/${turma.id}/alunos/${al[1].id}`) === 403, 'aluno NÃO grava o estado de outro colega (bloqueado)');
+ok(await gravarEst(tA, `turma_aluno_estado/${turma.id}/alunos/${al[0].id}`, { nota: { stringValue: '10' } }) === 403, 'campo fora do padrão recusado');
+await db.doc(`turma_aluno_estado/${turma.id}/alunos/${al[0].id}`).delete();
 await db.doc(`turma_presenca/${turma.id}/alunos/${al[0].id}`).delete(); await db.doc(`turma_materiais/${turma.id}/itens/${itemId}/vistos/${al[0].id}`).delete();
 if (itemTeste) await itemTeste.delete();
 await getAuth().deleteUser('teste-av-' + al[0].id).catch(() => {});
