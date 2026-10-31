@@ -409,7 +409,7 @@
   .ac-card.trava .ac-tx{ border-top-color:#c3ccd6 } .ac-card.trava .ac-tx b{ color:#61758a }
   /* Maestro no Início: cartão pequeno, igual aos cartões do dia */
   .au-lista{ margin-bottom:20px;grid-template-columns:repeat(auto-fill,minmax(0,440px)) }
-  .hj-card.azul{ border-left-color:#2671AB } .hj-card.azul .hj-btn{ background:#2671AB }
+  .hj-card.azul{ border-left-color:#2671AB } .hj-card.azul .hj-btn{ background:#2671AB } .hj-card .hj-btn.hj-trava{ background:#8a98a6 }
   .au-lousa{ margin:8px 0 0 6px;background:transparent;border:1px solid var(--line);color:var(--navy);border-radius:11px;padding:8px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;vertical-align:top }
   .au-lousa:hover{ border-color:var(--navy) }
   .ac-card.conteudo .ac-tx{ border-top-color:#2E9BD6 }
@@ -1477,6 +1477,12 @@
         <table class="mod-tab" style="margin-top:10px"><thead><tr><th>Recursos extras</th><th class="c">Liberado</th></tr></thead>
           <tbody><tr><td>Prova online<small>em Provas e Avaliações: o professor aplica a prova no Portal do Aluno, com horário, modo protegido e correção automática</small></td>
           <td class="c"><input type="checkbox" id="planoProvaOnline" data-plano="rec" value="prova_online" aria-label="Prova online"></td></tr>
+          <tr><td>🤝 Rede colaborativa<small>compartilhar com a rede (Portal IA e Meus trabalhos), vitrine Da sua rede, Novidades no Início, resumo diário e envio por e-mail · padrão: todos os planos</small></td>
+          <td class="c"><input type="checkbox" data-plano="rec" value="rede_colab" aria-label="Rede colaborativa"></td></tr>
+          <tr><td>🎒 Sala digital<small>enviar para os alunos (Portal IA, Lousa, trabalhos), enviar conteúdo para a turma (até 20 MB), Materiais da turma e Histórico de aulas · padrão: Intermediário e Completo</small></td>
+          <td class="c"><input type="checkbox" data-plano="rec" value="sala_digital" aria-label="Sala digital"></td></tr>
+          <tr><td>📡 Turma ao vivo<small>painel de presença e "aberto por", vídeos até 100 MB, envio para a rede inteira por escola/série (gestor e secretaria) · padrão: Completo</small></td>
+          <td class="c"><input type="checkbox" data-plano="rec" value="turma_ao_vivo" aria-label="Turma ao vivo"></td></tr>
           <tr><td colspan="2"><small>Recursos de IA (Portal IA, Provas com IA, Lousa IA) agora são liberados na <b>Central de IA</b>.</small></td></tr></tbody></table>
       </div>
       <div class="usr-aviso">A liberação vale para todos os professores e alunos aprovados deste município. Os módulos marcados só para professor não aparecem no Portal do Aluno.</div>
@@ -5273,6 +5279,8 @@
       const recMuni = new Set(Array.isArray(muniSel.recursos) ? muniSel.recursos : []);
       const opcoes = MODULOS.filter(m => !m.soAluno && !doMuni.has(m.id)).map(m => ({ v:m.id, nome:m.nome }))
         .concat(recMuni.has("prova_online") ? [] : [{ v:"rec:prova_online", nome:"Prova online (aplicar no Portal do Aluno)" }])
+        .concat([["rede_colab", "Rede colaborativa (compartilhar com a rede)"], ["sala_digital", "Sala digital (enviar para os alunos)"], ["turma_ao_vivo", "Turma ao vivo (presença e vídeos)"]]
+          .filter(([k]) => !(muniSel.recursos_ajustado ? recMuni.has(k) : (Array.isArray(muniSel.modulos_professor) && muniSel.modulos_professor.length ? recursosDoPlano(muniSel.plano_nome) : RECURSOS_SALA).includes(k))).map(([k, n]) => ({ v:"rec:" + k, nome:n })))
         .concat(OPCOES_LOUSA_IA.filter(o => !recMuni.has(o.v.slice(4)) && !(o.v === "rec:lousa_ia" && recMuni.has("lousa_ia_ultra"))));
       [...ed.extras].forEach(v => { if(!opcoes.some(o => o.v === v)) ed.extras.delete(v); });   // o município passou a ter: não precisa mais
       const nm = NOME_PLANO[muniSel.plano_nome || nomeDoPlano(muniSel.modulos_professor, muniSel.recursos, muniSel.modulos_secretaria)];
@@ -5471,6 +5479,7 @@
     else if(acao === "ini-turmas"){ const it = (MENUS.professor.itens || []).find(i => i.id === "turmas"); if(it) selecionar(it); }
     else if(acao === "ini-enviar-turma"){ janelaEnviarTurma(el.dataset.turma || ""); }
     else if(acao === "ini-ao-vivo"){ abrirAoVivo(); }
+    else if(acao === "ini-vivo-plano"){ toast("Turma ao vivo (quem está na sala e quem abriu cada material) faz parte do plano Completo. Fale com a NEWPC para liberar."); }
     else if(acao === "av-fechar"){ fecharAoVivo(); }
     else if(acao === "av-turma"){ /* troca pelo select */ }
     else if(acao === "av-visto"){ const id = el.dataset.arg; AV.aberto = AV.aberto === id ? "" : id; vigiarVistos(id); desenharMatsAoVivo(); }
@@ -5663,11 +5672,15 @@
   const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro","portalia"]);
   // o Portal IA segue o plano do município: Intermediário (sem imagens) e Completo (com imagens); Básico não tem
   const PLANOS_COM_PORTAL_IA = ["intermediario","completo"];
+  // Sala conectada: Rede colaborativa (Básico+), Sala digital (Intermediário+), Turma ao vivo (Completo)
+  const RECURSOS_SALA = ["rede_colab", "sala_digital", "turma_ao_vivo"];
+  const recursosDoPlano = n => n === "completo" ? RECURSOS_SALA.slice() : n === "intermediario" ? ["rede_colab", "sala_digital"] : ["rede_colab"];
   const listaDoPacote = (n) => n === "basico" ? PLANO_BASICO : n === "intermediario" ? PLANO_INTERMEDIARIO : MODULOS.map(m => m.id);
   // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
   function nomeDoPlano(prof, rec, sec){
     // "ia" (IA do Educador, retirada) e "portalia" (decidido pelo plano) não contam na comparação
     const fora = x => x !== "ia" && x !== "portalia";
+    rec = (rec || []).filter(x => !RECURSOS_SALA.includes(x));
     const p = new Set((prof || []).filter(fora)), igual = (l) => { const b = l.filter(fora); return p.size === b.length && b.every(x => p.has(x)); };
     if(MODULOS.every(m => !fora(m.id) || p.has(m.id)) && (rec || []).includes("prova_online") && (sec || []).includes("painel")) return "completo";
     if(!(rec || []).length && !(sec || []).length){ if(igual(PLANO_BASICO)) return "basico"; if(igual(PLANO_INTERMEDIARIO)) return "intermediario"; }
@@ -5762,6 +5775,8 @@
         if(doPlano && !ehAluno){ const pn = m.data().plano_nome || ""; if(PLANOS_COM_PORTAL_IA.includes(pn)) doPlano.add("portalia"); else if(pn === "basico") doPlano.delete("portalia"); }
         // recursos avulsos do plano (ex.: prova online), mesmo campo que Provas e Avaliações e as funções conferem
         iniProf.recursos = new Set(m.exists() && Array.isArray(m.data().recursos) ? m.data().recursos : []);
+        // sala conectada: sem ajuste do administrador, vale o padrão do plano (mesma regra das funções)
+        if(m.exists() && !m.data().recursos_ajustado){ if(doPlano) recursosDoPlano(m.data().plano_nome).forEach(x => iniProf.recursos.add(x)); else RECURSOS_SALA.forEach(x => iniProf.recursos.add(x)); }
         // liberações exclusivas deste professor somam ao plano do município
         if(!ehAluno){
           if(doPlano) extrasDe(usuarioAtual).mods.forEach(x => doPlano.add(x));
@@ -6302,9 +6317,11 @@
     const hero = $("iniAulaHero");
     // Maestro: cartão pequeno, no mesmo formato dos cartões do dia (foto, título, frase e um botão)
     // ao lado: cartão próprio da Turma ao vivo (independe do Maestro, aparece mesmo sem ele)
-    const cartaoAoVivo = usuarioAtual._avulso ? '' : '<div class="hj-card azul"><span class="hj-img" style="background-image:url(\''+fotoAcao("turma-ao-vivo")+'\'),url(\''+fotoAcao("turmas")+'\')"></span>'+
+    const okVivo = temRecurso("turma_ao_vivo"), okSala = temRecurso("sala_digital");
+    const cartaoAoVivo = usuarioAtual._avulso || (!okVivo && !okSala) ? '' : '<div class="hj-card azul"><span class="hj-img" style="background-image:url(\''+fotoAcao("turma-ao-vivo")+'\'),url(\''+fotoAcao("turmas")+'\')"></span>'+
       '<span class="hj-tx"><b>Turma ao vivo</b><small>Quem está online, envie materiais e veja quem já abriu.</small>'+
-      '<button type="button" class="hj-btn" data-action="ini-ao-vivo" data-ac="aovivo">📡 Abrir a turma</button>'+
+      (okVivo ? '<button type="button" class="hj-btn" data-action="ini-ao-vivo" data-ac="aovivo">📡 Abrir a turma</button>'
+        : '<button type="button" class="hj-btn hj-trava" data-action="ini-vivo-plano" title="Disponível no plano Completo">🔒 Abrir a turma</button>')+
       '<button type="button" class="au-lousa" data-action="ini-enviar-turma" data-ac="enviarturma">🔗 Enviar conteúdo</button></span></div>';
     if(hero) hero.innerHTML = aula ? '<div class="hj-lista au-lista" aria-label="Começar a aula"><div class="hj-card verde"><span class="hj-img" style="background-image:url(\''+fotoAcao("aula-destaque")+'\')"></span>'+
       '<span class="hj-tx"><b>Pronto para a aula?</b><small>Abra a turma no Maestro'+(admin && aula.previa ? ' (prévia: ainda não liberado para os professores)' : '')+'.</small>'+
@@ -8971,6 +8988,8 @@
     plano.alu  = new Set(Array.isArray(m.modulos_aluno) ? m.modulos_aluno : []);
     plano.sec  = new Set(Array.isArray(m.modulos_secretaria) ? m.modulos_secretaria : []);
     plano.rec  = new Set(Array.isArray(m.recursos) ? m.recursos : []);
+    // sem ajuste salvo ainda: mostra o padrão do plano
+    if(!m.recursos_ajustado){ const temP = Array.isArray(m.modulos_professor) && m.modulos_professor.length; (temP ? recursosDoPlano(m.plano_nome) : RECURSOS_SALA).forEach(x => plano.rec.add(x)); }
     $("planoSub").textContent = m.nome+" / "+(m.uf||"");
     $("planoContrato").value = m.contrato_numero || "";
     $("planoVigencia").value = m.vigencia_fim || "";
@@ -8983,6 +9002,7 @@
   function desenharPlano(){
     $("planoPainel").checked = plano.sec.has("painel");
     $("planoProvaOnline").checked = plano.rec.has("prova_online");
+    document.querySelectorAll('#modalPlano input[data-plano="rec"]').forEach(c => { if(RECURSOS_SALA.includes(c.value)) c.checked = plano.rec.has(c.value); });
     $("planoModulos").innerHTML = MODULOS.map(md =>
       '<tr><td>'+escapeHtml(md.nome)+(md.obs ? '<small>'+escapeHtml(md.obs)+'</small>' : '')+'</td>'+
       '<td class="c"><input type="checkbox" data-plano="prof" value="'+md.id+'"'+(plano.prof.has(md.id)?" checked":"")+' aria-label="'+escapeAttr(md.nome)+' para professor"></td>'+
@@ -8998,8 +9018,9 @@
       const lista = acao === "plano-basico" ? PLANO_BASICO : PLANO_INTERMEDIARIO;
       plano.prof = new Set(lista); plano.alu = new Set(MODULOS.filter(m => m.aluno && lista.includes(m.id)).map(m => m.id));
       plano.sec.clear(); plano.rec.clear();
+      recursosDoPlano(acao === "plano-basico" ? "basico" : "intermediario").forEach(x => plano.rec.add(x));
     }
-    else if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); }
+    else if(acao === "plano-todos"){ MODULOS.forEach(m => { plano.prof.add(m.id); if(m.aluno) plano.alu.add(m.id); }); plano.sec.add("painel"); plano.rec.add("prova_online"); RECURSOS_SALA.forEach(x => plano.rec.add(x)); }
     else if(acao === "plano-nenhum"){ plano.prof.clear(); plano.alu.clear(); plano.sec.clear(); plano.rec.clear(); }
     else if(acao === "plano-alunos"){ plano.alu = new Set(MODULOS.filter(m => m.aluno && plano.prof.has(m.id)).map(m => m.id)); }
     desenharPlano();
@@ -9015,7 +9036,7 @@
       modulos_professor: MODULOS.filter(m => plano.prof.has(m.id)).map(m => m.id),
       modulos_aluno: MODULOS.filter(m => m.aluno && plano.alu.has(m.id)).map(m => m.id),
       modulos_secretaria: ["painel"].filter(x => plano.sec.has(x)),
-      recursos: ["prova_online", "lousa_ia", "lousa_ia_ultra"].filter(x => plano.rec.has(x)),
+      recursos: ["prova_online", "lousa_ia", "lousa_ia_ultra", ...RECURSOS_SALA].filter(x => plano.rec.has(x)), recursos_ajustado: true,
       plano_nome: nomeDoPlano([...plano.prof], [...plano.rec], [...plano.sec]),
       atualizado_em: serverTimestamp(), atualizado_por: usuarioAtual.uid
     };

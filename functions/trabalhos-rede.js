@@ -8,6 +8,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { randomBytes } from 'node:crypto';
 import { SMTP_SENHA } from './dicas.js';
 import { feedRede } from './rede-feed.js';
+import { exigirRecurso } from './envio-comum.js';
 import { opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 
 const txt = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
@@ -44,6 +45,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
   if (d.acao === 'enviar_link') {
     const titulo = txt(d.titulo, 120), orientacao = txt(d.orientacao, 600);
     if (titulo.length < 2) throw new HttpsError('invalid-argument', 'Dê um título para os alunos saberem o que é.');
+    await exigirRecurso(db, c.eu, 'sala_digital', c.muni); if (d.filtro) await exigirRecurso(db, c.eu, 'turma_ao_vivo', c.muni);
     const turmas = await turmasParaAlunos(db, c.eu, uid, c.admin, d);
     const itemId = 'lk_' + Date.now().toString(36) + randomBytes(4).toString('hex'), item = { tipo_item: '', titulo, orientacao };
     if (d.url) {
@@ -60,6 +62,8 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       const [m] = await f.getMetadata(), ct = String(m.contentType || ''), nome = txt(d.arquivo.nome || cam.split('/').pop(), 120).replace(/[^\w.\- À-ú()]/g, '_');
       const tipoArq = /pdf$/.test(ct) ? 'pdf' : /^image\//.test(ct) ? 'imagem' : /^video\//.test(ct) ? 'video' : /^audio\//.test(ct) ? 'audio' : /presentation|powerpoint/.test(ct) ? 'slides' : /word|msword/.test(ct) ? 'texto' : /sheet|excel/.test(ct) ? 'planilha' : '';
       if (!tipoArq) throw new HttpsError('invalid-argument', 'Esse tipo de arquivo não é aceito.');
+      if ((Number(m.size) || 0) > 20 * 1024 * 1024) await exigirRecurso(db, c.eu, 'turma_ao_vivo', c.muni).catch(e => { f.delete().catch(() => {});
+        throw new HttpsError('failed-precondition', 'Arquivos acima de 20 MB (vídeos) fazem parte da Turma ao vivo, no plano Completo. Para vídeo, use um link do YouTube.'); });
       const url = await linkPublico(cam, `turma-materiais/${itemId}/${nome}`);
       Object.assign(item, { tipo_item: 'arquivo', arquivo_url: url, arquivo_nome: nome, arquivo_tipo: tipoArq, arquivo_ct: ct, tamanho: Number(m.size) || 0 });
       await f.delete().catch(() => {});   // o original era só o envio; a cópia da turma é a que fica
@@ -102,6 +106,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
 
   /* compartilhar (ou atualizar) com a rede do município */
   if (d.acao === 'rede') {
+    await exigirRecurso(db, c.eu, 'rede_colab', c.muni);
     if (!d.aceite) throw new HttpsError('failed-precondition', 'Confirme que não há nome ou foto de aluno.');
     if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede municipal.');
     const antes = await db.doc(`trabalhos_rede/${redeId}`).get(), reg = {};
@@ -135,6 +140,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
 
   /* e-mail: PDF gerado na tela do professor (ou o texto, nos roteiros) */
   if (d.acao === 'email') {
+    await exigirRecurso(db, c.eu, 'rede_colab', c.muni); if (d.rede) await exigirRecurso(db, c.eu, 'turma_ao_vivo', c.muni);
     const { para, teto } = await destinatarios(db, c.eu, uid, c.admin, d);
     const anexos = lerAnexos(d.anexos, 2);
     let corpo = '';
@@ -147,6 +153,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
 
   /* alunos: páginas em imagem (Lousa, Prova, Folha) ou texto (Roteiro), em "Materiais da turma" */
   if (d.acao === 'alunos') {
+    await exigirRecurso(db, c.eu, 'sala_digital', c.muni); if (d.filtro) await exigirRecurso(db, c.eu, 'turma_ao_vivo', c.muni);
     const turmas = await turmasParaAlunos(db, c.eu, uid, c.admin, d);
     const imgs = (Array.isArray(d.paginas) ? d.paginas : []).slice(0, 40), urls = [];
     let total = 0;

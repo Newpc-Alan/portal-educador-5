@@ -11,6 +11,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
 import { feedRede } from './rede-feed.js';
 import { SMTP_SENHA } from './dicas.js';
+import { exigirRecurso } from './envio-comum.js';
 import { PERFIS_REDE, opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
@@ -642,6 +643,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */
   if (d.acao === 'compartilhar') {
+    await exigirRecurso(db, ctx.eu, 'rede_colab', ctx.muni);
     if (!d.aceite) throw new HttpsError('failed-precondition', 'Confirme o termo de compartilhamento.');
     const origRef = db.doc(`portal_ia_docs/${txt(d.id, 64)}`); const os = await origRef.get();
     if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
@@ -732,6 +734,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
     const o = os.data();
     if (o.tipo === 'parecer') throw new HttpsError('failed-precondition', 'O parecer tem dados do aluno e não é enviado por e-mail daqui.');
+    await exigirRecurso(db, ctx.eu, 'rede_colab', ctx.muni); if (d.rede) await exigirRecurso(db, ctx.eu, 'turma_ao_vivo', ctx.muni);
     const { para, teto } = await destinatarios(db, ctx.eu, uid, ctx.admin, d);
     const anexos = lerAnexos(d.anexos, 2);
     let corpo = '';
@@ -754,6 +757,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
     const o = os.data();
     if (['parecer', 'recado'].includes(o.tipo) || o.publico === 'professor') throw new HttpsError('failed-precondition', 'Este tipo de material é para o professor ou para as famílias, não para os alunos.');
+    await exigirRecurso(db, ctx.eu, 'sala_digital', ctx.muni); if (d.filtro) await exigirRecurso(db, ctx.eu, 'turma_ao_vivo', ctx.muni);
     const turmas = await turmasParaAlunos(db, ctx.eu, uid, ctx.admin, d);
     let html = htmlSeguro(d.html);
     if (html.replace(/<[^>]+>/g, '').trim().length < 20) throw new HttpsError('invalid-argument', 'Não encontrei o conteúdo do material.');

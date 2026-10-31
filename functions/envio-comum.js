@@ -132,3 +132,26 @@ export async function publicarNaTurma(db, turmas, chave, item) {
     await b.commit();
   }
 }
+
+/* Recursos da sala conectada, por plano do município (o administrador pode ajustar no plano e liberar por professor):
+   rede_colab (Básico+), sala_digital (Intermediário+), turma_ao_vivo (Completo). Município sem plano configurado = tudo liberado. */
+export const RECURSOS_SALA = ['rede_colab', 'sala_digital', 'turma_ao_vivo'];
+export const recursosDoPlano = n => n === 'completo' ? RECURSOS_SALA.slice() : n === 'intermediario' ? ['rede_colab', 'sala_digital'] : ['rede_colab'];
+const MSG_REC = {
+  rede_colab: 'Compartilhar com a rede não está liberado para a sua rede. Fale com a coordenação ou com a NEWPC.',
+  sala_digital: 'Enviar para os alunos faz parte da Sala digital, disponível nos planos Intermediário e Completo. Fale com a coordenação ou com a NEWPC.',
+  turma_ao_vivo: 'Este envio faz parte da Turma ao vivo, disponível no plano Completo. Fale com a coordenação ou com a NEWPC.'
+};
+export function recursoNoMunicipio(m, rec) {
+  if (!m) return false;
+  if (m.recursos_ajustado) return Array.isArray(m.recursos) && m.recursos.includes(rec);
+  const temPlano = Array.isArray(m.modulos_professor) && m.modulos_professor.length;
+  return !temPlano || recursosDoPlano(m.plano_nome).includes(rec);
+}
+export async function exigirRecurso(db, eu, rec, muniCache) {
+  if (!eu || eu.perfil === 'admin') return;
+  if (Array.isArray(eu.recursos_extra) && eu.recursos_extra.includes(rec)) return;
+  let m = muniCache;
+  if (m === undefined && eu.municipio_id) { const x = await db.doc(`municipios/${eu.municipio_id}`).get(); m = x.exists ? x.data() : null; }
+  if (!recursoNoMunicipio(m, rec)) throw new HttpsError('failed-precondition', MSG_REC[rec]);
+}
