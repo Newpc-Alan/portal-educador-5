@@ -3966,6 +3966,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-acoes{display:flex;justify-content:flex-end}
   #iaCorpo .ia-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
   #iaCorpo .ia-pri:disabled{opacity:.6;cursor:wait}
+  #iaCorpo .ia-sug{display:grid;gap:8px;margin-top:-2px}
+  #iaCorpo .ia-sug-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  #iaCorpo .ia-sug .ia-rot{margin:0}
+  #iaCorpo .ia-sug-mais{border:0;background:none;color:#1565c0;font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:4px 2px}
+  #iaCorpo .ia-sug-lista{display:flex;flex-wrap:wrap;gap:6px;max-height:190px;overflow:auto}
+  #iaCorpo .ia-sug-it{border:1px solid #cfdbe7;background:#fff;color:#0f2c4a;border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer;min-height:34px;text-align:left}
+  #iaCorpo .ia-sug-it:hover{border-color:#1a6b2a;background:#f1f8ec}
+  #iaCorpo .ia-sug-it.on{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+  #iaCorpo .ia-sug-it:focus-visible, #iaCorpo .ia-sug-mais:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
   #iaCorpo .ia-tema{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:14px;padding:12px;border:1px solid #e1e8f0;border-radius:12px;background:#f7fafc}
   #iaCorpo .ia-rot{display:block;font-size:13px;font-weight:700;color:#0f2c4a;margin-bottom:7px}
   #iaCorpo .ia-cores{display:flex;flex-wrap:wrap;gap:8px}
@@ -4226,6 +4235,51 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     document.querySelectorAll("#iaFundos .ia-fd").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.fundo === temaIA.fundo)));
     const f = document.getElementById("iaFundos"); if(f) f.style.setProperty("--ia-cor", cor);
   }
+  /* banco de temas por série e disciplina (BNCC), carregado só quando a janela abre; ranking pelos temas mais escolhidos na rede */
+  let temaSel = null, sugTodas = false;
+  const rankingTemas = {};
+  function carregarTemasIA(){
+    if(window.PDE_TEMAS) return Promise.resolve();
+    if(carregarTemasIA.p) return carregarTemasIA.p;
+    return carregarTemasIA.p = new Promise(ok => { const sc = document.createElement("script"); sc.src = "temas-bncc.js?v=1"; sc.onload = ok; sc.onerror = () => { carregarTemasIA.p = null; ok(); }; document.head.appendChild(sc); });
+  }
+  const slugTema = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+  // série da turma escolhida: ei, ef1..ef9, em1..em3 ("" quando não dá para saber, ex.: EJA ou texto livre sem ano)
+  function serieIA(){
+    const sel = document.getElementById("iaTurmaSel"), t = perfilIA && sel && perfilIA.turmas.find(x => x.id === sel.value);
+    const s = (t ? (t.ano || "") + " " + t.nome : turmaIA()).toLowerCase();
+    if(/\beja\b/.test(s)) return "";
+    if(/creche|pr[eé]-?\s?escola|infantil|maternal|jardim/.test(s)) return "ei";
+    let m = s.match(/([1-3])\s*[ªa°º]?\s*(s[ée]rie|ano)?\b[^0-9]*m[ée]dio/); if(m) return "em" + m[1];
+    m = s.match(/([1-9])\s*[ºo°]?\s*ano/); if(m) return "ef" + m[1];
+    return "";
+  }
+  function chaveTemasIA(){
+    const se = serieIA(), d = (document.getElementById("iaDisc") || {}).value || "";
+    if(!se) return "";
+    return se === "ei" ? "ei|Educação Infantil" : d ? se + "|" + d : "";
+  }
+  async function rankingDe(chave){
+    if(chave in rankingTemas) return rankingTemas[chave];
+    rankingTemas[chave] = {};
+    try{ const x = await getDoc(doc(db, "temas_populares", chave.replace("|", "__").replace(/ /g, "_"))); if(x.exists()) rankingTemas[chave] = x.data() || {}; }catch(e){}
+    return rankingTemas[chave];
+  }
+  const NOME_SERIE = k => k === "ei" ? "Educação Infantil" : k[1] === "f" ? k[2] + "º ano" : k[2] + "ª série EM";
+  async function pintarSugestoes(){
+    const box = document.getElementById("iaSug"); if(!box) return;
+    const chave = chaveTemasIA(), lista = chave && window.PDE_TEMAS && window.PDE_TEMAS[chave];
+    if(!lista){ box.hidden = true; return; }
+    const rk = await rankingDe(chave); if(chave !== chaveTemasIA()) return;
+    const temas = lista.split(";").map((t, i) => ({ t, id:slugTema(t), i })).map(x => ({ ...x, n:Number(rk[x.id]) || 0 }));
+    temas.sort((a, b) => b.n - a.n || a.i - b.i);
+    const mostrar = sugTodas ? temas : temas.slice(0, 10), esc = x => String(x).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    document.getElementById("iaSugTit").textContent = "Temas para " + NOME_SERIE(chave.split("|")[0]) + (chave.startsWith("ei") ? "" : " · " + chave.split("|")[1]) + " (BNCC)";
+    document.getElementById("iaSugLista").innerHTML = mostrar.map(x => '<button type="button" class="ia-sug-it' + (temaSel && temaSel.id === x.id && temaSel.chave === chave ? " on" : "") + '" data-ia="sug" data-tema="' + esc(x.t) + '" data-id="' + x.id + '" data-chave="' + esc(chave) + '"' +
+      (x.n >= 3 ? ' title="Escolhido ' + x.n + ' vezes por professores do Portal"' : '') + '>' + (x.n >= 3 ? '<span aria-hidden="true">🔥</span> ' : '') + esc(x.t) + '</button>').join("");
+    const mais = document.getElementById("iaSugMais"); mais.hidden = temas.length <= 10; mais.textContent = sugTodas ? "Mostrar menos" : "Ver todos (" + temas.length + ")";
+    box.hidden = false;
+  }
   function janelaAulaIA(){
     if(!lousaCfg.podeBasica){ avisoBloqueioIA(); return; }
     let bg = document.getElementById("iaFundo");
@@ -4237,6 +4291,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-3"><label>Disciplina<select id="iaDisc"><option value="">Escolha...</option>' + DISC_IA.map(d => '<option>' + d + '</option>').join("") + '</select></label>' +
         '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label>' +
         '<label>Slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label></div>' +
+        '<div id="iaSug" class="ia-sug" hidden><div class="ia-sug-top"><span id="iaSugTit" class="ia-rot"></span><button type="button" class="ia-sug-mais" data-ia="sug-mais" id="iaSugMais" hidden>Ver todos</button></div><div id="iaSugLista" class="ia-sug-lista"></div></div>' +
         '<div class="ia-tema"><div><span class="ia-rot">Cor da apresentação</span><div class="ia-cores" id="iaCores" role="group" aria-label="Cor da apresentação">' +
           CORES_TEMA_IA.map(c => '<button type="button" class="ia-cor" data-ia="cor" data-cor="' + c[0] + '" title="' + c[1] + '" aria-label="' + c[1] + '"' + (c[0] ? ' style="background:' + c[0] + '"' : '') + '></button>').join("") + '</div></div>' +
           '<div><span class="ia-rot">Fundo dos slides</span><div class="ia-fundos" id="iaFundos" role="group" aria-label="Fundo dos slides">' +
@@ -4249,15 +4304,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-acoes"><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA();
+        if(b.dataset.ia === "sug"){ const tm = document.getElementById("iaTema"); tm.value = b.dataset.tema; temaSel = { chave:b.dataset.chave, id:b.dataset.id, texto:b.dataset.tema }; pintarSugestoes(); tm.focus(); }
+        if(b.dataset.ia === "sug-mais"){ sugTodas = !sugTodas; pintarSugestoes(); }
         if(b.dataset.ia === "cor"){ temaIA.cor = b.dataset.cor; salvarTemaIA(); pintarTemaIA(); }
         if(b.dataset.ia === "fundo"){ temaIA.fundo = b.dataset.fundo; salvarTemaIA(); pintarTemaIA(); } });
-      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); });
-      bg.addEventListener("input", (e) => { if(e.target.id === "iaTurma") infoEstilo(); });
+      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaDisc"].includes(e.target.id)){ sugTodas = false; pintarSugestoes(); } if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); });
+      bg.addEventListener("input", (e) => { if(e.target.id === "iaTurma"){ infoEstilo(); pintarSugestoes(); }
+        if(e.target.id === "iaTema" && temaSel && e.target.value.trim() !== temaSel.texto){ temaSel = null; pintarSugestoes(); } });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAulaIA(); } if(e.key === "Enter" && e.target.id === "iaTema") gerarAulaIA(); });
     }
     bg.classList.add("aberto"); document.getElementById("iaMsg").textContent = "";
     pintarTemaIA();
-    carregarPerfilIA().then(montarTurmasIA);
+    carregarPerfilIA().then(montarTurmasIA).then(pintarSugestoes);
+    carregarTemasIA().then(pintarSugestoes);
     prepararUltra().then(infoEstilo);
     setTimeout(() => document.getElementById("iaTema").focus(), 50);
   }
@@ -4368,7 +4427,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(tema.length < 3){ m.textContent = "Escreva o tema da aula."; document.getElementById("iaTema").focus(); return; }
     const ultra = !document.getElementById("iaUltraBox").hidden && document.getElementById("iaUltra").checked;
     const dados = { acao:"aula_lousa", tema, ultra, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
-      qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim() };
+      qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim(),
+      ...(temaSel && temaSel.texto === tema ? { tema_chave:temaSel.chave, tema_id:temaSel.id } : {}) };
     bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
     try{
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");

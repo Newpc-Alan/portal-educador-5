@@ -595,6 +595,11 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     await registrarConsumo(db, ctx, falhou ? null : { ...res, acao: 'aula_lousa' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu a aula com problema (' + prob[0] + '). Tente de novo.');
+    // ranking de temas da Aula com IA: conta só o tema escolhido no banco do Portal (identificador curto),
+    // nunca o texto digitado (que pode trazer nome de aluno). Sem leitura: um incremento por aula.
+    const chaveTema = String(d.tema_chave || ''), idTema = String(d.tema_id || '');
+    if (/^(ei|ef[1-9]|em[1-3])\|[A-Za-zÀ-ú ]{3,30}$/.test(chaveTema) && /^[a-z0-9-]{3,60}$/.test(idTema))
+      db.doc('temas_populares/' + chaveTema.replace('|', '__').replace(/ /g, '_')).set({ [idTema]: FieldValue.increment(1) }, { merge: true }).catch(() => {});
     // Lousa Ultra: capa + até 2 ilustrações dos slides que pediram imagem (cada uma cobra como imagem; a que falhar é estornada)
     let imagens = {}, aviso = '';
     if (ultra) {
