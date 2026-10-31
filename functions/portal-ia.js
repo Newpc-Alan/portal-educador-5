@@ -8,10 +8,10 @@ import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { randomUUID } from 'node:crypto';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
 import { feedRede } from './rede-feed.js';
-import { transporte, escHtml, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
+import { SMTP_SENHA } from './dicas.js';
+import { PERFIS_REDE, opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
@@ -410,38 +410,6 @@ function contextoTexto(cx) {
     .filter(Boolean).join('\n');
 }
 
-/* ---------------- alcance de envio: turmas e professores que esta pessoa pode atingir ----------------
-   professor: só as turmas dele (grade, turmas_ids ou criadas por ele); gestor: as escolas dele; secretaria: o município todo. */
-const PERFIS_REDE = ['gestor', 'secretaria', 'admin'];
-async function escolasDoAlcance(db, ctx) {
-  const p = ctx.eu.perfil;
-  if (p === 'secretaria' || p === 'admin') {
-    if (!ctx.eu.municipio_id) return [];
-    const s = await db.collection('escolas').where('municipio_id', '==', ctx.eu.municipio_id).get();
-    return s.docs.map(d => ({ id: d.id, nome: d.data().nome || 'Escola' }));
-  }
-  const ids = [...new Set([...(ctx.eu.escolas_ids || []), ctx.eu.escola_id].filter(Boolean))].slice(0, 30);
-  const ds = await Promise.all(ids.map(i => db.doc(`escolas/${i}`).get()));
-  return ds.filter(d => d.exists).map(d => ({ id: d.id, nome: d.data().nome || 'Escola' }));
-}
-async function turmasDasEscolas(db, escIds) {
-  const out = [];
-  for (let i = 0; i < escIds.length; i += 10) {
-    const s = await db.collection('turmas').where('escola_id', 'in', escIds.slice(i, i + 10)).get();
-    s.forEach(d => { const t = d.data(); if (t.status !== 'inativa') out.push({ id: d.id, ...t }); });
-  }
-  return out;
-}
-const anoDaTurma = t => String(t.ano_serie || t.serie || '').trim() || ((String(t.nome || '').match(/(\d+)\s*[ºª°o]?\s*(ano|série|serie)/i) || [])[1] ? (String(t.nome).match(/(\d+)/) || [])[1] + 'º ano' : 'Sem série');
-// filtro da rede (gestor/secretaria): escolas e séries escolhidas, dentro do alcance
-async function turmasDoFiltro(db, ctx, f) {
-  const esc = await escolasDoAlcance(db, ctx), ok = new Set(esc.map(e => e.id));
-  const escIds = (Array.isArray(f && f.escolas) && f.escolas.length ? f.escolas.map(String).filter(x => ok.has(x)) : [...ok]);
-  const series = new Set((Array.isArray(f && f.series) ? f.series : []).map(String));
-  return (await turmasDasEscolas(db, escIds)).filter(t => !series.size || series.has(anoDaTurma(t)));
-}
-const htmlSeguro = h => String(h || '').slice(0, 400000).replace(/<(script|style|iframe|object|embed|form|input|button|textarea|select|link|meta)[\s\S]*?(<\/\1>|>)/gi, '')
-  .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '');
 /* ------------------------------------------------------------------ a função */
 export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 240, memory: '512MiB', maxInstances: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
@@ -764,80 +732,20 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
     const o = os.data();
     if (o.tipo === 'parecer') throw new HttpsError('failed-precondition', 'O parecer tem dados do aluno e não é enviado por e-mail daqui.');
-    const okEm = e => /^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$/.test(e);
-    let para = (Array.isArray(d.para) ? d.para : []).map(e => String(e).trim().toLowerCase()).filter(okEm);
-    // colegas que dão aula nas turmas escolhidas (pela grade), só de escolas do próprio professor
-    const minhasEsc = new Set([...(ctx.eu.escolas_ids || []), ctx.eu.escola_id].filter(Boolean));
-    for (const tid of (Array.isArray(d.turmas) ? d.turmas : []).slice(0, 10)) {
-      const t = await db.doc(`turmas/${txt(tid, 64)}`).get(); if (!t.exists) continue;
-      const td = t.data(); if (!ctx.admin && !minhasEsc.has(td.escola_id)) continue;
-      const uids = [...new Set((td.grade || []).map(g => g && g.professor_uid).filter(x => x && x !== uid))].slice(0, 30);
-      const us = await Promise.all(uids.map(u => db.doc(`usuarios/${u}`).get()));
-      us.forEach(x => { const em = x.exists && x.data().status === 'ativo' ? String(x.data().email || '').toLowerCase() : ''; if (okEm(em)) para.push(em); });
-    }
-    // professores da rede (só gestor, secretaria ou admin): escolas, séries e disciplinas escolhidas
-    const ehRede = PERFIS_REDE.includes(ctx.eu.perfil);
-    if (d.rede && ehRede) {
-      const discs = new Set((Array.isArray(d.rede.disciplinas) ? d.rede.disciplinas : []).map(String));
-      const uids = new Set();
-      (await turmasDoFiltro(db, ctx, d.rede)).forEach(t => (t.grade || []).forEach(g => { if (g && g.professor_uid && g.professor_uid !== uid && (!discs.size || discs.has(g.disciplina))) uids.add(g.professor_uid); }));
-      const lista = [...uids].slice(0, 400);
-      for (let i = 0; i < lista.length; i += 50) {
-        const us = await Promise.all(lista.slice(i, i + 50).map(u => db.doc(`usuarios/${u}`).get()));
-        us.forEach(x => { const em = x.exists && x.data().status === 'ativo' ? String(x.data().email || '').toLowerCase() : ''; if (okEm(em)) para.push(em); });
-      }
-    }
-    const teto = ehRede ? 400 : 30;
-    para = [...new Set(para)].slice(0, teto);
-    if (!para.length) throw new HttpsError('invalid-argument', d.rede ? 'Nenhum professor encontrado com esses filtros.' : 'Informe pelo menos um e-mail válido.');
-    // anexos (PDF) ou o texto do material editado
-    const anexos = [];
-    for (const a of (Array.isArray(d.anexos) ? d.anexos : []).slice(0, 2)) {
-      const b = Buffer.from(String((a && a.b64) || ''), 'base64');
-      if (b.length < 100 || b.length > 7e6 || b.slice(0, 4).toString() !== '%PDF') throw new HttpsError('invalid-argument', 'O PDF não foi gerado direito. Tente de novo.');
-      anexos.push({ filename: (txt(a.nome, 80).replace(/[^\w.\- À-ú]/g, '') || 'material') .replace(/(\.pdf)?$/i, '.pdf'), content: b, contentType: 'application/pdf' });
-    }
-    let corpoMat = '';
-    if (!anexos.length) {
-      corpoMat = String(d.html || '').slice(0, 300000).replace(/<(script|style|iframe|object|embed|form|input|button|textarea|select|link|meta)[\s\S]*?(<\/\1>|>)/gi, '')
-        .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '');
-      if (corpoMat.replace(/<[^>]+>/g, '').trim().length < 20) throw new HttpsError('invalid-argument', 'Não encontrei o conteúdo do material para enviar.');
-    }
-    // limite diário por professor
-    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande' }).format(new Date());
-    const cRef = db.doc(`portal_ia_envios/${uid}_${dia}`);
-    await db.runTransaction(async t => { const c = await t.get(cRef), n = c.exists ? (c.data().n || 0) : 0;
-      if (!ctx.admin && n + para.length > teto) throw new HttpsError('resource-exhausted', 'Limite de ' + teto + ' pessoas por dia no envio por e-mail. Hoje ainda dá para ' + Math.max(0, teto - n) + '.');
-      t.set(cRef, { uid, dia, n: n + para.length, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); });
-    let escola = '', mun = '';
-    if (ctx.eu.escola_id) { const es = await db.doc(`escolas/${ctx.eu.escola_id}`).get(); escola = es.exists ? txt(es.data().nome, 120) : ''; }
-    if (ctx.muni) mun = txt(ctx.muni.nome, 80);
-    const nome = txt(ctx.eu.nome || 'Um(a) professor(a)', 80), titulo = txt(o.titulo || (o.doc && o.doc.titulo) || 'Material', 160), cx2 = o.contexto || {};
-    const msg = txt(d.mensagem, 500), esc = escHtml;
-    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0c2338;max-width:680px">
-<div style="background:#0f2c4a;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><b style="font-size:16px">${esc(nome)} compartilhou um material com você</b><br><span style="color:#8DC63F;font-size:12px">${esc([escola, mun].filter(Boolean).join(' · ') || 'Portal do Educador')}</span></div>
-<div style="border:1px solid #dce4ed;border-top:0;padding:18px 20px;border-radius:0 0 12px 12px">
-${msg ? `<p style="margin:0 0 14px;padding:10px 14px;background:#f4f8fb;border-left:4px solid #1a6b2a;border-radius:6px;white-space:pre-line">${esc(msg)}</p>` : ''}
-<p style="margin:0 0 4px;font-size:17px"><b>${esc(titulo)}</b></p>
-<p style="margin:0 0 14px;color:#5b6b7b;font-size:13px">${esc([o.tipo_nome, cx2.disciplina, cx2.serie].filter(Boolean).join(' · '))}</p>
-${anexos.length ? `<p style="margin:0 0 14px">O material está em anexo, em PDF${anexos.length > 1 ? ' (com o gabarito em arquivo separado)' : ''}.</p>` : `<div style="border:1px solid #e6edf4;border-radius:10px;padding:14px">${corpoMat}</div>`}
-<p style="margin:16px 0 0;color:#5b6b7b;font-size:12.5px">Para falar com ${esc(nome.split(' ')[0])}, é só responder este e-mail.</p>
-<p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #eef2f6;color:#8a98a6;font-size:11.5px">Preparado com o Portal IA do <a href="https://portaldoeducador.com.br" style="color:#1a6b2a">Portal do Educador</a>, plataforma da NEWPC Tecnologia para escolas e redes de ensino.</p>
-</div></div>`;
-    const remetente = SMTP_USUARIO.value();
-    for (let i = 0; i < para.length; i += 90) await transporte().sendMail({ from: `"${nome.replace(/["\r\n]/g, '')} via Portal do Educador" <${remetente}>`, bcc: para.slice(i, i + 90),
-      replyTo: okEm(String(ctx.eu.email || '').toLowerCase()) ? ctx.eu.email : undefined, subject: (nome + ' compartilhou com você: ' + titulo).replace(/[\r\n]/g, ' ').slice(0, 150), html, attachments: anexos });
+    const { para, teto } = await destinatarios(db, ctx.eu, uid, ctx.admin, d);
+    const anexos = lerAnexos(d.anexos, 2);
+    let corpo = '';
+    if (!anexos.length) { corpo = htmlSeguro(d.html); if (corpo.replace(/<[^>]+>/g, '').trim().length < 20) throw new HttpsError('invalid-argument', 'Não encontrei o conteúdo do material para enviar.'); }
+    await contarEnvioDia(db, uid, ctx.admin, para.length, teto);
+    let escola = ''; if (ctx.eu.escola_id) { const es = await db.doc(`escolas/${ctx.eu.escola_id}`).get(); escola = es.exists ? txt(es.data().nome, 120) : ''; }
+    const cx2 = o.contexto || {};
+    await mandarMaterial({ eu: ctx.eu, escola, mun: ctx.muni ? txt(ctx.muni.nome, 80) : '', titulo: txt(o.titulo || (o.doc && o.doc.titulo) || 'Material', 160),
+      sub: [o.tipo_nome, cx2.disciplina, cx2.serie].filter(Boolean).join(' · '), mensagem: d.mensagem, anexos, corpo, para });
     await os.ref.set({ envios_email: FieldValue.increment(para.length) }, { merge: true });
     return { ok: true, enviados: para.length };
   }
   /* ---------------- opções de envio para gestor e secretaria: escolas, séries e disciplinas do alcance ---------------- */
-  if (d.acao === 'opcoes_envio') {
-    if (!PERFIS_REDE.includes(ctx.eu.perfil)) return { rede: false };
-    const esc = await escolasDoAlcance(db, ctx), ts = await turmasDasEscolas(db, esc.map(e => e.id));
-    const series = [...new Set(ts.map(anoDaTurma))].sort((a, b) => a.localeCompare(b, 'pt-BR', { numeric: true }));
-    const discs = [...new Set(ts.flatMap(t => (t.grade || []).map(g => g && g.disciplina).filter(Boolean)))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    return { rede: true, escolas: esc.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), series, disciplinas: discs, turmas: ts.length };
-  }
+  if (d.acao === 'opcoes_envio') return opcoesEnvio(db, ctx.eu);
   /* ---------------- enviar o material para os alunos: aparece em "Materiais da turma" no Portal do Aluno ----------------
      Vai a versão do aluno (sem gabarito), como HTML já montado na tela do professor; as imagens são copiadas
      para turma-materiais/{material}/ com link de acesso próprio. Professor: turmas dele; gestor e secretaria: pelo filtro. */
@@ -846,40 +754,23 @@ ${anexos.length ? `<p style="margin:0 0 14px">O material está em anexo, em PDF$
     if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
     const o = os.data();
     if (['parecer', 'recado'].includes(o.tipo) || o.publico === 'professor') throw new HttpsError('failed-precondition', 'Este tipo de material é para o professor ou para as famílias, não para os alunos.');
-    let turmas = [];
-    if (d.filtro && PERFIS_REDE.includes(ctx.eu.perfil)) turmas = await turmasDoFiltro(db, ctx, d.filtro);
-    else {
-      const minhas = new Set((ctx.eu.turmas_ids || []).map(String));
-      const ds = await Promise.all((Array.isArray(d.turmas) ? d.turmas : []).slice(0, 20).map(t => db.doc(`turmas/${txt(t, 64)}`).get()));
-      turmas = ds.filter(x => x.exists).map(x => ({ id: x.id, ...x.data() }))
-        .filter(t => ctx.admin || minhas.has(t.id) || t.criado_por === uid || (t.grade || []).some(g => g && g.professor_uid === uid));
-    }
-    turmas = turmas.slice(0, 300);
-    if (!turmas.length) throw new HttpsError('invalid-argument', 'Escolha pelo menos uma turma.');
+    const turmas = await turmasParaAlunos(db, ctx.eu, uid, ctx.admin, d);
     let html = htmlSeguro(d.html);
     if (html.replace(/<[^>]+>/g, '').trim().length < 20) throw new HttpsError('invalid-argument', 'Não encontrei o conteúdo do material.');
-    // imagens: cópia com link próprio (o aluno não lê a pasta do professor)
-    const bucket = getStorage().bucket(), fontes = {};
+    const fontes = {};
     Object.entries(o.imagens || {}).forEach(([k, v]) => { if (v && v.caminho) fontes[k] = v.caminho; });
     if (o.imagem && !fontes.topo) fontes.topo = o.imagem;
     const urls = {};
     for (const [k, cam] of Object.entries(fontes)) {
       if (!/^[\w-]{1,12}$/.test(k)) continue;
-      const destino = `turma-materiais/${os.id}/${k}.${cam.split('.').pop()}`, tk = randomUUID();
-      try { await bucket.file(cam).copy(bucket.file(destino)); await bucket.file(destino).setMetadata({ metadata: { firebaseStorageDownloadTokens: tk } });
-        urls[k] = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destino)}?alt=media&token=${tk}`; }
-      catch (e) { console.warn('portal-ia: imagem não copiada para a turma', cam, e.message); }
+      try { urls[k] = await linkPublico(cam, `turma-materiais/${os.id}/${k}.${cam.split('.').pop()}`); } catch (e) { console.warn('portal-ia: imagem não copiada para a turma', cam, e.message); }
     }
     html = html.replace(/__IMG_([\w-]{1,12})__/g, (_, k) => urls[k] || '');
     const css = String(d.css || '').slice(0, 80000).replace(/<\/?style[^>]*>/gi, '').replace(/@import[^;]+;/gi, '').replace(/url\(\s*['"]?\s*javascript:[^)]*\)/gi, '');
     let escola = ''; if (ctx.eu.escola_id) { const es = await db.doc(`escolas/${ctx.eu.escola_id}`).get(); escola = es.exists ? txt(es.data().nome, 120) : ''; }
     const cx2 = o.contexto || {};
-    const item = { origem_id: os.id, autor_uid: uid, autor_nome: txt(ctx.eu.nome || '', 80), escola_nome: escola, titulo: txt(o.titulo || (o.doc && o.doc.titulo) || 'Material', 160),
-      tipo_nome: o.tipo_nome || '', disciplina: txt(cx2.disciplina, 60), serie: txt(cx2.serie, 30), html, css, criado_em: FieldValue.serverTimestamp() };
-    for (let i = 0; i < turmas.length; i += 400) {
-      const b = db.batch(); turmas.slice(i, i + 400).forEach(t => b.set(db.doc(`turma_materiais/${t.id}/itens/${os.id}`), { ...item, turma_nome: txt(t.nome, 60), escola_id: t.escola_id || '' }));
-      await b.commit();
-    }
+    await publicarNaTurma(db, turmas, os.id, { origem_id: os.id, origem: 'portalia', autor_uid: uid, autor_nome: txt(ctx.eu.nome || '', 80), escola_nome: escola, titulo: txt(o.titulo || (o.doc && o.doc.titulo) || 'Material', 160),
+      tipo_nome: o.tipo_nome || '', disciplina: txt(cx2.disciplina, 60), serie: txt(cx2.serie, 30), html, css });
     await os.ref.set({ turmas_enviadas: FieldValue.arrayUnion(...turmas.slice(0, 50).map(t => t.id)) }, { merge: true });
     return { ok: true, turmas: turmas.length, nomes: turmas.slice(0, 8).map(t => t.nome || 'Turma') };
   }

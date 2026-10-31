@@ -13,6 +13,7 @@ export { limparFotosProvas } from './fotos-provas.js';
 // Liga quando o secret NC_ENTREGA_CHAVE existir no Google (sem ele, o deploy de QUALQUER função falha):
 export { linkArquivoNc } from './arquivos-nc.js';
 export { resumoRedeDiario, resumoRedeTeste } from './rede-feed.js';
+export { trabalhoRede } from './trabalhos-rede.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });

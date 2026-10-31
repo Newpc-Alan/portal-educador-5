@@ -2165,7 +2165,9 @@
     });
     $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
     // link dos e-mails de créditos (/entrar/#creditos) abre direto a tela
-    selecionar((location.hash === "#creditos" && menu.itens.find(i => i.id === "creditos")) || primeiro);
+    // link do aviso "Novidades da rede" para trabalhos (/entrar/#trabalhos-rede) abre Meus trabalhos > Da sua rede
+    if(location.hash === "#trabalhos-rede"){ try{ sessionStorage.setItem("pde_tr_pasta", "rede"); }catch(e){} history.replaceState(null, "", location.pathname + location.search); }
+    selecionar((location.hash === "#creditos" && menu.itens.find(i => i.id === "creditos")) || (sessionStorage.getItem("pde_tr_pasta") === "rede" && menu.itens.find(i => i.id === "trabalhos")) || primeiro);
     faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
@@ -4391,7 +4393,7 @@
   }
   async function renderTrabalhos(){
     let pasta = ""; try{ pasta = sessionStorage.getItem("pde_tr_pasta") || ""; }catch(e){}
-    trs.pasta = TR_TIPOS[pasta] ? pasta : ""; trs.sub = ""; trs.busca = ""; trs.editando = "";
+    trs.pasta = TR_TIPOS[pasta] || pasta === "rede" ? pasta : ""; trs.sub = ""; trs.busca = ""; trs.editando = ""; trs.rede = null;
     $("conteudo").innerHTML = '<div class="tr-topo"><div class="tr-trilha" id="trTrilha"></div><input type="search" id="trBusca" class="usr-busca" placeholder="Buscar em todos os trabalhos" aria-label="Buscar nos meus trabalhos"></div>'+
       '<div class="tr-filtros" id="trFiltros"></div><p class="tr-cont" id="trCont">Carregando seus trabalhos...</p><div id="trGrade"></div>';
     const uid = usuarioAtual.uid, ms = v => msDe(v) || (v && v.seconds ? v.seconds * 1000 : 0), ler = (q, f) => getDocs(q).then(sn => { const l = []; sn.forEach(d => l.push(f(d.id, d.data()))); return l; }).catch(e => { console.warn("trabalhos:", e.code); return []; });
@@ -4410,7 +4412,40 @@
   }
   function irPasta(p){ trs.pasta = p; trs.sub = ""; trs.editando = ""; try{ sessionStorage.setItem("pde_tr_pasta", p); }catch(e){} desenharTrabalhos(); window.scrollTo(0, 0); }
   const dataTr = (ms) => ms ? new Date(ms).toLocaleDateString("pt-BR") : "";
+  /* Da sua rede: trabalhos que colegas do município compartilharam (aulas da Lousa, provas, roteiros e folhas) */
+  const podeRede = () => !!usuarioAtual.municipio_id && ["professor", "gestor", "admin"].includes(usuarioAtual.perfil);
+  async function desenharRedeTrabalhos(){
+    $("trTrilha").innerHTML = '<button class="tr-volta" data-action="tr-pasta" data-tipo="">\u2190 Meus trabalhos</button><span class="tr-sep">/</span><b>\u{1F91D} Da sua rede</b>';
+    $("trGrade").className = "tr-lista";
+    if(!trs.rede){
+      $("trFiltros").innerHTML = ""; $("trCont").textContent = "Carregando os trabalhos da rede...";
+      try{ const sn = await getDocs(query(collection(db, "trabalhos_rede"), where("municipio_id", "==", usuarioAtual.municipio_id), where("status", "==", "publicado"), limit(300)));
+        trs.rede = []; sn.forEach(d => trs.rede.push({ id:d.id, ...d.data() }));
+        trs.rede.sort((a, b) => (msDe(b.atualizado_em) || 0) - (msDe(a.atualizado_em) || 0)); }
+      catch(e){ console.warn("trabalhos da rede:", e.code); $("trCont").textContent = "Não consegui abrir os trabalhos da rede agora."; return; }
+      if(trs.pasta !== "rede") return;
+    }
+    const tipos = {}; trs.rede.forEach(x => tipos[x.tipo] = (tipos[x.tipo] || 0) + 1);
+    const ks = Object.keys(tipos); if(trs.sub && !tipos[trs.sub]) trs.sub = "";
+    $("trFiltros").innerHTML = ks.length > 1 ? ['', ...ks].map(k => '<button class="usr-tab'+(trs.sub === k ? " on" : "")+'" data-action="tr-sub" data-sub="'+escapeAttr(k)+'">'+(k ? escapeHtml(TR_TIPOS[k] ? TR_TIPOS[k].pasta : k) : "Tudo")+' <small>'+(k ? tipos[k] : trs.rede.length)+'</small></button>').join("") : "";
+    const t = semAcento(trs.busca.trim()), l = trs.rede.filter(x => (!trs.sub || x.tipo === trs.sub) && (!t || semAcento([x.titulo, x.disciplina, x.serie, x.autor_nome, x.escola_nome].join(" ")).includes(t)));
+    $("trCont").innerHTML = l.length + (l.length === 1 ? " trabalho compartilhado" : " trabalhos compartilhados") + ' pelos colegas · <a href="/apps/portal-ia/?rede=todos">materiais do Portal IA da rede \u2192</a>';
+    if(!l.length){ $("trGrade").innerHTML = '<div class="empty">' + (trs.rede.length ? "Nada encontrado." : "Ainda não há trabalhos compartilhados na sua rede. Na Lousa, use o botão Compartilhar.") + '</div>'; return; }
+    $("trGrade").innerHTML = l.map(x => { const T = TR_TIPOS[x.tipo] || TR_TIPOS.lousa, meu = x.uid === usuarioAtual.uid;
+      return '<article class="tr-item">'+(x.miniatura ? '<span class="tr-ico" style="background-image:url(\''+escapeAttr(x.miniatura)+'\')"></span>' : '<span class="tr-ico" style="background:'+T.cor+'1a;color:'+T.cor+'">'+T.ico+'</span>')+
+        '<div class="tr-info"><b>'+escapeHtml(x.titulo || "Trabalho")+'</b><small>'+escapeHtml([T.nome, x.disciplina, x.serie].filter(Boolean).join(" · "))+' · '+escapeHtml(meu ? "compartilhado por você" : (x.autor_nome || "colega") + (x.escola_nome ? ", " + x.escola_nome : ""))+(x.usos ? ' · usado '+x.usos+'x' : '')+'</small></div>'+
+        '<div class="tr-acoes">'+(meu ? '<span class="tr-ptag">Seu</span>' : '<button class="btn-mini btn-gerenciar" data-action="tr-rede-usar" data-id="'+escapeAttr(x.id)+'" data-tipo="'+escapeAttr(x.tipo)+'">Usar uma cópia</button>')+'</div></article>'; }).join("");
+  }
+  async function usarTrabalhoRede(el){
+    el.disabled = true; el.textContent = "Copiando...";
+    try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "trabalhoRede", { timeout:60000 })({ acao:"usar", tipo:el.dataset.tipo, id:el.dataset.id })).data;
+      toast("Cópia criada em Meus trabalhos. Abrindo...");
+      abrirTrabalho({ tipo:r.tipo, id:r.id }); }
+    catch(e){ console.warn(e); toast(e && e.message ? e.message : "Não deu para copiar agora.", true); el.disabled = false; el.textContent = "Usar uma cópia"; }
+  }
   function desenharTrabalhos(){
+    if(trs.pasta === "rede"){ desenharRedeTrabalhos(); return; }
     const cont = {}; trs.itens.forEach(i => cont[i.tipo] = (cont[i.tipo] || 0) + 1);
     const t = semAcento(trs.busca.trim()), P = TR_TIPOS[trs.pasta];
     $("trTrilha").innerHTML = P && !t ? '<button class="tr-volta" data-action="tr-pasta" data-tipo="">\u2190 Meus trabalhos</button><span class="tr-sep">/</span><b>'+P.ico+' '+P.pasta+'</b>' : "";
@@ -4418,14 +4453,15 @@
       $("trFiltros").innerHTML = ""; $("trCont").textContent = "";
       $("trGrade").className = "";
       $("trGrade").innerHTML = '<div class="panel"><div class="pico">\u{1F4C1}</div><h3>Seus trabalhos aparecem aqui</h3><p>Materiais do Portal IA, provas, provas online, aulas da Lousa, roteiros do Teleprompter e Folhas Mágicas: tudo o que você salvar fica organizado aqui em pastas, para abrir em qualquer computador.</p>'+
-        '<div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn btn-primary btn-add" data-action="lousa-abrir">Abrir a Lousa</button><a class="btn btn-ghost btn-add" href="/apps/portal-ia/">Portal IA</a></div></div>';
+        '<div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+(podeRede() ? '<button class="btn btn-ghost btn-add" data-action="tr-pasta" data-tipo="rede">\u{1F91D} Da sua rede</button>' : '')+'<button class="btn btn-primary btn-add" data-action="lousa-abrir">Abrir a Lousa</button><a class="btn btn-ghost btn-add" href="/apps/portal-ia/">Portal IA</a></div></div>';
       return;
     }
     // raiz: as pastas (a busca procura em todas)
     if(!P && !t){
       $("trFiltros").innerHTML = ""; $("trCont").textContent = trs.itens.length + (trs.itens.length === 1 ? " trabalho em " : " trabalhos em ") + Object.keys(cont).length + (Object.keys(cont).length === 1 ? " pasta" : " pastas");
       $("trGrade").className = "tr-pastas";
-      $("trGrade").innerHTML = Object.keys(TR_TIPOS).filter(k => cont[k]).map(k => { const T = TR_TIPOS[k], ult = trs.itens.find(i => i.tipo === k);
+      $("trGrade").innerHTML = (podeRede() ? '<button type="button" class="tr-pasta tr-pasta-rede" data-action="tr-pasta" data-tipo="rede"><span class="tr-pfoto" style="background-image:url(\'/assets/inicio/equipe.webp\')"></span><span class="tr-pinfo"><b>\u{1F91D} Da sua rede</b><small>Aulas, provas, roteiros e folhas que colegas do município compartilharam. Use uma cópia e adapte.</small></span></button>' : '') +
+        Object.keys(TR_TIPOS).filter(k => cont[k]).map(k => { const T = TR_TIPOS[k], ult = trs.itens.find(i => i.tipo === k);
         return '<button type="button" class="tr-pasta" data-action="tr-pasta" data-tipo="'+k+'"><span class="tr-pfoto" style="background-image:url(\''+T.foto+'\')"><span class="tr-qtd" style="background:'+T.cor+'">'+cont[k]+'</span></span>'+
           '<span class="tr-pinfo"><b>\u{1F4C1} '+T.pasta+'</b><small>'+T.sub+'</small>'+(ult && ult.em ? '<small class="tr-ult">Último: '+escapeHtml(ult.titulo)+' · '+dataTr(ult.em)+'</small>' : '')+'</span></button>'; }).join("");
       return;
@@ -4492,6 +4528,7 @@
     if(a === "tr-pasta"){ trs.busca = ""; const b = $("trBusca"); if(b) b.value = ""; irPasta(el.dataset.tipo || ""); }
     else if(a === "tr-sub"){ trs.sub = el.dataset.sub || ""; desenharTrabalhos(); }
     else if(a === "tr-abrir" && i) abrirTrabalho(i);
+    else if(a === "tr-rede-usar") usarTrabalhoRede(el);
     else if(a === "tr-renomear" && i){ trs.editando = el.dataset.tr; desenharTrabalhos(); }
     else if(a === "tr-cancelar"){ trs.editando = ""; desenharTrabalhos(); }
     else if(a === "tr-salvar-nome" && i){
@@ -5591,7 +5628,7 @@
     const quando = t => { const m = Math.max(1, Math.round((Date.now() - t) / 60000)); return m < 60 ? "há " + m + " min" : m < 1440 ? "há " + Math.round(m / 60) + " h" : m < 2880 ? "ontem" : "há " + Math.round(m / 1440) + " dias"; };
     const ligado = u.resumo_rede !== false;
     box.innerHTML = '<section class="ini-sec rd-card" aria-labelledby="rdTit"><div class="rd-top"><h3 id="rdTit">📢 Novidades da sua rede</h3><button type="button" class="rd-x" data-action="rede-fechar" aria-label="Dispensar estas novidades">×</button></div>' +
-      itens.map(x => '<a class="rd-it" href="/apps/portal-ia/?rede=' + encodeURIComponent(x.id) + '">' + (ms(x) > visto ? '<span class="rd-novo">novo</span>' : '') +
+      itens.map(x => '<a class="rd-it" href="' + (x.link && /^\/[\w\/#?=-]*$/.test(x.link) ? x.link : "/apps/portal-ia/?rede=" + encodeURIComponent(x.id)) + '">' + (ms(x) > visto ? '<span class="rd-novo">novo</span>' : '') +
         '<span class="rd-tx"><b>' + escapeHtml(x.autor_nome || "Um colega") + '</b> ' + (x.atualizado ? "atualizou" : "compartilhou") + ' <b>' + escapeHtml(x.titulo || "um material") + '</b>' +
         '<small>' + escapeHtml([x.tipo_nome, x.disciplina, x.serie, x.escola_nome].filter(Boolean).join(" · ")) + ' · ' + quando(ms(x)) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></a>').join("") +
       '<div class="rd-pe"><a href="/apps/portal-ia/?rede=todos">Ver todos os materiais da rede</a>' +
@@ -6575,7 +6612,10 @@
     document.body.appendChild(fundo);
     // HTML já limpo pela função; o iframe não roda script (sandbox sem allow-scripts)
     fundo.querySelector("iframe").srcdoc = '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base target="_blank"><style>' + String(m.css || "") +
-      'html,body{background:#fff!important;margin:0} #folha{box-shadow:none!important;margin:0 auto!important;max-width:820px;zoom:var(--z,1)} .gab,.tira,.maisimg,.nao-imp{display:none!important}</style><article id="folha" class="folha">' + String(m.html || "") + '</article>';
+      'html,body{background:#fff!important;margin:0} #folha{box-shadow:none!important;margin:0 auto!important;max-width:820px;zoom:var(--z,1)} .gab,.tira,.maisimg,.nao-imp{display:none!important}' +
+      '.pg{display:block;width:100%;height:auto;margin:0 0 12px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12)} #folha.pgs{max-width:1100px;padding:10px;background:#eef2f6}</style>' +
+      (Array.isArray(m.paginas) && m.paginas.length ? '<article id="folha" class="pgs">' + m.paginas.filter(u => /^https:\/\/firebasestorage\.googleapis\.com\//.test(u)).map((u, i) => '<img class="pg" alt="Página ' + (i + 1) + '" src="' + escapeAttr(u) + '">').join("") + '</article>'
+        : '<article id="folha" class="folha">' + String(m.html || "") + '</article>');
     fundo.querySelector('[data-action="mt-fechar"]').focus();
   }
   function faixaProvasAluno(){

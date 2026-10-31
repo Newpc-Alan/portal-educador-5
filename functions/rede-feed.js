@@ -29,11 +29,11 @@ const caixa = (titulo, sub, corpo) => `<div style="font-family:Arial,sans-serif;
 
 function htmlResumo(nomeMun, novos) {
   const linhas = novos.map(x => `<tr><td style="padding:10px 0;border-bottom:1px solid #eef2f6">
-<a href="${APP}/apps/portal-ia/?rede=${encodeURIComponent(x.id)}" style="color:#0f2c4a;font-weight:bold;font-size:15px;text-decoration:none">${esc(x.titulo || 'Material')}</a><br>
+<a href="${APP}${x.link && /^\/[\w\/#?=-]*$/.test(x.link) ? x.link : '/apps/portal-ia/?rede=' + encodeURIComponent(x.id)}" style="color:#0f2c4a;font-weight:bold;font-size:15px;text-decoration:none">${esc(x.titulo || 'Material')}</a><br>
 <span style="color:#5b6b7b;font-size:12.5px">${esc([x.tipo_nome, x.disciplina, x.serie].filter(Boolean).join(' · '))}</span><br>
 <span style="color:#1a6b2a;font-size:12.5px">${x.atualizado ? 'Atualizado' : 'Compartilhado'} por ${esc(x.autor_nome || 'um(a) colega')}${x.escola_nome ? ', ' + esc(x.escola_nome) : ''}</span></td></tr>`).join('');
   return caixa(`${novos.length === 1 ? 'Um material novo' : novos.length + ' materiais novos'} na sua rede`, 'Portal do Educador · ' + esc(nomeMun || 'sua rede'),
-    `<p style="margin:0 0 6px">Colegas da sua rede compartilharam hoje no Portal IA. É só abrir, usar uma cópia e ajustar para a sua turma.</p>
+    `<p style="margin:0 0 6px">Colegas da sua rede compartilharam hoje. É só abrir, usar uma cópia e ajustar para a sua turma.</p>
 <table style="width:100%;border-collapse:collapse">${linhas}</table>
 <p style="margin:16px 0 0"><a href="${APP}/apps/portal-ia/?rede=todos" style="display:inline-block;background:#1a6b2a;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Ver todos os materiais da rede</a></p>
 <p style="margin:18px 0 0;color:#8a98a6;font-size:11.5px">Você recebe este resumo porque é professor(a) da rede no Portal do Educador. Para não receber mais, entre no Portal e desligue em "Novidades da sua rede", no Início.</p>`);

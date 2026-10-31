@@ -74,6 +74,13 @@ service cloud.firestore {
     match /stats/{id} { allow read: if admin(); allow write: if false; }
     // ranking dos temas da Aula com IA (só identificadores do banco de temas, sem dado pessoal)
     match /temas_populares/{id} { allow read: if logado(); allow write: if false; }
+    // Trabalhos compartilhados com a rede (Lousa, provas, roteiros, folhas): autor, admin e professores/gestores ativos do município. Só a função grava.
+    match /trabalhos_rede/{id} {
+      allow read: if logado() && (admin() || resource.data.uid == request.auth.uid
+        || (resource.data.status == "publicado" && eu().status == "ativo" && eu().perfil in ["professor", "gestor"]
+            && resource.data.municipio_id == eu().get("municipio_id", "-")));
+      allow write: if false;
+    }
     // Materiais enviados para a turma (Portal IA -> Portal do Aluno): o aluno da turma lê; a equipe da escola também. Só a função grava.
     match /turma_materiais/{tid}/itens/{id} {
       allow read: if admin() || (logado() && request.auth.token.get("turma_id", "") == tid)

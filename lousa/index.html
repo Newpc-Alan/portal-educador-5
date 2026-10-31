@@ -384,6 +384,7 @@
     <symbol id="i-excluir" viewBox="0 0 24 24"><path d="M3.5 6h17"/><path d="M18.5 6v13.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2V6"/><path d="M8.5 6V4.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V6"/><path d="M10 10.5v6.5M14 10.5v6.5"/></symbol>
     <symbol id="i-limpar" viewBox="0 0 24 24"><path d="M14.5 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7.5z"/><path d="M14.5 2.5v5h5"/><path class="hl" d="M9 12.5l6 6M15 12.5l-6 6"/></symbol>
     <symbol id="i-png" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.2"/><path d="M3 15.5l4.2-4.2a1.6 1.6 0 0 1 2.3 0L14 16"/><path class="hl" d="M16.5 7v7M13.8 11.3l2.7 2.7 2.7-2.7"/></symbol>
+    <symbol id="i-compartilhar" viewBox="0 0 24 24"><circle cx="18" cy="5.5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="18.5" r="2.6"/><path class="hl" d="M8.3 10.8l7.4-4.1M8.3 13.2l7.4 4.1"/></symbol>
     <symbol id="i-nuvem" viewBox="0 0 24 24"><path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z"/><path class="hl" d="M12 15.5v-5M9.5 12.5l2.5-2.5 2.5 2.5"/></symbol>
     <symbol id="i-ia" viewBox="0 0 24 24"><path d="M10 3.5l1.6 4.4 4.4 1.6-4.4 1.6L10 15.5l-1.6-4.4L4 9.5l4.4-1.6z"/><path class="hl" d="M17.5 13.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></symbol>
     <symbol id="i-pasta" viewBox="0 0 24 24"><path d="M3 7.5a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path class="hl" d="M7.5 13.5h9"/></symbol>
@@ -472,6 +473,7 @@
     <div class="sep-lat"></div>
     <div class="secao">Lousa</div>
     <button class="ferr so-nuvem" data-action="nuvem-salvar" id="btnNuvem" hidden title="Salvar em Meus trabalhos (também salva sozinho)"><svg class="ico"><use href="#i-nuvem"/></svg><span class="lbl">Salvar</span></button>
+    <button class="ferr so-nuvem" data-action="nuvem-compartilhar" hidden title="Compartilhar esta aula: rede, e-mail ou alunos"><svg class="ico"><use href="#i-compartilhar"/></svg><span class="lbl">Compartilhar</span></button>
     <button class="ferr so-nuvem" data-action="nuvem-trabalhos" hidden title="Meus trabalhos: abrir, renomear ou começar uma aula nova"><svg class="ico"><use href="#i-pasta"/></svg><span class="lbl">Trabalhos</span></button>
     <button class="ferr ferr-ia so-nuvem" data-action="ia-aula" hidden style="display:none" title="Montar uma aula em slides com a IA do Portal (usa 1 crédito)"><svg class="ico"><use href="#i-ia"/></svg><span class="lbl">Aula IA</span></button>
     <button class="ferr perigo" data-action="limpar" title="Limpar a página (apaga tudo o que foi desenhado)"><svg class="ico"><use href="#i-limpar"/></svg><span class="lbl">Limpar</span></button>
@@ -2530,6 +2532,29 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }, function(total){ msg(total === 1 ? "PNG exportado" : "Exportadas " + total + " imagens"); });
   }
 
+  /* para compartilhar: as páginas em JPEG (alunos) ou um PDF em base64 (e-mail). semGuia tira o Guia do professor. */
+  function ehGuia(p){ return /Guia do professor[^"]{0,60}não projetar/.test(String(p && p.json || "")); }
+  function capturarFolhas(semGuia, larguraMax, qualidade){
+    return new Promise(function(ok){
+      var out = [];
+      percorrerFolhas(function(f){ return Math.min(f.mult || 1, larguraMax / f.w); }, function(cTmp, f, pi, fi, seguir){
+        if(semGuia && ehGuia(paginas[pi])){ seguir(); return; }
+        out.push({ img:cTmp.toDataURL({ format:"jpeg", quality:qualidade }), w:f.w, h:f.h });
+        setTimeout(seguir, 0);
+      }, function(){ ok(out); });
+    });
+  }
+  function pacoteImagens(semGuia){ return capturarFolhas(semGuia, 1400, 0.78).then(function(l){ return l.map(function(x){ return x.img.split(",")[1]; }); }); }
+  function pacotePdf(semGuia){
+    var JsPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null;
+    if(!JsPDF) return Promise.reject(new Error("O gerador de PDF não carregou."));
+    return capturarFolhas(semGuia, 1600, 0.82).then(function(l){
+      if(!l.length) throw new Error("A aula está vazia.");
+      var pdf = null;
+      l.forEach(function(x){ var o = x.w >= x.h ? "landscape" : "portrait"; if(!pdf) pdf = new JsPDF({ orientation:o, unit:"px", format:[x.w, x.h] }); else pdf.addPage([x.w, x.h], o); pdf.addImage(x.img, "JPEG", 0, 0, x.w, x.h); });
+      return pdf.output("datauristring").split(",")[1];
+    });
+  }
   function exportarPDF(aoTerminar){
     var JsPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null;
     if(!JsPDF){ msg("Gerador de PDF não carregou"); return; }
@@ -2604,6 +2629,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="png")      exportarPNG();
       if(a==="pdf")      exportarPDF();
       if(a==="nuvem-salvar"    && window.PDENuvem) window.PDENuvem.salvar(true);
+      if(a==="nuvem-compartilhar" && window.PDENuvem) window.PDENuvem.compartilhar();
       if(a==="nuvem-trabalhos" && window.PDENuvem) window.PDENuvem.abrirLista();
       if(a==="ia-aula" && window.PDENuvem && window.PDENuvem.aulaIA) window.PDENuvem.aulaIA();
     }
@@ -2644,7 +2670,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* Setas do teclado, passador de slides e controle remoto: avançam e voltam a página.
      Passadores mandam PageDown/PageUp (alguns mandam setas); fora de campos de texto e janelas abertas. */
   var TECLAS_AVANCA = { ArrowRight:1, ArrowDown:1, PageDown:1, MediaTrackNext:1 }, TECLAS_VOLTA = { ArrowLeft:1, ArrowUp:1, PageUp:1, MediaTrackPrevious:1 };
-  function janelaAberta(){ return !!document.querySelector("#iaFundo.aberto, #iaBloq.aberto, #nvFundo.aberto, .dlg.aberto, #dlg.aberto"); }
+  function janelaAberta(){ return !!document.querySelector("#iaFundo.aberto, #iaBloq.aberto, #nvFundo.aberto, #cpFundo.aberto, .dlg.aberto, #dlg.aberto"); }
   function navegarPorTecla(e){
     var dir = TECLAS_AVANCA[e.key] ? 1 : TECLAS_VOLTA[e.key] ? -1 : 0;
     if(!dir || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false;
@@ -3860,6 +3886,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ================= PONTE COM A NUVEM (Portal 5.0) ================= */
   window.PDELousa = {
+    pacoteImagens: function(semGuia){ return pacoteImagens(!!semGuia); },
+    pacotePdf: function(semGuia){ return pacotePdf(!!semGuia); },
+    temGuia: function(){ paginas[pagAtual] = estadoPaginaAtual(); return paginas.some(ehGuia); },
     inserirAula: function(aula, meta){
       var feito = false, ir = function(){ if(feito) return; feito = true; inserirAulaIA(aula, meta); };
       try{ Promise.all([document.fonts.load("800 40px Nunito"), document.fonts.load("700 40px Nunito")]).then(ir, ir); }catch(e){ ir(); }
@@ -4015,6 +4044,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-mini b{position:absolute;left:10%;width:36%;height:44%;top:40%;background:#fff;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)}
   #iaCorpo .ia-mini b + b{left:54%}
   @media (max-width:620px){ #iaCorpo .ia-2, #iaCorpo .ia-3, #iaCorpo .ia-tema{grid-template-columns:minmax(0,1fr)} }
+  #cpFundo{position:fixed;inset:0;z-index:9150;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
+  #cpFundo.aberto{display:flex}
+  #cpJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(640px,100%);max-height:94vh;overflow:auto;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
+  #cpTopo{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;background:#071621;color:#fff;border-bottom:3px solid #8DC63F}
+  #cpTopo h2{font-size:18px;margin:0} #cpTopo button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
+  .cp-abas{display:flex;gap:6px;padding:12px 18px 0} .cp-abas button{flex:1;border:1px solid #d5dfe9;background:#f6f9fc;border-radius:10px;padding:10px;font:inherit;font-weight:700;color:#0f2c4a;cursor:pointer}
+  .cp-abas button[aria-selected="true"]{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+  #cpCorpo{padding:12px 18px 4px;display:grid;gap:10px}
+  #cpCorpo label{display:grid;gap:5px;font-size:13px;font-weight:700} #cpCorpo label small{font-weight:400;color:#62758a}
+  #cpCorpo select,#cpCorpo textarea{width:100%;box-sizing:border-box;font:inherit;font-weight:400;font-size:14px;padding:9px 11px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff}
+  #cpCorpo label.cp-ck,.cp-grade label{display:flex;gap:8px;align-items:center;font-weight:600} #cpCorpo input[type=checkbox]{width:18px;height:18px;accent-color:#1a6b2a}
+  .cp-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:4px 12px;max-height:160px;overflow:auto} .cp-grade label{font-size:13px;font-weight:500}
+  .cp-rot{font-size:13px} .cp-rot small{font-weight:400;color:#62758a}
+  .cp-2{display:grid;grid-template-columns:1fr 1fr;gap:10px} @media (max-width:560px){ .cp-2{grid-template-columns:1fr} }
+  .cp-d{margin:0;font-size:13.5px;color:#4b5b6b;line-height:1.45} .cp-ok{margin:0;padding:9px 12px;border-radius:10px;background:#eef7e3;color:#1a5a24;font-size:13.5px}
+  .cp-det{border:1px solid #d5dfe9;border-radius:10px;padding:8px 12px;display:grid;gap:8px} .cp-det summary{cursor:pointer;font-weight:700;font-size:13.5px}
+  .cp-acoes{display:flex;justify-content:flex-end;gap:8px;padding-top:4px}
+  .cp-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:11px 18px;font:inherit;font-weight:700;cursor:pointer;min-height:44px} .cp-pri:disabled{opacity:.6;cursor:wait}
+  .cp-sec{background:#fff;color:#b3261e;border:1px solid #f0c6c3;border-radius:12px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}
+  .cp-msg{margin:0;padding:4px 18px 16px;min-height:18px;font-size:13.5px}
+  .cp-abas button:focus-visible,.cp-pri:focus-visible,.cp-sec:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
   #nvFundo{position:fixed;inset:0;z-index:9000;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #nvFundo.aberto{display:flex}
   #nvJanela{background:#fff;color:#0f2c4a;border-radius:16px;width:min(880px,100%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 30px 70px -20px rgba(0,0,0,.6)}
@@ -4148,7 +4198,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       vis.map(x => '<article class="nv-card' + (x.id === atual ? ' atual' : '') + '" data-id="' + esc(x.id) + '">' +
         '<div class="nv-mini"' + (x.miniatura ? ' style="background-image:url(\'' + x.miniatura + '\')"' : '') + '>' + (x.miniatura ? '' : '\u{1F4DD}') + '</div>' +
         '<div class="nv-info"><b>' + esc(x.titulo || "Sem nome") + '</b><small>' + (x.paginas||1) + ' página(s) · ' + quando(x.atualizado_em && x.atualizado_em.toMillis && x.atualizado_em.toMillis()) + (x.id === atual ? ' · aberta agora' : '') + '</small></div>' +
-        '<div class="nv-acoes"><button type="button" class="abrir" data-nv="abrir">Abrir</button><button type="button" data-nv="renomear">Renomear</button><button type="button" class="del" data-nv="excluir">Excluir</button></div></article>').join("");
+        '<div class="nv-acoes"><button type="button" class="abrir" data-nv="abrir">Abrir</button><button type="button" data-nv="compartilhar">Compartilhar</button><button type="button" data-nv="renomear">Renomear</button><button type="button" class="del" data-nv="excluir">Excluir</button></div></article>').join("");
   }
   async function abrirLista(){
     if(!uid) return;
@@ -4210,6 +4260,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(a === "fechar") fecharLista();
     else if(a === "nova"){ fecharLista(); L().nova(); L().msg("Lousa nova"); }
     else if(a === "abrir") abrirTrabalho(card.dataset.id);
+    else if(a === "compartilhar"){ const idC = card.dataset.id; (L().nuvem().id === idC ? Promise.resolve() : abrirTrabalho(idC)).then(() => setTimeout(janelaCompartilhar, 700)); }
     else if(a === "renomear") renomear(card);
     else if(a === "excluir") excluir(card, b);
   });
@@ -4218,7 +4269,119 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(e.key === "Escape" && document.getElementById("nvFundo").classList.contains("aberto")){ e.stopImmediatePropagation(); fecharLista(); }
   }, true);
 
+  /* ================= COMPARTILHAR A AULA: rede do município, e-mail e alunos ================= */
+  let opRede = undefined;
+  const fnRede = async (dados) => { const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), "trabalhoRede", { timeout:180000 })(dados)).data; };
+  const escCp = x => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  async function opcoesRedeCp(){ if(opRede !== undefined) return opRede; try{ opRede = await fnRede({ acao:"opcoes", tipo:"lousa" }); }catch(e){ opRede = null; } return opRede; }
+  const filtroHtml = (op, pre, comDisc) => !op || !op.rede ? "" :
+    '<details class="cp-det"><summary>' + (pre === "cpa" ? "Toda a rede, por escola e série" : "Professores da rede, por escola, série e disciplina") + '</summary>' +
+    (op.escolas.length > 1 ? '<b class="cp-rot">Escolas <small>(nenhuma = todas)</small></b><div class="cp-grade">' + op.escolas.map(e => '<label><input type="checkbox" data-' + pre + '-esc="' + escCp(e.id) + '"> ' + escCp(e.nome) + "</label>").join("") + "</div>" : "") +
+    (op.series.length ? '<b class="cp-rot">Séries <small>(nenhuma = todas)</small></b><div class="cp-grade">' + op.series.map(x => '<label><input type="checkbox" data-' + pre + '-serie="' + escCp(x) + '"> ' + escCp(x) + "</label>").join("") + "</div>" : "") +
+    (comDisc && op.disciplinas.length ? '<b class="cp-rot">Disciplinas <small>(nenhuma = todas)</small></b><div class="cp-grade">' + op.disciplinas.map(x => '<label><input type="checkbox" data-' + pre + '-disc="' + escCp(x) + '"> ' + escCp(x) + "</label>").join("") + "</div>" : "") +
+    '<label class="cp-ck"><input type="checkbox" id="' + pre + 'Rede"> Enviar para ' + (pre === "cpa" ? "<b>todas as turmas</b>" : "<b>os professores</b>") + ' desse filtro</label></details>';
+  const lerFiltroCp = pre => ({ escolas:[...document.querySelectorAll("[data-" + pre + "-esc]:checked")].map(x => x.getAttribute("data-" + pre + "-esc")),
+    series:[...document.querySelectorAll("[data-" + pre + "-serie]:checked")].map(x => x.getAttribute("data-" + pre + "-serie")),
+    disciplinas:[...document.querySelectorAll("[data-" + pre + "-disc]:checked")].map(x => x.getAttribute("data-" + pre + "-disc")) });
+  async function garantirSalva(){
+    if(!L().temConteudo()) throw new Error("A lousa está vazia.");
+    if(!L().nuvem().id || L().alterada()) await salvar(!L().nuvem().id);
+    const id = L().nuvem().id; if(!id) throw new Error("Salve a aula com um nome antes de compartilhar.");
+    return id;
+  }
+  async function janelaCompartilhar(){
+    if(!uid || !licenca){ L().msg("Entre no Portal para compartilhar."); return; }
+    let bg = document.getElementById("cpFundo");
+    if(!bg){
+      bg = document.createElement("div"); bg.id = "cpFundo";
+      bg.innerHTML = '<div id="cpJanela" role="dialog" aria-modal="true" aria-labelledby="cpTit"><div id="cpTopo"><h2 id="cpTit">Compartilhar a aula</h2><button type="button" data-cp="fechar">Fechar</button></div>' +
+        '<div class="cp-abas" role="tablist"><button type="button" role="tab" data-cp="aba" data-arg="rede">🤝 Rede</button><button type="button" role="tab" data-cp="aba" data-arg="email">✉️ E-mail</button><button type="button" role="tab" data-cp="aba" data-arg="alunos">🎒 Alunos</button></div>' +
+        '<div id="cpCorpo"></div><p id="cpMsg" class="cp-msg" role="status"></p></div>';
+      document.body.appendChild(bg);
+      bg.addEventListener("click", (e) => { if(e.target.id === "cpFundo"){ fecharCp(); return; } const b = e.target.closest("[data-cp]"); if(!b) return;
+        const a = b.dataset.cp; if(a === "fechar") fecharCp(); else if(a === "aba") abaCp(b.dataset.arg); else if(a === "rede") acaoRedeCp(b); else if(a === "tirar") tirarRedeCp(b); else if(a === "email") emailCp(b); else if(a === "alunos") alunosCp(b); });
+      bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharCp(); } });
+    }
+    bg.classList.add("aberto"); document.getElementById("cpMsg").textContent = "";
+    await carregarPerfilIA().catch(() => {});
+    abaCp(bg.dataset.aba || "rede");
+  }
+  function fecharCp(){ const bg = document.getElementById("cpFundo"); if(bg && !bg.dataset.ocupado) bg.classList.remove("aberto"); }
+  const msgCp = (t, erro) => { const m = document.getElementById("cpMsg"); m.textContent = t || ""; m.style.color = erro ? "#b3261e" : "#1a6b2a"; };
+  async function abaCp(aba){
+    const bg = document.getElementById("cpFundo"), c = document.getElementById("cpCorpo"); bg.dataset.aba = aba; msgCp("");
+    bg.querySelectorAll(".cp-abas [data-cp]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.arg === aba)));
+    const titulo = L().nuvem().titulo || "esta aula", turmas = (perfilIA && perfilIA.turmas) || [];
+    if(aba === "rede"){
+      c.innerHTML = '<p class="cp-d">Os professores do seu município veem <b>' + escCp(titulo) + '</b> em "Da sua rede" e podem abrir uma cópia na Lousa deles. Eles também recebem o aviso no Início e no resumo do dia.</p><div id="cpSit" class="cp-d">Conferindo...</div>';
+      let sit = null; try{ const id = L().nuvem().id; if(id) sit = (await fnRede({ acao:"situacao", tipo:"lousa", id })).rede; }catch(e){}
+      if(document.getElementById("cpFundo").dataset.aba !== "rede") return;
+      const opDisc = ["", ...DISC_IA].map(d => '<option' + (sit && sit.disciplina === d ? " selected" : "") + ' value="' + escCp(d) + '">' + (d || "Escolha...") + "</option>").join("");
+      const opSer = '<option value="">Escolha...</option>' + ETAPAS_IA.map(g => '<optgroup label="' + escCp(g[0]) + '">' + g[1].map(x => '<option' + (sit && sit.serie === x ? " selected" : "") + ">" + escCp(x) + "</option>").join("") + "</optgroup>").join("");
+      document.getElementById("cpSit").outerHTML = (sit ? '<p class="cp-ok">✅ Esta aula já está na rede' + (sit.usos ? " · usada " + sit.usos + "x pelos colegas" : "") + '. Se você mudou alguma coisa, atualize.</p>' : "") +
+        '<div class="cp-2"><label>Disciplina<select id="cpDisc">' + opDisc + '</select></label><label>Série<select id="cpSerie">' + opSer + '</select></label></div>' +
+        '<label class="cp-ck"><input type="checkbox" id="cpAceite"> Conferi: não há nome, foto ou dado de aluno nas páginas.</label>' +
+        '<div class="cp-acoes">' + (sit ? '<button type="button" class="cp-sec" data-cp="tirar">Tirar da rede</button>' : "") + '<button type="button" class="cp-pri" data-cp="rede">' + (sit ? "Atualizar na rede" : "Compartilhar com a rede") + "</button></div>";
+    }
+    else if(aba === "email"){
+      const op = await opcoesRedeCp(), temGuia = L().temGuia();
+      c.innerHTML = '<p class="cp-d"><b>' + escCp(titulo) + '</b> vai em PDF. Quem receber responde direto para o seu e-mail.</p>' +
+        (turmas.length ? '<b class="cp-rot">Colegas que dão aula nas suas turmas</b><div class="cp-grade">' + turmas.map(t => '<label><input type="checkbox" data-cpe-turma="' + escCp(t.id) + '"> Professores do ' + escCp(t.nome || t.ano || "Turma") + "</label>").join("") + "</div>" : "") +
+        filtroHtml(op, "cpe", true) +
+        '<label>Outros e-mails<textarea id="cpPara" rows="2" maxlength="1500" placeholder="colega@escola.com, coordenacao@prefeitura.gov.br"></textarea></label>' +
+        (temGuia ? '<label class="cp-ck"><input type="checkbox" id="cpGuia" checked> Incluir o Guia do professor (é para professores)</label>' : "") +
+        '<label>Mensagem <small>(opcional)</small><textarea id="cpMsgTxt" rows="2" maxlength="500" placeholder="Ex.: usei com o 6º ano e a turma adorou!"></textarea></label>' +
+        '<p class="cp-d" style="font-size:12px">' + (op && op.rede ? "Até 400 pessoas por dia." : "Até 30 pessoas por dia.") + ' Não coloque nome de aluno na mensagem.</p>' +
+        '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="email">Enviar por e-mail</button></div>';
+    }
+    else{
+      const op = await opcoesRedeCp();
+      c.innerHTML = '<p class="cp-d"><b>' + escCp(titulo) + '</b> aparece em "Materiais da turma" no Portal do Aluno, página por página, <b>sem o Guia do professor</b>.</p>' +
+        (turmas.length ? '<b class="cp-rot">Minhas turmas</b><div class="cp-grade">' + turmas.map((t, i) => '<label><input type="checkbox" data-cpa-turma="' + escCp(t.id) + '"' + (i === 0 ? " checked" : "") + "> " + escCp(t.nome || t.ano || "Turma") + "</label>").join("") + "</div>"
+          : (op && op.rede ? "" : '<p class="cp-d">Você ainda não tem turma vinculada. Peça à coordenação para incluir você na grade.</p>')) +
+        filtroHtml(op, "cpa", false) +
+        '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="alunos">Enviar para os alunos</button></div>';
+    }
+  }
+  async function ocupadoCp(b, txtB, fn){
+    const bg = document.getElementById("cpFundo"), t0 = b.textContent; bg.dataset.ocupado = "1"; b.disabled = true; b.textContent = txtB;
+    try{ await fn(); }catch(e){ console.warn("compartilhar:", e); msgCp(e && e.message ? e.message : "Não deu certo agora. Tente de novo.", true); }
+    finally{ delete bg.dataset.ocupado; if(b.isConnected){ b.disabled = false; b.textContent = t0; } }
+  }
+  function acaoRedeCp(b){
+    if(!document.getElementById("cpAceite").checked){ msgCp("Marque a confirmação de que não há dado de aluno.", true); return; }
+    ocupadoCp(b, "Compartilhando...", async () => { const id = await garantirSalva();
+      await fnRede({ acao:"rede", tipo:"lousa", id, aceite:true, disciplina:document.getElementById("cpDisc").value, serie:document.getElementById("cpSerie").value });
+      msgCp("Pronto! A aula está na rede do seu município."); setTimeout(() => abaCp("rede"), 1200); });
+  }
+  function tirarRedeCp(b){
+    if(b.dataset.confirma !== "1"){ b.dataset.confirma = "1"; b.textContent = "Confirmar: tirar da rede"; return; }
+    ocupadoCp(b, "Tirando...", async () => { await fnRede({ acao:"descompartilhar", tipo:"lousa", id:L().nuvem().id }); msgCp("A aula saiu da rede."); setTimeout(() => abaCp("rede"), 1000); });
+  }
+  function emailCp(b){
+    const para = String(document.getElementById("cpPara").value || "").split(/[\s,;]+/).filter(Boolean), ruim = para.find(x => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+    if(ruim){ msgCp("Confira este e-mail: " + ruim, true); return; }
+    const turmas = [...document.querySelectorAll("[data-cpe-turma]:checked")].map(x => x.dataset.cpeTurma), rede = document.getElementById("cpeRede") && document.getElementById("cpeRede").checked ? lerFiltroCp("cpe") : null;
+    if(!para.length && !turmas.length && !rede){ msgCp("Escolha os colegas ou escreva pelo menos um e-mail.", true); return; }
+    ocupadoCp(b, "Preparando o PDF...", async () => { const id = await garantirSalva();
+      const guia = document.getElementById("cpGuia"), pdf = await L().pacotePdf(guia ? !guia.checked : false);
+      b.textContent = "Enviando...";
+      const r = await fnRede({ acao:"email", tipo:"lousa", id, para, turmas, rede, mensagem:String(document.getElementById("cpMsgTxt").value || "").trim(),
+        anexos:[{ nome:(L().nuvem().titulo || "aula") + ".pdf", b64:pdf }] });
+      msgCp("Enviado para " + r.enviados + (r.enviados === 1 ? " pessoa." : " pessoas.")); });
+  }
+  function alunosCp(b){
+    const turmas = [...document.querySelectorAll("[data-cpa-turma]:checked")].map(x => x.dataset.cpaTurma), rede = document.getElementById("cpaRede") && document.getElementById("cpaRede").checked;
+    if(!turmas.length && !rede){ msgCp("Marque pelo menos uma turma.", true); return; }
+    ocupadoCp(b, "Preparando as páginas...", async () => { const id = await garantirSalva();
+      const paginasB64 = await L().pacoteImagens(true); if(!paginasB64.length) throw new Error("A aula não tem páginas para os alunos.");
+      b.textContent = "Enviando...";
+      const r = await fnRede(rede ? { acao:"alunos", tipo:"lousa", id, filtro:lerFiltroCp("cpa"), paginas:paginasB64 } : { acao:"alunos", tipo:"lousa", id, turmas, paginas:paginasB64 });
+      msgCp("Enviado para " + r.turmas + (r.turmas === 1 ? " turma: " : " turmas: ") + r.nomes.join(", ") + "."); });
+  }
   window.PDENuvem = {
+    compartilhar: () => janelaCompartilhar(),
     ativa: () => !!(uid && licenca),
     salvar: (manual) => salvar(manual) || Promise.resolve(),
     salvarSeAlterou: () => { if(L() && L().alterada() && L().temConteudo()) salvar(false).catch(() => {}); },
