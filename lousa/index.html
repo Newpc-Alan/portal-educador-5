@@ -4329,7 +4329,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(document.getElementById("cpFundo").dataset.aba !== "rede") return;
       const opDisc = ["", ...DISC_IA].map(d => '<option' + (sit && sit.disciplina === d ? " selected" : "") + ' value="' + escCp(d) + '">' + (d || "Escolha...") + "</option>").join("");
       const opSer = '<option value="">Escolha...</option>' + ETAPAS_IA.map(g => '<optgroup label="' + escCp(g[0]) + '">' + g[1].map(x => '<option' + (sit && sit.serie === x ? " selected" : "") + ">" + escCp(x) + "</option>").join("") + "</optgroup>").join("");
-      document.getElementById("cpSit").outerHTML = (sit ? '<p class="cp-ok">✅ Esta aula já está na rede' + (sit.usos ? " · usada " + sit.usos + "x pelos colegas" : "") + '. Se você mudou alguma coisa, atualize.</p>' : "") +
+      document.getElementById("cpSit").outerHTML = (!sit ? "" : sit.status === "pendente" ? '<p class="cp-ok" style="background:#fff6e0;color:#7a5200">⏳ Aguardando a aprovação da coordenação. Assim que aprovarem, os colegas veem e você recebe um e-mail.</p>'
+        : sit.status === "oculto" ? '<p class="cp-ok" style="background:#fdeceb;color:#8c1d18">✋ A coordenação pediu um ajuste' + (sit.motivo ? ': ' + escCp(sit.motivo) : '') + '. Corrija a aula e use Atualizar na rede para nova análise.</p>'
+        : '<p class="cp-ok">✅ Esta aula já está na rede' + (sit.usos ? " · usada " + sit.usos + "x pelos colegas" : "") + '. Se você mudou alguma coisa, atualize.</p>') +
         '<div class="cp-2"><label>Disciplina<select id="cpDisc">' + opDisc + '</select></label><label>Série<select id="cpSerie">' + opSer + '</select></label></div>' +
         '<label class="cp-ck"><input type="checkbox" id="cpAceite"> Conferi: não há nome, foto ou dado de aluno nas páginas.</label>' +
         '<div class="cp-acoes">' + (sit ? '<button type="button" class="cp-sec" data-cp="tirar">Tirar da rede</button>' : "") + '<button type="button" class="cp-pri" data-cp="rede">' + (sit ? "Atualizar na rede" : "Compartilhar com a rede") + "</button></div>";
@@ -4372,8 +4374,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   function acaoRedeCp(b){
     if(!document.getElementById("cpAceite").checked){ msgCp("Marque a confirmação de que não há dado de aluno.", true); return; }
     ocupadoCp(b, "Compartilhando...", async () => { const id = await garantirSalva();
-      await fnRede({ acao:"rede", tipo:"lousa", id, aceite:true, disciplina:document.getElementById("cpDisc").value, serie:document.getElementById("cpSerie").value });
-      msgCp("Pronto! A aula está na rede do seu município."); setTimeout(() => abaCp("rede"), 1200); });
+      const r = await fnRede({ acao:"rede", tipo:"lousa", id, aceite:true, disciplina:document.getElementById("cpDisc").value, serie:document.getElementById("cpSerie").value });
+      msgCp(r && r.pendente ? "Enviada para aprovação da coordenação. Você recebe um e-mail quando aprovarem." : "Pronto! A aula está na rede do seu município."); setTimeout(() => abaCp("rede"), 1600); });
   }
   function tirarRedeCp(b){
     if(b.dataset.confirma !== "1"){ b.dataset.confirma = "1"; b.textContent = "Confirmar: tirar da rede"; return; }

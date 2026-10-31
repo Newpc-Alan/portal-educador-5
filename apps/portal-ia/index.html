@@ -524,7 +524,9 @@ function boxRede(A){
   if(!E.u.municipio_id) return "";
   if(!temRec("rede_colab") && !A.redeInfo) return travado("Compartilhar com a rede", "rede_colab", "da sua rede");
   return '<div class="caixa"><h4>Compartilhar com a rede</h4>' + (A.redeInfo
-    ? '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo">Na rede do município</span> Os colegas já podem usar este material.</p><div class="grupo"><button type="button" class="btn peq" data-action="compartilhar">Atualizar na rede</button><button type="button" class="btn peq" data-action="descompartilhar">Parar de compartilhar</button></div>'
+    ? (A.redeInfo.status === "pendente" ? '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo" style="background:#fff6e0;color:#7a5200">Aguardando aprovação</span> A coordenação vai analisar. Você recebe um e-mail quando aprovarem.</p>'
+      : A.redeInfo.status === "oculto" ? '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo" style="background:#fdeceb;color:#8c1d18">Ajuste pedido</span> ' + esc(A.redeInfo.motivo || "A coordenação pediu um ajuste.") + ' Corrija e use Atualizar na rede.</p>'
+      : '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo">Na rede do município</span> Os colegas já podem usar este material.</p>') + '<div class="grupo"><button type="button" class="btn peq" data-action="compartilhar">Atualizar na rede</button><button type="button" class="btn peq" data-action="descompartilhar">Parar de compartilhar</button></div>'
     : '<p class="sub" style="font-size:.84rem;margin-bottom:8px">Os professores do seu município poderão ver e usar uma cópia. Seu nome e sua escola aparecem como autoria.</p><button type="button" class="btn rede" data-action="compartilhar">Compartilhar com a rede</button>') + "</div>";
 }
 /* Educador em Rede (Básico+), Sala Conectada (Intermediário+), Turma ao Vivo (Completo): mesma regra das funções */
@@ -575,7 +577,8 @@ function pedirCompartilhar(){
 async function compartilhar(){
   if(!["ck1", "ck2", "ck3"].every(k => $(k) && $(k).checked)){ toast("Marque as três confirmações para compartilhar.", true); return; }
   const b = document.querySelector('[data-action="confirmar-compartilhar"]'); b.disabled = true; b.textContent = "Compartilhando...";
-  try{ await chamar({ acao:"compartilhar", id:E.atual.id, aceite:true }); E.atual.redeInfo = { em:Date.now() }; E.rede = null; fecharModal(); telaDoc(); toast("Pronto. O material está na rede do município."); }
+  try{ const r = (await chamar({ acao:"compartilhar", id:E.atual.id, aceite:true })).data; E.atual.redeInfo = { em:Date.now(), status:r && r.pendente ? "pendente" : "publicado" }; E.rede = null; fecharModal(); telaDoc();
+    toast(r && r.pendente ? "Enviado para aprovação da coordenação. Você recebe um e-mail quando aprovarem." : "Pronto. O material está na rede do município."); }
   catch(e){ b.disabled = false; b.textContent = "Compartilhar"; toast(msgErro(e), true); }
 }
 async function descompartilhar(){

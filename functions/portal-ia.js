@@ -10,6 +10,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
 import { feedRede } from './rede-feed.js';
+import { statusAoCompartilhar, avisarModeradores } from './moderacao-rede.js';
 import { SMTP_SENHA } from './dicas.js';
 import { exigirRecurso } from './envio-comum.js';
 import { PERFIS_REDE, opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
@@ -664,9 +665,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     }
     const cx2 = o.contexto || {};
     const bncc = ((o.doc && o.doc.bncc) || []).map(b => txt(b.codigo, 12)).filter(Boolean).slice(0, 8);
-    const antes = await db.doc(`portal_ia_rede/${redeId}`).get();
+    const antes = await db.doc(`portal_ia_rede/${redeId}`).get(), status = statusAoCompartilhar(ctx.muni, antes);
     await db.doc(`portal_ia_rede/${redeId}`).set({
-      uid, origem_id: os.id, municipio_id: mun, escopo: 'municipio', status: 'publicado',
+      uid, origem_id: os.id, municipio_id: mun, escopo: 'municipio', status,
       autor_nome: txt(ctx.eu.nome || '', 80), escola_nome: escola, escola_id: ctx.eu.escola_id || '',
       tipo: o.tipo, tipo_nome: o.tipo_nome || (TIPOS[o.tipo] || {}).nome || '', publico: o.publico || 'aluno',
       titulo: txt(o.titulo || (o.doc && o.doc.titulo), 160), tema: txt(o.tema, 160), disciplina: txt(cx2.disciplina, 60), serie: txt(cx2.serie, 30), bncc,
@@ -674,7 +675,14 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       usos: antes.exists ? (antes.data().usos || 0) : 0, denuncias: antes.exists ? (antes.data().denuncias || 0) : 0,
       termo_aceito_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(), ...(antes.exists ? {} : { criado_em: FieldValue.serverTimestamp() })
     });
-    await origRef.set({ rede: { municipio_id: mun, em: FieldValue.serverTimestamp() } }, { merge: true });
+    await origRef.set({ rede: { municipio_id: mun, em: FieldValue.serverTimestamp(), status, motivo: '' } }, { merge: true });
+    // aguardando aprovação: só entra nas Novidades quando a moderação aprovar (moderacao-rede.js)
+    if (status === 'pendente') {
+      await feedRede(db, mun, null, redeId).catch(() => {});
+      if (!(antes.exists && antes.data().status === 'pendente')) await avisarModeradores(db, mun, { titulo: txt(o.titulo || (o.doc && o.doc.titulo), 160), tipo_nome: o.tipo_nome || '', disciplina: txt(cx2.disciplina, 60),
+        serie: txt(cx2.serie, 30), autor_nome: txt(ctx.eu.nome || '', 80), escola_nome: escola, escola_id: ctx.eu.escola_id || '' }).catch(e => console.warn('avisarModeradores', e.message));
+      return { ok: true, id: redeId, pendente: true };
+    }
     // Novidades da rede (Início dos colegas e resumo diário por e-mail)
     await feedRede(db, mun, { id: redeId, titulo: txt(o.titulo || (o.doc && o.doc.titulo), 160), tipo_nome: o.tipo_nome || (TIPOS[o.tipo] || {}).nome || '',
       disciplina: txt(cx2.disciplina, 60), serie: txt(cx2.serie, 30), autor_nome: txt(ctx.eu.nome || '', 80), autor_uid: uid, escola_nome: escola, atualizado: antes.exists }).catch(e => console.warn('feedRede', e.message));
@@ -694,7 +702,8 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const rs = await db.doc(`portal_ia_rede/${txt(d.id, 64)}`).get();
     if (!rs.exists) throw new HttpsError('not-found', 'Este material não está mais na rede.');
     const r = rs.data();
-    if (!ctx.admin && (r.status !== 'publicado' || r.municipio_id !== ctx.eu.municipio_id)) throw new HttpsError('permission-denied', 'Este material não é da sua rede.');
+    const moderador = ctx.eu.perfil === 'gestor' && r.municipio_id === ctx.eu.municipio_id;
+    if (!ctx.admin && !moderador && (r.status !== 'publicado' || r.municipio_id !== ctx.eu.municipio_id)) throw new HttpsError('permission-denied', 'Este material não é da sua rede.');
     const novo = db.collection('portal_ia_docs').doc(), bucket = getStorage().bucket(), imagens = {};
     for (const [k, v] of Object.entries(r.imagens || {})) {
       if (!v || !v.caminho) continue;

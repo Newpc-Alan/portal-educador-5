@@ -8,6 +8,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { randomBytes } from 'node:crypto';
 import { SMTP_SENHA } from './dicas.js';
 import { feedRede } from './rede-feed.js';
+import { statusAoCompartilhar, avisarModeradores } from './moderacao-rede.js';
 import { exigirRecurso } from './envio-comum.js';
 import { opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 
@@ -80,7 +81,8 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
     const rs = await db.doc(`trabalhos_rede/${txt(d.id, 120)}`).get();
     if (!rs.exists) throw new HttpsError('not-found', 'Este trabalho não está mais na rede.');
     const r = rs.data();
-    if (!c.admin && (r.status !== 'publicado' || r.municipio_id !== c.eu.municipio_id)) throw new HttpsError('permission-denied', 'Este trabalho não é da sua rede.');
+    const moderador = ['gestor', 'secretaria'].includes(c.eu.perfil) && r.municipio_id === c.eu.municipio_id;
+    if (!c.admin && !moderador && (r.status !== 'publicado' || r.municipio_id !== c.eu.municipio_id)) throw new HttpsError('permission-denied', 'Este trabalho não é da sua rede.');
     const TT = TIPOS[r.tipo], novo = db.collection('usuarios').doc(uid).collection(TT.col).doc();
     const origem = { id: rs.id, autor_nome: r.autor_nome || '', escola_nome: r.escola_nome || '' };
     if (TT.arquivo) {
@@ -89,7 +91,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       await novo.set({ ...(r.meta || {}), titulo: r.titulo, ...(TT.semCaminho ? {} : { arquivo: destino, formato: r.formato || '' }), miniatura: r.miniatura || '', origem_rede: origem,
         criado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp() });
     } else await novo.set({ ...(r.dados || {}), origem_rede: origem, criado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp() });
-    if (r.uid !== uid) await rs.ref.update({ usos: FieldValue.increment(1) });
+    if (r.uid !== uid && r.status === 'publicado' && !moderador) await rs.ref.update({ usos: FieldValue.increment(1) });
     return { ok: true, id: novo.id, tipo: r.tipo };
   }
 
@@ -101,7 +103,8 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
 
   if (d.acao === 'situacao') {
     const rs = await db.doc(`trabalhos_rede/${redeId}`).get();
-    return { rede: rs.exists ? { status: rs.data().status, usos: rs.data().usos || 0, disciplina: rs.data().disciplina || '', serie: rs.data().serie || '' } : null };
+    const x = rs.exists ? rs.data() : null;
+    return { rede: x ? { status: x.status, usos: x.usos || 0, disciplina: x.disciplina || '', serie: x.serie || '', motivo: x.status === 'oculto' && x.moderacao ? x.moderacao.motivo || '' : '' } : null };
   }
 
   /* compartilhar (ou atualizar) com a rede do município */
@@ -109,7 +112,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
     await exigirRecurso(db, c.eu, 'rede_colab', c.muni);
     if (!d.aceite) throw new HttpsError('failed-precondition', 'Confirme que não há nome ou foto de aluno.');
     if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede municipal.');
-    const antes = await db.doc(`trabalhos_rede/${redeId}`).get(), reg = {};
+    const antes = await db.doc(`trabalhos_rede/${redeId}`).get(), reg = {}, status = statusAoCompartilhar(c.muni, antes);
     if (T.arquivo) {
       const fonte = T.de(uid, id, o);
       if (!fonte) throw new HttpsError('failed-precondition', 'Salve o trabalho antes de compartilhar.');
@@ -119,11 +122,17 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       Object.assign(reg, { arquivo: destino, formato: o.formato || '', miniatura: typeof o.miniatura === 'string' && o.miniatura.length < 200000 ? o.miniatura : '', meta: metaDe(o) });
     } else reg.dados = Object.fromEntries(CAMPOS[tipo].filter(k => o[k] !== undefined).map(k => [k, o[k]]));
     await db.doc(`trabalhos_rede/${redeId}`).set({
-      uid, origem_id: id, tipo, tipo_nome: T.nome, municipio_id: mun, status: 'publicado', titulo, disciplina, serie,
+      uid, origem_id: id, tipo, tipo_nome: T.nome, municipio_id: mun, status, titulo, disciplina, serie,
       paginas: Number(o.paginas) || 0, autor_nome: txt(c.eu.nome || '', 80), escola_nome: c.escola, escola_id: c.eu.escola_id || '', ...reg,
       usos: antes.exists ? (antes.data().usos || 0) : 0, termo_aceito_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(),
       ...(antes.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) });
-    await oRef.set({ rede: { municipio_id: mun, em: FieldValue.serverTimestamp() } }, { merge: true });
+    await oRef.set({ rede: { municipio_id: mun, em: FieldValue.serverTimestamp(), status, motivo: '' } }, { merge: true });
+    if (status === 'pendente') {
+      await feedRede(db, mun, null, redeId).catch(() => {});
+      if (!(antes.exists && antes.data().status === 'pendente')) await avisarModeradores(db, mun, { titulo, tipo_nome: T.nome, disciplina, serie, autor_nome: txt(c.eu.nome || '', 80),
+        escola_nome: c.escola, escola_id: c.eu.escola_id || '' }).catch(e => console.warn('avisarModeradores', e.message));
+      return { ok: true, id: redeId, pendente: true };
+    }
     await feedRede(db, mun, { id: redeId, titulo, tipo_nome: T.nome, disciplina, serie, autor_nome: txt(c.eu.nome || '', 80), autor_uid: uid, escola_nome: c.escola,
       atualizado: antes.exists, link: LINK_REDE }).catch(e => console.warn('feedRede', e.message));
     return { ok: true, id: redeId };
