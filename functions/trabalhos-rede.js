@@ -5,6 +5,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { randomBytes } from 'node:crypto';
 import { SMTP_SENHA } from './dicas.js';
 import { feedRede } from './rede-feed.js';
 import { opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
@@ -38,6 +39,34 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {}, c = await contexto(db, uid);
   if (d.acao === 'opcoes') return opcoesEnvio(db, c.eu);
+
+  /* link ou arquivo do professor para a turma (site, vídeo, PDF, slides...): vai para "Materiais da turma" */
+  if (d.acao === 'enviar_link') {
+    const titulo = txt(d.titulo, 120), orientacao = txt(d.orientacao, 600);
+    if (titulo.length < 2) throw new HttpsError('invalid-argument', 'Dê um título para os alunos saberem o que é.');
+    const turmas = await turmasParaAlunos(db, c.eu, uid, c.admin, d);
+    const itemId = 'lk_' + Date.now().toString(36) + randomBytes(4).toString('hex'), item = { tipo_item: '', titulo, orientacao };
+    if (d.url) {
+      let u; try { u = new URL(String(d.url).trim()); } catch (e) { throw new HttpsError('invalid-argument', 'Esse link não parece válido.'); }
+      if (u.protocol !== 'https:') throw new HttpsError('invalid-argument', 'Use um link seguro, que começa com https://');
+      if (/\.(exe|apk|msi|bat|cmd|scr|jar|dmg|sh|ps1|vbs)$/i.test(u.pathname)) throw new HttpsError('invalid-argument', 'Esse tipo de arquivo não pode ser enviado para os alunos.');
+      const yt = (u.hostname.replace(/^www\.|^m\./, '') === 'youtu.be' ? u.pathname.slice(1) : /(^|\.)youtube\.com$/.test(u.hostname) ? (u.searchParams.get('v') || (u.pathname.match(/\/(embed|shorts|live)\/([\w-]{11})/) || [])[2]) : '') || '';
+      Object.assign(item, { tipo_item: 'link', url: u.href.slice(0, 2000), dominio: u.hostname.replace(/^www\./, ''), youtube: /^[\w-]{11}$/.test(yt) ? yt : '' });
+    } else if (d.arquivo && typeof d.arquivo.caminho === 'string') {
+      const cam = d.arquivo.caminho;
+      if (!cam.startsWith(`professores/${uid}/turma/`) || cam.includes('..')) throw new HttpsError('permission-denied', 'Arquivo inválido.');
+      const f = getStorage().bucket().file(cam), [existe] = await f.exists();
+      if (!existe) throw new HttpsError('not-found', 'O arquivo não terminou de subir. Tente de novo.');
+      const [m] = await f.getMetadata(), ct = String(m.contentType || ''), nome = txt(d.arquivo.nome || cam.split('/').pop(), 120).replace(/[^\w.\- À-ú()]/g, '_');
+      const tipoArq = /pdf$/.test(ct) ? 'pdf' : /^image\//.test(ct) ? 'imagem' : /^video\//.test(ct) ? 'video' : /^audio\//.test(ct) ? 'audio' : /presentation|powerpoint/.test(ct) ? 'slides' : /word|msword/.test(ct) ? 'texto' : /sheet|excel/.test(ct) ? 'planilha' : '';
+      if (!tipoArq) throw new HttpsError('invalid-argument', 'Esse tipo de arquivo não é aceito.');
+      const url = await linkPublico(cam, `turma-materiais/${itemId}/${nome}`);
+      Object.assign(item, { tipo_item: 'arquivo', arquivo_url: url, arquivo_nome: nome, arquivo_tipo: tipoArq, arquivo_ct: ct, tamanho: Number(m.size) || 0 });
+      await f.delete().catch(() => {});   // o original era só o envio; a cópia da turma é a que fica
+    } else throw new HttpsError('invalid-argument', 'Cole um link ou escolha um arquivo.');
+    await publicarNaTurma(db, turmas, itemId, { ...item, origem: 'link', autor_uid: uid, autor_nome: txt(c.eu.nome || '', 80), escola_nome: c.escola, disciplina: txt(d.disciplina, 60), tipo_nome: item.tipo_item === 'link' ? 'Link' : 'Arquivo' });
+    return { ok: true, turmas: turmas.length, nomes: turmas.slice(0, 8).map(t => t.nome || 'Turma') };
+  }
 
   const tipo = String(d.tipo || ''), T = TIPOS[tipo];
   if (!T) throw new HttpsError('invalid-argument', 'Tipo de trabalho desconhecido.');

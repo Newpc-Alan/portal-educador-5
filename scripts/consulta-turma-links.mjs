@@ -1,0 +1,31 @@
+// Teste do "Enviar para a turma" (link e arquivo) no Laboratório: YouTube, site comum, PDF; recusa http e .apk. Apaga tudo no fim.
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+const req = createRequire(process.cwd() + '/');
+const { initializeApp, applicationDefault } = await import(pathToFileURL(req.resolve('firebase-admin/app')).href);
+const { getAuth } = await import(pathToFileURL(req.resolve('firebase-admin/auth')).href);
+const { getFirestore } = await import(pathToFileURL(req.resolve('firebase-admin/firestore')).href);
+const { getStorage } = await import(pathToFileURL(req.resolve('firebase-admin/storage')).href);
+initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5', storageBucket: 'portal-educador-5.firebasestorage.app' });
+const db = getFirestore(), bucket = getStorage().bucket(), limpo = t => String(t).replace(/[{}"]/g, ' ').replace(/\r?\n/g, ' | ');
+const aviso = t => console.log('::notice::' + limpo(t).slice(0, 900));
+const API = 'AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0';
+let falhas = 0; const ok = (c, t) => { if (!c) falhas++; aviso((c ? 'OK · ' : 'FALHOU · ') + t); };
+const prof = (await db.collection('usuarios').where('email', '==', 'prof.ciencias@portaldoeducador.com.br').limit(1).get()).docs[0];
+const tk = (await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: await getAuth().createCustomToken(prof.id), returnSecureToken: true }) })).json()).idToken;
+const fn = async dados => (await fetch('https://southamerica-east1-portal-educador-5.cloudfunctions.net/trabalhoRede', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk }, body: JSON.stringify({ data: dados }) })).json().catch(() => ({}));
+const turma = (await db.collection('turmas').where('escola_id', '==', prof.data().escola_id).limit(5).get()).docs.find(t => (t.data().grade || []).some(g => g && g.professor_uid === prof.id) || (prof.data().turmas_ids || []).includes(t.id));
+const ids = [];
+const ver = async (r, rot, cheque) => { const id = r.result && (await db.collection(`turma_materiais/${turma.id}/itens`).orderBy('criado_em', 'desc').limit(1).get()).docs[0];
+  const it = id ? id.data() : {}; if (id) ids.push(id.id); ok(r.result && cheque(it), rot + ' · ' + limpo(JSON.stringify(r.result || r.error)) + ' · ' + limpo(JSON.stringify({ tipo: it.tipo_item, yt: it.youtube, dom: it.dominio, arq: it.arquivo_tipo }))); };
+await ver(await fn({ acao: 'enviar_link', titulo: 'Vídeo de teste', orientacao: 'Teste, pode ignorar.', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', turmas: [turma.id] }), 'YouTube', it => it.youtube === 'dQw4w9WgXcQ');
+await ver(await fn({ acao: 'enviar_link', titulo: 'Site de teste', url: 'https://pt.khanacademy.org/math', turmas: [turma.id] }), 'site comum', it => it.tipo_item === 'link' && it.dominio === 'pt.khanacademy.org');
+const cam = `professores/${prof.id}/turma/teste-${Date.now()}.pdf`;
+await bucket.file(cam).save(Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'), { contentType: 'application/pdf' });
+await ver(await fn({ acao: 'enviar_link', titulo: 'PDF de teste', arquivo: { caminho: cam, nome: 'teste.pdf' }, turmas: [turma.id] }), 'arquivo PDF', it => it.arquivo_tipo === 'pdf' && /firebasestorage/.test(it.arquivo_url));
+ok(!(await bucket.file(cam).exists())[0], 'original do professor apagado depois da cópia');
+const r1 = await fn({ acao: 'enviar_link', titulo: 'x', url: 'http://exemplo.com', turmas: [turma.id] }); ok(!r1.result, 'link http recusado · ' + limpo((r1.error || {}).message));
+const r2 = await fn({ acao: 'enviar_link', titulo: 'x', url: 'https://exemplo.com/app.apk', turmas: [turma.id] }); ok(!r2.result, '.apk recusado · ' + limpo((r2.error || {}).message));
+for (const id of ids) { await db.doc(`turma_materiais/${turma.id}/itens/${id}`).delete(); await bucket.deleteFiles({ prefix: `turma-materiais/${id}/` }).catch(() => {}); }
+aviso('itens de teste apagados: ' + ids.length);
+process.exit(falhas ? 1 : 0);

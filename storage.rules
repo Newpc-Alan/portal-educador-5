@@ -63,6 +63,14 @@ service firebase.storage {
     }
 
     // pasta de cada professor: so ele (e o administrador) acessa
+    // envio para a turma (link/arquivo do professor): sobe aqui e a função copia para a pasta da turma; até 100 MB (vídeo)
+    match /professores/{uid}/turma/{arquivo} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid && eu().status == "ativo"
+        && eu().perfil in ["professor", "gestor", "secretaria", "admin"]
+        && request.resource.size < 100 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/.*|audio/.*|video/(mp4|webm|quicktime)|application/vnd\\.openxmlformats-officedocument\\..*|application/msword|application/vnd\\.ms-excel|application/vnd\\.ms-powerpoint');
+    }
     match /professores/{uid}/{arquivo=**} {
       allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
       allow create, update: if request.auth != null && request.auth.uid == uid && licenciado() && arquivoValido();
