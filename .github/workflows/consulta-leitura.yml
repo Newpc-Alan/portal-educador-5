@@ -8,7 +8,7 @@ on:
       consulta:
         description: "Qual consulta"
         type: choice
-        options: [turma-links, trabalhos-rede, alunos-material, email-material, rede-feed, rede-diag, uso-ia, portal-ia, logs-portal-ia, portal-ia-provas, portal-ia-rede, portal-ia-planos, creditos-implantacao, portal-ia-questoes, acervo, regiao, arquivos-levantar, arquivos-preparar, arquivos-links, videos-posicao3, jogos, jogos-posicao1, capas-jogos, links-antigos, lousa-ia, nc-mapa, nc-teste, logs-nc, iam-token]
+        options: [foto-card, turma-links, trabalhos-rede, alunos-material, email-material, rede-feed, rede-diag, uso-ia, portal-ia, logs-portal-ia, portal-ia-provas, portal-ia-rede, portal-ia-planos, creditos-implantacao, portal-ia-questoes, acervo, regiao, arquivos-levantar, arquivos-preparar, arquivos-links, videos-posicao3, jogos, jogos-posicao1, capas-jogos, links-antigos, lousa-ia, nc-mapa, nc-teste, logs-nc, iam-token]
         default: uso-ia
 
 permissions:
@@ -39,6 +39,13 @@ jobs:
         env:
           ETAPA: ${{ inputs.consulta }}
         run: cd functions && node ../scripts/migrar-arquivos-sp.mjs "${ETAPA#arquivos-}"
+      - name: Guardar arquivos gerados (se houver)
+        if: ${{ always() && hashFiles('functions/saida/**') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: saida
+          path: functions/saida/
+          retention-days: 3
       - name: Apagar a credencial do runner
         if: always()
         run: rm -f "$RUNNER_TEMP/conta.json"
