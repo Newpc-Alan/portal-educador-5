@@ -195,6 +195,13 @@ const semMarca = t => String(t ?? '').replace(/^\s*(\(\s*\)|\[\s*\]|[A-Ea-e][).]
 const ehCombinacao = a => /^[VF](\s*[-,;/]?\s*[VF])+$/i.test(String(a || '').trim());
 /* ------------------------------------------------------------------ Provas e Avaliações: questões no formato da ferramenta */
 // aula em slides para a Lousa: capa + slides em formatos variados, com roteiro do professor; texto curto, para ler de longe
+// ranking de temas (Lousa e Portal IA): conta só o tema escolhido no banco de temas do Portal (identificador curto),
+// nunca o texto digitado (que pode trazer nome de aluno). Sem leitura: um incremento por material gerado.
+function contarTema(db, d) {
+  const chaveTema = String(d.tema_chave || ''), idTema = String(d.tema_id || '');
+  if (/^(ei|ef[1-9]|em[1-3])\|[A-Za-zÀ-ú ]{3,30}$/.test(chaveTema) && /^[a-z0-9-]{3,60}$/.test(idTema))
+    db.doc('temas_populares/' + chaveTema.replace('|', '__').replace(/ /g, '_')).set({ [idTema]: FieldValue.increment(1) }, { merge: true }).catch(() => {});
+}
 export const TIPOS_SLIDE = ['topicos', 'conceito', 'curiosidade', 'dado', 'linha_tempo', 'passos', 'comparacao', 'mapa', 'quiz', 'atividade', 'resumo'];
 export const ESQUEMA_AULA = {
   type: 'OBJECT',
@@ -479,6 +486,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       modelo: r.modelo, tokens_entrada: FieldValue.increment(ent), tokens_saida: FieldValue.increment(sai), atualizado_em: FieldValue.serverTimestamp() };
     if (anterior) { await docRef.set({ ...reg, ajustes: FieldValue.increment(1), anterior: anterior.doc }, { merge: true }); }
     else { docRef = db.collection('portal_ia_docs').doc(); await docRef.set({ ...reg, imagem: '', favorito: false, ajustes: 0, criado_em: FieldValue.serverTimestamp() }); }
+    if (d.acao === 'gerar') contarTema(db, d);
     return { id: docRef.id, tipo, nome: T.nome, publico: T.publico, doc, cota: await cota() };
   }
 
@@ -597,9 +605,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu a aula com problema (' + prob[0] + '). Tente de novo.');
     // ranking de temas da Aula com IA: conta só o tema escolhido no banco do Portal (identificador curto),
     // nunca o texto digitado (que pode trazer nome de aluno). Sem leitura: um incremento por aula.
-    const chaveTema = String(d.tema_chave || ''), idTema = String(d.tema_id || '');
-    if (/^(ei|ef[1-9]|em[1-3])\|[A-Za-zÀ-ú ]{3,30}$/.test(chaveTema) && /^[a-z0-9-]{3,60}$/.test(idTema))
-      db.doc('temas_populares/' + chaveTema.replace('|', '__').replace(/ /g, '_')).set({ [idTema]: FieldValue.increment(1) }, { merge: true }).catch(() => {});
+    contarTema(db, d);
     // Lousa Ultra: o professor escolhe de 1 a 4 ilustrações (capa + até 3 slides); cada uma cobra como imagem e a que falhar é estornada.
     // Primeiro os slides em que a IA pediu imagem; se faltar, slides de conteúdo (nunca quiz, atividade ou resumo).
     let imagens = {}, aviso = '';

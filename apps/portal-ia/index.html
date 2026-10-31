@@ -64,6 +64,14 @@ h2{font-size:1.1rem;font-weight:800}
 .fixo{display:inline-flex;align-items:center;gap:6px;background:var(--verde-cl);color:var(--verde);border-radius:99px;padding:5px 6px 5px 12px;font-weight:800;font-size:.82rem}
 .fixo button{border:0;background:#fff;border-radius:99px;width:24px;height:24px;font-weight:800;color:var(--verde)}
 .exs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sug{margin-top:12px;display:grid;gap:8px}
+.sug-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.9rem;color:var(--texto)}
+.sug-mais{border:0;background:none;color:#1565c0;font-weight:700;font-size:.85rem;cursor:pointer;padding:4px 2px}
+.sug-lista{display:flex;flex-wrap:wrap;gap:6px}
+.sug-it{border:1px solid var(--line2);background:#fff;border-radius:99px;padding:6px 12px;font-size:.85rem;color:var(--texto);cursor:pointer}
+.sug-it:hover{border-color:#1a6b2a;background:#f1f8ec}
+.sug-it.on{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+.sug-it:focus-visible,.sug-mais:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
 .ex{border:1px dashed var(--line2);background:#fff;border-radius:99px;padding:6px 12px;font-size:.84rem;color:var(--texto)}
 .ex:hover{border-color:var(--verde);color:var(--verde)}
 .cota{font-size:.8rem;color:var(--muted);font-weight:600}
@@ -377,6 +385,7 @@ function telaInicio(){
   '<div class="pede"><textarea id="pedido" maxlength="6000" placeholder="' + esc(at ? at.ph : "Ex.: preciso de uma atividade sobre frações para o 5º ano, com gabarito") + '">' + esc(E.texto) + "</textarea>" +
   '<div class="pe">' + (at ? '<span class="fixo">' + esc(at.t) + '<button type="button" data-action="soltar" aria-label="Tirar o tipo">×</button></span>' : "") +
   '<span class="cota">' + esc(textoCota()) + '</span>' + (E.cota && !E.cota.admin ? '<button type="button" class="btn comprar" data-action="comprar">💳 Comprar créditos</button>' : "") + '<span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div></div>" +
+  '<div id="piSug" class="sug" hidden></div>' +
   (at ? "" : '<div class="exs">' + EXEMPLOS.map(x => '<button type="button" class="ex" data-action="exemplo" data-arg="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div>") +
   "</section>" +
   '<section><h2 style="margin-bottom:10px">Atalhos do dia a dia</h2><div class="atalhos">' +
@@ -387,6 +396,58 @@ function telaInicio(){
   (E.aba === "rede" ? '<div id="redeLista">' + htmlRede() + "</div>" : E.recentes.length ? '<div class="rec">' + E.recentes.slice(0, 30).map(r => '<button type="button" class="rc" data-action="abrir" data-arg="' + esc(r.id) + '"><span class="tg">' + esc(r.tipo_nome || NOME_T[r.tipo] || "Material") + "</span><b>" + (r.favorito ? "★ " : "") + esc(r.titulo || r.tema || "Sem título") + "</b><small>" + esc(dataCurta(r.atualizado_em)) + "</small></button>").join("") + "</div>"
     : '<div class="caixa" style="text-align:center;color:var(--muted)">O que você preparar aqui fica guardado nesta lista.</div>') +
   "</section></div>";
+  pintarSugTemas();
+}
+/* ---------- banco de temas por série e disciplina (BNCC), o mesmo da Lousa, com ranking dos mais escolhidos ---------- */
+const TEMA_DISC = { "Língua Inglesa":"Inglês", "Biologia":"Ciências", "Física":"Ciências", "Química":"Ciências" };
+let temaSel = null, sugTodas = false; const rankTemas = {};
+function carregarTemas(){
+  if(window.PDE_TEMAS) return Promise.resolve();
+  if(carregarTemas.p) return carregarTemas.p;
+  return carregarTemas.p = new Promise(ok => { const sc = document.createElement("script"); sc.src = "/lousa/temas-bncc.js?v=1"; sc.onload = ok; sc.onerror = () => { carregarTemas.p = null; ok(); }; document.head.appendChild(sc); });
+}
+const slugTema = t => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+function serieTemas(){
+  const t = turmaAtual(), s = (E.serie ? E.serie : t ? (t.ano_serie || "") + " " + (t.nome || "") : "").toLowerCase();
+  if(/\beja\b/.test(s)) return "";
+  if(/creche|pr[eé]-?\s?escola|infantil|maternal|jardim/.test(s)) return "ei";
+  let m = s.match(/([1-3])\s*[ªa°º]?\s*(s[ée]rie|ano)?\b[^0-9]*m[ée]dio/); if(m) return "em" + m[1];
+  m = s.match(/([1-9])\s*[ºo°]?\s*ano/); if(m) return "ef" + m[1];
+  return "";
+}
+function chaveTemas(){
+  const se = serieTemas(); if(!se) return "";
+  if(se === "ei" || E.disc === "Educação Infantil") return "ei|Educação Infantil";
+  const d = TEMA_DISC[E.disc] || E.disc; return d ? se + "|" + d : "";
+}
+async function rankingTemas(chave){
+  if(chave in rankTemas) return rankTemas[chave];
+  rankTemas[chave] = {};
+  try{ const x = await getDoc(doc(db, "temas_populares", chave.replace("|", "__").replace(/ /g, "_"))); if(x.exists()) rankTemas[chave] = x.data() || {}; }catch(e){}
+  return rankTemas[chave];
+}
+const nomeSerieTemas = k => k === "ei" ? "Educação Infantil" : k[1] === "f" ? k[2] + "º ano" : k[2] + "ª série do Ensino Médio";
+async function pintarSugTemas(){
+  const box = $("piSug"); if(!box) return;
+  await carregarTemas();
+  const chave = chaveTemas(); let lista = chave && window.PDE_TEMAS && window.PDE_TEMAS[chave];
+  if(!lista){ box.hidden = true; return; }
+  const rk = await rankingTemas(chave); if(chave !== chaveTemas() || !$("piSug")) return;
+  let temas = lista.split(";");
+  if(["Biologia", "Física", "Química"].includes(E.disc)){ const so = temas.filter(t => t.startsWith(E.disc + ":")); if(so.length) temas = so; }
+  temas = temas.map((t, i) => ({ t, id:slugTema(t), i, n:Number(rk[slugTema(t)]) || 0 })).sort((a, b) => b.n - a.n || a.i - b.i);
+  const ver = sugTodas ? temas : temas.slice(0, 10), serie = chave.split("|")[0];
+  $("piSug").innerHTML = '<div class="sug-top"><b>Temas para ' + esc(nomeSerieTemas(serie)) + (serie === "ei" ? "" : " · " + esc(E.disc)) + ' (BNCC)</b>' +
+    (temas.length > 10 ? '<button type="button" class="sug-mais" data-action="tema-mais">' + (sugTodas ? "Mostrar menos" : "Ver todos (" + temas.length + ")") + "</button>" : "") + "</div>" +
+    '<div class="sug-lista">' + ver.map(x => '<button type="button" class="sug-it' + (temaSel && temaSel.id === x.id && temaSel.chave === chave ? " on" : "") + '" data-action="tema-sug" data-arg="' + esc(x.t) + '" data-id="' + x.id + '" data-chave="' + esc(chave) + '"' +
+      (x.n >= 3 ? ' title="Escolhido ' + x.n + ' vezes por professores do Portal"' : "") + ">" + (x.n >= 3 ? '<span aria-hidden="true">🔥</span> ' : "") + esc(x.t) + "</button>").join("") + "</div>";
+  box.hidden = false;
+}
+function usarTema(tema, id, chave){
+  const at = E.tipo ? ATALHOS.find(a => a.k === E.tipo) : null, serie = chave.split("|")[0];
+  const txt = (at ? at.t : "Material") + " sobre " + tema + " para " + (serie === "ei" ? "a Educação Infantil" : "o " + nomeSerieTemas(serie)) + ".";
+  const ta = $("pedido"); if(ta){ ta.value = txt; E.texto = txt; ta.focus(); ta.setSelectionRange(txt.length, txt.length); }
+  temaSel = { chave, id, texto:tema }; pintarSugTemas();
 }
 /* ---------- materiais compartilhados pela rede do município ---------- */
 async function carregarRede(){
@@ -566,7 +627,9 @@ async function gerar(){
   const qtdM = (resumo.match(/(\d{1,2})\s*(quest|exerc|pergunt)/i) || [])[1];
   c.etapa = "gerando"; E.ocupado = true; desenhar();
   try{
-    const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto() })).data;
+    const marca = temaSel && String(c.texto || "").includes(temaSel.texto) ? { tema_chave:temaSel.chave, tema_id:temaSel.id } : {};
+    const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto(), ...marca })).data;
+    temaSel = null;
     E.ocupado = false; clearInterval(E._passos);
     aposUso(r.cota); E.texto = ""; E.tipo = "";
     E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"", html:"" };
@@ -1013,6 +1076,8 @@ document.addEventListener("click", async ev => {
   if(a === "inicio"){ ev.preventDefault(); if(E.ocupado || E.editor) return; ir("inicio"); return; }
   if(a === "atalho"){ E.tipo = arg; E.texto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
   if(a === "soltar"){ E.tipo = ""; E.texto = $("pedido").value; telaInicio(); return; }
+  if(a === "tema-sug"){ usarTema(arg, el.dataset.id, el.dataset.chave); return; }
+  if(a === "tema-mais"){ sugTodas = !sugTodas; pintarSugTemas(); return; }
   if(a === "exemplo"){ $("pedido").value = arg; $("pedido").focus(); return; }
   if(a === "enviar") return enviar();
   if(a === "resp"){ lerRespostas(); E.conversa.respostas[el.dataset.id] = arg; telaConversa(); return; }
@@ -1048,11 +1113,11 @@ document.addEventListener("click", async ev => {
 });
 document.addEventListener("change", ev => {
   if(ev.target.id === "selTurma"){ definirTurma(ev.target.value); try{ localStorage.setItem("pde_pia_turma_" + E.user.uid, E.turma); }catch(e){} E.texto = ($("pedido") || {}).value || ""; telaInicio(); return; }
-  if(ev.target.id === "selDisc"){ E.disc = ev.target.value; return; }
+  if(ev.target.id === "selDisc"){ E.disc = ev.target.value; sugTodas = false; pintarSugTemas(); return; }
   if(ev.target.id === "redeDisc" || ev.target.id === "redeTipo"){ E.redeF[ev.target.id === "redeDisc" ? "disc" : "tipo"] = ev.target.value; $("redeLista").innerHTML = htmlRede(); return; }
   if(ev.target.id === "imgOnde"){ E.imgOnde = ev.target.value; const b = document.querySelector('[data-action="imagem"]'); if(b) b.textContent = E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem"; return; }
 });
-document.addEventListener("input", ev => { if(ev.target.id === "inSerie") E.serie = ev.target.value.trim();
+document.addEventListener("input", ev => { if(ev.target.id === "inSerie"){ E.serie = ev.target.value.trim(); clearTimeout(pintarSugTemas.t); pintarSugTemas.t = setTimeout(pintarSugTemas, 300); }
   if(ev.target.id === "redeQ"){ E.redeF.q = ev.target.value; const p = ev.target.selectionStart; $("redeLista").innerHTML = htmlRede(); const i = $("redeQ"); i.focus(); try{ i.setSelectionRange(p, p); }catch(e){} } });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape" && $("modal")){ fecharModal(); return; } if(ev.key === "Escape" && E.editor){ sairEditor(); return; } if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
 
