@@ -347,6 +347,8 @@
   .av-topo{ display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 20px;background:#0f2c4a;color:#fff;border-bottom:3px solid #8DC63F }
   .av-topo h3{ margin:0;font-size:20px;color:#fff } .av-topo select{ font:inherit;font-size:16px;font-weight:700;padding:8px 12px;border-radius:10px;border:0;min-height:42px }
   .av-esp{ flex:1 }
+  .av-qr{ border:0;border-radius:12px;padding:11px 16px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;min-height:42px;background:#e6edf3;color:#0f2c4a }
+  .av-qr.fechado{ background:#fff3d6;color:#7a5200;box-shadow:inset 0 0 0 2px #f2c14e } .av-qr.aberto{ background:#1a6b2a;color:#fff } .av-qr:disabled{ opacity:.7;cursor:default }
   .av-env{ background:#8DC63F;color:#0f2c4a;border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:15px;font-weight:800;cursor:pointer }
   .av-x{ background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 16px;font:inherit;cursor:pointer }
   .av-kpis{ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:16px 20px 0 }
@@ -5790,6 +5792,7 @@
     else if(acao === "mt-ao-vivo"){ abrirAoVivo(el.dataset.id); }
     else if(acao === "ini-vivo-plano"){ toast("Turma ao Vivo (quem está na sala e quem abriu cada material) faz parte do plano Completo. Fale com a NEWPC para liberar."); }
     else if(acao === "av-fechar"){ fecharAoVivo(); }
+    else if(acao === "av-qr"){ qrAoVivo(el.dataset.prox || "ver"); }
     else if(acao === "av-turma"){ /* troca pelo select */ }
     else if(acao === "av-visto"){ const id = el.dataset.arg; AV.aberto = AV.aberto === id ? "" : id; vigiarVistos(id); desenharMatsAoVivo(); }
     else if(acao === "et-fechar"){ const f = $("etFundo"); if(f && !f.dataset.ocupado) f.remove(); }
@@ -7088,6 +7091,7 @@
     const f = document.createElement("div"); f.id = "avFundo"; f.className = "av-fundo";
     f.innerHTML = '<div class="av-jan" role="dialog" aria-modal="true" aria-labelledby="avTit">' +
       '<div class="av-topo"><h3 id="avTit">📡 Turma ao Vivo</h3><select id="avTurma" aria-label="Turma">' + ts.map(t => '<option value="' + escapeAttr(t.id) + '">' + escapeHtml(t.nome || "Turma") + "</option>").join("") + '</select>' +
+        '<button type="button" class="av-qr" id="avQr" data-action="av-qr" disabled>QR: verificando...</button>' +
         '<span class="av-esp"></span><button type="button" class="av-env" data-action="ini-enviar-turma" id="avEnviar">🔗 Enviar conteúdo para a turma</button><button type="button" class="av-x" data-action="av-fechar">Fechar</button></div>' +
       '<div class="av-kpis"><div class="av-kpi verde"><span>👥</span><b id="avKOn">0</b><small id="avKOnT">na sala agora</small></div>' +
         '<div class="av-kpi"><span>📤</span><b id="avKEnv">0</b><small>materiais enviados</small></div>' +
@@ -7108,8 +7112,8 @@
     AV.subs.push(onSnapshot(collection(db, "turma_materiais", AV.tid, "itens", id, "vistos"), s2 => { const v = {}; s2.forEach(d => v[d.id] = d.data()); AV.vistos[id] = v; desenharAoVivo(); }, e => console.warn("vistos:", e.code)));
   }
   async function turmaAoVivo(tid){
-    pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"" });
-    $("avTurma").value = tid; $("avEnviar").dataset.turma = tid;
+    pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"", qrAte:null });
+    $("avTurma").value = tid; $("avEnviar").dataset.turma = tid; qrAoVivo("ver");
     try{ const sn = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", tid)));
       sn.forEach(d => { const a = d.data(); if(a.status !== "inativo" && a.situacao !== "transferido") AV.alunos.push({ id:d.id, nome:a.nome || "Aluno" }); });
       AV.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); }catch(e){ console.warn("alunos:", e.code); }
@@ -7119,8 +7123,29 @@
       AV.mats = []; sn.forEach(d => AV.mats.push({ id:d.id, ...d.data() }));
       AV.mats.slice(0, 3).forEach(m => vigiarVistos(m.id));
       desenharAoVivo(); }, e => console.warn("materiais:", e.code)));
-    AV.relogio = setInterval(desenharAoVivo, 5000);   // quem parou de mandar sinal sai da sala em segundos
+    AV.relogio = setInterval(() => { desenharAoVivo(); pintarQrAoVivo(); }, 5000);   // quem parou de mandar sinal sai da sala em segundos; o QR vence sozinho
     desenharAoVivo();
+  }
+  // entrada por QR da turma (cartão do aluno): abre por 4 horas, direto do painel ao vivo
+  async function qrAoVivo(acao){
+    const b = $("avQr"), tid = AV.tid; if(!b || !tid) return;
+    if(acao === "fechar" && b.dataset.confirma !== "1"){ b.dataset.confirma = "1"; b.textContent = "Fechar a entrada? Toque de novo"; setTimeout(() => { if(b.dataset.confirma === "1"){ delete b.dataset.confirma; pintarQrAoVivo(); } }, 4000); return; }
+    delete b.dataset.confirma; b.disabled = true; if(acao !== "ver") b.textContent = acao === "abrir" ? "Abrindo..." : "Fechando...";
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })({ turma_id:tid, acao })).data;
+      if(AV.tid !== tid) return;
+      AV.qrAte = r.aberta_ate || 0; pintarQrAoVivo();
+      if(acao === "abrir") toast("Entrada por QR aberta até " + new Date(AV.qrAte).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) + ". Os alunos já podem entrar com o cartão.");
+      if(acao === "fechar") toast("Entrada por QR fechada.");
+    }catch(e){ console.warn("qr:", e); if(AV.tid === tid){ AV.qrAte = null; b.disabled = false; b.className = "av-qr"; b.textContent = "QR: tentar de novo"; b.dataset.prox = "ver"; } }
+  }
+  function pintarQrAoVivo(){
+    const b = $("avQr"); if(!b || AV.qrAte === null || b.dataset.confirma) return;
+    const aberto = AV.qrAte > Date.now(); b.disabled = false;
+    b.className = "av-qr " + (aberto ? "aberto" : "fechado"); b.dataset.prox = aberto ? "fechar" : "abrir";
+    b.textContent = aberto ? "🔓 Entrada por QR aberta até " + new Date(AV.qrAte).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : "🔒 Abrir entrada por QR";
+    b.title = aberto ? "Os alunos entram mostrando o cartão para a câmera. Toque para fechar." : "Libera a entrada com o cartão por 4 horas.";
   }
   const msAv = x => x && x.toMillis ? x.toMillis() : 0;
   const onlineAv = id => { const p = AV.pres[id]; return !!p && !p.fora && Date.now() - msAv(p.em) < ON_MS; };
