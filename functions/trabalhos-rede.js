@@ -29,6 +29,23 @@ const LINK_REDE = '/entrar/#trabalhos-rede';
 const FORA = new Set(['rede', 'origem_rede', 'envios_email', 'turmas_enviadas', 'pasta_id', 'turma', 'turma_id', 'escola', 'criado_em', 'atualizado_em', 'arquivo', 'miniatura']);
 const metaDe = o => Object.fromEntries(Object.entries(o).filter(([k, v]) => !FORA.has(k) && (v === null || ['string', 'number', 'boolean'].includes(typeof v))));
 
+// o site deixa abrir dentro de outra página? (X-Frame-Options e CSP frame-ancestors). Só lê os cabeçalhos; endereço interno é recusado.
+async function podeEmbutir(url) {
+  try {
+    const u = new URL(url);
+    if (/(^|\.)portaldoeducador\.com\.br$/.test(u.hostname)) return true;
+    if (/^(localhost|[\d.]+|\[.*\])$|\.(internal|local)$/i.test(u.hostname)) return false;
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 5000);
+    const r = await fetch(u.href, { method: 'GET', redirect: 'follow', signal: ctl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (Portal do Educador)' } }).finally(() => clearTimeout(t));
+    try { r.body && r.body.cancel(); } catch (e) {}
+    const xfo = String(r.headers.get('x-frame-options') || '').toLowerCase();
+    if (xfo.includes('deny') || xfo.includes('sameorigin')) return false;
+    const fa = (String(r.headers.get('content-security-policy') || '').match(/frame-ancestors([^;]*)/i) || [])[1];
+    if (fa != null) { const v = fa.trim(); if (!(v === '*' || /\*\.portaldoeducador\.com\.br|app\.portaldoeducador\.com\.br|https:(?!\/)/.test(v))) return false; }
+    return r.ok;
+  } catch (e) { return false; }
+}
+
 async function contexto(db, uid) {
   const s = await db.doc(`usuarios/${uid}`).get(); const eu = s.exists ? s.data() : null;
   if (!eu || eu.status !== 'ativo') throw new HttpsError('permission-denied', 'Conta sem acesso.');
@@ -65,6 +82,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       if (/\.(exe|apk|msi|bat|cmd|scr|jar|dmg|sh|ps1|vbs)$/i.test(u.pathname)) throw new HttpsError('invalid-argument', 'Esse tipo de arquivo não pode ser enviado para os alunos.');
       const yt = (u.hostname.replace(/^www\.|^m\./, '') === 'youtu.be' ? u.pathname.slice(1) : /(^|\.)youtube\.com$/.test(u.hostname) ? (u.searchParams.get('v') || (u.pathname.match(/\/(embed|shorts|live)\/([\w-]{11})/) || [])[2]) : '') || '';
       Object.assign(item, { tipo_item: 'link', url: u.href.slice(0, 2000), dominio: u.hostname.replace(/^www\./, ''), youtube: /^[\w-]{11}$/.test(yt) ? yt : '' });
+      if (!item.youtube) item.embed = await podeEmbutir(item.url);
     } else if (d.arquivo && typeof d.arquivo.caminho === 'string') {
       const cam = d.arquivo.caminho;
       if (!cam.startsWith(`professores/${uid}/turma/`) || cam.includes('..')) throw new HttpsError('permission-denied', 'Arquivo inválido.');
