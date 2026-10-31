@@ -24,8 +24,8 @@ const cam = `professores/${prof.id}/turma/teste-${Date.now()}.pdf`;
 await bucket.file(cam).save(Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'), { contentType: 'application/pdf' });
 await ver(await fn({ acao: 'enviar_link', titulo: 'PDF de teste', arquivo: { caminho: cam, nome: 'teste.pdf' }, turmas: [turma.id] }), 'arquivo PDF', it => it.arquivo_tipo === 'pdf' && /firebasestorage/.test(it.arquivo_url));
 ok(!(await bucket.file(cam).exists())[0], 'original do professor apagado depois da cópia');
-const r1 = await fn({ acao: 'enviar_link', titulo: 'x', url: 'http://exemplo.com', turmas: [turma.id] }); ok(!r1.result, 'link http recusado · ' + limpo((r1.error || {}).message));
-const r2 = await fn({ acao: 'enviar_link', titulo: 'x', url: 'https://exemplo.com/app.apk', turmas: [turma.id] }); ok(!r2.result, '.apk recusado · ' + limpo((r2.error || {}).message));
+const r1 = await fn({ acao: 'enviar_link', titulo: 'Teste http', url: 'http://exemplo.com', turmas: [turma.id] }); ok(!r1.result, 'link http recusado · ' + limpo((r1.error || {}).message));
+const r2 = await fn({ acao: 'enviar_link', titulo: 'Teste apk', url: 'https://exemplo.com/app.apk', turmas: [turma.id] }); ok(!r2.result, '.apk recusado · ' + limpo((r2.error || {}).message));
 for (const id of ids) { await db.doc(`turma_materiais/${turma.id}/itens/${id}`).delete(); await bucket.deleteFiles({ prefix: `turma-materiais/${id}/` }).catch(() => {}); }
 aviso('itens de teste apagados: ' + ids.length);
 process.exit(falhas ? 1 : 0);
