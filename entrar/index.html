@@ -4341,11 +4341,11 @@
     fab.classList.toggle("ativa", mostrar);
     $("lsSelo").textContent = "Continuar" + (lousa.paginas ? " · "+lousa.paginas+" pág." : "");
   }
-  function abrirLousa(idTrabalho){
+  function abrirLousa(idTrabalho, compartilhar){
     const f = $("lsFrame"); if(!f) return;
     // "v" muda a cada 10 min: a Lousa nunca fica presa numa versão antiga guardada pelo navegador
     const v = "&v=" + Math.floor(Date.now() / 600000).toString(36);
-    if(idTrabalho){ f.src = LOUSA_URL + "?abrir=" + encodeURIComponent(idTrabalho) + v; lousa.carregada = true; }
+    if(idTrabalho){ f.src = LOUSA_URL + "?abrir=" + encodeURIComponent(idTrabalho) + (compartilhar ? "&compartilhar=1" : "") + v; lousa.carregada = true; }
     else if(!lousa.carregada){ f.src = LOUSA_URL + "?retomar=1" + v; lousa.carregada = true; }
     $("lsOverlay").classList.add("aberto");
     document.documentElement.style.overflow = "hidden";
@@ -4482,6 +4482,7 @@
           ? '<input type="text" class="tr-nome" id="trNome" maxlength="'+T.max+'" value="'+escapeAttr(i.titulo)+'" aria-label="Novo nome"><div class="tr-ed"><button class="btn-mini btn-gerenciar" data-action="tr-salvar-nome" data-tr="'+escapeAttr(chave)+'">Salvar</button><button class="btn-mini tr-sec" data-action="tr-cancelar">Cancelar</button></div>'
           : '<b>'+escapeHtml(i.titulo)+'</b><small>'+(t ? '<span class="tr-ptag" style="color:'+T.cor+'">'+T.pasta+'</span> · ' : '')+escapeHtml(i.det)+(i.em ? ' · '+dataTr(i.em) : '')+'</small>')+'</div>'+
         (ed ? '' : '<div class="tr-acoes"><button class="btn-mini btn-gerenciar" data-action="tr-abrir" data-tr="'+escapeAttr(chave)+'">'+(T.soAbrir ? "Abrir painel" : "Abrir")+'</button>'+
+          (["lousa", "portalia"].includes(i.tipo) ? '<button class="btn-mini tr-sec tr-comp" data-action="tr-compartilhar" data-tr="'+escapeAttr(chave)+'" title="Rede, e-mail ou alunos">Compartilhar</button>' : '')+
           (T.soAbrir ? '' : '<button class="btn-mini tr-sec" data-action="tr-renomear" data-tr="'+escapeAttr(chave)+'">Renomear</button>'+
           '<button class="btn-mini tr-sec tr-del" data-action="tr-excluir" data-tr="'+escapeAttr(chave)+'">Excluir</button>')+'</div>')+'</article>'; }).join("");
     const n = $("trNome"); if(n){ n.focus(); n.select(); }
@@ -4529,6 +4530,7 @@
     else if(a === "tr-sub"){ trs.sub = el.dataset.sub || ""; desenharTrabalhos(); }
     else if(a === "tr-abrir" && i) abrirTrabalho(i);
     else if(a === "tr-rede-usar") usarTrabalhoRede(el);
+    else if(a === "tr-compartilhar" && i){ if(i.tipo === "lousa") abrirLousa(i.id, true); else if(i.tipo === "portalia") location.href = "/apps/portal-ia/#doc=" + encodeURIComponent(i.id) + "&c=1"; }
     else if(a === "tr-renomear" && i){ trs.editando = el.dataset.tr; desenharTrabalhos(); }
     else if(a === "tr-cancelar"){ trs.editando = ""; desenharTrabalhos(); }
     else if(a === "tr-salvar-nome" && i){
