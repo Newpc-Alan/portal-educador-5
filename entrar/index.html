@@ -386,7 +386,8 @@
   .ac-card.trava{ cursor:default } .ac-card.trava .ac-img{ filter:grayscale(.9) brightness(.85) }
   .ac-card.trava .ac-tx{ border-top-color:#c3ccd6 } .ac-card.trava .ac-tx b{ color:#61758a }
   /* Maestro no Início: cartão pequeno, igual aos cartões do dia */
-  .au-lista{ margin-bottom:20px;grid-template-columns:minmax(0,440px) }
+  .au-lista{ margin-bottom:20px;grid-template-columns:repeat(auto-fill,minmax(0,440px)) }
+  .hj-card.azul{ border-left-color:#2671AB } .hj-card.azul .hj-btn{ background:#2671AB }
   .au-lousa{ margin:8px 0 0 6px;background:transparent;border:1px solid var(--line);color:var(--navy);border-radius:11px;padding:8px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;vertical-align:top }
   .au-lousa:hover{ border-color:var(--navy) }
   .ac-card.conteudo .ac-tx{ border-top-color:#2E9BD6 }
@@ -6256,7 +6257,6 @@
     { rede:true, rec:"prova_online", id:"respostas",  titulo:"Corrigir respostas", sub:"Questões abertas da prova online",  foto:"corrigir-respostas", cor:"verde", mod:"provas",     href:"/prova/" },
     { hero:true, id:"aula",       titulo:"Iniciar aula",       sub:"Conduza a turma no Portal Maestro", foto:"iniciar-aula",       cor:"navy",  maestro:true },
     { hero:true, id:"lousa",      titulo:"Abrir a lousa",      sub:"Quadro digital na tela da sala",    foto:"lousa",              cor:"navy",  acao:"lousa-abrir" },
-    { rede:true, id:"aovivo",     titulo:"Turma ao vivo",      sub:"Quem está online e quem abriu",     foto:"turmas",             cor:"verde", acao:"ini-ao-vivo" },
     { rede:true, id:"enviarturma", titulo:"Enviar para a turma", sub:"Link, PDF, slides ou vídeo",       foto:"enviar-turma",         cor:"verde", acao:"ini-enviar-turma" },
     { id:"atividades", titulo:"Atividades prontas", sub:"Alinhadas à BNCC, para imprimir",   foto:"atividades",         cor:"navy",  mod:"atividades", acao:"ini-atividades" }
   ];
@@ -6278,11 +6278,16 @@
     Object.assign(iniProf, { doPlano, admin, aula });
     const hero = $("iniAulaHero");
     // Maestro: cartão pequeno, no mesmo formato dos cartões do dia (foto, título, frase e um botão)
+    // ao lado: cartão próprio da Turma ao vivo (independe do Maestro, aparece mesmo sem ele)
+    const cartaoAoVivo = usuarioAtual._avulso ? '' : '<div class="hj-card azul"><span class="hj-img" style="background-image:url(\''+fotoAcao("turma-ao-vivo")+'\'),url(\''+fotoAcao("turmas")+'\')"></span>'+
+      '<span class="hj-tx"><b>Turma ao vivo</b><small>Quem está online, envie materiais e veja quem já abriu.</small>'+
+      '<button type="button" class="hj-btn" data-action="ini-ao-vivo" data-ac="aovivo">📡 Abrir a turma</button>'+
+      '<button type="button" class="au-lousa" data-action="ini-enviar-turma" data-ac="enviarturma">🔗 Enviar</button></span></div>';
     if(hero) hero.innerHTML = aula ? '<div class="hj-lista au-lista" aria-label="Começar a aula"><div class="hj-card verde"><span class="hj-img" style="background-image:url(\''+fotoAcao("aula-destaque")+'\')"></span>'+
       '<span class="hj-tx"><b>Pronto para a aula?</b><small>Abra a turma no Maestro'+(admin && aula.previa ? ' (prévia: ainda não liberado para os professores)' : '')+'.</small>'+
       '<a class="hj-btn" href="'+escapeAttr(aula.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="maestro" data-ac="aula">\u25B6 Iniciar aula</a>'+
-      '<button type="button" class="au-lousa" data-action="lousa-abrir" data-ac="lousa">Lousa</button>'+
-      (usuarioAtual._avulso ? '' : '<button type="button" class="au-lousa" data-action="ini-ao-vivo" data-ac="aovivo">📡 Turma ao vivo</button><button type="button" class="au-lousa" data-action="ini-enviar-turma" data-ac="enviarturma">🔗 Enviar para a turma</button>')+'</span></div></div>' : "";
+      '<button type="button" class="au-lousa" data-action="lousa-abrir" data-ac="lousa">Lousa</button></span></div>'+cartaoAoVivo+'</div>'
+      : (cartaoAoVivo ? '<div class="hj-lista au-lista" aria-label="Turma ao vivo">'+cartaoAoVivo+'</div>' : "");
     const box = $("iniAcoes"); if(!box) return;
     const grandes = [], pequenos = [];
     ACOES_PROF.forEach(a => {
