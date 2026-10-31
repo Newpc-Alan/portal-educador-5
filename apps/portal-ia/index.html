@@ -1144,7 +1144,14 @@ onAuthStateChanged(auth, async user => {
   ir("inicio");
   // vindo de "Meus trabalhos" no Início: /apps/portal-ia/#doc=ID
   const pedido = (location.hash.match(/^#doc=([\w-]{4,64})$/) || [])[1];
-  if(pedido){ history.replaceState(null, "", location.pathname); abrir(pedido); }
+  // vindo das Novidades da rede (Início ou e-mail): ?rede=ID abre o material; ?rede=todos abre a vitrine
+  const daRede = (location.search.match(/[?&]rede=([\w-]{3,64})/) || [])[1];
+  if(daRede){
+    history.replaceState(null, "", location.pathname);
+    E.aba = "rede"; telaInicio(); await carregarRede(); telaInicio();
+    if(daRede !== "todos") abrirRede(daRede); else { const ab = document.querySelector(".abas"); if(ab) ab.scrollIntoView({ block:"start", behavior:"smooth" }); }
+  }
+  else if(pedido){ history.replaceState(null, "", location.pathname); abrir(pedido); }
   else if(location.hash === "#comprar"){ history.replaceState(null, "", location.pathname); abrirCompra(); }   // vindo do saldo no menu
 });
 </script>

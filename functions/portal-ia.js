@@ -9,6 +9,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
+import { feedRede } from './rede-feed.js';
 import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
@@ -670,6 +671,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       termo_aceito_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(), ...(antes.exists ? {} : { criado_em: FieldValue.serverTimestamp() })
     });
     await origRef.set({ rede: { municipio_id: mun, em: FieldValue.serverTimestamp() } }, { merge: true });
+    // Novidades da rede (Início dos colegas e resumo diário por e-mail)
+    await feedRede(db, mun, { id: redeId, titulo: txt(o.titulo || (o.doc && o.doc.titulo), 160), tipo_nome: o.tipo_nome || (TIPOS[o.tipo] || {}).nome || '',
+      disciplina: txt(cx2.disciplina, 60), serie: txt(cx2.serie, 30), autor_nome: txt(ctx.eu.nome || '', 80), autor_uid: uid, escola_nome: escola, atualizado: antes.exists }).catch(e => console.warn('feedRede', e.message));
     return { ok: true, id: redeId };
   }
   if (d.acao === 'descompartilhar') {
@@ -678,6 +682,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     if (rs.data().uid !== uid && !ctx.admin) throw new HttpsError('permission-denied', 'Só quem compartilhou pode tirar da rede.');
     await getStorage().bucket().deleteFiles({ prefix: `portal-ia-rede/${rs.data().municipio_id}/${id}/` }).catch(() => {});
     await ref.delete();
+    await feedRede(db, rs.data().municipio_id, null, id).catch(() => {});
     await db.doc(`portal_ia_docs/${rs.data().origem_id}`).set({ rede: FieldValue.delete() }, { merge: true }).catch(() => {});
     return { ok: true };
   }
@@ -714,7 +719,13 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
       t.update(ref, { denuncias: n, ...(n >= 3 ? { status: 'oculto' } : {}) });
       return n >= 3;
     });
+    if (oculto) { const rr = (await ref.get()).data() || {}; await feedRede(db, rr.municipio_id, null, ref.id).catch(() => {}); }
     return { ok: true, oculto };
+  }
+  // resumo diário das novidades da rede por e-mail: o próprio professor liga ou desliga
+  if (d.acao === 'pref_resumo_rede') {
+    await db.doc(`usuarios/${uid}`).set({ resumo_rede: d.ligado === true }, { merge: true });
+    return { ok: true, ligado: d.ligado === true };
   }
 
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');

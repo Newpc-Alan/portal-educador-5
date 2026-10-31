@@ -299,6 +299,17 @@
   .ini-selo.plano{ background:#9a6700 }
   /* ===== Inicio do professor: Para hoje + acoes com foto (fotos em /assets/inicio/) ===== */
   .ini-sec{ margin-bottom:24px }
+  .rd-card{ background:#fff;border:1px solid var(--line, #dfe7ef);border-left:5px solid #1a6b2a;border-radius:14px;padding:14px 16px }
+  .rd-top{ display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px } .rd-top h3{ margin:0 }
+  .rd-x{ border:0;background:none;font-size:22px;line-height:1;color:#7b8a99;cursor:pointer;padding:4px 8px;border-radius:8px } .rd-x:hover{ background:#f1f4f7 }
+  .rd-it{ display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid #eef2f6;color:inherit;text-decoration:none;border-radius:8px } .rd-it:hover{ background:#f6faf3 }
+  .rd-tx{ flex:1;min-width:0;line-height:1.35 } .rd-tx small{ display:block;color:#6b7a89;font-size:12.5px;margin-top:2px }
+  .rd-novo{ background:#1a6b2a;color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;flex:none }
+  .rd-ir{ font-size:22px;color:#9aa8b6;flex:none }
+  .rd-pe{ display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:13px }
+  .rd-pe a{ color:#1565c0;font-weight:700;text-decoration:none }
+  .rd-mail{ border:1px solid #d5dfe9;background:#fff;border-radius:99px;padding:6px 12px;font:inherit;font-size:12.5px;color:#33475b;cursor:pointer }
+  .rd-x:focus-visible, .rd-it:focus-visible, .rd-mail:focus-visible, .rd-pe a:focus-visible{ outline:2px solid #2E9BD6;outline-offset:2px }
   .ini-sec > h3{ font-size:17px;font-weight:800;color:var(--ink);margin-bottom:12px }
   .hj-lista{ display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px }
   .hj-card{ display:flex;align-items:center;gap:14px;background:#fff;border:1.5px solid var(--line);border-left:5px solid #2671AB;border-radius:16px;padding:10px 14px 10px 10px }
@@ -5328,6 +5339,13 @@
     else if(acao === "ini-conheca-fechar"){ fecharConheca(); }
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
     else if(acao === "alu-sair"){ signOut(auth); }
+    else if(acao === "rede-fechar"){ try{ localStorage.setItem("pde_rede_fechado_" + usuarioAtual.uid, String(Date.now())); }catch(e){} const b = $("iniRede"); if(b) b.innerHTML = ""; }
+    else if(acao === "rede-resumo"){
+      const ligar = el.dataset.arg === "1"; el.disabled = true;
+      try{ await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"pref_resumo_rede", ligado:ligar });
+        usuarioAtual.resumo_rede = ligar; toast(ligar ? "Resumo diário ligado: você recebe as novidades da rede por e-mail." : "Resumo diário desligado."); cartaoRedeInicio(); }
+      catch(e){ toast("Não deu para mudar agora. Tente de novo.", true); el.disabled = false; }
+    }
     else if(acao === "alu-inicio"){ selecionar(MENUS.aluno.itens[0]); window.scrollTo({ top:0 }); }
     else if(acao === "ini-turmas"){ const it = (MENUS.professor.itens || []).find(i => i.id === "turmas"); if(it) selecionar(it); }
     else if(acao === "ini-atividades"){ registrarModulo(el.dataset.mod); renderAtividades(); }
@@ -5547,6 +5565,25 @@
   let planoVigente = null;
   const modDoKit = (c, it) => c === "biblioteca" && it && it.secao === "historias" ? "historias" : (c === "acervo" ? "" : c);
   const kitLiberado = (c, it) => { const mod = modDoKit(c, it); return !mod || !planoVigente || planoVigente.has(mod); };
+  /* Novidades da rede: os últimos materiais que colegas do município compartilharam no Portal IA (1 leitura: rede_feed) */
+  async function cartaoRedeInicio(){
+    const box = $("iniRede"), u = usuarioAtual; if(!box || !u.municipio_id || !["professor", "gestor"].includes(u.perfil)) return;
+    let f = null; try{ const x = await getDoc(doc(db, "rede_feed", u.municipio_id)); f = x.exists() ? x.data() : null; }catch(e){ return; }
+    const ms = x => x && x.em ? (x.em.toMillis ? x.em.toMillis() : (x.em.seconds || 0) * 1000) : 0;
+    const itens = ((f && f.itens) || []).filter(x => x && x.autor_uid !== u.uid).slice(0, 3);
+    if(!itens.length || !$("iniRede")) return;
+    let visto = 0, fechado = 0; try{ visto = Number(localStorage.getItem("pde_rede_visto_" + u.uid)) || 0; fechado = Number(localStorage.getItem("pde_rede_fechado_" + u.uid)) || 0; }catch(e){}
+    if(!itens.some(x => ms(x) > fechado)) return;   // dispensou e não chegou nada depois
+    const quando = t => { const m = Math.max(1, Math.round((Date.now() - t) / 60000)); return m < 60 ? "há " + m + " min" : m < 1440 ? "há " + Math.round(m / 60) + " h" : m < 2880 ? "ontem" : "há " + Math.round(m / 1440) + " dias"; };
+    const ligado = u.resumo_rede !== false;
+    box.innerHTML = '<section class="ini-sec rd-card" aria-labelledby="rdTit"><div class="rd-top"><h3 id="rdTit">📢 Novidades da sua rede</h3><button type="button" class="rd-x" data-action="rede-fechar" aria-label="Dispensar estas novidades">×</button></div>' +
+      itens.map(x => '<a class="rd-it" href="/apps/portal-ia/?rede=' + encodeURIComponent(x.id) + '">' + (ms(x) > visto ? '<span class="rd-novo">novo</span>' : '') +
+        '<span class="rd-tx"><b>' + escapeHtml(x.autor_nome || "Um colega") + '</b> ' + (x.atualizado ? "atualizou" : "compartilhou") + ' <b>' + escapeHtml(x.titulo || "um material") + '</b>' +
+        '<small>' + escapeHtml([x.tipo_nome, x.disciplina, x.serie, x.escola_nome].filter(Boolean).join(" · ")) + ' · ' + quando(ms(x)) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></a>').join("") +
+      '<div class="rd-pe"><a href="/apps/portal-ia/?rede=todos">Ver todos os materiais da rede</a>' +
+      '<button type="button" class="rd-mail" data-action="rede-resumo" data-arg="' + (ligado ? "0" : "1") + '">✉️ Resumo diário por e-mail: <b>' + (ligado ? "ligado" : "desligado") + '</b> · ' + (ligado ? "desligar" : "ligar") + '</button></div></section>';
+    try{ localStorage.setItem("pde_rede_visto_" + u.uid, String(Date.now())); }catch(e){}
+  }
   async function renderInicio(){
     const admin = usuarioAtual.perfil === "admin";
     // direção da escola (perfil gestor), ou o administrador na prévia da direção
@@ -5572,6 +5609,7 @@
           '<div id="iniNoticias"></div><div id="iniDatas"></div>'
         // professor: o que tem para hoje, as acoes do dia a dia com foto e o resto do Portal recolhido em "Mais recursos"
         : '<div id="iniAulaHero"></div><section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo suas turmas...</div></div></section>'+
+          '<div id="iniRede"></div>'+
           '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
           '<details class="ini-mais" id="iniMais"><summary>Mais recursos do Portal</summary>'+
           '<div class="ini-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></details>'+
@@ -5579,6 +5617,7 @@
           '<p class="cq-sub">Recursos que ainda não estão liberados para você. Toque para saber mais.</p><div class="ini-grid" id="iniConheca"></div></section>'+
           '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniNoticias"></div><div id="iniDatas"></div>');
     if(!ehAluno){
+      cartaoRedeInicio();
       const det = $("iniMais");
       try{ det.open = localStorage.getItem("pde_ini_mais") === "1"; }catch(e){}
       det.addEventListener("toggle", () => { try{ localStorage.setItem("pde_ini_mais", det.open ? "1" : "0"); }catch(e){} });
