@@ -87,6 +87,21 @@ service cloud.firestore {
         || (aluno() && eu().get("turma_id", "") == tid)
         || (vinculado() && turmaDoc(tid).escola_id in minhasEscolas());
       allow write: if false;
+      // "visto por": o aluno marca que abriu (só o próprio registro); o professor da escola acompanha
+      match /vistos/{k} {
+        allow read: if admin() || (logado() && equipeTurma(tid));
+        allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["nome", "em"])
+          && novo().nome is string && novo().nome.size() <= 80 && novo().em == request.time;
+      }
+    }
+    // Turma ao vivo: o Portal do Aluno aberto avisa a cada minuto que está ali; o professor da turma vê quem está online
+    function alunoDaTurma(tid) { return logado() && (request.auth.token.get("turma_id", "") == tid || (aluno() && eu().get("turma_id", "") == tid)); }
+    function souChave(k) { return k == request.auth.token.get("aluno_id", "-") || k == request.auth.uid; }
+    function equipeTurma(tid) { return (vinculado() || (ativo() && eu().perfil in ["gestor", "secretaria"])) && turmaDoc(tid).escola_id in minhasEscolas(); }
+    match /turma_presenca/{tid}/alunos/{k} {
+      allow read: if admin() || (logado() && equipeTurma(tid));
+      allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["nome", "em"])
+        && novo().nome is string && novo().nome.size() <= 80 && novo().em == request.time;
     }
     // Novidades da rede (últimos materiais compartilhados no Portal IA): professores e gestores ativos do próprio município
     match /rede_feed/{mun} {
