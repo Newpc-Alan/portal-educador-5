@@ -38,3 +38,7 @@ for (const em of ['prof.historia@portaldoeducador.com.br']) {
   const t = await r.json().catch(() => null);
   aviso(em + ' · consulta da vitrine com as regras: HTTP ' + r.status + ' · ' + (Array.isArray(t) ? t.filter(z => z.document).length + ' material(is)' : limpo(JSON.stringify(t)).slice(0, 300)));
 }
+// resumo das novidades de cada rede (o que o cartão do Início lê)
+for (const f of (await db.collection('rede_feed').get()).docs) {
+  aviso('rede_feed/' + f.id + ': ' + (f.data().itens || []).map(x => x.titulo + ' por ' + x.autor_nome + ' (' + (x.em && x.em.toDate().toISOString()) + ')').join(' | '));
+}
