@@ -17,9 +17,11 @@ const fn = async dados => (await fetch('https://southamerica-east1-portal-educad
 const turma = (await db.collection('turmas').where('escola_id', '==', prof.data().escola_id).limit(5).get()).docs.find(t => (t.data().grade || []).some(g => g && g.professor_uid === prof.id) || (prof.data().turmas_ids || []).includes(t.id));
 const ids = [];
 const ver = async (r, rot, cheque) => { const id = r.result && (await db.collection(`turma_materiais/${turma.id}/itens`).orderBy('criado_em', 'desc').limit(1).get()).docs[0];
-  const it = id ? id.data() : {}; if (id) ids.push(id.id); ok(r.result && cheque(it), rot + ' · ' + limpo(JSON.stringify(r.result || r.error)) + ' · ' + limpo(JSON.stringify({ tipo: it.tipo_item, yt: it.youtube, dom: it.dominio, arq: it.arquivo_tipo }))); };
+  const it = id ? id.data() : {}; if (id) ids.push(id.id); ok(r.result && cheque(it), rot + ' · ' + limpo(JSON.stringify(r.result || r.error)) + ' · ' + limpo(JSON.stringify({ tipo: it.tipo_item, yt: it.youtube, dom: it.dominio, arq: it.arquivo_tipo, embed: it.embed }))); };
 await ver(await fn({ acao: 'enviar_link', titulo: 'Vídeo de teste', orientacao: 'Teste, pode ignorar.', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', turmas: [turma.id] }), 'YouTube', it => it.youtube === 'dQw4w9WgXcQ');
 await ver(await fn({ acao: 'enviar_link', titulo: 'Site de teste', url: 'https://pt.khanacademy.org/math', turmas: [turma.id] }), 'site comum', it => it.tipo_item === 'link' && it.dominio === 'pt.khanacademy.org');
+await ver(await fn({ acao: 'enviar_link', titulo: 'Wikipedia de teste', url: 'https://pt.wikipedia.org/wiki/Fotoss%C3%ADntese', turmas: [turma.id] }), 'site que deixa embutir (conferência)', it => it.tipo_item === 'link' && typeof it.embed === 'boolean');
+await ver(await fn({ acao: 'enviar_link', titulo: 'Jogo do Portal de teste', url: 'https://jogos.portaldoeducador.com.br/', turmas: [turma.id] }), 'jogo do próprio Portal abre dentro', it => it.embed === true);
 const cam = `professores/${prof.id}/turma/teste-${Date.now()}.pdf`;
 await bucket.file(cam).save(Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF'), { contentType: 'application/pdf' });
 await ver(await fn({ acao: 'enviar_link', titulo: 'PDF de teste', arquivo: { caminho: cam, nome: 'teste.pdf' }, turmas: [turma.id] }), 'arquivo PDF', it => it.arquivo_tipo === 'pdf' && /firebasestorage/.test(it.arquivo_url));
