@@ -309,6 +309,13 @@
   .mt-topo span{ display:flex;gap:6px;flex:none } .mt-b{ background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer;min-height:40px }
   .mt-if{ flex:1;border:0;width:100% }
   .mt-ic{ font-size:26px;flex:none;width:36px;text-align:center }
+  .hist-faixa{ display:flex;flex-wrap:wrap;gap:8px;margin:0 0 18px } .hist-faixa .pv-hist{ margin:0;font:inherit;font-size:14.5px;font-weight:700;padding:10px 16px;cursor:pointer;display:inline-block }
+  .mh-filtros{ display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr);gap:8px;padding:12px 14px;background:#f4f7fa;border-bottom:1px solid #e1e8f0 }
+  .mh-filtros input,.mh-filtros select{ font:inherit;font-size:16px;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px;min-height:46px;width:100%;box-sizing:border-box }
+  .mh-filtros #mhDia{ grid-column:2 }
+  .mh-lista{ flex:1;overflow:auto;padding:12px 14px;display:grid;gap:8px;align-content:start;max-width:900px;width:100%;box-sizing:border-box;margin:0 auto }
+  .mh-dia{ margin:8px 0 0;font-size:13px;color:#62758a;text-transform:capitalize }
+  @media (max-width:640px){ .mh-filtros{ grid-template-columns:1fr } .mh-filtros #mhDia{ grid-column:auto } }
   .mt-box{ flex:1;overflow:auto;background:#eef2f6;display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px }
   .mt-ori{ margin:0;max-width:1100px;width:100%;background:#fff8e1;border:1px solid #f2d27a;border-radius:12px;padding:10px 14px;font-size:17px;color:#5a4b00 }
   .mt-vid{ width:100%;max-width:1200px;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden } .mt-vid iframe,.mt-vid video{ width:100%;height:100%;border:0;display:block }
@@ -5431,7 +5438,9 @@
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
     else if(acao === "alu-sair"){ signOut(auth); }
     else if(acao === "mt-abrir"){ abrirMaterialAluno(el.dataset.arg); desenharMateriaisAluno(); }
-    else if(acao === "mt-fechar"){ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); const f = $("mtFundo"); if(f) f.remove(); desenharMateriaisAluno(); }
+    else if(acao === "mt-fechar"){ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); const f = $("mtFundo"); if(f){ mtFechar(f.dataset.id); f.remove(); } desenharMateriaisAluno(); if($("mhFundo")) desenharHistAulas(); }
+    else if(acao === "mt-hist"){ abrirHistAulas(); }
+    else if(acao === "mh-fechar"){ const f = $("mhFundo"); if(f) f.remove(); }
     else if(acao === "mt-letra" && $("mtPdf")){ const p = $("mtPdf"), z = Math.min(2.2, Math.max(0.8, (parseFloat(p.style.getPropertyValue("--z")) || 1) + Number(el.dataset.arg) * 0.2)); p.style.setProperty("--z", String(z)); }
     else if(acao === "mt-letra"){ const f = $("mtFundo"), fr = f && f.querySelector("iframe"); const d = fr && fr.contentDocument && fr.contentDocument.getElementById("folha");
       if(d){ const z = Math.min(2, Math.max(0.8, (parseFloat(d.style.getPropertyValue("--z")) || 1) + Number(el.dataset.arg) * 0.15)); d.style.setProperty("--z", String(z)); } }
@@ -5708,7 +5717,7 @@
       '</div>'+
       '</div>'+
       (ehAluno
-        ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniMateriais"></div>'+
+        ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniMateriais"></div><div id="iniHist" class="hist-faixa"></div>'+
           '<section class="ini-sec ini-alu" aria-labelledby="aluTit"><h3 id="aluTit">Aprender brincando</h3>'+
           '<div class="ac-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></section>'+
           '<div id="iniNoticias"></div><div id="iniDatas"></div>'
@@ -6773,8 +6782,8 @@
     MT.tid = tid; MT.chave = chave || usuarioAtual.uid;
     if(!MT.pulso){ pulsoAluno(); MT.pulso = setInterval(pulsoAluno, 60000); document.addEventListener("visibilitychange", pulsoAluno); }
     if(MT.unsub){ MT.unsub(); MT.unsub = null; }
-    MT.unsub = onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(20)), sn => {
-      const l = []; sn.forEach(d => l.push({ id:d.id, tid, ...d.data() })); MT.lista = l; desenharMateriaisAluno();
+    MT.unsub = onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(120)), sn => {
+      const l = []; sn.forEach(d => l.push({ id:d.id, tid, ...d.data() })); MT.lista = l; MT.temMais = l.length >= 120; desenharMateriaisAluno();
       // o professor mandou agora (ou chegou nas últimas 2 h e o aluno ainda não viu): abre sozinho, em tela cheia
       let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
       const ms = x => x && x.toMillis ? x.toMillis() : Date.now();
@@ -6783,13 +6792,25 @@
       if(novo && !$("mtFundo")) abrirMaterialAluno(novo.id, true);
     }, e => console.warn("materiais da turma:", e.code));
   }
+  // aberto e fechado = vai para o Histórico de aulas (guardado neste aparelho, por aluno)
+  const mtFechados = () => { try{ return new Set(JSON.parse(localStorage.getItem("pde_mt_fechados_" + usuarioAtual.uid) || "[]")); }catch(e){ return new Set(); } };
+  function mtFechar(id){ try{ const f = mtFechados(); f.add(id); localStorage.setItem("pde_mt_fechados_" + usuarioAtual.uid, JSON.stringify([...f].slice(-500))); }catch(e){} }
+  const mtIcone = m => m.tipo_item === "link" ? (m.youtube ? "▶️" : "🔗") : m.tipo_item === "arquivo" ? ({ pdf:"📄", slides:"📊", video:"🎬", imagem:"🖼️", audio:"🎧", texto:"📝", planilha:"📈" }[m.arquivo_tipo] || "📎") : "📘";
+  function desenharHistoricos(){
+    const el = $("iniHist"); if(!el) return;
+    const fech = mtFechados(), nAulas = MT.lista.filter(m => fech.has(m.id)).length || (MT.temMais ? 1 : 0), nProvas = PV.antigas || 0;
+    el.innerHTML = (nProvas ? '<a class="pv-hist" href="/prova/">\u{1F4DA} Histórico de provas (' + nProvas + ')</a>' : '') +
+      (MT.lista.length ? '<button type="button" class="pv-hist" data-action="mt-hist">\u{1F4D6} Histórico de aulas' + (nAulas && !MT.temMais ? ' (' + nAulas + ')' : '') + '</button>' : '');
+  }
   function desenharMateriaisAluno(){
     const el = $("iniMateriais"); if(!el){ if(MT.unsub){ MT.unsub(); MT.unsub = null; } return; }
-    if(!MT.lista.length){ el.innerHTML = ""; return; }
+    desenharHistoricos();
+    const fech = mtFechados(), atuais = MT.lista.filter(m => !fech.has(m.id));
+    if(!atuais.length){ el.innerHTML = ""; return; }
     let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
     const ms = x => x && x.toMillis ? x.toMillis() : 0;
-    el.innerHTML = '<section class="ini-sec" aria-labelledby="mtTit"><h3 id="mtTit">📚 Materiais da turma</h3><div class="mt-lista">' +
-      MT.lista.map(m => '<button type="button" class="mt-card" data-action="mt-abrir" data-arg="' + escapeHtml(m.id) + '">' + (ms(m.criado_em) > visto ? '<span class="rd-novo">novo</span>' : '') +
+    el.innerHTML = '<section class="ini-sec" aria-labelledby="mtTit"><h3 id="mtTit">📚 Aula de hoje</h3><div class="mt-lista">' +
+      atuais.slice(0, 4).map(m => '<button type="button" class="mt-card" data-action="mt-abrir" data-arg="' + escapeHtml(m.id) + '">' + (ms(m.criado_em) > visto ? '<span class="rd-novo">novo</span>' : '') +
         '<span class="mt-ic" aria-hidden="true">' + (m.tipo_item === "link" ? (m.youtube ? "▶️" : "🔗") : m.tipo_item === "arquivo" ? ({ pdf:"📄", slides:"📊", video:"🎬", imagem:"🖼️", audio:"🎧", texto:"📝", planilha:"📈" }[m.arquivo_tipo] || "📎") : "📘") + '</span>' +
         '<span class="mt-tx"><b>' + escapeHtml(m.titulo || "Material") + '</b><small>' + escapeHtml([m.tipo_item === "link" && m.dominio ? m.dominio : "", m.disciplina, m.autor_nome ? "Prof. " + m.autor_nome : ""].filter(Boolean).join(" · ")) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></button>').join("") + '</div></section>';
   }
@@ -6799,7 +6820,7 @@
     // "visto por": o professor acompanha quem abriu
     if(MT.tid && MT.chave) setDoc(doc(db, "turma_materiais", MT.tid, "itens", id, "vistos", MT.chave), { nome:String(usuarioAtual.nome || "Aluno").slice(0, 80), em:serverTimestamp() }).catch(e => console.warn("visto:", e.code));
     try{ localStorage.setItem("pde_mt_visto_" + usuarioAtual.uid, String(Date.now())); }catch(e){}
-    const fundo = document.createElement("div"); fundo.className = "mt-fundo"; fundo.id = "mtFundo";
+    const fundo = document.createElement("div"); fundo.className = "mt-fundo"; fundo.id = "mtFundo"; fundo.dataset.id = id;
     fundo.innerHTML = '<div class="mt-jan" role="dialog" aria-modal="true" aria-label="' + escapeHtml(m.titulo || "Material") + '"><div class="mt-topo"><b>' + escapeHtml(m.titulo || "Material") + '</b>' +
       '<span><button type="button" class="mt-b" data-action="mt-letra" data-arg="-1" aria-label="Diminuir a letra">A−</button><button type="button" class="mt-b" data-action="mt-letra" data-arg="1" aria-label="Aumentar a letra">A+</button>' +
       '<button type="button" class="mt-b" data-action="mt-fechar">Fechar</button></span></div><iframe class="mt-if" sandbox="allow-same-origin" title="Material"></iframe></div>';
@@ -6817,6 +6838,38 @@
     // tela cheia de verdade quando veio de um toque do aluno (o navegador só deixa com um gesto); se chegou sozinho, a janela já cobre a tela toda
     if(!sozinho && fundo.requestFullscreen) fundo.requestFullscreen().catch(() => {});
     if(sozinho) try{ navigator.vibrate && navigator.vibrate(120); }catch(e){}
+  }
+  /* Histórico de aulas do aluno: tudo o que a turma recebeu, com busca por tema, data e professor */
+  const MH = { q:"", prof:"", per:"" };
+  function abrirHistAulas(){
+    const velho = $("mhFundo"); if(velho) velho.remove();
+    const profs = [...new Set(MT.lista.map(m => m.autor_nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    const f = document.createElement("div"); f.id = "mhFundo"; f.className = "mt-fundo";
+    f.innerHTML = '<div class="mt-jan" role="dialog" aria-modal="true" aria-labelledby="mhTit"><div class="mt-topo"><b id="mhTit">📖 Histórico de aulas</b><span><button type="button" class="mt-b" data-action="mh-fechar">Fechar</button></span></div>' +
+      '<div class="mh-filtros"><input id="mhQ" type="search" placeholder="Procurar pelo tema da aula" aria-label="Procurar pelo tema da aula" value="' + escapeAttr(MH.q) + '">' +
+      '<select id="mhPer" aria-label="Data"><option value="">Qualquer data</option><option value="hoje">Hoje</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="dia">Escolher o dia...</option></select>' +
+      '<input id="mhDia" type="date" aria-label="Dia da aula" hidden>' +
+      '<select id="mhProf" aria-label="Professor"><option value="">Todos os professores</option>' + profs.map(p => '<option' + (p === MH.prof ? " selected" : "") + ">" + escapeHtml(p) + "</option>").join("") + "</select></div>" +
+      '<div id="mhLista" class="mh-lista"></div></div>';
+    document.body.appendChild(f);
+    $("mhPer").value = MH.per; $("mhDia").hidden = MH.per !== "dia";
+    f.addEventListener("input", e => { if(e.target.id === "mhQ"){ MH.q = e.target.value; desenharHistAulas(); } if(e.target.id === "mhDia") desenharHistAulas(); });
+    f.addEventListener("change", e => { if(e.target.id === "mhPer"){ MH.per = e.target.value; $("mhDia").hidden = MH.per !== "dia"; desenharHistAulas(); } if(e.target.id === "mhProf"){ MH.prof = e.target.value; desenharHistAulas(); } });
+    desenharHistAulas(); $("mhQ").focus();
+  }
+  function desenharHistAulas(){
+    const box = $("mhLista"); if(!box) return;
+    const ms = x => x && x.toMillis ? x.toMillis() : 0, sem = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const q = sem(MH.q.trim()), agora = new Date(), ini0 = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+    let de = 0, ate = Infinity;
+    if(MH.per === "hoje") de = ini0; else if(MH.per === "7" || MH.per === "30") de = ini0 - (Number(MH.per) - 1) * 864e5;
+    else if(MH.per === "dia" && $("mhDia").value){ const [a, m, d] = $("mhDia").value.split("-").map(Number); de = new Date(a, m - 1, d).getTime(); ate = de + 864e5; }
+    const l = MT.lista.filter(m => (!q || sem([m.titulo, m.disciplina, m.orientacao].join(" ")).includes(q)) && (!MH.prof || m.autor_nome === MH.prof) && ms(m.criado_em) >= de && ms(m.criado_em) < ate);
+    const dia = t => new Date(t).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
+    let ult = "";
+    box.innerHTML = !l.length ? '<p class="mt-ori">Nada encontrado com esses filtros.</p>' : l.map(m => { const d = dia(ms(m.criado_em)), cab = d !== ult ? '<h4 class="mh-dia">' + escapeHtml(d) + "</h4>" : ""; ult = d;
+      return cab + '<button type="button" class="mt-card" data-action="mt-abrir" data-arg="' + escapeAttr(m.id) + '"><span class="mt-ic" aria-hidden="true">' + mtIcone(m) + '</span>' +
+        '<span class="mt-tx"><b>' + escapeHtml(m.titulo || "Material") + '</b><small>' + escapeHtml([m.disciplina, m.autor_nome ? "Prof. " + m.autor_nome : "", new Date(ms(m.criado_em)).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })].filter(Boolean).join(" · ")) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></button>'; }).join("");
   }
   // link ou arquivo enviado pelo professor: YouTube e vídeo tocam aqui; PDF é desenhado página por página; slides e documentos pelo visualizador do Office
   const urlArquivoOk = u => /^https:\/\/firebasestorage\.googleapis\.com\//.test(String(u || ""));
@@ -6871,8 +6924,9 @@
     const atual = p => p.status === "agendada" && (p.aguardando || msDe(p.fecha_em) >= agora);
     const l = PV.lista.filter(atual).sort((a, b) => (b.aguardando || msDe(b.abre_em) <= agora) - (a.aguardando || msDe(a.abre_em) <= agora) || msDe(a.abre_em) - msDe(b.abre_em));
     const antigas = PV.lista.filter(p => p.status === "encerrada" || (p.status === "agendada" && !p.aguardando && msDe(p.fecha_em) < agora)).length;
-    const hist = antigas ? '<a class="pv-hist" href="/prova/">\u{1F4DA} Histórico de provas ('+antigas+')</a>' : '';
-    if(!l.length){ el.innerHTML = hist ? '<div class="pv-faixa pv-so-hist">'+hist+'</div>' : ""; return; }
+    PV.antigas = antigas; desenharHistoricos();
+    const hist = '';
+    if(!l.length){ el.innerHTML = ""; return; }
     const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), dd = m => new Date(m).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
     // a primeira prova vira o destaque do tablet (foto, texto grande, botão grande); as demais ficam embaixo, menores
     const linha = (p, destaque) => {
