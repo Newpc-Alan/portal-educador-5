@@ -18,7 +18,7 @@ Formato: .webp, 800 x 600 px (4:3), até ~80 KB. O assunto deve ficar no centro,
 | aula-destaque.webp | Faixa "Pronto para a aula?" (Maestro em destaque) | professora com tablet e lousa (16:9, definitiva) |
 | lousa.webp | Abrir a lousa | vídeos (produzir: lousa digital na sala) |
 | atividades.webp | Atividades prontas | atividades |
-| enviar-turma.webp | Enviar para a turma | close do tablet do aluno com vídeo de ciências (gerada no Portal IA, definitiva) |
+| turma-ao-vivo.webp | Cartão Turma ao vivo (ao lado de Pronto para a aula) | close do tablet do aluno com vídeo de ciências (gerada no Portal IA) |
 
 O navegador guarda as fotos em cache. Depois de trocar, pode levar alguns minutos para aparecer (ou use Ctrl+F5).
 
