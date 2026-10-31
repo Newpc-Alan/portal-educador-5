@@ -325,6 +325,9 @@
   .mt-site b{ font-size:20px } .mt-site small{ color:#5b6b7b } .mt-sico{ font-size:48px }
   .mt-abrir{ background:#1a6b2a;color:#fff;text-decoration:none;font-weight:700;font-size:18px;border-radius:12px;padding:14px 28px }
   .mt-img{ max-width:100%;height:auto;border-radius:10px;background:#fff }
+  .mt-box.mt-box-site{ padding:0;gap:0;background:#fff } .mt-box-site .mt-ori{ border-radius:0;max-width:none;border-width:0 0 1px }
+  .mt-siteif{ flex:1;width:100%;min-height:72vh;border:0;background:#fff } .mt-alt{ margin:0;padding:6px 12px;font-size:13px;color:#5b6b7b;width:100%;box-sizing:border-box;text-align:right;background:#f6f8fb }
+  .mt-sitemsg{ margin:0;font-size:14px;color:#8c1d18 }
   .mt-office{ flex:1;width:100%;min-height:70vh;border:0;background:#fff;border-radius:10px }
   .mt-pdf{ width:100%;max-width:1100px;display:grid;gap:12px;zoom:var(--z,1) } .mt-pdf .pg{ width:100%;height:auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);border-radius:6px }
   .et-fundo{ position:fixed;inset:0;z-index:9400;background:rgba(7,22,33,.6);display:flex;align-items:center;justify-content:center;padding:16px }
@@ -5763,6 +5766,7 @@
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
     else if(acao === "alu-sair"){ signOut(auth); }
     else if(acao === "mt-abrir"){ abrirMaterialAluno(el.dataset.arg); desenharMateriaisAluno(); }
+    else if(acao === "mt-site"){ abrirSiteAluno(ev, el); }
     else if(acao === "mt-fechar"){ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); const f = $("mtFundo"); if(f){ mtFechar(f.dataset.id); f.remove(); } desenharMateriaisAluno(); if($("mhFundo")) desenharHistAulas(); }
     else if(acao === "mt-hist"){ abrirHistAulas(); }
     else if(acao === "mh-fechar"){ const f = $("mhFundo"); if(f) f.remove(); }
@@ -7264,6 +7268,21 @@
       return cab + '<button type="button" class="mt-card" data-action="mt-abrir" data-arg="' + escapeAttr(m.id) + '"><span class="mt-ic" aria-hidden="true">' + mtIcone(m) + '</span>' +
         '<span class="mt-tx"><b>' + escapeHtml(m.titulo || "Material") + '</b><small>' + escapeHtml([m.disciplina, m.autor_nome ? "Prof. " + m.autor_nome : "", new Date(ms(m.criado_em)).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" })].filter(Boolean).join(" · ")) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></button>'; }).join("");
   }
+  // abre dentro do Portal: endereços do próprio Portal sempre; os outros, quando a função conferiu ao enviar que o site permite (m.embed)
+  function linkEmbutivel(m){
+    let u = null; try{ u = new URL(m.url || ""); }catch(e){ return false; }
+    if(u.protocol !== "https:") return false;
+    return /(^|\.)portaldoeducador\.com\.br$/.test(u.hostname) || m.embed === true;
+  }
+  // abrir site em aba nova: sai da tela cheia antes (em tela cheia a aba nova abre escondida atrás do Portal)
+  async function abrirSiteAluno(ev, a){
+    const url = a.dataset.url || a.getAttribute("href"); if(!/^https:\/\//.test(url)) return;
+    ev.preventDefault();
+    if(document.fullscreenElement) try{ await document.exitFullscreen(); }catch(e){}
+    const w = window.open(url, "_blank", "noopener,noreferrer");
+    const msg = $("mtSiteMsg");
+    if(!w && msg){ msg.innerHTML = 'O navegador bloqueou a aba nova. <a href="' + escapeAttr(url) + '" target="_blank" rel="noopener noreferrer">Toque aqui</a> ou peça ao professor para liberar janelas do Portal.'; }
+  }
   // link ou arquivo enviado pelo professor: YouTube e vídeo tocam aqui; PDF é desenhado página por página; slides e documentos pelo visualizador do Office
   const urlArquivoOk = u => /^https:\/\/firebasestorage\.googleapis\.com\//.test(String(u || ""));
   async function mostrarLinkArquivo(fundo, m){
@@ -7273,9 +7292,16 @@
     const ori = m.orientacao ? '<p class="mt-ori">📌 ' + escapeHtml(m.orientacao) + "</p>" : "";
     if(m.tipo_item === "link" && m.youtube){
       box.innerHTML = ori + '<div class="mt-vid"><iframe src="https://www.youtube-nocookie.com/embed/' + escapeAttr(m.youtube) + '?rel=0&modestbranding=1&playsinline=1" title="Vídeo" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>';
+    } else if(m.tipo_item === "link" && linkEmbutivel(m)){
+      // sites que deixam abrir dentro de outra página (os do próprio Portal e os que a função conferiu ao enviar): abre aqui mesmo, em tela cheia
+      box.classList.add("mt-box-site");
+      box.innerHTML = ori + '<iframe class="mt-siteif" src="' + escapeAttr(m.url) + '" title="' + escapeAttr(m.titulo || "Site") + '" allow="autoplay; fullscreen; clipboard-write; microphone; camera" allowfullscreen ' +
+        'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads"></iframe>' +
+        '<p class="mt-alt">Não carregou? <a href="' + escapeAttr(m.url) + '" target="_blank" rel="noopener noreferrer" data-action="mt-site" data-url="' + escapeAttr(m.url) + '">Abrir numa aba nova</a></p>';
     } else if(m.tipo_item === "link"){
       box.innerHTML = ori + '<div class="mt-site"><div class="mt-sico">🔗</div><b>' + escapeHtml(m.titulo || "Site") + '</b><small>' + escapeHtml(m.dominio || "") + '</small>' +
-        '<a class="mt-abrir" href="' + escapeAttr(/^https:\/\//.test(m.url || "") ? m.url : "#") + '" target="_blank" rel="noopener noreferrer">Abrir o site</a><small>O site abre numa aba nova. Quando terminar, volte para o Portal.</small></div>';
+        '<a class="mt-abrir" href="' + escapeAttr(/^https:\/\//.test(m.url || "") ? m.url : "#") + '" target="_blank" rel="noopener noreferrer" data-action="mt-site" data-url="' + escapeAttr(m.url || "") + '">Abrir o site</a>' +
+        '<small>Este site não deixa abrir dentro do Portal, então ele abre numa aba nova. Quando terminar, volte para o Portal.</small><p id="mtSiteMsg" class="mt-sitemsg" role="status"></p></div>';
     } else if(!urlArquivoOk(m.arquivo_url)){ box.innerHTML = '<p class="mt-ori">Arquivo indisponível.</p>'; }
     else if(m.arquivo_tipo === "video") box.innerHTML = ori + '<div class="mt-vid"><video src="' + escapeAttr(m.arquivo_url) + '" controls playsinline controlslist="nodownload"></video></div>';
     else if(m.arquivo_tipo === "audio") box.innerHTML = ori + '<div class="mt-site"><div class="mt-sico">🎧</div><b>' + escapeHtml(m.titulo) + '</b><audio src="' + escapeAttr(m.arquivo_url) + '" controls></audio></div>';
