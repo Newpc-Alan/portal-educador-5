@@ -25,7 +25,7 @@ for (const m of muns) {
 // conta que está tentando ver: perfil, status, município, e a mesma consulta da tela feita COM as regras (como o professor)
 const { getAuth } = await import(pathToFileURL(req.resolve('firebase-admin/auth')).href);
 const API = 'AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0';
-for (const em of ['prof.historia@portaldoeducador.com.br']) {
+for (const em of []) {
   const q = await db.collection('usuarios').where('email', '==', em).limit(1).get();
   if (q.empty) { aviso(em + ': sem cadastro em usuarios'); continue; }
   const u = q.docs[0], x = u.data();
@@ -40,5 +40,6 @@ for (const em of ['prof.historia@portaldoeducador.com.br']) {
 }
 // resumo das novidades de cada rede (o que o cartão do Início lê)
 for (const f of (await db.collection('rede_feed').get()).docs) {
-  aviso('rede_feed/' + f.id + ': ' + (f.data().itens || []).map(x => x.titulo + ' por ' + x.autor_nome + ' (' + (x.em && x.em.toDate().toISOString()) + ')').join(' | '));
+  try { aviso('rede_feed/' + f.id + ': ' + (f.data().itens || []).map(x => x.titulo + ' por ' + x.autor_nome + ' (' + (x.em && x.em.toDate ? x.em.toDate().toISOString() : JSON.stringify(x.em)) + ')').join(' | ')); }
+  catch (e) { aviso('rede_feed/' + f.id + ' erro ' + e.message); }
 }
