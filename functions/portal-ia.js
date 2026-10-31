@@ -779,7 +779,7 @@ ${anexos.length ? `<p style="margin:0 0 14px">O material está em anexo, em PDF$
 <p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #eef2f6;color:#8a98a6;font-size:11.5px">Preparado com o Portal IA do <a href="https://portaldoeducador.com.br" style="color:#1a6b2a">Portal do Educador</a>, plataforma da NEWPC Tecnologia para escolas e redes de ensino.</p>
 </div></div>`;
     const remetente = SMTP_USUARIO.value();
-    await transporte().sendMail({ from: `"${nome.replace(/["\r\n]/g, '')} via Portal do Educador" <${remetente}>`, to: `"Portal do Educador" <${remetente}>`, bcc: para,
+    await transporte().sendMail({ from: `"${nome.replace(/["\r\n]/g, '')} via Portal do Educador" <${remetente}>`, bcc: para,
       replyTo: okEm(String(ctx.eu.email || '').toLowerCase()) ? ctx.eu.email : undefined, subject: (nome + ' compartilhou com você: ' + titulo).replace(/[\r\n]/g, ' ').slice(0, 150), html, attachments: anexos });
     await os.ref.set({ envios_email: FieldValue.increment(para.length) }, { merge: true });
     return { ok: true, enviados: para.length };
