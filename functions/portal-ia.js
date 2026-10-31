@@ -10,6 +10,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
 import { feedRede } from './rede-feed.js';
+import { transporte, escHtml, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
@@ -409,7 +410,7 @@ function contextoTexto(cx) {
 }
 
 /* ------------------------------------------------------------------ a função */
-export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 240, memory: '512MiB', maxInstances: 20 }, async req => {
+export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 240, memory: '512MiB', maxInstances: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
   const ctx = await contexto(db, uid); ctx.uid = uid;
@@ -721,6 +722,67 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI]
     });
     if (oculto) { const rr = (await ref.get()).data() || {}; await feedRede(db, rr.municipio_id, null, ref.id).catch(() => {}); }
     return { ok: true, oculto };
+  }
+  /* ---------------- enviar um material por e-mail (colegas da turma ou qualquer pessoa) ----------------
+     Vai em PDF anexo (gerado na tela do professor) ou, no material editado à mão, no corpo do e-mail.
+     Resposta cai direto no e-mail do professor (replyTo). Limite: 30 destinatários por dia por professor. */
+  if (d.acao === 'enviar_email') {
+    const os = await db.doc(`portal_ia_docs/${txt(d.id, 64)}`).get();
+    if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
+    const o = os.data();
+    if (o.tipo === 'parecer') throw new HttpsError('failed-precondition', 'O parecer tem dados do aluno e não é enviado por e-mail daqui.');
+    const okEm = e => /^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$/.test(e);
+    let para = (Array.isArray(d.para) ? d.para : []).map(e => String(e).trim().toLowerCase()).filter(okEm);
+    // colegas que dão aula nas turmas escolhidas (pela grade), só de escolas do próprio professor
+    const minhasEsc = new Set([...(ctx.eu.escolas_ids || []), ctx.eu.escola_id].filter(Boolean));
+    for (const tid of (Array.isArray(d.turmas) ? d.turmas : []).slice(0, 10)) {
+      const t = await db.doc(`turmas/${txt(tid, 64)}`).get(); if (!t.exists) continue;
+      const td = t.data(); if (!ctx.admin && !minhasEsc.has(td.escola_id)) continue;
+      const uids = [...new Set((td.grade || []).map(g => g && g.professor_uid).filter(x => x && x !== uid))].slice(0, 30);
+      const us = await Promise.all(uids.map(u => db.doc(`usuarios/${u}`).get()));
+      us.forEach(x => { const em = x.exists && x.data().status === 'ativo' ? String(x.data().email || '').toLowerCase() : ''; if (okEm(em)) para.push(em); });
+    }
+    para = [...new Set(para)].slice(0, 30);
+    if (!para.length) throw new HttpsError('invalid-argument', 'Informe pelo menos um e-mail válido.');
+    // anexos (PDF) ou o texto do material editado
+    const anexos = [];
+    for (const a of (Array.isArray(d.anexos) ? d.anexos : []).slice(0, 2)) {
+      const b = Buffer.from(String((a && a.b64) || ''), 'base64');
+      if (b.length < 100 || b.length > 7e6 || b.slice(0, 4).toString() !== '%PDF') throw new HttpsError('invalid-argument', 'O PDF não foi gerado direito. Tente de novo.');
+      anexos.push({ filename: (txt(a.nome, 80).replace(/[^\w.\- À-ú]/g, '') || 'material') .replace(/(\.pdf)?$/i, '.pdf'), content: b, contentType: 'application/pdf' });
+    }
+    let corpoMat = '';
+    if (!anexos.length) {
+      corpoMat = String(d.html || '').slice(0, 300000).replace(/<(script|style|iframe|object|embed|form|input|button|textarea|select|link|meta)[\s\S]*?(<\/\1>|>)/gi, '')
+        .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '').replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '');
+      if (corpoMat.replace(/<[^>]+>/g, '').trim().length < 20) throw new HttpsError('invalid-argument', 'Não encontrei o conteúdo do material para enviar.');
+    }
+    // limite diário por professor
+    const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande' }).format(new Date());
+    const cRef = db.doc(`portal_ia_envios/${uid}_${dia}`);
+    await db.runTransaction(async t => { const c = await t.get(cRef), n = c.exists ? (c.data().n || 0) : 0;
+      if (!ctx.admin && n + para.length > 30) throw new HttpsError('resource-exhausted', 'Limite de 30 pessoas por dia no envio por e-mail. Hoje ainda dá para ' + Math.max(0, 30 - n) + '.');
+      t.set(cRef, { uid, dia, n: n + para.length, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); });
+    let escola = '', mun = '';
+    if (ctx.eu.escola_id) { const es = await db.doc(`escolas/${ctx.eu.escola_id}`).get(); escola = es.exists ? txt(es.data().nome, 120) : ''; }
+    if (ctx.muni) mun = txt(ctx.muni.nome, 80);
+    const nome = txt(ctx.eu.nome || 'Um(a) professor(a)', 80), titulo = txt(o.titulo || (o.doc && o.doc.titulo) || 'Material', 160), cx2 = o.contexto || {};
+    const msg = txt(d.mensagem, 500), esc = escHtml;
+    const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0c2338;max-width:680px">
+<div style="background:#0f2c4a;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><b style="font-size:16px">${esc(nome)} compartilhou um material com você</b><br><span style="color:#8DC63F;font-size:12px">${esc([escola, mun].filter(Boolean).join(' · ') || 'Portal do Educador')}</span></div>
+<div style="border:1px solid #dce4ed;border-top:0;padding:18px 20px;border-radius:0 0 12px 12px">
+${msg ? `<p style="margin:0 0 14px;padding:10px 14px;background:#f4f8fb;border-left:4px solid #1a6b2a;border-radius:6px;white-space:pre-line">${esc(msg)}</p>` : ''}
+<p style="margin:0 0 4px;font-size:17px"><b>${esc(titulo)}</b></p>
+<p style="margin:0 0 14px;color:#5b6b7b;font-size:13px">${esc([o.tipo_nome, cx2.disciplina, cx2.serie].filter(Boolean).join(' · '))}</p>
+${anexos.length ? `<p style="margin:0 0 14px">O material está em anexo, em PDF${anexos.length > 1 ? ' (com o gabarito em arquivo separado)' : ''}.</p>` : `<div style="border:1px solid #e6edf4;border-radius:10px;padding:14px">${corpoMat}</div>`}
+<p style="margin:16px 0 0;color:#5b6b7b;font-size:12.5px">Para falar com ${esc(nome.split(' ')[0])}, é só responder este e-mail.</p>
+<p style="margin:14px 0 0;padding-top:12px;border-top:1px solid #eef2f6;color:#8a98a6;font-size:11.5px">Preparado com o Portal IA do <a href="https://portaldoeducador.com.br" style="color:#1a6b2a">Portal do Educador</a>, plataforma da NEWPC Tecnologia para escolas e redes de ensino.</p>
+</div></div>`;
+    const remetente = SMTP_USUARIO.value();
+    await transporte().sendMail({ from: `"${nome.replace(/["\r\n]/g, '')} via Portal do Educador" <${remetente}>`, to: `"Portal do Educador" <${remetente}>`, bcc: para,
+      replyTo: okEm(String(ctx.eu.email || '').toLowerCase()) ? ctx.eu.email : undefined, subject: (nome + ' compartilhou com você: ' + titulo).replace(/[\r\n]/g, ' ').slice(0, 150), html, attachments: anexos });
+    await os.ref.set({ envios_email: FieldValue.increment(para.length) }, { merge: true });
+    return { ok: true, enviados: para.length };
   }
   // resumo diário das novidades da rede por e-mail: o próprio professor liga ou desliga
   if (d.acao === 'pref_resumo_rede') {

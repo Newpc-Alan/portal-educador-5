@@ -206,6 +206,9 @@ h2{font-size:1.1rem;font-weight:800}
 .selo{display:inline-block;background:#E8F1FB;color:var(--azul);border-radius:6px;padding:2px 7px;font-size:.72rem;font-weight:800}
 .modal{position:fixed;inset:0;z-index:110;background:rgba(7,22,33,.55);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal .cx-m{background:#fff;border-radius:18px;max-width:560px;width:100%;padding:24px;max-height:92vh;overflow:auto}
+.em-bl{display:grid;gap:6px;margin:0 0 12px} .em-bl textarea{width:100%;box-sizing:border-box;font:inherit;padding:10px 12px;border:1px solid var(--line2);border-radius:10px}
+.em-ck{display:flex;gap:8px;align-items:center;margin:2px 0;font-size:.9rem;cursor:pointer} .em-ck input{width:18px;height:18px;accent-color:#1a6b2a} .em-ck small{color:var(--muted)}
+.em-acoes{display:flex;justify-content:flex-end;gap:8px;margin-top:14px} .em-acoes .btn{width:auto}
 .modal h2{margin-bottom:6px}
 .modal label.ck{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:.92rem;cursor:pointer}
 .modal label.ck input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--verde)}
@@ -755,6 +758,7 @@ function telaDoc(){
     (A.html ? '<p class="sub" style="font-size:.78rem;margin-top:2px">Material editado por você: o PDF sai pela impressão, igual à tela.</p>' : "") +
     (A.origemRede ? '<p class="sub" style="font-size:.78rem">Cópia do material de ' + esc(A.origemRede.autor_nome || "um(a) colega") + (A.origemRede.escola_nome ? ", " + esc(A.origemRede.escola_nome) : "") + ".</p>" : "") +
     '<button type="button" class="btn peq" data-action="favorito">' + (A.favorito ? "★ Favorito" : "☆ Marcar favorito") + "</button></div></div>" +
+  (A.tipo !== "parecer" ? '<div class="caixa"><h4>Enviar por e-mail</h4><p class="sub" style="font-size:.82rem;margin:0 0 8px">Para os colegas da turma ou qualquer pessoa, em PDF.</p><button type="button" class="btn" data-action="email-abrir">✉️ Enviar por e-mail</button></div>' : "") +
   (d.versao_whatsapp ? '<div class="caixa"><h4>Para o WhatsApp</h4><div class="wpp">' + esc(d.versao_whatsapp) + '</div><button type="button" class="btn peq" style="margin-top:8px" data-action="copiar-wpp">Copiar mensagem</button></div>' : "") +
   (d.nota_professor ? '<div class="nota"><b>Dica:</b> ' + esc(d.nota_professor) + "</div>" : "") +
   '<div class="caixa"><h4>Ajustar com a IA</h4><div class="chips">' + AJUSTES.map(a => '<button type="button" class="chip" data-action="ajuste" data-arg="' + esc(a) + '">' + esc(a) + "</button>").join("") + "</div>" +
@@ -1006,7 +1010,7 @@ function imgPng(url, max){
     img.src = url;
   });
 }
-async function pdfDoc(qual){
+async function pdfDoc(qual, comoArquivo){
   if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
   const A = E.atual, d = A.doc, gab = qual === "gab", aluno = A.publico === "aluno" && !gab, cx = A.contexto || {};
   const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), W = 210, H = 297, mx = 15, larg = W - 2 * mx, corpo = 11, lh = corpo * 0.48;
@@ -1077,7 +1081,44 @@ async function pdfDoc(qual){
   for(let i = 1; i <= np; i++){ pdf.setPage(i); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(110, 130, 150);
     pdf.setDrawColor(210, 220, 230); pdf.line(mx, H - 12, W - mx, H - 12);
     pdf.text("portaldoeducador.com.br · Feito com o Portal IA e revisado pelo professor", mx, H - 7.5); pdf.text("Página " + i + " de " + np, W - mx, H - 7.5, { align:"right" }); }
-  pdf.save((gab ? "gabarito-" : "") + (slug(d.titulo || A.tipo || "material").slice(0, 50) || "material") + ".pdf");
+  const nomeArq = (gab ? "gabarito-" : "") + (slug(d.titulo || A.tipo || "material").slice(0, 50) || "material") + ".pdf";
+  if(comoArquivo) return { nome:nomeArq, b64:pdf.output("datauristring").split(",")[1] };
+  pdf.save(nomeArq);
+}
+/* ---------- enviar por e-mail: colegas da turma (pela grade) e qualquer e-mail; vai em PDF ---------- */
+function colegasDaTurma(t){ return t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g && g.professor_uid && g.professor_uid !== E.user.uid).map(g => g.professor_uid))].length : 0; }
+function abrirEmail(){
+  const A = E.atual; if(!A || !A.id) return;
+  const temGab = ((A.doc && A.doc.gabarito) || []).length > 0;
+  const turmas = E.turmas.filter(t => colegasDaTurma(t) > 0);
+  modal('<h3 style="margin:0 0 4px">Enviar por e-mail</h3><p class="sub" style="margin:0 0 14px">' + esc(A.doc && A.doc.titulo || "Material") + ' vai em PDF. Quem receber responde direto para o seu e-mail.</p>' +
+    (turmas.length ? '<div class="em-bl"><b>Colegas que dão aula nas suas turmas</b>' + turmas.map(t => '<label class="em-ck"><input type="checkbox" data-em-turma="' + esc(t.id) + '"> Professores do ' + esc(t.nome || "Turma") + ' <small>(' + colegasDaTurma(t) + ')</small></label>').join("") + "</div>" : "") +
+    '<label class="em-bl"><b>Outros e-mails</b><textarea id="emPara" rows="2" maxlength="1500" placeholder="ex.: colega@escola.com, coordenacao@prefeitura.gov.br"></textarea><small class="sub">Separe por vírgula. Pode ser gente de fora da rede.</small></label>' +
+    (temGab ? '<label class="em-ck"><input type="checkbox" id="emGab"> Incluir o gabarito em arquivo separado <small>(mande só para professores)</small></label>' : "") +
+    '<label class="em-bl"><b>Mensagem <small class="sub">(opcional)</small></b><textarea id="emMsg" rows="3" maxlength="500" placeholder="Ex.: Usei com o 6º ano e funcionou bem. Fique à vontade para adaptar!"></textarea></label>' +
+    '<p class="sub" style="font-size:.78rem;margin:6px 0 0">Até 30 pessoas por dia. Não coloque nome ou dado de aluno na mensagem.</p>' +
+    '<div class="em-acoes"><button type="button" class="btn" data-action="fechar-modal">Cancelar</button><button type="button" class="btn pri" data-action="email-enviar" id="emEnviar">Enviar</button></div>');
+}
+async function enviarEmail(){
+  const A = E.atual, b = $("emEnviar"); if(!A || !b || b.disabled) return;
+  const para = String(($("emPara") || {}).value || "").split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+  const ruins = para.filter(x => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  if(ruins.length){ toast("Confira este e-mail: " + ruins[0], true); return; }
+  const turmas = [...document.querySelectorAll("[data-em-turma]:checked")].map(x => x.dataset.emTurma);
+  if(!para.length && !turmas.length){ toast("Escolha os colegas da turma ou escreva pelo menos um e-mail.", true); return; }
+  b.disabled = true; b.textContent = "Preparando o PDF...";
+  try{
+    let anexos = [], html = "";
+    if(A.html){ html = ($("folha") || {}).innerHTML || ""; }
+    else{
+      const a1 = await pdfDoc("aluno", true); if(!a1) throw new Error("O gerador de PDF ainda está carregando. Tente de novo em instantes.");
+      anexos.push(a1);
+      if($("emGab") && $("emGab").checked){ const a2 = await pdfDoc("gab", true); if(a2) anexos.push(a2); }
+    }
+    b.textContent = "Enviando...";
+    const r = (await chamar({ acao:"enviar_email", id:A.id, para, turmas, mensagem:String(($("emMsg") || {}).value || "").trim(), anexos, html })).data;
+    fecharModal(); toast("Enviado para " + r.enviados + (r.enviados === 1 ? " pessoa." : " pessoas."));
+  }catch(e){ toast(e && e.message ? e.message : "Não deu para enviar agora. Tente de novo.", true); b.disabled = false; b.textContent = "Enviar"; }
 }
 
 /* ===================== eventos ===================== */
@@ -1105,6 +1146,8 @@ document.addEventListener("click", async ev => {
   if(a === "fechar-modal") return fecharModal();
   if(a === "comprar"){ ev.preventDefault(); return abrirCompra(); }
   if(a === "confirmar-compra") return confirmarCompra();
+  if(a === "email-abrir") return abrirEmail();
+  if(a === "email-enviar") return enviarEmail();
   if(a === "pdf") return E.atual.html ? imprimir(arg) : pdfDoc(arg);
   if(a === "copiar"){ if(!E.atual.html) return copiar(textoPlano(E.atual.doc, true)); const f = $("folha"); f.classList.add("sem-botoes"); const t = f.innerText; f.classList.remove("sem-botoes"); return copiar(t.replace(/\n{3,}/g, "\n\n").trim()); }
   if(a === "ed-salvar") return salvarEditor();
