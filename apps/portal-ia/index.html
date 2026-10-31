@@ -212,6 +212,7 @@ h2{font-size:1.1rem;font-weight:800}
 .cp-op{display:grid;gap:10px}
 .caixa.trava{background:#f6f8fa;border-style:dashed} .caixa.trava h4{color:#61758a}
 .cp-b{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left;border:1px solid var(--line2);background:#fff;border-radius:14px;padding:12px 14px;cursor:pointer;font:inherit;color:var(--ink)}
+.cp-b.cp-off{cursor:default;background:#f6f8fb;border-style:dashed} .cp-b.cp-off:hover{border-color:var(--line2);background:#f6f8fb} .cp-b.cp-off b{color:#5b6b7c}
 .cp-b span{grid-row:1 / 3;font-size:28px;text-align:center} .cp-b small{color:var(--muted)} .cp-b:hover{border-color:#1a6b2a;background:#f4faea} .cp-b:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
 .em-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 10px;max-height:170px;overflow:auto}
 .em-det{border:1px solid var(--line2);border-radius:10px;padding:8px 12px;margin:0 0 12px} .em-det summary{cursor:pointer;font-weight:700;padding:4px 0} .em-det[open] summary{margin-bottom:8px} .em-acoes .btn{width:auto}
@@ -1158,10 +1159,15 @@ async function enviarAlunos(){
 function janelaCompartilharPia(){
   const A = E.atual; if(!A || !A.id || A.vistaRede) return;
   const temRede = !!document.querySelector('[data-action="compartilhar"]'), temAlunos = !!document.querySelector('[data-action="alunos-abrir"]'), temEmail = !!document.querySelector('[data-action="email-abrir"]');
+  const paraAluno = A.publico === "aluno" && !["parecer", "recado"].includes(A.tipo);
+  const avisoAlunos = temAlunos ? "" : paraAluno
+    ? '<div class="cp-b cp-off"><span>🔒</span><b>Alunos</b><small>O envio para a turma (Sala Conectada) faz parte dos planos Intermediário e Completo.</small></div>'
+    : '<div class="cp-b cp-off"><span>🎒</span><b>Alunos</b><small>' + esc(A.tipo_nome || "Este material") + ' é do professor e não vai para a turma. Para os alunos, gere uma atividade, um exercício ou uma prova sobre o mesmo tema.</small></div>';
   if(!temRede && !temAlunos && !temEmail){ toast("Este material não pode ser compartilhado.", true); return; }
   modal('<h3 style="margin:0 0 4px">Compartilhar</h3><p class="sub" style="margin:0 0 14px">' + esc(A.doc && A.doc.titulo || "Material") + "</p><div class=\"cp-op\">" +
     (temRede ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="compartilhar"><span>🤝</span><b>Rede do município</b><small>Os colegas veem e usam uma cópia</small></button>' : "") +
     (temAlunos ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="alunos-abrir"><span>🎒</span><b>Alunos</b><small>Materiais da turma, sem gabarito</small></button>' : "") +
+    avisoAlunos +
     (temEmail ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="email-abrir"><span>✉️</span><b>E-mail</b><small>Colegas ou qualquer pessoa, em PDF</small></button>' : "") +
     '</div><div class="em-acoes"><button type="button" class="btn" data-action="fechar-modal">Fechar</button></div>');
 }
