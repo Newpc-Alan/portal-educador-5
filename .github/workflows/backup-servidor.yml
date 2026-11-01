@@ -1,0 +1,55 @@
+# Backup da aplicação inteira (banco, contas de login, código e arquivos) no servidor da NEWPC (Nextcloud), cifrado.
+# Todo dia de madrugada faz o backup; todo dia 2 faz o teste de restauração. Também roda à mão em "Run workflow".
+# Segredos (cadastrados pelo Alan, nunca passam pelo chat): FIREBASE_SERVICE_ACCOUNT, NC_APP_SENHA e BACKUP_SENHA
+# (senha da cifra: guarde uma cópia fora do sistema; sem ela o backup não abre).
+name: Backup no servidor NEWPC
+
+on:
+  schedule:
+    - cron: "41 5 * * *"    # 01:41 em Campo Grande: backup diário
+    - cron: "11 7 2 * *"    # dia 2, 03:11: teste de restauração
+  workflow_dispatch:
+    inputs:
+      etapa:
+        description: "backup (fazer agora) ou teste (teste de restauração)"
+        type: choice
+        options: [backup, teste]
+        default: backup
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-servidor
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Todos os ramos (para o pacote do código)
+        run: git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd functions && npm ci
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Backup
+        env:
+          NC_URL: https://cloud.portaldoeducador.com.br
+          NC_USUARIO: alan
+          NC_APP_SENHA: ${{ secrets.NC_APP_SENHA }}
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+          REPO_DIR: ${{ github.workspace }}
+          ETAPA: ${{ inputs.etapa || (github.event.schedule == '11 7 2 * *' && 'teste' || 'backup') }}
+        run: cd functions && node ../scripts/backup-servidor.mjs "$ETAPA"

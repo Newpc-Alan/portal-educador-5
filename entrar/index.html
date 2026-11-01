@@ -4057,7 +4057,8 @@
     if(pn.aba !== "backup" || !$("pnCorpo")) return;
     const i = bk.info, link = i.pasta_id ? "https://drive.google.com/drive/folders/"+i.pasta_id : "";
     $("pnCorpo").innerHTML =
-      '<div class="pn-card"><h3>💾 Fazer backup agora</h3><p class="pn-cf">Copia o banco inteiro do Portal (usuários, escolas, turmas, alunos, chamadas, notas, fichas, telas da TV) num arquivo <b>.tar.gz</b> com a data no nome. Leva de 1 a 5 minutos. Mande para a pasta do Google Drive escolhida abaixo ou baixe no computador para guardar num HD externo ou no servidor da empresa.</p>'+
+      '<div class="pn-card" id="bkServ"><h3>🖥️ Servidor NEWPC: cópia da aplicação inteira</h3><div class="empty">Carregando...</div></div>'+
+      '<div class="pn-card" style="margin-top:12px"><h3>💾 Fazer backup agora</h3><p class="pn-cf">Copia o banco inteiro do Portal (usuários, escolas, turmas, alunos, chamadas, notas, fichas, telas da TV) num arquivo <b>.tar.gz</b> com a data no nome. Leva de 1 a 5 minutos. Mande para a pasta do Google Drive escolhida abaixo ou baixe no computador para guardar num HD externo ou no servidor da empresa.</p>'+
         '<div class="bk-linha" style="gap:18px"><span class="pn-cf" style="font-weight:700">O que copiar:</span>'+
           '<label class="pn-cf" style="display:flex;gap:6px;align-items:center"><input type="radio" name="bkTipo" value="banco" checked> Só o banco (cerca de 1 a 2 MB, 1 minuto)</label>'+
           '<label class="pn-cf" style="display:flex;gap:6px;align-items:center"><input type="radio" name="bkTipo" value="completo"> Completo: banco + '+fmt(i.arquivos || 0)+' arquivos ('+tamTxt(i.bytes_arquivos || 0)+', de 5 a 15 minutos)</label></div>'+
@@ -4075,7 +4076,22 @@
         '<p class="pn-nota">Ao salvar, o Portal grava e apaga um arquivo de teste na pasta para ter certeza de que o backup vai funcionar.</p></div>'+
       '<div class="pn-card" style="margin-top:12px"><h3>🗂️ Últimos backups</h3><div id="bkLista"><div class="empty">Carregando...</div></div>'+
         '<p class="pn-nota">O backup "só o banco" não leva os arquivos (aulas da Lousa, provas, mídias da TV, biblioteca, colorir, materiais da Formação): para isso, use o completo. Nenhum dos dois leva senhas (o login fica no Firebase Authentication) nem as fotos da portaria (somem em 15 dias por regra de privacidade). Para restaurar, fale com o suporte técnico: a restauração é feita primeiro num banco de teste e conferida antes de substituir o banco real.</p></div>';
-    ouvirBackups();
+    ouvirBackups(); painelBackupServidor();
+  }
+  // backup no servidor NEWPC (robô do GitHub, toda madrugada, cifrado): situação e teste de restauração (stats/backup_servidor)
+  async function painelBackupServidor(){
+    let x = {}; try{ const d = await getDoc(doc(db, "stats", "backup_servidor")); x = d.exists() ? d.data() : {}; }catch(e){ console.warn("backup_servidor:", e.code); }
+    const el = $("bkServ"); if(!el) return;
+    const quando = t => t && t.toDate ? t.toDate().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) : "ainda não";
+    const velho = x.ultimo_backup && x.ultimo_backup.toMillis && Date.now() - x.ultimo_backup.toMillis() > 36 * 3600e3;
+    el.innerHTML = '<h3>🖥️ Servidor NEWPC: cópia da aplicação inteira</h3>'+
+      '<p class="pn-cf">Toda madrugada (01:41) o robô copia para o servidor da NEWPC o <b>banco inteiro</b>, as <b>contas de login</b>, o <b>código</b> e <b>todos os arquivos</b> (só o que mudou), tudo cifrado. Ficam 30 cópias diárias e 12 mensais. Todo dia 2 ele faz um <b>teste de restauração</b>.</p>'+
+      '<div class="pn-tiles pn-tiles-2" style="margin-top:8px">'+
+        '<div class="pn-tile'+(velho || !x.ultimo_backup ? ' pn-alerta' : '')+'"><span class="pn-rot">Último backup no servidor</span><b style="font-size:20px">'+escapeHtml(quando(x.ultimo_backup))+'</b><small>'+(velho ? "mais de 36 horas: confira o robô" : "veja o detalhe na lista abaixo")+'</small></div>'+
+        '<div class="pn-tile'+(x.ultimo_teste && !x.ultimo_teste_ok ? ' pn-alerta' : '')+'"><span class="pn-rot">Último teste de restauração</span><b style="font-size:20px">'+escapeHtml(quando(x.ultimo_teste))+(x.ultimo_teste ? (x.ultimo_teste_ok ? " ✅" : " ⚠️") : "")+'</b><small>'+escapeHtml(x.ultimo_teste_resultado || "o primeiro teste roda no dia 2")+'</small></div></div>'+
+      '<div class="bk-linha"><a class="btn btn-ghost" style="width:auto;padding:11px 18px" href="https://github.com/Newpc-Alan/portal-educador-5/actions/workflows/backup-servidor.yml" target="_blank" rel="noopener">Fazer agora pelo GitHub ↗</a>'+
+      '<a class="btn btn-ghost" style="width:auto;padding:11px 18px" href="https://cloud.portaldoeducador.com.br/" target="_blank" rel="noopener">Abrir o servidor ↗</a></div>'+
+      '<p class="pn-nota">No GitHub: "Run workflow", escolha <b>backup</b> ou <b>teste</b>. Os pacotes ficam em Drive Portal do Educador › 04-Backups e só abrem com a senha da cifra (segredo BACKUP_SENHA). Restauração: POP de restauração em caso de desastre.</p>';
   }
   function ouvirBackups(){
     if(bk.ouvinte) bk.ouvinte();
@@ -4088,7 +4104,7 @@
         $("bkLista").innerHTML = l.length ? '<table class="bk-tab"><thead><tr><th>Quando</th><th>Tipo</th><th>Por</th><th>Situação</th><th>Documentos</th><th>Tamanho</th><th></th></tr></thead><tbody>'+
           l.map(x => { let st = ST[x.status] || [x.status,""];
             // a função tem 30 minutos; se passou disso e não terminou, foi interrompida
-            if(st[1] === "rodando" && x.em && x.em.toMillis && Date.now() - x.em.toMillis() > 35 * 60000) st = ["Interrompido","erro"]; return '<tr><td>'+(x.em && x.em.toDate ? escapeHtml(x.em.toDate().toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})) : "agora")+'</td><td>'+(x.tipo === "automatico" ? "Automático" : "Manual")+(x.completo ? " · <b>completo</b>" : "")+(x.destino === "computador" ? " · computador" : "")+'</td><td>'+escapeHtml(x.por_nome || "–")+
+            if(st[1] === "rodando" && x.em && x.em.toMillis && Date.now() - x.em.toMillis() > (x.destino === "servidor" ? 300 : 35) * 60000) st = ["Interrompido","erro"]; return '<tr><td>'+(x.em && x.em.toDate ? escapeHtml(x.em.toDate().toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})) : "agora")+'</td><td>'+(x.tipo === "teste" ? "Teste de restauração" : x.tipo === "automatico" ? "Automático" : "Manual")+(x.completo ? " · <b>completo</b>" : "")+(x.destino === "computador" ? " · computador" : x.destino === "servidor" ? " · <b>servidor NEWPC</b>" : "")+'</td><td>'+escapeHtml(x.por_nome || "–")+
             '</td><td><span class="bk-st '+st[1]+'">'+escapeHtml(st[0])+'</span>'+(x.erro ? '<div class="pn-nota" style="margin:4px 0 0;color:#9c2a20">'+escapeHtml(x.erro)+'</div>' : "")+'</td><td>'+(x.documentos ? fmt(x.documentos) : "–")+'</td><td>'+(x.bytes ? tam(x.bytes) : "–")+'</td><td>'+
             (x.link ? '<a href="'+escapeAttr(x.link)+'" target="_blank" rel="noopener" style="font-weight:700;color:#2671AB">Abrir no Drive ↗</a>' :
               x.caminho && x.em && x.em.toMillis && Date.now() - x.em.toMillis() < 6.5 * 86400000 ? '<a href="#" data-action="bk-baixar" data-arg="'+escapeAttr(x.caminho)+'" style="font-weight:700;color:#2671AB">⬇️ Baixar</a>' : x.caminho ? '<span class="pn-nota">expirou (7 dias)</span>' : "")+'</td></tr>'; }).join("")+'</tbody></table>'
