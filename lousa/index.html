@@ -4021,13 +4021,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:12px 20px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;min-height:46px}
   #iaCorpo .ia-pri:disabled{opacity:.6;cursor:wait}
   #iaCorpo .ia-sug{display:grid;gap:8px;margin-top:-2px}
-  #iaCorpo .ia-sug-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  #iaCorpo .ia-sug-top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 10px}
+  #iaCorpo .ia-sug-dica{color:#6b7c8f;font-size:12px;flex:1}
   #iaCorpo .ia-sug .ia-rot{margin:0}
   #iaCorpo .ia-sug-mais{border:0;background:none;color:#1565c0;font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:4px 2px}
   #iaCorpo .ia-sug-lista{display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto}
   #iaCorpo .ia-sug-it{border:1px solid #cfdbe7;background:#fff;color:#0f2c4a;border-radius:999px;padding:5px 11px;font:inherit;font-size:13px;cursor:pointer;min-height:32px;text-align:left}
   #iaCorpo .ia-sug-it:hover{border-color:#1a6b2a;background:#f1f8ec}
   #iaCorpo .ia-sug-it.on{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+  #iaCorpo .ia-sug-it.on::before{content:"✓ "}
   #iaCorpo .ia-sug-it:focus-visible, #iaCorpo .ia-sug-mais:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
   #iaCorpo .ia-tema{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:10px 12px;border:1px solid #e1e8f0;border-radius:12px;background:#f7fafc}
   #iaCorpo .ia-rot{display:block;font-size:13px;font-weight:700;color:#0f2c4a;margin-bottom:7px}
@@ -4458,7 +4460,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const f = document.getElementById("iaFundos"); if(f) f.style.setProperty("--ia-cor", cor);
   }
   /* banco de temas por série e disciplina (BNCC), carregado só quando a janela abre; ranking pelos temas mais escolhidos na rede */
-  let temaSel = null, sugTodas = false;
+  let temasSel = [], sugTodas = false;
+  const juntaTemas = l => l.length > 1 ? l.slice(0, -1).join(", ") + " e " + l[l.length - 1] : (l[0] || "");
   const rankingTemas = {};
   function carregarTemasIA(){
     if(window.PDE_TEMAS) return Promise.resolve();
@@ -4497,7 +4500,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     temas.sort((a, b) => b.n - a.n || a.i - b.i);
     const mostrar = sugTodas ? temas : temas.slice(0, 10), esc = x => String(x).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
     document.getElementById("iaSugTit").textContent = "Temas para " + NOME_SERIE(chave.split("|")[0]) + (chave.startsWith("ei") ? "" : " · " + chave.split("|")[1]) + " (BNCC)";
-    document.getElementById("iaSugLista").innerHTML = mostrar.map(x => '<button type="button" class="ia-sug-it' + (temaSel && temaSel.id === x.id && temaSel.chave === chave ? " on" : "") + '" data-ia="sug" data-tema="' + esc(x.t) + '" data-id="' + x.id + '" data-chave="' + esc(chave) + '"' +
+    document.getElementById("iaSugLista").innerHTML = mostrar.map(x => '<button type="button" class="ia-sug-it' + (temasSel.some(t => t.id === x.id && t.chave === chave) ? " on" : "") + '" aria-pressed="' + temasSel.some(t => t.id === x.id && t.chave === chave) + '" data-ia="sug" data-tema="' + esc(x.t) + '" data-id="' + x.id + '" data-chave="' + esc(chave) + '"' +
       (x.n >= 3 ? ' title="Escolhido ' + x.n + ' vezes por professores do Portal"' : '') + '>' + (x.n >= 3 ? '<span aria-hidden="true">🔥</span> ' : '') + esc(x.t) + '</button>').join("");
     const mais = document.getElementById("iaSugMais"); mais.hidden = temas.length <= 10; mais.textContent = sugTodas ? "Mostrar menos" : "Ver todos (" + temas.length + ")";
     box.hidden = false;
@@ -4514,7 +4517,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-3"><label>Disciplina<select id="iaDisc"><option value="">Escolha...</option>' + DISC_IA.map(d => '<option>' + d + '</option>').join("") + '</select></label>' +
         '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label>' +
         '<label>Slides<select id="iaQtd">' + [4,5,6,7,8,10].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label></div>' +
-        '<div id="iaSug" class="ia-sug" hidden><div class="ia-sug-top"><span id="iaSugTit" class="ia-rot"></span><button type="button" class="ia-sug-mais" data-ia="sug-mais" id="iaSugMais" hidden>Ver todos</button></div><div id="iaSugLista" class="ia-sug-lista"></div></div>' +
+        '<div id="iaSug" class="ia-sug" hidden><div class="ia-sug-top"><span id="iaSugTit" class="ia-rot"></span><small class="ia-sug-dica">Toque em mais de um para juntar na mesma aula.</small><button type="button" class="ia-sug-mais" data-ia="sug-mais" id="iaSugMais" hidden>Ver todos</button></div><div id="iaSugLista" class="ia-sug-lista"></div></div>' +
         '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
         '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
         '</div><div class="ia-col">' +
@@ -4531,14 +4534,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-acoes"><p id="iaMsg" class="ia-msg" role="status"></p><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA();
-        if(b.dataset.ia === "sug"){ const tm = document.getElementById("iaTema"); tm.value = b.dataset.tema; temaSel = { chave:b.dataset.chave, id:b.dataset.id, texto:b.dataset.tema }; pintarSugestoes(); tm.focus(); }
+        // temas do banco: cada toque marca ou desmarca; a aula pode juntar vários
+        if(b.dataset.ia === "sug"){ const tm = document.getElementById("iaTema"), k = temasSel.findIndex(t => t.id === b.dataset.id && t.chave === b.dataset.chave);
+          if(k >= 0) temasSel.splice(k, 1); else { temasSel = temasSel.filter(t => t.chave === b.dataset.chave); temasSel.push({ chave:b.dataset.chave, id:b.dataset.id, texto:b.dataset.tema }); }
+          tm.value = juntaTemas(temasSel.map(t => t.texto)).slice(0, 200); pintarSugestoes(); tm.focus(); }
         if(b.dataset.ia === "qimg"){ qtdImgIA = Number(b.dataset.n); try{ localStorage.setItem("pde_aula_qimg", String(qtdImgIA)); }catch(e){} pintarQtdImg(); }
         if(b.dataset.ia === "sug-mais"){ sugTodas = !sugTodas; pintarSugestoes(); }
         if(b.dataset.ia === "cor"){ temaIA.cor = b.dataset.cor; salvarTemaIA(); pintarTemaIA(); }
         if(b.dataset.ia === "fundo"){ temaIA.fundo = b.dataset.fundo; salvarTemaIA(); pintarTemaIA(); } });
       bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaDisc"].includes(e.target.id)){ sugTodas = false; pintarSugestoes(); } if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); });
       bg.addEventListener("input", (e) => { if(e.target.id === "iaTurma"){ infoEstilo(); pintarSugestoes(); }
-        if(e.target.id === "iaTema" && temaSel && e.target.value.trim() !== temaSel.texto){ temaSel = null; pintarSugestoes(); } });
+        if(e.target.id === "iaTema" && temasSel.length && e.target.value.trim() !== juntaTemas(temasSel.map(t => t.texto))){ temasSel = []; pintarSugestoes(); } });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAulaIA(); } if(e.key === "Enter" && e.target.id === "iaTema") gerarAulaIA(); });
     }
     bg.classList.add("aberto"); document.getElementById("iaMsg").textContent = "";
@@ -4669,7 +4675,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const ultra = !document.getElementById("iaUltraBox").hidden && document.getElementById("iaUltra").checked;
     const dados = { acao:"aula_lousa", tema, ultra, imagens:qtdImgIA, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
       qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim(),
-      ...(temaSel && temaSel.texto === tema ? { tema_chave:temaSel.chave, tema_id:temaSel.id } : {}) };
+      ...(temasSel.length && juntaTemas(temasSel.map(t => t.texto)) === tema ? { tema_chave:temasSel[0].chave, tema_id:temasSel[0].id } : {}) };
     if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:ultra ? "até 1 minuto (com ilustrações)" : "uns 20 segundos",
       etapas:["Lendo o tema: " + tema, "Buscando as habilidades da BNCC", "Montando os slides"].concat(ultra ? ["Criando as ilustrações"] : [], ["Revisando a linguagem para a turma", "Arrumando tudo na Lousa"]), passoMs:ultra ? 9000 : 4500 });
     bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
