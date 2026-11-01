@@ -47,7 +47,7 @@ ${fora.length ? `<p style="margin:0 0 14px;color:#9a5b00">${fora.length} arquivo
 <tr><td style="color:#6b7c90;padding:2px 12px 2px 0">Escola</td><td>${esc([d.escola_nome, d.municipio_nome].filter(Boolean).join(' · ') || 'não informada')}</td></tr>
 <tr><td style="color:#6b7c90;padding:2px 12px 2px 0">Publicar com nome</td><td>${d.credito === false ? 'Não' : 'Sim'}</td></tr>
 </table>
-<a href="https://app.portaldoeducador.com.br/dicas/#recebidas" style="display:inline-block;background:#5A9420;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Revisar e publicar no Portal</a>
+<a href="${APP_URL}/dicas/#recebidas" style="display:inline-block;background:#5A9420;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Revisar e publicar no Portal</a>
 <p style="font-size:12px;color:#6b7c90;margin:16px 0 0">Responda este e-mail para falar direto com o professor.</p>
 </div></div>`;
       await transporte().sendMail({
@@ -94,7 +94,7 @@ ${linha('Etapas', (u.etapas || []).join(', '))}${linha('Origem', ORIGENS[u.orige
 ${linha('Licença', [u.licenca_tipo, u.licenca_fim ? 'até ' + dataBR(u.licenca_fim) : ''].filter(Boolean).join(' · '))}${linha('Situação', u.status)}
 </table>
 ${whats ? `<a href="https://wa.me/55${esc(whats)}" style="display:inline-block;background:#5A9420;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;margin-right:8px">Chamar no WhatsApp</a>` : ''}
-<a href="https://app.portaldoeducador.com.br/entrar/" style="display:inline-block;background:#2671AB;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Abrir Usuários no Portal</a>
+<a href="${APP_URL}/entrar/" style="display:inline-block;background:#2671AB;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Abrir Usuários no Portal</a>
 </div></div>`;
       await transporte().sendMail({
         from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: destinos(),
@@ -115,6 +115,7 @@ import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { Timestamp } from 'firebase-admin/firestore';
 
+import { APP_URL } from './endereco.js';
 const caixa = (titulo, sub, corpo) => `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0c2338;max-width:640px">
 <div style="background:#0c2338;color:#fff;padding:16px 20px;border-radius:12px 12px 0 0"><b style="font-size:16px">${titulo}</b><br><span style="color:#8DC63F;font-size:12px">${sub || 'Portal do Educador 5.0'}</span></div>
 <div style="border:1px solid #dce4ed;border-top:0;padding:18px 20px;border-radius:0 0 12px 12px">${corpo}</div></div>`;
@@ -133,7 +134,7 @@ export const emailCertificadoEmitido = onDocumentCreated(
 <table style="font-size:13px;border-collapse:collapse;margin:0 0 16px">
 ${linha('Curso', c.cursoTitulo)}${linha('Carga horária', c.cargaHoraria ? c.cargaHoraria + ' h' : '')}${linha('Nota final', c.notaFinal != null ? String(c.notaFinal) : '')}
 ${linha('Escola', c.escola)}${linha('Município', c.municipio)}${linha('E-mail', c.email)}${linha('Código', codigo)}
-</table>${botao('https://app.portaldoeducador.com.br/validar/?c=' + encodeURIComponent(codigo), 'Ver validação do certificado', '#5A9420')}`),
+</table>${botao(APP_URL + '/validar/?c=' + encodeURIComponent(codigo), 'Ver validação do certificado', '#5A9420')}`),
         { replyTo: c.email || undefined });
     } catch (e) { console.error('emailCertificadoEmitido', codigo, e); }
   }
@@ -156,7 +157,7 @@ export const emailRelatorioEnviado = onDocumentWritten(
 ${linha('Enviado por', r.autor_nome)}${linha('Escola', r.escola_nome)}${linha('Município', muni)}${linha('Turma', r.turma_nome)}${linha('Período', r.periodo)}${linha('Modelo', r.modelo)}
 </table>
 <p style="font-size:12px;color:#6b7c90;margin:0 0 12px">Por proteção de dados (LGPD), nomes de alunos e o conteúdo do relatório ficam só no Portal.</p>
-${botao('https://app.portaldoeducador.com.br/relatorios/', 'Abrir a Central de Relatórios')}`));
+${botao(APP_URL + '/relatorios/', 'Abrir a Central de Relatórios')}`));
     } catch (e) { console.error('emailRelatorioEnviado', event.params.id, e); }
   }
 );
@@ -231,7 +232,7 @@ export const emailResumoDiario = onSchedule(
 <tr>${kpi(alAcessos, 'alunos que usaram ontem')}${kpi(alNovos, 'alunos novos')}${kpi(alTotal, 'alunos no total')}${kpi(dicasAl, 'dicas de alunos')}</tr></table>
 ${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasAlPend}</b> dica(s) de aluno esperando revisão.</p>` : ''}
 ${typeof dicasPend === 'number' && dicasPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasPend}</b> dica(s) esperando revisão.</p>` : ''}
-${botao('https://app.portaldoeducador.com.br/entrar/', 'Abrir o Portal')}${typeof dicasPend === 'number' && dicasPend > 0 ? botao('https://app.portaldoeducador.com.br/dicas/#recebidas', 'Revisar dicas', '#5A9420') : ''}${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? botao('https://app.portaldoeducador.com.br/dicas/?aluno=1#recebidas', 'Revisar dicas de alunos', '#5A9420') : ''}`));
+${botao(APP_URL + '/entrar/', 'Abrir o Portal')}${typeof dicasPend === 'number' && dicasPend > 0 ? botao(APP_URL + '/dicas/#recebidas', 'Revisar dicas', '#5A9420') : ''}${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? botao(APP_URL + '/dicas/?aluno=1#recebidas', 'Revisar dicas de alunos', '#5A9420') : ''}`));
   }
 );
 
@@ -258,7 +259,7 @@ ${links ? `<p style="margin:0 0 4px"><b>Links</b> (confira antes de publicar)</p
 <table style="font-size:13px;border-collapse:collapse;margin:0 0 16px">
 ${linha('Aluno(a)', d.autor_nome)}${linha('E-mail', d.autor_email)}${linha('Escola', [d.escola_nome, d.municipio_nome].filter(Boolean).join(' · ') || 'não informada')}
 ${linha('Se publicada aparece como', String(d.autor_nome || '').trim().split(/\s+/)[0] + (d.escola_nome ? ' · ' + d.escola_nome : ''))}
-</table>${botao('https://app.portaldoeducador.com.br/dicas/?aluno=1#recebidas', 'Revisar e publicar no Portal', '#5A9420')}
+</table>${botao(APP_URL + '/dicas/?aluno=1#recebidas', 'Revisar e publicar no Portal', '#5A9420')}
 <p style="font-size:12px;color:#6b7c90;margin:14px 0 0">Aluno é menor de idade: responda pela escola, não direto para o e-mail do aluno.</p>`));
       await ref.update({ email_status: 'enviado', email_em: FieldValue.serverTimestamp() });
     } catch (e) {

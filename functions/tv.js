@@ -3,6 +3,7 @@ import { onDocumentCreated, onDocumentUpdated } from 'firebase-functions/v2/fire
 import { getFirestore } from 'firebase-admin/firestore';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE } from './dicas.js';
 
+import { APP_URL } from './endereco.js';
 const ORI = { auto: 'Automática', h: 'Horizontal', v: 'Vertical (totem)' };
 const quando = v => v && typeof v.toDate === 'function' ? v.toDate().toLocaleString('pt-BR', { timeZone: 'America/Campo_Grande', dateStyle: 'short', timeStyle: 'short' }) : '';
 const linha = (k, v) => v ? `<tr><td style="color:#6b7c90;padding:3px 14px 3px 0;vertical-align:top">${esc(k)}</td><td>${esc(v)}</td></tr>` : '';
@@ -22,7 +23,7 @@ export const emailTvConectada = onDocumentCreated(
 ${linha('Escola', t.escola_nome)}${linha('Município', muni)}${linha('Formato', ORI[t.orientacao] || t.orientacao)}${linha('Conectada por', t.criado_nome)}${linha('Quando', quando(t.criado_em))}</table>`;
       await transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: destinos(),
         subject: `Nova TV conectada: ${String(t.nome || '').slice(0, 60)} · ${String(t.escola_nome || '').slice(0, 60)}`,
-        html: moldura('Nova TV conectada', corpo, 'Abrir o painel das TVs', 'https://app.portaldoeducador.com.br/apps/tv/') });
+        html: moldura('Nova TV conectada', corpo, 'Abrir o painel das TVs', APP_URL + '/apps/tv/') });
     } catch (e) { console.error('emailTvConectada', event.params.chave, e); }
   }
 );
@@ -43,7 +44,7 @@ ${linha('Início', quando(a.inicio) || 'imediato')}${linha('Fim', quando(a.fim) 
 ${a.imagem_url ? `<p style="margin:0 0 14px"><img src="${esc(a.imagem_url)}" alt="" style="max-width:100%;border-radius:8px"></p>` : ''}`;
         await transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: destinos(),
           subject: `Comunicado nas TVs (${muni || 'rede'}): ${String(a.titulo || '').replace(/[\r\n]/g, ' ').slice(0, 100)}`,
-          html: moldura('Novo comunicado nas TVs da rede', corpo, 'Ver os comunicados', 'https://app.portaldoeducador.com.br/apps/tv/#avisos') });
+          html: moldura('Novo comunicado nas TVs da rede', corpo, 'Ver os comunicados', APP_URL + '/apps/tv/#avisos') });
       }
     } catch (e) { console.error('emailComunicadoTv', event.params.id, e); }
   }

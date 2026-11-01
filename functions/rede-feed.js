@@ -7,7 +7,8 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE } from './dicas.js';
 
-const APP = 'https://app.portaldoeducador.com.br';
+import { APP_URL } from './endereco.js';
+const APP = APP_URL;
 const LOTE = 50;   // destinatários por e-mail (cópia oculta)
 
 // coloca (ou tira) um material no resumo da rede; os mais novos primeiro, no máximo 10

@@ -12,8 +12,9 @@ import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js
 import { feedRede } from './rede-feed.js';
 import { escolasDoAlcance } from './envio-comum.js';
 
+import { APP_URL } from './endereco.js';
 const txt = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
-const APP = 'https://app.portaldoeducador.com.br';
+const APP = APP_URL;
 const COLS = { ia: 'portal_ia_rede', trab: 'trabalhos_rede' };
 const LINK_TRAB = '/entrar/#trabalhos-rede';
 

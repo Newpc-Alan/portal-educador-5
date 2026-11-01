@@ -2001,7 +2001,7 @@
   // mostra a senha provisória uma única vez, com botões para copiar e para mandar por WhatsApp
   function mostrarSenhaGerada(r){
     const ate = new Date(r.expira_ms).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" });
-    const txt = "Olá, " + r.nome + "! Sua senha provisória do Portal do Educador é: " + r.senha + "\nEntre em app.portaldoeducador.com.br/entrar com seu e-mail e esta senha (opção “Entrar com e-mail e senha”). No primeiro acesso você cria a sua senha pessoal. Ela vale até " + ate + ".";
+    const txt = "Olá, " + r.nome + "! Sua senha provisória do Portal do Educador é: " + r.senha + "\nEntre em " + location.host + "/entrar com seu e-mail e esta senha (opção “Entrar com e-mail e senha”). No primeiro acesso você cria a sua senha pessoal. Ela vale até " + ate + ".";
     const m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalSenhaGerada";
     m.innerHTML = '<div class="modal"><div class="mh"><h3>Senha provisória gerada</h3><p>' + escHtmlSP(r.nome) + ' · vale até ' + ate + '</p></div>' +
       '<div class="mb"><div style="font:800 26px/1.2 ui-monospace,Consolas,monospace;letter-spacing:2px;text-align:center;background:#eef6ee;border:1px dashed #1a6b2a;border-radius:12px;padding:16px;color:#0f2c4a" id="spSenha">' + escHtmlSP(r.senha) + '</div>' +
@@ -3220,7 +3220,7 @@
     await listarAlunosTurma();
   }
   // entrada por QR da turma: o professor abre (vale 4 horas) e os alunos entram mostrando o cartão para a câmera
-  const LINK_QR = "app.portaldoeducador.com.br/entrar/?qr";
+  const LINK_QR = location.host + "/entrar/?qr";
   async function estadoEntradaQr(acao, btn){
     const box = $("qrEntrada"); if(!box || !al.turma) return;
     if(btn){ btn.disabled = true; btn.textContent = acao === "abrir" ? "Abrindo..." : "Fechando..."; }
@@ -3272,7 +3272,7 @@
     const cards = l.map(a => { const x = al.acesso[a.id];
       return '<div class="c"><div class="t">Portal do Educador · '+escapeHtml(info.turma || al.turma.nome)+'</div><div class="n">'+escapeHtml(x.nome)+'</div>'+
         '<div class="g"><img src="'+qrDataUrl(x.qr)+'" alt=""><div><div class="r">CÓDIGO</div><div class="v">'+escapeHtml(x.codigo)+'</div><div class="d">Aponte a câmera para o QR e entre direto, com a aula aberta pelo professor.</div></div></div>'+
-        '<div class="i">Sem câmera? Em <b>app.portaldoeducador.com.br/entrar</b> › <b>Sou aluno</b>, digite o código e o PIN que o professor tem.</div></div>'; }).join("");
+        '<div class="i">Sem câmera? Em <b>'+location.host+'/entrar</b> › <b>Sou aluno</b>, digite o código e o PIN que o professor tem.</div></div>'; }).join("");
     const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
     w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartões de acesso · '+escapeHtml(info.turma || al.turma.nome)+'</title><style>'+
       '@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#0f2c4a}.f{display:grid;grid-template-columns:1fr 1fr;gap:6mm}'+
@@ -8460,7 +8460,7 @@
     g.fillStyle = "#fff"; arred(75, H - 250, W - 150, 112, 56); g.fill();
     g.fillStyle = "#1a6b2a"; g.font = fonte("800", 38); const cv1 = n.publica ? "Leia a notícia completa no link" : "Saiba mais no Portal do Educador";
     g.fillText(cv1, (W - g.measureText(cv1).width) / 2, H - 182);
-    g.fillStyle = "#c9d6e2"; g.font = fonte("600", 30); const rod = "app.portaldoeducador.com.br"; g.fillText(rod, (W - g.measureText(rod).width) / 2, H - 80);
+    g.fillStyle = "#c9d6e2"; g.font = fonte("600", 30); const rod = location.host; g.fillText(rod, (W - g.measureText(rod).width) / 2, H - 80);
     const blob = await new Promise(ok => cv.toBlob(ok, "image/png")), arq = new File([blob], "noticia-portal-do-educador.png", { type:"image/png" });
     try{ await navigator.clipboard.writeText((n.titulo || "") + " " + url); }catch(e){}
     if(navigator.canShare && navigator.canShare({ files:[arq] })){ try{ await navigator.share({ files:[arq], title:n.titulo || "Notícia", text:(n.titulo || "") + " " + url }); toast("Escolha Instagram ou TikTok. O link já está copiado para colar na legenda ou no adesivo de link."); return; }catch(e){ if(e && e.name === "AbortError") return; } }
@@ -8468,7 +8468,7 @@
     toast("Imagem baixada. Poste no Instagram ou TikTok: o link já está copiado para colar na legenda.");
   }
   // compartilhar: notícia marcada como pública abre para qualquer pessoa; as outras, só para quem tem conta
-  function linkNoticia(n){ return n.publica && n.publicado && n.tipo !== "pesquisa" ? "https://app.portaldoeducador.com.br/noticia/?id=" + encodeURIComponent(n.id) : "https://app.portaldoeducador.com.br/entrar/#noticia=" + encodeURIComponent(n.id); }
+  function linkNoticia(n){ return n.publica && n.publicado && n.tipo !== "pesquisa" ? location.origin + "/noticia/?id=" + encodeURIComponent(n.id) : location.origin + "/entrar/#noticia=" + encodeURIComponent(n.id); }
   function compartilharNoticia(id){
     const n = (ntCache || []).find(x => x.id === id) || (ntAdm.itens || []).find(x => x.id === id) || ntReac.n; if(!n) return;
     clearInterval(ntFaixa.t); ntFaixa.t = null;

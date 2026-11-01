@@ -11,6 +11,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomInt, randomBytes, timingSafeEqual } from 'node:crypto';
 
+import { APP_URL } from './endereco.js';
 const REGIAO = 'southamerica-east1';
 const ALFA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const DOMINIO = 'aluno.portaldoeducador.com.br';
@@ -23,7 +24,7 @@ export const senhaAluno = (codigo, pin) => `pde.${codigo}.${pin}`;
 export const emailAluno = codigo => `${codigo.toLowerCase()}@${DOMINIO}`;
 export const uidAluno = alunoId => `al-${alunoId}`;
 // QR de entrada (cartão de acesso): leva a matrícula e uma chave secreta; o link abre o Portal e entra sem digitar nada
-export const URL_ENTRADA = 'https://app.portaldoeducador.com.br/entrar/';
+export const URL_ENTRADA = APP_URL + '/entrar/';
 export const gerarChaveQr = () => randomBytes(18).toString('base64url');
 export const linkQr = (alunoId, chave) => `${URL_ENTRADA}#q=${alunoId}.${chave}`;
 export const HORAS_QR = 4;

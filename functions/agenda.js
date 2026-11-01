@@ -6,7 +6,8 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE } from './dicas.js';
 import CAL from './calendario-nucleo.js';
 
-const LINK = 'https://app.portaldoeducador.com.br/apps/calendario/#agenda';
+import { APP_URL } from './endereco.js';
+const LINK = APP_URL + '/apps/calendario/#agenda';
 const hojeMS = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const dataBr = d => d.slice(8, 10) + '/' + d.slice(5, 7);
 const quando = it => (it.hora ? it.hora : 'Dia todo');
