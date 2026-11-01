@@ -716,6 +716,16 @@
   .nt-pontos i{ width:7px;height:7px;border-radius:50%;background:#d3dde8 }
   .nt-pontos i.on{ background:var(--pde-azul,#2671AB) }
   .nt-btn{ border:0;border-radius:999px;padding:8px 14px;background:var(--pde-azul,#2671AB);color:#fff;font:700 13px inherit;cursor:pointer;white-space:nowrap }
+  .nt-dest{ display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:16px;margin-bottom:18px;padding:12px;border-radius:18px;background:#fff;border:1px solid var(--line);border-left:5px solid #2671AB;box-shadow:0 14px 30px -24px rgba(7,22,33,.6) }
+  .nt-dest-img{ all:unset;cursor:pointer;border-radius:14px;background:#0c2338 center/cover;min-height:160px;display:flex;align-items:center;justify-content:center;font-size:54px }
+  .nt-dest-c{ display:flex;flex-direction:column;gap:6px;min-width:0 } .nt-dest-topo{ display:flex;justify-content:space-between;align-items:center;gap:8px }
+  .nt-dest-tit{ font-size:19px;line-height:1.3;color:var(--ink) } .nt-dest-c p{ margin:0;font-size:14px;color:#4a5b6c;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden }
+  .nt-dest-reac{ display:flex;align-items:center;gap:6px;flex-wrap:wrap } .nt-r{ border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:4px 10px;font-size:20px;cursor:pointer;display:inline-flex;align-items:center;gap:4px }
+  .nt-r small{ font-size:12px;font-weight:800;color:#0f2c4a } .nt-r.on{ border-color:#1a6b2a;background:#eef7e3 } .nt-r:hover{ transform:scale(1.08) } .nt-r-tot{ font-size:12.5px;color:var(--muted);margin-left:4px }
+  .nt-dest-acoes{ display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:auto } .nt-btn.sec{ background:#fff;color:#2671AB;box-shadow:inset 0 0 0 1.5px #2671AB }
+  .nc-jan{ width:min(460px,100%) } .nc-ops{ display:grid;grid-template-columns:1fr 1fr;gap:10px } .nc-op{ display:flex;align-items:center;gap:8px;justify-content:center;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:14px;font:inherit;font-weight:800;color:#0f2c4a;cursor:pointer;text-decoration:none }
+  .nc-op span{ font-size:22px } .nc-op.zap{ background:#25D366;border-color:#25D366;color:#fff } .nc-op:hover{ border-color:#1a6b2a }
+  @media (max-width:700px){ .nt-dest{ grid-template-columns:1fr } .nt-dest-img{ min-height:150px } }
   .nt-lnk{ border:0;background:none;color:var(--pde-azul,#2671AB);font:700 12.5px inherit;cursor:pointer;white-space:nowrap }
   @media (max-width:640px){ .nt-faixa{ flex-wrap:wrap } .nt-faixa-img{ flex-basis:72px;height:48px } .nt-faixa-acoes{ width:100%;justify-content:space-between } }
   .nt-grade{ display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px }
@@ -2310,6 +2320,8 @@
     // link dos e-mails de créditos (/entrar/#creditos) abre direto a tela
     // link do aviso "Novidades da rede" para trabalhos (/entrar/#trabalhos-rede) abre Meus trabalhos > Da sua rede
     if(location.hash === "#trabalhos-rede"){ try{ sessionStorage.setItem("pde_tr_pasta", "rede"); }catch(e){} history.replaceState(null, "", location.pathname + location.search); }
+    const ntHash = (location.hash.match(/^#noticia=([\w-]{4,64})$/) || [])[1];
+    if(ntHash){ history.replaceState(null, "", location.pathname + location.search); setTimeout(() => abrirNoticia(ntHash), 900); }
     const daModeracao = location.hash === "#moderacao" && menu.itens.find(i => i.id === "moderacao");
     if(daModeracao) history.replaceState(null, "", location.pathname + location.search);
     selecionar(daModeracao || (location.hash === "#creditos" && menu.itens.find(i => i.id === "creditos")) || (sessionStorage.getItem("pde_tr_pasta") === "rede" && menu.itens.find(i => i.id === "trabalhos")) || primeiro);
@@ -5909,6 +5921,8 @@
     else if(acao === "ini-enviar-turma"){ janelaEnviarTurma(el.dataset.turma || ""); }
     else if(acao === "ini-ao-vivo"){ abrirAoVivo(); }
     else if(acao === "dar-aula"){ darAula(); }
+    else if(acao === "nt-compartilhar"){ compartilharNoticia(el.dataset.id); }
+    else if(acao === "nt-faixa-reagir"){ reagirFaixa(el.dataset.arg); }
     else if(acao === "av-mais"){ if(!AV.tid) return; el.disabled = true; chamarEntradaQr({ turma_id:AV.tid, acao:"prorrogar", minutos:10 }).then(r => { toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); qrAoVivo("ver"); }).catch(e => toast(e && e.message ? e.message : "Não deu para prorrogar agora.", true)).finally(() => { el.disabled = false; }); }
     else if(acao === "av-feitos"){ if(AV.tid) feitosParaTurma(AV.tid); }
     else if(acao === "av-lousa"){ fecharAoVivo(); abrirLousa(); }
@@ -6181,19 +6195,19 @@
       '</div>'+
       '</div>'+
       (ehAluno
-        ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniMateriais"></div><div id="iniHist" class="hist-faixa"></div>'+
+        ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniMateriais"></div><div id="iniHist" class="hist-faixa"></div><div id="iniNoticias"></div>'+
           '<section class="ini-sec ini-alu" aria-labelledby="aluTit"><h3 id="aluTit">Aprender brincando</h3>'+
           '<div class="ac-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></section>'+
-          '<div id="iniNoticias"></div><div id="iniDatas"></div>'
+          '<div id="iniDatas"></div>'
         // professor: o que tem para hoje, as acoes do dia a dia com foto e o resto do Portal recolhido em "Mais recursos"
         : '<div id="iniAulaHero"></div><section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo suas turmas...</div></div></section>'+
-          '<div id="iniRede"></div>'+
+          '<div id="iniRede"></div><div id="iniNoticias"></div>'+
           '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
           '<details class="ini-mais" id="iniMais"><summary>Mais recursos do Portal</summary>'+
           '<div class="ini-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></details>'+
           '<section class="ini-sec ini-conheca" id="iniConhecaSec" aria-labelledby="cqTitSec" hidden><h3 id="cqTitSec">Conheça mais do Portal</h3>'+
           '<p class="cq-sub">Recursos que ainda não estão liberados para você. Toque para saber mais.</p><div class="ini-grid" id="iniConheca"></div></section>'+
-          '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniNoticias"></div><div id="iniDatas"></div>');
+          '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniDatas"></div>');
     if(!ehAluno){
       cartaoRedeInicio();
       const det = $("iniMais");
@@ -8369,17 +8383,58 @@
     popupNoticias(ehAluno);
     if(ntFaixa.lista.length > 1) ntFaixa.t = setInterval(() => { if(!$("iniNoticias")){ clearInterval(ntFaixa.t); return; } ntFaixa.i = (ntFaixa.i + 1) % ntFaixa.lista.length; desenharFaixaNoticias(); }, 8000);
   }
+  // notícia em destaque: foto grande, reação num toque, compartilhar; troca sozinha até a pessoa mexer
+  const ntMinhas = {};
   function desenharFaixaNoticias(manual){
     const el = $("iniNoticias"); if(!el) return;
     const l = ntFaixa.lista; if(!l.length){ el.innerHTML = ""; return; }
-    if(manual){ clearInterval(ntFaixa.t); }
-    const n = l[ntFaixa.i % l.length], t = NT_TIPOS[n.tipo] || NT_TIPOS.noticia;
-    el.innerHTML = '<div class="nt-faixa" role="region" aria-label="Notícias do Portal">'+
-      '<span class="nt-faixa-img"'+(n.imagem_url ? ' style="background-image:url(\''+escapeAttr(n.imagem_url)+'\')"' : '')+'>'+(n.imagem_url ? '' : t[0])+'</span>'+
-      '<div class="nt-faixa-txt"><span class="nt-selo">'+t[0]+' '+escapeHtml(t[1])+(n.fixada ? ' · em destaque' : '')+'</span><b>'+escapeHtml(n.titulo || "")+'</b><p>'+escapeHtml(n.resumo || "")+'</p></div>'+
-      '<div class="nt-faixa-acoes">'+(l.length > 1 ? '<span class="nt-pontos">'+l.map((x, i) => '<i class="'+(i === ntFaixa.i % l.length ? "on" : "")+'" data-action="nt-ir" data-arg="'+i+'" role="button" aria-label="Notícia '+(i+1)+'"></i>').join("")+'</span>' : '')+
-      '<button type="button" class="nt-btn" data-action="nt-abrir" data-id="'+escapeAttr(n.id)+'">'+(n.tipo === "pesquisa" ? "Responder" : "Ler mais")+'</button>'+
-      '<button type="button" class="nt-lnk" data-action="nt-todas">Todas</button></div></div>';
+    if(manual){ clearInterval(ntFaixa.t); ntFaixa.t = null; }
+    const n = l[ntFaixa.i % l.length], t = NT_TIPOS[n.tipo] || NT_TIPOS.noticia, pq = n.tipo === "pesquisa";
+    el.innerHTML = '<section class="nt-dest" role="region" aria-label="Notícias do Portal"><button type="button" class="nt-dest-img" data-action="nt-abrir" data-id="'+escapeAttr(n.id)+'"'+(n.imagem_url ? ' style="background-image:url(\''+escapeAttr(n.imagem_url)+'\')"' : '')+' aria-label="Abrir a notícia">'+(n.imagem_url ? '' : '<span>'+t[0]+'</span>')+'</button>'+
+      '<div class="nt-dest-c"><div class="nt-dest-topo"><span class="nt-selo">'+t[0]+' '+escapeHtml(t[1])+(n.fixada ? ' · em destaque' : '')+'</span>'+
+        (l.length > 1 ? '<span class="nt-pontos">'+l.map((x, i) => '<i class="'+(i === ntFaixa.i % l.length ? "on" : "")+'" data-action="nt-ir" data-arg="'+i+'" role="button" aria-label="Notícia '+(i+1)+'"></i>').join("")+'</span>' : '')+'</div>'+
+      '<b class="nt-dest-tit">'+escapeHtml(n.titulo || "")+'</b><p>'+escapeHtml(n.resumo || "")+'</p>'+
+      (pq ? '' : '<div class="nt-dest-reac" id="ntFaixaReac"></div>')+
+      '<div class="nt-dest-acoes"><button type="button" class="nt-btn" data-action="nt-abrir" data-id="'+escapeAttr(n.id)+'">'+(pq ? "Responder" : "Ler mais")+'</button>'+
+        '<button type="button" class="nt-btn sec" data-action="nt-compartilhar" data-id="'+escapeAttr(n.id)+'">↗ Compartilhar</button>'+
+        '<button type="button" class="nt-lnk" data-action="nt-todas">Todas as notícias</button></div></div></section>';
+    if(!pq) faixaReacao(n);
+  }
+  async function faixaReacao(n){
+    if(!(n.id in ntMinhas)){ ntMinhas[n.id] = ""; try{ const s = await getDoc(doc(db,"noticias_reacoes",n.id+"_"+usuarioAtual.uid)); ntMinhas[n.id] = s.exists() ? s.data().reacao || "" : ""; }catch(e){} }
+    const box = $("ntFaixaReac"); if(!box || ntFaixa.lista[ntFaixa.i % ntFaixa.lista.length] !== n) return;
+    const c = n.reacoes || {}, minha = ntMinhas[n.id], tot = REACOES.reduce((a, [k]) => a + (c[k] || 0), 0);
+    box.innerHTML = REACOES.map(([k, ico, rot]) => '<button type="button" class="nt-r'+(minha === k ? " on" : "")+'" data-action="nt-faixa-reagir" data-arg="'+k+'" aria-pressed="'+(minha === k)+'" title="'+rot+'">'+ico+(minha && c[k] ? '<small>'+c[k]+'</small>' : '')+'</button>').join("")+
+      '<span class="nt-r-tot">'+(minha ? "Obrigado!" : tot ? tot+(tot === 1 ? " reação" : " reações") : "O que achou?")+'</span>';
+  }
+  async function reagirFaixa(k){
+    const n = ntFaixa.lista[ntFaixa.i % ntFaixa.lista.length]; if(!n || ntMinhas[n.id] === k) return;
+    clearInterval(ntFaixa.t); ntFaixa.t = null;   // mexeu: para de trocar sozinha
+    const antes = ntMinhas[n.id] || ""; ntMinhas[n.id] = k;
+    n.reacoes = { ...(n.reacoes || {}) }; if(antes) n.reacoes[antes] = Math.max(0, (n.reacoes[antes] || 0) - 1); n.reacoes[k] = (n.reacoes[k] || 0) + 1;
+    faixaReacao(n);
+    try{ await setDoc(doc(db,"noticias_reacoes",n.id+"_"+usuarioAtual.uid), { noticia_id:n.id, uid:usuarioAtual.uid, reacao:k, perfil:(usuarioReal || usuarioAtual).perfil, em:serverTimestamp() }); }
+    catch(e){ console.warn("reagir:", e.code); toast("Não foi possível registrar agora.", true); ntMinhas[n.id] = antes; faixaReacao(n); }
+  }
+  // compartilhar: notícia marcada como pública abre para qualquer pessoa; as outras, só para quem tem conta
+  function linkNoticia(n){ return n.publica ? "https://app.portaldoeducador.com.br/noticia/?id=" + encodeURIComponent(n.id) : "https://app.portaldoeducador.com.br/entrar/#noticia=" + encodeURIComponent(n.id); }
+  function compartilharNoticia(id){
+    const n = (ntCache || []).find(x => x.id === id) || (ntAdm.itens || []).find(x => x.id === id) || ntReac.n; if(!n) return;
+    clearInterval(ntFaixa.t); ntFaixa.t = null;
+    const url = linkNoticia(n), txt = (n.titulo || "Notícia") + "\n" + url, velho = $("ncFundo"); if(velho) velho.remove();
+    const f = document.createElement("div"); f.id = "ncFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan nc-jan" role="dialog" aria-modal="true" aria-labelledby="ncTit"><div class="et-topo"><h3 id="ncTit">↗ Compartilhar notícia</h3><button type="button" data-nc="fechar">Fechar</button></div>'+
+      '<div class="et-corpo"><p class="et-d"><b>'+escapeHtml(n.titulo || "")+'</b></p><div class="nc-ops">'+
+      '<a class="nc-op zap" href="https://wa.me/?text='+encodeURIComponent(txt)+'" target="_blank" rel="noopener"><span>💬</span>WhatsApp</a>'+
+      '<a class="nc-op" href="mailto:?subject='+encodeURIComponent(n.titulo || "Notícia")+'&body='+encodeURIComponent(txt)+'"><span>✉️</span>E-mail</a>'+
+      '<button type="button" class="nc-op" data-nc="copiar"><span>🔗</span>Copiar link</button>'+
+      (navigator.share ? '<button type="button" class="nc-op" data-nc="nativo"><span>📲</span>Mais opções</button>' : '')+'</div>'+
+      '<p class="et-d" style="font-size:12.5px">'+(n.publica ? "🌐 Link público: qualquer pessoa abre, mesmo sem conta no Portal." : "🔒 Esta notícia é só para quem tem conta no Portal: o link pede para entrar.")+'</p></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("click", async e => { const b = e.target.closest("[data-nc]"); if(e.target === f || (b && b.dataset.nc === "fechar")){ f.remove(); return; } if(!b) return;
+      if(b.dataset.nc === "copiar"){ try{ await navigator.clipboard.writeText(url); toast("Link copiado."); }catch(er){ toast("Não consegui copiar.", true); } }
+      if(b.dataset.nc === "nativo"){ try{ await navigator.share({ title:n.titulo || "Notícia", text:n.resumo || "", url }); }catch(er){} } });
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
   }
   async function renderNoticias(){
     clearInterval(ntFaixa.t);
@@ -8418,7 +8473,7 @@
     const t = NT_TIPOS[n.tipo] || NT_TIPOS.noticia;
     document.querySelectorAll("#nav a").forEach(a => a.classList.remove("active"));
     $("secTitulo").textContent = "Notícias";
-    $("conteudo").innerHTML = '<p style="margin-bottom:12px"><button class="btn btn-ghost btn-add" data-action="nt-todas">← Todas as notícias</button></p>'+
+    $("conteudo").innerHTML = '<p style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-add" data-action="nt-todas">← Todas as notícias</button><button class="btn btn-primary btn-add" data-action="nt-compartilhar" data-id="'+escapeAttr(n.id)+'">↗ Compartilhar</button></p>'+
       '<article class="nt-mat">'+(n.imagem_url ? '<img class="nt-mat-img" src="'+escapeAttr(n.imagem_url)+'" alt="">' : '')+
       '<div class="nt-mat-c"><span class="nt-selo">'+t[0]+' '+escapeHtml(t[1])+'</span><h2>'+escapeHtml(n.titulo || "")+'</h2><div class="nt-data">'+escapeHtml(ntDe(n))+'</div>'+
       midiaNoticia(n.midia_url)+'<div class="nt-corpo">'+corpoNoticia(n.tipo === "pesquisa" ? n.corpo : (n.corpo || n.resumo))+'</div>'+
@@ -8735,7 +8790,8 @@
         '<div class="field"><label>Período <small>(sem data de fim, fica até você tirar)</small></label><div class="row2" style="gap:8px"><input type="date" id="ntIni" value="'+escapeAttr(dataInput(msDe(x.inicio)) || dataInput(Date.now()))+'" aria-label="Início"><input type="date" id="ntFim" value="'+escapeAttr(dataInput(msDe(x.fim)))+'" aria-label="Fim"></div></div></div>'+
       '<div class="field"><label>Municípios <small>(nenhum marcado = todos)</small></label><div class="chk-lista" style="max-height:150px">'+cacheMunicipios.filter(m => !m.demo).map(m => '<label class="chk"><input type="checkbox" name="ntMuni" value="'+escapeAttr(m.id)+'"'+(munis.has(m.id) ? " checked" : "")+'> '+escapeHtml(m.nome+(m.uf ? "/"+m.uf : ""))+'</label>').join("")+'</div></div>'+
       '<div class="vd-checks" style="margin-bottom:14px"><label class="vd-check"><input type="checkbox" id="ntFix"'+(x.fixada ? " checked" : "")+'> ⭐ Fixar no topo</label><label class="vd-check"><input type="checkbox" id="ntPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label>'+
-        '<label class="vd-check"><input type="checkbox" id="ntPop"'+(x.popup ? " checked" : "")+'> \u{1F514} Abrir em pop-up ao entrar</label></div>'+
+        '<label class="vd-check"><input type="checkbox" id="ntPop"'+(x.popup ? " checked" : "")+'> \u{1F514} Abrir em pop-up ao entrar</label>'+
+        '<label class="vd-check"><input type="checkbox" id="ntPublica"'+(x.publica ? " checked" : "")+'> \u{1F310} Pode ser compartilhada fora do Portal (link público)</label></div>'+
       '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="ntadm-salvar" id="ntSalvar">'+(n ? "Salvar alterações" : "Salvar notícia")+'</button><button type="button" class="btn btn-ghost" data-action="ntadm-limpar">'+(n ? "Cancelar edição" : "Limpar")+'</button></div>';
     $("ntTipo").addEventListener("change", () => { $("ntPqBox").hidden = $("ntTipo").value !== "pesquisa"; });
   }
@@ -8764,7 +8820,7 @@
       const dados = { tipo:$("ntTipo").value, titulo:tit, resumo:res, corpo, midia_url:midia, publico:{ prof, aluno:alu },
         municipios:[...document.querySelectorAll('input[name="ntMuni"]:checked')].map(i => i.value),
         inicio:ini ? Timestamp.fromDate(new Date(ini+"T00:00:00")) : serverTimestamp(), fim:fim ? Timestamp.fromDate(new Date(fim+"T23:59:59")) : null,
-        fixada:$("ntFix").checked, publicado:$("ntPub").checked, popup:$("ntPop").checked, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+        fixada:$("ntFix").checked, publicado:$("ntPub").checked, popup:$("ntPop").checked, publica:!!($("ntPublica") && $("ntPublica").checked), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
       if(pq && !travado){ dados.opcoes = opcoes; dados.identificada = $("ntIdent").checked; }
       const arq = $("ntImg").files[0];
       if(arq){
