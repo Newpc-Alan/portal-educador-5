@@ -10,6 +10,8 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 const REGIAO = 'southamerica-east1';
 const RETENCAO_DIAS = 183;   // 6 meses
+// prazo de guarda de QUALQUER registro da auditoria (as outras funções que gravam aqui também usam)
+export const expiraAuditoria = () => Timestamp.fromMillis(Date.now() + RETENCAO_DIAS * 86400000);
 
 // coleções de ruído técnico (contadores, presença ao vivo, filas internas) e a própria trilha
 const IGNORAR = new Set(['auditoria', 'backups_log', 'stats', 'temas_populares', 'vistos', 'tele_sessoes', 'cmd', 'avisos_contador', 'rec_busca',

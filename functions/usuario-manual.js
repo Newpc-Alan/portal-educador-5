@@ -7,6 +7,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { gerarSenha, podeResetar } from './senha-provisoria.js';
+import { expiraAuditoria } from './auditoria.js';
 
 const REGIAO = 'southamerica-east1';
 const VALIDADE_H = 72;
@@ -64,7 +65,7 @@ export async function cadastrar({ db, auth, uid, d }) {
   await db.doc(`usuarios/${conta.uid}`).set(reg);
   const expira = Timestamp.fromMillis(Date.now() + VALIDADE_H * 3600e3);
   await db.doc(`senhas_provisorias/${conta.uid}`).set({ email, expira_em: expira, gerada_em: FieldValue.serverTimestamp(), gerada_por: uid, gerada_por_nome: txt(eu && eu.nome, 80), origem: 'cadastro_manual' });
-  await db.collection('auditoria').add({ uid, acao: 'cadastro_manual', alvo: conta.uid, alvo_email: email, perfil, em: FieldValue.serverTimestamp() });
+  await db.collection('auditoria').add({ uid, acao: 'cadastro_manual', alvo: conta.uid, alvo_email: email, perfil, em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   return { uid: conta.uid, senha, expira_ms: expira.toMillis(), nome, google: (conta.providerData || []).some(p => p.providerId === 'google.com') };
 }
 

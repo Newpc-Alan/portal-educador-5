@@ -11,6 +11,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { createHash } from 'node:crypto';
+import { expiraAuditoria } from './auditoria.js';
 
 const SERPRO_CHAVE = defineSecret('SERPRO_CHAVE');
 const SERPRO_SEGREDO = defineSecret('SERPRO_SEGREDO');
@@ -88,7 +89,7 @@ export async function conferir({ db, uid, token, email, agora = new Date(), cons
   const reg = { email, municipio_id: srv.municipio_id, escolas_ids: srv.escolas_ids || [], impressao: imp, status: av.status, texto: av.texto, nome_confere: !!av.nome_confere,
     situacao: ret.situacao || '', nome_receita: ret.nao_encontrado ? '' : (ret.nome || ''), conferido_em: FieldValue.serverTimestamp(), conferido_por: uid };
   await ref.set(reg);
-  await db.collection('auditoria').add({ uid, acao: 'cpf_receita', alvo: email, resultado: av.status, em: FieldValue.serverTimestamp() });
+  await db.collection('auditoria').add({ uid, acao: 'cpf_receita', alvo: email, resultado: av.status, em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   return { ...publico(reg), reaproveitado: false };
 }
 const publico = r => ({ status: r.status, texto: r.texto, nome_receita: r.nome_receita || '', situacao: r.situacao || '' });

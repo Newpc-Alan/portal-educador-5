@@ -10,6 +10,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomInt, randomBytes, timingSafeEqual } from 'node:crypto';
+import { expiraAuditoria } from './auditoria.js';
 
 const REGIAO = 'southamerica-east1';
 const ALFA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -77,7 +78,7 @@ export async function gerarAcesso({ db, auth, uid, turmaId, alunoId = '', novoPi
     }
     lista.push({ aluno_id: a.id, nome, codigo, pin, qr: linkQr(a.id, qrChave), foto: a.foto || '' });
   }
-  if (lista.length) await db.collection('auditoria').add({ uid, acao: alunoId ? (novoPin ? 'aluno_novo_pin' : 'aluno_acesso') : 'turma_acesso', alvo: alunoId || turmaId, em: FieldValue.serverTimestamp() });
+  if (lista.length) await db.collection('auditoria').add({ uid, acao: alunoId ? (novoPin ? 'aluno_novo_pin' : 'aluno_acesso') : 'turma_acesso', alvo: alunoId || turmaId, em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   lista.sort((x, y) => x.nome.localeCompare(y.nome, 'pt-BR'));
   return { turma: String(turma.nome || ''), escola: String(escola.nome || turma.escola_nome || ''), lista };
 }
@@ -106,7 +107,7 @@ export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
   if (ate <= agora) throw new HttpsError('failed-precondition', 'A entrada por QR da sua turma está fechada. Peça ao professor para abrir a aula.');
   // via_qr: a tela do aluno sabe que esta sessão vale só enquanto a aula estiver aberta (sai sozinha quando o tempo acaba)
   const token = await auth.createCustomToken(uidAluno(r.alunoId), { via_qr: true });
-  await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp() });
+  await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
   await db.doc('stats/entrada_qr').set({ por_dia: { [dia]: FieldValue.increment(1) }, total: FieldValue.increment(1) }, { merge: true }).catch(() => {});
   return { token, nome: a.nome || '' };
@@ -160,7 +161,7 @@ export async function vincular({ db, auth, uid, token }) {
     municipio_id: a.municipio_id || turma.municipio_id || '', escola_id: a.escola_id || '', escola_nome: String(a.escola_nome || turma.escola_nome || '').slice(0, 120),
     turma_id: a.turma_id || '', turma_nome: String(turma.nome || a.turma_nome || '').slice(0, 80), aluno_id: a.id, origem: (atual && atual.origem) || 'google_matricula',
     atualizado_em: FieldValue.serverTimestamp(), ...(atual ? {} : { criado_em: FieldValue.serverTimestamp(), criado_por: uid }) }, { merge: true });
-  await db.collection('auditoria').add({ uid, acao: 'aluno_vinculo_google', alvo: a.id, em: FieldValue.serverTimestamp() });
+  await db.collection('auditoria').add({ uid, acao: 'aluno_vinculo_google', alvo: a.id, em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   return { ok: true, renovar: true };
 }
 

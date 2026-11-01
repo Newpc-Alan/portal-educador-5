@@ -10,6 +10,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomInt, randomBytes } from 'node:crypto';
+import { expiraAuditoria } from './auditoria.js';
 
 const VALIDADE_H = 24;
 const COTA_DIA = 30;                                 // por pessoa que gera
@@ -54,7 +55,7 @@ export async function gerar({ db, auth, uid, email }) {
   const senha = gerarSenha(), expira = Timestamp.fromMillis(Date.now() + VALIDADE_H * 3600e3);
   await auth.updateUser(conta.uid, { password: senha });
   await db.doc(`senhas_provisorias/${conta.uid}`).set({ email, expira_em: expira, gerada_em: FieldValue.serverTimestamp(), gerada_por: uid, gerada_por_nome: String(eu.nome || '').slice(0, 80) });
-  await db.collection('auditoria').add({ uid, acao: 'senha_provisoria', alvo: conta.uid, alvo_email: email, em: FieldValue.serverTimestamp() });
+  await db.collection('auditoria').add({ uid, acao: 'senha_provisoria', alvo: conta.uid, alvo_email: email, em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   return { senha, expira_ms: expira.toMillis(), nome: alvo.nome || email, google: conta.providerData.some(p => p.providerId === 'google.com') };
 }
 
@@ -66,7 +67,7 @@ export async function trocar({ db, auth, uid, provedor, nova }) {
   if (!senhaForte(nova)) throw new HttpsError('invalid-argument', 'A nova senha precisa ter pelo menos 8 caracteres, com letras e números.');
   await auth.updateUser(uid, { password: nova });
   await ref.delete();
-  await db.collection('auditoria').add({ uid, acao: 'senha_trocada', em: FieldValue.serverTimestamp() });
+  await db.collection('auditoria').add({ uid, acao: 'senha_trocada', em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   return { ok: true };
 }
 

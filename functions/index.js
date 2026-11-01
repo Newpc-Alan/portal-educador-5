@@ -5,6 +5,7 @@ import { getFirestore, FieldValue, FieldPath } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomBytes, randomInt } from 'node:crypto';
 import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
+import { expiraAuditoria } from './auditoria.js';
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
@@ -47,7 +48,7 @@ async function exigirLicenca(uid){
 }
 const arr = snap => snap.docs.map(d=>({ ...d.data(), id:d.id }));
 const carimbo = () => FieldValue.serverTimestamp();
-const audit = (tx, uid, acao, dados) => tx.create(db.collection('auditoria').doc(),{uid,acao,...dados,em:carimbo()});
+const audit = (tx, uid, acao, dados) => tx.create(db.collection('auditoria').doc(),{uid,acao,...dados,em:carimbo(),expira_em:expiraAuditoria()});
 const embaralhar = valores => { const a=[...valores]; for(let i=a.length-1;i>0;i--){const j=randomInt(i+1); [a[i],a[j]]=[a[j],a[i]];} return a; };
 // Alfabeto sem caracteres ambíguos: alguém vai digitar isto a partir de papel
 // impresso. Sem I, O, 0 e 1. Seis posições dão mais de 1 bilhão de combinações,
@@ -275,7 +276,7 @@ export const definirPapel = onCall(async req=>{
   await getAuth().setCustomUserClaims(u.uid,claims);
   const batch=db.batch(),ref=db.doc(`equipe/${u.uid}`);
   if(papel==='nenhum')batch.delete(ref);else batch.set(ref,{email:u.email,papel,nome:u.displayName||'',atualizadoEm:carimbo()},{merge:true});
-  batch.create(db.collection('auditoria').doc(),{uid:autor,acao:'definirPapel',alvo:u.uid,papel,em:carimbo()});await batch.commit();
+  batch.create(db.collection('auditoria').doc(),{uid:autor,acao:'definirPapel',alvo:u.uid,papel,em:carimbo(),expira_em:expiraAuditoria()});await batch.commit();
   return {ok:true,uid:u.uid,papel};
 });
 export const publicarCurso = onCall(async req=>{
@@ -371,7 +372,7 @@ export const vincularContaFormacao = onCall(async req=>{
       b.update(d.ref,{uid,uidAnterior:c.uid});
       if(c.cursoId) b.set(db.doc(`users/${uid}/emissoes/${c.cursoId}`),{codigo:d.id},{merge:true});
       if(c.cpf) b.set(db.doc(`cpfs/${c.cpf}`),{uid,em:carimbo()},{merge:true});
-      b.create(db.collection('auditoria').doc(),{uid,acao:'vincularCertificado',codigo:d.id,de:c.uid||'',em:carimbo()});
+      b.create(db.collection('auditoria').doc(),{uid,acao:'vincularCertificado',codigo:d.id,de:c.uid||'',em:carimbo(),expira_em:expiraAuditoria()});
       await b.commit(); movidos++;
     }
   }

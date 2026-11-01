@@ -22,6 +22,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'acervo_rede/a2'), ITEM('m1', false));
   await setDoc(doc(db, 'config/acervo'), { api: 'https://x.workers.dev' });
   await setDoc(doc(db, 'acervo_rede/nw1'), { ...ITEM('m1'), arquivo_key: 'acervo-rede/m1/newpc-base.pdf', origem: 'newpc', pasta: 'p1', criado_por: 'adm' });
+  await setDoc(doc(db, 'auditoria/au1'), { acao: 'entrou', ip: '1.2.3.4', autor_uid: 'p1' });
   await setDoc(doc(db, 'acervo_rede_arvore/m1'), { pastas: [{ id: 'p1', nome: 'Currículo', pai: '' }] });
 });
 let ok = 0, falha = 0;
@@ -83,6 +84,10 @@ await t('aluno não lê as pastas', assertFails(getDoc(doc(fs('al1'), 'acervo_re
 await t('Secretaria não altera as pastas', assertFails(setDoc(doc(fs('sec1'), 'acervo_rede_arvore/m1'), { pastas: [] })));
 await t('administrador define as pastas', assertSucceeds(setDoc(doc(fs('adm'), 'acervo_rede_arvore/m2'), { pastas: [{ id: 'a', nome: 'Documentos', pai: '' }], atualizado_por: 'adm' })));
 await t('pastas com campo estranho: não', assertFails(setDoc(doc(fs('adm'), 'acervo_rede_arvore/m2'), { pastas: [], hack: 1 })));
+await t('administrador lê a auditoria', assertSucceeds(getDoc(doc(fs('adm'), 'auditoria/au1'))));
+await t('Secretaria não lê a auditoria', assertFails(getDoc(doc(fs('sec1'), 'auditoria/au1'))));
+await t('professor não lê a auditoria', assertFails(getDoc(doc(fs('p1'), 'auditoria/au1'))));
+await t('ninguém grava na auditoria pelo navegador', assertFails(setDoc(doc(fs('adm'), 'auditoria/au2'), { acao: 'x' })));
 console.log('::notice::acervo da rede: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();
 process.exit(falha ? 1 : 0);
