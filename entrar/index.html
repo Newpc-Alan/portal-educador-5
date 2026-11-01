@@ -359,6 +359,9 @@
   .ta-fundo{ z-index:9600 } .ta-jan{ width:min(520px,100%) } .ta-ops{ display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px }
   .ta-op{ border:2px solid #cfe5b5;background:#f4faea;color:#1a5a24;border-radius:14px;padding:16px 10px;font:inherit;font-size:18px;font-weight:800;cursor:pointer } .ta-op:hover,.ta-op:focus-visible{ background:#1a6b2a;color:#fff;border-color:#1a6b2a }
   .ta-enc{ color:#b3261e !important;margin-right:auto }
+  .ta-livre{ display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#f6f8fb;border:1px dashed #cfdbe7;border-radius:12px;padding:10px 12px }
+  .ta-livre label{ font-weight:800;font-size:14px;color:#0f2c4a } .ta-livre input{ width:90px;font:inherit;font-size:18px;font-weight:700;padding:8px 10px;border:1.5px solid #cfdbe7;border-radius:10px;text-align:center }
+  .ta-livre span{ color:#5b6b7b;font-size:14px } .ta-livre .btn{ margin-left:auto } .ta-erro{ margin:0;min-height:16px;font-size:13px;color:#b3261e }
   .fa-fundo{ position:fixed;inset:0;z-index:9900;background:rgba(15,44,74,.92);display:flex;align-items:center;justify-content:center;padding:20px }
   .fa-caixa{ background:#fff;border-radius:20px;padding:30px 34px;display:grid;gap:8px;justify-items:center;text-align:center;max-width:420px } .fa-ic{ font-size:56px } .fa-caixa b{ font-size:24px;color:#0f2c4a } .fa-caixa span{ color:#5b6b7b }
   .av-qr{ border:0;border-radius:12px;padding:11px 16px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;min-height:42px;background:#e6edf3;color:#0f2c4a }
@@ -7160,17 +7163,21 @@
     return (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })(dados)).data;
   }
   // janela de escolha (tempo de aula ou prorrogação); devolve os minutos, "fechar" ou null
-  function escolherTempo({ titulo, texto, opcoes, extra }){
+  function escolherTempo({ titulo, texto, opcoes, extra, max }){
     return new Promise(ok => {
       const velho = $("taFundo"); if(velho) velho.remove();
       const f = document.createElement("div"); f.id = "taFundo"; f.className = "et-fundo ta-fundo";
       f.innerHTML = '<div class="et-jan ta-jan" role="dialog" aria-modal="true" aria-labelledby="taTit"><div class="et-topo"><h3 id="taTit">' + escapeHtml(titulo) + '</h3></div>' +
         '<div class="et-corpo"><p class="et-d">' + texto + '</p><div class="ta-ops">' + opcoes.map(([m, t]) => '<button type="button" class="ta-op" data-ta="' + m + '">' + t + '</button>').join("") + '</div>' +
+        '<div class="ta-livre"><label for="taMin">Outro tempo</label><input id="taMin" type="number" min="5" max="' + (max || 360) + '" step="5" inputmode="numeric" placeholder="ex.: 45"><span>min</span>' +
+        '<button type="button" class="btn btn-primary" data-ta="livre">Usar</button></div><p class="ta-erro" id="taErro" role="status"></p>' +
         '<div class="et-acoes">' + (extra || "") + '<button type="button" class="btn btn-ghost" data-ta="nada">' + (extra ? "Deixar terminar" : "Cancelar") + '</button></div></div></div>';
       document.body.appendChild(f);
       const fim = v => { f.remove(); ok(v); };
-      f.addEventListener("click", e => { const b = e.target.closest("[data-ta]"); if(!b) return; const v = b.dataset.ta; fim(v === "nada" ? null : v === "fechar" ? "fechar" : Number(v)); });
-      f.addEventListener("keydown", e => { if(e.key === "Escape") fim(null); });
+      const livre = () => { const n = Math.round(Number($("taMin").value)), lim = max || 360;
+        if(!(n >= 5 && n <= lim)){ $("taErro").textContent = "Digite de 5 a " + lim + " minutos."; $("taMin").focus(); return; } fim(n); };
+      f.addEventListener("click", e => { const b = e.target.closest("[data-ta]"); if(!b) return; const v = b.dataset.ta; if(v === "livre") return livre(); fim(v === "nada" ? null : v === "fechar" ? "fechar" : Number(v)); });
+      f.addEventListener("keydown", e => { if(e.key === "Escape") fim(null); if(e.key === "Enter" && e.target.id === "taMin") livre(); });
       const p = f.querySelector(".ta-op"); if(p) p.focus();
     });
   }
@@ -7201,7 +7208,7 @@
       if(falta <= 3 * 60e3 && !TA.avisos[chave + "_3"] && !$("taFundo")){
         TA.avisos[chave + "_3"] = 1; bipe();
         const v = await escolherTempo({ titulo:"⏰ A aula está acabando", texto:"A aula do <b>" + escapeHtml(a.nome) + "</b> termina às <b>" + horaCurta(a.ate) + "</b>. Quando acabar, quem entrou pelo cartão sai sozinho. Precisa de mais tempo?",
-          opcoes:TEMPOS_PRORROGA, extra:'<button type="button" class="btn btn-ghost ta-enc" data-ta="fechar">Encerrar agora</button>' });
+          opcoes:TEMPOS_PRORROGA, max:120, extra:'<button type="button" class="btn btn-ghost ta-enc" data-ta="fechar">Encerrar agora</button>' });
         try{
           if(typeof v === "number"){ const r = await chamarEntradaQr({ turma_id:tid, acao:"prorrogar", minutos:v }); toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); }
           else if(v === "fechar"){ await chamarEntradaQr({ turma_id:tid, acao:"fechar" }); toast("Aula encerrada. Os alunos que entraram pelo cartão saem agora."); }

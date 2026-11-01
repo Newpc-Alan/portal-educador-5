@@ -114,6 +114,9 @@ export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
 // abrir/fechar/consultar a entrada por QR de uma turma (mesmas pessoas que geram o acesso)
 // tempo de aula escolhido pelo professor ao abrir (minutos) e as prorrogações; nunca passa de MAX_AULA_MIN a partir de agora
 export const TEMPOS_AULA = [30, 40, 50, 60, 120], TEMPOS_PRORROGA = [5, 10, 15, 20, 30, 60], MAX_AULA_MIN = 360;
+// tempo personalizado: qualquer número inteiro de minutos entre MIN_AULA_MIN e MAX_AULA_MIN (prorrogação até 120)
+export const MIN_AULA_MIN = 5;
+const minutosOk = (v, max) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= MIN_AULA_MIN && n <= max ? n : 0; };
 export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now() }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
@@ -125,11 +128,11 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
     if (acao === 'fechar') { await ref.set({ aberta_ate: new Date(agora), por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); return { aberta_ate: 0 }; }
     let ate;
     if (acao === 'abrir') {
-      const min = TEMPOS_AULA.includes(Number(minutos)) ? Number(minutos) : 60;
+      const min = minutosOk(minutos, MAX_AULA_MIN) || 60;
       ate = new Date(agora + min * 60e3);
       await ref.set({ aberta_ate: ate, aberta_em: new Date(agora), duracao_min: min, prorrogado_min: 0, por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
     } else {
-      const min = TEMPOS_PRORROGA.includes(Number(minutos)) ? Number(minutos) : 10;
+      const min = minutosOk(minutos, 120) || 10;
       const d0 = (await ref.get()).data() || {}, atual = d0.aberta_ate && d0.aberta_ate.toMillis ? d0.aberta_ate.toMillis() : 0;
       ate = new Date(Math.min(Math.max(atual, agora) + min * 60e3, agora + MAX_AULA_MIN * 60e3));
       await ref.set({ aberta_ate: ate, por: uid, turma_nome: nome, prorrogado_min: FieldValue.increment(min), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });

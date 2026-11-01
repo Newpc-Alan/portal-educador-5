@@ -23,7 +23,9 @@ try {
   const r2 = await call('entradaQrTurma', tP, { turma_id: tid, acao: 'prorrogar', minutos: 10 });
   ok(r2.result && r2.result.aberta_ate - r1.result.aberta_ate === 10 * 60e3, 'prorrogar +10 min soma no fim da aula');
   const r9 = await call('entradaQrTurma', tP, { turma_id: tid, acao: 'abrir', minutos: 999 });
-  ok(r9.result && Math.abs(r9.result.aberta_ate - Date.now() - 60 * 60e3) < 60e3, 'tempo fora da lista vira 1 hora');
+  ok(r9.result && Math.abs(r9.result.aberta_ate - Date.now() - 60 * 60e3) < 60e3, 'tempo acima de 6 horas vira 1 hora');
+  const r8 = await call('entradaQrTurma', tP, { turma_id: tid, acao: 'abrir', minutos: 45 });
+  ok(r8.result && Math.abs(r8.result.aberta_ate - Date.now() - 45 * 60e3) < 60e3, 'tempo personalizado de 45 min aceito');
   if (acesso) {
     const e = await call('entrarAlunoQr', null, { q: acesso.id + '.' + acesso.data().qr_chave });
     const s = e.result ? await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: e.result.token, returnSecureToken: true }) })).json() : {};
