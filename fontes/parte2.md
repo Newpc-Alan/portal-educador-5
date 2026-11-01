@@ -559,13 +559,15 @@ Menu **Materiais da rede**. É onde se confere o que os professores compartilham
 
 ## Painel do administrador
 
-Menu **Painel**, com quatro abas:
+Menu **Painel**, com seis abas. **Todo número, barra e linha é clicável**: abre uma janela com os dados de onde ele saiu (quem é, município, situação, datas), com busca, **Exportar planilha (CSV)** e o botão **Abrir cadastro** em cada pessoa, que leva direto ao cadastro na tela Usuários. O ícone 🔎 ao lado do título indica o que é clicável.
 
 | Aba | O que mostra |
 |---|---|
-| Pessoas e uso | Cadastros, testes, conversão, licenças vencendo, alunos, acessos por dia, professores por estado, botões mais abertos, **recursos mais pedidos fora do plano** (e a tabela por município com o plano atual), arquivos do acervo mais abertos e últimos cadastros |
-| Conteúdo e participação | Rede atendida, conteúdo publicado, **Novidades em uso** (provas online aplicadas, alunos que entraram pelo QR, aulas com IA na Lousa, materiais do Portal IA, usos de IA e custo estimado do mês), participação e as **pendências** com atalho |
-| Infraestrutura e custos | Leituras e gravações do banco, armazenamento, funções e erros, **Servidor NEWPC** (no ar ou fora, acervo copiado, arquivos entregues por dia) e atalhos para os consoles |
+| Pessoas e uso | Cadastros, testes, conversão, licenças vencendo, aguardando aprovação, alunos, quem acessou (hoje e em 7 dias, com os botões abertos), cadastros e acessos por dia (clique na barra do dia), professores por estado, **pessoas por perfil**, **entradas por tela** (da Auditoria, com IP), botões mais abertos, recursos mais pedidos fora do plano, arquivos do acervo mais abertos e últimos cadastros |
+| Portal IA e créditos | Usos, créditos consumidos e custo estimado do mês; **redes com saldo baixo** (20% ou menos); **pedidos de recarga pendentes**; alertas de saldo; usos por tipo; quem mais consumiu; e a tabela de **contas de créditos** (clique numa conta para ver os movimentos: quando, quem, quanto e em quê) |
+| Sala Conectada e rede | Educador em Rede (compartilhados, publicados, **aguardando aprovação**, ocultos, com denúncia, por município); envios para a turma, entradas de alunos pelo cartão QR e envios às famílias, com gráfico por dia |
+| Conteúdo e participação | Rede atendida, conteúdo publicado, Novidades em uso, **acervo dos municípios** (arquivos, material NEWPC, por município), participação e as pendências com atalho. Cada cartão abre a lista do banco (até 1.000 itens) |
+| Infraestrutura e custos | Leituras e gravações do banco, armazenamento, funções e erros, **registros de auditoria por dia** (clique no dia para ver o que aconteceu), Servidor NEWPC e atalhos para os consoles |
 | 💾 Backup | Backup manual e semanal automático |
 
 ![Painel do administrador](s15-painel.png){85}
@@ -575,7 +577,11 @@ A rede de demonstração (Rede Modelo) foi apagada; as demonstrações usam o mu
 :::
 
 :::dica
-A tabela "Interesse por município" é argumento de venda: mostra quantos professores de cada rede tocaram em "Tenho interesse" num recurso que o plano não tem.
+A tabela "Interesse por município" é argumento de venda: mostra quantos professores de cada rede tocaram em "Tenho interesse" num recurso que o plano não tem. Exportada em CSV, vai direto para a conversa de ampliação do contrato.
+:::
+
+:::regra
+Envios para a turma, avisos às famílias e entradas por tela vêm da **Auditoria**, que começou em 01/11/2026. Antes dessa data não há registro nominal desses eventos. O Painel lê os dados direto do banco a cada abertura; quando a base passar de uns 2 mil usuários, a NEWPC vai ligar um resumo calculado pelo servidor para manter a tela rápida e barata.
 :::
 
 ### Backup
