@@ -73,6 +73,7 @@ h2{font-size:1.1rem;font-weight:800}
 .sug-it:hover{border-color:#1a6b2a;background:#f1f8ec}
 .sug-it.on{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
 .sug-it.on::before{content:"✓ "}
+.caixa-cartao{border-color:#1a6b2a55;background:#f4faef}
 .qtd-q{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:var(--muted);margin-left:6px}
 .qtd-q input{width:68px;padding:6px 8px;border:1.5px solid var(--line2);border-radius:10px;font:inherit;font-weight:700;color:var(--texto);text-align:center}
 .sug-dica{color:var(--muted);font-size:.78rem;font-weight:400;margin-left:8px}
@@ -851,6 +852,8 @@ function telaDoc(){
     '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem") + "</button>" +
     (c && !c.admin ? '<div class="cota" style="margin-top:6px">1 imagem usa ' + ((c.precos || {}).imagem || 5) + " créditos</div>" : "")
     : '<p class="sub" style="font-size:.86rem;margin-bottom:8px">' + (c && c.rede && !c.rede.imagem ? "Gerar imagens pela rede faz parte do plano Completo. Com créditos avulsos você também pode gerar." : "Sem créditos para imagem agora.") + '</p><button type="button" class="btn peq" data-action="comprar">Comprar créditos avulsos</button>') + "</div>" +
+  (A.publico === "aluno" && nMultCartao(d) && !A.vistaRede ? '<div class="caixa caixa-cartao"><h4>Corrigir com cartão-resposta</h4><p class="sub" style="font-size:.82rem;margin:0 0 8px">' + nMultCartao(d) + ' questão(ões) de múltipla escolha vão para o Corretor de Gabarito com o gabarito pronto. Cada aluno recebe um cartão com QR e você corrige pelo celular.' +
+    (todasQuestoes(d).length > nMultCartao(d) ? " As de outro tipo ficam para lançar à mão." : "") + '</p><a class="btn pri" href="' + esc(linkCorretor(A)) + '">📷 Corrigir com cartão-resposta</a></div>' : "") +
   boxRede(A) +
   '<div class="caixa"><button type="button" class="btn peq" data-action="excluir" style="color:var(--red)">Excluir este material</button></div>')) +
   "</aside></div>";
@@ -1077,6 +1080,19 @@ function textoPlano(d, gab){
 }
 async function copiar(t){ try{ await navigator.clipboard.writeText(t); toast("Copiado."); }catch(e){ toast("Não consegui copiar. Selecione o texto e copie.", true); } }
 
+/* ---------- ponte com o Corretor de Gabarito: as questões de múltipla escolha com gabarito viram o cartão-resposta ---------- */
+function nMultCartao(d){ const g = {}; ((d && d.gabarito) || []).forEach(x => { g[+x.questao] = x; }); return todasQuestoes(d || {}).filter((q, i) => q.tipo === "multipla" && /^\(?[A-E]\b/i.test(String((g[i + 1] || {}).resposta || "").trim())).length; }
+function linkCorretor(A){
+  const nome = (A.contexto || {}).turma, t = (nome && E.turmas.find(x => x.nome === nome)) || turmaAtual();
+  return "/apps/corretor/?pia=" + encodeURIComponent(A.id) + (t ? "&turma=" + encodeURIComponent(t.id) : "");
+}
+// QR da página do gabarito: o professor aponta o celular e o Corretor abre nesta prova
+function carregarQr(){ if(window.QRCode) return Promise.resolve(true); return carregarQr.p || (carregarQr.p = new Promise(ok => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = () => ok(!!window.QRCode); sc.onerror = () => { carregarQr.p = null; ok(false); }; document.head.appendChild(sc); })); }
+async function qrDataUrl(texto){
+  if(!(await carregarQr())) return "";
+  const box = document.createElement("div"); new window.QRCode(box, { text:texto, width:320, height:320, correctLevel:window.QRCode.CorrectLevel.M });
+  const cv = box.querySelector("canvas"); return cv ? cv.toDataURL("image/png") : (box.querySelector("img") || {}).src || "";
+}
 /* ---------- PDF: a diagramação é do Portal ---------- */
 const MAPA_PDF = { "π":"pi", "≤":"<=", "≥":">=", "≠":"diferente de", "√":"raiz de ", "−":"-", "–":"-", "—":", ", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'", "•":"-", "→":"->", "≈":"aprox. ", "★":"", "✓":"" };
 const pdfTx = s => String(s == null ? "" : s).replace(/[π≤≥≠√−–—…“”‘’•→≈★✓]/g, ch => MAPA_PDF[ch]).replace(/[^\u0000-ÿ\n]/g, "").replace(/\t/g, " ").replace(/ +([,.;:])/g, "$1").replace(/_{3,}/g, "_______________").trim();
@@ -1123,8 +1139,16 @@ async function pdfDoc(qual, comoArquivo){
     String(t || "").split(/\n/).forEach(par => { pdf.splitTextToSize(pdfTx(par) || " ", w).forEach(l => { quebra(l2); pdf.text(l, xx, y); y += l2; }); }); };
   if(ilus){ const lmax = Math.min(larg, 120), hmax = 78, k = Math.min(lmax / ilus.w, hmax / ilus.h); quebra(ilus.h * k + 4); pdf.addImage(ilus.url, "JPEG", mx + (larg - ilus.w * k) / 2, y - 2, ilus.w * k, ilus.h * k); y += ilus.h * k + 6; }
   // página do gabarito (no PDF do professor e no "Só o gabarito")
+  const qrCorr = comGab && A.publico === "aluno" && nMultCartao(d) && !A.vistaRede ? await qrDataUrl(location.origin + linkCorretor(A)) : "";
   const desenharGab = () => {
-    const larg2 = larg;
+    const larg2 = qrCorr ? larg - 50 : larg;
+    if(qrCorr){ const xq = W - mx - 42, y0 = y - 4;
+      pdf.setDrawColor(26, 107, 42); pdf.setLineWidth(0.6); pdf.roundedRect(xq - 2, y0, 44, 58, 3, 3); pdf.setLineWidth(0.2);
+      pdf.addImage(qrCorr, "PNG", xq + 3, y0 + 3, 34, 34);
+      pdf.setTextColor(26, 107, 42); pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text("Corrigir no celular", xq + 20, y0 + 42, { align:"center" });
+      pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.2); pdf.setTextColor(70, 90, 110);
+      pdf.splitTextToSize(pdfTx("Aponte a câmera: o Corretor abre nesta prova, com os cartões dos alunos."), 38).forEach((l, i) => pdf.text(l, xq + 20, y0 + 47 + i * 3, { align:"center" }));
+      pdf.setTextColor(20, 30, 40); }
     (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta, mx, larg2, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg2 - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
     // caça-palavras: a grade resolvida, com as letras das palavras destacadas
     const grade = (d.secoes || []).map(x => x.tabela).find(t => t && t.grade);

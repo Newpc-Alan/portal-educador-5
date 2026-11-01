@@ -521,7 +521,11 @@ async function carregarTurmas(){
     E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (ids.length > 1 || E.admin ? " · " + esc(t.escola_nome || "") : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("");
   // vindo da planilha de Notas: já abre na turma (?turma=ID)
   const pedida = new URLSearchParams(location.search).get("turma");
-  if(pedida && E.turmas.some(t => t.id === pedida)){ $("selTurma").value = pedida; escolherTurma(pedida); }
+  // vindo do Portal IA (botão "Corrigir com cartão-resposta" ou QR da página do gabarito): ?pia=ID&turma=ID
+  const pia = new URLSearchParams(location.search).get("pia");
+  if(pia && /^[\w-]{4,64}$/.test(pia)) E.piaPendente = pia;
+  if(pedida && E.turmas.some(t => t.id === pedida)){ $("selTurma").value = pedida; await escolherTurma(pedida); }
+  else if(E.piaPendente) toast("Escolha a turma em que você vai aplicar esta prova. O gabarito vem do Portal IA.");
 }
 async function escolherTurma(id){
   E.turma = E.turmas.find(t => t.id === id) || null; E.alunos = []; E.avals = []; E.aval = null; E.resp = {};
@@ -534,6 +538,39 @@ async function escolherTurma(id){
   }catch(e){ console.warn("alunos:", e.code); }
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   await carregarAvals();
+  if(E.piaPendente){ const p = E.piaPendente; E.piaPendente = ""; await doPortalIA(p); }
+}
+/* ---------- materiais do Portal IA (prova, simulado, diagnóstica...) viram o gabarito do cartão ---------- */
+const bimestreAtual = () => { const m = new Date().getMonth(); return m < 4 ? 1 : m < 7 ? 2 : m < 9 ? 3 : 4; };
+async function doPortalIA(id){
+  try{ history.replaceState(null, "", location.pathname + "?turma=" + encodeURIComponent(E.turma.id)); }catch(e){}
+  const ja = E.avals.find(a => a.pia_id === id);
+  if(ja){ $("selAval").value = ja.id; await escolherAval(ja.id); ir("cartoes"); toast("Esta prova já estava no Corretor desta turma."); return; }
+  let r = null;
+  try{ const x = await getDoc(doc(db, "portal_ia_docs", id)); if(x.exists()) r = x.data(); }catch(e){ console.warn("portal ia:", e.code); }
+  if(!r || !r.doc){ toast("Não encontrei este material do Portal IA na sua conta.", true); return; }
+  const d = r.doc, gab = {}; (d.gabarito || []).forEach(g => { gab[+g.questao] = g; });
+  const todas = (d.secoes || []).flatMap(x => x.questoes || []), mult = [];
+  todas.forEach((q, i) => {
+    if(q.tipo !== "multipla") return;
+    const g = gab[i + 1], letra = (String(g && g.resposta || "").trim().toUpperCase().match(/^\(?([A-E])\b/) || [])[1], alts = (q.alternativas || []).slice(0, 5);
+    if(!letra || alts.length < 2) return;
+    mult.push({ q, letra, alts, bncc:codigosBncc((g && g.comentario) || "").concat(codigosBncc(q.bncc || "")).join(" ") });
+  });
+  if(!mult.length){ toast("Este material não tem questões de múltipla escolha com gabarito. O cartão só lê múltipla escolha.", true); return; }
+  const somaV = mult.reduce((s, m) => s + (+m.q.valor || 0), 0), pontos = m => somaV > 0 ? Math.round((+m.q.valor || 0) * 100) / 100 : Math.round(10 / mult.length * 100) / 100;
+  const questoes = mult.map((m, k) => ({ numero:k + 1, tipo:"multipla", enunciado:String(m.q.enunciado || "Questão " + (k + 1)).slice(0, 600), pontos:pontos(m), bncc:m.bncc,
+    alternativas:m.alts.map((a, j) => ({ letra:LETRAS[j], texto:String(a).slice(0, 300), correta:LETRAS[j] === m.letra })) }));
+  const t = E.turma, ign = todas.length - mult.length, cx = r.contexto || {};
+  try{
+    const nova = await addDoc(collection(db, "avaliacoes"), { titulo:String(d.titulo || r.titulo || "Prova do Portal IA").slice(0, 80), disciplina:String(cx.disciplina || "").slice(0, 60), bimestre:bimestreAtual(),
+      turma_id:t.id, turma_nome:t.nome || "", escola_id:t.escola_id || "", escola_nome:t.escola_nome || "", municipio_id:t.municipio_id || E.u.municipio_id || "",
+      ano_letivo:new Date().getFullYear(), professor_uid:E.user.uid, questoes, total_pontos:Math.round(questoes.reduce((s, q) => s + q.pontos, 0) * 100) / 100,
+      status:"impressa", formato:"cartao", origem:"portal_ia", pia_id:id, finalidade:r.tipo === "diagnostica" ? "diagnostica" : r.tipo === "simulado" ? "simulado" : null,
+      codigo_acesso:null, liberada_em:null, encerra_em:null, criado_em:serverTimestamp() });
+    toast(questoes.length + " questões com gabarito no cartão" + (ign ? " · " + ign + " de outro tipo ficam para lançar em Notas e Médias" : "") + ". Agora imprima os cartões.");
+    await carregarAvals(nova.id); ir("cartoes");
+  }catch(e){ console.warn("criar do portal ia:", e.code || e); toast("Não foi possível trazer a prova (" + (e.code || "erro") + ").", true); }
 }
 async function carregarAvals(selecionar){
   E.avals = [];
