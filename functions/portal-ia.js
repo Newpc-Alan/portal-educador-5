@@ -67,12 +67,15 @@ export const TIPOS = {
 'Escreva um RESUMO PARA O ALUNO ESTUDAR o conteúdo (revisão antes da prova). Seções: "Em poucas palavras" (texto de até 5 frases curtas com a ideia central); "Pontos principais" (itens, um conceito por item, com exemplo curto); "Não confunda" (tabela com duas colunas comparando os conceitos que os alunos mais misturam); "Palavras-chave" (tabela com Palavra e Significado); "Revise" (3 a 5 questões curtas, com as respostas no gabarito). Linguagem da série, sem informação incerta.' },
   dinamica: { nome: 'Dinâmica ou jogo para a sala', publico: 'professor', instrucao:
 'Escreva uma DINÂMICA ou JOGO para fazer na sala de aula com o conteúdo informado, sem equipamento caro. Seções: "Resumo" (tabela com Objetivo, Tempo, Organização da turma e Materiais); "Preparação" (itens do que o professor faz antes); "Como fazer" (itens numerados, passo a passo, com o que o professor fala e o que os alunos fazem); "Regras" (itens curtos); "Variações" (itens: turma grande, turma agitada, alunos com deficiência); "Fechamento" (como amarrar a dinâmica ao conteúdo, com 2 ou 3 perguntas para a roda de conversa).' },
+  // modelos do acervo antigo (PDFs do Banco Curricular) recriados no padrão do Portal; não aparece nos atalhos
+  ficha_ei: { nome: 'Ficha da Educação Infantil', publico: 'aluno', instrucao:
+'Escreva uma FICHA DE ATIVIDADE da EDUCAÇÃO INFANTIL (crianças pequenas, de 4 e 5 anos, salvo outra faixa indicada), para a criança fazer com a mediação do professor. A criança ainda não lê: as instruções são para o professor ler em voz alta. Seções, nesta ordem: "Para o professor" (texto com o objetivo da proposta em até 2 frases; itens com o passo a passo da condução, de 3 a 5 passos, incluindo uma roda de conversa antes e um momento de partilha depois); "Atividade" (itens: de 2 a 4 consignas curtas, uma ação por vez, com verbos concretos como observe, pinte, circule, ligue, conte, desenhe, cole); "Para ampliar" (itens: 2 brincadeiras ou variações com material simples, sem tela). Em "bncc", os objetivos de aprendizagem da Educação Infantil (códigos EI03...) que a proposta trabalha, só os que você tem certeza. Em "sugestao_imagem", descreva UMA ilustração em contornos, para a criança realizar a atividade na própria folha (ex.: cinco maçãs grandes numa árvore para contar e pintar; três animais e suas sombras para ligar), com poucos elementos grandes e espaço para pintar. Nada de questões de múltipla escolha.' },
   cacapalavras: { nome: 'Caça-palavras', publico: 'aluno', instrucao:
 'Prepare um CAÇA-PALAVRAS sobre o tema. Seção 1 "Como fazer" com UMA frase de instrução para o aluno. Seção 2 "Palavras para encontrar" com os itens: SÓ as palavras, uma por item, cada uma com 3 a 11 letras, sem espaço, hífen nem número (nada de expressão com duas palavras), todas ligadas ao tema e corretas na série. Anos iniciais: 6 a 8 palavras curtas; demais séries: 8 a 12 palavras. Seção 3 "Para pensar" com 2 itens: perguntas curtas que ligam as palavras ao conteúdo. NÃO monte a grade de letras: o Portal monta sozinho.' }
 };
 const NOMES = Object.keys(TIPOS);
 // o que pode ir para a rede: parecer e recado têm dados de alunos e famílias (LGPD) e ficam de fora
-export const TIPOS_REDE = ['plano', 'sequencia', 'atividade', 'prova', 'explicar', 'inclusao', 'planejamento', 'diagnostica', 'simulado', 'lista', 'rubrica', 'projeto', 'resumo', 'dinamica', 'cacapalavras'];
+export const TIPOS_REDE = ['ficha_ei', 'plano', 'sequencia', 'atividade', 'prova', 'explicar', 'inclusao', 'planejamento', 'diagnostica', 'simulado', 'lista', 'rubrica', 'projeto', 'resumo', 'dinamica', 'cacapalavras'];
 
 /* ------------------------------------------------------------------ caça-palavras: a grade é do Portal, não da IA */
 // A IA só escolhe as palavras (ela erra muito ao desenhar grade). Aqui as palavras viram letras sem acento e entram
@@ -614,6 +617,49 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
 
   // 3b) só administrador: foto de card com os personagens da NEWPC (fotos de referência enviadas pelo script de geração).
   // Não grava nada nem gasta créditos: devolve a imagem para o script revisar e guardar.
+  // 3c) só administrador: recria uma atividade do acervo antigo (PDF) no padrão do Portal IA, com ilustração para colorir.
+  // O material fica na conta de quem converteu, em "Seus materiais", para revisar antes de virar modelo.
+  if (d.acao === 'converter_atividade') {
+    if (!ctx.admin) throw new HttpsError('permission-denied', 'Só o administrador.');
+    const id = txt(d.id, 80), at = await db.doc('atividades/' + id).get();
+    if (!at.exists) throw new HttpsError('not-found', 'Atividade não encontrada.');
+    const a = at.data(), tipo = a.etapa === 'infantil' ? 'ficha_ei' : 'atividade', T = TIPOS[tipo];
+    const [pdf] = await getStorage().bucket().file(`atividades/${a.etapa}/${id}.${a.formato || 'pdf'}`).download();
+    if (pdf.length > 18e6) throw new HttpsError('failed-precondition', 'Arquivo grande demais para converter.');
+    const cxA = { disciplina: a.etapa === 'infantil' ? 'Educação Infantil' : txt(a.componente, 60), serie: a.etapa === 'infantil' ? 'Educação Infantil (4 e 5 anos)' : (a.anos || []).map(n => n + 'º ano').join(', ') };
+    const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. Você recebe o PDF de uma atividade antiga e a RECRIA no padrão do Portal: mantenha a proposta pedagógica e o tema, mas escreva com as suas palavras (não copie o texto do PDF) e melhore o que estiver confuso. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
+    const pedido = 'CONTEXTO\n' + contextoTexto(cxA) + '\nTítulo do arquivo: ' + txt(a.titulo || a.arquivo_nome, 160) + (a.componente ? '\nCampo / componente no acervo: ' + txt(a.componente, 80) : '');
+    let r = null, prob = ['sem resposta'];
+    for (let t = 0; t < 3 && prob.length; t++) {
+      const g = await geminiFluxo(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], { systemInstruction: { parts: [{ text: sistema }] },
+        contents: [{ role: 'user', parts: [{ inlineData: { mimeType: a.formato === 'pdf' || !a.formato ? 'application/pdf' : 'image/' + (a.formato === 'jpg' ? 'jpeg' : a.formato), data: pdf.toString('base64') } }, { text: pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : '') }] }],
+        generationConfig: { responseMimeType: 'application/json', responseSchema: ESQUEMA_DOC, maxOutputTokens: 32000 } }, 170000);
+      try { r = JSON.parse(g.partes.map(p => p.text || '').join('')); } catch (e) { r = null; }
+      prob = r ? conferirDoc(limparDoc(r), tipo, 0) : ['resposta incompleta'];
+    }
+    if (prob.length) throw new HttpsError('internal', 'A IA não conseguiu recriar esta atividade (' + prob[0] + ').');
+    const doc = limparDoc(r);
+    (doc.bncc || []).forEach(b => { const c = String(b.codigo || '').toUpperCase(); b.codigo = CODIGOS_BNCC.has(c) ? c : ''; });
+    // ilustração em contorno, para a criança fazer a atividade na própria folha
+    let imagens = {};
+    const desc = txt(doc.sugestao_imagem, 600);
+    if (desc.length > 10) {
+      const pi = 'Crie uma imagem para uma ficha de Educação Infantil de escola brasileira. Assunto: ' + desc + '. Estilo: desenho para colorir, só contornos pretos grossos e limpos sobre fundo branco, sem sombras, sem cores, sem tons de cinza, elementos grandes e simples, com espaço para a criança pintar. Formato horizontal 4:3. NÃO escreva palavras, letras nem números na imagem.';
+      try {
+        const gi = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ text: pi }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } });
+        const parte = gi.partes.find(p => p.inlineData && /^image\//.test(p.inlineData.mimeType || ''));
+        if (parte) { const cam = `portal-ia/${uid}/acervo-${id}-${Date.now()}.${/png/.test(parte.inlineData.mimeType) ? 'png' : 'jpg'}`;
+          await getStorage().bucket().file(cam).save(Buffer.from(parte.inlineData.data, 'base64'), { contentType: parte.inlineData.mimeType, resumable: false, metadata: { cacheControl: 'private, max-age=86400' } });
+          imagens = { topo: { caminho: cam, descricao: desc } }; }
+      } catch (e) { console.warn('converter: imagem', e.message); }
+    }
+    const ref = db.collection('portal_ia_docs').doc();
+    await ref.set({ uid, tipo, tipo_nome: T.nome, publico: T.publico, titulo: txt(doc.titulo, 160), tema: txt(doc.titulo, 120), resumo: 'Recriada do acervo: ' + txt(a.titulo || a.arquivo_nome, 160), contexto: cxA, doc,
+      imagem: imagens.topo ? imagens.topo.caminho : '', imagens, favorito: false, ajustes: 0, origem_acervo: { id, titulo: txt(a.titulo || a.arquivo_nome, 160), mini_url: a.mini_url || '' },
+      modelo: 'acervo', criado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp() });
+    return { id: ref.id, titulo: doc.titulo, imagem: !!imagens.topo, bncc: (doc.bncc || []).map(b => b.codigo).filter(Boolean) };
+  }
+
   if (d.acao === 'foto_ref') {
     if (!ctx.admin) throw new HttpsError('permission-denied', 'Só o administrador.');
     const descricao = txt(d.descricao, 1500); if (descricao.length < 10) throw new HttpsError('invalid-argument', 'Descreva a cena.');
