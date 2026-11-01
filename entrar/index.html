@@ -2143,7 +2143,6 @@
       try{ const m = await getDoc(doc(db,"municipios",dados.municipio_id)); if(m.exists()) usuarioAtual._muni = { id:m.id, ...m.data() }; }
       catch(e){ console.warn("municipio:", e.code); }
     }
-    registrarEntradaPortal();
   }
 
   // primeiro login de quem foi importado: copia o vinculo do pre-cadastro (so e-mail verificado, ex.: Google)
@@ -4843,17 +4842,6 @@
     if(a === "aud-csv") exportarAuditoria();
   });
   document.addEventListener("input", ev => { if(ev.target.id === "audTexto") desenharAuditoria(); });
-  // entrada no Portal: registrada pelo servidor (com IP), uma vez por sessão do navegador
-  async function registrarEntradaPortal(){
-    try{
-      const u = auth.currentUser; if(!u || !usuarioAtual || usuarioAtual.semCadastro) return;
-      const k = "pde_entrada_" + u.uid;
-      try{ if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k, "1"); }catch(e){}
-      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-      await httpsCallable(getFunctions(app, "southamerica-east1"), "registrarEntrada", { timeout:15000 })({ tela:"entrar" });
-    }catch(e){ console.warn("registro de entrada:", e.code || e.message); }
-  }
-
   // ---------- admin: enviar e organizar ----------
   const acvAdm = { itens:[], fila:[], enviando:false, filtro:"" };
   async function renderAcervoAdmin(){
@@ -10697,5 +10685,6 @@
     return m[code] || ("Erro ao entrar ("+code+").");
   }
 </script>
+<script type="module" src="/assets/pde-entrada.js"></script>
 </body>
 </html>

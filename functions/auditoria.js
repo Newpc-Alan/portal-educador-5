@@ -79,7 +79,9 @@ export const auditarBancoSub = onDocumentWrittenWithAuthContext({ ...OPC, docume
 // entrada no Portal: a tela chama uma vez por sessão, logo depois do login
 export const registrarEntrada = onCall({ region: REGIAO, maxInstances: 20, timeoutSeconds: 15 }, async req => {
   const uid = req.auth && req.auth.uid; if (!uid) throw new HttpsError('unauthenticated', 'Entre no Portal.');
-  const db = getFirestore(), u = (await db.doc('usuarios/' + uid).get()).data() || {};
+  const db = getFirestore();
+  let u = (await db.doc('usuarios/' + uid).get()).data();
+  if (!u) { const f = (await db.doc('users/' + uid).get()).data(); u = f ? { perfil: 'formacao' + (f.papel ? ':' + f.papel : ''), municipio_id: f.municipio_id || '' } : {}; }   // conta só da Formação Continuada
   const h = (req.rawRequest && req.rawRequest.headers) || {};
   const ip = String(h['x-forwarded-for'] || (req.rawRequest && req.rawRequest.ip) || '').split(',')[0].trim().slice(0, 64);
   const tela = String((req.data && req.data.tela) || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 40);
