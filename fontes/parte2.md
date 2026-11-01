@@ -594,6 +594,8 @@ Na aba **💾 Backup**:
 
 Também é possível fazer **backup agora** (só o banco ou completo, com arquivos) e **baixar no computador** (link válido por 7 dias). A restauração é feita pelo suporte técnico.
 
+No topo da aba fica o card **🖥️ Servidor NEWPC**: a cópia da **aplicação inteira** (banco, contas de login, código e todos os arquivos) que um robô faz toda madrugada no servidor da NEWPC, cifrada, com 30 cópias diárias e 12 mensais e **teste de restauração** todo dia 2. O card mostra o último backup e o resultado do último teste; o botão **Fazer agora pelo GitHub** roda o robô na hora. Procedimento completo no POP-PDE-29.
+
 ![Configuração do backup](backup.png){85}
 
 :::atencao

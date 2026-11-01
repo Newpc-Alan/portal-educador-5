@@ -527,18 +527,18 @@ Front: reverter o commit e publicar de novo. Regras: publicar a versão anterior
 3. Toda segunda-feira, conferir em **🗂️ Últimos backups** se o automático de domingo (madrugada) terminou com sucesso.
 4. Antes de mudança grande ou importação em massa, usar **💾 Fazer backup agora** (só o banco).
 5. Uma vez por mês, fazer backup **completo** (banco e arquivos). Se precisar de uma cópia fora do Google, use **⬇️ Baixar no computador** e guarde em HD externo com senha ou no servidor da empresa.
-6. Conferir também a cópia do acervo no servidor NEWPC (POP-PDE-22): o backup do banco não substitui a cópia dos arquivos.
+6. Conferir também, toda segunda-feira, o card **🖥️ Servidor NEWPC** na mesma aba: o backup diário da aplicação inteira no servidor da NEWPC (banco, contas de login, código e todos os arquivos, cifrado) precisa ter menos de 36 horas, e o último **teste de restauração** (todo dia 2) precisa estar com ✅. Detalhes no POP-PDE-29.
 
 **Restauração**
 
-7. Só a equipe técnica restaura, sempre primeiro num projeto de teste, conferindo os dados antes de qualquer restauração em produção, com aprovação do Alan.
+7. Só a equipe técnica restaura, sempre primeiro num projeto de teste, conferindo os dados antes de qualquer restauração em produção, com aprovação do Alan (POP-PDE-29).
 
 ### Pontos de controle
 - ☐ Nenhuma semana sem backup concluído.
 - ☐ Acesso à pasta de backup restrito a quem precisa (os pacotes têm dados pessoais).
 
 :::nota
-O backup não leva senhas (o login fica no Firebase Authentication), as fotos da portaria (apagadas em 15 dias) nem a trilha de auditoria de forma separada. Para guardar registros de auditoria além de 6 meses, exporte a planilha (POP-PDE-19).
+O backup do Google (Drive) não leva as contas de login; o do servidor NEWPC leva. Nenhum dos dois guarda as fotos da portaria (apagadas em 15 dias). Para guardar registros de auditoria além de 6 meses, exporte a planilha (POP-PDE-19).
 :::
 
 ## POP-PDE-17 · Entrada e saída de pessoas da equipe NEWPC {: .nova }
@@ -1029,6 +1029,56 @@ Congelar as notas do período numa cópia oficial, para que o boletim não mude 
 
 ### Registros
 O registro de fechamentos e reaberturas (data, quem e motivo) e o histórico de alterações de cada nota ficam no Portal e na Auditoria. Arquive os boletins impressos ou em PDF conforme a regra da rede.
+
+## POP-PDE-29 · Backup no servidor NEWPC e restauração em caso de desastre {: .nova }
+
+@@ POP-PDE-29 | Técnico | Equipe técnica, com aprovação do Alan | Rotina diária (automática), conferência semanal e mensal, e em caso de desastre
+
+### Objetivo
+Garantir que a aplicação inteira do Portal 5.0 possa ser remontada a partir do servidor da NEWPC, mesmo que o projeto no Google fique indisponível, e que essa cópia seja testada de verdade todo mês.
+
+### O que é copiado
+| Parte | Como | Onde (Drive Portal do Educador › 04-Backups) |
+|---|---|---|
+| Banco de dados inteiro, com subcoleções | Um documento por linha (NDJSON), dentro do pacote do dia | `diario/AAAA-MM-DD.tar.enc` (30 dias) e `mensal/AAAA-MM.tar.enc` (12 meses) |
+| Contas de login | `contas.json` dentro do pacote | Idem |
+| Código, regras, funções e robôs | Repositório completo (`codigo.bundle`) dentro do pacote | Idem |
+| Arquivos do Storage (Lousa, provas, acervos, documentos, TV) | Espelho incremental, um arquivo cifrado por arquivo | `arquivos/` com `_manifesto.json.enc` |
+
+Ficam de fora as fotos da portaria (apagadas em 15 dias pela política de privacidade). Arquivo que some do Portal sai do espelho 30 dias depois.
+
+### Pré-requisitos (uma vez)
+1. Segredos no GitHub (Settings › Secrets and variables › Actions): `FIREBASE_SERVICE_ACCOUNT`, `NC_APP_SENHA` e **`BACKUP_SENHA`** (senha da cifra, no mínimo 12 caracteres). Quem cadastra é o Alan; a senha nunca passa por chat nem e-mail.
+2. Guardar uma cópia da `BACKUP_SENHA` **fora do sistema** (cofre de senhas da diretoria ou envelope lacrado). Sem ela nenhum backup abre.
+
+### Rotina
+1. **Diária (automática):** o robô **Backup no servidor NEWPC** roda às 01:41. Registro em **Painel › 💾 Backup** (lista "Últimos backups", tipo "Automático · servidor NEWPC") e na Auditoria.
+2. **Semanal (segunda-feira):** conferir no card **🖥️ Servidor NEWPC** que o último backup tem menos de 36 horas. Se não tiver, abrir o robô no GitHub, ler o erro e rodar de novo (**Run workflow › backup**).
+3. **Mensal (dia 2, automático):** teste de restauração. Ele baixa o último pacote, decifra, confere o número de documentos, as contas, o código e uma amostra de 15 arquivos. Conferir que o card mostra ✅. Se mostrar ⚠️, tratar como incidente.
+4. **Antes de mudança grande:** rodar o robô à mão (**backup**) além do backup do Google (POP-PDE-16).
+
+### Restauração em caso de desastre
+1. **Declarar o incidente** e obter a aprovação do Alan. Registrar hora, motivo e responsável na Ficha de execução.
+2. **Escolher o pacote:** o diário mais recente anterior ao problema (ou o mensal, se o problema for antigo).
+3. **Abrir:** num computador seguro, com `BACKUP_SENHA` no ambiente: `node scripts/restaurar-backup.mjs abrir --pacote AAAA-MM-DD.tar.enc --saida ./restauro` (ou o comando `openssl` descrito no próprio script). Conferir o `resumo.json`.
+4. **Restaurar primeiro num projeto de TESTE:** `restaurar-backup.mjs banco --pasta ./restauro --projeto ID_TESTE --gravar` e `restaurar-backup.mjs arquivos --projeto ID_TESTE --bucket BUCKET_TESTE --gravar`. Conferir telas e contagens.
+5. **Contas de login:** importar o `contas.json` com `firebase auth:import`. Quem entra com Google ou link por e-mail volta sem depender de senha; para senhas, usar os parâmetros de hash do projeto original.
+6. **Código:** `git clone codigo.bundle portal` recupera todos os ramos; publicar regras e funções pelo fluxo normal (POP-PDE-15).
+7. **Só depois da conferência no teste**, repetir no projeto real, com nova aprovação do Alan.
+8. Comunicar as Secretarias afetadas e registrar o encerramento do incidente.
+
+### Pontos de controle
+- ☐ Último backup no servidor com menos de 36 horas.
+- ☐ Último teste de restauração com ✅.
+- ☐ Cópia da `BACKUP_SENHA` guardada fora do sistema e conferida a cada troca de pessoas da equipe (POP-PDE-17).
+- ☐ Restauração sempre em projeto de teste antes do real.
+
+### Registros
+Lista "Últimos backups" do Painel, Auditoria (origem robô), execuções do robô no GitHub e Ficha de execução nos incidentes.
+
+:::atencao
+Os pacotes têm dados pessoais de alunos e servidores (LGPD). Mesmo cifrados, a pasta 04-Backups do Nextcloud deve ficar acessível só à equipe técnica. Nunca baixe um pacote para computador pessoal ou pen drive sem necessidade e sem apagar depois.
+:::
 
 # Ficha de execução
 
