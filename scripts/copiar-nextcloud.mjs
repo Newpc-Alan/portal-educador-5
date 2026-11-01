@@ -1,4 +1,5 @@
 // Copia o acervo NEWPC do Firebase Storage para o Nextcloud da NEWPC (pasta "Drive Portal do Educador").
+// Coleção "rede": o acervo de cada município (acervo_rede), em 03-Acervo-Municipios/{município}/{pastas}/. Links não são copiados.
 // O original no Firebase fica intacto. Cada arquivo copiado vira um registro em nc_mapa/{id}: é o mapa
 // "arquivo do Portal = caminho no Nextcloud" usado depois para virar a chave (ponte com link assinado).
 //
@@ -21,7 +22,7 @@ const etapa = process.argv[2] || 'teste';
 const NC_URL = (process.env.NC_URL || 'https://cloud.portaldoeducador.com.br').replace(/\/$/, '');
 const USUARIO = (process.env.NC_USUARIO || '').trim(), SENHA = process.env.NC_APP_SENHA || '';
 const RAIZ = (process.env.NC_RAIZ || 'Drive Portal do Educador').replace(/^\/|\/$/g, '');
-const COLECOES = (process.env.COLECOES || 'atividades,biblioteca,colorir,materiais').split(',').map(s => s.trim()).filter(Boolean);
+const COLECOES = (process.env.COLECOES || 'atividades,biblioteca,colorir,materiais,rede').split(',').map(s => s.trim()).filter(Boolean);
 const LIMITE = Number(process.env.LIMITE || 0) || Infinity;
 const PARALELO = 4;
 const log = t => console.log('::notice::' + String(t).replace(/[{}"]/g, ' ').slice(0, 900));
@@ -72,6 +73,19 @@ async function itens() {
       const [, cid, ...resto] = f.name.split('/'); if (!cid || !resto.length || f.name.endsWith('/')) return;
       out.push({ col: 'materiais', doc: cid, campo: '', storage: f.name,
         nc: ['02-Formacao-Continuada', limpo(cursos[cid] || cid, 80), limpo(resto.join(' - '), 140)].join('/') });
+    });
+  }
+  if (COLECOES.includes('rede')) {
+    const muns = {}; (await db.collection('municipios').get()).forEach(d => { muns[d.id] = d.get('nome') || d.id; });
+    const arvores = {}; (await db.collection('acervo_rede_arvore').get()).forEach(d => { arvores[d.id] = d.get('pastas') || []; });
+    const caminho = (mun, id) => { const arv = arvores[mun] || [], nomes = []; let p = arv.find(x => x.id === id), n = 0;
+      while (p && n++ < 10) { nomes.unshift(limpo(p.nome, 60)); p = arv.find(x => x.id === p.pai); } return nomes; };
+    (await db.collection('acervo_rede').get()).forEach(d => {
+      const x = d.data(), sp = x.arquivo_key; if (!sp || !x.municipio_id) return;   // link externo: nada a copiar
+      const nome = limpo(x.titulo || x.arquivo_nome) + (x.origem === 'newpc' ? ' (NEWPC)' : '') + ' [' + d.id.slice(-6) + '].' + extDe(x.arquivo_nome || sp);
+      const pastas = caminho(x.municipio_id, x.pasta);
+      out.push({ col: 'rede', doc: d.id, campo: 'arquivo_key', storage: sp,
+        nc: ['03-Acervo-Municipios', limpo(muns[x.municipio_id] || x.municipio_id, 60), ...(pastas.length ? pastas : ['Sem pasta']), nome].join('/') });
     });
   }
   out.forEach(i => { i.id = (i.col + '__' + i.storage).replace(/\//g, '|').slice(0, 1400); });
