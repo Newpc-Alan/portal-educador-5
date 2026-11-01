@@ -17,7 +17,7 @@ const IGNORAR = new Set(['auditoria', 'backups_log', 'stats', 'temas_populares',
   'videos_reacoes', 'biblioteca_reacoes', 'noticias_reacoes', 'atividades_reacoes', 'tv_telas', 'tv_pareamentos', 'portaria_vistas']);
 const IGNORAR_DOC = new Set(['config/nc_copia']);
 // campos que mudam sozinhos a cada gravação e não dizem nada
-const CAMPO_TECNICO = /^(atualizado_em|atualizadoEm|ultimo|ultima_atividade|visto_em|em|ts|modificado_em)$/;
+const CAMPO_TECNICO = /^(atualizado_em|atualizadoEm|ultimo|ultimo_acesso|ultima_atividade|visto_em|em|ts|modificado_em)$/;
 // campos de controle: aqui guardamos o valor antes e depois
 const VALOR = new Set(['perfil', 'status', 'papel', 'municipio_id', 'escola_id', 'turma_id', 'licenca_tipo', 'licenca_fim', 'publicado', 'email',
   'nota', 'notas', 'media', 'conceito', 'faltas', 'presenca', 'presencas', 'situacao', 'saldo', 'creditos', 'valor', 'titulo', 'pasta', 'origem',
@@ -52,7 +52,7 @@ export function montarRegistro({ caminho, antes, depois, authType, authId }) {
   // quem fez: o usuário da requisição; quando foi o servidor (função), o campo de autoria do próprio documento
   const doDoc = d.atualizado_por || d.criado_por || d.autor_uid || d.uid || a.atualizado_por || '';
   // usuário do app (Firebase Auth): authId é o uid. Conta de serviço (as funções do Portal) vem com e-mail no authId.
-  const usuario = !!authId && !String(authId).includes('@') && !['system', 'service_account', 'api_key'].includes(authType);
+  const usuario = !!authId && !String(authId).includes('@') && !['system', 'service_account'].includes(authType);   // pelo navegador chega como api_key + uid
   return {
     em: FieldValue.serverTimestamp(), expira_em: Timestamp.fromMillis(Date.now() + RETENCAO_DIAS * 86400000),
     acao: acao === 'alterou' && colecao === 'acessos_dia' ? 'acessou' : acao, origem: 'banco',
