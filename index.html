@@ -119,6 +119,19 @@
   .cab{ display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:end; margin-bottom:46px }
   .cab p{ color:var(--suave); font-size:18px }
 
+  /* notícias públicas */
+  .noticias{ background:#fff;padding:70px 0 }
+  .nt-lista{ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:28px }
+  .nt-c{ display:flex;flex-direction:column;background:var(--papel);border:1px solid var(--linha);border-radius:var(--raio);overflow:hidden;text-decoration:none;transition:transform .2s, box-shadow .2s }
+  .nt-c:hover{ transform:translateY(-4px);box-shadow:0 18px 40px -26px rgba(15,34,51,.55) }
+  .nt-c .foto{ aspect-ratio:16/10;background:var(--escuro) center/cover no-repeat }
+  .nt-c .txt{ padding:18px 20px 22px;display:flex;flex-direction:column;gap:8px;flex:1 }
+  .nt-c .selo{ font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--azul) }
+  .nt-c h3{ font-size:21px;line-height:1.2 } .nt-c p{ font-size:15.5px;color:var(--suave);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden }
+  .nt-c .ler{ margin-top:auto;font-weight:700;color:#3d6b0c }
+  .nt-c.dest{ grid-column:span 2;display:grid;grid-template-columns:1.2fr 1fr } .nt-c.dest .foto{ aspect-ratio:auto;min-height:300px } .nt-c.dest h3{ font-size:28px }
+  @media (max-width:900px){ .nt-lista{ grid-template-columns:1fr } .nt-c.dest{ grid-column:auto;display:flex } .nt-c.dest .foto{ min-height:0;aspect-ratio:16/10 } }
+
   /* recursos: lista + painel */
   .recursos{ background:var(--papel) }
   .explorar{ display:grid; grid-template-columns:330px 1fr; gap:28px; align-items:start }
@@ -317,6 +330,7 @@
     <a class="marca" href="#inicio"><img src="/assets/pde-logo-128.png" alt="" width="44" height="44">Portal do Educador</a>
     <ul class="menu" id="menu">
       <li><a href="#recursos">Recursos</a></li>
+      <li><a href="#noticias">Notícias</a></li>
       <li><a href="#gestao">Gestão da rede</a></li>
       <li><a href="#vr">Portal 360º VR</a></li>
       <li><a href="#maestro">Portal Maestro</a></li>
@@ -362,6 +376,14 @@
       <p>Hoje, <b><i>49 mil</i> alunos</b> e <b><i>4 mil</i> professores</b> em <b><i>12</i> municípios</b> aprendem com o Portal, com mais de <b><i>1.500</i> atividades</b> alinhadas à BNCC.</p>
     </div>
   </div>
+
+  <!-- NOTÍCIAS (só as que o admin marcou como públicas; some sozinha se não houver nenhuma) -->
+  <section class="noticias" id="noticias" hidden>
+    <div class="wrap">
+      <div class="cab"><h2>Acontece na educação.</h2><p>Notícias das redes que usam o Portal do Educador: formações, homenagens, projetos e novidades.</p></div>
+      <div class="nt-lista" id="ntLista"></div>
+    </div>
+  </section>
 
   <!-- RECURSOS -->
   <section class="recursos" id="recursos">
@@ -668,7 +690,7 @@ function carregar(){
   carregando = Promise.all([
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"),
     import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js")
-  ]).then(([a, b]) => { const auth = b.getAuth(a.initializeApp(CFG)); fb = { b, auth }; return fb; }).catch(e => { console.warn("firebase:", e); carregando = null; return null; });
+  ]).then(([a, b]) => { const auth = b.getAuth(a.getApps().length ? a.getApp() : a.initializeApp(CFG)); fb = { b, auth }; return fb; }).catch(e => { console.warn("firebase:", e); carregando = null; return null; });
   return carregando;
 }
 const embutido = () => /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|MicroMessenger|TikTok|; wv\)/i.test(navigator.userAgent || "");
@@ -696,6 +718,29 @@ document.addEventListener("click", (e) => {
     .then(() => { location.href = "/entrar/"; })
     .catch((err) => { el.removeAttribute("aria-busy"); if(err && err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") location.href = el.href; });
 });
+// notícias públicas: carrega só quando a seção chega perto da tela (não pesa a abertura da página)
+(function(){
+  const sec = document.getElementById("noticias"); if(!sec) return;
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const TIPOS = { noticia:"📰 Notícia", podcast:"🎙️ Podcast", acao:"📣 Ação", novidade:"🆕 Novidade no Portal" };
+  let feito = false;
+  async function carregarNoticias(){
+    if(feito) return; feito = true;
+    try{
+      const [a, f] = await Promise.all([import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"), import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js")]);
+      const app = a.getApps().length ? a.getApp() : a.initializeApp(CFG), db = f.getFirestore(app);
+      const sn = await f.getDocs(f.query(f.collection(db, "noticias_publicas"), f.orderBy("inicio", "desc"), f.limit(4)));
+      const l = []; sn.forEach(d => l.push({ id:d.id, ...d.data() }));
+      if(!l.length) return;
+      document.getElementById("ntLista").innerHTML = l.map((n, i) => '<a class="nt-c' + (i === 0 && l.length > 1 ? " dest" : "") + '" href="/noticia/?id=' + encodeURIComponent(n.id) + '">' +
+        '<span class="foto"' + (/^https:\/\//.test(n.imagem_url || "") ? ' style="background-image:url(\'' + esc(n.imagem_url) + '\')"' : '') + '></span>' +
+        '<span class="txt"><span class="selo">' + esc(TIPOS[n.tipo] || TIPOS.noticia) + '</span><h3>' + esc(n.titulo) + '</h3><p>' + esc(n.resumo) + '</p><span class="ler">Ler a notícia →</span></span></a>').join("");
+      sec.hidden = false;
+    }catch(e){ console.warn("notícias:", e); }
+  }
+  if("IntersectionObserver" in window){ const io = new IntersectionObserver(es => { if(es.some(x => x.isIntersecting)){ io.disconnect(); carregarNoticias(); } }, { rootMargin:"600px" }); io.observe(document.querySelector(".numeros") || sec); }
+  else setTimeout(carregarNoticias, 1500);
+})();
 const btn = document.getElementById("btGoogle");
 ["pointerenter","focus","touchstart"].forEach(ev => btn.addEventListener(ev, carregar, { once:true, passive:true }));
 document.querySelectorAll(".como-op").forEach(b => b.addEventListener("pointerenter", carregar, { once:true, passive:true }));
