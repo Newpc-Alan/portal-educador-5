@@ -1,0 +1,48 @@
+name: Fichas do acervo em PDF
+# Gera o PDF das fichas recriadas do acervo (scripts/fichas-acervo.mjs) e grava no ramo "fichas-candidatas" para revisão.
+# publicar = sim troca o PDF das atividades no acervo (o antigo fica guardado em url_original).
+on:
+  workflow_dispatch:
+    inputs:
+      publicar:
+        description: "Trocar o PDF no acervo?"
+        type: choice
+        options: [nao, sim]
+        default: nao
+      so:
+        description: "Só estas atividades (ids separados por vírgula; vazio = todas)"
+        required: false
+        default: ""
+permissions:
+  contents: write
+jobs:
+  gerar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd scripts && npm install --no-audit --no-fund && sudo apt-get install -y -qq poppler-utils >/dev/null
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Gerar
+        env:
+          PUBLICAR: ${{ inputs.publicar == 'sim' && '1' || '0' }}
+          SO: ${{ inputs.so }}
+        run: cd scripts && node fichas-acervo.mjs
+      - name: Gravar no ramo fichas-candidatas
+        run: |
+          mkdir -p /tmp/fichas && cp scripts/saida/*.pdf /tmp/fichas/
+          git config user.name "fichas-acervo"; git config user.email "suporte@portaldoeducador.com.br"
+          git checkout --orphan fichas-candidatas && git rm -rq --cached . && rm -rf -- * .gitignore .github 2>/dev/null || true
+          cp /tmp/fichas/*.pdf . && git add *.pdf && git commit -qm "Fichas candidatas" && git push -f origin fichas-candidatas
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
