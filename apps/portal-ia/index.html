@@ -73,6 +73,8 @@ h2{font-size:1.1rem;font-weight:800}
 .sug-it:hover{border-color:#1a6b2a;background:#f1f8ec}
 .sug-it.on{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
 .sug-it.on::before{content:"✓ "}
+.qtd-q{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:var(--muted);margin-left:6px}
+.qtd-q input{width:68px;padding:6px 8px;border:1.5px solid var(--line2);border-radius:10px;font:inherit;font-weight:700;color:var(--texto);text-align:center}
 .sug-dica{color:var(--muted);font-size:.78rem;font-weight:400;margin-left:8px}
 .sug-it:focus-visible,.sug-mais:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
 .ex{border:1px dashed var(--line2);background:#fff;border-radius:99px;padding:6px 12px;font-size:.84rem;color:var(--texto)}
@@ -277,7 +279,7 @@ import { getFirestore, doc, getDoc, getDocs, updateDoc, deleteDoc, collection, q
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 const auth = getAuth(app), db = getFirestore(app);
-const chamar = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:250000 });
+const chamar = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:540000 });
 const chamarPedido = httpsCallable(getFunctions(app, "southamerica-east1"), "creditosPedido");
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
@@ -327,6 +329,8 @@ const ATALHOS = [
   { g:"dia",      k:"dinamica",     t:"Dinâmica para a sala",   d:"Jogo ou dinâmica com o conteúdo, passo a passo.", foto:"/assets/portal-ia/dinamica.webp",
     ph:"Ex.: dinâmica de 20 minutos para revisar adjetivos com o 3º ano" }
 ];
+// tipos com questões: o professor escolhe quantas (até 40); vazio = o padrão do tipo
+const QTD_PADRAO = { atividade:6, lista:9, prova:10, simulado:15, diagnostica:15 };
 const GRUPOS_AT = [["planejar", "Planejar"], ["alunos", "Para os alunos"], ["dia", "Dia a dia do professor"]];
 const NOME_T = Object.fromEntries(ATALHOS.map(a => [a.k, a.t]));
 const EXEMPLOS = ["Plano de aula sobre frações para amanhã", "Prova de 10 questões sobre o corpo humano", "Recado aos pais sobre a festa junina", "Explique o que é democracia para o 5º ano"];
@@ -434,6 +438,7 @@ function telaInicio(){
   '<label style="max-width:180px">Série<input id="inSerie" value="' + esc(E.serie) + '" placeholder="ex.: 6º ano" maxlength="30"></label></div>' +
   '<div class="pede"><textarea id="pedido" maxlength="6000" placeholder="' + esc(at ? at.ph : "Ex.: preciso de uma atividade sobre frações para o 5º ano, com gabarito") + '">' + esc(E.texto) + "</textarea>" +
   '<div class="pe">' + (at ? '<span class="fixo">' + esc(at.t) + '<button type="button" data-action="soltar" aria-label="Tirar o tipo">×</button></span>' : "") +
+  (at && QTD_PADRAO[at.k] ? '<label class="qtd-q">Questões<input id="inQtd" type="number" inputmode="numeric" min="3" max="40" value="' + esc(E.qtd || "") + '" placeholder="' + QTD_PADRAO[at.k] + '" aria-label="Quantas questões (até 40)"></label>' : "") +
   '<span class="cota">' + esc(textoCota()) + '</span>' + (E.cota && !E.cota.admin ? '<button type="button" class="btn comprar" data-action="comprar">💳 Comprar créditos</button>' : "") + '<span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div></div>" +
   '<div id="piSug" class="sug" hidden></div>' +
   (at ? "" : '<div class="exs">' + EXEMPLOS.map(x => '<button type="button" class="ex" data-action="exemplo" data-arg="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div>") +
@@ -711,7 +716,8 @@ async function gerar(){
   if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:"uns 20 a 40 segundos", etapas:["Lendo o seu pedido", "Buscando as habilidades da BNCC", "Organizando as seções", "Escrevendo o material", "Conferindo tudo"] });
   try{
     const t0 = temasSel.find(t => String(c.texto || "").includes(t.texto)), marca = t0 ? { tema_chave:t0.chave, tema_id:t0.id } : {};
-    const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto(), ...marca })).data;
+    const qEsc = Math.round(Number(E.qtd)) || 0, qtdFinal = qEsc >= 3 ? Math.min(40, qEsc) : (qtdM ? +qtdM : undefined);
+    const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdFinal, contexto:contexto(), ...marca })).data;
     temasSel = []; textoAuto = ""; if(window.PDEPensando) PDEPensando.fechar();
     E.ocupado = false; clearInterval(E._passos);
     aposUso(r.cota); E.texto = ""; E.tipo = "";
@@ -1388,7 +1394,7 @@ document.addEventListener("click", async ev => {
   const el = ev.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "inicio"){ ev.preventDefault(); if(E.ocupado || E.editor) return; ir("inicio"); return; }
-  if(a === "atalho"){ E.tipo = arg; E.texto = ""; temasSel = []; textoAuto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
+  if(a === "atalho"){ E.tipo = arg; E.texto = ""; E.qtd = ""; temasSel = []; textoAuto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
   if(a === "soltar"){ E.tipo = ""; E.texto = $("pedido").value; telaInicio(); return; }
   if(a === "tema-sug"){ usarTema(arg, el.dataset.id, el.dataset.chave); return; }
   if(a === "tema-mais"){ sugTodas = !sugTodas; pintarSugTemas(); return; }
@@ -1437,7 +1443,7 @@ document.addEventListener("change", ev => {
   if(ev.target.id === "redeDisc" || ev.target.id === "redeTipo"){ E.redeF[ev.target.id === "redeDisc" ? "disc" : "tipo"] = ev.target.value; $("redeLista").innerHTML = htmlRede(); return; }
   if(ev.target.id === "imgOnde"){ E.imgOnde = ev.target.value; const b = document.querySelector('[data-action="imagem"]'); if(b) b.textContent = E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem"; return; }
 });
-document.addEventListener("input", ev => { if(ev.target.id === "inSerie"){ E.serie = ev.target.value.trim(); clearTimeout(pintarSugTemas.t); pintarSugTemas.t = setTimeout(pintarSugTemas, 300); }
+document.addEventListener("input", ev => { if(ev.target.id === "inQtd"){ E.qtd = ev.target.value; return; } if(ev.target.id === "inSerie"){ E.serie = ev.target.value.trim(); clearTimeout(pintarSugTemas.t); pintarSugTemas.t = setTimeout(pintarSugTemas, 300); }
   if(ev.target.id === "redeQ"){ E.redeF.q = ev.target.value; const p = ev.target.selectionStart; $("redeLista").innerHTML = htmlRede(); const i = $("redeQ"); i.focus(); try{ i.setSelectionRange(p, p); }catch(e){} } });
 document.addEventListener("keydown", ev => { if(ev.key === "Escape" && $("modal")){ fecharModal(); return; } if(ev.key === "Escape" && E.editor){ sairEditor(); return; } if(ev.target.id === "pedido" && ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)){ ev.preventDefault(); enviar(); } });
 

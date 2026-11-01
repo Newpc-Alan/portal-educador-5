@@ -12,8 +12,8 @@ const q = await db.collection('usuarios').where('email', '==', 'prof.ciencias@po
 const j1 = await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: await getAuth().createCustomToken(q.docs[0].id), returnSecureToken: true }) })).json();
 const casos = [
   ['planejamento', 'Matemática', '6º ano', 'Planejamento anual de Matemática do 6º ano, 5 aulas por semana'],
-  ['diagnostica', 'Matemática', '4º ano', 'Avaliação diagnóstica de início de ano de Matemática'],
-  ['simulado', 'Língua Portuguesa', '5º ano', 'Simulado de leitura e interpretação, estilo SAEB'],
+  ['diagnostica', 'Matemática', '4º ano', 'Avaliação diagnóstica de início de ano de Matemática', 30],
+  ['simulado', 'Língua Portuguesa', '5º ano', 'Simulado de leitura e interpretação, estilo SAEB', 22],
   ['lista', 'Matemática', '7º ano', 'Lista de exercícios de porcentagem'],
   ['rubrica', 'Língua Portuguesa', '8º ano', 'Rubrica para avaliar a apresentação oral do seminário'],
   ['projeto', 'Ciências', '6º ano', 'Projeto de 1 mês sobre a água na nossa cidade, com feira no final'],
@@ -22,10 +22,11 @@ const casos = [
   ['cacapalavras', 'Ciências', '5º ano', 'Caça-palavras sobre os planetas do sistema solar']
 ];
 let falhas = 0; const criados = [];
-await Promise.all(casos.map(async ([tipo, disciplina, serie, pedido]) => {
+const so = (process.env.SO || 'diagnostica,simulado').split(',').filter(Boolean);
+await Promise.all(casos.filter(c => !so.length || so.includes(c[0])).map(async ([tipo, disciplina, serie, pedido, qtd]) => {
   const t0 = Date.now();
   const r = await fetch('https://southamerica-east1-portal-educador-5.cloudfunctions.net/portalIa', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + j1.idToken },
-    body: JSON.stringify({ data: { acao: 'gerar', tipo, resumo: pedido, tema: pedido, contexto: { disciplina, serie } } }) });
+    body: JSON.stringify({ data: { acao: 'gerar', tipo, resumo: pedido, tema: pedido, qtd, contexto: { disciplina, serie } } }) });
   const j = await r.json().catch(() => ({})), s = ((Date.now() - t0) / 1000).toFixed(0);
   if (!j.result) { falhas++; console.log('::error::' + tipo + ' falhou em ' + s + 's · ' + limpo((j.error || {}).message || r.status)); return; }
   criados.push(j.result.id);
@@ -34,9 +35,9 @@ await Promise.all(casos.map(async ([tipo, disciplina, serie, pedido]) => {
   if (tipo === 'cacapalavras') { const g = secs.find(x => x.tabela && x.tabela.grade); extra = ' · grade ' + (g ? g.tabela.linhas.length + 'x' + g.tabela.linhas[0].celulas.length : 'NÃO') + ' · palavras ' + (d.gabarito || []).map(x => x.resposta).join(',') + ' · 1ª ' + (d.gabarito || [])[0]?.comentario; }
   if (tipo === 'simulado') extra = ' · tipos ' + [...new Set(qs.map(x => x.tipo))].join('/') + ' · Q1: ' + (qs[0] ? qs[0].enunciado.slice(0, 120) : '');
   if (tipo === 'lista' || tipo === 'diagnostica') extra = ' · gab1: ' + ((d.gabarito || [])[0]?.comentario || '').slice(0, 120);
-  console.log('::notice::' + tipo + ' OK ' + s + 's · "' + limpo(d.titulo) + '" · seções: ' + secs.map(x => x.titulo).join(' / ').slice(0, 220) + ' · ' + qs.length + ' questões, ' + tabs.length + ' tabelas, gabarito ' + (d.gabarito || []).length + extra);
+  console.log('::notice::' + tipo + ' OK ' + s + 's · pedido ' + (qtd || 'padrão') + ', vieram ' + qs.length + ' · "' + limpo(d.titulo) + '" · seções: ' + secs.map(x => x.titulo).join(' / ').slice(0, 220) + ' · ' + qs.length + ' questões, ' + tabs.length + ' tabelas, gabarito ' + (d.gabarito || []).length + extra);
 }));
 // limpa o que o teste criou (a conta é de laboratório)
 await Promise.all(criados.map(id => db.doc('portal_ia_docs/' + id).delete().catch(() => {})));
-console.log('::notice::resumo: ' + (casos.length - falhas) + ' de ' + casos.length + ' tipos OK; ' + criados.length + ' materiais de teste apagados');
+console.log('::notice::resumo: ' + (criados.length) + ' de ' + casos.filter(c => !so.length || so.includes(c[0])).length + ' tipos OK; ' + criados.length + ' materiais de teste apagados');
 process.exit(falhas ? 1 : 0);

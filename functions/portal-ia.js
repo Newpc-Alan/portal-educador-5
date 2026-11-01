@@ -203,9 +203,9 @@ async function gemini(chave, modelos, corpo) {
 // se um campo de texto passar do tamanho de qualquer conteúdo de aula (sinal de que o modelo entrou em repetição),
 // corta na hora em vez de esperar ela gastar 12 mil tokens. Quem chamou tenta de novo.
 const LIMITE_CAMPO = 3500;
-export async function geminiFluxo(chave, modelos, corpo) {
+export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000) {
   for (const mod of [...new Set(modelos.filter(Boolean))]) {
-    const ctl = new AbortController(), relogio = setTimeout(() => ctl.abort(), 85000);
+    const ctl = new AbortController(), relogio = setTimeout(() => ctl.abort(), limiteMs);
     let r;
     try {
       r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(mod) + ':streamGenerateContent?alt=sse', {
@@ -255,10 +255,10 @@ export async function geminiFluxo(chave, modelos, corpo) {
   }
   throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
 }
-async function geminiJson(chave, modelos, sistema, pedido, esquema, temp) {
+async function geminiJson(chave, modelos, sistema, pedido, esquema, temp, limiteMs = 85000) {
   // Gemini 3 em diante: temperatura padrão (1.0), como o Google recomenda; abaixo disso ele entra em repetição e estoura o limite
   const r = await geminiFluxo(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
-    generationConfig: { ...(/gemini-[3-9]/.test(modelos[0] || '') ? {} : { temperature: temp ?? 0.6 }), responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 16000 } });
+    generationConfig: { ...(/gemini-[3-9]/.test(modelos[0] || '') ? {} : { temperature: temp ?? 0.6 }), responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 32000 } }, limiteMs);
   const bruto = r.partes.filter(p => !p.thought).map(p => p.text || '').join('');
   let json = null; try { json = JSON.parse(bruto); } catch (e) { json = null; console.warn('portal-ia: JSON inválido', r.modelo, 'fim', r.fim, 'pensou', r.pensou, 'tamanho', bruto.length, 'inicio', bruto.slice(0, 1400).replace(/\s+/g, ' '), 'fim', bruto.slice(-200)); }
   return { ...r, json };
@@ -487,7 +487,7 @@ function contextoTexto(cx) {
 }
 
 /* ------------------------------------------------------------------ a função */
-export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 240, memory: '512MiB', maxInstances: 20 }, async req => {
+export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 540, memory: '512MiB', maxInstances: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
   const ctx = await contexto(db, uid); ctx.uid = uid;
@@ -512,7 +512,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       NOMES.map(k => k + ' (' + TIPOS[k].nome + ')').join(', ') + '. Use "fora" só se o pedido não tiver relação com o trabalho do professor.\n' +
       'Pergunte no máximo 2 coisas, e só o que for indispensável e não estiver no pedido nem no contexto. Série e disciplina já estão no contexto: não pergunte. ' +
       'Exemplos do que costuma ser indispensável: na correção de redação, o texto da redação (livre); no parecer, as observações do professor sobre o aluno (livre); na adaptação, a necessidade e o que adaptar; no recado, o assunto e a data quando houver evento. ' +
-      'Para atividade, prova, simulado, diagnóstica e lista, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade, 9 na lista e 10 nas demais. No planejamento, se o período não foi dito, NÃO pergunte: faça o anual. No caça-palavras, na dinâmica, na rubrica, no projeto e no resumo, basta o tema: não pergunte mais nada. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
+      'Para atividade, prova, simulado, diagnóstica e lista, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade, 9 na lista, 10 na prova e 15 no simulado e na diagnóstica. No planejamento, se o período não foi dito, NÃO pergunte: faça o anual. No caça-palavras, na dinâmica, na rubrica, no projeto e no resumo, basta o tema: não pergunte mais nada. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
     const pedido = 'CONTEXTO\n' + contextoTexto(cx) + (tipoDado ? '\nTipo escolhido pelo professor no atalho: ' + tipoDado : '') + '\n\nPEDIDO DO PROFESSOR\n' + (texto || '(o professor só tocou no atalho)') +
       (d.respostas && typeof d.respostas === 'object' ? '\n\nRESPOSTAS ÀS PERGUNTAS ANTERIORES\n' + Object.entries(d.respostas).slice(0, 4).map(([k, v]) => k + ': ' + txt(v, 6000)).join('\n') : '');
     exigir('portalia');
@@ -535,7 +535,8 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     }
     if (!TIPOS[tipo]) throw new HttpsError('invalid-argument', 'Tipo de material inválido.');
     if (resumo.length < 3) throw new HttpsError('invalid-argument', 'Pedido vazio.');
-    const qtd = Math.min(20, Math.max(0, Number(d.qtd) || ({ prova: 10, simulado: 10, diagnostica: 10, lista: 9, atividade: 6 }[tipo] || 0)));
+    // quantidade escolhida pelo professor (até 40); sem escolha, o padrão de cada tipo
+    const qtd = Math.min(40, Math.max(0, Math.round(Number(d.qtd)) || ({ prova: 10, simulado: 15, diagnostica: 15, lista: 9, atividade: 6 }[tipo] || 0)));
     const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto', exigir('portalia'));
     const T = TIPOS[tipo];
     const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
@@ -549,7 +550,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       for (let t = 0; t < 4; t++) {
         // se o modelo principal se perder duas vezes, tenta outros modelos (cada um se perde em momentos diferentes)
         const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : t === 2 ? ['gemini-flash-latest', ctx.cfg.modelo_texto] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
-        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6, qtd > 15 ? 170000 : 85000);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
         if (r.json && tipo === 'cacapalavras') montarCaca(limparDoc(r.json), cx.serie);
@@ -636,7 +637,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
 
   /* ---------------- questões para o Provas e Avaliações (1 crédito) ---------------- */
   if (d.acao === 'questoes_prova') {
-    const tema = txt(d.tema, 300), qtd = Math.min(30, Math.max(1, Math.round(Number(d.qtd) || 10))), total = Math.min(100, Math.max(0, Number(d.total) || 0));
+    const tema = txt(d.tema, 300), qtd = Math.min(40, Math.max(1, Math.round(Number(d.qtd) || 10))), total = Math.min(100, Math.max(0, Number(d.total) || 0));
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema ou conteúdo da prova.');
     const tipos = TIPOS_PROVA[d.tipos] || TIPOS_PROVA.mista, nivel = txt(d.nivel, 40) || 'médio';
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
@@ -650,7 +651,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     try {
       for (let t = 0; t < 4; t++) {
         const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : t === 2 ? ['gemini-flash-latest', ctx.cfg.modelo_texto] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
-        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_QUESTOES, 0.6);
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_QUESTOES, 0.6, qtd > 15 ? 170000 : 85000);
         ent += r.entrada; sai += r.saida;
         qs = r.json ? paraProvas(r.json.questoes, total) : [];
         prob = r.json ? conferirQuestoes(qs, qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo')];
@@ -672,7 +673,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const opcLousa = exigir('lousa_ia');
     const aUltra = acessoIA('lousa_ia_ultra', ctx.ia), ultra = d.ultra === true && aUltra.ok;
     const opcUltra = { rede: aUltra.via === 'rede' ? true : aUltra.via === 'admin' ? undefined : false, nome: NOMES_IA.lousa_ia_ultra };
-    const tema = txt(d.tema, 300), qtd = Math.min(10, Math.max(3, Math.round(Number(d.qtd) || 6)));
+    const tema = txt(d.tema, 300), qtd = Math.min(15, Math.max(3, Math.round(Number(d.qtd) || 6)));
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
     const res = await reservarCreditos(db, ctx, 'texto', opcLousa);
@@ -690,7 +691,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     try {
       for (let t = 0; t < 3; t++) {
         const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
-        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_AULA, 0.6);
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_AULA, 0.6, qtd > 10 ? 170000 : 85000);
         ent += r.entrada; sai += r.saida;
         aula = r.json ? paraAula(r.json, qtd) : null;
         prob = !aula ? ['resposta incompleta, ' + (r.fim || 'sem motivo')] : aula.slides.length < Math.min(3, qtd) ? ['poucos slides (' + aula.slides.length + ')'] : !aula.titulo ? ['sem título'] : [];
