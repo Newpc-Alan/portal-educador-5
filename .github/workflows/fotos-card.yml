@@ -2,12 +2,22 @@ name: Fotos candidatas para card do Início
 # Gera fotos pelo Portal IA (scripts/consulta-foto-card.mjs) e grava, já em 800x600 .webp, no ramo "fotos-candidatas" para revisão.
 on:
   workflow_dispatch:
+    inputs:
+      script:
+        description: "Qual gerador"
+        type: choice
+        options: [consulta-foto-card, fotos-portal-ia]
+        default: consulta-foto-card
+      so:
+        description: "Só estes cards (separados por vírgula; vazio = todos)"
+        required: false
+        default: ""
 permissions:
   contents: write
 jobs:
   gerar:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,7 +32,9 @@ jobs:
           printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
       - name: Gerar
-        run: cd functions && node ../scripts/consulta-foto-card.mjs
+        env:
+          SO: ${{ inputs.so }}
+        run: cd functions && node "../scripts/${{ inputs.script || 'consulta-foto-card' }}.mjs"
       - name: Converter e gravar no ramo fotos-candidatas
         run: |
           mkdir -p /tmp/fotos
