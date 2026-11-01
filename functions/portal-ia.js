@@ -110,6 +110,8 @@ export function montarCaca(doc, serie, sorte = Math.random) {
     g.forEach(lin => lin.forEach((x, j) => { if (!x) lin[j] = ALFA[sorteio(ALFA.length)]; }));
     const ordem = palavras.map(p => pos.find(x => x.p === p));
     // a grade entra como uma seção de tabela marcada como "grade"; a lista de palavras fica na grafia sem acento, igual à grade
+    // perguntas do "Para pensar" viram itens: o gabarito do caça-palavras numera só as palavras
+    (doc.secoes || []).forEach(s => { if ((s.questoes || []).length) { s.itens = [...(s.itens || []), ...s.questoes.map(q => q.enunciado).filter(Boolean)]; delete s.questoes; } });
     const secs = (doc.secoes || []).filter(s => !(s.tabela && (s.tabela.grade || /^ca[cç]a-palavras$/i.test(s.titulo || ''))));
     const iPal = secs.findIndex(s => /palavra/i.test(s.titulo || ''));
     if (iPal >= 0) secs[iPal] = { ...secs[iPal], itens: palavras };
