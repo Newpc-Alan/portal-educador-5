@@ -150,6 +150,11 @@ h2{font-size:1.1rem;font-weight:800}
 .q .lin{height:26px;border-bottom:1px solid #b6c4d2;margin-left:22px}
 .gab{margin-top:26px;border-top:2px dashed var(--line2);padding-top:16px}
 .gab .gi{margin-top:6px;font-size:.92rem}
+.gab-pers{float:right;width:150px;margin:0 0 10px 16px;text-align:center}
+.gab-pers img{width:100%;height:190px;object-fit:contain;object-position:bottom}
+.gab-pers span{display:block;background:#eaf5e0;color:#1a4d24;border-radius:12px;padding:8px 10px;font-size:.78rem;line-height:1.35;margin-top:-4px;position:relative}
+.gab-pers span::before{content:"";position:absolute;top:-7px;left:50%;margin-left:-7px;border:7px solid transparent;border-top:0;border-bottom-color:#eaf5e0}
+@media (max-width:560px){.gab-pers{width:110px}.gab-pers img{height:140px}}
 .gab .gi i{color:var(--muted)}
 .ilus{margin-top:16px;text-align:center;position:relative}
 .q.cimg{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:14px;align-items:start}
@@ -250,6 +255,7 @@ h2{font-size:1.1rem;font-weight:800}
   .q,.ilus,tr,.gi,li{break-inside:avoid} h3{break-after:avoid}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body.imp-aluno .gab{display:none !important}
+  body.imp-prof .gab{break-before:page;border-top:0}
   body.imp-gab #folha > :not(.cab):not(h1):not(.st):not(.gab):not(.bncc){display:none !important}
   #folha::after{content:"portaldoeducador.com.br · Feito com o Portal IA e revisado pelo professor";display:block;margin-top:18px;font-size:8pt;color:#6e8296;border-top:1px solid #d2dce6;padding-top:6px}
 }
@@ -737,7 +743,7 @@ function htmlDoc(d, mostrarGab){
     });
     h += "</section>";
   });
-  if(mostrarGab && (d.gabarito || []).length) h += '<div class="gab"><h3>Gabarito (para o professor)</h3>' + d.gabarito.map((g, i) => '<div class="gi"><b>' + esc(g.questao) + ".</b> " + ed("gabarito." + i + ".resposta", g.resposta) + (g.comentario ? " <i>" + ed("gabarito." + i + ".comentario", g.comentario) + "</i>" : "") + "</div>").join("") + "</div>";
+  if(mostrarGab && (d.gabarito || []).length) h += '<div class="gab"><div class="gab-pers nao-imp"><img src="' + personagem() + '" alt=""><span>' + esc(falaGab()) + '</span></div><h3>Gabarito (para o professor)</h3>' + d.gabarito.map((g, i) => '<div class="gi"><b>' + esc(g.questao) + ".</b> " + ed("gabarito." + i + ".resposta", g.resposta) + (g.comentario ? " <i>" + ed("gabarito." + i + ".comentario", g.comentario) + "</i>" : "") + "</div>").join("") + "</div>";
   if((d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))) h += '<section class="bncc"><h3>Habilidades da BNCC</h3><ul>' + d.bncc.map(b => "<li>" + (b.codigo ? "<b>" + esc(b.codigo) + "</b> " : "") + esc(b.descricao) + "</li>").join("") + "</ul></section>";
   return h;
 }
@@ -807,7 +813,7 @@ function telaDoc(){
   '<div class="caixa"><h4>Ver antes de usar</h4><div class="grupo"><button type="button" class="btn peq" data-action="pdf" data-arg="aluno">Baixar PDF</button></div></div>' : (
   '<div class="caixa"><h4>' + esc(A.tipo_nome || "Material") + '</h4><div class="grupo">' +
     '<button type="button" class="btn pri" data-action="pdf" data-arg="aluno">' + (A.publico === "aluno" ? "Baixar PDF do aluno" : "Baixar PDF") + "</button>" +
-    (temGab ? '<button type="button" class="btn" data-action="pdf" data-arg="gab">PDF do gabarito</button>' : "") +
+    (temGab ? '<button type="button" class="btn" data-action="pdf" data-arg="prof">PDF do professor (com gabarito)</button><button type="button" class="btn peq" data-action="pdf" data-arg="gab">Só o gabarito</button>' : "") +
     '<button type="button" class="btn" data-action="word">Baixar Word (editável)</button>' +
     '<button type="button" class="btn" data-action="copiar">Copiar o texto</button>' +
     '<button type="button" class="btn" data-action="editar">Editar o texto</button>' +
@@ -991,9 +997,9 @@ document.addEventListener("mousedown", ev => {
 // imprimir: o material editado sai igual à tela (o navegador oferece "Salvar como PDF")
 function imprimir(qual){
   const t0 = document.title; document.title = (qual === "gab" ? "gabarito-" : "") + (slug(E.atual.doc.titulo || "material").slice(0, 50) || "material");
-  document.body.classList.add(qual === "gab" ? "imp-gab" : "imp-aluno");
+  document.body.classList.add(qual === "gab" ? "imp-gab" : qual === "prof" ? "imp-prof" : "imp-aluno");
   toast("Na janela que abrir, escolha Salvar como PDF.");
-  const fim = () => { document.body.classList.remove("imp-gab", "imp-aluno"); document.title = t0; window.removeEventListener("afterprint", fim); };
+  const fim = () => { document.body.classList.remove("imp-gab", "imp-aluno", "imp-prof"); document.title = t0; window.removeEventListener("afterprint", fim); };
   window.addEventListener("afterprint", fim);
   setTimeout(() => { window.print(); setTimeout(fim, 1000); }, 60);
 }
@@ -1056,6 +1062,18 @@ function textoPlano(d, gab){
 }
 async function copiar(t){ try{ await navigator.clipboard.writeText(t); toast("Copiado."); }catch(e){ toast("Não consegui copiar. Selecione o texto e copie.", true); } }
 
+/* ---------- personagens do Portal: quem "entrega" o gabarito, conforme a disciplina ---------- */
+const PERS = { "Ciências":"cientista", "Biologia":"cientista", "Física":"cientista", "Química":"cientista", "Matemática":"cientista",
+  "Língua Portuguesa":"prof-colar", "Polivalente (anos iniciais)":"prof-loira", "Educação Infantil":"prof-loira", "Arte":"prof-ruiva", "Educação Física":"prof-ruiva",
+  "História":"prof-grisalho", "Filosofia":"prof-grisalho", "Sociologia":"prof-grisalho", "Ensino Religioso":"prof-grisalho", "Geografia":"prof-barba", "Língua Inglesa":"jovem-oculos" };
+function personagem(){ const d = (E.atual && E.atual.contexto && E.atual.contexto.disciplina) || E.disc || ""; return "/assets/personagens/" + (PERS[d] || "prof-loira") + ".webp"; }
+function falaGab(){
+  const t = E.atual && E.atual.tipo;
+  if(t === "cacapalavras") return "Aqui está onde cada palavra se esconde. Bom desafio para a turma!";
+  if(t === "diagnostica") return "Agrupe quem errou as mesmas questões: é ali que está a retomada.";
+  if(t === "simulado") return "Confira o descritor de cada questão: o erro mostra o que retomar.";
+  return "Gabarito para você, professor(a). Nas questões abertas, vale olhar o caminho do aluno, não só a resposta.";
+}
 /* ---------- PDF: a diagramação é do Portal ---------- */
 const MAPA_PDF = { "π":"pi", "≤":"<=", "≥":">=", "≠":"diferente de", "√":"raiz de ", "−":"-", "–":"-", "—":", ", "…":"...", "“":'"', "”":'"', "‘":"'", "’":"'", "•":"-", "→":"->", "≈":"aprox. ", "★":"", "✓":"" };
 const pdfTx = s => String(s == null ? "" : s).replace(/[π≤≥≠√−–—…“”‘’•→≈★✓]/g, ch => MAPA_PDF[ch]).replace(/[^\u0000-ÿ\n]/g, "").replace(/\t/g, " ").replace(/ +([,.;:])/g, "$1").replace(/_{3,}/g, "_______________").trim();
@@ -1076,6 +1094,7 @@ async function pdfDoc(qual, comoArquivo){
   const A = E.atual, d = A.doc, gab = qual === "gab", aluno = A.publico === "aluno" && !gab, cx = A.contexto || {};
   const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" }), W = 210, H = 297, mx = 15, larg = W - 2 * mx, corpo = 11, lh = corpo * 0.48;
   const [logo, ilus] = await Promise.all([imgPng((E.marca || {}).logo_url, 400), gab ? null : imgPng(E.imgs.topo, 1400)]);
+  const comGab = (gab || qual === "prof") && (d.gabarito || []).length > 0, pers = comGab ? await imgPng(personagem(), 700) : null;
   const imgQ = {}; if(!gab) await Promise.all(Object.keys(E.imgs).filter(k => k !== "topo").map(async k => { imgQ[k] = await imgPng(E.imgs[k], 700); }));
   pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 31, "F"); pdf.setFillColor(26, 107, 42); pdf.rect(0, 31, W, 1.2, "F"); pdf.setTextColor(255, 255, 255);
   let x = mx;
@@ -1100,10 +1119,36 @@ async function pdfDoc(qual, comoArquivo){
   const escrever = (t, xx, w, bold, tam) => { pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(tam || corpo); const l2 = (tam || corpo) * 0.48;
     String(t || "").split(/\n/).forEach(par => { pdf.splitTextToSize(pdfTx(par) || " ", w).forEach(l => { quebra(l2); pdf.text(l, xx, y); y += l2; }); }); };
   if(ilus){ const lmax = Math.min(larg, 120), hmax = 78, k = Math.min(lmax / ilus.w, hmax / ilus.h); quebra(ilus.h * k + 4); pdf.addImage(ilus.url, "JPEG", mx + (larg - ilus.w * k) / 2, y - 2, ilus.w * k, ilus.h * k); y += ilus.h * k + 6; }
-  if(gab){
-    (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta, mx, larg, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
-    if((d.bncc || []).length){ y += 3; escrever("Habilidades da BNCC", mx, larg, true, 12); y += 1; d.bncc.forEach(b => escrever("- " + [b.codigo, b.descricao].filter(Boolean).join(": "), mx, larg, false)); }
-  } else {
+  // gabarito com o personagem do Portal na coluna da direita (balão com a dica e a pessoa abaixo)
+  const desenharGab = () => {
+    const LP = 46, larg2 = pers ? larg - LP - 6 : larg, y0 = y;
+    if(pers){
+      const xP = W - mx - LP; pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5);
+      const ls = pdf.splitTextToSize(pdfTx(falaGab()), LP - 6), hb = ls.length * 3.8 + 5;
+      pdf.setFillColor(234, 245, 224); pdf.roundedRect(xP, y0 - 4, LP, hb, 3, 3, "F"); pdf.triangle(xP + LP / 2 - 3, y0 - 4 + hb, xP + LP / 2 + 3, y0 - 4 + hb, xP + LP / 2, y0 - 4 + hb + 4, "F");
+      pdf.setTextColor(26, 77, 36); ls.forEach((l, i) => pdf.text(l, xP + 3, y0 + 0.5 + i * 3.8)); pdf.setTextColor(20, 30, 40);
+      const hp = Math.min(95, H - 30 - (y0 + hb + 4)), k = Math.min(LP / pers.w, hp / pers.h);
+      pdf.addImage(pers.url, "JPEG", xP + (LP - pers.w * k) / 2, y0 + hb + 2, pers.w * k, pers.h * k);
+    }
+    (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta, mx, larg2, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg2 - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
+    // caça-palavras: a grade resolvida, com as letras das palavras destacadas
+    const grade = (d.secoes || []).map(x => x.tabela).find(t => t && t.grade);
+    if(grade){
+      const G = (grade.linhas || []).map(l => l.celulas || []), nc = Math.max(1, ...G.map(l => l.length)), cel = Math.min(8, larg2 / nc), x0 = mx, acha = new Set();
+      const DIRS = { "para a direita":[0, 1], "para baixo":[1, 0], "na diagonal":[1, 1], "na diagonal, subindo":[-1, 1] };
+      (d.gabarito || []).forEach(g => { const m = String(g.comentario || "").match(/linha (\d+), coluna (\d+), (.+)$/); const dd = m && DIRS[m[3]]; if(!dd) return;
+        for(let i = 0; i < String(g.resposta).length; i++) acha.add((+m[1] - 1 + dd[0] * i) + "_" + (+m[2] - 1 + dd[1] * i)); });
+      y += 4; quebra(cel * G.length + 10); escrever("Grade resolvida", mx, larg2, true, 12); y += 1;
+      pdf.setFont("courier", "bold"); pdf.setFontSize(Math.min(12, cel * 1.5)); pdf.setDrawColor(170, 185, 200);
+      G.forEach((l, i) => l.forEach((c, j) => { const on = acha.has(i + "_" + j), xx = x0 + j * cel, yy = y + i * cel;
+        if(on){ pdf.setFillColor(201, 235, 170); pdf.rect(xx, yy, cel, cel, "FD"); } else pdf.rect(xx, yy, cel, cel);
+        pdf.setTextColor(on ? 15 : 175, on ? 44 : 185, on ? 74 : 195); pdf.text(pdfTx(c), xx + cel / 2, yy + cel * 0.7, { align:"center" }); }));
+      pdf.setTextColor(20, 30, 40); pdf.setFont("helvetica", "normal"); y += cel * G.length + 6;
+    }
+    if((d.bncc || []).length){ y += 3; escrever("Habilidades da BNCC", mx, larg2, true, 12); y += 1; d.bncc.forEach(b => escrever("- " + [b.codigo, b.descricao].filter(Boolean).join(": "), mx, larg2, false)); }
+  };
+  if(gab) desenharGab();
+  else {
     let n = 0;
     (d.secoes || []).forEach(s => {
       quebra(lh * 4); pdf.setTextColor(15, 44, 74); escrever(s.titulo, mx, larg, true, 12.5); pdf.setTextColor(20, 30, 40); y += 1.5;
@@ -1142,13 +1187,19 @@ async function pdfDoc(qual, comoArquivo){
       y += 3;
     });
     if(!aluno && (d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))){ escrever("Habilidades da BNCC", mx, larg, true, 12); d.bncc.forEach(b => escrever("- " + [b.codigo, b.descricao].filter(Boolean).join(": "), mx, larg, false)); }
+    if(qual === "prof" && comGab){
+      pdf.addPage(); pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, W, 18, "F"); pdf.setFillColor(26, 107, 42); pdf.rect(0, 18, W, 1, "F");
+      pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(12); pdf.text(pdfTx("Gabarito · " + (d.titulo || "")).slice(0, 90), mx, 11.5);
+      pdf.setFontSize(8.5); pdf.setFont("helvetica", "normal"); pdf.text("Para o professor: não entregar ao aluno.", W - mx, 11.5, { align:"right" });
+      pdf.setTextColor(20, 30, 40); y = 32; desenharGab();
+    }
     if(A.tipo === "recado" || A.tipo === "parecer"){ y += 10; quebra(20); pdf.setDrawColor(120, 140, 160); pdf.line(W - mx - 70, y, W - mx, y); pdf.setFontSize(9); pdf.text(pdfTx(E.ident.prof || "Professor(a)"), W - mx - 35, y + 5, { align:"center" }); }
   }
   const np = pdf.getNumberOfPages();
   for(let i = 1; i <= np; i++){ pdf.setPage(i); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.5); pdf.setTextColor(110, 130, 150);
     pdf.setDrawColor(210, 220, 230); pdf.line(mx, H - 12, W - mx, H - 12);
     pdf.text("portaldoeducador.com.br · Feito com o Portal IA e revisado pelo professor", mx, H - 7.5); pdf.text("Página " + i + " de " + np, W - mx, H - 7.5, { align:"right" }); }
-  const nomeArq = (gab ? "gabarito-" : "") + (slug(d.titulo || A.tipo || "material").slice(0, 50) || "material") + ".pdf";
+  const nomeArq = (gab ? "gabarito-" : qual === "prof" ? "professor-" : "") + (slug(d.titulo || A.tipo || "material").slice(0, 50) || "material") + ".pdf";
   if(comoArquivo) return { nome:nomeArq, b64:pdf.output("datauristring").split(",")[1] };
   pdf.save(nomeArq);
 }
@@ -1168,6 +1219,7 @@ async function wordDoc(){
   // imagens viram JPEG com tamanho conhecido (o Word precisa da medida)
   const imgs = new Map();
   await Promise.all([...f.querySelectorAll("img")].map(async im => { const src = im.getAttribute("src"); if(!src) return; const r = await imgPng(src, 1200); if(r) imgs.set(im, r); }));
+  const persW = f.querySelector(".gab") ? await imgPng(personagem(), 600) : null;
   const AZUL = "0F2C4A", CINZA = "4A5D72", fonte = "Calibri";
   const runsDe = (no, fm = {}) => {
     const out = [];
@@ -1214,7 +1266,15 @@ async function wordDoc(){
       if(cl.contains("st")){ out.push(par(n, { fm:{ cor:CINZA }, depois:160 })); return; }
       if(cl.contains("alunol")){ out.push(new D.Paragraph({ spacing:{ after:240 }, children:[new D.TextRun({ text:"Aluno(a): __________________________________________   Data: ____/____", font:fonte })] })); return; }
       if(cl.contains("gab")){ out.push(new D.Paragraph({ pageBreakBefore:true, spacing:{ after:60 }, children:[new D.TextRun({ text:"Gabarito (para o professor)", bold:true, size:30, color:AZUL, font:fonte })] }));
-        n.querySelectorAll(".gi").forEach(g => out.push(par(g))); return; }
+        const itens = [...n.querySelectorAll(".gi")].map(g => par(g));
+        if(!persW){ out.push(...itens); return; }
+        const sem = { style:D.BorderStyle.NONE, size:0, color:"FFFFFF" }, semB = { top:sem, bottom:sem, left:sem, right:sem }, k = 230 / persW.h;
+        out.push(new D.Table({ width:{ size:100, type:D.WidthType.PERCENTAGE }, columnWidths:[7000, 2600], rows:[new D.TableRow({ children:[
+          new D.TableCell({ borders:semB, width:{ size:7000, type:D.WidthType.DXA }, children:itens.length ? itens : [new D.Paragraph({ children:[] })] }),
+          new D.TableCell({ borders:semB, width:{ size:2600, type:D.WidthType.DXA }, children:[
+            new D.Paragraph({ alignment:D.AlignmentType.CENTER, shading:{ fill:"EAF5E0", type:D.ShadingType.CLEAR, color:"auto" }, spacing:{ after:80 }, children:[new D.TextRun({ text:falaGab(), size:17, color:"1A4D24", font:fonte })] }),
+            new D.Paragraph({ alignment:D.AlignmentType.CENTER, children:[new D.ImageRun({ type:"jpg", data:b64Bytes(persW.url), transformation:{ width:Math.round(persW.w * k), height:230 } })] })] })] })] }));
+        return; }
       if(cl.contains("lin")){ out.push(new D.Paragraph({ spacing:{ before:120, after:60 }, children:[new D.TextRun({ text:"_".repeat(78), color:"A9B8C7", font:fonte })] })); return; }
       if(cl.contains("rel")){ const cols = [...n.children];
         out.push(new D.Table({ width:{ size:100, type:D.WidthType.PERCENTAGE }, borders:D.TableBorders ? D.TableBorders.NONE : undefined,
