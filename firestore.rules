@@ -826,20 +826,30 @@ service cloud.firestore {
     match /acervo_rede/{id} {
       allow read: if admin() || (ativo() && eu().perfil != "aluno" && resource.data.municipio_id == eu().get("municipio_id", "-")
         && (resource.data.publicado == true || eu().perfil == "secretaria"));
-      allow create: if (admin() || secretariaDoMuni(request.resource.data.municipio_id)) && acervoRedeOk()
+      // origem "newpc": material que a NEWPC colocou no acervo do municipio (arquivo em acervo-rede/{mun}/newpc-...). So o administrador cria, edita e apaga.
+      allow create: if acervoRedeOk()
+        && (admin() || (secretariaDoMuni(request.resource.data.municipio_id) && request.resource.data.get("origem", "rede") == "rede"
+          && !request.resource.data.arquivo_key.matches("^acervo-rede/[^/]+/newpc-.*")))
         && (request.resource.data.arquivo_key.matches("^acervo-rede/" + request.resource.data.municipio_id + "/[^/]{1,200}$")
           || (request.resource.data.arquivo_key == "" && request.resource.data.get("link", "") is string && request.resource.data.get("link", "").matches("^https://[^ ]{4,490}$")));
-      allow update: if (admin() || secretariaDoMuni(resource.data.municipio_id)) && acervoRedeOk()
+      allow update: if (admin() || (secretariaDoMuni(resource.data.municipio_id) && resource.data.get("origem", "rede") == "rede")) && acervoRedeOk()
         && request.resource.data.municipio_id == resource.data.municipio_id && request.resource.data.arquivo_key == resource.data.arquivo_key
-        && request.resource.data.get("link", "") == resource.data.get("link", "");
-      allow delete: if admin() || secretariaDoMuni(resource.data.municipio_id);
+        && request.resource.data.get("link", "") == resource.data.get("link", "") && request.resource.data.get("origem", "rede") == resource.data.get("origem", "rede");
+      allow delete: if admin() || (secretariaDoMuni(resource.data.municipio_id) && resource.data.get("origem", "rede") == "rede");
+    }
+    // Estrutura de pastas do acervo de cada municipio: o administrador define; a rede le (Secretaria envia dentro dela, professor navega).
+    match /acervo_rede_arvore/{mun} {
+      allow read: if admin() || (ativo() && eu().perfil != "aluno" && eu().get("municipio_id", "-") == mun);
+      allow write: if admin() && request.resource.data.keys().hasOnly(["pastas", "atualizado_em", "atualizado_por"])
+        && request.resource.data.pastas is list && request.resource.data.pastas.size() <= 400;
     }
     function acervoRedeOk() {
       return novo().keys().hasOnly(["titulo", "categoria", "disciplina", "etapas", "bncc", "descricao", "municipio_id", "arquivo_key", "arquivo_nome", "mime", "tamanho", "link",
-          "publicado", "termo_aceito", "criado_em", "criado_por", "criado_por_nome", "atualizado_em", "atualizado_por"])
+          "pasta", "origem", "publicado", "termo_aceito", "criado_em", "criado_por", "criado_por_nome", "atualizado_em", "atualizado_por"])
         && novo().titulo is string && novo().titulo.size() > 0 && novo().titulo.size() <= 160
         && novo().categoria in ["documentos", "curriculo", "livros", "modelos", "formacao", "projetos", "outros"]
-        && novo().publicado is bool && novo().termo_aceito == true && novo().tamanho is int && novo().etapas is list && novo().bncc is list;
+        && novo().publicado is bool && novo().termo_aceito == true && novo().tamanho is int && novo().etapas is list && novo().bncc is list
+        && novo().get("pasta", "") is string && novo().get("pasta", "").size() <= 40 && novo().get("origem", "rede") in ["rede", "newpc"];
     }
     // endereco do servico do acervo: a Secretaria tambem precisa (envia o acervo da rede)
     match /config/acervo { allow read: if ativo() && eu().perfil == "secretaria"; }

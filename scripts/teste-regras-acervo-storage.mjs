@@ -22,6 +22,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await uploadBytes(ref(st, 'acervo/atividades/a.pdf'), pdf, meta);
   await uploadBytes(ref(st, 'acervo/historias/h.pdf'), pdf, meta);
   await uploadBytes(ref(st, 'acervo-rede/m1/c.pdf'), pdf, meta);
+  await uploadBytes(ref(st, 'acervo-rede/m1/newpc-base.pdf'), pdf, meta);
 });
 let ok = 0, falha = 0;
 const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
@@ -44,6 +45,11 @@ await t('Secretaria envia na própria rede', assertSucceeds(up('sec1', 'acervo-r
 await t('Secretaria não envia em outra rede', assertFails(up('sec2', 'acervo-rede/m1/x.pdf')));
 await t('professor não envia no acervo da rede', assertFails(up('p1', 'acervo-rede/m1/x.pdf')));
 await t('Secretaria de outra rede não apaga', assertFails(deleteObject(ref(st('sec2'), 'acervo-rede/m1/c.pdf'))));
+await t('administrador envia arquivo NEWPC no acervo do município', assertSucceeds(up('adm', 'acervo-rede/m2/newpc-x.pdf')));
+await t('professor da rede lê o arquivo NEWPC do município', assertSucceeds(le('p1', 'acervo-rede/m1/newpc-base.pdf')));
+await t('Secretaria não envia com nome newpc-', assertFails(up('sec1', 'acervo-rede/m1/newpc-falso.pdf')));
+await t('Secretaria não apaga arquivo NEWPC', assertFails(deleteObject(ref(st('sec1'), 'acervo-rede/m1/newpc-base.pdf'))));
+await t('administrador apaga arquivo NEWPC', assertSucceeds(deleteObject(ref(st('adm'), 'acervo-rede/m1/newpc-base.pdf'))));
 await t('Secretaria apaga da própria rede', assertSucceeds(deleteObject(ref(st('sec1'), 'acervo-rede/m1/c.pdf'))));
 console.log('::notice::acervo no Storage: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();

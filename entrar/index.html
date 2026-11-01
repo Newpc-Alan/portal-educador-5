@@ -649,6 +649,22 @@
   .acvr-topo{ display:flex;gap:18px;align-items:center;flex-wrap:wrap } .acvr-topo > div:first-child{ flex:1 1 360px }
   .acvr-uso{ flex:0 1 280px;font-size:13px;color:var(--navy) } .acvr-uso small{ display:block;color:var(--muted);margin-top:4px;font-size:12px }
   .acvr-bar{ display:block;height:8px;border-radius:6px;background:#e6edf3;margin-top:6px;overflow:hidden } .acvr-bar i{ display:block;height:100%;background:#1a6b2a;border-radius:6px } .acvr-bar.cheio i{ background:#d32f2f }
+  .acvr-mun{ display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap } .acvr-mun .field{ flex:0 1 320px;margin:0 } .acvr-mun .d{ flex:1 1 300px;margin:0 }
+  .acvr-arv, .acvr-arv ul{ list-style:none;margin:0;padding:0 } .acvr-arv ul{ margin-left:22px;border-left:2px solid #e3eaf1;padding-left:10px }
+  .acvr-no{ display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:6px 8px;border-radius:8px }
+  .acvr-no:hover{ background:#f4f8fb } .acvr-nonome{ font-weight:600;color:var(--navy) } .acvr-nonome small{ background:#e8f3ea;color:#1a6b2a;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:4px }
+  .acvr-noacoes{ display:flex;gap:4px;flex-wrap:wrap } .acvr-noacoes button[disabled]{ opacity:.35;cursor:default }
+  .acvr-nova{ display:flex;gap:6px;align-items:center;flex-wrap:wrap } .acvr-nova input{ padding:6px 10px;border:1px solid var(--line);border-radius:8px;min-width:220px }
+  .acvr-arvacoes{ margin-top:12px;align-items:center } .acvr-copiar{ display:inline-flex;gap:6px;align-items:center } .acvr-copiar select{ padding:7px 10px;border:1px solid var(--line);border-radius:8px }
+  .acvr-copias{ margin:4px 0 10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px } .acvr-copias summary{ cursor:pointer;font-weight:600;color:var(--navy);font-size:14px }
+  .acvr-pasta{ border:1px solid var(--line);border-radius:10px;margin:0 0 8px;background:#fff } .acvr-pasta > summary{ cursor:pointer;padding:10px 12px;font-weight:600;color:var(--navy);display:flex;align-items:center;gap:8px }
+  .acvr-pasta > summary small{ color:var(--muted);font-weight:400;margin-left:auto;font-size:12px } .acvr-dentro{ padding:0 10px 8px 22px } .acvr-dentro .acvr-pasta{ background:#fbfdfe }
+  .acvr-selo{ background:#0f2c4a;color:#fff;border-radius:6px;padding:1px 6px;font-size:10.5px;letter-spacing:.04em;vertical-align:middle } .acvr-prot{ color:var(--muted);font-size:12px;align-self:center }
+  .acv-trilha{ display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 12px;font-size:14px;color:var(--muted) }
+  .acv-tr{ background:none;border:0;padding:4px 6px;border-radius:6px;color:#2E9BD6;cursor:pointer;font:inherit } .acv-tr.on{ color:var(--navy);font-weight:700;cursor:default }
+  .acv-pastas{ display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px }
+  .acv-pastacard{ display:grid;grid-template-columns:36px 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit }
+  .acv-pastacard:hover{ border-color:#1a6b2a;box-shadow:0 2px 10px rgba(15,44,74,.08) } .acv-pastacard span{ grid-row:1/3;font-size:28px } .acv-pastacard b{ color:var(--navy);font-size:14.5px } .acv-pastacard small{ color:var(--muted);font-size:12px }
   .acvr-link{ margin-top:18px;padding-top:16px;border-top:1px dashed var(--line) } .acvr-link h4{ margin:0 0 4px;font-size:14.5px;color:var(--navy) }
   .acv-dom{ font-size:12px !important;color:#1565c0 !important;margin-top:2px }
   .acvr-termo{ display:flex;gap:10px;align-items:flex-start;background:#fff8e1;border:1px solid #ffe08a;border-radius:10px;padding:10px 12px;margin:6px 0 12px;font-size:13px;line-height:1.45;cursor:pointer }
@@ -3886,9 +3902,9 @@
   function nomeModulo(id){ if(id === "__rede") return "\u{1F3DB}\u{FE0F} Da minha rede"; const m = MODULOS.find(x => x.id === id); return m ? m.nome : id; }
 
   // ---------- professor: buscar e abrir ----------
-  const acv = { itens:[], mod:"", etapa:"", disc:"", busca:"" };
+  const acv = { itens:[], mod:"", etapa:"", disc:"", busca:"", arvore:[], pasta:"" };
   async function renderAcervo(mod){
-    acv.mod = mod || ""; acv.etapa = ""; acv.disc = ""; acv.busca = "";
+    acv.mod = mod || ""; acv.etapa = ""; acv.disc = ""; acv.busca = ""; acv.pasta = ""; acv.arvore = [];
     document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.sec === "acervo"));
     $("secTitulo").textContent = mod ? nomeModulo(mod) : "Acervo";
     $("conteudo").innerHTML =
@@ -3905,7 +3921,8 @@
       // acervo da propria rede (publicado pela Secretaria): aparece como "Da minha rede"
       const mun = usuarioAtual.municipio_id;
       if(mun){ try{ const sr = await getDocs(query(collection(db,"acervo_rede"), where("municipio_id","==",mun), where("publicado","==",true)));
-        sr.forEach(d => acv.itens.push({ id:d.id, ...d.data(), modulo:"__rede", rede:true })); }catch(e){ console.warn("acervo da rede:", e.code); } }
+        sr.forEach(d => acv.itens.push({ id:d.id, ...d.data(), modulo:"__rede", rede:true })); }catch(e){ console.warn("acervo da rede:", e.code); }
+        if(acv.itens.some(i => i.rede)) acv.arvore = await lerArvore(mun); }
       acv.itens.sort((a,b) => (a.titulo||"").localeCompare(b.titulo||""));
       desenharAcervo();
     }catch(e){ console.warn(e); $("acvLista").innerHTML = '<div class="empty">Não foi possível carregar o acervo ('+escapeHtml(e.code||"erro")+').</div>'; }
@@ -3918,17 +3935,37 @@
       && (!acv.etapa || (i.etapas||[]).includes(acv.etapa))
       && (!acv.disc || i.disciplina === acv.disc)
       && (!t || semAcento([i.titulo, i.descricao, (i.bncc||[]).join(" ")].join(" ")).includes(t)));
+    // "Da minha rede" com pastas: navega pela árvore que o administrador montou (a busca e os filtros procuram em todas as pastas)
+    const arv = acv.arvore, navegar = acv.mod === "__rede" && arv.length && !t && !acv.etapa && !acv.disc;
+    if(navegar){
+      if(acv.pasta && !pastaExiste(arv, acv.pasta)) acv.pasta = "";
+      const daRede = acv.itens.filter(i => i.rede);
+      const naPasta = id => { const r = new Set(ramoPasta(arv, id)); return daRede.filter(i => r.has(i.pasta)).length; };
+      const subs = filhosPasta(arv, acv.pasta).filter(p => naPasta(p.id));
+      const aqui = daRede.filter(i => acv.pasta ? i.pasta === acv.pasta : !pastaExiste(arv, i.pasta));
+      const trilha = [];
+      { let p = arv.find(x => x.id === acv.pasta); while(p){ trilha.unshift(p); p = arv.find(x => x.id === p.pai); } }
+      $("acvLista").innerHTML =
+        '<nav class="acv-trilha" aria-label="Pastas"><button class="acv-tr'+(acv.pasta ? "" : " on")+'" data-action="acv-pasta" data-pasta="">\u{1F3DB}\u{FE0F} Da minha rede</button>'+
+          trilha.map(p => '<span aria-hidden="true">\u203A</span><button class="acv-tr'+(p.id === acv.pasta ? " on" : "")+'" data-action="acv-pasta" data-pasta="'+escapeAttr(p.id)+'">'+escapeHtml(p.nome)+'</button>').join("")+'</nav>'+
+        (subs.length ? '<div class="acv-pastas">'+subs.map(p => '<button class="acv-pastacard" data-action="acv-pasta" data-pasta="'+escapeAttr(p.id)+'"><span aria-hidden="true">\u{1F4C1}</span><b>'+escapeHtml(p.nome)+'</b><small>'+naPasta(p.id)+' arquivo(s)</small></button>').join("")+'</div>' : '')+
+        (aqui.length ? '<p class="acv-cont">'+aqui.length+' arquivo(s)'+(trilha.length ? ' nesta pasta' : '')+'</p><div class="acv-grade">'+aqui.map(cartaoAcervo).join("")+'</div>'
+          : !subs.length ? '<div class="empty">Esta pasta ainda está vazia.</div>' : '');
+      return;
+    }
     if(!lista.length){
       $("acvLista").innerHTML = '<div class="empty"><div class="ei">\u{1F5C2}\u{FE0F}</div>'+(acv.itens.length ? "Nenhum arquivo com esses filtros." : "Ainda não há materiais publicados para o seu plano. A NEWPC e a Secretaria de Educação estão preparando.")+'</div>';
       return;
     }
-    $("acvLista").innerHTML = '<p class="acv-cont">'+lista.length+' arquivo(s)</p><div class="acv-grade">'+lista.map(i =>
-      '<article class="acv-item'+(i.rede ? " acv-rede" : "")+'"><div class="acv-ico" aria-hidden="true">'+icoArquivo(i.mime, i.arquivo_nome)+'</div>'+
+    $("acvLista").innerHTML = '<p class="acv-cont">'+lista.length+' arquivo(s)</p><div class="acv-grade">'+lista.map(cartaoAcervo).join("")+'</div>';
+  }
+  function cartaoAcervo(i){
+    const local = i.rede ? (caminhoPasta(acv.arvore, i.pasta).join(" / ") || CATS_REDE[i.categoria] || "Material da rede") : "";
+    return '<article class="acv-item'+(i.rede ? " acv-rede" : "")+'"><div class="acv-ico" aria-hidden="true">'+icoArquivo(i.mime, i.arquivo_nome)+'</div>'+
       '<div class="acv-txt"><h4>'+escapeHtml(i.titulo||"Sem título")+'</h4>'+
-      '<p>'+escapeHtml([i.rede ? "Secretaria de Educação · "+(CATS_REDE[i.categoria] || "Material da rede") : nomeModulo(i.modulo), i.disciplina, (i.etapas||[]).join(", ")].filter(Boolean).join(" · "))+'</p>'+
+      '<p>'+escapeHtml([i.rede ? (i.origem === "newpc" ? "NEWPC" : "Secretaria de Educação")+" · "+local : nomeModulo(i.modulo), i.disciplina, (i.etapas||[]).join(", ")].filter(Boolean).join(" · "))+'</p>'+
       ((i.bncc||[]).length ? '<div class="acv-bncc">'+i.bncc.slice(0,4).map(c => '<span>'+escapeHtml(c)+'</span>').join("")+'</div>' : '')+
-      (i.link ? '<p class="acv-dom">\u{1F517} '+escapeHtml(dominioDe(i.link))+'</p>' : '')+
-      '</div><button class="btn-mini btn-gerenciar" data-action="acv-abrir" data-id="'+escapeAttr(i.id)+'">Abrir</button></article>').join("")+'</div>';
+      (i.link ? '<p class="acv-dom">\u{1F517} '+escapeHtml(dominioDe(i.link))+'</p>' : '')+'</div><button class="btn-mini btn-gerenciar" data-action="acv-abrir" data-id="'+escapeAttr(i.id)+'">Abrir</button></article>';
   }
   document.addEventListener("input", (ev) => {
     if(ev.target.id === "acvBusca"){ acv.busca = ev.target.value; desenharAcervo(); }
@@ -3976,7 +4013,7 @@
 
   // ---------- Secretaria: acervo próprio da rede (documentos, currículo, livros...) ----------
   const CATS_REDE = { documentos:"Documentos oficiais", curriculo:"Currículo e referenciais", livros:"Livros e obras", modelos:"Modelos e formulários", formacao:"Formação de professores", projetos:"Projetos da rede", outros:"Outros" };
-  const acvRede = { itens:[], fila:[], enviando:false, cota:2048, editando:"" };
+  const acvRede = { itens:[], fila:[], enviando:false, cota:2048, editando:"", movendo:"", mun:"", admin:false, arvore:[], pastaEd:null };
   /* ---------- Materiais da rede (moderação): Portal IA + Meus trabalhos compartilhados com o município ----------
      admin: qualquer rede · secretaria: a rede inteira · gestor: o que vem das escolas dele. A função moderarRede confere tudo. */
   const MOD = { mun:"", itens:null, filtro:"pendente", busca:"", modo:"depois", podeModo:false, escopo:"rede", nomeMun:"", munis:null, aberto:null };
@@ -4276,56 +4313,254 @@
         await httpsCallable(getFunctions(app, "southamerica-east1"), "usoRealAgora", { timeout:540000 })({}); toast("Números atualizados."); renderUsoReal(); }
       catch(e){ toast(e && e.message ? e.message : "Não deu para calcular agora.", true); el.disabled = false; el.textContent = "Recalcular agora"; } }
   });
-  async function renderAcervoRede(){
-    const mun = usuarioAtual.municipio_id;
+  // Acervo de cada município, organizado em árvore de pastas. A Secretaria envia o material da rede; o administrador
+  // define as pastas (acervo_rede_arvore/{mun}) e coloca o material da NEWPC (origem "newpc", arquivo newpc-..., protegido da Secretaria).
+  const ARVORE_MODELO = [
+    ["Documentos oficiais", ["Leis, decretos e resoluções", "Calendário escolar", "Regimento e PPP"]],
+    ["Currículo e referenciais", ["Educação Infantil", "Anos Iniciais", "Anos Finais", "EJA"]],
+    ["Modelos e formulários", ["Planejamento", "Relatórios e fichas", "Avaliações"]],
+    ["Formação de professores", []],
+    ["Projetos da rede", []],
+    ["Livros e obras", []]
+  ];
+  const PASTA_NIVEIS = 4;
+  const idPasta = () => Date.now().toString(36).slice(-6) + Math.random().toString(36).slice(2, 6);
+  async function lerArvore(mun){
+    try{ const d = await getDoc(doc(db,"acervo_rede_arvore",mun)); const p = d.exists() ? d.data().pastas : [];
+      return Array.isArray(p) ? p.filter(x => x && x.id && x.nome).map(x => ({ id:String(x.id), nome:String(x.nome), pai:String(x.pai || "") })) : []; }
+    catch(e){ console.warn("pastas do acervo:", e.code); return []; }
+  }
+  const filhosPasta = (arv, pai) => arv.filter(p => p.pai === pai);
+  const pastaExiste = (arv, id) => !!id && arv.some(p => p.id === id);
+  function caminhoPasta(arv, id){
+    const nomes = []; let p = arv.find(x => x.id === id), n = 0;
+    while(p && n++ < 10){ nomes.unshift(p.nome); p = arv.find(x => x.id === p.pai); }
+    return nomes;
+  }
+  const nivelPasta = (arv, id) => caminhoPasta(arv, id).length;
+  function opcoesPastas(arv, sel, raiz){
+    const out = ['<option value="">'+escapeHtml(raiz || "Sem pasta (início do acervo)")+'</option>'];
+    const desce = (pai, nv) => filhosPasta(arv, pai).forEach(p => {
+      out.push('<option value="'+escapeAttr(p.id)+'"'+(p.id === sel ? " selected" : "")+'>'+"   ".repeat(nv)+(nv ? "└ " : "")+escapeHtml(p.nome)+'</option>');
+      desce(p.id, nv + 1);
+    });
+    desce("", 0);
+    return out.join("");
+  }
+  // ids de uma pasta e de todas as subpastas dela
+  function ramoPasta(arv, id){ const ids = [id]; for(let i = 0; i < ids.length; i++) filhosPasta(arv, ids[i]).forEach(p => ids.push(p.id)); return ids; }
+  // categoria (exigida pelas regras) a partir da pasta principal; sem correspondência fica "outros"
+  function categoriaDaPasta(arv, id){
+    const raiz = semAcento(caminhoPasta(arv, id)[0] || "");
+    if(!raiz) return "";
+    const achou = Object.entries(CATS_REDE).find(([k, v]) => raiz.startsWith(semAcento(v).split(" ")[0]));
+    return achou ? achou[0] : "outros";
+  }
+
+  async function renderAcervoRede(opc){
+    opc = opc || {};
+    const admin = usuarioAtual.perfil === "admin" && !!opc.admin;
+    const mun = admin ? (opc.mun || "") : usuarioAtual.municipio_id;
+    Object.assign(acvRede, { mun, admin, itens:[], fila:[], editando:"", movendo:"", pastaEd:null, arvore:[] });
+    let topo = "";
+    if(admin){
+      try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){ console.warn(e); }
+      topo = abasAcervoAdm("mun")+
+        '<div class="imp-card acvr-mun"><div class="field"><label for="acvrMun">Município</label><select id="acvrMun"><option value="">Escolha o município</option>'+
+        cacheMunicipios.map(m => '<option value="'+escapeAttr(m.id)+'"'+(m.id === mun ? " selected" : "")+'>'+escapeHtml(m.nome+(m.uf ? " / "+m.uf : ""))+'</option>').join("")+'</select></div>'+
+        '<p class="d">O que você colocar aqui aparece só para os professores desse município, em Acervo, "Da minha rede". O material da NEWPC fica marcado e a Secretaria não consegue alterar nem excluir.</p></div>';
+      if(!mun){ $("conteudo").innerHTML = topo; return; }
+    }
     if(!mun){ $("conteudo").innerHTML = '<div class="empty">Seu cadastro não está ligado a um município.</div>'; return; }
-    $("conteudo").innerHTML =
-      '<div class="imp-card acvr-topo"><div><h3>\u{1F3DB}\u{FE0F} O acervo da sua rede dentro do Portal</h3><p class="d">Publique documentos oficiais, currículo, livros e modelos da Secretaria. Só os professores do seu município veem, na tela Acervo, em "Da minha rede".</p></div>'+
-        '<div class="acvr-uso" id="acvrUso"></div></div>'+
-      '<div class="imp-card"><h3>Adicionar arquivos</h3><p class="d">As etiquetas valem para todos os arquivos deste envio. Depois ajuste o título de cada um. Até 100 MB por arquivo.</p>'+
-        '<div class="row2"><div class="field"><label for="acvrCat">Categoria</label><select id="acvrCat">'+Object.entries(CATS_REDE).map(([k, v]) => '<option value="'+k+'">'+v+'</option>').join("")+'</select></div>'+
+    const nomeMun = admin ? ((cacheMunicipios.find(m => m.id === mun) || {}).nome || "") : "";
+    $("conteudo").innerHTML = topo +
+      (admin ? '<div class="imp-card"><h3>\u{1F333} Estrutura de pastas'+(nomeMun ? " · "+escapeHtml(nomeMun) : "")+'</h3><p class="d">Monte a árvore do acervo deste município (até '+PASTA_NIVEIS+' níveis). A Secretaria envia dentro destas pastas e o professor navega por elas.</p><div id="acvrArvore"><div class="empty">Carregando...</div></div></div>'
+        : '<div class="imp-card acvr-topo"><div><h3>\u{1F3DB}\u{FE0F} O acervo da sua rede dentro do Portal</h3><p class="d">Publique documentos oficiais, currículo, livros e modelos da Secretaria. Só os professores do seu município veem, na tela Acervo, em "Da minha rede".</p></div>'+
+        '<div class="acvr-uso" id="acvrUso"></div></div>')+
+      '<div class="imp-card"><h3>Adicionar arquivos'+(admin ? ' da NEWPC' : '')+'</h3><p class="d">A pasta e as etiquetas valem para todos os arquivos deste envio. Depois ajuste o título de cada um. Até 100 MB por arquivo.</p>'+
+        (admin ? '<div class="acvr-uso" id="acvrUso"></div>' : '')+
+        '<div class="row2"><div class="field" id="acvrPastaCampo"><label for="acvrPasta">Pasta</label><select id="acvrPasta"></select></div>'+
+        '<div class="field" id="acvrCatCampo"><label for="acvrCat">Categoria</label><select id="acvrCat">'+Object.entries(CATS_REDE).map(([k, v]) => '<option value="'+k+'">'+v+'</option>').join("")+'</select></div>'+
         '<div class="field"><label for="acvrDisc">Disciplina</label><select id="acvrDisc"><option value="">Não se aplica</option>'+DISCIPLINAS.map(d => '<option>'+d+'</option>').join("")+'</select></div></div>'+
         '<div class="field"><label>Etapas</label><div class="cad-etapas">'+ETAPAS_CURTAS.map(e => '<label><input type="checkbox" name="acvrEtapa" value="'+escapeAttr(e)+'"> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
         '<div class="field"><label for="acvrBncc">Habilidades BNCC <small>(opcional, separe por vírgula)</small></label><input type="text" id="acvrBncc" placeholder="EF03MA01, EF03MA02"></div>'+
-        '<label class="acvr-termo"><input type="checkbox" id="acvrTermo"> <span>Declaro que a Secretaria tem direito de distribuir estes arquivos aos professores da rede (material próprio, licenciado ou de domínio público) e que eles <b>não contêm dados pessoais de alunos</b>.</span></label>'+
+        (admin ? '<details class="acvr-copias"><summary>Copiar também para outros municípios</summary><p class="d">O arquivo vai para cada município marcado, na pasta de mesmo nome (se ela não existir, o Portal cria).</p><div class="cad-etapas" id="acvrCopias">'+
+          cacheMunicipios.filter(m => m.id !== mun).map(m => '<label><input type="checkbox" name="acvrCopia" value="'+escapeAttr(m.id)+'"> '+escapeHtml(m.nome)+'</label>').join("")+'</div></details>' : '')+
+        '<label class="acvr-termo"><input type="checkbox" id="acvrTermo"> <span>Declaro que '+(admin ? 'a NEWPC' : 'a Secretaria')+' tem direito de distribuir estes arquivos aos professores da rede (material próprio, licenciado ou de domínio público) e que eles <b>não contêm dados pessoais de alunos</b>.</span></label>'+
         '<label class="imp-arquivo" style="display:inline-block">Escolher arquivos<input type="file" id="acvrArq" multiple accept=".pdf,image/*,audio/*,video/mp4,.doc,.docx,.ppt,.pptx,.xls,.xlsx"></label>'+
         '<div id="acvrFila"></div>'+
-        '<div class="acvr-link"><h4>\u{1F517} Ou aponte para onde o material já está</h4><p class="d">Pasta ou arquivo do Google Drive, site da Secretaria, vídeo do YouTube. Não ocupa espaço aqui; usa a categoria e as etiquetas acima. Confira se o link está liberado para os professores.</p>'+
+        '<div class="acvr-link"><h4>\u{1F517} Ou aponte para onde o material já está</h4><p class="d">Pasta ou arquivo do Google Drive, site da Secretaria, vídeo do YouTube. Não ocupa espaço aqui; usa a pasta e as etiquetas acima. Confira se o link está liberado para os professores.</p>'+
           '<div class="row2"><div class="field"><label for="acvrLinkTit">Título</label><input type="text" id="acvrLinkTit" maxlength="160" placeholder="Ex.: Biblioteca digital da rede"></div>'+
           '<div class="field"><label for="acvrLinkUrl">Endereço</label><input type="url" id="acvrLinkUrl" maxlength="500" placeholder="https://drive.google.com/..."></div></div>'+
           '<button class="btn btn-ghost btn-add" data-action="acvr-link">Adicionar link</button></div></div>'+
-      '<div class="imp-card"><h3>Arquivos da rede</h3><div id="acvrLista"><div class="empty">Carregando...</div></div></div>';
+      '<div class="imp-card"><h3>Arquivos da rede'+(nomeMun ? " · "+escapeHtml(nomeMun) : "")+'</h3><div id="acvrLista"><div class="empty">Carregando...</div></div></div>';
     try{ const m = await getDoc(doc(db,"municipios",mun)); const c = m.exists() ? Number(m.data().acervo_cota_mb) : 0; acvRede.cota = c > 0 ? c : 2048; }catch(e){}
+    acvRede.arvore = await lerArvore(mun);
+    desenharCamposPasta();
     await listarAcervoRede();
+  }
+  function abasAcervoAdm(ativa){
+    return '<div class="acv-mods acv-abas-adm"><button class="usr-tab'+(ativa === "portal" ? " on" : "")+'" data-action="acvadm-aba" data-aba="portal">Acervo do Portal (todos)</button>'+
+      '<button class="usr-tab'+(ativa === "mun" ? " on" : "")+'" data-action="acvadm-aba" data-aba="mun">Acervo por município</button></div>';
+  }
+  function desenharCamposPasta(){
+    const arv = acvRede.arvore, sel = $("acvrPasta"); if(!sel) return;
+    const ant = sel.value;
+    sel.innerHTML = opcoesPastas(arv, pastaExiste(arv, ant) ? ant : "");
+    $("acvrPastaCampo").hidden = !arv.length;
+    $("acvrCatCampo").hidden = !!arv.length;   // com pastas, a categoria sai da pasta principal
   }
   async function listarAcervoRede(){
     try{
-      const sn = await getDocs(query(collection(db,"acervo_rede"), where("municipio_id","==",usuarioAtual.municipio_id)));
+      const sn = await getDocs(query(collection(db,"acervo_rede"), where("municipio_id","==",acvRede.mun)));
       acvRede.itens = []; sn.forEach(d => acvRede.itens.push({ id:d.id, ...d.data() }));
-      acvRede.itens.sort((a, b) => (msDe(b.criado_em)||0) - (msDe(a.criado_em)||0));
+      acvRede.itens.sort((a, b) => (a.titulo || "").localeCompare(b.titulo || ""));
     }catch(e){ console.warn(e); $("acvrLista").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code||"erro")+').</div>'; return; }
     desenharAcervoRede();
   }
   const usoRedeMb = () => acvRede.itens.reduce((t, i) => t + (i.tamanho || 0), 0) / 1048576;
+  const ehNewpc = i => i.origem === "newpc";
+  const podeMexer = i => acvRede.admin || !ehNewpc(i);
+  function linhaItemRede(i){
+    const arv = acvRede.arvore;
+    let nome;
+    if(acvRede.editando === i.id) nome = '<input type="text" id="acvrNome" class="tr-nome" maxlength="160" value="'+escapeAttr(i.titulo)+'"><div class="tr-ed"><button class="btn-mini btn-gerenciar" data-action="acvr-salvar" data-id="'+escapeAttr(i.id)+'">Salvar</button><button class="btn-mini tr-sec" data-action="acvr-cancelar">Cancelar</button></div>';
+    else if(acvRede.movendo === i.id) nome = '<b>'+escapeHtml(i.titulo||"")+'</b><div class="tr-ed"><select id="acvrMover" aria-label="Mover para a pasta">'+opcoesPastas(arv, pastaExiste(arv, i.pasta) ? i.pasta : "")+'</select><button class="btn-mini btn-gerenciar" data-action="acvr-mover-ok" data-id="'+escapeAttr(i.id)+'">Mover</button><button class="btn-mini tr-sec" data-action="acvr-cancelar">Cancelar</button></div>';
+    else nome = '<b>'+icoArquivo(i.mime, i.arquivo_nome)+' '+escapeHtml(i.titulo||"")+(ehNewpc(i) ? ' <span class="acvr-selo">NEWPC</span>' : '')+'</b><small>'+(i.link ? escapeHtml(dominioDe(i.link)) : escapeHtml(i.arquivo_nome||"")+' · '+tamanhoLegivel(i.tamanho))+(ehNewpc(i) ? '' : i.criado_por_nome ? ' · por '+escapeHtml(i.criado_por_nome) : '')+'</small>';
+    const mexe = podeMexer(i);
+    return '<tr><td class="usr-nome">'+nome+'</td>'+
+      '<td class="usr-vinc">'+escapeHtml([arv.length ? "" : CATS_REDE[i.categoria], i.disciplina, (i.etapas||[]).join(", "), (i.bncc||[]).join(", ")].filter(Boolean).join(" · ") || "-")+'</td>'+
+      '<td><span class="pill '+(i.publicado ? "ativo" : "inativo")+'">'+(i.publicado ? "Publicado" : "Oculto")+'</span></td>'+
+      '<td><div class="usr-acoes"><button class="btn-mini tr-sec" data-action="acv-abrir-rede" data-id="'+escapeAttr(i.id)+'">Ver</button>'+
+      (mexe ? '<button class="btn-mini tr-sec" data-action="acvr-renomear" data-id="'+escapeAttr(i.id)+'">Renomear</button>'+
+        (arv.length ? '<button class="btn-mini tr-sec" data-action="acvr-mover" data-id="'+escapeAttr(i.id)+'">Mover</button>' : '')+
+        '<button class="btn-mini btn-gerenciar" data-action="acvr-pub" data-id="'+escapeAttr(i.id)+'">'+(i.publicado ? "Ocultar" : "Publicar")+'</button>'+
+        '<button class="btn-mini btn-recusar" data-action="acvr-del" data-id="'+escapeAttr(i.id)+'">Excluir</button>'
+        : '<small class="acvr-prot" title="Material colocado pela NEWPC">Mantido pela NEWPC</small>')+'</div></td></tr>';
+  }
+  const tabelaRede = l => '<div class="tablewrap" style="border:0"><table><thead><tr><th>Arquivo</th><th>Etiquetas</th><th>Situação</th><th></th></tr></thead><tbody>'+l.map(linhaItemRede).join("")+'</tbody></table></div>';
   function desenharAcervoRede(){
     const uso = usoRedeMb(), pct = Math.min(100, Math.round(uso / acvRede.cota * 100));
     const fmt = mb => mb >= 1024 ? (mb / 1024).toFixed(1).replace(".", ",")+" GB" : mb < 10 ? mb.toFixed(1).replace(".", ",")+" MB" : Math.round(mb)+" MB";
-    $("acvrUso").innerHTML = '<b>'+fmt(uso)+'</b> de '+fmt(acvRede.cota)+' usados<span class="acvr-bar'+(pct >= 90 ? " cheio" : "")+'"><i style="width:'+pct+'%"></i></span><small>'+acvRede.itens.length+' arquivo(s) · '+acvRede.itens.filter(i => i.publicado).length+' visível(is) para os professores</small>';
-    const l = acvRede.itens;
-    $("acvrLista").innerHTML = !l.length ? '<div class="empty">Nenhum arquivo ainda. Comece pelos documentos que os professores mais pedem: currículo, calendário, modelos de plano e de relatório.</div>' :
-      '<div class="tablewrap" style="border:0"><table><thead><tr><th>Arquivo</th><th>Categoria</th><th>Etiquetas</th><th>Situação</th><th></th></tr></thead><tbody>'+
-      l.map(i => '<tr><td class="usr-nome">'+(acvRede.editando === i.id
-          ? '<input type="text" id="acvrNome" class="tr-nome" maxlength="160" value="'+escapeAttr(i.titulo)+'"><div class="tr-ed"><button class="btn-mini btn-gerenciar" data-action="acvr-salvar" data-id="'+escapeAttr(i.id)+'">Salvar</button><button class="btn-mini tr-sec" data-action="acvr-cancelar">Cancelar</button></div>'
-          : '<b>'+icoArquivo(i.mime, i.arquivo_nome)+' '+escapeHtml(i.titulo||"")+'</b><small>'+(i.link ? escapeHtml(dominioDe(i.link)) : escapeHtml(i.arquivo_nome||"")+' · '+tamanhoLegivel(i.tamanho))+(i.criado_por_nome ? ' · por '+escapeHtml(i.criado_por_nome) : '')+'</small>')+'</td>'+
-        '<td class="usr-vinc">'+escapeHtml(CATS_REDE[i.categoria] || "-")+'</td>'+
-        '<td class="usr-vinc">'+escapeHtml([i.disciplina, (i.etapas||[]).join(", "), (i.bncc||[]).join(", ")].filter(Boolean).join(" · ") || "-")+'</td>'+
-        '<td><span class="pill '+(i.publicado ? "ativo" : "inativo")+'">'+(i.publicado ? "Publicado" : "Oculto")+'</span></td>'+
-        '<td><div class="usr-acoes"><button class="btn-mini tr-sec" data-action="acv-abrir-rede" data-id="'+escapeAttr(i.id)+'">Ver</button>'+
-        '<button class="btn-mini tr-sec" data-action="acvr-renomear" data-id="'+escapeAttr(i.id)+'">Renomear</button>'+
-        '<button class="btn-mini btn-gerenciar" data-action="acvr-pub" data-id="'+escapeAttr(i.id)+'">'+(i.publicado ? "Ocultar" : "Publicar")+'</button>'+
-        '<button class="btn-mini btn-recusar" data-action="acvr-del" data-id="'+escapeAttr(i.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
+    const nNewpc = acvRede.itens.filter(ehNewpc).length;
+    $("acvrUso").innerHTML = '<b>'+fmt(uso)+'</b> de '+fmt(acvRede.cota)+' usados<span class="acvr-bar'+(pct >= 90 ? " cheio" : "")+'"><i style="width:'+pct+'%"></i></span><small>'+acvRede.itens.length+' arquivo(s) · '+acvRede.itens.filter(i => i.publicado).length+' visível(is) para os professores'+(nNewpc ? ' · '+nNewpc+' da NEWPC' : '')+'</small>';
+    if(acvRede.admin) desenharArvoreAdm();
+    const l = acvRede.itens, arv = acvRede.arvore;
+    if(!l.length){ $("acvrLista").innerHTML = '<div class="empty">Nenhum arquivo ainda. Comece pelos documentos que os professores mais pedem: currículo, calendário, modelos de plano e de relatório.</div>'; desenharFilaRede(); return; }
+    if(!arv.length){ $("acvrLista").innerHTML = tabelaRede(l); }
+    else{
+      const total = id => { const r = new Set(ramoPasta(arv, id)); return l.filter(i => r.has(i.pasta)).length; };
+      const bloco = (p, nv) => {
+        const dentro = l.filter(i => i.pasta === p.id), sub = filhosPasta(arv, p.id), n = total(p.id);
+        return '<details class="acvr-pasta"'+(n || nv === 0 ? " open" : "")+'><summary><span class="acvr-pico" aria-hidden="true">\u{1F4C1}</span>'+escapeHtml(p.nome)+'<small>'+(n ? n+" arquivo(s)" : "vazia")+'</small></summary>'+
+          '<div class="acvr-dentro">'+(dentro.length ? tabelaRede(dentro) : '')+sub.map(s => bloco(s, nv + 1)).join("")+'</div></details>';
+      };
+      const soltos = l.filter(i => !pastaExiste(arv, i.pasta));
+      $("acvrLista").innerHTML = '<div class="acvr-arvl">'+filhosPasta(arv, "").map(p => bloco(p, 0)).join("")+
+        (soltos.length ? '<details class="acvr-pasta" open><summary><span class="acvr-pico" aria-hidden="true">\u{1F4C4}</span>Sem pasta<small>'+soltos.length+' arquivo(s) · use "Mover" para organizar</small></summary><div class="acvr-dentro">'+tabelaRede(soltos)+'</div></details>' : '')+'</div>';
+    }
     const n = $("acvrNome"); if(n){ n.focus(); n.select(); }
     desenharFilaRede();
+  }
+  // ---------- editor da árvore de pastas (só o administrador) ----------
+  function desenharArvoreAdm(){
+    const el = $("acvrArvore"); if(!el) return;
+    const arv = acvRede.arvore, ed = acvRede.pastaEd, l = acvRede.itens;
+    const contar = id => l.filter(i => i.pasta === id).length;
+    const campoNome = (valor, acao) => '<span class="acvr-nova"><input type="text" id="acvrPastaNome" maxlength="60" value="'+escapeAttr(valor || "")+'" placeholder="Nome da pasta" aria-label="Nome da pasta">'+
+      '<button class="btn-mini btn-gerenciar" data-action="'+acao+'">Salvar</button><button class="btn-mini tr-sec" data-action="acvr-pasta-cancelar">Cancelar</button></span>';
+    const no = (p, nv) => {
+      const irmaos = filhosPasta(arv, p.pai), pos = irmaos.indexOf(p), n = contar(p.id);
+      const renomeando = ed && ed.modo === "renomear" && ed.id === p.id;
+      return '<li><div class="acvr-no">'+
+        (renomeando ? campoNome(p.nome, "acvr-pasta-salvar")
+          : '<span class="acvr-nonome">\u{1F4C1} '+escapeHtml(p.nome)+(n ? ' <small>'+n+'</small>' : '')+'</span>'+
+            '<span class="acvr-noacoes">'+(nv < PASTA_NIVEIS - 1 ? '<button class="btn-mini tr-sec" data-action="acvr-pasta-sub" data-id="'+escapeAttr(p.id)+'">+ Subpasta</button>' : '')+
+            '<button class="btn-mini tr-sec" data-action="acvr-pasta-ren" data-id="'+escapeAttr(p.id)+'">Renomear</button>'+
+            '<button class="btn-mini tr-sec" data-action="acvr-pasta-sobe" data-id="'+escapeAttr(p.id)+'"'+(pos <= 0 ? " disabled" : "")+' aria-label="Subir">↑</button>'+
+            '<button class="btn-mini tr-sec" data-action="acvr-pasta-desce" data-id="'+escapeAttr(p.id)+'"'+(pos >= irmaos.length - 1 ? " disabled" : "")+' aria-label="Descer">↓</button>'+
+            '<button class="btn-mini btn-recusar" data-action="acvr-pasta-del" data-id="'+escapeAttr(p.id)+'">Excluir</button></span>')+'</div>'+
+        ((filhosPasta(arv, p.id).length || (ed && ed.modo === "nova" && ed.pai === p.id)) ? '<ul>'+filhosPasta(arv, p.id).map(s => no(s, nv + 1)).join("")+
+          (ed && ed.modo === "nova" && ed.pai === p.id ? '<li><div class="acvr-no">'+campoNome("", "acvr-pasta-criar")+'</div></li>' : '')+'</ul>' : '')+'</li>';
+    };
+    const outros = cacheMunicipios.filter(m => m.id !== acvRede.mun);
+    el.innerHTML = (arv.length ? '<ul class="acvr-arv">'+filhosPasta(arv, "").map(p => no(p, 0)).join("")+
+        (ed && ed.modo === "nova" && !ed.pai ? '<li><div class="acvr-no">'+campoNome("", "acvr-pasta-criar")+'</div></li>' : '')+'</ul>'
+      : (ed && ed.modo === "nova" ? '<ul class="acvr-arv"><li><div class="acvr-no">'+campoNome("", "acvr-pasta-criar")+'</div></li></ul>' : '<div class="empty">Este município ainda não tem pastas. Comece pela estrutura modelo ou copie a de outro município.</div>'))+
+      '<div class="imp-acoes acvr-arvacoes"><button class="btn btn-ghost btn-add" data-action="acvr-pasta-raiz">+ Pasta principal</button>'+
+      (!arv.length ? '<button class="btn btn-primary btn-add" data-action="acvr-pasta-modelo">Usar estrutura modelo</button>' : '')+
+      (outros.length ? '<span class="acvr-copiar"><select id="acvrCopiarDe" aria-label="Copiar estrutura de"><option value="">Copiar estrutura de...</option>'+outros.map(m => '<option value="'+escapeAttr(m.id)+'">'+escapeHtml(m.nome)+'</option>').join("")+'</select>'+
+        '<button class="btn btn-ghost btn-add" data-action="acvr-pasta-copiar">Copiar</button></span>' : '')+'</div>';
+    const i = $("acvrPastaNome"); if(i){ i.focus(); i.select(); }
+  }
+  async function salvarArvore(arv, mun){
+    mun = mun || acvRede.mun;
+    await setDoc(doc(db,"acervo_rede_arvore",mun), { pastas:arv.map(p => ({ id:p.id, nome:p.nome.slice(0,60), pai:p.pai || "" })), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+  }
+  async function aplicarArvore(nova, msg){
+    const antes = acvRede.arvore;
+    acvRede.arvore = nova; acvRede.pastaEd = null;
+    try{ await salvarArvore(nova); if(msg) toast(msg); }
+    catch(e){ acvRede.arvore = antes; toast("Não foi possível salvar as pastas ("+(e.code||"erro")+").", true); }
+    desenharCamposPasta(); desenharAcervoRede();
+  }
+  // garante o caminho de pastas (por nome) na árvore de outro município e devolve o id da última
+  function garantirCaminho(arv, nomes){
+    let pai = "";
+    for(const nome of nomes){
+      let p = arv.find(x => x.pai === pai && semAcento(x.nome) === semAcento(nome));
+      if(!p){ p = { id:idPasta(), nome, pai }; arv.push(p); }
+      pai = p.id;
+    }
+    return pai;
+  }
+  async function acaoPasta(a, el){
+    const arv = acvRede.arvore, p = arv.find(x => x.id === el.dataset.id);
+    const nomeDigitado = () => { const v = (($("acvrPastaNome") || {}).value || "").trim().replace(/\s+/g, " ").slice(0,60); if(!v){ toast("Dê um nome à pasta.", true); $("acvrPastaNome").focus(); } return v; };
+    if(a === "acvr-pasta-raiz"){ acvRede.pastaEd = { modo:"nova", pai:"" }; return desenharArvoreAdm(); }
+    if(a === "acvr-pasta-cancelar"){ acvRede.pastaEd = null; return desenharArvoreAdm(); }
+    if(a === "acvr-pasta-criar"){
+      const nome = nomeDigitado(); if(!nome) return;
+      const pai = acvRede.pastaEd ? acvRede.pastaEd.pai : "";
+      if(arv.some(x => x.pai === pai && semAcento(x.nome) === semAcento(nome))){ toast("Já existe uma pasta com esse nome aqui.", true); return; }
+      if(arv.length >= 400){ toast("Limite de 400 pastas por município.", true); return; }
+      return aplicarArvore([...arv, { id:idPasta(), nome, pai }], "Pasta criada.");
+    }
+    if(a === "acvr-pasta-modelo"){
+      const nova = []; ARVORE_MODELO.forEach(([nome, subs]) => { const id = idPasta(); nova.push({ id, nome, pai:"" }); subs.forEach(s => nova.push({ id:idPasta(), nome:s, pai:id })); });
+      return aplicarArvore(nova, "Estrutura modelo aplicada. Ajuste à vontade.");
+    }
+    if(a === "acvr-pasta-copiar"){
+      const de = ($("acvrCopiarDe") || {}).value; if(!de){ toast("Escolha de qual município copiar.", true); return; }
+      const origem = await lerArvore(de); if(!origem.length){ toast("Esse município ainda não tem pastas.", true); return; }
+      const nova = arv.map(x => ({ ...x }));
+      const desce = (pai, caminho) => filhosPasta(origem, pai).forEach(o => { const c = [...caminho, o.nome]; garantirCaminho(nova, c); desce(o.id, c); });
+      desce("", []);
+      if(nova.length > 400){ toast("Passaria do limite de 400 pastas.", true); return; }
+      return aplicarArvore(nova, "Estrutura copiada ("+(nova.length - arv.length)+" pasta(s) nova(s)).");
+    }
+    if(!p) return;
+    if(a === "acvr-pasta-sub"){
+      if(nivelPasta(arv, p.id) >= PASTA_NIVEIS){ toast("Máximo de "+PASTA_NIVEIS+" níveis.", true); return; }
+      acvRede.pastaEd = { modo:"nova", pai:p.id }; return desenharArvoreAdm();
+    }
+    if(a === "acvr-pasta-ren"){ acvRede.pastaEd = { modo:"renomear", id:p.id }; return desenharArvoreAdm(); }
+    if(a === "acvr-pasta-salvar"){
+      const nome = nomeDigitado(); if(!nome) return;
+      if(arv.some(x => x !== p && x.pai === p.pai && semAcento(x.nome) === semAcento(nome))){ toast("Já existe uma pasta com esse nome aqui.", true); return; }
+      return aplicarArvore(arv.map(x => x === p ? { ...x, nome } : x), "Pasta renomeada.");
+    }
+    if(a === "acvr-pasta-sobe" || a === "acvr-pasta-desce"){
+      const irmaos = filhosPasta(arv, p.pai), pos = irmaos.indexOf(p), outro = irmaos[pos + (a === "acvr-pasta-sobe" ? -1 : 1)]; if(!outro) return;
+      const nova = arv.slice(), i1 = nova.indexOf(p), i2 = nova.indexOf(outro); nova[i1] = outro; nova[i2] = p;
+      return aplicarArvore(nova);
+    }
+    if(a === "acvr-pasta-del"){
+      if(filhosPasta(arv, p.id).length){ toast("Exclua ou mova as subpastas antes.", true); return; }
+      if(acvRede.itens.some(i => i.pasta === p.id)){ toast("A pasta tem arquivos. Mova os arquivos antes de excluir.", true); return; }
+      if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; el.textContent = "Excluir"; } }, 4000); return; }
+      return aplicarArvore(arv.filter(x => x !== p), "Pasta excluída.");
+    }
   }
   function desenharFilaRede(){
     const el = $("acvrFila"); if(!el) return;
@@ -4335,11 +4570,12 @@
       '<input type="text" data-filarede="'+i+'" value="'+escapeAttr(f.titulo)+'" maxlength="160" aria-label="Título do arquivo"'+(acvRede.enviando?" disabled":"")+'>'+
       '<small>'+tamanhoLegivel(f.arquivo.size)+'</small>'+
       (f.estado ? '<em class="acv-est '+(f.estado==="erro"?"erro":f.estado==="ok"?"ok":"")+'">'+(f.estado==="ok" ? "Enviado" : f.estado==="erro" ? escapeHtml(f.erro||"Erro") : f.pct+"%")+'</em>'
-        : '<button class="btn-mini btn-recusar" data-action="acvr-tirar" data-i="'+i+'" aria-label="Tirar da lista">\u2715</button>')+'</div>').join("")+'</div>'+
+        : '<button class="btn-mini btn-recusar" data-action="acvr-tirar" data-i="'+i+'" aria-label="Tirar da lista">✕</button>')+'</div>').join("")+'</div>'+
       '<div class="imp-acoes"><button class="btn btn-primary" data-action="acvr-enviar"'+(acvRede.enviando?" disabled":"")+'>Enviar '+acvRede.fila.filter(f => f.estado!=="ok").length+' arquivo(s)</button>'+
       '<button class="btn btn-ghost" data-action="acvr-limpar"'+(acvRede.enviando?" disabled":"")+'>Limpar lista</button></div>';
   }
   document.addEventListener("change", ev => {
+    if(ev.target.id === "acvrMun"){ renderAcervoRede({ admin:true, mun:ev.target.value }); return; }
     if(ev.target.id !== "acvrArq" || !ev.target.files) return;
     const livre = acvRede.cota - usoRedeMb() - acvRede.fila.reduce((t, f) => t + f.arquivo.size, 0) / 1048576;
     let soma = 0;
@@ -4352,35 +4588,65 @@
     ev.target.value = ""; desenharFilaRede();
   });
   document.addEventListener("input", ev => { if(ev.target.dataset && ev.target.dataset.filarede !== undefined){ const f = acvRede.fila[+ev.target.dataset.filarede]; if(f) f.titulo = ev.target.value; } });
+  document.addEventListener("keydown", ev => {
+    if(ev.key !== "Enter" || ev.target.id !== "acvrPastaNome") return;
+    ev.preventDefault(); const b = ev.target.parentNode.querySelector("[data-action='acvr-pasta-criar'],[data-action='acvr-pasta-salvar']"); if(b) b.click();
+  });
   function etiquetasRede(){
     if(!$("acvrTermo").checked){ toast("Marque a declaração de direitos e dados pessoais antes.", true); $("acvrTermo").focus(); return null; }
     const bncc = $("acvrBncc").value.split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
     const ruins = bncc.filter(c => !/^E[FIM]\d{2}[A-Z]{2}\d{2,3}[A-Z]?$/.test(c));
     if(ruins.length){ toast("Código BNCC fora do padrão: "+ruins.join(", "), true); return null; }
-    return { categoria:$("acvrCat").value, disciplina:$("acvrDisc").value, etapas:[...document.querySelectorAll('input[name="acvrEtapa"]:checked')].map(i => i.value), bncc, descricao:"",
-      municipio_id:usuarioAtual.municipio_id, publicado:true, termo_aceito:true, criado_por:usuarioAtual.uid, criado_por_nome:(usuarioAtual.nome || "").slice(0,80) };
+    const arv = acvRede.arvore, pasta = arv.length ? ($("acvrPasta").value || "") : "";
+    return { categoria:(arv.length ? categoriaDaPasta(arv, pasta) || "outros" : $("acvrCat").value), disciplina:$("acvrDisc").value,
+      etapas:[...document.querySelectorAll('input[name="acvrEtapa"]:checked')].map(i => i.value), bncc, descricao:"", pasta,
+      origem:acvRede.admin ? "newpc" : "rede", municipio_id:acvRede.mun, publicado:true, termo_aceito:true, criado_por:usuarioAtual.uid,
+      criado_por_nome:acvRede.admin ? "NEWPC" : (usuarioAtual.nome || "").slice(0,80) };
   }
+  // destinos do envio: o município aberto e, para o administrador, as cópias marcadas (pasta de mesmo nome, criada se faltar)
+  async function destinosEnvio(et){
+    const dest = [{ mun:et.municipio_id, pasta:et.pasta, categoria:et.categoria }];
+    if(!acvRede.admin) return dest;
+    const extras = [...document.querySelectorAll('input[name="acvrCopia"]:checked')].map(i => i.value);
+    const nomes = caminhoPasta(acvRede.arvore, et.pasta);
+    for(const m of extras){
+      let pasta = "";
+      if(nomes.length){
+        const arv = await lerArvore(m), antes = arv.length;
+        pasta = garantirCaminho(arv, nomes);
+        if(arv.length !== antes) await salvarArvore(arv, m);
+      }
+      dest.push({ mun:m, pasta, categoria:et.categoria });
+    }
+    return dest;
+  }
+  const chaveRede = (mun, titulo, ext) => "acervo-rede/"+mun+"/"+(acvRede.admin ? "newpc-" : "")+Date.now().toString(36)+"-"+slug(titulo)+ext;
   async function enviarAcervoRede(){
     if(acvRede.enviando) return;
     const et = etiquetasRede(); if(!et) return;
     acvRede.enviando = true; desenharFilaRede();
+    let dest;
+    try{ dest = await destinosEnvio(et); }
+    catch(e){ acvRede.enviando = false; desenharFilaRede(); toast("Não foi possível preparar as cópias ("+(e.code||"erro")+").", true); return; }
     for(const f of acvRede.fila){
       if(f.estado === "ok") continue;
       if(!f.titulo.trim()){ f.estado = "erro"; f.erro = "Sem título"; continue; }
       const ext = (f.arquivo.name.match(/\.[a-z0-9]+$/i) || [""])[0].toLowerCase();
-      const key = "acervo-rede/"+et.municipio_id+"/"+Date.now().toString(36)+"-"+slug(f.titulo)+ext;
       try{
-        f.estado = "env"; f.pct = 0; desenharFilaRede();
-        await enviarStorage(key, f.arquivo, p => { f.pct = p; desenharFilaRede(); });
-        await addDoc(collection(db,"acervo_rede"), { ...et, titulo:f.titulo.trim().slice(0,160), arquivo_key:key, arquivo_nome:f.arquivo.name.slice(0,200), mime:f.arquivo.type || "", tamanho:f.arquivo.size,
-          criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+        for(let k = 0; k < dest.length; k++){
+          const d = dest[k], key = chaveRede(d.mun, f.titulo, ext);
+          f.estado = "env"; f.pct = 0; desenharFilaRede();
+          await enviarStorage(key, f.arquivo, p => { f.pct = Math.round((k * 100 + p) / dest.length); desenharFilaRede(); });
+          await addDoc(collection(db,"acervo_rede"), { ...et, municipio_id:d.mun, pasta:d.pasta, titulo:f.titulo.trim().slice(0,160), arquivo_key:key, arquivo_nome:f.arquivo.name.slice(0,200), mime:f.arquivo.type || "", tamanho:f.arquivo.size,
+            criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+        }
         f.estado = "ok";
       }catch(e){ console.warn(e); f.estado = "erro"; f.erro = e.message || "Erro"; }
       desenharFilaRede();
     }
     acvRede.enviando = false;
     const ok = acvRede.fila.filter(f => f.estado === "ok").length, err = acvRede.fila.filter(f => f.estado === "erro").length;
-    toast(ok+" enviado(s)"+(err ? ", "+err+" com erro" : "")+".", !!err);
+    toast(ok+" enviado(s)"+(dest.length > 1 ? " para "+dest.length+" municípios" : "")+(err ? ", "+err+" com erro" : "")+".", !!err);
     acvRede.fila = acvRede.fila.filter(f => f.estado !== "ok");
     await listarAcervoRede();
   }
@@ -4391,8 +4657,9 @@
     const et = etiquetasRede(); if(!et) return;
     btn.disabled = true;
     try{
-      await addDoc(collection(db,"acervo_rede"), { ...et, titulo:tit, link:url, arquivo_key:"", arquivo_nome:"", mime:"link", tamanho:0, criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
-      $("acvrLinkTit").value = ""; $("acvrLinkUrl").value = ""; toast("Link adicionado ao acervo da rede."); await listarAcervoRede();
+      const dest = await destinosEnvio(et);
+      for(const d of dest) await addDoc(collection(db,"acervo_rede"), { ...et, municipio_id:d.mun, pasta:d.pasta, titulo:tit, link:url, arquivo_key:"", arquivo_nome:"", mime:"link", tamanho:0, criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid });
+      $("acvrLinkTit").value = ""; $("acvrLinkUrl").value = ""; toast("Link adicionado"+(dest.length > 1 ? " em "+dest.length+" municípios" : " ao acervo da rede")+"."); await listarAcervoRede();
     }catch(e){ toast("Não foi possível salvar ("+(e.code||"erro")+").", true); }
     finally{ btn.disabled = false; }
   }
@@ -4402,16 +4669,25 @@
     abrirArquivo(id, btn);
   }
   document.addEventListener("click", async ev => {
-    const el = ev.target.closest("[data-action^='acvr-'],[data-action='acv-abrir-rede']"); if(!el) return;
+    const el = ev.target.closest("[data-action^='acvr-'],[data-action='acv-abrir-rede']"); if(!el || el.disabled) return;
     const a = el.dataset.action, i = acvRede.itens.find(x => x.id === el.dataset.id);
+    if(a.startsWith("acvr-pasta-")){ if(acvRede.admin) acaoPasta(a, el); return; }
     if(a === "acvr-enviar") return enviarAcervoRede();
     if(a === "acvr-link") return salvarLinkRede(el);
     if(a === "acvr-limpar"){ acvRede.fila = []; return desenharFilaRede(); }
     if(a === "acvr-tirar"){ acvRede.fila.splice(+el.dataset.i, 1); return desenharFilaRede(); }
-    if(a === "acvr-cancelar"){ acvRede.editando = ""; return desenharAcervoRede(); }
+    if(a === "acvr-cancelar"){ acvRede.editando = ""; acvRede.movendo = ""; return desenharAcervoRede(); }
     if(!i) return;
     if(a === "acv-abrir-rede") return abrirArquivoRede(i.id, el);
-    if(a === "acvr-renomear"){ acvRede.editando = i.id; return desenharAcervoRede(); }
+    if(!podeMexer(i)){ toast("Material mantido pela NEWPC.", true); return; }
+    if(a === "acvr-renomear"){ acvRede.editando = i.id; acvRede.movendo = ""; return desenharAcervoRede(); }
+    if(a === "acvr-mover"){ acvRede.movendo = i.id; acvRede.editando = ""; return desenharAcervoRede(); }
+    if(a === "acvr-mover-ok"){
+      const p = ($("acvrMover") || {}).value || "";
+      const cat = categoriaDaPasta(acvRede.arvore, p) || i.categoria || "outros";
+      try{ await updateDoc(doc(db,"acervo_rede",i.id), { pasta:p, categoria:cat, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }); i.pasta = p; i.categoria = cat; acvRede.movendo = ""; desenharAcervoRede(); toast("Arquivo movido."); }
+      catch(e){ toast("Não foi possível mover ("+(e.code||"erro")+").", true); }
+    }
     if(a === "acvr-salvar"){
       const t = ($("acvrNome").value || "").trim().slice(0,160); if(!t){ toast("Dê um título.", true); return; }
       try{ await updateDoc(doc(db,"acervo_rede",i.id), { titulo:t, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }); i.titulo = t; acvRede.editando = ""; desenharAcervoRede(); toast("Título alterado."); }
@@ -4434,7 +4710,7 @@
   // ---------- admin: enviar e organizar ----------
   const acvAdm = { itens:[], fila:[], enviando:false, filtro:"" };
   async function renderAcervoAdmin(){
-    $("conteudo").innerHTML =
+    $("conteudo").innerHTML = abasAcervoAdm("portal")+
       '<div class="imp-card" hidden><h3>Serviço do acervo</h3><p class="d">Endereço do Worker da Cloudflare que confere a licença e entrega os arquivos (termina em .workers.dev).</p>'+
         '<div class="acv-api"><input type="text" id="acvApi" placeholder="https://pde-acervo.SEU-SUBDOMINIO.workers.dev" value="'+escapeAttr(apiAcervo||"")+'">'+
         '<button class="btn btn-ghost btn-add" data-action="acvadm-testar">Testar</button><button class="btn btn-primary btn-add" data-action="acvadm-api">Salvar</button></div><p class="acv-status" id="acvApiStatus"></p></div>'+
@@ -6011,7 +6287,9 @@
     else if(acao === "jgadm-filtro"){ jgAdm.filtro = el.dataset.filtro; desenharJogosAdmin(); }
     else if(acao === "jgadm-importar"){ importarJogosRepo(el); }
     else if(acao === "vdadm-filtro"){ vdAdm.filtro = el.dataset.filtro; desenharVideosAdmin(); }
-    else if(acao === "acv-mod"){ acv.mod = el.dataset.mod; desenharAcervo(); }
+    else if(acao === "acv-mod"){ acv.mod = el.dataset.mod; acv.pasta = ""; desenharAcervo(); }
+    else if(acao === "acv-pasta"){ acv.pasta = el.dataset.pasta || ""; desenharAcervo(); }
+    else if(acao === "acvadm-aba"){ if(el.dataset.aba === "mun") renderAcervoRede({ admin:true, mun:acvRede.admin ? acvRede.mun : "" }); else renderAcervoAdmin(); }
     else if(acao === "acvadm-api"){ salvarApiAcervo(); }
     else if(acao === "acvadm-testar"){ testarApiAcervo(); }
     else if(acao === "acvadm-enviar"){ enviarAcervo(); }
