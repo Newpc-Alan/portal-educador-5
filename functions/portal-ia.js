@@ -643,7 +643,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const pedido = 'CONTEXTO\n' + contextoTexto(cxA) + '\nTítulo do arquivo: ' + txt(a.titulo || a.arquivo_nome, 160) + (a.componente ? '\nCampo / componente no acervo: ' + txt(a.componente, 80) : '');
     let r = null, prob = ['sem resposta'];
     for (let t = 0; t < 3 && prob.length; t++) {
-      const g = await geminiFluxo(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], { systemInstruction: { parts: [{ text: sistema }] },
+      // cada modelo se perde em PDFs diferentes: a 2ª e a 3ª tentativas usam outros modelos
+      const ordem = t === 0 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : t === 1 ? ['gemini-flash-latest', ctx.cfg.modelo_texto] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
+      const g = await geminiFluxo(chave, ordem, { systemInstruction: { parts: [{ text: sistema }] },
         contents: [{ role: 'user', parts: [{ inlineData: { mimeType: a.formato === 'pdf' || !a.formato ? 'application/pdf' : 'image/' + (a.formato === 'jpg' ? 'jpeg' : a.formato), data: pdf.toString('base64') } }, { text: pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : '') }] }],
         generationConfig: { responseMimeType: 'application/json', responseSchema: ESQUEMA_DOC, maxOutputTokens: 32000 } }, 170000);
       const bruto = g.partes.map(p => p.text || '').join('');
