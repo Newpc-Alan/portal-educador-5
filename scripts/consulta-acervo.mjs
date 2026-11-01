@@ -15,3 +15,8 @@ console.log('::notice::acervo NEWPC: ' + a.size + ' arquivo(s) · ' + limpo(Obje
 const r = await db.collection('acervo_rede').get();
 console.log('::notice::acervo das redes: ' + r.size + ' arquivo(s)');
 if (api) { try { const t = await fetch(api.replace(/\/$/, '') + '/saude'); console.log('::notice::teste do servico: HTTP ' + t.status + ' ' + limpo((await t.text()).slice(0, 40))); } catch (e) { console.log('::notice::teste do servico: falhou ' + limpo(e.message)); } }
+// detalhe do acervo das redes: pasta de cada item e a árvore do município
+const arvs = {}; (await db.collection('acervo_rede_arvore').get()).forEach(d => { arvs[d.id] = d.data().pastas || []; });
+Object.entries(arvs).forEach(([m, p]) => console.log('::notice::pastas de ' + m + ': ' + limpo(p.map(x => x.nome + '=' + x.id + (x.pai ? '<' + x.pai : '')).join(' | ')).slice(0, 900)));
+r.forEach(d => { const x = d.data(), arv = arvs[x.municipio_id] || [], p = arv.find(y => y.id === x.pasta);
+  console.log('::notice::item ' + d.id + ' · ' + limpo(x.municipio_id + ' · ' + (x.titulo || '') + ' · origem ' + (x.origem || 'rede') + ' · pasta ' + (x.pasta ? x.pasta + ' (' + (p ? p.nome : 'NAO EXISTE NA ARVORE') + ')' : 'vazia') + ' · ' + (x.arquivo_key || x.link || '')).slice(0, 600)); });
