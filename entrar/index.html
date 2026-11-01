@@ -8430,23 +8430,37 @@
   // Instagram e TikTok não aceitam link por endereço: o Portal monta uma imagem vertical (1080x1920, formato de Stories)
   // com a foto, o título e o logo; no celular abre o menu do aparelho (Instagram, TikTok, WhatsApp Status); no computador baixa a imagem.
   async function storyNoticia(n, url){
+    // capa de revista: foto na tela toda, marca no alto, título grande embaixo e o convite para ler no Portal
     const W = 1080, H = 1920, cv = document.createElement("canvas"); cv.width = W; cv.height = H; const g = cv.getContext("2d");
     const carregar = src => new Promise((ok, falha) => { const im = new Image(); im.crossOrigin = "anonymous"; im.onload = () => ok(im); im.onerror = falha; im.src = src; });
-    g.fillStyle = "#0f2c4a"; g.fillRect(0, 0, W, H);
-    if(/^https:\/\//.test(n.imagem_url || "")){ try{ const im = await carregar(n.imagem_url), ah = 1080, esc = Math.max(W / im.width, ah / im.height), w = im.width * esc, h = im.height * esc;
-      g.save(); g.beginPath(); g.rect(0, 0, W, ah); g.clip(); g.drawImage(im, (W - w) / 2, (ah - h) / 2, w, h); g.restore();
-      const gr = g.createLinearGradient(0, ah - 360, 0, ah); gr.addColorStop(0, "rgba(15,44,74,0)"); gr.addColorStop(1, "#0f2c4a"); g.fillStyle = gr; g.fillRect(0, ah - 360, W, 360); }catch(e){ console.warn("foto da notícia:", e); } }
     const fonte = (p, t) => p + " " + t + 'px Inter, "Segoe UI", Arial, sans-serif';
     const linhas = (txt, max, f) => { g.font = f; const ps = String(txt || "").split(/\s+/), l = []; let a = ""; ps.forEach(w => { const t = a ? a + " " + w : w; if(g.measureText(t).width > max && a){ l.push(a); a = w; } else a = t; }); if(a) l.push(a); return l; };
-    let y = 1130; const t = NT_TIPOS[n.tipo] || NT_TIPOS.noticia;
-    g.fillStyle = "#8DC63F"; g.font = fonte("800", 38); g.fillText(String(t[1]).toUpperCase(), 80, y); y += 40;
-    const titT = linhas(n.titulo, W - 160, fonte("800", 66)), tit = titT.slice(0, 4); if(titT.length > 4) tit[3] = tit[3].replace(/\s+\S*$/, "") + "..."; g.fillStyle = "#fff"; g.font = fonte("800", 66); tit.forEach(l => { y += 80; g.fillText(l, 80, y); });
-    const res = linhas(n.resumo, W - 160, fonte("400", 40)); g.fillStyle = "#d9e6f2"; g.font = fonte("400", 40); y += 30;
-    for(const l of res){ if(y + 56 > H - 280) break; y += 56; g.fillText(l, 80, y); }
-    g.fillStyle = "#1a6b2a"; g.fillRect(0, H - 236, W, 6); g.fillStyle = "#0b3d1d"; g.fillRect(0, H - 230, W, 230);
-    try{ const logo = await carregar("/assets/pde-logo-256.png"); g.save(); g.beginPath(); g.arc(160, H - 115, 70, 0, Math.PI * 2); g.clip(); g.drawImage(logo, 90, H - 185, 140, 140); g.restore(); }catch(e){}
-    g.fillStyle = "#fff"; g.font = fonte("800", 46); g.fillText("Portal do Educador", 260, H - 128);
-    g.fillStyle = "#c9f08f"; g.font = fonte("600", 32); g.fillText(n.publica ? "Leia a notícia completa: link na legenda" : "app.portaldoeducador.com.br", 260, H - 78);
+    const cortar = (l, max) => { const r = l.slice(0, max); if(l.length > max) r[max - 1] = r[max - 1].replace(/\s+\S*$/, "") + "..."; return r; };
+    const arred = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    g.fillStyle = "#0f2c4a"; g.fillRect(0, 0, W, H);
+    let foto = false;
+    if(/^https:\/\//.test(n.imagem_url || "")){ try{ const im = await carregar(n.imagem_url), esc = Math.max(W / im.width, H / im.height), w = im.width * esc, h = im.height * esc;
+      g.drawImage(im, (W - w) / 2, (H - h) / 2, w, h); foto = true; }catch(e){ console.warn("foto da notícia:", e); } }
+    if(!foto){ const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, "#2671AB"); gr.addColorStop(1, "#1a6b2a"); g.fillStyle = gr; g.fillRect(0, 0, W, H); }
+    // escurece em cima (marca) e bastante embaixo (texto legível em qualquer foto)
+    let gr = g.createLinearGradient(0, 0, 0, 360); gr.addColorStop(0, "rgba(7,22,33,.75)"); gr.addColorStop(1, "rgba(7,22,33,0)"); g.fillStyle = gr; g.fillRect(0, 0, W, 360);
+    gr = g.createLinearGradient(0, H * .38, 0, H); gr.addColorStop(0, "rgba(7,22,33,0)"); gr.addColorStop(.35, "rgba(7,22,33,.78)"); gr.addColorStop(1, "rgba(7,22,33,.97)"); g.fillStyle = gr; g.fillRect(0, H * .38, W, H * .62);
+    // marca no alto
+    try{ const logo = await carregar("/assets/pde-logo-256.png"); g.save(); g.beginPath(); g.arc(130, 140, 62, 0, Math.PI * 2); g.clip(); g.drawImage(logo, 68, 78, 124, 124); g.restore(); }catch(e){}
+    g.fillStyle = "#fff"; g.font = fonte("800", 44); g.fillText("Portal do Educador", 214, 132); g.fillStyle = "#c9f08f"; g.font = fonte("600", 30); g.fillText("Notícias da educação", 214, 176);
+    // texto de baixo para cima: convite, resumo, título, selo
+    const t = NT_TIPOS[n.tipo] || NT_TIPOS.noticia;
+    const tit = cortar(linhas(n.titulo, W - 150, fonte("800", 78)), 5), res = cortar(linhas(n.resumo, W - 150, fonte("400", 40)), 3);
+    let y = H - 330 - res.length * 56 - 40 - tit.length * 92 - 110;
+    g.font = fonte("800", 34); const selo = String(t[1]).toUpperCase(), sw = g.measureText(selo).width + 56;
+    g.fillStyle = "#8DC63F"; arred(75, y, sw, 64, 32); g.fill(); g.fillStyle = "#0f2c4a"; g.fillText(selo, 103, y + 44); y += 64 + 30;
+    g.fillStyle = "#fff"; g.font = fonte("800", 78); tit.forEach(l => { y += 86; g.fillText(l, 75, y); }); y += 40;
+    g.fillStyle = "#dbe7f1"; g.font = fonte("400", 40); res.forEach(l => { y += 56; g.fillText(l, 75, y); });
+    // convite
+    g.fillStyle = "#fff"; arred(75, H - 250, W - 150, 112, 56); g.fill();
+    g.fillStyle = "#1a6b2a"; g.font = fonte("800", 38); const cv1 = n.publica ? "Leia a notícia completa no link" : "Saiba mais no Portal do Educador";
+    g.fillText(cv1, (W - g.measureText(cv1).width) / 2, H - 182);
+    g.fillStyle = "#c9d6e2"; g.font = fonte("600", 30); const rod = "app.portaldoeducador.com.br"; g.fillText(rod, (W - g.measureText(rod).width) / 2, H - 80);
     const blob = await new Promise(ok => cv.toBlob(ok, "image/png")), arq = new File([blob], "noticia-portal-do-educador.png", { type:"image/png" });
     try{ await navigator.clipboard.writeText((n.titulo || "") + " " + url); }catch(e){}
     if(navigator.canShare && navigator.canShare({ files:[arq] })){ try{ await navigator.share({ files:[arq], title:n.titulo || "Notícia", text:(n.titulo || "") + " " + url }); toast("Escolha Instagram ou TikTok. O link já está copiado para colar na legenda ou no adesivo de link."); return; }catch(e){ if(e && e.name === "AbortError") return; } }
