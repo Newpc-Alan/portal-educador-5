@@ -78,6 +78,10 @@ h2{font-size:1.1rem;font-weight:800}
 .cota{font-size:.8rem;color:var(--muted);font-weight:600}
 /* atalhos */
 .atalhos{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+.at-grupo{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 0 8px}
+.at-bncc{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-top:16px;padding:12px 14px;border:1px dashed var(--line);border-radius:14px;background:#fff;color:inherit;text-decoration:none}
+.at-bncc span{color:var(--muted);font-size:.85rem}
+.at-bncc:hover{border-color:#1a6b2a}
 .at{border:1px solid var(--line);background:#fff;border-radius:16px;overflow:hidden;text-align:left;display:flex;flex-direction:column;transition:.15s}
 .at:hover{transform:translateY(-2px);box-shadow:0 14px 26px -18px rgba(15,44,74,.6);border-color:var(--line2)}
 .at .foto{height:96px;background:#dfe8ef center/cover no-repeat}
@@ -131,6 +135,8 @@ h2{font-size:1.1rem;font-weight:800}
 .folha table{border-collapse:collapse;width:100%;font-size:.9rem;margin-top:6px}
 .folha th,.folha td{border:1px solid #c9d5e1;padding:6px 8px;text-align:left;vertical-align:top}
 .folha th{background:#eef3f8}
+.folha table.grade{width:auto;margin:10px auto;font-family:"Courier New",monospace;font-size:1.05rem}
+.folha table.grade td{width:2em;height:2em;padding:0;text-align:center;vertical-align:middle;font-weight:700;border-color:#9fb3c7}
 .q{margin-top:14px}
 .q .en{display:flex;gap:6px;font-weight:600}
 .q .en .n{flex:none;font-weight:800}
@@ -279,27 +285,46 @@ let ST = null;
 async function storage(){ if(!ST){ const m = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js"); ST = { m, st:m.getStorage(app) }; } return ST; }
 
 /* ===================== o que o professor mais procura ===================== */
-const CAPA = p => "https://studio.portaldoeducador.com.br/capas/" + p + ".webp";
+const CAPA = p => p.startsWith("/") ? p : "https://studio.portaldoeducador.com.br/capas/" + p + ".webp";
 const ATALHOS = [
-  { k:"plano",     t:"Plano de aula",          d:"Objetivos, BNCC, passo a passo com tempo e avaliação.", foto:"planejamento-de-aulas",
+  { g:"planejar", k:"plano", t:"Plano de aula",          d:"Objetivos, BNCC, passo a passo com tempo e avaliação.", foto:"planejamento-de-aulas",
     ph:"Ex.: plano de 2 aulas de 50 min sobre frações equivalentes, com atividade em dupla" },
-  { k:"sequencia", t:"Sequência didática",     d:"Várias aulas encadeadas até um produto final.", foto:"projetos-escolares",
+  { g:"planejar", k:"sequencia", t:"Sequência didática",     d:"Várias aulas encadeadas até um produto final.", foto:"projetos-escolares",
     ph:"Ex.: sequência de 5 aulas sobre o ciclo da água terminando com uma maquete" },
-  { k:"atividade", t:"Atividade com gabarito", d:"Ficha para imprimir, questões variadas e respostas.", foto:"atividades-para-imprimir",
+  { g:"alunos", k:"atividade", t:"Atividade com gabarito", d:"Ficha para imprimir, questões variadas e respostas.", foto:"atividades-para-imprimir",
     ph:"Ex.: 8 questões sobre sistema solar, com 2 de relacionar e 1 para explicar" },
-  { k:"prova",     t:"Prova com gabarito",     d:"Avaliação com valor por questão e critério de correção.", foto:"provas-e-avaliacoes",
+  { g:"alunos", k:"prova", t:"Prova com gabarito",     d:"Avaliação com valor por questão e critério de correção.", foto:"provas-e-avaliacoes",
     ph:"Ex.: prova do 2º bimestre sobre Brasil Colônia, 10 questões, valendo 10" },
-  { k:"parecer",   t:"Parecer do aluno",       d:"Relatório descritivo a partir das suas observações.", foto:"avaliacao-diagnostica",
+  { g:"dia", k:"parecer", t:"Parecer do aluno",       d:"Relatório descritivo a partir das suas observações.", foto:"avaliacao-diagnostica",
     ph:"Ex.: parecer do João: lê com fluência, ainda troca letras na escrita, participa muito das rodas" },
-  { k:"inclusao",  t:"Adaptar para inclusão",  d:"A mesma atividade adaptada para TEA, TDAH, dislexia...", foto:"fichas-de-alfabetizacao",
+  { g:"alunos", k:"inclusao", t:"Adaptar para inclusão",  d:"A mesma atividade adaptada para TEA, TDAH, dislexia...", foto:"fichas-de-alfabetizacao",
     ph:"Ex.: adaptar a atividade de frações para um aluno com TEA que lê pouco" },
-  { k:"redacao",   t:"Corrigir redação",       d:"Nota por critério, pontos fortes e devolutiva ao aluno.", foto:"interpretacao-de-texto",
+  { g:"dia", k:"redacao", t:"Corrigir redação",       d:"Nota por critério, pontos fortes e devolutiva ao aluno.", foto:"interpretacao-de-texto",
     ph:"Cole aqui a redação do aluno e diga o gênero (ex.: dissertativo-argumentativo)" },
-  { k:"recado",    t:"Recado aos pais",        d:"Comunicado formal e a versão curta para o WhatsApp.", foto:"cartazes-e-comunicados",
+  { g:"dia", k:"recado", t:"Recado aos pais",        d:"Comunicado formal e a versão curta para o WhatsApp.", foto:"cartazes-e-comunicados",
     ph:"Ex.: reunião de pais na quinta, 19h, para falar das notas do bimestre" },
-  { k:"explicar",  t:"Explicar um conteúdo",   d:"Explicação simples, exemplos do dia a dia e teste rápido.", foto:"imagens-didaticas",
-    ph:"Ex.: explique fotossíntese de um jeito que um aluno do 6º ano entenda" }
+  { g:"alunos", k:"explicar", t:"Explicar um conteúdo",   d:"Explicação simples, exemplos do dia a dia e teste rápido.", foto:"imagens-didaticas",
+    ph:"Ex.: explique fotossíntese de um jeito que um aluno do 6º ano entenda" },
+  { g:"planejar", k:"planejamento", t:"Planejamento do ano",    d:"Anual ou bimestral: conteúdos, BNCC e avaliação por período.", foto:"/assets/inicio/calendario.webp",
+    ph:"Ex.: planejamento anual de Matemática do 6º ano, 5 aulas por semana" },
+  { g:"planejar", k:"projeto",      t:"Projeto pedagógico",     d:"Justificativa, etapas, cronograma e produto final.", foto:"/assets/inicio/turmas.webp",
+    ph:"Ex.: projeto de 1 mês sobre a água na nossa cidade, com feira no final" },
+  { g:"planejar", k:"rubrica",      t:"Rubrica de avaliação",   d:"Critérios e níveis claros para corrigir trabalhos.", foto:"/assets/inicio/notas-escola.webp",
+    ph:"Ex.: rubrica para avaliar a apresentação oral do seminário" },
+  { g:"alunos",   k:"lista",        t:"Lista por nível",        d:"Exercícios em 3 níveis: aquecimento, prática e desafio.", foto:"/assets/inicio/atividades.webp",
+    ph:"Ex.: lista de 9 exercícios de porcentagem, do fácil ao desafio" },
+  { g:"alunos",   k:"simulado",     t:"Simulado estilo SAEB",   d:"Múltipla escolha com texto de apoio, como na prova oficial.", foto:"/assets/inicio/criar-prova.webp",
+    ph:"Ex.: simulado de 10 questões de leitura para o 5º ano" },
+  { g:"alunos",   k:"diagnostica",  t:"Avaliação diagnóstica",  d:"Descubra o que a turma já sabe e onde está a dificuldade.", foto:"/assets/inicio/corrigir-respostas.webp",
+    ph:"Ex.: diagnóstica de início de ano de Matemática do 4º ano" },
+  { g:"alunos",   k:"resumo",       t:"Resumo para estudar",    d:"Pontos principais, palavras-chave e revisão para a prova.", foto:"/assets/inicio/turma-ao-vivo.webp",
+    ph:"Ex.: resumo de revisão sobre a Revolução Industrial para o 8º ano" },
+  { g:"alunos",   k:"cacapalavras", t:"Caça-palavras",          d:"Do tema da aula, com grade pronta e gabarito.", foto:"/assets/inicio/provas-online.webp",
+    ph:"Ex.: caça-palavras sobre os planetas do sistema solar" },
+  { g:"dia",      k:"dinamica",     t:"Dinâmica para a sala",   d:"Jogo ou dinâmica com o conteúdo, passo a passo.", foto:"/assets/inicio/iniciar-aula.webp",
+    ph:"Ex.: dinâmica de 20 minutos para revisar adjetivos com o 3º ano" }
 ];
+const GRUPOS_AT = [["planejar", "Planejar"], ["alunos", "Para os alunos"], ["dia", "Dia a dia do professor"]];
 const NOME_T = Object.fromEntries(ATALHOS.map(a => [a.k, a.t]));
 const EXEMPLOS = ["Plano de aula sobre frações para amanhã", "Prova de 10 questões sobre o corpo humano", "Recado aos pais sobre a festa junina", "Explique o que é democracia para o 5º ano"];
 const DISCIPLINAS = ["Língua Portuguesa", "Matemática", "Ciências", "História", "Geografia", "Arte", "Educação Física", "Língua Inglesa", "Ensino Religioso", "Polivalente (anos iniciais)", "Educação Infantil", "Biologia", "Física", "Química", "Filosofia", "Sociologia"];
@@ -410,9 +435,11 @@ function telaInicio(){
   '<div id="piSug" class="sug" hidden></div>' +
   (at ? "" : '<div class="exs">' + EXEMPLOS.map(x => '<button type="button" class="ex" data-action="exemplo" data-arg="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div>") +
   "</section>" +
-  '<section><h2 style="margin-bottom:10px">Atalhos do dia a dia</h2><div class="atalhos">' +
-  ATALHOS.map(a => '<button type="button" class="at" data-action="atalho" data-arg="' + a.k + '"><div class="foto" style="background-image:url(\'' + CAPA(a.foto) + '\')"></div><div class="tx"><b>' + esc(a.t) + "</b><small>" + esc(a.d) + "</small></div></button>").join("") +
-  "</div></section>" +
+  '<section><h2 style="margin-bottom:4px">Atalhos do dia a dia</h2>' +
+  GRUPOS_AT.map(([g, nome]) => '<h3 class="at-grupo">' + nome + '</h3><div class="atalhos">' +
+    ATALHOS.filter(a => a.g === g).map(a => '<button type="button" class="at" data-action="atalho" data-arg="' + a.k + '"><div class="foto" style="background-image:url(\'' + CAPA(a.foto) + '\')"></div><div class="tx"><b>' + esc(a.t) + "</b><small>" + esc(a.d) + "</small></div></button>").join("") + "</div>").join("") +
+  '<a class="at-bncc" href="/bncc/">🔎 <b>Buscar habilidade da BNCC</b><span>Filtre por ano e componente, copie o código ou prepare um plano a partir dela.</span></a>' +
+  "</section>" +
   '<section><div class="abas" role="tablist"><button type="button" role="tab" class="aba' + (E.aba === "meus" ? " on" : "") + '" data-action="aba" data-arg="meus">Seus materiais</button>' +
   '<button type="button" role="tab" class="aba' + (E.aba === "rede" ? " on" : "") + '" data-action="aba" data-arg="rede">Da sua rede' + (E.rede ? "<small>" + E.rede.length + "</small>" : "") + "</button></div>" +
   (E.aba === "rede" ? '<div id="redeLista">' + htmlRede() + "</div>" : E.recentes.length ? '<div class="rec">' + E.recentes.slice(0, 30).map(r => '<button type="button" class="rc" data-action="abrir" data-arg="' + esc(r.id) + '"><span class="tg">' + esc(r.tipo_nome || NOME_T[r.tipo] || "Material") + "</span><b>" + (r.favorito ? "★ " : "") + esc(r.titulo || r.tema || "Sem título") + "</b><small>" + esc(dataCurta(r.atualizado_em)) + "</small></button>").join("") + "</div>"
@@ -544,7 +571,7 @@ function recursosEfetivos(m){
 const temRec = r => E.admin || !E.rec || E.rec.has(r);
 const travado = (titulo, rec, plano) => '<div class="caixa trava"><h4>🔒 ' + titulo + '</h4><p class="sub" style="font-size:.82rem;margin:0">' +
   (rec === "rede_colab" ? "Educador em Rede: não está liberado para a sua rede." : (rec === "sala_digital" ? "Sala Conectada" : "Turma ao Vivo") + ": disponível no plano " + plano + ".") + " Fale com a coordenação ou com a NEWPC.</p></div>";
-const TIPOS_REDE = ["plano", "sequencia", "atividade", "prova", "explicar", "inclusao"];
+const TIPOS_REDE = ["plano", "sequencia", "atividade", "prova", "explicar", "inclusao", "planejamento", "diagnostica", "simulado", "lista", "rubrica", "projeto", "resumo", "dinamica", "cacapalavras"];
 function modal(html){ fecharModal(); const m = document.createElement("div"); m.className = "modal"; m.id = "modal"; m.innerHTML = '<div class="cx-m" role="dialog" aria-modal="true">' + html + "</div>"; document.body.appendChild(m); const f = m.querySelector("input,textarea,button"); if(f) f.focus(); }
 function fecharModal(){ const m = $("modal"); if(m) m.remove(); }
 /* ---------- créditos avulsos do professor (pré-pago) ---------- */
@@ -630,7 +657,7 @@ function telaConversa(){
   }
   if(c.etapa === "gerando") h += '<div class="fala"><div class="av">IA</div><div class="bl"><div class="carreg" style="padding:4px 0"><span class="giro"></span>Preparando ' + esc((c.nome || "o material").toLowerCase()) + '...</div><div class="passos" id="passos"></div></div></div>';
   if(c.etapa === "erro") h += '<div class="fala"><div class="av">IA</div><div class="bl"><b style="color:var(--red)">' + esc(c.erro) + '</b><div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap"><button type="button" class="btn pri" data-action="gerar">Tentar de novo</button><button type="button" class="btn" data-action="inicio">Voltar</button></div></div></div>';
-  if(c.etapa === "fora") h += '<div class="fala"><div class="av">IA</div><div class="bl">' + esc(c.mensagem || "O Portal IA prepara planos, atividades, provas, pareceres, adaptações, correções, recados e explicações para a sua aula.") + '<div style="margin-top:12px"><button type="button" class="btn" data-action="inicio">Fazer outro pedido</button></div></div></div>';
+  if(c.etapa === "fora") h += '<div class="fala"><div class="av">IA</div><div class="bl">' + esc(c.mensagem || "O Portal IA prepara planos, planejamentos, projetos, atividades, listas, provas, simulados, diagnósticas, resumos, caça-palavras, dinâmicas, rubricas, pareceres, adaptações, correções e recados para a sua aula.") + '<div style="margin-top:12px"><button type="button" class="btn" data-action="inicio">Fazer outro pedido</button></div></div></div>';
   $("tela").innerHTML = h + "</div>";
   if(c.etapa === "gerando") animarPassos();
 }
@@ -695,7 +722,8 @@ function htmlDoc(d, mostrarGab){
     h += "<section>" + ed(b + "titulo", s.titulo, "h3");
     if(s.texto) String(s.texto).split(/\n{2,}/).length > 1 ? (h += ed(b + "texto", s.texto, "p")) : (h += ed(b + "texto", s.texto, "p"));
     if((s.itens || []).length) h += "<ul>" + s.itens.map((it, j) => ed(b + "itens." + j, it, "li")).join("") + "</ul>";
-    if(s.tabela && (s.tabela.colunas || []).length) h += "<table><thead><tr>" + s.tabela.colunas.map((c, j) => ed(b + "tabela.colunas." + j, c, "th")).join("") + "</tr></thead><tbody>" +
+    if(s.tabela && s.tabela.grade) h += '<table class="grade"><tbody>' + (s.tabela.linhas || []).map(l => "<tr>" + (l.celulas || []).map(c => "<td>" + esc(c) + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+    else if(s.tabela && (s.tabela.colunas || []).length) h += "<table><thead><tr>" + s.tabela.colunas.map((c, j) => ed(b + "tabela.colunas." + j, c, "th")).join("") + "</tr></thead><tbody>" +
       (s.tabela.linhas || []).map((l, j) => "<tr>" + (l.celulas || []).map((c, k) => ed(b + "tabela.linhas." + j + ".celulas." + k, c, "td")).join("") + "</tr>").join("") + "</tbody></table>";
     (s.questoes || []).forEach((q, j) => {
       n++; const qb = b + "questoes." + j + ".";
@@ -743,7 +771,7 @@ function decorar(el, editor){
 }
 // o que pode ficar no HTML editado: só formatação de texto, sem script, sem link, sem imagem de fora
 const TAGS_OK = new Set(["P","DIV","SPAN","B","STRONG","I","EM","U","S","MARK","FONT","BR","UL","OL","LI","H1","H2","H3","H4","SECTION","TABLE","THEAD","TBODY","TR","TH","TD","SMALL","SUB","SUP","IMG","BLOCKQUOTE","HR","FIGURE"]);
-const CLASSES_OK = new Set(["cab","st","alunol","q","qc","en","n","val","cx","vf","rel","lin","gab","gi","ilus","qimg","cimg","bncc","fig","fig-esq","fig-cen","fig-dir"]);
+const CLASSES_OK = new Set(["grade","cab","st","alunol","q","qc","en","n","val","cx","vf","rel","lin","gab","gi","ilus","qimg","cimg","bncc","fig","fig-esq","fig-cen","fig-dir"]);
 const ESTILO_OK = /^(color|background-color|font-size|font-weight|font-style|text-decoration(-line)?|text-align|display|vertical-align|margin-right|width)$/;
 function limparHtml(html){
   const t = document.createElement("template"); t.innerHTML = String(html || "");
@@ -780,6 +808,7 @@ function telaDoc(){
   '<div class="caixa"><h4>' + esc(A.tipo_nome || "Material") + '</h4><div class="grupo">' +
     '<button type="button" class="btn pri" data-action="pdf" data-arg="aluno">' + (A.publico === "aluno" ? "Baixar PDF do aluno" : "Baixar PDF") + "</button>" +
     (temGab ? '<button type="button" class="btn" data-action="pdf" data-arg="gab">PDF do gabarito</button>' : "") +
+    '<button type="button" class="btn" data-action="word">Baixar Word (editável)</button>' +
     '<button type="button" class="btn" data-action="copiar">Copiar o texto</button>' +
     '<button type="button" class="btn" data-action="editar">Editar o texto</button>' +
     (A.html ? '<p class="sub" style="font-size:.78rem;margin-top:2px">Material editado por você: o PDF sai pela impressão, igual à tela.</p>' : "") +
@@ -1015,7 +1044,8 @@ async function abrir(id){
 function textoPlano(d, gab){
   const L = [d.titulo, d.subtitulo || ""]; let n = 0;
   (d.secoes || []).forEach(s => { L.push("", String(s.titulo || "").toUpperCase()); if(s.texto) L.push(s.texto); (s.itens || []).forEach(i => L.push("- " + i));
-    if(s.tabela && (s.tabela.colunas || []).length){ L.push(s.tabela.colunas.join(" | ")); (s.tabela.linhas || []).forEach(l => L.push((l.celulas || []).join(" | "))); }
+    if(s.tabela && s.tabela.grade) (s.tabela.linhas || []).forEach(l => L.push((l.celulas || []).join(" ")));
+    else if(s.tabela && (s.tabela.colunas || []).length){ L.push(s.tabela.colunas.join(" | ")); (s.tabela.linhas || []).forEach(l => L.push((l.celulas || []).join(" | "))); }
     (s.questoes || []).forEach(q => { n++; L.push("", n + ". " + q.enunciado + (q.valor ? " (" + q.valor + " pt)" : ""));
       if(q.tipo === "multipla") (q.alternativas || []).forEach((a, k) => L.push("   " + LETRAS[k] + ") " + a));
       if(q.tipo === "vf") (q.alternativas || []).forEach(a => L.push("   (   ) " + a));
@@ -1079,7 +1109,13 @@ async function pdfDoc(qual, comoArquivo){
       quebra(lh * 4); pdf.setTextColor(15, 44, 74); escrever(s.titulo, mx, larg, true, 12.5); pdf.setTextColor(20, 30, 40); y += 1.5;
       if(s.texto){ escrever(s.texto, mx, larg, false); y += 2; }
       (s.itens || []).forEach(it => { quebra(lh); pdf.setFont("helvetica", "normal"); pdf.setFontSize(corpo); pdf.text("-", mx + 2, y); escrever(it, mx + 6, larg - 6, false); y += 0.8; });
-      if(s.tabela && (s.tabela.colunas || []).length){
+      if(s.tabela && s.tabela.grade){
+        const ls = s.tabela.linhas || [], nc = Math.max(1, ...ls.map(l => (l.celulas || []).length)), cel = Math.min(11, larg / nc), x0 = mx + (larg - cel * nc) / 2;
+        quebra(cel * ls.length + 6); y += 2; pdf.setDrawColor(150, 170, 190); pdf.setFont("courier", "bold"); pdf.setFontSize(Math.min(15, cel * 1.5));
+        ls.forEach((l, i) => (l.celulas || []).forEach((c, j) => { pdf.rect(x0 + j * cel, y + i * cel, cel, cel); pdf.text(pdfTx(c), x0 + j * cel + cel / 2, y + i * cel + cel * 0.68, { align:"center" }); }));
+        y += cel * ls.length + 6; pdf.setFont("helvetica", "normal");
+      }
+      else if(s.tabela && (s.tabela.colunas || []).length){
         const cols = s.tabela.colunas, nc = cols.length, cw = larg / nc;
         const linha = (cel, bold) => { pdf.setFont("helvetica", bold ? "bold" : "normal"); pdf.setFontSize(9.5); const ls = cel.map(c => pdf.splitTextToSize(pdfTx(c) || " ", cw - 3)), alt = Math.max(...ls.map(l => l.length)) * 4.4 + 3;
           quebra(alt); if(bold){ pdf.setFillColor(238, 243, 248); pdf.rect(mx, y - 4, larg, alt, "F"); } pdf.setDrawColor(201, 213, 225);
@@ -1115,6 +1151,95 @@ async function pdfDoc(qual, comoArquivo){
   const nomeArq = (gab ? "gabarito-" : "") + (slug(d.titulo || A.tipo || "material").slice(0, 50) || "material") + ".pdf";
   if(comoArquivo) return { nome:nomeArq, b64:pdf.output("datauristring").split(",")[1] };
   pdf.save(nomeArq);
+}
+/* ---------- Word (.docx): o que está na tela, editável no Word, no Google Docs e no LibreOffice ----------
+   Lê a folha como ela aparece (com as mudanças do editor e as imagens) e monta o arquivo com a biblioteca docx,
+   guardada no próprio Portal (assets/vendor), carregada só quando o professor pede. O gabarito vai na última página. */
+function carregarDocx(){
+  if(window.docx) return Promise.resolve(window.docx);
+  return new Promise((ok, falha) => { const sc = document.createElement("script"); sc.src = "/assets/vendor/docx-9.5.1.iife.js"; sc.onload = () => window.docx ? ok(window.docx) : falha(new Error("docx")); sc.onerror = () => falha(new Error("docx")); document.head.appendChild(sc); });
+}
+const b64Bytes = u => { const b = atob(String(u).split(",")[1] || ""), a = new Uint8Array(b.length); for(let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; };
+async function wordDoc(){
+  let D; try{ D = await carregarDocx(); }catch(e){ toast("Não consegui carregar o gerador de Word. Tente de novo.", true); return; }
+  const A = E.atual, folha = $("folha"); if(!A || !folha) return;
+  toast("Montando o arquivo do Word...");
+  const f = folha.cloneNode(true); f.querySelectorAll(".tira,.maisimg,.nao-imp,button").forEach(x => x.remove());
+  // imagens viram JPEG com tamanho conhecido (o Word precisa da medida)
+  const imgs = new Map();
+  await Promise.all([...f.querySelectorAll("img")].map(async im => { const src = im.getAttribute("src"); if(!src) return; const r = await imgPng(src, 1200); if(r) imgs.set(im, r); }));
+  const AZUL = "0F2C4A", CINZA = "4A5D72", fonte = "Calibri";
+  const runsDe = (no, fm = {}) => {
+    const out = [];
+    no.childNodes.forEach(n => {
+      if(n.nodeType === 3){ const t = n.textContent.replace(/\s+/g, " "); if(t.trim() || (t === " " && out.length)) out.push(new D.TextRun({ text:t, bold:!!fm.b, italics:!!fm.i, underline:fm.u ? {} : undefined, color:fm.cor || undefined, font:fonte })); return; }
+      if(n.nodeType !== 1) return;
+      const tg = n.tagName, cl = n.classList;
+      if(tg === "BR"){ out.push(new D.TextRun({ text:"", break:1 })); return; }
+      if(tg === "IMG") return;
+      if(cl.contains("cx")){ if(cl.contains("vf")) out.push(new D.TextRun({ text:"(     ) ", font:fonte })); return; }
+      if(cl.contains("n")){ out.push(new D.TextRun({ text:n.textContent.trim() + " ", bold:true, font:fonte })); return; }
+      const cor = (n.style && n.style.color) || (tg === "FONT" && n.getAttribute("color")) || "";
+      const hex = /^#[0-9a-f]{6}$/i.test(cor) ? cor.slice(1) : (cor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/) || []).slice(1).map(x => (+x).toString(16).padStart(2, "0")).join("");
+      out.push(...runsDe(n, { b:fm.b || /^(B|STRONG)$/.test(tg) || cl.contains("n") || /bold|[6-9]00/.test(n.style.fontWeight || ""), i:fm.i || /^(I|EM)$/.test(tg), u:fm.u || tg === "U", cor:hex || fm.cor }));
+    });
+    return out;
+  };
+  const par = (no, op = {}) => new D.Paragraph({ spacing:{ after:op.depois ?? 100 }, ...op.p, children:op.runs || runsDe(no, op.fm) });
+  const imgPar = im => { const r = imgs.get(im); if(!r) return null; const lmax = im.dataset.onde === "logo" ? 70 : im.dataset.onde === "topo" ? 420 : 200, k = Math.min(1, lmax / r.w, (lmax * 0.75) / r.h);
+    return new D.Paragraph({ alignment:D.AlignmentType.CENTER, spacing:{ after:120 }, children:[new D.ImageRun({ type:"jpg", data:b64Bytes(r.url), transformation:{ width:Math.round(r.w * k), height:Math.round(r.h * k) } })] }); };
+  const borda = { style:D.BorderStyle.SINGLE, size:4, color:"C9D5E1" }, bordas = { top:borda, bottom:borda, left:borda, right:borda };
+  const tabela = t => {
+    const grade = t.classList.contains("grade"), linhas = [...t.querySelectorAll("tr")];
+    const nc = Math.max(1, ...linhas.map(tr => tr.children.length));
+    if(grade) return new D.Table({ alignment:D.AlignmentType.CENTER, layout:D.TableLayoutType.FIXED, width:{ size:440 * nc, type:D.WidthType.DXA }, columnWidths:Array(nc).fill(440), rows:linhas.map(tr => new D.TableRow({ height:{ value:440, rule:D.HeightRule.EXACT }, children:[...tr.children].map(td => new D.TableCell({ width:{ size:440, type:D.WidthType.DXA }, borders:bordas, verticalAlign:D.VerticalAlign.CENTER,
+      children:[new D.Paragraph({ alignment:D.AlignmentType.CENTER, children:[new D.TextRun({ text:td.textContent.trim(), bold:true, font:"Courier New", size:24 })] })] })) })) });
+    return new D.Table({ width:{ size:100, type:D.WidthType.PERCENTAGE }, rows:linhas.map(tr => new D.TableRow({ children:[...tr.children].map(td => new D.TableCell({ borders:bordas, shading:td.tagName === "TH" ? { fill:"EEF3F8", type:D.ShadingType.CLEAR, color:"auto" } : undefined,
+      margins:{ top:60, bottom:60, left:90, right:90 }, children:[new D.Paragraph({ children:runsDe(td, { b:td.tagName === "TH" }) })] })) })) });
+  };
+  const temBloco = el => [...el.children].some(c => /^(P|DIV|UL|OL|TABLE|SECTION|H[1-4]|FIGURE|BLOCKQUOTE)$/.test(c.tagName) || (c.tagName === "IMG"));
+  const blocos = (el, out) => {
+    el.childNodes.forEach(n => {
+      if(n.nodeType === 3){ if(n.textContent.trim()) out.push(new D.Paragraph({ children:[new D.TextRun({ text:n.textContent.trim(), font:fonte })] })); return; }
+      if(n.nodeType !== 1) return;
+      const tg = n.tagName, cl = n.classList;
+      if(tg === "IMG"){ const p = imgPar(n); if(p) out.push(p); return; }
+      if(cl.contains("cab")){ const lg = n.querySelector("img"); if(lg){ const p = imgPar(lg); if(p) out.push(p); }
+        const b = n.querySelector("b"), sm = n.querySelector("small");
+        out.push(new D.Paragraph({ alignment:D.AlignmentType.CENTER, spacing:{ after:0 }, children:[new D.TextRun({ text:b ? b.textContent : "", bold:true, size:26, color:AZUL, font:fonte })] }));
+        if(sm && sm.textContent.trim()) out.push(new D.Paragraph({ alignment:D.AlignmentType.CENTER, spacing:{ after:200 }, children:[new D.TextRun({ text:sm.textContent, size:18, color:CINZA, font:fonte })] }));
+        return; }
+      if(tg === "H1"){ out.push(par(n, { p:{ heading:D.HeadingLevel.TITLE }, fm:{ b:true, cor:AZUL }, depois:60 })); return; }
+      if(/^H[2-4]$/.test(tg)){ out.push(par(n, { p:{ heading:D.HeadingLevel.HEADING_2, spacing:{ before:240, after:100 } }, fm:{ b:true, cor:AZUL } })); return; }
+      if(cl.contains("st")){ out.push(par(n, { fm:{ cor:CINZA }, depois:160 })); return; }
+      if(cl.contains("alunol")){ out.push(new D.Paragraph({ spacing:{ after:240 }, children:[new D.TextRun({ text:"Aluno(a): __________________________________________   Data: ____/____", font:fonte })] })); return; }
+      if(cl.contains("gab")){ out.push(new D.Paragraph({ pageBreakBefore:true, spacing:{ after:60 }, children:[new D.TextRun({ text:"Gabarito (para o professor)", bold:true, size:30, color:AZUL, font:fonte })] }));
+        n.querySelectorAll(".gi").forEach(g => out.push(par(g))); return; }
+      if(cl.contains("lin")){ out.push(new D.Paragraph({ spacing:{ before:120, after:60 }, children:[new D.TextRun({ text:"_".repeat(78), color:"A9B8C7", font:fonte })] })); return; }
+      if(cl.contains("rel")){ const cols = [...n.children];
+        out.push(new D.Table({ width:{ size:100, type:D.WidthType.PERCENTAGE }, borders:D.TableBorders ? D.TableBorders.NONE : undefined,
+          rows:[new D.TableRow({ children:cols.map(c => new D.TableCell({ borders:{ top:{ style:D.BorderStyle.NONE }, bottom:{ style:D.BorderStyle.NONE }, left:{ style:D.BorderStyle.NONE }, right:{ style:D.BorderStyle.NONE } },
+            children:[...c.children].map(x => new D.Paragraph({ spacing:{ after:80 }, children:runsDe(x) })) })) })] })); return; }
+      if(tg === "UL" || tg === "OL"){ const alt = !!n.closest(".q");
+        [...n.children].forEach((li, k) => out.push(new D.Paragraph({ spacing:{ after:60 }, ...(alt ? { indent:{ left:500 } } : tg === "UL" ? { bullet:{ level:0 } } : {}), children:(tg === "OL" && !alt ? [new D.TextRun({ text:(k + 1) + ". ", font:fonte })] : []).concat(runsDe(li)) }))); return; }
+      if(tg === "TABLE"){ out.push(tabela(n)); out.push(new D.Paragraph({ spacing:{ after:120 }, children:[] })); return; }
+      if(cl.contains("en")){ out.push(par(n, { p:{ spacing:{ before:160, after:80 }, keepNext:true } })); return; }
+      if(tg === "SECTION" || tg === "FIGURE" || cl.contains("q") || cl.contains("qc") || cl.contains("ilus") || cl.contains("qimg") || temBloco(n)){ blocos(n, out); return; }
+      out.push(par(n));
+    });
+    return out;
+  };
+  const filhos = blocos(f, []);
+  const rodape = new D.Footer({ children:[new D.Paragraph({ alignment:D.AlignmentType.CENTER, children:[new D.TextRun({ text:"portaldoeducador.com.br · Feito com o Portal IA e revisado pelo professor", size:16, color:"6E8296", font:fonte })] })] });
+  const docW = new D.Document({ creator:E.ident.prof || "Portal do Educador", title:A.doc.titulo || "Material", description:"Portal IA · Portal do Educador",
+    styles:{ default:{ document:{ run:{ font:fonte, size:22 } } } },
+    sections:[{ properties:{ page:{ margin:{ top:1000, bottom:1000, left:1100, right:1100 } } }, footers:{ default:rodape }, children:filhos }] });
+  try{
+    const blob = await D.Packer.toBlob(docW), a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = (slug(A.doc.titulo || A.tipo || "material").slice(0, 50) || "material") + ".docx";
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    toast("Pronto. O arquivo abre no Word, no Google Docs e no LibreOffice.");
+  }catch(e){ console.warn("word:", e); toast("Não deu para montar o Word agora.", true); }
 }
 /* ---------- enviar por e-mail: colegas da turma (pela grade) e qualquer e-mail; vai em PDF ---------- */
 const ehRedePerfil = () => ["gestor", "secretaria", "admin"].includes(E.u && E.u.perfil);
@@ -1248,6 +1373,7 @@ document.addEventListener("click", async ev => {
   if(a === "alunos-enviar") return enviarAlunos();
   if(a === "email-enviar") return enviarEmail();
   if(a === "pdf") return E.atual.html ? imprimir(arg) : pdfDoc(arg);
+  if(a === "word") return wordDoc();
   if(a === "copiar"){ if(!E.atual.html) return copiar(textoPlano(E.atual.doc, true)); const f = $("folha"); f.classList.add("sem-botoes"); const t = f.innerText; f.classList.remove("sem-botoes"); return copiar(t.replace(/\n{3,}/g, "\n\n").trim()); }
   if(a === "ed-salvar") return salvarEditor();
   if(a === "ed-sair") return sairEditor();
@@ -1298,6 +1424,10 @@ onAuthStateChanged(auth, async user => {
     if(comp) setTimeout(janelaCompartilharPia, 700);
     // vindo de "Dar aula agora": abre o envio para os alunos já com a turma da aula marcada
     if(paraT){ E.turma = paraT; setTimeout(() => { if(document.querySelector('[data-action="alunos-abrir"]')) abrirAlunos(); else toast("Este material não vai para os alunos.", true); }, 700); } }
+  else if(/^#pedir=/.test(location.hash)){   // vindo do buscador da BNCC: /apps/portal-ia/#pedir=plano&texto=...
+    const q = new URLSearchParams(location.hash.slice(1)), tp = q.get("pedir") || "", tx = String(q.get("texto") || "").slice(0, 1500);
+    history.replaceState(null, "", location.pathname);
+    E.tipo = ATALHOS.some(a => a.k === tp) ? tp : ""; E.texto = tx; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center" }); } }
   else if(location.hash === "#comprar"){ history.replaceState(null, "", location.pathname); abrirCompra(); }   // vindo do saldo no menu
 });
 </script>

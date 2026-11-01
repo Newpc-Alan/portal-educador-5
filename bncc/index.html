@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Buscador da BNCC · Portal do Educador</title>
+<meta name="description" content="Encontre qualquer habilidade da BNCC por etapa, ano, componente ou palavra. Copie o código e prepare o plano de aula a partir dela.">
+<meta property="og:title" content="Buscador da BNCC · Portal do Educador">
+<meta property="og:description" content="Todas as habilidades da BNCC, da Educação Infantil ao Ensino Médio, com busca por palavra e código.">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --azul:#0f2c4a; --verde:#1a6b2a; --lima:#8DC63F; --ink:#0c2338; --muted:#5b6b7b; --line:#dce4ed; --fundo:#eef2f6 }
+  *{ box-sizing:border-box } body{ margin:0;font-family:Inter,"Segoe UI",system-ui,sans-serif;background:var(--fundo);color:var(--ink) }
+  header{ background:var(--azul);color:#fff;border-bottom:4px solid var(--lima) }
+  .topo{ max-width:1000px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:12px }
+  .topo img{ width:42px;height:42px;border-radius:50% } .topo b{ font-size:17px } .topo small{ display:block;color:#b8d98f;font-size:12px }
+  .topo a{ margin-left:auto;color:#fff;font-weight:700;text-decoration:none;border:1.5px solid rgba(255,255,255,.5);border-radius:10px;padding:8px 14px;font-size:14px }
+  main{ max-width:1000px;margin:18px auto 40px;padding:0 16px }
+  h1{ font-size:26px;margin:0 0 4px } .sub{ color:var(--muted);margin:0 0 16px;font-size:15px }
+  .filtros{ background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));position:sticky;top:0;z-index:5;box-shadow:0 10px 28px -24px rgba(7,22,33,.6) }
+  .filtros label{ display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em }
+  select,input{ font:inherit;font-size:15px;color:var(--ink);border:1.5px solid var(--line);border-radius:10px;padding:9px 10px;background:#fff;width:100% }
+  select:focus,input:focus{ outline:2px solid var(--lima);border-color:var(--verde) }
+  .busca{ grid-column:1/-1 }
+  .info{ display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 2px 8px;color:var(--muted);font-size:14px }
+  .lista{ display:grid;gap:10px }
+  .hab{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:start }
+  .hab.sel{ border-color:var(--verde);box-shadow:0 0 0 2px rgba(26,107,42,.18) }
+  .hab.alvo{ animation:pisca 1.6s ease 2 }
+  @keyframes pisca{ 50%{ background:#f1f9e6 } }
+  .hab input[type=checkbox]{ width:20px;height:20px;margin-top:2px;accent-color:var(--verde) }
+  .cod{ font-weight:800;color:var(--azul);font-size:15px;letter-spacing:.02em }
+  .tags{ display:inline-flex;flex-wrap:wrap;gap:6px;margin-left:8px;vertical-align:middle }
+  .tag{ font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:20px;background:#eef3f8;color:#2b4a68 }
+  .tag.v{ background:#eaf5e0;color:#1a6b2a }
+  .tx{ grid-column:2;font-size:15.5px;line-height:1.5;margin:2px 0 }
+  .ctx{ grid-column:2;font-size:13px;color:var(--muted) }
+  .acoes{ grid-column:2;display:flex;flex-wrap:wrap;gap:6px;margin-top:6px }
+  button{ font:inherit;cursor:pointer }
+  .b{ border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:7px 11px;font-size:13.5px;font-weight:600 }
+  .b:hover{ border-color:var(--verde);color:var(--verde) }
+  .b.pri{ background:var(--verde);border-color:var(--verde);color:#fff } .b.pri:hover{ background:#155a22;color:#fff }
+  mark{ background:#fff2a8;color:inherit;border-radius:3px;padding:0 1px }
+  .vazio{ text-align:center;color:var(--muted);padding:40px 16px;background:#fff;border:1px dashed var(--line);border-radius:14px }
+  .mais{ display:block;margin:14px auto 0 } .mais[hidden]{ display:none }
+  .cesta{ position:fixed;left:16px;right:16px;bottom:16px;margin:0 auto;width:fit-content;background:var(--azul);color:#fff;border-radius:16px;padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+    box-shadow:0 18px 40px -16px rgba(7,22,33,.7);z-index:10 }
+  .cesta[hidden]{ display:none } .cesta b{ margin-right:4px } .cesta .b{ background:transparent;color:#fff;border-color:rgba(255,255,255,.45) } .cesta .b.pri{ background:var(--lima);border-color:var(--lima);color:var(--azul) }
+  .toast{ position:fixed;left:50%;top:16px;transform:translateX(-50%) translateY(-120%);visibility:hidden;background:#0c2338;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;transition:transform .25s;z-index:20 }
+  .toast.on{ transform:translateX(-50%) translateY(0);visibility:visible }
+  footer{ text-align:center;color:var(--muted);font-size:12.5px;padding:10px 16px 90px;line-height:1.6 } footer a{ color:#2671AB }
+  @media (max-width:560px){ h1{ font-size:22px } .filtros{ position:static } .hab{ padding:11px } .cesta .b{ flex:1 1 auto } }
+</style>
+</head>
+<body>
+<header><div class="topo"><img src="/assets/pde-logo-64.png" alt=""><div><b>Portal do Educador</b><small>Buscador da BNCC</small></div><a href="/entrar/">Entrar</a></div></header>
+<main>
+  <h1>Buscador da BNCC</h1>
+  <p class="sub">Todas as habilidades da Base Nacional Comum Curricular, da Educação Infantil ao Ensino Médio. Escolha o ano e o componente ou escreva uma palavra ou um código.</p>
+  <div class="filtros" role="search">
+    <label>Etapa<select id="fEtapa"><option value="EF">Ensino Fundamental</option><option value="EI">Educação Infantil</option><option value="EM">Ensino Médio</option></select></label>
+    <label>Ano ou grupo<select id="fAno"></select></label>
+    <label>Componente<select id="fComp"></select></label>
+    <label class="busca">Palavra ou código<input id="fBusca" type="search" placeholder="Ex.: frações, EF05MA03, leitura de mapas" autocomplete="off"></label>
+  </div>
+  <div class="info"><span id="total" aria-live="polite">Carregando as habilidades...</span><button type="button" class="b" data-action="limpar">Limpar filtros</button></div>
+  <div class="lista" id="lista"></div>
+  <button type="button" class="b mais" id="mais" data-action="mais" hidden>Mostrar mais</button>
+</main>
+<div class="cesta" id="cesta" hidden><b id="nSel"></b>
+  <button type="button" class="b" data-action="copiar-sel">Copiar códigos</button>
+  <button type="button" class="b" data-action="copiar-sel-tx">Copiar com o texto</button>
+  <button type="button" class="b pri" data-action="plano-sel">Preparar plano com elas</button>
+  <button type="button" class="b" data-action="limpar-sel" aria-label="Desmarcar todas">✕</button>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<footer>Dados da BNCC estruturados por <a href="https://github.com/bncc-dev/bncc-dados" target="_blank" rel="noopener">bncc.dev</a>, licença CC BY 4.0. Textos oficiais do MEC/CNE.<br>Portal do Educador · NEWPC Tecnologia</footer>
+<script>
+(() => {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const norm = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const POR_PAGINA = 40;
+  let ITENS = [], filtrados = [], mostrar = POR_PAGINA, alvo = "";
+  const sel = new Set();
+
+  function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), 2600); }
+  async function copiar(t){ try{ await navigator.clipboard.writeText(t); toast("Copiado."); }catch(e){ toast("Não consegui copiar. Selecione e copie à mão."); } }
+
+  const anoTxt = h => h.e === "EF" ? h.a.map(n => n + "º").join(", ") + " ano" : h.e === "EI" ? h.u : "Ensino Médio";
+  function opcoes(){
+    const et = $("fEtapa").value, base = ITENS.filter(h => h.e === et);
+    let anos = [];
+    if(et === "EF") anos = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => [String(n), n + "º ano"]);
+    if(et === "EI") anos = [...new Set(base.map(h => h.u))].map(u => [u, u]);
+    $("fAno").innerHTML = '<option value="">Todos</option>' + anos.map(([v, t]) => '<option value="' + esc(v) + '">' + esc(t) + "</option>").join("");
+    $("fAno").disabled = et === "EM";
+    const comps = [...new Set(base.map(h => h.k))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    $("fComp").innerHTML = '<option value="">' + (et === "EI" ? "Todos os campos de experiência" : et === "EM" ? "Todas as áreas" : "Todos") + "</option>" + comps.map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
+  }
+  function filtrar(){
+    const et = $("fEtapa").value, ano = $("fAno").value, comp = $("fComp").value, q = norm($("fBusca").value).trim();
+    const cod = /^e[fim]\d{2}[a-z]{2,3}\d{2,3}$/i.test(q.replace(/\s/g, "")) ? q.replace(/\s/g, "").toUpperCase() : "";
+    const palavras = q.split(/\s+/).filter(p => p.length > 1);
+    filtrados = ITENS.filter(h => {
+      if(cod) return h.c.startsWith(cod);
+      if(h.e !== et) return false;
+      if(ano && (et === "EF" ? !h.a.includes(+ano) : h.u !== ano)) return false;
+      if(comp && h.k !== comp) return false;
+      return !palavras.length || palavras.every(p => h.n.includes(p));
+    });
+    mostrar = POR_PAGINA; desenhar();
+    salvarEstado();
+  }
+  function marcar(texto){
+    const ps = norm($("fBusca").value).split(/\s+/).filter(p => p.length > 2 && !/^e[fim]\d/.test(p));
+    let h = esc(texto); if(!ps.length) return h;
+    // marca as palavras buscadas sem perder os acentos do texto original
+    const nt = norm(h), marcas = [];
+    ps.forEach(p => { let i = 0; while((i = nt.indexOf(p, i)) >= 0){ marcas.push([i, i + p.length]); i += p.length; } });
+    marcas.sort((a, b) => b[0] - a[0]).forEach(([a, b]) => { h = h.slice(0, a) + "<mark>" + h.slice(a, b) + "</mark>" + h.slice(b); });
+    return h;
+  }
+  function desenhar(){
+    const n = filtrados.length;
+    $("total").textContent = n ? n + (n === 1 ? " habilidade" : " habilidades") : "";
+    $("lista").innerHTML = n ? filtrados.slice(0, mostrar).map(h => {
+      const ctx = [h.u && h.e !== "EI" ? h.u : "", h.o].filter(Boolean).join(" · ");
+      return '<article class="hab' + (sel.has(h.c) ? " sel" : "") + (h.c === alvo ? " alvo" : "") + '" id="h-' + h.c + '">' +
+        '<input type="checkbox" data-sel="' + h.c + '" aria-label="Selecionar ' + h.c + '"' + (sel.has(h.c) ? " checked" : "") + ">" +
+        '<div><span class="cod">' + h.c + '</span><span class="tags"><span class="tag">' + esc(h.k) + '</span><span class="tag v">' + esc(anoTxt(h)) + "</span></span></div>" +
+        '<p class="tx">' + marcar(h.t) + "</p>" + (ctx ? '<div class="ctx">' + esc(ctx) + "</div>" : "") +
+        '<div class="acoes"><button type="button" class="b" data-action="copiar-cod" data-c="' + h.c + '">Copiar código</button>' +
+        '<button type="button" class="b" data-action="copiar-tx" data-c="' + h.c + '">Copiar com o texto</button>' +
+        '<button type="button" class="b pri" data-action="plano" data-c="' + h.c + '">Preparar plano de aula</button>' +
+        '<button type="button" class="b" data-action="atividade" data-c="' + h.c + '">Atividade</button></div></article>';
+    }).join("") : '<div class="vazio">Nenhuma habilidade com esses filtros. Tente outra palavra ou tire um filtro.</div>';
+    $("mais").hidden = n <= mostrar;
+    if(alvo){ const el = $("h-" + alvo); if(el){ el.scrollIntoView({ block:"center" }); } alvo = ""; }
+  }
+  function cesta(){ const n = sel.size; $("cesta").hidden = !n; $("nSel").textContent = n + (n === 1 ? " selecionada" : " selecionadas"); }
+  const porCod = c => ITENS.find(h => h.c === c);
+  const linhaTx = h => h.c + " (" + h.k + ", " + anoTxt(h) + "): " + h.t;
+  function pedir(tipo, hs){
+    if(!hs.length) return;
+    const lista = hs.slice(0, 6).map(linhaTx).join("\n");
+    const texto = (tipo === "plano" ? "Plano de aula a partir " + (hs.length > 1 ? "destas habilidades da BNCC" : "desta habilidade da BNCC") : "Atividade com gabarito para trabalhar " + (hs.length > 1 ? "estas habilidades da BNCC" : "esta habilidade da BNCC")) + ":\n" + lista;
+    location.href = "/apps/portal-ia/#pedir=" + tipo + "&texto=" + encodeURIComponent(texto);
+  }
+  function salvarEstado(){
+    const p = new URLSearchParams(); p.set("etapa", $("fEtapa").value);
+    if($("fAno").value) p.set("ano", $("fAno").value); if($("fComp").value) p.set("comp", $("fComp").value); if($("fBusca").value.trim()) p.set("q", $("fBusca").value.trim());
+    history.replaceState(null, "", "#" + p.toString());
+  }
+  function lerEstado(){
+    const h = location.hash.slice(1);
+    if(/^E[FIM]\d{2}[A-Z]{2,3}\d{2,3}$/.test(h)){ const it = porCod(h); if(it){ $("fEtapa").value = it.e; opcoes(); if(it.e === "EF" && it.a.length === 1) $("fAno").value = String(it.a[0]); $("fComp").value = it.k; alvo = h; } return; }
+    const p = new URLSearchParams(h);
+    if(["EF", "EI", "EM"].includes(p.get("etapa"))) $("fEtapa").value = p.get("etapa");
+    opcoes();
+    if(p.get("ano")) $("fAno").value = p.get("ano"); if(p.get("comp")) $("fComp").value = p.get("comp"); if(p.get("q")) $("fBusca").value = p.get("q").slice(0, 80);
+  }
+
+  document.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-action]"); if(!b) return;
+    const a = b.dataset.action, h = b.dataset.c ? porCod(b.dataset.c) : null;
+    if(a === "mais"){ mostrar += POR_PAGINA; desenhar(); }
+    else if(a === "limpar"){ $("fBusca").value = ""; $("fComp").value = ""; $("fAno").value = ""; filtrar(); }
+    else if(a === "copiar-cod" && h) copiar(h.c);
+    else if(a === "copiar-tx" && h) copiar(h.c + " " + h.t);
+    else if(a === "plano" && h) pedir("plano", [h]);
+    else if(a === "atividade" && h) pedir("atividade", [h]);
+    else if(a === "copiar-sel") copiar([...sel].join(", "));
+    else if(a === "copiar-sel-tx") copiar([...sel].map(c => { const x = porCod(c); return x ? x.c + " " + x.t : c; }).join("\n"));
+    else if(a === "plano-sel") pedir("plano", [...sel].map(porCod).filter(Boolean));
+    else if(a === "limpar-sel"){ sel.clear(); cesta(); desenhar(); }
+  });
+  document.addEventListener("change", ev => {
+    const t = ev.target;
+    if(t.dataset.sel){ t.checked ? sel.add(t.dataset.sel) : sel.delete(t.dataset.sel); t.closest(".hab").classList.toggle("sel", t.checked); cesta(); return; }
+    if(t.id === "fEtapa"){ opcoes(); filtrar(); }
+    if(t.id === "fAno" || t.id === "fComp") filtrar();
+  });
+  let tm = null; $("fBusca").addEventListener("input", () => { clearTimeout(tm); tm = setTimeout(filtrar, 180); });
+
+  fetch("/assets/bncc/bncc.json").then(r => r.json()).then(j => {
+    ITENS = j.itens.map(([c, e, a, k, u, o, t]) => ({ c, e, a, k, u, o, t, n:norm(c + " " + k + " " + u + " " + o + " " + t) }));
+    lerEstado(); filtrar();
+  }).catch(() => { $("total").textContent = ""; $("lista").innerHTML = '<div class="vazio">Não consegui carregar a BNCC agora. Recarregue a página.</div>'; });
+})();
+</script>
+</body>
+</html>

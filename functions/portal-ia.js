@@ -48,11 +48,78 @@ export const TIPOS = {
   recado: { nome: 'Recado aos pais', publico: 'familia', instrucao:
 'Escreva um COMUNICADO aos pais e responsáveis, formal e acolhedor, curto (até 120 palavras), com o assunto, data, horário e o que a família precisa fazer, quando informados. Uma seção "Comunicado" com o texto. Em "versao_whatsapp" escreva a mesma mensagem em até 60 palavras, para mandar no grupo, sem emoji excessivo (no máximo 2).' },
   explicar: { nome: 'Explicação do conteúdo', publico: 'aluno', instrucao:
-'Escreva uma EXPLICAÇÃO do conteúdo para o aluno da série informada. Seções: "O que é" (texto claro, frases curtas), "Como funciona" ou "Passo a passo" (itens), "Exemplos do dia a dia" (itens), "Palavras importantes" (tabela com Palavra e Significado), "Teste rápido" (3 questões curtas, com as respostas no gabarito). Nada de informação incerta como se fosse certa.' }
+'Escreva uma EXPLICAÇÃO do conteúdo para o aluno da série informada. Seções: "O que é" (texto claro, frases curtas), "Como funciona" ou "Passo a passo" (itens), "Exemplos do dia a dia" (itens), "Palavras importantes" (tabela com Palavra e Significado), "Teste rápido" (3 questões curtas, com as respostas no gabarito). Nada de informação incerta como se fosse certa.' },
+  // novembro/2026: tipos que o professor procura no dia a dia (vitrine do Portal IA)
+  planejamento: { nome: 'Planejamento bimestral ou anual', publico: 'professor', instrucao:
+'Escreva um PLANEJAMENTO do período pedido (bimestre, trimestre, semestre ou ano; se não disser, faça o ANUAL dividido em 4 bimestres). Primeira seção "Identificação" (tabela com Componente, Série, Período e Aulas por semana, quando informado). Depois UMA seção por bimestre (ou trimestre), com o título "1º bimestre" etc., e nela uma tabela com as colunas Unidade ou tema, Conteúdos, Habilidades da BNCC e Avaliação, de 2 a 4 linhas por período, em ordem de progressão. Na coluna de habilidades, use o código só quando tiver certeza; senão descreva. Última seção "Observações" (itens: retomadas, projetos ao longo do ano, datas que combinam com o conteúdo). Respeite o que a escola pública costuma ter de carga horária.' },
+  diagnostica: { nome: 'Avaliação diagnóstica', publico: 'aluno', questoes: true, instrucao:
+'Escreva uma AVALIAÇÃO DIAGNÓSTICA para o início de um conteúdo ou do ano, para o professor descobrir o que a turma já sabe. Uma seção "Questões" em ordem crescente de dificuldade: as primeiras checam pré-requisitos, as do meio o essencial do ano, as últimas um pouco acima. Enunciados curtos, sem pegadinha, maioria objetiva, ao menos uma em que o aluno explica como pensou. No gabarito, em cada "comentario", diga O QUE O ERRO REVELA (qual dificuldade ou pré-requisito falta) e como retomar. Em "nota_professor" explique em duas frases como ler o resultado da turma (agrupar quem errou as mesmas questões).' },
+  simulado: { nome: 'Simulado estilo SAEB', publico: 'aluno', questoes: true, instrucao:
+'Escreva um SIMULADO no estilo das avaliações externas (SAEB, Prova Brasil e avaliações estaduais). Uma seção "Questões" SÓ com questões de múltipla escolha (tipo multipla), 4 alternativas plausíveis e uma única correta. Sempre que o descritor pedir, a questão traz um pequeno texto, tabela ou situação de apoio dentro do enunciado (até 6 linhas), como nas provas oficiais: leitura em Língua Portuguesa, situação-problema em Matemática. Em cada item do gabarito, no "comentario", diga a habilidade ou descritor avaliado e por que cada distrator atrai o aluno. Nada de questão que dependa de imagem.' },
+  lista: { nome: 'Lista de exercícios por nível', publico: 'aluno', questoes: true, instrucao:
+'Escreva uma LISTA DE EXERCÍCIOS dividida em três seções, nesta ordem: "Nível 1: aquecimento" (questões diretas, para todos conseguirem), "Nível 2: prática" (aplicação do conteúdo) e "Nível 3: desafio" (problemas que pedem raciocínio). Distribua a quantidade pedida igualmente entre os níveis. Varie os tipos de questão. Gabarito completo em "gabarito", com a resolução resumida nas de cálculo.' },
+  rubrica: { nome: 'Rubrica de avaliação', publico: 'professor', instrucao:
+'Escreva uma RUBRICA DE AVALIAÇÃO para a atividade ou produção informada. Primeira seção "Rubrica" com uma tabela: colunas Critério, Excelente, Bom, Em desenvolvimento e Ainda não atingiu; de 4 a 6 linhas, uma por critério, cada célula descrevendo o que se observa no trabalho (comportamento observável, nunca adjetivo vago). Segunda seção "Pontuação" (texto curto: quanto vale cada nível e como somar para chegar à nota). Terceira seção "Como usar com a turma" (itens: apresentar a rubrica antes, autoavaliação, devolutiva).' },
+  projeto: { nome: 'Projeto pedagógico', publico: 'professor', instrucao:
+'Escreva um PROJETO PEDAGÓGICO pronto para apresentar à coordenação. Seções, nesta ordem: "Identificação" (tabela com Tema, Componentes envolvidos, Série, Duração e Público); "Justificativa" (texto curto, ligado à realidade da escola); "Objetivos" (geral no texto, específicos nos itens); "Habilidades da BNCC" (itens); "Etapas" (tabela com Etapa, O que acontece, Responsáveis e Tempo); "Recursos" (itens simples, do que a escola pública tem); "Produto final" (texto); "Avaliação" (itens); "Envolvimento das famílias e da comunidade" (itens).' },
+  resumo: { nome: 'Resumo para estudar', publico: 'aluno', questoes: true, instrucao:
+'Escreva um RESUMO PARA O ALUNO ESTUDAR o conteúdo (revisão antes da prova). Seções: "Em poucas palavras" (texto de até 5 frases curtas com a ideia central); "Pontos principais" (itens, um conceito por item, com exemplo curto); "Não confunda" (tabela com duas colunas comparando os conceitos que os alunos mais misturam); "Palavras-chave" (tabela com Palavra e Significado); "Revise" (3 a 5 questões curtas, com as respostas no gabarito). Linguagem da série, sem informação incerta.' },
+  dinamica: { nome: 'Dinâmica ou jogo para a sala', publico: 'professor', instrucao:
+'Escreva uma DINÂMICA ou JOGO para fazer na sala de aula com o conteúdo informado, sem equipamento caro. Seções: "Resumo" (tabela com Objetivo, Tempo, Organização da turma e Materiais); "Preparação" (itens do que o professor faz antes); "Como fazer" (itens numerados, passo a passo, com o que o professor fala e o que os alunos fazem); "Regras" (itens curtos); "Variações" (itens: turma grande, turma agitada, alunos com deficiência); "Fechamento" (como amarrar a dinâmica ao conteúdo, com 2 ou 3 perguntas para a roda de conversa).' },
+  cacapalavras: { nome: 'Caça-palavras', publico: 'aluno', instrucao:
+'Prepare um CAÇA-PALAVRAS sobre o tema. Seção 1 "Como fazer" com UMA frase de instrução para o aluno. Seção 2 "Palavras para encontrar" com os itens: SÓ as palavras, uma por item, cada uma com 3 a 11 letras, sem espaço, hífen nem número (nada de expressão com duas palavras), todas ligadas ao tema e corretas na série. Anos iniciais: 6 a 8 palavras curtas; demais séries: 8 a 12 palavras. Seção 3 "Para pensar" com 2 itens: perguntas curtas que ligam as palavras ao conteúdo. NÃO monte a grade de letras: o Portal monta sozinho.' }
 };
 const NOMES = Object.keys(TIPOS);
 // o que pode ir para a rede: parecer e recado têm dados de alunos e famílias (LGPD) e ficam de fora
-export const TIPOS_REDE = ['plano', 'sequencia', 'atividade', 'prova', 'explicar', 'inclusao'];
+export const TIPOS_REDE = ['plano', 'sequencia', 'atividade', 'prova', 'explicar', 'inclusao', 'planejamento', 'diagnostica', 'simulado', 'lista', 'rubrica', 'projeto', 'resumo', 'dinamica', 'cacapalavras'];
+
+/* ------------------------------------------------------------------ caça-palavras: a grade é do Portal, não da IA */
+// A IA só escolhe as palavras (ela erra muito ao desenhar grade). Aqui as palavras viram letras sem acento e entram
+// na grade em direções que a série dá conta: anos iniciais só para a direita e para baixo; depois, também na diagonal.
+const semAcentoUp = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/Ç/g, 'C');
+export function palavrasCaca(doc) {
+  const sec = (doc.secoes || []).find(s => /palavra/i.test(s.titulo || '') && (s.itens || []).length) || (doc.secoes || []).find(s => (s.itens || []).length >= 4) || {};
+  const vistas = new Set();
+  return (sec.itens || []).map(p => semAcentoUp(p).replace(/[^A-Z]/g, '')).filter(p => p.length >= 3 && p.length <= 13 && !vistas.has(p) && vistas.add(p)).slice(0, 14);
+}
+export function montarCaca(doc, serie, sorte = Math.random) {
+  const palavras = palavrasCaca(doc);
+  const ano = Number((String(serie || '').match(/\d+/) || [0])[0]), iniciais = /infantil|polivalente/i.test(serie || '') || (ano >= 1 && ano <= 5 && !/s[ée]rie|m[ée]dio/i.test(serie || ''));
+  const DIR = iniciais ? [[0, 1, 'para a direita'], [1, 0, 'para baixo']] : [[0, 1, 'para a direita'], [1, 0, 'para baixo'], [1, 1, 'na diagonal'], [-1, 1, 'na diagonal, subindo']];
+  const maior = Math.max(0, ...palavras.map(p => p.length)), letras = palavras.reduce((a, p) => a + p.length, 0);
+  const n = Math.min(15, Math.max(iniciais ? 10 : 12, maior + 1, Math.ceil(Math.sqrt(letras * 2.2))));
+  const sorteio = k => Math.floor(sorte() * k);
+  for (let tent = 0; tent < 30; tent++) {
+    const g = Array.from({ length: n }, () => Array(n).fill('')), pos = [];
+    let ok = true;
+    for (const p of [...palavras].sort((a, b) => b.length - a.length)) {
+      let posto = false;
+      for (let k = 0; k < 300 && !posto; k++) {
+        const [dl, dc, nome] = DIR[sorteio(DIR.length)], l0 = sorteio(n), c0 = sorteio(n), lf = l0 + dl * (p.length - 1), cf = c0 + dc * (p.length - 1);
+        if (lf < 0 || lf >= n || cf < 0 || cf >= n) continue;
+        let cabe = true;
+        for (let i = 0; i < p.length && cabe; i++) { const x = g[l0 + dl * i][c0 + dc * i]; if (x && x !== p[i]) cabe = false; }
+        if (!cabe) continue;
+        for (let i = 0; i < p.length; i++) g[l0 + dl * i][c0 + dc * i] = p[i];
+        pos.push({ p, l: l0 + 1, c: c0 + 1, nome }); posto = true;
+      }
+      if (!posto) { ok = false; break; }
+    }
+    if (!ok) continue;
+    const ALFA = 'AABCDEEFGHIIJLMNOOPRRSSTUUVZ';
+    g.forEach(lin => lin.forEach((x, j) => { if (!x) lin[j] = ALFA[sorteio(ALFA.length)]; }));
+    const ordem = palavras.map(p => pos.find(x => x.p === p));
+    // a grade entra como uma seção de tabela marcada como "grade"; a lista de palavras fica na grafia sem acento, igual à grade
+    const secs = (doc.secoes || []).filter(s => !(s.tabela && (s.tabela.grade || /^ca[cç]a-palavras$/i.test(s.titulo || ''))));
+    const iPal = secs.findIndex(s => /palavra/i.test(s.titulo || ''));
+    if (iPal >= 0) secs[iPal] = { ...secs[iPal], itens: palavras };
+    secs.splice(Math.max(1, iPal >= 0 ? iPal : 1), 0, { titulo: 'Caça-palavras', tabela: { grade: true, colunas: [], linhas: g.map(lin => ({ celulas: lin })) } });
+    doc.secoes = secs;
+    doc.gabarito = ordem.map((x, i) => ({ questao: i + 1, resposta: x.p, comentario: 'começa na linha ' + x.l + ', coluna ' + x.c + ', ' + x.nome }));
+    return doc;
+  }
+  return doc;   // não coube: a conferência reprova e a IA tenta de novo
+}
 
 const REGRAS_GERAIS =
 'REGRAS DA CASA\n1) Português do Brasil, frases curtas e claras, linguagem adequada à série. Sem travessão como conector de frase.\n2) Conteúdo correto e atualizado. Na dúvida, não afirme.\n3) Código da BNCC só se tiver certeza de que é real e do ano certo; se não tiver, deixe o código vazio e descreva a habilidade.\n4) Nunca invente citação entre aspas atribuída a pessoa real, nem dado, lei, livro ou site.\n5) Matemática: recalcule todas as contas; vírgula decimal. Ciências: experimento só com material caseiro seguro e supervisão de adulto. História: datas e nomes verificáveis, temas sensíveis com seriedade.\n6) Contexto de escola pública brasileira: material simples, nada que dependa de equipamento caro.\n7) Responda somente no formato JSON pedido.';
@@ -383,6 +450,11 @@ export function conferirDoc(d, tipo, qtd) {
     if (q.tipo === 'vf' && (alt.length < 2 || alt.some(ehCombinacao))) prob.push('questão ' + n + ' de V ou F sem as afirmativas nas alternativas');
     if (q.tipo === 'relacionar' && ((q.coluna_a || []).length < 2 || (q.coluna_a || []).length !== (q.coluna_b || []).length)) prob.push('questão ' + n + ' de relacionar com colunas desiguais');
   });
+  if (tipo === 'cacapalavras') {
+    const gr = secoes.find(s => s.tabela && s.tabela.grade);
+    if (palavrasCaca(d).length < 5) prob.push('poucas palavras para o caça-palavras (mínimo 5, de 3 a 13 letras)');
+    else if (!gr) prob.push('as palavras não couberam na grade');
+  }
   if (tipo === 'prova' && qs.length) { const soma = qs.reduce((a, q) => a + (Number(q.valor) || 0), 0); if (soma > 0 && Math.abs(soma - 10) > 0.05 && !/total|pontos|valendo/i.test(d._pedido || '')) prob.push('valores somando ' + soma + ' em vez de 10'); }
   return prob;
 }
@@ -438,7 +510,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       NOMES.map(k => k + ' (' + TIPOS[k].nome + ')').join(', ') + '. Use "fora" só se o pedido não tiver relação com o trabalho do professor.\n' +
       'Pergunte no máximo 2 coisas, e só o que for indispensável e não estiver no pedido nem no contexto. Série e disciplina já estão no contexto: não pergunte. ' +
       'Exemplos do que costuma ser indispensável: na correção de redação, o texto da redação (livre); no parecer, as observações do professor sobre o aluno (livre); na adaptação, a necessidade e o que adaptar; no recado, o assunto e a data quando houver evento. ' +
-      'Para atividade e prova, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade e 10 na prova. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
+      'Para atividade, prova, simulado, diagnóstica e lista, se a quantidade de questões não foi dita, NÃO pergunte: use 6 na atividade, 9 na lista e 10 nas demais. No planejamento, se o período não foi dito, NÃO pergunte: faça o anual. No caça-palavras, na dinâmica, na rubrica, no projeto e no resumo, basta o tema: não pergunte mais nada. Na correção de redação não pergunte critérios: o Portal usa os da série. Responda somente no formato JSON pedido.';
     const pedido = 'CONTEXTO\n' + contextoTexto(cx) + (tipoDado ? '\nTipo escolhido pelo professor no atalho: ' + tipoDado : '') + '\n\nPEDIDO DO PROFESSOR\n' + (texto || '(o professor só tocou no atalho)') +
       (d.respostas && typeof d.respostas === 'object' ? '\n\nRESPOSTAS ÀS PERGUNTAS ANTERIORES\n' + Object.entries(d.respostas).slice(0, 4).map(([k, v]) => k + ': ' + txt(v, 6000)).join('\n') : '');
     exigir('portalia');
@@ -461,12 +533,14 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     }
     if (!TIPOS[tipo]) throw new HttpsError('invalid-argument', 'Tipo de material inválido.');
     if (resumo.length < 3) throw new HttpsError('invalid-argument', 'Pedido vazio.');
-    const qtd = Math.min(20, Math.max(0, Number(d.qtd) || (tipo === 'prova' ? 10 : tipo === 'atividade' ? 6 : 0)));
+    const qtd = Math.min(20, Math.max(0, Number(d.qtd) || ({ prova: 10, simulado: 10, diagnostica: 10, lista: 9, atividade: 6 }[tipo] || 0)));
     const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto', exigir('portalia'));
     const T = TIPOS[tipo];
     const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
     let pedido = 'CONTEXTO\n' + contextoTexto(cx) + '\n\nPEDIDO\n' + resumo + (qtd && T.questoes ? '\nQuantidade de questões: ' + qtd + '.' : '');
-    if (anterior) pedido += '\n\nMATERIAL ATUAL (em JSON)\n' + JSON.stringify(anterior.doc).slice(0, 60000) + '\n\nAJUSTE PEDIDO PELO PROFESSOR\n' + txt(d.instrucao, 1000) +
+    // caça-palavras: a grade não vai para a IA (ela só mexe nas palavras; o Portal remonta a grade)
+    const docParaIA = tipo === 'cacapalavras' && anterior ? { ...anterior.doc, secoes: (anterior.doc.secoes || []).filter(s => !(s.tabela && s.tabela.grade)), gabarito: [] } : anterior && anterior.doc;
+    if (anterior) pedido += '\n\nMATERIAL ATUAL (em JSON)\n' + JSON.stringify(docParaIA).slice(0, 60000) + '\n\nAJUSTE PEDIDO PELO PROFESSOR\n' + txt(d.instrucao, 1000) +
       '\nDevolva o material inteiro já ajustado, no mesmo formato, mudando só o que o ajuste pede.';
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null;
     try {
@@ -476,6 +550,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
         r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_DOC, 0.6);
         ent += r.entrada; sai += r.saida;
         if (r.json) r.json._pedido = resumo;
+        if (r.json && tipo === 'cacapalavras') montarCaca(limparDoc(r.json), cx.serie);
         prob = r.json ? conferirDoc(limparDoc(r.json), tipo, anterior ? 0 : qtd) : ['resposta incompleta, ' + (r.fim || 'sem motivo') + ', ' + r.saida + ' tokens'];
         if (!prob.length) break;
         console.warn('portal-ia: conferência reprovou', tipo, prob.join('; '));
