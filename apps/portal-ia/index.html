@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Portal IA · Portal do Educador</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="/assets/pde-pensando.js?v=1" defer></script>
 <meta name="theme-color" content="#071621">
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -665,16 +666,17 @@ async function gerar(){
   const resumo = (c.resumo || c.texto) + (extra ? "\n\nInformações do professor:\n" + extra : "");
   const qtdM = (resumo.match(/(\d{1,2})\s*(quest|exerc|pergunt)/i) || [])[1];
   c.etapa = "gerando"; E.ocupado = true; desenhar();
+  if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:"uns 20 a 40 segundos", etapas:["Lendo o seu pedido", "Buscando as habilidades da BNCC", "Organizando as seções", "Escrevendo o material", "Conferindo tudo"] });
   try{
     const marca = temaSel && String(c.texto || "").includes(temaSel.texto) ? { tema_chave:temaSel.chave, tema_id:temaSel.id } : {};
     const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto(), ...marca })).data;
-    temaSel = null;
+    temaSel = null; if(window.PDEPensando) PDEPensando.fechar();
     E.ocupado = false; clearInterval(E._passos);
     aposUso(r.cota); E.texto = ""; E.tipo = "";
     E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"", html:"" };
     E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
     ir("doc");
-  }catch(e){ E.ocupado = false; clearInterval(E._passos); c.etapa = "erro"; c.erro = msgErro(e); desenhar(); }
+  }catch(e){ if(window.PDEPensando) PDEPensando.fechar(); E.ocupado = false; clearInterval(E._passos); c.etapa = "erro"; c.erro = msgErro(e); desenhar(); }
 }
 
 /* ---------- o documento ---------- */
@@ -970,12 +972,13 @@ async function ajustar(instrucao){
   if(E.ocupado || !instrucao) return;
   if(E.atual.html && !confirm("A IA vai refazer o material a partir da versão dela. A formatação e as mudanças que você fez à mão serão perdidas. Continuar?")) return;
   E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true);
-  toast("Ajustando: " + instrucao + "...");
+  if(window.PDEPensando) PDEPensando.abrir({ titulo:"Ajustando o material", tempo:"uns 20 segundos", etapas:["Entendendo o ajuste: " + instrucao, "Reescrevendo", "Conferindo tudo"] }); else toast("Ajustando: " + instrucao + "...");
   try{
     const r = (await chamar({ acao:"ajustar", id:E.atual.id, instrucao, contexto:E.atual.contexto || contexto() })).data;
     E.atual.doc = r.doc; aposUso(r.cota); toast("Pronto. Material ajustado.");
     if(E.atual.html){ E.atual.html = ""; updateDoc(doc(db, "portal_ia_docs", E.atual.id), { html:"", editado_em:serverTimestamp() }).catch(e => console.warn(e.code)); }
   }catch(e){ toast(msgErro(e), true); }
+  if(window.PDEPensando) PDEPensando.fechar();
   E.ocupado = false; telaDoc();
 }
 async function gerarImagem(){
