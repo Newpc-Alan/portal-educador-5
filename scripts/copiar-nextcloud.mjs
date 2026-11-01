@@ -178,6 +178,31 @@ if (etapa === 'conferir') {
   process.exit(0);
 }
 
+// acervo dos municípios: pasta renomeada ou arquivo movido no Portal -> move também no Nextcloud (MOVE do WebDAV, sem baixar de novo)
+if (etapa === 'copiar') {
+  const mover = lista.filter(i => i.col === 'rede' && (mapa.get(i.id) || {}).copiado_em && mapa.get(i.id).nc && mapa.get(i.id).nc !== i.nc);
+  let movidos = 0; const velhas = new Set();
+  for (const i of mover) {
+    const de = mapa.get(i.id).nc;
+    try {
+      await garantirPasta(i.nc.split('/').slice(0, -1).join('/'));
+      const r = await dav('MOVE', de, { headers: { Destination: DAV + '/' + enc(RAIZ + '/' + i.nc), Overwrite: 'T' } }); await r.arrayBuffer().catch(() => {});
+      if (r.status === 404) { await db.doc('nc_mapa/' + i.id).update({ copiado_em: FieldValue.delete() }); mapa.get(i.id).copiado_em = null; continue; }   // sumiu de lá: copia de novo
+      if (![201, 204].includes(r.status)) throw new Error('MOVE HTTP ' + r.status);
+      await db.doc('nc_mapa/' + i.id).update({ nc: i.nc }); mapa.get(i.id).nc = i.nc; movidos++;
+      let dir = de.split('/').slice(0, -1); while (dir.length > 2) { velhas.add(dir.join('/')); dir = dir.slice(0, -1); }
+    } catch (e) { aviso('não moveu ' + de + ': ' + e.message); }
+  }
+  // apaga as pastas antigas que ficaram vazias (das mais fundas para cima)
+  for (const dir of [...velhas].sort((a, b) => b.split('/').length - a.split('/').length)) {
+    try {
+      const r = await dav('PROPFIND', dir, { headers: { Depth: '1' } }); const x = await r.text();
+      if (r.status === 207 && (x.match(/<d:response>/g) || []).length === 1) { const d = await dav('DELETE', dir); await d.arrayBuffer().catch(() => {}); }
+    } catch (e) {}
+  }
+  if (mover.length) log('acervo dos municípios: ' + movidos + ' arquivo(s) movido(s) para a pasta nova no Nextcloud');
+}
+
 let fila = lista.filter(i => !(mapa.get(i.id) || {}).copiado_em);
 if (etapa === 'teste') {
   const am = []; for (const c of COLECOES) am.push(...fila.filter(i => i.col === c).slice(0, 5)); fila = am;
