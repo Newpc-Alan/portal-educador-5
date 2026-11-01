@@ -66,12 +66,14 @@ h2{font-size:1.1rem;font-weight:800}
 .fixo button{border:0;background:#fff;border-radius:99px;width:24px;height:24px;font-weight:800;color:var(--verde)}
 .exs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .sug{margin-top:12px;display:grid;gap:8px}
-.sug-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.9rem;color:var(--texto)}
+.sug-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;font-size:.9rem;color:var(--texto)}
 .sug-mais{border:0;background:none;color:#1565c0;font-weight:700;font-size:.85rem;cursor:pointer;padding:4px 2px}
 .sug-lista{display:flex;flex-wrap:wrap;gap:6px}
 .sug-it{border:1px solid var(--line2);background:#fff;border-radius:99px;padding:6px 12px;font-size:.85rem;color:var(--texto);cursor:pointer}
 .sug-it:hover{border-color:#1a6b2a;background:#f1f8ec}
 .sug-it.on{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+.sug-it.on::before{content:"✓ "}
+.sug-dica{color:var(--muted);font-size:.78rem;font-weight:400;margin-left:8px}
 .sug-it:focus-visible,.sug-mais:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
 .ex{border:1px dashed var(--line2);background:#fff;border-radius:99px;padding:6px 12px;font-size:.84rem;color:var(--texto)}
 .ex:hover{border-color:var(--verde);color:var(--verde)}
@@ -450,7 +452,7 @@ function telaInicio(){
 }
 /* ---------- banco de temas por série e disciplina (BNCC), o mesmo da Lousa, com ranking dos mais escolhidos ---------- */
 const TEMA_DISC = { "Língua Inglesa":"Inglês", "Biologia":"Ciências", "Física":"Ciências", "Química":"Ciências" };
-let temaSel = null, sugTodas = false; const rankTemas = {};
+let temasSel = [], textoAuto = "", sugTodas = false; const rankTemas = {};
 function carregarTemas(){
   if(window.PDE_TEMAS) return Promise.resolve();
   if(carregarTemas.p) return carregarTemas.p;
@@ -488,16 +490,28 @@ async function pintarSugTemas(){
   temas = temas.map((t, i) => ({ t, id:slugTema(t), i, n:Number(rk[slugTema(t)]) || 0 })).sort((a, b) => b.n - a.n || a.i - b.i);
   const ver = sugTodas ? temas : temas.slice(0, 10), serie = chave.split("|")[0];
   $("piSug").innerHTML = '<div class="sug-top"><b>Temas para ' + esc(nomeSerieTemas(serie)) + (serie === "ei" ? "" : " · " + esc(E.disc)) + ' (BNCC)</b>' +
-    (temas.length > 10 ? '<button type="button" class="sug-mais" data-action="tema-mais">' + (sugTodas ? "Mostrar menos" : "Ver todos (" + temas.length + ")") + "</button>" : "") + "</div>" +
-    '<div class="sug-lista">' + ver.map(x => '<button type="button" class="sug-it' + (temaSel && temaSel.id === x.id && temaSel.chave === chave ? " on" : "") + '" data-action="tema-sug" data-arg="' + esc(x.t) + '" data-id="' + x.id + '" data-chave="' + esc(chave) + '"' +
+    '<small class="sug-dica">Toque em mais de um para misturar temas no mesmo material.</small>' + (temas.length > 10 ? '<button type="button" class="sug-mais" data-action="tema-mais">' + (sugTodas ? "Mostrar menos" : "Ver todos (" + temas.length + ")") + "</button>" : "") + "</div>" +
+    '<div class="sug-lista">' + ver.map(x => '<button type="button" class="sug-it' + (temasSel.some(t => t.id === x.id && t.chave === chave) ? " on" : "") + '" aria-pressed="' + temasSel.some(t => t.id === x.id && t.chave === chave) + '" data-action="tema-sug" data-arg="' + esc(x.t) + '" data-id="' + x.id + '" data-chave="' + esc(chave) + '"' +
       (x.n >= 3 ? ' title="Escolhido ' + x.n + ' vezes por professores do Portal"' : "") + ">" + (x.n >= 3 ? '<span aria-hidden="true">🔥</span> ' : "") + esc(x.t) + "</button>").join("") + "</div>";
   box.hidden = false;
 }
+// temas do banco: cada toque marca ou desmarca; com vários, a IA distribui o material entre eles
 function usarTema(tema, id, chave){
-  const at = E.tipo ? ATALHOS.find(a => a.k === E.tipo) : null, serie = chave.split("|")[0];
-  const txt = (at ? at.t : "Material") + " sobre " + tema + " para " + (serie === "ei" ? "a Educação Infantil" : "o " + nomeSerieTemas(serie)) + ".";
-  const ta = $("pedido"); if(ta){ ta.value = txt; E.texto = txt; ta.focus(); ta.setSelectionRange(txt.length, txt.length); }
-  temaSel = { chave, id, texto:tema }; pintarSugTemas();
+  const k = temasSel.findIndex(t => t.id === id && t.chave === chave);
+  if(k >= 0) temasSel.splice(k, 1); else { temasSel = temasSel.filter(t => t.chave === chave); temasSel.push({ chave, id, texto:tema }); }
+  const at = E.tipo ? ATALHOS.find(a => a.k === E.tipo) : null, serie = chave.split("|")[0], ns = temasSel.map(t => t.texto);
+  const lista = ns.length > 1 ? ns.slice(0, -1).join(", ") + " e " + ns[ns.length - 1] : ns[0] || "";
+  const txt = !ns.length ? "" : (at ? at.t : "Material") + " sobre " + lista + " para " + (serie === "ei" ? "a Educação Infantil" : "o " + nomeSerieTemas(serie)) +
+    (ns.length > 1 ? (at && at.k !== "plano" && at.k !== "sequencia" ? ", distribuindo as questões entre os temas." : ", trabalhando os temas de forma integrada.") : ".");
+  const ta = $("pedido");
+  if(ta){
+    const atual = ta.value.trim();
+    // o professor escreveu algo dele: mantém o texto e só atualiza a linha "Temas:"
+    if(atual && atual !== textoAuto){ const sem = atual.replace(/\n?Temas: .*$/m, "").trim(); ta.value = sem + (ns.length ? "\nTemas: " + lista + "." : ""); }
+    else { ta.value = txt; textoAuto = txt; }
+    E.texto = ta.value; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+  pintarSugTemas();
 }
 /* ---------- materiais compartilhados pela rede do município ---------- */
 async function carregarRede(){
@@ -696,9 +710,9 @@ async function gerar(){
   c.etapa = "gerando"; E.ocupado = true; desenhar();
   if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:"uns 20 a 40 segundos", etapas:["Lendo o seu pedido", "Buscando as habilidades da BNCC", "Organizando as seções", "Escrevendo o material", "Conferindo tudo"] });
   try{
-    const marca = temaSel && String(c.texto || "").includes(temaSel.texto) ? { tema_chave:temaSel.chave, tema_id:temaSel.id } : {};
+    const t0 = temasSel.find(t => String(c.texto || "").includes(t.texto)), marca = t0 ? { tema_chave:t0.chave, tema_id:t0.id } : {};
     const r = (await chamar({ acao:"gerar", tipo:c.tipo, tema:c.tema, resumo, qtd:qtdM ? +qtdM : undefined, contexto:contexto(), ...marca })).data;
-    temaSel = null; if(window.PDEPensando) PDEPensando.fechar();
+    temasSel = []; textoAuto = ""; if(window.PDEPensando) PDEPensando.fechar();
     E.ocupado = false; clearInterval(E._passos);
     aposUso(r.cota); E.texto = ""; E.tipo = "";
     E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"", html:"" };
@@ -1374,7 +1388,7 @@ document.addEventListener("click", async ev => {
   const el = ev.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, arg = el.dataset.arg;
   if(a === "inicio"){ ev.preventDefault(); if(E.ocupado || E.editor) return; ir("inicio"); return; }
-  if(a === "atalho"){ E.tipo = arg; E.texto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
+  if(a === "atalho"){ E.tipo = arg; E.texto = ""; temasSel = []; textoAuto = ""; telaInicio(); const t = $("pedido"); if(t){ t.focus(); t.scrollIntoView({ block:"center", behavior:"smooth" }); } return; }
   if(a === "soltar"){ E.tipo = ""; E.texto = $("pedido").value; telaInicio(); return; }
   if(a === "tema-sug"){ usarTema(arg, el.dataset.id, el.dataset.chave); return; }
   if(a === "tema-mais"){ sugTodas = !sugTodas; pintarSugTemas(); return; }
