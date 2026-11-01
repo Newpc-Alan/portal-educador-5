@@ -36,7 +36,8 @@ await bucket.file(caminho).save(buf, { contentType: apk ? 'application/vnd.andro
 const reg = { versao, arquivo: caminho, tamanho: buf.length, em: Timestamp.now(), por: 'script', nota: arg('nota').slice(0, 200) };
 const quem = { atualizado_em: FieldValue.serverTimestamp(), atualizado_por: 'script' };
 if (atual) {
-  await ref.update({ versao, arquivo: caminho, tamanho: buf.length, versoes: [...(atual.versoes || []), reg].slice(-30), ...quem });
+  const extra = {}; if (arg('codigo')) extra.codigo = arg('codigo').slice(0, 40); if (arg('descricao')) extra.descricao = arg('descricao').slice(0, 400);
+  await ref.update({ versao, arquivo: caminho, tamanho: buf.length, versoes: [...(atual.versoes || []), reg].slice(-30), ...extra, ...quem });
 } else {
   await ref.set({ titulo: titulo.slice(0, 120), categoria, codigo: arg('codigo').slice(0, 40), descricao: arg('descricao').slice(0, 400), publico,
     versao, arquivo: caminho, tamanho: buf.length, versoes: [reg], criado_em: FieldValue.serverTimestamp(), criado_por: 'script', ...quem });

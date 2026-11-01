@@ -1,0 +1,64 @@
+# Publica uma NOVA VERSÃO de um documento da Documentação/Ajuda do Portal (manuais, POPs) a partir de um PDF
+# guardado no ramo "manuais" do repositório. O histórico de versões fica no próprio documento.
+name: Publicar documento (manual/POP)
+
+on:
+  workflow_dispatch:
+    inputs:
+      arquivo:
+        description: "Caminho do PDF no ramo manuais (ex.: Manual-do-Usuario-v2.0.pdf)"
+        required: true
+      id:
+        description: "id do documento existente (copiado da consulta documentos)"
+        required: true
+      versao:
+        description: "Versão (ex.: 2.0)"
+        required: true
+      nota:
+        description: "O que mudou"
+        default: ""
+      codigo:
+        description: "Código (opcional, ex.: POP-PDE-01 a 25)"
+        default: ""
+      gravar:
+        description: "Gravar de verdade (sem isto, só simula)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: manuais
+          path: manuais
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: cd functions && npm ci
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Publicar
+        env:
+          ARQ: ${{ inputs.arquivo }}
+          ID: ${{ inputs.id }}
+          VER: ${{ inputs.versao }}
+          NOTA: ${{ inputs.nota }}
+          COD: ${{ inputs.codigo }}
+        run: |
+          case "$ARQ" in *..*|/*) echo "::error::caminho inválido"; exit 1;; esac
+          set -- --arquivo "manuais/$ARQ" --id "$ID" --versao "$VER" --nota "$NOTA"
+          [ -n "$COD" ] && set -- "$@" --codigo "$COD"
+          ${{ inputs.gravar && 'set -- "$@" --gravar' || 'true' }}
+          node scripts/publicar-documento.mjs "$@" | sed 's/^/::notice::/'
