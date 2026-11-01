@@ -627,23 +627,25 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const [pdf] = await getStorage().bucket().file(`atividades/${a.etapa}/${id}.${a.formato || 'pdf'}`).download();
     if (pdf.length > 18e6) throw new HttpsError('failed-precondition', 'Arquivo grande demais para converter.');
     const cxA = { disciplina: a.etapa === 'infantil' ? 'Educação Infantil' : txt(a.componente, 60), serie: a.etapa === 'infantil' ? 'Educação Infantil (4 e 5 anos)' : (a.anos || []).map(n => n + 'º ano').join(', ') };
-    const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. Você recebe o PDF de uma atividade antiga e a RECRIA no padrão do Portal: mantenha a proposta pedagógica e o tema, mas escreva com as suas palavras (não copie o texto do PDF) e melhore o que estiver confuso. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
+    const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. Você recebe o PDF de uma atividade antiga e a RECRIA no padrão do Portal: mantenha a proposta pedagógica e o tema, mas escreva com as suas palavras (não copie o texto do PDF) e melhore o que estiver confuso. Se o PDF tiver várias atividades ou várias páginas, escolha UMA proposta, a mais representativa, e recrie só ela: o resultado é UMA ficha curta, de uma página. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
     const pedido = 'CONTEXTO\n' + contextoTexto(cxA) + '\nTítulo do arquivo: ' + txt(a.titulo || a.arquivo_nome, 160) + (a.componente ? '\nCampo / componente no acervo: ' + txt(a.componente, 80) : '');
     let r = null, prob = ['sem resposta'];
     for (let t = 0; t < 3 && prob.length; t++) {
       const g = await geminiFluxo(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], { systemInstruction: { parts: [{ text: sistema }] },
         contents: [{ role: 'user', parts: [{ inlineData: { mimeType: a.formato === 'pdf' || !a.formato ? 'application/pdf' : 'image/' + (a.formato === 'jpg' ? 'jpeg' : a.formato), data: pdf.toString('base64') } }, { text: pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : '') }] }],
         generationConfig: { responseMimeType: 'application/json', responseSchema: ESQUEMA_DOC, maxOutputTokens: 32000 } }, 170000);
-      try { r = JSON.parse(g.partes.map(p => p.text || '').join('')); } catch (e) { r = null; }
-      prob = r ? conferirDoc(limparDoc(r), tipo, 0) : ['resposta incompleta'];
+      const bruto = g.partes.map(p => p.text || '').join('');
+      try { r = JSON.parse(bruto); } catch (e) { r = null; }
+      prob = r ? conferirDoc(limparDoc(r), tipo, 0) : ['resposta incompleta: ' + (g.fim || 'sem motivo') + ', ' + bruto.length + ' caracteres'];
+      if (prob.length) console.warn('portal-ia: converter', id, prob.join('; '));
     }
     if (prob.length) throw new HttpsError('internal', 'A IA não conseguiu recriar esta atividade (' + prob[0] + ').');
     const doc = limparDoc(r);
     (doc.bncc || []).forEach(b => { const c = String(b.codigo || '').toUpperCase(); b.codigo = CODIGOS_BNCC.has(c) ? c : ''; });
     // ilustração em contorno, para a criança fazer a atividade na própria folha
-    let imagens = {};
+    let imagens = {}, erroImg = '';
     const desc = txt(doc.sugestao_imagem, 600);
-    if (desc.length > 10) {
+    for (let ti = 0; ti < 2 && desc.length > 10 && !imagens.topo; ti++) {
       const pi = 'Crie uma imagem para uma ficha de Educação Infantil de escola brasileira. Assunto: ' + desc + '. Estilo: desenho para colorir, só contornos pretos grossos e limpos sobre fundo branco, sem sombras, sem cores, sem tons de cinza, elementos grandes e simples, com espaço para a criança pintar. Formato horizontal 4:3. NÃO escreva palavras, letras nem números na imagem.';
       try {
         const gi = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ text: pi }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } });
@@ -651,13 +653,14 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
         if (parte) { const cam = `portal-ia/${uid}/acervo-${id}-${Date.now()}.${/png/.test(parte.inlineData.mimeType) ? 'png' : 'jpg'}`;
           await getStorage().bucket().file(cam).save(Buffer.from(parte.inlineData.data, 'base64'), { contentType: parte.inlineData.mimeType, resumable: false, metadata: { cacheControl: 'private, max-age=86400' } });
           imagens = { topo: { caminho: cam, descricao: desc } }; }
-      } catch (e) { console.warn('converter: imagem', e.message); }
+        else erroImg = 'a IA não devolveu imagem: ' + txt(gi.partes.map(p => p.text || '').join(' '), 160);
+      } catch (e) { erroImg = e.message; console.warn('converter: imagem', e.message); }
     }
     const ref = db.collection('portal_ia_docs').doc();
     await ref.set({ uid, tipo, tipo_nome: T.nome, publico: T.publico, titulo: txt(doc.titulo, 160), tema: txt(doc.titulo, 120), resumo: 'Recriada do acervo: ' + txt(a.titulo || a.arquivo_nome, 160), contexto: cxA, doc,
       imagem: imagens.topo ? imagens.topo.caminho : '', imagens, favorito: false, ajustes: 0, origem_acervo: { id, titulo: txt(a.titulo || a.arquivo_nome, 160), mini_url: a.mini_url || '' },
       modelo: 'acervo', criado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp() });
-    return { id: ref.id, titulo: doc.titulo, imagem: !!imagens.topo, bncc: (doc.bncc || []).map(b => b.codigo).filter(Boolean) };
+    return { id: ref.id, titulo: doc.titulo, imagem: !!imagens.topo, erro_imagem: imagens.topo ? '' : erroImg || (desc.length > 10 ? '' : 'sem sugestão de imagem'), bncc: (doc.bncc || []).map(b => b.codigo).filter(Boolean) };
   }
 
   if (d.acao === 'foto_ref') {
