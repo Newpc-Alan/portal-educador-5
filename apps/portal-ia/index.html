@@ -1282,7 +1282,7 @@ onAuthStateChanged(auth, async user => {
   $("carregando").hidden = true; $("tela").hidden = false;
   ir("inicio");
   // vindo de "Meus trabalhos" no Início: /apps/portal-ia/#doc=ID
-  const pedido = (location.hash.match(/^#doc=([\w-]{4,64})(&c=1)?$/) || [])[1], comp = /&c=1$/.test(location.hash);
+  const pedido = (location.hash.match(/^#doc=([\w-]{4,64})(?:&c=1)?(?:&t=[\w-]{1,64})?$/) || [])[1], comp = /&c=1$/.test(location.hash), paraT = (location.hash.match(/&t=([\w-]{1,64})$/) || [])[1];
   // vindo das Novidades da rede (Início ou e-mail): ?rede=ID abre o material; ?rede=todos abre a vitrine
   const daRede = (location.search.match(/[?&]rede=([\w-]{3,64})/) || [])[1];
   if(daRede){
@@ -1292,7 +1292,9 @@ onAuthStateChanged(auth, async user => {
   }
   else if(pedido){ history.replaceState(null, "", location.pathname); await abrir(pedido);
     // "Compartilhar" em Meus trabalhos: leva direto às opções de compartilhar na lateral
-    if(comp) setTimeout(janelaCompartilharPia, 700); }
+    if(comp) setTimeout(janelaCompartilharPia, 700);
+    // vindo de "Dar aula agora": abre o envio para os alunos já com a turma da aula marcada
+    if(paraT){ E.turma = paraT; setTimeout(() => { if(document.querySelector('[data-action="alunos-abrir"]')) abrirAlunos(); else toast("Este material não vai para os alunos.", true); }, 700); } }
   else if(location.hash === "#comprar"){ history.replaceState(null, "", location.pathname); abrirCompra(); }   // vindo do saldo no menu
 });
 </script>

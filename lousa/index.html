@@ -4292,7 +4292,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const id = L().nuvem().id; if(!id) throw new Error("Salve a aula com um nome antes de compartilhar.");
     return id;
   }
-  async function janelaCompartilhar(){
+  let CP_PARA = "";
+  async function janelaCompartilhar(abaInicial){
     if(!uid || !licenca){ L().msg("Entre no Portal para compartilhar."); return; }
     let bg = document.getElementById("cpFundo");
     if(!bg){
@@ -4307,7 +4308,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
     bg.classList.add("aberto"); document.getElementById("cpMsg").textContent = "";
     await carregarPerfilIA().catch(() => {});
-    abaCp(bg.dataset.aba || "rede");
+    abaCp(abaInicial || bg.dataset.aba || "rede");
   }
   function fecharCp(){ const bg = document.getElementById("cpFundo"); if(bg && !bg.dataset.ocupado) bg.classList.remove("aberto"); }
   const msgCp = (t, erro) => { const m = document.getElementById("cpMsg"); m.textContent = t || ""; m.style.color = erro ? "#b3261e" : "#1a6b2a"; };
@@ -4360,7 +4361,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     else{
       const op = await opcoesRedeCp();
       c.innerHTML = '<p class="cp-d"><b>' + escCp(titulo) + '</b> aparece em "Materiais da turma" no Portal do Aluno, página por página, <b>sem o Guia do professor</b>.</p>' +
-        (turmas.length ? '<b class="cp-rot">Minhas turmas</b><div class="cp-grade">' + turmas.map((t, i) => '<label><input type="checkbox" data-cpa-turma="' + escCp(t.id) + '"' + (i === 0 ? " checked" : "") + "> " + escCp(t.nome || t.ano || "Turma") + "</label>").join("") + "</div>"
+        (turmas.length ? '<b class="cp-rot">Minhas turmas</b><div class="cp-grade">' + turmas.map((t, i) => '<label><input type="checkbox" data-cpa-turma="' + escCp(t.id) + '"' + ((CP_PARA ? t.id === CP_PARA : i === 0) ? " checked" : "") + "> " + escCp(t.nome || t.ano || "Turma") + "</label>").join("") + "</div>"
           : (op && op.rede ? "" : '<p class="cp-d">Você ainda não tem turma vinculada. Peça à coordenação para incluir você na grade.</p>')) +
         filtroHtml(op, "cpa", false) +
         '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="alunos">Enviar para os alunos</button></div>';
@@ -4722,7 +4723,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const pedido = new URLSearchParams(location.search).get("abrir");
     if(pedido){ await carregarLista().catch(() => {}); await abrirTrabalho(pedido);
       // "Compartilhar" em Meus trabalhos: abre a aula e já mostra a janela de compartilhar
-      if(new URLSearchParams(location.search).get("compartilhar") === "1") setTimeout(janelaCompartilhar, 900); }
+      // vindo de "Dar aula agora" (?para=turma): abre direto na aba Alunos com a turma da aula marcada
+      const paraT = new URLSearchParams(location.search).get("para");
+      if(new URLSearchParams(location.search).get("compartilhar") === "1") setTimeout(() => { if(paraT){ CP_PARA = paraT; const bg = document.getElementById("cpFundo"); if(bg) bg.dataset.aba = "alunos"; } janelaCompartilhar(paraT ? "alunos" : ""); }, 900); }
   });
   setInterval(() => { if(window.PDENuvem.ativa() && document.visibilityState === "visible") window.PDENuvem.salvarSeAlterou(); }, AUTO_MS);
   document.addEventListener("visibilitychange", () => { if(document.hidden && window.PDENuvem.ativa()) window.PDENuvem.salvarSeAlterou(); });
