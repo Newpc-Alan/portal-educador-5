@@ -8416,8 +8416,19 @@
     try{ await setDoc(doc(db,"noticias_reacoes",n.id+"_"+usuarioAtual.uid), { noticia_id:n.id, uid:usuarioAtual.uid, reacao:k, perfil:(usuarioReal || usuarioAtual).perfil, em:serverTimestamp() }); }
     catch(e){ console.warn("reagir:", e.code); toast("Não foi possível registrar agora.", true); ntMinhas[n.id] = antes; faixaReacao(n); }
   }
+  // cópia pública (noticias_publicas): só título, texto, foto, mídia e data; a notícia original continua fechada.
+  // Gravada quando a notícia está publicada E marcada como pública; desmarcou ou despublicou, a cópia some e o link para.
+  async function copiaPublicaNoticia(id, d){
+    const ref = doc(db, "noticias_publicas", id);
+    try{
+      if(d.publicado && d.publica && d.tipo !== "pesquisa"){
+        let img = d.imagem_url; if(img === undefined){ const s = await getDoc(doc(db, "noticias", id)); img = s.exists() ? s.data().imagem_url || "" : ""; }
+        await setDoc(ref, { tipo:d.tipo || "noticia", titulo:d.titulo || "", resumo:d.resumo || "", corpo:d.corpo || "", midia_url:d.midia_url || "", imagem_url:img || "", inicio:d.inicio || serverTimestamp(), atualizado_em:serverTimestamp() });
+      } else await deleteDoc(ref);
+    }catch(e){ console.warn("cópia pública:", e.code); toast("A notícia foi salva, mas o link público não foi atualizado. Tente salvar de novo.", true); }
+  }
   // compartilhar: notícia marcada como pública abre para qualquer pessoa; as outras, só para quem tem conta
-  function linkNoticia(n){ return n.publica ? "https://app.portaldoeducador.com.br/noticia/?id=" + encodeURIComponent(n.id) : "https://app.portaldoeducador.com.br/entrar/#noticia=" + encodeURIComponent(n.id); }
+  function linkNoticia(n){ return n.publica && n.publicado && n.tipo !== "pesquisa" ? "https://app.portaldoeducador.com.br/noticia/?id=" + encodeURIComponent(n.id) : "https://app.portaldoeducador.com.br/entrar/#noticia=" + encodeURIComponent(n.id); }
   function compartilharNoticia(id){
     const n = (ntCache || []).find(x => x.id === id) || (ntAdm.itens || []).find(x => x.id === id) || ntReac.n; if(!n) return;
     clearInterval(ntFaixa.t); ntFaixa.t = null;
@@ -8429,7 +8440,7 @@
       '<a class="nc-op" href="mailto:?subject='+encodeURIComponent(n.titulo || "Notícia")+'&body='+encodeURIComponent(txt)+'"><span>✉️</span>E-mail</a>'+
       '<button type="button" class="nc-op" data-nc="copiar"><span>🔗</span>Copiar link</button>'+
       (navigator.share ? '<button type="button" class="nc-op" data-nc="nativo"><span>📲</span>Mais opções</button>' : '')+'</div>'+
-      '<p class="et-d" style="font-size:12.5px">'+(n.publica ? "🌐 Link público: qualquer pessoa abre, mesmo sem conta no Portal." : "🔒 Esta notícia é só para quem tem conta no Portal: o link pede para entrar.")+'</p></div></div>';
+      '<p class="et-d" style="font-size:12.5px">'+(n.publica && n.tipo !== "pesquisa" ? "🌐 Link público: qualquer pessoa abre, mesmo sem conta no Portal." : "🔒 Esta notícia é só para quem tem conta no Portal: o link pede para entrar.")+'</p></div></div>';
     document.body.appendChild(f);
     f.addEventListener("click", async e => { const b = e.target.closest("[data-nc]"); if(e.target === f || (b && b.dataset.nc === "fechar")){ f.remove(); return; } if(!b) return;
       if(b.dataset.nc === "copiar"){ try{ await navigator.clipboard.writeText(url); toast("Link copiado."); }catch(er){ toast("Não consegui copiar.", true); } }
@@ -8832,6 +8843,7 @@
       }
       if(ntAdm.editando) await updateDoc(ref, dados);
       else await setDoc(ref, { ...dados, imagem_url:dados.imagem_url || "", criado_em:serverTimestamp(), criado_por:usuarioAtual.uid });
+      await copiaPublicaNoticia(ref.id, dados);
       toast(dados.publicado ? (pq ? "Pesquisa publicada." : "Notícia publicada.") : "Salva como rascunho.");
       ntCache = null; formNoticia(null); await listarNoticiasAdmin();
     }catch(e){ console.warn(e); toast("Não foi possível salvar ("+(e.code || e.message || "erro")+").", true); }
@@ -8863,7 +8875,7 @@
   }
   async function excluirNoticia(id, btn){
     if(!btn.dataset.confirma){ btn.dataset.confirma = "1"; btn.textContent = "Confirmar"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "Excluir"; } }, 4000); return; }
-    try{ await deleteDoc(doc(db,"noticias",id)); ntCache = null; if(ntAdm.editando === id) formNoticia(null); await listarNoticiasAdmin(); toast("Notícia excluída."); }
+    try{ await deleteDoc(doc(db,"noticias",id)); await deleteDoc(doc(db,"noticias_publicas",id)).catch(() => {}); ntCache = null; if(ntAdm.editando === id) formNoticia(null); await listarNoticiasAdmin(); toast("Notícia excluída."); }
     catch(e){ toast("Erro ao excluir ("+(e.code||"erro")+").", true); }
   }
 
