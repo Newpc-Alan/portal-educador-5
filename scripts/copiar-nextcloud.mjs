@@ -153,8 +153,12 @@ const mapa = new Map(); (await db.collection('nc_mapa').get()).forEach(d => mapa
 async function gravarResumo(extra = {}) {
   const por = {};
   for (const i of lista) { const p = (por[i.col] = por[i.col] || { total: 0, copiados: 0, bytes: 0 }); p.total++; const m = mapa.get(i.id); if (m && m.copiado_em) { p.copiados++; p.bytes += m.tamanho || 0; } }
-  await db.doc('config/nc_copia').set({ por, total: lista.length, copiados: Object.values(por).reduce((a, p) => a + p.copiados, 0),
-    bytes: Object.values(por).reduce((a, p) => a + p.bytes, 0), raiz: RAIZ, usuario: USUARIO, atualizado_em: FieldValue.serverTimestamp(), ...extra }, { merge: true });
+  // rodada parcial (só algumas coleções): mantém os números das outras que já estavam no painel
+  const ant = ((await db.doc('config/nc_copia').get()).get('por')) || {};
+  const tudo = { ...ant, ...por };
+  for (const c of COLECOES) if (!por[c]) tudo[c] = { total: 0, copiados: 0, bytes: 0 };
+  await db.doc('config/nc_copia').set({ por: tudo, total: Object.values(tudo).reduce((a, p) => a + p.total, 0), copiados: Object.values(tudo).reduce((a, p) => a + p.copiados, 0),
+    bytes: Object.values(tudo).reduce((a, p) => a + p.bytes, 0), raiz: RAIZ, usuario: USUARIO, atualizado_em: FieldValue.serverTimestamp(), ...extra }, { merge: true });
 }
 
 if (etapa === 'conferir') {
