@@ -15,6 +15,7 @@ export { linkArquivoNc } from './arquivos-nc.js';
 export { resumoRedeDiario, resumoRedeTeste } from './rede-feed.js';
 export { trabalhoRede } from './trabalhos-rede.js';
 export { moderarRede } from './moderacao-rede.js';
+export { usoRealDiario, usoRealAgora } from './uso-real.js';
 initializeApp();
 const db = getFirestore();
 setGlobalOptions({ region:'southamerica-east1', maxInstances:10 });

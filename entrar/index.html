@@ -1004,7 +1004,17 @@
   .sim-tab{ overflow-x:auto } .sim-tab table{ width:100%;border-collapse:collapse;font-size:13px } .sim-tab th,.sim-tab td{ border-bottom:1px solid var(--line);padding:7px 8px;text-align:left }
   .sim-tab th{ background:#f4f7fb } .sim-tab td:nth-child(n+3){ text-align:right;white-space:nowrap } .sim-tab tfoot td{ font-weight:800;background:#eef7e3 } .sim-acoes{ display:flex;gap:8px;justify-content:flex-end;margin-top:10px }
   @media (max-width:900px){ .sim-grade{ grid-template-columns:1fr } .sim-res{ position:static } .sim-cards{ grid-template-columns:1fr } }
-  .md-acoes{ flex-wrap:wrap } .md-perigo{ color:#b3261e !important;margin-right:auto }
+  .md-acoes{ flex-wrap:wrap }
+  .ur-topo{ display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px } .ur-topo label{ display:flex;gap:6px;align-items:center;font-weight:700;font-size:14px } .ur-topo select{ font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line) }
+  .ur-kpis{ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px } .ur-k{ background:#fff;border:1px solid var(--line);border-top:4px solid #8a98a6;border-radius:14px;padding:12px 14px;display:grid;gap:2px }
+  .ur-k b{ font-size:28px;color:#0f2c4a } .ur-k b small{ font-size:14px;color:var(--muted) } .ur-k span{ font-size:13px;color:#4a5b6c } .ur-k.verde{ border-top-color:#1a6b2a } .ur-k.verde b{ color:#1a6b2a } .ur-k.azul{ border-top-color:#2671AB }
+  .ur-box{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px } .ur-box h4{ margin:0 0 10px;font-size:15px } .ur-box h4 small{ color:var(--muted);font-weight:500 }
+  .ur-graf{ display:grid;grid-template-columns:repeat(12,1fr);gap:6px;height:170px;align-items:end } .ur-bar{ display:grid;grid-template-rows:1fr auto auto;height:100%;text-align:center;font-size:11px;color:#5b6b7b }
+  .ur-bar span{ align-self:end;background:#cfe5b5;border-radius:6px 6px 0 0;min-height:2px } .ur-bar.on span{ background:#1a6b2a } .ur-bar b{ font-size:12px;color:#0f2c4a }
+  .ur-2{ display:grid;grid-template-columns:1fr 1fr;gap:12px } .ur-t{ width:100%;border-collapse:collapse;font-size:13.5px } .ur-t th,.ur-t td{ text-align:left;padding:7px 6px;border-bottom:1px solid var(--line) } .ur-t th{ background:#f4f7fb;font-size:12.5px }
+  .ur-t input{ width:64px;font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:8px } .ur-acoes{ display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:10px } .ur-acoes small{ color:var(--muted) }
+  .ur-lk{ all:unset;cursor:pointer;color:#2671AB;font-weight:700 } .ur-lk:hover{ text-decoration:underline }
+  @media (max-width:1000px){ .ur-kpis{ grid-template-columns:1fr 1fr } .ur-2{ grid-template-columns:1fr } } .md-perigo{ color:#b3261e !important;margin-right:auto }
   @media (max-width:640px){ .tr-item{ flex-wrap:wrap } .tr-item .tr-acoes{ width:100%;padding:0 !important } }
   .tr-card .btn-mini{ margin:0 12px 12px }
 
@@ -1645,6 +1655,7 @@
     admin: { itens: [
       { grupo:"Visão geral", ico:"\u{1F4C8}" },
       { id:"painel",     ico:"\u{1F4C8}", label:"Painel" },
+      { id:"usoreal",    ico:"\u{1F4CA}", label:"Uso real" },
       { id:"painelRedeLink", ico:"\u{1F4CA}", label:"Painel da Rede (secretarias)" },
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início (prévia)" },
       { id:"simulador",  ico:"\u{1F9EE}", label:"Simulador de preços" },
@@ -2489,6 +2500,7 @@
       if(item.id === "datasadm"){ renderDatasAdmin(); return; }
       if(item.id === "docs"){ renderDocumentacao(); return; }
       if(item.id === "simulador"){ renderSimulador(); return; }
+      if(item.id === "usoreal"){ renderUsoReal(); return; }
     }
     if(item.id === "ajuda"){ renderAjuda(); return; }
     if(item.id === "inicio"){ renderInicio(); return; }
@@ -4166,6 +4178,91 @@
         '<p class="f">NEWPC Tecnologia · simulação gerada em '+new Date().toLocaleDateString("pt-BR")+'. Valores sujeitos a confirmação.</p><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
       w.document.close();
     }
+  });
+  /* ---------- Uso real (admin): quem USOU o Portal na semana (ação de valor), não só quem entrou ----------
+     Os números vêm de uso_real/{semana}_{municipio|geral}, calculados toda madrugada pela função usoRealDiario.
+     Horas economizadas = ações x minutos por ação (tabela em config/uso_minutos, editável aqui): é ESTIMATIVA e aparece assim. */
+  const UR_ACOES = [["ia","Material gerado no Portal IA",40],["lousa","Aula da Lousa salva",30],["prova","Prova do Gerador salva",30],["prova_online","Prova online aplicada",20],
+    ["correcoes","Prova de aluno corrigida automaticamente",1],["envio_turma","Conteúdo enviado para a turma",5],["familias","Material enviado às famílias",5],["reuso","Material reaproveitado da rede",30]];
+  const UR = { semana:"", mun:"", geral:{}, mins:null, munis:{}, escolas:{}, porMun:{} };
+  function urSemana(t){
+    const TZ = 4 * 3600e3, d = new Date(t - TZ), dia = (d.getUTCDay() + 6) % 7, seg = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - dia) + TZ;
+    const q = new Date(seg - TZ + 3 * 864e5), ano = q.getUTCFullYear(), jan4 = new Date(Date.UTC(ano, 0, 4));
+    const n = 1 + Math.round(((q - jan4) / 864e5 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+    return { id:ano + "-W" + String(n).padStart(2, "0"), ini:seg };
+  }
+  const urSemanas = () => { const s0 = urSemana(Date.now()), l = []; for(let i = 11; i >= 0; i--) l.push(urSemana(s0.ini - i * 7 * 864e5 + 3600e3)); return l; };
+  const urHoras = acoes => UR_ACOES.reduce((h, [k]) => h + (acoes && acoes[k] || 0) * (UR.mins[k] || 0), 0) / 60;
+  async function renderUsoReal(){
+    $("conteudo").innerHTML = '<div class="ur-topo"><label>Município <select id="urMun"><option value="">Todos</option></select></label><label>Semana <select id="urSem"></select></label>' +
+      '<span class="av-esp"></span><button type="button" class="btn btn-ghost" data-action="ur-recalc">Recalcular agora</button></div><div id="urCorpo"><div class="empty">Carregando...</div></div>';
+    const sems = urSemanas();
+    if(!UR.semana) UR.semana = sems[sems.length - 1].id;
+    $("urSem").innerHTML = sems.slice().reverse().map((s, i) => '<option value="' + s.id + '"' + (s.id === UR.semana ? " selected" : "") + '>' + new Date(s.ini).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" }) + (i === 0 ? " (em andamento)" : "") + '</option>').join("");
+    try{
+      const [cfg, mn] = await Promise.all([getDoc(doc(db, "config", "uso_minutos")).catch(() => null), getDocs(collection(db, "municipios")).catch(() => null)]);
+      UR.mins = Object.fromEntries(UR_ACOES.map(([k, , m]) => [k, cfg && cfg.exists() && typeof cfg.data()[k] === "number" ? cfg.data()[k] : m]));
+      if(mn) mn.forEach(d => { UR.munis[d.id] = d.data().nome || d.id; });
+      const gs = await Promise.all(sems.map(s => getDoc(doc(db, "uso_real", s.id + "_geral")).then(x => x.exists() ? x.data() : null).catch(() => null)));
+      UR.geral = Object.fromEntries(sems.map((s, i) => [s.id, gs[i]]));
+    }catch(e){ $("urCorpo").innerHTML = '<div class="empty">Não consegui abrir agora.</div>'; return; }
+    const ult = UR.geral[UR.semana];
+    $("urMun").innerHTML = '<option value="">Todos</option>' + Object.keys((ult && ult.por_municipio) || {}).filter(m => m !== "sem").sort((a, b) => String(UR.munis[a] || a).localeCompare(UR.munis[b] || b, "pt-BR"))
+      .map(m => '<option value="' + escapeAttr(m) + '"' + (m === UR.mun ? " selected" : "") + '>' + escapeHtml(UR.munis[m] || m) + '</option>').join("");
+    desenharUsoReal();
+  }
+  async function desenharUsoReal(){
+    const box = $("urCorpo"); if(!box) return;
+    const sems = urSemanas(), g = UR.geral[UR.semana];
+    if(!Object.values(UR.geral).some(Boolean)){ box.innerHTML = '<div class="empty">Ainda não há números calculados. Toque em <b>Recalcular agora</b> (leva alguns minutos).</div>'; return; }
+    // série de 12 semanas (rede inteira ou o município escolhido)
+    const serie = sems.map(s => { const x = UR.geral[s.id]; if(!x) return { s, pct:null };
+      const b = UR.mun ? (x.por_municipio || {})[UR.mun] || { professores:0, ativos:0 } : x; return { s, pct:b.professores ? Math.round(b.ativos * 100 / b.professores) : 0, b }; });
+    const atual = UR.mun ? ((g && g.por_municipio) || {})[UR.mun] : g;
+    if(!atual){ box.innerHTML = '<div class="empty">Sem números para esta semana.</div>'; return; }
+    const pct = atual.professores ? Math.round(atual.ativos * 100 / atual.professores) : 0, so = Math.max(0, (atual.acessaram || 0) - atual.ativos), horas = urHoras(atual.acoes);
+    const totAc = UR_ACOES.reduce((n, [k]) => n + ((atual.acoes || {})[k] || 0), 0);
+    const maxP = Math.max(10, ...serie.map(x => x.pct || 0));
+    box.innerHTML = '<div class="ur-kpis">' +
+      '<div class="ur-k verde"><b>' + atual.ativos + ' <small>de ' + atual.professores + '</small></b><span>professores <b>usaram</b> o Portal (' + pct + '%)</span></div>' +
+      '<div class="ur-k"><b>' + so + '</b><span>entraram e não fizeram nada</span></div>' +
+      '<div class="ur-k"><b>' + totAc.toLocaleString("pt-BR") + '</b><span>ações de valor na semana</span></div>' +
+      '<div class="ur-k azul"><b>' + horas.toLocaleString("pt-BR", { maximumFractionDigits:0 }) + ' h</b><span>economizadas <i>(estimativa pela tabela abaixo)</i></span></div></div>' +
+      '<div class="ur-box"><h4>Professores que usaram, semana a semana (%)</h4><div class="ur-graf">' + serie.map(x => '<div class="ur-bar' + (x.s.id === UR.semana ? " on" : "") + '" title="' + (x.pct == null ? "sem dado" : x.pct + "%") + '">' +
+        '<span style="height:' + (x.pct == null ? 0 : Math.max(2, x.pct * 100 / maxP)) + '%"></span><b>' + (x.pct == null ? "–" : x.pct + "%") + '</b><small>' + new Date(x.s.ini).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" }) + '</small></div>').join("") + '</div></div>' +
+      '<div class="ur-2"><div class="ur-box"><h4>O que foi feito <small>e quanto tempo isso poupa</small></h4><table class="ur-t"><thead><tr><th>Ação</th><th>Qtd.</th><th>Min. por ação</th><th>Horas</th></tr></thead><tbody>' +
+        UR_ACOES.map(([k, nome]) => { const q = (atual.acoes || {})[k] || 0; return '<tr><td>' + nome + '</td><td>' + q.toLocaleString("pt-BR") + '</td><td><input type="number" min="0" step="1" data-ur-min="' + k + '" value="' + UR.mins[k] + '"></td><td>' + (q * UR.mins[k] / 60).toLocaleString("pt-BR", { maximumFractionDigits:1 }) + '</td></tr>'; }).join("") +
+        '</tbody></table><div class="ur-acoes"><small>Os minutos são hipótese: ajuste com quem conhece a rotina do professor.</small><button type="button" class="btn btn-primary" data-action="ur-salvar-min">Salvar minutos</button></div></div>' +
+      '<div class="ur-box" id="urDet"><div class="empty">Carregando...</div></div></div>';
+    if(!UR.mun){
+      const pm = (g && g.por_municipio) || {};
+      $("urDet").innerHTML = '<h4>Por município</h4><table class="ur-t"><thead><tr><th>Município</th><th>Usaram</th><th>%</th><th>Só entraram</th><th>Horas</th></tr></thead><tbody>' +
+        Object.entries(pm).filter(([m]) => m !== "sem").sort((a, b) => (b[1].ativos / (b[1].professores || 1)) - (a[1].ativos / (a[1].professores || 1)))
+          .map(([m, x]) => '<tr><td><button type="button" class="ur-lk" data-action="ur-mun" data-arg="' + escapeAttr(m) + '">' + escapeHtml(UR.munis[m] || m) + '</button></td><td>' + x.ativos + ' de ' + x.professores + '</td><td>' + (x.professores ? Math.round(x.ativos * 100 / x.professores) : 0) + '%</td><td>' + Math.max(0, (x.acessaram || 0) - x.ativos) + '</td><td>' + urHoras(x.acoes).toLocaleString("pt-BR", { maximumFractionDigits:0 }) + '</td></tr>').join("") + '</tbody></table>';
+    } else {
+      const d = await getDoc(doc(db, "uso_real", UR.semana + "_" + UR.mun)).then(x => x.exists() ? x.data() : null).catch(() => null), det = $("urDet"); if(!det) return;
+      const es = (d && d.escolas) || {}, ids = Object.keys(es).filter(e => e !== "sem" && !UR.escolas[e]);
+      await Promise.all(ids.map(e => getDoc(doc(db, "escolas", e)).then(x => { UR.escolas[e] = x.exists() ? x.data().nome || e : e; }).catch(() => {})));
+      det.innerHTML = '<h4>Por escola · ' + escapeHtml(UR.munis[UR.mun] || UR.mun) + '</h4>' + (!Object.keys(es).length ? '<div class="empty">Nenhum professor usou nesta semana.</div>' :
+        '<table class="ur-t"><thead><tr><th>Escola</th><th>Usaram</th><th>%</th></tr></thead><tbody>' + Object.entries(es).sort((a, b) => (b[1].ativos / (b[1].professores || 1)) - (a[1].ativos / (a[1].professores || 1)))
+          .map(([e, x]) => '<tr><td>' + escapeHtml(e === "sem" ? "Sem escola no cadastro" : UR.escolas[e] || e) + '</td><td>' + (x.ativos || 0) + ' de ' + (x.professores || 0) + '</td><td>' + (x.professores ? Math.round((x.ativos || 0) * 100 / x.professores) : 0) + '%</td></tr>').join("") + '</tbody></table>');
+    }
+  }
+  document.addEventListener("change", ev => {
+    if(!ev.target) return;
+    if(ev.target.id === "urSem"){ UR.semana = ev.target.value; desenharUsoReal(); }
+    else if(ev.target.id === "urMun"){ UR.mun = ev.target.value; desenharUsoReal(); }
+  });
+  document.addEventListener("input", ev => { const k = ev.target && ev.target.dataset ? ev.target.dataset.urMin : ""; if(k && UR.mins){ UR.mins[k] = Math.max(0, Number(ev.target.value) || 0); } });
+  document.addEventListener("click", async ev => {
+    const el = ev.target.closest("[data-action^='ur-']"); if(!el) return;
+    const a = el.dataset.action;
+    if(a === "ur-mun"){ UR.mun = el.dataset.arg; const s = $("urMun"); if(s) s.value = UR.mun; desenharUsoReal(); }
+    else if(a === "ur-salvar-min"){ el.disabled = true; try{ await setDoc(doc(db, "config", "uso_minutos"), { ...UR.mins, atualizado_em:serverTimestamp() }); toast("Minutos salvos."); desenharUsoReal(); }catch(e){ toast("Não deu para salvar.", true); } el.disabled = false; }
+    else if(a === "ur-recalc"){ el.disabled = true; el.textContent = "Calculando (alguns minutos)...";
+      try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+        await httpsCallable(getFunctions(app, "southamerica-east1"), "usoRealAgora", { timeout:540000 })({}); toast("Números atualizados."); renderUsoReal(); }
+      catch(e){ toast(e && e.message ? e.message : "Não deu para calcular agora.", true); el.disabled = false; el.textContent = "Recalcular agora"; } }
   });
   async function renderAcervoRede(){
     const mun = usuarioAtual.municipio_id;
