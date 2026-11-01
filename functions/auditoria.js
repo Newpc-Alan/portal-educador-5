@@ -23,7 +23,7 @@ const CAMPO_TECNICO = /^(atualizado_em|atualizadoEm|ultimo|ultimo_acesso|ultima_
 // campos de controle: aqui guardamos o valor antes e depois
 const VALOR = new Set(['perfil', 'status', 'papel', 'municipio_id', 'escola_id', 'turma_id', 'licenca_tipo', 'licenca_fim', 'publicado', 'email',
   'nota', 'notas', 'media', 'conceito', 'faltas', 'presenca', 'presencas', 'situacao', 'saldo', 'creditos', 'valor', 'titulo', 'pasta', 'origem',
-  'modulos', 'plano', 'cota', 'acervo_cota_mb', 'fechado', 'aberto', 'bimestre', 'periodo']);
+  'modulos', 'plano', 'cota', 'acervo_cota_mb', 'fechado', 'aberto', 'bimestre', 'periodo', 'tipo_nome', 'turma_nome']);
 const SEGREDO = /senha|pin|token|chave|segredo|hash|secret/i;
 
 const curto = (v, max = 300) => {

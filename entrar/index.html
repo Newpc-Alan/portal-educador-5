@@ -637,6 +637,14 @@
   .aud-tab td{ vertical-align:top;font-size:13px } .aud-tab td small{ display:block;color:var(--muted);font-size:11.5px } .aud-q{ white-space:nowrap;color:var(--navy) }
   .aud-acao{ color:#fff;border-radius:10px;padding:2px 9px;font-size:11.5px;font-weight:700;white-space:nowrap } .aud-doc{ font-family:ui-monospace,monospace;word-break:break-all }
   .aud-det div{ font-size:12.5px;line-height:1.4;word-break:break-word } .aud-det div + div{ margin-top:2px }
+  .pn-clic{ cursor:pointer } .pn-tile.pn-clic:hover, .pn-tile.pn-clic:focus-visible{ border-color:#1a6b2a;box-shadow:0 2px 12px rgba(15,44,74,.10);outline:none }
+  .pn-lupa{ font-style:normal;font-size:11px;opacity:.45 } .pn-tile.pn-clic:hover .pn-lupa{ opacity:1 }
+  .pn-col.pn-clic:hover .pn-seg{ filter:brightness(1.15) } .pn-hl.pn-clic:hover .pn-hk{ text-decoration:underline } tr.pn-clic:hover td{ background:#f4f8fb }
+  .pn-det-bg{ position:fixed;inset:0;background:rgba(10,24,40,.55);z-index:9990;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto }
+  .pn-det{ background:#fff;border-radius:16px;width:min(1100px,100%);padding:18px 20px;box-shadow:0 20px 60px rgba(0,0,0,.3) }
+  .pn-det-topo{ display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px } .pn-det-topo h3{ margin:0;color:var(--navy);font-size:18px } .pn-det-topo small{ color:var(--muted) }
+  .pn-det-ferr{ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px } .pn-det-ferr input{ flex:1 1 260px } .pn-det-tab{ max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:10px }
+  .pn-det-tab td{ font-size:13px;vertical-align:top } .pn-det-tab td small{ display:block;color:var(--muted);font-size:11.5px }
   .acv-bts{ display:flex;flex-direction:column;gap:6px;align-items:stretch } .acv-bts .btn-mini{ white-space:nowrap }
   .acv-mods{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px }
   .acv-cont{ font-size:13px;color:var(--muted);margin-bottom:10px }
@@ -3459,11 +3467,13 @@
   function trocarDemo(el){ verDemo = !!el.checked; try{ localStorage.setItem("pde_admin_ver_demo", verDemo ? "1" : "0"); }catch(e){} }
 
   async function renderPainel(){
-    const abas = [["geral","Pessoas e uso"],["conteudo","Conteúdo e participação"],["infra","Infraestrutura e custos"],["backup","💾 Backup"]];
+    const abas = [["geral","Pessoas e uso"],["ia","Portal IA e créditos"],["sala","Sala Conectada e rede"],["conteudo","Conteúdo e participação"],["infra","Infraestrutura e custos"],["backup","💾 Backup"]];
     $("conteudo").innerHTML = '<div class="pn-abas" role="tablist">'+abas.map(([k,l]) => '<button class="usr-tab'+(pn.aba===k?" on":"")+'" role="tab" aria-selected="'+(pn.aba===k)+'" data-action="painel-aba" data-arg="'+k+'">'+l+'</button>').join("")+'</div>'+
       '<div class="pn-topo"><span class="count" id="pnAtual">Carregando dados da plataforma...</span>'+
       '<span class="pn-topo-acoes">'+chaveDemo("painel-demo")+'<button class="btn btn-ghost btn-add" data-action="painel-atualizar">Atualizar</button></span></div><div id="pnCorpo"><div class="empty">Carregando...</div></div>';
     if(pn.aba === "conteudo"){ renderPnConteudo(); return; }
+    if(pn.aba === "ia"){ renderPnIA(); return; }
+    if(pn.aba === "sala"){ renderPnSala(); return; }
     if(pn.aba === "infra"){ renderPnInfra(); return; }
     if(pn.aba === "backup"){ renderPnBackup(); return; }
     try{
@@ -3483,7 +3493,7 @@
       const acAl = acTodos.filter(a => a.perfil === "aluno");
       painelAlunos = { total:nAlunos, hoje:new Set(acAl.filter(a => a.dia === hojeISO()).map(a => a.uid)).size,
         sete:new Set(acAl.filter(a => a.dia >= diasAtras(6)).map(a => a.uid)).size };
-      desenharPainel(us, ac, !!snapA);
+      desenharPainel(us, ac, !!snapA, acAl);
       $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · últimos 30 dias";
     }catch(e){
       console.warn(e);
@@ -3522,7 +3532,7 @@
       linhas.slice(0, 40).map(l => '<tr><td><b>'+escapeHtml(l.quem)+'</b></td><td class="usr-vinc">'+escapeHtml(l.pl)+'</td><td>'+escapeHtml(l.rec)+'</td><td><b>'+fmt(l.n)+'</b></td></tr>').join("")+
       '</tbody></table></div></div>';
   }
-  function desenharPainel(us, ac, temAcessos){
+  function desenharPainel(us, ac, temAcessos, acAl){
     const hoje = hojeISO(), d7 = diasAtras(6), agora = Date.now();
     const profs = us.filter(u => u.perfil !== "admin");
     const sit = (u) => situacao(u);
@@ -3541,22 +3551,24 @@
     const vencidas = profs.filter(u => sit(u) === "expirado").length;
     const aguardando = profs.filter(u => ["pendente","semvinculo"].includes(sit(u))).length;
 
-    const tile = (rot, val, sub, cls) => '<div class="pn-tile'+(cls?" "+cls:"")+'"><span class="pn-rot">'+rot+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
-    let h = '<div class="pn-tiles">'+
-      tile("Professores cadastrados", fmt(profs.length), "+"+fmt(criadosHoje.length)+" hoje") +
-      tile("Testes iniciados hoje", fmt(testesHoje.length), fmt(testes7.length)+" nos últimos 7 dias") +
-      tile("Online agora", fmt(online.length), "ativos nos últimos 5 min", "pn-vivo") +
-      tile("Acessaram hoje", temAcessos ? fmt(acHoje.size) : "-", temAcessos ? fmt(ac7.size)+" pessoas em 7 dias" : "aguardando regras do banco") +
+    registrarDetPessoas(us, ac, acAl || [], profs);
+    const tile = pnTile;
+    let h = '<p class="pn-nota" style="margin:0 0 10px">\u{1F50E} Clique em qualquer número, barra ou linha para ver de onde ele saiu (com busca e planilha).</p><div class="pn-tiles">'+
+      tile("Professores cadastrados", fmt(profs.length), "+"+fmt(criadosHoje.length)+" hoje", "", "profs") +
+      tile("Testes iniciados hoje", fmt(testesHoje.length), fmt(testes7.length)+" nos últimos 7 dias", "", "testes") +
+      tile("Online agora", fmt(online.length), "ativos nos últimos 5 min", "pn-vivo", "online") +
+      tile("Acessaram hoje", temAcessos ? fmt(acHoje.size) : "-", temAcessos ? fmt(ac7.size)+" pessoas em 7 dias" : "aguardando regras do banco", "", temAcessos ? "acessos_hoje" : "") +
       '</div>';
     h += '<div class="pn-tiles pn-tiles-2">'+
-      tile("Institucionais ativos", fmt(inst)) + tile("Assinantes avulsos", fmt(pagantes)) + tile("Em teste grátis", fmt(emTeste)) +
-      tile("Conversão do teste", pct(convertidos, auto.length), fmt(convertidos)+" de "+fmt(auto.length)+" autocadastros") +
-      tile("Vencendo em 30 dias", fmt(vencendo), fmt(vencidas)+" já vencidas", vencendo||vencidas ? "pn-alerta" : "") +
-      tile("Aguardando aprovação", fmt(aguardando), "", aguardando ? "pn-alerta" : "") +
+      tile("Institucionais ativos", fmt(inst), "", "", "sit|ativo") + tile("Assinantes avulsos", fmt(pagantes), "", "", "sit|avulso") + tile("Em teste grátis", fmt(emTeste), "", "", "sit|teste") +
+      tile("Conversão do teste", pct(convertidos, auto.length), fmt(convertidos)+" de "+fmt(auto.length)+" autocadastros", "", "conversao") +
+      tile("Vencendo em 30 dias", fmt(vencendo), fmt(vencidas)+" já vencidas", vencendo||vencidas ? "pn-alerta" : "", "vencendo") +
+      tile("Aguardando aprovação", fmt(aguardando), "", aguardando ? "pn-alerta" : "", "aguardando") +
       '</div>';
     h += '<div class="pn-tiles pn-tiles-2">'+
-      tile("Alunos com conta", painelAlunos.total === null ? "-" : fmt(painelAlunos.total), "entram pelo e-mail da escola") +
-      tile("Alunos que acessaram hoje", fmt(painelAlunos.hoje), fmt(painelAlunos.sete)+" em 7 dias") +
+      tile("Alunos com conta", painelAlunos.total === null ? "-" : fmt(painelAlunos.total), "entram pelo e-mail, código e PIN ou cartão QR", "", "alunos") +
+      tile("Alunos que acessaram hoje", fmt(painelAlunos.hoje), fmt(painelAlunos.sete)+" em 7 dias", "", "alunos_hoje") +
+      tile("Pessoas que acessaram em 7 dias", temAcessos ? fmt(ac7.size) : "-", "professores e equipe", "", temAcessos ? "acessos_7" : "") +
       '</div>';
 
     // series diarias (30 dias)
@@ -3569,19 +3581,25 @@
     h += '<div class="pn-graficos">';
     h += '<div class="pn-card pn-largo"><h3>Novos cadastros por dia</h3>'+
       '<div class="pn-leg"><span><i style="background:'+COR_A+'"></i>Teste grátis (autocadastro)</span><span><i style="background:'+COR_B+'"></i>Rede (importação e aprovação)</span></div>'+
-      barrasEmpilhadas(dias, cadA, cadB) + '</div>';
+      barrasEmpilhadas(dias, cadA, cadB, "cad_dia") + '</div>';
     h += '<div class="pn-card pn-largo"><h3>Pessoas que acessaram por dia</h3>'+
-      (temAcessos ? barrasEmpilhadas(dias, acc, {}) : '<div class="empty">O registro de acessos começa a contar assim que as regras do banco forem publicadas.</div>') + '</div>';
+      (temAcessos ? barrasEmpilhadas(dias, acc, {}, "acc_dia") : '<div class="empty">O registro de acessos começa a contar assim que as regras do banco forem publicadas.</div>') + '</div>';
 
     // por estado
     const porUf = {};
     profs.forEach(u => { const uf = u.uf || ((cacheMunicipios.find(m => m.id === u.municipio_id)||{}).uf) || "Sem UF"; porUf[uf] = (porUf[uf]||0)+1; });
-    h += '<div class="pn-card"><h3>Professores por estado</h3>'+barrasHorizontais(porUf, 10, "professor(es)")+'</div>';
+    h += '<div class="pn-card"><h3>Professores por estado</h3>'+barrasHorizontais(porUf, 10, "professor(es)", "uf")+'</div>';
+    // pessoas por perfil (alunos pela contagem) e entradas por tela (Auditoria, carregada em seguida)
+    const porPerfil = {}; us.forEach(u => { const n = pnPerfil[u.perfil] || u.perfil || "Sem perfil"; porPerfil[n] = (porPerfil[n] || 0) + 1; });
+    if(painelAlunos.total) porPerfil["Aluno"] = painelAlunos.total;
+    pn.det.perfil_nome = (nome) => { const p = Object.keys(pnPerfil).find(k => pnPerfil[k] === nome) || nome; return pn.det.perfil(p); };
+    h += '<div class="pn-card"><h3>Pessoas por perfil</h3>'+barrasHorizontais(porPerfil, 10, "pessoa(s)", "perfil_nome")+'</div>';
+    h += '<div class="pn-card" id="pnEntradas"><h3>Entradas por tela</h3><div class="empty">Carregando...</div></div>';
     // modulos mais abertos
     const porMod = {};
     ac.forEach(a => (a.modulos||[]).forEach(id => { porMod[id] = (porMod[id]||0)+1; }));
     const nomesMod = {}; Object.keys(porMod).forEach(id => { const m = MODULOS.find(x => x.id === id); nomesMod[m ? m.nome : id] = porMod[id]; });
-    h += '<div class="pn-card"><h3>Botões mais abertos</h3>'+(Object.keys(nomesMod).length ? barrasHorizontais(nomesMod, 10, "abertura(s) em dias distintos") : '<div class="empty">Ainda sem aberturas registradas.</div>')+'</div>';
+    h += '<div class="pn-card"><h3>Botões mais abertos</h3>'+(Object.keys(nomesMod).length ? barrasHorizontais(nomesMod, 10, "abertura(s) em dias distintos", "modulo") : '<div class="empty">Ainda sem aberturas registradas.</div>')+'</div>';
     // interesse por recurso fora do plano ("Tenho interesse" em "Conheça mais"): argumento de upgrade por município
     h += painelInteresse(us, ac);
     // arquivos do acervo mais abertos
@@ -3589,13 +3607,13 @@
     ac.forEach(a => (a.acervo||[]).forEach(id => { porArq[id] = (porArq[id]||0)+1; }));
     if(Object.keys(porArq).length){
       const nomesArq = {}; Object.keys(porArq).forEach(id => { const it = (acvAdm.itens||[]).find(x => x.id === id); nomesArq[it ? it.titulo : "Arquivo "+id.slice(0,5)] = porArq[id]; });
-      h += '<div class="pn-card pn-largo"><h3>Arquivos do acervo mais abertos</h3>'+barrasHorizontais(nomesArq, 10, "abertura(s) em dias distintos")+'</div>';
+      h += '<div class="pn-card pn-largo"><h3>Arquivos do acervo mais abertos</h3>'+barrasHorizontais(nomesArq, 10, "abertura(s) em dias distintos", "arquivo")+'</div>';
     }
     // ultimos cadastros
     const ult = [...profs].sort((a,b) => (msDe(b.criado_em)||0) - (msDe(a.criado_em)||0)).slice(0, 8);
     h += '<div class="pn-card pn-largo"><h3>Últimos cadastros</h3><div class="tablewrap" style="border:0"><table><thead><tr><th>Professor</th><th>Situação</th><th>Origem</th><th>Local</th><th>Quando</th></tr></thead><tbody>'+
       (ult.length ? ult.map(u => { const s = sit(u);
-        return '<tr><td class="usr-nome"><b>'+escapeHtml(u.nome||"Sem nome")+'</b><small>'+escapeHtml(u.email||"")+'</small></td>'+
+        return '<tr class="pn-clic" data-action="pn-det-abrir" data-uid="'+escapeAttr(u.id)+'" data-email="'+escapeAttr(u.email || "")+'" title="Abrir cadastro"><td class="usr-nome"><b>'+escapeHtml(u.nome||"Sem nome")+'</b><small>'+escapeHtml(u.email||"")+'</small></td>'+
           '<td><span class="pill '+s+'">'+ROTULO_SITUACAO[s]+'</span></td>'+
           '<td class="usr-vinc">'+(u.origem === "autocadastro" ? "Teste grátis" : u.origem === "pre_cadastro" ? "Importação" : "Rede")+'</td>'+
           '<td class="usr-vinc">'+escapeHtml(u.municipio_nome || [u.municipio_cad, u.uf].filter(Boolean).join("/") || "-")+'</td>'+
@@ -3603,6 +3621,333 @@
       '</tbody></table></div></div>';
     h += '</div>';
     $("pnCorpo").innerHTML = h;
+    painelEntradasPorTela();
+  }
+
+  // ===================== PAINEL 2.0: todo número abre os dados de onde saiu =====================
+  // pn.det[chave] = (arg) => ({ titulo, cols:[...], rows:[{ c:[...], uid?, email? }], nota? }) ou Promise disso
+  pn.det = {};
+  const pnD = { titulo:"", cols:[], rows:[], busca:"", nota:"" };
+  const pnNomeMun = id => id ? ((cacheMunicipios.find(m => m.id === id) || {}).nome || id) : "";
+  const pnPerfil = { professor:"Professor", aluno:"Aluno", gestor:"Gestor", secretaria:"Secretaria de Educação", secretaria_escola:"Secretaria escolar", portaria:"Portaria", admin:"Administrador" };
+  const pnDataHora = ts => { const m = msDe(ts); return m ? new Date(m).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "-"; };
+  // linha padrão de uma pessoa (vira link para o cadastro)
+  function pnLinhaPessoa(u, extra){
+    u = u || {};
+    const s = u.perfil === "aluno" ? "aluno" : situacao(u);
+    return { c:[(u.nome || "Sem nome") + (u.email ? "\n" + u.email : ""), pnPerfil[u.perfil] || u.perfil || "-", ROTULO_SITUACAO[s] || (u.perfil === "aluno" ? "Aluno" : "-"),
+      u.municipio_nome || pnNomeMun(u.municipio_id) || [u.municipio_cad, u.uf].filter(Boolean).join("/") || "-", dataCurta(u.criado_em), ...(extra || [])], uid:u.id || u.uid, email:u.email || "" };
+  }
+  const PN_COLS_PESSOA = ["Pessoa", "Perfil", "Situação", "Município", "Cadastro"];
+  function pnPessoas(titulo, lista, nota){ return { titulo, cols:PN_COLS_PESSOA, rows:lista.map(u => pnLinhaPessoa(u)), nota }; }
+  // lista genérica de documentos de uma coleção (Conteúdo): nome, complemento e data
+  async function pnColecao(titulo, col, filtros, nota){
+    const sn = await getDocs(query(collection(db, col), ...(filtros || []), limit(1000)));
+    const rows = []; sn.forEach(d => { const x = d.data();
+      rows.push({ c:[x.titulo || x.nome || x.email || x.codigo || d.id, x.municipio_nome || pnNomeMun(x.municipio_id) || x.escola_nome || x.uf || "", x.status || (x.publicado === true ? "publicado" : x.publicado === false ? "oculto" : ""),
+        pnDataHora(x.criado_em || x.publicado_em || x.emitidoEm || x.em || x.atualizado_em)], uid:(col === "usuarios" ? d.id : ""), email:x.email || "", id:d.id }); });
+    rows.sort((a, b) => String(a.c[0]).localeCompare(String(b.c[0]), "pt-BR"));
+    return { titulo, cols:["Nome / título", "Município / local", "Situação", "Data"], rows, nota:(nota || "") + (sn.size >= 1000 ? " Mostrando os primeiros 1.000." : "") };
+  }
+  async function abrirDetalhe(chave){
+    const [k, ...resto] = String(chave).split("|"), arg = resto.join("|");
+    const f = pn.det[k]; if(!f) return;
+    pnD.busca = ""; pnD.titulo = "Carregando..."; pnD.cols = []; pnD.rows = []; pnD.nota = "";
+    desenharDetalhe(true);
+    try{ const r = await f(arg); Object.assign(pnD, { titulo:r.titulo, cols:r.cols, rows:r.rows || [], nota:r.nota || "" }); }
+    catch(e){ console.warn(e); Object.assign(pnD, { titulo:"Não foi possível abrir os dados", cols:[], rows:[], nota:"Erro: "+(e.code || e.message || "desconhecido") }); }
+    desenharDetalhe();
+  }
+  function pnFiltrados(){
+    const t = semAcento(pnD.busca.trim());
+    return t ? pnD.rows.filter(r => semAcento(r.c.join(" ")).includes(t)) : pnD.rows;
+  }
+  function desenharDetalhe(carregando){
+    let bg = $("pnDetBg");
+    if(!bg){ bg = document.createElement("div"); bg.id = "pnDetBg"; bg.className = "pn-det-bg"; bg.addEventListener("click", e => { if(e.target === bg) fecharDetalhe(); }); document.body.appendChild(bg); }
+    const l = pnFiltrados(), temPessoa = pnD.rows.some(r => r.uid);
+    bg.innerHTML = '<div class="pn-det" role="dialog" aria-modal="true" aria-labelledby="pnDetTit"><div class="pn-det-topo"><div><h3 id="pnDetTit">'+escapeHtml(pnD.titulo)+'</h3>'+
+      (carregando ? '' : '<small>'+fmt(l.length)+' registro(s)'+(pnD.busca ? ' de '+fmt(pnD.rows.length) : '')+'</small>')+'</div>'+
+      '<button class="btn btn-ghost btn-add" data-action="pn-det-fechar" aria-label="Fechar">✕ Fechar</button></div>'+
+      (carregando ? '<div class="empty">Buscando os dados...</div>' :
+      '<div class="pn-det-ferr"><input type="search" id="pnDetBusca" class="usr-busca" placeholder="Filtrar esta lista" value="'+escapeAttr(pnD.busca)+'"><button class="btn btn-ghost btn-add" data-action="pn-det-csv">Exportar planilha (CSV)</button></div>'+
+      (pnD.nota ? '<p class="pn-nota" style="margin:0 0 8px">'+escapeHtml(pnD.nota)+'</p>' : '')+
+      (!l.length ? '<div class="empty">Nenhum registro.</div>' :
+      '<div class="tablewrap pn-det-tab"><table><thead><tr>'+pnD.cols.map(c => '<th>'+escapeHtml(c)+'</th>').join("")+(temPessoa ? '<th></th>' : '')+'</tr></thead><tbody>'+
+        l.slice(0, 1500).map(r => '<tr>'+r.c.map((v, i) => { const [a, b] = String(v == null ? "" : v).split("\n");
+          return '<td'+(i === 0 ? ' class="usr-nome"' : ' class="usr-vinc"')+'>'+(i === 0 ? '<b>'+escapeHtml(a)+'</b>'+(b ? '<small>'+escapeHtml(b)+'</small>' : '') : escapeHtml(a)+(b ? '<br><small>'+escapeHtml(b)+'</small>' : ''))+'</td>'; }).join("")+
+          (temPessoa ? '<td>'+(r.uid ? '<button class="btn-mini btn-gerenciar" data-action="pn-det-abrir" data-uid="'+escapeAttr(r.uid)+'" data-email="'+escapeAttr(r.email || "")+'">Abrir cadastro</button>' : '')+'</td>' : '')+'</tr>').join("")+
+      '</tbody></table></div>'+(l.length > 1500 ? '<p class="pn-nota">Mostrando 1.500 na tela; o CSV leva todos.</p>' : '')))+'</div>';
+    const i = $("pnDetBusca"); if(i && pnD.busca){ i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  }
+  function fecharDetalhe(){ const bg = $("pnDetBg"); if(bg) bg.remove(); }
+  function exportarDetalhe(){
+    const l = pnFiltrados(); if(!l.length){ toast("Nada para exportar.", true); return; }
+    const esc = v => '"' + String(v == null ? "" : v).replace(/\n/g, " · ").replace(/"/g, '""') + '"';
+    const linhas = [pnD.cols.map(esc).join(";")].concat(l.map(r => r.c.map(esc).join(";")));
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + linhas.join("\n")], { type:"text/csv;charset=utf-8" }));
+    a.download = "painel-" + slug(pnD.titulo) + "-" + hojeISO() + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }
+  // leva ao cadastro da pessoa na tela Usuários (aluno: aba Alunos, pela busca)
+  function abrirCadastroPainel(uid, email){
+    fecharDetalhe();
+    usr.busca = email || ""; usr.filtro = "todos";
+    const a = document.querySelector('#nav a[data-sec="usuarios"]'); if(!a){ toast("Abra Usuários e busque por "+(email || uid)+".", true); return; }
+    a.click();
+    let n = 0; const t = setInterval(() => { n++;
+      if(usr.lista && usr.lista.some(x => x.id === uid)){ clearInterval(t); try{ abrirModalUsuario(uid); }catch(e){} }
+      else if(n > 40) clearInterval(t); }, 250);
+  }
+  document.addEventListener("click", ev => {
+    const el = ev.target.closest("[data-action^='pn-det']"); if(!el) return;
+    const a = el.dataset.action;
+    if(a === "pn-det") abrirDetalhe(el.dataset.det);
+    if(a === "pn-det-fechar") fecharDetalhe();
+    if(a === "pn-det-csv") exportarDetalhe();
+    if(a === "pn-det-abrir") abrirCadastroPainel(el.dataset.uid, el.dataset.email);
+  });
+  document.addEventListener("keydown", ev => {
+    if(ev.key === "Escape" && $("pnDetBg")) fecharDetalhe();
+    if((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches(".pn-clic[data-det]")){ ev.preventDefault(); abrirDetalhe(ev.target.dataset.det); }
+  });
+  document.addEventListener("input", ev => { if(ev.target.id === "pnDetBusca"){ pnD.busca = ev.target.value; desenharDetalhe(); } });
+  // cartão de número clicável (det = chave em pn.det)
+  const pnTile = (rot, val, sub, cls, det) => '<div class="pn-tile'+(cls ? " "+cls : "")+(det ? ' pn-clic" data-action="pn-det" data-det="'+escapeAttr(det)+'" tabindex="0" role="button" title="Ver os dados"' : '"')+'>'+
+    '<span class="pn-rot">'+rot+(det ? ' <i class="pn-lupa" aria-hidden="true">\u{1F50E}</i>' : '')+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
+
+  // ---------- Pessoas e uso: os dados de cada número ----------
+  function registrarDetPessoas(us, ac, acAl, profs, extras){
+    const sit = u => situacao(u), hoje = hojeISO(), d7 = diasAtras(6), agora = Date.now();
+    const porUid = {}; us.forEach(u => { porUid[u.id] = u; });
+    const auto = profs.filter(u => u.origem === "autocadastro");
+    const ordenar = l => [...l].sort((a, b) => (msDe(b.criado_em) || 0) - (msDe(a.criado_em) || 0));
+    // quem acessou: uma linha por pessoa, com os dias e os botões abertos
+    const acessos = (lista, titulo) => {
+      const g = {}; lista.forEach(a => { const x = (g[a.uid] = g[a.uid] || { dias:new Set(), mods:new Set(), ult:"" }); x.dias.add(a.dia); (a.modulos || []).forEach(m => x.mods.add(m)); if(a.dia > x.ult) x.ult = a.dia; });
+      const rows = Object.entries(g).map(([uid, x]) => { const u = porUid[uid] || { id:uid, nome:"(pessoa sem cadastro de equipe)", perfil:(lista.find(a => a.uid === uid) || {}).perfil };
+        return { ...pnLinhaPessoa(u, [fmt(x.dias.size), dataBR(x.ult), [...x.mods].map(m => (MODULOS.find(y => y.id === m) || {}).nome || m).join(", ")]), uid:porUid[uid] ? uid : "" }; });
+      rows.sort((a, b) => String(b.c[6]).localeCompare(String(a.c[6])));
+      return { titulo, cols:[...PN_COLS_PESSOA, "Dias com acesso", "Último acesso", "Botões abertos"], rows };
+    };
+    Object.assign(pn.det, {
+      profs: () => pnPessoas("Professores e equipe cadastrados", ordenar(profs)),
+      testes: () => pnPessoas("Testes grátis iniciados nos últimos 7 dias", ordenar(auto.filter(u => diaDe(u.criado_em) >= d7))),
+      online: () => pnPessoas("Online agora (ativos nos últimos 5 minutos)", us.filter(u => { const m = msDe(u.ultimo_acesso); return m && agora - m < 5*60000; })),
+      acessos_hoje: () => acessos(ac.filter(a => a.dia === hoje), "Acessaram hoje"),
+      acessos_7: () => acessos(ac.filter(a => a.dia >= d7), "Acessaram nos últimos 7 dias"),
+      sit: (s) => pnPessoas({ ativo:"Institucionais ativos", avulso:"Assinantes avulsos", teste:"Em teste grátis" }[s] || s, ordenar(profs.filter(u => sit(u) === s))),
+      conversao: () => ({ ...pnPessoas("Autocadastros (teste grátis) e conversão", ordenar(auto)), nota:"Convertido = licença avulsa paga. A coluna Situação mostra onde cada um está hoje." }),
+      vencendo: () => pnPessoas("Licenças vencendo em 30 dias ou já vencidas", profs.filter(u => venceEmBreve(u) || sit(u) === "expirado").sort((a, b) => (msDe(a.licenca_fim) || 0) - (msDe(b.licenca_fim) || 0))),
+      aguardando: () => pnPessoas("Aguardando aprovação ou sem vínculo", ordenar(profs.filter(u => ["pendente","semvinculo"].includes(sit(u))))),
+      alunos: async () => { const sn = await getDocs(query(collection(db, "usuarios"), where("perfil","==","aluno"), limit(2000)));
+        const l = []; sn.forEach(d => l.push({ id:d.id, ...d.data() })); return pnPessoas("Alunos com conta", ordenar(l), sn.size >= 2000 ? "Mostrando os primeiros 2.000." : ""); },
+      alunos_hoje: () => acessos(acAl.filter(a => a.dia === hoje), "Alunos que acessaram hoje"),
+      cad_dia: (d) => pnPessoas("Cadastros em "+dataBR(d), profs.filter(u => diaDe(u.criado_em) === d)),
+      acc_dia: (d) => acessos(ac.filter(a => a.dia === d), "Acessos em "+dataBR(d)),
+      uf: (uf) => pnPessoas("Professores em "+uf, profs.filter(u => (u.uf || ((cacheMunicipios.find(m => m.id === u.municipio_id) || {}).uf) || "Sem UF") === uf)),
+      modulo: (nome) => { const m = MODULOS.find(x => x.nome === nome), id = m ? m.id : nome; return acessos(ac.filter(a => (a.modulos || []).includes(id)), "Quem abriu "+nome+" (30 dias)"); },
+      perfil: (p) => p === "aluno" ? pn.det.alunos() : pnPessoas("Perfil: "+(pnPerfil[p] || p), ordenar(us.filter(u => u.perfil === p))),
+      arquivo: (titulo) => { const it = (acvAdm.itens || []).find(x => x.titulo === titulo); const id = it ? it.id : titulo.replace(/^Arquivo /, "");
+        return acessos(ac.filter(a => (a.acervo || []).some(x => x === id || x.startsWith(id))), "Quem abriu: "+titulo); },
+      ...(extras || {})
+    });
+  }
+  // entradas no Portal por tela (vem da Auditoria, que grava IP e navegador): carrega depois do resto
+  async function painelEntradasPorTela(){
+    const el = $("pnEntradas"); if(!el) return;
+    let l = [];
+    try{ const sn = await getDocs(query(collection(db, "auditoria"), where("acao","==","entrou"), where("em", ">=", Timestamp.fromMillis(Date.now() - 30*DIA)), orderBy("em","desc"), limit(3000)));
+      sn.forEach(d => l.push(d.data())); }
+    catch(e){ if($("pnEntradas")) $("pnEntradas").innerHTML = '<h3>Entradas por tela</h3><div class="empty">Não foi possível ler a Auditoria ('+escapeHtml(e.code || "erro")+').</div>'; return; }
+    await Promise.all([...new Set(l.map(x => x.autor_uid).filter(Boolean))].slice(0, 300).map(nomeDoUid));
+    if(!$("pnEntradas")) return;
+    const NOME_TELA = { entrar:"Página de entrada", "apps-portal-ia":"Portal IA", lousa:"Lousa", provas:"Provas", prova:"Prova online (aluno)", formacao:"Formação Continuada", "formacao-admin":"Formação (administração)",
+      gestao:"Gestão Escolar", relatorios:"Central de Relatórios", "apps-turma":"Turma ao Vivo / turma", "apps-corretor":"Corretor de gabarito", "apps-notas":"Notas", "apps-frequencia":"Frequência", biblioteca:"Biblioteca", inicio:"Página inicial" };
+    const nomeTela = t => NOME_TELA[t] || t || "-";
+    const porTela = {}; l.forEach(x => { porTela[nomeTela(x.tela)] = (porTela[nomeTela(x.tela)] || 0) + 1; });
+    pn.det.tela = (nome) => ({ titulo:"Entradas em: "+nome+" (30 dias)", cols:["Pessoa", "Perfil", "Município", "Quando", "IP"],
+      rows:l.filter(x => nomeTela(x.tela) === nome).map(x => ({ c:[(aud.nomes[x.autor_uid] || x.autor_email || x.autor_uid || "-") + (x.autor_email ? "\n" + x.autor_email : ""), pnPerfil[x.perfil] || x.perfil || "-", pnNomeMun(x.municipio_id) || "-", pnDataHora(x.em), x.ip || "-"], uid:x.autor_uid, email:x.autor_email || "" })),
+      nota:"Fonte: Auditoria (entradas registradas pelo servidor desde 01/11/2026, guardadas por 6 meses)." });
+    el.innerHTML = '<h3>Entradas por tela <small style="font-weight:500;color:var(--muted)">últimos 30 dias, pela Auditoria</small></h3>'+
+      (l.length ? barrasHorizontais(porTela, 12, "entrada(s)", "tela") : '<div class="empty">Nenhuma entrada registrada ainda.</div>');
+  }
+
+  // ---------- aba Portal IA e créditos ----------
+  const NOMES_ACAO_IA = { gerar:"Materiais do Portal IA", ajustar:"Ajustes de material", imagem:"Imagens", questoes_prova:"Questões com IA (Provas)", aula_lousa:"Aula com IA (Lousa)",
+    aula_lousa_imagem:"Ilustrações da Lousa Ultra", entender:"Entender o pedido", converter_atividade:"Conversão do acervo (admin)", foto_ref:"Fotos dos cards (admin)" };
+  const nomeAcaoIA = k => NOMES_ACAO_IA[k] || k;
+  async function renderPnIA(){
+    const mes = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7);
+    const ms = v => v && v.toMillis ? v.toMillis() : (v && v.seconds ? v.seconds * 1000 : Number(v) || 0);
+    let contas = [], ia = {}, pedidos = [], alertas = [];
+    try{
+      const [sc, si, sp, sa] = await Promise.all([
+        getDocs(collection(db, "creditos")),
+        getDoc(doc(db, "stats", "ia_uso")).then(x => x.exists() ? x.data() : {}).catch(() => ({})),
+        getDocs(query(collection(db, "recargas_pedidos"), where("status","==","pendente"))).catch(() => null),
+        getDocs(query(collection(db, "creditos_alertas"), orderBy("em","desc"), limit(50))).catch(() => null),
+        cacheMunicipios.length ? Promise.resolve() : carregarCacheMunicipios()
+      ]);
+      sc.forEach(d => contas.push({ id:d.id, ...d.data() })); ia = si || {};
+      if(sp) sp.forEach(d => pedidos.push({ id:d.id, ...d.data() })); if(sa) sa.forEach(d => alertas.push({ id:d.id, ...d.data() }));
+    }catch(e){ if(pn.aba === "ia" && $("pnCorpo")) $("pnCorpo").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code || "erro")+').</div>'; return; }
+    if(pn.aba !== "ia" || !$("pnCorpo")) return;
+    const agora = Date.now();
+    const saldo = c => { const p = c.pacotes || []; const at = p.filter(x => ms(x.validade) > agora && (x.restante || 0) > 0), vv = p.filter(x => ms(x.validade) > agora);
+      return { saldo:at.reduce((t, x) => t + (x.restante || 0), 0), total:vv.reduce((t, x) => t + (x.creditos || 0), 0), validade:at.map(x => ms(x.validade)).sort((a, b) => a - b)[0] || 0 }; };
+    const nomesUid = {};
+    await Promise.all(contas.filter(c => c.id.startsWith("prof_")).map(async c => { nomesUid[c.id] = String(await nomeDoUid(c.id.slice(5))).split(" · ")[0]; }));
+    const nomeConta = c => c.id === "admin" ? "NEWPC (administração)" : c.id.startsWith("mun_") ? "Rede: " + (pnNomeMun(c.id.slice(4)) || c.id.slice(4)) : "Professor: " + (nomesUid[c.id] || c.id.slice(5));
+    const linhas = contas.map(c => { const s = saldo(c), cm = (c.consumo || {})[mes] || {};
+      return { c, s, cm, pct:s.total ? Math.round(s.saldo * 100 / s.total) : null }; });
+    const redes = linhas.filter(x => x.c.id.startsWith("mun_")), baixos = redes.filter(x => x.pct !== null && x.pct <= 20);
+    const iaMes = ia[mes] || {}, usosMes = Object.values(iaMes).reduce((t, x) => t + (x.usos || 0), 0), usdMes = Object.values(iaMes).reduce((t, x) => t + (x.custo_usd || 0), 0);
+    const credMes = linhas.reduce((t, x) => t + (x.cm.creditos || 0), 0);
+    const usd = v => "US$ " + (v || 0).toFixed(2).replace(".", ",");
+    const linhaConta = x => ({ c:[nomeConta(x.c), fmt(x.s.saldo) + (x.s.total ? " de " + fmt(x.s.total) : ""), x.pct === null ? "-" : x.pct + "%", x.s.validade ? new Date(x.s.validade).toLocaleDateString("pt-BR") : "-",
+      fmt(x.cm.creditos || 0) + " créditos · " + fmt(x.cm.usos || 0) + " usos", usd(x.cm.custo_usd), x.c.teto_professor ? fmt(x.c.teto_professor) : "-"] });
+    const COLS_CONTA = ["Conta", "Saldo", "Restante", "Vence em", "Consumo no mês", "Custo no mês", "Teto por professor"];
+    Object.assign(pn.det, {
+      ia_contas: () => ({ titulo:"Contas de créditos de IA", cols:COLS_CONTA, rows:linhas.sort((a, b) => (b.cm.creditos || 0) - (a.cm.creditos || 0)).map(linhaConta) }),
+      ia_baixos: () => ({ titulo:"Redes com 20% ou menos do saldo", cols:COLS_CONTA, rows:baixos.map(linhaConta) }),
+      ia_pedidos: () => ({ titulo:"Pedidos de recarga pendentes", cols:["Conta", "Tipo", "Solicitante", "Pedido", "Quando"],
+        rows:pedidos.map(p => ({ c:[p.conta_nome || p.conta, p.tipo === "rede" ? "Rede" : "Avulso", (p.solicitante || "") + (p.email ? "\n" + p.email : ""), [p.pacote, p.creditos ? fmt(p.creditos) + " créditos" : ""].filter(Boolean).join(" · ") || "-", pnDataHora(p.criado_em || p.em)], uid:p.uid, email:p.email || "" })),
+        nota:"Para liberar, use Central de IA." }),
+      ia_alertas: () => ({ titulo:"Alertas de saldo (últimos 50)", cols:["Conta", "Município", "Nível", "Saldo", "Quando"],
+        rows:alertas.map(a => ({ c:[a.conta, pnNomeMun(a.municipio_id) || "-", (a.nivel || "") + "%", fmt(a.saldo || 0) + " de " + fmt(a.total || 0), pnDataHora(a.em)] })) }),
+      ia_conta: async (id) => { const c = contas.find(x => x.id === id);
+        const sn = await getDocs(query(collection(db, "creditos", id, "movimentos"), orderBy("em","desc"), limit(500)));
+        const l = []; sn.forEach(d => l.push(d.data()));
+        await Promise.all([...new Set(l.map(m => m.uid).filter(Boolean))].map(nomeDoUid));
+        return { titulo:"Movimentos: " + (c ? nomeConta(c) : id), cols:["Quando", "Tipo", "Créditos", "Uso", "Quem", "Custo"],
+          rows:l.map(m => ({ c:[pnDataHora(m.em), m.tipo || "-", (m.creditos > 0 ? "+" : "") + fmt(m.creditos || 0), nomeAcaoIA(m.acao || "") || m.nota || "-", m.uid ? aud.nomes[m.uid] || m.uid : (m.por || "-"), m.custo_usd ? usd(m.custo_usd) : "-"], uid:m.uid || "" })),
+          nota:sn.size >= 500 ? "Mostrando os 500 mais recentes." : "" }; },
+      ia_acao: (nome) => { const k = Object.keys(iaMes).find(x => nomeAcaoIA(x) === nome) || nome, x = iaMes[k] || {};
+        return { titulo:nome + " no mês", cols:["Uso", "Quantidade", "Custo estimado"], rows:[{ c:[nome, fmt(x.usos || 0), usd(x.custo_usd)] }], nota:"O detalhe por pessoa está nos movimentos de cada conta (aba Contas, clique na linha)." }; }
+    });
+    const porAcao = {}; Object.entries(iaMes).forEach(([k, x]) => { porAcao[nomeAcaoIA(k)] = x.usos || 0; });
+    let h = '<h3 class="pn-sec">Mês atual ('+mes.split("-").reverse().join("/")+')</h3><div class="pn-tiles pn-tiles-2">'+
+      pnTile("Usos de IA no mês", fmt(usosMes), "todas as telas", "", "ia_contas") +
+      pnTile("Créditos consumidos no mês", fmt(credMes), "somando todas as contas", "", "ia_contas") +
+      pnTile("Custo estimado do mês", usd(usdMes), "Gemini, pelos tokens usados", "", "ia_contas") +
+      pnTile("Redes com saldo baixo", fmt(baixos.length), "20% ou menos do pacote", baixos.length ? "pn-alerta" : "", "ia_baixos") +
+      pnTile("Pedidos de recarga pendentes", fmt(pedidos.length), "liberar na Central de IA", pedidos.length ? "pn-alerta" : "", "ia_pedidos") +
+      pnTile("Alertas de saldo", fmt(alertas.length), "últimos avisos enviados", "", "ia_alertas") + '</div>';
+    h += '<div class="pn-graficos"><div class="pn-card"><h3>Usos por tipo no mês</h3>'+barrasHorizontais(porAcao, 12, "uso(s)", "ia_acao")+'</div>';
+    const topo = linhas.filter(x => x.cm.creditos).sort((a, b) => (b.cm.creditos || 0) - (a.cm.creditos || 0)).slice(0, 10);
+    const mapaTop = {}; topo.forEach(x => { mapaTop[nomeConta(x.c)] = x.cm.creditos || 0; });
+    pn.det.ia_top = (nome) => { const x = linhas.find(y => nomeConta(y.c) === nome); return x ? pn.det.ia_conta(x.c.id) : { titulo:nome, cols:[], rows:[] }; };
+    h += '<div class="pn-card"><h3>Quem mais consumiu no mês</h3>'+barrasHorizontais(mapaTop, 10, "crédito(s)", "ia_top")+'</div></div>';
+    h += '<div class="pn-card pn-largo" style="margin-top:12px"><h3>Contas de créditos <small style="font-weight:500;color:var(--muted)">clique numa conta para ver os movimentos</small></h3>'+
+      '<div class="tablewrap" style="border:0"><table><thead><tr>'+COLS_CONTA.map(c => '<th>'+c+'</th>').join("")+'</tr></thead><tbody>'+
+      (linhas.length ? linhas.sort((a, b) => (b.cm.creditos || 0) - (a.cm.creditos || 0)).map(x => { const r = linhaConta(x);
+        return '<tr class="pn-clic" data-action="pn-det" data-det="ia_conta|'+escapeAttr(x.c.id)+'" tabindex="0">'+r.c.map((v, i) => '<td class="'+(i ? "usr-vinc" : "usr-nome")+'">'+(i ? escapeHtml(v) : '<b>'+escapeHtml(v)+'</b>')+'</td>').join("")+'</tr>'; }).join("")
+        : '<tr><td colspan="7" class="usr-vinc">Nenhuma conta de créditos ainda.</td></tr>')+'</tbody></table></div></div>';
+    $("pnCorpo").innerHTML = h;
+    $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · créditos, consumo e custo de IA";
+  }
+
+  // ---------- aba Sala Conectada e rede ----------
+  async function renderPnSala(){
+    const d30 = Timestamp.fromMillis(Date.now() - 30*DIA);
+    let rede = [], aud30 = [], qr = {}, qrAud = [];
+    try{
+      const [sr, st, sa, sq, sqa] = await Promise.all([
+        getDocs(collection(db, "portal_ia_rede")).catch(() => null),
+        getDocs(collection(db, "trabalhos_rede")).catch(() => null),
+        getDocs(query(collection(db, "auditoria"), where("colecao","in",["turma_materiais/itens","comunicados_familia","avisos_familia"]), where("em", ">=", d30), orderBy("em","desc"), limit(3000))).catch(e => { console.warn("auditoria sala:", e.code); return null; }),
+        getDoc(doc(db, "stats", "entrada_qr")).then(x => x.exists() ? x.data() : {}).catch(() => ({})),
+        getDocs(query(collection(db, "auditoria"), where("acao","==","aluno_entrada_qr"), where("em", ">=", d30), orderBy("em","desc"), limit(3000))).catch(() => null),
+        cacheMunicipios.length ? Promise.resolve() : carregarCacheMunicipios()
+      ]);
+      if(sr) sr.forEach(d => rede.push({ id:d.id, col:"Portal IA", ...d.data() })); if(st) st.forEach(d => rede.push({ id:d.id, col:"Lousa e trabalhos", ...d.data() }));
+      if(sa) sa.forEach(d => aud30.push(d.data())); qr = sq || {}; if(sqa) sqa.forEach(d => qrAud.push(d.data()));
+    }catch(e){ if(pn.aba === "sala" && $("pnCorpo")) $("pnCorpo").innerHTML = '<div class="empty">Não foi possível carregar ('+escapeHtml(e.code || "erro")+').</div>'; return; }
+    if(pn.aba !== "sala" || !$("pnCorpo")) return;
+    await Promise.all([...new Set([...aud30.map(x => x.autor_uid), ...rede.map(x => x.uid)].filter(Boolean))].map(nomeDoUid));
+    const st = s => rede.filter(x => x.status === s);
+    const linhaRede = x => ({ c:[(x.titulo || "Sem título") + "\n" + (x.tipo_nome || x.col), (x.autor_nome || aud.nomes[x.uid] || "-") + (x.escola_nome ? "\n" + x.escola_nome : ""), pnNomeMun(x.municipio_id) || "-",
+      { publicado:"Publicado", pendente:"Aguardando aprovação", oculto:"Oculto" }[x.status] || x.status || "-", fmt(x.usos || 0), fmt(x.denuncias || 0), pnDataHora(x.criado_em || x.atualizado_em)], uid:x.uid || "" });
+    const COLS_REDE = ["Material", "Autor", "Município", "Situação", "Cópias", "Denúncias", "Data"];
+    const envios = aud30.filter(x => x.colecao === "turma_materiais/itens" && x.acao === "criou"), familias = aud30.filter(x => x.colecao !== "turma_materiais/itens" && x.acao === "criou");
+    const linhaAud = x => ({ c:[((x.valores || {}).titulo || {}).para || x.doc || "-", aud.nomes[x.autor_uid] || x.autor_uid || "-", pnNomeMun(x.municipio_id) || "-", ((x.valores || {}).turma_nome || {}).para || "-", pnDataHora(x.em)], uid:x.autor_uid || "" });
+    const COLS_AUD = ["Material / aviso", "Quem enviou", "Município", "Turma", "Quando"];
+    const dias = []; for(let i = 29; i >= 0; i--) dias.push(diasAtras(i));
+    const porDiaEnv = {}; envios.forEach(x => { const d = diaDe(x.em); porDiaEnv[d] = (porDiaEnv[d] || 0) + 1; });
+    const qrDia = qr.por_dia || {}, qr30 = dias.reduce((t, d) => t + (qrDia[d] || 0), 0);
+    Object.assign(pn.det, {
+      rede_st: (s) => ({ titulo:{ publicado:"Publicados na rede", pendente:"Aguardando aprovação", oculto:"Ocultos (moderação)" }[s] || "Compartilhados com a rede", cols:COLS_REDE, rows:(s ? st(s) : rede).map(linhaRede) }),
+      rede_den: () => ({ titulo:"Materiais com denúncia", cols:COLS_REDE, rows:rede.filter(x => (x.denuncias || 0) > 0).map(linhaRede) }),
+      rede_mun: (nome) => ({ titulo:"Compartilhados em "+nome, cols:COLS_REDE, rows:rede.filter(x => (pnNomeMun(x.municipio_id) || "Sem município") === nome).map(linhaRede) }),
+      envios: () => ({ titulo:"Envios para a turma (30 dias)", cols:COLS_AUD, rows:envios.map(linhaAud), nota:"Fonte: Auditoria (desde 01/11/2026)." }),
+      envios_dia: (d) => ({ titulo:"Envios para a turma em "+dataBR(d), cols:COLS_AUD, rows:envios.filter(x => diaDe(x.em) === d).map(linhaAud) }),
+      familias: () => ({ titulo:"Envios e avisos às famílias (30 dias)", cols:COLS_AUD, rows:familias.map(linhaAud), nota:"Fonte: Auditoria (desde 01/11/2026)." }),
+      qr: () => ({ titulo:"Entradas de alunos pelo cartão QR (30 dias)", cols:["Aluno (conta)", "Turma", "Quando"], rows:qrAud.map(x => ({ c:[x.uid || "-", (cacheTurmas.find(t => t.id === x.alvo) || {}).nome || x.alvo || "-", pnDataHora(x.em)] })),
+        nota:"O total por dia vem do contador do servidor; a lista nominal vem da Auditoria." }),
+      qr_dia: (d) => ({ titulo:"Entradas pelo QR em "+dataBR(d), cols:["Aluno (conta)", "Turma", "Quando"], rows:qrAud.filter(x => diaDe(x.em) === d).map(x => ({ c:[x.uid || "-", (cacheTurmas.find(t => t.id === x.alvo) || {}).nome || x.alvo || "-", pnDataHora(x.em)] })) })
+    });
+    const porMun = {}; rede.forEach(x => { const n = pnNomeMun(x.municipio_id) || "Sem município"; porMun[n] = (porMun[n] || 0) + 1; });
+    let h = '<h3 class="pn-sec">Educador em Rede (compartilhamentos)</h3><div class="pn-tiles pn-tiles-2">'+
+      pnTile("Compartilhados com a rede", fmt(rede.length), fmt(rede.reduce((t, x) => t + (x.usos || 0), 0))+" cópias feitas por colegas", "", "rede_st|") +
+      pnTile("Publicados", fmt(st("publicado").length), "", "", "rede_st|publicado") +
+      pnTile("Aguardando aprovação", fmt(st("pendente").length), "moderação antes de publicar", st("pendente").length ? "pn-alerta" : "", "rede_st|pendente") +
+      pnTile("Ocultos", fmt(st("oculto").length), "pela moderação", "", "rede_st|oculto") +
+      pnTile("Com denúncia", fmt(rede.filter(x => (x.denuncias || 0) > 0).length), "3 denúncias ocultam sozinho", rede.some(x => (x.denuncias || 0) > 0) ? "pn-alerta" : "", "rede_den") + '</div>';
+    h += '<h3 class="pn-sec">Sala Conectada e Turma ao Vivo (últimos 30 dias)</h3><div class="pn-tiles pn-tiles-2">'+
+      pnTile("Envios para a turma", fmt(envios.length), "links e arquivos no Portal do Aluno", "", "envios") +
+      pnTile("Alunos que entraram pelo QR", fmt(qr30), "total desde o início: "+fmt(qr.total || 0), "", "qr") +
+      pnTile("Envios às famílias", fmt(familias.length), "comunicados e avisos", "", "familias") + '</div>';
+    h += '<div class="pn-graficos"><div class="pn-card pn-largo"><h3>Envios para a turma por dia</h3>'+barrasEmpilhadas(dias, porDiaEnv, {}, "envios_dia")+'</div>'+
+      '<div class="pn-card pn-largo"><h3>Entradas pelo cartão QR por dia</h3>'+barrasEmpilhadas(dias, qrDia, {}, "qr_dia")+'</div>'+
+      '<div class="pn-card"><h3>Compartilhamentos por município</h3>'+barrasHorizontais(porMun, 10, "material(is)", "rede_mun")+'</div></div>';
+    h += '<p class="pn-nota">Envios e avisos vêm da Auditoria, que começou em 01/11/2026: antes disso não há registro nominal.</p>';
+    $("pnCorpo").innerHTML = h;
+    $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · Educador em Rede, Sala Conectada e Turma ao Vivo";
+  }
+
+  // ---------- Conteúdo: acervo de cada município ----------
+  async function painelAcervoMunicipios(){
+    const el = $("pnAcvMun"); if(!el) return;
+    let l = [];
+    try{ const sn = await getDocs(collection(db, "acervo_rede")); sn.forEach(d => l.push({ id:d.id, ...d.data() })); }
+    catch(e){ el.innerHTML = '<div class="empty">Não foi possível ler o acervo dos municípios.</div>'; return; }
+    if(!$("pnAcvMun")) return;
+    const porMun = {}, mb = {}; l.forEach(x => { const n = pnNomeMun(x.municipio_id) || "Sem município"; porMun[n] = (porMun[n] || 0) + 1; mb[n] = (mb[n] || 0) + (x.tamanho || 0); });
+    const linha = x => ({ c:[(x.titulo || "-") + "\n" + (x.link ? dominioDe(x.link) : (x.arquivo_nome || "")), pnNomeMun(x.municipio_id) || "-", x.origem === "newpc" ? "NEWPC" : "Secretaria", x.publicado ? "Publicado" : "Oculto", x.link ? "link" : tamanhoLegivel(x.tamanho), pnDataHora(x.criado_em)] });
+    const COLS = ["Arquivo", "Município", "Origem", "Situação", "Tamanho", "Enviado em"];
+    Object.assign(pn.det, {
+      acv_rede: () => ({ titulo:"Acervo dos municípios", cols:COLS, rows:l.map(linha) }),
+      acv_mun: (nome) => ({ titulo:"Acervo de "+nome, cols:COLS, rows:l.filter(x => (pnNomeMun(x.municipio_id) || "Sem município") === nome).map(linha) }),
+      acv_newpc: () => ({ titulo:"Material da NEWPC nos municípios", cols:COLS, rows:l.filter(x => x.origem === "newpc").map(linha) })
+    });
+    const tot = l.reduce((t, x) => t + (x.tamanho || 0), 0);
+    el.innerHTML = '<div class="pn-tiles pn-tiles-2">'+
+      pnTile("Arquivos no acervo dos municípios", fmt(l.length), tamanhoLegivel(tot)+" no total", "", "acv_rede") +
+      pnTile("Material da NEWPC", fmt(l.filter(x => x.origem === "newpc").length), "colocado pelo administrador", "", "acv_newpc") +
+      pnTile("Municípios com acervo", fmt(Object.keys(porMun).length), "", "", "acv_rede") + '</div>'+
+      '<div class="pn-graficos"><div class="pn-card"><h3>Arquivos por município</h3>'+barrasHorizontais(porMun, 10, "arquivo(s)", "acv_mun")+'</div></div>';
+  }
+
+  // ---------- Infraestrutura: volume da Auditoria por dia (contagem, barata) ----------
+  async function painelAuditoriaVolume(){
+    const el = $("pnAud"); if(!el) return;
+    const dias = []; for(let i = 29; i >= 0; i--) dias.push(diasAtras(i));
+    const ini = d => Timestamp.fromDate(new Date(d + "T00:00:00"));
+    const cont = await Promise.all(dias.map((d, i) => getCountFromServer(query(collection(db, "auditoria"), where("em", ">=", ini(d)), where("em", "<", i < 29 ? ini(dias[i + 1]) : Timestamp.fromMillis(Date.now() + 60000))))
+      .then(r => r.data().count).catch(() => 0)));
+    if(!$("pnAud")) return;
+    const porDia = {}; dias.forEach((d, i) => { porDia[d] = cont[i]; });
+    const tot = cont.reduce((a, b) => a + b, 0);
+    pn.det.aud_dia = async (d) => { const i = dias.indexOf(d);
+      const sn = await getDocs(query(collection(db, "auditoria"), where("em", ">=", ini(d)), where("em", "<", i >= 0 && i < 29 ? ini(dias[i + 1]) : Timestamp.fromMillis(Date.now() + 60000)), orderBy("em","desc"), limit(1500)));
+      const l = []; sn.forEach(x => l.push(x.data()));
+      await Promise.all([...new Set(l.map(x => x.autor_uid || x.uid).filter(Boolean))].map(nomeDoUid));
+      return { titulo:"Auditoria em "+dataBR(d), cols:["Quando", "Quem", "Ação", "Onde", "Detalhe"],
+        rows:l.map(x => ({ c:[pnDataHora(x.em), aud.nomes[x.autor_uid || x.uid] || x.autor_uid || x.uid || (x.autor_tipo === "sistema" ? "Sistema" : "-"), (AUD_ACOES[x.acao] || [x.acao])[0], audColecao(x.colecao), audDetalhe(x).join(" | ")], uid:x.autor_uid || "" })),
+        nota:"Para filtros e períodos maiores, use Sistema › Auditoria." }; };
+    el.innerHTML = '<div class="pn-tiles pn-tiles-2">'+pnTile("Registros de auditoria (30 dias)", fmt(tot), "média de "+fmt(Math.round(tot / 30))+" por dia · guardados por 6 meses")+'</div>'+
+      '<div class="pn-graficos"><div class="pn-card pn-largo"><h3>Registros de auditoria por dia</h3>'+barrasEmpilhadas(dias, porDia, {}, "aud_dia")+'</div></div>';
   }
 
   // ---------- aba Conteudo e participacao: contagens direto do banco ----------
@@ -3638,16 +3983,26 @@
     const n = {}; ks.forEach((k, i) => n[k] = vs[i]);
     dks.forEach((k, i) => { if(n[k] !== null && dvs[i]) n[k] = Math.max(0, n[k] - dvs[i]); });
     const v = (x) => x === null ? "-" : fmt(x);
-    const tile = (rot, val, sub, cls) => '<div class="pn-tile'+(cls?" "+cls:"")+'"><span class="pn-rot">'+rot+'</span><b>'+val+'</b>'+(sub ? '<small>'+sub+'</small>' : '')+'</div>';
+    // cada cartão abre a lista do banco (até 1.000 itens)
+    const W = (c, o, v) => where(c, o, v);
+    const CD = { municipios:["Municípios","municipios"], escolas:["Escolas","escolas"], turmas:["Turmas","turmas"],
+      professores:["Professores","usuarios",[W("perfil","==","professor")]], alunos:["Alunos com conta","usuarios",[W("perfil","==","aluno")]],
+      cursistas:["Cursistas da Formação","users"], videos:["Vídeos publicados","videos",[W("publicado","==",true)]], jogos:["Jogos publicados","jogos",[W("publicado","==",true)]],
+      colorir:["Desenhos para colorir","colorir",[W("publicado","==",true)]], biblioteca:["Biblioteca","biblioteca",[W("publicado","==",true)]], acervo:["Acervo do Portal","acervo",[W("publicado","==",true)]],
+      cursos:["Cursos da Formação","cursos",[W("status","==","publicado")]], provasOn:["Provas online","provas_online"], certTotal:["Certificados emitidos","certificados"],
+      relTotal:["Relatórios","relatorios"], avaliacoes:["Provas no Corretor","avaliacoes"], maestro:["Aulas no Maestro","maestro_aulas"],
+      dicasPub:["Dicas do Professor publicadas","dicas_envios",[W("status","==","publicado")]], dicasAluPub:["Dicas do Aluno publicadas","dicas_alunos_pub"] };
+    pn.det.col = (k) => { const c = CD[k]; return pnColecao(c[0], c[1], c[2]); };
+    const tile = (rot, val, sub, cls, k) => pnTile(rot, val, sub, cls, k ? (CD[k] ? "col|"+k : k) : "");
     const alerta = (x) => x ? "pn-alerta" : "";
     let h = '<h3 class="pn-sec">Rede atendida</h3><div class="pn-tiles pn-tiles-2">'+
-      tile("Municípios", v(n.municipios)) + tile("Escolas", v(n.escolas)) + tile("Turmas", v(n.turmas)) +
-      tile("Professores", v(n.professores), v(n.preProf)+" aguardando 1º acesso") + tile("Alunos", v(n.alunos), v(n.preAlu)+" aguardando 1º acesso") +
-      tile("Cursistas da Formação", v(n.cursistas)) + '</div>';
+      tile("Municípios", v(n.municipios), "", "", "municipios") + tile("Escolas", v(n.escolas), "", "", "escolas") + tile("Turmas", v(n.turmas), "", "", "turmas") +
+      tile("Professores", v(n.professores), v(n.preProf)+" aguardando 1º acesso", "", "professores") + tile("Alunos", v(n.alunos), v(n.preAlu)+" aguardando 1º acesso", "", "alunos") +
+      tile("Cursistas da Formação", v(n.cursistas), "", "", "cursistas") + '</div>';
     h += '<h3 class="pn-sec">Conteúdo publicado</h3><div class="pn-tiles pn-tiles-2">'+
-      tile("Vídeos", v(n.videos), v(n.videosAlu)+" liberados para alunos", n.videos && n.videosAlu < n.videos/4 ? "pn-alerta" : "") + tile("Jogos", v(n.jogos)) +
-      tile("Desenhos para colorir", v(n.colorir)) + tile("Biblioteca", v(n.biblioteca), v(n.triPend)+" na triagem") +
-      tile("Cursos da Formação", v(n.cursos)) + tile("Acervo", v(n.acervo), "atividades, datas, histórias") + '</div>';
+      tile("Vídeos", v(n.videos), v(n.videosAlu)+" liberados para alunos", n.videos && n.videosAlu < n.videos/4 ? "pn-alerta" : "", "videos") + tile("Jogos", v(n.jogos), "", "", "jogos") +
+      tile("Desenhos para colorir", v(n.colorir), "", "", "colorir") + tile("Biblioteca", v(n.biblioteca), v(n.triPend)+" na triagem", "", "biblioteca") +
+      tile("Cursos da Formação", v(n.cursos), "", "", "cursos") + tile("Acervo do Portal", v(n.acervo), "atividades, datas, histórias", "", "acervo") + '</div>';
     // novidades: Prova online, entrada por QR e IA (contadores gravados pelas funções em stats/)
     const [eq, ia] = await Promise.all(["entrada_qr", "ia_uso"].map(id => getDoc(doc(db, "stats", id)).then(x => x.exists() ? x.data() : {}).catch(() => ({}))));
     if(pn.aba !== "conteudo" || !$("pnCorpo")) return;
@@ -3656,15 +4011,16 @@
     const mesIA = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7), iaMes = ia[mesIA] || {};
     const iaU = k => (iaMes[k] || {}).usos || 0, iaTot = Object.values(iaMes).reduce((t, x) => t + (x.usos || 0), 0), iaUsd = Object.values(iaMes).reduce((t, x) => t + (x.custo_usd || 0), 0);
     h += '<h3 class="pn-sec">Novidades em uso</h3><div class="pn-tiles pn-tiles-2">'+
-      tile("Provas online aplicadas", v(n.provasOn), v(n.provasOn30)+" nos últimos 30 dias") +
+      tile("Provas online aplicadas", v(n.provasOn), v(n.provasOn30)+" nos últimos 30 dias", "", "provasOn") +
       tile("Alunos que entraram pelo QR", fmt(qr30), "últimos 30 dias · total "+fmt(eq.total || 0)) +
       tile("Aulas com IA na Lousa (mês)", fmt(iaU("aula_lousa")), fmt(iaU("aula_lousa_imagem"))+" ilustrações da Lousa Ultra") +
       tile("Materiais do Portal IA (mês)", fmt(iaU("gerar") + iaU("ajustar")), fmt(iaU("imagem"))+" imagens · "+fmt(iaU("questoes_prova"))+" provas com IA") +
       tile("Usos de IA no mês", fmt(iaTot), "custo estimado US$ "+iaUsd.toFixed(2).replace(".", ",")) + '</div>';
+    h += '<h3 class="pn-sec">Acervo dos municípios</h3><div id="pnAcvMun"><div class="empty">Carregando...</div></div>';
     h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
-      tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados") +
-      tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados") + tile("Aulas no Maestro", v(n.maestro)) +
-      tile("Dicas do Professor publicadas", v(n.dicasPub)) + tile("Dicas do Aluno publicadas", v(n.dicasAluPub)) + '</div>';
+      tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias", "", "certTotal") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados", "", "relTotal") +
+      tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados", "", "avaliacoes") + tile("Aulas no Maestro", v(n.maestro), "", "", "maestro") +
+      tile("Dicas do Professor publicadas", v(n.dicasPub), "", "", "dicasPub") + tile("Dicas do Aluno publicadas", v(n.dicasAluPub), "", "", "dicasAluPub") + '</div>';
     const pend = [
       [n.dicasNovas, "dica(s) de professor para revisar", "/dicas/#recebidas"], [n.dicasAluNovas, "dica(s) de aluno para revisar", "/dicas/?aluno=1#recebidas"],
       [n.relPend, "relatório(s) aguardando aprovação da escola", "/relatorios/"], [n.triPend, "título(s) da Biblioteca na triagem de licença", "/biblioteca/#triagem"]
@@ -3673,6 +4029,7 @@
       ? '<ul class="pn-pend">'+pend.map(([q, t, url]) => '<li><b>'+fmt(q)+'</b> '+t+' <a href="'+url+'">Abrir</a></li>').join("")+'</ul>'
       : '<div class="empty" style="padding:6px 0">Nada pendente. 👏</div>')+'</div>';
     $("pnCorpo").innerHTML = h;
+    painelAcervoMunicipios();
     $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · contagem direta do banco";
   }
 
@@ -3819,11 +4176,12 @@
         ? '<div class="tablewrap" style="border:0"><table><thead><tr><th>Função</th><th>Execuções</th><th>Erros</th></tr></thead><tbody>'+
           fnLista.slice(0, 12).map(x => '<tr><td class="usr-vinc">'+escapeHtml(x.nome)+'</td><td>'+fmt(x.total)+'</td><td'+(x.erros ? ' style="color:#b3261e;font-weight:700"' : '')+'>'+fmt(x.erros)+'</td></tr>').join("")+'</tbody></table></div>'
         : '<div class="empty">Sem execuções registradas.</div>')+'</div></div>';
+    h += '<h3 class="pn-sec">Auditoria</h3><div id="pnAud"><div class="empty">Contando os registros...</div></div>';
     h += '<h3 class="pn-sec">Servidor NEWPC · acervo no Nextcloud</h3><div class="pn-tiles" id="pnNc"><div class="pn-tile"><span class="pn-rot">Carregando...</span></div></div>';
     h += '<p class="pn-nota">Fonte: Google Cloud Monitoring (dados oficiais, atraso de alguns minutos). As cotas grátis são do plano Blaze do Firebase; o valor cobrado de fato está em Faturamento. Ontem: '+fmt((fs.leituras||{})[ontem]||0)+' leituras e '+fmt((fs.gravacoes||{})[ontem]||0)+' gravações.'+
       ((dados.erros || []).length ? ' Métricas sem resposta: '+escapeHtml(dados.erros.map(x => x.split(":")[0]).join(", "))+'.' : '')+'</p>';
     $("pnCorpo").innerHTML = h + atalhos;
-    painelServidorNewpc();
+    painelServidorNewpc(); painelAuditoriaVolume();
     $("pnAtual").textContent = "Atualizado às "+new Date(dados.gerado_em).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · últimos 30 dias";
   }
 
@@ -3846,7 +4204,7 @@
       '<div class="pn-graficos"><div class="pn-card pn-largo"><h3>Arquivos entregues pelo servidor NEWPC por dia</h3>'+barrasEmpilhadas(dias, pd, {})+'</div></div>';
   }
   // barras verticais por dia (1 ou 2 series empilhadas, 2px de respiro entre segmentos)
-  function barrasEmpilhadas(dias, a, b){
+  function barrasEmpilhadas(dias, a, b, det){
     const tot = dias.map(d => (a[d]||0) + (b[d]||0));
     const max = Math.max(1, ...tot);
     const passo = max <= 5 ? 1 : Math.ceil(max/4);
@@ -3857,21 +4215,21 @@
     h += dias.map((d, i) => {
       const va = a[d]||0, vb = b[d]||0, t = va + vb;
       const dica = dataBR(d)+": "+(temB ? fmt(va)+" teste, "+fmt(vb)+" rede" : fmt(t));
-      return '<div class="pn-col" data-tip="'+escapeAttr(dica)+'" tabindex="0" aria-label="'+escapeAttr(dica)+'">'+
+      return '<div class="pn-col'+(det && t ? ' pn-clic" data-action="pn-det" data-det="'+escapeAttr(det+"|"+d)+'"' : '"')+' data-tip="'+escapeAttr(dica+(det && t ? " · clique para ver" : ""))+'" tabindex="0" aria-label="'+escapeAttr(dica)+'">'+
         (vb ? '<span class="pn-seg" style="height:'+(vb/max*100)+'%;background:'+COR_B+'"></span>' : '')+
         (va ? '<span class="pn-seg" style="height:'+(va/max*100)+'%;background:'+COR_A+'"></span>' : '')+
         '<em>'+(i % 5 === 4 || i === 29 ? dataBR(d).slice(0,5) : '')+'</em></div>';
     }).join("");
     return h + '</div>';
   }
-  function barrasHorizontais(mapa, limite, unidade){
+  function barrasHorizontais(mapa, limite, unidade, det){
     const itens = Object.entries(mapa).sort((x,y) => y[1] - x[1]);
     if(!itens.length) return '<div class="empty">Sem dados ainda.</div>';
     const top = itens.slice(0, limite); const resto = itens.slice(limite).reduce((s, x) => s + x[1], 0);
     if(resto) top.push(["Outros", resto]);
     const max = Math.max(...top.map(x => x[1]));
     return '<div class="pn-hbarras">'+top.map(([k, v]) =>
-      '<div class="pn-hl" data-tip="'+escapeAttr(k+": "+fmt(v)+" "+unidade)+'"><span class="pn-hk">'+escapeHtml(k)+'</span>'+
+      '<div class="pn-hl'+(det && k !== "Outros" ? ' pn-clic" data-action="pn-det" data-det="'+escapeAttr(det+"|"+k)+'" tabindex="0" role="button"' : '"')+' data-tip="'+escapeAttr(k+": "+fmt(v)+" "+unidade+(det && k !== "Outros" ? " · clique para ver" : ""))+'"><span class="pn-hk">'+escapeHtml(k)+'</span>'+
       '<span class="pn-ht"><span style="width:'+Math.max(2, v/max*100)+'%"></span></span><b>'+fmt(v)+'</b></div>').join("")+'</div>';
   }
   // dica flutuante para as barras
