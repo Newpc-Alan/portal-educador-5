@@ -396,3 +396,4 @@ export { professoresDaEscola } from './grade-turmas.js';
 export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } from './notas-fechamento.js';
 export { portalIa, portalIaLimpar } from './portal-ia.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos } from './creditos.js';
+export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';

@@ -632,6 +632,11 @@
   .acv-filtros{ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px }
   .acv-filtros .usr-busca{ flex:1 1 260px }
   .acv-filtros select{ padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:13.5px;background:#fff }
+  .aud-filtros{ display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end } .aud-filtros .field{ margin:0 } .aud-bt{ display:flex }
+  .aud-filtros2{ display:flex;gap:10px;margin-top:12px;flex-wrap:wrap } .aud-filtros2 input{ flex:1 1 280px }
+  .aud-tab td{ vertical-align:top;font-size:13px } .aud-tab td small{ display:block;color:var(--muted);font-size:11.5px } .aud-q{ white-space:nowrap;color:var(--navy) }
+  .aud-acao{ color:#fff;border-radius:10px;padding:2px 9px;font-size:11.5px;font-weight:700;white-space:nowrap } .aud-doc{ font-family:ui-monospace,monospace;word-break:break-all }
+  .aud-det div{ font-size:12.5px;line-height:1.4;word-break:break-word } .aud-det div + div{ margin-top:2px }
   .acv-bts{ display:flex;flex-direction:column;gap:6px;align-items:stretch } .acv-bts .btn-mini{ white-space:nowrap }
   .acv-mods{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px }
   .acv-cont{ font-size:13px;color:var(--muted);margin-bottom:10px }
@@ -1658,7 +1663,7 @@
   import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence,
     sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithCustomToken }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit, onSnapshot, deleteField }
+  import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, collection, getDocs, query, where, orderBy, serverTimestamp, Timestamp, writeBatch, deleteDoc, arrayUnion, getCountFromServer, limit, onSnapshot, deleteField, startAfter }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref as stRef, uploadBytes, uploadBytesResumable, getDownloadURL, getBlob, deleteObject as stDelete } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
@@ -1709,6 +1714,7 @@
       { id:"creditos",   ico:"\u{1FA99}", label:"Central de IA" },
       { id:"modulos",    ico:"\u{1F9E9}", label:"Módulos do Portal" },
       { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
+      { id:"auditoria", ico:"\u{1F50E}", label:"Auditoria" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início" },
@@ -2137,6 +2143,7 @@
       try{ const m = await getDoc(doc(db,"municipios",dados.municipio_id)); if(m.exists()) usuarioAtual._muni = { id:m.id, ...m.data() }; }
       catch(e){ console.warn("municipio:", e.code); }
     }
+    registrarEntradaPortal();
   }
 
   // primeiro login de quem foi importado: copia o vinculo do pre-cadastro (so e-mail verificado, ex.: Google)
@@ -2528,6 +2535,7 @@
       if(item.id === "noticiasadm"){ renderNoticiasAdmin(); return; }
       if(item.id === "datasadm"){ renderDatasAdmin(); return; }
       if(item.id === "docs"){ renderDocumentacao(); return; }
+      if(item.id === "auditoria"){ renderAuditoria(); return; }
       if(item.id === "simulador"){ renderSimulador(); return; }
       if(item.id === "usoreal"){ renderUsoReal(); return; }
     }
@@ -4725,6 +4733,126 @@
       }catch(e){ el.disabled = false; toast("Não foi possível excluir ("+(e.code || e.message || "erro")+").", true); }
     }
   });
+
+  // ---------- Auditoria (admin): trilha gravada pelo servidor; 6 meses de retenção (Marco Civil, art. 15) ----------
+  const AUD_ACOES = { entrou:["Entrou no Portal","#2E9BD6"], criou:["Criou","#1a6b2a"], alterou:["Alterou","#c98a00"], excluiu:["Excluiu","#d32f2f"], acessou:["Abriu/baixou","#6a4bc4"] };
+  const AUD_COLECOES = { usuarios:"Usuários", municipios:"Municípios", escolas:"Escolas", turmas:"Turmas", alunos:"Alunos", acervo:"Acervo do Portal", acervo_rede:"Acervo do município",
+    acervo_rede_arvore:"Pastas do acervo", acessos_dia:"Acervo (acessos)", notas_planilhas:"Notas", notas_escola:"Notas da escola", notas_fechadas:"Notas fechadas", fechamentos:"Fechamento de período",
+    freq_chamadas:"Frequência", relatorios:"Relatórios", provas_online:"Provas online", portal_ia_docs:"Portal IA", creditos:"Créditos de IA", config:"Configurações",
+    noticias:"Notícias", videos:"Vídeos", jogos:"Jogos", atividades:"Atividades", servidores:"Servidores", substituicoes:"Substituições", sessao:"Sessão",
+    alunos_ficha:"Ficha do aluno", alunos_saude:"Saúde do aluno", alunos_familia:"Família do aluno", comunicados_familia:"Comunicados às famílias" };
+  const aud = { itens:[], ultimo:null, fim:false, nomes:{}, carregando:false };
+  const audDataIso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  async function renderAuditoria(){
+    try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
+    const hoje = new Date(), semana = new Date(Date.now() - 6 * 86400000);
+    $("conteudo").innerHTML =
+      '<div class="imp-card"><h3>\u{1F50E} Auditoria do Portal</h3><p class="d">Tudo o que é criado, alterado ou excluído no Portal, as entradas (com IP) e os arquivos abertos no Acervo. Quem grava é o servidor: ninguém consegue apagar ou editar um registro. Os registros ficam guardados por 6 meses (Marco Civil da Internet, art. 15) e depois se apagam sozinhos.</p>'+
+        '<div class="aud-filtros">'+
+          '<div class="field"><label for="audDe">De</label><input type="date" id="audDe" value="'+audDataIso(semana)+'"></div>'+
+          '<div class="field"><label for="audAte">Até</label><input type="date" id="audAte" value="'+audDataIso(hoje)+'"></div>'+
+          '<div class="field"><label for="audAcao">Ação</label><select id="audAcao"><option value="">Todas</option>'+Object.entries(AUD_ACOES).map(([k, v]) => '<option value="'+k+'">'+v[0]+'</option>').join("")+'</select></div>'+
+          '<div class="field"><label for="audMun">Município</label><select id="audMun"><option value="">Todos</option>'+cacheMunicipios.map(m => '<option value="'+escapeAttr(m.id)+'">'+escapeHtml(m.nome)+'</option>').join("")+'</select></div>'+
+          '<div class="field"><label for="audPessoa">Pessoa (e-mail)</label><input type="email" id="audPessoa" placeholder="nome@escola..."></div>'+
+          '<div class="field aud-bt"><button class="btn btn-primary btn-add" data-action="aud-buscar">Buscar</button></div>'+
+        '</div>'+
+        '<div class="aud-filtros2"><input type="search" id="audTexto" class="usr-busca" placeholder="Filtrar o resultado (o quê, campo, IP, documento)"><button class="btn btn-ghost btn-add" data-action="aud-csv">Exportar planilha (CSV)</button></div></div>'+
+      '<div class="imp-card"><div id="audLista"><div class="empty">Carregando...</div></div></div>';
+    buscarAuditoria(true);
+  }
+  async function nomeDoUid(uid){
+    if(!uid) return "";
+    if(aud.nomes[uid] !== undefined) return aud.nomes[uid];
+    try{ const d = await getDoc(doc(db,"usuarios",uid)); const x = d.exists() ? d.data() : null; aud.nomes[uid] = x ? (x.nome || x.email || uid) + (x.email && x.nome ? " · "+x.email : "") + (x.perfil ? " ("+x.perfil+")" : "") : uid; }
+    catch(e){ aud.nomes[uid] = uid; }
+    return aud.nomes[uid];
+  }
+  async function buscarAuditoria(novo){
+    if(aud.carregando) return;
+    if(novo){ aud.itens = []; aud.ultimo = null; aud.fim = false; }
+    const de = $("audDe").value, ate = $("audAte").value, acao = $("audAcao").value, mun = $("audMun").value, pessoa = $("audPessoa").value.trim().toLowerCase();
+    if(!de || !ate){ toast("Escolha o período.", true); return; }
+    aud.carregando = true; if(novo) $("audLista").innerHTML = '<div class="empty">Buscando...</div>';
+    try{
+      const filtros = [where("em", ">=", Timestamp.fromDate(new Date(de+"T00:00:00"))), where("em", "<", Timestamp.fromDate(new Date(new Date(ate+"T00:00:00").getTime() + 86400000)))];
+      // um filtro de igualdade no banco (os outros são aplicados na tela)
+      if(pessoa){
+        const su = await getDocs(query(collection(db,"usuarios"), where("email","==",pessoa), limit(1)));
+        if(su.empty){ $("audLista").innerHTML = '<div class="empty">Nenhum usuário com esse e-mail.</div>'; return; }
+        filtros.unshift(where("autor_uid","==",su.docs[0].id));
+      }
+      else if(mun) filtros.unshift(where("municipio_id","==",mun));
+      else if(acao) filtros.unshift(where("acao","==",acao));
+      const q = [collection(db,"auditoria"), ...filtros, orderBy("em","desc")];
+      if(aud.ultimo) q.push(startAfter(aud.ultimo));
+      q.push(limit(300));
+      const sn = await getDocs(query(...q));
+      sn.forEach(d => aud.itens.push({ id:d.id, ...d.data() }));
+      aud.ultimo = sn.docs.length ? sn.docs[sn.docs.length - 1] : aud.ultimo; aud.fim = sn.docs.length < 300;
+      await Promise.all([...new Set(aud.itens.map(i => i.autor_uid).filter(Boolean))].map(nomeDoUid));
+    }catch(e){ console.warn(e); $("audLista").innerHTML = '<div class="empty">Não foi possível buscar ('+escapeHtml(e.code||"erro")+'). Se o erro for de índice, ele ainda está sendo criado: tente em alguns minutos.</div>'; return; }
+    finally{ aud.carregando = false; }
+    desenharAuditoria();
+  }
+  function audFiltrados(){
+    const acao = $("audAcao").value, mun = $("audMun").value, t = semAcento(($("audTexto") || {}).value || "");
+    return aud.itens.filter(i => (!acao || i.acao === acao) && (!mun || i.municipio_id === mun) && (!t || semAcento(audTextoLinha(i).join(" ")).includes(t)));
+  }
+  const audQuando = i => i.em && i.em.toDate ? i.em.toDate().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "-";
+  const audColecao = c => { const [a, b] = String(c || "").split("/"); return (AUD_COLECOES[a] || a || "-") + (b ? " › " + (AUD_COLECOES[b] || b) : ""); };
+  const audMunNome = id => id ? ((cacheMunicipios.find(m => m.id === id) || {}).nome || id) : "";
+  function audDetalhe(i){
+    const out = [];
+    if(i.acao === "entrou") out.push("IP " + (i.ip || "-"), (i.navegador || "").replace(/^Mozilla\/5\.0 \(([^)]*)\).*$/, "$1"));
+    if(i.detalhe){ out.push(i.detalhe); if(i.acao === "acessou") return out; }
+    const v = i.valores || {};
+    (i.campos || []).forEach(c => out.push(v[c] ? c + ": " + (v[c].de == null ? "(vazio)" : v[c].de) + " → " + (v[c].para == null ? "(vazio)" : v[c].para) : c));
+    if(!out.length && i.alvo) out.push("alvo " + i.alvo);
+    return out.filter(Boolean);
+  }
+  function audTextoLinha(i){
+    const quem = i.autor_uid ? (aud.nomes[i.autor_uid] || i.autor_uid) : (i.autor_tipo === "sistema" ? "Sistema (automático)" : i.autor_tipo || "-");
+    return [audQuando(i), quem, (AUD_ACOES[i.acao] || [i.acao])[0], audColecao(i.colecao), i.doc || "", audMunNome(i.municipio_id), audDetalhe(i).join(" | ")];
+  }
+  function desenharAuditoria(){
+    const l = audFiltrados();
+    $("audLista").innerHTML = !l.length ? '<div class="empty">Nenhum registro nesse período e filtros.</div>' :
+      '<p class="acv-cont">'+l.length+' registro(s)'+(aud.fim ? '' : ' (há mais: use "Carregar mais")')+'</p>'+
+      '<div class="tablewrap" style="border:0"><table class="aud-tab"><thead><tr><th>Quando</th><th>Quem</th><th>Ação</th><th>Onde</th><th>Detalhe</th></tr></thead><tbody>'+
+      l.map(i => { const c = AUD_ACOES[i.acao] || [i.acao || "-", "#62758a"], t = audTextoLinha(i);
+        return '<tr><td class="aud-q">'+escapeHtml(t[0])+'</td><td>'+escapeHtml(t[1])+'</td>'+
+          '<td><span class="aud-acao" style="background:'+c[1]+'">'+escapeHtml(c[0])+'</span></td>'+
+          '<td>'+escapeHtml(t[3])+(t[5] ? '<small>'+escapeHtml(t[5])+'</small>' : '')+(i.doc ? '<small class="aud-doc">'+escapeHtml(i.doc)+'</small>' : '')+'</td>'+
+          '<td class="aud-det">'+audDetalhe(i).map(x => '<div>'+escapeHtml(x)+'</div>').join("")+'</td></tr>'; }).join("")+'</tbody></table></div>'+
+      (aud.fim ? '' : '<div class="imp-acoes"><button class="btn btn-ghost" data-action="aud-mais">Carregar mais</button></div>');
+  }
+  function exportarAuditoria(){
+    const l = audFiltrados(); if(!l.length){ toast("Nada para exportar.", true); return; }
+    const esc = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+    const linhas = [["Quando","Quem","Ação","Onde","Documento","Município","Detalhe"].map(esc).join(";")]
+      .concat(l.map(i => { const t = audTextoLinha(i); return [t[0], t[1], t[2], t[3], t[4], t[5], t[6]].map(esc).join(";"); }));
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + linhas.join("\n")], { type:"text/csv;charset=utf-8" }));
+    a.download = "auditoria-portal-" + $("audDe").value + "-a-" + $("audAte").value + ".csv"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  }
+  document.addEventListener("click", ev => {
+    const el = ev.target.closest("[data-action^='aud-']"); if(!el) return;
+    const a = el.dataset.action;
+    if(a === "aud-buscar") buscarAuditoria(true);
+    if(a === "aud-mais") buscarAuditoria(false);
+    if(a === "aud-csv") exportarAuditoria();
+  });
+  document.addEventListener("input", ev => { if(ev.target.id === "audTexto") desenharAuditoria(); });
+  // entrada no Portal: registrada pelo servidor (com IP), uma vez por sessão do navegador
+  async function registrarEntradaPortal(){
+    try{
+      const u = auth.currentUser; if(!u || !usuarioAtual || usuarioAtual.semCadastro) return;
+      const k = "pde_entrada_" + u.uid;
+      try{ if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k, "1"); }catch(e){}
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      await httpsCallable(getFunctions(app, "southamerica-east1"), "registrarEntrada", { timeout:15000 })({ tela:"entrar" });
+    }catch(e){ console.warn("registro de entrada:", e.code || e.message); }
+  }
 
   // ---------- admin: enviar e organizar ----------
   const acvAdm = { itens:[], fila:[], enviando:false, filtro:"" };
