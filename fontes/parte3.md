@@ -299,7 +299,7 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | Material da NEWPC no acervo do município | Itens com `origem: "newpc"` e arquivo `acervo-rede/{mun}/newpc-...`: só o admin cria, edita e apaga. A Secretaria lê, mas não envia nem apaga arquivo com esse prefixo (Firestore e Storage conferem) |
 | Acervo da rede, link externo | Aceito só com `https://` e sem arquivo; o link não muda depois de criado |
 | Árvore de pastas | Só o admin grava (`pastas`, até 400); a rede lê |
-| Auditoria | Ninguém grava pelo navegador (`write: if false`). Lê só o administrador (`fAdmin()`, que aceita o perfil admin ou o papel admin da Formação) |
+| Auditoria | Ninguém grava pelo navegador (`write: if false`). Lê só o administrador do Portal (`admin()`); o papel admin da Formação não lê |
 | Portal IA | `portal_ia_docs` não aceita criação pelo navegador; a edição só mexe em texto, título, favorito e HTML (até 300 KB) |
 | Créditos | Leitura por dono da carteira; nenhuma escrita pelo navegador |
 | Notícias públicas | `noticias_publicas` tem leitura aberta (sem login) e guarda só título, texto, foto e mídia |
@@ -659,25 +659,27 @@ Logs das funções: `firebase functions:log --project portal-educador-5`, o Clou
 
 ## Pontos de atenção e melhorias
 
+:::nota
+Resolvidos em 01/11/2026: todos os registros da coleção `auditoria` (inclusive os gravados pelas funções antigas) passaram a ter `expira_em` e vencem em 6 meses; a leitura da auditoria ficou restrita ao administrador do Portal (`admin()`).
+:::
+
 Os itens abaixo estão ordenados do mais sério para o menos sério.
 
 | # | Ponto | Risco | Recomendação |
 |---|---|---|---|
 | 1 | Arquivos servidos por link com token permanente (Storage), inclusive os copiados para Materiais da turma e rede | O link de um PDF funciona fora do Portal, para sempre | Para o que é diferencial comercial, servir pelo `linkArquivoNc` (link de minutos) ou por URL temporária |
 | 2 | E-mail por conta Google com limite diário compartilhado | Num dia de muitos avisos e envios, os e-mails param, inclusive chamados técnicos. Os avisos às famílias param em 1.500 por dia e o professor tem cota própria, mas não há contador único | Serviço transacional ou conta dedicada; contador único de envios para todas as funções |
-| 3 | Registros antigos na coleção `auditoria` (Formação, senha provisória, acesso do aluno, cadastro manual) sem `expira_em` e com outro formato | Nunca vencem pelo TTL e aparecem diferentes na tela | Acrescentar `expira_em` nesses `add()` e um script único para os antigos |
-| 4 | Leitura da auditoria por `fAdmin()` | O papel admin da Formação também lê a trilha do Portal, com IPs | Trocar por `admin()` na regra da `auditoria` |
-| 5 | Custo da auditoria | Cada gravação no banco dispara uma função e grava mais um documento | Acompanhar no painel de uso; mandar para `IGNORAR` o que for ruído |
-| 6 | Bucket principal nos Estados Unidos | Transferência internacional de dados (informada na Privacidade) | Concluir a migração com `migrar-arquivos-sp.mjs` |
-| 7 | Pastas do Drive públicas e chave da API no código | Quem tiver o ID baixa o acervo sem licença | Fechar as pastas depois das importações, ler com a conta de serviço, trocar a chave |
-| 8 | Entrega do servidor NEWPC no mesmo domínio do login do Nextcloud | Arquivo entregue e tela de login do Nextcloud dividem a mesma origem | Subdomínio só para arquivos e trocar `NC_ENTREGA_URL` |
-| 9 | `status` "inativo" do município não bloqueia nas regras | Rede inativa sem data de fim continua acessando | Incluir o status em `contratoOk()` e sempre preencher a data de fim |
-| 10 | Plano do professor conferido no front e nas telas, não nas regras | Professor lê catálogos fora do plano pela API | Criar `profPode(m)` nas regras, como `alunoPode(m)` |
-| 11 | Storage não confere contrato vigente | Professor de rede vencida continua usando pastas pessoais | Ler o município nas regras de Storage ou assumir como carência |
-| 12 | Dois sistemas de administrador (perfil e papel da Formação) | Admin novo é barrado em callables da Formação | Aceitar o perfil admin nas callables ou incluir no checklist |
-| 13 | Painel da Rede filtra uso pelo nome do município | Renomear ou homônimos misturam os números | Gravar e filtrar por `municipio_id` |
-| 14 | Workflow **Consulta (só leitura)** com opções que gravam | Alguém roda achando que só lê | Separar em dois workflows ou marcar no nome da opção |
-| 15 | Listas de planos e recursos duplicadas entre front e funções | Mudança num lado só libera ou trava errado | Uma fonte única em `config` ou arquivo comum |
-| 16 | Aluno ligado à turma por texto | **Melhorou**: a matrícula (código + PIN, QR, Google da escola) liga por ID. O aluno que entra só pelo domínio do e-mail ainda nasce sem escola | Levar todos para a matrícula |
-| 17 | `avaliacoes` pública com gabarito e `respostas` sem dono | **Resolvido em 26/10/2026** | |
-| 18 | Documentação e comentários desatualizados | Retrabalho de quem chega ao código | Usar esta parte como base de um `docs/` no repositório |
+| 3 | Custo da auditoria | Cada gravação no banco dispara uma função e grava mais um documento | Acompanhar no painel de uso; mandar para `IGNORAR` o que for ruído |
+| 4 | Bucket principal nos Estados Unidos | Transferência internacional de dados (informada na Privacidade) | Concluir a migração com `migrar-arquivos-sp.mjs` |
+| 5 | Pastas do Drive públicas e chave da API no código | Quem tiver o ID baixa o acervo sem licença | Fechar as pastas depois das importações, ler com a conta de serviço, trocar a chave |
+| 6 | Entrega do servidor NEWPC no mesmo domínio do login do Nextcloud | Arquivo entregue e tela de login do Nextcloud dividem a mesma origem | Subdomínio só para arquivos e trocar `NC_ENTREGA_URL` |
+| 7 | `status` "inativo" do município não bloqueia nas regras | Rede inativa sem data de fim continua acessando | Incluir o status em `contratoOk()` e sempre preencher a data de fim |
+| 8 | Plano do professor conferido no front e nas telas, não nas regras | Professor lê catálogos fora do plano pela API | Criar `profPode(m)` nas regras, como `alunoPode(m)` |
+| 9 | Storage não confere contrato vigente | Professor de rede vencida continua usando pastas pessoais | Ler o município nas regras de Storage ou assumir como carência |
+| 10 | Dois sistemas de administrador (perfil e papel da Formação) | Admin novo é barrado em callables da Formação | Aceitar o perfil admin nas callables ou incluir no checklist |
+| 11 | Painel da Rede filtra uso pelo nome do município | Renomear ou homônimos misturam os números | Gravar e filtrar por `municipio_id` |
+| 12 | Workflow **Consulta (só leitura)** com opções que gravam | Alguém roda achando que só lê | Separar em dois workflows ou marcar no nome da opção |
+| 13 | Listas de planos e recursos duplicadas entre front e funções | Mudança num lado só libera ou trava errado | Uma fonte única em `config` ou arquivo comum |
+| 14 | Aluno ligado à turma por texto | **Melhorou**: a matrícula (código + PIN, QR, Google da escola) liga por ID. O aluno que entra só pelo domínio do e-mail ainda nasce sem escola | Levar todos para a matrícula |
+| 15 | `avaliacoes` pública com gabarito e `respostas` sem dono | **Resolvido em 26/10/2026** | |
+| 16 | Documentação e comentários desatualizados | Retrabalho de quem chega ao código | Usar esta parte como base de um `docs/` no repositório |

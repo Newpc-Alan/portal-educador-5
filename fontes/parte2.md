@@ -571,7 +571,7 @@ Menu **Painel**, com quatro abas:
 ![Painel do administrador](s15-painel.png){85}
 
 :::nota
-A caixa **Incluir Rede Modelo**, que ainda aparece no Painel e em Usuários, não muda mais nada: a rede de demonstração foi apagada.
+A rede de demonstração (Rede Modelo) foi apagada; as demonstrações usam o município Laboratório NEWPC.
 :::
 
 :::dica
