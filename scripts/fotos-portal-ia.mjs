@@ -13,8 +13,11 @@ const ad = (await db.collection('usuarios').where('email', '==', 'alan@newpc.com
 const tk = (await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: await getAuth().createCustomToken(ad.id), returnSecureToken: true }) })).json()).idToken;
 const ref = n => ({ mime: 'image/webp', dados: readFileSync('../scripts/referencias/personagens/' + n + '.webp').toString('base64') });
 // o tablet da NEWPC nas carteiras: EduDock (Galaxy Tab A7 10,4" SM-T505 num suporte de proteção impresso, perna rebatível a 45°)
-const EDUDOCK = 'um tablet Samsung Galaxy Tab A7 de 10 polegadas, na horizontal, encaixado num suporte de proteção robusto preto com detalhes em verde (moldura que envolve o tablet e uma perna traseira que o deixa inclinado a 45 graus sobre a carteira), tela acesa com conteúdo educativo colorido';
-const TABLET_MAO = 'um tablet Samsung Galaxy Tab A7 de 10 polegadas numa capa de proteção preta, tela acesa';
+const EDUDOCK = 'um tablet na horizontal dentro do suporte EduDock (moldura azul, perna verde atrás) apoiado sobre a carteira, tela acesa com conteúdo educativo colorido';
+const TABLET_MAO = 'um tablet dentro do suporte EduDock (moldura azul com o logo NEWPC), tela acesa';
+const DOCK = ['edudock-frente', 'edudock-verso'].map(n => ({ mime: 'image/webp', dados: readFileSync('../scripts/referencias/' + n + '.webp').toString('base64') }));
+// padrão visual de todas as fotos: fidelidade total aos personagens + luz e profundidade de cinema
+const ESTILO = '. Fidelidade total às pessoas de referência: mesmo rosto, idade, cabelo, óculos, tom de pele e uniforme, sem embelezar nem mudar traços. Estética de fotografia cinematográfica de campanha publicitária: imagem clara e luminosa, luz suave de janela com contraluz quente, cores ricas e vibrantes, profundidade de campo rasa (fundo levemente desfocado, bokeh), sensação de volume e profundidade 3D, nitidez alta nos rostos e no tablet, lente de 50mm';
 // [card, personagens (na ordem da cena), cena]
 const CARDS = [
   ['plano', ['prof-loira'], 'a professora em pé na frente da sala, sorrindo, segurando nas mãos ' + TABLET_MAO + ' enquanto planeja a aula, notebook e livros na mesa ao lado'],
@@ -43,7 +46,7 @@ const fila = CARDS.filter(c => !so.length || so.includes(c[0])).flatMap(c => [[.
 async function um([k, pers, cena, n]) {
   for (let t = 0; t < 2; t++) {
     const r = await (await fetch('https://southamerica-east1-portal-educador-5.cloudfunctions.net/portalIa', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tk },
-      body: JSON.stringify({ data: { acao: 'foto_ref', descricao: cena, refs: pers.map(ref) } }) })).json().catch(e => ({ error: { message: e.message } }));
+      body: JSON.stringify({ data: { acao: 'foto_ref', descricao: cena + ESTILO, refs: pers.map(ref), objetos: /EduDock/.test(cena) ? DOCK : [] } }) })).json().catch(e => ({ error: { message: e.message } }));
     if (r.result && r.result.dados) { writeFileSync(`saida/${k}-${n}.${/png/.test(r.result.mime) ? 'png' : 'jpg'}`, Buffer.from(r.result.dados, 'base64')); ok++; return; }
     if (t) { falhas++; console.log('::warning::' + k + '-' + n + ': ' + JSON.stringify(r.error || r).slice(0, 200)); }
   }

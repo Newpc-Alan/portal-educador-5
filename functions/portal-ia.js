@@ -609,11 +609,13 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
   if (d.acao === 'foto_ref') {
     if (!ctx.admin) throw new HttpsError('permission-denied', 'Só o administrador.');
     const descricao = txt(d.descricao, 1500); if (descricao.length < 10) throw new HttpsError('invalid-argument', 'Descreva a cena.');
-    const refs = (Array.isArray(d.refs) ? d.refs : []).slice(0, 4).filter(r => /^image\/(png|jpeg|webp)$/.test(r && r.mime) && typeof r.dados === 'string' && r.dados.length < 2e6);
+    const ok = r => /^image\/(png|jpeg|webp)$/.test(r && r.mime) && typeof r.dados === 'string' && r.dados.length < 2e6;
+    const refs = (Array.isArray(d.refs) ? d.refs : []).slice(0, 4).filter(ok), objs = (Array.isArray(d.objetos) ? d.objetos : []).slice(0, 2).filter(ok);
     const prompt = 'Fotografia realista, profissional, para o card de um aplicativo educacional brasileiro. ' +
       (refs.length ? 'As pessoas da cena são EXATAMENTE as pessoas das fotos de referência anexadas, na ordem em que aparecem: mantenha o rosto, o cabelo, os óculos, o tom de pele e o corpo de cada uma, e o uniforme igual ao da referência (camiseta com o logo NEWPC EDUCAÇÃO). Não acrescente outras pessoas adultas. ' : '') +
+      (objs.length ? 'As ' + objs.length + ' últimas imagens anexadas NÃO são pessoas: mostram o produto EduDock da NEWPC (suporte de tablet para a carteira). Sempre que a cena tiver tablet, ele está dentro deste suporte, reproduzido com fidelidade: moldura azul arredondada em volta da tela, logo NEWPC branco na borda de baixo da frente, perna traseira verde rebatível com o logo NEWPC, apoiando o tablet inclinado a uns 45 graus. ' : '') +
       'Cena: ' + descricao + '. Sala de aula ou escola pública brasileira, clara, organizada, luz natural da janela, cores vivas e acolhedoras, expressões naturais. Formato horizontal 4:3, assunto principal no centro (as bordas serão cortadas). Nenhum texto, letra ou número na imagem além do logo da camiseta.';
-    const parts = [...refs.map(r => ({ inlineData: { mimeType: r.mime, data: r.dados } })), { text: prompt }];
+    const parts = [...refs, ...objs].map(r => ({ inlineData: { mimeType: r.mime, data: r.dados } })).concat({ text: prompt });
     const r = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } });
     const parte = r.partes.find(p => p.inlineData && /^image\//.test(p.inlineData.mimeType || ''));
     if (!parte) throw new HttpsError('internal', 'A IA não devolveu a imagem: ' + txt(r.partes.map(p => p.text || '').join(' '), 200));
