@@ -632,6 +632,7 @@
   .acv-filtros{ display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px }
   .acv-filtros .usr-busca{ flex:1 1 260px }
   .acv-filtros select{ padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:13.5px;background:#fff }
+  .acv-bts{ display:flex;flex-direction:column;gap:6px;align-items:stretch } .acv-bts .btn-mini{ white-space:nowrap }
   .acv-mods{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px }
   .acv-cont{ font-size:13px;color:var(--muted);margin-bottom:10px }
   .acv-grade{ display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px }
@@ -3967,7 +3968,8 @@
       '<div class="acv-txt"><h4>'+escapeHtml(i.titulo||"Sem título")+'</h4>'+
       '<p>'+escapeHtml([i.rede ? (i.origem === "newpc" ? "NEWPC" : "Secretaria de Educação")+" · "+local : nomeModulo(i.modulo), i.disciplina, (i.etapas||[]).join(", ")].filter(Boolean).join(" · "))+'</p>'+
       ((i.bncc||[]).length ? '<div class="acv-bncc">'+i.bncc.slice(0,4).map(c => '<span>'+escapeHtml(c)+'</span>').join("")+'</div>' : '')+
-      (i.link ? '<p class="acv-dom">\u{1F517} '+escapeHtml(dominioDe(i.link))+'</p>' : '')+'</div><button class="btn-mini btn-gerenciar" data-action="acv-abrir" data-id="'+escapeAttr(i.id)+'">Abrir</button></article>';
+      (i.link ? '<p class="acv-dom">\u{1F517} '+escapeHtml(dominioDe(i.link))+'</p>' : '')+'</div><div class="acv-bts"><button class="btn-mini btn-gerenciar" data-action="acv-abrir" data-id="'+escapeAttr(i.id)+'">'+(i.link ? "Abrir" : "Ver")+'</button>'+
+      (i.arquivo_key && !i.nc_caminho ? '<button class="btn-mini tr-sec" data-action="acv-baixar" data-id="'+escapeAttr(i.id)+'" title="Salvar o arquivo no computador para editar">\u2B07 Baixar</button>' : '')+'</div></article>';
   }
   document.addEventListener("input", (ev) => {
     if(ev.target.id === "acvBusca"){ acv.busca = ev.target.value; desenharAcervo(); }
@@ -3978,6 +3980,21 @@
   });
   // Arquivos do acervo ficam no Storage do Firebase (acervo/... e acervo-rede/{municipio}/...): as regras conferem licença e rede.
   // Abre por um endereço temporário do navegador, sem link permanente que possa circular fora do Portal.
+  // baixar: salva o arquivo original no computador (Word, Excel, PowerPoint editáveis), mesmo quando o navegador saberia mostrar
+  async function baixarArquivo(id, btn){
+    const item = acv.itens.find(i => i.id === id); if(!item || !item.arquivo_key) return;
+    btn.disabled = true; const rot = btn.textContent; btn.textContent = "Baixando...";
+    try{
+      const blob = await getBlob(stRef(getStorage(app), item.arquivo_key));
+      const ext = ((item.arquivo_nome || item.arquivo_key).match(/\.[a-z0-9]{2,5}$/i) || [""])[0];
+      const nome = item.arquivo_nome || ((item.titulo || "arquivo").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 120) + ext);
+      const url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+      registrarAcervo(id);
+    }catch(e){ console.warn(e); toast(e.code === "storage/unauthorized" ? "Sua licença não permite baixar este arquivo." : e.code === "storage/object-not-found" ? "Arquivo não encontrado." : "Não foi possível baixar o arquivo.", true); }
+    finally{ btn.disabled = false; btn.textContent = rot; }
+  }
   async function abrirArquivo(id, btn){
     const item = acv.itens.find(i => i.id === id); if(!item) return;
     if(item.link){ window.open(item.link, "_blank", "noopener"); registrarAcervo(id); return; }
@@ -6159,6 +6176,7 @@
     else if(acao === "lousa-fim"){ pedirEncerrarLousa(); }
     else if(acao === "ini-acervo"){ registrarModulo(el.dataset.mod); renderAcervo(el.dataset.mod); }
     else if(acao === "acv-abrir"){ abrirArquivo(el.dataset.id, el); }
+    else if(acao === "acv-baixar"){ baixarArquivo(el.dataset.id, el); }
     else if(acao === "ini-videos"){ registrarModulo(el.dataset.mod); renderVideos(); }
     else if(acao === "vd-ver"){ abrirVideo(el.dataset.id); }
     else if(acao === "vd-reagir"){ reagirVideo(el.dataset.arg); }
