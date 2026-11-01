@@ -18,9 +18,14 @@
     "Material bom é material revisado. Dois minutos de leitura evitam um erro na frente da turma.",
     "Criatividade é sua. A IA é só mais uma ferramenta na sua caixa, como o livro e o quadro.",
     "Quando a IA não acertar o tom, peça de novo do seu jeito. Você está no comando.",
-    "Compartilhe com a rede o que deu certo: a experiência de um professor ajuda muitos outros."
+    "Compartilhe com a rede o que deu certo: a experiência de um professor ajuda muitos outros.",
+    // slogans do Portal
+    "Portal do Educador: a tecnologia a serviço de quem ensina.",
+    "Portal do Educador: menos tempo preparando, mais tempo ensinando.",
+    "Portal do Educador: o professor no centro, a tecnologia ao lado.",
+    "Portal do Educador: feito para a sala de aula de verdade."
   ];
-  const marca = t => t.replace(/^Professor,/, "<b>Professor,</b>");
+  const marca = t => t.replace(/^Professor,/, "<b>Professor,</b>").replace(/^Portal do Educador:/, "<b>Portal do Educador:</b>");
   let el = null, relogio = null, relogioR = null, inicio = 0;
   function css() {
     if (document.getElementById("pdePensandoCss")) return;
