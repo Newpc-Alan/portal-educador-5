@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Portal IA · Portal do Educador</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<script src="/assets/pde-pensando.js?v=3" defer></script>
+<script src="/assets/pde-pensando.js?v=4" defer></script>
 <meta name="theme-color" content="#071621">
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -696,14 +696,16 @@ async function enviar(){
   if(texto.length < 3 && !E.tipo){ toast("Escreva o que você precisa ou escolha um atalho.", true); return; }
   E.conversa = { texto, tipo:E.tipo, etapa:"entendendo", perguntas:[], respostas:{}, nome:"", tema:"", resumo:"" };
   E.ocupado = true; ir("conversa");
+  if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:"uns segundos", etapas:["Lendo o seu pedido", "Entendendo o que você precisa"] });
+  const fecharP = () => { if(window.PDEPensando) PDEPensando.fechar(); };
   try{
     const r = (await chamar({ acao:"entender", texto, tipo:E.tipo || undefined, contexto:contexto() })).data;
     Object.assign(E.conversa, { tipo:r.tipo, nome:r.nome, tema:r.tema, resumo:r.resumo || texto, perguntas:r.perguntas || [], mensagem:r.mensagem });
-    if(r.tipo === "fora"){ E.conversa.etapa = "fora"; E.ocupado = false; desenhar(); return; }
+    if(r.tipo === "fora"){ fecharP(); E.conversa.etapa = "fora"; E.ocupado = false; desenhar(); return; }
     E.ocupado = false;
-    if(!E.conversa.perguntas.length) return gerar();
-    E.conversa.etapa = "perguntas"; desenhar();
-  }catch(e){ E.ocupado = false; E.conversa.etapa = "erro"; E.conversa.erro = msgErro(e); E.conversa.tipo = E.conversa.tipo || E.tipo || ""; if(!E.conversa.tipo){ E.conversa.etapa = "fora"; E.conversa.mensagem = msgErro(e); } desenhar(); }
+    if(!E.conversa.perguntas.length) return gerar();   // a tela "Estou pensando" continua aberta e vira a da geração
+    fecharP(); E.conversa.etapa = "perguntas"; desenhar();
+  }catch(e){ fecharP(); E.ocupado = false; E.conversa.etapa = "erro"; E.conversa.erro = msgErro(e); E.conversa.tipo = E.conversa.tipo || E.tipo || ""; if(!E.conversa.tipo){ E.conversa.etapa = "fora"; E.conversa.mensagem = msgErro(e); } desenhar(); }
 }
 function lerRespostas(){ document.querySelectorAll("[data-resp]").forEach(el => { const v = el.value.trim(); if(v) E.conversa.respostas[el.dataset.resp] = v; }); }
 async function gerar(){
@@ -1046,12 +1048,13 @@ async function gerarImagem(){
   if(m && onde === "topo" && +m[1] >= 1 && +m[1] <= todasQuestoes(E.atual.doc).length){ onde = "q" + m[1]; descricao = descricao.replace(m[0], "").replace(/^[\s.,;:]+/, "").trim(); }
   if(descricao.length < 5){ toast("Descreva a imagem.", true); return; }
   E.imgOnde = onde; E.imgDescPre = "";
-  E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true); toast("Desenhando a imagem... leva uns segundos.");
+  E.ocupado = true; document.querySelectorAll(".lado .btn,.lado .chip").forEach(b => b.disabled = true); if(window.PDEPensando) PDEPensando.abrir({ titulo:"Desenhando a imagem", tempo:"uns 15 segundos", etapas:["Lendo a sua descrição", "Desenhando", "Dando os últimos retoques"] }); else toast("Desenhando a imagem... leva uns segundos.");
   try{
     const r = (await chamar({ acao:"imagem", id:E.atual.id, descricao, estilo, onde })).data;
     E.imgs[r.onde || onde] = "data:" + r.mime + ";base64," + r.dados; aposUso(r.cota);
     toast((r.onde || onde) === "topo" ? "Imagem pronta no topo. Ela entra no PDF." : "Imagem pronta ao lado da questão " + (r.onde || onde).slice(1) + ". Ela entra no PDF.");
   }catch(e){ toast(msgErro(e), true); }
+  if(window.PDEPensando) PDEPensando.fechar();
   E.ocupado = false; telaDoc();
 }
 async function removerImagem(onde){

@@ -56,8 +56,19 @@
 @media (max-width:520px){#pdePensando h2{font-size:23px}#pdePensando .pp-recado{font-size:15px}}`;
     document.head.appendChild(s);
   }
+  // já aberta (ex.: do "entender" para o "gerar" no Portal IA): só troca título, etapas e tempo, sem piscar nem reiniciar os recados
+  function atualizar(o) {
+    const etapas = (o.etapas && o.etapas.length ? o.etapas : null);
+    const h = el.querySelector("h2"); if (h && o.titulo) h.firstChild.textContent = o.titulo;
+    let tp = el.querySelector(".pp-tempo");
+    if (o.tempo) { if (!tp) { tp = document.createElement("div"); tp.className = "pp-tempo"; el.querySelector(".pp-etapa").after(tp); } tp.textContent = "Isso leva " + o.tempo + "."; }
+    if (etapas) { clearInterval(relogio); let i = 0; const et = el.querySelector(".pp-etapa"); et.textContent = etapas[0] + "...";
+      relogio = setInterval(() => { if (!el) return; i = Math.min(i + 1, etapas.length - 1); et.style.opacity = 0; setTimeout(() => { if (el) { et.textContent = etapas[i] + "..."; et.style.opacity = 1; } }, 250); }, o.passoMs || 4500); }
+  }
   function abrir(o) {
-    o = o || {}; css(); fechar(true);
+    o = o || {}; css();
+    if (el && document.body.contains(el)) { atualizar(o); return; }
+    fechar(true);
     const etapas = (o.etapas && o.etapas.length ? o.etapas : ["Entendendo o seu pedido", "Organizando as ideias", "Escrevendo", "Conferindo tudo"]);
     const ordem = [0].concat(RECADOS.slice(1).map((_, k) => k + 1).sort(() => Math.random() - .5));
     el = document.createElement("div"); el.id = "pdePensando"; el.setAttribute("role", "status"); el.setAttribute("aria-live", "polite");

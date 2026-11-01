@@ -780,6 +780,7 @@ html, body { background: #f4f7fa !important; }
   #pde-painel .mp-item-acoes { grid-column: 1 / -1; justify-content: flex-start; }
 }
 </style>
+<script src="/assets/pde-pensando.js?v=4" defer></script>
 </head>
 <body>
 <div id="pde-painel" class="pde-quiosque">
@@ -3850,11 +3851,13 @@ window.PDEProvas = { buildAnswerKeysCompact, respostasGab, definirTurmas, montar
     const qtd = Math.max(1, Math.min(40, parseInt($("ia-qtd").value, 10) || 10));
     gerando = true; const b = $("ia-gerar"); b.disabled = true; b.textContent = "Gerando...";
     $("ia-st").innerHTML = '<div class="ia-st"><span class="ia-giro"></span>Escrevendo ' + qtd + ' questões e conferindo o gabarito... leva de 15 a 60 segundos.</div>'; mostrar([], "");
+    if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:qtd > 15 ? "até 1 minuto e meio" : "de 15 a 60 segundos", etapas:["Lendo o tema e a turma", "Buscando as habilidades da BNCC", "Escrevendo " + qtd + " questões", "Conferindo o gabarito"] });
     try{
       const r = await window.PDEPortalIA.chamar({ acao:"questoes_prova", tema, qtd, tipos:$("ia-tipos").value, nivel:$("ia-nivel").value, total:parseFloat($("ia-total").value) || 0, obs:$("ia-obs").value.trim(), disciplina:disc, turma });
+      if(window.PDEPensando) PDEPensando.fechar();
       $("ia-st").innerHTML = ""; mostrar(r.questoes || [], "ia"); if(r.cota){ saldo = r.cota; }
       verSaldo();
-    }catch(e){ $("ia-st").innerHTML = '<div class="ia-st" style="color:#b3261e"><b>' + esc(e && e.message && !/^internal$/i.test(e.message) ? e.message : "Não deu certo agora. Tente de novo.") + "</b></div>"; }
+    }catch(e){ if(window.PDEPensando) PDEPensando.fechar(); $("ia-st").innerHTML = '<div class="ia-st" style="color:#b3261e"><b>' + esc(e && e.message && !/^internal$/i.test(e.message) ? e.message : "Não deu certo agora. Tente de novo.") + "</b></div>"; }
     gerando = false; b.disabled = false; b.textContent = "✨ Gerar de novo";
   };
   window.PDEImportarIA = interpretar;
