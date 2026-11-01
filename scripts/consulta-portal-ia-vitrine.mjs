@@ -35,6 +35,7 @@ await Promise.all(casos.filter(c => !so.length || so.includes(c[0])).map(async (
   if (tipo === 'cacapalavras') { const g = secs.find(x => x.tabela && x.tabela.grade); extra = ' · grade ' + (g ? g.tabela.linhas.length + 'x' + g.tabela.linhas[0].celulas.length : 'NÃO') + ' · palavras ' + (d.gabarito || []).map(x => x.resposta).join(',') + ' · 1ª ' + (d.gabarito || [])[0]?.comentario; }
   if (tipo === 'simulado') extra = ' · tipos ' + [...new Set(qs.map(x => x.tipo))].join('/') + ' · Q1: ' + (qs[0] ? qs[0].enunciado.slice(0, 120) : '');
   if (tipo === 'lista' || tipo === 'diagnostica') extra = ' · gab1: ' + ((d.gabarito || [])[0]?.comentario || '').slice(0, 120);
+  if (qs.length) extra += ' · BNCC por questão: ' + qs.filter(q => q.habilidade).length + ' de ' + qs.length + ' (' + [...new Set(qs.map(q => q.habilidade).filter(Boolean))].slice(0, 6).join(', ') + ')';
   console.log('::notice::' + tipo + ' OK ' + s + 's · pedido ' + (qtd || 'padrão') + ', vieram ' + qs.length + ' · "' + limpo(d.titulo) + '" · seções: ' + secs.map(x => x.titulo).join(' / ').slice(0, 220) + ' · ' + qs.length + ' questões, ' + tabs.length + ' tabelas, gabarito ' + (d.gabarito || []).length + extra);
 }));
 // limpa o que o teste criou (a conta é de laboratório)

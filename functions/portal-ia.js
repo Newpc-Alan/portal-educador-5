@@ -14,6 +14,7 @@ import { statusAoCompartilhar, avisarModeradores } from './moderacao-rede.js';
 import { SMTP_SENHA } from './dicas.js';
 import { exigirRecurso } from './envio-comum.js';
 import { PERFIS_REDE, opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
+import { CODIGOS_BNCC } from './bncc-codigos.js';
 import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
@@ -144,7 +145,8 @@ export const ESQUEMA_DOC = {
         afirmativas: AS('Só em vf: de 3 a 5 frases curtas (até 20 palavras cada) para o aluno marcar V ou F. Nos outros tipos, vazio.'),
         coluna_a: AS('relacionar: de 3 a 5 itens'), coluna_b: AS('relacionar: os correspondentes, embaralhados'),
         linhas: { type: 'INTEGER', description: 'linhas para responder: curta 2, aberta 4, demais 0' },
-        valor: { type: 'NUMBER', description: 'pontos da questão (só em prova)' }
+        valor: { type: 'NUMBER', description: 'pontos da questão (só em prova)' },
+        habilidade: S('código BNCC da habilidade que a questão avalia, do ano e do componente informados (ex.: EF05LP09); só se tiver certeza de que o código existe, senão vazio')
       }, required: ['tipo', 'enunciado'] } },
       tabela: { type: 'OBJECT', properties: { colunas: AS('cabeçalho'), linhas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { celulas: AS('células da linha') } } } } }
     }, required: ['titulo'] } },
@@ -429,6 +431,9 @@ export function limparDoc(d) {
       if (afirm.length >= 2) { q.alternativas = afirm; q.enunciado = linhas.filter(x => !/^\(\s*\)/.test(x)).join(' '); }
     }
     ['alternativas', 'coluna_a', 'coluna_b'].forEach(k => { if (Array.isArray(q[k])) q[k] = q[k].map(semMarca).filter(Boolean); });
+    // habilidade da BNCC por questão: só fica se o código existe de verdade (a IA às vezes inventa)
+    const cod = String(q.habilidade || '').toUpperCase().match(/E[FIM]\d{2}[A-Z]{2,3}\d{2,3}/);
+    q.habilidade = cod && CODIGOS_BNCC.has(cod[0]) ? cod[0] : '';
   }));
   return d;
 }
@@ -539,7 +544,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const qtd = Math.min(40, Math.max(0, Math.round(Number(d.qtd)) || ({ prova: 10, simulado: 15, diagnostica: 15, lista: 9, atividade: 6 }[tipo] || 0)));
     const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto', exigir('portalia'));
     const T = TIPOS[tipo];
-    const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao + '\n\n' + REGRAS_GERAIS;
+    const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao +
+      (T.questoes ? ' Em CADA questão, preencha "habilidade" com o código da BNCC que ela avalia, do ano e do componente do contexto (o professor usa isso para ver, depois da correção, em que habilidade a turma errou). Só use código que você tem certeza de que existe; na dúvida, deixe vazio.' : '') +
+      '\n\n' + REGRAS_GERAIS;
     let pedido = 'CONTEXTO\n' + contextoTexto(cx) + '\n\nPEDIDO\n' + resumo + (qtd && T.questoes ? '\nQuantidade de questões: ' + qtd + '.' : '');
     // caça-palavras: a grade não vai para a IA (ela só mexe nas palavras; o Portal remonta a grade)
     const docParaIA = tipo === 'cacapalavras' && anterior ? { ...anterior.doc, secoes: (anterior.doc.secoes || []).filter(s => !(s.tabela && s.tabela.grade)), gabarito: [] } : anterior && anterior.doc;

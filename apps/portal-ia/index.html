@@ -155,6 +155,7 @@ h2{font-size:1.1rem;font-weight:800}
 .q .lin{height:26px;border-bottom:1px solid #b6c4d2;margin-left:22px}
 .gab{margin-top:26px;border-top:2px dashed var(--line2);padding-top:16px}
 .gab .gi{margin-top:6px;font-size:.92rem}
+.gab .hab-q{display:inline-block;font-size:.72rem;font-weight:800;color:#1a6b2a;background:#eaf5e0;border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:1px}
 .gab .gi i{color:var(--muted)}
 .ilus{margin-top:16px;text-align:center;position:relative}
 .q.cimg{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:14px;align-items:start}
@@ -731,6 +732,8 @@ async function gerar(){
 /* ---------- o documento ---------- */
 const LETRAS = ["A", "B", "C", "D", "E"];
 const todasQuestoes = d => (d.secoes || []).flatMap(s => s.questoes || []);
+// código BNCC da questão n (o servidor só guarda código que existe na BNCC)
+const habQ = (d, n) => ((todasQuestoes(d)[+n - 1] || {}).habilidade || "");
 const linhasDe = q => q.tipo === "aberta" ? Math.max(3, q.linhas || 4) : q.tipo === "curta" ? Math.max(2, q.linhas || 2) : 0;
 const ed = (k, v, tag, cls) => "<" + (tag || "span") + (cls ? ' class="' + cls + '"' : "") + ">" + esc(v) + "</" + (tag || "span") + ">";
 function htmlDoc(d, mostrarGab){
@@ -759,7 +762,7 @@ function htmlDoc(d, mostrarGab){
     });
     h += "</section>";
   });
-  if(mostrarGab && (d.gabarito || []).length) h += '<div class="gab"><h3>Gabarito (para o professor)</h3>' + d.gabarito.map((g, i) => '<div class="gi"><b>' + esc(g.questao) + ".</b> " + ed("gabarito." + i + ".resposta", g.resposta) + (g.comentario ? " <i>" + ed("gabarito." + i + ".comentario", g.comentario) + "</i>" : "") + "</div>").join("") + "</div>";
+  if(mostrarGab && (d.gabarito || []).length) h += '<div class="gab"><h3>Gabarito (para o professor)</h3>' + d.gabarito.map((g, i) => '<div class="gi"><b>' + esc(g.questao) + ".</b> " + ed("gabarito." + i + ".resposta", g.resposta) + (habQ(d, g.questao) ? ' <span class="hab-q">' + esc(habQ(d, g.questao)) + "</span>" : "") + (g.comentario ? " <i>" + ed("gabarito." + i + ".comentario", g.comentario) + "</i>" : "") + "</div>").join("") + "</div>";
   if((d.bncc || []).length && !(d.secoes || []).some(s => /bncc/i.test(s.titulo))) h += '<section class="bncc"><h3>Habilidades da BNCC</h3><ul>' + d.bncc.map(b => "<li>" + (b.codigo ? "<b>" + esc(b.codigo) + "</b> " : "") + esc(b.descricao) + "</li>").join("") + "</ul></section>";
   return h;
 }
@@ -793,7 +796,7 @@ function decorar(el, editor){
 }
 // o que pode ficar no HTML editado: só formatação de texto, sem script, sem link, sem imagem de fora
 const TAGS_OK = new Set(["P","DIV","SPAN","B","STRONG","I","EM","U","S","MARK","FONT","BR","UL","OL","LI","H1","H2","H3","H4","SECTION","TABLE","THEAD","TBODY","TR","TH","TD","SMALL","SUB","SUP","IMG","BLOCKQUOTE","HR","FIGURE"]);
-const CLASSES_OK = new Set(["grade","cab","st","alunol","q","qc","en","n","val","cx","vf","rel","lin","gab","gi","ilus","qimg","cimg","bncc","fig","fig-esq","fig-cen","fig-dir"]);
+const CLASSES_OK = new Set(["hab-q","grade","cab","st","alunol","q","qc","en","n","val","cx","vf","rel","lin","gab","gi","ilus","qimg","cimg","bncc","fig","fig-esq","fig-cen","fig-dir"]);
 const ESTILO_OK = /^(color|background-color|font-size|font-weight|font-style|text-decoration(-line)?|text-align|display|vertical-align|margin-right|width)$/;
 function limparHtml(html){
   const t = document.createElement("template"); t.innerHTML = String(html || "");
@@ -1149,7 +1152,7 @@ async function pdfDoc(qual, comoArquivo){
       pdf.setFont("helvetica", "normal"); pdf.setFontSize(7.2); pdf.setTextColor(70, 90, 110);
       pdf.splitTextToSize(pdfTx("Aponte a câmera: o Corretor abre nesta prova, com os cartões dos alunos."), 38).forEach((l, i) => pdf.text(l, xq + 20, y0 + 47 + i * 3, { align:"center" }));
       pdf.setTextColor(20, 30, 40); }
-    (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta, mx, larg2, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg2 - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
+    (d.gabarito || []).forEach(g => { quebra(lh * 2); escrever(g.questao + ". " + g.resposta + (habQ(d, g.questao) ? "   ·   " + habQ(d, g.questao) : ""), mx, larg2, true); if(g.comentario){ pdf.setTextColor(70, 90, 110); escrever(g.comentario, mx + 6, larg2 - 6, false); pdf.setTextColor(20, 30, 40); } y += 2.5; });
     // caça-palavras: a grade resolvida, com as letras das palavras destacadas
     const grade = (d.secoes || []).map(x => x.tabela).find(t => t && t.grade);
     if(grade){
