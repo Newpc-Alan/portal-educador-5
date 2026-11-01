@@ -460,6 +460,18 @@ export function conferirDoc(d, tipo, qtd) {
     if (q.tipo === 'vf' && (alt.length < 2 || alt.some(ehCombinacao))) prob.push('questão ' + n + ' de V ou F sem as afirmativas nas alternativas');
     if (q.tipo === 'relacionar' && ((q.coluna_a || []).length < 2 || (q.coluna_a || []).length !== (q.coluna_b || []).length)) prob.push('questão ' + n + ' de relacionar com colunas desiguais');
   });
+  // texto em repetição (a IA às vezes entra em laço e repete as mesmas palavras): reprova para tentar de novo
+  const textos = secoes.flatMap(s => [s.texto || '', ...(s.itens || [])]).concat(d.nota_professor || '');
+  textos.forEach(t => {
+    const ws = String(t).toLowerCase().match(/[a-zà-ú]{4,}/g) || [];
+    if (ws.length > 120 && new Set(ws).size / ws.length < 0.4) prob.push('texto repetitivo ("' + String(t).slice(0, 40) + '...")');
+    else if (String(t).length > 1800) prob.push('texto longo demais');
+  });
+  if (tipo === 'ficha_ei') {
+    const at = secoes.find(s => /^atividade/i.test(String(s.titulo || '').trim()));
+    if (!at || (at.itens || []).length < 2) prob.push('falta a seção "Atividade" com as consignas para a criança');
+    if (!String(d.sugestao_imagem || '').trim()) prob.push('falta a sugestão da ilustração');
+  }
   if (tipo === 'cacapalavras') {
     const gr = secoes.find(s => s.tabela && s.tabela.grade);
     if (palavrasCaca(d).length < 5) prob.push('poucas palavras para o caça-palavras (mínimo 5, de 3 a 13 letras)');
