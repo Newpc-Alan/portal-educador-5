@@ -333,6 +333,15 @@ const ATALHOS = [
 ];
 // tipos com questões: o professor escolhe quantas (até 40); vazio = o padrão do tipo
 const QTD_PADRAO = { atividade:6, lista:9, prova:10, simulado:15, diagnostica:15 };
+// ordem padrão de cada grupo: o que o professor da rede pública mais faz na semana vem primeiro.
+// Na tela, o que ESTE professor mais usa sobe na frente (conta os materiais dele); empate fica na ordem padrão.
+const ORDEM_AT = ["plano", "sequencia", "planejamento", "projeto", "rubrica",
+  "atividade", "prova", "lista", "explicar", "simulado", "inclusao", "resumo", "diagnostica", "cacapalavras",
+  "recado", "parecer", "dinamica", "redacao"];
+function atalhosOrdenados(g){
+  const uso = {}; (E.recentes || []).forEach(r => { uso[r.tipo] = (uso[r.tipo] || 0) + 1; });
+  return ATALHOS.filter(a => a.g === g).sort((a, b) => (uso[b.k] || 0) - (uso[a.k] || 0) || ORDEM_AT.indexOf(a.k) - ORDEM_AT.indexOf(b.k));
+}
 const GRUPOS_AT = [["planejar", "Planejar"], ["alunos", "Para os alunos"], ["dia", "Dia a dia do professor"]];
 const NOME_T = Object.fromEntries(ATALHOS.map(a => [a.k, a.t]));
 const EXEMPLOS = ["Plano de aula sobre frações para amanhã", "Prova de 10 questões sobre o corpo humano", "Recado aos pais sobre a festa junina", "Explique o que é democracia para o 5º ano"];
@@ -447,7 +456,7 @@ function telaInicio(){
   "</section>" +
   '<section><h2 style="margin-bottom:4px">Atalhos do dia a dia</h2>' +
   GRUPOS_AT.map(([g, nome]) => '<h3 class="at-grupo">' + nome + '</h3><div class="atalhos">' +
-    ATALHOS.filter(a => a.g === g).map(a => '<button type="button" class="at" data-action="atalho" data-arg="' + a.k + '"><div class="foto" style="background-image:url(\'' + CAPA(a.foto) + '\')"></div><div class="tx"><b>' + esc(a.t) + "</b><small>" + esc(a.d) + "</small></div></button>").join("") + "</div>").join("") +
+    atalhosOrdenados(g).map(a => '<button type="button" class="at" data-action="atalho" data-arg="' + a.k + '"><div class="foto" style="background-image:url(\'' + CAPA(a.foto) + '\')"></div><div class="tx"><b>' + esc(a.t) + "</b><small>" + esc(a.d) + "</small></div></button>").join("") + "</div>").join("") +
   '<a class="at-bncc" href="/bncc/">🔎 <b>Buscar habilidade da BNCC</b><span>Filtre por ano e componente, copie o código ou prepare um plano a partir dela.</span></a>' +
   "</section>" +
   '<section><div class="abas" role="tablist"><button type="button" role="tab" class="aba' + (E.aba === "meus" ? " on" : "") + '" data-action="aba" data-arg="meus">Seus materiais</button>' +
