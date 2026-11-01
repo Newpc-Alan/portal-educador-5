@@ -12,7 +12,7 @@ const db = getFirestore(), API = 'AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0', limp
 const ad = (await db.collection('usuarios').where('email', '==', 'alan@newpc.com.br').limit(1).get()).docs[0];
 const tk = (await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: await getAuth().createCustomToken(ad.id), returnSecureToken: true }) })).json()).idToken;
 const ETAPA = process.env.ETAPA || 'infantil', QTD = Math.min(20, Number(process.env.QTD) || 4);
-let escolhidas = (process.env.IDS || '1-2ZIHMcT7jii3xUMtuTGpjyhYBq7Syew,1D3AGsukIfXEGKxwLlql_oMVBZlIuxXhD').split(',').filter(Boolean);
+let escolhidas = (process.env.IDS || '1D3AGsukIfXEGKxwLlql_oMVBZlIuxXhD').split(',').filter(Boolean);
 const SO_IMAGENS = process.env.SO_IMAGENS === '1';
 if (!escolhidas.length && !SO_IMAGENS) {
   const s = await db.collection('atividades').where('etapa', '==', ETAPA).where('publicado', '==', true).select('titulo', 'arquivo_nome', 'componente', 'tipo', 'formato', 'tamanho').get();

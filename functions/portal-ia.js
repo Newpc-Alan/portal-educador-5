@@ -468,8 +468,9 @@ export function conferirDoc(d, tipo, qtd) {
     else if (String(t).length > 1800) prob.push('texto longo demais');
   });
   if (tipo === 'ficha_ei') {
-    const at = secoes.find(s => /^atividade/i.test(String(s.titulo || '').trim()));
-    if (!at || (at.itens || []).length < 2) prob.push('falta a seção "Atividade" com as consignas para a criança');
+    // a parte da criança: qualquer seção que não seja do professor, com pelo menos 2 consignas (a IA às vezes dá outro nome)
+    const at = secoes.find(s => !/^(para o professor|orienta|para ampliar|amplia)/i.test(String(s.titulo || '').trim()) && (s.itens || []).length >= 2);
+    if (!at) prob.push('falta a seção "Atividade" com as consignas para a criança (itens curtos, uma ação por item)');
     if (!String(d.sugestao_imagem || '').trim()) prob.push('falta a sugestão da ilustração');
   }
   if (tipo === 'cacapalavras') {
