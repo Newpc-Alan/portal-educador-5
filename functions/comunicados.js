@@ -14,6 +14,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import nodemailer from 'nodemailer';
 import { randomBytes } from 'node:crypto';
 import { expiraAuditoria } from './auditoria.js';
+import { situacoesFormacao } from './formacao-uso.js';
 
 const REGIAO = 'southamerica-east1';
 const SENHA = defineSecret('COMUNICADOS_SMTP_SENHA');
@@ -54,12 +55,15 @@ function normalizarPublico(p) {
   // licença dos professores: institucional (contrato da rede), avulsa, teste, cortesia; vazio = todas. Vencidas só se pedir.
   const licencas = (Array.isArray(p && p.licencas) ? p.licencas : []).map(String).filter(x => LICENCAS.includes(x));
   const vencidas = !!(p && p.vencidas);
+  // situação na Formação Continuada (só para quem não é aluno): nao_comecou, andamento (em andamento ou parado), parado (sem avanço há 14 dias), concluiu
+  const formacao = ['nao_comecou', 'andamento', 'parado', 'concluiu'].includes(String(p && p.formacao || '')) ? String(p.formacao) : '';
   const escola = /^[A-Za-z0-9_-]{1,80}$/.test(String(p && p.escola || '')) ? String(p.escola) : '';
   if (!perfis.length) throw new HttpsError('invalid-argument', 'Escolha pelo menos um público.');
-  return { perfis, municipios, escola, licencas, vencidas };
+  return { perfis, municipios, escola, licencas, vencidas, formacao };
 }
 async function destinatarios(db, pub, tipo) {
   const out = [], vistos = new Set(); let semEmail = 0, sairam = 0, vencidasFora = 0;
+  const sitF = pub.formacao ? await situacoesFormacao(db, null) : null;
   const off = new Set(); if (tipo !== 'servico') (await db.collection('comunicados_pref').where('off', '==', true).get()).forEach(d => off.add(d.id));
   for (const perfil of pub.perfis) {
     const sn = await db.collection('usuarios').where('perfil', '==', perfil).where('status', '==', 'ativo').get();
@@ -75,6 +79,9 @@ async function destinatarios(db, pub, tipo) {
       const email = String(u.email || '').trim().toLowerCase();
       if (!okEmail(email)) { semEmail++; return; }
       if (off.has(d.id)) { sairam++; return; }
+      if (sitF) { if (perfil === 'aluno') return;
+        const st = sitF[d.id] ? (sitF[d.id].andamento.length ? sitF[d.id].situacao : 'concluiu') : 'nao_comecou';
+        if (pub.formacao === 'andamento' ? !['em_andamento', 'parado'].includes(st) : st !== pub.formacao) return; }
       if (vistos.has(email)) return; vistos.add(email);
       out.push({ uid: d.id, email, nome: txt(String(u.nome || '').split(' ')[0], 40), perfil, lic: perfil === 'professor' ? (LICENCAS.includes(u.licenca_tipo) ? u.licenca_tipo : 'institucional') : '' });
     });
@@ -142,7 +149,7 @@ export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, mem
       agendado_para: Timestamp.fromMillis(quando), criado_em: FieldValue.serverTimestamp(), criado_por: txt(u.nome, 60), criado_por_uid: u.uid });
     for (let i = 0; i < lotes.length; i++) await ref.collection('envio_lotes').doc(String(i).padStart(3, '0')).set({ n: i, itens: lotes[i], prox: 0, falhas: [] });
     const pubTxt = pub.perfis.map(p => PERFIS[p]).join(', ') + (pub.municipios.length ? ' · ' + pub.municipios.length + ' município(s)' + (pub.municipios.includes('__sem') ? ' (inclui sem município)' : '') : ' · todos os municípios') + (pub.escola ? ' · 1 escola' : '') +
-      (pub.licencas.length ? ' · licenças: ' + pub.licencas.join(', ') : '') + (pub.vencidas ? ' · inclui licenças vencidas' : '');
+      (pub.licencas.length ? ' · licenças: ' + pub.licencas.join(', ') : '') + (pub.vencidas ? ' · inclui licenças vencidas' : '') + (pub.formacao ? ' · Formação: ' + pub.formacao : '');
     await auditar(db, u, 'criou', ref.id, (quando > Date.now() ? 'Agendou' : 'Enviou') + ' o comunicado "' + com.assunto + '" para ' + r.lista.length + ' pessoa(s): ' + pubTxt, { total: { para: r.lista.length } });
     return { ok: true, id: ref.id, total: r.lista.length };
   }

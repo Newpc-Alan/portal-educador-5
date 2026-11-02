@@ -463,6 +463,9 @@
   .hj-tx small{ display:block;font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.35 }
   .hj-btn{ display:inline-block;margin-top:8px;background:#1a6b2a;color:#fff;border:0;border-radius:11px;padding:9px 15px;font:inherit;font-size:13.5px;font-weight:800;text-decoration:none;cursor:pointer;white-space:nowrap }
   .hj-btn:hover{ background:#14551f;color:#fff }
+  .fm-barra{ height:7px;background:#e8eef4;border-radius:99px;overflow:hidden;margin-top:6px } .fm-barra i{ display:block;height:100%;background:#1a6b2a }
+  .mc-cert{ display:grid;gap:8px } .mc-cert-l{ display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px 10px } .mc-cert-l > span{ font-size:22px }
+  .mc-cert-l div{ flex:1;min-width:0 } .mc-cert-l b{ display:block;font-size:14px } .mc-cert-l small{ color:var(--muted);font-size:12.5px }
   .hj-vazio{ background:#fff;border:1.5px dashed var(--line);border-radius:16px;padding:16px;color:var(--muted);font-size:13.5px }
   .ac-grid{ display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px }
   .ac-faixa{ grid-column:1/-1;margin:10px 0 -4px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted) } .ac-faixa:first-child{ margin-top:0 }
@@ -4060,6 +4063,68 @@
     }
   }
 
+
+  // ===================== FORMAÇÃO CONTINUADA NO PORTAL (Fase 3, nov/2026) =====================
+  // Início do professor: o curso em andamento mais recente, com a porcentagem e "Continuar" (só se a Formação está no plano)
+  async function cartaoFormacao(doPlano, admin){
+    const el = $("iniFormacao"); if(!el) return;
+    if(admin || !usuarioAtual || usuarioAtual.perfil === "aluno" || (doPlano && !doPlano.has("formacao"))){ el.innerHTML = ""; return; }
+    try{
+      const sn = await getDocs(collection(db, "users", usuarioAtual.uid, "progresso"));
+      const l = []; sn.forEach(d => { const p = d.data(); if(p.concluido !== true && (Number(p.percentual || 0) > 0 || p.ultimaAula)) l.push({ id:d.id, pct:Number(p.percentual || 0), ult:Date.parse(p.ultimoAcessoISO || "") || 0 }); });
+      if(!l.length || !$("iniFormacao")){ el.innerHTML = ""; return; }
+      l.sort((a, b) => b.ult - a.ult); const a = l[0];
+      const c = await getDoc(doc(db, "cursos", a.id)); if(!c.exists() || !$("iniFormacao")){ el.innerHTML = ""; return; }
+      const x = c.data(), capa = x.capaURL || "/assets/cards/formacao.webp";
+      el.innerHTML = '<section class="ini-sec" aria-labelledby="fmTit"><h3 id="fmTit">Continuar minha formação</h3><div class="hj-lista"><div class="hj-card verde">'+
+        '<span class="hj-img" style="background-image:url(\''+escapeAttr(String(capa).replace(/'/g, "%27"))+'\')"></span><div class="hj-tx"><b>'+escapeHtml(x.titulo || "Curso")+'</b>'+
+        '<small>'+a.pct+'% concluído'+(l.length > 1 ? ' · mais '+(l.length - 1)+' curso(s) em andamento' : '')+(x.horas ? ' · certificado de '+x.horas+' h' : '')+'</small>'+
+        '<div class="fm-barra"><i style="width:'+Math.min(100, a.pct)+'%"></i></div>'+
+        '<a class="hj-btn" href="/formacao/#/curso/'+encodeURIComponent(a.id)+'" data-action="ini-abrir" data-mod="formacao">Continuar meu curso</a></div></div></div></section>';
+    }catch(e){ console.warn("formação (início):", e.code || e); el.innerHTML = ""; }
+  }
+  // Meu cadastro: certificados emitidos na Formação, com Ver e Validar
+  async function certificadosCadastro(){
+    const el = $("mcCertificados"); if(!el) return;
+    try{
+      const sn = await getDocs(query(collection(db, "certificados"), where("uid", "==", usuarioAtual.uid)));
+      const l = []; sn.forEach(d => { const c = d.data(); if(c.ativo !== false) l.push({ id:d.id, ...c }); });
+      l.sort((a, b) => String(b.emitidoEmISO || "").localeCompare(String(a.emitidoEmISO || "")) || ((msDe(b.emitidoEm) || 0) - (msDe(a.emitidoEm) || 0)));
+      if(!$("mcCertificados")) return;
+      el.innerHTML = !l.length ? '<div class="vazio">Nenhum certificado ainda. Os cursos ficam em <a href="/formacao/">Formação Continuada</a>.</div>' :
+        '<div class="mc-cert">'+l.map(c => '<div class="mc-cert-l"><span>\u{1F4DC}</span><div><b>'+escapeHtml(c.cursoTitulo || c.curso || "Curso")+'</b><small>'+escapeHtml([c.cargaHoraria ? c.cargaHoraria+" h" : "", (msDe(c.emitidoEm) ? new Date(msDe(c.emitidoEm)).toLocaleDateString("pt-BR") : (c.emitidoEmISO || "").slice(0, 10).split("-").reverse().join("/")), "código "+c.id].filter(Boolean).join(" · "))+'</small></div>'+
+          '<a class="btn-mini btn-gerenciar" href="/formacao/#/certificado/'+encodeURIComponent(c.id)+'">Ver</a><a class="btn-mini btn-gerenciar" href="/validar/?c='+encodeURIComponent(c.id)+'" target="_blank" rel="noopener">Validar</a></div>').join("")+'</div>';
+    }catch(e){ console.warn("certificados:", e.code); if($("mcCertificados")) $("mcCertificados").innerHTML = '<div class="vazio">Não foi possível ler os certificados agora.</div>'; }
+  }
+  // Painel do admin (Conteúdo e participação): quem começou, quem parou, quem concluiu e quem ainda não começou
+  const FM_SIT = { nao_comecou:"Ainda não começou", em_andamento:"Em andamento", parado:"Parou (sem avançar há 14 dias)", concluiu:"Concluiu" };
+  async function painelFormacao(){
+    const el = $("pnFormacao"); if(!el) return;
+    let r; try{ r = await chamarBackup("formacaoAcompanhamento", {}, 120000); }catch(e){ el.innerHTML = '<div class="empty">Não foi possível ler a Formação ('+escapeHtml(e.message || e.code || "erro")+').</div>'; return; }
+    if(!$("pnFormacao")) return;
+    const linha = l => ({ c:[l.nome + (l.email ? "\n" + l.email : ""), l.municipio, l.escola, FM_SIT[l.situacao] || l.situacao, l.andamento.map(a => a.titulo+" ("+a.pct+"%)").join(", ") || "-", fmt(l.concluidos), fmt(l.certificados)+" · "+fmt(l.horas)+" h", l.ultimo ? new Date(l.ultimo).toLocaleDateString("pt-BR") : "-"], email:l.email || "" });
+    const COLS = ["Professor", "Município", "Escola", "Situação", "Em andamento", "Concluídos", "Certificados", "Último avanço"];
+    pn.det.fm = (k) => ({ titulo:"Formação Continuada: "+(k ? FM_SIT[k] : "todos"), cols:COLS, rows:r.linhas.filter(l => !k || l.situacao === k).map(linha), nota:"Professores ativos do Portal e cursistas da Formação. Parou = curso em andamento sem avanço há "+r.parado_dias+" dias." });
+    const t = r.totais;
+    el.innerHTML = '<div class="pn-tiles pn-tiles-2">'+
+      pnTile("Professores e cursistas", fmt(t.pessoas), fmt(t.certificados)+" certificados · "+fmt(t.horas)+" h", "", "fm|") +
+      pnTile("Em andamento", fmt(t.em_andamento), "avançaram nos últimos 14 dias", "", "fm|em_andamento") +
+      pnTile("Pararam no meio", fmt(t.parado), "sem avançar há 14 dias ou mais", t.parado ? "pn-alerta" : "", "fm|parado") +
+      pnTile("Concluíram", fmt(t.concluiu), "todos os cursos que começaram", "", "fm|concluiu") +
+      pnTile("Ainda não começaram", fmt(t.nao_comecou), "professores ativos sem curso", "", "fm|nao_comecou") + '</div>'+
+      '<p class="pn-nota">Para lembrar quem parou: Comunicados por e-mail › Situação na Formação.</p>';
+  }
+  // Direção (e Secretaria): a lista da equipe na Formação, na mesma janela de dados do Painel (busca e planilha)
+  function abrirFormacaoEquipe(){
+    pn.det.fm_eq = async () => {
+      const r = await chamarBackup("formacaoAcompanhamento", {}, 120000), t = r.totais;
+      return { titulo:"Formação da equipe: "+fmt(t.concluiu)+" concluíram · "+fmt(t.em_andamento)+" em andamento · "+fmt(t.parado)+" pararam · "+fmt(t.nao_comecou)+" não começaram",
+        cols:["Professor", "Escola", "Situação", "Em andamento", "Concluídos", "Certificados", "Último avanço"],
+        rows:r.linhas.map(l => ({ c:[l.nome, l.escola, FM_SIT[l.situacao] || l.situacao, l.andamento.map(a => a.titulo+" ("+a.pct+"%)").join(", ") || "-", fmt(l.concluidos), fmt(l.certificados)+" · "+fmt(l.horas)+" h", l.ultimo ? new Date(l.ultimo).toLocaleDateString("pt-BR") : "-"] })),
+        nota:"Professores ativos da(s) sua(s) escola(s) e o que fizeram na Formação Continuada. Parou = curso em andamento sem avanço há "+r.parado_dias+" dias." };
+    };
+    abrirDetalhe("fm_eq");
+  }
   // ---------- Conteúdo: acervo de cada município ----------
   async function painelAcervoMunicipios(){
     const el = $("pnAcvMun"); if(!el) return;
@@ -4207,6 +4272,7 @@
     h += '<h3 class="pn-sec">Acervo dos municípios</h3><div id="pnAcvMun"><div class="empty">Carregando...</div></div>';
     h += '<h3 class="pn-sec">O que a rede procura <small style="font-weight:600;color:var(--muted)">(busca do Início, sem identificar ninguém)</small></h3><div id="pnBuscas"><div class="empty">Carregando...</div></div>';
     h += '<div id="pnProvCom"><div class="empty">Carregando provas online e comunicados...</div></div>';
+    h += '<h3 class="pn-sec">Formação Continuada · acompanhamento</h3><div id="pnFormacao"><div class="empty">Carregando...</div></div>';
     h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
       tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias", "", "certTotal") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados", "", "relTotal") +
       tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados", "", "avaliacoes") + tile("Aulas no Maestro", v(n.maestro), "", "", "maestro") +
@@ -4222,6 +4288,7 @@
     painelAcervoMunicipios();
     painelBuscas();
     painelProvasComunicados();
+    painelFormacao();
     $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · contagem direta do banco";
   }
 
@@ -5319,7 +5386,7 @@
   function cmPublico(){
     return { perfis:[...document.querySelectorAll('#cmPerfis input:checked')].map(x => x.value),
       municipios:[...document.querySelectorAll('#cmMuns input:checked')].map(x => x.value), escola:($("cmEscola") || {}).value || "",
-      licencas:[...document.querySelectorAll('#cmLic input:checked')].map(x => x.value), vencidas:!!($("cmVenc") || {}).checked };
+      licencas:[...document.querySelectorAll('#cmLic input:checked')].map(x => x.value), vencidas:!!($("cmVenc") || {}).checked, formacao:($("cmForm") || {}).value || "" };
   }
   async function renderComunicados(){
     try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
@@ -5331,6 +5398,7 @@
         '<div class="field"><label>Para quem</label><div class="cm-chk" id="cmPerfis">'+CM_PERFIS.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"'+(k === "professor" ? " checked" : "")+'> '+v+'</label>').join("")+'</div></div>'+
         '<div class="field" id="cmLicWrap"><label>Licença dos professores <small>(nenhuma marcada = todas)</small></label><div class="cm-chk" id="cmLic">'+CM_LIC.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"> '+v+'</label>').join("")+
           '<label><input type="checkbox" id="cmVenc"> Incluir licenças vencidas (para oferta de renovação)</label></div></div>'+
+        '<div class="field" id="cmFormWrap"><label for="cmForm">Situação na Formação Continuada <small>(professores e gestão)</small></label><select id="cmForm"><option value="">Todos</option><option value="nao_comecou">Ainda não começaram nenhum curso</option><option value="andamento">Começaram e não concluíram</option><option value="parado">Pararam no meio (sem avançar há 14 dias)</option><option value="concluiu">Concluíram</option></select></div>'+
         '<div class="field"><label>Municípios <small>(nenhum marcado = todos, inclusive os avulsos)</small></label><div class="cm-chk cm-muns" id="cmMuns"><label><input type="checkbox" value="__sem"> Sem município (professores avulsos)</label>'+cacheMunicipios.map(m => '<label><input type="checkbox" value="'+escapeAttr(m.id)+'"> '+escapeHtml(m.nome)+'</label>').join("")+'</div></div>'+
         '<div class="field" id="cmEscWrap" hidden><label for="cmEscola">Escola <small>(opcional, quando só um município está marcado)</small></label><select id="cmEscola"><option value="">Todas as escolas</option></select></div>'+
         '<div class="cm-conta" id="cmConta">Escolha o público.</div>'+
@@ -5424,7 +5492,8 @@
   }
   document.addEventListener("change", ev => { const t = ev.target; if(!t || !t.closest) return;
     if(t.closest("#cmPerfis")){ const w = $("cmLicWrap"), p = document.querySelector('#cmPerfis input[value="professor"]'); if(w && p) w.hidden = !p.checked; }
-    if(t.closest("#cmPerfis") || t.closest("#cmLic") || t.id === "cmTipo" || t.id === "cmEscola"){ cmContar(); }
+    if(t.closest("#cmPerfis")){ const w = $("cmFormWrap"), q = [...document.querySelectorAll('#cmPerfis input:checked')].some(x => ["professor","gestor"].includes(x.value)); if(w){ w.hidden = !q; if(!q) $("cmForm").value = ""; } }
+    if(t.closest("#cmPerfis") || t.closest("#cmLic") || t.id === "cmTipo" || t.id === "cmEscola" || t.id === "cmForm"){ cmContar(); }
     else if(t.closest("#cmMuns")){ cmEscolas(); cmContar(); } });
 
   async function renderAuditoria(){
@@ -6331,6 +6400,7 @@
       (inst && u.perfil === "professor" ? '<div class="imp-card"><h3>Escolas onde dou aula</h3><p class="d">Município: <b>'+escapeHtml(u.municipio_nome||"-")+'</b>. Marque até 5 escolas. Você passa a ver as turmas dessas escolas.</p><div id="mcEscolas" class="chk-lista"><div class="vazio">Carregando escolas...</div></div>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-escolas" id="mcSalvarEsc">Salvar escolas</button></div></div>' : '')+
       (inst && u.perfil !== "aluno" ? '<div class="imp-card"><h3>Minha ficha funcional</h3><p class="d">Foto para o crachá, onde você trabalha, sua formação e seus diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém precisar redigitar.</p><a class="btn btn-primary btn-add" style="margin-top:6px" href="/apps/servidores/#minha">Abrir minha ficha</a></div>' : '')+
+      (u.perfil !== "aluno" ? '<div class="imp-card"><h3>\u{1F393} Meus certificados da Formação</h3><div id="mcCertificados"><div class="vazio">Carregando...</div></div></div>' : '')+
       '<div class="imp-card"><h3>Minha licença</h3>'+
         linha("Tipo", ROTULO_TIPO[lic.tipo] || lic.tipo)+linha("Plano", ROTULO_PLANO[lic.plano] || "")+
         linha("Válida até", lic.semFim ? "Conforme contrato do município" : dataDeMs(lic.fim))+
@@ -6338,6 +6408,7 @@
         (inst ? "" : '<a class="btn btn-primary btn-add" style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
       '</div></div></div>';
     if(inst && u.perfil === "professor") carregarEscolasCadastro();
+    if(u.perfil !== "aluno") certificadosCadastro();
   }
   async function carregarEscolasCadastro(){
     try{
@@ -7168,6 +7239,7 @@
     else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} sairDaConta(); }
     else if(acao === "aluno-sou-professor"){ try{ sessionStorage.setItem("pde_como","professor"); }catch(e){} usuarioAtual.alunoSemAcesso = false; abrirApp(); }
     else if(acao === "dir-faltou"){ abrirFaltou(); }
+    else if(acao === "dir-formacao"){ abrirFormacaoEquipe(); }
     else if(acao === "sb-fechar"){ fecharFaltou(); }
     else if(acao === "sb-salvar"){ salvarFaltou(); }
     else if(acao === "sb-desfazer"){ desfazerSub(el.dataset.arg); }
@@ -7315,7 +7387,7 @@
           '<div id="iniDatas"></div>'
         // professor: o que tem para hoje, as acoes do dia a dia com foto e o resto do Portal recolhido em "Mais recursos"
         : '<div id="iniAulaHero"></div><section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo suas turmas...</div></div></section>'+
-          '<div id="iniRede"></div><div id="iniNoticias"></div>'+
+          '<div id="iniFormacao"></div><div id="iniRede"></div><div id="iniNoticias"></div>'+
           '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes"></div></section>'+
           '<details class="ini-mais" id="iniMais"><summary>Mais recursos do Portal</summary>'+
           '<div class="ini-grid" id="iniGrid"><div class="empty" style="grid-column:1/-1">Carregando...</div></div></details>'+
@@ -7406,6 +7478,7 @@
     iniProf.badges = {}; iniProf.links = {};
     desenharAcoesProf(doPlano, admin, aula);
     paraHoje(doPlano, admin);
+    cartaoFormacao(doPlano, admin);
   }
 
   // ===================== INÍCIO DA DIREÇÃO (perfil gestor) =====================
@@ -7424,6 +7497,7 @@
     { g:"alunos", id:"gabarito", titulo:"Corrigir gabarito",       sub:"Cartões-resposta e acerto por habilidade",          foto:"corrigir-gabarito", cor:"verde", href:"/apps/corretor/",        mod:"gestao" },
     { g:"alunos", id:"familias", titulo:"Famílias",                sub:"Contatos e comunicados aos responsáveis",           foto:"familias",      cor:"navy",    href:"/apps/familias/",          mod:"gestao" },
     { g:"equipe", id:"equipe",   titulo:"Equipe",                  sub:"Professores, secretaria e portaria",                foto:"equipe",        cor:"azul",    href:"/apps/equipe/",            mod:"gestao" },
+    { g:"equipe", id:"formacao", titulo:"Formação da equipe",      sub:"Quem começou, parou ou concluiu os cursos",          foto:"/assets/cards/formacao.webp", cor:"verde", acao:"dir-formacao",            mod:"formacao" },
     { g:"equipe", id:"servidor", titulo:"Ficha do servidor",       sub:"Dados, documentos e senha provisória da equipe",    foto:"ficha-servidor",    cor:"azul",    href:"/apps/servidores/",        mod:"gestao" },
     { g:"equipe", id:"reservar", titulo:"Reservar equipamento",    sub:"Carrinho de Chromebooks, laboratório e sala de VR", foto:"/assets/apps/capas/recursos.webp", cor:"azul", href:"/apps/recursos/#reservar", mod:"gestao" },
     { g:"equipe", id:"tv",       titulo:"TV da escola",            sub:"Avisos no corredor e na entrada",                   foto:"tv-escola",     cor:"navy",    href:"/apps/tv/",                mod:"gestao" },

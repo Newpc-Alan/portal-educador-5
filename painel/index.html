@@ -126,7 +126,7 @@ table.tab{width:100%;border-collapse:collapse}
 
     <div class="secao blocoForm" id="formacao">Formação Continuada</div>
     <div class="grid2 blocoForm">
-      <div class="card"><div class="h2">🎓 Professores na Formação por escola</div><div class="sub" id="frmSub"></div><div id="gFrm" style="margin-top:10px"></div></div>
+      <div class="card"><div class="h2">🎓 Professores na Formação por escola</div><div class="sub" id="frmSub"></div><div id="gFrm" style="margin-top:10px"></div><button type="button" class="tb" style="margin-top:12px;background:#eef5fb;color:#0f2c4a;border:1px solid #cfe0ef" data-action="fm-lista">Ver os professores (quem começou, parou ou concluiu)</button></div>
       <div class="card"><div class="h2">📜 Certificados e horas</div><div class="sub">Cursos com certificado emitido pelos professores da rede</div><div id="gFrmC" style="margin-top:10px"></div></div>
     </div>
 
@@ -359,7 +359,33 @@ async function relatorio(){
 }
 
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return;
-  if(b.dataset.action === "atualizar") carregar(true); else if(b.dataset.action === "pdf") relatorio(); });
+  if(b.dataset.action === "atualizar") carregar(true); else if(b.dataset.action === "pdf") relatorio();
+  else if(b.dataset.action === "fm-lista") listaFormacao(b); else if(b.dataset.action === "fm-fechar"){ const m = $("mFm"); if(m) m.remove(); }
+  else if(b.dataset.action === "fm-csv") csvFormacao(); });
+/* ---------- Formação Continuada: lista da equipe (nomes só da equipe de quem consulta; sem CPF nem e-mail) ---------- */
+const FM_SIT = { nao_comecou:["Ainda não começou","#9aa8b6"], em_andamento:["Em andamento","#2671AB"], parado:["Parou no meio","#C2362C"], concluiu:["Concluiu","#5A9420"] };
+let FM = null;
+async function listaFormacao(b){
+  const rot = b.textContent; b.disabled = true; b.textContent = "Carregando a lista...";
+  try{
+    const fn = httpsCallable(getFunctions(fb, "southamerica-east1"), "formacaoAcompanhamento", { timeout:130000 });
+    FM = (await fn({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined })).data;
+  }catch(e){ toast(e.message || "Não foi possível abrir a lista.", true); b.disabled = false; b.textContent = rot; return; }
+  b.disabled = false; b.textContent = rot;
+  const t = FM.totais, m = document.createElement("div"); m.className = "mfundo"; m.id = "mFm";
+  m.innerHTML = '<div class="mcx" style="max-width:920px" role="dialog" aria-modal="true"><div class="h2">🎓 Formação Continuada da equipe</div><p class="sub">' +
+    n(t.concluiu) + " concluíram · " + n(t.em_andamento) + " em andamento · " + n(t.parado) + " pararam no meio (sem avançar há " + FM.parado_dias + " dias) · " + n(t.nao_comecou) + " ainda não começaram</p>" +
+    '<div class="tabela-wrap" style="margin-top:10px"><table class="tab"><thead><tr><th>Professor</th><th>Escola</th><th>Situação</th><th>Em andamento</th><th>Certificados</th></tr></thead><tbody>' +
+    FM.linhas.map(l => { const s = FM_SIT[l.situacao] || [l.situacao, "#9aa8b6"]; return "<tr><td><b>" + esc(l.nome) + "</b></td><td>" + esc(l.escola) + '</td><td><span class="pill" style="background:' + s[1] + '22;color:' + s[1] + '">' + s[0] + "</span></td><td>" +
+      esc(l.andamento.map(a => a.titulo + " (" + a.pct + "%)").join(", ") || "-") + '</td><td class="n">' + n(l.certificados) + " · " + n(l.horas) + " h</td></tr>"; }).join("") +
+    '</tbody></table></div><div class="acs"><button type="button" data-action="fm-csv">Baixar planilha (CSV)</button><button type="button" class="pri" data-action="fm-fechar">Fechar</button></div></div>';
+  document.body.appendChild(m);
+}
+function csvFormacao(){
+  if(!FM) return; const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const csv = "Professor;Escola;Município;Situação;Em andamento;Cursos concluídos;Certificados;Horas\n" + FM.linhas.map(l => [l.nome, l.escola, l.municipio, (FM_SIT[l.situacao] || [l.situacao])[0], l.andamento.map(a => a.titulo + " (" + a.pct + "%)").join(", "), l.concluidos, l.certificados, l.horas].map(q).join(";")).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + csv], { type:"text/csv" })); a.download = "formacao-equipe.csv"; a.click();
+}
 $("selMuni").addEventListener("change", () => { try{ localStorage.setItem("pde_painel_muni", $("selMuni").value); }catch(e){} carregar(false); });
 
 /* ---------- créditos do Portal IA da rede (pré-pago) ---------- */
