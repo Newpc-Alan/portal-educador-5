@@ -20,6 +20,11 @@ const DOCK = ['edudock-frente', 'edudock-verso'].map(n => ({ mime: 'image/webp',
 const ESTILO = '. Fidelidade total às pessoas de referência: mesmo rosto, idade, cabelo, óculos, tom de pele e uniforme, sem embelezar nem mudar traços. Estética de fotografia cinematográfica de campanha publicitária: imagem clara e luminosa, luz suave de janela com contraluz quente, cores ricas e vibrantes, profundidade de campo rasa (fundo levemente desfocado, bokeh), sensação de volume e profundidade 3D, nitidez alta nos rostos e no tablet, lente de 50mm';
 // [card, personagens (na ordem da cena), cena]
 const CARDS = [
+  ['faltou', ['prof-grisalho', 'prof-loira'], 'o diretor no corredor da escola, segurando um tablet, conversando com a professora e mostrando na tela a troca de professor da turma do dia, clima de solução rápida e cordial'],
+  ['grade', ['prof-colar'], 'a coordenadora pedagógica diante de um grande quadro de horários semanal na parede da coordenação, com faixas coloridas por disciplina e turma, organizando com um tablet na mão'],
+  ['ficha-aluno', ['prof-ruiva'], 'a secretária escolar no balcão de atendimento da secretaria da escola, sorrindo, consultando no computador a ficha de um aluno, com pastas organizadas na estante ao fundo'],
+  ['boletim', ['prof-loira', 'menina'], 'a professora entregando um boletim impresso para uma menina sorridente no balcão da secretaria da escola, folha com notas e gráfico simples'],
+  ['portaria', ['prof-barba', 'menino'], 'o porteiro da escola na entrada, ao lado de um tablet num suporte na parede, enquanto o menino aproxima a carteirinha com QR code da câmera, manhã ensolarada'],
   ['defeito', ['prof-barba'], 'o professor no corredor da escola apontando o celular para uma pequena etiqueta com QR code colada num carrinho de Chromebooks, a tela do celular mostrando um formulário de chamado técnico, expressão tranquila de quem resolve rápido'],
   ['relatorios', ['prof-colar'], 'a professora sentada à mesa da sala dos professores escrevendo o parecer de um aluno no notebook, com uma pasta de registros aberta ao lado e um caderno de anotações, expressão atenta e cuidadosa'],
   ['plano', ['prof-loira'], 'a professora em pé na frente da sala, sorrindo, segurando nas mãos ' + TABLET_MAO + ' enquanto planeja a aula, notebook e livros na mesa ao lado'],
