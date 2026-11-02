@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Missão Dengue Zero 3D — Derrote o mosquito antes que ele domine a cidade!</title>
+<meta name="description" content="Jogo educativo 3D de combate à dengue para escolas, prefeituras e campanhas de saúde. Campanha Missão Dengue Zero · Portal do Educador.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============ TOKENS ============ */
+:root{
+  --navy:#0f2c4a; --navy-2:#16405f; --ciano:#37b1da; --ciano-claro:#9fd8ef;
+  --amarelo:#f2b705; --vermelho:#d92b2b; --verde:#1a6b2a; --verde-claro:#4caf50;
+  --branco:#ffffff; --creme:#f6fbfe; --sombra:0 10px 30px rgba(15,44,74,.25);
+  --raio:18px; --display:'Fredoka',sans-serif; --texto:'Inter',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--texto);background:linear-gradient(165deg,var(--navy) 0%,var(--navy-2) 55%,#1d5a7e 100%);color:var(--branco)}
+button{font-family:inherit;cursor:pointer;border:none}
+button:focus-visible,a:focus-visible{outline:3px solid var(--amarelo);outline-offset:3px;border-radius:8px}
+
+/* ============ TELAS ============ */
+.tela{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;padding:24px 16px 48px;z-index:10}
+.tela.ativa{display:flex}
+.tela-conteudo{width:100%;max-width:860px;display:flex;flex-direction:column;align-items:center;gap:18px}
+
+/* ============ TELA INICIAL ============ */
+#tela-inicio{justify-content:center;text-align:center;background:
+  radial-gradient(ellipse at 20% 15%,rgba(55,177,218,.35),transparent 55%),
+  radial-gradient(ellipse at 85% 80%,rgba(242,183,5,.18),transparent 50%),
+  linear-gradient(165deg,var(--navy) 0%,var(--navy-2) 55%,#1d5a7e 100%)}
+.logo-campanha{font-family:var(--display);font-weight:700;font-size:clamp(2.4rem,7vw,4.6rem);line-height:1.02;
+  background:linear-gradient(90deg,#ffe9a8,var(--amarelo) 40%,#ffd34d);-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 6px 0 rgba(0,0,0,.15);letter-spacing:.5px}
+.logo-3d{display:inline-block;color:var(--ciano);-webkit-text-fill-color:var(--ciano);transform:rotate(-6deg);text-shadow:3px 3px 0 var(--navy)}
+.subtitulo{font-family:var(--display);font-weight:500;font-size:clamp(1.05rem,3vw,1.5rem);color:var(--ciano-claro);max-width:560px}
+.mosquito-hero{font-size:clamp(4rem,12vw,7rem);filter:drop-shadow(0 12px 18px rgba(0,0,0,.35));animation:flutua 3.2s ease-in-out infinite}
+@keyframes flutua{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-16px) rotate(4deg)}}
+.frase-impacto{background:rgba(217,43,43,.18);border:2px dashed var(--vermelho);color:#ffd9d9;
+  border-radius:999px;padding:8px 20px;font-weight:600;font-size:.95rem}
+.menu-inicial{display:flex;flex-direction:column;gap:14px;width:100%;max-width:380px;margin-top:8px}
+
+/* ============ BOTÕES ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:var(--display);font-weight:600;
+  font-size:1.2rem;padding:16px 28px;border-radius:999px;min-height:60px;transition:transform .12s,box-shadow .12s;box-shadow:var(--sombra)}
+.btn:active{transform:scale(.96)}
+.btn-primario{background:linear-gradient(180deg,var(--verde-claro),var(--verde));color:#fff;border-bottom:5px solid #0e4218}
+.btn-secundario{background:linear-gradient(180deg,#5cc4e8,var(--ciano));color:var(--navy);border-bottom:5px solid #1f7da0}
+.btn-amarelo{background:linear-gradient(180deg,#ffd34d,var(--amarelo));color:var(--navy);border-bottom:5px solid #b78a00}
+.btn-fantasma{background:rgba(255,255,255,.12);color:#fff;border:2px solid rgba(255,255,255,.35);box-shadow:none}
+.btn-vermelho{background:linear-gradient(180deg,#ef5350,var(--vermelho));color:#fff;border-bottom:5px solid #8e1c1c}
+.btn-mini{min-height:48px;font-size:1rem;padding:10px 20px}
+
+.barra-topo{position:sticky;top:0;width:100%;max-width:860px;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:5;margin-bottom:6px}
+.titulo-tela{font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,4.5vw,2.2rem);color:#fff;text-align:center}
+.subtitulo-tela{color:var(--ciano-claro);text-align:center;max-width:620px;font-size:1rem;line-height:1.5}
+
+/* ============ SELEÇÃO DE FASES ============ */
+#grid-fases{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;width:100%}
+.card-fase{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
+  background:rgba(255,255,255,.97);color:var(--navy);border-radius:var(--raio);padding:22px 16px;box-shadow:var(--sombra);
+  border-bottom:6px solid var(--ciano);transition:transform .15s}
+.card-fase:not(.bloqueada):hover{transform:translateY(-5px)}
+.card-fase.bloqueada{background:rgba(255,255,255,.25);color:rgba(255,255,255,.75);border-bottom-color:rgba(255,255,255,.2);cursor:not-allowed}
+.card-fase.concluida{border-bottom-color:var(--verde-claro)}
+.fase-ico{font-size:2.6rem}
+.fase-num{font-family:var(--display);font-weight:600;font-size:.85rem;color:var(--ciano);text-transform:uppercase;letter-spacing:2px}
+.card-fase.bloqueada .fase-num{color:rgba(255,255,255,.6)}
+.fase-nome{font-family:var(--display);font-weight:700;font-size:1.25rem}
+.fase-desc{font-size:.85rem;line-height:1.4;opacity:.8}
+.fase-medalha{position:absolute;top:10px;right:12px;font-size:1.5rem}
+.selo{display:none;align-items:center;gap:8px;background:linear-gradient(90deg,#ffd34d,var(--amarelo));color:var(--navy);
+  font-family:var(--display);font-weight:700;padding:10px 22px;border-radius:999px;box-shadow:var(--sombra)}
+
+/* ============ JOGO 3D ============ */
+#tela-jogo{padding:0;overflow:hidden}
+#canvas-wrap{position:absolute;inset:0;touch-action:none;cursor:grab}
+#canvas-wrap:active{cursor:grabbing}
+#hud{position:fixed;top:0;left:0;right:0;display:none;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:10px 12px;z-index:30;pointer-events:none}
+.hud-chip{display:flex;align-items:center;gap:8px;background:rgba(15,44,74,.88);backdrop-filter:blur(4px);
+  border:2px solid rgba(255,255,255,.18);border-radius:999px;padding:8px 16px;font-weight:700;font-size:1rem;pointer-events:auto}
+.hud-chip .ico{font-size:1.15rem}
+.hud-chip.alerta{background:rgba(217,43,43,.92);animation:pisca-suave 1s ease-in-out infinite}
+@keyframes pisca-suave{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#hud-prog{flex:1;min-width:140px;max-width:280px;display:flex;align-items:center;gap:10px}
+.barra-prog{flex:1;height:14px;background:rgba(255,255,255,.2);border-radius:999px;overflow:hidden}
+#hud-barra{height:100%;width:0;background:linear-gradient(90deg,var(--verde-claro),#8bc34a);border-radius:999px;transition:width .4s}
+#hud .btn-mini{pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+#btn-ajuda{animation:brilho-ajuda 2.4s ease-in-out infinite}
+@keyframes brilho-ajuda{0%,100%{box-shadow:0 4px 12px rgba(0,0,0,.3)}50%{box-shadow:0 0 0 4px rgba(242,183,5,.55),0 4px 14px rgba(0,0,0,.35)}}
+#missao-banner{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:25;text-align:center;pointer-events:none;
+  background:rgba(15,44,74,.85);backdrop-filter:blur(4px);border-radius:14px;padding:8px 18px;max-width:92vw}
+#missao-titulo{font-family:var(--display);font-weight:700;font-size:1.05rem;color:var(--amarelo)}
+#missao-desc{font-size:.82rem;color:var(--ciano-claro)}
+
+/* balão do mosquito */
+#balao-mosquito{position:fixed;top:74px;right:14px;max-width:260px;background:#fff;color:var(--navy);
+  border-radius:16px 16px 4px 16px;padding:12px 16px;font-weight:600;font-size:.92rem;box-shadow:var(--sombra);
+  z-index:40;opacity:0;transform:translateY(-10px);transition:.3s;pointer-events:none}
+#balao-mosquito.visivel{opacity:1;transform:translateY(0)}
+#balao-mosquito::before{content:"🦟";margin-right:6px}
+
+/* toast educativo */
+#toast{position:fixed;left:50%;top:70px;transform:translate(-50%,-16px);width:min(560px,92vw);
+  background:#fff;color:var(--navy);border-radius:var(--raio);padding:16px 20px;box-shadow:var(--sombra);
+  border-left:8px solid var(--verde-claro);z-index:50;opacity:0;pointer-events:none;transition:.35s}
+#toast.visivel{opacity:1;transform:translate(-50%,0)}
+#toast-titulo{font-family:var(--display);font-weight:700;font-size:1.05rem;margin-bottom:4px}
+#toast-texto{font-size:.92rem;line-height:1.45}
+
+.pts-flutuante{position:fixed;z-index:60;font-family:var(--display);font-weight:700;font-size:1.6rem;color:var(--amarelo);
+  text-shadow:0 2px 6px rgba(0,0,0,.5);pointer-events:none;animation:sobe 1.05s ease-out forwards}
+@keyframes sobe{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-70px)}}
+
+/* ============ QUIZ ============ */
+#tela-quiz{justify-content:center}
+.quiz-caixa{width:100%;max-width:640px;background:#fff;color:var(--navy);border-radius:24px;padding:28px 24px;box-shadow:var(--sombra)}
+#quiz-contexto{font-family:var(--display);font-weight:600;color:var(--ciano);text-transform:uppercase;letter-spacing:1.5px;font-size:.85rem}
+#quiz-num{font-size:.85rem;opacity:.7;margin:4px 0 10px}
+#quiz-pergunta{font-family:var(--display);font-weight:700;font-size:clamp(1.2rem,3.5vw,1.6rem);line-height:1.3;margin-bottom:18px}
+#quiz-alts,#boss-alts{display:flex;flex-direction:column;gap:12px}
+.quiz-alt{display:flex;align-items:center;gap:14px;text-align:left;background:var(--creme);border:3px solid #dceef7;
+  border-radius:16px;padding:14px 16px;font-size:1.02rem;font-weight:600;color:var(--navy);min-height:58px;transition:.15s}
+.quiz-alt:not(:disabled):hover{border-color:var(--ciano);transform:translateX(4px)}
+.quiz-alt.compacta{min-height:50px;padding:10px 14px;font-size:.95rem}
+.quiz-letra{flex-shrink:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  background:var(--ciano);color:#fff;font-family:var(--display);font-weight:700;border-radius:10px}
+.quiz-alt.certa,.quiz-alt.certa:disabled{background:var(--verde-claro);border-color:var(--verde);color:#fff;opacity:1;
+  transform:scale(1.02);box-shadow:0 4px 14px rgba(26,107,42,.4);transition:transform .15s}
+.quiz-alt.certa .quiz-letra{background:var(--verde);color:#fff}
+.quiz-alt.errada,.quiz-alt.errada:disabled{background:var(--vermelho);border-color:#a91f1f;color:#fff;opacity:1;transition:transform .15s}
+.quiz-alt.errada .quiz-letra{background:#a91f1f;color:#fff}
+.quiz-alt:disabled{opacity:.55}
+.quiz-feedback{margin-top:14px;font-weight:700;min-height:24px}
+.quiz-feedback.ok{color:var(--verde)}
+.quiz-feedback.erro{color:var(--vermelho)}
+
+/* painel boss */
+#painel-boss{position:fixed;left:50%;bottom:0;transform:translateX(-50%);width:min(620px,100vw);z-index:35;
+  background:rgba(255,255,255,.97);color:var(--navy);border-radius:24px 24px 0 0;padding:18px 18px 22px;
+  box-shadow:0 -10px 30px rgba(0,0,0,.35);display:none}
+#painel-boss.visivel{display:block}
+.boss-hp-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.boss-hp-rotulo{font-family:var(--display);font-weight:700;font-size:.9rem;color:var(--vermelho);white-space:nowrap}
+.boss-hp-fundo{flex:1;height:16px;background:#f3d3d3;border-radius:999px;overflow:hidden}
+#boss-hp-barra{height:100%;width:100%;background:linear-gradient(90deg,#ef5350,var(--vermelho));transition:width .5s}
+#boss-hp-txt{font-weight:700;font-size:.85rem}
+#boss-pergunta{font-family:var(--display);font-weight:700;font-size:1.1rem;margin-bottom:12px;line-height:1.3}
+
+/* ============ VITÓRIA ============ */
+#tela-vitoria{justify-content:center;text-align:center}
+#vit-medalha{font-size:5rem;animation:flutua 2.5s ease-in-out infinite}
+#vit-pontos{font-family:var(--display);font-weight:700;font-size:2rem;color:var(--amarelo)}
+.card-sabia{background:rgba(255,255,255,.97);color:var(--navy);border-radius:var(--raio);padding:18px 20px;max-width:520px;
+  border-left:8px solid var(--amarelo);text-align:left;box-shadow:var(--sombra)}
+.card-sabia p{margin-top:6px;font-size:.95rem;line-height:1.5}
+.card-sabia.fechado{opacity:.55;border-left-color:#999}
+.acoes-vitoria{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+
+/* ============ MODAL DERROTA ============ */
+.modal{position:fixed;inset:0;background:rgba(8,20,34,.8);display:none;align-items:center;justify-content:center;z-index:90;padding:20px}
+.modal.visivel{display:flex}
+.modal-caixa{background:#fff;color:var(--navy);border-radius:24px;padding:30px 26px;max-width:440px;text-align:center;box-shadow:var(--sombra)}
+.modal-caixa .emoji{font-size:3.4rem}
+.modal-caixa h2{font-family:var(--display);margin:8px 0}
+.modal-caixa p{line-height:1.5;margin-bottom:18px}
+.modal-caixa .acoes{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+
+/* ============ COMO JOGAR ============ */
+.passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;width:100%}
+.passo{background:rgba(255,255,255,.97);color:var(--navy);border-radius:var(--raio);padding:20px;box-shadow:var(--sombra)}
+.passo .emoji{font-size:2.2rem}
+.passo h3{font-family:var(--display);margin:8px 0 6px}
+.passo p{font-size:.92rem;line-height:1.5}
+
+/* ============ CERTIFICADO ============ */
+.form-cert{background:rgba(255,255,255,.97);color:var(--navy);border-radius:var(--raio);padding:24px;width:100%;max-width:480px;box-shadow:var(--sombra)}
+.form-cert label{display:block;font-weight:700;margin:12px 0 6px;font-size:.95rem}
+.form-cert input{width:100%;border:3px solid #dceef7;border-radius:12px;padding:14px;font-size:1.05rem;font-family:inherit;color:var(--navy)}
+.form-cert input:focus{outline:none;border-color:var(--ciano)}
+#cert-doc{display:none;background:#fff;color:var(--navy);width:100%;max-width:720px;border-radius:12px;padding:38px 30px;
+  text-align:center;box-shadow:var(--sombra);border:10px double var(--verde)}
+.cert-cabecalho{font-family:var(--display);font-weight:600;color:var(--ciano);text-transform:uppercase;letter-spacing:3px;font-size:.85rem}
+.cert-titulo{font-family:var(--display);font-weight:700;font-size:clamp(1.6rem,5vw,2.4rem);color:var(--navy);margin:6px 0 14px}
+#cert-nome{font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,4.5vw,2.1rem);color:var(--verde);
+  border-bottom:3px solid var(--amarelo);display:inline-block;padding:0 18px 4px;margin:8px 0}
+.cert-texto{line-height:1.6;max-width:540px;margin:0 auto;font-size:1rem}
+.cert-selo{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:130px;height:130px;border-radius:50%;
+  background:radial-gradient(circle,#ffd34d,var(--amarelo));color:var(--navy);font-family:var(--display);font-weight:700;
+  font-size:.78rem;text-transform:uppercase;line-height:1.2;border:5px solid var(--vermelho);margin-top:18px;box-shadow:var(--sombra)}
+.cert-selo .emoji{font-size:2rem}
+.cert-rodape{display:flex;justify-content:space-between;gap:10px;margin-top:24px;font-size:.85rem;flex-wrap:wrap}
+#cert-acoes{display:none;gap:12px;flex-wrap:wrap;justify-content:center}
+
+/* ============ MODO PROFESSOR ============ */
+.painel-prof{background:rgba(255,255,255,.97);color:var(--navy);border-radius:var(--raio);padding:24px;width:100%;box-shadow:var(--sombra);text-align:left}
+.painel-prof h3{font-family:var(--display);font-size:1.25rem;margin-bottom:10px;color:var(--navy)}
+.painel-prof h3 .tag{font-size:.7rem;background:var(--ciano);color:#fff;border-radius:999px;padding:4px 10px;vertical-align:middle;margin-left:8px;letter-spacing:1px}
+.painel-prof ul{padding-left:20px;line-height:1.7;font-size:.95rem}
+.painel-prof p{line-height:1.6;font-size:.95rem}
+.tabela-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #e3eef5}
+th{font-family:var(--display);color:var(--ciano);text-transform:uppercase;font-size:.78rem;letter-spacing:1px}
+td.vazio{text-align:center;opacity:.6;padding:24px}
+#prof-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:6px}
+#prof-cards .card-sabia{max-width:none;box-shadow:none;border:1px solid #e3eef5}
+
+/* ============ ACESSIBILIDADE / RESPONSIVO ============ */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+@media (max-width:560px){
+  .hud-chip{padding:6px 12px;font-size:.88rem}
+  #hud{padding:8px}
+  .btn{font-size:1.05rem;padding:14px 22px}
+}
+
+/* ============ IMPRESSÃO: SOMENTE O CERTIFICADO ============ */
+@media print{
+  body{background:#fff !important;overflow:visible}
+  body *{visibility:hidden}
+  #cert-doc,#cert-doc *{visibility:visible}
+  #cert-doc{position:fixed;inset:0;margin:auto;box-shadow:none;border-color:var(--verde)}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== TELA INICIAL ===================== -->
+<section class="tela ativa" id="tela-inicio" aria-label="Tela inicial">
+  <div class="tela-conteudo" style="justify-content:center;min-height:100%">
+    <div class="mosquito-hero" aria-hidden="true">🦟</div>
+    <h1 class="logo-campanha">MISSÃO<br>DENGUE ZERO <span class="logo-3d">3D</span></h1>
+    <p class="subtitulo">Derrote o mosquito antes que ele domine a cidade!</p>
+    <p class="frase-impacto">“Água parada é perigo na certa!”</p>
+    <nav class="menu-inicial" aria-label="Menu principal">
+      <button class="btn btn-primario" data-action="ir-fases">🚀 Iniciar Missão</button>
+      <button class="btn btn-secundario" data-action="ir-como-jogar">🎮 Como Jogar</button>
+      <button class="btn btn-amarelo" data-action="ir-professor">👩‍🏫 Modo Professor</button>
+      <button class="btn btn-fantasma btn-mini" data-action="ir-certificado">📜 Meu Certificado</button>
+    </nav>
+    <p style="font-size:.8rem;opacity:.65;margin-top:10px">Campanha educativa · Portal do Educador · NEWPC Tecnologia</p>
+  </div>
+</section>
+
+<!-- ===================== SELEÇÃO DE FASES ===================== -->
+<section class="tela" id="tela-fases" aria-label="Seleção de fases">
+  <div class="tela-conteudo">
+    <div class="barra-topo">
+      <button class="btn btn-fantasma btn-mini" data-action="ir-inicio">← Início</button>
+      <span class="selo" id="selo-status">🛡️ Agente Dengue Zero</span>
+      <button class="btn btn-fantasma btn-mini" data-action="toggle-som" aria-label="Desligar som">🔊</button>
+    </div>
+    <h2 class="titulo-tela">Escolha sua missão</h2>
+    <p class="subtitulo-tela">Procure, elimine e proteja sua cidade. Complete uma fase para liberar a próxima!</p>
+    <div id="grid-fases"></div>
+    <button class="btn btn-fantasma btn-mini" data-action="reiniciar-jogo">🔄 Reiniciar jogo (apagar progresso)</button>
+  </div>
+</section>
+
+<!-- ===================== COMO JOGAR ===================== -->
+<section class="tela" id="tela-como-jogar" aria-label="Como jogar">
+  <div class="tela-conteudo">
+    <div class="barra-topo">
+      <button class="btn btn-fantasma btn-mini" data-action="ir-inicio">← Início</button>
+    </div>
+    <h2 class="titulo-tela">Como jogar</h2>
+    <div class="passos">
+      <div class="passo"><span class="emoji" aria-hidden="true">🔎</span><h3>1. Explore o cenário</h3><p>Arraste o dedo (ou o mouse) para girar a câmera e use a pinça ou a rodinha do mouse para aproximar. Os focos de água parada brilham levemente.</p></div>
+      <div class="passo"><span class="emoji" aria-hidden="true">👆</span><h3>2. Toque nos focos</h3><p>Encontrou um pneu, balde ou caixa d'água com água parada? Toque nele para eliminar e ganhe pontos. Cada foco ensina uma dica de prevenção.</p></div>
+      <div class="passo"><span class="emoji" aria-hidden="true">⏱️</span><h3>3. Vença o tempo</h3><p>Elimine todos os focos antes do cronômetro zerar. Quanto mais rápido, mais pontos de bônus e melhor a medalha!</p></div>
+      <div class="passo"><span class="emoji" aria-hidden="true">🧠</span><h3>4. Responda o quiz</h3><p>No fim de cada fase, mostre o que aprendeu no quiz educativo. Na Fase 4, suas respostas são a arma contra o Mosquito Vilão!</p></div>
+      <div class="passo"><span class="emoji" aria-hidden="true">🏅</span><h3>5. Vire um agente</h3><p>Complete as 5 fases, conquiste o selo "Agente Dengue Zero" e imprima seu certificado oficial da campanha.</p></div>
+      <div class="passo"><span class="emoji" aria-hidden="true">🖥️</span><h3>Na lousa digital</h3><p>O jogo funciona com toque direto na lousa: ideal para jogar em grupo, com a turma decidindo junta onde estão os focos.</p></div>
+    </div>
+    <button class="btn btn-primario" data-action="ir-fases">🚀 Começar agora</button>
+  </div>
+</section>
+
+<!-- ===================== JOGO 3D ===================== -->
+<section class="tela" id="tela-jogo" aria-label="Jogo 3D">
+  <div id="canvas-wrap" aria-label="Cenário 3D do jogo. Arraste para girar e toque nos focos de água parada."></div>
+  <div id="missao-banner">
+    <div id="missao-titulo"></div>
+    <div id="missao-desc"></div>
+  </div>
+</section>
+
+<!-- HUD fixo -->
+<div id="hud">
+  <button class="btn btn-vermelho btn-mini" data-action="abandonar-fase">✕ Sair</button>
+  <span class="hud-chip"><span class="ico" aria-hidden="true">🏁</span><span id="hud-fase">Fase 1</span></span>
+  <span class="hud-chip" id="hud-cron"><span class="ico" aria-hidden="true">⏱️</span><span id="hud-tempo">0:00</span></span>
+  <span class="hud-chip"><span class="ico" aria-hidden="true">⭐</span><span id="hud-pontos">0</span></span>
+  <span class="hud-chip" id="hud-prog"><span id="hud-focos">0/0</span><span class="barra-prog"><span id="hud-barra" style="display:block"></span></span></span>
+  <span class="hud-chip"><span id="hud-vidas">❤️❤️❤️</span></span>
+  <button class="btn btn-amarelo btn-mini" id="btn-ajuda" data-action="pedir-ajuda" aria-label="Mostrar onde estão os focos">🔎 Onde estão?</button>
+  <button class="btn btn-fantasma btn-mini" data-action="toggle-som" aria-label="Desligar som">🔊</button>
+</div>
+
+<!-- balão de fala do mosquito + toast educativo -->
+<div id="balao-mosquito" role="status"></div>
+<div id="toast" role="status" aria-live="polite">
+  <div id="toast-titulo"></div>
+  <div id="toast-texto"></div>
+</div>
+
+<!-- painel da batalha contra o vilão (Fase 4) -->
+<div id="painel-boss">
+  <div class="boss-hp-wrap">
+    <span class="boss-hp-rotulo">🦟 Mosquito Vilão</span>
+    <span class="boss-hp-fundo"><span id="boss-hp-barra" style="display:block"></span></span>
+    <span id="boss-hp-txt">6/6</span>
+  </div>
+  <div id="boss-pergunta"></div>
+  <div id="boss-alts"></div>
+</div>
+
+<!-- ===================== QUIZ ===================== -->
+<section class="tela" id="tela-quiz" aria-label="Quiz educativo">
+  <div class="quiz-caixa">
+    <div id="quiz-contexto"></div>
+    <div id="quiz-num"></div>
+    <div id="quiz-pergunta"></div>
+    <div id="quiz-alts"></div>
+    <div id="quiz-feedback" class="quiz-feedback" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- ===================== VITÓRIA ===================== -->
+<section class="tela" id="tela-vitoria" aria-label="Fase concluída">
+  <div class="tela-conteudo" style="justify-content:center;min-height:100%">
+    <div id="vit-medalha" aria-hidden="true">🥇</div>
+    <h2 class="titulo-tela" id="vit-titulo">Fase concluída!</h2>
+    <p class="subtitulo-tela" id="vit-msg"></p>
+    <div id="vit-pontos">0 pts</div>
+    <div class="card-sabia">
+      <strong id="vit-card-titulo"></strong>
+      <p id="vit-card-texto"></p>
+    </div>
+    <div class="acoes-vitoria">
+      <button class="btn btn-primario" id="btn-proxima-fase" data-action="proxima-fase" data-fase="2">➡️ Próxima fase</button>
+      <button class="btn btn-amarelo" id="btn-certificado-vit" data-action="ir-certificado" style="display:none">📜 Pegar certificado</button>
+      <button class="btn btn-fantasma" data-action="ir-fases">🗺️ Mapa de fases</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== MODAL DERROTA ===================== -->
+<div class="modal" id="modal-derrota" role="alertdialog" aria-label="Fim da tentativa">
+  <div class="modal-caixa">
+    <div class="emoji" aria-hidden="true">🦟💨</div>
+    <h2>Ah, não!</h2>
+    <p id="derrota-msg"></p>
+    <div class="acoes">
+      <button class="btn btn-primario btn-mini" data-action="tentar-novamente">🔁 Tentar de novo</button>
+      <button class="btn btn-fantasma btn-mini" style="color:var(--navy);border-color:var(--navy)" data-action="sair-derrota">Mapa de fases</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CERTIFICADO ===================== -->
+<section class="tela" id="tela-certificado" aria-label="Certificado">
+  <div class="tela-conteudo">
+    <div class="barra-topo">
+      <button class="btn btn-fantasma btn-mini" data-action="ir-inicio">← Início</button>
+    </div>
+    <h2 class="titulo-tela">Certificado Agente Dengue Zero</h2>
+
+    <div class="form-cert" id="cert-bloqueado" style="display:none;text-align:center">
+      <p style="font-size:2.4rem" aria-hidden="true">🔒</p>
+      <p style="line-height:1.6"><strong>Quase lá, agente!</strong><br>Complete as 5 fases da missão para liberar seu certificado oficial.</p>
+      <button class="btn btn-primario btn-mini" style="margin-top:14px" data-action="ir-fases">Continuar missão</button>
+    </div>
+
+    <div class="form-cert" id="cert-form">
+      <p style="line-height:1.5"><strong>Parabéns!</strong> Você concluiu a missão. Preencha seus dados para gerar o certificado:</p>
+      <label for="cert-nome-input">Nome do aluno</label>
+      <input id="cert-nome-input" type="text" maxlength="60" placeholder="Ex.: Maria Souza" autocomplete="name">
+      <label for="cert-escola-input">Nome da escola</label>
+      <input id="cert-escola-input" type="text" maxlength="80" placeholder="Ex.: E.M. Paulo Freire">
+      <button class="btn btn-primario" style="width:100%;margin-top:18px" data-action="gerar-certificado">✨ Gerar certificado</button>
+    </div>
+
+    <div id="cert-doc">
+      <div class="cert-cabecalho">Campanha Missão Dengue Zero · Portal do Educador</div>
+      <div class="cert-titulo">Certificado de Agente Dengue Zero</div>
+      <p class="cert-texto">Certificamos que</p>
+      <div id="cert-nome">—</div>
+      <p class="cert-texto">da escola <strong id="cert-escola">—</strong>, concluiu com êxito as 5 fases da <strong>Missão Dengue Zero 3D</strong>, demonstrando conhecimento sobre prevenção da dengue, eliminação de criadouros do <em>Aedes aegypti</em> e responsabilidade coletiva com a saúde da sua cidade.</p>
+      <div class="cert-selo"><span class="emoji" aria-hidden="true">🛡️</span>Agente<br>Dengue Zero</div>
+      <div class="cert-rodape">
+        <span>📅 <span id="cert-data">—</span></span>
+        <span>⭐ Pontuação total: <strong id="cert-pontos">—</strong></span>
+      </div>
+    </div>
+
+    <div id="cert-acoes" class="acoes-vitoria">
+      <button class="btn btn-amarelo" data-action="imprimir-certificado">🖨️ Imprimir certificado</button>
+      <button class="btn btn-fantasma btn-mini" data-action="ir-inicio">Voltar ao início</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== MODO PROFESSOR ===================== -->
+<section class="tela" id="tela-professor" aria-label="Modo professor">
+  <div class="tela-conteudo">
+    <div class="barra-topo">
+      <button class="btn btn-fantasma btn-mini" data-action="ir-inicio">← Início</button>
+      <button class="btn btn-amarelo btn-mini" data-action="gerar-relatorio">📊 Gerar Relatório da Turma</button>
+    </div>
+    <h2 class="titulo-tela">Modo Professor</h2>
+    <p class="subtitulo-tela">Guia pedagógico da campanha e acompanhamento da turma neste dispositivo.</p>
+
+    <div class="painel-prof">
+      <h3>🎯 Objetivos pedagógicos</h3>
+      <ul>
+        <li>Reconhecer os principais criadouros do <em>Aedes aegypti</em> no cotidiano (casa, escola e bairro).</li>
+        <li>Compreender o ciclo de vida do mosquito e as doenças transmitidas (dengue, zika e chikungunya).</li>
+        <li>Desenvolver atitudes preventivas semanais e senso de responsabilidade coletiva.</li>
+        <li>Estimular o aluno como multiplicador da campanha junto à família e à comunidade.</li>
+      </ul>
+    </div>
+
+    <div class="painel-prof">
+      <h3>📚 Habilidades trabalhadas <span class="tag">BNCC</span></h3>
+      <ul>
+        <li><strong>Ciências:</strong> ciclos de vida, micro-organismos e prevenção de doenças (eixo Vida e Evolução).</li>
+        <li><strong>Geografia:</strong> observação do espaço urbano e identificação de riscos no território.</li>
+        <li><strong>Cidadania e Educação Ambiental:</strong> cuidado com o ambiente coletivo e descarte correto de resíduos.</li>
+        <li><strong>Competências gerais:</strong> argumentação, cultura digital e responsabilidade comunitária.</li>
+      </ul>
+    </div>
+
+    <div class="painel-prof">
+      <h3>🧩 Sugestões de atividades complementares</h3>
+      <ul>
+        <li><strong>Vistoria real:</strong> após o jogo, organize uma "caça aos focos" no pátio da escola usando um checklist inspirado nas fases.</li>
+        <li><strong>Missão de casa:</strong> cada aluno vistoria sua casa com a família e relata na semana seguinte o que encontrou.</li>
+        <li><strong>Campanha da turma:</strong> produção de cartazes com as frases de impacto do jogo para os corredores da escola.</li>
+        <li><strong>Lousa digital:</strong> jogue coletivamente projetando o jogo; a turma vota onde está o próximo foco.</li>
+      </ul>
+    </div>
+
+    <div class="painel-prof">
+      <h3>🏆 Relatório de desempenho (ranking local)</h3>
+      <p style="margin-bottom:10px">Resultados registrados neste dispositivo quando o aluno gera o certificado. Use "Gerar Relatório da Turma" para baixar a lista completa.</p>
+      <div class="tabela-wrap">
+        <table>
+          <thead><tr><th>Posição</th><th>Aluno</th><th>Escola</th><th>Pontos</th><th>Data</th></tr></thead>
+          <tbody id="prof-ranking"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="painel-prof">
+      <h3>💡 Cards "Você sabia?" da campanha</h3>
+      <div id="prof-cards"></div>
+    </div>
+
+    <div class="painel-prof">
+      <h3>📣 Orientações para campanha escolar</h3>
+      <p>Sugestão de roteiro de 1 semana: <strong>Dia 1</strong> — apresentação do jogo na lousa digital e Fases 1 e 2 em grupo. <strong>Dia 2 e 3</strong> — alunos jogam individualmente ou em duplas (tablets/Chromebooks). <strong>Dia 4</strong> — vistoria real no pátio + Fase 4 (batalha de perguntas) como gincana entre equipes. <strong>Dia 5</strong> — Fase 5 coletiva, entrega dos certificados impressos e exposição dos cartazes. O relatório da turma pode ser anexado ao registro da campanha junto à Secretaria de Saúde do município.</p>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   MISSÃO DENGUE ZERO 3D — Portal do Educador / NEWPC
+   Jogo educativo de combate ao Aedes aegypti
+   Arquivo único, Three.js r128, sem dependências de build
+   ============================================================ */
+'use strict';
+
+/* ---------------- ESTADO GLOBAL ---------------- */
+var STATE = {
+  faseAtual: null,
+  pontos: 0,
+  pontosTotais: 0,
+  vidas: 3,
+  tempoRestante: 0,
+  focosRestantes: 0,
+  focosTotais: 0,
+  quizIndex: 0,
+  quizErros: 0,
+  bossHP: 6,
+  bossMaxHP: 6,
+  progresso: { fasesConcluidas: [], medalhas: {}, cardsDesbloqueados: [], seloAgente: false },
+  somLigado: true,
+  jogoAtivo: false,
+  timerId: null,
+  bossAtivo: false,   // true durante a batalha de quiz contra o vilão (fase 4)
+  ultimoAcerto: 0,    // timestamp do último foco eliminado (ajuda por inatividade)
+  ajudaForcada: false // true quando o tempo está acabando: marcadores sempre visíveis
+};
+
+function carregarProgresso() {
+  try {
+    var raw = localStorage.getItem('mdz3d_progresso');
+    if (raw) STATE.progresso = JSON.parse(raw);
+    var pts = localStorage.getItem('mdz3d_pontos');
+    if (pts) STATE.pontosTotais = parseInt(pts, 10) || 0;
+  } catch (e) { /* armazenamento indisponível: jogo segue sem persistência */ }
+}
+function salvarProgresso() {
+  try {
+    localStorage.setItem('mdz3d_progresso', JSON.stringify(STATE.progresso));
+    localStorage.setItem('mdz3d_pontos', String(STATE.pontosTotais));
+  } catch (e) { /* ignora */ }
+}
+function salvarRanking(nome, escola, pontos) {
+  try {
+    var r = JSON.parse(localStorage.getItem('mdz3d_ranking') || '[]');
+    r.push({ nome: nome, escola: escola, pontos: pontos, data: new Date().toLocaleDateString('pt-BR') });
+    r.sort(function (a, b) { return b.pontos - a.pontos; });
+    localStorage.setItem('mdz3d_ranking', JSON.stringify(r.slice(0, 50)));
+  } catch (e) { /* ignora */ }
+}
+function lerRanking() {
+  try { return JSON.parse(localStorage.getItem('mdz3d_ranking') || '[]'); }
+  catch (e) { return []; }
+}
+
+/* ---------------- DADOS EDUCATIVOS ---------------- */
+var FOCOS_INFO = {
+  pneu:      { nome: 'Pneu com água parada',        dica: 'Pneus acumulam água da chuva e viram criadouros perfeitos. Mantenha cobertos, fure ou descarte em ecopontos.' },
+  vaso:      { nome: 'Pratinho de planta cheio',    dica: 'O pratinho do vaso acumula água limpa, a favorita do mosquito. Coloque areia até a borda ou lave toda semana.' },
+  garrafa:   { nome: 'Garrafa aberta',              dica: 'Garrafas destampadas guardam água da chuva. Guarde sempre de boca para baixo.' },
+  caixa:     { nome: "Caixa d'água destampada",     dica: "A caixa d'água aberta é um dos criadouros mais perigosos. Mantenha sempre bem tampada e vedada." },
+  calha:     { nome: 'Calha entupida',              dica: 'Folhas entopem a calha e a água fica parada. Limpe as calhas regularmente, principalmente antes das chuvas.' },
+  balde:     { nome: 'Balde no quintal',            dica: 'Baldes esquecidos no quintal enchem de água da chuva. Guarde virados para baixo e em local coberto.' },
+  piscina:   { nome: 'Piscina sem tratamento',      dica: 'Piscina parada sem cloro vira berçário de mosquito. Trate a água ou mantenha coberta e seca.' },
+  lixo:      { nome: 'Lixo acumulado',              dica: 'Embalagens e entulho acumulam água em pequenos espaços. Mantenha o lixo fechado e descarte corretamente.' },
+  bebedouro: { nome: 'Bebedouro de animal sujo',    dica: 'O potinho de água do pet deve ser lavado com bucha toda semana: os ovos do mosquito grudam na parede do pote.' },
+  tampinha:  { nome: 'Tampinhas e recipientes',     dica: 'Até uma tampinha de garrafa acumula água suficiente para criar mosquitos. Recolha e descarte pequenos recipientes.' }
+};
+
+var FRASES_MOSQUITO = [
+  'Hehehe! Você nunca vai achar todos os meus esconderijos!',
+  'Água parada é meu palácio! Bzzzz!',
+  'Essa cidade já é minha!',
+  'Ah não! Mais um foco perdido!',
+  'Você é rápido demais, agente!',
+  'Bzzz... preciso de um plano B!'
+];
+
+var QUIZ = {
+  1: [
+    { p: 'Qual é o principal lugar onde o mosquito da dengue se reproduz?', alts: ['Em água parada e limpa', 'Em árvores altas', 'Na areia da praia', 'Em lugares muito frios'], certa: 0 },
+    { p: 'O que devemos fazer com pneus velhos?', alts: ['Deixar no quintal', 'Cobrir, furar ou levar ao ecoponto', 'Encher de água', 'Jogar no terreno baldio'], certa: 1 },
+    { p: 'O pratinho do vaso de planta deve...', alts: ['Ficar sempre cheio de água', 'Receber areia até a borda', 'Ser pintado de azul', 'Ficar ao sol'], certa: 1 }
+  ],
+  2: [
+    { p: 'Como a escola pode ajudar no combate à dengue?', alts: ['Ignorando o problema', 'Vistoriando pátio, calhas e lixeiras toda semana', 'Deixando baldes no pátio', 'Acumulando entulho'], certa: 1 },
+    { p: 'Por que é importante limpar as calhas?', alts: ['Para a escola ficar bonita', 'Porque folhas prendem água parada', 'Para fazer barulho', 'Não é importante'], certa: 1 },
+    { p: 'O bebedouro dos animais deve ser lavado...', alts: ['Uma vez por ano', 'Nunca', 'Toda semana, com bucha', 'Só quando estiver verde'], certa: 2 }
+  ],
+  3: [
+    { p: 'Água parada limpa também pode ser perigosa?', alts: ['Não, só água suja', 'Sim! O mosquito prefere água limpa e parada', 'Só se estiver gelada', 'Só em rios'], certa: 1 },
+    { p: "Por que é importante tampar a caixa d'água?", alts: ['Para a água esquentar', 'Para o mosquito não entrar e botar ovos', 'Para economizar água', 'Não é importante'], certa: 1 },
+    { p: 'O que fazer ao ver um terreno baldio cheio de lixo?', alts: ['Jogar mais lixo', 'Avisar um adulto e a prefeitura', 'Brincar lá dentro', 'Nada'], certa: 1 }
+  ],
+  5: [
+    { p: 'Quanto tempo um ovo do Aedes aegypti pode sobreviver no seco?', alts: ['1 dia', 'Mais de 1 ano, esperando água', '1 hora', 'Ovos não sobrevivem'], certa: 1 },
+    { p: 'Quais doenças o Aedes aegypti pode transmitir?', alts: ['Gripe e resfriado', 'Dengue, zika e chikungunya', 'Dor de dente', 'Nenhuma'], certa: 1 },
+    { p: 'Qual a atitude de um verdadeiro Agente Dengue Zero?', alts: ['Vistoriar a casa 1 vez por semana e avisar a família', 'Esperar a prefeitura resolver tudo', 'Guardar água destampada', 'Não fazer nada'], certa: 0 }
+  ]
+};
+
+var QUIZ_BOSS = [
+  { p: 'Em quanto tempo o ovo do mosquito vira adulto, com água parada?', alts: ['Cerca de 7 a 10 dias', '1 ano', '1 hora', '6 meses'], certa: 0 },
+  { p: 'Qual o melhor horário de atividade do Aedes aegypti?', alts: ['Madrugada', 'Início da manhã e fim da tarde', 'Só à noite', 'Nunca sai'], certa: 1 },
+  { p: 'Quem pica e transmite a dengue?', alts: ['O mosquito macho', 'A fêmea do Aedes aegypti', 'Os dois igualmente', 'A larva'], certa: 1 },
+  { p: 'Sintomas comuns da dengue são...', alts: ['Febre alta, dor no corpo e atrás dos olhos', 'Tosse e espirro', 'Dor de dente', 'Sono'], certa: 0 },
+  { p: 'Se alguém tiver sintomas de dengue, deve...', alts: ['Tomar remédio por conta própria', 'Procurar o posto de saúde e beber bastante água', 'Ignorar', 'Ficar no sol'], certa: 1 },
+  { p: 'A melhor arma contra a dengue é...', alts: ['Eliminar água parada toda semana', 'Esperar o inverno', 'Fechar as janelas', 'Gritar com o mosquito'], certa: 0 }
+];
+
+var CARDS_SABIA = [
+  { t: 'Origem viajante', d: 'O Aedes aegypti veio da África em navios, há séculos. Hoje vive nas cidades, pertinho das pessoas.' },
+  { t: 'Voo curto', d: 'O mosquito voa pouco: cerca de 100 metros. Se há mosquito na sua casa, o criadouro está bem perto!' },
+  { t: 'Listras brancas', d: 'O Aedes aegypti tem listras brancas nas pernas e no corpo. É menor e mais silencioso que o pernilongo comum.' },
+  { t: 'Ovos resistentes', d: 'Os ovos resistem mais de um ano no seco. Por isso lavar com bucha é essencial: água sozinha não tira os ovos.' },
+  { t: '10 minutos por semana', d: 'Uma vistoria de 10 minutos por semana na sua casa elimina a maioria dos criadouros. Pequenas atitudes salvam vidas!' }
+];
+
+var FASES = {
+  1: { nome: 'Quintal Seguro', desc: 'Elimine os focos de água parada no quintal.', tempo: 120, cena: 'quintal',
+       focos: [ ['pneu', -6, 2], ['vaso', 5, 0], ['garrafa', -2, 5], ['balde', 7, 4], ['bebedouro', 1, -2], ['tampinha', -7, -3] ] },
+  2: { nome: 'Escola Protegida', desc: 'Vistorie pátio, jardim, lixeira e bebedouros da escola.', tempo: 150, cena: 'escola',
+       focos: [ ['vaso', -8, 2], ['vaso', 8, 2], ['lixo', -6, 6], ['bebedouro', 6, 6], ['calha', 0, -2], ['caixa', -2, -4], ['garrafa', 3, 5] ] },
+  3: { nome: 'Bairro em Alerta', desc: 'Combata focos em casas, ruas e no terreno baldio.', tempo: 180, cena: 'bairro',
+       focos: [ ['pneu', -10, 2], ['pneu', 10, -1], ['piscina', 9, 3], ['lixo', -9, 6], ['caixa', -5, -3], ['garrafa', 2, 6], ['balde', -1, 1], ['tampinha', 5, -2] ] },
+  4: { nome: 'Ataque do Mosquito Vilão', desc: 'Limpe a praça e depois derrote o vilão no duelo de perguntas!', tempo: 90, cena: 'boss',
+       focos: [ ['pneu', -5, 3], ['garrafa', 3, 4], ['balde', -2, -2], ['tampinha', 5, 0], ['vaso', 0, 5] ] },
+  5: { nome: 'Cidade Dengue Zero', desc: 'Missão final: proteja a cidade inteira!', tempo: 240, cena: 'cidade',
+       focos: [ ['pneu', -9, 3], ['vaso', 4, -2], ['garrafa', -3, 5], ['caixa', 8, 4], ['calha', -6, -1], ['balde', 9, 1], ['piscina', -8, 6], ['lixo', 1, 7], ['bebedouro', -2, -3], ['tampinha', 6, -2] ] }
+};
+
+/* ---------------- ÁUDIO (WebAudio, sem arquivos) ---------------- */
+var audioCtx = null;
+function tocar(tipo) {
+  if (!STATE.somLigado) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var t = audioCtx.currentTime;
+    var o = audioCtx.createOscillator();
+    var g = audioCtx.createGain();
+    o.connect(g); g.connect(audioCtx.destination);
+    if (tipo === 'acerto') {
+      o.type = 'triangle'; o.frequency.setValueAtTime(523, t); o.frequency.setValueAtTime(784, t + 0.1);
+      g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.start(t); o.stop(t + 0.35);
+    } else if (tipo === 'erro') {
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.3);
+      g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.start(t); o.stop(t + 0.35);
+    } else if (tipo === 'vitoria') {
+      var notas = [523, 659, 784, 1047];
+      notas.forEach(function (f, i) {
+        var o2 = audioCtx.createOscillator(); var g2 = audioCtx.createGain();
+        o2.connect(g2); g2.connect(audioCtx.destination);
+        o2.type = 'triangle'; o2.frequency.value = f;
+        g2.gain.setValueAtTime(0.15, t + i * 0.15);
+        g2.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.3);
+        o2.start(t + i * 0.15); o2.stop(t + i * 0.15 + 0.3);
+      });
+      return;
+    } else if (tipo === 'clique') {
+      o.type = 'sine'; o.frequency.value = 660;
+      g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      o.start(t); o.stop(t + 0.1);
+    }
+  } catch (e) { /* áudio indisponível */ }
+}
+
+/* ---------------- NAVEGAÇÃO ENTRE TELAS ---------------- */
+function mostrarTela(id) {
+  var telas = document.querySelectorAll('.tela');
+  for (var i = 0; i < telas.length; i++) telas[i].classList.remove('ativa');
+  var alvo = document.getElementById(id);
+  if (alvo) alvo.classList.add('ativa');
+  var hud = document.getElementById('hud');
+  hud.style.display = (id === 'tela-jogo') ? 'flex' : 'none';
+  if (id !== 'tela-jogo') {
+    document.getElementById('painel-boss').classList.remove('visivel');
+    document.getElementById('boss-alts').innerHTML = '';
+    document.getElementById('toast').classList.remove('visivel');
+    document.getElementById('balao-mosquito').classList.remove('visivel');
+  }
+}
+
+function renderFases() {
+  var grid = document.getElementById('grid-fases');
+  var icones = { 1: '🏡', 2: '🏫', 3: '🏘️', 4: '🦟', 5: '🌆' };
+  var html = '';
+  for (var n = 1; n <= 5; n++) {
+    var f = FASES[n];
+    var concluida = STATE.progresso.fasesConcluidas.indexOf(n) >= 0;
+    var liberada = n === 1 || STATE.progresso.fasesConcluidas.indexOf(n - 1) >= 0;
+    var medalha = STATE.progresso.medalhas[n] || '';
+    var medalhaIco = medalha === 'ouro' ? '🥇' : medalha === 'prata' ? '🥈' : medalha === 'bronze' ? '🥉' : '';
+    html += '<button class="card-fase' + (liberada ? '' : ' bloqueada') + (concluida ? ' concluida' : '') + '" ' +
+      (liberada ? 'data-action="iniciar-fase" data-fase="' + n + '"' : 'disabled aria-disabled="true"') + '>' +
+      '<span class="fase-ico" aria-hidden="true">' + (liberada ? icones[n] : '🔒') + '</span>' +
+      '<span class="fase-num">Fase ' + n + '</span>' +
+      '<span class="fase-nome">' + f.nome + '</span>' +
+      '<span class="fase-desc">' + f.desc + '</span>' +
+      (medalhaIco ? '<span class="fase-medalha">' + medalhaIco + '</span>' : '') +
+      '</button>';
+  }
+  grid.innerHTML = html;
+  var selo = document.getElementById('selo-status');
+  selo.style.display = STATE.progresso.seloAgente ? 'inline-flex' : 'none';
+}
+
+/* ---------------- TOASTS E FEEDBACK ---------------- */
+var toastTimer = null;
+function toastEducativo(titulo, texto) {
+  var el = document.getElementById('toast');
+  document.getElementById('toast-titulo').textContent = titulo;
+  document.getElementById('toast-texto').textContent = texto;
+  el.classList.add('visivel');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.classList.remove('visivel'); }, 5200);
+}
+function faleMosquito(frase) {
+  var el = document.getElementById('balao-mosquito');
+  el.textContent = frase;
+  el.classList.add('visivel');
+  setTimeout(function () { el.classList.remove('visivel'); }, 3000);
+}
+function pontosFlutuantes(x, y, txt) {
+  var el = document.createElement('div');
+  el.className = 'pts-flutuante';
+  el.textContent = txt;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(function () { el.remove(); }, 1100);
+}
+
+/* ============================================================
+   MOTOR 3D (Three.js)
+   ============================================================ */
+var T = {
+  renderer: null, scene: null, camera: null, raycaster: null,
+  focos: [], mosquito: null, clock: null,
+  cam: { theta: 0.8, phi: 1.05, dist: 22, alvo: null },
+  animId: null, particulas: [], marcadores: []
+};
+
+var M = {}; // materiais reutilizados
+function initMateriais() {
+  function mat(c) { return new THREE.MeshLambertMaterial({ color: c }); }
+  M.grama = mat(0x5fae46); M.gramaSeca = mat(0x9aa84f); M.rua = mat(0x4a4f57);
+  M.calcada = mat(0xb9bcc2); M.parede = mat(0xf3e9d2); M.parede2 = mat(0xf7c873);
+  M.parede3 = mat(0xa8d8ea); M.telhado = mat(0xc0492b); M.telhado2 = mat(0x8a4b2f);
+  M.madeira = mat(0x8a5a33); M.tronco = mat(0x6e4a2a); M.folha = mat(0x3f8f3c);
+  M.agua = new THREE.MeshLambertMaterial({ color: 0x37b1da, transparent: true, opacity: 0.85 });
+  M.aguaPiscina = new THREE.MeshLambertMaterial({ color: 0x1ec8e8, transparent: true, opacity: 0.92 });
+  M.aguaSuja = new THREE.MeshLambertMaterial({ color: 0x6b8f3c, transparent: true, opacity: 0.9 });
+  M.pneu = mat(0x2b2b2e); M.plastico = mat(0xe85d3a); M.metal = mat(0x9aa3ad);
+  M.vidro = new THREE.MeshLambertMaterial({ color: 0x9fd9b3, transparent: true, opacity: 0.7 });
+  M.ceramica = mat(0xc96f3a); M.branco = mat(0xfafafa); M.azulEscuro = mat(0x0f2c4a);
+  M.amarelo = mat(0xf2b705); M.vermelho = mat(0xd92b2b); M.preto = mat(0x1c1c1f);
+  M.cinza = mat(0x6f7680); M.verde = mat(0x1a6b2a); M.lixoVerde = mat(0x2e7d32);
+}
+
+function box(w, h, d, material) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material); }
+function cyl(rt, rb, h, material, seg) { return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 14), material); }
+function esfera(r, material, seg) { return new THREE.Mesh(new THREE.SphereGeometry(r, seg || 14, seg || 12), material); }
+
+/* ---------- construtores de cenário ---------- */
+function criarCasa(corParede, corTelhado, escala) {
+  var g = new THREE.Group(); var s = escala || 1;
+  var corpo = box(5 * s, 3 * s, 4 * s, corParede); corpo.position.y = 1.5 * s; corpo.castShadow = true; g.add(corpo);
+  var telhado = new THREE.Mesh(new THREE.ConeGeometry(4.1 * s, 2 * s, 4), corTelhado);
+  telhado.position.y = 4 * s; telhado.rotation.y = Math.PI / 4; telhado.castShadow = true; g.add(telhado);
+  var porta = box(1 * s, 1.8 * s, 0.1, M.madeira); porta.position.set(0, 0.9 * s, 2.01 * s); g.add(porta);
+  var j1 = box(1 * s, 0.9 * s, 0.1, M.vidro); j1.position.set(-1.6 * s, 1.7 * s, 2.01 * s); g.add(j1);
+  var j2 = j1.clone(); j2.position.x = 1.6 * s; g.add(j2);
+  return g;
+}
+function criarArvore(escala) {
+  var g = new THREE.Group(); var s = escala || 1;
+  var tr = cyl(0.25 * s, 0.35 * s, 2.2 * s, M.tronco); tr.position.y = 1.1 * s; tr.castShadow = true; g.add(tr);
+  var c1 = esfera(1.4 * s, M.folha); c1.position.y = 2.9 * s; c1.castShadow = true; g.add(c1);
+  var c2 = esfera(1.0 * s, M.folha); c2.position.set(0.9 * s, 2.4 * s, 0.3 * s); g.add(c2);
+  var c3 = esfera(0.9 * s, M.folha); c3.position.set(-0.8 * s, 2.5 * s, -0.3 * s); g.add(c3);
+  return g;
+}
+function criarMuro(comp, alt) {
+  var m = box(comp, alt || 1.4, 0.3, M.calcada); m.position.y = (alt || 1.4) / 2; m.castShadow = true; return m;
+}
+function criarPoste(x, z) {
+  var g = new THREE.Group();
+  var p = cyl(0.12, 0.15, 5, M.cinza); p.position.y = 2.5; g.add(p);
+  var braco = box(1.4, 0.12, 0.12, M.cinza); braco.position.set(0.6, 4.9, 0); g.add(braco);
+  var lamp = esfera(0.22, M.amarelo); lamp.position.set(1.2, 4.8, 0); g.add(lamp);
+  g.position.set(x, 0, z); return g;
+}
+function criarEscolaPredio() {
+  var g = new THREE.Group();
+  var corpo = box(14, 4.5, 5, M.parede3); corpo.position.set(0, 2.25, -10); corpo.castShadow = true; g.add(corpo);
+  var teto = box(14.6, 0.5, 5.6, M.azulEscuro); teto.position.set(0, 4.75, -10); g.add(teto);
+  for (var i = -2; i <= 2; i++) {
+    var j = box(1.6, 1.2, 0.1, M.vidro); j.position.set(i * 2.6, 2.8, -7.44); g.add(j);
+  }
+  var porta = box(2.2, 2.4, 0.1, M.azulEscuro); porta.position.set(0, 1.2, -7.44); g.add(porta);
+  var placa = box(5, 0.9, 0.15, M.branco); placa.position.set(0, 4.0, -7.4); g.add(placa);
+  var mastro = cyl(0.06, 0.06, 4, M.metal); mastro.position.set(-8, 2, -8); g.add(mastro);
+  var bandeira = box(1.2, 0.8, 0.05, M.verde); bandeira.position.set(-7.35, 3.5, -8); g.add(bandeira);
+  return g;
+}
+function criarPostoSaude(x, z) {
+  var g = criarCasa(M.branco, M.azulEscuro, 1.1);
+  var cruzV = box(0.25, 1.0, 0.12, M.vermelho); cruzV.position.set(0, 3.1, 2.25); g.add(cruzV);
+  var cruzH = box(1.0, 0.25, 0.12, M.vermelho); cruzH.position.set(0, 3.1, 2.25); g.add(cruzH);
+  g.position.set(x, 0, z); return g;
+}
+
+/* ---------- construtores de FOCOS (clicáveis) ---------- */
+function focoPneu() {
+  var g = new THREE.Group();
+  var pneu = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.28, 10, 20), M.pneu);
+  pneu.rotation.x = Math.PI / 2; pneu.position.y = 0.28; pneu.castShadow = true; g.add(pneu);
+  var agua = cyl(0.55, 0.55, 0.08, M.aguaSuja); agua.position.y = 0.3; g.add(agua);
+  return g;
+}
+function focoVaso() {
+  var g = new THREE.Group();
+  var prato = cyl(0.62, 0.5, 0.12, M.ceramica); prato.position.y = 0.06; g.add(prato);
+  var agua = cyl(0.56, 0.56, 0.05, M.agua); agua.position.y = 0.13; g.add(agua);
+  var vaso = cyl(0.42, 0.3, 0.7, M.ceramica); vaso.position.y = 0.45; vaso.castShadow = true; g.add(vaso);
+  var planta = esfera(0.4, M.folha); planta.position.y = 1.0; g.add(planta);
+  return g;
+}
+function focoGarrafa() {
+  var g = new THREE.Group();
+  var corpo = cyl(0.16, 0.16, 0.8, M.vidro); corpo.position.y = 0.4; g.add(corpo);
+  var gargalo = cyl(0.07, 0.12, 0.25, M.vidro); gargalo.position.y = 0.92; g.add(gargalo);
+  var agua = cyl(0.14, 0.14, 0.3, M.agua); agua.position.y = 0.2; g.add(agua);
+  var c2 = corpo.clone(); c2.position.set(0.45, 0.4, 0.15); g.add(c2);
+  return g;
+}
+function focoCaixa() {
+  var g = new THREE.Group();
+  var caixa = cyl(1.0, 1.0, 1.1, M.azulEscuro, 18); caixa.position.y = 0.55; caixa.castShadow = true; g.add(caixa);
+  var agua = cyl(0.92, 0.92, 0.06, M.agua, 18); agua.position.y = 1.08; g.add(agua);
+  var tampa = cyl(1.05, 1.05, 0.1, M.cinza, 18); tampa.position.set(1.4, 0.05, 0.4); tampa.rotation.z = 0.25; g.add(tampa);
+  return g;
+}
+function focoCalha() {
+  var g = new THREE.Group();
+  var calha = box(3, 0.25, 0.4, M.metal); calha.position.y = 2.6; g.add(calha);
+  var agua = box(2.8, 0.08, 0.3, M.aguaSuja); agua.position.y = 2.72; g.add(agua);
+  var folhas = box(0.6, 0.12, 0.32, M.folha); folhas.position.set(0.8, 2.74, 0); g.add(folhas);
+  var suporte1 = cyl(0.06, 0.06, 2.6, M.metal); suporte1.position.set(-1.3, 1.3, 0); g.add(suporte1);
+  var suporte2 = suporte1.clone(); suporte2.position.x = 1.3; g.add(suporte2);
+  return g;
+}
+function focoBalde() {
+  var g = new THREE.Group();
+  var balde = cyl(0.45, 0.32, 0.6, M.plastico); balde.position.y = 0.3; balde.castShadow = true; g.add(balde);
+  var agua = cyl(0.4, 0.4, 0.05, M.agua); agua.position.y = 0.57; g.add(agua);
+  var alca = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 8, 16, Math.PI), M.metal);
+  alca.position.y = 0.6; g.add(alca);
+  return g;
+}
+function focoPiscina() {
+  var g = new THREE.Group();
+  var borda = box(3.4, 0.3, 2.6, M.calcada); borda.position.y = 0.15; g.add(borda);
+  var agua = box(3.0, 0.12, 2.2, M.aguaPiscina); agua.position.y = 0.32; g.add(agua);
+  return g;
+}
+function focoLixo() {
+  var g = new THREE.Group();
+  var saco1 = esfera(0.45, M.preto); saco1.position.set(0, 0.4, 0); saco1.scale.y = 0.85; g.add(saco1);
+  var saco2 = esfera(0.35, M.lixoVerde); saco2.position.set(0.55, 0.32, 0.2); g.add(saco2);
+  var lata = cyl(0.14, 0.14, 0.35, M.metal); lata.position.set(-0.5, 0.17, 0.3); lata.rotation.z = 1.3; g.add(lata);
+  var caixa2 = box(0.5, 0.35, 0.4, M.madeira); caixa2.position.set(-0.2, 0.18, -0.5); caixa2.rotation.y = 0.4; g.add(caixa2);
+  return g;
+}
+function focoBebedouro() {
+  var g = new THREE.Group();
+  var pote = cyl(0.4, 0.32, 0.22, M.vermelho); pote.position.y = 0.11; g.add(pote);
+  var agua = cyl(0.34, 0.34, 0.05, M.aguaSuja); agua.position.y = 0.21; g.add(agua);
+  var osso = box(0.35, 0.08, 0.12, M.branco); osso.position.set(0.6, 0.04, 0.1); g.add(osso);
+  return g;
+}
+function focoTampinha() {
+  var g = new THREE.Group();
+  var cores = [M.vermelho, M.amarelo, M.azulEscuro, M.verde, M.plastico];
+  for (var i = 0; i < 5; i++) {
+    var tp = cyl(0.12, 0.12, 0.06, cores[i % cores.length]);
+    tp.position.set((Math.random() - 0.5) * 0.9, 0.03, (Math.random() - 0.5) * 0.9);
+    g.add(tp);
+    var ag = cyl(0.09, 0.09, 0.02, M.agua); ag.position.set(tp.position.x, 0.065, tp.position.z); g.add(ag);
+  }
+  return g;
+}
+var FOCO_BUILDERS = {  pneu: focoPneu, vaso: focoVaso, garrafa: focoGarrafa, caixa: focoCaixa, calha: focoCalha,
+  balde: focoBalde, piscina: focoPiscina, lixo: focoLixo, bebedouro: focoBebedouro, tampinha: focoTampinha
+};
+
+// escala visual por foco: os menores ganham mais presença na tela sem perder a proporção interna.
+// alturaBase: levanta focos rasteiros do chão para destacarem.
+var FOCO_ESCALA = {
+  pneu: 1.25, vaso: 1.3, garrafa: 1.8, caixa: 1.0, calha: 1.0,
+  balde: 1.45, piscina: 1.05, lixo: 1.3, bebedouro: 1.7, tampinha: 2.0
+};
+
+/* ---------- mosquito vilão ---------- */
+function criarMosquito(escala) {
+  var g = new THREE.Group(); var s = escala || 1;
+  var corpo = esfera(0.45 * s, M.preto); corpo.scale.set(1, 0.85, 1.4); g.add(corpo);
+  var abdomen = esfera(0.32 * s, M.preto); abdomen.scale.set(0.8, 0.7, 1.6); abdomen.position.z = -0.75 * s; g.add(abdomen);
+  // listras brancas (característica do Aedes)
+  for (var i = 0; i < 3; i++) {
+    var listra = new THREE.Mesh(new THREE.TorusGeometry(0.27 * s, 0.03 * s, 6, 14), M.branco);
+    listra.position.z = (-0.45 - i * 0.25) * s; listra.scale.y = 0.7; g.add(listra);
+  }
+  var cabeca = esfera(0.3 * s, M.preto); cabeca.position.set(0, 0.15 * s, 0.55 * s); g.add(cabeca);
+  var o1 = esfera(0.14 * s, M.branco); o1.position.set(-0.13 * s, 0.28 * s, 0.72 * s); g.add(o1);
+  var o2 = o1.clone(); o2.position.x = 0.13 * s; g.add(o2);
+  var p1 = esfera(0.06 * s, M.preto); p1.position.set(-0.13 * s, 0.28 * s, 0.85 * s); g.add(p1);
+  var p2 = p1.clone(); p2.position.x = 0.13 * s; g.add(p2);
+  // sobrancelhas de vilão
+  var sb1 = box(0.18 * s, 0.04 * s, 0.04 * s, M.vermelho); sb1.position.set(-0.13 * s, 0.42 * s, 0.78 * s); sb1.rotation.z = -0.5; g.add(sb1);
+  var sb2 = sb1.clone(); sb2.rotation.z = 0.5; sb2.position.x = 0.13 * s; g.add(sb2);
+  var ferrao = cyl(0.015 * s, 0.04 * s, 0.5 * s, M.cinza); ferrao.rotation.x = Math.PI / 2; ferrao.position.set(0, 0.05 * s, 1.0 * s); g.add(ferrao);
+  // capa vermelha de vilão
+  var capa = new THREE.Mesh(new THREE.ConeGeometry(0.55 * s, 1.1 * s, 12, 1, true), M.vermelho);
+  capa.position.set(0, -0.1 * s, -0.5 * s); capa.rotation.x = -0.5; g.add(capa);
+  // asas
+  var asaGeo = new THREE.SphereGeometry(0.5 * s, 10, 8);
+  var asaMat = new THREE.MeshLambertMaterial({ color: 0xcfe8f5, transparent: true, opacity: 0.55 });
+  var asa1 = new THREE.Mesh(asaGeo, asaMat); asa1.scale.set(1.2, 0.08, 0.5); asa1.position.set(-0.55 * s, 0.35 * s, -0.2 * s); g.add(asa1);
+  var asa2 = asa1.clone(); asa2.position.x = 0.55 * s; g.add(asa2);
+  // pernas
+  for (var j = 0; j < 3; j++) {
+    var pe1 = cyl(0.02 * s, 0.02 * s, 0.7 * s, M.preto); pe1.position.set(-0.3 * s, -0.35 * s, (0.25 - j * 0.3) * s); pe1.rotation.z = 0.7; g.add(pe1);
+    var pe2 = pe1.clone(); pe2.rotation.z = -0.7; pe2.position.x = 0.3 * s; g.add(pe2);
+  }
+  g.userData.asas = [asa1, asa2];
+  return g;
+}
+
+/* ---------- montagem das cenas ---------- */
+function chao(larg, prof, material) {
+  var c = new THREE.Mesh(new THREE.PlaneGeometry(larg, prof), material);
+  c.rotation.x = -Math.PI / 2; c.receiveShadow = true; return c;
+}
+function montarCenaQuintal(scene) {
+  scene.add(chao(30, 30, M.grama));
+  var casa = criarCasa(M.parede2, M.telhado, 1); casa.position.set(0, 0, -9); scene.add(casa);
+  var arv = criarArvore(1.1); arv.position.set(-9, 0, -6); scene.add(arv);
+  var arv2 = criarArvore(0.8); arv2.position.set(9, 0, -8); scene.add(arv2);
+  var muroFundo = criarMuro(30); muroFundo.position.z = -14; scene.add(muroFundo);
+  var muroEsq = criarMuro(28); muroEsq.rotation.y = Math.PI / 2; muroEsq.position.x = -14; scene.add(muroEsq);
+  var muroDir = muroEsq.clone(); muroDir.position.x = 14; scene.add(muroDir);
+  var varal1 = cyl(0.05, 0.05, 2.2, M.madeira); varal1.position.set(-4, 1.1, 2); scene.add(varal1);
+  var varal2 = varal1.clone(); varal2.position.x = 1; scene.add(varal2);
+}
+function montarCenaEscola(scene) {
+  scene.add(chao(34, 30, M.calcada));
+  var gramado = chao(34, 8, M.grama); gramado.position.set(0, 0.01, 11); scene.add(gramado);
+  scene.add(criarEscolaPredio());
+  var arv = criarArvore(1.2); arv.position.set(-12, 0, 8); scene.add(arv);
+  var arv2 = criarArvore(1.0); arv2.position.set(12, 0, 9); scene.add(arv2);
+  // quadra
+  var quadra = chao(8, 6, M.verde); quadra.position.set(9, 0.02, -1); scene.add(quadra);
+  scene.add(criarPoste(-14, 0));
+  scene.add(criarPoste(14, 0));
+}
+function montarCenaBairro(scene, grande) {
+  var dim = grande ? 42 : 34;
+  scene.add(chao(dim, dim, M.grama));
+  var rua = chao(dim, 5, M.rua); rua.position.y = 0.01; scene.add(rua);
+  var faixa = chao(dim, 0.25, M.amarelo); faixa.position.y = 0.02; scene.add(faixa);
+  var casas = [
+    [criarCasa(M.parede, M.telhado, 0.9), -12, -9], [criarCasa(M.parede3, M.telhado2, 0.9), -4, -9.5],
+    [criarCasa(M.parede2, M.telhado, 0.85), 5, -9], [criarCasa(M.parede, M.telhado2, 0.95), 12, -10],
+    [criarCasa(M.parede2, M.telhado, 0.9), -12, 9], [criarCasa(M.parede3, M.telhado, 0.85), -4, 9.5]
+  ];
+  casas.forEach(function (c) { c[0].position.set(c[1], 0, c[2]); c[0].rotation.y = c[2] > 0 ? Math.PI : 0; scene.add(c[0]); });
+  if (grande) {
+    scene.add(criarEscolaPredio());
+    var e = scene.children[scene.children.length - 1]; e.position.set(0, 0, -6); e.scale.set(0.8, 0.8, 0.8);
+    scene.add(criarPostoSaude(14, 10));
+  } else {
+    scene.add(criarPostoSaude(12, 9));
+  }
+  // terreno baldio
+  var baldio = chao(8, 7, M.gramaSeca); baldio.position.set(-11, 0.015, -5); scene.add(baldio);
+  var arv = criarArvore(1.1); arv.position.set(4, 0, 9); scene.add(arv);
+  scene.add(criarPoste(-7, 3.2)); scene.add(criarPoste(7, -3.2));
+}
+function montarCenaBoss(scene) {
+  scene.add(chao(30, 30, M.rua));
+  var praca = chao(14, 14, M.grama); praca.position.y = 0.01; scene.add(praca);
+  var arv = criarArvore(1.3); arv.position.set(-8, 0, -6); scene.add(arv);
+  var arv2 = criarArvore(1.1); arv2.position.set(8, 0, -7); scene.add(arv2);
+  scene.add(criarPoste(-6, 6)); scene.add(criarPoste(6, 6));
+}
+
+var MONTADORES = {
+  quintal: montarCenaQuintal,
+  escola: montarCenaEscola,
+  bairro: function (s) { montarCenaBairro(s, false); },
+  cidade: function (s) { montarCenaBairro(s, true); },
+  boss: montarCenaBoss
+};
+
+/* ---------- ciclo de vida do 3D ---------- */
+function init3D(numeroFase) {
+  destruir3D();
+  var canvasWrap = document.getElementById('canvas-wrap');
+  T.renderer = new THREE.WebGLRenderer({ antialias: true });
+  T.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  T.renderer.setSize(canvasWrap.clientWidth, canvasWrap.clientHeight);
+  T.renderer.shadowMap.enabled = true;
+  T.renderer.shadowMap.type = THREE.PCFShadowMap;
+  canvasWrap.innerHTML = '';
+  canvasWrap.appendChild(T.renderer.domElement);
+
+  T.scene = new THREE.Scene();
+  T.scene.background = new THREE.Color(0x9fd8ef);
+  T.scene.fog = new THREE.Fog(0x9fd8ef, 35, 70);
+
+  T.camera = new THREE.PerspectiveCamera(55, canvasWrap.clientWidth / canvasWrap.clientHeight, 0.1, 120);
+  T.cam.alvo = new THREE.Vector3(0, 1, 1.5);
+  T.cam.theta = 0.0; T.cam.phi = numeroFase === 5 ? 0.82 : 0.92;
+  T.cam.dist = numeroFase === 4 ? 17 : (numeroFase === 5 ? 30 : (numeroFase === 3 ? 24 : 19));
+  atualizarCamera();
+
+  var hemi = new THREE.HemisphereLight(0xeaf6ff, 0x6fae5a, 0.9); T.scene.add(hemi);
+  var sol = new THREE.DirectionalLight(0xfff3d6, 0.9);
+  sol.position.set(14, 22, 10); sol.castShadow = true;
+  sol.shadow.mapSize.set(1024, 1024);
+  sol.shadow.camera.left = -25; sol.shadow.camera.right = 25;
+  sol.shadow.camera.top = 25; sol.shadow.camera.bottom = -25;
+  T.scene.add(sol);
+
+  // nuvens decorativas
+  for (var i = 0; i < 5; i++) {
+    var nuvem = new THREE.Group();
+    var nb = esfera(1.4, M.branco); nuvem.add(nb);
+    var nb2 = esfera(1.0, M.branco); nb2.position.set(1.3, 0.2, 0); nuvem.add(nb2);
+    var nb3 = esfera(0.9, M.branco); nb3.position.set(-1.2, 0.1, 0.3); nuvem.add(nb3);
+    nuvem.position.set((Math.random() - 0.5) * 50, 14 + Math.random() * 5, (Math.random() - 0.5) * 50);
+    T.scene.add(nuvem);
+  }
+
+  var cfg = FASES[numeroFase];
+  MONTADORES[cfg.cena](T.scene);
+
+  // focos clicáveis
+  T.focos = [];
+  T.marcadores = [];
+  cfg.focos.forEach(function (f) {
+    var grupo = FOCO_BUILDERS[f[0]]();
+    var esc = FOCO_ESCALA[f[0]] || 1;
+    grupo.scale.set(esc, esc, esc);
+    grupo.position.set(f[1], 0, f[2]);
+    grupo.userData.tipo = f[0];
+    grupo.userData.escalaBase = esc;
+    grupo.userData.eliminado = false;
+    grupo.userData.pulso = Math.random() * Math.PI * 2;
+    T.scene.add(grupo);
+    T.focos.push(grupo);
+
+    // marcador de ajuda: anel no chão + seta amarela apontando o foco (oculto por padrão)
+    var marc = criarMarcadorAjuda();
+    marc.position.set(f[1], 0, f[2]);
+    marc.visible = false;
+    marc.userData.foco = grupo;
+    T.scene.add(marc);
+    T.marcadores.push(marc);
+  });
+
+  // mosquito vilão
+  T.mosquito = criarMosquito(numeroFase === 4 ? 3.2 : 1);
+  T.mosquito.position.set(0, numeroFase === 4 ? 4 : 5, numeroFase === 4 ? 0 : -3);
+  T.scene.add(T.mosquito);
+
+  T.raycaster = new THREE.Raycaster();
+  T.clock = new THREE.Clock();
+  animar();
+}
+
+function atualizarCamera() {
+  var c = T.cam;
+  c.phi = Math.max(0.25, Math.min(1.45, c.phi));
+  c.dist = Math.max(7, Math.min(44, c.dist));
+  T.camera.position.set(
+    c.alvo.x + c.dist * Math.sin(c.phi) * Math.sin(c.theta),
+    c.alvo.y + c.dist * Math.cos(c.phi),
+    c.alvo.z + c.dist * Math.sin(c.phi) * Math.cos(c.theta)
+  );
+  T.camera.lookAt(c.alvo);
+}
+
+var fugaTimer = 0;
+function animar() {
+  T.animId = requestAnimationFrame(animar);
+  var dt = T.clock.getDelta();
+  var t = T.clock.elapsedTime;
+
+  // mosquito: voo + asas
+  if (T.mosquito) {
+    var m = T.mosquito;
+    if (STATE.bossAtivo) {
+      m.position.y = 4 + Math.sin(t * 2) * 0.5;
+      m.rotation.y = Math.sin(t * 0.7) * 0.5;
+    } else if (fugaTimer > 0) {
+      fugaTimer -= dt;
+      m.position.x += Math.sin(t * 9) * 0.3 + 0.25;
+      m.position.y += dt * 4;
+      if (fugaTimer <= 0) { m.position.set((Math.random() - 0.5) * 16, 5, (Math.random() - 0.5) * 16); }
+    } else {
+      m.position.x = Math.sin(t * 0.45) * 9;
+      m.position.z = Math.cos(t * 0.3) * 8;
+      m.position.y = 4.2 + Math.sin(t * 2.2) * 0.7;
+      m.rotation.y = Math.atan2(Math.cos(t * 0.45) * 0.45 * 9, -Math.sin(t * 0.3) * 0.3 * 8);
+    }
+    m.userData.asas.forEach(function (asa, i) {
+      asa.rotation.z = Math.sin(t * 38 + i * Math.PI) * 0.55;
+    });
+  }
+
+  // pulso suave nos focos não eliminados (indica interatividade)
+  T.focos.forEach(function (f) {
+    if (!f.userData.eliminado) {
+      var base = f.userData.escalaBase || 1;
+      var p = base * (1 + Math.sin(t * 3 + f.userData.pulso) * 0.04);
+      f.scale.set(p, p, p);
+    }
+  });
+
+  // marcadores de ajuda: anel pulsa, seta sobe e desce
+  T.marcadores.forEach(function (mc) {
+    if (!mc.visible) return;
+    var s = 1 + Math.sin(t * 4) * 0.18;
+    mc.userData.anel.scale.set(s, s, 1);
+    mc.userData.anel.material.opacity = 0.55 + Math.sin(t * 4) * 0.35;
+    mc.userData.seta.position.y = 3.4 + Math.sin(t * 3.5) * 0.35;
+    mc.userData.seta.rotation.y += dt * 1.5;
+  });
+
+  // partículas de celebração
+  for (var i = T.particulas.length - 1; i >= 0; i--) {
+    var pt = T.particulas[i];
+    pt.mesh.position.add(pt.vel.clone().multiplyScalar(dt));
+    pt.vel.y -= 9 * dt;
+    pt.vida -= dt;
+    pt.mesh.rotation.x += dt * 6; pt.mesh.rotation.z += dt * 4;
+    if (pt.vida <= 0) { T.scene.remove(pt.mesh); T.particulas.splice(i, 1); }
+  }
+
+  T.renderer.render(T.scene, T.camera);
+}
+
+function criarMarcadorAjuda() {
+  var g = new THREE.Group();
+  // anel pulsante no chão (torus deitado)
+  var anelGeo = new THREE.TorusGeometry(1.5, 0.18, 8, 28);
+  var anelMat = new THREE.MeshBasicMaterial({ color: 0xf2b705, transparent: true, opacity: 0.9 });
+  var anel = new THREE.Mesh(anelGeo, anelMat);
+  anel.rotation.x = Math.PI / 2;
+  anel.position.y = 0.15;
+  g.add(anel);
+  g.userData.anel = anel;
+  // seta amarela apontando para baixo, flutuando acima do foco
+  var seta = new THREE.Group();
+  var haste = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.1, 8),
+    new THREE.MeshBasicMaterial({ color: 0xf2b705 }));
+  haste.position.y = 0.55; seta.add(haste);
+  var ponta = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.7, 8),
+    new THREE.MeshBasicMaterial({ color: 0xd92b2b }));
+  ponta.position.y = -0.35; ponta.rotation.x = Math.PI; seta.add(ponta);
+  seta.position.y = 3.4;
+  g.add(seta);
+  g.userData.seta = seta;
+  return g;
+}
+
+function explosaoConfete(pos) {
+  var cores = [M.amarelo, M.verde, M.vermelho, M.plastico, M.branco];
+  for (var i = 0; i < 14; i++) {
+    var p = box(0.12, 0.12, 0.02, cores[i % cores.length]);
+    p.position.copy(pos); p.position.y += 0.5;
+    T.scene.add(p);
+    T.particulas.push({
+      mesh: p,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 6, 4 + Math.random() * 3, (Math.random() - 0.5) * 6),
+      vida: 1.1
+    });
+  }
+}
+
+function destruir3D() {
+  if (T.animId) cancelAnimationFrame(T.animId);
+  T.animId = null;
+  if (T.renderer) {
+    T.renderer.dispose();
+    if (T.renderer.domElement && T.renderer.domElement.parentNode) {
+      T.renderer.domElement.parentNode.removeChild(T.renderer.domElement);
+    }
+  }
+  T.scene = null; T.focos = []; T.mosquito = null; T.particulas = []; T.marcadores = [];
+  clearTimeout(T._ajudaTimeout);
+}
+
+/* ---------- entrada: toque/clique/arrasto ---------- */
+var ponteiro = { ativo: false, x0: 0, y0: 0, moveu: false, thetaIni: 0, phiIni: 0, pinchDist: 0 };
+
+function bindControles() {
+  var el = document.getElementById('canvas-wrap');
+
+  el.addEventListener('pointerdown', function (e) {
+    ponteiro.ativo = true; ponteiro.moveu = false;
+    ponteiro.x0 = e.clientX; ponteiro.y0 = e.clientY;
+    ponteiro.thetaIni = T.cam.theta; ponteiro.phiIni = T.cam.phi;
+  });
+  el.addEventListener('pointermove', function (e) {
+    if (!ponteiro.ativo || !T.camera) return;
+    var dx = e.clientX - ponteiro.x0, dy = e.clientY - ponteiro.y0;
+    if (Math.abs(dx) + Math.abs(dy) > 8) ponteiro.moveu = true;
+    if (ponteiro.moveu) {
+      T.cam.theta = ponteiro.thetaIni - dx * 0.008;
+      T.cam.phi = ponteiro.phiIni - dy * 0.006;
+      atualizarCamera();
+    }
+  });
+  el.addEventListener('pointerup', function (e) {
+    if (!ponteiro.ativo) return;
+    ponteiro.ativo = false;
+    if (!ponteiro.moveu) tentarEliminar(e.clientX, e.clientY);
+  });
+  el.addEventListener('pointercancel', function () { ponteiro.ativo = false; });
+
+  el.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    T.cam.dist += e.deltaY * 0.02;
+    atualizarCamera();
+  }, { passive: false });
+
+  // pinça (zoom) em telas de toque
+  el.addEventListener('touchmove', function (e) {
+    if (e.touches.length === 2) {
+      var d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+      if (ponteiro.pinchDist > 0) {
+        T.cam.dist += (ponteiro.pinchDist - d) * 0.05;
+        atualizarCamera();
+      }
+      ponteiro.pinchDist = d;
+    }
+  }, { passive: true });
+  el.addEventListener('touchend', function () { ponteiro.pinchDist = 0; }, { passive: true });
+
+  window.addEventListener('resize', function () {
+    if (!T.renderer) return;
+    var wrap = document.getElementById('canvas-wrap');
+    T.renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+    T.camera.aspect = wrap.clientWidth / wrap.clientHeight;
+    T.camera.updateProjectionMatrix();
+  });
+}
+
+function tentarEliminar(cx, cy) {
+  if (!STATE.jogoAtivo || STATE.bossAtivo || !T.camera) return;
+  var rect = T.renderer.domElement.getBoundingClientRect();
+  var ndc = new THREE.Vector2(
+    ((cx - rect.left) / rect.width) * 2 - 1,
+    -((cy - rect.top) / rect.height) * 2 + 1
+  );
+  T.raycaster.setFromCamera(ndc, T.camera);
+  var ativos = T.focos.filter(function (f) { return !f.userData.eliminado; });
+  var hits = T.raycaster.intersectObjects(ativos, true);
+  if (!hits.length) return;
+  var obj = hits[0].object;
+  while (obj.parent && !obj.userData.tipo) obj = obj.parent;
+  if (!obj.userData.tipo || obj.userData.eliminado) return;
+  eliminarFoco(obj, cx, cy);
+}
+
+function eliminarFoco(grupo, cx, cy) {
+  grupo.userData.eliminado = true;
+  STATE.pontos += 100;
+  STATE.focosRestantes--;
+  STATE.ultimoAcerto = performance.now();
+  tocar('acerto');
+  pontosFlutuantes(cx, cy, '+100');
+  explosaoConfete(grupo.position);
+  fugaTimer = 1.2;
+  // esconde o marcador deste foco; se ajuda não está forçada, recolhe os demais
+  T.marcadores.forEach(function (mc) {
+    if (mc.userData.foco === grupo) mc.visible = false;
+  });
+  if (!STATE.ajudaForcada) esconderAjuda();
+  if (Math.random() < 0.5) faleMosquito(FRASES_MOSQUITO[Math.floor(Math.random() * FRASES_MOSQUITO.length)]);
+
+  var info = FOCOS_INFO[grupo.userData.tipo];
+  toastEducativo('✅ ' + info.nome + ' eliminado!', info.dica);
+
+  // animação de encolher
+  var base = grupo.userData.escalaBase || 1;
+  var ini = performance.now();
+  (function encolhe() {
+    var p = (performance.now() - ini) / 400;
+    if (p >= 1) { grupo.visible = false; return; }
+    var s = base * (1 - p);
+    grupo.scale.set(s, s, s);
+    grupo.rotation.y += 0.3;
+    requestAnimationFrame(encolhe);
+  })();
+
+  atualizarHUD();
+  if (STATE.focosRestantes <= 0) {
+    if (STATE.faseAtual === 4) {
+      setTimeout(iniciarBatalhaBoss, 900);
+    } else {
+      setTimeout(faseConcluida, 900);
+    }
+  }
+}
+
+/* ---------------- HUD E CRONÔMETRO ---------------- */
+function atualizarHUD() {
+  document.getElementById('hud-pontos').textContent = STATE.pontos;
+  document.getElementById('hud-focos').textContent = (STATE.focosTotais - STATE.focosRestantes) + '/' + STATE.focosTotais;
+  var pct = STATE.focosTotais ? ((STATE.focosTotais - STATE.focosRestantes) / STATE.focosTotais) * 100 : 0;
+  document.getElementById('hud-barra').style.width = pct + '%';
+  var min = Math.floor(STATE.tempoRestante / 60);
+  var seg = STATE.tempoRestante % 60;
+  var elT = document.getElementById('hud-tempo');
+  elT.textContent = min + ':' + (seg < 10 ? '0' : '') + seg;
+  elT.parentElement.classList.toggle('alerta', STATE.tempoRestante <= 20 && STATE.tempoRestante > 0);
+  document.getElementById('hud-fase').textContent = 'Fase ' + STATE.faseAtual;
+  document.getElementById('hud-vidas').textContent = '❤️'.repeat(Math.max(0, STATE.vidas));
+}
+function iniciarTimer() {
+  pararTimer();
+  STATE.timerId = setInterval(function () {
+    if (!STATE.jogoAtivo) return;
+    STATE.tempoRestante--;
+    atualizarHUD();
+    checarAjudaAutomatica();
+    if (STATE.tempoRestante <= 0) {
+      pararTimer();
+      STATE.jogoAtivo = false;
+      tocar('erro');
+      mostrarDerrota('O tempo acabou! O mosquito aproveitou a demora... Tente de novo, agente!');
+    }
+  }, 1000);
+}
+function pararTimer() { if (STATE.timerId) { clearInterval(STATE.timerId); STATE.timerId = null; } }
+
+/* ---------------- SISTEMA DE AJUDA (localizar focos) ---------------- */
+// Mostra os marcadores dos focos ainda ativos. Se temporario=true, esconde sozinho depois.
+function mostrarAjuda(temporario) {
+  if (!T.marcadores || STATE.bossAtivo) return;
+  var algum = false;
+  T.marcadores.forEach(function (mc) {
+    if (mc.userData.foco && !mc.userData.foco.userData.eliminado) {
+      mc.visible = true; algum = true;
+    } else {
+      mc.visible = false;
+    }
+  });
+  if (!algum) return;
+  if (temporario && !STATE.ajudaForcada) {
+    clearTimeout(T._ajudaTimeout);
+    T._ajudaTimeout = setTimeout(esconderAjuda, 4000);
+  }
+}
+function esconderAjuda() {
+  if (STATE.ajudaForcada) return; // tempo acabando: mantém sempre visível
+  if (T.marcadores) T.marcadores.forEach(function (mc) { mc.visible = false; });
+}
+// Acionada pelo botão "Onde estão?": mostra marcadores e gira a câmera para o foco mais distante da mira
+function pedirAjuda() {
+  if (!STATE.jogoAtivo || STATE.bossAtivo) return;
+  mostrarAjuda(true);
+  STATE.ultimoAcerto = performance.now();
+  // aponta a câmera para o primeiro foco ativo
+  var alvo = null;
+  for (var i = 0; i < T.focos.length; i++) {
+    if (!T.focos[i].userData.eliminado) { alvo = T.focos[i]; break; }
+  }
+  if (alvo) {
+    T.cam.theta = Math.atan2(alvo.position.x, alvo.position.z);
+    atualizarCamera();
+  }
+  toastEducativo('🔎 Procure os anéis amarelos!', 'As setas mostram onde ainda tem água parada. Gire a câmera arrastando a tela se um foco estiver escondido atrás de uma casa.');
+}
+// Verifica inatividade e tempo acabando (chamada a cada segundo pelo timer)
+function checarAjudaAutomatica() {
+  if (!STATE.jogoAtivo || STATE.bossAtivo) return;
+  var cfg = FASES[STATE.faseAtual];
+  // tempo acabando: força marcadores permanentes quando resta <= 35% do tempo
+  if (!STATE.ajudaForcada && cfg.tempo && STATE.tempoRestante <= Math.ceil(cfg.tempo * 0.35) && STATE.focosRestantes > 0) {
+    STATE.ajudaForcada = true;
+    mostrarAjuda(false);
+    toastEducativo('⏰ O tempo está acabando!', 'Os focos que faltam estão brilhando com seta amarela. Corra, agente!');
+    return;
+  }
+  // inatividade: 15s sem eliminar nenhum foco
+  if (!STATE.ajudaForcada && (performance.now() - STATE.ultimoAcerto) > 15000 && STATE.focosRestantes > 0) {
+    mostrarAjuda(true);
+    STATE.ultimoAcerto = performance.now(); // evita repetir toda hora
+  }
+}
+
+/* ---------------- FLUXO DE FASES ---------------- */
+function iniciarFase(n) {
+  STATE.faseAtual = n;
+  STATE.pontos = 0;
+  STATE.vidas = 3;
+  STATE.quizErros = 0;
+  var cfg = FASES[n];
+  STATE.focosTotais = cfg.focos.length;
+  STATE.focosRestantes = cfg.focos.length;
+  STATE.tempoRestante = cfg.tempo;
+  STATE.jogoAtivo = true;
+  STATE.ajudaForcada = false;
+  STATE.ultimoAcerto = performance.now();
+
+  document.getElementById('missao-titulo').textContent = 'Fase ' + n + ' — ' + cfg.nome;
+  document.getElementById('missao-desc').textContent = cfg.desc;
+
+  mostrarTela('tela-jogo');
+  init3D(n);
+  atualizarHUD();
+
+  STATE.bossAtivo = false;
+  document.getElementById('hud-cron').style.display = 'flex';
+  document.getElementById('hud-prog').style.display = 'flex';
+  document.getElementById('painel-boss').classList.remove('visivel');
+  iniciarTimer();
+  if (n === 4) {
+    toastEducativo('🦟 O vilão chegou!', 'Primeiro limpe os focos da praça. Quando terminar, o Mosquito Vilão vai te desafiar para o duelo de perguntas!');
+  } else {
+    toastEducativo('🎯 Missão: ' + cfg.nome, cfg.desc + ' Toque nos focos de água parada para eliminá-los. Arraste para girar a câmera.');
+  }
+}
+
+function faseConcluida() {
+  STATE.jogoAtivo = false;
+  pararTimer();
+  tocar('vitoria');
+  // bônus de tempo
+  var bonus = STATE.tempoRestante * 10;
+  STATE.pontos += bonus;
+  if (QUIZ[STATE.faseAtual]) {
+    abrirQuiz(STATE.faseAtual);
+  } else {
+    finalizarFase();
+  }
+}
+
+function calcularMedalha() {
+  var cfg = FASES[STATE.faseAtual];
+  if (!cfg.tempo) return STATE.quizErros === 0 ? 'ouro' : STATE.quizErros <= 2 ? 'prata' : 'bronze';
+  var pctTempo = STATE.tempoRestante / cfg.tempo;
+  if (pctTempo >= 0.45 && STATE.quizErros === 0) return 'ouro';
+  if (pctTempo >= 0.2 && STATE.quizErros <= 1) return 'prata';
+  return 'bronze';
+}
+
+function finalizarFase() {
+  var n = STATE.faseAtual;
+  var medalha = calcularMedalha();
+  STATE.pontosTotais += STATE.pontos;
+  if (STATE.progresso.fasesConcluidas.indexOf(n) < 0) STATE.progresso.fasesConcluidas.push(n);
+  var ordem = { bronze: 1, prata: 2, ouro: 3 };
+  if (!STATE.progresso.medalhas[n] || ordem[medalha] > ordem[STATE.progresso.medalhas[n]]) {
+    STATE.progresso.medalhas[n] = medalha;
+  }
+  if (STATE.progresso.cardsDesbloqueados.indexOf(n) < 0) STATE.progresso.cardsDesbloqueados.push(n);
+  var tudoConcluido = [1, 2, 3, 4, 5].every(function (f) { return STATE.progresso.fasesConcluidas.indexOf(f) >= 0; });
+  if (tudoConcluido) STATE.progresso.seloAgente = true;
+  salvarProgresso();
+
+  // tela de vitória da fase
+  var ico = medalha === 'ouro' ? '🥇' : medalha === 'prata' ? '🥈' : '🥉';
+  document.getElementById('vit-medalha').textContent = ico;
+  document.getElementById('vit-titulo').textContent = n === 5 ? 'Cidade Dengue Zero conquistada!' : 'Fase ' + n + ' concluída!';
+  document.getElementById('vit-msg').textContent = n === 5
+    ? 'Parabéns! Você ajudou a proteger sua cidade contra a dengue.'
+    : 'Excelente trabalho, agente! Medalha de ' + medalha + ' conquistada.';
+  document.getElementById('vit-pontos').textContent = STATE.pontos + ' pts';
+
+  var card = CARDS_SABIA[(n - 1) % CARDS_SABIA.length];
+  document.getElementById('vit-card-titulo').textContent = '💡 Você sabia? ' + card.t;
+  document.getElementById('vit-card-texto').textContent = card.d;
+
+  var btnProx = document.getElementById('btn-proxima-fase');
+  if (n < 5) {
+    btnProx.style.display = 'inline-flex';
+    btnProx.setAttribute('data-fase', n + 1);
+  } else {
+    btnProx.style.display = 'none';
+  }
+  document.getElementById('btn-certificado-vit').style.display = STATE.progresso.seloAgente ? 'inline-flex' : 'none';
+
+  destruir3D();
+  mostrarTela('tela-vitoria');
+}
+
+function mostrarDerrota(msg) {
+  pararTimer();
+  document.getElementById('derrota-msg').textContent = msg;
+  document.getElementById('modal-derrota').classList.add('visivel');
+}
+
+/* ---------------- QUIZ DE FASE ---------------- */
+var quizFila = [];
+function abrirQuiz(fase) {
+  quizFila = QUIZ[fase].slice();
+  STATE.quizIndex = 0;
+  document.getElementById('quiz-contexto').textContent = 'Quiz da Fase ' + fase + ' — ' + FASES[fase].nome;
+  mostrarTela('tela-quiz');
+  renderPergunta();
+}
+function renderPergunta() {
+  var q = quizFila[STATE.quizIndex];
+  document.getElementById('quiz-num').textContent = 'Pergunta ' + (STATE.quizIndex + 1) + ' de ' + quizFila.length;
+  document.getElementById('quiz-pergunta').textContent = q.p;
+  var letras = ['A', 'B', 'C', 'D'];
+  var html = '';
+  q.alts.forEach(function (alt, i) {
+    html += '<button class="quiz-alt" data-action="responder-quiz" data-i="' + i + '">' +
+      '<span class="quiz-letra">' + letras[i] + '</span>' + alt + '</button>';
+  });
+  document.getElementById('quiz-alts').innerHTML = html;
+  document.getElementById('quiz-feedback').textContent = '';
+  document.getElementById('quiz-feedback').className = 'quiz-feedback';
+}
+function responderQuiz(i) {
+  var q = quizFila[STATE.quizIndex];
+  var fb = document.getElementById('quiz-feedback');
+  var botoes = document.querySelectorAll('#quiz-alts .quiz-alt');
+  botoes.forEach(function (b) { b.disabled = true; });
+  if (i === q.certa) {
+    tocar('acerto');
+    STATE.pontos += 200;
+    botoes[i].classList.add('certa');
+    fb.textContent = '✅ Resposta certa! +200 pontos';
+    fb.className = 'quiz-feedback ok';
+  } else {
+    tocar('erro');
+    STATE.quizErros++;
+    botoes[i].classList.add('errada');
+    botoes[q.certa].classList.add('certa');
+    fb.textContent = '❌ Quase! A resposta certa era a alternativa ' + ['A', 'B', 'C', 'D'][q.certa] + '.';
+    fb.className = 'quiz-feedback erro';
+  }
+  setTimeout(function () {
+    STATE.quizIndex++;
+    if (STATE.quizIndex < quizFila.length) renderPergunta();
+    else finalizarFase();
+  }, 1700);
+}
+
+/* ---------------- FASE 4: BATALHA CONTRA O VILÃO ---------------- */
+var bossFila = [];
+function iniciarBatalhaBoss() {
+  pararTimer();
+  STATE.bossAtivo = true;
+  // bônus pelo tempo que sobrou da limpeza da praça
+  STATE.pontos += STATE.tempoRestante * 10;
+  STATE.bossMaxHP = QUIZ_BOSS.length;
+  STATE.bossHP = STATE.bossMaxHP;
+  STATE.vidas = 3;
+  bossFila = QUIZ_BOSS.slice();
+  STATE.quizIndex = 0;
+  esconderAjuda();
+  STATE.ajudaForcada = false;
+  if (T.marcadores) T.marcadores.forEach(function (mc) { mc.visible = false; });
+  if (T.mosquito) T.mosquito.position.set(0, 4, 0);
+  document.getElementById('hud-cron').style.display = 'none';
+  document.getElementById('hud-prog').style.display = 'none';
+  document.getElementById('painel-boss').classList.add('visivel');
+  atualizarHUD();
+  atualizarBossHP();
+  faleMosquito('Você limpou minha praça?! Agora vai encarar MINHAS perguntas! Bzzzz!');
+  renderPerguntaBoss();
+}
+function atualizarBossHP() {
+  var pct = (STATE.bossHP / STATE.bossMaxHP) * 100;
+  document.getElementById('boss-hp-barra').style.width = pct + '%';
+  document.getElementById('boss-hp-txt').textContent = STATE.bossHP + '/' + STATE.bossMaxHP;
+}
+function renderPerguntaBoss() {
+  var q = bossFila[STATE.quizIndex];
+  document.getElementById('boss-pergunta').textContent = q.p;
+  var letras = ['A', 'B', 'C', 'D'];
+  var html = '';
+  q.alts.forEach(function (alt, i) {
+    html += '<button class="quiz-alt compacta" data-action="responder-boss" data-i="' + i + '">' +
+      '<span class="quiz-letra">' + letras[i] + '</span>' + alt + '</button>';
+  });
+  document.getElementById('boss-alts').innerHTML = html;
+}
+function responderBoss(i) {
+  var q = bossFila[STATE.quizIndex];
+  var botoes = document.querySelectorAll('#boss-alts .quiz-alt');
+  botoes.forEach(function (b) { b.disabled = true; });
+  if (i === q.certa) {
+    tocar('acerto');
+    STATE.pontos += 300;
+    STATE.bossHP--;
+    botoes[i].classList.add('certa');
+    atualizarBossHP();
+    // mosquito sofre o golpe
+    if (T.mosquito) {
+      var esc = 0.6 + (STATE.bossHP / STATE.bossMaxHP) * 0.4;
+      T.mosquito.scale.set(esc, esc, esc);
+    }
+    explosaoConfete(new THREE.Vector3(0, 3, 0));
+    faleMosquito(['Ai! Isso doeu!', 'Não! Meu poder está sumindo!', 'Como você sabia disso?!'][Math.floor(Math.random() * 3)]);
+  } else {
+    tocar('erro');
+    STATE.quizErros++;
+    STATE.vidas--;
+    botoes[i].classList.add('errada');
+    botoes[q.certa].classList.add('certa');
+    faleMosquito('Hahaha! Errou! Bzzzz!');
+    atualizarHUD();
+    if (STATE.vidas <= 0) {
+      setTimeout(function () {
+        STATE.jogoAtivo = false;
+        mostrarDerrota('O mosquito venceu esta batalha... Mas um agente de verdade nunca desiste! Tente de novo.');
+      }, 1200);
+      return;
+    }
+  }
+  setTimeout(function () {
+    if (STATE.bossHP <= 0) {
+      faleMosquito('Nãããão! Fui derrotado! Vou fugir enquanto posso... bzzz...');
+      fugaTimer = 3;
+      setTimeout(finalizarFase, 1800);
+      return;
+    }
+    STATE.quizIndex++;
+    if (STATE.quizIndex >= bossFila.length) {
+      // acabaram as perguntas sem zerar o HP: repete as erradas
+      STATE.quizIndex = 0;
+      bossFila = QUIZ_BOSS.slice();
+    }
+    renderPerguntaBoss();
+  }, 1500);
+}
+
+/* ---------------- CERTIFICADO ---------------- */
+function gerarCertificado() {
+  var nome = document.getElementById('cert-nome-input').value.trim() || 'Agente Mirim';
+  var escola = document.getElementById('cert-escola-input').value.trim() || 'Escola Municipal';
+  document.getElementById('cert-nome').textContent = nome;
+  document.getElementById('cert-escola').textContent = escola;
+  document.getElementById('cert-data').textContent = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+  document.getElementById('cert-pontos').textContent = STATE.pontosTotais + ' pontos';
+  document.getElementById('cert-form').style.display = 'none';
+  document.getElementById('cert-doc').style.display = 'block';
+  document.getElementById('cert-acoes').style.display = 'flex';
+  salvarRanking(nome, escola, STATE.pontosTotais);
+}
+
+/* ---------------- MODO PROFESSOR ---------------- */
+function renderProfessor() {
+  var r = lerRanking();
+  var tbody = document.getElementById('prof-ranking');
+  if (!r.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="vazio">Nenhum aluno concluiu a missão ainda neste dispositivo. Os resultados aparecem aqui quando o certificado é gerado.</td></tr>';
+  } else {
+    tbody.innerHTML = r.map(function (a, i) {
+      return '<tr><td>' + (i + 1) + 'º</td><td>' + escapeHtml(a.nome) + '</td><td>' + escapeHtml(a.escola) + '</td><td>' + a.pontos + '</td><td>' + a.data + '</td></tr>';
+    }).join('');
+  }
+  // cards desbloqueados
+  var wrap = document.getElementById('prof-cards');
+  wrap.innerHTML = CARDS_SABIA.map(function (c, i) {
+    var aberto = STATE.progresso.cardsDesbloqueados.length > i;
+    return '<div class="card-sabia' + (aberto ? '' : ' fechado') + '"><strong>' + (aberto ? '💡 ' + c.t : '🔒 Card bloqueado') + '</strong><p>' + (aberto ? c.d : 'Conclua mais fases com a turma para desbloquear.') + '</p></div>';
+  }).join('');
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function gerarRelatorioTurma() {
+  var r = lerRanking();
+  var linhas = r.map(function (a, i) {
+    return (i + 1) + 'º lugar: ' + a.nome + ' (' + a.escola + ') — ' + a.pontos + ' pontos — ' + a.data;
+  });
+  var texto = 'RELATÓRIO DA TURMA — MISSÃO DENGUE ZERO 3D\n' +
+    'Gerado em: ' + new Date().toLocaleString('pt-BR') + '\n' +
+    'Total de alunos com missão concluída: ' + r.length + '\n\n' +
+    (linhas.length ? linhas.join('\n') : 'Nenhum resultado registrado ainda.') +
+    '\n\n— Campanha Missão Dengue Zero · Portal do Educador';
+  var blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'relatorio-turma-dengue-zero.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+}
+
+/* ---------------- DELEGAÇÃO DE EVENTOS (Regra 9) ---------------- */
+document.addEventListener('click', function (e) {
+  var alvo = e.target.closest('[data-action]');
+  if (!alvo) return;
+  var acao = alvo.getAttribute('data-action');
+  if (acao !== 'responder-quiz' && acao !== 'responder-boss') tocar('clique');
+
+  switch (acao) {
+    case 'ir-fases': renderFases(); mostrarTela('tela-fases'); break;
+    case 'ir-inicio': destruir3D(); pararTimer(); STATE.jogoAtivo = false; mostrarTela('tela-inicio'); break;
+    case 'ir-como-jogar': mostrarTela('tela-como-jogar'); break;
+    case 'ir-professor': renderProfessor(); mostrarTela('tela-professor'); break;
+    case 'ir-certificado':
+      document.getElementById('cert-form').style.display = STATE.progresso.seloAgente ? 'block' : 'none';
+      document.getElementById('cert-bloqueado').style.display = STATE.progresso.seloAgente ? 'none' : 'block';
+      document.getElementById('cert-doc').style.display = 'none';
+      document.getElementById('cert-acoes').style.display = 'none';
+      mostrarTela('tela-certificado');
+      break;
+    case 'iniciar-fase': iniciarFase(parseInt(alvo.getAttribute('data-fase'), 10)); break;
+    case 'pedir-ajuda': pedirAjuda(); break;
+    case 'responder-quiz': responderQuiz(parseInt(alvo.getAttribute('data-i'), 10)); break;
+    case 'responder-boss': responderBoss(parseInt(alvo.getAttribute('data-i'), 10)); break;
+    case 'proxima-fase':
+      iniciarFase(parseInt(alvo.getAttribute('data-fase'), 10));
+      break;
+    case 'tentar-novamente':
+      document.getElementById('modal-derrota').classList.remove('visivel');
+      iniciarFase(STATE.faseAtual);
+      break;
+    case 'sair-derrota':
+      document.getElementById('modal-derrota').classList.remove('visivel');
+      destruir3D(); renderFases(); mostrarTela('tela-fases');
+      break;
+    case 'abandonar-fase':
+      STATE.jogoAtivo = false; pararTimer(); destruir3D();
+      renderFases(); mostrarTela('tela-fases');
+      break;
+    case 'gerar-certificado': gerarCertificado(); break;
+    case 'imprimir-certificado': window.print(); break;
+    case 'gerar-relatorio': gerarRelatorioTurma(); break;
+    case 'toggle-som':
+      STATE.somLigado = !STATE.somLigado;
+      alvo.textContent = STATE.somLigado ? '🔊' : '🔇';
+      alvo.setAttribute('aria-label', STATE.somLigado ? 'Desligar som' : 'Ligar som');
+      break;
+    case 'reiniciar-jogo':
+      if (confirm('Isso apaga o progresso e o ranking salvos neste dispositivo. Deseja continuar?')) {
+        try { localStorage.removeItem('mdz3d_progresso'); localStorage.removeItem('mdz3d_pontos'); localStorage.removeItem('mdz3d_ranking'); } catch (err) { }
+        STATE.progresso = { fasesConcluidas: [], medalhas: {}, cardsDesbloqueados: [], seloAgente: false };
+        STATE.pontosTotais = 0;
+        renderFases(); mostrarTela('tela-inicio');
+      }
+      break;
+  }
+});
+
+/* ---------------- BOOT ---------------- */
+window.addEventListener('DOMContentLoaded', function () {
+  carregarProgresso();
+  initMateriais();
+  bindControles();
+  renderFases();
+  mostrarTela('tela-inicio');
+});
+
+</script>
+</body>
+</html>

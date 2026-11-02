@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Modo Lousa · Portal do Educador</title>
+<style>
+/* Casca "Modo Lousa" v1 · Portal do Educador / NEWPC
+   Carrega qualquer jogo num iframe com viewport virtual (padrão 1280 px de largura)
+   e amplia com CSS zoom. Dentro do iframe o jogo enxerga uma tela de notebook,
+   e a lousa mostra tudo maior e nítido (devicePixelRatio acompanha o zoom). */
+*, *::before, *::after { box-sizing:border-box; }
+html, body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#0b1a2b; }
+body { font-family:"Segoe UI", Roboto, system-ui, sans-serif; color:#eaf2f8; }
+
+#quadro { position:absolute; inset:0; overflow:hidden; background:#0b1a2b; }
+#jogo { display:block; border:0; width:100%; height:100%; background:#0b1a2b; }
+
+/* abertura */
+#abertura {
+  position:absolute; inset:0; z-index:5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  background:linear-gradient(160deg,#1E324A 0%,#0b1a2b 100%); transition:opacity .35s;
+}
+#abertura.some { opacity:0; pointer-events:none; }
+#abertura .marca { font-size:15px; letter-spacing:.14em; text-transform:uppercase; color:#37B1DA; font-weight:700; }
+#abertura .titulo { font-size:30px; font-weight:700; text-align:center; padding:0 24px; }
+#abertura .sub { font-size:15px; opacity:.7; }
+#abertura .barra { width:220px; height:6px; border-radius:99px; background:rgba(255,255,255,.12); overflow:hidden; margin-top:6px; }
+#abertura .barra i { display:block; width:40%; height:100%; background:#B6D752; border-radius:99px; animation:vai 1.1s ease-in-out infinite alternate; }
+@keyframes vai { from { transform:translateX(-30%); } to { transform:translateX(180%); } }
+#abertura .erro { display:none; background:rgba(255,80,80,.15); border:1px solid rgba(255,120,120,.5); border-radius:12px; padding:14px 18px; max-width:560px; text-align:center; font-size:15px; line-height:1.5; }
+#abertura.falhou .barra { display:none; }
+#abertura.falhou .erro { display:block; }
+
+/* barra do professor (fica no canto, encolhe sozinha) */
+#barra {
+  position:absolute; right:0; top:50%; transform:translateY(-50%); z-index:10;
+  display:flex; align-items:stretch; background:#0f2c4a; border:1px solid #37B1DA; border-right:0; border-radius:14px 0 0 14px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5); overflow:hidden; opacity:.96;
+  transition:opacity .25s;
+}
+#barra button {
+  background:transparent; color:#eaf2f8; border:0; border-right:1px solid rgba(255,255,255,.14); cursor:pointer;
+  font:inherit; font-size:15px; font-weight:600; min-height:46px; min-width:46px; padding:0 13px; line-height:1;
+  display:flex; align-items:center; gap:6px; white-space:nowrap; -webkit-tap-highlight-color:transparent;
+}
+#barra button:last-child { border-right:0; }
+#barra button:active { background:rgba(255,255,255,.12); }
+#barra button.destaque { background:#37B1DA; color:#08131f; }
+#barra .valor { font-variant-numeric:tabular-nums; min-width:52px; text-align:center; }
+#barra.recolhida button:not([data-action="abrir"]) { display:none; }
+#barra.recolhida { opacity:.5; }
+#barra.recolhida [data-action="abrir"] { min-width:0; padding:0 8px 0 10px; font-size:13px; }
+#barra:not(.recolhida) [data-action="abrir"] { display:none; }
+#barra .dica { font-size:11px; opacity:.6; font-weight:500; }
+
+/* diagnóstico */
+#diag {
+  position:absolute; inset:0; z-index:20; background:rgba(5,12,20,.94); padding:24px; overflow:auto; display:none;
+}
+#diag.aberto { display:block; }
+#diag .cx { max-width:820px; margin:0 auto; }
+#diag h2 { margin:0 0 4px; font-size:22px; color:#B6D752; }
+#diag .sub { font-size:14px; opacity:.7; margin:0 0 16px; line-height:1.5; }
+#diag table { width:100%; border-collapse:collapse; font-size:15px; }
+#diag td { padding:9px 6px; border-bottom:1px solid rgba(255,255,255,.12); vertical-align:top; word-break:break-word; }
+#diag td:first-child { opacity:.65; width:44%; }
+#diag td:last-child { font-weight:600; }
+#diag .acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+#diag .acoes button {
+  min-height:48px; padding:0 18px; border-radius:10px; border:1px solid #37B1DA; background:#0f2c4a; color:#eaf2f8;
+  font:inherit; font-size:15px; font-weight:600; cursor:pointer;
+}
+#diag .acoes button.pri { background:#37B1DA; color:#08131f; }
+
+#aviso {
+  position:absolute; top:18px; left:50%; transform:translateX(-50%); z-index:30; background:#B6D752; color:#08131f;
+  padding:12px 20px; border-radius:10px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,.4); display:none; font-size:15px;
+}
+#aviso.on { display:block; }
+</style>
+</head>
+<body>
+
+<div id="quadro">
+  <iframe id="jogo" title="Jogo" allow="fullscreen; autoplay; clipboard-write; microphone; camera; accelerometer; gyroscope" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+</div>
+
+<div id="abertura">
+  <div class="marca">Portal do Educador · Modo Lousa</div>
+  <div class="titulo" id="ab-titulo">Carregando o jogo</div>
+  <div class="sub" id="ab-sub">preparando a tela para a lousa</div>
+  <div class="barra"><i></i></div>
+  <div class="erro" id="ab-erro"></div>
+</div>
+
+<div id="barra" class="recolhida">
+  <button type="button" data-action="abrir" title="Ajustes da lousa">🖥<span class="valor" data-ref="valor-mini" style="min-width:0">1,0×</span></button>
+  <button type="button" data-action="menos" title="Diminuir (tecla -)">A−</button>
+  <button type="button" data-action="mais" title="Aumentar (tecla +)">A+</button>
+  <button type="button" data-action="auto" title="Voltar ao automático"><span class="valor" data-ref="valor">1.0×</span><span class="dica" data-ref="modo">auto</span></button>
+  <button type="button" data-action="telacheia" title="Tela cheia (F11)">⛶</button>
+  <button type="button" data-action="diag" title="Diagnóstico da tela">i</button>
+  <button type="button" data-action="voltar" title="Sair do jogo">⤺ Sair</button>
+  <button type="button" data-action="fechar" title="Recolher">✕</button>
+</div>
+
+<div id="diag">
+  <div class="cx">
+    <h2>Diagnóstico da tela</h2>
+    <p class="sub">É este quadro que define a escala usada nos jogos. Se algo estiver pequeno ou cortado na lousa, copie e mande junto com o nome do jogo.</p>
+    <table><tbody data-ref="tabela"></tbody></table>
+    <div class="acoes">
+      <button type="button" class="pri" data-action="copiar">Copiar diagnóstico</button>
+      <button type="button" data-action="fechar-diag">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div id="aviso"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------
+     Configuração
+     ------------------------------------------------------------ */
+  var BASE_JOGOS = "../";                       // pasta dos jogos (mesmo domínio)
+  var URL_SAIR   = "/entrar/";
+  var CHAVE      = "pde_lousa_shell_v1";
+  var ALVO = {                                  // largura virtual alvo por tipo de tela
+    lousa: 1280,        // lousa touch (qualquer resolução física)
+    tv: 1536,           // TV ou projetor Full HD sem toque
+    normal: 0           // 0 = sem ampliação
+  };
+  var LIMITES = { min: 1, max: 4, larguraMin: 960, alturaMin: 540 };
+
+  /* ------------------------------------------------------------
+     Estado
+     ------------------------------------------------------------ */
+  var st = { ajuste: 1, forcado: null, escala: 1, tipo: "normal", virtual: [0, 0], url: "", pasta: "", titulo: "" };
+  var $ = function (s) { return document.querySelector(s); };
+  var el = {
+    iframe: $("#jogo"), abertura: $("#abertura"), abTitulo: $("#ab-titulo"), abSub: $("#ab-sub"), abErro: $("#ab-erro"),
+    barra: $("#barra"), diag: $("#diag"), aviso: $("#aviso"),
+    valor: $('[data-ref="valor"]'), valorMini: $('[data-ref="valor-mini"]'), modo: $('[data-ref="modo"]'), tabela: $('[data-ref="tabela"]')
+  };
+  var usaZoom = supCSS("zoom", "1.5");
+  var timerRecolhe = null;
+
+  /* ------------------------------------------------------------
+     Parâmetros da URL
+       ?j=pasta        jogo do próprio domínio (…/pasta/)
+       ?u=https://…    qualquer endereço
+       &e=1.5          escala inicial forçada (opcional)
+       &lousa=0        abre o jogo direto, sem casca
+     ------------------------------------------------------------ */
+  function params() {
+    var q = {};
+    var s = location.search.replace(/^\?/, "");
+    if (!s && location.hash.length > 1) s = "j=" + location.hash.slice(1);
+    s.split("&").forEach(function (p) {
+      if (!p) return;
+      var i = p.indexOf("=");
+      var k = i < 0 ? p : p.slice(0, i);
+      var v = i < 0 ? "" : p.slice(i + 1);
+      try { q[decodeURIComponent(k)] = decodeURIComponent(v.replace(/\+/g, " ")); } catch (e) { q[k] = v; }
+    });
+    return q;
+  }
+
+  function resolverUrl(q) {
+    if (q.u && /^https?:\/\//i.test(q.u)) return q.u;
+    if (q.j && /^[a-z0-9._-]+$/i.test(q.j)) { st.pasta = q.j; return BASE_JOGOS + q.j + "/"; }
+    return "";
+  }
+
+  /* ------------------------------------------------------------
+     Persistência (ajuste fino por aparelho)
+     ------------------------------------------------------------ */
+  function ler() {
+    try {
+      var s = JSON.parse(localStorage.getItem(CHAVE) || "{}");
+      if (typeof s.ajuste === "number" && s.ajuste > 0) st.ajuste = s.ajuste;
+    } catch (e) {}
+  }
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify({ ajuste: st.ajuste })); } catch (e) {}
+  }
+
+  /* ------------------------------------------------------------
+     Medição e classificação
+     ------------------------------------------------------------ */
+  function medir() {
+    var w = window.innerWidth, h = window.innerHeight, dpr = window.devicePixelRatio || 1;
+    return {
+      w: w, h: h, dpr: dpr,
+      fisW: Math.round(w * dpr), fisH: Math.round(h * dpr),
+      coarse: !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches),
+      semHover: !!(window.matchMedia && window.matchMedia("(hover: none)").matches),
+      toques: navigator.maxTouchPoints || 0
+    };
+  }
+
+  function classificar(m) {
+    var fisicoGrande = m.fisW >= 3000;                // painel 4K, qualquer que seja o DPR
+    var toque = m.coarse || m.toques > 1;
+    if (fisicoGrande && toque) return "lousa";
+    if (fisicoGrande) return "tv";
+    if (m.w >= 1600 && toque) return "lousa";         // Full HD com toque (lousa HD ou Android com DPR 1)
+    if (m.w >= 1600) return "tv";                     // Full HD sem toque: TV ou projetor via notebook
+    if (m.w >= 1200 && toque && m.toques >= 10) return "lousa"; // Android reportando 1280 com DPR alto
+    return "normal";
+  }
+
+  function escalaAuto(m) {
+    var alvo = ALVO[st.tipo];
+    if (!alvo) return 1;
+    var e = m.w / alvo;
+    return Math.max(LIMITES.min, e);
+  }
+
+  function aplicar() {
+    var m = medir();
+    st.tipo = classificar(m);
+    var e = st.forcado ? st.forcado : escalaAuto(m) * st.ajuste;
+    // nunca deixar o jogo com viewport menor que o mínimo em que foi testado
+    e = Math.min(e, m.w / LIMITES.larguraMin, m.h / LIMITES.alturaMin);
+    e = Math.max(LIMITES.min, Math.min(LIMITES.max, e));
+    e = Math.round(e * 100) / 100;
+    st.escala = e;
+    st.virtual = [Math.round(m.w / e), Math.round(m.h / e)];
+
+    if (usaZoom) {
+      el.iframe.style.zoom = String(e);
+      el.iframe.style.transform = ""; el.iframe.style.width = ""; el.iframe.style.height = "";
+    } else {
+      // navegador sem zoom: transform com dimensões explícitas (tela cheia interna perde escala)
+      el.iframe.style.zoom = "";
+      el.iframe.style.width = st.virtual[0] + "px";
+      el.iframe.style.height = st.virtual[1] + "px";
+      el.iframe.style.transformOrigin = "top left";
+      el.iframe.style.transform = "scale(" + e + ")";
+    }
+    // a barra e o diagnóstico acompanham a escala para não ficarem minúsculos na lousa
+    var eUi = Math.max(1, Math.min(e, 2.4));
+    el.barra.style.zoom = usaZoom ? String(eUi) : "";
+    el.diag.style.zoom = usaZoom ? String(eUi) : "";
+    el.aviso.style.zoom = usaZoom ? String(eUi) : "";
+
+    pintar();
+  }
+
+  function pintar() {
+    var txt = st.escala.toFixed(1).replace(".", ",") + "×";
+    el.valor.textContent = txt;
+    el.valorMini.textContent = txt;
+    el.modo.textContent = st.forcado ? "fixo" : (st.ajuste === 1 ? "auto" : "ajustado");
+    var b = el.barra.querySelector('[data-action="auto"]');
+    b.classList.toggle("destaque", st.ajuste !== 1 || !!st.forcado);
+  }
+
+  /* ------------------------------------------------------------
+     Carregamento do jogo
+     ------------------------------------------------------------ */
+  function carregar() {
+    var q = params();
+    st.url = resolverUrl(q);
+    if (!st.url) {
+      falhar("Nenhum jogo informado. Use <b>?j=nome-da-pasta</b> ou <b>?u=endereço</b>.");
+      return;
+    }
+    if (q.lousa === "0") { location.replace(st.url); return; }
+    if (q.e && !isNaN(parseFloat(q.e))) st.forcado = Math.max(1, Math.min(4, parseFloat(q.e)));
+
+    var nome = st.pasta ? st.pasta.replace(/[-_]+/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); }) : "";
+    if (nome) { el.abTitulo.textContent = nome; document.title = nome + " · Modo Lousa"; }
+
+    var falhou = setTimeout(function () {
+      falhar("O jogo demorou demais para responder. Verifique a internet da escola ou abra o jogo direto.");
+    }, 25000);
+
+    el.iframe.addEventListener("load", function () {
+      clearTimeout(falhou);
+      aposCarregar();
+      el.abertura.classList.add("some");
+    });
+    el.iframe.addEventListener("error", function () { clearTimeout(falhou); falhar("Não foi possível abrir o jogo."); });
+    el.iframe.src = st.url;
+  }
+
+  function aposCarregar() {
+    // mesmo domínio: título real e links de saída sobem para a janela de cima
+    try {
+      var d = el.iframe.contentDocument;
+      if (d) {
+        if (d.title) { st.titulo = d.title; document.title = d.title + " · Modo Lousa"; }
+        var origem = location.origin;
+        Array.prototype.forEach.call(d.querySelectorAll("a[href]"), function (a) {
+          var h = a.getAttribute("href") || "";
+          if (/^https?:\/\//i.test(h) && h.indexOf(origem) !== 0) a.setAttribute("target", "_top");
+        });
+        // foco no jogo para o teclado funcionar de cara
+        try { el.iframe.contentWindow.focus(); } catch (e) {}
+      }
+    } catch (e) { /* outro domínio (Canva etc.): sem acesso, e sem problema */ }
+  }
+
+  function falhar(msg) {
+    el.abertura.classList.add("falhou");
+    el.abErro.innerHTML = msg + (st.url ? '<br><br><a href="' + st.url + '" style="color:#B6D752">Abrir o jogo sem a casca</a>' : "");
+    el.abSub.textContent = "";
+  }
+
+  /* ------------------------------------------------------------
+     Tela cheia (na janela de cima, para a escala sobreviver)
+     ------------------------------------------------------------ */
+  function telaCheia() {
+    var r = document.documentElement;
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen().catch(function () {});
+      return;
+    }
+    var f = r.requestFullscreen || r.webkitRequestFullscreen;
+    if (f) { try { var p = f.call(r); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+  }
+
+  /* ------------------------------------------------------------
+     Diagnóstico
+     ------------------------------------------------------------ */
+  function supCSS(p, v) { try { return !!(window.CSS && CSS.supports && CSS.supports(p, v)); } catch (e) { return false; } }
+
+  function dados() {
+    var m = medir();
+    return [
+      ["Jogo", st.titulo || st.pasta || st.url],
+      ["Largura x altura CSS", m.w + " x " + m.h + " px"],
+      ["devicePixelRatio", m.dpr],
+      ["Resolução física estimada", m.fisW + " x " + m.fisH],
+      ["Toque (pointer coarse)", m.coarse ? "sim" : "não"],
+      ["Pontos de toque", m.toques],
+      ["Sem hover", m.semHover ? "sim" : "não"],
+      ["Tipo detectado", st.tipo],
+      ["Escala aplicada", st.escala + "× (" + (st.forcado ? "fixa pela URL" : "auto × ajuste " + st.ajuste.toFixed(2)) + ")"],
+      ["Viewport que o jogo enxerga", st.virtual[0] + " x " + st.virtual[1] + " px"],
+      ["Método", usaZoom ? "CSS zoom" : "transform (sem suporte a zoom)"],
+      ["Tela cheia", document.fullscreenElement ? "sim" : "não"],
+      ["Navegador", navigator.userAgent]
+    ];
+  }
+
+  function abrirDiag() {
+    el.tabela.innerHTML = dados().map(function (l) {
+      return "<tr><td>" + l[0] + "</td><td>" + String(l[1]).replace(/</g, "&lt;") + "</td></tr>";
+    }).join("");
+    el.diag.classList.add("aberto");
+  }
+
+  function copiarDiag() {
+    var txt = "DIAGNÓSTICO DE TELA · Portal do Educador · Modo Lousa\n" +
+      dados().map(function (l) { return l[0] + ": " + l[1]; }).join("\n");
+    var ok = function () { avisar("Diagnóstico copiado"); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(ok, function () { copiaAntiga(txt, ok); });
+    } else { copiaAntiga(txt, ok); }
+  }
+  function copiaAntiga(txt, ok) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); ok(); } catch (e) { avisar("Não consegui copiar. Selecione o texto na tela."); }
+    document.body.removeChild(ta);
+  }
+
+  function avisar(msg) {
+    el.aviso.textContent = msg;
+    el.aviso.classList.add("on");
+    clearTimeout(el.aviso._t);
+    el.aviso._t = setTimeout(function () { el.aviso.classList.remove("on"); }, 1800);
+  }
+
+  /* ------------------------------------------------------------
+     Barra: abre no toque, recolhe sozinha
+     ------------------------------------------------------------ */
+  function abrirBarra() {
+    el.barra.classList.remove("recolhida");
+    agendarRecolher();
+  }
+  function recolherBarra() { el.barra.classList.add("recolhida"); }
+  function agendarRecolher() {
+    clearTimeout(timerRecolhe);
+    timerRecolhe = setTimeout(recolherBarra, 6000);
+  }
+
+  function ajustar(delta) {
+    st.forcado = null;
+    st.ajuste = Math.round(Math.max(0.6, Math.min(2.2, st.ajuste * (delta > 0 ? 1.1 : 1 / 1.1))) * 100) / 100;
+    salvar(); aplicar(); agendarRecolher();
+    avisar("Jogo enxerga " + st.virtual[0] + " x " + st.virtual[1] + " px");
+  }
+
+  /* ------------------------------------------------------------
+     Eventos (delegação, sem onclick inline)
+     ------------------------------------------------------------ */
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest ? ev.target.closest("[data-action]") : null;
+    if (!b) return;
+    var a = b.getAttribute("data-action");
+    if (a === "abrir") abrirBarra();
+    else if (a === "fechar") recolherBarra();
+    else if (a === "mais") ajustar(+1);
+    else if (a === "menos") ajustar(-1);
+    else if (a === "auto") { st.forcado = null; st.ajuste = 1; salvar(); aplicar(); agendarRecolher(); avisar("Escala automática"); }
+    else if (a === "telacheia") { telaCheia(); agendarRecolher(); }
+    else if (a === "diag") { abrirDiag(); recolherBarra(); }
+    else if (a === "fechar-diag") el.diag.classList.remove("aberto");
+    else if (a === "copiar") copiarDiag();
+    else if (a === "voltar") {
+      if (document.referrer && document.referrer.indexOf(location.origin) !== 0) location.href = document.referrer;
+      else if (window.history.length > 1) window.history.back();
+      else location.href = URL_SAIR;
+    }
+  });
+
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape") { el.diag.classList.remove("aberto"); recolherBarra(); }
+    else if (ev.key === "F2") { ev.preventDefault(); el.barra.classList.contains("recolhida") ? abrirBarra() : recolherBarra(); }
+    else if (ev.key === "+" || ev.key === "=") ajustar(+1);
+    else if (ev.key === "-") ajustar(-1);
+  });
+
+  var tResize = null;
+  window.addEventListener("resize", function () { clearTimeout(tResize); tResize = setTimeout(aplicar, 120); });
+  window.addEventListener("orientationchange", function () { clearTimeout(tResize); tResize = setTimeout(aplicar, 200); });
+  document.addEventListener("fullscreenchange", function () { setTimeout(aplicar, 60); });
+
+  /* ------------------------------------------------------------
+     Início
+     ------------------------------------------------------------ */
+  ler();
+  aplicar();
+  carregar();
+
+  window.PDELousaShell = {
+    estado: function () { return { escala: st.escala, tipo: st.tipo, virtual: st.virtual.slice(), ajuste: st.ajuste, url: st.url }; },
+    diagnostico: dados,
+    aplicar: aplicar
+  };
+})();
+</script>
+</body>
+</html>
