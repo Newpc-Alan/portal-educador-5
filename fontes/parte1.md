@@ -569,6 +569,8 @@ No painel **📡 Turma ao Vivo**, a faixa **🎼 Maestro** mostra quantos aparel
 
 No cartão de cada aluno aparecem 💻 (Chromebook) ou 📱 (tablet), 🔒 (tela pausada) e ✋ (mão levantada). Toque no aluno para ver o que ele está fazendo agora e usar **🔒 Pausar a tela**, **🔓 Liberar a tela** ou **✋ Atendi: baixar a mão** só para ele. Quem entrou pelo número da aula, sem conta, aparece na linha **Também conectados pelo número da aula**.
 
+Logo abaixo da sala, **📸 Entradas pela carteirinha** lista quem entrou pela carteirinha nesta aula, com a hora. **👁️ Ver foto** abre a foto (quando a escola liga a foto; cada abertura fica registrada). Se o rosto não for do aluno, toque em **Não é este aluno**: a sessão daquele aparelho cai na hora e a entrada fica marcada na auditoria.
+
 :::regra
 A aula do Maestro termina junto com a aula do Portal. **Encerrar aula** libera e desconecta os aparelhos na hora; se o tempo acabar com o painel fechado, os aparelhos saem sozinhos em até 1 minuto. Sem o painel aberto por 2 minutos, as telas pausadas se liberam sozinhas (trava de segurança).
 :::
@@ -1053,7 +1055,11 @@ O Portal gera uma mensagem pronta para enviar (**Copiar mensagem**). A pessoa en
 - **📺 Mural de chegada**: quem chegou, quem faltou e quem está em acompanhamento, com **👁 Modo público** para a TV de área comum.
 - **🚪 Portaria**: leitura da carteirinha pela câmera ou por leitor USB, funcionando até sem internet. **🚸 Saída: quem pode buscar** mostra os autorizados com foto.
 - **🪪 Carteirinhas**: dez por folha A4, com brasão, nome e turma. O QR não tem dados pessoais.
-- **🧾 Auditoria**: entrada pela carteirinha comparada com a chamada do professor, aluno por aluno.
+- **🧾 Auditoria**: entrada pela carteirinha comparada com a chamada do professor, aluno por aluno. No mesmo lugar, **📸 Entradas no Portal pela carteirinha** traz a chave **Tirar foto ao entrar com a carteirinha** (desligada até a direção ligar) e a lista do dia, com **👁️ Ver** (cada abertura fica na auditoria) e a situação de cada entrada.
+
+:::regra
+A carteirinha da escola entra no Portal direto, sem senha, mas só com a **aula da turma aberta** (Dar aula agora), e a sessão termina com a aula. Com a foto ligada, o aparelho tira uma foto com a câmera da frente: serve só para conferir se quem entrou é o dono da carteirinha, é vista pelo professor da aula e pela direção e é apagada em 15 dias. Avise as famílias antes de ligar. Sem câmera, o aluno entra e a lista mostra "sem foto".
+:::
 
 ![Mural de chegada](mural.png){85}
 

@@ -1165,11 +1165,13 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 4. Para explicar algo, use **🔒 Pausar as telas**; para voltar à atividade, **🔓 Liberar as telas**.
 5. Para abrir um conteúdo em todos os aparelhos, use **📲 Abrir nos aparelhos** (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
 6. Atenda as mãos ✋: toque no aluno e em **✋ Atendi: baixar a mão**. Aluno fora da tarefa: toque nele e **🔒 Pausar a tela**.
-7. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
+7. Se a escola liga a foto da carteirinha, confira em **📸 Entradas pela carteirinha** quem entrou sem senha (**👁️ Ver foto**). Rosto que não confere: **Não é este aluno**.
+8. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
 
 ### Pontos de controle
 - ☐ Todos os alunos presentes aparecem verdes antes de começar a atividade.
 - ☐ Nenhuma tela ficou pausada ao encerrar.
+- ☐ Entradas pela carteirinha conferidas (foto ou presença visual).
 - ☐ Alunos que entraram pelo número da aula (linha à parte) foram identificados e orientados a usar a conta.
 
 ### Registros
