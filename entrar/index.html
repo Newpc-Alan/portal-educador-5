@@ -446,7 +446,14 @@
   /* Controle da aula */
   #avMae{ display:grid;gap:10px;background:transparent;color:#0f2c4a;padding:0;margin:14px 20px 0 }
   #avMae .ca-linha{ background:#0f2c4a;color:#fff;border-radius:14px;padding:10px 14px }
-  .ca-bts{ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px } @media (max-width:900px){ .ca-bts{ grid-template-columns:1fr 1fr } }
+  .ca-bts{ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px } @media (max-width:1200px){ .ca-bts{ grid-template-columns:repeat(3,minmax(0,1fr)) } } @media (max-width:700px){ .ca-bts{ grid-template-columns:1fr 1fr } }
+  .ca-qz .btn-mini{ font:inherit;font-size:13px;font-weight:800;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:10px;padding:6px 10px;cursor:pointer } .ca-qz .btn-qz-fim{ background:#1a6b2a;border-color:#1a6b2a;color:#fff;margin-left:auto }
+  .qz-jan{ max-width:820px;width:min(96vw,820px) } .qz-l{ display:grid;gap:4px;font-weight:700;font-size:14px;color:#0f2c4a;margin:8px 0 } .qz-l textarea,.qz-l input,.qz-l select{ font:inherit;font-weight:400;padding:9px 10px;border:1px solid #cfdbe7;border-radius:10px }
+  .qz-lin{ display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px } @media (max-width:600px){ .qz-lin{ grid-template-columns:1fr } .qr-cards{ grid-template-columns:1fr 1fr !important } }
+  .qz-lista{ display:grid;gap:12px;max-height:52vh;overflow:auto;margin:8px 0 } .qz-q{ border:2px solid #e1e8f0;border-radius:14px;padding:10px;display:grid;gap:6px }
+  .qz-qtopo{ display:flex;gap:8px;align-items:flex-start } .qz-qtopo textarea{ flex:1;font:inherit;font-weight:700;padding:7px 9px;border:1px solid #cfdbe7;border-radius:10px } .qz-tirar{ border:0;background:none;font-size:18px;cursor:pointer }
+  .qz-op{ display:flex;align-items:center;gap:8px;border-radius:10px;padding:3px 6px } .qz-op.certa{ background:#eaf6dc } .qz-op span{ font-weight:900;color:#0f2c4a;width:18px } .qz-op input[data-qz-e="op"]{ flex:1;font:inherit;padding:6px 9px;border:1px solid #cfdbe7;border-radius:9px }
+  .qr-salvo{ margin-right:auto;align-self:center } .av-bat{ font-size:11px;font-weight:800;color:#c62828 } .av-det .av-bat-d{ font-size:13px;color:#33475b }
   #avMae .av-ac{ font-size:16px;font-weight:800;border-radius:16px;padding:16px 12px;background:#fff;color:#0f2c4a;border:2px solid #d6e2ec } #avMae .av-ac.verde{ background:#1a6b2a;border-color:#1a6b2a;color:#fff }
   #avMae .ca-pq{ border:2px solid #d6e2ec } .ca-linha{ display:flex;flex-wrap:wrap;align-items:center;gap:8px } .ca-tit{ font-size:16px }
   .ca-cont{ background:rgba(255,255,255,.12);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700 } .ca-cont.alerta{ background:#f5d547;color:#3d3000 }
@@ -6166,7 +6173,8 @@
     provaon: { nome:"Prova online",   pasta:"Provas online",    sub:"Provas aplicadas no celular ou computador", foto:"/assets/inicio/provas-online.webp", max:0, cor:"#c2185b", ico:"\u{1F4F1}", soAbrir:true },
     lousa:   { nome:"Lousa",          pasta:"Aulas da Lousa",   sub:"Aulas salvas na Lousa Interativa",      foto:"/assets/inicio/lousa.webp",        max:80,  cor:"#2671AB", ico:"\u{1F5BC}\uFE0F" },
     roteiro: { nome:"Roteiro",        pasta:"Roteiros",         sub:"Textos do Teleprompter",                foto:"/assets/inicio/comunicado.webp",   max:100, cor:"#7a4fb5", ico:"\u{1F3A4}" },
-    folha:   { nome:"Folha",          pasta:"Folhas Mágicas",   sub:"Folhas personalizadas para imprimir",   foto:"/assets/inicio/atividades.webp",   max:60,  cor:"#d98a00", ico:"\u{1F4C4}" }
+    folha:   { nome:"Folha",          pasta:"Folhas Mágicas",   sub:"Folhas personalizadas para imprimir",   foto:"/assets/inicio/atividades.webp",   max:60,  cor:"#d98a00", ico:"\u{1F4C4}" },
+    quiz:    { nome:"Quiz rápido",    pasta:"Quizzes rápidos",  sub:"Relatórios de aproveitamento da turma",  foto:"/assets/inicio/aprendizagem.webp", max:120, cor:"#2671AB", ico:"\u{1F9E0}" }
   };
   const trs = { itens:[], pasta:"", sub:"", busca:"", editando:"" };
   function statusProvaOnline(t){
@@ -6185,7 +6193,9 @@
       ler(query(collection(db,"provas_online"), where("professor_uid","==",uid)), (id, t) => { const st = statusProvaOnline(t);
         return { tipo:"provaon", id, titulo:t.titulo || "Prova online", sub:st, det:[st, t.turma_nome].filter(Boolean).join(" · "), em:ms(t.abre_em) || ms(t.criado_em) }; }),
       ler(collection(db,"usuarios",uid,"roteiros"), (id, t) => ({ tipo:"roteiro", id, titulo:t.titulo || "Roteiro sem título", sub:"", det:"Teleprompter"+(t.palavras ? " · "+t.palavras+" palavras" : ""), em:ms(t.atualizado_em) })),
-      ler(collection(db,"usuarios",uid,"folhas"), (id, t) => ({ tipo:"folha", id, titulo:t.nome || "Folha sem nome", sub:"", det:"Folha Mágica", em:ms(t.atualizado_em) }))
+      ler(collection(db,"usuarios",uid,"folhas"), (id, t) => ({ tipo:"folha", id, titulo:t.nome || "Folha sem nome", sub:"", det:"Folha Mágica", em:ms(t.atualizado_em) })),
+      ler(collection(db,"usuarios",uid,"quizzes"), (id, t) => ({ tipo:"quiz", id, titulo:t.titulo || "Quiz rápido", sub:t.turma_nome || "",
+        det:[t.turma_nome, (t.perguntas || []).length + " perguntas", t.resultado ? "aproveitamento " + t.resultado.media + "%" : "em andamento"].filter(Boolean).join(" · "), em:ms(t.atualizado_em) || ms(t.criado_em) }))
     ]);
   }
   async function renderTrabalhos(){
@@ -6338,6 +6348,7 @@
     else if(i.tipo === "prova") location.href = "/provas/#abrir=" + encodeURIComponent(i.id);
     else if(i.tipo === "provaon") location.href = "/prova/?painel=" + encodeURIComponent(i.id);
     else if(i.tipo === "folha") location.href = "/apps/folha/#folha=" + encodeURIComponent(i.id);
+    else if(i.tipo === "quiz") abrirQuizTrabalho(i.id);
     else if(i.tipo === "roteiro"){ try{ localStorage.setItem("pde_tele_ultimo_" + usuarioAtual.uid, i.id); }catch(e){} location.href = "/apps/teleprompter/"; }
   }
   async function renomearTrabalho(i, nome){
@@ -6345,6 +6356,7 @@
     if(i.tipo === "lousa") await setDoc(doc(db,"usuarios",uid,"trabalhos",i.id), { titulo:nome, atualizado_em:agora }, { merge:true });
     else if(i.tipo === "portalia") await updateDoc(doc(db,"portal_ia_docs",i.id), { titulo:nome, editado_em:agora });
     else if(i.tipo === "prova") await updateDoc(doc(db,"usuarios",uid,"provas",i.id), { titulo:nome });
+    else if(i.tipo === "quiz"){ await updateDoc(doc(db,"usuarios",uid,"quizzes",i.id), { titulo:nome, atualizado_em:agora }); delete QZ.cache[i.id]; }
     else if(i.tipo === "roteiro") await updateDoc(doc(db,"usuarios",uid,"roteiros",i.id), { titulo:nome, atualizado_em:agora });
     else if(i.tipo === "folha") await updateDoc(doc(db,"usuarios",uid,"folhas",i.id), { nome, atualizado_em:agora });
   }
@@ -6356,6 +6368,7 @@
     else if(i.tipo === "portalia") await deleteDoc(doc(db,"portal_ia_docs",i.id));
     else if(i.tipo === "roteiro") await deleteDoc(doc(db,"usuarios",uid,"roteiros",i.id));
     else if(i.tipo === "folha") await deleteDoc(doc(db,"usuarios",uid,"folhas",i.id));
+    else if(i.tipo === "quiz"){ await deleteDoc(doc(db,"usuarios",uid,"quizzes",i.id)); delete QZ.cache[i.id]; }
   }
   document.addEventListener("click", async ev => {
     const el = ev.target.closest("[data-action^='tr-']"); if(!el) return;
@@ -7277,6 +7290,9 @@
     else if(acao === "av-mae-mao"){ maeBaixarMao(el.dataset.arg); }
     else if(acao === "av-mae-link"){ janelaLinkMae(); }
     else if(acao === "av-mae-af"){ janelaPesquisaMae(); }
+    else if(acao === "av-qz"){ janelaQuiz(); }
+    else if(acao === "av-qz-fim"){ encerrarQuiz(el); }
+    else if(acao === "av-qz-parcial"){ parcialQuiz(); }
     else if(acao === "av-mae-af-fim"){ const pq = pesquisaAtiva(); if(pq) avvSet({ pesquisa:{ ...pq, ativa:false } }).then(() => toast("Pesquisa encerrada.")).catch(() => toast("Não deu agora.", true));
       if(MAV.mc) fbMae("aulas/" + MAV.mc + "/controle/afinacao/ativa", "PUT", false).catch(() => {}); }
     else if(acao === "av-acervo"){ janelaAcervoTurma(); }
@@ -9132,7 +9148,7 @@
           (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
         const af = respostaDoAluno(a.id);
         const marcas = '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "") + (pausa ? "⏸️" : "") + "</span>" + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
-          (af ? '<span class="av-af" title="Pesquisa rápida">' + COR_AF[af] + "</span>" : "") + (nl ? '<span class="av-nl" title="Mensagens novas">💬' + nl + "</span>" : "");
+          (af ? '<span class="av-af" title="Pesquisa rápida">' + COR_AF[af] + "</span>" : "") + (nl ? '<span class="av-nl" title="Mensagens novas">💬' + nl + "</span>" : "") + (aulaAberta() && batBaixa(a.id) ? '<span class="av-bat" title="Bateria baixa">🪫' + batAluno(a.id).n + "%</span>" : "");
         const det = MAV.sel === a.id ? htmlDetMae(a) : "";
         return ('<button type="button" data-action="av-mae-al" data-arg="' + escapeAttr(a.id) + '"') + ' class="av-al' + (st ? " " + st : "") + (pausa ? " pausa" : "") + '" title="' + tit + '">' + marcas + '<span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></button>" + det; }).join("") + htmlOutrosMae();
     if(box.innerHTML !== html) box.innerHTML = html;
@@ -9283,6 +9299,7 @@
   function htmlDetMae(a){
     const ap = aparelhosDoAluno(a.id), pausa = pausadoAluno(a.id), mao = maoDoAluno(a.id), conversa = AVV.chat.filter(m => m.aluno_id === a.id);
     return '<div class="av-det"><b>' + escapeHtml(a.nome) + '</b>' +
+      (batAluno(a.id) ? '<small class="av-bat-d">' + (batBaixa(a.id) ? "🪫" : "🔋") + " Bateria " + batAluno(a.id).n + "%" + (batAluno(a.id).c ? " · carregando ⚡" : "") + "</small>" : "") +
       ap.map(x => '<small>' + (x.chromebook ? "💻 " : "📱 ") + escapeHtml(x.tipo) + (x.on ? " · agora: " + escapeHtml(x.aba || "na aula") : " · desconectado") + "</small>").join("") +
       '<div class="av-det-ac">' +
       (pausa ? '<button type="button" class="av-liberar cad-mini" data-action="av-mae-um" data-arg="' + escapeAttr(a.id) + '" data-liga="0">' + cadeado(true) + ' Tela pausada · liberar</button>' : '<button type="button" class="av-pausar cad-mini" data-action="av-mae-um" data-arg="' + escapeAttr(a.id) + '" data-liga="1">' + cadeado(false) + ' Tela liberada · pausar</button>') +
@@ -9310,12 +9327,13 @@
     const html = '<div class="ca-linha"><b class="ca-tit">🎛️ Controle da aula</b>' +
       '<span class="ca-cont' + (maos.length ? " alerta" : "") + '" title="' + escapeAttr(maos.map(x => x.nome).join(", ")) + '">✋ ' + maos.length + (maos.length === 1 ? " mão levantada" : " mãos levantadas") + (maos.length ? ": " + escapeHtml(maos.slice(0, 3).map(x => x.nome.split(" ")[0]).join(", ")) + (maos.length > 3 ? "..." : "") : "") + '</span>' +
       '<span class="ca-cont' + (msgs ? " alerta" : "") + '">💬 ' + msgs + (msgs === 1 ? " mensagem nova" : " mensagens novas") + '</span>' +
-      '<span class="ca-cont">👥 ' + naSala + ' na sala</span>' + (devs ? '<span class="ca-cont" title="Aparelhos controlados pelo Portal Maestro">🎼 ' + devs + ' no Maestro</span>' : "") + (geral ? '<span class="ca-cont alerta">🔒 Telas pausadas</span>' : "") + '</div>' +
+      '<span class="ca-cont">👥 ' + naSala + ' na sala</span>' + (devs ? '<span class="ca-cont" title="Aparelhos controlados pelo Portal Maestro">🎼 ' + devs + ' no Maestro</span>' : "") + (geral ? '<span class="ca-cont alerta">🔒 Telas pausadas</span>' : "") + (lista.filter(x => batBaixa(x.id)).length ? '<span class="ca-cont alerta" title="' + escapeAttr(lista.filter(x => batBaixa(x.id)).map(x => x.nome + " " + batAluno(x.id).n + "%").join(", ")) + '">🪫 ' + lista.filter(x => batBaixa(x.id)).length + " com bateria baixa</span>" : "") + '</div>' +
       '<div class="ca-bts">' +
       '<button type="button" class="av-ac cad ' + (geral ? "cad-fechado" : "cad-aberto") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '" aria-pressed="' + geral + '">' + cadeado(geral) + '<div>' + (geral ? "Telas pausadas<i>toque para liberar</i>" : "Telas liberadas<i>toque para pausar</i>") + '</div></button>' +
       '<button type="button" class="av-ac" data-action="' + (pq ? "av-mae-af-fim" : "av-mae-af") + '"><span>📊</span>' + (pq ? "Encerrar pesquisa" : "Pesquisa rápida") + '</button>' +
       '<button type="button" class="av-ac" data-action="av-mae-link"><span>📲</span>Abrir conteúdo para a turma</button>' +
-      '<button type="button" class="av-ac" data-action="av-acervo"><span>📚</span>Acervo do município</button></div>' + pqTxt;
+      '<button type="button" class="av-ac" data-action="av-acervo"><span>📚</span>Acervo do município</button>' +
+      '<button type="button" class="av-ac' + (quizAtivo() ? " verde" : "") + '" data-action="' + (quizAtivo() ? "av-qz-fim" : "av-qz") + '"><span>🧠</span>' + (quizAtivo() ? "Encerrar o quiz" : "Quiz rápido") + '</button></div>' + pqTxt + htmlQuizBarra();
     if(b.innerHTML !== html) b.innerHTML = html;
     b.hidden = false;
   }
@@ -9469,6 +9487,187 @@
         await avvSet({ pesquisa:{ id, pergunta:p, ativa:true, em:Date.now() } });
         toast("📊 Pesquisa enviada para a turma."); });
   }
+  /* ---------- Quiz rápido (nov/2026): perguntas de múltipla escolha para ver se a turma absorveu o conteúdo ----------
+     aula_vivo/{turma}.quiz          { id, titulo, perguntas:[{p, ops}], ativa, em }  (sem gabarito enquanto está ativo; ao encerrar vai o gab para a correção na tela do aluno)
+     aula_vivo/{turma}/alunos/{k}    quiz:{ id, r:[índice escolhido ou -1], fim }
+     usuarios/{uid}/quizzes/{id}     perguntas com gabarito e o relatório (Meus trabalhos › Quizzes rápidos) */
+  const QZ = { cache:{} };
+  const LETRA = ["A", "B", "C", "D", "E"];
+  const quizAtivo = () => { const q = AVV.doc.quiz; return q && q.ativa && q.id ? q : null; };
+  const nomeTurmaAv = () => { const s = $("avTurma"); const o = s && s.selectedOptions && s.selectedOptions[0]; return o ? o.textContent.trim().slice(0, 80) : ""; };
+  async function quizGuardado(id){
+    if(QZ.cache[id]) return QZ.cache[id];
+    const d = await getDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", id)); if(!d.exists()) return null;
+    return (QZ.cache[id] = { id, ...d.data() });
+  }
+  // resultado a partir das respostas gravadas pelos alunos (o gabarito só existe na conta do professor)
+  function calcularQuiz(q){
+    const perg = q.perguntas || [], n = perg.length, lista = listaAv();
+    const alunos = lista.map(a => { const x = (AVV.alunos[a.id] || {}).quiz; if(!x || x.id !== q.id) return null;
+      const r = Array.from({ length:n }, (_, i) => Number.isInteger((x.r || [])[i]) ? x.r[i] : -1);
+      return { id:a.id, nome:String(a.nome || "Aluno").slice(0, 80), r, fim:!!x.fim, acertos:r.filter((v, i) => v === perg[i].gab).length, respondidas:r.filter(v => v >= 0).length }; }).filter(Boolean);
+    const ausentes = lista.filter(a => !alunos.some(x => x.id === a.id)).map(a => String(a.nome || "Aluno").slice(0, 80));
+    const porQuestao = perg.map((p, i) => { const resp = alunos.filter(a => a.r[i] >= 0), cont = (p.ops || []).map((_, k) => resp.filter(a => a.r[i] === k).length);
+      return { pct:resp.length ? Math.round(100 * cont[p.gab] / resp.length) : 0, cont, resp:resp.length }; });
+    const conta = alunos.filter(a => a.respondidas);
+    const media = conta.length && n ? Math.round(100 * conta.reduce((s, a) => s + a.acertos, 0) / (conta.length * n)) : 0;
+    return { alunos:alunos.sort((a, b) => b.acertos - a.acertos || a.nome.localeCompare(b.nome, "pt-BR")), ausentes, porQuestao, media, total:lista.length, n };
+  }
+  function htmlQuizBarra(){
+    const q = quizAtivo(); if(!q) return "";
+    const lista = listaAv(), resp = lista.map(a => (AVV.alunos[a.id] || {}).quiz).filter(x => x && x.id === q.id);
+    const fim = resp.filter(x => x.fim).length, fazendo = resp.length - fim, g = QZ.cache[q.id];
+    if(!g && !QZ.lendo){ QZ.lendo = true; quizGuardado(q.id).then(x => { QZ.lendo = false; if(x) desenharAoVivo(); }).catch(() => { QZ.lendo = false; }); }
+    const parc = g ? calcularQuiz(g) : null;
+    return '<div class="ca-pq ca-qz"><b>🧠 “' + escapeHtml(String(q.titulo || "Quiz").slice(0, 50)) + '”</b><span>✅ ' + fim + ' terminaram</span><span>✏️ ' + fazendo + ' respondendo</span>' +
+      (parc && parc.alunos.length ? '<span>📈 acerto parcial ' + parc.media + '%</span>' : "") +
+      '<button type="button" class="btn-mini" data-action="av-qz-parcial">Ver parcial</button><button type="button" class="btn-mini btn-qz-fim" data-action="av-qz-fim">🏁 Encerrar e ver relatório</button></div>';
+  }
+  // janela de criação: tema e quantidade → IA (ou o professor escreve) → revisão → lançar para a turma
+  function janelaQuiz(){
+    if(quizAtivo()){ toast("Já há um quiz em andamento: encerre o atual antes de lançar outro.", true); return; }
+    const velho = $("qzFundo"); if(velho) velho.remove();
+    const st = { perg:[] };
+    const f = document.createElement("div"); f.id = "qzFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan qz-jan" role="dialog" aria-modal="true" aria-labelledby="qzTit"><div class="et-topo"><h3 id="qzTit">🧠 Quiz rápido</h3><button type="button" data-qz="x">Fechar</button></div><div class="et-corpo" id="qzCorpo"></div></div>';
+    document.body.appendChild(f);
+    const passo1 = () => { $("qzCorpo").innerHTML =
+      '<p class="et-d">Perguntas de múltipla escolha para ver se a turma absorveu o conteúdo. Aparecem na hora na tela dos alunos da aula; no fim sai o relatório de aproveitamento, guardado em Meus trabalhos e pronto para PDF.</p>' +
+      '<label class="qz-l">Tema ou conteúdo da aula<textarea id="qzTema" rows="3" maxlength="300" placeholder="Ex.: frações equivalentes; ciclo da água; verbos no pretérito"></textarea></label>' +
+      '<div class="qz-lin"><label class="qz-l">Quantas perguntas<select id="qzQtd">' + [3, 5, 8, 10, 12, 15, 20].map(n => '<option' + (n === 5 ? " selected" : "") + ">" + n + "</option>").join("") + '</select></label>' +
+      '<label class="qz-l">Nível<select id="qzNivel"><option value="fácil">Fácil</option><option value="médio" selected>Médio</option><option value="difícil">Difícil</option></select></label>' +
+      '<label class="qz-l">Disciplina (opcional)<input id="qzDisc" maxlength="80"></label></div>' +
+      '<p id="qzMsg" class="et-msg" role="status"></p><div class="et-acoes"><button type="button" class="btn btn-ghost" data-qz="manual">✍️ Escrever eu mesmo</button><button type="button" class="btn btn-primary" data-qz="ia">✨ Criar com IA</button></div>';
+      $("qzTema").focus(); };
+    const vazia = () => ({ p:"", ops:["", "", "", ""], gab:0 });
+    const passo2 = () => { $("qzCorpo").innerHTML =
+      '<label class="qz-l">Título do quiz<input id="qzTitulo" maxlength="120" value="' + escapeAttr(st.titulo || "") + '"></label>' +
+      '<p class="et-d">Confira as perguntas. Marque ⦿ na alternativa correta; dá para corrigir o texto e tirar ou incluir perguntas.</p><div id="qzLista" class="qz-lista">' +
+      st.perg.map((q, i) => '<div class="qz-q" data-i="' + i + '"><div class="qz-qtopo"><b>' + (i + 1) + '.</b><textarea data-qz-e="p" rows="2" maxlength="400">' + escapeHtml(q.p) + '</textarea><button type="button" class="qz-tirar" data-qz="tirar" data-i="' + i + '" title="Tirar a pergunta">🗑️</button></div>' +
+        q.ops.map((o, k) => '<label class="qz-op' + (q.gab === k ? " certa" : "") + '"><input type="radio" name="qzg' + i + '" data-qz-e="gab" value="' + k + '"' + (q.gab === k ? " checked" : "") + '><span>' + LETRA[k] + '</span><input data-qz-e="op" data-k="' + k + '" maxlength="160" value="' + escapeAttr(o) + '"></label>').join("") + "</div>").join("") +
+      '</div><button type="button" class="btn btn-ghost" data-qz="mais">+ Incluir pergunta</button>' +
+      '<p id="qzMsg" class="et-msg" role="status"></p><div class="et-acoes"><button type="button" class="btn btn-ghost" data-qz="voltar">← Voltar</button><button type="button" class="btn btn-primary" data-qz="lancar">🚀 Lançar para a turma (' + st.perg.length + ")</button></div>"; };
+    const lerEditor = () => { st.titulo = ($("qzTitulo").value || "").trim().slice(0, 120);
+      f.querySelectorAll(".qz-q").forEach(el => { const q = st.perg[Number(el.dataset.i)]; if(!q) return;
+        q.p = el.querySelector('[data-qz-e="p"]').value.trim().slice(0, 400);
+        el.querySelectorAll('[data-qz-e="op"]').forEach(x => { q.ops[Number(x.dataset.k)] = x.value.trim().slice(0, 160); });
+        const g = el.querySelector('[data-qz-e="gab"]:checked'); q.gab = g ? Number(g.value) : 0; }); };
+    passo1();
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    f.addEventListener("change", e => { const r = e.target.closest('[data-qz-e="gab"]'); if(r){ const q = r.closest(".qz-q"); q.querySelectorAll(".qz-op").forEach(l => l.classList.toggle("certa", l.contains(r))); } });
+    f.addEventListener("click", async e => { const b = e.target.closest("[data-qz]"); if(!b) return; const a = b.dataset.qz;
+      if(a === "x") return f.remove();
+      if(a === "manual"){ st.titulo = ($("qzTema").value || "").trim().slice(0, 120) || "Quiz rápido"; st.perg = Array.from({ length:Number($("qzQtd").value) || 5 }, vazia); return passo2(); }
+      if(a === "ia"){ const tema = ($("qzTema").value || "").trim(); if(tema.length < 3){ $("qzMsg").textContent = "Escreva o tema ou conteúdo da aula."; return; }
+        b.disabled = true; $("qzMsg").textContent = "✨ Criando as perguntas... (leva uns 20 a 40 segundos; usa 1 crédito do Portal IA)";
+        try{ const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:200000 })({ acao:"questoes_prova", tema, qtd:Number($("qzQtd").value) || 5, tipos:"multipla",
+              nivel:$("qzNivel").value, disciplina:$("qzDisc").value.trim(), turma:nomeTurmaAv(), obs:"Quiz rápido no fim da aula para verificar se a turma absorveu o conteúdo: perguntas curtas, diretas e de leitura rápida no tablet; alternativas curtas." })).data;
+          st.perg = (r.questoes || []).filter(q => q.tipo === "multipla" && Array.isArray(q.alts) && q.alts.length >= 2 && q.gab >= 0).slice(0, 30)
+            .map(q => ({ p:String(q.enun || "").slice(0, 400), ops:q.alts.slice(0, 5).map(o => String(o).slice(0, 160)), gab:q.gab }));
+          if(!st.perg.length) throw new Error("A IA não devolveu perguntas de múltipla escolha. Tente de novo.");
+          st.titulo = tema.slice(0, 120); passo2(); }
+        catch(err){ console.warn(err); $("qzMsg").textContent = (err && err.message) || "A IA não respondeu agora. Tente de novo ou escreva as perguntas."; b.disabled = false; }
+        return; }
+      if(a === "voltar") return passo1();
+      if(a === "mais"){ lerEditor(); if(st.perg.length >= 30) return; st.perg.push(vazia()); passo2(); const l = f.querySelectorAll(".qz-q"); l[l.length - 1].scrollIntoView({ block:"center" }); return; }
+      if(a === "tirar"){ lerEditor(); st.perg.splice(Number(b.dataset.i), 1); return passo2(); }
+      if(a === "lancar"){ lerEditor();
+        const ruim = st.perg.findIndex(q => !q.p || q.ops.filter(Boolean).length < 2 || !q.ops[q.gab]);
+        if(!st.perg.length){ $("qzMsg").textContent = "Inclua ao menos uma pergunta."; return; }
+        if(ruim >= 0){ $("qzMsg").textContent = "Complete a pergunta " + (ruim + 1) + ": enunciado, ao menos 2 alternativas e a correta marcada."; return; }
+        // alternativas vazias saem (o gabarito acompanha)
+        const perguntas = st.perg.map(q => { const certa = q.ops[q.gab], ops = q.ops.filter(Boolean); return { p:q.p, ops, gab:ops.indexOf(certa) }; });
+        const id = "qz" + idMae(), titulo = st.titulo || "Quiz rápido";
+        b.disabled = true; $("qzMsg").textContent = "Lançando para a turma...";
+        try{ const dados = { titulo, tema:titulo, turma_id:AVV.tid, turma_nome:nomeTurmaAv(), perguntas, status:"aplicando", criado_em:serverTimestamp(), atualizado_em:serverTimestamp() };
+          await setDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", id), dados);
+          QZ.cache[id] = { id, ...dados, criado_em:Timestamp.now() };
+          await avvSet({ quiz:{ id, titulo, perguntas:perguntas.map(q => ({ p:q.p, ops:q.ops })), ativa:true, em:Date.now() } });
+          toast("🧠 Quiz lançado: aparece agora na tela dos alunos."); f.remove(); }
+        catch(err){ console.warn(err); $("qzMsg").textContent = "Não deu para lançar agora (" + (err.code || "erro") + ")."; b.disabled = false; } }
+    });
+  }
+  async function encerrarQuiz(el){
+    const q = quizAtivo(); if(!q) return;
+    if(el) el.disabled = true;
+    try{ const g = await quizGuardado(q.id); if(!g){ toast("Não encontrei o gabarito deste quiz na sua conta.", true); return; }
+      const res = calcularQuiz(g);
+      const resultado = { media:res.media, total:res.total, n:res.n, porQuestao:res.porQuestao.map(x => ({ pct:x.pct, cont:x.cont, resp:x.resp })),
+        alunos:res.alunos.map(a => ({ id:a.id, nome:a.nome, r:a.r, acertos:a.acertos, fim:a.fim })), ausentes:res.ausentes.slice(0, 80) };
+      await updateDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", q.id), { resultado, status:"encerrado", encerrado_em:serverTimestamp(), atualizado_em:serverTimestamp() });
+      Object.assign(g, { resultado, status:"encerrado", encerrado_em:Timestamp.now() });
+      // a correção vai para a tela de cada aluno (cada um vê só as próprias respostas)
+      await avvSet({ quiz:{ id:q.id, titulo:q.titulo, perguntas:q.perguntas, ativa:false, gab:g.perguntas.map(p => p.gab), em:q.em || Date.now() } });
+      relatorioQuiz(g);
+    }catch(e){ console.warn(e); toast("Não deu para encerrar agora (" + (e.code || "erro") + ").", true); }
+    finally{ if(el) el.disabled = false; }
+  }
+  async function parcialQuiz(){
+    const q = quizAtivo(); if(!q) return;
+    const g = await quizGuardado(q.id).catch(() => null); if(!g){ toast("Não encontrei o gabarito deste quiz na sua conta.", true); return; }
+    const r = calcularQuiz(g);
+    relatorioQuiz({ ...g, resultado:{ ...r, parcial:true } });
+  }
+  const faixaQuiz = p => p >= 70 ? { cor:"#1a6b2a", fundo:"#eaf6dc", txt:"A turma absorveu bem o conteúdo." } : p >= 50 ? { cor:"#b26a00", fundo:"#fff4dc", txt:"Absorção parcial: vale retomar as perguntas com menos acerto." } : { cor:"#c62828", fundo:"#fde8e8", txt:"A maioria ainda não absorveu: retome o conteúdo antes de avançar." };
+  const situacaoAl = (a, n) => !a.r.some(v => v >= 0) ? "não respondeu" : Math.round(100 * a.acertos / n) >= 70 ? "✅ absorveu" : Math.round(100 * a.acertos / n) >= 50 ? "⚠️ parcial" : "🔴 retomar";
+  // corpo do relatório (o mesmo na tela e no PDF)
+  function htmlRelatorioQuiz(g, pdf){
+    const r = g.resultado || {}, perg = g.perguntas || [], n = perg.length, fx = faixaQuiz(r.media || 0), alunos = r.alunos || [];
+    const quando = msDe(g.encerrado_em) || msDe(g.criado_em) || Date.now(), resp = alunos.filter(a => a.r.some(v => v >= 0)).length;
+    const ordem = perg.map((p, i) => ({ p, i, x:(r.porQuestao || [])[i] || { pct:0, cont:[], resp:0 } })).sort((a, b) => a.x.pct - b.x.pct);
+    const cards = '<div class="qr-cards"><div class="qr-card" style="border-color:' + fx.cor + '"><b style="color:' + fx.cor + '">' + (r.media || 0) + '%</b><span>aproveitamento da turma</span></div>' +
+      '<div class="qr-card"><b>' + resp + '<small> de ' + (r.total || resp) + '</small></b><span>alunos responderam</span></div><div class="qr-card"><b>' + n + '</b><span>perguntas</span></div>' +
+      '<div class="qr-card"><b>' + (ordem.length ? "Q" + (ordem[0].i + 1) : "–") + '</b><span>pergunta mais difícil' + (ordem.length ? " (" + ordem[0].x.pct + "% de acerto)" : "") + "</span></div></div>" +
+      '<div class="qr-faixa" style="background:' + fx.fundo + ';color:' + fx.cor + '">' + (r.parcial ? "Parcial (o quiz ainda está aberto). " : "") + fx.txt + "</div>";
+    const qs = '<h4>Acerto por pergunta</h4>' + perg.map((p, i) => { const x = (r.porQuestao || [])[i] || { pct:0, cont:[], resp:0 }, c = faixaQuiz(x.pct).cor;
+      const errada = (x.cont || []).map((v, k) => ({ v, k })).filter(y => y.k !== p.gab && y.v > 0).sort((a, b) => b.v - a.v)[0];
+      return '<div class="qr-q"><div class="qr-qt"><b>' + (i + 1) + ". " + escapeHtml(p.p) + '</b><span style="color:' + c + '">' + x.pct + '%</span></div><div class="qr-bar"><i style="width:' + x.pct + "%;background:" + c + '"></i></div>' +
+        '<small>Correta: <b>' + LETRA[p.gab] + ") " + escapeHtml(p.ops[p.gab] || "") + "</b>" + (errada ? " · erro mais comum: " + LETRA[errada.k] + ") " + escapeHtml(String(p.ops[errada.k] || "").slice(0, 60)) + " (" + errada.v + ")" : "") + " · " + x.resp + " responderam</small></div>"; }).join("");
+    const tab = '<h4>Alunos</h4><table class="qr-tab"><thead><tr><th>Aluno</th><th>Acertos</th><th>%</th><th>Situação</th>' + (pdf ? "" : "<th>Respostas</th>") + "</tr></thead><tbody>" +
+      alunos.map(a => { const pc = n ? Math.round(100 * a.acertos / n) : 0;
+        return "<tr><td>" + escapeHtml(a.nome) + "</td><td>" + a.acertos + "/" + n + "</td><td>" + pc + "%</td><td>" + situacaoAl(a, n) + "</td>" +
+          (pdf ? "" : '<td class="qr-rs">' + a.r.map((v, i) => '<span class="' + (v < 0 ? "br" : v === perg[i].gab ? "ok" : "er") + '" title="Pergunta ' + (i + 1) + '">' + (v < 0 ? "–" : LETRA[v]) + "</span>").join("") + "</td>") + "</tr>"; }).join("") +
+      (r.ausentes || []).map(nm => "<tr class=\"qr-aus\"><td>" + escapeHtml(nm) + "</td><td>–</td><td>–</td><td>não participou</td>" + (pdf ? "" : "<td></td>") + "</tr>").join("") + "</tbody></table>";
+    const cab = '<div class="qr-cab"><div><b>🧠 ' + escapeHtml(g.titulo || "Quiz rápido") + '</b><span>' + escapeHtml(g.turma_nome || "") + " · " + new Date(quando).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " · Prof. " + escapeHtml(usuarioAtual.nome || "") + "</span></div></div>";
+    return cab + cards + qs + tab;
+  }
+  const CSS_QR = '.qr-cab b{display:block;font-size:20px;color:#0f2c4a}.qr-cab span{color:#5b6b7b;font-size:13px}.qr-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.qr-card{border:2px solid #d6e2ec;border-radius:14px;padding:10px 12px}' +
+    '.qr-card b{display:block;font-size:26px;color:#0f2c4a}.qr-card small{font-size:14px;color:#5b6b7b}.qr-card span{font-size:12.5px;color:#5b6b7b}.qr-faixa{border-radius:12px;padding:10px 14px;font-weight:800;margin-bottom:10px}' +
+    'h4{color:#0f2c4a;margin:16px 0 8px}.qr-q{margin:0 0 10px;break-inside:avoid}.qr-qt{display:flex;justify-content:space-between;gap:10px}.qr-qt b{font-size:14px;color:#0f2c4a}.qr-qt span{font-weight:900}' +
+    '.qr-bar{height:9px;background:#eef3f8;border-radius:9px;overflow:hidden;margin:4px 0}.qr-bar i{display:block;height:100%}.qr-q small{color:#5b6b7b;font-size:12px}' +
+    '.qr-tab{width:100%;border-collapse:collapse;font-size:13px}.qr-tab th{text-align:left;background:#0f2c4a;color:#fff;padding:6px 8px}.qr-tab td{border-bottom:1px solid #e1e8f0;padding:6px 8px}.qr-aus td{color:#8a97a5}' +
+    '.qr-rs span{display:inline-block;width:20px;text-align:center;border-radius:5px;margin:1px;font-weight:800;font-size:12px}.qr-rs .ok{background:#dff1cc;color:#1a6b2a}.qr-rs .er{background:#fde0e0;color:#c62828}.qr-rs .br{background:#eef3f8;color:#8a97a5}';
+  function relatorioQuiz(g){
+    const velho = $("qrFundo"); if(velho) velho.remove();
+    const f = document.createElement("div"); f.id = "qrFundo"; f.className = "et-fundo";
+    const parcial = g.resultado && g.resultado.parcial;
+    f.innerHTML = '<div class="et-jan qz-jan" role="dialog" aria-modal="true" aria-labelledby="qrTit"><div class="et-topo"><h3 id="qrTit">📈 ' + (parcial ? "Parcial do quiz" : "Relatório do quiz") + '</h3><button type="button" data-qr="x">Fechar</button></div><div class="et-corpo"><style>' + CSS_QR + "</style>" +
+      htmlRelatorioQuiz(g, false) + '<div class="et-acoes">' + (parcial ? "" : '<span class="et-d qr-salvo">📁 Salvo em Meus trabalhos › Quizzes rápidos</span>') +
+      '<button type="button" class="btn btn-ghost" data-qr="x">Fechar</button><button type="button" class="btn btn-primary" data-qr="pdf">📄 Exportar PDF</button></div></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    f.addEventListener("click", e => { const b = e.target.closest("[data-qr]"); if(!b) return; if(b.dataset.qr === "x") return f.remove(); if(b.dataset.qr === "pdf") pdfQuiz(g); });
+  }
+  // PDF: página A4 com a identidade NEWPC; o navegador abre "Salvar como PDF"
+  function pdfQuiz(g){
+    const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para exportar o PDF.", true); return; }
+    w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Quiz · ' + escapeHtml(g.titulo || "Relatório") + " · " + escapeHtml(g.turma_nome || "") + '</title><style>' +
+      '@page{size:A4;margin:12mm}body{font-family:Arial,sans-serif;margin:0;color:#0f2c4a;-webkit-print-color-adjust:exact;print-color-adjust:exact}.topo{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #1a6b2a;padding-bottom:6px;margin-bottom:10px}' +
+      '.topo b{font-size:13px;color:#1a6b2a}.topo span{font-size:11px;color:#5b6b7b}.rod{margin-top:16px;border-top:1px solid #d6e2ec;padding-top:6px;font-size:10px;color:#5b6b7b}' + CSS_QR +
+      '</style></head><body><div class="topo"><b>Portal do Educador · Relatório de aproveitamento</b><span>NEWPC Tecnologia</span></div>' + htmlRelatorioQuiz(g, true) +
+      '<div class="rod">Quiz rápido aplicado no Controle da aula do Portal do Educador. Aproveitamento = total de acertos ÷ (perguntas × alunos que participaram); pergunta em branco conta como erro. Gerado em ' + new Date().toLocaleString("pt-BR") + '.</div>' +
+      '<script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
+    w.document.close();
+  }
+  async function abrirQuizTrabalho(id){
+    try{ const g = await quizGuardado(id); if(!g){ toast("Quiz não encontrado.", true); return; }
+      if(!g.resultado){ toast("Este quiz ainda não foi encerrado: encerre-o na Turma ao Vivo para gerar o relatório.", true); return; }
+      relatorioQuiz(g); }
+    catch(e){ toast("Não deu para abrir agora (" + (e.code || "erro") + ").", true); }
+  }
+  // bateria (aparelho informa enquanto o aluno está com o Portal aberto; Chromebook e Android)
+  const batAluno = id => { const a = AVV.alunos[id]; const b = a && a.bateria; return b && Number.isInteger(b.n) && desdeAula(a.em) ? b : null; };
+  const batBaixa = id => { const b = batAluno(id); return !!b && b.n <= 20 && !b.c; };
   // "Abrir nos aparelhos": soluções do Portal (jogos, vídeos, livros, colorir) pela busca geral, o que já foi enviado à turma e link externo
   const ML_CAT = [["jogos", "🎮 Jogos"], ["videos", "🎬 Vídeos"], ["biblioteca", "📚 Livros e histórias"], ["colorir", "🎨 Colorir"]];
   const ML_IC = { jogos:"🎮", videos:"🎬", biblioteca:"📚", colorir:"🎨" };

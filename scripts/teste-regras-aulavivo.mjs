@@ -36,6 +36,17 @@ await t('aluno lê só a própria conversa', assertSucceeds(getDocs(query(collec
 await t('aluno não lê a conversa do colega', assertFails(getDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/chat/c2'))));
 await t('professor responde', assertSucceeds(addDoc(collection(fs('p1'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'prof', texto: 'Pode falar', nome: 'P', em: serverTimestamp() })));
 await t('professor lê todas', assertSucceeds(getDocs(collection(fs('p1'), 'aula_vivo/t1/chat'))));
+// quiz rápido e bateria (nov/2026)
+await t('professor lança quiz sem gabarito (mergeFields)', assertSucceeds(setDoc(doc(fs('p1'), 'aula_vivo/t1'), P({ quiz: { id: 'q1', titulo: 'Frações', perguntas: [{ p: '1/2 = ?', ops: ['2/4', '1/3'] }], ativa: true, em: 1 } }), { mergeFields: ['quiz', 'atualizado_em', 'por'] })));
+await t('aluno responde o quiz', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', quiz: { id: 'q1', r: [0, -1], fim: false }, em: serverTimestamp() }, { merge: true })));
+await t('aluno não grava campo estranho no quiz', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', quiz: { id: 'q1', r: [0], fim: true, nota: 10 }, em: serverTimestamp() }, { merge: true })));
+await t('aluno informa a bateria', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', bateria: { n: 18, c: false }, em: serverTimestamp() }, { merge: true })));
+await t('bateria fora da faixa', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', bateria: { n: 180, c: false }, em: serverTimestamp() }, { merge: true })));
+await t('professor não altera a resposta do quiz', assertFails(updateDoc(doc(fs('p1'), 'aula_vivo/t1/alunos/a1'), { quiz: { id: 'q1', r: [1, 1], fim: true } })));
+await t('professor guarda o quiz com gabarito', assertSucceeds(setDoc(doc(fs('p1'), 'usuarios/p1/quizzes/q1'), { titulo: 'Frações', tema: 'Frações', turma_id: 't1', turma_nome: '6º A', perguntas: [{ p: 'x', ops: ['a', 'b'], gab: 0 }], status: 'aplicando', criado_em: serverTimestamp(), atualizado_em: serverTimestamp() })));
+await t('relatório do quiz', assertSucceeds(updateDoc(doc(fs('p1'), 'usuarios/p1/quizzes/q1'), { resultado: { media: 70 }, status: 'encerrado', encerrado_em: serverTimestamp(), atualizado_em: serverTimestamp() })));
+await t('aluno não lê o gabarito', assertFails(getDoc(doc(al('u1', 'a1'), 'usuarios/p1/quizzes/q1'))));
+await t('outro professor não lê o quiz', assertFails(getDoc(doc(fs('p9'), 'usuarios/p1/quizzes/q1'))));
 console.log((falha ? '::error::' : '::notice::') + 'Aula ao vivo no Portal: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();
 process.exit(falha ? 1 : 0);

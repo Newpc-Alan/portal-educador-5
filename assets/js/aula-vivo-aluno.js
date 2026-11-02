@@ -25,9 +25,23 @@ const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#
   .al-chat-lista{ flex:1;overflow:auto;padding:10px;display:grid;gap:8px;align-content:start } .al-chat-vazio{ color:#6b7a89;font-size:14px }
   .al-chat-envio{ display:flex;gap:6px;padding:10px;border-top:1px solid #e1e8f0 } .al-chat-envio input{ flex:1;font:inherit;padding:9px 10px;border:1px solid #cfdbe7;border-radius:10px } .al-chat-envio button{ font:inherit;font-weight:800;border:0;border-radius:10px;padding:9px 12px;background:#8DC63F;cursor:pointer }
   .al-msg{ max-width:80%;padding:8px 12px;border-radius:14px;background:#eef3f8;justify-self:start;font-size:15px } .al-msg.eu{ justify-self:end;background:#0f2c4a;color:#fff }
+  .al-quiz{ position:fixed;inset:0;z-index:2147482600;background:#f2f6fa;color:#0c2338;display:flex;flex-direction:column;font-size:18px }
+  .al-qz-topo{ display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0f2c4a;color:#fff } .al-qz-topo b{ flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis } .al-qz-topo span{ font-weight:800;color:#bfe5a1 }
+  .al-qz-corpo{ flex:1;overflow:auto;padding:18px;display:grid;gap:14px;align-content:start;max-width:760px;width:100%;margin:0 auto;box-sizing:border-box }
+  .al-qz-p{ font-size:21px;font-weight:800;line-height:1.35 } .al-qz-ops{ display:grid;gap:10px }
+  .al-qz-ops button{ display:flex;align-items:center;gap:12px;text-align:left;font:inherit;font-size:18px;font-weight:700;border:3px solid #d6e2ec;background:#fff;color:#0c2338;border-radius:16px;padding:14px;cursor:pointer }
+  .al-qz-ops button i{ font-style:normal;flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#eef3f8;font-weight:900 }
+  .al-qz-ops button.on{ border-color:#1a6b2a;background:#eaf6dc } .al-qz-ops button.on i{ background:#1a6b2a;color:#fff }
+  .al-qz-ops button.certa{ border-color:#1a6b2a;background:#eaf6dc } .al-qz-ops button.errada{ border-color:#c62828;background:#fde8e8 }
+  .al-qz-nav{ display:flex;gap:10px;padding:12px 16px;background:#fff;box-shadow:0 -6px 18px rgba(0,0,0,.08);justify-content:space-between;align-items:center }
+  .al-qz-nav button{ font:inherit;font-weight:800;border:0;border-radius:14px;padding:13px 18px;cursor:pointer;background:#eef3f8;color:#0f2c4a } .al-qz-nav .vai{ background:#8DC63F;color:#0f2c4a } .al-qz-nav small{ color:#5b6b7b;font-size:14px;text-align:center }
+  .al-qz-pts{ display:flex;gap:5px;flex-wrap:wrap;justify-content:center } .al-qz-pts button{ width:30px;height:30px;padding:0;border-radius:50%;font-size:13px;background:#e1e8f0 } .al-qz-pts button.r{ background:#bfe5a1 } .al-qz-pts button.at{ box-shadow:0 0 0 3px #0f2c4a }
+  .al-qz-fim{ display:grid;gap:12px;justify-items:center;text-align:center;padding:30px 10px } .al-qz-fim b{ font-size:26px } .al-qz-fim .nota{ font-size:54px;font-weight:900;color:#1a6b2a }
+  .al-qz-rev{ border:2px solid #e1e8f0;border-radius:14px;padding:10px 12px;display:grid;gap:4px;font-size:15px;text-align:left;background:#fff } .al-qz-rev.ok{ border-color:#bfe5a1 } .al-qz-rev.er{ border-color:#ffb4b4 }
   .al-aviso{ position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:2147483100;background:#0f2c4a;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;box-shadow:0 8px 22px rgba(0,0,0,.3) }
 `;
-const S = { db:null, tid:"", chave:"", nome:"", aulaAte:0, maestro:"", ligado:false, unsub:[], unsubAula:null, vistos:null, pqResp:"", ultimaMsg:0, chat:[], mao:false, relogio:null, iniciado:false };
+const LT = ["A", "B", "C", "D", "E"];
+const S = { qz:null, qzR:null, qzI:0, qzFechado:"", bat:null, batUlt:null, batEm:0, db:null, tid:"", chave:"", nome:"", aulaAte:0, maestro:"", ligado:false, unsub:[], unsubAula:null, vistos:null, pqResp:"", ultimaMsg:0, chat:[], mao:false, relogio:null, iniciado:false };
 const $ = id => document.getElementById(id);
 const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const ms = x => x && x.toMillis ? x.toMillis() : 0;
@@ -41,6 +55,7 @@ export async function iniciar(app, user){
   let cl = {}; try{ cl = (await user.getIdTokenResult()).claims || {}; }catch(e){ return; }
   if(!cl.aluno_id || !cl.turma_id) return;            // só aluno da rede (cartão, código + PIN ou Google ligado à matrícula)
   S.iniciado = true;
+  try{ S.qzFechado = sessionStorage.getItem("pde_qz_fechado") || ""; }catch(e){}
   Object.assign(S, { db:getFirestore(app), tid:String(cl.turma_id), chave:String(cl.aluno_id), nome:String(user.displayName || "Aluno").slice(0, 80) });
   try{ const u = (await getDoc(doc(S.db, "usuarios", user.uid))).data(); if(u && u.nome) S.nome = String(u.nome).slice(0, 80); }catch(e){}
   const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
@@ -63,8 +78,13 @@ function ligar(){
     else cmds.forEach(c => { if(!S.vistos.has(c.id)){ S.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")) abrir(c.url, c.nome, c.embed !== false || PORTAL.test(c.url)); } });
     const pa = d.pausa_alunos || {}; pausa(!ext() && (typeof pa[k] === "boolean" ? pa[k] : !!d.pausa));
     pesquisa(d.pesquisa && d.pesquisa.ativa ? d.pesquisa : null);
+    S.qz = d.quiz && d.quiz.id && Array.isArray(d.quiz.perguntas) ? d.quiz : null; quiz();
   }, e => console.warn("aula ao vivo:", e.code)));
-  S.unsub.push(onSnapshot(doc(S.db, "aula_vivo", S.tid, "alunos", S.chave), s => { const d = s.data() || {}; S.mao = !!d.mao; if(d.nome) S.nome = d.nome; botoes(); }, () => {}));
+  S.unsub.push(onSnapshot(doc(S.db, "aula_vivo", S.tid, "alunos", S.chave), s => { const d = s.data() || {}; S.mao = !!d.mao; if(d.nome) S.nome = d.nome;
+    // respostas já gravadas (voltou para a página no meio do quiz): continua de onde parou
+    if(d.quiz && d.quiz.id && (!S.qzR || S.qzR.id !== d.quiz.id || (!(s.metadata || {}).hasPendingWrites && d.quiz.fim && !S.qzR.fim))) { S.qzR = { id:d.quiz.id, r:Array.isArray(d.quiz.r) ? d.quiz.r.slice() : [], fim:!!d.quiz.fim }; quiz(); }
+    botoes(); }, () => {}));
+  bateria();
   S.unsub.push(onSnapshot(query(collection(S.db, "aula_vivo", S.tid, "chat"), where("aluno_id", "==", S.chave)), sn => {
     const l = []; sn.forEach(x => l.push(x.data())); l.sort((a, b) => ms(a.em) - ms(b.em)); S.chat = l;
     const ult = l[l.length - 1];
@@ -74,8 +94,8 @@ function ligar(){
   botoes();
 }
 function desligar(){
-  S.unsub.forEach(u => { try{ u(); }catch(e){} }); S.unsub = []; S.ligado = false; pausa(false);
-  ["alConteudo", "alPesq", "alChatBox", "alBotoes"].forEach(i => { const e = $(i); if(e) e.remove(); }); document.body.classList.remove("al-com-folha");
+  S.unsub.forEach(u => { try{ u(); }catch(e){} }); S.unsub = []; S.ligado = false; pausa(false); S.qz = null;
+  ["alQuiz", "alConteudo", "alPesq", "alChatBox", "alBotoes"].forEach(i => { const e = $(i); if(e) e.remove(); }); document.body.classList.remove("al-com-folha");
 }
 function parar(){ desligar(); if(S.unsubAula){ S.unsubAula(); S.unsubAula = null; } clearInterval(S.relogio); }
 const meu = dados => setDoc(doc(S.db, "aula_vivo", S.tid, "alunos", S.chave), { nome:S.nome, ...dados, em:serverTimestamp() }, { merge:true });
@@ -113,6 +133,47 @@ function pesquisa(p){
   f.innerHTML = '<b>📊 ' + esc(String(p.pergunta || "Entenderam?").slice(0, 140)) + '</b><div class="al-pq"><button type="button" data-al="pq" data-v="verde">🟢 Entendi</button><button type="button" data-al="pq" data-v="amarelo">🟡 Mais ou menos</button><button type="button" data-al="pq" data-v="vermelho">🔴 Não entendi</button></div>';
   document.body.appendChild(f); document.body.classList.add("al-com-folha"); vibrar(120);
 }
+// bateria do aparelho (Chromebook e Android informam; iPad e Firefox não): grava quando muda 5 pontos, começa ou para de carregar, ou a cada 5 min
+async function bateria(){
+  if(S.bat !== null) return enviarBat(); S.bat = false;
+  try{ if(!navigator.getBattery) return; const b = await navigator.getBattery(); S.bat = b;
+    ["levelchange", "chargingchange"].forEach(ev => b.addEventListener(ev, () => enviarBat())); enviarBat(); }catch(e){}
+}
+function enviarBat(){
+  const b = S.bat; if(!b || !S.ligado) return;
+  const n = Math.max(0, Math.min(100, Math.round(b.level * 100))), c = !!b.charging, u = S.batUlt;
+  if(u && u.c === c && Math.abs(u.n - n) < 5 && Date.now() - S.batEm < 300000) return;
+  S.batUlt = { n, c }; S.batEm = Date.now(); meu({ bateria:{ n, c } }).catch(() => {});
+}
+setInterval(() => enviarBat(), 300000);
+// Quiz rápido: uma pergunta por vez; cada toque já fica gravado (se a página recarregar, continua de onde parou)
+function quiz(){
+  const q = S.qz; let f = $("alQuiz");
+  if(!q || (!q.ativa && !Array.isArray(q.gab)) || S.qzFechado === q.id){ if(f) f.remove(); return; }
+  const n = q.perguntas.length;
+  if(!S.qzR || S.qzR.id !== q.id) S.qzR = { id:q.id, r:Array(n).fill(-1), fim:false };
+  const R = S.qzR; while(R.r.length < n) R.r.push(-1);
+  if(!q.ativa && !R.r.some(v => v >= 0)){ if(f) f.remove(); return; }       // encerrou e este aluno não participou: nada a mostrar
+  if(!f){ f = document.createElement("div"); f.id = "alQuiz"; f.className = "al-quiz"; f.setAttribute("role", "dialog"); document.body.appendChild(f); vibrar(150); S.qzI = Math.max(0, R.r.indexOf(-1)); }
+  const topo = '<div class="al-qz-topo"><b>🧠 ' + esc(String(q.titulo || "Quiz").slice(0, 80)) + "</b>";
+  // correção (o professor encerrou): nota e cada pergunta com a certa
+  if(!q.ativa){
+    const ac = R.r.filter((v, i) => v === q.gab[i]).length;
+    f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span>' + (ac / n >= .7 ? "🎉" : ac / n >= .5 ? "👍" : "📚") + '</span><b>Você acertou</b><span class="nota">' + ac + " de " + n + "</span></div>" +
+      q.perguntas.map((p, i) => { const v = R.r[i], ok = v === q.gab[i];
+        return '<div class="al-qz-rev ' + (ok ? "ok" : "er") + '"><b>' + (ok ? "✅ " : "❌ ") + (i + 1) + ". " + esc(p.p) + "</b>" + (!ok ? "<span>Sua resposta: " + (v >= 0 ? LT[v] + ") " + esc(p.ops[v] || "") : "em branco") + "</span>" : "") + "<span>Certa: <b>" + LT[q.gab[i]] + ") " + esc(p.ops[q.gab[i]] || "") + "</b></span></div>"; }).join("") +
+      '</div><div class="al-qz-nav"><span></span><button type="button" class="vai" data-al="qz-ok">Fechar</button></div>';
+    return;
+  }
+  if(R.fim){ f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span style="font-size:54px">✅</span><b>Respostas enviadas!</b><small>Aguarde o professor encerrar para ver a correção.</small></div></div>'; return; }
+  const i = Math.min(Math.max(0, S.qzI), n - 1), p = q.perguntas[i], falta = R.r.filter(v => v < 0).length;
+  f.innerHTML = topo + "<span>" + (i + 1) + " de " + n + '</span></div><div class="al-qz-corpo"><div class="al-qz-p">' + esc(p.p) + '</div><div class="al-qz-ops">' +
+    p.ops.map((o, k) => '<button type="button" data-al="qz-r" data-k="' + k + '"' + (R.r[i] === k ? ' class="on"' : "") + "><i>" + LT[k] + "</i>" + esc(o) + "</button>").join("") + "</div>" +
+    '<div class="al-qz-pts">' + R.r.map((v, k) => '<button type="button" data-al="qz-ir" data-i="' + k + '" class="' + (v >= 0 ? "r" : "") + (k === i ? " at" : "") + '">' + (k + 1) + "</button>").join("") + "</div></div>" +
+    '<div class="al-qz-nav"><button type="button" data-al="qz-ir" data-i="' + (i - 1) + '"' + (i ? "" : " disabled") + '>← Anterior</button><small>' + (falta ? "Faltam " + falta : "Todas respondidas") + "</small>" +
+    (i < n - 1 ? '<button type="button" class="vai" data-al="qz-ir" data-i="' + (i + 1) + '">Próxima →</button>' : '<button type="button" class="vai" data-al="qz-enviar">' + (falta ? "Enviar assim mesmo" : "✅ Enviar respostas") + "</button>") + "</div>";
+}
+function gravarQuiz(){ const R = S.qzR; return meu({ quiz:{ id:R.id, r:R.r.slice(0, 30), fim:!!R.fim } }); }
 function botoes(){
   if(!S.ligado) return;
   let b = $("alBotoes"); if(!b){ b = document.createElement("div"); b.id = "alBotoes"; b.className = "al-botoes"; document.body.appendChild(b); }
@@ -145,6 +206,12 @@ function clique(ev){
   const b = ev.target.closest("[data-al]"); if(!b) return;
   const k = b.dataset.al;
   if(k === "fechar"){ const f = $("alConteudo"); if(f) f.remove(); }
+  else if(k === "qz-r" && S.qz && S.qz.ativa && S.qzR && !S.qzR.fim){ const n = S.qz.perguntas.length, i = Math.min(S.qzI, n - 1);
+    S.qzR.r[i] = Number(b.dataset.k); gravarQuiz().catch(() => aviso("Sem conexão: a resposta será enviada quando voltar."));
+    quiz(); setTimeout(() => { if(S.qzI === i && i < n - 1){ S.qzI = i + 1; quiz(); } }, 450); }
+  else if(k === "qz-ir"){ S.qzI = Number(b.dataset.i) || 0; quiz(); }
+  else if(k === "qz-enviar" && S.qzR){ S.qzR.fim = true; gravarQuiz().then(() => quiz()).catch(() => { S.qzR.fim = false; aviso("Sem conexão. Tente de novo."); }); quiz(); }
+  else if(k === "qz-ok" && S.qz){ S.qzFechado = S.qz.id; try{ sessionStorage.setItem("pde_qz_fechado", S.qz.id); }catch(e){} quiz(); }
   else if(k === "pq"){ const f = $("alPesq"); if(!f) return; const id = f.dataset.id;
     meu({ pesquisa:{ id, valor:b.dataset.v } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1300); }).catch(() => aviso("Sem conexão. Tente de novo.")); }
   else if(k === "mao"){ meu({ mao:S.mao ? null : serverTimestamp() }).catch(() => aviso("Sem conexão. Tente de novo.")); }
