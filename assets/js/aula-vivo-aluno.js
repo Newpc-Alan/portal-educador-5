@@ -9,13 +9,13 @@ const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#
   .al-pausa{ background:radial-gradient(circle at 50% 40%,#1a6b2a,#071621 65%) } .al-pausa div{ display:grid;gap:14px;justify-items:center;max-width:620px }
   .al-pausa img{ width:140px;height:140px;border-radius:50%;box-shadow:0 10px 40px rgba(0,0,0,.45);animation:alRespira 2.6s ease-in-out infinite } .al-pausa b{ font-size:30px }
   .al-pausa-msg{ font-size:20px;font-weight:600;min-height:52px;transition:opacity .3s;color:#e8f5d8 } .al-pausa small{ opacity:.7;font-size:14px } @keyframes alRespira{ 50%{ transform:scale(1.06) } }
-  .al-cont{ position:fixed;inset:0;z-index:2147482000;background:#071621;display:flex;flex-direction:column } .al-cont iframe{ flex:1;border:0;width:100%;background:#fff }
+  .al-cont{ position:fixed;inset:0;z-index:2147482700;background:#071621;display:flex;flex-direction:column } .al-cont iframe{ flex:1;border:0;width:100%;background:#fff }
   .al-cont-fora{ background:rgba(7,22,33,.92);align-items:center;justify-content:center;padding:20px } .al-fora{ background:#fff;color:#0c2338;border-radius:20px;padding:26px;display:grid;gap:12px;justify-items:center;text-align:center;max-width:440px }
   .al-fora span{ font-size:44px } .al-fora b{ font-size:21px } .al-fora small{ color:#5b6b7b;font-size:15px } .al-fora-ir{ display:block;width:100%;background:#8DC63F;color:#0f2c4a;font-weight:900;font-size:19px;border-radius:14px;padding:15px;text-decoration:none }
   .al-fora button{ font:inherit;border:0;background:none;color:#5b6b7b;cursor:pointer;text-decoration:underline }
   .al-cont-topo{ display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f2c4a;color:#fff } .al-cont-topo b{ flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
   .al-cont-topo a{ color:#cfe3f5;font-weight:700 } .al-cont-topo button{ font:inherit;font-weight:800;border:0;border-radius:10px;padding:9px 14px;background:#8DC63F;color:#0f2c4a;cursor:pointer }
-  .al-folha{ position:fixed;left:0;right:0;bottom:0;z-index:2147482500;background:#fff;color:#0c2338;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);padding:18px;display:grid;gap:12px;font-size:18px }
+  .al-folha{ position:fixed;left:0;right:0;bottom:0;z-index:2147482650;background:#fff;color:#0c2338;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);padding:18px;display:grid;gap:12px;font-size:18px }
   .al-pq{ display:grid;grid-template-columns:repeat(3,1fr);gap:10px } .al-pq button{ font:inherit;font-weight:800;font-size:16px;border:0;border-radius:14px;padding:14px;cursor:pointer }
   .al-pq button:nth-child(1){ background:#bfe5a1 } .al-pq button:nth-child(2){ background:#ffe58a } .al-pq button:nth-child(3){ background:#ffb4b4 }
   .al-botoes{ position:fixed;left:14px;bottom:14px;z-index:2147481000;display:flex;gap:8px;flex-wrap:wrap }
@@ -87,8 +87,9 @@ function ligar(){
     const d = s.data() || {}, k = S.chave;
     const cmds = [d.comando, (d.comandos || {})[k]].filter(c => c && c.id);
     if(S.vistos === null) S.vistos = new Set(cmds.map(c => c.id));      // o que já existia quando a página abriu não abre de novo
-    else cmds.forEach(c => { if(!S.vistos.has(c.id)){ S.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")) abrir(c.url, c.nome, c.embed !== false || PORTAL.test(c.url)); } });
+    else cmds.forEach(c => { if(!S.vistos.has(c.id)){ S.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")){ fecharCorrecao(); abrir(c.url, c.nome, c.embed !== false || PORTAL.test(c.url)); } } });
     const pa = d.pausa_alunos || {}; pausa(!ext() && (typeof pa[k] === "boolean" ? pa[k] : !!d.pausa));
+    if(d.pesquisa && d.pesquisa.ativa && d.pesquisa.id !== S.pqResp) fecharCorrecao();
     pesquisa(d.pesquisa && d.pesquisa.ativa ? d.pesquisa : null);
     S.qz = d.quiz && d.quiz.id && Array.isArray(d.quiz.perguntas) ? d.quiz : null; quiz();
   }, e => console.warn("aula ao vivo:", e.code)));
@@ -210,6 +211,8 @@ function ordemQuiz(q){
   const rnd = semente(q.id + ":" + S.chave);
   return (S.qzOrd = { id:q.id, q:embaralhar(q.perguntas.length, rnd), o:q.perguntas.map(p => embaralhar((p.ops || []).length, rnd)) });
 }
+// o professor mandou outra coisa (conteúdo ou pesquisa): a correção do quiz já encerrado sai da frente
+function fecharCorrecao(){ if(S.qz && !S.qz.ativa && S.qzFechado !== S.qz.id){ S.qzFechado = S.qz.id; try{ sessionStorage.setItem("pde_qz_fechado", S.qz.id); }catch(e){} const f = $("alQuiz"); if(f) f.remove(); } }
 // tamanho da letra do quiz (fica guardado neste aparelho)
 const ZOOMS = [1, 1.15, 1.3, 1.5, 1.75];
 function zoomQuiz(){ let z = 0; try{ z = Number(localStorage.getItem("pde_qz_zoom")) || 0; }catch(e){} return Math.max(0, Math.min(ZOOMS.length - 1, z)); }
