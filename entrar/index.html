@@ -435,6 +435,8 @@
   .av-det button{ font:inherit;font-weight:700;border:1px solid #cfdbe7;background:#f4f7fa;border-radius:10px;padding:8px 12px;cursor:pointer }
   .av-outros{ grid-column:1/-1;font-size:12.5px;color:#5b6b7b;padding:6px 2px }
   /* auditoria da entrada pela carteirinha (foto) */
+  .av-af{ position:absolute;bottom:4px;right:6px;font-size:13px } .av-mae-af{ background:rgba(255,255,255,.12);border-radius:10px;padding:6px 10px;font-size:13px }
+  #mjFundo .ta-op.on{ background:#0f2c4a;color:#fff } .mj-alt{ font:inherit;padding:8px 10px;border:1px solid #cfdbe7;border-radius:10px;min-width:0 }
   .av-cart{ margin-top:12px;border-top:1px solid #e1e8f0;padding-top:10px;display:grid;gap:6px } .av-cart h5{ margin:0;font-size:13.5px;color:#0f2c4a }
   .av-cart-it{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;background:#f7f9fb;border-radius:10px;padding:7px 10px } .av-cart-it b{ flex:1;min-width:120px }
   .av-cart-it.nao{ background:#fdecec;text-decoration:line-through }
@@ -7245,6 +7247,11 @@
     else if(acao === "av-mae-um"){ maePausarAluno(el.dataset.arg, el.dataset.liga === "1"); }
     else if(acao === "av-mae-mao"){ maeBaixarMao(el.dataset.arg); }
     else if(acao === "av-mae-link"){ janelaLinkMae(); }
+    else if(acao === "av-mae-af"){ janelaPesquisaMae(); }
+    else if(acao === "av-mae-af-fim"){ fbMae("aulas/" + MAV.mc + "/controle/afinacao/ativa", "PUT", false).then(() => { toast("Pesquisa encerrada."); lerMaestroAv(); }).catch(() => toast("Não deu agora.", true)); }
+    else if(acao === "av-mae-cp"){ janelaCronometroMae(); }
+    else if(acao === "av-mae-cp-fim"){ fbMae("aulas/" + MAV.mc + "/controle/compasso/ativo", "PUT", false).then(() => { toast("Cronômetro parado."); lerMaestroAv(); }).catch(() => toast("Não deu agora.", true)); }
+    else if(acao === "av-mae-perg"){ janelaPerguntaMae(el.dataset.arg, el.dataset.nome || ""); }
     else if(acao === "av-cart-foto"){ verFotoCarteirinha(el.dataset.arg, el.dataset.nome || ""); }
     else if(acao === "av-cart-nao"){ if(confirm("Marcar que quem entrou não é " + (el.dataset.nome || "este aluno") + "?\n\nA sessão daquele aparelho é encerrada na hora e fica registrado na auditoria.")) contestarCarteirinha(el.dataset.arg); }
     else if(acao === "av-lousa"){ fecharAoVivo(); abrirLousa(); }
@@ -9092,7 +9099,9 @@
         const ap = aparelhosDoAluno(a.id), on = ap.filter(x => x.on), pausa = on.some(x => x.pausado), mao = ap.some(x => x.mao);
         const tit = escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") +
           (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
-        const marcas = (on.length ? '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "📱") + (pausa ? "🔒" : "") + "</span>" : "") + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "");
+        const af = respostaAfAluno(a.id);
+        const marcas = (on.length ? '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "📱") + (pausa ? "🔒" : "") + "</span>" : "") + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
+          (af ? '<span class="av-af" title="Pesquisa rápida">' + COR_AF[af] + "</span>" : "");
         const det = MAV.sel === a.id ? htmlDetMae(a) : "";
         return (ap.length ? '<button type="button" data-action="av-mae-al" data-arg="' + escapeAttr(a.id) + '"' : "<div") + ' class="av-al' + (st ? " " + st : "") + (pausa ? " pausa" : "") + '" title="' + tit + '">' + marcas + '<span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span>" + (ap.length ? "</button>" : "</div>") + det; }).join("") + htmlOutrosMae();
     if(box.innerHTML !== html) box.innerHTML = html;
@@ -9177,7 +9186,7 @@
         if(typeof v === "number") MAV.offset = v - Math.round((antes + Date.now()) / 2); }
       const a = await fbMae("aulas/" + mc);
       if(mc !== MAV.mc) return;
-      MAV.alunos = (a && a.alunos) || {}; MAV.controle = (a && a.controle) || {}; MAV.falhas = 0;
+      MAV.alunos = (a && a.alunos) || {}; MAV.controle = (a && a.controle) || {}; MAV.respostas = (a && a.respostas) || {}; MAV.falhas = 0;
       enviarNovosAoTablet();
       desenharAoVivo();
     }catch(e){ MAV.falhas++; if(MAV.falhas === 3) console.warn("maestro:", e.message); desenharBarraMae(); }
@@ -9196,6 +9205,15 @@
         tipo: chromebook ? "Chromebook" : /App do tablet/.test(String(x.email || "")) ? "Tablet (app)" : /Navegador/.test(String(x.email || "")) ? "Computador (navegador)" : "Celular", versao: x.versao || "" };
     });
   }
+  const COR_AF = { verde:"🟢", amarelo:"🟡", vermelho:"🔴" };
+  function afAtiva(){ const a = MAV.controle.afinacao; return a && a.ativa && a.id ? a : null; }
+  function respostaAfAluno(alunoId){ const a = afAtiva(); if(!a) return ""; const r = ((MAV.respostas || {}).afinacao || {})[a.id] || {};
+    const v = aparelhosDoAluno(alunoId).map(x => r[x.dev]).filter(Boolean).sort((p, q) => (q.ts || 0) - (p.ts || 0))[0]; return v ? v.valor : ""; }
+  function perguntaDoAluno(alunoId){
+    const pq = MAV.controle.perguntas || {}, rs = (MAV.respostas || {}).perguntas || {};
+    for(const x of aparelhosDoAluno(alunoId)){ const p = pq[x.dev]; if(p && p.id){ const resp = (rs[x.dev] || {})[p.id]; return { p, resp: resp ? resp.resposta : "" }; } }
+    return null;
+  }
   function estadoMaeAluno(alunoId){
     const ap = aparelhosDoAluno(alunoId); if(!ap.length) return "";
     if(ap.some(x => x.on && !x.saiu)) return "on";
@@ -9204,9 +9222,12 @@
   }
   function htmlDetMae(a){
     const ap = aparelhosDoAluno(a.id); if(!ap.length) return "";
+    const pg = perguntaDoAluno(a.id);
     return '<div class="av-det"><b>' + escapeHtml(a.nome) + '</b>' + ap.map(x => '<small>' + (x.chromebook ? "💻 " : "📱 ") + escapeHtml(x.tipo) + (x.on ? " · agora: " + escapeHtml(x.aba || "na aula") : " · desconectado") + (x.pausado ? " · tela pausada" : "") + "</small>").join("") +
       '<div class="av-det-ac">' + (ap.some(x => x.pausado) ? '<button type="button" data-action="av-mae-um" data-arg="' + escapeAttr(a.id) + '" data-liga="0">🔓 Liberar a tela</button>' : '<button type="button" data-action="av-mae-um" data-arg="' + escapeAttr(a.id) + '" data-liga="1">🔒 Pausar a tela</button>') +
-      (ap.some(x => x.mao) ? '<button type="button" data-action="av-mae-mao" data-arg="' + escapeAttr(a.id) + '">✋ Atendi: baixar a mão</button>' : "") + "</div></div>";
+      (ap.some(x => x.mao) ? '<button type="button" data-action="av-mae-mao" data-arg="' + escapeAttr(a.id) + '">✋ Atendi: baixar a mão</button>' : "") +
+      (ap.some(x => x.on) ? '<button type="button" data-action="av-mae-perg" data-arg="' + escapeAttr(a.id) + '" data-nome="' + escapeAttr(a.nome) + '">💬 Perguntar só para ' + escapeHtml(a.nome.split(" ")[0]) + '</button>' : "") + "</div>" +
+      (pg ? '<small>💬 <b>' + escapeHtml(pg.p.texto || "") + '</b><br>' + (pg.resp ? "Resposta: <b>" + escapeHtml(pg.resp) + "</b>" : pg.p.ativa ? "Aguardando a resposta..." : "Sem resposta") + "</small>" : "") + "</div>";
   }
   // aparelhos que entraram pelo número (sem conta do Portal): aparecem à parte, pelo nome digitado
   function htmlOutrosMae(){
@@ -9220,8 +9241,18 @@
     if(!MAV.mc){ b.hidden = true; return; }
     const devs = Object.values(MAV.alunos).filter(x => x && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS);
     const maos = Object.values(MAV.alunos).filter(x => x && x.mao).length, geral = !!MAV.controle.bloqueioGeral;
+    const af = afAtiva(), cp = MAV.controle.compasso && MAV.controle.compasso.ativo ? MAV.controle.compasso : null;
+    let afTxt = "";
+    if(af){ const r = ((MAV.respostas || {}).afinacao || {})[af.id] || {}, c = { verde:0, amarelo:0, vermelho:0 }; Object.values(r).forEach(x => { if(x && c[x.valor] !== undefined) c[x.valor]++; });
+      const tot = c.verde + c.amarelo + c.vermelho;
+      afTxt = '<span class="av-mae-af">📊 “' + escapeHtml(String(af.pergunta || "").slice(0, 40)) + '” 🟢 ' + c.verde + ' · 🟡 ' + c.amarelo + ' · 🔴 ' + c.vermelho + ' · ' + Math.max(0, devs.length - tot) + ' sem resposta</span><button type="button" data-action="av-mae-af-fim">Encerrar pesquisa</button>'; }
+    let cpTxt = "";
+    if(cp && typeof cp.inicio === "number"){ const resta = cp.inicio + cp.duracaoMs - agoraMae(); const mm = Math.max(0, Math.ceil(resta / 1000));
+      cpTxt = '<span class="av-mae-af">⏱️ ' + escapeHtml(String(cp.titulo || "Atividade").slice(0, 30)) + ' · ' + (resta > 0 ? Math.floor(mm / 60) + ":" + String(mm % 60).padStart(2, "0") : "TEMPO!") + '</span><button type="button" data-action="av-mae-cp-fim">Parar</button>'; }
     const html = '<span>🎼</span><b>Maestro</b><small>' + (MAV.falhas >= 3 ? "reconectando..." : devs.length + (devs.length === 1 ? " aparelho seguindo a aula" : " aparelhos seguindo a aula") + (maos ? " · ✋ " + maos : "")) +
-      ' · número ' + escapeHtml(MAV.mc) + '</small><span class="av-esp"></span>' +
+      ' · número ' + escapeHtml(MAV.mc) + '</small><span class="av-esp"></span>' + afTxt + cpTxt +
+      (af ? "" : '<button type="button" data-action="av-mae-af"' + (devs.length ? "" : " disabled") + '>📊 Pesquisa rápida</button>') +
+      (cp ? "" : '<button type="button" data-action="av-mae-cp"' + (devs.length ? "" : " disabled") + '>⏱️ Cronômetro</button>') +
       '<button type="button" data-action="av-mae-link"' + (devs.length ? "" : " disabled") + '>📲 Abrir nos aparelhos</button>' +
       '<button type="button" class="' + (geral ? "on" : "") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '"' + (devs.length || geral ? "" : " disabled") + '>' + (geral ? "🔓 Liberar as telas" : "🔒 Pausar as telas") + "</button>";
     if(b.innerHTML !== html) b.innerHTML = html;
@@ -9264,6 +9295,44 @@
     // só a página antiga do aluno do Maestro (web-1.x); quem está no Portal do Aluno (web-portal) já abre o material sozinho
     const tablets = Object.entries(MAV.alunos).filter(([, x]) => x && /^web-\d/.test(String(x.versao || "")) && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).map(([d]) => d);
     if(tablets.length) abrirNosAparelhos(urlMat(novos[0]), novos[0].titulo || "", tablets).catch(e => console.warn("maestro (material):", e.message));
+  }
+  // janela simples reaproveitada (pesquisa, cronômetro, pergunta individual)
+  function janelaMae(titulo, corpo, okTxt, aoOk){
+    const velho = $("mjFundo"); if(velho) velho.remove();
+    const f = document.createElement("div"); f.id = "mjFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan" role="dialog" aria-modal="true" aria-labelledby="mjTit"><div class="et-topo"><h3 id="mjTit">' + titulo + '</h3><button type="button" data-mj="x">Fechar</button></div><div class="et-corpo">' + corpo +
+      '<p id="mjMsg" class="et-msg" role="status"></p><div class="et-acoes"><button type="button" class="btn btn-ghost" data-mj="x">Cancelar</button><button type="button" class="btn btn-primary" data-mj="ok">' + okTxt + '</button></div></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("click", async e => { const b = e.target.closest("[data-mj]"); if(b){ if(b.dataset.mj === "x") return f.remove();
+        b.disabled = true; try{ const msg = await aoOk(f); if(msg){ $("mjMsg").textContent = msg; b.disabled = false; return; } f.remove(); lerMaestroAv(); }catch(err){ $("mjMsg").textContent = "Não deu para falar com os aparelhos agora."; b.disabled = false; } return; }
+      const op = e.target.closest("[data-mj-op]"); if(op){ f.querySelectorAll("[data-mj-op]").forEach(x => x.classList.toggle("on", x === op)); f.dataset.op = op.dataset.mjOp; } });
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    const i = f.querySelector("input,textarea"); if(i) i.focus();
+    return f;
+  }
+  function janelaPesquisaMae(){
+    janelaMae("📊 Pesquisa rápida", '<p class="et-d">Aparece na hora em todos os aparelhos da aula. Cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi, e você vê o resultado na faixa do Maestro e no cartão de cada aluno.</p>' +
+      '<label>Pergunta<input id="mjPerg" maxlength="140" value="Entenderam?"></label>', "Perguntar à turma", async () => {
+        const p = ($("mjPerg").value.trim() || "Entenderam?").slice(0, 140);
+        await fbMae("aulas/" + MAV.mc + "/controle/afinacao", "PUT", { id:idMae(), pergunta:p, ativa:true, ts:{ ".sv":"timestamp" } }); toast("📊 Pesquisa enviada para a turma."); });
+  }
+  function janelaCronometroMae(){
+    const f = janelaMae("⏱️ Cronômetro da atividade", '<p class="et-d">Os aparelhos mostram o tempo que falta e avisam quando acabar.</p><label>Atividade<input id="mjTit2" maxlength="60" value="Atividade"></label>' +
+      '<b class="et-rot">Tempo</b><div class="ta-ops">' + [3, 5, 10, 15, 20, 30].map(m => '<button type="button" class="ta-op' + (m === 5 ? " on" : "") + '" data-mj-op="' + m + '">' + m + ' min</button>').join("") + '</div>', "Começar", async fj => {
+        const min = Number(fj.dataset.op || 5), t = ($("mjTit2").value.trim() || "Atividade").slice(0, 60);
+        await fbMae("aulas/" + MAV.mc + "/controle/compasso", "PUT", { id:idMae(), titulo:t, inicio:{ ".sv":"timestamp" }, duracaoMs:min * 60000, ativo:true }); toast("⏱️ Cronômetro de " + min + " min iniciado."); });
+    f.dataset.op = "5";
+  }
+  function janelaPerguntaMae(alunoId, nome){
+    const ap = aparelhosDoAluno(alunoId).filter(x => x.on); if(!ap.length){ toast("O aparelho deste aluno não está conectado agora.", true); return; }
+    janelaMae("💬 Pergunta só para " + escapeHtml(nome.split(" ")[0] || "o aluno"), '<p class="et-d">Só este aluno vê. A resposta aparece no cartão dele, na Turma ao Vivo.</p>' +
+      '<label>Pergunta<textarea id="mjTxt" rows="2" maxlength="300" placeholder="Ex.: Qual é a sua dúvida? / Quanto é 3/4 de 12?"></textarea></label>' +
+      '<b class="et-rot">Alternativas <small>(opcional: deixe em branco para resposta livre)</small></b><div class="row2">' + ["A", "B", "C", "D"].map(l => '<input class="mj-alt" maxlength="80" placeholder="' + l + '">').join("") + '</div>', "Enviar a pergunta", async () => {
+        const texto = $("mjTxt").value.trim(); if(!texto) return "Escreva a pergunta.";
+        const ops = [...document.querySelectorAll(".mj-alt")].map(i => i.value.trim()).filter(Boolean);
+        if(ops.length === 1) return "Preencha pelo menos duas alternativas (ou nenhuma, para resposta livre).";
+        const p = { id:idMae(), texto:texto.slice(0, 300), opcoes:ops.length ? ops : null, ativa:true, ts:{ ".sv":"timestamp" } }, patch = {}; ap.forEach(x => { patch[x.dev] = p; });
+        await fbMae("aulas/" + MAV.mc + "/controle/perguntas", "PATCH", patch); toast("💬 Pergunta enviada só para " + (nome.split(" ")[0] || "o aluno") + "."); });
   }
   function janelaLinkMae(){
     const velho = $("mlFundo"); if(velho) velho.remove();
@@ -9313,6 +9382,8 @@
     MT.aulaUnsub = onSnapshot(doc(db, "qr_aulas", tid), s => {
       const x = s.data() || {}, antes = naAulaAluno();
       MT.aulaAte = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0;
+      MT.aulaIni = x.aberta_em && x.aberta_em.toMillis ? x.aberta_em.toMillis() : 0;
+      if(MT.lista) { desenharMateriaisAluno(); abrirUltimoDaAula(); }
       MT.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
       // o professor marcou "Não é este aluno" depois que esta sessão começou: sai da conta na hora
       const ex = x.expulsos && MT.chave && x.expulsos[MT.chave], login = Date.parse((auth.currentUser && auth.currentUser.metadata && auth.currentUser.metadata.lastSignInTime) || "") || 0;
@@ -9361,10 +9432,8 @@
       // o professor mandou agora (ou chegou nas últimas 2 h e o aluno ainda não viu): abre sozinho, em tela cheia
       let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
       const ms = x => x && x.toMillis ? x.toMillis() : Date.now();
-      const novo = l.find(m => !MT.abertos.has(m.id) && ms(m.criado_em) > visto && Date.now() - ms(m.criado_em) < 2 * 3600000);
       MT.primeira = false;
-      // abrir sozinho em tela cheia é coisa da aula ao vivo (entrada pelo cartão); quem entrou com Google ou senha vê na lista
-      if(novo && naAulaAluno() && !$("mtFundo")) abrirMaterialAluno(novo.id, true);
+      abrirUltimoDaAula();
     }, e => console.warn("materiais da turma:", e.code));
   }
   // aberto e fechado = vai para o Histórico de aulas (guardado neste aparelho, por aluno)
@@ -9379,18 +9448,30 @@
   const mtIcone = m => m.tipo_item === "link" ? (m.youtube ? "▶️" : "🔗") : m.tipo_item === "arquivo" ? ({ pdf:"📄", slides:"📊", video:"🎬", imagem:"🖼️", audio:"🎧", texto:"📝", planilha:"📈" }[m.arquivo_tipo] || "📎") : "📘";
   function desenharHistoricos(){
     const el = $("iniHist"); if(!el) return;
-    const fech = mtFechados(), nAulas = MT.lista.filter(m => fech.has(m.id)).length || (MT.temMais ? 1 : 0), nProvas = PV.antigas || 0;
+    const nAulas = MT.lista.length, nProvas = PV.antigas || 0;
     el.innerHTML = (nProvas ? '<a class="pv-hist" href="/prova/">\u{1F4DA} Histórico de provas (' + nProvas + ')</a>' : '') +
       (MT.lista.length ? '<button type="button" class="pv-hist" data-action="mt-hist">\u{1F4D6} Histórico de aulas' + (nAulas && !MT.temMais ? ' (' + nAulas + ')' : '') + '</button>' : '');
+  }
+  // material desta aula: só o último que o professor enviou DEPOIS que a aula atual abriu; o resto fica no Histórico de aulas
+  const msMt = x => x && x.toMillis ? x.toMillis() : 0;
+  function ultimoDaAula(){
+    if(!((MT.aulaAte || 0) > Date.now()) || !MT.aulaIni) return null;
+    const m = (MT.lista || [])[0];   // a lista vem do mais novo para o mais antigo
+    return m && msMt(m.criado_em) >= MT.aulaIni - 60000 ? m : null;
+  }
+  function abrirUltimoDaAula(){
+    const m = ultimoDaAula(); if(!m || MT.abertos.has(m.id) || mtFechados().has(m.id) || $("mtFundo")) return;
+    let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
+    if(msMt(m.criado_em) > visto) abrirMaterialAluno(m.id, true);
   }
   function desenharMateriaisAluno(){
     const el = $("iniMateriais"); if(!el){ if(MT.unsub){ MT.unsub(); MT.unsub = null; } return; }
     desenharHistoricos();
-    const fech = mtFechados(), atuais = MT.lista.filter(m => !fech.has(m.id));
+    const fech = mtFechados(), ult = ultimoDaAula(), atuais = ult && !fech.has(ult.id) ? [ult] : [];
     if(!atuais.length){ el.innerHTML = ""; return; }
     let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
     const ms = x => x && x.toMillis ? x.toMillis() : 0;
-    el.innerHTML = '<section class="ini-sec" aria-labelledby="mtTit"><h3 id="mtTit">📚 Aula de hoje</h3><div class="mt-lista">' +
+    el.innerHTML = '<section class="ini-sec" aria-labelledby="mtTit"><h3 id="mtTit">📚 Enviado nesta aula</h3><div class="mt-lista">' +
       atuais.slice(0, 4).map(m => '<button type="button" class="mt-card" data-action="mt-abrir" data-arg="' + escapeHtml(m.id) + '">' + (ms(m.criado_em) > visto ? '<span class="rd-novo">novo</span>' : '') +
         '<span class="mt-ic" aria-hidden="true">' + (m.tipo_item === "link" ? (m.youtube ? "▶️" : "🔗") : m.tipo_item === "arquivo" ? ({ pdf:"📄", slides:"📊", video:"🎬", imagem:"🖼️", audio:"🎧", texto:"📝", planilha:"📈" }[m.arquivo_tipo] || "📎") : "📘") + '</span>' +
         '<span class="mt-tx"><b>' + escapeHtml(m.titulo || "Material") + '</b><small>' + escapeHtml([m.tipo_item === "link" && m.dominio ? m.dominio : "", m.disciplina, m.autor_nome ? "Prof. " + m.autor_nome : ""].filter(Boolean).join(" · ")) + '</small></span><span class="rd-ir" aria-hidden="true">›</span></button>').join("") + '</div></section>';

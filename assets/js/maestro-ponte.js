@@ -8,7 +8,7 @@ const VERSAO = "web-portal-1.0";              // "web-" = aparelho sem extensão
 const INTERVALO_MS = 3000, PRESENCA_A_CADA = 5, VALIDADE_CMD_MS = 120000, PAINEL_SEM_SINAL_MS = 120000;
 const MSGS = ["/maestro/aluno/bloqueio/msg1.jpg", "/maestro/aluno/bloqueio/msg2.jpg", "/maestro/aluno/bloqueio/msg3.jpg"];
 const APP = /PortalMaestroApp/.test(navigator.userAgent), ANDROID = /Android/i.test(navigator.userAgent);
-const S = { aula: "", nome: "", aluno: "", dev: "", timer: null, volta: 0, offset: 0, executados: new Set(), bloqueado: false, mao: false, fora: false, ocupado: false, aoSair: null, toast: null };
+const S = { afResp: "", pqResp: "", afAberta: "", pqAberta: "", comp: null, aula: "", nome: "", aluno: "", dev: "", timer: null, volta: 0, offset: 0, executados: new Set(), bloqueado: false, mao: false, fora: false, ocupado: false, aoSair: null, toast: null };
 
 async function fb(caminho, metodo, corpo, keepalive) {
   const r = await fetch(`${FB}/${caminho}.json`, { method: metodo || "GET", headers: { "Content-Type": "application/json" }, keepalive: !!keepalive,
@@ -83,6 +83,70 @@ function abrirConteudo(url, nome) {
 }
 function fecharConteudo() { const f = document.getElementById("mqConteudo"); if (f) f.remove(); }
 
+// ---------- regência: pesquisa rápida, pergunta só para este aluno e cronômetro ----------
+function folha(id, html) {
+  let f = document.getElementById(id); if (f) f.remove();
+  // pesquisa e pergunta podem chegar juntas: ficam empilhadas na mesma faixa de baixo, sem uma cobrir a outra
+  let pilha = document.getElementById("mqFolhas");
+  if (!pilha) { pilha = el("div", "position:fixed;left:0;right:0;bottom:0;z-index:2147482500;display:flex;flex-direction:column;gap:8px;max-height:85vh;overflow:auto;pointer-events:none"); pilha.id = "mqFolhas"; document.body.appendChild(pilha); }
+  f = el("div", "pointer-events:auto;background:#fff;color:#0c2338;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);padding:18px 18px max(18px,env(safe-area-inset-bottom));font-family:inherit;display:grid;gap:12px");
+  f.id = id; f.setAttribute("role", "dialog"); f.innerHTML = html; pilha.appendChild(f);
+  try { navigator.vibrate && navigator.vibrate(120); } catch (e) { /* ignora */ }
+  return f;
+}
+const btn = (cor, txt, attr) => '<button type="button" ' + attr + ' style="font:inherit;font-weight:800;font-size:17px;border:0;border-radius:14px;padding:14px;cursor:pointer;background:' + cor + ';color:#0c2338">' + txt + "</button>";
+function pesquisa(a) {
+  if (!a || !a.ativa || !a.id || a.id === S.afResp) { if (S.afAberta && (!a || !a.ativa || a.id !== S.afAberta)) { S.afAberta = ""; const f = document.getElementById("mqPesq"); if (f) f.remove(); } return; }
+  if (S.afAberta === a.id) return;
+  S.afAberta = a.id;
+  const f = folha("mqPesq", '<b style="font-size:19px">📊 ' + esc(String(a.pergunta || "Entenderam?").slice(0, 140)) + "</b>" +
+    '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' + btn("#bfe5a1", "🟢 Entendi", 'data-v="verde"') + btn("#ffe58a", "🟡 Mais ou menos", 'data-v="amarelo"') + btn("#ffb4b4", "🔴 Não entendi", 'data-v="vermelho"') + "</div>");
+  f.addEventListener("click", async e => {
+    const b = e.target.closest("[data-v]"); if (!b) return;
+    try { await fb(`aulas/${S.aula}/respostas/afinacao/${a.id}/${S.dev}`, "PUT", { valor: b.dataset.v, nome: S.nome, ts: { ".sv": "timestamp" } });
+      S.afResp = a.id; f.innerHTML = '<b style="font-size:19px;text-align:center">✅ Resposta enviada</b>'; setTimeout(() => f.remove(), 1400); }
+    catch (err) { aviso("Sem conexão. Tente de novo."); }
+  });
+}
+function pergunta(p) {
+  if (!p || !p.ativa || !p.id || p.id === S.pqResp) { if (S.pqAberta && (!p || !p.ativa || p.id !== S.pqAberta)) { S.pqAberta = ""; const f = document.getElementById("mqPerg"); if (f) f.remove(); } return; }
+  if (S.pqAberta === p.id) return;
+  S.pqAberta = p.id;
+  const ops = Array.isArray(p.opcoes) ? p.opcoes.map(o => String(o).slice(0, 80)).filter(Boolean).slice(0, 4) : [];
+  const f = folha("mqPerg", '<small style="font-weight:800;color:#2671AB">💬 Pergunta do professor, só para você</small><b style="font-size:19px">' + esc(String(p.texto || "").slice(0, 300)) + "</b>" +
+    (ops.length >= 2 ? '<div style="display:grid;gap:8px">' + ops.map((o, i) => btn("#eef3f8", "ABCD"[i] + ") " + esc(o), 'data-r="' + esc(o) + '"')).join("") + "</div>"
+      : '<textarea id="mqResp" rows="3" maxlength="500" style="font:inherit;font-size:16px;padding:12px;border:2px solid #cfdbe7;border-radius:12px" placeholder="Escreva sua resposta"></textarea>' + btn("#8DC63F", "Enviar resposta", 'data-r=""')));
+  f.addEventListener("click", async e => {
+    const b = e.target.closest("[data-r]"); if (!b) return;
+    const resp = (b.dataset.r || (document.getElementById("mqResp") || {}).value || "").trim().slice(0, 500);
+    if (!resp) { aviso("Escreva sua resposta."); return; }
+    try { await fb(`aulas/${S.aula}/respostas/perguntas/${S.dev}/${p.id}`, "PUT", { resposta: resp, ts: { ".sv": "timestamp" } });
+      S.pqResp = p.id; f.innerHTML = '<b style="font-size:19px;text-align:center">✅ Resposta enviada ao professor</b>'; setTimeout(() => f.remove(), 1400); }
+    catch (err) { aviso("Sem conexão. Tente de novo."); }
+  });
+}
+function cronometro(c) {
+  const ok = c && c.ativo && c.id && typeof c.inicio === "number" && c.duracaoMs > 0 && agora() < c.inicio + c.duracaoMs + 8000;
+  let chip = document.getElementById("mqTempo");
+  if (!ok) { S.comp = null; if (chip) chip.remove(); return; }
+  if (!S.comp || S.comp.id !== c.id) S.comp = { id: c.id, titulo: String(c.titulo || "Atividade").slice(0, 40), fim: c.inicio + c.duracaoMs, total: c.duracaoMs, avisou: false };
+  if (!chip) {
+    chip = el("div", "position:fixed;top:12px;right:12px;z-index:2147481500;background:#0f2c4a;color:#fff;border-radius:14px;padding:8px 14px;font-family:inherit;box-shadow:0 8px 22px rgba(0,0,0,.3);min-width:150px");
+    chip.id = "mqTempo"; chip.innerHTML = '<small id="mqTempoT" style="display:block;opacity:.8"></small><b id="mqTempoN" style="font-size:22px"></b><div style="height:5px;background:rgba(255,255,255,.2);border-radius:9px;margin-top:4px"><i id="mqTempoB" style="display:block;height:100%;background:#8DC63F;border-radius:9px"></i></div>';
+    document.body.appendChild(chip);
+  }
+}
+function tickTempo() {
+  const c = S.comp; if (!c) return;
+  const resta = c.fim - agora(), seg = Math.max(0, Math.ceil(resta / 1000));
+  const t = document.getElementById("mqTempoT"), n = document.getElementById("mqTempoN"), b = document.getElementById("mqTempoB"); if (!n) return;
+  t.textContent = "⏱️ " + c.titulo; n.textContent = resta > 0 ? Math.floor(seg / 60) + ":" + String(seg % 60).padStart(2, "0") : "TEMPO!";
+  b.style.width = Math.max(0, Math.min(100, resta / c.total * 100)) + "%";
+  if (resta <= 0 && !c.avisou) { c.avisou = true; try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) { /* ignora */ } }
+}
+setInterval(tickTempo, 500);
+const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 // ---------- mão levantada ----------
 function botaoMao() {
   if (document.getElementById("mqMao")) return;
@@ -117,6 +181,7 @@ async function ciclo() {
     const vivo = typeof c.professorVivo === "number" && agora() - c.professorVivo < PAINEL_SEM_SINAL_MS;
     const ind = c.bloqueio ? c.bloqueio[S.dev] : undefined;
     pausar(vivo && (typeof ind === "boolean" ? ind : !!c.bloqueioGeral));
+    pesquisa(c.afinacao); pergunta(c.perguntas ? c.perguntas[S.dev] : null); cronometro(c.compasso);
     const cmd = [c.comando, c.comandos && c.comandos[S.dev]].filter(x => x && x.id && typeof x.ts === "number").sort((a, b) => b.ts - a.ts)[0];
     if (cmd && !S.executados.has(cmd.id)) {
       S.executados.add(cmd.id);
@@ -160,7 +225,8 @@ function parar(encerrou, saiuDaConta) {
   document.removeEventListener("visibilitychange", aoMudarVisibilidade);
   const aula = S.aula, dev = S.dev;
   if (aula && saiuDaConta) fb(`aulas/${aula}/alunos/${dev}`, "DELETE", undefined, true).catch(() => {});
-  S.aula = ""; pausar(false); fecharConteudo();
+  S.aula = ""; pausar(false); fecharConteudo(); S.comp = null;
+  ["mqPesq", "mqPerg", "mqTempo"].forEach(i => { const f = document.getElementById(i); if (f) f.remove(); }); S.afAberta = S.pqAberta = "";
   const m = document.getElementById("mqMao"); if (m) m.remove();
   if (encerrou && aula) aviso("A aula terminou.");
 }
