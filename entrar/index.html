@@ -436,6 +436,13 @@
   .av-outros{ grid-column:1/-1;font-size:12.5px;color:#5b6b7b;padding:6px 2px }
   /* auditoria da entrada pela carteirinha (foto) */
   .av-af{ position:absolute;bottom:4px;right:6px;font-size:13px } .av-mae-af{ background:rgba(255,255,255,.12);border-radius:10px;padding:6px 10px;font-size:13px }
+  /* Abrir nos aparelhos: abas, categorias e lista compacta */
+  .ml-jan{ max-width:640px;width:100% } .ml-abas{ display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px }
+  .ml-abas button,.ml-cats button{ font:inherit;font-weight:700;font-size:14px;border:1px solid #cfdbe7;background:#fff;border-radius:999px;padding:7px 12px;cursor:pointer }
+  .ml-abas button[aria-selected="true"],.ml-cats button.on{ background:#0f2c4a;color:#fff;border-color:#0f2c4a }
+  .ml-cats{ display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 } .ml-res{ display:grid;gap:6px;max-height:46vh;overflow:auto }
+  .ml-it{ display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 10px;align-items:center;text-align:left;font:inherit;border:1px solid #e1e8f0;background:#fff;border-radius:12px;padding:9px 12px;cursor:pointer }
+  .ml-it:hover{ border-color:#2671AB;background:#f4f8fc } .ml-it span{ grid-row:span 2;font-size:22px } .ml-it b{ white-space:nowrap;overflow:hidden;text-overflow:ellipsis } .ml-it small{ color:#6b7a89;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
   #mjFundo .ta-op.on{ background:#0f2c4a;color:#fff } .mj-alt{ font:inherit;padding:8px 10px;border:1px solid #cfdbe7;border-radius:10px;min-width:0 }
   .av-cart{ margin-top:12px;border-top:1px solid #e1e8f0;padding-top:10px;display:grid;gap:6px } .av-cart h5{ margin:0;font-size:13.5px;color:#0f2c4a }
   .av-cart-it{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;background:#f7f9fb;border-radius:10px;padding:7px 10px } .av-cart-it b{ flex:1;min-width:120px }
@@ -9334,25 +9341,59 @@
         const p = { id:idMae(), texto:texto.slice(0, 300), opcoes:ops.length ? ops : null, ativa:true, ts:{ ".sv":"timestamp" } }, patch = {}; ap.forEach(x => { patch[x.dev] = p; });
         await fbMae("aulas/" + MAV.mc + "/controle/perguntas", "PATCH", patch); toast("💬 Pergunta enviada só para " + (nome.split(" ")[0] || "o aluno") + "."); });
   }
+  // "Abrir nos aparelhos": soluções do Portal (jogos, vídeos, livros, colorir) pela busca geral, o que já foi enviado à turma e link externo
+  const ML_CAT = [["jogos", "🎮 Jogos"], ["videos", "🎬 Vídeos"], ["biblioteca", "📚 Livros e histórias"], ["colorir", "🎨 Colorir"]];
+  const ML_IC = { jogos:"🎮", videos:"🎬", biblioteca:"📚", colorir:"🎨" };
+  function urlPortalMae(x){
+    if(x.c === "jogos") return /^https:\/\//.test(x.u || "") ? x.u : "";
+    if(x.c === "videos"){ const y = /^yt:([\w-]{11})$/.exec(x.g || ""); return y ? "https://www.youtube.com/watch?v=" + y[1] : ""; }
+    if(x.c === "biblioteca") return "https://app.portaldoeducador.com.br/biblioteca/?abrir=" + encodeURIComponent(x.i) + (x.m === "historias" ? "#historias" : "");
+    if(x.c === "colorir") return "https://app.portaldoeducador.com.br/colorir/?abrir=" + encodeURIComponent(x.i);
+    return "";
+  }
   function janelaLinkMae(){
     const velho = $("mlFundo"); if(velho) velho.remove();
-    const mats = AV.mats.filter(urlMat).slice(0, 6);
+    const ML = { aba:"portal", cat:"jogos", q:"", itens:[] };
+    // enviados à turma: um por link, do mais novo para o mais antigo
+    const vistos = new Set(), enviados = AV.mats.filter(m => { const u = urlMat(m); if(!u || vistos.has(u)) return false; vistos.add(u); return true; }).slice(0, 12);
     const f = document.createElement("div"); f.id = "mlFundo"; f.className = "et-fundo";
-    f.innerHTML = '<div class="et-jan" role="dialog" aria-modal="true" aria-labelledby="mlTit"><div class="et-topo"><h3 id="mlTit">📲 Abrir nos aparelhos da turma</h3><button type="button" data-ml="fechar">Fechar</button></div><div class="et-corpo">' +
-      '<p class="et-d">Abre na hora em todos os Chromebooks e tablets que estão seguindo a aula (Maestro). Para registrar o material na turma, use “Enviar link ou arquivo”.</p>' +
-      (mats.length ? '<b class="et-rot">Enviados para a turma</b><div class="ta-ops">' + mats.map((m, i) => '<button type="button" class="ta-op" data-ml="mat" data-i="' + i + '">' + escapeHtml(String(m.titulo || "Material").slice(0, 50)) + "</button>").join("") + "</div>" : "") +
-      '<label>Ou cole um link<input id="mlUrl" type="url" inputmode="url" placeholder="https://..." maxlength="2000"></label><p id="mlMsg" class="et-msg" role="status"></p>' +
-      '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-ml="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-ml="url">Abrir nos aparelhos</button></div></div></div>';
+    f.innerHTML = '<div class="et-jan ml-jan" role="dialog" aria-modal="true" aria-labelledby="mlTit"><div class="et-topo"><h3 id="mlTit">📲 Abrir nos aparelhos da turma</h3><button type="button" data-ml="fechar">Fechar</button></div><div class="et-corpo">' +
+      '<p class="et-d">Abre na hora nos aparelhos que estão seguindo a aula (tablets e Chromebooks). Para deixar registrado na turma, use “Enviar link ou arquivo”.</p>' +
+      '<div class="ml-abas" role="tablist"><button type="button" data-ml="aba" data-arg="portal" aria-selected="true">🏫 Do Portal</button><button type="button" data-ml="aba" data-arg="enviados" aria-selected="false">📤 Enviados à turma (' + enviados.length + ')</button><button type="button" data-ml="aba" data-arg="link" aria-selected="false">🔗 Link externo</button></div>' +
+      '<div id="mlPortal"><input id="mlQ" type="search" class="md-busca" placeholder="Procure um jogo, vídeo, livro ou desenho para colorir" autocomplete="off"><div class="ml-cats">' + ML_CAT.map(([c, n]) => '<button type="button" data-ml="cat" data-arg="' + c + '"' + (c === "jogos" ? ' class="on"' : "") + ">" + n + "</button>").join("") + '</div><div id="mlRes" class="ml-res"><div class="et-d">Carregando o catálogo...</div></div></div>' +
+      '<div id="mlEnv" hidden><div class="ml-res">' + (enviados.length ? enviados.map((m, i) => '<button type="button" class="ml-it" data-ml="env" data-i="' + i + '"><span>' + mtIcone(m) + '</span><b>' + escapeHtml(String(m.titulo || "Material").slice(0, 80)) + '</b><small>' + escapeHtml([m.tipo_nome || m.dominio || "", m.criado_em ? new Date(msAv(m.criado_em)).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : ""].filter(Boolean).join(" · ")) + "</small></button>").join("") : '<div class="et-d">Nada enviado para esta turma ainda.</div>') + '</div></div>' +
+      '<div id="mlLink" hidden><label>Link do site ou vídeo<input id="mlUrl" type="url" inputmode="url" placeholder="https://..." maxlength="2000"></label><label>Nome para os alunos <small>(opcional)</small><input id="mlNome" maxlength="80" placeholder="Ex.: Simulador de frações"></label>' +
+      '<div class="et-acoes"><button type="button" class="btn btn-primary" data-ml="url">Abrir nos aparelhos</button></div></div>' +
+      '<p id="mlMsg" class="et-msg" role="status"></p></div></div>';
     document.body.appendChild(f);
-    const ir = async (url, nome) => { try{ await abrirNosAparelhos(url, nome); toast("📲 Abrindo nos aparelhos da turma."); f.remove(); }catch(e){ $("mlMsg").textContent = "Não deu para falar com os aparelhos agora."; } };
+    const ir = async (url, nome) => { if(!url){ $("mlMsg").textContent = "Este item não tem link para abrir nos aparelhos."; return; }
+      try{ await abrirNosAparelhos(url, nome); toast("📲 Abrindo “" + String(nome || "conteúdo").slice(0, 40) + "” nos aparelhos."); f.remove(); }catch(e){ $("mlMsg").textContent = "Não deu para falar com os aparelhos agora."; } };
+    const desenhar = () => {
+      const box = $("mlRes"); if(!box) return;
+      const toks = bgTokens(ML.q);
+      let l = ML.itens.filter(x => ML.q ? true : x.c === ML.cat);
+      if(toks.length) l = l.map(x => ({ x, n:bgNota(x, toks, "") })).filter(o => o.n > 0).sort((a, b) => b.n - a.n).map(o => o.x);
+      else l = l.slice().sort((a, b) => a.t.localeCompare(b.t, "pt-BR"));
+      l = l.slice(0, 40);
+      box.innerHTML = !l.length ? '<div class="et-d">Nada encontrado' + (ML.q ? ' para “' + escapeHtml(ML.q) + '”' : "") + '.</div>' :
+        l.map((x, i) => '<button type="button" class="ml-it" data-ml="item" data-i="' + i + '"><span>' + (ML_IC[x.c] || "🔗") + '</span><b>' + escapeHtml(x.t) + '</b><small>' + escapeHtml(x.s || "") + "</small></button>").join("");
+      ML.vis = l;
+    };
+    bgCarregarIndice().then(idx => { ML.itens = idx.filter(x => ML_IC[x.c] && urlPortalMae(x)); desenhar(); }).catch(() => { $("mlRes").innerHTML = '<div class="et-d">Não foi possível carregar o catálogo agora.</div>'; });
+    let tm = null;
+    $("mlQ").addEventListener("input", e => { clearTimeout(tm); tm = setTimeout(() => { ML.q = e.target.value.trim(); desenhar(); }, 200); });
     f.addEventListener("click", e => { const b = e.target.closest("[data-ml]"); if(!b) return; const k = b.dataset.ml;
       if(k === "fechar") return f.remove();
-      if(k === "mat"){ const m = mats[Number(b.dataset.i)]; if(m) ir(urlMat(m), m.titulo || ""); return; }
-      let u = $("mlUrl").value.trim(); if(u && !/^https?:\/\//i.test(u)) u = "https://" + u;
-      if(!/^https:\/\/[^\s]+\.[^\s]+/.test(u)){ $("mlMsg").textContent = "Cole um link que comece com https://"; return; }
-      ir(u, u.replace(/^https:\/\/(www\.)?/, "").slice(0, 60)); });
+      if(k === "aba"){ ML.aba = b.dataset.arg; f.querySelectorAll(".ml-abas button").forEach(x => x.setAttribute("aria-selected", String(x === b)));
+        $("mlPortal").hidden = ML.aba !== "portal"; $("mlEnv").hidden = ML.aba !== "enviados"; $("mlLink").hidden = ML.aba !== "link"; if(ML.aba === "link") $("mlUrl").focus(); return; }
+      if(k === "cat"){ ML.cat = b.dataset.arg; ML.q = ""; $("mlQ").value = ""; f.querySelectorAll(".ml-cats button").forEach(x => x.classList.toggle("on", x === b)); desenhar(); return; }
+      if(k === "item"){ const x = (ML.vis || [])[Number(b.dataset.i)]; if(x) ir(urlPortalMae(x), x.t); return; }
+      if(k === "env"){ const m = enviados[Number(b.dataset.i)]; if(m) ir(urlMat(m), m.titulo || ""); return; }
+      if(k === "url"){ let u = $("mlUrl").value.trim(); if(u && !/^https?:\/\//i.test(u)) u = "https://" + u;
+        if(!/^https:\/\/[^\s]+\.[^\s]+/.test(u)){ $("mlMsg").textContent = "Cole um link que comece com https://"; return; }
+        ir(u, $("mlNome").value.trim() || u.replace(/^https:\/\/(www\.)?/, "").slice(0, 60)); } });
     f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
-    $("mlUrl").focus();
+    $("mlQ").focus();
   }
   /* Materiais da turma: o que os professores enviaram pelo Portal IA (versão do aluno, sem gabarito) */
   const MT = { unsub:null, lista:[], abertos:new Set(), primeira:true, tid:"", chave:"", pulso:null };
