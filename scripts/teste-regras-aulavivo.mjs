@@ -64,6 +64,10 @@ await t('ninguém grava no acervo geral pelo navegador', assertFails(setDoc(doc(
 await t('professor aponta erro', assertSucceeds(setDoc(doc(fs('p1'), 'quizzes_geral/g1/avisos/p1'), { motivo: 'Gabarito da 2 errado', em: serverTimestamp() })));
 await t('não aponta erro em nome de outro', assertFails(setDoc(doc(fs('p1'), 'quizzes_geral/g1/avisos/p9'), { motivo: 'x', em: serverTimestamp() })));
 await t('quiz guarda o geral_id', assertSucceeds(setDoc(doc(fs('p1'), 'usuarios/p1/quizzes/q2'), { titulo: 'Sistema solar', geral_id: 'g1', origem: 'geral', perguntas: [{ p: 'x', ops: ['a', 'b'], gab: 0 }], status: 'aplicando', criado_em: serverTimestamp(), atualizado_em: serverTimestamp() })));
+await t('professor registra envio no histórico', assertSucceeds(setDoc(doc(fs('p1'), 'aula_vivo/t1/historico/h1'), { tipo: 'conteudo', titulo: 'Jogo', url: 'https://a.b', por: 'p1', por_nome: 'P', em: serverTimestamp() })));
+await t('quiz no histórico e resultado depois', assertSucceeds(setDoc(doc(fs('p1'), 'aula_vivo/t1/historico/qz_1'), { tipo: 'quiz', titulo: 'Q', ref: '1', n: 3, por: 'p1', por_nome: 'P', em: serverTimestamp() }).then(() => updateDoc(doc(fs('p1'), 'aula_vivo/t1/historico/qz_1'), { resultado: { media: 70, resp: 2 } }))));
+await t('aluno não lê o histórico', assertFails(getDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/historico/h1'))));
+await t('professor de outra escola não registra', assertFails(setDoc(doc(fs('p9'), 'aula_vivo/t1/historico/h2'), { tipo: 'conteudo', titulo: 'x', por: 'p9', por_nome: 'P', em: serverTimestamp() })));
 console.log((falha ? '::error::' : '::notice::') + 'Aula ao vivo no Portal: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();
 process.exit(falha ? 1 : 0);

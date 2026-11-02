@@ -458,6 +458,7 @@
   .pq-chip{ font:inherit;font-size:13.5px;border:1.5px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:6px 11px;cursor:pointer } .pq-chip:hover,.pq-chip.on{ border-color:#1a6b2a;background:#eaf6dc }
   .qz-abas{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px } .qz-abas button{ font:inherit;font-weight:800;font-size:14px;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:7px 14px;cursor:pointer } .qz-abas button.on{ background:#0f2c4a;border-color:#0f2c4a;color:#fff }
   .qr-na-rede{ background:#eaf6dc !important;border-color:#1a6b2a !important;color:#1a6b2a !important }
+  .av-hres{ display:inline-block;margin-top:3px;font-size:12px;font-weight:800;color:#0f2c4a;background:#eef3f8;border-radius:8px;padding:2px 7px }
   .qz-erro{ font:inherit;font-size:12.5px;font-weight:800;border:1.5px solid #e0a321;background:#fff8e1;color:#7a5200;border-radius:99px;padding:3px 10px;cursor:pointer;margin-left:6px }
   .qz-acv{ display:grid;gap:8px;max-height:52vh;overflow:auto } .qz-acv .ml-it small{ display:block } .qz-acv .vazio{ color:#5b6b7b;padding:10px }
   .qz-jan{ max-width:820px;width:min(96vw,820px) } .qz-l{ display:grid;gap:4px;font-weight:700;font-size:14px;color:#0f2c4a;margin:8px 0 } .qz-l textarea,.qz-l input,.qz-l select{ font:inherit;font-weight:400;padding:9px 10px;border:1px solid #cfdbe7;border-radius:10px }
@@ -7311,9 +7312,14 @@
     else if(acao === "av-mae-link"){ janelaLinkMae(); }
     else if(acao === "av-mae-af"){ janelaPesquisaMae(); }
     else if(acao === "av-qz"){ janelaQuiz(); }
+    else if(acao === "av-hist-quiz"){ abrirQuizTrabalho(el.dataset.arg); }
+    else if(acao === "av-hist-abrir"){ const h = (AV.hist || []).find(x => x.id === el.dataset.arg); if(!h) return;
+      if(!aulaAberta()){ toast("Abra a aula para enviar de novo às telas.", true); return; }
+      abrirNosAparelhos(h.url, h.titulo, h.aluno_id || "").then(() => toast("📲 Abrindo “" + String(h.titulo).slice(0, 40) + "” de novo.")).catch(() => toast("Não deu agora.", true)); }
     else if(acao === "av-qz-fim"){ encerrarQuiz(el); }
     else if(acao === "av-qz-parcial"){ parcialQuiz(); }
-    else if(acao === "av-mae-af-fim"){ const pq = pesquisaAtiva(); if(pq) avvSet({ pesquisa:{ ...pq, ativa:false } }).then(() => toast("Pesquisa encerrada.")).catch(() => toast("Não deu agora.", true));
+    else if(acao === "av-mae-af-fim"){ const pq = pesquisaAtiva(); if(pq){ const c = { verde:0, amarelo:0, vermelho:0 }; listaAv().forEach(x => { const v = respostaDoAluno(x.id); if(c[v] !== undefined) c[v]++; }); resultadoHist("pq_" + pq.id, c); }
+      if(pq) avvSet({ pesquisa:{ ...pq, ativa:false } }).then(() => toast("Pesquisa encerrada.")).catch(() => toast("Não deu agora.", true));
       if(MAV.mc) fbMae("aulas/" + MAV.mc + "/controle/afinacao/ativa", "PUT", false).catch(() => {}); }
     else if(acao === "av-acervo"){ janelaAcervoTurma(); }
     else if(acao === "av-chat"){ janelaConversa(el.dataset.arg, el.dataset.nome || "Aluno"); }
@@ -8935,6 +8941,8 @@
       desenharAoVivo(); }, e => console.warn("aula:", e.code)));
     iniciarAulaVivoProf(tid);
     AV.subs.push(onSnapshot(collection(db, "turma_presenca", tid, "alunos"), sn => { AV.pres = {}; sn.forEach(d => { AV.pres[d.id] = d.data(); }); desenharAoVivo(); }, e => console.warn("presença:", e.code)));
+    // histórico da aula ao vivo (conteúdo aberto nas telas, quiz, pesquisa): entra junto no Histórico de envios
+    AV.hist = []; AV.subs.push(onSnapshot(query(collection(db, "aula_vivo", tid, "historico"), orderBy("em", "desc"), limit(200)), sn => { AV.hist = []; sn.forEach(d => AV.hist.push({ id:d.id, ...d.data() })); desenharMatsAoVivo(); }, e => console.warn("histórico:", e.code)));
     AV.subs.push(onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(200)), sn => {
       AV.mats = []; sn.forEach(d => AV.mats.push({ id:d.id, ...d.data() }));
       AV.mats.slice(0, 3).forEach(m => vigiarVistos(m.id));
@@ -9261,15 +9269,29 @@
     desenharBarraMae();
     desenharMatsAoVivo();
   }
+  // item do histórico da aula ao vivo: conteúdo aberto nas telas (para a turma ou só para um aluno), quiz (com o aproveitamento) e pesquisa (com o resultado)
+  function htmlHistAv(h, quando){
+    const yt = /youtube\.com|youtu\.be/.test(h.url || ""), jogo = /\/jogos\//.test(h.url || "");
+    const ico = h.tipo === "quiz" ? "🧠" : h.tipo === "pesquisa" ? "📊" : jogo ? "🎮" : yt ? "▶️" : /\/biblioteca\//.test(h.url || "") ? "📚" : /\/colorir\//.test(h.url || "") ? "🎨" : "📲";
+    const tipo = h.tipo === "quiz" ? "Quiz rápido" + (h.n ? " · " + h.n + " perguntas" : "") : h.tipo === "pesquisa" ? "Pesquisa rápida" : (jogo ? "Jogo" : yt ? "Vídeo" : "Conteúdo") + (h.aluno_nome ? " · só para " + h.aluno_nome.split(" ")[0] : " · na tela da turma");
+    const r = h.resultado || null, outro = h.por && h.por !== usuarioAtual.uid ? " · " + String(h.por_nome || "outro professor").split(" ")[0] : "";
+    const res = h.tipo === "quiz" ? (r ? '<span class="av-hres">📈 ' + r.media + "%</span>" : '<span class="av-hres">em andamento</span>')
+      : h.tipo === "pesquisa" ? (r ? '<span class="av-hres">🟢' + r.verde + " 🟡" + r.amarelo + " 🔴" + r.vermelho + "</span>" : "") : "";
+    const acao = h.tipo === "quiz" && h.ref && h.por === usuarioAtual.uid ? '<button type="button" class="av-vb" data-action="av-hist-quiz" data-arg="' + escapeAttr(h.ref) + '" title="Ver o relatório">📈</button>'
+      : h.url ? '<button type="button" class="av-vb" data-action="av-hist-abrir" data-arg="' + escapeAttr(h.id) + '" title="Abrir de novo na tela da turma">↻</button>' : "";
+    return '<div class="av-mat av-hist"><span class="av-mi" aria-hidden="true">' + ico + '</span><div class="av-mt"><b>' + escapeHtml(h.titulo || "Envio") + "</b><small>" + escapeHtml(tipo + " · " + quando(h._t) + outro) + "</small>" + res + "</div>" + acao + "</div>";
+  }
   function desenharMatsAoVivo(){
     const mb = $("avMats"); if(!mb) return;
     const sem = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(), q = sem(AV.q.trim());
     const hoje0 = new Date(new Date().toDateString()).getTime(), de = AV.per === "hoje" ? hoje0 : AV.per ? hoje0 - (Number(AV.per) - 1) * 864e5 : 0;
     const lista = listaAv(), tot = lista.length;
-    const l = AV.mats.filter(m => (!q || sem([m.titulo, m.disciplina, m.orientacao, m.dominio, m.arquivo_nome].join(" ")).includes(q)) && msAv(m.criado_em) >= de);
+    // materiais da turma + o que foi pela aula ao vivo (conteúdo nas telas, quiz, pesquisa), do mais novo para o mais antigo
+    const todos = [...AV.mats.map(m => ({ ...m, _t:msAv(m.criado_em) })), ...(AV.hist || []).map(h => ({ ...h, _h:true, _t:msAv(h.em) || Date.now() }))].sort((a, b) => b._t - a._t);
+    const l = todos.filter(m => (!q || sem([m.titulo, m.disciplina, m.orientacao, m.dominio, m.arquivo_nome, m.aluno_nome].join(" ")).includes(q)) && m._t >= de);
     const quando = t => { const d = new Date(t); return (t >= hoje0 ? "hoje" : d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" })) + " " + d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); };
-    const html = !AV.mats.length ? '<p class="av-leg">Nada enviado para esta turma ainda. Use “Enviar conteúdo para a turma”.</p>' : !l.length ? '<p class="av-leg">Nada encontrado com essa busca.</p>' :
-      l.slice(0, 60).map(m => { const v = AV.vistos[m.id], k = v ? Object.keys(v).length : null, pct = v && tot ? Math.round(k * 100 / tot) : 0, ab = AV.aberto === m.id;
+    const html = !todos.length ? '<p class="av-leg">Nada enviado para esta turma ainda.</p>' : !l.length ? '<p class="av-leg">Nada encontrado com essa busca.</p>' :
+      l.slice(0, 80).map(m => { if(m._h) return htmlHistAv(m, quando); const v = AV.vistos[m.id], k = v ? Object.keys(v).length : null, pct = v && tot ? Math.round(k * 100 / tot) : 0, ab = AV.aberto === m.id;
         const faltam = v ? lista.filter(a => !v[a.id]) : [];
         return '<div class="av-mat' + (ab ? " aberto" : "") + '"><span class="av-mi" aria-hidden="true">' + mtIcone(m) + '</span><div class="av-mt"><b>' + escapeHtml(m.titulo || "Material") + '</b><small>' +
           escapeHtml([m.tipo_nome, quando(msAv(m.criado_em))].filter(Boolean).join(" · ")) + '</small>' +
@@ -9476,11 +9498,13 @@
     try{ const r = await Promise.race([fnTrab({ acao:"pode_embutir", url }), new Promise((_, n) => setTimeout(() => n(new Error("tempo")), 8000))]); return r && typeof r.embed === "boolean" ? r.embed : null; }
     catch(e){ console.warn("pode embutir:", e.message || e); return null; }
   }
-  async function abrirNosAparelhos(url, nome, alunoId){
+  async function abrirNosAparelhos(url, nome, alunoId, semHist){
     const embed = await siteAbreDentro(url);
     if(embed === false) toast("Este site não deixa ser mostrado dentro do Portal: os alunos recebem um botão para abrir o site num toque.");
     const cmd = { id:idMae(), url, nome:String(nome || "").slice(0, 80), em:Date.now(), embed:embed !== false };
     await avvSet(alunoId ? { comandos:{ [alunoId]:cmd } } : { comando:cmd }, alunoId ? ["comandos." + alunoId] : ["comando"]);
+    if(!semHist){ const al = alunoId ? listaAv().find(a => a.id === alunoId) : null;
+      registrarHist({ tipo:"conteudo", titulo:cmd.nome || String(url).replace(/^https?:\/\/(www\.)?/, "").slice(0, 80), url:String(url).slice(0, 500), ...(al ? { aluno_id:al.id, aluno_nome:String(al.nome).slice(0, 80) } : {}) }); }
     if(MAV.mc){ const c = { id:cmd.id, tipo:"abrirLink", url, nome:cmd.nome, ts:{ ".sv":"timestamp" } };
       if(alunoId){ const ap = aparelhosDoAluno(alunoId); if(ap.length){ const patch = {}; ap.forEach(x => { patch[x.dev] = c; }); fbMae("aulas/" + MAV.mc + "/controle/comandos", "PATCH", patch).catch(() => {}); } }
       else fbMae("aulas/" + MAV.mc + "/controle/comando", "PUT", c).catch(() => {}); }
@@ -9529,7 +9553,7 @@
       f.dataset.ocupado = "1"; $("axMsg").textContent = "Enviando “" + (i.titulo || "arquivo") + "” para a turma...";
       try{ const r = await fnTrab({ acao:"enviar_link", titulo:String(i.titulo || "Arquivo do acervo").slice(0, 120), turmas:[AV.tid], acervo:{ colecao:"acervo_rede", id:i.id } });
         // abre na hora na tela de quem está na aula, em qualquer página do Portal
-        if(r && r.url) await abrirNosAparelhos(r.url, String(i.titulo || "Arquivo do acervo").slice(0, 80)).catch(() => {});
+        if(r && r.url) await abrirNosAparelhos(r.url, String(i.titulo || "Arquivo do acervo").slice(0, 80), "", true).catch(() => {});
         toast("📚 “" + String(i.titulo || "Arquivo").slice(0, 40) + "” enviado para a turma."); f.remove(); }
       catch(err){ console.warn(err); $("axMsg").textContent = err && err.message ? err.message : "Não deu para enviar agora."; delete f.dataset.ocupado; } });
   }
@@ -9602,6 +9626,7 @@
       ACERVO_PQ.map(([g, l]) => '<div class="pq-grupo"><small>' + escapeHtml(g) + "</small>" + l.map(chip).join("") + "</div>").join("") + "</div>", "Perguntar à turma", async () => {
         const p = ($("mjPerg").value.trim() || "Entenderam?").slice(0, 140), id = idMae();
         await avvSet({ pesquisa:{ id, pergunta:p, ativa:true, em:Date.now() } });
+        registrarHist({ tipo:"pesquisa", titulo:p, ref:id }, "pq_" + id);
         try{ localStorage.setItem("pde_pq_ult_" + usuarioAtual.uid, JSON.stringify([p, ...ultimasPq().filter(x => x !== p)].slice(0, 6))); }catch(e){}
         toast("📊 Pesquisa enviada para a turma."); });
     f.addEventListener("click", e => { const c = e.target.closest("[data-mj-pq]"); if(!c) return; $("mjPerg").value = c.dataset.mjPq; f.querySelectorAll(".pq-chip").forEach(x => x.classList.toggle("on", x === c)); });
@@ -9611,6 +9636,14 @@
      aula_vivo/{turma}/alunos/{k}    quiz:{ id, r:[índice escolhido ou -1], fim }
      usuarios/{uid}/quizzes/{id}     perguntas com gabarito e o relatório (Meus trabalhos › Quizzes rápidos) */
   const QZ = { cache:{} };
+  // Histórico de envios: tudo o que foi para a turma pela aula ao vivo (conteúdo nas telas, quiz e pesquisa); id fixo para quiz e pesquisa (o resultado entra depois)
+  function registrarHist(dados, id){
+    if(!AVV.tid) return Promise.resolve();
+    const d = { ...dados, por:usuarioAtual.uid, por_nome:String(usuarioAtual.nome || "Professor").slice(0, 80), em:serverTimestamp() };
+    const ref = id ? doc(db, "aula_vivo", AVV.tid, "historico", id) : doc(collection(db, "aula_vivo", AVV.tid, "historico"));
+    return setDoc(ref, d).catch(e => console.warn("histórico:", e.code || e));
+  }
+  const resultadoHist = (id, resultado) => AVV.tid ? updateDoc(doc(db, "aula_vivo", AVV.tid, "historico", id), { resultado }).catch(e => console.warn("histórico:", e.code || e)) : null;
   // disciplina e ano do quiz (para achar nos acervos); "Interdisciplinar" é a disciplina genérica
   const anoDoNome = n => { const m = String(n || "").match(/(\d{1,2})\s*[ºo°]?\s*ano/i); return m ? m[1] + "º ano" : ""; };
   const opcoesDisc = (sel, filtro) => (filtro ? "" : '<option value="">Escolha a disciplina</option>') + DISCIPLINAS.map(d => '<option value="' + escapeAttr(d) + '"' + (d === sel ? " selected" : "") + ">" + (d === "Interdisciplinar" ? "🌐 Geral (interdisciplinar)" : escapeHtml(d)) + "</option>").join("");
@@ -9756,6 +9789,7 @@
           await setDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", id), dados);
           QZ.cache[id] = { id, ...dados, criado_em:Timestamp.now() };
           await avvSet({ quiz:{ id, titulo, perguntas:perguntas.map(q => ({ p:q.p, ops:q.ops })), ativa:true, em:Date.now() } });
+          registrarHist({ tipo:"quiz", titulo, ref:id, n:perguntas.length }, "qz_" + id);
           toast("🧠 Quiz lançado: aparece agora na tela dos alunos."); f.remove(); }
         catch(err){ console.warn(err); $("qzMsg").textContent = "Não deu para lançar agora (" + (err.code || "erro") + ")."; b.disabled = false; } }
     });
@@ -9769,6 +9803,7 @@
         alunos:res.alunos.map(a => ({ id:a.id, nome:a.nome, r:a.r, acertos:a.acertos, fim:a.fim })), ausentes:res.ausentes.slice(0, 80) };
       await updateDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", q.id), { resultado, status:"encerrado", encerrado_em:serverTimestamp(), atualizado_em:serverTimestamp() });
       Object.assign(g, { resultado, status:"encerrado", encerrado_em:Timestamp.now() });
+      resultadoHist("qz_" + q.id, { media:res.media, resp:res.alunos.filter(a => a.respondidas).length });
       // a correção vai para a tela de cada aluno (cada um vê só as próprias respostas)
       await avvSet({ quiz:{ id:q.id, titulo:q.titulo, perguntas:q.perguntas, ativa:false, gab:g.perguntas.map(p => p.gab), em:q.em || Date.now() } });
       if(silencioso) toast("🧠 Quiz encerrado: o relatório está em Meus trabalhos › Quizzes rápidos."); else relatorioQuiz(g);

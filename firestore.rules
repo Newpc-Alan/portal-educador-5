@@ -137,6 +137,15 @@ service cloud.firestore {
         allow update: if (admin() || equipeTurma(tid)) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["mao"]) && novo().mao == null;
         allow delete: if false;
       }
+      // histórico de envios da aula ao vivo (conteúdo nas telas, quiz, pesquisa): só a equipe da turma; o resultado entra depois
+      match /historico/{id} {
+        allow read: if admin() || equipeTurma(tid);
+        allow create: if (admin() || equipeTurma(tid)) && novo().keys().hasOnly(["tipo", "titulo", "url", "aluno_id", "aluno_nome", "ref", "n", "resultado", "por", "por_nome", "em"])
+          && novo().tipo in ["conteudo", "quiz", "pesquisa"] && novo().titulo is string && novo().titulo.size() <= 200 && novo().get("url", "") is string && novo().get("url", "").size() <= 500
+          && novo().por == request.auth.uid && novo().em == request.time;
+        allow update: if (admin() || equipeTurma(tid)) && resource.data.por == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["resultado"]) && novo().resultado is map;
+        allow delete: if false;
+      }
       // bate-papo individual: o aluno lê e escreve só a conversa dele; o professor da turma lê todas e responde
       match /chat/{id} {
         allow read: if admin() || equipeTurma(tid) || (alunoDaTurma(tid) && souChave(resource.data.aluno_id));
