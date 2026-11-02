@@ -19,6 +19,8 @@ const REGIAO = 'southamerica-east1';
 const SENHA = defineSecret('COMUNICADOS_SMTP_SENHA');
 const PERFIS = { professor: 'Professores', gestor: 'Gestão da escola (direção e coordenação)', secretaria: 'Secretaria de Educação', aluno: 'Alunos' };
 const TAM_LOTE = 400;
+const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia'];
+const msDe = v => v && v.toMillis ? v.toMillis() : (v && v._seconds ? v._seconds * 1000 : 0);
 const URL_SAIR = 'https://southamerica-east1-portal-educador-5.cloudfunctions.net/descadastroEmail';
 const PADRAO = { host: 'smtp.mail.webnode.com', porta: 465, por_hora: 100, remetente: 'comunicados@portaldoeducador.com.br', nome: 'Portal do Educador' };
 const txt = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').slice(0, n);
@@ -48,28 +50,36 @@ function auditar(db, u, acao, doc, detalhe, valores) {
 // público: perfis escolhidos, municípios (vazio = todos) e escola (opcional); só conta ativa com e-mail válido
 function normalizarPublico(p) {
   const perfis = (Array.isArray(p && p.perfis) ? p.perfis : []).map(String).filter(x => PERFIS[x]);
-  const municipios = (Array.isArray(p && p.municipios) ? p.municipios : []).map(String).filter(x => /^[A-Za-z0-9_-]{1,80}$/.test(x)).slice(0, 60);
+  const municipios = (Array.isArray(p && p.municipios) ? p.municipios : []).map(String).filter(x => /^[A-Za-z0-9_-]{1,80}$/.test(x)).slice(0, 60);   // "__sem" = sem município (avulsos)
+  // licença dos professores: institucional (contrato da rede), avulsa, teste, cortesia; vazio = todas. Vencidas só se pedir.
+  const licencas = (Array.isArray(p && p.licencas) ? p.licencas : []).map(String).filter(x => LICENCAS.includes(x));
+  const vencidas = !!(p && p.vencidas);
   const escola = /^[A-Za-z0-9_-]{1,80}$/.test(String(p && p.escola || '')) ? String(p.escola) : '';
   if (!perfis.length) throw new HttpsError('invalid-argument', 'Escolha pelo menos um público.');
-  return { perfis, municipios, escola };
+  return { perfis, municipios, escola, licencas, vencidas };
 }
 async function destinatarios(db, pub, tipo) {
-  const out = [], vistos = new Set(); let semEmail = 0, sairam = 0;
+  const out = [], vistos = new Set(); let semEmail = 0, sairam = 0, vencidasFora = 0;
   const off = new Set(); if (tipo !== 'servico') (await db.collection('comunicados_pref').where('off', '==', true).get()).forEach(d => off.add(d.id));
   for (const perfil of pub.perfis) {
     const sn = await db.collection('usuarios').where('perfil', '==', perfil).where('status', '==', 'ativo').get();
     sn.forEach(d => {
       const u = d.data();
-      if (pub.municipios.length && !pub.municipios.includes(u.municipio_id || '')) return;
+      if (pub.municipios.length && !pub.municipios.includes(u.municipio_id || '__sem')) return;
+      if (perfil === 'professor') {
+        const lic = LICENCAS.includes(u.licenca_tipo) ? u.licenca_tipo : 'institucional';
+        if (pub.licencas.length && !pub.licencas.includes(lic)) return;
+        if (lic !== 'institucional' && !pub.vencidas && msDe(u.licenca_fim) && msDe(u.licenca_fim) < Date.now()) { vencidasFora++; return; }
+      }
       if (pub.escola && u.escola_id !== pub.escola && !(u.escolas_ids || []).includes(pub.escola)) return;
       const email = String(u.email || '').trim().toLowerCase();
       if (!okEmail(email)) { semEmail++; return; }
       if (off.has(d.id)) { sairam++; return; }
       if (vistos.has(email)) return; vistos.add(email);
-      out.push({ uid: d.id, email, nome: txt(String(u.nome || '').split(' ')[0], 40), perfil });
+      out.push({ uid: d.id, email, nome: txt(String(u.nome || '').split(' ')[0], 40), perfil, lic: perfil === 'professor' ? (LICENCAS.includes(u.licenca_tipo) ? u.licenca_tipo : 'institucional') : '' });
     });
   }
-  return { lista: out, semEmail, sairam };
+  return { lista: out, semEmail, sairam, vencidasFora };
 }
 export function montarEmail(c, com, dest, token) {
   const paras = String(com.mensagem || '').split(/\n{2,}/).map(p => '<p style="margin:0 0 14px">' + esc(p).replace(/\n/g, '<br>').replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" style="color:#2671AB">$1</a>') + '</p>').join('');
@@ -103,9 +113,9 @@ export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, mem
   const u = await adminAtivo(req), d = req.data || {}, db = getFirestore(), acao = String(d.acao || '');
   if (acao === 'contar') {
     const pub = normalizarPublico(d.publico), r = await destinatarios(db, pub, d.tipo === 'servico' ? 'servico' : 'info');
-    const por = {}; r.lista.forEach(x => por[x.perfil] = (por[x.perfil] || 0) + 1);
+    const por = {}, porLic = {}; r.lista.forEach(x => { por[x.perfil] = (por[x.perfil] || 0) + 1; if (x.lic) porLic[x.lic] = (porLic[x.lic] || 0) + 1; });
     const c = await config(db);
-    return { total: r.lista.length, por, semEmail: r.semEmail, sairam: r.sairam, horas: Math.ceil(r.lista.length / c.por_hora * 10) / 10, por_hora: c.por_hora };
+    return { total: r.lista.length, por, porLic, vencidasFora: r.vencidasFora, semEmail: r.semEmail, sairam: r.sairam, horas: Math.ceil(r.lista.length / c.por_hora * 10) / 10, por_hora: c.por_hora };
   }
   const com = { tipo: d.tipo === 'servico' ? 'servico' : 'info', assunto: txt(String(d.assunto || '').trim(), 140), mensagem: txt(String(d.mensagem || '').trim(), 8000),
     botao_texto: txt(String(d.botao_texto || '').trim(), 40), botao_link: String(d.botao_link || '').trim() };
@@ -131,7 +141,8 @@ export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, mem
     await ref.set({ ...com, publico: pub, total: r.lista.length, enviados: 0, falhas: 0, lotes: lotes.length, status: quando > Date.now() ? 'agendado' : 'enviando',
       agendado_para: Timestamp.fromMillis(quando), criado_em: FieldValue.serverTimestamp(), criado_por: txt(u.nome, 60), criado_por_uid: u.uid });
     for (let i = 0; i < lotes.length; i++) await ref.collection('envio_lotes').doc(String(i).padStart(3, '0')).set({ n: i, itens: lotes[i], prox: 0, falhas: [] });
-    const pubTxt = pub.perfis.map(p => PERFIS[p]).join(', ') + (pub.municipios.length ? ' · ' + pub.municipios.length + ' município(s)' : ' · todos os municípios') + (pub.escola ? ' · 1 escola' : '');
+    const pubTxt = pub.perfis.map(p => PERFIS[p]).join(', ') + (pub.municipios.length ? ' · ' + pub.municipios.length + ' município(s)' + (pub.municipios.includes('__sem') ? ' (inclui sem município)' : '') : ' · todos os municípios') + (pub.escola ? ' · 1 escola' : '') +
+      (pub.licencas.length ? ' · licenças: ' + pub.licencas.join(', ') : '') + (pub.vencidas ? ' · inclui licenças vencidas' : '');
     await auditar(db, u, 'criou', ref.id, (quando > Date.now() ? 'Agendou' : 'Enviou') + ' o comunicado "' + com.assunto + '" para ' + r.lista.length + ' pessoa(s): ' + pubTxt, { total: { para: r.lista.length } });
     return { ok: true, id: ref.id, total: r.lista.length };
   }

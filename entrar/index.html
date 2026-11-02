@@ -5203,11 +5203,13 @@
   // Escreve, escolhe o público, confere quantas pessoas recebem, manda um teste para si e envia. O robô (enviarComunicados)
   // manda aos poucos pela conta comunicados@portaldoeducador.com.br; a senha fica só no Secret Manager.
   const CM_PERFIS = [["professor","Professores"],["gestor","Gestão da escola (direção e coordenação)"],["secretaria","Secretaria de Educação"],["aluno","Alunos"]];
+  const CM_LIC = [["institucional","Contrato da rede"],["avulsa","Avulsa"],["teste","Teste"],["cortesia","Cortesia"]];
   const CM_ST = { agendado:["Agendado","c-age"], enviando:["Enviando","c-age"], concluido:["Concluído","c-ok"], cancelado:["Cancelado","c-nao"] };
   const cm = { conta:null, timer:0, lista:[] };
   function cmPublico(){
     return { perfis:[...document.querySelectorAll('#cmPerfis input:checked')].map(x => x.value),
-      municipios:[...document.querySelectorAll('#cmMuns input:checked')].map(x => x.value), escola:($("cmEscola") || {}).value || "" };
+      municipios:[...document.querySelectorAll('#cmMuns input:checked')].map(x => x.value), escola:($("cmEscola") || {}).value || "",
+      licencas:[...document.querySelectorAll('#cmLic input:checked')].map(x => x.value), vencidas:!!($("cmVenc") || {}).checked };
   }
   async function renderComunicados(){
     try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
@@ -5217,7 +5219,9 @@
         '<div class="row2"><div class="field"><label>Tipo</label><select id="cmTipo"><option value="info">Informativo (respeita quem pediu para não receber)</option><option value="servico">Aviso de serviço (vai para todos: mudança de acesso, manutenção)</option></select></div>'+
         '<div class="field"><label for="cmAgendar">Enviar em (opcional)</label><input type="datetime-local" id="cmAgendar"></div></div>'+
         '<div class="field"><label>Para quem</label><div class="cm-chk" id="cmPerfis">'+CM_PERFIS.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"'+(k === "professor" ? " checked" : "")+'> '+v+'</label>').join("")+'</div></div>'+
-        '<div class="field"><label>Municípios <small>(nenhum marcado = todos)</small></label><div class="cm-chk cm-muns" id="cmMuns">'+cacheMunicipios.map(m => '<label><input type="checkbox" value="'+escapeAttr(m.id)+'"> '+escapeHtml(m.nome)+'</label>').join("")+'</div></div>'+
+        '<div class="field" id="cmLicWrap"><label>Licença dos professores <small>(nenhuma marcada = todas)</small></label><div class="cm-chk" id="cmLic">'+CM_LIC.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"> '+v+'</label>').join("")+
+          '<label><input type="checkbox" id="cmVenc"> Incluir licenças vencidas (para oferta de renovação)</label></div></div>'+
+        '<div class="field"><label>Municípios <small>(nenhum marcado = todos, inclusive os avulsos)</small></label><div class="cm-chk cm-muns" id="cmMuns"><label><input type="checkbox" value="__sem"> Sem município (professores avulsos)</label>'+cacheMunicipios.map(m => '<label><input type="checkbox" value="'+escapeAttr(m.id)+'"> '+escapeHtml(m.nome)+'</label>').join("")+'</div></div>'+
         '<div class="field" id="cmEscWrap" hidden><label for="cmEscola">Escola <small>(opcional, quando só um município está marcado)</small></label><select id="cmEscola"><option value="">Todas as escolas</option></select></div>'+
         '<div class="cm-conta" id="cmConta">Escolha o público.</div>'+
         '<div class="field"><label for="cmAssunto">Assunto</label><input id="cmAssunto" maxlength="140" placeholder="Ex.: Novidades do Portal do Educador em novembro"></div>'+
@@ -5236,8 +5240,8 @@
     cmContar(); cmListar();
   }
   function cmEscolas(){
-    const muns = cmPublico().municipios, w = $("cmEscWrap"), s = $("cmEscola"); if(!w) return;
-    w.hidden = muns.length !== 1; if(w.hidden){ s.value = ""; return; }
+    const muns = cmPublico().municipios.filter(m => m !== "__sem"), w = $("cmEscWrap"), s = $("cmEscola"); if(!w) return;
+    w.hidden = muns.length !== 1 || cmPublico().municipios.includes("__sem"); if(w.hidden){ s.value = ""; return; }
     getDocs(query(collection(db, "escolas"), where("municipio_id", "==", muns[0]))).then(sn => { const l = []; sn.forEach(d => l.push({ id:d.id, nome:d.data().nome || "Escola" }));
       l.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); s.innerHTML = '<option value="">Todas as escolas</option>'+l.map(e => '<option value="'+escapeAttr(e.id)+'">'+escapeHtml(e.nome)+'</option>').join(""); }).catch(() => {});
   }
@@ -5249,6 +5253,8 @@
       try{ const r = await chamarBackup("comunicadoEmail", { acao:"contar", publico:pub, tipo:$("cmTipo").value }, 60000); if(!$("cmConta")) return;
         cm.conta = r.total;
         $("cmConta").innerHTML = '<b>Vai para '+fmt(r.total)+' pessoa(s)</b>: '+CM_PERFIS.filter(([k]) => r.por[k]).map(([k, v]) => fmt(r.por[k])+' '+v.split(" (")[0].toLowerCase()).join(", ")+
+          (r.porLic && Object.keys(r.porLic).length ? ' · professores por licença: '+CM_LIC.filter(([k]) => r.porLic[k]).map(([k, v]) => fmt(r.porLic[k])+' '+v.toLowerCase()).join(", ") : '')+
+          (r.vencidasFora ? ' · '+fmt(r.vencidasFora)+' com licença vencida ficaram de fora' : '')+
           (r.semEmail ? ' · '+fmt(r.semEmail)+' sem e-mail no cadastro (não recebem)' : '')+(r.sairam ? ' · '+fmt(r.sairam)+' pediram para não receber' : '')+
           (r.total ? ' · leva cerca de '+(r.horas < 1 ? "menos de 1 hora" : String(r.horas).replace(".", ",")+" hora(s)")+' ('+fmt(r.por_hora)+' por hora)' : ''); }
       catch(e){ if($("cmConta")) $("cmConta").textContent = "Não consegui contar ("+(e.message || e.code || "erro")+")."; }
@@ -5307,7 +5313,8 @@
     btn.disabled = true; try{ await setDoc(doc(db, "config", "comunicados"), dados); toast("Configuração salva."); }catch(e){ toast("Não foi possível salvar ("+(e.code || "erro")+").", true); } btn.disabled = false;
   }
   document.addEventListener("change", ev => { const t = ev.target; if(!t || !t.closest) return;
-    if(t.closest("#cmPerfis") || t.id === "cmTipo" || t.id === "cmEscola"){ cmContar(); }
+    if(t.closest("#cmPerfis")){ const w = $("cmLicWrap"), p = document.querySelector('#cmPerfis input[value="professor"]'); if(w && p) w.hidden = !p.checked; }
+    if(t.closest("#cmPerfis") || t.closest("#cmLic") || t.id === "cmTipo" || t.id === "cmEscola"){ cmContar(); }
     else if(t.closest("#cmMuns")){ cmEscolas(); cmContar(); } });
 
   async function renderAuditoria(){
