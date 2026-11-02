@@ -181,12 +181,14 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
     if (acao === 'abrir') {
       const min = minutosOk(minutos, MAX_AULA_MIN) || 60;
       ate = new Date(agora + min * 60e3);
-      let maestro_codigo = '';
-      if (maestro) {
-        const ant = (await ref.get()).data() || {}, aberta = ant.aberta_ate && ant.aberta_ate.toMillis && ant.aberta_ate.toMillis() > agora;
-        maestro_codigo = await abrirAulaMaestro({ atual: aberta ? ant.maestro_codigo : '', professor: (us.data() || {}).nome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (abrir):', e.message); return ''; });
-      }
-      await ref.set({ aberta_ate: ate, aberta_em: new Date(agora), duracao_min: min, prorrogado_min: 0, por: uid, turma_nome: nome, maestro_codigo, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+      // mais rápido (nov/2026): a aula abre no Portal ao mesmo tempo em que a aula dos aparelhos (Maestro) é criada; o número entra logo depois
+      const ant = maestro ? (await ref.get()).data() || {} : {}, aberta = ant.aberta_ate && ant.aberta_ate.toMillis && ant.aberta_ate.toMillis() > agora;
+      const [maestro_codigo] = await Promise.all([
+        maestro ? abrirAulaMaestro({ atual: aberta ? ant.maestro_codigo : '', professor: (us.data() || {}).nome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (abrir):', e.message); return ''; }) : '',
+        ref.set({ aberta_ate: ate, aberta_em: new Date(agora), duracao_min: min, prorrogado_min: 0, por: uid, turma_nome: nome, maestro_codigo: aberta ? String(ant.maestro_codigo || '') : '', atualizado_em: FieldValue.serverTimestamp() }, { merge: true })
+      ]);
+      if (maestro_codigo !== (aberta ? String(ant.maestro_codigo || '') : '')) await ref.set({ maestro_codigo }, { merge: true });
+      return { aberta_ate: ate.getTime(), maestro_codigo };
     } else {
       const min = minutosOk(minutos, 120) || 10;
       const d0 = (await ref.get()).data() || {}, atual = d0.aberta_ate && d0.aberta_ate.toMillis ? d0.aberta_ate.toMillis() : 0;

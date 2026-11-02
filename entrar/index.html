@@ -418,6 +418,10 @@
   .av-kpi{ background:#fff;border-radius:16px;padding:14px 18px;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;box-shadow:0 4px 16px -8px rgba(15,44,74,.25);border-top:5px solid #0f2c4a }
   .av-kpi span{ grid-row:1 / 3;font-size:32px } .av-kpi b{ font-size:38px;line-height:1;color:#0f2c4a } .av-kpi small{ color:#5b6b7b;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
   .av-kpi.verde{ border-top-color:#1a6b2a } .av-kpi.verde b{ color:#1a6b2a } .av-kpi.azul{ border-top-color:#2671AB } .av-kpi.azul b{ color:#2671AB }
+  .pde-espera{ position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,rgba(26,107,42,.35),rgba(7,22,33,.9) 60%);color:#fff;text-align:center;padding:20px }
+  .pde-espera div{ display:grid;justify-items:center;gap:12px } .pde-espera img{ width:110px;height:110px;border-radius:50%;box-shadow:0 10px 40px rgba(0,0,0,.45);animation:pdeRespira 2.2s ease-in-out infinite }
+  .pde-espera b{ font-size:22px } .pde-espera span{ color:#cfe3f5;font-size:16px;min-height:22px } .pde-espera i{ width:180px;height:4px;border-radius:4px;background:linear-gradient(90deg,transparent,#8DC63F,transparent);background-size:200% 100%;animation:pdeBarra 1.2s linear infinite }
+  @keyframes pdeRespira{ 50%{ transform:scale(1.06) } } @keyframes pdeBarra{ from{ background-position:200% 0 } to{ background-position:-200% 0 } }
   .av-corpo{ flex:1;display:grid;grid-template-columns:minmax(0,2.4fr) minmax(300px,1fr);gap:16px;padding:16px 20px 20px;overflow:hidden;min-height:0 }
   .av-corpo section{ background:#fff;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;min-height:0;box-shadow:0 4px 16px -8px rgba(15,44,74,.2) }
   .av-corpo h4{ margin:0 0 10px;font-size:16px } .av-corpo h4 small{ font-weight:400;color:#8a98a6;font-size:12px;margin-left:6px }
@@ -8949,10 +8953,22 @@
       const p = f.querySelector(".ta-op"); if(p) p.focus();
     });
   }
+  // espera com o logo do Portal e mensagens trocando; devolve a função que fecha
+  function telaEspera(titulo, msgs){
+    const v = $("pdeEspera"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "pdeEspera"; f.className = "pde-espera"; f.setAttribute("role", "alertdialog"); f.setAttribute("aria-busy", "true");
+    f.innerHTML = '<div><img src="/assets/pde-logo-256.png" alt="Portal do Educador"><b></b><span></span><i></i></div>';
+    f.querySelector("b").textContent = titulo; document.body.appendChild(f);
+    let k = 0; const sp = f.querySelector("span"); sp.textContent = msgs[0] + "...";
+    const rel = setInterval(() => { k = Math.min(k + 1, msgs.length - 1); sp.textContent = msgs[k] + "..."; }, 1800);
+    return () => { clearInterval(rel); f.remove(); };
+  }
   async function abrirTempoAula(tid, nomeTurma){
     const min = await escolherTempo({ titulo:"🔓 Abrir a entrada da aula", texto:"Quanto tempo dura a aula" + (nomeTurma ? " do <b>" + escapeHtml(nomeTurma) + "</b>" : "") + "? Os alunos entram com o cartão e saem sozinhos quando o tempo acabar. Faltando 5 minutos, você recebe um aviso para prorrogar se precisar.", opcoes:TEMPOS_AULA });
     if(!min) return null;
-    const r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min });
+    // a abertura leva alguns segundos (servidor + aula dos aparelhos): tela de espera na hora, para ninguém clicar de novo
+    const espera = telaEspera("Abrindo a aula" + (nomeTurma ? " do " + nomeTurma : ""), ["Abrindo a entrada da turma", "Preparando o controle das telas", "Avisando os aparelhos dos alunos", "Quase lá"]);
+    let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min }); } finally{ espera(); }
     toast("Aula aberta até " + horaCurta(r.aberta_ate) + ". Os alunos já podem entrar com o cartão.");
     return r;
   }
@@ -9497,6 +9513,11 @@
      aula_vivo/{turma}/alunos/{k}    quiz:{ id, r:[índice escolhido ou -1], fim }
      usuarios/{uid}/quizzes/{id}     perguntas com gabarito e o relatório (Meus trabalhos › Quizzes rápidos) */
   const QZ = { cache:{} };
+  // tela de espera da IA (logo do Portal com recados), a mesma da Lousa e do Portal IA
+  function carregarPensando(){
+    if(window.PDEPensando) return Promise.resolve(window.PDEPensando);
+    return new Promise(ok => { const sc = document.createElement("script"); sc.src = "/assets/pde-pensando.js?v=4"; sc.onload = () => ok(window.PDEPensando || null); sc.onerror = () => ok(null); document.head.appendChild(sc); });
+  }
   const LETRA = ["A", "B", "C", "D", "E"];
   const quizAtivo = () => { const q = AVV.doc.quiz; return q && q.ativa && q.id ? q : null; };
   const nomeTurmaAv = () => { const s = $("avTurma"); const o = s && s.selectedOptions && s.selectedOptions[0]; return o ? o.textContent.trim().slice(0, 80) : ""; };
@@ -9564,8 +9585,11 @@
       if(a === "x") return f.remove();
       if(a === "manual"){ st.titulo = ($("qzTema").value || "").trim().slice(0, 120) || "Quiz rápido"; st.perg = Array.from({ length:Number($("qzQtd").value) || 5 }, vazia); return passo2(); }
       if(a === "ia"){ const tema = ($("qzTema").value || "").trim(); if(tema.length < 3){ $("qzMsg").textContent = "Escreva o tema ou conteúdo da aula."; return; }
-        b.disabled = true; $("qzMsg").textContent = "✨ Criando as perguntas... (leva uns 20 a 40 segundos; desconta 1 crédito do Portal IA, devolvido se a IA falhar)";
-        try{ const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:200000 })({ acao:"questoes_prova", tema, qtd:Number($("qzQtd").value) || 5, tipos:"multipla",
+        b.disabled = true; $("qzMsg").textContent = "✨ Criando as perguntas... (desconta 1 crédito do Portal IA, devolvido se a IA falhar)";
+        const pensa = await carregarPensando();
+        if(pensa) pensa.abrir({ titulo:"Criando o quiz", etapas:["Lendo o tema da aula", "Pensando nas perguntas", "Escrevendo as alternativas", "Conferindo o gabarito"], tempo:"uns 20 a 40 segundos" });
+        try{ const { getFunctions:gf, httpsCallable:hc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+          const r = (await hc(gf(app, "southamerica-east1"), "portalIa", { timeout:200000 })({ acao:"questoes_prova", tema, qtd:Number($("qzQtd").value) || 5, tipos:"multipla",
               nivel:$("qzNivel").value, disciplina:$("qzDisc").value.trim(), turma:nomeTurmaAv(), obs:"Quiz rápido no fim da aula para verificar se a turma absorveu o conteúdo: perguntas curtas, diretas e de leitura rápida no tablet; alternativas curtas." })).data;
           st.perg = (r.questoes || []).filter(q => q.tipo === "multipla" && Array.isArray(q.alts) && q.alts.length >= 2 && q.gab >= 0).slice(0, 30)
             .map(q => ({ p:String(q.enun || "").slice(0, 400), ops:q.alts.slice(0, 5).map(o => String(o).slice(0, 160)), gab:q.gab }));
@@ -9573,7 +9597,8 @@
           st.titulo = tema.slice(0, 120); passo2();
           // 1 crédito do Portal IA foi descontado: atualiza o saldo do menu (o servidor devolve o crédito se a IA falhar)
           try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} montarSaldoIA(); toast("✨ Perguntas criadas · 1 crédito do Portal IA usado."); }
-        catch(err){ console.warn(err); $("qzMsg").textContent = (err && err.message) || "A IA não respondeu agora. Tente de novo ou escreva as perguntas."; b.disabled = false; }
+        catch(err){ console.warn(err); const m = $("qzMsg"); if(m) m.textContent = (err && err.message) || "A IA não respondeu agora. Tente de novo ou escreva as perguntas."; b.disabled = false; }
+        finally{ if(pensa) pensa.fechar(); }
         return; }
       if(a === "voltar") return passo1();
       if(a === "mais"){ lerEditor(); if(st.perg.length >= 30) return; st.perg.push(vazia()); passo2(); const l = f.querySelectorAll(".qz-q"); l[l.length - 1].scrollIntoView({ block:"center" }); return; }

@@ -6,7 +6,9 @@
 import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, setDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#071621;display:grid;place-items:center;color:#fff;text-align:center;padding:20px }
-  .al-pausa div{ display:grid;gap:14px;justify-items:center;max-width:620px } .al-pausa img{ width:min(86vw,560px);border-radius:18px } .al-pausa b{ font-size:26px } .al-pausa span{ opacity:.8 }
+  .al-pausa{ background:radial-gradient(circle at 50% 40%,#1a6b2a,#071621 65%) } .al-pausa div{ display:grid;gap:14px;justify-items:center;max-width:620px }
+  .al-pausa img{ width:140px;height:140px;border-radius:50%;box-shadow:0 10px 40px rgba(0,0,0,.45);animation:alRespira 2.6s ease-in-out infinite } .al-pausa b{ font-size:30px }
+  .al-pausa-msg{ font-size:20px;font-weight:600;min-height:52px;transition:opacity .3s;color:#e8f5d8 } .al-pausa small{ opacity:.7;font-size:14px } @keyframes alRespira{ 50%{ transform:scale(1.06) } }
   .al-cont{ position:fixed;inset:0;z-index:2147482000;background:#071621;display:flex;flex-direction:column } .al-cont iframe{ flex:1;border:0;width:100%;background:#fff }
   .al-cont-fora{ background:rgba(7,22,33,.92);align-items:center;justify-content:center;padding:20px } .al-fora{ background:#fff;color:#0c2338;border-radius:20px;padding:26px;display:grid;gap:12px;justify-items:center;text-align:center;max-width:440px }
   .al-fora span{ font-size:44px } .al-fora b{ font-size:21px } .al-fora small{ color:#5b6b7b;font-size:15px } .al-fora-ir{ display:block;width:100%;background:#8DC63F;color:#0f2c4a;font-weight:900;font-size:19px;border-radius:14px;padding:15px;text-decoration:none }
@@ -41,6 +43,8 @@ const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#
   .al-aviso{ position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:2147483100;background:#0f2c4a;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;box-shadow:0 8px 22px rgba(0,0,0,.3) }
 `;
 const LT = ["A", "B", "C", "D", "E"];
+const RECADOS_PAUSA = ["Olhos no professor: ele vai explicar algo importante.", "Hora de ouvir. Depois a tela volta para você.", "Guarde sua dúvida: quando a tela voltar, use o ✋ para perguntar.",
+  "Prestar atenção agora economiza tempo depois.", "Quem escuta com atenção aprende o dobro.", "Respire, olhe para a frente e acompanhe a explicação.", "Portal do Educador: aprender junto com a turma."];
 const S = { qz:null, qzR:null, qzI:0, qzFechado:"", bat:null, batUlt:null, batEm:0, db:null, tid:"", chave:"", nome:"", aulaAte:0, maestro:"", ligado:false, unsub:[], unsubAula:null, vistos:null, pqResp:"", ultimaMsg:0, chat:[], mao:false, relogio:null, iniciado:false };
 const $ = id => document.getElementById(id);
 const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -105,8 +109,11 @@ function pausa(ligar){
   if(!ligar){ if(b) b.remove(); return; }
   if(b) return;
   b = document.createElement("div"); b.id = "alPausa"; b.setAttribute("role", "alertdialog"); b.className = "al-pausa";
-  b.innerHTML = '<div><img alt="" src="/maestro/aluno/bloqueio/msg' + (1 + Math.floor(Math.random() * 3)) + '.jpg"><b>⏸️ Atenção ao professor</b><span>A tela volta sozinha quando o professor liberar.</span></div>';
+  b.innerHTML = '<div><img alt="Portal do Educador" src="/assets/pde-logo-256.png"><b>👀 Atenção ao professor</b><span class="al-pausa-msg"></span><small>A tela volta sozinha quando o professor liberar.</small></div>';
   document.body.appendChild(b); vibrar(150);
+  // recados para o aluno, trocando enquanto a tela está pausada
+  const m = b.querySelector(".al-pausa-msg"); let k = Math.floor(Math.random() * RECADOS_PAUSA.length); m.textContent = RECADOS_PAUSA[k];
+  const rel = setInterval(() => { if(!b.isConnected) return clearInterval(rel); k = (k + 1) % RECADOS_PAUSA.length; m.style.opacity = 0; setTimeout(() => { m.textContent = RECADOS_PAUSA[k]; m.style.opacity = 1; }, 300); }, 6000);
 }
 function abrir(url, nome, dentro){
   const v = $("alConteudo"); if(v) v.remove();
