@@ -8921,6 +8921,10 @@
     if(AV.tid !== tid) return;
     // a aula atual (aberta_em / aberta_ate): vermelho só vale para quem saiu durante ESTA aula
     AV.subs.push(onSnapshot(doc(db, "qr_aulas", tid), s => { const x = s.data() || {}; AV.aulaIni = msAv(x.aberta_em); AV.aulaFim = msAv(x.aberta_ate);
+      // a aula tem dono (nov/2026): aberta por outro professor = só leitura aqui, com a opção de assumir a turma
+      AV.ocupada = AV.aulaFim > Date.now() && x.por && x.por !== usuarioAtual.uid ? { nome:x.por_nome || (AV.ocupada && AV.ocupada.nome) || "outro professor", ate:AV.aulaFim } : null;
+      if(AV.aulaFim > Date.now() && AV.qrAte !== AV.aulaFim){ AV.qrAte = AV.aulaFim; } else if(AV.aulaFim <= Date.now() && AV.qrAte) AV.qrAte = 0;
+      AVV.chat = (AVV.chatTodos || []).filter(m => desdeAula(m.em)); pintarQrAoVivo();
       const mc = AV.aulaFim > Date.now() && /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
       if(mc !== MAV.mc){ if(mc) iniciarMaestroAv(mc); else pararMaestroAv(); }
       desenharAoVivo(); }, e => console.warn("aula:", e.code)));
@@ -8971,12 +8975,19 @@
     const rel = setInterval(() => { k = Math.min(k + 1, msgs.length - 1); sp.textContent = msgs[k] + "..."; }, 1800);
     return () => { clearInterval(rel); f.remove(); };
   }
-  async function abrirTempoAula(tid, nomeTurma){
+  async function abrirTempoAula(tid, nomeTurma, assumir){
     const min = await escolherTempo({ titulo:"🔓 Abrir a entrada da aula", texto:"Quanto tempo dura a aula" + (nomeTurma ? " do <b>" + escapeHtml(nomeTurma) + "</b>" : "") + "? Os alunos entram com o cartão e saem sozinhos quando o tempo acabar. Faltando 5 minutos, você recebe um aviso para prorrogar se precisar.", opcoes:TEMPOS_AULA });
     if(!min) return null;
     // a abertura leva alguns segundos (servidor + aula dos aparelhos): tela de espera na hora, para ninguém clicar de novo
     const espera = telaEspera("Abrindo a aula" + (nomeTurma ? " do " + nomeTurma : ""), ["Abrindo a entrada da turma", "Preparando o controle das telas", "Avisando os aparelhos dos alunos", "Quase lá"]);
-    let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min }); } finally{ espera(); }
+    let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, ...(assumir ? { assumir:true } : {}) }); } finally{ espera(); }
+    // a turma está em aula com outro professor: pergunta se assume (não abre por cima sem querer)
+    if(r && r.ocupada){
+      if(!(await confirmarAssumir(r.ocupada, nomeTurma))) return null;
+      const espera2 = telaEspera("Assumindo a turma", ["Encerrando a aula anterior", "Abrindo a sua aula", "Quase lá"]);
+      try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, assumir:true }); } finally{ espera2(); }
+      if(r && r.ocupada) return null;
+    }
     toast("Aula aberta até " + horaCurta(r.aberta_ate) + ". Os alunos já podem entrar com o cartão.");
     return r;
   }
@@ -9120,18 +9131,39 @@
     f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
   }
   // entrada por QR da turma (cartão do aluno): o professor escolhe o tempo da aula, direto do painel ao vivo
+  // turma em aula com outro professor: assumir encerra a aula do colega (fica registrado) e abre a sua, com o Controle da aula limpo
+  function confirmarAssumir(oc, nome){
+    return new Promise(ok => {
+      const v = $("ceFundo"); if(v) v.remove();
+      const f = document.createElement("div"); f.id = "ceFundo"; f.className = "et-fundo";
+      f.innerHTML = '<div class="et-jan" role="alertdialog" aria-modal="true" aria-labelledby="ceTit"><div class="et-topo"><h3 id="ceTit">🔒 ' + escapeHtml(nome || "A turma") + ' está em aula</h3></div><div class="et-corpo">' +
+        '<p class="et-d">A aula foi aberta por <b>' + escapeHtml(oc.nome) + '</b> e vai até <b>' + horaCurta(oc.ate) + '</b>. Se o horário dela já acabou e ficou aberta por esquecimento, você pode encerrar a aula anterior e começar a sua.</p>' +
+        '<p class="et-d">A pausa, o conteúdo, a pesquisa e o quiz da aula anterior são encerrados (o quiz fica sem relatório) e a conversa com os alunos não passa para você. ' + escapeHtml(String(oc.nome).split(" ")[0]) + ' vê que a turma passou para você, e fica registrado na auditoria.</p>' +
+        '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-ce="nao">Voltar</button><button type="button" class="btn ce-sim" data-ce="sim">🔁 Encerrar a aula anterior e começar a minha</button></div></div></div>';
+      document.body.appendChild(f);
+      const fim = v => { f.remove(); ok(v); };
+      f.addEventListener("click", e => { const b = e.target.closest("[data-ce]"); if(b) fim(b.dataset.ce === "sim"); });
+      f.addEventListener("keydown", e => { if(e.key === "Escape") fim(false); });
+      f.querySelector('[data-ce="nao"]').focus();
+    });
+  }
   async function qrAoVivo(acao){
     const b = $("avQr"), tid = AV.tid; if(!b || !tid) return;
     if(acao === "fechar"){ const nomeT = ($("avTurma") && $("avTurma").selectedOptions[0] || {}).textContent || "";
       if(!(await confirmarEncerrar(nomeT))) return;
       await arrumarAntesDeEncerrar(); }
+    if(acao === "assumir"){ const sel = $("avTurma"), nomeT = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "";
+      if(!AV.ocupada || !(await confirmarAssumir(AV.ocupada, nomeT))) return;
+      acao = "abrir"; AV.assumindo = true; }
     b.disabled = true; if(acao === "fechar") b.textContent = "Encerrando...";
     try{
       let r;
-      if(acao === "abrir"){ const sel = $("avTurma"); r = await abrirTempoAula(tid, sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : ""); if(!r){ pintarQrAoVivo(); return; } }
+      if(acao === "abrir"){ const sel = $("avTurma"), ja = AV.assumindo; AV.assumindo = false;
+        r = await abrirTempoAula(tid, sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "", ja); if(!r){ pintarQrAoVivo(); return; } }
       else r = await chamarEntradaQr({ turma_id:tid, acao });
       if(AV.tid !== tid) return;
-      AV.qrAte = r.aberta_ate || 0; pintarQrAoVivo();
+      AV.qrAte = r.aberta_ate || 0; AV.ocupada = r.ocupada || null; pintarQrAoVivo();
+      if(r.ocupada){ atualizarCartaoAula(); return; }
       if(acao === "fechar") toast("Aula encerrada. Quem entrou pelo cartão sai agora.");
       const nomeT = ($("avTurma") && $("avTurma").selectedOptions[0] || {}).textContent || "turma";
       if(AV.qrAte > Date.now()) TA.aulas[tid] = { ate:AV.qrAte, nome:nomeT }; else delete TA.aulas[tid];
@@ -9174,7 +9206,11 @@
   }
   function pintarQrAoVivo(){
     const b = $("avQr"); if(!b || AV.qrAte === null) return;
-    const aberto = AV.qrAte > Date.now(); b.disabled = false;
+    const aberto = AV.qrAte > Date.now(), deOutro = aberto && !!AV.ocupada; b.disabled = false;
+    if(deOutro){ const st = $("avStatus"), mais = $("avMais");
+      b.className = "av-qr fechado"; b.dataset.prox = "assumir"; b.textContent = "🔁 Assumir a turma"; b.title = "Encerra a aula do colega e abre a sua";
+      if(st){ st.className = "av-status off"; st.textContent = "🔒 Em aula com " + AV.ocupada.nome + " até " + horaCurta(AV.ocupada.ate); }
+      if(mais) mais.hidden = true; return; }
     b.className = "av-qr " + (aberto ? "encerrar" : "fechado"); b.dataset.prox = aberto ? "fechar" : "abrir";
     const falta = Math.ceil((AV.qrAte - Date.now()) / 60e3), st = $("avStatus"), mais = $("avMais");
     b.textContent = aberto ? "⏹ Encerrar aula" : "▶ Abrir a aula";
@@ -9208,13 +9244,13 @@
     $("avKUltT").textContent = ult ? "abriram “" + String(ult.titulo || "o último").slice(0, 28) + "”" : "nada enviado ainda";
     const html = !tot ? '<p class="av-leg">Nenhum aluno cadastrado nesta turma.</p>' :
       lista.slice().sort((a, b) => (ORD_AV[estadoAv(a.id)] - ORD_AV[estadoAv(b.id)]) || a.nome.localeCompare(b.nome, "pt-BR")).map(a => { const st = estadoAv(a.id);
-        const ap = aparelhosDoAluno(a.id), on = ap.filter(x => x.on), pausa = aulaAberta() && (pausadoAluno(a.id) || on.some(x => x.pausado)), mao = aulaAberta() && maoDoAluno(a.id), nl = naoLidas(a.id);
+        const ap = aparelhosDoAluno(a.id), on = ap.filter(x => x.on), pausa = aulaAberta() && (pausadoAluno(a.id) || on.some(x => x.pausado)), mao = aulaAberta() && maoDoAluno(a.id), nl = aulaAberta() ? naoLidas(a.id) : 0;
         const tit = escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") +
           (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
-        const af = respostaDoAluno(a.id);
+        const af = aulaAberta() ? respostaDoAluno(a.id) : "";
         const marcas = '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "") + (pausa ? "⏸️" : "") + "</span>" + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
           (af ? '<span class="av-af" title="Pesquisa rápida">' + COR_AF[af] + "</span>" : "") + (nl ? '<span class="av-nl" title="Mensagens novas">💬' + nl + "</span>" : "") + (aulaAberta() && batAluno(a.id) ? '<span class="av-bat ' + (batAluno(a.id).c ? "carga" : batAluno(a.id).n <= 20 ? "baixa" : batAluno(a.id).n <= 40 ? "media" : "boa") + '" title="Bateria ' + batAluno(a.id).n + "%" + (batAluno(a.id).c ? " · carregando" : "") + '">' + (batAluno(a.id).c ? "⚡" : batAluno(a.id).n <= 20 ? "🪫" : "🔋") + batAluno(a.id).n + "%</span>" : "");
-        const det = MAV.sel === a.id ? htmlDetMae(a) : "";
+        const det = MAV.sel === a.id && aulaAberta() ? htmlDetMae(a) : "";
         return ('<button type="button" data-action="av-mae-al" data-arg="' + escapeAttr(a.id) + '"') + ' class="av-al' + (st ? " " + st : "") + (pausa ? " pausa" : "") + '" title="' + tit + '">' + marcas + '<span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></button>" + det; }).join("") + htmlOutrosMae();
     if(box.innerHTML !== html) box.innerHTML = html;
     desenharBarraMae();
@@ -9344,14 +9380,14 @@
     AV.subs.push(onSnapshot(doc(db, "aula_vivo", tid), s => { AVV.doc = s.data() || {}; desenharAoVivo(); }, e => console.warn("aula ao vivo:", e.code)));
     AV.subs.push(onSnapshot(collection(db, "aula_vivo", tid, "alunos"), sn => { AVV.alunos = {}; sn.forEach(d => { AVV.alunos[d.id] = d.data(); }); desenharAoVivo(); }, e => console.warn("aula ao vivo (alunos):", e.code)));
     AV.subs.push(onSnapshot(collection(db, "aula_vivo", tid, "chat"), sn => { const l = []; sn.forEach(d => l.push({ id:d.id, ...d.data() }));
-      l.sort((a, b) => msAv(a.em) - msAv(b.em)); const antes = AVV.chat.length; AVV.chat = l;
+      l.sort((a, b) => msAv(a.em) - msAv(b.em)); const antes = AVV.chat.length; AVV.chatTodos = l; AVV.chat = l.filter(m => desdeAula(m.em));   // só a conversa desta aula
       if(l.length > antes && antes && l[l.length - 1].de === "aluno") bipe();
       desenharAoVivo(); desenharConversa(); }, e => console.warn("aula ao vivo (chat):", e.code)));
   }
   // grava SUBSTITUINDO os campos informados (mergeFields): com merge:true um comando novo herdava campos do anterior (ex.: embed:false de um site de fora)
   // e "pausa_alunos:{}" não limpava as pausas individuais. campos = caminhos a substituir (ex.: "comandos.lab-a06"); padrão: as chaves de dados
   const avvSet = (dados, campos) => setDoc(doc(db, "aula_vivo", AVV.tid), { ...dados, atualizado_em:serverTimestamp(), por:usuarioAtual.uid }, { mergeFields:[...(campos || Object.keys(dados)), "atualizado_em", "por"] });
-  const aulaAberta = () => AV.aulaFim > Date.now();
+  const aulaAberta = () => AV.aulaFim > Date.now() && !AV.ocupada;   // só a aula que é minha
   const desdeAula = x => !AV.aulaIni || msAv(x) >= AV.aulaIni - 60000;
   // juntando o canal do Portal e o do Maestro, por aluno
   function maoDoAluno(id){ const a = AVV.alunos[id]; return !!(a && a.mao && desdeAula(a.mao)) || aparelhosDoAluno(id).some(x => x.mao); }

@@ -67,7 +67,8 @@ export async function iniciar(app, user){
   document.addEventListener("click", clique);
   window.addEventListener("pde-saindo", parar);
   S.unsubAula = onSnapshot(doc(S.db, "qr_aulas", S.tid), s => { const x = s.data() || {};
-    S.aulaAte = ms(x.aberta_ate); S.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : ""; conferir(); }, e => console.warn("aula da turma:", e.code));
+    const ini = ms(x.aberta_em); if(S.ligado && S.aulaIni && ini !== S.aulaIni) desligar();   // outro professor assumiu: aula nova, tela limpa
+    S.aulaAte = ms(x.aberta_ate); S.aulaIni = ini; S.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : ""; conferir(); }, e => console.warn("aula da turma:", e.code));
   S.relogio = setInterval(conferir, 20000);
 }
 function conferir(){
@@ -91,7 +92,8 @@ function ligar(){
     botoes(); }, () => {}));
   bateria();
   S.unsub.push(onSnapshot(query(collection(S.db, "aula_vivo", S.tid, "chat"), where("aluno_id", "==", S.chave)), sn => {
-    const l = []; sn.forEach(x => l.push(x.data())); l.sort((a, b) => ms(a.em) - ms(b.em)); S.chat = l;
+    // só a conversa desta aula (a de outro professor, numa aula anterior, não aparece)
+    const l = []; sn.forEach(x => { const m = x.data(); if(!S.aulaIni || !m.em || ms(m.em) >= S.aulaIni - 60000) l.push(m); }); l.sort((a, b) => ms(a.em) - ms(b.em)); S.chat = l;
     const ult = l[l.length - 1];
     if(ult && ult.de === "prof" && S.ultimaMsg && ms(ult.em) > S.ultimaMsg){ chat(true); vibrar(150); }
     S.ultimaMsg = Math.max(S.ultimaMsg || 1, ...l.map(m => ms(m.em))); desenharChat(); botoes();

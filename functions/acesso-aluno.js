@@ -165,44 +165,56 @@ export async function encerrarAulaMaestro(codigo) {
 
 // Portal Maestro na gaveta (02/11/2026): a aula não cria mais aula no banco do Maestro (fechado); a sala gerenciada é o Controle da aula do Portal
 export const MAESTRO_LIGADO = false;
-export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO }) {
+export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO, assumir = false }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
   if (!ts.exists) throw new HttpsError('not-found', 'Turma não encontrada.');
-  if (!podeGerar(us.data(), uid, ts.data(), turmaId)) throw new HttpsError('permission-denied', 'Você não pode abrir a entrada desta turma.');
-  const ref = db.doc(`qr_aulas/${turmaId}`);
-  if (acao === 'abrir' || acao === 'fechar' || acao === 'prorrogar') {
-    const nome = String(ts.data().nome || '').slice(0, 80);
-    if (acao === 'fechar') {
-      const cod = maestro ? ((await ref.get()).data() || {}).maestro_codigo : '';
-      await ref.set({ aberta_ate: new Date(agora), por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
-      if (cod) await encerrarAulaMaestro(cod).catch(e => console.warn('maestro (fechar):', e.message));
-      return { aberta_ate: 0 };
-    }
-    let ate;
-    if (acao === 'abrir') {
-      const min = minutosOk(minutos, MAX_AULA_MIN) || 60;
-      ate = new Date(agora + min * 60e3);
-      // mais rápido (nov/2026): a aula abre no Portal ao mesmo tempo em que a aula dos aparelhos (Maestro) é criada; o número entra logo depois
-      const ant = maestro ? (await ref.get()).data() || {} : {}, aberta = ant.aberta_ate && ant.aberta_ate.toMillis && ant.aberta_ate.toMillis() > agora;
-      const [maestro_codigo] = await Promise.all([
-        maestro ? abrirAulaMaestro({ atual: aberta ? ant.maestro_codigo : '', professor: (us.data() || {}).nome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (abrir):', e.message); return ''; }) : '',
-        ref.set({ aberta_ate: ate, aberta_em: new Date(agora), duracao_min: min, prorrogado_min: 0, por: uid, turma_nome: nome, maestro_codigo: aberta ? String(ant.maestro_codigo || '') : '', atualizado_em: FieldValue.serverTimestamp() }, { merge: true })
-      ]);
-      if (maestro_codigo !== (aberta ? String(ant.maestro_codigo || '') : '')) await ref.set({ maestro_codigo }, { merge: true });
-      return { aberta_ate: ate.getTime(), maestro_codigo };
-    } else {
-      const min = minutosOk(minutos, 120) || 10;
-      const d0 = (await ref.get()).data() || {}, atual = d0.aberta_ate && d0.aberta_ate.toMillis ? d0.aberta_ate.toMillis() : 0;
-      ate = new Date(Math.min(Math.max(atual, agora) + min * 60e3, agora + MAX_AULA_MIN * 60e3));
-      await ref.set({ aberta_ate: ate, por: uid, turma_nome: nome, prorrogado_min: FieldValue.increment(min), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
-      const mc = maestro ? String(d0.maestro_codigo || '') : '';
-      if (/^\d{6}$/.test(mc)) await maestroFb(`aulas/${mc}/controle/ate`, 'PUT', ate.getTime()).catch(e => console.warn('maestro (prorrogar):', e.message));
-    }
-    return { aberta_ate: ate.getTime(), maestro_codigo: String(((await ref.get()).data() || {}).maestro_codigo || '') };
+  const eu = us.data() || {};
+  if (!podeGerar(eu, uid, ts.data(), turmaId)) throw new HttpsError('permission-denied', 'Você não pode abrir a entrada desta turma.');
+  const ref = db.doc(`qr_aulas/${turmaId}`), nome = String(ts.data().nome || '').slice(0, 80), meuNome = String(eu.nome || 'Professor').slice(0, 80);
+  // a aula tem dono (nov/2026): quem abriu conduz; outro professor da turma vê "em aula com Fulano" e só entra se encerrar a aula do colega (fica na auditoria)
+  const ant = (await ref.get()).data() || {}, antAte = ant.aberta_ate && ant.aberta_ate.toMillis ? ant.aberta_ate.toMillis() : 0, aberta = antAte > agora;
+  const dono = !aberta || ant.por === uid, chefe = ['admin', 'gestor', 'secretaria_escolar'].includes(eu.perfil);
+  const nomeDono = async () => String(ant.por_nome || (ant.por ? ((await db.doc(`usuarios/${ant.por}`).get()).data() || {}).nome : '') || 'outro professor').slice(0, 80);
+  const ocupada = async () => ({ aberta_ate: antAte, ocupada: { nome: await nomeDono(), ate: antAte } });
+  // aula nova (ou encerrada): o Controle da aula começa limpo (sem pausa, conteúdo, pesquisa ou quiz da aula anterior)
+  const limparControle = () => db.doc(`aula_vivo/${turmaId}`).set({ pausa: false, pausa_alunos: {}, comandos: {}, atualizado_em: FieldValue.serverTimestamp(), por: uid });
+  const auditar = async detalhe => db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'qr_aulas', doc: turmaId,
+    autor_uid: uid, autor_tipo: 'usuario', perfil: eu.perfil || '', detalhe: String(detalhe).slice(0, 300), campos: [], valores: {} }).catch(e => console.warn('auditoria aula:', e.message));
+  if (acao === 'fechar') {
+    if (!aberta) return { aberta_ate: 0 };
+    if (!dono && !assumir && !chefe) return ocupada();
+    await ref.set({ aberta_ate: new Date(agora), encerrada_por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    await limparControle().catch(e => console.warn('limpar aula:', e.message));
+    if (!dono) await auditar('Encerrou a aula do ' + nome + ' aberta por ' + (await nomeDono()));
+    if (maestro && /^\d{6}$/.test(String(ant.maestro_codigo || ''))) await encerrarAulaMaestro(ant.maestro_codigo).catch(e => console.warn('maestro (fechar):', e.message));
+    return { aberta_ate: 0 };
   }
-  const d = (await ref.get()).data(), ate = d && d.aberta_ate && d.aberta_ate.toMillis ? d.aberta_ate.toMillis() : 0;
-  return { aberta_ate: ate > agora ? ate : 0, maestro_codigo: ate > agora ? String((d && d.maestro_codigo) || '') : '' };
+  if (acao === 'prorrogar') {
+    if (!aberta) throw new HttpsError('failed-precondition', 'A aula já terminou. Abra uma aula nova.');
+    if (!dono) return ocupada();
+    const min = minutosOk(minutos, 120) || 10, ate = new Date(Math.min(antAte + min * 60e3, agora + MAX_AULA_MIN * 60e3));
+    await ref.set({ aberta_ate: ate, prorrogado_min: FieldValue.increment(min), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    const mc = maestro ? String(ant.maestro_codigo || '') : '';
+    if (/^\d{6}$/.test(mc)) await maestroFb(`aulas/${mc}/controle/ate`, 'PUT', ate.getTime()).catch(e => console.warn('maestro (prorrogar):', e.message));
+    return { aberta_ate: ate.getTime(), maestro_codigo: mc };
+  }
+  if (acao === 'abrir') {
+    if (aberta && !dono && !assumir) return ocupada();
+    const min = minutosOk(minutos, MAX_AULA_MIN) || 60, ate = new Date(agora + min * 60e3);
+    // o mesmo professor reabrindo a própria aula: continua a mesma aula (só muda o tempo); senão é aula nova
+    const continua = aberta && dono;
+    const [maestro_codigo] = await Promise.all([
+      maestro ? abrirAulaMaestro({ atual: continua ? ant.maestro_codigo : '', professor: meuNome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (abrir):', e.message); return ''; }) : '',
+      ref.set({ aberta_ate: ate, ...(continua ? {} : { aberta_em: new Date(agora), prorrogado_min: 0, encerrada_por: '' }), duracao_min: min, por: uid, por_nome: meuNome, turma_nome: nome,
+        maestro_codigo: continua ? String(ant.maestro_codigo || '') : '', atualizado_em: FieldValue.serverTimestamp() }, { merge: true }),
+      continua ? null : limparControle().catch(e => console.warn('limpar aula:', e.message))
+    ]);
+    if (maestro && maestro_codigo !== (continua ? String(ant.maestro_codigo || '') : '')) await ref.set({ maestro_codigo }, { merge: true });
+    if (aberta && !dono) await auditar('Assumiu a turma ' + nome + ': encerrou a aula aberta por ' + (await nomeDono()) + ' e abriu a sua');
+    return { aberta_ate: ate.getTime(), maestro_codigo };
+  }
+  return { aberta_ate: aberta ? antAte : 0, maestro_codigo: aberta ? String(ant.maestro_codigo || '') : '', ...(aberta && !dono ? { ocupada: { nome: await nomeDono(), ate: antAte } } : {}) };
 }
 
 // conta Google (ou outro login com e-mail confirmado) do aluno: liga à matrícula pelo e-mail gravado na Ficha do Aluno
@@ -237,7 +249,7 @@ export const entrarAlunoQr = onCall({ region: REGIAO, maxInstances: 20, memory: 
 export const entradaQrTurma = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const d = req.data || {};
-  return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar', 'prorrogar'].includes(d.acao) ? d.acao : 'ver', minutos: d.minutos });
+  return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar', 'prorrogar'].includes(d.acao) ? d.acao : 'ver', minutos: d.minutos, assumir: d.assumir === true });
 });
 export const vincularContaAluno = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
