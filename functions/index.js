@@ -390,6 +390,7 @@ export { limparFotosAlunos } from './fichas.js';
 export { senhaProvisoria, trocarSenhaProvisoria, expirarSenhasProvisorias } from './senha-provisoria.js';
 export { gerarAcessoTurma, codigoAlunoQr, vincularContaAluno, entrarAlunoQr, entradaQrTurma } from './acesso-aluno.js';
 export { criarUsuarioManual, contasSemCadastro } from './usuario-manual.js';
+export { indiceBusca, registrarBusca, atualizarIndiceBusca } from './busca.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
 export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';

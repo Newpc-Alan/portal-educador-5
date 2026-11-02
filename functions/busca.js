@@ -10,6 +10,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { expiraAuditoria } from './auditoria.js';
 
 const REGIAO = 'southamerica-east1';
 const LIMITE_PARTE = 700 * 1024;   // folga abaixo de 1 MB por documento
@@ -23,8 +24,8 @@ function linha(c, id, x) {
   if (c === 'videos' || c === 'jogos') {
     if (x.para_professores === false) return null;
     Object.assign(base, { s: corta([x.componente, (x.series || []).slice(0, 3).join(', ')].filter(Boolean).join(' · '), 80),
-      k: corta([x.tema, x.canal, x.componente, (x.series || []).join(' '), String(x.descricao || '').slice(0, 160)].join(' '), 260), b: lista(x.bncc), m: c,
-      g: c === 'videos' && x.youtube_id ? 'yt:' + corta(x.youtube_id, 20) : corta(x.capa_url || x.capa || '', 300) });
+      k: corta([x.tema, x.canal, x.componente, (x.series || []).join(' '), String(x.descricao || '').slice(0, 90)].join(' '), 200), b: lista(x.bncc), m: c,
+      g: c === 'videos' ? (x.youtube_id ? 'yt:' + corta(x.youtube_id, 20) : '') : corta(x.capa, 300), u: c === 'jogos' ? corta(x.url, 200) : '' });
   } else if (c === 'atividades') {
     Object.assign(base, { s: corta([x.tipo === 'plano' ? 'Plano de aula' : 'Atividade', x.componente, (x.anos || []).join(', ')].filter(Boolean).join(' · '), 80),
       k: corta([x.componente, x.categoria, x.etapa, (x.anos || []).join(' '), x.tipo === 'plano' ? 'plano de aula' : ''].join(' '), 160), b: lista(x.bncc), m: 'atividades', g: corta(x.mini_url, 300) });
@@ -38,6 +39,8 @@ function linha(c, id, x) {
     Object.assign(base, { s: corta([x.disciplina, (x.etapas || []).join(', ')].filter(Boolean).join(' · ') || 'Arquivo', 80),
       k: corta([x.disciplina, (x.etapas || []).join(' '), String(x.descricao || '').slice(0, 160)].join(' '), 220), b: lista(x.bncc), m: corta(x.modulo, 30) });
   }
+  // imagem do Storage: guarda só o caminho e o token (o navegador remonta a URL); economiza ~40% do índice
+  if (base.g) base.g = base.g.replace('https://firebasestorage.googleapis.com/v0/b/portal-educador-5.firebasestorage.app/o/', 'fs:').replace('?alt=media&token=', '|');
   for (const k of Object.keys(base)) if (base[k] === '' || (Array.isArray(base[k]) && !base[k].length)) delete base[k];
   return base;
 }
@@ -103,4 +106,17 @@ export const registrarBusca = onCall({ region: REGIAO, maxInstances: 10, timeout
     termos: { [k]: soma }, por_mun: { [mun]: { total: inc, termos: { [k]: soma } } }
   }, { merge: true });
   return { ok: true };
+});
+
+// o administrador refaz o índice na hora (ex.: logo depois de publicar muitos conteúdos)
+export const atualizarIndiceBusca = onCall({ region: REGIAO, maxInstances: 2, timeoutSeconds: 300, memory: '512MiB' }, async req => {
+  const uid = req.auth && req.auth.uid; if (!uid) throw new HttpsError('unauthenticated', 'Entre no Portal.');
+  const db = getFirestore();
+  const u = (await db.doc('usuarios/' + uid).get()).data() || {};
+  if (u.perfil !== 'admin' || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Só o administrador.');
+  const r = await montarIndiceBusca(db);
+  await gravarIndiceBusca(db, r);
+  await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'busca_indice', doc: '_meta',
+    autor_uid: uid, autor_tipo: 'usuario', autor_email: String(req.auth.token.email || '').slice(0, 120), perfil: 'admin', detalhe: 'Atualizou o índice da busca geral (' + r.total + ' conteúdos)', campos: [], valores: {} });
+  return { total: r.total, por: r.por, kb: Math.round(r.bytes / 1024) };
 });
