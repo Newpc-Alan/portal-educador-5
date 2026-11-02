@@ -390,7 +390,7 @@ Visitas em 360º a museus brasileiros, cada uma com sugestão pedagógica, disci
 
 ### Formação Continuada
 
-Cursos com certificado para o professor.
+Cursos com certificado para o professor, com o mesmo visual do Portal: cursos e trilhas com fotos, **← Voltar ao Portal** no topo e o mesmo login.
 
 1. Em **Meus dados**, informe nome completo e CPF (obrigatórios para o certificado). Município e escola vêm do seu cadastro no Portal e se atualizam sozinhos a cada entrada (para mudar, fale com a secretaria da escola). Professor avulso, sem rede, preenche os dois.
 2. Escolha o curso. Os módulos são liberados em ordem.

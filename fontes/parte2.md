@@ -25,7 +25,7 @@ O menu fica dividido em cinco grupos. Cada grupo abre e fecha com um toque no t�
 | | Vídeos, Jogos | Catálogos de vídeos e jogos |
 | | Dicas recebidas | Moderação das Dicas do Professor |
 | | Materiais da rede | Moderação do que os professores compartilham com a rede |
-| | Formação Continuada | Painel editorial dos cursos |
+| | Formação Continuada | Painel editorial dos cursos (o administrador do Portal já entra como administrador; curso sem capa própria aparece com uma foto padrão do Portal, escolhida pelo tema) |
 | Sistema | Central de IA | Quem usa cada recurso de IA, carteiras de créditos, recargas, preços e pacotes |
 | | Módulos do Portal | Situação global de cada botão do Início |
 | | Documentação | Manuais, POPs e arquivos internos, com versões |

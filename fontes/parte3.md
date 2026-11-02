@@ -442,6 +442,8 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 
 `situacoesFormacao` (em `formacao-uso.js`) também filtra o público dos Comunicados (`publico.formacao`). No navegador: cartão **Continuar minha formação** (lê `users/{uid}/progresso` do próprio professor) e **Meus certificados** (certificados com `uid` do próprio).
 
+Visual (Fase 2): a Formação usa a camada `identidade-portal-5-fase2` (início claro, cartões com foto, botão **Voltar ao Portal**). Capas padrão em `assets/formacao/fc-*.webp` (personagens NEWPC, geradas por `fotos-portal-ia`): `capaPadrao()` escolhe pelo tema (Google/Chromebook, lousa) ou por sorteio fixo pelo id. O texto impresso do certificado continua "Academia do Educador" até decisão da diretoria.
+
 Robô de migração: consulta **formacao-sincronizar** (simula) e **formacao-sincronizar-gravar** (liga os perfis antigos e dá o papel aos admins). Os cursos publicados entram no índice da busca geral (`m: formacao`).
 
 ### Busca geral do Início (`busca.js`)
