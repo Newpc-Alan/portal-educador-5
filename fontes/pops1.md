@@ -1146,7 +1146,7 @@ Ler o Painel do administrador numa rotina fixa, para agir antes que o problema c
 ### Registros
 O próprio Painel (com Exportar planilha em cada número), a Auditoria e a Ficha de execução quando houver contato com escola ou Secretaria.
 
-## POP-PDE-32 · Aula com aparelhos controlados (Dar aula + Portal Maestro) {: .nova }
+## POP-PDE-32 · Aula com aparelhos controlados (Sala de aula gerenciada) {: .nova }
 
 @@ POP-PDE-32 | Sala de aula | Professor (com apoio da TI da escola na instalação) | Toda aula com tablets ou Chromebooks dos alunos
 
@@ -1154,14 +1154,14 @@ O próprio Painel (com Exportar planilha em cada número), a Auditoria e a Ficha
 Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, abrir conteúdo, atender mãos levantadas), com presença nominal registrada, sem ditar número de aula.
 
 ### Pré-requisitos
-- Município com **Portal Maestro** e **Turma ao Vivo** no plano.
+- Município com **Turma ao Vivo** no plano (o Portal Maestro está na gaveta desde 02/11/2026; não é mais necessário).
 - Alunos cadastrados na turma (Ficha do Aluno) e com acesso: cartão QR, código e PIN ou conta Google da escola.
-- Tablets com o **app do Maestro 1.2 ou mais novo** (Aplicativos Úteis › App do Maestro) ou Chromebooks com a **extensão do Maestro 0.9 ou mais nova** (instalada pelo Google Admin da escola).
+- Tablets com o **app do tablet 1.2 ou mais novo** (Aplicativos Úteis) ou Chromebooks com o Portal aberto. A extensão do Maestro deve ser **retirada** do Google Admin onde estiver instalada.
 
 ### Procedimento
 1. No Início, toque em **▶ Começar a aula**, escolha a turma e o tempo.
 2. Peça aos alunos que entrem no Portal: os menores mostram o **cartão** para a câmera; os maiores usam **código e PIN** ou a **conta Google** da escola.
-3. Confira na faixa **🎼 Maestro** quantos aparelhos estão seguindo a aula e, nos cartões, quem está 🟢 na aula, 🔴 fora da página ou sem cor.
+3. Confira no Controle da aula quantos estão na sala e, nos cartões, quem está 🟢 na aula, 🔴 fora da página ou sem cor.
 4. Para explicar algo, toque no cadeado verde **Telas liberadas** (ele fecha e fica vermelho); para voltar à atividade, toque no cadeado vermelho **Telas pausadas**.
 5. Para abrir um conteúdo em todas as telas, use **📲 Abrir conteúdo para a turma** (ou **📚 Acervo do município** para um arquivo da rede, navegando pelas pastas) (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
 6. Atenda as mãos ✋ (o Controle da aula mostra quantas e de quem): toque no aluno, use **💬 Conversar** e, ao terminar, **✋ Atendi: baixar a mão**. Aluno fora da tarefa: toque nele e **⏸️ Pausar a tela**. Para checar a turma, **📊 Pesquisa rápida**. Atividade ou prova adaptada: **📲 Enviar só para ...** no cartão do aluno.

@@ -553,14 +553,14 @@ Durante a aula:
 - Faltando **3 minutos**, oferece prorrogar (**+10 min** a **+1 hora**, até 120 minutos) ou **Encerrar agora**.
 - Quando o tempo acaba, quem entrou pelo cartão sai sozinho, liberando o aparelho para o próximo colega. O aluno recebe um aviso 2 minutos antes.
 
-### Aparelhos controlados na aula (Portal Maestro dentro do Dar aula)
+### Aparelhos controlados na aula (Sala de aula gerenciada)
 
-Desde novembro de 2026, o Portal Maestro funciona **dentro** do Dar aula agora. Ao abrir a aula, o Portal cria a aula do Maestro junto: o professor não dita número nenhum.
+> **Portal Maestro na gaveta (02/11/2026).** A sala de aula gerenciada é o **Controle da aula do próprio Portal**: pausa, conteúdo, pesquisa, quiz, mão levantada e bate-papo funcionam em qualquer aparelho em que o aluno esteja no Portal. O painel antigo do Maestro, a entrada pelo número da aula e a extensão do Maestro foram desligados, e a aula não cria mais aula no Maestro. O app do tablet continua só como atalho que abre o Portal no login do aluno. A tabela abaixo descreve como cada aparelho participa hoje.
 
 | Aparelho do aluno | Como entra | O que o professor controla |
 |---|---|---|
-| **Tablet com o app do Maestro (1.2 ou mais novo)** | Abre no login do Portal: cartão QR ou código e PIN. O aluno fica no **Portal do Aluno** e, com a aula aberta, o tablet passa a seguir o professor (aviso "🎼 Você está na aula do professor" e botão **✋ Levantar a mão**) | Pausar a tela, abrir conteúdo, mão levantada |
-| **Chromebook com a extensão do Maestro (0.9 ou mais nova)** | O aluno entra no Portal (cartão, código e PIN ou conta Google da escola) e o Chromebook entra na aula sozinho. Na tela da extensão: **Entrar com a minha conta do Portal** | Pausar a tela, abrir conteúdo em aba, ver a aba aberta, mão levantada |
+| **Tablet com o app do tablet (1.2 ou mais novo)** | Abre no login do Portal: cartão QR ou código e PIN. O aluno fica no **Portal do Aluno** e, com a aula aberta, segue o professor | Pausar a tela, abrir conteúdo, mão levantada, quiz e pesquisa |
+| **Chromebook** | O aluno entra no Portal (cartão, código e PIN ou conta Google da escola) | Pausa e conteúdo dentro do Portal, mão levantada, quiz e pesquisa (a extensão do Maestro está desligada: se o aluno trocar de aba, aparece em vermelho) |
 | **Computador ou celular sem a extensão** | Entra no Portal normalmente; com a aula aberta, a página do Portal segue o professor | Presença, materiais, pausa e conteúdo dentro do Portal (se o aluno trocar de aba, aparece em vermelho) |
 
 No painel **📡 Turma ao Vivo**, com a aula aberta, aparece o **🎛️ Controle da aula**. Ele funciona **dentro do Portal**, para qualquer aluno que entrou na conta (tablet, celular ou computador), com ou sem o Portal Maestro:
@@ -588,7 +588,7 @@ Toque no **cartão do aluno** para:
 No cartão aparecem ✋ (mão levantada), ⏸️ (tela pausada), 💬 com o número de mensagens novas, a bolinha da pesquisa e 💻 quando é um Chromebook com a extensão do Maestro. Na tela do aluno ficam os botões **✋ Levantar a mão** e **💬 Falar com o professor**.
 
 :::regra
-A aula do Maestro termina junto com a aula do Portal. **Encerrar aula** libera e desconecta os aparelhos na hora; se o tempo acabar com o painel fechado, os aparelhos saem sozinhos em até 1 minuto. Sem o painel aberto por 2 minutos, as telas pausadas se liberam sozinhas (trava de segurança).
+**Encerrar aula** libera as telas e tira os alunos da aula na hora; se o tempo acabar, a aula termina sozinha.
 :::
 
 :::nota
@@ -610,7 +610,6 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 | Topo | Turma, situação da aula (**🟢 Aula até 10:40 · faltam 25 min**), **+10 min**, **⏹ Encerrar aula** (ou **▶ Abrir a aula**) e **Sair do painel**. Você encerra quando quiser, antes do tempo: confirme em **⏹ Encerrar agora**. Se houver quiz aberto, ele é encerrado e o relatório fica salvo; telas pausadas são liberadas. Fora do painel, o cartão **Aula em andamento** do Início também tem **⏹ Encerrar** |
 | Indicadores | 👥 quantos estão na sala agora (e quantos saíram da página) · 📤 materiais enviados · 👁️ quantos abriram o último |
 | Ações | **🔗 Enviar link ou arquivo** · **📁 Enviar algo que já fiz** (aulas da Lousa e materiais do Portal IA) · **🖼️ Abrir a Lousa** · **📝 Aplicar prova online** |
-| 🎼 Maestro | Aparelhos seguindo a aula, **📲 Abrir nos aparelhos** e **🔒 Pausar as telas** (veja "Aparelhos controlados na aula") |
 | Na sala | Os alunos em avatares, em três cores: 🟢 **verde** = na aula, com o Portal aberto na tela; 🔴 **vermelho** = saiu da página (trocou de aba, fechou o Portal ou o tablet apagou) sem sair da conta; ⚪ **sem cor** = saiu da conta ou ainda não entrou. O vermelho vale só para a aula atual: ao encerrar a aula ou abrir uma nova, quem estava vermelho volta a ficar sem cor |
 | Enviados | Tudo o que a turma recebeu, com busca por tema e período (hoje, 7 ou 30 dias). Em cada item, **👁️** mostra quantos abriram e a lista de quem **ainda não abriu** |
 
