@@ -278,6 +278,18 @@
   .ini-ola{ display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:20px }
   .ini-ola h2{ font-size:20px }
   .ini-ola p{ font-size:13px;color:var(--muted);margin-top:3px }
+  /* comunicados por e-mail */
+  .cm-chk{ display:flex;flex-wrap:wrap;gap:8px 16px } .cm-chk label{ display:flex;align-items:center;gap:6px;font-size:14px;color:var(--ink);font-weight:500;margin:0 }
+  .cm-chk label{ display:inline-flex !important;width:auto !important;margin:0 !important } .cm-chk input[type=checkbox]{ width:18px !important;height:18px;min-width:0;margin:0;padding:0;flex:0 0 18px;box-shadow:none } .imp-card #cmMsg{ width:100%;font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px }
+  .cm-it-acoes .cm-x{ background:#fdecec;color:#b3261e;border:1px solid #f3b6b0 }
+  .cm-muns{ max-height:150px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 10px }
+  .cm-conta{ background:#eef5fb;border:1px solid #cfe0ef;border-radius:10px;padding:10px 12px;font-size:14px;margin:4px 0 16px }
+  .cm-acoes{ display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end }
+  .cm-item{ border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:grid;gap:4px }
+  .cm-it-top{ display:flex;justify-content:space-between;gap:8px;align-items:center } .cm-item small{ color:var(--muted) }
+  .cm-barra{ height:6px;background:#e8eef4;border-radius:99px;overflow:hidden } .cm-barra i{ display:block;height:100%;background:#1a6b2a }
+  .cm-item .chip{ font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px;background:#eef2f7;color:#2C3E55;white-space:nowrap } .cm-item .chip.c-age{ background:#fff4e0;color:#8a5a00 } .cm-item .chip.c-ok{ background:#e7f5ea;color:#1a6b2a } .cm-item .chip.c-nao{ background:#f3f4f6;color:#6b7280 }
+  .cm-it-acoes{ display:flex;gap:6px } .cm-cfg summary{ cursor:pointer } .cm-cfg[open] summary{ margin-bottom:12px }
   /* busca geral do Início */
   .bg-wrap{ position:relative;margin:-6px 0 22px;z-index:30 }
   .bg-caixa{ display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;box-shadow:0 8px 22px -18px rgba(15,44,74,.6);transition:border-color .15s, box-shadow .15s }
@@ -1752,6 +1764,7 @@
       { id:"creditos",   ico:"\u{1FA99}", label:"Central de IA" },
       { id:"modulos",    ico:"\u{1F9E9}", label:"Módulos do Portal" },
       { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
+      { id:"comunicados", ico:"\u2709\u{FE0F}", label:"Comunicados por e-mail" },
       { id:"auditoria", ico:"\u{1F50E}", label:"Auditoria" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
@@ -2575,6 +2588,7 @@
       if(item.id === "datasadm"){ renderDatasAdmin(); return; }
       if(item.id === "docs"){ renderDocumentacao(); return; }
       if(item.id === "auditoria"){ renderAuditoria(); return; }
+      if(item.id === "comunicados"){ renderComunicados(); return; }
       if(item.id === "simulador"){ renderSimulador(); return; }
       if(item.id === "usoreal"){ renderUsoReal(); return; }
     }
@@ -5178,13 +5192,124 @@
 
   // ---------- Auditoria (admin): trilha gravada pelo servidor; 6 meses de retenção (Marco Civil, art. 15) ----------
   const AUD_ACOES = { entrou:["Entrou no Portal","#2E9BD6"], criou:["Criou","#1a6b2a"], alterou:["Alterou","#c98a00"], excluiu:["Excluiu","#d32f2f"], acessou:["Abriu/baixou","#6a4bc4"] };
-  const AUD_COLECOES = { usuarios:"Usuários", municipios:"Municípios", escolas:"Escolas", turmas:"Turmas", alunos:"Alunos", acervo:"Acervo do Portal", acervo_rede:"Acervo do município", busca_indice:"Índice da busca",
+  const AUD_COLECOES = { usuarios:"Usuários", municipios:"Municípios", escolas:"Escolas", turmas:"Turmas", alunos:"Alunos", acervo:"Acervo do Portal", acervo_rede:"Acervo do município", busca_indice:"Índice da busca", comunicados_email:"Comunicados por e-mail", comunicados_pref:"Comunicados: não receber",
     acervo_rede_arvore:"Pastas do acervo", acessos_dia:"Acervo (acessos)", notas_planilhas:"Notas", notas_escola:"Notas da escola", notas_fechadas:"Notas fechadas", fechamentos:"Fechamento de período",
     freq_chamadas:"Frequência", relatorios:"Relatórios", provas_online:"Provas online", portal_ia_docs:"Portal IA", creditos:"Créditos de IA", config:"Configurações",
     noticias:"Notícias", videos:"Vídeos", jogos:"Jogos", atividades:"Atividades", servidores:"Servidores", substituicoes:"Substituições", sessao:"Sessão",
     alunos_ficha:"Ficha do aluno", alunos_saude:"Saúde do aluno", alunos_familia:"Família do aluno", comunicados_familia:"Comunicados às famílias" };
   const aud = { itens:[], ultimo:null, fim:false, nomes:{}, carregando:false };
   const audDataIso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  // ===================== COMUNICADOS POR E-MAIL (admin, nov/2026) =====================
+  // Escreve, escolhe o público, confere quantas pessoas recebem, manda um teste para si e envia. O robô (enviarComunicados)
+  // manda aos poucos pela conta comunicados@portaldoeducador.com.br; a senha fica só no Secret Manager.
+  const CM_PERFIS = [["professor","Professores"],["gestor","Gestão da escola (direção e coordenação)"],["secretaria","Secretaria de Educação"],["aluno","Alunos"]];
+  const CM_ST = { agendado:["Agendado","c-age"], enviando:["Enviando","c-age"], concluido:["Concluído","c-ok"], cancelado:["Cancelado","c-nao"] };
+  const cm = { conta:null, timer:0, lista:[] };
+  function cmPublico(){
+    return { perfis:[...document.querySelectorAll('#cmPerfis input:checked')].map(x => x.value),
+      municipios:[...document.querySelectorAll('#cmMuns input:checked')].map(x => x.value), escola:($("cmEscola") || {}).value || "" };
+  }
+  async function renderComunicados(){
+    try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
+    let cfg = {}; try{ const c = await getDoc(doc(db, "config", "comunicados")); cfg = c.exists() ? c.data() : {}; }catch(e){}
+    $("conteudo").innerHTML =
+      '<div class="imp-card"><h3>✉\u{FE0F} Comunicados por e-mail</h3><p class="d">Mensagem para a rede cadastrada, separada por público. Sai pela conta <b>'+escapeHtml(cfg.remetente || "comunicados@portaldoeducador.com.br")+'</b>, aos poucos (até '+fmt(cfg.por_hora || 100)+' por hora), sem misturar com os e-mails do sistema. Tudo fica na Auditoria.</p>'+
+        '<div class="row2"><div class="field"><label>Tipo</label><select id="cmTipo"><option value="info">Informativo (respeita quem pediu para não receber)</option><option value="servico">Aviso de serviço (vai para todos: mudança de acesso, manutenção)</option></select></div>'+
+        '<div class="field"><label for="cmAgendar">Enviar em (opcional)</label><input type="datetime-local" id="cmAgendar"></div></div>'+
+        '<div class="field"><label>Para quem</label><div class="cm-chk" id="cmPerfis">'+CM_PERFIS.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"'+(k === "professor" ? " checked" : "")+'> '+v+'</label>').join("")+'</div></div>'+
+        '<div class="field"><label>Municípios <small>(nenhum marcado = todos)</small></label><div class="cm-chk cm-muns" id="cmMuns">'+cacheMunicipios.map(m => '<label><input type="checkbox" value="'+escapeAttr(m.id)+'"> '+escapeHtml(m.nome)+'</label>').join("")+'</div></div>'+
+        '<div class="field" id="cmEscWrap" hidden><label for="cmEscola">Escola <small>(opcional, quando só um município está marcado)</small></label><select id="cmEscola"><option value="">Todas as escolas</option></select></div>'+
+        '<div class="cm-conta" id="cmConta">Escolha o público.</div>'+
+        '<div class="field"><label for="cmAssunto">Assunto</label><input id="cmAssunto" maxlength="140" placeholder="Ex.: Novidades do Portal do Educador em novembro"></div>'+
+        '<div class="field"><label for="cmMsg">Mensagem <small>(o e-mail começa com "Olá, nome!"; deixe uma linha em branco entre os parágrafos)</small></label><textarea id="cmMsg" rows="9" maxlength="8000" placeholder="Escreva o comunicado..."></textarea></div>'+
+        '<div class="row2"><div class="field"><label for="cmBtTxt">Botão (opcional)</label><input id="cmBtTxt" maxlength="40" placeholder="Ex.: Abrir o Portal"></div><div class="field"><label for="cmBtLink">Link do botão</label><input id="cmBtLink" maxlength="500" placeholder="https://app.portaldoeducador.com.br/entrar/"></div></div>'+
+        '<div class="cm-acoes"><button class="btn btn-ghost btn-add" data-action="cm-teste">Enviar teste para mim</button><button class="btn btn-primary btn-add" data-action="cm-enviar" id="cmEnviar">Enviar comunicado</button></div></div>'+
+      '<div class="imp-card"><h3>Enviados e agendados</h3><div id="cmLista"><div class="empty">Carregando...</div></div></div>'+
+      '<details class="imp-card cm-cfg"><summary><b>Configuração do envio</b> <small>(servidor da Webnode)</small></summary>'+
+        '<div class="row2"><div class="field"><label for="cmHost">Servidor SMTP</label><input id="cmHost" value="'+escapeAttr(cfg.host || "smtp.mail.webnode.com")+'"></div>'+
+        '<div class="field"><label for="cmPorta">Porta</label><select id="cmPorta"><option value="465"'+(Number(cfg.porta || 465) === 465 ? " selected" : "")+'>465 (SSL)</option><option value="587"'+(Number(cfg.porta) === 587 ? " selected" : "")+'>587 (STARTTLS)</option></select></div></div>'+
+        '<div class="row2"><div class="field"><label for="cmRem">Conta que envia</label><input id="cmRem" value="'+escapeAttr(cfg.remetente || "comunicados@portaldoeducador.com.br")+'"></div>'+
+        '<div class="field"><label for="cmNome">Nome do remetente</label><input id="cmNome" maxlength="60" value="'+escapeAttr(cfg.nome || "Portal do Educador")+'"></div>'+
+        '<div class="field"><label for="cmHora">Envios por hora</label><input type="number" id="cmHora" min="10" max="2000" value="'+escapeAttr(cfg.por_hora || 100)+'"></div></div>'+
+        '<p class="d">A senha da conta não fica aqui: ela está guardada no Google (Secret Manager, nome COMUNICADOS_SMTP_SENHA). Comece com 100 por hora e aumente se a Webnode aceitar.</p>'+
+        '<button class="btn btn-ghost btn-add" data-action="cm-cfg">Salvar configuração</button></details>';
+    cmContar(); cmListar();
+  }
+  function cmEscolas(){
+    const muns = cmPublico().municipios, w = $("cmEscWrap"), s = $("cmEscola"); if(!w) return;
+    w.hidden = muns.length !== 1; if(w.hidden){ s.value = ""; return; }
+    getDocs(query(collection(db, "escolas"), where("municipio_id", "==", muns[0]))).then(sn => { const l = []; sn.forEach(d => l.push({ id:d.id, nome:d.data().nome || "Escola" }));
+      l.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); s.innerHTML = '<option value="">Todas as escolas</option>'+l.map(e => '<option value="'+escapeAttr(e.id)+'">'+escapeHtml(e.nome)+'</option>').join(""); }).catch(() => {});
+  }
+  function cmContar(){
+    clearTimeout(cm.timer); const el = $("cmConta"); if(!el) return;
+    const pub = cmPublico(); if(!pub.perfis.length){ cm.conta = null; el.innerHTML = "Escolha pelo menos um público."; return; }
+    el.innerHTML = "Contando quem recebe..."; cm.conta = null;
+    cm.timer = setTimeout(async () => {
+      try{ const r = await chamarBackup("comunicadoEmail", { acao:"contar", publico:pub, tipo:$("cmTipo").value }, 60000); if(!$("cmConta")) return;
+        cm.conta = r.total;
+        $("cmConta").innerHTML = '<b>Vai para '+fmt(r.total)+' pessoa(s)</b>: '+CM_PERFIS.filter(([k]) => r.por[k]).map(([k, v]) => fmt(r.por[k])+' '+v.split(" (")[0].toLowerCase()).join(", ")+
+          (r.semEmail ? ' · '+fmt(r.semEmail)+' sem e-mail no cadastro (não recebem)' : '')+(r.sairam ? ' · '+fmt(r.sairam)+' pediram para não receber' : '')+
+          (r.total ? ' · leva cerca de '+(r.horas < 1 ? "menos de 1 hora" : String(r.horas).replace(".", ",")+" hora(s)")+' ('+fmt(r.por_hora)+' por hora)' : ''); }
+      catch(e){ if($("cmConta")) $("cmConta").textContent = "Não consegui contar ("+(e.message || e.code || "erro")+")."; }
+    }, 500);
+  }
+  function cmDados(){
+    const ag = $("cmAgendar").value;
+    return { tipo:$("cmTipo").value, assunto:$("cmAssunto").value.trim(), mensagem:$("cmMsg").value.trim(), botao_texto:$("cmBtTxt").value.trim(), botao_link:$("cmBtLink").value.trim(),
+      publico:cmPublico(), agendar_ms:ag ? new Date(ag).getTime() : 0 };
+  }
+  async function cmTeste(btn){
+    const d = cmDados(); if(d.assunto.length < 3 || d.mensagem.length < 5){ toast("Escreva o assunto e a mensagem.", true); return; }
+    btn.disabled = true; const rot = btn.textContent; btn.textContent = "Enviando teste...";
+    try{ const r = await chamarBackup("comunicadoEmail", { ...d, acao:"teste" }, 60000); toast("Teste enviado para "+r.para+". Confira a caixa de entrada e o spam."); }
+    catch(e){ toast(e.message || "O teste não saiu.", true); }
+    btn.disabled = false; btn.textContent = rot;
+  }
+  async function cmEnviar(btn){
+    const d = cmDados();
+    if(d.assunto.length < 3 || d.mensagem.length < 5){ toast("Escreva o assunto e a mensagem.", true); return; }
+    if(!cm.conta){ toast("Espere a contagem de quem recebe.", true); return; }
+    if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = (d.agendar_ms ? "Agendar" : "Enviar")+" para "+fmt(cm.conta)+" pessoa(s)? Toque de novo";
+      setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "Enviar comunicado"; } }, 6000); return; }
+    btn.disabled = true; btn.textContent = "Preparando a fila...";
+    try{ const r = await chamarBackup("comunicadoEmail", { ...d, acao:"enviar", confirmo:cm.conta }, 300000);
+      toast("Comunicado na fila: "+fmt(r.total)+" pessoa(s). O robô envia aos poucos."); ["cmAssunto","cmMsg","cmBtTxt","cmBtLink","cmAgendar"].forEach(i => $(i).value = ""); cmListar(); }
+    catch(e){ toast(e.message || "Não foi possível enviar.", true); if(/mudou/.test(e.message || "")) cmContar(); }
+    btn.disabled = false; delete btn.dataset.confirma; btn.textContent = "Enviar comunicado";
+  }
+  async function cmListar(){
+    const el = $("cmLista"); if(!el) return;
+    try{ const sn = await getDocs(query(collection(db, "comunicados_email"), orderBy("criado_em", "desc"), limit(30))); cm.lista = []; sn.forEach(d => cm.lista.push({ id:d.id, ...d.data() })); }
+    catch(e){ el.innerHTML = '<div class="empty">Não foi possível ler ('+escapeHtml(e.code || "erro")+').</div>'; return; }
+    if(!$("cmLista")) return;
+    el.innerHTML = !cm.lista.length ? '<div class="empty">Nenhum comunicado ainda.</div>' : cm.lista.map(c => { const st = CM_ST[c.status] || [c.status, ""], pct = c.total ? Math.round((c.enviados || 0) * 100 / c.total) : 0;
+      return '<div class="cm-item"><div class="cm-it-top"><b>'+escapeHtml(c.assunto || "")+'</b><span class="chip '+st[1]+'">'+st[0]+'</span></div>'+
+        '<small>'+escapeHtml([(c.publico && c.publico.perfis || []).map(p => (CM_PERFIS.find(x => x[0] === p) || [p, p])[1].split(" (")[0]).join(", "), c.tipo === "servico" ? "aviso de serviço" : "informativo", "por "+(c.criado_por || "-"), c.status === "agendado" ? "agendado para "+pnDataHora(c.agendado_para) : pnDataHora(c.criado_em)].join(" · "))+'</small>'+
+        '<div class="cm-barra"><i style="width:'+pct+'%"></i></div><small>'+fmt(c.enviados || 0)+' de '+fmt(c.total || 0)+' enviados'+(c.falhas ? ' · <b style="color:#b3261e">'+fmt(c.falhas)+' falha(s)</b>' : '')+'</small>'+
+        '<div class="cm-it-acoes">'+(c.falhas ? '<button class="btn-mini btn-gerenciar" data-action="cm-falhas" data-id="'+escapeAttr(c.id)+'">Ver falhas</button>' : '')+
+        (["enviando","agendado"].includes(c.status) ? '<button class="btn-mini cm-x" data-action="cm-cancelar" data-id="'+escapeAttr(c.id)+'">Cancelar</button>' : '')+'</div></div>'; }).join("");
+  }
+  async function cmFalhas(id){
+    try{ const sn = await getDocs(collection(db, "comunicados_email", id, "envio_lotes")); const l = []; sn.forEach(d => (d.data().falhas || []).forEach(f => l.push(f)));
+      const csv = "e-mail;erro\n"+l.map(f => '"'+String(f.email).replace(/"/g, '""')+'";"'+String(f.erro || "").replace(/"/g, '""')+'"').join("\n");
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿"+csv], { type:"text/csv" })); a.download = "falhas-comunicado-"+id+".csv"; a.click(); }
+    catch(e){ toast("Não foi possível ler as falhas.", true); }
+  }
+  async function cmCancelar(id, btn){
+    if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = "Cancelar? Toque de novo"; return; }
+    btn.disabled = true; try{ await chamarBackup("comunicadoEmail", { acao:"cancelar", id }, 30000); toast("Comunicado cancelado."); cmListar(); }catch(e){ toast(e.message || "Não foi possível cancelar.", true); btn.disabled = false; }
+  }
+  async function cmSalvarCfg(btn){
+    const porta = Number($("cmPorta").value), por_hora = Math.min(2000, Math.max(10, Math.round(Number($("cmHora").value) || 100)));
+    const dados = { host:$("cmHost").value.trim(), porta, remetente:$("cmRem").value.trim().toLowerCase(), nome:$("cmNome").value.trim().slice(0, 60), por_hora, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    if(!/^[a-z0-9.-]{4,100}$/i.test(dados.host) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(dados.remetente)){ toast("Confira o servidor e a conta.", true); return; }
+    btn.disabled = true; try{ await setDoc(doc(db, "config", "comunicados"), dados); toast("Configuração salva."); }catch(e){ toast("Não foi possível salvar ("+(e.code || "erro")+").", true); } btn.disabled = false;
+  }
+  document.addEventListener("change", ev => { const t = ev.target; if(!t || !t.closest) return;
+    if(t.closest("#cmPerfis") || t.id === "cmTipo" || t.id === "cmEscola"){ cmContar(); }
+    else if(t.closest("#cmMuns")){ cmEscolas(); cmContar(); } });
+
   async function renderAuditoria(){
     try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
     const hoje = new Date(), semana = new Date(Date.now() - 6 * 86400000);
@@ -6756,6 +6881,11 @@
     else if(acao === "pn-bg-indice"){ el.disabled = true; el.textContent = "Atualizando...";
       try{ const r = await chamarBackup("atualizarIndiceBusca", {}, 300000); toast("Índice atualizado: "+fmt(r.total)+" conteúdos."); BG.idx = null; BG.carregando = null; painelBuscas(); }
       catch(e){ toast("Não consegui atualizar ("+(e.code || "erro")+").", true); el.disabled = false; el.textContent = "Atualizar o índice da busca agora"; } }
+    else if(acao === "cm-teste"){ cmTeste(el); }
+    else if(acao === "cm-enviar"){ cmEnviar(el); }
+    else if(acao === "cm-falhas"){ cmFalhas(el.dataset.id); }
+    else if(acao === "cm-cancelar"){ cmCancelar(el.dataset.id, el); }
+    else if(acao === "cm-cfg"){ cmSalvarCfg(el); }
     else if(acao === "bg-abrir"){ bgAbrir(+el.dataset.arg, el); }
     else if(acao === "bg-mais"){ BG.abertos[el.dataset.arg] = true; bgBuscar(BG.termo); const q = $("bgQ"); if(q) q.focus(); }
     else if(acao === "ini-conheca"){ abrirConheca(el); }

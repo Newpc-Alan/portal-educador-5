@@ -391,6 +391,7 @@ export { senhaProvisoria, trocarSenhaProvisoria, expirarSenhasProvisorias } from
 export { gerarAcessoTurma, codigoAlunoQr, vincularContaAluno, entrarAlunoQr, entradaQrTurma } from './acesso-aluno.js';
 export { criarUsuarioManual, contasSemCadastro } from './usuario-manual.js';
 export { indiceBusca, registrarBusca, atualizarIndiceBusca } from './busca.js';
+export { comunicadoEmail, enviarComunicados, descadastroEmail } from './comunicados.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
 export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';
