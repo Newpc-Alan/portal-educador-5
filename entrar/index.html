@@ -3645,7 +3645,7 @@
     // modulos mais abertos
     const porMod = {};
     ac.forEach(a => (a.modulos||[]).forEach(id => { porMod[id] = (porMod[id]||0)+1; }));
-    const nomesMod = {}; Object.keys(porMod).forEach(id => { const m = MODULOS.find(x => x.id === id); nomesMod[m ? m.nome : id] = porMod[id]; });
+    const nomesMod = {}; Object.keys(porMod).forEach(id => { const m = MODULOS.find(x => x.id === id); nomesMod[id === "app_maestro" ? "App do Maestro (download)" : m ? m.nome : id] = porMod[id]; });
     h += '<div class="pn-card"><h3>Botões mais abertos</h3>'+(Object.keys(nomesMod).length ? barrasHorizontais(nomesMod, 10, "abertura(s) em dias distintos", "modulo") : '<div class="empty">Ainda sem aberturas registradas.</div>')+'</div>';
     // interesse por recurso fora do plano ("Tenho interesse" em "Conheça mais"): argumento de upgrade por município
     h += painelInteresse(us, ac);
@@ -3793,7 +3793,7 @@
       cad_dia: (d) => pnPessoas("Cadastros em "+dataBR(d), profs.filter(u => diaDe(u.criado_em) === d)),
       acc_dia: (d) => acessos(ac.filter(a => a.dia === d), "Acessos em "+dataBR(d)),
       uf: (uf) => pnPessoas("Professores em "+uf, profs.filter(u => (u.uf || ((cacheMunicipios.find(m => m.id === u.municipio_id) || {}).uf) || "Sem UF") === uf)),
-      modulo: (nome) => { const m = MODULOS.find(x => x.nome === nome), id = m ? m.id : nome; return acessos(ac.filter(a => (a.modulos || []).includes(id)), "Quem abriu "+nome+" (30 dias)"); },
+      modulo: (nome) => { const m = MODULOS.find(x => x.nome === nome), id = nome === "App do Maestro (download)" ? "app_maestro" : m ? m.id : nome; return acessos(ac.filter(a => (a.modulos || []).includes(id)), "Quem abriu "+nome+" (30 dias)"); },
       perfil: (p) => p === "aluno" ? pn.det.alunos() : pnPessoas("Perfil: "+(pnPerfil[p] || p), ordenar(us.filter(u => u.perfil === p))),
       arquivo: (titulo) => { const it = (acvAdm.itens || []).find(x => x.titulo === titulo); const id = it ? it.id : titulo.replace(/^Arquivo /, "");
         return acessos(ac.filter(a => (a.acervo || []).some(x => x === id || x.startsWith(id))), "Quem abriu: "+titulo); },
@@ -3941,7 +3941,8 @@
       pnTile("Aguardando aprovação", fmt(st("pendente").length), "moderação antes de publicar", st("pendente").length ? "pn-alerta" : "", "rede_st|pendente") +
       pnTile("Ocultos", fmt(st("oculto").length), "pela moderação", "", "rede_st|oculto") +
       pnTile("Com denúncia", fmt(rede.filter(x => (x.denuncias || 0) > 0).length), "3 denúncias ocultam sozinho", rede.some(x => (x.denuncias || 0) > 0) ? "pn-alerta" : "", "rede_den") + '</div>';
-    h += '<h3 class="pn-sec">Turma ao Vivo agora</h3><div class="pn-tiles pn-tiles-2">'+pnTile("Aulas abertas agora", "…", "Turma ao Vivo", "pn-vivo", "aulas_agora")+'</div>';
+    h += '<h3 class="pn-sec">Turma ao Vivo agora e app do Maestro</h3><div class="pn-tiles pn-tiles-2">'+pnTile("Aulas abertas agora", "…", "Turma ao Vivo", "pn-vivo", "aulas_agora")+
+      pnTile("Downloads do app do Maestro", "…", "últimos 30 dias", "", "apk_maestro")+'</div>';
     h += '<h3 class="pn-sec">Sala Conectada e Turma ao Vivo (últimos 30 dias)</h3><div class="pn-tiles pn-tiles-2">'+
       pnTile("Envios para a turma", fmt(envios.length), "links e arquivos no Portal do Aluno", "", "envios") +
       pnTile("Alunos que entraram pelo QR", fmt(qr30), "total desde o início: "+fmt(qr.total || 0), "", "qr") +
@@ -3950,7 +3951,7 @@
       '<div class="pn-card pn-largo"><h3>Entradas pelo cartão QR por dia</h3>'+barrasEmpilhadas(dias, qrDia, {}, "qr_dia")+'</div>'+
       '<div class="pn-card"><h3>Compartilhamentos por município</h3>'+barrasHorizontais(porMun, 10, "material(is)", "rede_mun")+'</div></div>';
     h += '<p class="pn-nota">Envios e avisos vêm da Auditoria, que começou em 01/11/2026: antes disso não há registro nominal.</p>';
-    $("pnCorpo").innerHTML = h; pnPreencherAulasAgora();
+    $("pnCorpo").innerHTML = h; pnPreencherAulasAgora(); pnDownloadsMaestro();
     $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · Educador em Rede, Sala Conectada e Turma ao Vivo";
   }
 
@@ -3976,6 +3977,21 @@
     const l = await pnAulasAgora(); if(!el.isConnected) return;
     el.querySelector("b").textContent = l === null ? "-" : fmt(l.length);
     const sm = el.querySelector("small"); if(sm) sm.textContent = l && l.length ? l.slice(0, 2).map(a => a.turma_nome || "turma").join(", ")+(l.length > 2 ? " e mais "+(l.length - 2) : "") : "nenhuma aula aberta neste momento";
+  }
+
+  // ---------- Sala Conectada: downloads do app do Maestro (acessos_dia com "app_maestro"; registrado desde 01/11/2026) ----------
+  async function pnDownloadsMaestro(){
+    const el = document.querySelector('[data-det="apk_maestro"]'); if(!el) return;
+    const d30 = isoDe(Date.now() - 30*DIA); let l = [];
+    try{ const sn = await getDocs(query(collection(db, "acessos_dia"), where("modulos", "array-contains", "app_maestro"))); sn.forEach(d => { const x = d.data(); if(x.dia >= d30) l.push(x); }); }
+    catch(e){ console.warn("downloads maestro:", e.code); el.querySelector("b").textContent = "-"; return; }
+    if(!el.isConnected) return;
+    await Promise.all(l.map(async x => { x.nome = await pnNomeUsuario(x.uid); }));
+    l.sort((a, b) => b.dia.localeCompare(a.dia));
+    el.querySelector("b").textContent = fmt(l.length);
+    const sm = el.querySelector("small"); if(sm) sm.textContent = fmt(new Set(l.map(x => x.uid)).size) + " pessoa(s) · últimos 30 dias";
+    pn.det.apk_maestro = () => ({ titulo:"Downloads do app do Maestro (30 dias)", cols:["Dia", "Quem baixou"], rows:l.map(x => ({ c:[x.dia.split("-").reverse().join("/"), x.nome], uid:x.uid })),
+      nota:"Fonte: registro de acessos (uma linha por pessoa por dia). Contagem iniciada em 01/11/2026, em Aplicativos Úteis › App do Maestro." });
   }
 
   // ---------- Conteúdo: Provas online (correção) e Comunicados por e-mail ----------

@@ -94,8 +94,16 @@ button.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rg
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, setDoc, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
-onAuthStateChanged(getAuth(app), user => { if(!user) location.replace("/entrar/"); });
+const auth = getAuth(app), db = getFirestore(app);
+onAuthStateChanged(auth, user => { if(!user) location.replace("/entrar/"); });
+// conta o download do app do Maestro (uma vez por pessoa por dia, no mesmo registro de acessos do Painel; também vai para a Auditoria)
+function registrarDownloadMaestro(){
+  const u = auth.currentUser; if(!u) return;
+  const dia = new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);
+  setDoc(doc(db, "acessos_dia", dia + "_" + u.uid), { dia, uid:u.uid, modulos:arrayUnion("app_maestro"), ultimo:serverTimestamp() }, { merge:true }).catch(e => console.warn("download:", e.code));
+}
 // App do Maestro: pega sempre a versão mais nova publicada (Release pública do GitHub); se a consulta falhar, usa a última conhecida
 const APK_RESERVA = "https://github.com/Newpc-Alan/portal-educador-5/releases/download/maestro-1.1.0/maestro-1.1.0.apk";
 document.addEventListener("click", async ev => {
@@ -109,6 +117,7 @@ document.addEventListener("click", async ev => {
       const a = rel && (rel.assets || []).find(x => /\.apk$/i.test(x.name || ""));
       if(a){ url = a.browser_download_url; versao = rel.tag_name.replace(/^maestro-/, ""); } }
   } catch(e){}
+  registrarDownloadMaestro();
   nota.textContent = "Download iniciado" + (versao ? " (versão " + versao + ")" : "") + ". Abra o arquivo no tablet para instalar.";
   btn.textContent = "Baixar de novo";
   location.href = url;
