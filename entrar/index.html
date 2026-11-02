@@ -3615,6 +3615,7 @@
       tile("Alunos com conta", painelAlunos.total === null ? "-" : fmt(painelAlunos.total), "entram pelo e-mail, código e PIN ou cartão QR", "", "alunos") +
       tile("Alunos que acessaram hoje", fmt(painelAlunos.hoje), fmt(painelAlunos.sete)+" em 7 dias", "", "alunos_hoje") +
       tile("Pessoas que acessaram em 7 dias", temAcessos ? fmt(ac7.size) : "-", "professores e equipe", "", temAcessos ? "acessos_7" : "") +
+      tile("Aulas abertas agora", "…", "Turma ao Vivo", "pn-vivo", "aulas_agora") +
       '</div>';
 
     // series diarias (30 dias)
@@ -3666,7 +3667,7 @@
           '<td class="usr-vinc">'+dataCurta(u.criado_em)+'</td></tr>'; }).join("") : '<tr><td colspan="5" class="usr-vinc">Nenhum cadastro ainda.</td></tr>')+
       '</tbody></table></div></div>';
     h += '</div>';
-    $("pnCorpo").innerHTML = h;
+    $("pnCorpo").innerHTML = h; pnPreencherAulasAgora();
     painelEntradasPorTela();
   }
 
@@ -3940,6 +3941,7 @@
       pnTile("Aguardando aprovação", fmt(st("pendente").length), "moderação antes de publicar", st("pendente").length ? "pn-alerta" : "", "rede_st|pendente") +
       pnTile("Ocultos", fmt(st("oculto").length), "pela moderação", "", "rede_st|oculto") +
       pnTile("Com denúncia", fmt(rede.filter(x => (x.denuncias || 0) > 0).length), "3 denúncias ocultam sozinho", rede.some(x => (x.denuncias || 0) > 0) ? "pn-alerta" : "", "rede_den") + '</div>';
+    h += '<h3 class="pn-sec">Turma ao Vivo agora</h3><div class="pn-tiles pn-tiles-2">'+pnTile("Aulas abertas agora", "…", "Turma ao Vivo", "pn-vivo", "aulas_agora")+'</div>';
     h += '<h3 class="pn-sec">Sala Conectada e Turma ao Vivo (últimos 30 dias)</h3><div class="pn-tiles pn-tiles-2">'+
       pnTile("Envios para a turma", fmt(envios.length), "links e arquivos no Portal do Aluno", "", "envios") +
       pnTile("Alunos que entraram pelo QR", fmt(qr30), "total desde o início: "+fmt(qr.total || 0), "", "qr") +
@@ -3948,8 +3950,98 @@
       '<div class="pn-card pn-largo"><h3>Entradas pelo cartão QR por dia</h3>'+barrasEmpilhadas(dias, qrDia, {}, "qr_dia")+'</div>'+
       '<div class="pn-card"><h3>Compartilhamentos por município</h3>'+barrasHorizontais(porMun, 10, "material(is)", "rede_mun")+'</div></div>';
     h += '<p class="pn-nota">Envios e avisos vêm da Auditoria, que começou em 01/11/2026: antes disso não há registro nominal.</p>';
-    $("pnCorpo").innerHTML = h;
+    $("pnCorpo").innerHTML = h; pnPreencherAulasAgora();
     $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · Educador em Rede, Sala Conectada e Turma ao Vivo";
+  }
+
+  // ---------- Turma ao Vivo: aulas abertas agora (qr_aulas com aberta_ate no futuro) ----------
+  const pnNomes = {};
+  async function pnNomeUsuario(uid){
+    if(!uid) return "-"; if(pnNomes[uid] !== undefined) return pnNomes[uid];
+    try{ const d = await getDoc(doc(db, "usuarios", uid)); const x = d.exists() ? d.data() : {}; pnNomes[uid] = x.nome || x.email || uid; }catch(e){ pnNomes[uid] = uid; }
+    return pnNomes[uid];
+  }
+  async function pnAulasAgora(){
+    let l = [];
+    try{ const sn = await getDocs(query(collection(db, "qr_aulas"), where("aberta_ate", ">", Timestamp.now()))); sn.forEach(d => l.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("aulas agora:", e.code); return null; }
+    await Promise.all(l.map(async a => { a.prof = await pnNomeUsuario(a.por); }));
+    l.sort((a, b) => msDe(a.aberta_ate) - msDe(b.aberta_ate));
+    pn.det.aulas_agora = () => ({ titulo:"Aulas abertas agora (Turma ao Vivo)", cols:["Turma", "Professor", "Começou", "Termina", "Prorrogada"],
+      rows:l.map(a => ({ c:[a.turma_nome || a.id, a.prof, pnDataHora(a.aberta_em), pnDataHora(a.aberta_ate), a.prorrogado_min ? "+"+a.prorrogado_min+" min" : "-"], uid:a.por })),
+      nota:"Fonte: qr_aulas (aula aberta pelo professor no Turma ao Vivo). Atualize o Painel para ver as novas." });
+    return l;
+  }
+  async function pnPreencherAulasAgora(){
+    const el = document.querySelector('[data-det="aulas_agora"]'); if(!el) return;
+    const l = await pnAulasAgora(); if(!el.isConnected) return;
+    el.querySelector("b").textContent = l === null ? "-" : fmt(l.length);
+    const sm = el.querySelector("small"); if(sm) sm.textContent = l && l.length ? l.slice(0, 2).map(a => a.turma_nome || "turma").join(", ")+(l.length > 2 ? " e mais "+(l.length - 2) : "") : "nenhuma aula aberta neste momento";
+  }
+
+  // ---------- Conteúdo: Provas online (correção) e Comunicados por e-mail ----------
+  async function painelProvasComunicados(){
+    const el = $("pnProvCom"); if(!el) return;
+    const d30 = Timestamp.fromMillis(Date.now() - 30*DIA), mes = new Date(Date.now() - 4*3600e3).toISOString().slice(0, 7);
+    const [pend, fin, reav, coms, off] = await Promise.all([
+      // provas dos últimos 120 dias; para cada uma, quantos alunos ainda têm questão para corrigir (sem consulta em grupo: não precisa de regra nem índice novos)
+      getDocs(query(collection(db, "provas_online"), where("criado_em", ">=", Timestamp.fromMillis(Date.now() - 120*DIA)))).then(async sn => {
+        const l = []; await Promise.all(sn.docs.filter(d => !["cancelada"].includes(d.data().status)).map(async d => {
+          const r = await getDocs(query(collection(db, "provas_online", d.id, "po_resultados"), where("pendentes", ">", 0))).catch(() => null);
+          if(r) r.forEach(x => l.push({ pid:d.id, pendentes:x.data().pendentes || 0 })); }));
+        return l; }).catch(e => { console.warn("pendentes:", e.code); return null; }),
+      getDocs(query(collection(db, "provas_online"), where("correcao_finalizada", "==", true))).catch(e => { console.warn("finalizadas:", e.code); return null; }),
+      getDocs(query(collection(db, "auditoria"), where("colecao", "==", "po_resultados"), where("em", ">=", d30), orderBy("em", "desc"), limit(500))).catch(e => { console.warn("reavaliações:", e.code); return null; }),
+      getDocs(query(collection(db, "comunicados_email"), orderBy("criado_em", "desc"), limit(200))).catch(e => { console.warn("comunicados:", e.code); return null; }),
+      getCountFromServer(query(collection(db, "comunicados_pref"), where("off", "==", true))).then(r => r.data().count).catch(() => null)
+    ]);
+    if(!$("pnProvCom")) return;
+    // provas com questão esperando correção: agrupa os alunos pela prova
+    const porProva = {}; if(pend) pend.forEach(x => { (porProva[x.pid] = porProva[x.pid] || { alunos:0, questoes:0 }); porProva[x.pid].alunos++; porProva[x.pid].questoes += x.pendentes; });
+    const pids = Object.keys(porProva);
+    const provas = {}; await Promise.all(pids.map(id => getDoc(doc(db, "provas_online", id)).then(s => { if(s.exists()) provas[id] = s.data(); }).catch(() => {})));
+    const linhaPend = await Promise.all(pids.map(async id => { const p = provas[id] || {}; return { id, p, prof: await pnNomeUsuario(p.professor_uid), ...porProva[id], fim: msDe(p.fecha_em) }; }));
+    linhaPend.sort((a, b) => a.fim - b.fim);
+    const atrasadas = linhaPend.filter(x => x.fim && Date.now() - x.fim > 7*DIA);
+    const finL = []; if(fin) fin.forEach(d => finL.push({ id:d.id, ...d.data() }));
+    const reavL = []; if(reav) reav.forEach(d => { const x = d.data(); if(/^Reavaliou/.test(x.detalhe || "")) reavL.push(x); });
+    const comL = []; if(coms) coms.forEach(d => comL.push({ id:d.id, ...d.data() }));
+    const comMes = comL.filter(c => pnDataHora(c.criado_em) !== "-" && new Date(msDe(c.criado_em) - 4*3600e3).toISOString().slice(0, 7) === mes);
+    const enviadosMes = comMes.reduce((t, c) => t + (c.enviados || 0), 0), falhasMes = comMes.reduce((t, c) => t + (c.falhas || 0), 0);
+    const andando = comL.filter(c => ["enviando", "agendado"].includes(c.status)), comFalha = comL.filter(c => (c.falhas || 0) > 0);
+    const linhaPendTab = x => ({ c:[x.p.titulo || x.id, x.prof, x.p.turma_nome || "-", fmt(x.alunos)+" aluno(s)", fmt(x.questoes), x.fim ? pnDataHora(x.p.fecha_em) : "-"], uid:x.p.professor_uid });
+    const COLS_P = ["Prova", "Professor", "Turma", "Alunos", "Questões para corrigir", "Prova terminou"];
+    const linhaCom = c => ({ c:[c.assunto || "-", (CM_ST[c.status] || [c.status])[0], fmt(c.enviados || 0)+" de "+fmt(c.total || 0), fmt(c.falhas || 0), c.criado_por || "-", pnDataHora(c.criado_em)] });
+    const COLS_C = ["Assunto", "Situação", "Enviados", "Falhas", "Por", "Criado em"];
+    Object.assign(pn.det, {
+      po_pend: () => ({ titulo:"Provas online com questão esperando correção", cols:COLS_P, rows:linhaPend.map(linhaPendTab), nota:"Fonte: resultados das provas online (pendentes > 0). O professor corrige em Corrigir questões abertas." }),
+      po_atras: () => ({ titulo:"Correção pendente há mais de 7 dias", cols:COLS_P, rows:atrasadas.map(linhaPendTab) }),
+      po_fin: () => ({ titulo:"Provas com correção finalizada", cols:["Prova", "Turma", "Finalizada por", "Em"], rows:finL.map(p => ({ c:[p.titulo || p.id, p.turma_nome || "-", p.correcao_finalizada_por || "-", pnDataHora(p.correcao_finalizada_em)] })) }),
+      po_reav: () => ({ titulo:"Reavaliações de nota (30 dias)", cols:["Quando", "Professor", "O que mudou", "Nota"], rows:reavL.map(x => ({ c:[pnDataHora(x.em), x.autor_email || "-", x.detalhe || "", x.valores && x.valores.nota ? String(x.valores.nota.de).replace(".", ",")+" → "+String(x.valores.nota.para).replace(".", ",") : "-"], uid:x.autor_uid, email:x.autor_email || "" })),
+        nota:"Fonte: Auditoria. Toda mudança de nota depois de finalizar a correção exige justificativa." }),
+      cm_mes: () => ({ titulo:"Comunicados por e-mail ("+mes+")", cols:COLS_C, rows:comMes.map(linhaCom) }),
+      cm_todos: () => ({ titulo:"Comunicados por e-mail (últimos 200)", cols:COLS_C, rows:comL.map(linhaCom) }),
+      cm_andando: () => ({ titulo:"Comunicados enviando ou agendados", cols:COLS_C, rows:andando.map(linhaCom) }),
+      cm_falha: () => ({ titulo:"Comunicados com falhas", cols:COLS_C, rows:comFalha.map(linhaCom), nota:"Em Comunicados por e-mail, Ver falhas baixa a lista de e-mails que não foram entregues." })
+    });
+    el.innerHTML = '<h3 class="pn-sec">Provas online · correção</h3><div class="pn-tiles pn-tiles-2">'+
+      pnTile("Provas esperando correção", fmt(linhaPend.length), fmt(linhaPend.reduce((t, x) => t + x.questoes, 0))+" questões de "+fmt(linhaPend.reduce((t, x) => t + x.alunos, 0))+" aluno(s)", linhaPend.length ? "pn-alerta" : "", "po_pend") +
+      pnTile("Pendentes há mais de 7 dias", fmt(atrasadas.length), "depois do fim da prova", atrasadas.length ? "pn-alerta" : "", "po_atras") +
+      pnTile("Correções finalizadas", fmt(finL.length), "notas travadas", "", "po_fin") +
+      pnTile("Reavaliações de nota", fmt(reavL.length), "últimos 30 dias, com justificativa", "", "po_reav") + '</div>'+
+      '<h3 class="pn-sec">Comunicados por e-mail</h3><div class="pn-tiles pn-tiles-2">'+
+      pnTile("Comunicados no mês", fmt(comMes.length), fmt(comL.length)+" no total", "", "cm_mes") +
+      pnTile("E-mails enviados no mês", fmt(enviadosMes), falhasMes ? fmt(falhasMes)+" falha(s)" : "sem falhas", falhasMes ? "pn-alerta" : "", "cm_mes") +
+      pnTile("Enviando ou agendados", fmt(andando.length), andando.length ? fmt(andando.reduce((t, c) => t + (c.total || 0) - (c.enviados || 0), 0))+" e-mails na fila" : "fila vazia", "", "cm_andando") +
+      pnTile("Pediram para não receber", off === null ? "-" : fmt(off), "comunicados informativos", "", "") + '</div>';
+    // pendências: entram as novas com atalho
+    const ul = $("pnPendLista"), extra = [];
+    if(atrasadas.length) extra.push([atrasadas.length, "prova(s) online com correção pendente há mais de 7 dias", "po_atras"]);
+    if(comFalha.length) extra.push([comFalha.length, "comunicado(s) por e-mail com falhas de entrega", "cm_falha"]);
+    if(ul && extra.length){
+      const vazio = ul.querySelector(".empty"); if(vazio) ul.innerHTML = '<ul class="pn-pend"></ul>';
+      const lista = ul.querySelector("ul.pn-pend") || ul;
+      lista.insertAdjacentHTML("beforeend", extra.map(([q, t, det]) => '<li><b>'+fmt(q)+'</b> '+t+' <button type="button" class="nt-lnk" data-action="pn-det" data-det="'+det+'">Ver</button></li>').join(""));
+    }
   }
 
   // ---------- Conteúdo: acervo de cada município ----------
@@ -4098,6 +4190,7 @@
       tile("Usos de IA no mês", fmt(iaTot), "custo estimado US$ "+iaUsd.toFixed(2).replace(".", ",")) + '</div>';
     h += '<h3 class="pn-sec">Acervo dos municípios</h3><div id="pnAcvMun"><div class="empty">Carregando...</div></div>';
     h += '<h3 class="pn-sec">O que a rede procura <small style="font-weight:600;color:var(--muted)">(busca do Início, sem identificar ninguém)</small></h3><div id="pnBuscas"><div class="empty">Carregando...</div></div>';
+    h += '<div id="pnProvCom"><div class="empty">Carregando provas online e comunicados...</div></div>';
     h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
       tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias", "", "certTotal") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados", "", "relTotal") +
       tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados", "", "avaliacoes") + tile("Aulas no Maestro", v(n.maestro), "", "", "maestro") +
@@ -4106,12 +4199,13 @@
       [n.dicasNovas, "dica(s) de professor para revisar", "/dicas/#recebidas"], [n.dicasAluNovas, "dica(s) de aluno para revisar", "/dicas/?aluno=1#recebidas"],
       [n.relPend, "relatório(s) aguardando aprovação da escola", "/relatorios/"], [n.triPend, "título(s) da Biblioteca na triagem de licença", "/biblioteca/#triagem"]
     ].filter(x => x[0]);
-    h += '<h3 class="pn-sec">Pendências</h3><div class="pn-card">'+(pend.length
+    h += '<h3 class="pn-sec">Pendências</h3><div class="pn-card" id="pnPendLista">'+(pend.length
       ? '<ul class="pn-pend">'+pend.map(([q, t, url]) => '<li><b>'+fmt(q)+'</b> '+t+' <a href="'+url+'">Abrir</a></li>').join("")+'</ul>'
       : '<div class="empty" style="padding:6px 0">Nada pendente. 👏</div>')+'</div>';
     $("pnCorpo").innerHTML = h;
     painelAcervoMunicipios();
     painelBuscas();
+    painelProvasComunicados();
     $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · contagem direta do banco";
   }
 
