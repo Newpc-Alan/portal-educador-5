@@ -397,7 +397,7 @@ Cursos com certificado para o professor, com o mesmo visual do Portal: cursos e 
 3. A aula só conta quando você cumpre o tempo mínimo e assiste pelo menos 90% de cada vídeo.
 4. Depois de todas as aulas, faça a **Avaliação final** (padrão: nota mínima de 70% e 3 tentativas).
 5. Os cursos também aparecem na **Busca do Portal**, no Início.
-6. Toque em **Emitir meu certificado**. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `app.portaldoeducador.com.br/validar/`.
+6. Toque em **Emitir meu certificado**. Ele sai em nome da NEWPC TECNOLOGIA LTDA (CNPJ 20.892.343/0001-15), com o seu nome, CPF, curso, carga horária e, no verso, o conteúdo programático. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `app.portaldoeducador.com.br/validar/`.
 
 ![Formação Continuada](s49-formacao.png){85}
 
