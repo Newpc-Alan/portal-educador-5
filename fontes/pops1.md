@@ -1166,11 +1166,14 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 5. Para abrir um conteúdo em todas as telas, use **📲 Abrir conteúdo para a turma** (ou **📚 Acervo do município** para um arquivo da rede, navegando pelas pastas) (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
 6. Atenda as mãos ✋ (o Controle da aula mostra quantas e de quem): toque no aluno, use **💬 Conversar** e, ao terminar, **✋ Atendi: baixar a mão**. Aluno fora da tarefa: toque nele e **⏸️ Pausar a tela**. Para checar a turma, **📊 Pesquisa rápida**. Atividade ou prova adaptada: **📲 Enviar só para ...** no cartão do aluno.
 7. Se a escola liga a foto da carteirinha, confira em **📸 Entradas pela carteirinha** quem entrou sem senha (**👁️ Ver foto**). Rosto que não confere: **Não é este aluno**.
-8. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
+8. Antes de encerrar, verifique a aprendizagem com **🧠 Quiz rápido** (3 a 10 perguntas bastam): lance, acompanhe quantos terminaram e toque em **🏁 Encerrar e ver relatório**. Pergunta com menos de 50% de acerto é a primeira a retomar na próxima aula; exporte o PDF se a coordenação pedir.
+9. Tablet com 🪫 (bateria baixa) na faixa do Controle da aula: peça para ligar na tomada ou no carrinho antes da próxima atividade.
+10. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
 
 ### Pontos de controle
 - ☐ Todos os alunos presentes aparecem verdes antes de começar a atividade.
 - ☐ Nenhuma tela ficou pausada ao encerrar.
+- ☐ Quiz rápido encerrado (relatório salvo em Meus trabalhos) e aparelhos com bateria baixa encaminhados para carregar.
 - ☐ Entradas pela carteirinha conferidas (foto ou presença visual).
 - ☐ Alunos que entraram pelo número da aula (linha à parte) foram identificados e orientados a usar a conta.
 

@@ -484,6 +484,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 | **Aulas da Lousa** | Aulas salvas na Lousa Interativa |
 | **Roteiros** | Textos do Teleprompter |
 | **Folhas Mágicas** | Folhas personalizadas para imprimir |
+| **Quizzes rápidos** | Relatórios de aproveitamento dos quizzes da aula (abre o relatório, com **📄 Exportar PDF**) |
 
 - A busca no topo procura em todas as pastas.
 - Em cada item: abrir, **Compartilhar**, **Renomear** e **Excluir**.
@@ -568,6 +569,8 @@ No painel **📡 Turma ao Vivo**, com a aula aberta, aparece o **🎛️ Control
 - **Contadores**: ✋ quantas mãos estão levantadas (com os nomes), 💬 mensagens novas dos alunos, 👥 quantos estão na sala e, se a escola usa o Portal Maestro, 🎼 quantos aparelhos o Maestro controla.
 - **📲 Abrir conteúdo para a turma**: abre na hora, na tela de todos, algo escolhido em três abas: **🏫 Do Portal** (jogos, vídeos, livros e histórias, colorir, com busca), **📤 Enviados à turma** (sem repetir) e **🔗 Link externo**. Site que não deixa ser mostrado dentro do Portal (ex.: portais de notícia, Google Docs) chega ao aluno como um cartão com o botão **Abrir o site**, e o professor é avisado.
 - **📚 Acervo do município**: navegue pelas pastas do acervo da sua rede (como no computador: entre na pasta, use **Voltar** ou a trilha no alto) ou procure pelo título no acervo inteiro, e escolha o arquivo; ele vai para a turma (fica em **Enviados**, com quem abriu) e abre na hora na tela de quem está na aula. Arquivo guardado no servidor da NEWPC ainda não vai direto: baixe no Acervo e envie por **Enviar link ou arquivo**.
+- **🧠 Quiz rápido**: perguntas de múltipla escolha para ver se a turma absorveu o conteúdo. Escreva o tema, escolha quantas perguntas (3 a 20) e o nível, e toque em **✨ Criar com IA** (1 crédito do Portal IA) ou **✍️ Escrever eu mesmo**. Confira as perguntas (dá para corrigir, marcar a correta, tirar ou incluir) e toque em **🚀 Lançar para a turma**. Cada aluno responde uma pergunta por vez na própria tela; o Controle da aula mostra quantos terminaram, quantos estão respondendo e o acerto parcial (**Ver parcial**). Em **🏁 Encerrar e ver relatório**, cada aluno vê a própria correção e você recebe o relatório: aproveitamento da turma, acerto por pergunta com o erro mais comum, e a situação de cada aluno (✅ absorveu, ⚠️ parcial, 🔴 retomar). O relatório fica salvo em **Meus trabalhos › Quizzes rápidos** e sai em PDF pelo **📄 Exportar PDF**. O gabarito nunca vai para a tela do aluno antes do fim.
+- **🪫 Bateria**: Chromebooks e tablets Android informam a bateria enquanto o aluno está no Portal. Aparelho abaixo de 20% e fora da tomada aparece com 🪫 no cartão do aluno e na faixa do Controle da aula; na ficha do aluno aparece a porcentagem e se está carregando. iPad e Firefox não informam.
 - **📊 Pesquisa rápida**: a pergunta aparece na tela de todos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. O resultado aparece abaixo dos botões (com quantos ainda não responderam) e no cartão de cada aluno. O mesmo botão vira **Encerrar pesquisa**.
 
 O controle funciona em **qualquer tela do Portal** em que o aluno estiver (Início, Biblioteca, Colorir, Museus...).
