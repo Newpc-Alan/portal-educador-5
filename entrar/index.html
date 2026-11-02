@@ -3256,7 +3256,10 @@
   /* Turmas e alunos que o professor de rede enxerga (nov/2026): quem matricula é a escola (Ficha do Aluno), quem distribui é a Direção (Grade das turmas)
      e o professor só escolhe dentro do que é dele: as turmas em que a grade o coloca e as turmas dos anos que ele marca em Meu cadastro. */
   const ANOS_AULA = [["bebes","Berçário"],["cbp","Maternal"],["cp","Pré-escola"],["1","1º ano"],["2","2º ano"],["3","3º ano"],["4","4º ano"],["5","5º ano"],["6","6º ano"],["7","7º ano"],["8","8º ano"],["9","9º ano"],["em1","1ª série EM"],["em2","2ª série EM"],["em3","3ª série EM"],["eja","EJA"],["multi","Multisseriada"]];
-  const codAnoTurma = t => String(t.ano_serie || TUR_COD[(turParse(t.nome) || {}).etapa] || "");
+  // código do ano da turma (6, 7, em1...): ano_serie novo já é o código; turmas antigas guardam "6º Ano" ou só o nome
+  const CODS_ANO = new Set(Object.values(TUR_COD));
+  const codAnoTurma = t => { const a = String(t.ano_serie || ""); if(CODS_ANO.has(a)) return a;
+    for(const v of [t.etapa, a, t.nome]){ const p = v ? turParse(v) : null; if(p && TUR_COD[p.etapa]) return TUR_COD[p.etapa]; } return ""; };
   const ehDaGrade = t => (t.grade || []).some(g => g && g.professor_uid === usuarioAtual.uid);
   const discDaGrade = t => [...new Set((t.grade || []).filter(g => g && g.professor_uid === usuarioAtual.uid).map(g => g.disciplina).filter(Boolean))];
   function meusAnosAula(){
