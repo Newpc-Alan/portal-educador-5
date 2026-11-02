@@ -32,6 +32,7 @@ const $ = id => document.getElementById(id);
 const esc = t => String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const ms = x => x && x.toMillis ? x.toMillis() : 0;
 const vibrar = p => { try{ navigator.vibrate && navigator.vibrate(p); }catch(e){} };
+const PORTAL = /^https:\/\/([\w-]+\.)*portaldoeducador\.com\.br\//;   // conteúdo do próprio Portal sempre abre dentro
 const ext = () => !!(document.documentElement.dataset.maestroExt && S.maestro);
 function aviso(t){ const a = document.createElement("div"); a.className = "al-aviso"; a.textContent = t; document.body.appendChild(a); setTimeout(() => a.remove(), 4000); }
 
@@ -59,7 +60,7 @@ function ligar(){
     const d = s.data() || {}, k = S.chave;
     const cmds = [d.comando, (d.comandos || {})[k]].filter(c => c && c.id);
     if(S.vistos === null) S.vistos = new Set(cmds.map(c => c.id));      // o que já existia quando a página abriu não abre de novo
-    else cmds.forEach(c => { if(!S.vistos.has(c.id)){ S.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")) abrir(c.url, c.nome, c.embed !== false); } });
+    else cmds.forEach(c => { if(!S.vistos.has(c.id)){ S.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")) abrir(c.url, c.nome, c.embed !== false || PORTAL.test(c.url)); } });
     const pa = d.pausa_alunos || {}; pausa(!ext() && (typeof pa[k] === "boolean" ? pa[k] : !!d.pausa));
     pesquisa(d.pesquisa && d.pesquisa.ativa ? d.pesquisa : null);
   }, e => console.warn("aula ao vivo:", e.code)));

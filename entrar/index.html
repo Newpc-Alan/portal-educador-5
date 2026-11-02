@@ -9259,7 +9259,9 @@
       if(l.length > antes && antes && l[l.length - 1].de === "aluno") bipe();
       desenharAoVivo(); desenharConversa(); }, e => console.warn("aula ao vivo (chat):", e.code)));
   }
-  const avvSet = dados => setDoc(doc(db, "aula_vivo", AVV.tid), { ...dados, atualizado_em:serverTimestamp(), por:usuarioAtual.uid }, { merge:true });
+  // grava SUBSTITUINDO os campos informados (mergeFields): com merge:true um comando novo herdava campos do anterior (ex.: embed:false de um site de fora)
+  // e "pausa_alunos:{}" não limpava as pausas individuais. campos = caminhos a substituir (ex.: "comandos.lab-a06"); padrão: as chaves de dados
+  const avvSet = (dados, campos) => setDoc(doc(db, "aula_vivo", AVV.tid), { ...dados, atualizado_em:serverTimestamp(), por:usuarioAtual.uid }, { mergeFields:[...(campos || Object.keys(dados)), "atualizado_em", "por"] });
   const aulaAberta = () => AV.aulaFim > Date.now();
   const desdeAula = x => !AV.aulaIni || msAv(x) >= AV.aulaIni - 60000;
   // juntando o canal do Portal e o do Maestro, por aluno
@@ -9321,7 +9323,7 @@
   }
   async function maePausarAluno(alunoId, ligar){
     try{
-      await avvSet({ pausa_alunos:{ [alunoId]:!!ligar } });
+      await avvSet({ pausa_alunos:{ [alunoId]:!!ligar } }, ["pausa_alunos." + alunoId]);
       const ap = aparelhosDoAluno(alunoId); if(MAV.mc && ap.length){ const patch = {}; ap.forEach(x => { patch[x.dev] = !!ligar; }); fbMae("aulas/" + MAV.mc + "/controle/bloqueio", "PATCH", patch).catch(() => {}); }
     }catch(e){ toast("Não deu agora (" + (e.code || "erro") + ").", true); }
   }
@@ -9342,8 +9344,8 @@
   async function abrirNosAparelhos(url, nome, alunoId){
     const embed = await siteAbreDentro(url);
     if(embed === false) toast("Este site não deixa ser mostrado dentro do Portal: os alunos recebem um botão para abrir o site num toque.");
-    const cmd = { id:idMae(), url, nome:String(nome || "").slice(0, 80), em:Date.now(), ...(embed === false ? { embed:false } : {}) };
-    await avvSet(alunoId ? { comandos:{ [alunoId]:cmd } } : { comando:cmd });
+    const cmd = { id:idMae(), url, nome:String(nome || "").slice(0, 80), em:Date.now(), embed:embed !== false };
+    await avvSet(alunoId ? { comandos:{ [alunoId]:cmd } } : { comando:cmd }, alunoId ? ["comandos." + alunoId] : ["comando"]);
     if(MAV.mc){ const c = { id:cmd.id, tipo:"abrirLink", url, nome:cmd.nome, ts:{ ".sv":"timestamp" } };
       if(alunoId){ const ap = aparelhosDoAluno(alunoId); if(ap.length){ const patch = {}; ap.forEach(x => { patch[x.dev] = c; }); fbMae("aulas/" + MAV.mc + "/controle/comandos", "PATCH", patch).catch(() => {}); } }
       else fbMae("aulas/" + MAV.mc + "/controle/comando", "PUT", c).catch(() => {}); }
@@ -9416,7 +9418,9 @@
     novos.forEach(m => MAV.matsMae.add(m.id));
     // só a página antiga do aluno do Maestro (web-1.x); quem está no Portal do Aluno (web-portal) já abre o material sozinho
     const tablets = Object.entries(MAV.alunos).filter(([, x]) => x && /^web-\d/.test(String(x.versao || "")) && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).map(([d]) => d);
-    if(tablets.length) abrirNosAparelhos(urlMat(novos[0]), novos[0].titulo || "", tablets).catch(e => console.warn("maestro (material):", e.message));
+    if(!tablets.length) return;   // só o canal do Maestro (esses aparelhos não estão no Portal); não mexe no comando da aula do Portal
+    const c = { id:idMae(), tipo:"abrirLink", url:urlMat(novos[0]), nome:String(novos[0].titulo || "").slice(0, 80), ts:{ ".sv":"timestamp" } }, patch = {};
+    tablets.forEach(d => { patch[d] = c; }); fbMae("aulas/" + MAV.mc + "/controle/comandos", "PATCH", patch).catch(e => console.warn("maestro (material):", e.message));
   }
   // janela simples reaproveitada (pesquisa, cronômetro, pergunta individual)
   function janelaMae(titulo, corpo, okTxt, aoOk){
