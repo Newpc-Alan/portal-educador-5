@@ -89,9 +89,9 @@ De cima para baixo:
    |---|---|
    | **Minha aula** | **Abrir a lousa**, **Portal IA**, **Criar prova**, **Provas online** |
    | **Minha turma** | **Fazer chamada**, **Lançar notas**, **Minhas turmas**, **Corrigir gabarito**, **Corrigir respostas**, **Central de Relatórios** |
-   | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola**, **Aviso na TV da escola**, **Folha Mágica**, **Ler na tela (teleprompter)** e **Gestão Escolar** (todas as ferramentas da escola num lugar só) |
+   | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola**, **Aviso na TV da escola**, **Folha Mágica** e **Ler na tela (teleprompter)** |
 
-   Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal".
+   Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal". Dentro de qualquer ferramenta, o botão **← Voltar ao Portal**, no topo, traz de volta ao Início.
 7. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
 8. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
 9. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
