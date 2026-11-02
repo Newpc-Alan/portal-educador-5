@@ -286,7 +286,7 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | `dicas_envios`, `dicas_alunos`, `dicas_alunos_pub` | Dicas do Professor e do Aluno com moderação |
 | `provas_online` (+ `po_tentativas`, `po_resultados`, `po_sala`), `provas_online_gab` | Prova online. Só funções criam e corrigem; o gabarito fica em coleção separada |
 | `avaliacoes`, `respostas` | Provas do Corretor de Gabarito (inclusive as trazidas de Provas e Avaliações e do Portal IA) e notas lançadas |
-| `cursos`, `trilhas`, `users`, `certificados`, `cpfs`, `equipe` | Formação Continuada |
+| `cursos`, `trilhas`, `users`, `certificados`, `cpfs`, `equipe` | Formação Continuada. Desde nov/2026 o perfil `users/{uid}` traz `municipio_id`, `escola_id`, `escolas_ids`, `perfil_portal` e `licenca_portal`, copiados do cadastro do Portal a cada entrada (`formacao-sync.js`); o cursista não muda esses campos e, ligado a uma rede, nem os textos de município e escola (regra). O certificado guarda `municipio_id` e `escola_id` |
 | `auditoria` | Trilha de auditoria do Portal (ver **Auditoria**) |
 | `uso_real`, `stats` | Uso real por semana e contadores do painel de uso. Só funções gravam, só admin lê |
 | `backup_config`, `backups_log` | Backup |
@@ -429,6 +429,16 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 | `comunicadoEmail` | callable, só admin | `contar` (público por perfil, município (`__sem` = sem município), escola e licença do professor (`licencas`, `vencidas`); só conta ativa com e-mail; informativo pula `comunicados_pref.off`), `teste` (manda só para o admin), `enviar` (confere o número confirmado, cria tokens, grava o comunicado e os lotes), `cancelar` |
 | `enviarComunicados` | agendada, a cada 5 min | Manda a cota do período (envios por hora / 12) pela conta da Webnode (SMTP com `COMUNICADOS_SMTP_SENHA`), um e-mail por pessoa com `List-Unsubscribe`; para tudo se o servidor recusar a senha; conclui e registra na Auditoria |
 | `descadastroEmail` | HTTP público | Página "não quero mais receber" com confirmação por botão (POST) e opção de voltar a receber; registra na Auditoria |
+
+### Formação Continuada integrada (`index.js`, `formacao-sync.js`)
+
+| Função | Tipo | O que faz |
+|---|---|---|
+| `vincularContaFormacao` | callable | A cada entrada: confere licença e plano, cria ou atualiza o perfil do cursista com os dados do Portal, traz certificados antigos pelo e-mail e acerta o papel de admin |
+| `papelFormacaoPortal` | gatilho em `usuarios/{uid}` | Quando alguém vira (ou deixa de ser) administrador ativo do Portal, dá (ou tira) o papel `admin` da Formação no token (`papel_origem: portal`) e registra na Auditoria |
+| `painelSecretaria` | callable | Ganhou o bloco `formacao`: professores, cursistas, concluíram, certificados, horas e cursos mais concluídos, por município e por escola |
+
+Robô de migração: consulta **formacao-sincronizar** (simula) e **formacao-sincronizar-gravar** (liga os perfis antigos e dá o papel aos admins). Os cursos publicados entram no índice da busca geral (`m: formacao`).
 
 ### Busca geral do Início (`busca.js`)
 
@@ -626,6 +636,7 @@ Scripts que usam o `firebase-admin` precisam terminar com `process.exit(0)`, sen
 | `teste-regras-apps.mjs` | Aplicativos, gestão escolar e a maior parte das regras gerais |
 | `teste-regras-presenca.mjs` | Presença da Turma ao Vivo (campos `fora` e `saiu`, só o próprio aluno grava, professor da escola lê) |
 | `teste-regras-comunicados.mjs` | Comunicados por e-mail: só admin lê, ninguém grava pelo navegador |
+| `teste-regras-formacao.mjs` | Perfil do cursista: campos do Portal protegidos, avulso edita município e escola |
 | `teste-regras-busca.mjs` | Busca geral: índice lido por licenciados, buscas só pelo admin, ninguém grava pelo navegador |
 | `teste-regras-aluno.mjs` | Perfil aluno |
 | `teste-regras-extras.mjs` | Liberações exclusivas do professor |

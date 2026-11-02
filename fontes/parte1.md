@@ -391,11 +391,12 @@ Visitas em 360º a museus brasileiros, cada uma com sugestão pedagógica, disci
 
 Cursos com certificado para o professor.
 
-1. Em **Meus dados**, informe nome completo e CPF (obrigatórios para o certificado).
+1. Em **Meus dados**, informe nome completo e CPF (obrigatórios para o certificado). Município e escola vêm do seu cadastro no Portal e se atualizam sozinhos a cada entrada (para mudar, fale com a secretaria da escola). Professor avulso, sem rede, preenche os dois.
 2. Escolha o curso. Os módulos são liberados em ordem.
 3. A aula só conta quando você cumpre o tempo mínimo e assiste pelo menos 90% de cada vídeo.
 4. Depois de todas as aulas, faça a **Avaliação final** (padrão: nota mínima de 70% e 3 tentativas).
-5. Toque em **Emitir meu certificado**. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `app.portaldoeducador.com.br/validar/`.
+5. Os cursos também aparecem na **Busca do Portal**, no Início.
+6. Toque em **Emitir meu certificado**. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `app.portaldoeducador.com.br/validar/`.
 
 ![Formação Continuada](s49-formacao.png){85}
 
@@ -1106,6 +1107,7 @@ Mostra, em uma tela, a rede inteira só com números agregados, sem dados pessoa
 - Acerto nas provas por escola e **habilidades BNCC que pedem reforço**.
 - Frequência por escola e busca ativa.
 - Dias letivos cumpridos, chamados técnicos e TVs online.
+- **🎓 Formação Continuada**: adesão dos professores por escola, quantos concluíram, certificados, horas certificadas, quem ainda não começou e os cursos mais concluídos.
 - **✨ Créditos de IA da rede**: saldo, barra, validade, uso no mês e limite por professor, com o botão **Solicitar recarga**. A NEWPC recebe o pedido e envia a proposta; os créditos entram depois do empenho e valem 12 meses.
 
 O botão **📄 Relatório executivo** gera um PDF com o brasão, os indicadores, a tabela escola por escola e as prioridades.

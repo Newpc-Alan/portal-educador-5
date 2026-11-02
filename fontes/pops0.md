@@ -83,3 +83,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.4 | 01/11/2026 | POP-PDE-30: filtro por licença do professor e Sem município (avulsos) | NEWPC Tecnologia | |
 | 2.5 | 01/11/2026 | POP-PDE-31 (acompanhamento semanal pelo Painel); Painel com aulas abertas agora, correção das provas online e comunicados | NEWPC Tecnologia | |
 | 2.6 | 01/11/2026 | POP-PDE-31: downloads do app do Maestro | NEWPC Tecnologia | |
+| 2.7 | 01/11/2026 | POP-PDE-17: papel de administrador da Formação automático para o admin do Portal | NEWPC Tecnologia | |

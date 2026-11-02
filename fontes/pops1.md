@@ -551,14 +551,14 @@ O backup do Google (Drive) não leva as contas de login; o do servidor NEWPC lev
 
 1. Criar ou confirmar a conta Google corporativa da pessoa.
 2. Definir o perfil necessário (Administrador só para quem opera o Portal).
-3. Pessoa que vai editar a Formação Continuada: equipe técnica concede o papel editorial (admin ou editor).
+3. Formação Continuada: o administrador do Portal já é administrador da Formação (automático). Quem só vai editar cursos recebe o papel **editor** no painel da Formação.
 4. Acessos técnicos só para quem precisa: Firebase, repositório no GitHub (e permissão para rodar workflows), servidor NEWPC (Nextcloud) e pasta de backup.
 5. Entregar o Manual e os POPs da área (**Documentação**) e registrar o treinamento.
 
 **Saída ou mudança de função (no mesmo dia)**
 
 6. Em Usuários, mudar a situação para **Recusado / desativado** ou ajustar o perfil.
-7. Retirar o papel editorial da Formação, quando houver.
+7. Retirar o papel de editor da Formação, quando houver (o de administrador sai sozinho quando a pessoa deixa de ser admin do Portal).
 8. Retirar o acesso ao Firebase, ao Cloud Shell, ao repositório e ao GitHub Actions, ao Nextcloud e à pasta de backup.
 9. Se a pessoa conhecia algum segredo (conta de serviço do Firebase, senha de aplicativo do Nextcloud, chaves de assinatura), pedir ao Alan a troca e a atualização nos segredos do repositório e do Firebase.
 10. Trocar senhas de contas compartilhadas e das contas de teste do Laboratório, se a pessoa as conhecia.

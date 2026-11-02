@@ -754,7 +754,7 @@ A versão nova passa a ser a que abre em **Abrir** e **Baixar**. As anteriores f
 | Painel da Rede: "ainda não faz parte do plano" | Painel não contratado | Plano e módulos › Painel da Rede |
 | Formação: "contrato vencido" ou "fora do plano" | Vigência vencida ou Formação fora do plano | Plano e módulos |
 | Certificado: "CPF já vinculado a outra conta" | CPF usado em outra conta | Suporte confere com o professor |
-| Admin novo barrado na Formação | Falta o papel editorial | Equipe técnica define o papel admin |
+| Admin novo barrado na Formação | O papel de admin da Formação ainda não chegou ao token | Administrador do Portal ganha o papel sozinho: saia e entre de novo. Editor de curso (que não é admin do Portal) continua sendo nomeado no painel da Formação |
 | Auditoria: erro ao buscar | Índice do banco ainda sendo criado | Tentar de novo em alguns minutos |
 | Precisa saber quem alterou um cadastro ou uma nota | | Auditoria › filtrar por município ou pessoa e período |
 | Tela nova com erro de permissão | O front foi publicado antes das regras | Equipe técnica publica as regras |
