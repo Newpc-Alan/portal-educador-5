@@ -435,7 +435,7 @@
   .av-det button{ font:inherit;font-weight:700;border:1px solid #cfdbe7;background:#f4f7fa;border-radius:10px;padding:8px 12px;cursor:pointer }
   .av-outros{ grid-column:1/-1;font-size:12.5px;color:#5b6b7b;padding:6px 2px }
   /* auditoria da entrada pela carteirinha (foto) */
-  .av-af{ position:absolute;bottom:4px;right:6px;font-size:13px } .av-nl{ position:absolute;bottom:4px;left:6px;font-size:11px;font-weight:800;background:#2671AB;color:#fff;border-radius:999px;padding:1px 6px }
+  .av-af{ position:absolute;bottom:4px;right:6px;font-size:13px } .av-nl{ position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;background:#2671AB;color:#fff;border-radius:999px;padding:1px 6px }
   /* aula ao vivo na tela do aluno */
   .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#071621;display:grid;place-items:center;color:#fff;text-align:center;padding:20px }
   .al-pausa div{ display:grid;gap:14px;justify-items:center;max-width:620px } .al-pausa img{ width:min(86vw,560px);border-radius:18px } .al-pausa b{ font-size:26px } .al-pausa span{ opacity:.8 }
@@ -447,6 +447,7 @@
   .al-pq button:nth-child(1){ background:#bfe5a1 } .al-pq button:nth-child(2){ background:#ffe58a } .al-pq button:nth-child(3){ background:#ffb4b4 }
   .al-botoes{ position:fixed;left:14px;bottom:14px;z-index:2147481000;display:flex;gap:8px;flex-wrap:wrap }
   .al-botoes button{ font:inherit;font-weight:800;font-size:15px;border:0;border-radius:40px;padding:11px 16px;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.25) }
+  body.al-com-folha .al-botoes{ bottom:150px } body.al-com-folha .al-chat{ bottom:206px }
   .al-mao{ background:#f5d547;color:#3d3000 } .al-mao.on{ background:#fff3d6;box-shadow:inset 0 0 0 3px #e0a321 } .al-chat-b{ background:#2671AB;color:#fff }
   .al-chat{ position:fixed;right:14px;bottom:70px;z-index:2147481500;width:min(92vw,360px);background:#fff;border-radius:18px;box-shadow:0 14px 40px rgba(0,0,0,.35);display:flex;flex-direction:column;max-height:60vh }
   .al-chat-topo{ display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#0f2c4a;color:#fff;border-radius:18px 18px 0 0 } .al-chat-topo button{ font:inherit;border:0;background:#fff;border-radius:8px;padding:5px 10px;cursor:pointer }
@@ -7286,7 +7287,7 @@
       if(MAV.mc) fbMae("aulas/" + MAV.mc + "/controle/afinacao/ativa", "PUT", false).catch(() => {}); }
     else if(acao === "al-fechar-cont"){ const f = $("alConteudo"); if(f) f.remove(); }
     else if(acao === "al-pq"){ const f = $("alPesq"); if(!f) return; const id = f.dataset.id;
-      alMeu({ pesquisa:{ id, valor:el.dataset.arg } }).then(() => { AL.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => f.remove(), 1300); }).catch(e => toast("Não deu (" + (e.code || "erro") + ").", true)); }
+      alMeu({ pesquisa:{ id, valor:el.dataset.arg } }).then(() => { AL.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1300); }).catch(e => toast("Não deu (" + (e.code || "erro") + ").", true)); }
     else if(acao === "al-mao"){ alMeu({ mao:AL.mao ? null : serverTimestamp() }).catch(e => toast("Não deu (" + (e.code || "erro") + ").", true)); }
     else if(acao === "al-chat"){ alChat(!$("alChatBox")); }
     else if(acao === "al-chat-enviar"){ alChatEnviar(); }
@@ -9572,6 +9573,7 @@
     document.body.appendChild(f);
   }
   function alPesquisa(p){
+    setTimeout(() => document.body.classList.toggle("al-com-folha", !!$("alPesq")), 0);
     const atual = $("alPesq");
     if(!p || p.id === AL.pqResp){ if(atual && (!p || atual.dataset.id !== p.id || p.id === AL.pqResp)) atual.remove(); return; }
     if(atual && atual.dataset.id === p.id) return;
