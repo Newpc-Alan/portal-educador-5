@@ -2498,6 +2498,8 @@
     if(item.id === "apoioInicio"){
       // portaria e secretaria escolar: abre direto a tela de trabalho uma vez por sessão; ao voltar, mostra os atalhos
       const port = usuarioAtual.perfil === "portaria", destino = port ? "/apps/frequencia/#portaria" : "/gestao/";
+      // secretaria escolar: Início com os atalhos do dia a dia (não vai mais direto para a Gestão Escolar)
+      if(!port){ renderInicioSecEscolar(); return; }
       let ja = false; try{ ja = sessionStorage.getItem("pde_apoio_aberto") === "1"; sessionStorage.setItem("pde_apoio_aberto", "1"); }catch(e){}
       if(!ja && !usuarioAtual._sim){ location.href = destino; return; }
       document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.sec === item.id));
@@ -7086,17 +7088,47 @@
 
   // ===================== INÍCIO DA DIREÇÃO (perfil gestor) =====================
   // A escola hoje (4 números) · Para hoje (pendências reais) · atalhos com foto · Minhas aulas (quem também dá aula)
+  // Início da Direção em três faixas, com nomes diretos (nov/2026): tudo da Gestão Escolar a um toque
+  const FAIXAS_DIR = [["hoje","A escola hoje"],["alunos","Alunos e turmas"],["equipe","Equipe e estrutura"]];
   const ACOES_DIR = [
-    { id:"painel",   titulo:"Painel da escola",        sub:"Presença, aprendizagem e uso, comparados com a rede", foto:"painel-escola", cor:"verde",   href:"/painel/",                 mod:"painel" },
-    { id:"busca",    titulo:"Busca ativa",             sub:"Alunos faltando e contato com a família",           foto:"busca-ativa",   cor:"alerta",  href:"/apps/frequencia/#busca",  mod:"gestao" },
-    { id:"notas",    titulo:"Notas da escola",         sub:"Lançamentos por turma e bimestre",                  foto:"notas-escola",  cor:"azul",    href:"/apps/notas/",             mod:"gestao" },
-    { id:"equipe",   titulo:"Equipe",                  sub:"Professores, secretaria e portaria",                foto:"equipe",        cor:"azul",    href:"/apps/equipe/",            mod:"gestao" },
-    { id:"familias", titulo:"Famílias",                sub:"Contatos e comunicados aos responsáveis",           foto:"familias",      cor:"navy",    href:"/apps/familias/",          mod:"gestao" },
-    { id:"chamados", titulo:"Equipamentos e chamados", sub:"Lousas, Chromebooks, rede e reservas",              foto:"equipamentos",  cor:"alerta",  href:"/apps/recursos/#chamados", mod:"gestao" },
-    { id:"tv",       titulo:"TV da escola",            sub:"Avisos no corredor e na entrada",                   foto:"tv-escola",     cor:"navy",    href:"/apps/tv/",                mod:"gestao" },
-    { id:"calend",   titulo:"Calendário",              sub:"Dias letivos, eventos e reuniões",                  foto:"calendario",    cor:"azul",    href:"/apps/calendario/",        mod:"" }
+    { g:"hoje",   id:"painel",   titulo:"Painel da escola",        sub:"Presença, aprendizagem e uso, comparados com a rede", foto:"painel-escola", cor:"verde",   href:"/painel/",                 mod:"painel" },
+    { g:"hoje",   id:"busca",    titulo:"Busca ativa",             sub:"Alunos faltando e contato com a família",           foto:"busca-ativa",   cor:"alerta",  href:"/apps/frequencia/#busca",  mod:"gestao" },
+    { g:"hoje",   id:"faltou",   titulo:"Professor faltou",        sub:"Substituição da aula em poucos toques",             foto:"professor-faltou", cor:"alerta", acao:"dir-faltou",           mod:"gestao" },
+    { g:"hoje",   id:"defeito",  titulo:"Avisar defeito",          sub:"Equipamento com problema e chamados abertos",       foto:"avisar-defeito", cor:"alerta", href:"/apps/recursos/#chamados", mod:"gestao" },
+    { g:"alunos", id:"notas",    titulo:"Notas da escola",         sub:"Lançamentos por turma e bimestre",                  foto:"notas-escola",  cor:"azul",    href:"/apps/notas/",             mod:"gestao" },
+    { g:"alunos", id:"grade",    titulo:"Grade das turmas",        sub:"Professor e disciplina de cada turma",              foto:"grade-turmas",  cor:"azul",    href:"/apps/grade/",             mod:"gestao" },
+    { g:"alunos", id:"ficha",    titulo:"Ficha do aluno",          sub:"Matrícula, responsáveis e alertas",                 foto:"ficha-aluno",   cor:"azul",    href:"/apps/alunos/",            mod:"gestao" },
+    { g:"alunos", id:"relatorios", titulo:"Central de Relatórios", sub:"Aprovar pareceres e relatórios dos professores",     foto:"central-relatorios", cor:"azul", href:"/relatorios/",          mod:"gestao" },
+    { g:"alunos", id:"gabarito", titulo:"Corrigir gabarito",       sub:"Cartões-resposta e acerto por habilidade",          foto:"corrigir-gabarito", cor:"verde", href:"/apps/corretor/",        mod:"gestao" },
+    { g:"alunos", id:"familias", titulo:"Famílias",                sub:"Contatos e comunicados aos responsáveis",           foto:"familias",      cor:"navy",    href:"/apps/familias/",          mod:"gestao" },
+    { g:"equipe", id:"equipe",   titulo:"Equipe",                  sub:"Professores, secretaria e portaria",                foto:"equipe",        cor:"azul",    href:"/apps/equipe/",            mod:"gestao" },
+    { g:"equipe", id:"servidor", titulo:"Ficha do servidor",       sub:"Dados, documentos e senha provisória da equipe",    foto:"ficha-servidor",    cor:"azul",    href:"/apps/servidores/",        mod:"gestao" },
+    { g:"equipe", id:"reservar", titulo:"Reservar equipamento",    sub:"Carrinho de Chromebooks, laboratório e sala de VR", foto:"/assets/apps/capas/recursos.webp", cor:"azul", href:"/apps/recursos/#reservar", mod:"gestao" },
+    { g:"equipe", id:"tv",       titulo:"TV da escola",            sub:"Avisos no corredor e na entrada",                   foto:"tv-escola",     cor:"navy",    href:"/apps/tv/",                mod:"gestao" },
+    { g:"equipe", id:"calend",   titulo:"Calendário da escola",    sub:"Dias letivos, eventos e reuniões",                  foto:"calendario",    cor:"azul",    href:"/apps/calendario/",        mod:"" }
   ];
   const dir = { escola:"", badges:{} };
+  // Início da Secretaria escolar: atendimento e rotina da escola, com nomes diretos
+  const ACOES_SECESC = [
+    { g:"Atendimento", titulo:"Ficha do aluno",   sub:"Matrícula, responsáveis e documentos",   foto:"ficha-aluno",   cor:"azul",   href:"/apps/alunos/" },
+    { g:"Atendimento", titulo:"Famílias",         sub:"Contatos e comunicados aos responsáveis", foto:"familias",     cor:"navy",   href:"/apps/familias/" },
+    { g:"Atendimento", titulo:"Busca ativa",      sub:"Alunos faltando e contato com a família", foto:"busca-ativa",  cor:"laranja", href:"/apps/frequencia/#busca" },
+    { g:"Atendimento", titulo:"Boletim escolar",  sub:"Imprimir o boletim do aluno",            foto:"boletim",       cor:"verde",  href:"/apps/notas/#boletins" },
+    { g:"Rotina",      titulo:"Portaria e mural de chegada", sub:"Quem já entrou e as carteirinhas", foto:"portaria", cor:"azul", href:"/apps/frequencia/#portaria" },
+    { g:"Rotina",      titulo:"Grade das turmas", sub:"Professor e disciplina de cada turma",   foto:"grade-turmas",  cor:"azul",   href:"/apps/grade/" },
+    { g:"Rotina",      titulo:"Calendário da escola", sub:"Dias letivos, eventos e reuniões",   foto:"calendario",    cor:"azul",   href:"/apps/calendario/" }
+  ];
+  function renderInicioSecEscolar(){
+    document.querySelectorAll("#nav a").forEach(a => a.classList.toggle("active", a.dataset.sec === "apoioInicio"));
+    $("secTitulo").textContent = "Início";
+    const esc = usuarioAtual.escola_nome || (usuarioAtual.escolas_nomes || [])[0] || "sua escola";
+    const grupos = [...new Set(ACOES_SECESC.map(a => a.g))];
+    $("conteudo").innerHTML = '<div class="ini-ola"><h2>'+saudacao()+', '+escapeHtml(String(usuarioAtual.nome || "").split(" ")[0])+'!</h2><p>'+escapeHtml(esc)+'</p></div>'+
+      '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes">'+
+      grupos.map(g => '<h4 class="ac-faixa">'+escapeHtml(g)+'</h4>'+ACOES_SECESC.filter(a => a.g === g).map(a =>
+        '<a class="ac-card '+a.cor+'" href="'+a.href+'" data-action="ini-abrir" data-mod="gestao" data-ac="'+escapeAttr(a.titulo)+'"><span class="ac-img" style="background-image:url(\''+fotoAcao(a.foto)+'\')"></span>'+
+        '<span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span></a>').join("")).join("")+'</div></section>';
+  }
   const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
   async function renderInicioDirecao(admin){
     const primeiro = String(usuarioAtual.nome || "").split(" ")[0];
@@ -7152,7 +7184,7 @@
   function desenharAcoesDir(okMod, okPainel){
     const box = $("iniAcoes"); if(!box) return;
     const COR = { verde:"verde", azul:"", navy:"navy", alerta:"laranja" };
-    const grandes = [], pequenos = [];
+    const grandes = [], pequenos = [], porFaixa = {};
     ACOES_DIR.forEach(a => {
       const ok = a.mod === "painel" ? okPainel : okMod(a.mod);
       const corpoImg = fotoAcao(a.foto);
@@ -7161,10 +7193,13 @@
         return;
       }
       const badge = dir.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(dir.badges[a.id])+'</span>' : "";
-      grandes.push('<a class="ac-card '+COR[a.cor]+'" href="'+a.href+'" data-action="ini-abrir" data-mod="'+(a.mod || "gestao")+'" data-ac="'+a.id+'">'+
-        '<span class="ac-img" style="background-image:url(\''+corpoImg+'\')"></span><span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge+'</a>');
+      const miolo = '<span class="ac-img" style="background-image:url(\''+corpoImg+'\')"></span><span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge;
+      const card = a.acao ? '<button type="button" class="ac-card '+COR[a.cor]+'" data-action="'+a.acao+'" data-ac="'+a.id+'">'+miolo+'</button>'
+        : '<a class="ac-card '+COR[a.cor]+'" href="'+a.href+'" data-action="ini-abrir" data-mod="'+(a.mod || "gestao")+'" data-ac="'+a.id+'">'+miolo+'</a>';
+      grandes.push(card); (porFaixa[a.g] = porFaixa[a.g] || []).push(card);
     });
-    box.innerHTML = grandes.join("") + (pequenos.length ? '<div class="dir-fora">'+pequenos.join("")+'</div>' : '');
+    box.innerHTML = FAIXAS_DIR.filter(([k]) => (porFaixa[k] || []).length).map(([k, t]) => '<h4 class="ac-faixa">'+t+'</h4>'+porFaixa[k].join("")).join("") +
+      (pequenos.length ? '<div class="dir-fora">'+pequenos.join("")+'</div>' : '');
   }
   async function dadosDirecao(esc, okMod){
     const hoje = hojeISO(), ano = Number(hoje.slice(0, 4));
