@@ -37,6 +37,9 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
 .selo{position:absolute;top:10px;right:10px;background:rgba(7,22,33,.6);color:#fff;font-size:.7rem;font-weight:800;border-radius:999px;padding:3px 9px}
 .breve{opacity:.78}
 .breve .app-btn{background:#e8eef4;color:var(--muted)}
+button.app-card{font:inherit;text-align:left;cursor:pointer;padding:0;width:100%}
+button.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15,44,74,.7)}
+.app-nota{font-size:.74rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -74,6 +77,14 @@ a.app-card:hover{transform:translateY(-3px);box-shadow:0 18px 30px -22px rgba(15
         <ul><li>Foto ou vídeo do celular direto para a playlist</li><li>Feira de ciências, apresentações e conquistas da turma</li><li>As telas são da escola: a gestão organiza a programação</li></ul>
         <span class="app-btn">Enviar</span></div>
     </a>
+    <button type="button" class="app-card app-baixar" data-action="baixar-maestro">
+      <div class="app-capa" style="background-image:url(/assets/cards/maestro.webp);background-position:center 40%"><span class="selo">Android</span></div>
+      <div class="app-corpo"><b>App do Maestro (tablet do aluno)</b>
+        <p>Baixe e instale o app do aluno nos tablets da turma, para usar a sala de aula gerenciada do Portal Maestro.</p>
+        <ul><li>No tablet, abra este botão e toque em Instalar</li><li>Se pedir, permita instalar apps desta fonte</li><li>O aluno entra pelo QR da aula, com a câmera do tablet</li></ul>
+        <span class="app-btn" id="maestroBtn">⬇ Baixar o app</span>
+        <small class="app-nota" id="maestroNota"></small></div>
+    </button>
   </div>
 </div>
 <script type="module">
@@ -81,6 +92,23 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 const app = initializeApp({ apiKey:"AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0", authDomain:"portal-educador-5.firebaseapp.com", projectId:"portal-educador-5", storageBucket:"portal-educador-5.firebasestorage.app", messagingSenderId:"725103866385", appId:"1:725103866385:web:f38b8f3cf0a912ed3bf7b0" });
 onAuthStateChanged(getAuth(app), user => { if(!user) location.replace("/entrar/"); });
+// App do Maestro: pega sempre a versão mais nova publicada (Release pública do GitHub); se a consulta falhar, usa a última conhecida
+const APK_RESERVA = "https://github.com/Newpc-Alan/portal-educador-5/releases/download/maestro-1.1.0/maestro-1.1.0.apk";
+document.addEventListener("click", async ev => {
+  const alvo = ev.target.closest("[data-action='baixar-maestro']"); if(!alvo) return;
+  const btn = document.getElementById("maestroBtn"), nota = document.getElementById("maestroNota");
+  btn.textContent = "Preparando…";
+  let url = APK_RESERVA, versao = "";
+  try {
+    const r = await fetch("https://api.github.com/repos/Newpc-Alan/portal-educador-5/releases?per_page=20");
+    if(r.ok){ const rel = (await r.json()).find(x => !x.draft && !x.prerelease && /^maestro-/.test(x.tag_name || ""));
+      const a = rel && (rel.assets || []).find(x => /\.apk$/i.test(x.name || ""));
+      if(a){ url = a.browser_download_url; versao = rel.tag_name.replace(/^maestro-/, ""); } }
+  } catch(e){}
+  nota.textContent = "Download iniciado" + (versao ? " (versão " + versao + ")" : "") + ". Abra o arquivo no tablet para instalar.";
+  btn.textContent = "⬇ Baixar de novo";
+  location.href = url;
+});
 </script>
 <!-- trava pelo plano do município / pacote da licença -->
 <script type="module" src="/assets/js/plano.js" data-plano-modulo="apps" data-plano-nome="Aplicativos Úteis"></script>
