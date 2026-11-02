@@ -424,6 +424,7 @@
   .hj-btn:hover{ background:#14551f;color:#fff }
   .hj-vazio{ background:#fff;border:1.5px dashed var(--line);border-radius:16px;padding:16px;color:var(--muted);font-size:13.5px }
   .ac-grid{ display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px }
+  .ac-faixa{ grid-column:1/-1;margin:10px 0 -4px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted) } .ac-faixa:first-child{ margin-top:0 }
   .ac-card{ position:relative;display:flex;flex-direction:column;background:#fff;border:1.5px solid var(--line);border-radius:18px;overflow:hidden;
     text-decoration:none;color:var(--ink);text-align:left;font:inherit;padding:0;cursor:pointer;transition:transform .15s, box-shadow .15s }
   .ac-card:hover:not(.trava){ transform:translateY(-3px);box-shadow:0 14px 30px -16px rgba(15,44,74,.55);color:var(--ink) }
@@ -7038,7 +7039,7 @@
     faixaDatas();
     if(usuarioAtual.perfil === "aluno"){ faixaProvasAluno(); materiaisAluno(); vigiarFimAula(); }
     // modulos que viraram acoes no Inicio do professor nao se repetem em "Mais recursos"
-    const NAS_ACOES = ehAluno ? [] : ["provas", "portalia", "maestro", "gestao"];
+    const NAS_ACOES = ehAluno ? [] : ["provas", "portalia", "maestro", "gestao", "relatorios", "apps"];
     // a Central de Relatorios fica dentro do Gestao Escolar quando ele esta liberado (o card proprio sai do Inicio)
     const gestaoAtiva = cfgDe("gestao").status === "liberado";
     const ROTA_INTERNA = { "#acervo":"ini-acervo", "#videos":"ini-videos", "#jogos":"ini-jogos", "#ia":"ini-ia", "#portalia":"ini-portalia", "#provas":"ini-provas", "#relatorios":"ini-relatorios", "#formacao":"ini-formacao", "#museus":"ini-museus", "#dicas":"ini-dicas", "#colorir":"ini-colorir", "#biblioteca":"ini-biblioteca", "#historias":"ini-historias", "#datas":"ini-datas", "#atividades":"ini-atividades", "#apps":"ini-apps", "#gestao":"ini-gestao", "#dicasaluno":"ini-dicasaluno" };
@@ -7525,19 +7526,29 @@
 
   // ---------- Inicio do professor: acoes com foto ----------
   // a foto de cada acao fica em /assets/inicio/<foto>.webp (troca = subir arquivo com o mesmo nome; ver LEIA-ME.md da pasta)
+  // Início do professor em três faixas, com nomes do que ele quer fazer (out/nov 2026)
+  const FAIXAS_PROF = [["aula","Minha aula"],["turma","Minha turma"],["escola","Minha escola"]];
   const ACOES_PROF = [
-    { rede:true, id:"chamada",    titulo:"Fazer chamada",      sub:"Frequência da turma",               foto:"chamada",            cor:"azul",  mod:"gestao",     href:"/apps/frequencia/" },
-    { rede:true, id:"notas",      titulo:"Lançar notas",       sub:"Notas e médias do bimestre",        foto:"notas",              cor:"azul",  mod:"gestao",     href:"/apps/notas/" },
-    { rede:true, id:"turmas",     titulo:"Minhas turmas",      sub:"Alunos, código e PIN de acesso",    foto:"turmas",             cor:"azul",  acao:"ini-turmas" },
-    { id:"criarprova", titulo:"Criar prova",        sub:"Impressa ou online, em minutos",    foto:"criar-prova",        cor:"verde", mod:"provas",     acao:"ini-provas" },
-    { rede:true, rec:"prova_online", id:"provasol",   titulo:"Provas online",      sub:"Sala de espera e prova ao vivo",    foto:"provas-online",      cor:"verde", mod:"provas",     href:"/prova/" },
-    { rede:true, id:"gabarito",   titulo:"Corrigir gabarito",  sub:"Fotografe os cartões-resposta",     foto:"corrigir-gabarito",  cor:"verde", mod:"gestao",     href:"/apps/corretor/" },
-    { rede:true, rec:"prova_online", id:"respostas",  titulo:"Corrigir respostas", sub:"Questões abertas da prova online",  foto:"corrigir-respostas", cor:"verde", mod:"provas",     href:"/prova/" },
-    { hero:true, id:"aula",       titulo:"Sala de aula gerenciada", sub:"Controle os aparelhos da turma no Maestro", foto:"iniciar-aula",       cor:"navy",  maestro:true },
-    { hero:true, id:"lousa",      titulo:"Abrir a lousa",      sub:"Quadro digital na tela da sala",    foto:"lousa",              cor:"navy",  acao:"lousa-abrir" },
-    { id:"portalia",   titulo:"Portal IA",          sub:"Prova, simulado, atividade e plano em segundos", foto:"portal-ia", cor:"navy",  mod:"portalia",   acao:"ini-portalia" }
+    { g:"aula", hero:true, id:"aula",       titulo:"Sala de aula gerenciada", sub:"Controle os aparelhos da turma no Maestro", foto:"iniciar-aula",       cor:"navy",  maestro:true },
+    { g:"aula", hero:true, id:"lousa",      titulo:"Abrir a lousa",      sub:"Quadro digital na tela da sala",    foto:"lousa",              cor:"navy",  acao:"lousa-abrir" },
+    { g:"aula", id:"portalia",   titulo:"Portal IA",          sub:"Prova, simulado, atividade e plano em segundos", foto:"portal-ia", cor:"navy",  mod:"portalia",   acao:"ini-portalia" },
+    { g:"aula", id:"criarprova", titulo:"Criar prova",        sub:"Impressa ou online, em minutos",    foto:"criar-prova",        cor:"verde", mod:"provas",     acao:"ini-provas" },
+    { g:"aula", rede:true, rec:"prova_online", id:"provasol",   titulo:"Provas online",      sub:"Sala de espera e prova ao vivo",    foto:"provas-online",      cor:"verde", mod:"provas",     href:"/prova/" },
+    { g:"turma", rede:true, id:"chamada",    titulo:"Fazer chamada",      sub:"Frequência da turma",               foto:"chamada",            cor:"azul",  mod:"gestao",     href:"/apps/frequencia/" },
+    { g:"turma", rede:true, id:"notas",      titulo:"Lançar notas",       sub:"Notas e médias do bimestre",        foto:"notas",              cor:"azul",  mod:"gestao",     href:"/apps/notas/" },
+    { g:"turma", rede:true, id:"turmas",     titulo:"Minhas turmas",      sub:"Alunos, código e PIN de acesso",    foto:"turmas",             cor:"azul",  acao:"ini-turmas" },
+    { g:"turma", rede:true, id:"gabarito",   titulo:"Corrigir gabarito",  sub:"Fotografe os cartões-resposta",     foto:"corrigir-gabarito",  cor:"verde", mod:"gestao",     href:"/apps/corretor/" },
+    { g:"turma", rede:true, rec:"prova_online", id:"respostas",  titulo:"Corrigir respostas", sub:"Questões abertas da prova online",  foto:"corrigir-respostas", cor:"verde", mod:"provas",     href:"/prova/" },
+    { g:"turma", id:"relatorios", titulo:"Central de Relatórios", sub:"Pareceres e relatórios do aluno, prontos para a escola e a família", foto:"relatorio-executivo", cor:"azul", mod:"relatorios", acao:"ini-relatorios" },
+    { g:"escola", rede:true, id:"reservar",  titulo:"Reservar equipamento", sub:"Carrinho de Chromebooks, laboratório e sala de VR", foto:"/assets/apps/capas/recursos.webp", cor:"azul", mod:"gestao", href:"/apps/recursos/#reservar" },
+    { g:"escola", rede:true, id:"defeito",   titulo:"Avisar defeito",     sub:"Equipamento com problema: abra o chamado",  foto:"chamados-rede",      cor:"alerta", mod:"gestao",   href:"/apps/recursos/#chamados" },
+    { g:"escola", rede:true, id:"calend",    titulo:"Calendário da escola", sub:"Dias letivos, feriados e eventos",  foto:"/assets/apps/capas/calendario.webp", cor:"azul", href:"/apps/calendario/" },
+    { g:"escola", rede:true, id:"tv",        titulo:"Aviso na TV da escola", sub:"Coloque um recado na TV do corredor", foto:"/assets/apps/capas/tv.webp", cor:"navy", mod:"apps", href:"/apps/tv/#playlists" },
+    { g:"escola", id:"folha",      titulo:"Folha Mágica",       sub:"Folha pronta para imprimir: pauta, caligrafia, quadriculado", foto:"/assets/apps/capas/folha.webp", cor:"verde", mod:"apps", href:"/apps/folha/" },
+    { g:"escola", id:"teleprompter", titulo:"Ler na tela (teleprompter)", sub:"Texto rolando para gravar vídeo ou apresentar", foto:"/assets/apps/capas/teleprompter.webp", cor:"verde", mod:"apps", href:"/apps/teleprompter/" },
+    { g:"escola", rede:true, id:"gestao",    titulo:"Gestão Escolar",     sub:"Tudo da escola num lugar só",       foto:"/assets/apps/capas/painel.webp", cor:"navy", mod:"gestao", href:"/gestao/" }
   ];
-  const fotoAcao = (f) => "/assets/inicio/" + f + ".webp";
+  const fotoAcao = (f) => f.startsWith("/") ? f : "/assets/inicio/" + f + ".webp";
   // correção das questões abertas: só aparece quando a função estiver publicada no servidor (mesma chave do painel da prova)
   const CORRECAO_NO_AR = true; 
   // ok | breve | plano | oculto (mesma regra dos cards do Inicio)
@@ -7545,7 +7556,7 @@
     const c = cfgDe(id);
     if(c.status === "oculto" && !admin) return "oculto";
     let e = c.status === "liberado" && c.url ? "ok" : "breve";
-    if(e === "ok" && doPlano && !doPlano.has(id) && !(id === "gestao" && doPlano.has("relatorios"))) e = "plano";
+    if(e === "ok" && doPlano && !doPlano.has(id) && !(id === "gestao" && doPlano.has("relatorios")) && !(id === "relatorios" && doPlano.has("gestao"))) e = "plano";
     return e;
   }
   const iniProf = { badges:{}, links:{}, doPlano:null, admin:false, aula:null, recursos:null };
@@ -7564,7 +7575,7 @@
       '<button type="button" class="au-lousa" data-action="lousa-abrir" data-ac="lousa">Lousa</button></span></div></div>'
       : (cartaoAoVivo ? '<div class="hj-lista au-lista" aria-label="Turma ao Vivo">'+cartaoAoVivo+'</div>' : "");
     const box = $("iniAcoes"); if(!box) return;
-    const grandes = [], pequenos = [];
+    const grandes = [], pequenos = [], porFaixa = {};
     ACOES_PROF.forEach(a => {
       let estado = "ok";
       if(a.maestro) estado = aula ? "ok" : (cfgDe("maestro").status === "oculto" && !admin ? "oculto" : "breve");
@@ -7583,16 +7594,21 @@
       const corpo = '<span class="ac-img" style="background-image:url(\''+fotoAcao(a.foto)+'\')"></span>'+
         '<span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge;
       const cls = 'ac-card '+a.cor;
+      const g0 = grandes.length;
       if(a.maestro) grandes.push('<a class="'+cls+'" href="'+escapeAttr(aula.url)+'" target="_blank" rel="noopener" data-action="ini-abrir" data-mod="maestro" data-ac="'+a.id+'">'+corpo+'</a>');
       else if(a.acao) grandes.push('<button type="button" class="'+cls+'" data-action="'+a.acao+'" data-mod="'+(a.mod || a.id)+'" data-ac="'+a.id+'">'+corpo+'</button>');
       else grandes.push('<a class="'+cls+'" href="'+escapeAttr(iniProf.links[a.id] || a.href)+'" data-action="ini-abrir" data-mod="'+(a.mod || a.id)+'" data-ac="'+a.id+'">'+corpo+'</a>');
+      if(grandes.length > g0) (porFaixa[a.g || "aula"] = porFaixa[a.g || "aula"] || []).push(grandes[grandes.length - 1]);
     });
     // recursos de conteudo: plano completo -> ficam em "Mais recursos" (recolhido);
     // plano enxuto (poucas acoes liberadas) -> o que foi contratado sobe para os cards grandes
     const mods = iniProf.mods || [];
     const ok = mods.filter(m => m.estado === "ok"), fora = mods.filter(m => m.estado !== "ok");
     const sobe = grandes.length < 8;
-    box.innerHTML = grandes.concat(sobe ? ok.map(m => m.grande) : []).join("") ||
+    // três faixas (Minha aula, Minha turma, Minha escola); conteúdos contratados entram numa quarta quando o plano é enxuto
+    const faixas = FAIXAS_PROF.filter(([k]) => (porFaixa[k] || []).length).map(([k, t]) => '<h4 class="ac-faixa">'+t+'</h4>'+porFaixa[k].join(""));
+    if(sobe && ok.length) faixas.push('<h4 class="ac-faixa">Conteúdos</h4>'+ok.map(m => m.grande).join(""));
+    box.innerHTML = faixas.join("") ||
       '<div class="hj-vazio" style="grid-column:1/-1">Nenhum recurso liberado ainda para o seu município.</div>';
     const mais = $("iniMais"), grid = $("iniGrid");
     if(mais && grid){ const lista = sobe ? [] : ok; mais.hidden = !lista.length; grid.innerHTML = lista.map(m => m.mini).join(""); }
