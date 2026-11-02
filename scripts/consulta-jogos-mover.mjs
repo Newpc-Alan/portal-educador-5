@@ -11,6 +11,7 @@ const ANT = 'https://jogos.portaldoeducador.com.br/', NOVA = 'https://app.portal
 const s = await db.collection('jogos').get(); const muda = [];
 s.forEach(d => { const u = String(d.data().url || ''); if (u.startsWith(ANT)) muda.push({ ref: d.ref, id: d.id, de: u, para: NOVA + u.slice(ANT.length) }); });
 console.log('::notice::jogos no catálogo: ' + s.size + ' · com o endereço antigo: ' + muda.length + (GRAVAR ? ' · GRAVANDO' : ' · só simulação'));
+s.forEach(d => { const x = d.data(), u = String(x.url || ''); if (!u.startsWith(ANT) && !u.startsWith(NOVA)) console.log('::notice::FORA: ' + (x.titulo || '-') + ' · ' + (x.publicado ? 'publicado' : 'rascunho') + ' · ' + (u || '(sem link)')); });
 muda.slice(0, 5).forEach(m => console.log('::notice::' + m.de + ' -> ' + m.para));
 if (GRAVAR && muda.length) {
   for (let i = 0; i < muda.length; i += 200) { const b = db.batch(); muda.slice(i, i + 200).forEach(m => b.update(m.ref, { url: m.para, url_antiga: m.de, origem: 'portal' })); await b.commit(); }
