@@ -83,7 +83,15 @@ De cima para baixo:
 3. **Para hoje**: as pendências reais do dia. Turmas sem chamada, prova na sala de espera, prova em andamento ou agendada para hoje e respostas abertas para corrigir. Sem pendência, aparece **Tudo em dia por aqui**.
 4. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
 5. **Notícia em destaque** (veja "Notícias e pesquisas rápidas").
-6. **O que você quer fazer?**: cartões grandes com foto. **Fazer chamada**, **Lançar notas**, **Minhas turmas**, **Criar prova**, **Provas online**, **Corrigir gabarito**, **Corrigir respostas** e **Portal IA**. Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir".
+6. **O que você quer fazer?**: cartões grandes com foto, em três faixas:
+
+   | Faixa | Cartões |
+   |---|---|
+   | **Minha aula** | **Abrir a lousa**, **Portal IA**, **Criar prova**, **Provas online** |
+   | **Minha turma** | **Fazer chamada**, **Lançar notas**, **Minhas turmas**, **Corrigir gabarito**, **Corrigir respostas**, **Central de Relatórios** |
+   | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola**, **Aviso na TV da escola**, **Folha Mágica**, **Ler na tela (teleprompter)** e **Gestão Escolar** (todas as ferramentas da escola num lugar só) |
+
+   Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal".
 7. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
 8. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
 9. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
