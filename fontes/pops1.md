@@ -1162,9 +1162,9 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 1. No Início, toque em **▶ Começar a aula**, escolha a turma e o tempo.
 2. Peça aos alunos que entrem no Portal: os menores mostram o **cartão** para a câmera; os maiores usam **código e PIN** ou a **conta Google** da escola.
 3. Confira na faixa **🎼 Maestro** quantos aparelhos estão seguindo a aula e, nos cartões, quem está 🟢 na aula, 🔴 fora da página ou sem cor.
-4. Para explicar algo, use **🔒 Pausar as telas**; para voltar à atividade, **🔓 Liberar as telas**.
-5. Para abrir um conteúdo em todos os aparelhos, use **📲 Abrir nos aparelhos** (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
-6. Atenda as mãos ✋: toque no aluno e use **💬 Perguntar só para ...** (ou converse e toque em **✋ Atendi: baixar a mão**). Aluno fora da tarefa: toque nele e **🔒 Pausar a tela**. Para checar a turma, **📊 Pesquisa rápida**; para atividade com tempo, **⏱️ Cronômetro**.
+4. Para explicar algo, use **⏸️ PAUSAR AS TELAS DA TURMA**; para voltar à atividade, **▶️ LIBERAR AS TELAS DA TURMA**.
+5. Para abrir um conteúdo em todas as telas, use **📲 Abrir para a turma** (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
+6. Atenda as mãos ✋ (o Controle da aula mostra quantas e de quem): toque no aluno, use **💬 Conversar** e, ao terminar, **✋ Atendi: baixar a mão**. Aluno fora da tarefa: toque nele e **⏸️ Pausar a tela**. Para checar a turma, **📊 Pesquisa rápida**. Atividade ou prova adaptada: **📲 Enviar só para ...** no cartão do aluno.
 7. Se a escola liga a foto da carteirinha, confira em **📸 Entradas pela carteirinha** quem entrou sem senha (**👁️ Ver foto**). Rosto que não confere: **Não é este aluno**.
 8. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
 

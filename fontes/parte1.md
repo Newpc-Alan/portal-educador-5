@@ -562,16 +562,21 @@ Desde novembro de 2026, o Portal Maestro funciona **dentro** do Dar aula agora. 
 | **Chromebook com a extensão do Maestro (0.9 ou mais nova)** | O aluno entra no Portal (cartão, código e PIN ou conta Google da escola) e o Chromebook entra na aula sozinho. Na tela da extensão: **Entrar com a minha conta do Portal** | Pausar a tela, abrir conteúdo em aba, ver a aba aberta, mão levantada |
 | **Computador ou celular sem a extensão** | Entra no Portal normalmente; com a aula aberta, a página do Portal segue o professor | Presença, materiais, pausa e conteúdo dentro do Portal (se o aluno trocar de aba, aparece em vermelho) |
 
-No painel **📡 Turma ao Vivo**, a faixa **🎼 Maestro** mostra quantos aparelhos estão seguindo a aula e traz:
+No painel **📡 Turma ao Vivo**, com a aula aberta, aparece o **🎛️ Controle da aula**. Ele funciona **dentro do Portal**, para qualquer aluno que entrou na conta (tablet, celular ou computador), com ou sem o Portal Maestro:
 
-- **📲 Abrir nos aparelhos**: abre na hora, em todos os aparelhos que seguem a aula, algo escolhido em três abas: **🏫 Do Portal** (jogos, vídeos, livros e histórias, desenhos para colorir, com busca pelo nome ou tema), **📤 Enviados à turma** (sem repetir o mesmo link) e **🔗 Link externo** (com um nome para os alunos).
-- **🔒 Pausar as telas** / **🔓 Liberar as telas**: a turma inteira vê a mensagem de atenção ao professor.
-- **📊 Pesquisa rápida**: uma pergunta (ex.: "Entenderam?") aparece em todos os aparelhos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. A faixa mostra a contagem e quem não respondeu, e o cartão de cada aluno ganha a bolinha da resposta. **Encerrar pesquisa** fecha.
-- **⏱️ Cronômetro**: atividade com tempo (3 a 30 min); os aparelhos mostram o tempo que falta e avisam no fim. **Parar** encerra.
+- **⏸️ PAUSAR AS TELAS DA TURMA** (botão vermelho, em destaque): a tela de todos os alunos mostra "Atenção ao professor". Para voltar, **▶️ LIBERAR AS TELAS DA TURMA** (botão verde, piscando).
+- **Contadores**: ✋ quantas mãos estão levantadas (com os nomes), 💬 mensagens novas dos alunos, 👥 quantos estão na sala e, se a escola usa o Portal Maestro, 🎼 quantos aparelhos o Maestro controla.
+- **📲 Abrir para a turma**: abre na hora, na tela de todos, algo escolhido em três abas: **🏫 Do Portal** (jogos, vídeos, livros e histórias, colorir, com busca), **📤 Enviados à turma** (sem repetir) e **🔗 Link externo**.
+- **📊 Pesquisa rápida**: a pergunta aparece na tela de todos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. O resultado aparece no Controle da aula (com quantos ainda não responderam) e no cartão de cada aluno. **Encerrar pesquisa** fecha.
 
-No cartão de cada aluno aparecem 💻 (Chromebook) ou 📱 (tablet), 🔒 (tela pausada) e ✋ (mão levantada). Toque no aluno para ver o que ele está fazendo agora e usar **🔒 Pausar a tela**, **🔓 Liberar a tela**, **✋ Atendi: baixar a mão** ou **💬 Perguntar só para ...** (pergunta com resposta livre ou com alternativas A a D, que só aquele aluno vê; a resposta aparece no cartão dele). Quem entrou pelo número da aula, sem conta, aparece na linha **Também conectados pelo número da aula**.
+Toque no **cartão do aluno** para:
 
-Logo abaixo da sala, **📸 Entradas pela carteirinha** lista quem entrou pela carteirinha nesta aula, com a hora. **👁️ Ver foto** abre a foto (quando a escola liga a foto; cada abertura fica registrada). Se o rosto não for do aluno, toque em **Não é este aluno**: a sessão daquele aparelho cai na hora e a entrada fica marcada na auditoria.
+- **⏸️ Pausar a tela** / **▶️ Liberar a tela** só dele;
+- **💬 Conversar**: bate-papo só com ele (com respostas rápidas como "Pode falar, estou ouvindo"). O aluno vê a mensagem na hora e responde pelo **💬 Falar com o professor**;
+- **📲 Enviar só para ...**: abre um conteúdo só na tela dele (ex.: **prova ou atividade adaptada**). Os colegas não veem;
+- **✋ Atendi: baixar a mão**.
+
+No cartão aparecem ✋ (mão levantada), ⏸️ (tela pausada), 💬 com o número de mensagens novas, a bolinha da pesquisa e 💻 quando é um Chromebook com a extensão do Maestro. Na tela do aluno ficam os botões **✋ Levantar a mão** e **💬 Falar com o professor**.
 
 :::regra
 A aula do Maestro termina junto com a aula do Portal. **Encerrar aula** libera e desconecta os aparelhos na hora; se o tempo acabar com o painel fechado, os aparelhos saem sozinhos em até 1 minuto. Sem o painel aberto por 2 minutos, as telas pausadas se liberam sozinhas (trava de segurança).
