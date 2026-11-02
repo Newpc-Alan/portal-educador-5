@@ -886,7 +886,15 @@ O gestor (diretor ou coordenador) tem no menu: **Início**, **Painel da Escola**
 1. **A escola hoje**: presença do dia, chamadas feitas, alunos em alerta e chamados técnicos.
 2. **Para hoje**: pendências reais da escola.
 3. **Substituições de hoje**, com o botão **Professor faltou** (veja abaixo).
-4. **O que você quer fazer?**: **Painel da escola**, **Busca ativa**, **Notas da escola**, **Equipe**, **Famílias**, **Equipamentos e chamados**, **TV da escola** e **Calendário**.
+4. **O que você quer fazer?**: cartões com foto, em três faixas:
+
+   | Faixa | Cartões |
+   |---|---|
+   | **A escola hoje** | **Painel da escola**, **Busca ativa**, **Professor faltou**, **Avisar defeito** |
+   | **Alunos e turmas** | **Notas da escola**, **Grade das turmas**, **Ficha do aluno**, **Central de Relatórios** (aprovar pareceres), **Corrigir gabarito**, **Famílias** |
+   | **Equipe e estrutura** | **Equipe**, **Ficha do servidor**, **Reservar equipamento**, **TV da escola**, **Calendário da escola** |
+
+   Em qualquer ferramenta, **← Voltar ao Portal** traz de volta a este Início.
 5. **Minhas aulas** (para quem também dá aula): **Fazer chamada**, **Lançar notas**, **Criar prova**, **Provas online** e **Minhas turmas**.
 6. Notícias e próximas datas.
 
@@ -995,7 +1003,7 @@ TV antiga que não roda o player? Abra `app.portaldoeducador.com.br/tv/teste/` n
 
 ## Secretaria escolar e Portaria
 
-**Secretaria escolar**: ao entrar, vai direto para a Gestão Escolar, com Famílias, busca ativa, portaria, mural de chegada, carteirinhas, auditoria, comunicados, Grade das turmas, Ficha do Aluno e **Boletim escolar** (boletim de cada aluno, uma página por aluno ou a turma inteira, com brasão e assinaturas). Quem liga e desliga os avisos automáticos é o gestor; a secretaria escolar acompanha os envios e manda comunicados.
+**Secretaria escolar**: o Início traz os atalhos do dia a dia em duas faixas. **Atendimento**: **Ficha do aluno**, **Famílias**, **Busca ativa** e **Boletim escolar**. **Rotina**: **Portaria e mural de chegada**, **Grade das turmas** e **Calendário da escola**. A tela **Gestão Escolar**, no menu, continua reunindo tudo: Famílias, busca ativa, portaria, mural de chegada, carteirinhas, auditoria, comunicados, Grade das turmas, Ficha do Aluno e **Boletim escolar** (boletim de cada aluno, uma página por aluno ou a turma inteira, com brasão e assinaturas). Quem liga e desliga os avisos automáticos é o gestor; a secretaria escolar acompanha os envios e manda comunicados.
 
 **Portaria**: ao entrar, vai direto para a tela de entrada. Ligue a câmera (ou o leitor USB) e as leituras aparecem com som: "✅ Bom dia, Ana!". Sem internet, as leituras ficam guardadas e sobem depois.
 
