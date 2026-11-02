@@ -437,7 +437,11 @@
   /* auditoria da entrada pela carteirinha (foto) */
   .av-af{ position:absolute;bottom:4px;right:6px;font-size:13px } .av-nl{ position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;background:#2671AB;color:#fff;border-radius:999px;padding:1px 6px }
   /* Controle da aula */
-  #avMae{ display:grid;gap:10px } .ca-linha{ display:flex;flex-wrap:wrap;align-items:center;gap:8px } .ca-tit{ font-size:16px }
+  #avMae{ display:grid;gap:10px;background:transparent;color:#0f2c4a;padding:0;margin:14px 20px 0 }
+  #avMae .ca-linha{ background:#0f2c4a;color:#fff;border-radius:14px;padding:10px 14px }
+  .ca-bts{ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px } @media (max-width:900px){ .ca-bts{ grid-template-columns:1fr 1fr } }
+  #avMae .av-ac{ font-size:16px;font-weight:800;border-radius:16px;padding:16px 12px;background:#fff;color:#0f2c4a;border:2px solid #d6e2ec } #avMae .av-ac.verde{ background:#1a6b2a;border-color:#1a6b2a;color:#fff }
+  #avMae .ca-pq{ border:2px solid #d6e2ec } .ca-linha{ display:flex;flex-wrap:wrap;align-items:center;gap:8px } .ca-tit{ font-size:16px }
   .ca-cont{ background:rgba(255,255,255,.12);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:700 } .ca-cont.alerta{ background:#f5d547;color:#3d3000 }
   button.ca-pausa{ width:100%;font-size:19px !important;font-weight:900 !important;letter-spacing:.02em;padding:16px !important;border-radius:14px !important;box-shadow:0 6px 18px rgba(0,0,0,.25) }
   button.ca-pausa.pausar{ background:#c62828 !important;color:#fff !important } button.ca-pausa.liberar{ background:#8DC63F !important;color:#0f2c4a !important;animation:caPulsa 1.6s ease-in-out infinite }
@@ -7268,6 +7272,7 @@
     else if(acao === "av-mae-af"){ janelaPesquisaMae(); }
     else if(acao === "av-mae-af-fim"){ const pq = pesquisaAtiva(); if(pq) avvSet({ pesquisa:{ ...pq, ativa:false } }).then(() => toast("Pesquisa encerrada.")).catch(() => toast("Não deu agora.", true));
       if(MAV.mc) fbMae("aulas/" + MAV.mc + "/controle/afinacao/ativa", "PUT", false).catch(() => {}); }
+    else if(acao === "av-acervo"){ janelaAcervoTurma(); }
     else if(acao === "av-chat"){ janelaConversa(el.dataset.arg, el.dataset.nome || "Aluno"); }
     else if(acao === "av-um-link"){ janelaLinkMae(el.dataset.arg, el.dataset.nome || ""); }
     else if(acao === "av-cart-foto"){ verFotoCarteirinha(el.dataset.arg, el.dataset.nome || ""); }
@@ -9292,14 +9297,16 @@
     let pqTxt = "";
     if(pq){ const c = { verde:0, amarelo:0, vermelho:0 }; lista.forEach(x => { const v = respostaDoAluno(x.id); if(c[v] !== undefined) c[v]++; });
       const tot = c.verde + c.amarelo + c.vermelho;
-      pqTxt = '<div class="ca-pq"><b>📊 “' + escapeHtml(String(pq.pergunta || "").slice(0, 50)) + '”</b><span>🟢 ' + c.verde + '</span><span>🟡 ' + c.amarelo + '</span><span>🔴 ' + c.vermelho + '</span><span>' + Math.max(0, naSala - tot) + ' sem resposta</span><button type="button" data-action="av-mae-af-fim">Encerrar pesquisa</button></div>'; }
+      pqTxt = '<div class="ca-pq"><b>📊 “' + escapeHtml(String(pq.pergunta || "").slice(0, 50)) + '”</b><span>🟢 ' + c.verde + '</span><span>🟡 ' + c.amarelo + '</span><span>🔴 ' + c.vermelho + '</span><span>' + Math.max(0, naSala - tot) + ' sem resposta</span></div>'; }
     const html = '<div class="ca-linha"><b class="ca-tit">🎛️ Controle da aula</b>' +
       '<span class="ca-cont' + (maos.length ? " alerta" : "") + '" title="' + escapeAttr(maos.map(x => x.nome).join(", ")) + '">✋ ' + maos.length + (maos.length === 1 ? " mão levantada" : " mãos levantadas") + (maos.length ? ": " + escapeHtml(maos.slice(0, 3).map(x => x.nome.split(" ")[0]).join(", ")) + (maos.length > 3 ? "..." : "") : "") + '</span>' +
       '<span class="ca-cont' + (msgs ? " alerta" : "") + '">💬 ' + msgs + (msgs === 1 ? " mensagem nova" : " mensagens novas") + '</span>' +
-      '<span class="ca-cont">👥 ' + naSala + ' na sala</span>' + (devs ? '<span class="ca-cont" title="Aparelhos controlados pelo Portal Maestro">🎼 ' + devs + ' no Maestro</span>' : "") + '<span class="av-esp"></span>' +
-      (pq ? "" : '<button type="button" data-action="av-mae-af">📊 Pesquisa rápida</button>') +
-      '<button type="button" data-action="av-mae-link">📲 Abrir para a turma</button></div>' +
-      '<button type="button" class="ca-pausa ' + (geral ? "liberar" : "pausar") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '">' + (geral ? "▶️ LIBERAR AS TELAS DA TURMA" : "⏸️ PAUSAR AS TELAS DA TURMA") + "</button>" + pqTxt;
+      '<span class="ca-cont">👥 ' + naSala + ' na sala</span>' + (devs ? '<span class="ca-cont" title="Aparelhos controlados pelo Portal Maestro">🎼 ' + devs + ' no Maestro</span>' : "") + (geral ? '<span class="ca-cont alerta">⏸️ Telas pausadas</span>' : "") + '</div>' +
+      '<div class="ca-bts">' +
+      '<button type="button" class="av-ac' + (geral ? " verde" : "") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '"><span>' + (geral ? "▶️" : "⏸️") + '</span>' + (geral ? "Liberar as telas" : "Pausar as telas") + '</button>' +
+      '<button type="button" class="av-ac" data-action="' + (pq ? "av-mae-af-fim" : "av-mae-af") + '"><span>📊</span>' + (pq ? "Encerrar pesquisa" : "Pesquisa rápida") + '</button>' +
+      '<button type="button" class="av-ac" data-action="av-mae-link"><span>📲</span>Abrir conteúdo para a turma</button>' +
+      '<button type="button" class="av-ac" data-action="av-acervo"><span>📚</span>Acervo do município</button></div>' + pqTxt;
     if(b.innerHTML !== html) b.innerHTML = html;
     b.hidden = false;
   }
@@ -9340,6 +9347,38 @@
     if(MAV.mc){ const c = { id:cmd.id, tipo:"abrirLink", url, nome:cmd.nome, ts:{ ".sv":"timestamp" } };
       if(alunoId){ const ap = aparelhosDoAluno(alunoId); if(ap.length){ const patch = {}; ap.forEach(x => { patch[x.dev] = c; }); fbMae("aulas/" + MAV.mc + "/controle/comandos", "PATCH", patch).catch(() => {}); } }
       else fbMae("aulas/" + MAV.mc + "/controle/comando", "PUT", c).catch(() => {}); }
+  }
+  // Acervo do município: o arquivo vai para a turma como material (aparece em "Enviados" e abre sozinho na tela de quem está na aula)
+  async function janelaAcervoTurma(){
+    const mun = usuarioAtual.municipio_id; if(!mun){ toast("Seu cadastro não está ligado a um município.", true); return; }
+    const velho = $("axFundo"); if(velho) velho.remove();
+    const f = document.createElement("div"); f.id = "axFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan ml-jan" role="dialog" aria-modal="true" aria-labelledby="axTit"><div class="et-topo"><h3 id="axTit">📚 Acervo do município</h3><button type="button" data-ax="x">Fechar</button></div><div class="et-corpo">' +
+      '<p class="et-d">Escolha um arquivo do acervo da sua rede: ele vai para a turma (fica em “Enviados”) e abre na tela de quem está na aula.</p>' +
+      '<input id="axQ" type="search" class="md-busca" placeholder="Procure pelo título, disciplina ou etapa" autocomplete="off"><div id="axRes" class="ml-res"><div class="et-d">Carregando o acervo...</div></div><p id="axMsg" class="et-msg" role="status"></p></div></div>';
+    document.body.appendChild(f);
+    let itens = [];
+    try{ const sn = await getDocs(query(collection(db, "acervo_rede"), where("municipio_id", "==", mun), where("publicado", "==", true))); sn.forEach(d => itens.push({ id:d.id, ...d.data() })); }
+    catch(e){ $("axRes").innerHTML = '<div class="et-d">Não foi possível carregar o acervo (' + escapeHtml(e.code || "erro") + ').</div>'; return; }
+    itens.sort((a, b) => String(a.titulo || "").localeCompare(String(b.titulo || ""), "pt-BR"));
+    const ic = i => i.link ? "🔗" : /pdf/.test(i.mime || "") ? "📄" : /image/.test(i.mime || "") ? "🖼️" : /video/.test(i.mime || "") ? "🎬" : /audio/.test(i.mime || "") ? "🎧" : /presentation|powerpoint/.test(i.mime || "") ? "📊" : "📎";
+    let vis = [];
+    const desenhar = q => { const t = semAcento(String(q || "").trim()), box = $("axRes"); if(!box) return;
+      vis = itens.filter(i => !t || semAcento([i.titulo, i.disciplina, (i.etapas || []).join(" "), i.descricao].join(" ")).includes(t)).slice(0, 60);
+      box.innerHTML = !itens.length ? '<div class="et-d">O acervo do seu município ainda não tem arquivos publicados.</div>' : !vis.length ? '<div class="et-d">Nada encontrado.</div>' :
+        vis.map((i, k) => '<button type="button" class="ml-it" data-ax="it" data-i="' + k + '"><span>' + ic(i) + '</span><b>' + escapeHtml(String(i.titulo || "Arquivo").slice(0, 90)) + '</b><small>' + escapeHtml([i.disciplina, (i.etapas || []).slice(0, 2).join(", "), i.arquivo_nome].filter(Boolean).join(" · ")) + "</small></button>").join(""); };
+    desenhar("");
+    $("axQ").addEventListener("input", e => desenhar(e.target.value)); $("axQ").focus();
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    f.addEventListener("click", async e => { const b = e.target.closest("[data-ax]"); if(!b) return;
+      if(b.dataset.ax === "x") return f.remove();
+      const i = vis[Number(b.dataset.i)]; if(!i || f.dataset.ocupado) return;
+      f.dataset.ocupado = "1"; $("axMsg").textContent = "Enviando “" + (i.titulo || "arquivo") + "” para a turma...";
+      try{ const r = await fnTrab({ acao:"enviar_link", titulo:String(i.titulo || "Arquivo do acervo").slice(0, 120), turmas:[AV.tid], acervo:{ colecao:"acervo_rede", id:i.id } });
+        // abre na hora na tela de quem está na aula, em qualquer página do Portal
+        if(r && r.url) await abrirNosAparelhos(r.url, String(i.titulo || "Arquivo do acervo").slice(0, 80)).catch(() => {});
+        toast("📚 “" + String(i.titulo || "Arquivo").slice(0, 40) + "” enviado para a turma."); f.remove(); }
+      catch(err){ console.warn(err); $("axMsg").textContent = err && err.message ? err.message : "Não deu para enviar agora."; delete f.dataset.ocupado; } });
   }
   // bate-papo individual
   function janelaConversa(alunoId, nome){
@@ -9556,7 +9595,7 @@
     return m && msMt(m.criado_em) >= MT.aulaIni - 60000 ? m : null;
   }
   function abrirUltimoDaAula(){
-    const m = ultimoDaAula(); if(!m || MT.abertos.has(m.id) || mtFechados().has(m.id) || $("mtFundo")) return;
+    const m = ultimoDaAula(); if(!m || m.acervo_id || MT.abertos.has(m.id) || mtFechados().has(m.id) || $("mtFundo") || $("alConteudo")) return;   // do Acervo: já abre pelo Controle da aula
     let visto = 0; try{ visto = Number(localStorage.getItem("pde_mt_visto_" + usuarioAtual.uid)) || 0; }catch(e){}
     if(msMt(m.criado_em) > visto) abrirMaterialAluno(m.id, true);
   }

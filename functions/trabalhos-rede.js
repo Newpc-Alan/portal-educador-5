@@ -78,6 +78,16 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
     await exigirRecurso(db, c.eu, 'sala_digital', c.muni); if (d.filtro) await exigirRecurso(db, c.eu, 'turma_ao_vivo', c.muni);
     const turmas = await turmasParaAlunos(db, c.eu, uid, c.admin, d);
     const itemId = 'lk_' + Date.now().toString(36) + randomBytes(4).toString('hex'), item = { tipo_item: '', titulo, orientacao };
+    // Controle da aula (nov/2026): arquivo do Acervo do município direto para a turma (o professor da rede escolhe; a cópia da turma fica com link próprio)
+    let acervoArq = null;
+    if (d.acervo && typeof d.acervo === 'object') {
+      const id = txt(d.acervo.id, 80); if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new HttpsError('invalid-argument', 'Arquivo do acervo inválido.');
+      const a = (await db.doc(`acervo_rede/${id}`).get()).data();
+      if (!a || a.publicado !== true || (!c.admin && a.municipio_id !== c.eu.municipio_id)) throw new HttpsError('permission-denied', 'Este arquivo não está no acervo da sua rede.');
+      if (a.link) d.url = a.link;
+      else if (a.arquivo_key) acervoArq = a;
+      else throw new HttpsError('failed-precondition', 'Este arquivo fica no servidor da NEWPC e ainda não vai direto para a turma. Abra no Acervo, baixe e envie por "Enviar link ou arquivo".');
+    }
     if (d.url) {
       let u; try { u = new URL(String(d.url).trim()); } catch (e) { throw new HttpsError('invalid-argument', 'Esse link não parece válido.'); }
       if (u.protocol !== 'https:') throw new HttpsError('invalid-argument', 'Use um link seguro, que começa com https://');
@@ -98,6 +108,13 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
       const url = await linkPublico(cam, `turma-materiais/${itemId}/${nome}`);
       Object.assign(item, { tipo_item: 'arquivo', arquivo_url: url, arquivo_nome: nome, arquivo_tipo: tipoArq, arquivo_ct: ct, tamanho: Number(m.size) || 0 });
       await f.delete().catch(() => {});   // o original era só o envio; a cópia da turma é a que fica
+    } else if (acervoArq) {
+      const f = getStorage().bucket().file(acervoArq.arquivo_key), [existe] = await f.exists();
+      if (!existe) throw new HttpsError('not-found', 'O arquivo do acervo não foi encontrado.');
+      const [m] = await f.getMetadata(), ct = String(m.contentType || acervoArq.mime || ''), nome = txt(acervoArq.arquivo_nome || acervoArq.arquivo_key.split('/').pop(), 120).replace(/[^\w.\- À-ú()]/g, '_');
+      const tipoArq = /pdf$/.test(ct) ? 'pdf' : /^image\//.test(ct) ? 'imagem' : /^video\//.test(ct) ? 'video' : /^audio\//.test(ct) ? 'audio' : /presentation|powerpoint/.test(ct) ? 'slides' : /word|msword/.test(ct) ? 'texto' : /sheet|excel/.test(ct) ? 'planilha' : 'arquivo';
+      const url = await linkPublico(acervoArq.arquivo_key, `turma-materiais/${itemId}/${nome}`);
+      Object.assign(item, { tipo_item: 'arquivo', arquivo_url: url, arquivo_nome: nome, arquivo_tipo: tipoArq, arquivo_ct: ct, tamanho: Number(m.size) || 0, acervo_id: txt(d.acervo.id, 80) });
     } else throw new HttpsError('invalid-argument', 'Cole um link ou escolha um arquivo.');
     await publicarNaTurma(db, turmas, itemId, { ...item, origem: 'link', autor_uid: uid, autor_nome: txt(c.eu.nome || '', 80), escola_nome: c.escola, disciplina: txt(d.disciplina, 60), tipo_nome: item.tipo_item === 'link' ? 'Link' : 'Arquivo' });
     // também às famílias (só turmas escolhidas a dedo; a escola precisa ter liberado)
@@ -105,7 +122,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
     if (d.familias && !d.filtro) familias = await enviarMaterialFamilias(db, { uid, nomeProf: c.eu.nome || '', emailProf: c.eu.email || '', itemId,
       turmas: turmas.map(t => ({ id: t.id, nome: t.nome || '', escola_id: t.escola_id || '' })), titulo, texto: orientacao, link: item.url || item.arquivo_url || '' })
       .catch(e => { console.warn('familias', e.message); return { erro_geral: true }; });
-    return { ok: true, turmas: turmas.length, nomes: turmas.slice(0, 8).map(t => t.nome || 'Turma'), familias };
+    return { ok: true, turmas: turmas.length, nomes: turmas.slice(0, 8).map(t => t.nome || 'Turma'), familias, url: item.url || item.arquivo_url || '', embed: item.embed !== false };
   }
 
   const tipo = String(d.tipo || ''), T = TIPOS[tipo];
