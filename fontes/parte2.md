@@ -761,3 +761,8 @@ A versão nova passa a ser a que abre em **Abrir** e **Baixar**. As anteriores f
 | Auditoria: erro ao buscar | Índice do banco ainda sendo criado | Tentar de novo em alguns minutos |
 | Precisa saber quem alterou um cadastro ou uma nota | | Auditoria › filtrar por município ou pessoa e período |
 | Tela nova com erro de permissão | O front foi publicado antes das regras | Equipe técnica publica as regras |
+
+
+### Revisão do acervo geral de quizzes (NEWPC)
+
+Em **Materiais da rede**, o administrador vê no alto o cartão **🧠 Acervo geral de quizzes**, com quantos quizzes saíram do ar por 3 avisos de erro. Em **Revisar agora** (ou **Ver o acervo**): abas **⚠️ Em revisão**, **🌎 No ar** e **🗑️ Retirados**. Ao abrir um quiz aparecem os avisos dos professores e as perguntas (as marcadas como suspeitas ficam com borda laranja); dá para corrigir o texto, as alternativas e a alternativa certa. **✅ Salvar e deixar no ar** devolve o quiz ao acervo (zera os avisos); **🗑️ Retirar do acervo** tira de todas as redes.
