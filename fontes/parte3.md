@@ -242,7 +242,7 @@ Coleções gravadas só pelas funções e sem regra de leitura (o navegador nunc
 |---|---|---|
 | `turma_materiais/{turma}/itens` | Materiais da turma no Portal do Aluno (Portal IA, Meus trabalhos, **Enviar para a turma**) | Só funções |
 | `turma_materiais/{turma}/itens/{id}/vistos` | Quem já abriu | O aluno, só o próprio registro |
-| `turma_presenca/{turma}/alunos` | Presença ao vivo (o Portal do Aluno avisa a cada minuto) | O aluno da turma |
+| `turma_presenca/{turma}/alunos` | Presença ao vivo: o Portal do Aluno avisa a cada 20 s (`fora` = saiu da página; `saiu` = saiu da conta, gravado antes do `signOut`). Professor: verde = sinal há menos de 50 s; vermelho = `fora` ou sinal parado há menos de 3 h; sem cor = `saiu`, sem sinal ou sinal com mais de 3 h | O aluno da turma |
 | `turma_aluno_estado/{turma}/alunos` | Aulas abertas e fechadas (Histórico de aulas) | O próprio aluno |
 | `qr_aulas/{turma}` | Entrada por QR aberta e tempo de aula | Só funções |
 | `trabalhos_rede` | Trabalhos compartilhados com a rede (Lousa, provas, roteiros, folhas) | Só funções |
@@ -613,6 +613,7 @@ Scripts que usam o `firebase-admin` precisam terminar com `process.exit(0)`, sen
 | Script | Cobre |
 |---|---|
 | `teste-regras-apps.mjs` | Aplicativos, gestão escolar e a maior parte das regras gerais |
+| `teste-regras-presenca.mjs` | Presença da Turma ao Vivo (campos `fora` e `saiu`, só o próprio aluno grava, professor da escola lê) |
 | `teste-regras-busca.mjs` | Busca geral: índice lido por licenciados, buscas só pelo admin, ninguém grava pelo navegador |
 | `teste-regras-aluno.mjs` | Perfil aluno |
 | `teste-regras-extras.mjs` | Liberações exclusivas do professor |

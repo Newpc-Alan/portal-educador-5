@@ -559,9 +559,9 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 | Parte | O que mostra |
 |---|---|
 | Topo | Turma, situação da aula (**🟢 Aula até 10:40 · faltam 25 min**), **+10 min**, **⏹ Encerrar aula** (ou **▶ Abrir a aula**) e **Sair do painel** |
-| Indicadores | 👥 quantos estão na sala agora · 📤 materiais enviados · 👁️ quantos abriram o último |
+| Indicadores | 👥 quantos estão na sala agora (e quantos saíram da página) · 📤 materiais enviados · 👁️ quantos abriram o último |
 | Ações | **🔗 Enviar link ou arquivo** · **📁 Enviar algo que já fiz** (aulas da Lousa e materiais do Portal IA) · **🖼️ Abrir a Lousa** · **📝 Aplicar prova online** |
-| Na sala | Os alunos em avatares; quem está com o Portal aberto aparece aceso |
+| Na sala | Os alunos em avatares, em três cores: 🟢 **verde** = na aula, com o Portal aberto na tela; 🔴 **vermelho** = saiu da página (trocou de aba, fechou o Portal ou o tablet apagou) sem sair da conta; ⚪ **sem cor** = saiu da conta ou ainda não entrou |
 | Enviados | Tudo o que a turma recebeu, com busca por tema e período (hoje, 7 ou 30 dias). Em cada item, **👁️** mostra quantos abriram e a lista de quem **ainda não abriu** |
 
 <!-- captura: painel Turma ao Vivo com indicadores, alunos em avatares e lista de enviados -->
