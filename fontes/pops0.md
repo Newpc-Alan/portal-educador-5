@@ -97,3 +97,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.17 | 02/11/2026 | POP-PDE-32: encerrar a aula a qualquer momento (Turma ao Vivo ou Início) | NEWPC Tecnologia | |
 | 2.18 | 02/11/2026 | Cartão do Início renomeado para Sala de aula gerenciada (o cartão do Maestro saiu) | NEWPC Tecnologia | |
 | 2.19 | 02/11/2026 | POP-PDE-32: Portal Maestro na gaveta (sala gerenciada só pelo Portal; extensão retirada) | NEWPC Tecnologia | |
+| 2.20 | 02/11/2026 | POP-PDE-32: a aula tem dono; Assumir a turma quando a aula anterior ficou aberta | NEWPC Tecnologia | |

@@ -589,6 +589,8 @@ No cartão aparecem ✋ (mão levantada), ⏸️ (tela pausada), 💬 com o núm
 
 :::regra
 **Encerrar aula** libera as telas e tira os alunos da aula na hora; se o tempo acabar, a aula termina sozinha.
+
+**A aula tem dono.** Quem abriu a aula é quem conduz. Se outro professor da mesma turma abrir a Turma ao Vivo (ou tentar começar uma aula) enquanto ela está aberta, vê **🔒 Em aula com Prof. Fulano até 15:30**, sem o Controle da aula, sem a conversa com os alunos e sem o quiz do colega. Se a aula ficou aberta por esquecimento, ele toca em **🔁 Assumir a turma**: a aula anterior é encerrada, o Controle da aula começa limpo (sem pausa, conteúdo, pesquisa ou quiz anteriores; o quiz do colega fica sem relatório), o colega vê que a turma passou e a troca fica registrada na **auditoria**. A direção da escola também pode encerrar qualquer aula aberta. Só quem abriu prorroga a aula.
 :::
 
 :::nota
