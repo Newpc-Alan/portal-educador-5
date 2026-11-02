@@ -506,6 +506,8 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 4. Abra o app: ele entra direto na sala do aluno, e o aluno entra pelo QR da aula.
 5. Para atualizar, repita o passo 1: a versão nova instala por cima, sem perder nada.
 
+O Portal conta os downloads (uma vez por pessoa por dia) para o Painel do administrador.
+
 :::nota
 O app só faz sentido em escola com o Portal Maestro no plano. Em tablets gerenciados pela Secretaria (MDM), quem instala é a equipe de TI, com o mesmo arquivo.
 :::

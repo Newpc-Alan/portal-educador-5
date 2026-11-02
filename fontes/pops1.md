@@ -1127,7 +1127,7 @@ Ler o Painel do administrador numa rotina fixa, para agir antes que o problema c
 ### Passo a passo
 1. **Pessoas e uso:** conferir **Aguardando aprovação** (aprovar ou recusar no mesmo dia), **Vencendo em 30 dias** (avisar o comercial) e **Conversão do teste**. **Aulas abertas agora** mostra quem está dando aula no Turma ao Vivo.
 2. **Portal IA e créditos:** redes com saldo baixo e pedidos de recarga pendentes (POP-PDE-20).
-3. **Sala Conectada e rede:** materiais **aguardando aprovação** e **com denúncia** (POP-PDE-21); envios para a turma e entradas pelo QR no mês.
+3. **Sala Conectada e rede:** materiais **aguardando aprovação** e **com denúncia** (POP-PDE-21); envios para a turma e entradas pelo QR no mês; **downloads do app do Maestro** (escola com Maestro contratado e nenhum download = oferecer ajuda na instalação dos tablets).
 4. **Conteúdo e participação:**
    - **Provas online · correção:** se houver **pendentes há mais de 7 dias**, clicar, ver professor e turma e avisar a direção da escola. Olhar as **reavaliações de nota** da semana (motivo e professor).
    - **Comunicados por e-mail:** fila andando e **falhas** (baixar a lista em Comunicados › Ver falhas e corrigir os e-mails no cadastro).
