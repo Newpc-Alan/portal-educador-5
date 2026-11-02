@@ -434,6 +434,12 @@
   .av-det b{ font-size:15px } .av-det small{ color:#5b6b7b } .av-det .av-det-ac{ display:flex;flex-wrap:wrap;gap:8px }
   .av-det button{ font:inherit;font-weight:700;border:1px solid #cfdbe7;background:#f4f7fa;border-radius:10px;padding:8px 12px;cursor:pointer }
   .av-outros{ grid-column:1/-1;font-size:12.5px;color:#5b6b7b;padding:6px 2px }
+  /* auditoria da entrada pela carteirinha (foto) */
+  .av-cart{ margin-top:12px;border-top:1px solid #e1e8f0;padding-top:10px;display:grid;gap:6px } .av-cart h5{ margin:0;font-size:13.5px;color:#0f2c4a }
+  .av-cart-it{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;background:#f7f9fb;border-radius:10px;padding:7px 10px } .av-cart-it b{ flex:1;min-width:120px }
+  .av-cart-it.nao{ background:#fdecec;text-decoration:line-through }
+  .av-cart-it button{ font:inherit;font-size:12.5px;font-weight:700;border:1px solid #cfdbe7;background:#fff;border-radius:9px;padding:5px 9px;cursor:pointer }
+  .av-cart-it button.nao{ border-color:#ef9a9a;color:#a11d1d }
   .av-al.on{ opacity:1;background:#eef7e3 } .av-al.on .av-av{ background:#1a6b2a;color:#fff;border-color:#8DC63F;box-shadow:0 0 0 4px rgba(141,198,63,.25) } .av-al.on .av-nm{ font-weight:700;color:#1a5a24 }
   .av-busca{ display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:10px } .av-busca h4{ margin:0 }
   .av-busca input,.av-busca select{ font:inherit;padding:8px 10px;border:1px solid #cfdbe7;border-radius:10px;min-height:40px;min-width:0 }
@@ -1958,11 +1964,19 @@
   // O link do cartão é .../entrar/#q=<matrícula>.<chave>: a parte depois do # nunca vai para o servidor nem para o histórico.
   // Só funciona com a "aula aberta" (o professor abre a entrada da turma no Portal; vale 4 horas).
   async function entrarComQr(texto, alvoMsg){
-    const aviso = (t, tipo) => { if(alvoMsg){ alvoMsg.className = "msg " + (tipo || ""); alvoMsg.textContent = t; } else showMsg(t, tipo || "success"); };
+    const aviso = (t, tipo) => { if(alvoMsg && alvoMsg.isConnected){ alvoMsg.className = "msg " + (tipo || ""); alvoMsg.textContent = t; } else showMsg(t, tipo || "success"); };
     try{
       aviso("Entrando...");
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "entrarAlunoQr", { timeout:20000 })({ q:String(texto || "") })).data;
+      const fn = httpsCallable(getFunctions(app, "southamerica-east1"), "entrarAlunoQr", { timeout:20000 });
+      let r = (await fn({ q:String(texto || "") })).data;
+      // carteirinha com a "foto ao entrar" ligada pela escola: foto da câmera da frente para o professor conferir quem entrou
+      if(r.precisa_foto){
+        pararQrAluno();
+        const foto = await fotoFrenteAluno(r.nome);
+        aviso("Entrando...");
+        r = (await fn(foto ? { q:String(texto || ""), foto } : { q:String(texto || ""), foto_falhou:true })).data;
+      }
       boasVindasAluno(r.nome);
       if(auth.currentUser) await signOut(auth).catch(() => {});   // Chromebook da escola: quem estava logado sai antes
       // cartão em aparelho compartilhado: a sessão não fica guardada; fechou o navegador, saiu
@@ -1971,6 +1985,28 @@
       if(location.search) history.replaceState(null, "", location.pathname);   // sem ?qr: recarregar não desloga o aluno
       return true;
     }catch(e){ console.warn(e.code); fecharBoasVindas(); aviso(e.message && !/internal/i.test(e.message) ? e.message : "Não foi possível entrar agora. Tente de novo.", "error"); return false; }
+  }
+  // foto da entrada pela carteirinha: câmera da frente, 3 segundos de contagem, JPEG pequeno (320 x 240). Sem câmera, devolve "" e o aluno entra "sem foto".
+  async function fotoFrenteAluno(nome){
+    const f = document.createElement("div"); f.id = "fotoAl"; f.setAttribute("role", "dialog"); f.setAttribute("aria-label", "Foto da entrada");
+    f.style.cssText = "position:fixed;inset:0;z-index:10000;background:rgba(7,22,33,.92);display:grid;place-items:center;color:#fff;font-family:inherit;text-align:center;padding:16px";
+    f.innerHTML = '<div style="display:grid;gap:12px;justify-items:center;max-width:420px"><b style="font-size:22px">📸 Olhe para a câmera, ' + escapeHtml(String(nome || "").split(" ")[0] || "aluno") + '</b>' +
+      '<video id="fotoAlVid" playsinline muted autoplay style="width:min(80vw,320px);aspect-ratio:4/3;border-radius:18px;object-fit:cover;background:#000;transform:scaleX(-1)"></video>' +
+      '<span id="fotoAlCont" style="font-size:44px;font-weight:800">3</span><small style="opacity:.85;line-height:1.4">A foto vai só para o seu professor conferir a entrada e é apagada em 15 dias.</small></div>';
+    document.body.appendChild(f);
+    let st = null;
+    try{
+      st = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
+      const v = $("fotoAlVid"); v.srcObject = st; await v.play().catch(() => {});
+      for(let n = 3; n > 0; n--){ $("fotoAlCont").textContent = n; await new Promise(ok => setTimeout(ok, 1000)); }
+      $("fotoAlCont").textContent = "📸";
+      const cv = document.createElement("canvas"); cv.width = 320; cv.height = 240;
+      const cx = cv.getContext("2d"), vw = v.videoWidth || 640, vh = v.videoHeight || 480, esc = Math.max(320 / vw, 240 / vh), w = vw * esc, h = vh * esc;
+      cx.drawImage(v, (320 - w) / 2, (240 - h) / 2, w, h);
+      const b64 = cv.toDataURL("image/jpeg", 0.6).split(",")[1] || "";
+      return b64.length > 200 && b64.length < 110000 ? b64 : "";
+    }catch(e){ console.warn("foto da entrada:", e.name || e); return ""; }
+    finally{ if(st) st.getTracks().forEach(t => t.stop()); setTimeout(() => f.remove(), 400); }
   }
   // tela grande de boas-vindas com o nome do aluno (some sozinha quando o Portal abre)
   function boasVindasAluno(nome){
@@ -7132,6 +7168,8 @@
     else if(acao === "av-mae-um"){ maePausarAluno(el.dataset.arg, el.dataset.liga === "1"); }
     else if(acao === "av-mae-mao"){ maeBaixarMao(el.dataset.arg); }
     else if(acao === "av-mae-link"){ janelaLinkMae(); }
+    else if(acao === "av-cart-foto"){ verFotoCarteirinha(el.dataset.arg, el.dataset.nome || ""); }
+    else if(acao === "av-cart-nao"){ if(confirm("Marcar que quem entrou não é " + (el.dataset.nome || "este aluno") + "?\n\nA sessão daquele aparelho é encerrada na hora e fica registrado na auditoria.")) contestarCarteirinha(el.dataset.arg); }
     else if(acao === "av-lousa"){ fecharAoVivo(); abrirLousa(); }
     else if(acao === "mt-ao-vivo"){ abrirAoVivo(el.dataset.id); }
     else if(acao === "ini-vivo-plano"){ toast("Turma ao Vivo (quem está na sala e quem abriu cada material) faz parte do plano Completo. Fale com a NEWPC para liberar."); }
@@ -8712,7 +8750,7 @@
         '<button type="button" class="av-ac" data-action="av-lousa"><span>🖼️</span>Abrir a Lousa</button>' +
         '<a class="av-ac" href="/provas/" target="_blank" rel="noopener"><span>📝</span>Aplicar prova online</a></div>' +
       '<div class="av-mae" id="avMae" hidden></div>' +
-      '<div class="av-corpo"><section class="av-sala"><h4 style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">Na sala <small>atualiza sozinho</small><span class="av-leg-cor"><span><i style="background:#1a6b2a"></i>na aula</span><span><i style="background:#c62828"></i>saiu da página</span><span><i style="background:#cfd8e2"></i>fora do Portal</span></span></h4><div id="avAlunos" class="av-alunos">Carregando...</div></section>' +
+      '<div class="av-corpo"><section class="av-sala"><h4 style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">Na sala <small>atualiza sozinho</small><span class="av-leg-cor"><span><i style="background:#1a6b2a"></i>na aula</span><span><i style="background:#c62828"></i>saiu da página</span><span><i style="background:#cfd8e2"></i>fora do Portal</span></span></h4><div id="avAlunos" class="av-alunos">Carregando...</div><div id="avCart" class="av-cart" hidden></div></section>' +
         '<section class="av-env-sec"><div class="av-busca"><h4>Enviados</h4><input id="avQ" type="search" placeholder="Buscar pelo tema" aria-label="Buscar nos conteúdos enviados">' +
           '<select id="avPer" aria-label="Período"><option value="">Tudo</option><option value="hoje">Hoje</option><option value="7">7 dias</option><option value="30">30 dias</option></select></div>' +
           '<div id="avMats" class="av-mats">Carregando...</div></section></div></div>';
@@ -8744,7 +8782,7 @@
       AV.mats = []; sn.forEach(d => AV.mats.push({ id:d.id, ...d.data() }));
       AV.mats.slice(0, 3).forEach(m => vigiarVistos(m.id));
       desenharAoVivo(); }, e => console.warn("materiais:", e.code)));
-    AV.relogio = setInterval(() => { desenharAoVivo(); pintarQrAoVivo(); }, 5000);   // quem parou de mandar sinal sai da sala em segundos; o QR vence sozinho
+    AV.relogio = setInterval(() => { desenharAoVivo(); pintarQrAoVivo(); if(++AV.voltas % 4 === 0) lerCarteirinhasAv(); }, 5000); AV.voltas = 0; lerCarteirinhasAv();   // quem parou de mandar sinal sai da sala em segundos; o QR vence sozinho
     desenharAoVivo();
   }
   /* ---------- Tempo de aula (entrada por QR) ----------
@@ -9001,6 +9039,42 @@
           (ab && v ? '<div class="av-falta">' + (faltam.length ? "<b>Ainda não abriram:</b> " + faltam.map(a => escapeHtml(a.nome.split(" ").slice(0, 2).join(" "))).join(", ") : "Todos já abriram. 🎉") + "</div>" : "") + "</div>"; }).join("");
     if(mb.innerHTML !== html) mb.innerHTML = html;
   }
+  /* ---------- Entradas pela carteirinha com foto (nov/2026): o professor confere quem entrou; abrir a foto fica na auditoria ---------- */
+  async function fnCart(dados){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), "loginCarteirinha", { timeout:30000 })(dados)).data; }
+  async function lerCarteirinhasAv(){
+    const tid = AV.tid, box = $("avCart"); if(!tid || !box) return;
+    if(!(AV.aulaFim > Date.now()) || !AV.aulaIni){ box.hidden = true; return; }
+    try{ const r = await fnCart({ acao:"lista", turma_id:tid, desde:AV.aulaIni - 60000 }); if(AV.tid !== tid) return; AV.cart = r.lista || []; desenharCarteirinhasAv(); }
+    catch(e){ console.warn("carteirinha:", e.code || e); }
+  }
+  function desenharCarteirinhasAv(){
+    const box = $("avCart"); if(!box) return; const l = AV.cart || [];
+    if(!l.length){ box.hidden = true; return; }
+    const hora = ms => new Date(ms).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+    const html = '<h5>📸 Entradas pela carteirinha (' + l.length + ')</h5>' + l.map(x => '<div class="av-cart-it' + (x.contestado ? " nao" : "") + '"><span>' + hora(x.em) + '</span><b>' + escapeHtml(x.nome) + '</b>' +
+      (x.tem_foto ? '<button type="button" data-action="av-cart-foto" data-arg="' + escapeAttr(x.id) + '" data-nome="' + escapeAttr(x.nome) + '">👁️ Ver foto</button>' : '<small>sem foto' + (x.sem_foto === "camera" ? " (câmera)" : "") + '</small>') +
+      (x.contestado ? '<small>❌ entrada encerrada</small>' : '<button type="button" class="nao" data-action="av-cart-nao" data-arg="' + escapeAttr(x.id) + '" data-nome="' + escapeAttr(x.nome) + '">Não é este aluno</button>') + '</div>').join("");
+    if(box.innerHTML !== html) box.innerHTML = html;
+    box.hidden = false;
+  }
+  async function verFotoCarteirinha(id, nome){
+    try{
+      const r = await fnCart({ acao:"foto", id });
+      if(!r.foto){ toast(r.sem_foto === "apagada" ? "A foto já foi apagada (prazo de 15 dias)." : "Esta entrada está sem foto.", true); return; }
+      const velho = $("cfFundo"); if(velho) velho.remove();
+      const f = document.createElement("div"); f.id = "cfFundo"; f.className = "et-fundo";
+      f.innerHTML = '<div class="et-jan" role="dialog" aria-modal="true" aria-labelledby="cfTit" style="max-width:420px"><div class="et-topo"><h3 id="cfTit">📸 ' + escapeHtml(nome) + '</h3><button type="button" data-cf="x">Fechar</button></div>' +
+        '<div class="et-corpo" style="display:grid;gap:10px;justify-items:center"><img alt="Foto da entrada" src="' + r.foto + '" style="width:100%;max-width:360px;border-radius:14px"><small class="et-d">Foto tirada na entrada pela carteirinha. Abrir esta foto fica registrado na auditoria. Apagada em 15 dias.</small></div></div>';
+      document.body.appendChild(f);
+      f.addEventListener("click", e => { if(e.target === f || e.target.closest("[data-cf]")) f.remove(); });
+      f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    }catch(e){ toast(e && e.message ? e.message : "Não deu para abrir a foto agora.", true); }
+  }
+  async function contestarCarteirinha(id){
+    try{ await fnCart({ acao:"contestar", id }); toast("Entrada encerrada. O aparelho sai da conta em instantes."); lerCarteirinhasAv(); }
+    catch(e){ toast(e && e.message ? e.message : "Não deu para encerrar agora.", true); }
+  }
   /* ---------- Maestro dentro do Dar aula (nov/2026) ----------
      Ao abrir a aula, o servidor cria a aula do Maestro (banco newpc-sala) e grava o número em qr_aulas.maestro_codigo.
      Aqui o professor vê, no cartão de cada aluno, o aparelho controlado (Chromebook com a extensão ou app do tablet), a tela pausada
@@ -9162,6 +9236,9 @@
       const x = s.data() || {}, antes = naAulaAluno();
       MT.aulaAte = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0;
       MT.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
+      // o professor marcou "Não é este aluno" depois que esta sessão começou: sai da conta na hora
+      const ex = x.expulsos && MT.chave && x.expulsos[MT.chave], login = Date.parse((auth.currentUser && auth.currentUser.metadata && auth.currentUser.metadata.lastSignInTime) || "") || 0;
+      if(ex && ex.toMillis && ex.toMillis() > login && !MT.expulso){ MT.expulso = true; toast("O professor encerrou esta entrada. Entre com a sua própria carteirinha ou cartão.", true); setTimeout(() => sairDaConta(), 2500); return; }
       if(naAulaAluno() !== antes){ MT.foraEnviado = null; pulsoAluno(); }
       levarAoMaestro();
     }, e => console.warn("aula da turma:", e.code));

@@ -11,6 +11,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomInt, randomBytes, timingSafeEqual } from 'node:crypto';
 import { expiraAuditoria } from './auditoria.js';
+import { fotoLoginLigada, registrarLoginCarteirinha } from './login-carteirinha.js';
 
 const REGIAO = 'southamerica-east1';
 const ALFA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -101,7 +102,7 @@ export function lerQr(txt) {
 }
 const igual = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
 // só entra com a "aula aberta": o professor abre a entrada da turma no Portal e ela vale HORAS_QR horas
-export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
+export async function entrarPorQr({ db, auth, q, foto, fotoFalhou, ua, agora = Date.now(), fotoDaEscola = fotoLoginLigada, registrar = registrarLoginCarteirinha }) {
   const r = lerQr(q);
   if (!r) throw new HttpsError('invalid-argument', 'Este QR não é de um cartão de acesso do Portal.');
   const a = (await db.doc(`alunos_acesso/${r.alunoId}`).get()).data();
@@ -112,6 +113,14 @@ export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
   const aula = (await db.doc(`qr_aulas/${a.turma_id}`).get()).data();
   const ate = aula && aula.aberta_ate && aula.aberta_ate.toMillis ? aula.aberta_ate.toMillis() : 0;
   if (ate <= agora) throw new HttpsError('failed-precondition', 'A entrada por QR da sua turma está fechada. Peça ao professor para abrir a aula.');
+  // carteirinha: com a "foto ao entrar" ligada pela escola, a tela tira a foto (câmera da frente) e chama de novo; sem câmera, entra marcado "sem foto"
+  if (r.carteirinha) {
+    const al = (await db.doc(`alunos/${r.alunoId}`).get()).data() || {};
+    if (await fotoDaEscola(db, al.escola_id || a.escola_id)) {
+      if (!foto && fotoFalhou !== true) return { precisa_foto: true, nome: a.nome || '' };
+      await registrar({ db, alunoId: r.alunoId, acesso: a, foto, falhou: fotoFalhou === true, ua });
+    }
+  }
   // via_qr: a tela do aluno sabe que esta sessão vale só enquanto a aula estiver aberta (sai sozinha quando o tempo acaba)
   const token = await auth.createCustomToken(uidAluno(r.alunoId), { via_qr: true });
   await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: r.carteirinha ? 'aluno_entrada_carteirinha' : 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
@@ -219,7 +228,8 @@ export const gerarAcessoTurma = onCall({ region: REGIAO, timeoutSeconds: 300, me
   return gerarAcesso({ db: getFirestore(), auth: getAuth(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), alunoId: ID.test(String(d.aluno_id || '')) ? String(d.aluno_id) : '', novoPin: !!d.novo_pin });
 });
 export const codigoAlunoQr = onCall({ region: REGIAO, maxInstances: 5 }, async req => codigoDoQr({ qr: (req.data || {}).qr }));
-export const entrarAlunoQr = onCall({ region: REGIAO, maxInstances: 20 }, async req => entrarPorQr({ db: getFirestore(), auth: getAuth(), q: (req.data || {}).q }));
+export const entrarAlunoQr = onCall({ region: REGIAO, maxInstances: 20, memory: '512MiB' }, async req => { const d = req.data || {};
+  return entrarPorQr({ db: getFirestore(), auth: getAuth(), q: d.q, foto: d.foto, fotoFalhou: d.foto_falhou === true, ua: req.rawRequest && req.rawRequest.headers ? req.rawRequest.headers['user-agent'] : '' }); });
 export const entradaQrTurma = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const d = req.data || {};

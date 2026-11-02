@@ -444,6 +444,11 @@ body.tv .porta{border-radius:0;min-height:100vh;padding:20px 26px}
       <div class="tab-wrap" style="margin-top:10px"><table class="tab" id="auHist"></table></div>
     </div>
     <div class="card"><div class="tab-wrap"><table class="tab" id="auTabela"></table></div><p class="sub" style="margin-top:10px" id="auRegra"></p></div>
+    <div class="card nao-imprime" id="lcBox">
+      <div class="barra"><div><div class="h2">📸 Entradas no Portal pela carteirinha</div><div class="sub">Com a foto ligada, o aluno que entra no Portal pela carteirinha (sem senha, só com a aula da turma aberta) tem uma foto tirada pela câmera da frente. Finalidade única: conferir se quem entrou é o dono da carteirinha. Veem o professor da aula e a direção; cada foto aberta fica na auditoria; apagada em 15 dias.</div></div><span class="esp"></span>
+        <label class="campo" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="lcLigar"> <b>Tirar foto ao entrar com a carteirinha</b></label></div>
+      <div class="tab-wrap" style="margin-top:10px"><table class="tab" id="lcTabela"></table></div>
+    </div>
     <div class="card nao-imprime">
       <div class="barra"><div><div class="h2">👁️ Quem abriu fotos da entrada</div><div class="sub">Toda foto ampliada fica registrada aqui, com nome e horário. Ninguém consegue apagar este registro, nem o administrador.</div></div><span class="esp"></span>
         <label class="campo">Mês<input class="inp" type="month" id="auMes"></label></div>
@@ -529,6 +534,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection, query, where, limit, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as sRef, getBlob } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 import CAL from "/assets/js/calendario-nucleo.js";
 import * as FREQ from "/assets/js/frequencia-nucleo.js";
 import * as CART from "/assets/js/carteirinha.js";
@@ -1500,6 +1506,22 @@ async function abrirAuditoria(){
   $("auTurma").innerHTML = '<option value="">Todas as turmas</option>' + b.turmas.map(t => '<option value="' + esc(t.id) + '"' + (t.id === atual ? " selected" : "") + ">" + esc(t.nome || "Turma") + "</option>").join("");
   await carregarDiaAuditoria();
   carregarVistas();
+  carregarLoginsCarteirinha();
+}
+/* entradas no Portal pela carteirinha (com foto, quando a escola liga): só pela função loginCarteirinha, que registra cada foto aberta */
+const fnLc = d => httpsCallable(getFunctions(app, "southamerica-east1"), "loginCarteirinha", { timeout:30000 })(d).then(r => r.data);
+async function carregarLoginsCarteirinha(){
+  const esc = E.muEscola, dia = $("auDia").value || hojeMS(), tb = $("lcTabela"); if(!esc || !tb) return;
+  $("lcLigar").disabled = !(E.gestor || E.admin);
+  try{
+    const r = await fnLc({ acao:"lista", escola_id:esc, dia }); if(esc !== E.muEscola) return;
+    $("lcLigar").checked = r.ligado === true; E.lc = r.lista || [];
+    const b = E.base && E.base.turmas ? Object.fromEntries(E.base.turmas.map(t => [t.id, t.nome])) : {};
+    const hora = ms => new Date(ms).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+    tb.innerHTML = !E.lc.length ? '<tbody><tr><td class="sub" style="padding:14px">Nenhuma entrada pela carteirinha neste dia.</td></tr></tbody>' :
+      '<thead><tr><th>Hora</th><th>Aluno</th><th>Turma</th><th>Foto</th><th>Situação</th></tr></thead><tbody>' + E.lc.map(x => '<tr><td>' + hora(x.em) + '</td><td>' + esc(x.nome) + '</td><td>' + esc(b[x.turma_id] || "") + '</td><td>' +
+        (x.tem_foto ? '<button class="btn btn-gh btn-sm" data-action="lc-foto" data-arg="' + esc(x.id) + '">👁️ Ver</button>' : '<span class="sub">sem foto</span>') + '</td><td>' + (x.contestado ? "❌ Professor marcou: não é o aluno" : "ok") + '</td></tr>').join("") + '</tbody>';
+  }catch(e){ console.warn("logins carteirinha:", e.code || e); tb.innerHTML = '<tbody><tr><td class="sub" style="padding:14px">Não foi possível carregar agora.</td></tr></tbody>'; }
 }
 async function carregarDiaAuditoria(forcar){
   const dia = $("auDia").value || hojeMS(), chave = E.muEscola + "|" + dia;
@@ -1600,6 +1622,10 @@ async function carregarVistas(){
 
 /* ===================== eventos ===================== */
 const ACOES = {
+  "lc-foto":async id => { const x = (E.lc || []).find(y => y.id === id); try{ const r = await fnLc({ acao:"foto", id });
+    if(!r.foto){ toast(r.sem_foto === "apagada" ? "A foto já foi apagada (prazo de 15 dias)." : "Esta entrada está sem foto.", true); return; }
+    $("poFotoImg").src = r.foto; $("poFotoTxt").textContent = (x ? x.nome : "") + " · entrada no Portal pela carteirinha (abrir fica registrado na auditoria)"; $("poFotoBox").hidden = false; }
+    catch(e){ toast(e.message || "Não foi possível abrir a foto.", true); } },
   "ver-alertas":a => { const x = E.alunos.find(y => y.id === a); if(x && x.alertas && x.alertas.length) toast(x.alertas.map(z => (ICO_AL[z.t] || ICO_AL.outro) + " " + z.x).join("  ·  ")); },
   ir:a => ir(a),
   aulas:a => { E.aulas = +a; Object.keys(E.faltas).forEach(id => { E.faltas[id] = E.aulas; }); mexeu(); },
@@ -1652,9 +1678,13 @@ document.addEventListener("change", ev => {
   else if(t.id === "poEscola"){ E.muEscola = t.value; abrirPortaria(); }
   else if(t.id === "caEscola"){ E.muEscola = t.value; abrirCarteirinhas(); }
   else if(t.id === "auEscola"){ E.muEscola = t.value; $("auHistBox").hidden = true; abrirAuditoria(); }
-  else if(t.id === "auDia"){ if(t.value > hojeMS()) t.value = hojeMS(); carregarDiaAuditoria(); }
+  else if(t.id === "auDia"){ if(t.value > hojeMS()) t.value = hojeMS(); carregarDiaAuditoria(); carregarLoginsCarteirinha(); }
   else if(t.id === "auTurma") desenharAuditoria();
   else if(t.id === "auMes") carregarVistas();
+  else if(t.id === "lcLigar"){ const lig = t.checked;
+    if(lig && !confirm("Ligar a foto ao entrar no Portal com a carteirinha?\n\nInforme as famílias: a foto serve só para conferir quem entrou, é vista pelo professor da aula e pela direção e é apagada em 15 dias.")){ t.checked = false; return; }
+    fnLc({ acao:"config", escola_id:E.muEscola, ligar:lig }).then(r => { t.checked = r.ligado === true; toast(r.ligado ? "Foto ao entrar com a carteirinha ligada." : "Foto ao entrar com a carteirinha desligada."); })
+      .catch(e => { t.checked = !lig; toast(e.message || "Não foi possível mudar agora.", true); }); }
   else if(t.id === "disciplina"){ E.discOutra = false; abrirChamada(); }
   else if(t.id === "selDisc"){
     if(t.value === "__outra"){ E.discOutra = true; $("disciplina").value = ""; desenharSelDisc(); $("disciplina").focus(); abrirChamada(); }
