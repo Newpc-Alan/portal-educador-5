@@ -26,7 +26,9 @@ async function ligar(){
   const { getAuth, onAuthStateChanged } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
   apps.forEach(app => {
     if(ligados.has(app)) return; ligados.add(app);
-    try{ onAuthStateChanged(getAuth(app), u => { if(u && !u.isAnonymous) avisar(app, u); }); }catch(e){}
+    try{ onAuthStateChanged(getAuth(app), u => { if(u && !u.isAnonymous){ avisar(app, u);
+      // aluno com aula aberta: a página segue o professor (pausa, conteúdo, pesquisa, mão e bate-papo) em qualquer tela do Portal
+      import("/assets/js/aula-vivo-aluno.js").then(m => m.iniciar(app, u)).catch(e => console.warn("aula ao vivo:", e.message || e)); } }); }catch(e){}
   });
 }
 // a página cria o app quando quer (algumas só depois do clique em Entrar): confere a cada 2 s por até 30 min; achou, segue ouvindo
