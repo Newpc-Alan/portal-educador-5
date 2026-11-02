@@ -290,6 +290,7 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | `auditoria` | Trilha de auditoria do Portal (ver **Auditoria**) |
 | `uso_real`, `stats` | Uso real por semana e contadores do painel de uso. Só funções gravam, só admin lê |
 | `backup_config`, `backups_log` | Backup |
+| `comunicados_email` (+ `envio_lotes`), `comunicados_pref` | Comunicados por e-mail: o comunicado, o público, totais e situação; destinatários em lotes de 400 com o andamento e as falhas; token do link de descadastro e a escolha da pessoa (`off`). Só funções gravam, só admin lê. `config/comunicados` guarda servidor, porta, conta, nome e envios por hora (sem senha) |
 | `busca_indice` | Índice compacto da busca geral do Início (`_meta` + partes `p01`, `p02`...). Só funções gravam; lê quem lê os catálogos (`licenciado()`) |
 | `buscas_mes` | O que a rede procura, por mês: termo normalizado e contadores (`n`, `zero`, `clique`), geral e por município, sem identificar a pessoa. Só funções gravam, só admin lê. TTL em `expira_em` (13 meses) |
 
@@ -378,6 +379,7 @@ São 91 funções exportadas por `functions/index.js`, todas em `southamerica-ea
 | Secret Manager | `SMTP_SENHA` | Envio de e-mail |
 | Secret Manager | `GEMINI_API_KEY` | IA (Portal IA, Lousa, Provas) |
 | Secret Manager | `NC_ENTREGA_CHAVE` | Assinatura dos links do servidor NEWPC (a mesma chave fica no servidor) |
+| Secret Manager | `COMUNICADOS_SMTP_SENHA` | Senha da conta comunicados@portaldoeducador.com.br (Webnode), usada pelos Comunicados por e-mail |
 | Secret Manager (quando ativar) | `SERPRO_CHAVE`, `SERPRO_SEGREDO` | Conferência de CPF |
 | `functions/.env.portal-educador-5` | `SMTP_USUARIO`, `SMTP_HOST`, `NOTIFICAR_EMAILS`, `NC_ENTREGA_URL` | Parâmetros públicos (sem senha) |
 | Segredos do GitHub | `FIREBASE_SERVICE_ACCOUNT`, `NC_APP_SENHA`, `MAESTRO_KEYSTORE_B64`, `MAESTRO_SENHA` | Workflows |
@@ -419,6 +421,14 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 | Função | Tipo | O que faz |
 |---|---|---|
 | `linkArquivoNc` | callable | Link assinado para abrir no servidor NEWPC um item de `acervo` ou `acervo_rede` que tenha `nc_caminho` |
+
+### Comunicados por e-mail (`comunicados.js`)
+
+| Função | Tipo | O que faz |
+|---|---|---|
+| `comunicadoEmail` | callable, só admin | `contar` (público por perfil, município e escola; só conta ativa com e-mail; informativo pula `comunicados_pref.off`), `teste` (manda só para o admin), `enviar` (confere o número confirmado, cria tokens, grava o comunicado e os lotes), `cancelar` |
+| `enviarComunicados` | agendada, a cada 5 min | Manda a cota do período (envios por hora / 12) pela conta da Webnode (SMTP com `COMUNICADOS_SMTP_SENHA`), um e-mail por pessoa com `List-Unsubscribe`; para tudo se o servidor recusar a senha; conclui e registra na Auditoria |
+| `descadastroEmail` | HTTP público | Página "não quero mais receber" com confirmação por botão (POST) e opção de voltar a receber; registra na Auditoria |
 
 ### Busca geral do Início (`busca.js`)
 
@@ -499,6 +509,7 @@ Correção automática: múltipla escolha, verdadeiro ou falso, resposta curta (
 | A cada 15 min | `emailPreCadastros`, `emailLembretes` |
 | De hora em hora, minuto 15 | `expirarSenhasProvisorias` |
 | A cada 2 h, das 06:15 às 22:15 | `indiceBusca` |
+| A cada 5 min | `enviarComunicados` (só trabalha com comunicado na fila) |
 | 02:17 diário | Workflow **Copiar acervo para o Nextcloud** (GitHub Actions, só arquivos novos) |
 | 03:15 diário | `limparFotosProvas` |
 | 03:17 diário | `limparFotosPortaria` |
@@ -614,6 +625,7 @@ Scripts que usam o `firebase-admin` precisam terminar com `process.exit(0)`, sen
 |---|---|
 | `teste-regras-apps.mjs` | Aplicativos, gestão escolar e a maior parte das regras gerais |
 | `teste-regras-presenca.mjs` | Presença da Turma ao Vivo (campos `fora` e `saiu`, só o próprio aluno grava, professor da escola lê) |
+| `teste-regras-comunicados.mjs` | Comunicados por e-mail: só admin lê, ninguém grava pelo navegador |
 | `teste-regras-busca.mjs` | Busca geral: índice lido por licenciados, buscas só pelo admin, ninguém grava pelo navegador |
 | `teste-regras-aluno.mjs` | Perfil aluno |
 | `teste-regras-extras.mjs` | Liberações exclusivas do professor |

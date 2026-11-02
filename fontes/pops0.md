@@ -68,6 +68,7 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-27 | Senha provisória e cadastro manual | Atendimento |
 | POP-PDE-28 | Fechamento do bimestre e boletim | Escola |
 | POP-PDE-29 | Backup no servidor NEWPC e restauração em caso de desastre | Técnico |
+| POP-PDE-30 | Comunicado por e-mail para a rede | Comunicação |
 
 ## Controle de revisões
 
@@ -76,3 +77,5 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 1.0 | 26/10/2026 | Emissão inicial | NEWPC Tecnologia | |
 | 2.0 | 01/11/2026 | Revisão geral dos POPs 01 a 17 conforme o sistema de novembro de 2026 (planos Básico, Intermediário e Completo, Provas e Avaliações, Prova online com sala de espera, cadastro completo do município, Laboratório NEWPC no lugar da Rede Modelo, publicação pelo GitHub Actions com aprovação e regra da auditoria). Inclusão dos POPs 18 a 28 | NEWPC Tecnologia | |
 | 2.1 | 01/11/2026 | POP-PDE-29 (backup no servidor NEWPC e restauração em caso de desastre); POP-PDE-16 atualizado | NEWPC Tecnologia | |
+| 2.2 | 01/11/2026 | POP-23 (prova online: correção um aluno por vez, finalizar e reavaliar com justificativa) | NEWPC Tecnologia | |
+| 2.3 | 01/11/2026 | POP-PDE-30 (comunicado por e-mail para a rede) | NEWPC Tecnologia | |

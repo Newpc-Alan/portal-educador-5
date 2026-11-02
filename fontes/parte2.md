@@ -584,6 +584,31 @@ A tabela "Interesse por município" é argumento de venda: mostra quantos profes
 Envios para a turma, avisos às famílias e entradas por tela vêm da **Auditoria**, que começou em 01/11/2026. Antes dessa data não há registro nominal desses eventos. O Painel lê os dados direto do banco a cada abertura; quando a base passar de uns 2 mil usuários, a NEWPC vai ligar um resumo calculado pelo servidor para manter a tela rápida e barata.
 :::
 
+### Comunicados por e-mail
+
+Menu **Sistema › ✉️ Comunicados por e-mail**. Mensagem para a rede cadastrada, separada por público, enviada pela conta **comunicados@portaldoeducador.com.br** (Webnode), aos poucos e separada dos e-mails do sistema.
+
+<!-- captura: tela Comunicados por e-mail com Para quem, a caixa azul de contagem e a lista Enviados e agendados -->
+
+| Campo | Para quê |
+|---|---|
+| Tipo | **Informativo** (respeita quem pediu para não receber) ou **Aviso de serviço** (vai para todos) |
+| Para quem | Professores, Gestão da escola (direção e coordenação), Secretaria de Educação e Alunos; municípios (nenhum = todos) e escola (com um município marcado) |
+| Caixa azul | Quantas pessoas recebem, por público; quantas não têm e-mail; quantas pediram para não receber; tempo estimado |
+| Assunto, Mensagem, Botão | O e-mail começa com "Olá, nome!" e sai com a identidade do Portal |
+| Enviar em | Agenda o envio (até 60 dias) |
+
+- **Enviar teste para mim** manda só para o seu e-mail, com [TESTE] no assunto.
+- **Enviar comunicado** pede confirmação com o número de pessoas. Se o público mudar entre a contagem e o envio, o Portal pede para conferir de novo.
+- **Enviados e agendados**: progresso, falhas (**Ver falhas** baixa CSV) e **Cancelar**.
+- **Configuração do envio**: servidor, porta, conta, nome do remetente e **envios por hora**. A senha não fica no Portal: está no Secret Manager do Google (`COMUNICADOS_SMTP_SENHA`).
+- Comunicado informativo traz no rodapé "Não quer mais receber?". A pessoa confirma numa página (um clique automático de antivírus não descadastra) e pode voltar a receber pelo mesmo link.
+- Tudo fica na **Auditoria**: criar, testar, cancelar, concluir e quem pediu para não receber.
+
+:::regra
+Alunos só recebem avisos escolares, nunca conteúdo comercial. Só recebe quem tem conta ativa e e-mail no cadastro (quem entra só pelo cartão QR não tem e-mail). Ver POP-PDE-30.
+:::
+
 ### O que a rede procura
 
 Na aba **Conteúdo e participação**, o bloco **O que a rede procura** mostra o que professores e gestores digitaram na busca do Início no mês: total de buscas, **procuraram e não acharam**, quantos abriram um resultado, municípios buscando e quantos conteúdos estão na busca.

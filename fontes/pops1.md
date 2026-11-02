@@ -1080,6 +1080,42 @@ Lista "Últimos backups" do Painel, Auditoria (origem robô), execuções do rob
 Os pacotes têm dados pessoais de alunos e servidores (LGPD). Mesmo cifrados, a pasta 04-Backups do Nextcloud deve ficar acessível só à equipe técnica. Nunca baixe um pacote para computador pessoal ou pen drive sem necessidade e sem apagar depois.
 :::
 
+## POP-PDE-30 · Comunicado por e-mail para a rede {: .nova }
+
+@@ POP-PDE-30 | Comunicação | Administrador do Portal (NEWPC) | A cada comunicado
+
+### Objetivo
+Enviar mensagens por e-mail a professores, gestão das escolas, Secretarias de Educação ou alunos cadastrados, sem prejudicar os e-mails do sistema (senhas, avisos) e respeitando quem pediu para não receber.
+
+### Pré-requisitos (uma vez)
+1. Conta **comunicados@portaldoeducador.com.br** criada na Webnode.
+2. Senha dessa conta cadastrada pelo Alan no Google Cloud, em **Secret Manager › COMUNICADOS_SMTP_SENHA** (nunca em chat, planilha ou código).
+3. Em **Comunicados por e-mail › Configuração do envio**: servidor `smtp.mail.webnode.com`, porta 465 e envios por hora (comece com 100).
+
+### Passo a passo
+1. Menu **Sistema › Comunicados por e-mail**.
+2. **Tipo:** **Informativo** (novidades, formação, pesquisas: respeita quem pediu para não receber) ou **Aviso de serviço** (mudança de acesso, manutenção: vai para todos). Na dúvida, Informativo.
+3. **Para quem:** marque os públicos e, se for o caso, os municípios e a escola. Confira a caixa azul: total de pessoas, quantas não têm e-mail e o tempo estimado.
+4. Escreva **Assunto** e **Mensagem** (parágrafos separados por linha em branco). Botão e link são opcionais e o link precisa começar com https://.
+5. Toque em **Enviar teste para mim** e confira na sua caixa de entrada (e no spam) como chegou.
+6. Se quiser, preencha **Enviar em** para agendar.
+7. Toque em **Enviar comunicado** e confirme o número de pessoas tocando de novo.
+8. Acompanhe em **Enviados e agendados**: barra de progresso, falhas (**Ver falhas** baixa a planilha) e **Cancelar** enquanto não terminou.
+
+### Pontos de controle
+- ☐ Teste conferido antes do envio (texto, link, remetente, não caiu no spam).
+- ☐ Público e número de pessoas conferidos na caixa azul.
+- ☐ Para alunos: só avisos escolares, nunca conteúdo comercial.
+- ☐ Falhas conferidas no fim (e-mails errados corrigidos no cadastro).
+- ☐ Primeiro envio grande: medir o tempo e a entrega com cerca de 100 pessoas antes de mandar para toda a rede.
+
+### Registros
+Lista **Enviados e agendados**, **Auditoria** (quem criou, testou, cancelou, a conclusão e quem pediu para não receber) e a planilha de falhas.
+
+:::atencao
+Nunca use várias contas para "dividir" o envio e passar do limite da Webnode: isso leva o domínio para listas de spam. Se o volume crescer além do que a Webnode aguenta, troca-se o serviço de envio (Amazon SES ou Brevo) na configuração, sem mudar a tela.
+:::
+
 # Ficha de execução
 
 ## Ficha de execução de POP {: .nova }
