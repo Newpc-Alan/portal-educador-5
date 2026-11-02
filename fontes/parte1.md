@@ -471,7 +471,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 
 **Instalar o app do Maestro no tablet do aluno**
 
-1. No próprio tablet, entre no Portal, abra **Aplicativos Úteis** e toque em **⬇ Baixar o app**.
+1. No próprio tablet, entre no Portal, abra **Aplicativos Úteis** e toque em **Baixar o app**.
 2. Abra o arquivo baixado (barra de notificações ou pasta Downloads) e toque em **Instalar**.
 3. Se o Android pedir, toque em **Configurações** e ative **Permitir desta fonte** para o navegador; volte e toque em **Instalar**.
 4. Abra o app: ele entra direto na sala do aluno, e o aluno entra pelo QR da aula.
