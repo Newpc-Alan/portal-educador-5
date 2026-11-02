@@ -12,6 +12,9 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'usuarios/p1'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
   await setDoc(doc(db, 'usuarios/p9'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e9', escolas_ids: ['e9'], municipio_id: 'm1' });
   await setDoc(doc(db, 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', mao: new Date(), em: new Date() });
+  await setDoc(doc(db, 'qr_aulas/t1'), { por: 'p1', aberta_em: new Date(), aberta_ate: new Date(Date.now() + 3600e3) });
+  await setDoc(doc(db, 'usuarios/p2'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/g1'), { perfil: 'gestor', status: 'ativo', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
   await setDoc(doc(db, 'aula_vivo/t1/chat/c2'), { aluno_id: 'a2', de: 'prof', texto: 'oi', nome: 'P', em: new Date() });
 });
 let ok = 0, falha = 0;
@@ -68,6 +71,16 @@ await t('professor registra envio no histórico', assertSucceeds(setDoc(doc(fs('
 await t('quiz no histórico e resultado depois', assertSucceeds(setDoc(doc(fs('p1'), 'aula_vivo/t1/historico/qz_1'), { tipo: 'quiz', titulo: 'Q', ref: '1', n: 3, por: 'p1', por_nome: 'P', em: serverTimestamp() }).then(() => updateDoc(doc(fs('p1'), 'aula_vivo/t1/historico/qz_1'), { resultado: { media: 70, resp: 2 } }))));
 await t('aluno não lê o histórico', assertFails(getDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/historico/h1'))));
 await t('professor de outra escola não registra', assertFails(setDoc(doc(fs('p9'), 'aula_vivo/t1/historico/h2'), { tipo: 'conteudo', titulo: 'x', por: 'p9', por_nome: 'P', em: serverTimestamp() })));
+// a aula tem dono: outro professor da mesma escola não comanda nem lê mãos, respostas e conversa
+await t('outro professor da escola não comanda a aula do colega', assertFails(setDoc(doc(fs('p2'), 'aula_vivo/t1'), { pausa: true, atualizado_em: serverTimestamp(), por: 'p2' }, { mergeFields: ['pausa', 'atualizado_em', 'por'] })));
+await t('outro professor não lê as respostas dos alunos', assertFails(getDoc(doc(fs('p2'), 'aula_vivo/t1/alunos/a1'))));
+await t('outro professor não lê a conversa', assertFails(getDocs(collection(fs('p2'), 'aula_vivo/t1/chat'))));
+await t('outro professor não escreve na conversa', assertFails(addDoc(collection(fs('p2'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'prof', texto: 'oi', nome: 'X', em: serverTimestamp() })));
+await t('direção da escola acompanha a conversa', assertSucceeds(getDocs(collection(fs('g1'), 'aula_vivo/t1/chat'))));
+await t('outro professor ainda lê o histórico da turma', assertSucceeds(getDoc(doc(fs('p2'), 'aula_vivo/t1/historico/h1'))));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'usuarios/ad'), { perfil: 'admin', status: 'ativo' }); });
+await t('NEWPC (admin) devolve quiz ao ar', assertSucceeds(updateDoc(doc(fs('ad'), 'quizzes_geral/g1'), { status: 'publicado', avisos: 0, atualizado_em: serverTimestamp() })));
+await t('professor não mexe no acervo geral', assertFails(updateDoc(doc(fs('p1'), 'quizzes_geral/g1'), { status: 'publicado' })));
 console.log((falha ? '::error::' : '::notice::') + 'Aula ao vivo no Portal: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();
 process.exit(falha ? 1 : 0);

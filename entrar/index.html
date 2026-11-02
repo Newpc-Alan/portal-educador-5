@@ -459,6 +459,9 @@
   .qz-abas{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px } .qz-abas button{ font:inherit;font-weight:800;font-size:14px;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:7px 14px;cursor:pointer } .qz-abas button.on{ background:#0f2c4a;border-color:#0f2c4a;color:#fff }
   .qr-na-rede{ background:#eaf6dc !important;border-color:#1a6b2a !important;color:#1a6b2a !important }
   .av-hres{ display:inline-block;margin-top:3px;font-size:12px;font-weight:800;color:#0f2c4a;background:#eef3f8;border-radius:8px;padding:2px 7px }
+  .rq-bloco{ margin-bottom:14px } .rq-card{ display:flex;align-items:center;gap:12px;background:#fff;border:2px solid #d6e2ec;border-radius:14px;padding:12px 16px } .rq-card.alerta{ border-color:#e0a321;background:#fff8e1 }
+  .rq-card > span{ font-size:28px } .rq-card div{ flex:1 } .rq-card b{ display:block;color:#0f2c4a } .rq-card small{ color:#5b6b7b }
+  .rq-avisos{ display:grid;gap:4px;background:#fff8e1;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:14px } .qz-q.rq-susp{ border-color:#e0a321 }
   .qz-erro{ font:inherit;font-size:12.5px;font-weight:800;border:1.5px solid #e0a321;background:#fff8e1;color:#7a5200;border-radius:99px;padding:3px 10px;cursor:pointer;margin-left:6px }
   .qz-acv{ display:grid;gap:8px;max-height:52vh;overflow:auto } .qz-acv .ml-it small{ display:block } .qz-acv .vazio{ color:#5b6b7b;padding:10px }
   .qz-jan{ max-width:820px;width:min(96vw,820px) } .qz-l{ display:grid;gap:4px;font-weight:700;font-size:14px;color:#0f2c4a;margin:8px 0 } .qz-l textarea,.qz-l input,.qz-l select{ font:inherit;font-weight:400;padding:9px 10px;border:1px solid #cfdbe7;border-radius:10px }
@@ -4863,16 +4866,66 @@
   const fnMod = async (dados) => { const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
     return (await httpsCallable(getFunctions(app, "southamerica-east1"), "moderarRede", { timeout:60000 })(dados)).data; };
   const MOD_ST = { pendente:["Aguardando","#7a5200","#fff6e0"], publicado:["Publicado","#1a5a24","#eef7e3"], oculto:["Oculto","#8c1d18","#fdeceb"] };
+  // Revisão da NEWPC (administrador): quizzes do acervo geral que saíram do ar com 3 avisos de erro, ou qualquer um do acervo
+  async function blocoRevisaoQuizzes(){
+    const b = $("rqBloco"); if(!b) return;
+    let n = 0; try{ n = (await getDocs(query(collection(db, "quizzes_geral"), where("status", "==", "revisao")))).size; }catch(e){ console.warn("revisão quizzes:", e.code); }
+    if(!$("rqBloco")) return;
+    b.innerHTML = '<div class="rq-card' + (n ? " alerta" : "") + '"><span>🧠</span><div><b>Acervo geral de quizzes</b><small>' + (n ? n + (n === 1 ? " quiz saiu do ar e espera" : " quizzes saíram do ar e esperam") + " a revisão da NEWPC (3 avisos de erro)." : "Nenhum quiz esperando revisão.") + '</small></div>' +
+      '<button type="button" class="btn ' + (n ? "btn-primary" : "btn-ghost") + '" data-action="rq-abrir">' + (n ? "Revisar agora" : "Ver o acervo") + "</button></div>";
+  }
+  async function janelaRevisaoQuizzes(){
+    const v = $("rqFundo"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "rqFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan qz-jan" role="dialog" aria-modal="true" aria-labelledby="rqTit"><div class="et-topo"><h3 id="rqTit">🛠️ Revisão do acervo geral</h3><button type="button" data-rq="x">Fechar</button></div><div class="et-corpo" id="rqCorpo"></div></div>';
+    document.body.appendChild(f);
+    const R = { aba:"revisao", l:[] };
+    const lista = async () => {
+      $("rqCorpo").innerHTML = '<div class="qz-abas">' + [["revisao", "⚠️ Em revisão"], ["publicado", "🌎 No ar"], ["removido", "🗑️ Retirados"]].map(([k, t]) => '<button type="button" data-rq="aba" data-aba="' + k + '"' + (k === R.aba ? ' class="on"' : "") + ">" + t + "</button>").join("") + '</div><div id="rqLista" class="qz-acv"><div class="vazio">Carregando...</div></div>';
+      try{ const sn = await getDocs(query(collection(db, "quizzes_geral"), where("status", "==", R.aba), limit(300))); R.l = []; sn.forEach(d => R.l.push({ id:d.id, ...d.data() })); }
+      catch(e){ $("rqLista").innerHTML = '<div class="vazio">Não deu para carregar (' + escapeHtml(e.code || "erro") + ").</div>"; return; }
+      $("rqLista").innerHTML = R.l.length ? R.l.map(x => '<button type="button" class="ml-it" data-rq="abrir" data-id="' + escapeAttr(x.id) + '"><span>🧠</span><b>' + escapeHtml(x.titulo || "Quiz") + "</b><small>" +
+        escapeHtml([(x.perguntas || []).length + " perguntas", x.disciplina, x.ano, x.rede_nome, (x.avisos || 0) + " aviso(s)", (x.revisar || []).length ? "suspeita: pergunta " + x.revisar.map(i => i + 1).join(", ") : ""].filter(Boolean).join(" · ")) + "</small></button>").join("") : '<div class="vazio">Nada aqui.</div>';
+    };
+    const abrir = async x => {
+      let avisos = []; try{ const sn = await getDocs(collection(db, "quizzes_geral", x.id, "avisos")); sn.forEach(d => avisos.push(d.data().motivo || "")); }catch(e){}
+      const perg = (x.perguntas || []).map(q => ({ ...q, ops:[...(q.ops || [])] }));
+      $("rqCorpo").innerHTML = '<p class="et-d"><b>' + escapeHtml(x.titulo || "Quiz") + "</b> · " + escapeHtml([x.disciplina, x.ano, x.rede_nome].filter(Boolean).join(" · ")) + "</p>" +
+        (avisos.length ? '<div class="rq-avisos"><b>Avisos dos professores</b>' + avisos.map(a => "<span>“" + escapeHtml(a) + "”</span>").join("") + "</div>" : "") +
+        '<div class="qz-lista">' + perg.map((q, i) => '<div class="qz-q' + ((x.revisar || []).includes(i) ? " rq-susp" : "") + '" data-i="' + i + '"><div class="qz-qtopo"><b>' + (i + 1) + '.</b><textarea data-rq-e="p" rows="2" maxlength="400">' + escapeHtml(q.p) + "</textarea></div>" +
+          q.ops.map((o, k) => '<label class="qz-op' + (q.gab === k ? " certa" : "") + '"><input type="radio" name="rqg' + i + '" data-rq-e="gab" value="' + k + '"' + (q.gab === k ? " checked" : "") + "><span>" + LETRA[k] + '</span><input data-rq-e="op" data-k="' + k + '" maxlength="160" value="' + escapeAttr(o) + '"></label>').join("") + "</div>").join("") + "</div>" +
+        '<p id="rqMsg" class="et-msg" role="status"></p><div class="et-acoes"><button type="button" class="btn btn-ghost" data-rq="voltar">← Voltar</button>' +
+        (x.status !== "removido" ? '<button type="button" class="btn btn-ghost" data-rq="retirar">🗑️ Retirar do acervo</button>' : "") + '<button type="button" class="btn btn-primary" data-rq="salvar">✅ Salvar e deixar no ar</button></div>';
+      R.atual = { x, perg };
+    };
+    const salvar = async status => { const { x, perg } = R.atual;
+      f.querySelectorAll(".qz-q").forEach(el => { const q = perg[Number(el.dataset.i)]; q.p = el.querySelector('[data-rq-e="p"]').value.trim().slice(0, 400);
+        el.querySelectorAll('[data-rq-e="op"]').forEach(o => { q.ops[Number(o.dataset.k)] = o.value.trim().slice(0, 160); }); const g = el.querySelector('[data-rq-e="gab"]:checked'); q.gab = g ? Number(g.value) : q.gab; });
+      try{ await updateDoc(doc(db, "quizzes_geral", x.id), { perguntas:perg.map(q => ({ p:q.p, ops:q.ops, gab:q.gab })), status, avisos:0, revisar:[], revisado_em:serverTimestamp(), revisado_por:usuarioAtual.uid, atualizado_em:serverTimestamp() });
+        toast(status === "publicado" ? "✅ Quiz revisado e de volta ao acervo geral." : "🗑️ Quiz retirado do acervo geral."); await lista(); blocoRevisaoQuizzes(); }
+      catch(e){ $("rqMsg").textContent = "Não deu para salvar (" + (e.code || "erro") + ")."; } };
+    f.addEventListener("change", e => { const r = e.target.closest('[data-rq-e="gab"]'); if(r){ r.closest(".qz-q").querySelectorAll(".qz-op").forEach(l => l.classList.toggle("certa", l.contains(r))); } });
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    f.addEventListener("click", e => { const b = e.target.closest("[data-rq]"); if(!b) return; const a = b.dataset.rq;
+      if(a === "x") return f.remove();
+      if(a === "aba"){ R.aba = b.dataset.aba; return lista(); }
+      if(a === "abrir"){ const x = R.l.find(y => y.id === b.dataset.id); if(x) abrir(x); return; }
+      if(a === "voltar") return lista();
+      if(a === "salvar") return salvar("publicado");
+      if(a === "retirar"){ if(confirm("Retirar este quiz do acervo geral? Ele deixa de aparecer para todas as redes.")) salvar("removido"); } });
+    lista();
+  }
   async function renderModeracao(){
     const admin = usuarioAtual.perfil === "admin";
     if(admin && !MOD.munis){
       try{ const sn = await getDocs(query(collection(db,"municipios"), orderBy("nome"))); MOD.munis = []; sn.forEach(d => { if(d.data().status !== "arquivado") MOD.munis.push({ id:d.id, nome:d.data().nome || d.id }); }); }catch(e){ MOD.munis = []; }
       if(!MOD.mun) MOD.mun = (MOD.munis.find(m => m.id === "lab-muni") || MOD.munis[0] || {}).id || "";
     }
-    $("conteudo").innerHTML = '<div class="md-topo">' + (admin ? '<label class="md-muni">Município <select id="mdMuni">' + (MOD.munis || []).map(m => '<option value="'+escapeAttr(m.id)+'"'+(m.id === MOD.mun ? " selected" : "")+'>'+escapeHtml(m.nome)+'</option>').join("") + '</select></label>' : '') +
+    $("conteudo").innerHTML = (admin ? '<div id="rqBloco" class="rq-bloco"></div>' : "") + '<div class="md-topo">' + (admin ? '<label class="md-muni">Município <select id="mdMuni">' + (MOD.munis || []).map(m => '<option value="'+escapeAttr(m.id)+'"'+(m.id === MOD.mun ? " selected" : "")+'>'+escapeHtml(m.nome)+'</option>').join("") + '</select></label>' : '') +
       '<div id="mdModo" class="md-modo"></div></div><div id="mdAbas" class="md-abas"></div>' +
       '<input id="mdBusca" class="md-busca" type="search" placeholder="Buscar por título, professor, escola, disciplina..." value="'+escapeAttr(MOD.busca)+'" aria-label="Buscar">' +
       '<div id="mdLista" class="tr-lista"><div class="empty">Carregando...</div></div>';
+    if(admin) blocoRevisaoQuizzes();
     try{ const r = await fnMod({ acao:"listar", municipio_id:MOD.mun }); Object.assign(MOD, { itens:r.itens || [], modo:r.modo, podeModo:r.podeModo, escopo:r.escopo, nomeMun:r.municipio || "" }); }
     catch(e){ const l = $("mdLista"); if(l) l.innerHTML = '<div class="empty">' + escapeHtml(e && e.message ? e.message : "Não consegui abrir agora.") + '</div>'; return; }
     if(MOD.filtro === "pendente" && !MOD.itens.some(x => x.status === "pendente")) MOD.filtro = MOD.itens.some(x => x.denuncias) ? "denuncia" : "publicado";
@@ -7312,6 +7365,7 @@
     else if(acao === "av-mae-link"){ janelaLinkMae(); }
     else if(acao === "av-mae-af"){ janelaPesquisaMae(); }
     else if(acao === "av-qz"){ janelaQuiz(); }
+    else if(acao === "rq-abrir"){ janelaRevisaoQuizzes(); }
     else if(acao === "av-hist-quiz"){ abrirQuizTrabalho(el.dataset.arg); }
     else if(acao === "av-hist-abrir"){ const h = (AV.hist || []).find(x => x.id === el.dataset.arg); if(!h) return;
       if(!aulaAberta()){ toast("Abra a aula para enviar de novo às telas.", true); return; }
@@ -8885,7 +8939,7 @@
   /* Turma ao vivo (professor): quem está na sala agora, o que foi enviado, quem já abriu e a busca no que já foi enviado. Independe do Maestro. */
   const AV = { tid:"", alunos:[], pres:{}, mats:[], vistos:{}, subs:[], relogio:null, q:"", per:"", aberto:"" };
   const ON_MS = 50000;   // o aluno manda sinal a cada 20 s; sem sinal há 50 s = fora
-  function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
+  function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; (AVV.subs || []).forEach(u => { try{ u(); }catch(e){} }); AVV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
   function fecharAoVivo(){ pararAoVivo(); const f = $("avFundo"); if(f) f.remove(); atualizarCartaoAula(); }
   const iniciais = n => String(n || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
   async function abrirAoVivo(tidPre){
@@ -8922,7 +8976,7 @@
     AV.subs.push(onSnapshot(collection(db, "turma_materiais", AV.tid, "itens", id, "vistos"), s2 => { const v = {}; s2.forEach(d => v[d.id] = d.data()); AV.vistos[id] = v; desenharAoVivo(); }, e => console.warn("vistos:", e.code)));
   }
   async function turmaAoVivo(tid){
-    pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"", qrAte:null, aulaIni:0, aulaFim:0 });
+    pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"", qrAte:null, aulaIni:0, aulaFim:0, donoAula:undefined, ocupada:null });
     $("avTurma").value = tid; $("avEnviar").dataset.turma = tid; qrAoVivo("ver");
     // a regra dos alunos é por escola: a consulta precisa dizer a escola da turma (sem ela, o professor recebe "permission-denied" e a sala fica só com quem já entrou)
     try{ let esc = ""; try{ esc = ((await getDoc(doc(db, "turmas", tid))).data() || {}).escola_id || ""; }catch(e){}
@@ -8933,7 +8987,10 @@
     // a aula atual (aberta_em / aberta_ate): vermelho só vale para quem saiu durante ESTA aula
     AV.subs.push(onSnapshot(doc(db, "qr_aulas", tid), s => { const x = s.data() || {}; AV.aulaIni = msAv(x.aberta_em); AV.aulaFim = msAv(x.aberta_ate);
       // a aula tem dono (nov/2026): aberta por outro professor = só leitura aqui, com a opção de assumir a turma
+      const eraOutro = !!AV.ocupada, donoAntes = AV.donoAula;
       AV.ocupada = AV.aulaFim > Date.now() && x.por && x.por !== usuarioAtual.uid ? { nome:x.por_nome || (AV.ocupada && AV.ocupada.nome) || "outro professor", ate:AV.aulaFim } : null;
+      AV.donoAula = x.por || "";
+      if(donoAntes !== undefined && AV.donoAula !== donoAntes && AV.donoAula === usuarioAtual.uid) iniciarAulaVivoProf(tid);   // a turma passou a ser minha: religa mãos, respostas e conversa
       if(AV.aulaFim > Date.now() && AV.qrAte !== AV.aulaFim){ AV.qrAte = AV.aulaFim; } else if(AV.aulaFim <= Date.now() && AV.qrAte) AV.qrAte = 0;
       AVV.chat = (AVV.chatTodos || []).filter(m => desdeAula(m.em)); pintarQrAoVivo();
       const mc = AV.aulaFim > Date.now() && /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
@@ -9402,6 +9459,12 @@
      a mesma ordem vai para eles (pausa, abrir e pesquisa); o professor não precisa saber qual aparelho é qual. */
   const AVV = { tid:"", doc:{}, alunos:{}, chat:[], lidos:{}, conversa:"" };
   function iniciarAulaVivoProf(tid){
+    // os ouvintes da aula ficam à parte: quando a turma passa a ser minha (assumi ou abri), religa (o banco só libera mãos, respostas e conversa para quem conduz a aula)
+    (AVV.subs || []).forEach(u => { try{ u(); }catch(e){} }); AVV.subs = [];
+    const subsAntes = AV.subs; AV.subs = { push:u => AVV.subs.push(u) };
+    try{ iniciarAulaVivoProf2(tid); } finally { AV.subs = subsAntes; }
+  }
+  function iniciarAulaVivoProf2(tid){
     Object.assign(AVV, { tid, doc:{}, alunos:{}, chat:[], conversa:"" });
     try{ AVV.lidos = JSON.parse(localStorage.getItem("pde_av_lidos_" + tid) || "{}"); }catch(e){ AVV.lidos = {}; }
     AV.subs.push(onSnapshot(doc(db, "aula_vivo", tid), s => { AVV.doc = s.data() || {}; desenharAoVivo(); }, e => console.warn("aula ao vivo:", e.code)));
