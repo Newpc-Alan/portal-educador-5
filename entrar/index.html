@@ -8916,7 +8916,9 @@
   async function turmaAoVivo(tid){
     pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"", qrAte:null, aulaIni:0, aulaFim:0 });
     $("avTurma").value = tid; $("avEnviar").dataset.turma = tid; qrAoVivo("ver");
-    try{ const sn = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", tid)));
+    // a regra dos alunos é por escola: a consulta precisa dizer a escola da turma (sem ela, o professor recebe "permission-denied" e a sala fica só com quem já entrou)
+    try{ let esc = ""; try{ esc = ((await getDoc(doc(db, "turmas", tid))).data() || {}).escola_id || ""; }catch(e){}
+      const sn = await getDocs(esc ? query(collection(db, "alunos"), where("turma_id", "==", tid), where("escola_id", "==", esc)) : query(collection(db, "alunos"), where("turma_id", "==", tid)));
       sn.forEach(d => { const a = d.data(); if(a.status !== "inativo" && a.situacao !== "transferido") AV.alunos.push({ id:d.id, nome:a.nome || "Aluno" }); });
       AV.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); }catch(e){ console.warn("alunos:", e.code); }
     if(AV.tid !== tid) return;
