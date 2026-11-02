@@ -265,9 +265,21 @@ service cloud.firestore {
     match /usuarios/{uid}/quizzes/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && (licenciado() || eu().perfil in ["gestor", "admin"])
-        && novo().keys().hasOnly(["titulo", "tema", "turma_id", "turma_nome", "perguntas", "resultado", "status", "criado_em", "atualizado_em", "encerrado_em"])
+        && novo().keys().hasOnly(["titulo", "tema", "disciplina", "origem", "turma_id", "turma_nome", "perguntas", "resultado", "status", "criado_em", "atualizado_em", "encerrado_em"])
         && novo().titulo is string && novo().titulo.size() <= 120 && novo().perguntas is list && novo().perguntas.size() <= 30
         && novo().get("resultado", {}) is map && novo().get("status", "") in ["aplicando", "encerrado"];
+    }
+    // Quizzes compartilhados com a rede: professores e gestores do mesmo município leem e usam uma cópia; só o autor publica e retira
+    // (só perguntas e gabarito: nada de respostas nem nomes de alunos)
+    match /quizzes_rede/{id} {
+      allow read: if logado() && (admin() || (eu().status == "ativo" && eu().perfil in ["professor", "gestor"] && resource.data.municipio_id == eu().get("municipio_id", "-")));
+      allow create: if logado() && eu().status == "ativo" && eu().perfil in ["professor", "gestor", "admin"] && novo().uid == request.auth.uid
+        && novo().municipio_id == eu().get("municipio_id", "-") && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)/quizzes/$(id))
+        && novo().keys().hasOnly(["uid", "autor_nome", "municipio_id", "titulo", "disciplina", "turma_nome", "perguntas", "criado_em"])
+        && novo().titulo is string && novo().titulo.size() <= 120 && novo().autor_nome is string && novo().autor_nome.size() <= 80
+        && novo().perguntas is list && novo().perguntas.size() > 0 && novo().perguntas.size() <= 30 && novo().criado_em == request.time;
+      allow delete: if logado() && (admin() || resource.data.uid == request.auth.uid);
+      allow update: if false;
     }
     // Turma na Lousa: sorteio, grupos, mapa da sala e placar de cada turma (so o dono)
     match /usuarios/{uid}/turma_lousa/{id} {

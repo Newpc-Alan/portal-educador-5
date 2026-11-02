@@ -2,7 +2,7 @@
 //   firebase emulators:exec --only firestore --project demo-pe5 "node scripts/teste-regras-aulavivo.mjs firestore.rules"
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc, getDocs, addDoc, updateDoc, collection, query, where, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp } from 'firebase/firestore';
 const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
 const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
 await env.withSecurityRulesDisabled(async (c) => {
@@ -47,6 +47,16 @@ await t('professor guarda o quiz com gabarito', assertSucceeds(setDoc(doc(fs('p1
 await t('relatório do quiz', assertSucceeds(updateDoc(doc(fs('p1'), 'usuarios/p1/quizzes/q1'), { resultado: { media: 70 }, status: 'encerrado', encerrado_em: serverTimestamp(), atualizado_em: serverTimestamp() })));
 await t('aluno não lê o gabarito', assertFails(getDoc(doc(al('u1', 'a1'), 'usuarios/p1/quizzes/q1'))));
 await t('outro professor não lê o quiz', assertFails(getDoc(doc(fs('p9'), 'usuarios/p1/quizzes/q1'))));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'usuarios/p8'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e8', municipio_id: 'm2' }); });
+const QR = (uid, mun) => ({ uid, autor_nome: 'Prof', municipio_id: mun, titulo: 'Frações', disciplina: '', turma_nome: '6º A', perguntas: [{ p: 'x', ops: ['a', 'b'], gab: 0 }], criado_em: serverTimestamp() });
+await t('professor compartilha o próprio quiz com a rede', assertSucceeds(setDoc(doc(fs('p1'), 'quizzes_rede/q1'), QR('p1', 'm1'))));
+await t('não compartilha quiz que não é seu', assertFails(setDoc(doc(fs('p9'), 'quizzes_rede/q1b'), QR('p9', 'm1'))));
+await t('não publica em outro município', assertFails(setDoc(doc(fs('p1'), 'quizzes_rede/q1'), QR('p1', 'm2'))));
+await t('colega do município lê a rede', assertSucceeds(getDoc(doc(fs('p9'), 'quizzes_rede/q1'))));
+await t('professor de outro município não lê', assertFails(getDoc(doc(fs('p8'), 'quizzes_rede/q1'))));
+await t('aluno não lê o quiz da rede (tem gabarito)', assertFails(getDoc(doc(al('u1', 'a1'), 'quizzes_rede/q1'))));
+await t('colega não apaga', assertFails(deleteDoc(doc(fs('p9'), 'quizzes_rede/q1'))));
+await t('autor retira da rede', assertSucceeds(deleteDoc(doc(fs('p1'), 'quizzes_rede/q1'))));
 console.log((falha ? '::error::' : '::notice::') + 'Aula ao vivo no Portal: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();
 process.exit(falha ? 1 : 0);

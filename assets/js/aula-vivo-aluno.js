@@ -164,25 +164,35 @@ function quiz(){
   if(!q.ativa && !R.r.some(v => v >= 0)){ if(f) f.remove(); return; }
   // já enviou: volta para o Portal; a correção aparece sozinha quando o professor encerrar
   if(q.ativa && R.fim && S.qzVoltou === q.id){ if(f) f.remove(); return; }       // encerrou e este aluno não participou: nada a mostrar
-  if(!f){ f = document.createElement("div"); f.id = "alQuiz"; f.className = "al-quiz"; f.setAttribute("role", "dialog"); document.body.appendChild(f); vibrar(150); S.qzI = Math.max(0, R.r.indexOf(-1)); }
+  const O = ordemQuiz(q);
+  if(!f){ f = document.createElement("div"); f.id = "alQuiz"; f.className = "al-quiz"; f.setAttribute("role", "dialog"); document.body.appendChild(f); vibrar(150); S.qzI = Math.max(0, O.q.findIndex(qi => R.r[qi] < 0)); }
   const topo = '<div class="al-qz-topo"><b>🧠 ' + esc(String(q.titulo || "Quiz").slice(0, 80)) + "</b>";
   // correção (o professor encerrou): nota e cada pergunta com a certa
   if(!q.ativa){
     const ac = R.r.filter((v, i) => v === q.gab[i]).length;
     f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span>' + (ac / n >= .7 ? "🎉" : ac / n >= .5 ? "👍" : "📚") + '</span><b>Você acertou</b><span class="nota">' + ac + " de " + n + "</span></div>" +
-      q.perguntas.map((p, i) => { const v = R.r[i], ok = v === q.gab[i];
-        return '<div class="al-qz-rev ' + (ok ? "ok" : "er") + '"><b>' + (ok ? "✅ " : "❌ ") + (i + 1) + ". " + esc(p.p) + "</b>" + (!ok ? "<span>Sua resposta: " + (v >= 0 ? LT[v] + ") " + esc(p.ops[v] || "") : "em branco") + "</span>" : "") + "<span>Certa: <b>" + LT[q.gab[i]] + ") " + esc(p.ops[q.gab[i]] || "") + "</b></span></div>"; }).join("") +
+      O.q.map((qi, i) => { const p = q.perguntas[qi], v = R.r[qi], g = q.gab[qi], ok = v === g, L = x => LT[O.o[qi].indexOf(x)] || "?";
+        return '<div class="al-qz-rev ' + (ok ? "ok" : "er") + '"><b>' + (ok ? "✅ " : "❌ ") + (i + 1) + ". " + esc(p.p) + "</b>" + (!ok ? "<span>Sua resposta: " + (v >= 0 ? L(v) + ") " + esc(p.ops[v] || "") : "em branco") + "</span>" : "") + "<span>Certa: <b>" + L(g) + ") " + esc(p.ops[g] || "") + "</b></span></div>"; }).join("") +
       '</div><div class="al-qz-nav"><span></span><button type="button" class="vai" data-al="qz-ok">Fechar</button></div>';
     return;
   }
   if(R.fim){ f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span style="font-size:54px">✅</span><b>Respostas enviadas!</b><small>Voltando para o Portal... A correção aparece aqui quando o professor encerrar.</small><button type="button" class="al-qz-volta" data-al="qz-voltar">Voltar ao Portal agora</button></div></div>';
     clearTimeout(S.qzVolta); S.qzVolta = setTimeout(() => { S.qzVoltou = q.id; quiz(); }, 2500); return; }
-  const i = Math.min(Math.max(0, S.qzI), n - 1), p = q.perguntas[i], falta = R.r.filter(v => v < 0).length;
+  const i = Math.min(Math.max(0, S.qzI), n - 1), qi = O.q[i], p = q.perguntas[qi], falta = R.r.slice(0, n).filter(v => v < 0).length;
   f.innerHTML = topo + "<span>" + (i + 1) + " de " + n + '</span></div><div class="al-qz-corpo"><div class="al-qz-p">' + esc(p.p) + '</div><div class="al-qz-ops">' +
-    p.ops.map((o, k) => '<button type="button" data-al="qz-r" data-k="' + k + '"' + (R.r[i] === k ? ' class="on"' : "") + "><i>" + LT[k] + "</i>" + esc(o) + "</button>").join("") + "</div>" +
-    '<div class="al-qz-pts">' + R.r.map((v, k) => '<button type="button" data-al="qz-ir" data-i="' + k + '" class="' + (v >= 0 ? "r" : "") + (k === i ? " at" : "") + '">' + (k + 1) + "</button>").join("") + "</div></div>" +
+    O.o[qi].map((orig, k) => '<button type="button" data-al="qz-r" data-k="' + orig + '"' + (R.r[qi] === orig ? ' class="on"' : "") + "><i>" + LT[k] + "</i>" + esc(p.ops[orig]) + "</button>").join("") + "</div>" +
+    '<div class="al-qz-pts">' + O.q.map((x, k) => '<button type="button" data-al="qz-ir" data-i="' + k + '" class="' + (R.r[x] >= 0 ? "r" : "") + (k === i ? " at" : "") + '">' + (k + 1) + "</button>").join("") + "</div></div>" +
     '<div class="al-qz-nav"><button type="button" data-al="qz-ir" data-i="' + (i - 1) + '"' + (i ? "" : " disabled") + '>← Anterior</button><small>' + (falta ? "Faltam " + falta : "Todas respondidas") + "</small>" +
     (i < n - 1 ? '<button type="button" class="vai" data-al="qz-ir" data-i="' + (i + 1) + '">Próxima →</button>' : '<button type="button" class="vai" data-al="qz-enviar">' + (falta ? "Enviar assim mesmo" : "✅ Enviar respostas") + "</button>") + "</div>";
+}
+// embaralha por aluno (perguntas e alternativas), sempre igual para o mesmo aluno no mesmo quiz; a resposta é gravada na ordem original,
+// então o gabarito e o relatório do professor não mudam
+function semente(t){ let h = 2166136261; for(let i = 0; i < t.length; i++){ h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return () => { h += 0x6D2B79F5; let x = h; x = Math.imul(x ^ x >>> 15, x | 1); x ^= x + Math.imul(x ^ x >>> 7, x | 61); return ((x ^ x >>> 14) >>> 0) / 4294967296; }; }
+function embaralhar(n, rnd){ const a = Array.from({ length:n }, (_, i) => i); for(let i = n - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function ordemQuiz(q){
+  if(S.qzOrd && S.qzOrd.id === q.id) return S.qzOrd;
+  const rnd = semente(q.id + ":" + S.chave);
+  return (S.qzOrd = { id:q.id, q:embaralhar(q.perguntas.length, rnd), o:q.perguntas.map(p => embaralhar((p.ops || []).length, rnd)) });
 }
 function gravarQuiz(){ const R = S.qzR; return meu({ quiz:{ id:R.id, r:R.r.slice(0, 30), fim:!!R.fim } }); }
 function botoes(){
@@ -218,7 +228,7 @@ function clique(ev){
   const k = b.dataset.al;
   if(k === "fechar"){ const f = $("alConteudo"); if(f) f.remove(); }
   else if(k === "qz-r" && S.qz && S.qz.ativa && S.qzR && !S.qzR.fim){ const n = S.qz.perguntas.length, i = Math.min(S.qzI, n - 1);
-    S.qzR.r[i] = Number(b.dataset.k); gravarQuiz().catch(() => aviso("Sem conexão: a resposta será enviada quando voltar."));
+    S.qzR.r[ordemQuiz(S.qz).q[i]] = Number(b.dataset.k); gravarQuiz().catch(() => aviso("Sem conexão: a resposta será enviada quando voltar."));
     quiz(); setTimeout(() => { if(S.qzI === i && i < n - 1){ S.qzI = i + 1; quiz(); } }, 450); }
   else if(k === "qz-ir"){ S.qzI = Number(b.dataset.i) || 0; quiz(); }
   else if(k === "qz-enviar" && S.qzR){ S.qzR.fim = true; gravarQuiz().then(() => quiz()).catch(() => { S.qzR.fim = false; aviso("Sem conexão. Tente de novo."); }); quiz(); }
