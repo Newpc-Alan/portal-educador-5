@@ -1096,7 +1096,7 @@ Enviar mensagens por e-mail a professores, gestão das escolas, Secretarias de E
 ### Passo a passo
 1. Menu **Sistema › Comunicados por e-mail**.
 2. **Tipo:** **Informativo** (novidades, formação, pesquisas: respeita quem pediu para não receber) ou **Aviso de serviço** (mudança de acesso, manutenção: vai para todos). Na dúvida, Informativo.
-3. **Para quem:** marque os públicos e, se for o caso, a **licença dos professores** (contrato da rede, avulsa, teste, cortesia; vencidas só marcando a opção), os municípios (inclusive **Sem município**, para os avulsos) e a escola. Confira a caixa azul: total de pessoas, quantas não têm e-mail e o tempo estimado.
+3. **Para quem:** marque os públicos (para campanhas da Formação, use **Situação na Formação**) e, se for o caso, a **licença dos professores** (contrato da rede, avulsa, teste, cortesia; vencidas só marcando a opção), os municípios (inclusive **Sem município**, para os avulsos) e a escola. Confira a caixa azul: total de pessoas, quantas não têm e-mail e o tempo estimado.
 4. Escreva **Assunto** e **Mensagem** (parágrafos separados por linha em branco). Botão e link são opcionais e o link precisa começar com https://.
 5. Toque em **Enviar teste para mim** e confira na sua caixa de entrada (e no spam) como chegou.
 6. Se quiser, preencha **Enviar em** para agendar.
@@ -1130,6 +1130,7 @@ Ler o Painel do administrador numa rotina fixa, para agir antes que o problema c
 3. **Sala Conectada e rede:** materiais **aguardando aprovação** e **com denúncia** (POP-PDE-21); envios para a turma e entradas pelo QR no mês; **downloads do app do Maestro** (escola com Maestro contratado e nenhum download = oferecer ajuda na instalação dos tablets).
 4. **Conteúdo e participação:**
    - **Provas online · correção:** se houver **pendentes há mais de 7 dias**, clicar, ver professor e turma e avisar a direção da escola. Olhar as **reavaliações de nota** da semana (motivo e professor).
+   - **Formação Continuada · acompanhamento:** quem **parou no meio** e quem **ainda não começou**. Uma vez por mês, mandar um Comunicado com **Situação na Formação** = "Começaram e não concluíram" (lembrete) e avisar as Secretarias pelo Painel da Rede.
    - **Comunicados por e-mail:** fila andando e **falhas** (baixar a lista em Comunicados › Ver falhas e corrigir os e-mails no cadastro).
    - **O que a rede procura:** levar os **procurados e não achados** para a pauta de produção de conteúdo.
    - **Pendências:** resolver cada linha pelo atalho.

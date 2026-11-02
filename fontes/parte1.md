@@ -82,9 +82,10 @@ De cima para baixo:
 2. **Busca do Portal** (veja logo abaixo).
 3. **Cartões da aula**: **Dar aula agora** (Turma ao Vivo) e, quando o Portal Maestro está no plano, **Sala de aula gerenciada** com **▶ Abrir sala gerenciada** e **Lousa**. Com uma aula aberta, o primeiro cartão vira **🟢 Aula do 6º Ano A em andamento**, com o horário de término e **↩ Voltar para a aula**.
 4. **Para hoje**: as pendências reais do dia. Turmas sem chamada, prova na sala de espera, prova em andamento ou agendada para hoje e respostas abertas para corrigir. Sem pendência, aparece **Tudo em dia por aqui**.
-5. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
-6. **Notícia em destaque** (veja "Notícias e pesquisas rápidas").
-7. **O que você quer fazer?**: cartões grandes com foto, em três faixas:
+5. **Continuar minha formação** (quando a Formação Continuada está no plano e você tem curso em andamento): o curso mais recente, com a porcentagem feita e **Continuar meu curso**.
+6. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
+7. **Notícia em destaque** (veja "Notícias e pesquisas rápidas").
+8. **O que você quer fazer?**: cartões grandes com foto, em três faixas:
 
    | Faixa | Cartões |
    |---|---|
@@ -93,9 +94,9 @@ De cima para baixo:
    | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola** e **Aviso na TV da escola** |
 
    Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal". Dentro de qualquer ferramenta, o botão **← Voltar ao Portal**, no topo, traz de volta ao Início. A Folha Mágica e o Teleprompter ficam em **Aplicativos Úteis** (em "Mais recursos do Portal") e voltam para lá com **← Aplicativos**.
-8. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
-9. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
-10. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
+9. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
+10. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
+11. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
 
 :::nota
 Se o plano do município tem poucas ações liberadas, os módulos de conteúdo contratados sobem para os cartões grandes em vez de ficar em "Mais recursos". Professor com licença avulsa não vê os cartões que dependem de turmas da rede (chamada, notas, provas online).
@@ -887,7 +888,7 @@ Em **📌 Minha agenda**, crie lembretes (escola ou pessoal), com repetição e 
 
 ### Meu cadastro
 
-Em **Meu cadastro** você atualiza seus dados, marca as escolas onde dá aula, confere a licença e abre a **Minha ficha funcional** (**Abrir minha ficha**): foto para o crachá, lotação, formação e diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém redigitar.
+Em **Meu cadastro** você atualiza seus dados, marca as escolas onde dá aula, confere a licença, vê **🎓 Meus certificados da Formação** (com **Ver** e **Validar**) e abre a **Minha ficha funcional** (**Abrir minha ficha**): foto para o crachá, lotação, formação e diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém redigitar.
 
 ## Aluno
 
@@ -962,7 +963,9 @@ No topo fica a mesma **Busca do Portal** do professor (veja "Busca do Portal"): 
    |---|---|
    | **A escola hoje** | **Painel da escola**, **Busca ativa**, **Professor faltou**, **Avisar defeito** |
    | **Alunos e turmas** | **Notas da escola**, **Grade das turmas**, **Ficha do aluno**, **Central de Relatórios** (aprovar pareceres), **Corrigir gabarito**, **Famílias** |
-   | **Equipe e estrutura** | **Equipe**, **Ficha do servidor**, **Reservar equipamento**, **TV da escola**, **Calendário da escola** |
+   | **Equipe e estrutura** | **Equipe**, **Formação da equipe**, **Ficha do servidor**, **Reservar equipamento**, **TV da escola**, **Calendário da escola** |
+
+   **Formação da equipe** abre a lista dos professores da escola na Formação Continuada: quem concluiu, quem está fazendo, quem parou no meio (sem avançar há 14 dias) e quem ainda não começou, com os cursos em andamento, certificados e horas (com busca e planilha).
 
    Em qualquer ferramenta, **← Voltar ao Portal** traz de volta a este Início.
 5. **Minhas aulas** (para quem também dá aula): **Fazer chamada**, **Lançar notas**, **Criar prova**, **Provas online** e **Minhas turmas**.
@@ -1107,7 +1110,7 @@ Mostra, em uma tela, a rede inteira só com números agregados, sem dados pessoa
 - Acerto nas provas por escola e **habilidades BNCC que pedem reforço**.
 - Frequência por escola e busca ativa.
 - Dias letivos cumpridos, chamados técnicos e TVs online.
-- **🎓 Formação Continuada**: adesão dos professores por escola, quantos concluíram, certificados, horas certificadas, quem ainda não começou e os cursos mais concluídos.
+- **🎓 Formação Continuada** (com **Ver os professores**, lista de quem começou, parou ou concluiu, e planilha): adesão dos professores por escola, quantos concluíram, certificados, horas certificadas, quem ainda não começou e os cursos mais concluídos.
 - **✨ Créditos de IA da rede**: saldo, barra, validade, uso no mês e limite por professor, com o botão **Solicitar recarga**. A NEWPC recebe o pedido e envia a proposta; os créditos entram depois do empenho e valem 12 meses.
 
 O botão **📄 Relatório executivo** gera um PDF com o brasão, os indicadores, a tabela escola por escola e as prioridades.

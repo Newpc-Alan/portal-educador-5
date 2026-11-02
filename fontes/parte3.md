@@ -438,6 +438,10 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 | `papelFormacaoPortal` | gatilho em `usuarios/{uid}` | Quando alguém vira (ou deixa de ser) administrador ativo do Portal, dá (ou tira) o papel `admin` da Formação no token (`papel_origem: portal`) e registra na Auditoria |
 | `painelSecretaria` | callable | Ganhou o bloco `formacao`: professores, cursistas, concluíram, certificados, horas e cursos mais concluídos, por município e por escola |
 
+| `formacaoAcompanhamento` | callable (admin, Secretaria, Direção) | Lista do escopo de quem chama (todas as redes, o município ou as escolas do gestor): professores ativos e cursistas, situação (`nao_comecou`, `em_andamento`, `parado` = 14 dias sem avançar, `concluiu`), cursos em andamento, concluídos, certificados e horas. E-mail só para o admin; nunca CPF |
+
+`situacoesFormacao` (em `formacao-uso.js`) também filtra o público dos Comunicados (`publico.formacao`). No navegador: cartão **Continuar minha formação** (lê `users/{uid}/progresso` do próprio professor) e **Meus certificados** (certificados com `uid` do próprio).
+
 Robô de migração: consulta **formacao-sincronizar** (simula) e **formacao-sincronizar-gravar** (liga os perfis antigos e dá o papel aos admins). Os cursos publicados entram no índice da busca geral (`m: formacao`).
 
 ### Busca geral do Início (`busca.js`)
