@@ -80,7 +80,7 @@ De cima para baixo:
 
 1. **Saudação** com o seu município e escola.
 2. **Busca do Portal** (veja logo abaixo).
-3. **Cartão da aula**: **Sala de aula gerenciada** (antes "Dar aula agora"; o antigo cartão do Maestro saiu do Início em nov/2026), com **▶ Começar a aula** e **🔗 Só enviar conteúdo**. Com uma aula aberta, o primeiro cartão vira **🟢 Aula do 6º Ano A em andamento**, com o horário de término, **⏹ Encerrar** e **↩ Voltar para a aula**.
+3. **Cartão da aula (o maior do Início)**: **🎼 Sala de aula gerenciada · Você é o maestro da sua turma**, com o que o professor comanda (pausar as telas, abrir conteúdo em todos, atender quem levanta a mão, quiz com relatório), **▶ Começar a aula** e **🔗 Só enviar conteúdo**. Com uma aula aberta, ele fica verde: **🎼 Você está regendo a aula · 6º Ano A em andamento**, com o horário de término, **↩ Voltar para a regência** e **⏹ Encerrar**.
 4. **Para hoje**: as pendências reais do dia. Turmas sem chamada, prova na sala de espera, prova em andamento ou agendada para hoje e respostas abertas para corrigir. Sem pendência, aparece **Tudo em dia por aqui**.
 5. **Continuar minha formação** (quando a Formação Continuada está no plano e você tem curso em andamento): o curso mais recente, com a porcentagem feita e **Continuar meu curso**.
 6. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
