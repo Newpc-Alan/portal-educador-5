@@ -564,7 +564,7 @@ Desde novembro de 2026, o Portal Maestro funciona **dentro** do Dar aula agora. 
 
 No painel **📡 Turma ao Vivo**, a faixa **🎼 Maestro** mostra quantos aparelhos estão seguindo a aula e traz:
 
-- **📲 Abrir nos aparelhos**: abre um material já enviado (ou um link) na hora, em todos os aparelhos controlados.
+- **📲 Abrir nos aparelhos**: abre na hora, em todos os aparelhos que seguem a aula, algo escolhido em três abas: **🏫 Do Portal** (jogos, vídeos, livros e histórias, desenhos para colorir, com busca pelo nome ou tema), **📤 Enviados à turma** (sem repetir o mesmo link) e **🔗 Link externo** (com um nome para os alunos).
 - **🔒 Pausar as telas** / **🔓 Liberar as telas**: a turma inteira vê a mensagem de atenção ao professor.
 - **📊 Pesquisa rápida**: uma pergunta (ex.: "Entenderam?") aparece em todos os aparelhos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. A faixa mostra a contagem e quem não respondeu, e o cartão de cada aluno ganha a bolinha da resposta. **Encerrar pesquisa** fecha.
 - **⏱️ Cronômetro**: atividade com tempo (3 a 30 min); os aparelhos mostram o tempo que falta e avisam no fim. **Parar** encerra.
