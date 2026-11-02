@@ -93,3 +93,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.13 | 02/11/2026 | POP-PDE-32: botões no padrão do painel e Acervo do município | NEWPC Tecnologia | |
 | 2.14 | 02/11/2026 | POP-PDE-32: cadeado das telas (verde aberto, vermelho fechado) e Acervo por pastas | NEWPC Tecnologia | |
 | 2.15 | 02/11/2026 | POP-PDE-32: Quiz rápido com relatório de aproveitamento e alerta de bateria | NEWPC Tecnologia | |
+| 2.16 | 02/11/2026 | POP-PDE-32: acervo de quizzes (meus e da rede), compartilhamento e acervo da pesquisa rápida | NEWPC Tecnologia | |
