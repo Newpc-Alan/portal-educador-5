@@ -91,8 +91,12 @@ export async function codigoDoQr({ qr }) {
 }
 
 // entrada por QR: "<id da matrícula>.<chave>" (o que vem depois de #q= no link do cartão)
+// nov/2026: a carteirinha da escola ("PDEA:<id da matrícula>") também entra, mas só com a aula da turma do aluno aberta,
+// a sessão é a mesma do cartão (via_qr: sai sozinha quando a aula acaba) e fica marcada na auditoria como entrada pela carteirinha.
 export function lerQr(txt) {
-  const t = String(txt || '').trim(), m = /(?:#q=|^PDEQ:|^)([A-Za-z0-9_-]{1,64})\.([A-Za-z0-9_-]{20,40})$/.exec(t);
+  const t = String(txt || '').trim(), c = /^PDEA:([A-Za-z0-9_-]{1,64})$/.exec(t);
+  if (c) return { alunoId: c[1], chave: null, carteirinha: true };
+  const m = /(?:#q=|^PDEQ:|^)([A-Za-z0-9_-]{1,64})\.([A-Za-z0-9_-]{20,40})$/.exec(t);
   return m ? { alunoId: m[1], chave: m[2] } : null;
 }
 const igual = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
@@ -101,13 +105,16 @@ export async function entrarPorQr({ db, auth, q, agora = Date.now() }) {
   const r = lerQr(q);
   if (!r) throw new HttpsError('invalid-argument', 'Este QR não é de um cartão de acesso do Portal.');
   const a = (await db.doc(`alunos_acesso/${r.alunoId}`).get()).data();
-  if (!a || !a.qr_chave || !igual(a.qr_chave, r.chave)) throw new HttpsError('permission-denied', 'Este cartão não vale mais. Peça um novo ao professor.');
+  if (r.carteirinha) {
+    if (!a || !a.turma_id) throw new HttpsError('failed-precondition', 'Sua turma ainda não tem acesso ao Portal. Peça ao professor para gerar os cartões da turma.');
+    if (a.carteirinha_bloqueada === true) throw new HttpsError('permission-denied', 'Esta carteirinha não entra mais no Portal. Use o cartão de acesso ou o código e PIN.');
+  } else if (!a || !a.qr_chave || !igual(a.qr_chave, r.chave)) throw new HttpsError('permission-denied', 'Este cartão não vale mais. Peça um novo ao professor.');
   const aula = (await db.doc(`qr_aulas/${a.turma_id}`).get()).data();
   const ate = aula && aula.aberta_ate && aula.aberta_ate.toMillis ? aula.aberta_ate.toMillis() : 0;
   if (ate <= agora) throw new HttpsError('failed-precondition', 'A entrada por QR da sua turma está fechada. Peça ao professor para abrir a aula.');
   // via_qr: a tela do aluno sabe que esta sessão vale só enquanto a aula estiver aberta (sai sozinha quando o tempo acaba)
   const token = await auth.createCustomToken(uidAluno(r.alunoId), { via_qr: true });
-  await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
+  await db.collection('auditoria').add({ uid: uidAluno(r.alunoId), acao: r.carteirinha ? 'aluno_entrada_carteirinha' : 'aluno_entrada_qr', alvo: a.turma_id || '', em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
   const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
   await db.doc('stats/entrada_qr').set({ por_dia: { [dia]: FieldValue.increment(1) }, total: FieldValue.increment(1) }, { merge: true }).catch(() => {});
   return { token, nome: a.nome || '' };
