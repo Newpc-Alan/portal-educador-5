@@ -91,3 +91,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.11 | 02/11/2026 | POP-PDE-32: pesquisa rápida, cronômetro e pergunta só para o aluno | NEWPC Tecnologia | |
 | 2.12 | 02/11/2026 | POP-PDE-32: Controle da aula dentro do Portal (pausa em destaque, bate-papo, envio só para um aluno); cronômetro saiu | NEWPC Tecnologia | |
 | 2.13 | 02/11/2026 | POP-PDE-32: botões no padrão do painel e Acervo do município | NEWPC Tecnologia | |
+| 2.14 | 02/11/2026 | POP-PDE-32: cadeado das telas (verde aberto, vermelho fechado) e Acervo por pastas | NEWPC Tecnologia | |
