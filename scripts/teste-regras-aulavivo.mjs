@@ -1,0 +1,41 @@
+// Aula ao vivo no Portal: professor da escola comanda; aluno da turma lê, levanta a mão, responde e conversa só a própria conversa.
+//   firebase emulators:exec --only firestore --project demo-pe5 "node scripts/teste-regras-aulavivo.mjs firestore.rules"
+import { readFileSync } from 'node:fs';
+import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
+import { doc, setDoc, getDoc, getDocs, addDoc, updateDoc, collection, query, where, serverTimestamp } from 'firebase/firestore';
+const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').split(':');
+const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
+await env.withSecurityRulesDisabled(async (c) => {
+  const db = c.firestore();
+  await setDoc(doc(db, 'municipios/m1'), { nome: 'M1' });
+  await setDoc(doc(db, 'turmas/t1'), { nome: '6º A', escola_id: 'e1', municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/p1'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
+  await setDoc(doc(db, 'usuarios/p9'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e9', escolas_ids: ['e9'], municipio_id: 'm1' });
+  await setDoc(doc(db, 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', mao: new Date(), em: new Date() });
+  await setDoc(doc(db, 'aula_vivo/t1/chat/c2'), { aluno_id: 'a2', de: 'prof', texto: 'oi', nome: 'P', em: new Date() });
+});
+let ok = 0, falha = 0;
+const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
+const al = (uid, aluno) => env.authenticatedContext(uid, { turma_id: 't1', aluno_id: aluno, via_qr: true }).firestore();
+const fs = uid => env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore();
+const P = o => ({ ...o, atualizado_em: serverTimestamp(), por: 'p1' });
+await t('professor pausa a turma', assertSucceeds(setDoc(doc(fs('p1'), 'aula_vivo/t1'), P({ pausa: true, pausa_alunos: {} }), { merge: true })));
+await t('professor envia só para um aluno', assertSucceeds(setDoc(doc(fs('p1'), 'aula_vivo/t1'), P({ comandos: { a1: { id: 'x', url: 'https://a.b', nome: 'Prova adaptada', em: 1 } } }), { merge: true })));
+await t('professor de outra escola não comanda', assertFails(setDoc(doc(fs('p9'), 'aula_vivo/t1'), { pausa: false, atualizado_em: serverTimestamp(), por: 'p9' }, { merge: true })));
+await t('aluno não comanda', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1'), { pausa: false, atualizado_em: serverTimestamp(), por: 'u1' }, { merge: true })));
+await t('aluno lê a aula', assertSucceeds(getDoc(doc(al('u1', 'a1'), 'aula_vivo/t1'))));
+await t('aluno levanta a mão', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', mao: serverTimestamp(), em: serverTimestamp() }, { merge: true })));
+await t('aluno responde a pesquisa', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', pesquisa: { id: 'p', valor: 'verde' }, em: serverTimestamp() }, { merge: true })));
+await t('aluno não mexe no colega', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a2'), { nome: 'X', em: serverTimestamp() }, { merge: true })));
+await t('professor baixa a mão', assertSucceeds(updateDoc(doc(fs('p1'), 'aula_vivo/t1/alunos/a1'), { mao: null })));
+await t('professor não muda a resposta', assertFails(updateDoc(doc(fs('p1'), 'aula_vivo/t1/alunos/a1'), { pesquisa: { id: 'p', valor: 'vermelho' } })));
+await t('aluno escreve ao professor', assertSucceeds(addDoc(collection(al('u1', 'a1'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'aluno', texto: 'dúvida', nome: 'Ana', em: serverTimestamp() })));
+await t('aluno não finge ser o professor', assertFails(addDoc(collection(al('u1', 'a1'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'prof', texto: 'x', nome: 'Ana', em: serverTimestamp() })));
+await t('aluno não escreve na conversa do colega', assertFails(addDoc(collection(al('u1', 'a1'), 'aula_vivo/t1/chat'), { aluno_id: 'a2', de: 'aluno', texto: 'x', nome: 'Ana', em: serverTimestamp() })));
+await t('aluno lê só a própria conversa', assertSucceeds(getDocs(query(collection(al('u1', 'a1'), 'aula_vivo/t1/chat'), where('aluno_id', '==', 'a1')))));
+await t('aluno não lê a conversa do colega', assertFails(getDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/chat/c2'))));
+await t('professor responde', assertSucceeds(addDoc(collection(fs('p1'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'prof', texto: 'Pode falar', nome: 'P', em: serverTimestamp() })));
+await t('professor lê todas', assertSucceeds(getDocs(collection(fs('p1'), 'aula_vivo/t1/chat'))));
+console.log((falha ? '::error::' : '::notice::') + 'Aula ao vivo no Portal: ' + ok + ' ok, ' + falha + ' falha(s)');
+await env.cleanup();
+process.exit(falha ? 1 : 0);

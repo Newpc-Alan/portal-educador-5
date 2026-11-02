@@ -118,6 +118,32 @@ service cloud.firestore {
       allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["fechados", "em"])
         && novo().fechados is list && novo().fechados.size() <= 500 && novo().em == request.time;
     }
+    // Aula ao vivo dentro do Portal (nov/2026), sem depender do Maestro: o professor comanda (pausa, abrir conteúdo para todos ou para um aluno,
+    // pesquisa rápida), o aluno responde (mão levantada, pesquisa) e os dois conversam (bate-papo individual).
+    match /aula_vivo/{tid} {
+      allow read: if admin() || equipeTurma(tid) || alunoDaTurma(tid);
+      allow create, update: if (admin() || equipeTurma(tid)) && novo().keys().hasOnly(["pausa", "pausa_alunos", "comando", "comandos", "pesquisa", "atualizado_em", "por"])
+        && novo().get("pausa", false) is bool && novo().get("pausa_alunos", {}) is map && novo().get("comandos", {}) is map
+        && novo().atualizado_em == request.time && novo().por == request.auth.uid;
+      allow delete: if false;
+      // estado de cada aluno: ele grava a mão e a resposta da pesquisa; o professor só baixa a mão
+      match /alunos/{k} {
+        allow read: if admin() || equipeTurma(tid) || (alunoDaTurma(tid) && souChave(k));
+        allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["nome", "mao", "pesquisa", "em"])
+          && novo().nome is string && novo().nome.size() <= 80 && (novo().get("mao", null) == null || novo().mao == request.time)
+          && novo().get("pesquisa", {}) is map && novo().em == request.time;
+        allow update: if (admin() || equipeTurma(tid)) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["mao"]) && novo().mao == null;
+        allow delete: if false;
+      }
+      // bate-papo individual: o aluno lê e escreve só a conversa dele; o professor da turma lê todas e responde
+      match /chat/{id} {
+        allow read: if admin() || equipeTurma(tid) || (alunoDaTurma(tid) && souChave(resource.data.aluno_id));
+        allow create: if novo().keys().hasOnly(["aluno_id", "de", "texto", "nome", "em"]) && novo().texto is string && novo().texto.size() > 0 && novo().texto.size() <= 500
+          && novo().nome is string && novo().nome.size() <= 80 && novo().em == request.time && novo().aluno_id is string
+          && ((novo().de == "aluno" && alunoDaTurma(tid) && souChave(novo().aluno_id)) || (novo().de == "prof" && (admin() || equipeTurma(tid))));
+        allow update, delete: if false;
+      }
+    }
     match /turma_presenca/{tid}/alunos/{k} {
       allow read: if admin() || (logado() && equipeTurma(tid));
       // fora = saiu da página (vermelho para o professor); saiu = saiu da conta (sem cor)
