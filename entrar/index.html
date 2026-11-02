@@ -8380,12 +8380,14 @@
     AV.subs.push(onSnapshot(collection(db, "turma_materiais", AV.tid, "itens", id, "vistos"), s2 => { const v = {}; s2.forEach(d => v[d.id] = d.data()); AV.vistos[id] = v; desenharAoVivo(); }, e => console.warn("vistos:", e.code)));
   }
   async function turmaAoVivo(tid){
-    pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"", qrAte:null });
+    pararAoVivo(); Object.assign(AV, { tid, alunos:[], pres:{}, mats:[], vistos:{}, aberto:"", qrAte:null, aulaIni:0, aulaFim:0 });
     $("avTurma").value = tid; $("avEnviar").dataset.turma = tid; qrAoVivo("ver");
     try{ const sn = await getDocs(query(collection(db, "alunos"), where("turma_id", "==", tid)));
       sn.forEach(d => { const a = d.data(); if(a.status !== "inativo" && a.situacao !== "transferido") AV.alunos.push({ id:d.id, nome:a.nome || "Aluno" }); });
       AV.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); }catch(e){ console.warn("alunos:", e.code); }
     if(AV.tid !== tid) return;
+    // a aula atual (aberta_em / aberta_ate): vermelho só vale para quem saiu durante ESTA aula
+    AV.subs.push(onSnapshot(doc(db, "qr_aulas", tid), s => { const x = s.data() || {}; AV.aulaIni = msAv(x.aberta_em); AV.aulaFim = msAv(x.aberta_ate); desenharAoVivo(); }, e => console.warn("aula:", e.code)));
     AV.subs.push(onSnapshot(collection(db, "turma_presenca", tid, "alunos"), sn => { AV.pres = {}; sn.forEach(d => { AV.pres[d.id] = d.data(); }); desenharAoVivo(); }, e => console.warn("presença:", e.code)));
     AV.subs.push(onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(200)), sn => {
       AV.mats = []; sn.forEach(d => AV.mats.push({ id:d.id, ...d.data() }));
@@ -8600,7 +8602,12 @@
   // três estados (nov/2026): verde = na aula; vermelho = saiu da página (trocou de aba, fechou ou o tablet apagou) sem sair da conta;
   // sem cor = saiu da conta ou não entrou. Sinal com mais de 3 h é de outra aula: sem cor.
   const FORA_MS = 3 * 3600e3;
-  const estadoAv = id => { const p = AV.pres[id]; if(!p || p.saiu) return ""; if(onlineAv(id)) return "on"; return Date.now() - msAv(p.em) < FORA_MS ? "fora" : ""; };
+  // aula encerrada ou sinal de antes da aula atual começar: sem cor (não fica "preso" no vermelho de uma aula anterior)
+  const estadoAv = id => { const p = AV.pres[id]; if(!p || p.saiu) return ""; if(onlineAv(id)) return "on";
+    const em = msAv(p.em);
+    if(AV.aulaIni && em < AV.aulaIni) return "";
+    if(AV.aulaFim && AV.aulaFim <= Date.now()) return "";
+    return Date.now() - em < FORA_MS ? "fora" : ""; };
   const ORD_AV = { on:0, fora:1, "":2 };
   const listaAv = () => AV.alunos.length ? AV.alunos : Object.entries(AV.pres).map(([id, p]) => ({ id, nome:p.nome || "Aluno" }));
   function desenharAoVivo(){
