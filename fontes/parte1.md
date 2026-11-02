@@ -750,7 +750,30 @@ O painel tem dois modos: **▦ Sala** (a turma em cartões, com os bloqueados pr
 
 - Múltipla escolha, verdadeiro ou falso, várias respostas e grades são corrigidas sozinhas.
 - Resposta curta é corrigida sozinha quando você informa as respostas aceitas; o que não bate fica pendente.
-- Dissertativas ficam pendentes: use **✍️ Corrigir questões abertas** (o botão mostra quantas faltam). A correção é feita questão por questão, com **Salvar correções desta questão**.
+- Dissertativas ficam pendentes: use **✍️ Corrigir questões abertas** (o botão mostra quantas faltam).
+
+#### Corrigir as questões abertas
+
+<!-- captura: correção com a faixa azul "Corrigindo a resposta de Heitor Moreira", alunos em fila e Salvar e ir para o próximo -->
+
+A correção mostra **um aluno por vez**, para não haver dúvida de quem é a resposta:
+
+1. Escolha a questão no topo (**Questão 2**, **Questão 3**...). O número em amarelo é quantas faltam.
+2. A faixa azul mostra **Corrigindo a resposta de** e o nome do aluno, com **Aluno 3 de 9**. Abaixo, a resposta dele e a resposta esperada.
+3. Dê a nota (0, metade, inteira ou digite), escreva o comentário se quiser e toque em **Salvar e ir para o próximo**. Terminada a questão, o Portal passa para a próxima com pendência.
+4. Para ir a um aluno, use **← Anterior**, **Próximo →** ou toque no nome na fila (amarelo = para corrigir, verde = corrigida, ↺ = reavaliada).
+5. Com tudo corrigido e a prova encerrada, toque em **🔒 Finalizar correção** (toque de novo para confirmar).
+
+Depois de finalizada, as notas ficam travadas. Para mudar a nota de um aluno:
+
+1. Abra a questão e o aluno e toque em **Reavaliar a nota de...**.
+2. Escreva a **justificativa** (obrigatória) e a nova nota, e toque em **Salvar reavaliação**.
+3. A mudança fica no **Histórico de reavaliações** do aluno (data, quem, nota antes e depois e o motivo) e na **Auditoria**. O aluno vê que a nota foi revista e o motivo.
+
+:::regra
+Finalizar a correção é o fechamento oficial da prova. Reavaliar sem justificativa não é possível, e toda reavaliação fica registrada com o nome de quem fez.
+:::
+
 - O aluno vê a nota quando a prova termina, ou quando você liberar.
 - Em **Notas e Médias**, o botão **📡 Prova online** puxa as notas para a planilha, na coluna do período escolhido na classificação.
 

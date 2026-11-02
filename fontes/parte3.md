@@ -446,7 +446,7 @@ No navegador, a busca lê `busca_indice/_meta` (1 leitura) e só baixa as partes
 | `iniciarProvaOnline` | callable | Cria a tentativa dentro da janela, com prazo e embaralhamento determinístico por aluno |
 | `entregarProvaOnline` | callable | Entrega e corrige (recusa se bloqueada) |
 | `acaoProvaOnline` | callable | Nova chance, mais tempo, encerrar, liberar notas, cancelar |
-| `corrigirProvaOnline` | callable | Correção das questões abertas pelo professor |
+| `corrigirProvaOnline` | callable | Correção das questões abertas pelo professor. `finalizar: true` trava a correção (só com prova encerrada e nenhum `pendentes > 0`; grava `correcao_finalizada`, `_em`, `_por` e um registro na Auditoria). Depois disso, mudar questão já corrigida exige `justificativa` (15+ letras): entra em `por_questao[q].revisoes` (até 20: em, por, de, para, motivo), marca `reavaliada` e grava na Auditoria com nota antes e depois. Entrega tardia ainda pendente corrige sem justificativa |
 | `aplicarRecuperacao` | callable | Reaplica a prova como recuperação |
 | `fecharProvasOnline` | a cada 5 min | Entrega tentativas vencidas e encerra provas cuja janela terminou |
 | `limparFotosProvas` | 03:15 diário | Apaga fotos de confirmação de anos anteriores |

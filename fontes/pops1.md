@@ -392,7 +392,7 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 **Depois**
 
 15. Ao fim do tempo, confira se todos entregaram (a entrega é automática quando o tempo acaba; **Encerrar agora** fecha antes).
-16. Corrija as questões abertas com **✍️ Corrigir questões abertas** e libere as notas (**Liberar notas aos alunos** ou **Mostrar notas já**), conforme o combinado.
+16. Corrija as questões abertas com **✍️ Corrigir questões abertas**, um aluno por vez (**Salvar e ir para o próximo**). Com tudo corrigido e a prova encerrada, toque em **🔒 Finalizar correção**. Depois, mudar nota só por **Reavaliar**, com justificativa (fica no histórico e na Auditoria). Libere as notas (**Liberar notas aos alunos** ou **Mostrar notas já**), conforme o combinado.
 17. Baixo aproveitamento: **🔁 Recuperação** reaplica a prova aos alunos escolhidos; vale a maior nota e a original fica preservada.
 18. Em Notas e Médias, puxe as notas da prova online para a planilha da turma.
 19. Registre as ocorrências (bloqueios, trocas de aparelho, novas chances).
