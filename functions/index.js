@@ -428,3 +428,4 @@ export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } fro
 export { portalIa, portalIaLimpar } from './portal-ia.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos } from './creditos.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
+export { quizParaAcervoGeral, avisoQuizGeral } from './quizzes-geral.js';

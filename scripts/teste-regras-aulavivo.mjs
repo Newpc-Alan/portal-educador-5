@@ -57,6 +57,13 @@ await t('professor de outro município não lê', assertFails(getDoc(doc(fs('p8'
 await t('aluno não lê o quiz da rede (tem gabarito)', assertFails(getDoc(doc(al('u1', 'a1'), 'quizzes_rede/q1'))));
 await t('colega não apaga', assertFails(deleteDoc(doc(fs('p9'), 'quizzes_rede/q1'))));
 await t('autor retira da rede', assertSucceeds(deleteDoc(doc(fs('p1'), 'quizzes_rede/q1'))));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'quizzes_geral/g1'), { titulo: 'Sistema solar', perguntas: [{ p: 'x', ops: ['a', 'b'], gab: 0 }], status: 'publicado' }); });
+await t('professor de qualquer rede lê o acervo geral', assertSucceeds(getDoc(doc(fs('p8'), 'quizzes_geral/g1'))));
+await t('aluno não lê o acervo geral (gabarito)', assertFails(getDoc(doc(al('u1', 'a1'), 'quizzes_geral/g1'))));
+await t('ninguém grava no acervo geral pelo navegador', assertFails(setDoc(doc(fs('p1'), 'quizzes_geral/g2'), { titulo: 'x' })));
+await t('professor aponta erro', assertSucceeds(setDoc(doc(fs('p1'), 'quizzes_geral/g1/avisos/p1'), { motivo: 'Gabarito da 2 errado', em: serverTimestamp() })));
+await t('não aponta erro em nome de outro', assertFails(setDoc(doc(fs('p1'), 'quizzes_geral/g1/avisos/p9'), { motivo: 'x', em: serverTimestamp() })));
+await t('quiz guarda o geral_id', assertSucceeds(setDoc(doc(fs('p1'), 'usuarios/p1/quizzes/q2'), { titulo: 'Sistema solar', geral_id: 'g1', origem: 'geral', perguntas: [{ p: 'x', ops: ['a', 'b'], gab: 0 }], status: 'aplicando', criado_em: serverTimestamp(), atualizado_em: serverTimestamp() })));
 console.log((falha ? '::error::' : '::notice::') + 'Aula ao vivo no Portal: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();
 process.exit(falha ? 1 : 0);

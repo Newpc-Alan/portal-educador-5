@@ -265,9 +265,21 @@ service cloud.firestore {
     match /usuarios/{uid}/quizzes/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && (licenciado() || eu().perfil in ["gestor", "admin"])
-        && novo().keys().hasOnly(["titulo", "tema", "disciplina", "origem", "turma_id", "turma_nome", "perguntas", "resultado", "status", "criado_em", "atualizado_em", "encerrado_em"])
+        && novo().keys().hasOnly(["titulo", "tema", "disciplina", "origem", "geral_id", "turma_id", "turma_nome", "perguntas", "resultado", "status", "criado_em", "atualizado_em", "encerrado_em"])
         && novo().titulo is string && novo().titulo.size() <= 120 && novo().perguntas is list && novo().perguntas.size() <= 30
         && novo().get("resultado", {}) is map && novo().get("status", "") in ["aplicando", "encerrado"];
+    }
+    // Acervo geral de quizzes do Portal (todas as redes): só a função grava (quiz criado com IA, depois de aplicado; só a rede de origem)
+    match /quizzes_geral/{id} {
+      allow read: if logado() && (admin() || (eu().status == "ativo" && eu().perfil in ["professor", "gestor"]));
+      allow write: if false;
+      // "achei erro": um aviso por professor; com 3 o quiz sai do ar para revisão
+      match /avisos/{u} {
+        allow read: if admin();
+        allow create: if logado() && u == request.auth.uid && eu().status == "ativo" && eu().perfil in ["professor", "gestor", "admin"]
+          && novo().keys().hasOnly(["motivo", "em"]) && novo().motivo is string && novo().motivo.size() > 0 && novo().motivo.size() <= 300 && novo().em == request.time;
+        allow update, delete: if false;
+      }
     }
     // Quizzes compartilhados com a rede: professores e gestores do mesmo município leem e usam uma cópia; só o autor publica e retira
     // (só perguntas e gabarito: nada de respostas nem nomes de alunos)

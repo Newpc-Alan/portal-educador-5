@@ -457,6 +457,7 @@
   .pq-acervo{ display:grid;gap:8px;margin-top:8px } .pq-grupo{ display:flex;flex-wrap:wrap;gap:6px;align-items:center } .pq-grupo small{ width:100%;font-weight:800;color:#5b6b7b;font-size:12px }
   .pq-chip{ font:inherit;font-size:13.5px;border:1.5px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:6px 11px;cursor:pointer } .pq-chip:hover,.pq-chip.on{ border-color:#1a6b2a;background:#eaf6dc }
   .qz-abas{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px } .qz-abas button{ font:inherit;font-weight:800;font-size:14px;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:7px 14px;cursor:pointer } .qz-abas button.on{ background:#0f2c4a;border-color:#0f2c4a;color:#fff }
+  .qz-erro{ font:inherit;font-size:12.5px;font-weight:800;border:1.5px solid #e0a321;background:#fff8e1;color:#7a5200;border-radius:99px;padding:3px 10px;cursor:pointer;margin-left:6px }
   .qz-acv{ display:grid;gap:8px;max-height:52vh;overflow:auto } .qz-acv .ml-it small{ display:block } .qz-acv .vazio{ color:#5b6b7b;padding:10px }
   .qz-jan{ max-width:820px;width:min(96vw,820px) } .qz-l{ display:grid;gap:4px;font-weight:700;font-size:14px;color:#0f2c4a;margin:8px 0 } .qz-l textarea,.qz-l input,.qz-l select{ font:inherit;font-weight:400;padding:9px 10px;border:1px solid #cfdbe7;border-radius:10px }
   .qz-lin{ display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px } @media (max-width:600px){ .qz-lin{ grid-template-columns:1fr } .qr-cards{ grid-template-columns:1fr 1fr !important } }
@@ -9650,21 +9651,23 @@
     const f = document.createElement("div"); f.id = "qzFundo"; f.className = "et-fundo";
     f.innerHTML = '<div class="et-jan qz-jan" role="dialog" aria-modal="true" aria-labelledby="qzTit"><div class="et-topo"><h3 id="qzTit">🧠 Quiz rápido</h3><button type="button" data-qz="x">Fechar</button></div><div class="et-corpo" id="qzCorpo"></div></div>';
     document.body.appendChild(f);
-    const abas = a => '<div class="qz-abas" role="tablist">' + [["novo", "✨ Novo quiz"], ["meus", "📁 Meus quizzes"], ["rede", "🤝 Da rede"]].map(([k, t]) => '<button type="button" data-qz="aba" data-aba="' + k + '"' + (k === a ? ' class="on"' : "") + ">" + t + "</button>").join("") + "</div>";
+    const abas = a => '<div class="qz-abas" role="tablist">' + [["novo", "✨ Novo quiz"], ["meus", "📁 Meus quizzes"], ["rede", "🤝 Da rede"], ["geral", "🌎 Portal do Educador"]].map(([k, t]) => '<button type="button" data-qz="aba" data-aba="' + k + '"' + (k === a ? ' class="on"' : "") + ">" + t + "</button>").join("") + "</div>";
     // acervo: reaproveita um quiz já feito (seu ou de colega do município) sem gastar crédito de IA
     const acervo = async qual => {
-      $("qzCorpo").innerHTML = abas(qual) + '<p class="et-d">' + (qual === "meus" ? "Seus quizzes já aplicados: reaproveite sem gastar crédito de IA. Dá para revisar antes de lançar." : "Quizzes que colegas do seu município compartilharam. Use uma cópia: você revisa e lança para a sua turma.") + '</p>' +
+      $("qzCorpo").innerHTML = abas(qual) + '<p class="et-d">' + (qual === "meus" ? "Seus quizzes já aplicados: reaproveite sem gastar crédito de IA. Dá para revisar antes de lançar." : qual === "geral" ? "Acervo geral do Portal: quizzes criados com IA por professores de todas as redes e já aplicados em sala. Sem custo de crédito; revise antes de lançar." : "Quizzes que colegas do seu município compartilharam. Use uma cópia: você revisa e lança para a sua turma.") + '</p>' +
         '<input id="qzBusca" type="search" class="md-busca" placeholder="Procure pelo tema, disciplina ou turma" autocomplete="off"><div id="qzAcv" class="qz-acv"><div class="vazio">Carregando...</div></div>';
       let l = [];
       try{ if(qual === "meus"){ const sn = await getDocs(collection(db, "usuarios", usuarioAtual.uid, "quizzes")); sn.forEach(d => l.push({ id:d.id, ...d.data() })); }
+        else if(qual === "geral"){ const sn = await getDocs(query(collection(db, "quizzes_geral"), where("status", "==", "publicado"), limit(500))); sn.forEach(d => l.push({ id:d.id, ...d.data(), _geral:true })); }
         else { const mun = usuarioAtual.municipio_id; if(mun){ const sn = await getDocs(query(collection(db, "quizzes_rede"), where("municipio_id", "==", mun))); sn.forEach(d => l.push({ id:d.id, ...d.data() })); } } }
       catch(e){ const b = $("qzAcv"); if(b) b.innerHTML = '<div class="vazio">Não foi possível carregar (' + escapeHtml(e.code || "erro") + ").</div>"; return; }
       l = l.filter(x => Array.isArray(x.perguntas) && x.perguntas.length).sort((a, b) => (msDe(b.atualizado_em) || msDe(b.criado_em) || 0) - (msDe(a.atualizado_em) || msDe(a.criado_em) || 0));
       const desenhar = t => { const box = $("qzAcv"); if(!box) return; t = semAcento(String(t || "").trim());
-        const vis = l.filter(x => !t || semAcento([x.titulo, x.disciplina, x.turma_nome, x.autor_nome].join(" ")).includes(t)).slice(0, 80);
+        const vis = l.filter(x => !t || semAcento([x.titulo, x.disciplina, x.turma_nome, x.autor_nome, x.ano, x.rede_nome].join(" ")).includes(t)).slice(0, 80);
         box.innerHTML = vis.length ? vis.map(x => '<button type="button" class="ml-it" data-qz="usar" data-id="' + escapeAttr(x.id) + '"><span>🧠</span><b>' + escapeHtml(String(x.titulo || "Quiz").slice(0, 90)) + "</b><small>" +
-          escapeHtml([x.perguntas.length + " perguntas", x.disciplina, x.turma_nome, qual === "rede" ? "por " + String(x.autor_nome || "colega").split(" ").slice(0, 2).join(" ") : (x.resultado ? "aproveitamento " + x.resultado.media + "%" : ""), dataTr(msDe(x.criado_em))].filter(Boolean).join(" · ")) + "</small></button>").join("")
-          : '<div class="vazio">' + (l.length ? "Nada encontrado." : qual === "meus" ? "Você ainda não aplicou nenhum quiz." : "Nenhum colega do seu município compartilhou quiz ainda. No relatório do quiz, use 🤝 Compartilhar com a rede.") + "</div>"; };
+          escapeHtml(qual === "geral" ? [x.perguntas.length + " perguntas", x.disciplina, x.ano, "rede de " + (x.rede_nome || "?"), "aplicado " + (x.aplicacoes || 1) + (x.aplicacoes > 1 ? " vezes" : " vez"), "acerto médio " + (x.media || 0) + "%", (x.revisar || []).length ? "⚠️ confira a pergunta " + x.revisar.map(i => i + 1).join(", ") : ""].filter(Boolean).join(" · ")
+            : [x.perguntas.length + " perguntas", x.disciplina, x.turma_nome, qual === "rede" ? "por " + String(x.autor_nome || "colega").split(" ").slice(0, 2).join(" ") : (x.resultado ? "aproveitamento " + x.resultado.media + "%" : ""), dataTr(msDe(x.criado_em))].filter(Boolean).join(" · ")) + "</small></button>").join("")
+          : '<div class="vazio">' + (l.length ? "Nada encontrado." : qual === "geral" ? "O acervo geral ainda está vazio: os quizzes criados com IA entram aqui depois de aplicados em sala." : qual === "meus" ? "Você ainda não aplicou nenhum quiz." : "Nenhum colega do seu município compartilhou quiz ainda. No relatório do quiz, use 🤝 Compartilhar com a rede.") + "</div>"; };
       st.acervo = l; desenhar(""); $("qzBusca").addEventListener("input", e => desenhar(e.target.value));
     };
     const passo1 = () => { $("qzCorpo").innerHTML = abas("novo") +
@@ -9678,7 +9681,7 @@
     const vazia = () => ({ p:"", ops:["", "", "", ""], gab:0 });
     const passo2 = () => { $("qzCorpo").innerHTML =
       '<label class="qz-l">Título do quiz<input id="qzTitulo" maxlength="120" value="' + escapeAttr(st.titulo || "") + '"></label>' +
-      '<p class="et-d">Confira as perguntas. Marque ⦿ na alternativa correta; dá para corrigir o texto e tirar ou incluir perguntas.</p><div id="qzLista" class="qz-lista">' +
+      '<p class="et-d">Confira as perguntas. Marque ⦿ na alternativa correta; dá para corrigir o texto e tirar ou incluir perguntas.' + (st.geral_id ? ' <button type="button" class="qz-erro" data-qz="erro">⚠️ Achei erro neste quiz</button>' : "") + '</p><div id="qzLista" class="qz-lista">' +
       st.perg.map((q, i) => '<div class="qz-q" data-i="' + i + '"><div class="qz-qtopo"><b>' + (i + 1) + '.</b><textarea data-qz-e="p" rows="2" maxlength="400">' + escapeHtml(q.p) + '</textarea><button type="button" class="qz-tirar" data-qz="tirar" data-i="' + i + '" title="Tirar a pergunta">🗑️</button></div>' +
         q.ops.map((o, k) => '<label class="qz-op' + (q.gab === k ? " certa" : "") + '"><input type="radio" name="qzg' + i + '" data-qz-e="gab" value="' + k + '"' + (q.gab === k ? " checked" : "") + '><span>' + LETRA[k] + '</span><input data-qz-e="op" data-k="' + k + '" maxlength="160" value="' + escapeAttr(o) + '"></label>').join("") + "</div>").join("") +
       '</div><button type="button" class="btn btn-ghost" data-qz="mais">+ Incluir pergunta</button>' +
@@ -9693,10 +9696,13 @@
     f.addEventListener("change", e => { const r = e.target.closest('[data-qz-e="gab"]'); if(r){ const q = r.closest(".qz-q"); q.querySelectorAll(".qz-op").forEach(l => l.classList.toggle("certa", l.contains(r))); } });
     f.addEventListener("click", async e => { const b = e.target.closest("[data-qz]"); if(!b) return; const a = b.dataset.qz;
       if(a === "x") return f.remove();
-      if(a === "aba"){ return b.dataset.aba === "novo" ? passo1() : acervo(b.dataset.aba); }
+      if(a === "aba"){ st.aba = b.dataset.aba; return b.dataset.aba === "novo" ? passo1() : acervo(b.dataset.aba); }
       if(a === "usar"){ const x = (st.acervo || []).find(y => y.id === b.dataset.id); if(!x) return;
         st.perg = x.perguntas.slice(0, 30).map(q => ({ p:String(q.p || ""), ops:(q.ops || []).slice(0, 5).map(String), gab:Number(q.gab) || 0 }));
-        st.titulo = String(x.titulo || "Quiz rápido").slice(0, 120); st.disciplina = String(x.disciplina || ""); st.origem = "acervo"; return passo2(); }
+        st.titulo = String(x.titulo || "Quiz rápido").slice(0, 120); st.disciplina = String(x.disciplina || ""); st.origem = x._geral ? "geral" : "acervo"; st.geral_id = x._geral ? x.id : ""; st.voltar = st.aba; return passo2(); }
+      if(a === "erro" && st.geral_id){ const motivo = (prompt("O que está errado neste quiz? (ex.: gabarito da pergunta 3)") || "").trim().slice(0, 300); if(!motivo) return;
+        try{ await setDoc(doc(db, "quizzes_geral", st.geral_id, "avisos", usuarioAtual.uid), { motivo, em:serverTimestamp() }); toast("Obrigado! A NEWPC vai conferir este quiz."); }
+        catch(e){ toast(e.code === "permission-denied" ? "Você já avisou sobre este quiz." : "Não deu para enviar agora.", true); } return; }
       if(a === "manual"){ st.titulo = ($("qzTema").value || "").trim().slice(0, 120) || "Quiz rápido"; st.disciplina = $("qzDisc").value.trim().slice(0, 80); st.origem = "manual"; st.perg = Array.from({ length:Number($("qzQtd").value) || 5 }, vazia); return passo2(); }
       if(a === "ia"){ const tema = ($("qzTema").value || "").trim(); if(tema.length < 3){ $("qzMsg").textContent = "Escreva o tema ou conteúdo da aula."; return; }
         b.disabled = true; $("qzMsg").textContent = "✨ Criando as perguntas... (desconta 1 crédito do Portal IA, devolvido se a IA falhar)";
@@ -9714,7 +9720,7 @@
         catch(err){ console.warn(err); const m = $("qzMsg"); if(m) m.textContent = (err && err.message) || "A IA não respondeu agora. Tente de novo ou escreva as perguntas."; b.disabled = false; }
         finally{ if(pensa) pensa.fechar(); }
         return; }
-      if(a === "voltar") return st.origem === "acervo" ? acervo("meus") : passo1();
+      if(a === "voltar") return st.origem === "acervo" || st.origem === "geral" ? acervo(st.voltar || "meus") : passo1();
       if(a === "mais"){ lerEditor(); if(st.perg.length >= 30) return; st.perg.push(vazia()); passo2(); const l = f.querySelectorAll(".qz-q"); l[l.length - 1].scrollIntoView({ block:"center" }); return; }
       if(a === "tirar"){ lerEditor(); st.perg.splice(Number(b.dataset.i), 1); return passo2(); }
       if(a === "lancar"){ lerEditor();
@@ -9725,7 +9731,7 @@
         const perguntas = st.perg.map(q => { const certa = q.ops[q.gab], ops = q.ops.filter(Boolean); return { p:q.p, ops, gab:ops.indexOf(certa) }; });
         const id = "qz" + idMae(), titulo = st.titulo || "Quiz rápido";
         b.disabled = true; $("qzMsg").textContent = "Lançando para a turma...";
-        try{ const dados = { titulo, tema:titulo, disciplina:String(st.disciplina || "").slice(0, 80), origem:st.origem || "manual", turma_id:AVV.tid, turma_nome:nomeTurmaAv(), perguntas, status:"aplicando", criado_em:serverTimestamp(), atualizado_em:serverTimestamp() };
+        try{ const dados = { titulo, tema:titulo, disciplina:String(st.disciplina || "").slice(0, 80), origem:st.origem || "manual", ...(st.geral_id ? { geral_id:st.geral_id } : {}), turma_id:AVV.tid, turma_nome:nomeTurmaAv(), perguntas, status:"aplicando", criado_em:serverTimestamp(), atualizado_em:serverTimestamp() };
           await setDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", id), dados);
           QZ.cache[id] = { id, ...dados, criado_em:Timestamp.now() };
           await avvSet({ quiz:{ id, titulo, perguntas:perguntas.map(q => ({ p:q.p, ops:q.ops })), ativa:true, em:Date.now() } });
