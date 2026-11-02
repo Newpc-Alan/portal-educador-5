@@ -668,7 +668,7 @@ Menu **Documentação**. É a estante dos manuais, POPs, documentos técnicos e 
 A versão nova passa a ser a que abre em **Abrir** e **Baixar**. As anteriores ficam em **Histórico** (até 30), cada uma com **Abrir**. **Editar** muda título, categoria, código e descrição sem trocar o arquivo; **Excluir** apaga o documento e todas as versões (pede confirmação).
 
 :::regra
-- APK fica sempre só para a equipe NEWPC e sempre é baixado, nunca aberto.
+- APK fica sempre só para a equipe NEWPC e sempre é baixado, nunca aberto. Para os professores, o app do Maestro fica em **Aplicativos Úteis › App do Maestro**, que baixa sempre a versão mais nova publicada pelo robô do Maestro.
 - Quem pode ver é escolhido na criação e não muda nas versões seguintes.
 - A equipe técnica também publica pelo script `publicar-documento` (Parte 3).
 :::

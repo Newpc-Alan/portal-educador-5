@@ -89,9 +89,9 @@ De cima para baixo:
    |---|---|
    | **Minha aula** | **Abrir a lousa**, **Portal IA**, **Criar prova**, **Provas online** |
    | **Minha turma** | **Fazer chamada**, **Lançar notas**, **Minhas turmas**, **Corrigir gabarito**, **Corrigir respostas**, **Central de Relatórios** |
-   | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola**, **Aviso na TV da escola**, **Folha Mágica** e **Ler na tela (teleprompter)** |
+   | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola** e **Aviso na TV da escola** |
 
-   Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal". Dentro de qualquer ferramenta, o botão **← Voltar ao Portal**, no topo, traz de volta ao Início.
+   Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal". Dentro de qualquer ferramenta, o botão **← Voltar ao Portal**, no topo, traz de volta ao Início. A Folha Mágica e o Teleprompter ficam em **Aplicativos Úteis** (em "Mais recursos do Portal") e voltam para lá com **← Aplicativos**.
 7. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
 8. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
 9. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
@@ -467,6 +467,19 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 | **Folha Mágica** | 14 modelos de folha (pauta musical, caligrafia, milimetrado, plano cartesiano, Cornell...), com cabeçalho da escola e opção "uma por aluno" |
 | **Teleprompter** | Roteiro rolando na tela, com controle pelo celular via QR code |
 | **Enviar para a TV da escola** | Colocar fotos, vídeos e avisos na programação da TV da escola |
+| **App do Maestro (tablet do aluno)** | Baixar o app Android do aluno do Portal Maestro, sempre na versão mais nova |
+
+**Instalar o app do Maestro no tablet do aluno**
+
+1. No próprio tablet, entre no Portal, abra **Aplicativos Úteis** e toque em **⬇ Baixar o app**.
+2. Abra o arquivo baixado (barra de notificações ou pasta Downloads) e toque em **Instalar**.
+3. Se o Android pedir, toque em **Configurações** e ative **Permitir desta fonte** para o navegador; volte e toque em **Instalar**.
+4. Abra o app: ele entra direto na sala do aluno, e o aluno entra pelo QR da aula.
+5. Para atualizar, repita o passo 1: a versão nova instala por cima, sem perder nada.
+
+:::nota
+O app só faz sentido em escola com o Portal Maestro no plano. Em tablets gerenciados pela Secretaria (MDM), quem instala é a equipe de TI, com o mesmo arquivo.
+:::
 
 ![Turma na Lousa · sorteio](s201-sortear.png){80}
 
