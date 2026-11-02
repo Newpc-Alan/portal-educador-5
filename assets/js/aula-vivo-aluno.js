@@ -39,6 +39,7 @@ const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#
   .al-qz-nav button{ font:inherit;font-weight:800;border:0;border-radius:14px;padding:13px 18px;cursor:pointer;background:#eef3f8;color:#0f2c4a } .al-qz-nav .vai{ background:#8DC63F;color:#0f2c4a } .al-qz-nav small{ color:#5b6b7b;font-size:14px;text-align:center }
   .al-qz-pts{ display:flex;gap:5px;flex-wrap:wrap;justify-content:center } .al-qz-pts button{ width:30px;height:30px;padding:0;border-radius:50%;font-size:13px;background:#e1e8f0 } .al-qz-pts button.r{ background:#bfe5a1 } .al-qz-pts button.at{ box-shadow:0 0 0 3px #0f2c4a }
   .al-qz-fim{ display:grid;gap:12px;justify-items:center;text-align:center;padding:30px 10px } .al-qz-fim b{ font-size:26px } .al-qz-fim .nota{ font-size:54px;font-weight:900;color:#1a6b2a }
+  .al-qz-volta{ font:inherit;font-weight:800;font-size:17px;border:0;border-radius:14px;padding:13px 22px;background:#8DC63F;color:#0f2c4a;cursor:pointer;margin-top:6px }
   .al-qz-rev{ border:2px solid #e1e8f0;border-radius:14px;padding:10px 12px;display:grid;gap:4px;font-size:15px;text-align:left;background:#fff } .al-qz-rev.ok{ border-color:#bfe5a1 } .al-qz-rev.er{ border-color:#ffb4b4 }
   .al-aviso{ position:fixed;left:50%;top:16px;transform:translateX(-50%);z-index:2147483100;background:#0f2c4a;color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;box-shadow:0 8px 22px rgba(0,0,0,.3) }
 `;
@@ -160,7 +161,9 @@ function quiz(){
   const n = q.perguntas.length;
   if(!S.qzR || S.qzR.id !== q.id) S.qzR = { id:q.id, r:Array(n).fill(-1), fim:false };
   const R = S.qzR; while(R.r.length < n) R.r.push(-1);
-  if(!q.ativa && !R.r.some(v => v >= 0)){ if(f) f.remove(); return; }       // encerrou e este aluno não participou: nada a mostrar
+  if(!q.ativa && !R.r.some(v => v >= 0)){ if(f) f.remove(); return; }
+  // já enviou: volta para o Portal; a correção aparece sozinha quando o professor encerrar
+  if(q.ativa && R.fim && S.qzVoltou === q.id){ if(f) f.remove(); return; }       // encerrou e este aluno não participou: nada a mostrar
   if(!f){ f = document.createElement("div"); f.id = "alQuiz"; f.className = "al-quiz"; f.setAttribute("role", "dialog"); document.body.appendChild(f); vibrar(150); S.qzI = Math.max(0, R.r.indexOf(-1)); }
   const topo = '<div class="al-qz-topo"><b>🧠 ' + esc(String(q.titulo || "Quiz").slice(0, 80)) + "</b>";
   // correção (o professor encerrou): nota e cada pergunta com a certa
@@ -172,7 +175,8 @@ function quiz(){
       '</div><div class="al-qz-nav"><span></span><button type="button" class="vai" data-al="qz-ok">Fechar</button></div>';
     return;
   }
-  if(R.fim){ f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span style="font-size:54px">✅</span><b>Respostas enviadas!</b><small>Aguarde o professor encerrar para ver a correção.</small></div></div>'; return; }
+  if(R.fim){ f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span style="font-size:54px">✅</span><b>Respostas enviadas!</b><small>Voltando para o Portal... A correção aparece aqui quando o professor encerrar.</small><button type="button" class="al-qz-volta" data-al="qz-voltar">Voltar ao Portal agora</button></div></div>';
+    clearTimeout(S.qzVolta); S.qzVolta = setTimeout(() => { S.qzVoltou = q.id; quiz(); }, 2500); return; }
   const i = Math.min(Math.max(0, S.qzI), n - 1), p = q.perguntas[i], falta = R.r.filter(v => v < 0).length;
   f.innerHTML = topo + "<span>" + (i + 1) + " de " + n + '</span></div><div class="al-qz-corpo"><div class="al-qz-p">' + esc(p.p) + '</div><div class="al-qz-ops">' +
     p.ops.map((o, k) => '<button type="button" data-al="qz-r" data-k="' + k + '"' + (R.r[i] === k ? ' class="on"' : "") + "><i>" + LT[k] + "</i>" + esc(o) + "</button>").join("") + "</div>" +
@@ -218,6 +222,7 @@ function clique(ev){
     quiz(); setTimeout(() => { if(S.qzI === i && i < n - 1){ S.qzI = i + 1; quiz(); } }, 450); }
   else if(k === "qz-ir"){ S.qzI = Number(b.dataset.i) || 0; quiz(); }
   else if(k === "qz-enviar" && S.qzR){ S.qzR.fim = true; gravarQuiz().then(() => quiz()).catch(() => { S.qzR.fim = false; aviso("Sem conexão. Tente de novo."); }); quiz(); }
+  else if(k === "qz-voltar" && S.qz){ clearTimeout(S.qzVolta); S.qzVoltou = S.qz.id; quiz(); }
   else if(k === "qz-ok" && S.qz){ S.qzFechado = S.qz.id; try{ sessionStorage.setItem("pde_qz_fechado", S.qz.id); }catch(e){} quiz(); }
   else if(k === "pq"){ const f = $("alPesq"); if(!f) return; const id = f.dataset.id;
     meu({ pesquisa:{ id, valor:b.dataset.v } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1300); }).catch(() => aviso("Sem conexão. Tente de novo.")); }
