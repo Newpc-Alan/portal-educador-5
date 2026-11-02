@@ -505,7 +505,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 1. No próprio tablet, entre no Portal, abra **Aplicativos Úteis** e toque em **Baixar o app**.
 2. Abra o arquivo baixado (barra de notificações ou pasta Downloads) e toque em **Instalar**.
 3. Se o Android pedir, toque em **Configurações** e ative **Permitir desta fonte** para o navegador; volte e toque em **Instalar**.
-4. Abra o app: ele entra direto na sala do aluno, e o aluno entra pelo QR da aula.
+4. Abra o app: ele abre no **login do aluno do Portal**. O aluno mostra o cartão para a câmera ou digita o código e o PIN. Com a aula da turma aberta, o app leva o aluno sozinho para a aula, sem digitar número. Escola que ainda não tem aluno cadastrado usa **Entrar com o número da aula**, logo abaixo do login.
 5. Para atualizar, repita o passo 1: a versão nova instala por cima, sem perder nada.
 
 O Portal conta os downloads (uma vez por pessoa por dia) para o Painel do administrador.
@@ -552,6 +552,33 @@ Durante a aula:
 - Faltando **3 minutos**, oferece prorrogar (**+10 min** a **+1 hora**, até 120 minutos) ou **Encerrar agora**.
 - Quando o tempo acaba, quem entrou pelo cartão sai sozinho, liberando o aparelho para o próximo colega. O aluno recebe um aviso 2 minutos antes.
 
+### Aparelhos controlados na aula (Portal Maestro dentro do Dar aula)
+
+Desde novembro de 2026, o Portal Maestro funciona **dentro** do Dar aula agora. Ao abrir a aula, o Portal cria a aula do Maestro junto: o professor não dita número nenhum.
+
+| Aparelho do aluno | Como entra | O que o professor controla |
+|---|---|---|
+| **Tablet com o app do Maestro (1.2 ou mais novo)** | Abre no login do Portal: cartão QR ou código e PIN. Com a aula aberta, vai sozinho para a aula | Pausar a tela, abrir conteúdo, mão levantada |
+| **Chromebook com a extensão do Maestro (0.9 ou mais nova)** | O aluno entra no Portal (cartão, código e PIN ou conta Google da escola) e o Chromebook entra na aula sozinho. Na tela da extensão: **Entrar com a minha conta do Portal** | Pausar a tela, abrir conteúdo em aba, ver a aba aberta, mão levantada |
+| **Computador ou celular sem o Maestro** | Entra no Portal normalmente | Presença e materiais (sem pausar a tela) |
+
+No painel **📡 Turma ao Vivo**, a faixa **🎼 Maestro** mostra quantos aparelhos estão seguindo a aula e traz:
+
+- **📲 Abrir nos aparelhos**: abre um material já enviado (ou um link) na hora, em todos os aparelhos controlados.
+- **🔒 Pausar as telas** / **🔓 Liberar as telas**: a turma inteira vê a mensagem de atenção ao professor.
+
+No cartão de cada aluno aparecem 💻 (Chromebook) ou 📱 (tablet), 🔒 (tela pausada) e ✋ (mão levantada). Toque no aluno para ver o que ele está fazendo agora e usar **🔒 Pausar a tela**, **🔓 Liberar a tela** ou **✋ Atendi: baixar a mão** só para ele. Quem entrou pelo número da aula, sem conta, aparece na linha **Também conectados pelo número da aula**.
+
+:::regra
+A aula do Maestro termina junto com a aula do Portal. **Encerrar aula** libera e desconecta os aparelhos na hora; se o tempo acabar com o painel fechado, os aparelhos saem sozinhos em até 1 minuto. Sem o painel aberto por 2 minutos, as telas pausadas se liberam sozinhas (trava de segurança).
+:::
+
+:::nota
+Material enviado para a turma durante a aula abre sozinho nos tablets com o app. No Chromebook, abre no próprio Portal do Aluno.
+:::
+
+<!-- captura: Turma ao Vivo com a faixa Maestro, cartões com 💻/📱, 🔒 e ✋ e o detalhe de um aluno -->
+
 :::regra
 A entrada pelo QR do cartão só funciona com a **aula aberta**. Fora da aula, o aluno entra pelo código e PIN, pela conta Google ou pelo link de acesso.
 :::
@@ -565,13 +592,14 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 | Topo | Turma, situação da aula (**🟢 Aula até 10:40 · faltam 25 min**), **+10 min**, **⏹ Encerrar aula** (ou **▶ Abrir a aula**) e **Sair do painel** |
 | Indicadores | 👥 quantos estão na sala agora (e quantos saíram da página) · 📤 materiais enviados · 👁️ quantos abriram o último |
 | Ações | **🔗 Enviar link ou arquivo** · **📁 Enviar algo que já fiz** (aulas da Lousa e materiais do Portal IA) · **🖼️ Abrir a Lousa** · **📝 Aplicar prova online** |
+| 🎼 Maestro | Aparelhos seguindo a aula, **📲 Abrir nos aparelhos** e **🔒 Pausar as telas** (veja "Aparelhos controlados na aula") |
 | Na sala | Os alunos em avatares, em três cores: 🟢 **verde** = na aula, com o Portal aberto na tela; 🔴 **vermelho** = saiu da página (trocou de aba, fechou o Portal ou o tablet apagou) sem sair da conta; ⚪ **sem cor** = saiu da conta ou ainda não entrou. O vermelho vale só para a aula atual: ao encerrar a aula ou abrir uma nova, quem estava vermelho volta a ficar sem cor |
 | Enviados | Tudo o que a turma recebeu, com busca por tema e período (hoje, 7 ou 30 dias). Em cada item, **👁️** mostra quantos abriram e a lista de quem **ainda não abriu** |
 
 <!-- captura: painel Turma ao Vivo com indicadores, alunos em avatares e lista de enviados -->
 
 :::nota
-A presença na sala vale para quem entrou pelo **cartão com QR**: o tablet avisa a cada 20 segundos que o aluno está ali e avisa na hora quando ele sai do Portal. Quem entrou com Google ou senha vê os materiais na lista, mas não aparece na presença. Sair do painel não encerra a aula: volte pelo Início.
+A presença na sala vale para quem entrou pelo **cartão com QR** e, com a **aula aberta**, também para quem entrou com **código e PIN** ou **conta Google**: o aparelho avisa a cada 20 segundos que o aluno está ali e avisa na hora quando ele sai do Portal. Aluno no app do Maestro conta pela presença do Maestro. Sair do painel não encerra a aula: volte pelo Início.
 :::
 
 ### Cartões de acesso dos alunos
@@ -1210,7 +1238,7 @@ Sua rede usa aprovação antes. A coordenação ou a Secretaria analisa e você 
 A entrada por QR só funciona com a aula aberta: toque em **Dar aula agora** ou **Abrir entrada por QR**. Se a câmera estiver bloqueada, o aluno digita o código e o PIN.
 
 **O aluno não aparece na Turma ao Vivo.**
-A presença vale para quem entrou pelo cartão com QR, com a aula aberta. Quem entrou com Google ou senha recebe os materiais, mas não aparece na sala.
+A presença vale com a aula aberta (cartão, código e PIN ou Google). Confira se a aula está aberta e se o aluno entrou na conta dele, e não na de um colega.
 
 **Enviei um material e o aluno não achou.**
 Ele está em **Aula de hoje** no Início do aluno. Se o aluno já abriu e fechou, está no **📖 Histórico de aulas**.

@@ -1146,6 +1146,40 @@ Ler o Painel do administrador numa rotina fixa, para agir antes que o problema c
 ### Registros
 O próprio Painel (com Exportar planilha em cada número), a Auditoria e a Ficha de execução quando houver contato com escola ou Secretaria.
 
+## POP-PDE-32 · Aula com aparelhos controlados (Dar aula + Portal Maestro) {: .nova }
+
+@@ POP-PDE-32 | Sala de aula | Professor (com apoio da TI da escola na instalação) | Toda aula com tablets ou Chromebooks dos alunos
+
+### Objetivo
+Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, abrir conteúdo, atender mãos levantadas), com presença nominal registrada, sem ditar número de aula.
+
+### Pré-requisitos
+- Município com **Portal Maestro** e **Turma ao Vivo** no plano.
+- Alunos cadastrados na turma (Ficha do Aluno) e com acesso: cartão QR, código e PIN ou conta Google da escola.
+- Tablets com o **app do Maestro 1.2 ou mais novo** (Aplicativos Úteis › App do Maestro) ou Chromebooks com a **extensão do Maestro 0.9 ou mais nova** (instalada pelo Google Admin da escola).
+
+### Procedimento
+1. No Início, toque em **▶ Começar a aula**, escolha a turma e o tempo.
+2. Peça aos alunos que entrem no Portal: os menores mostram o **cartão** para a câmera; os maiores usam **código e PIN** ou a **conta Google** da escola.
+3. Confira na faixa **🎼 Maestro** quantos aparelhos estão seguindo a aula e, nos cartões, quem está 🟢 na aula, 🔴 fora da página ou sem cor.
+4. Para explicar algo, use **🔒 Pausar as telas**; para voltar à atividade, **🔓 Liberar as telas**.
+5. Para abrir um conteúdo em todos os aparelhos, use **📲 Abrir nos aparelhos** (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
+6. Atenda as mãos ✋: toque no aluno e em **✋ Atendi: baixar a mão**. Aluno fora da tarefa: toque nele e **🔒 Pausar a tela**.
+7. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
+
+### Pontos de controle
+- ☐ Todos os alunos presentes aparecem verdes antes de começar a atividade.
+- ☐ Nenhuma tela ficou pausada ao encerrar.
+- ☐ Alunos que entraram pelo número da aula (linha à parte) foram identificados e orientados a usar a conta.
+
+### Registros
+Presença em `turma_presenca`, materiais em "Enviados" (com quem abriu) e abertura e encerramento da aula na Auditoria.
+
+### Erros comuns
+- **Tablet não vai para a aula:** app abaixo de 1.2 ou aula fechada. Atualizar o app; conferir o cartão **Aula em andamento**.
+- **Chromebook não entra sozinho:** extensão abaixo de 0.9. Pedir a atualização à TI; enquanto isso, usar **Entrar com o número da aula**.
+- **Aluno aparece como "conectado pelo número":** entrou sem conta. Orientar a entrar com o cartão ou código e PIN na próxima aula.
+
 # Ficha de execução
 
 ## Ficha de execução de POP {: .nova }

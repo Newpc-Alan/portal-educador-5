@@ -52,6 +52,8 @@ Gmail SMTP (conta Google da NEWPC): envio de todos os e-mails automáticos
 | `/biblioteca/`, `/colorir/`, `/dicas/`, `/museus/`, `/lousa/` | Módulos de conteúdo. A Lousa traz a Aula com IA (Básica e Ultra) |
 | `/bncc/` | Buscador da BNCC, público e sem login |
 | `/maestro/` | Página de apresentação do Portal Maestro (substitui a página antiga da Webnode) |
+| `/maestro/aluno/` | Página do aluno do Maestro dentro do Portal (antes em sala.portaldoeducador.com.br/aluno/). Vindo do Portal (`?portal=1&aula=&nome=&aluno=`) entra sozinha e, no fim, volta para `/entrar/` |
+| `/jogos/` | Os jogos do Portal (antes em jogos.portaldoeducador.com.br, que agora só redireciona; repositório antigo guarda o histórico) |
 | `/noticia/` | Notícia aberta por link público (lê `noticias_publicas`) |
 | `/privacidade/` | Privacidade e cookies (LGPD) |
 | `/vitrine/` | Só redireciona para `/` |
@@ -60,7 +62,11 @@ Gmail SMTP (conta Google da NEWPC): envio de todos os e-mails automáticos
 | `/apps/portal-ia/` | Portal IA. O endereço antigo `/apps/ia-studio/` redireciona para cá |
 | `/apps/...` | Ficha do Aluno (`alunos`), Calendário, Corretor, Equipe, Famílias, Folha Mágica, Frequência, Grade das turmas (`grade`), Notas, Recursos, Ficha do Servidor (`servidores`), Teleprompter (+ controle), Turma na Lousa (`turma`) e painel das TVs (`tv`) |
 
-O projeto Android do app do aluno do Portal Maestro fica em `maestro-app/` (WebView próprio, com câmera liberada para a entrada por QR).
+O projeto Android do app do aluno do Portal Maestro fica em `maestro-app/` (WebView próprio, com câmera liberada para a entrada por QR). Desde a 1.2 abre em `/entrar/?qr`; o Portal reconhece o app pelo `PortalMaestroApp` no agente do navegador e, com aula aberta, leva o aluno para `/maestro/aluno/`.
+
+A extensão do aluno para Chromebook fica em `maestro-extensao/` (fonte oficial desde a 0.9). O `portal.js` roda só em app.portaldoeducador.com.br: marca a página (`data-maestro-ext`) e repassa a mensagem `maestro-entrar` (número de 6 dígitos, nome e matrícula) para o service worker, que entra na aula como se o aluno tivesse digitado o número.
+
+**Maestro dentro do Dar aula:** `entradaQrTurma` (abrir) cria a aula no Realtime Database do Maestro (projeto `newpc-sala`, `aulas/{codigo}` com `turma_id`, `origem: portal` e `controle/ate`) e grava o número em `qr_aulas.maestro_codigo`; prorrogar atualiza `controle/ate`; fechar grava `controle/encerrada`. Falha no Maestro não impede a aula. A extensão e a página do aluno saem sozinhas 1 minuto depois de `controle/ate`. O painel Turma ao Vivo lê `aulas/{codigo}` a cada 3 s, mantém `controle/professorVivo` e grava pausa (`bloqueioGeral`, `bloqueio/{aparelho}`), comandos (`comando`, `comandos/{aparelho}`) e baixa a mão. Aparelho e aluno se ligam por `alunos/{aparelho}.aluno_id` (matrícula).
 
 ### Componentes compartilhados
 
@@ -242,7 +248,7 @@ Coleções gravadas só pelas funções e sem regra de leitura (o navegador nunc
 |---|---|---|
 | `turma_materiais/{turma}/itens` | Materiais da turma no Portal do Aluno (Portal IA, Meus trabalhos, **Enviar para a turma**) | Só funções |
 | `turma_materiais/{turma}/itens/{id}/vistos` | Quem já abriu | O aluno, só o próprio registro |
-| `turma_presenca/{turma}/alunos` | Presença ao vivo: o Portal do Aluno avisa a cada 20 s (`fora` = saiu da página; `saiu` = saiu da conta, gravado antes do `signOut`). Professor: verde = sinal há menos de 50 s; vermelho = `fora` ou sinal parado, desde que o sinal seja da aula atual (depois de `qr_aulas.aberta_em`, aula ainda aberta e no máximo 3 h); sem cor = `saiu`, sem sinal ou sinal com mais de 3 h | O aluno da turma |
+| `turma_presenca/{turma}/alunos` | Presença ao vivo (cartão QR e, com aula aberta, código e PIN ou Google): o Portal do Aluno avisa a cada 20 s (`fora` = saiu da página; `saiu` = saiu da conta, gravado antes do `signOut`). Professor: verde = sinal há menos de 50 s; vermelho = `fora` ou sinal parado, desde que o sinal seja da aula atual (depois de `qr_aulas.aberta_em`, aula ainda aberta e no máximo 3 h); sem cor = `saiu`, sem sinal ou sinal com mais de 3 h | O aluno da turma |
 | `turma_aluno_estado/{turma}/alunos` | Aulas abertas e fechadas (Histórico de aulas) | O próprio aluno |
 | `qr_aulas/{turma}` | Entrada por QR aberta e tempo de aula | Só funções |
 | `trabalhos_rede` | Trabalhos compartilhados com a rede (Lousa, provas, roteiros, folhas) | Só funções |

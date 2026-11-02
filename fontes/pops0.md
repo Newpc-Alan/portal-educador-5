@@ -70,6 +70,7 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-29 | Backup no servidor NEWPC e restauração em caso de desastre | Técnico |
 | POP-PDE-30 | Comunicado por e-mail para a rede | Comunicação |
 | POP-PDE-31 | Acompanhamento semanal pelo Painel do administrador | Gestão |
+| POP-PDE-32 | Aula com aparelhos controlados (Dar aula + Portal Maestro) | Sala de aula |
 
 ## Controle de revisões
 
@@ -85,3 +86,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.6 | 01/11/2026 | POP-PDE-31: downloads do app do Maestro | NEWPC Tecnologia | |
 | 2.7 | 01/11/2026 | POP-PDE-17: papel de administrador da Formação automático para o admin do Portal | NEWPC Tecnologia | |
 | 2.8 | 02/11/2026 | POP-PDE-30 e 31: Formação Continuada (situação nos Comunicados e acompanhamento no Painel) | NEWPC Tecnologia | |
+| 2.9 | 02/11/2026 | POP-PDE-32 (aula com aparelhos controlados: Portal Maestro dentro do Dar aula) | NEWPC Tecnologia | |

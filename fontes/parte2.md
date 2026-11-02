@@ -745,8 +745,10 @@ A versão nova passa a ser a que abre em **Abrir** e **Baixar**. As anteriores f
 | Aluno não acha a prova | Está em outra turma ou entrou com outra conta | Conferir a matrícula e o cartão do aluno; aplicar a prova de novo |
 | Aluno bloqueado na prova | Saiu da prova além dos avisos | O professor dá nova chance no painel ao vivo |
 | Nota não aparece para o aluno | O professor guardou a nota até o fechamento do bimestre ou o horário não terminou | O professor usa **Mostrar notas já** |
-| Aluno não aparece na Turma ao Vivo | Entrou com Google ou senha (a presença ao vivo é só de quem entrou pelo cartão QR) ou rede sem Turma ao Vivo | Usar o cartão QR; conferir Plano e módulos |
-| Entrada por QR não abre a câmera | Câmera bloqueada no navegador, em uso por outro app, ou app do Maestro antigo | Liberar a câmera; atualizar o app do Maestro (1.1.0 ou mais novo) |
+| Aluno não aparece na Turma ao Vivo | Aula fechada, aluno em outra turma ou rede sem Turma ao Vivo | Abrir a aula pelo Dar aula agora; conferir a matrícula, o Plano e os módulos |
+| Chromebook não entra sozinho na aula | Extensão do Maestro antiga (abaixo de 0.9) ou aluno sem conta do Portal | Atualizar a extensão (Google Admin ou chrome://extensions); entrar pelo número da aula enquanto isso |
+| Tablet não vai para a aula | App do Maestro abaixo de 1.2 ou aula fechada | Instalar o app 1.2 pelo cartão **App do Maestro**; abrir a aula |
+| Entrada por QR não abre a câmera | Câmera bloqueada no navegador, em uso por outro app, ou app do Maestro antigo | Liberar a câmera; atualizar o app do Maestro (1.2.0 ou mais novo) |
 | Link da notícia pede para entrar | Notícia sem link público | Notícias › Editar › marcar 🌐 link público e salvar |
 | Família não recebe aviso | Tipo de aviso desligado, família sem e-mail ou sem aceite, limite diário | Configuração de avisos da escola e cadastro da família |
 | Nenhum e-mail automático sai | Limite da conta de envio ou senha revogada | Acionar a equipe técnica (Parte 3) |
