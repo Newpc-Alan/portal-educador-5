@@ -9,8 +9,9 @@ initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5'
 const db = getFirestore(), h = ms => new Date(ms - 4 * 3600e3).toISOString().slice(11, 19);
 const av = await db.collection('aula_vivo').get();
 for (const d of av.docs) { const x = d.data();
-  console.log('::notice::aula_vivo ' + d.id + ' atualizado ' + (x.atualizado_em ? h(x.atualizado_em.toMillis()) : '-') + ' pausa ' + x.pausa + ' comando ' + JSON.stringify(x.comando || null).slice(0, 160) + ' comandos ' + Object.keys(x.comandos || {}).length);
-  const ch = await d.ref.collection('chat').get(); const al = await d.ref.collection('alunos').get(); console.log('::notice::  chat ' + ch.size + ' · alunos ' + al.size); }
+  console.log('::notice::aula_vivo ' + d.id + ' atualizado ' + (x.atualizado_em ? h(x.atualizado_em.toMillis()) : '-') + ' pausa ' + x.pausa + ' comando ' + JSON.stringify(x.comando || null).slice(0, 160) + ' comandos ' + JSON.stringify(x.comandos || {}).slice(0, 600));
+  const ch = await d.ref.collection('chat').get(); const al = await d.ref.collection('alunos').get(); console.log('::notice::  chat ' + ch.size + ' · alunos ' + al.size);
+  const pr = await db.collection('turma_presenca').doc(d.id).collection('alunos').get(); pr.docs.forEach(p => { const y = p.data(); if (y.em && Date.now() - y.em.toMillis() < 3 * 3600e3) console.log('::notice::  presenca ' + p.id + ' ' + y.nome + ' ' + h(y.em.toMillis()) + ' fora ' + y.fora + ' saiu ' + y.saiu + ' aba ' + (y.aba || '')); }); }
 const cli = await new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/logging.read'] }).getClient();
 const r = await cli.request({ url: 'https://logging.googleapis.com/v2/entries:list', method: 'POST', data: { resourceNames: ['projects/portal-educador-5'], orderBy: 'timestamp desc', pageSize: 30,
   filter: 'resource.type="cloud_run_revision" AND resource.labels.service_name="trabalhorede" AND severity>=INFO AND timestamp>="' + new Date(Date.now() - 3600e3).toISOString() + '"' } }).catch(e => ({ erro: e }));
