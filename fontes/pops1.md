@@ -1164,7 +1164,7 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 3. Confira na faixa **🎼 Maestro** quantos aparelhos estão seguindo a aula e, nos cartões, quem está 🟢 na aula, 🔴 fora da página ou sem cor.
 4. Para explicar algo, use **🔒 Pausar as telas**; para voltar à atividade, **🔓 Liberar as telas**.
 5. Para abrir um conteúdo em todos os aparelhos, use **📲 Abrir nos aparelhos** (ou **🔗 Enviar link ou arquivo**, que também registra o material na turma).
-6. Atenda as mãos ✋: toque no aluno e em **✋ Atendi: baixar a mão**. Aluno fora da tarefa: toque nele e **🔒 Pausar a tela**.
+6. Atenda as mãos ✋: toque no aluno e use **💬 Perguntar só para ...** (ou converse e toque em **✋ Atendi: baixar a mão**). Aluno fora da tarefa: toque nele e **🔒 Pausar a tela**. Para checar a turma, **📊 Pesquisa rápida**; para atividade com tempo, **⏱️ Cronômetro**.
 7. Se a escola liga a foto da carteirinha, confira em **📸 Entradas pela carteirinha** quem entrou sem senha (**👁️ Ver foto**). Rosto que não confere: **Não é este aluno**.
 8. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
 

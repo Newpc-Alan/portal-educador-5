@@ -566,8 +566,10 @@ No painel **📡 Turma ao Vivo**, a faixa **🎼 Maestro** mostra quantos aparel
 
 - **📲 Abrir nos aparelhos**: abre um material já enviado (ou um link) na hora, em todos os aparelhos controlados.
 - **🔒 Pausar as telas** / **🔓 Liberar as telas**: a turma inteira vê a mensagem de atenção ao professor.
+- **📊 Pesquisa rápida**: uma pergunta (ex.: "Entenderam?") aparece em todos os aparelhos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. A faixa mostra a contagem e quem não respondeu, e o cartão de cada aluno ganha a bolinha da resposta. **Encerrar pesquisa** fecha.
+- **⏱️ Cronômetro**: atividade com tempo (3 a 30 min); os aparelhos mostram o tempo que falta e avisam no fim. **Parar** encerra.
 
-No cartão de cada aluno aparecem 💻 (Chromebook) ou 📱 (tablet), 🔒 (tela pausada) e ✋ (mão levantada). Toque no aluno para ver o que ele está fazendo agora e usar **🔒 Pausar a tela**, **🔓 Liberar a tela** ou **✋ Atendi: baixar a mão** só para ele. Quem entrou pelo número da aula, sem conta, aparece na linha **Também conectados pelo número da aula**.
+No cartão de cada aluno aparecem 💻 (Chromebook) ou 📱 (tablet), 🔒 (tela pausada) e ✋ (mão levantada). Toque no aluno para ver o que ele está fazendo agora e usar **🔒 Pausar a tela**, **🔓 Liberar a tela**, **✋ Atendi: baixar a mão** ou **💬 Perguntar só para ...** (pergunta com resposta livre ou com alternativas A a D, que só aquele aluno vê; a resposta aparece no cartão dele). Quem entrou pelo número da aula, sem conta, aparece na linha **Também conectados pelo número da aula**.
 
 Logo abaixo da sala, **📸 Entradas pela carteirinha** lista quem entrou pela carteirinha nesta aula, com a hora. **👁️ Ver foto** abre a foto (quando a escola liga a foto; cada abertura fica registrada). Se o rosto não for do aluno, toque em **Não é este aluno**: a sessão daquele aparelho cai na hora e a entrada fica marcada na auditoria.
 
@@ -1254,7 +1256,7 @@ A entrada por QR só funciona com a aula aberta: toque em **Dar aula agora** ou 
 A presença vale com a aula aberta (cartão, código e PIN ou Google). Confira se a aula está aberta e se o aluno entrou na conta dele, e não na de um colega.
 
 **Enviei um material e o aluno não achou.**
-Ele está em **Aula de hoje** no Início do aluno. Se o aluno já abriu e fechou, está no **📖 Histórico de aulas**.
+Com a aula aberta, o último material enviado **nesta aula** aparece em **📚 Enviado nesta aula** e abre sozinho. Os de outras aulas não abrem sozinhos: ficam no **📖 Histórico de aulas**, com busca por tema, data e professor.
 
 **Posso usar no celular?**
 Sim. O Portal funciona no navegador do celular, do tablet e do computador.
