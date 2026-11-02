@@ -59,6 +59,8 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {}, c = await contexto(db, uid);
   if (d.acao === 'opcoes') return opcoesEnvio(db, c.eu);
+  // Controle da aula: antes de abrir um site na tela dos alunos, confere se ele deixa ser mostrado dentro do Portal
+  if (d.acao === 'pode_embutir') { let u; try { u = new URL(String(d.url || '').trim()); } catch (e) { return { embed: false }; } if (!/^https?:$/.test(u.protocol)) return { embed: false }; return { embed: await podeEmbutir(u.href) }; }
 
   /* famílias: quais turmas do professor podem receber (escola liberou) e quantos alunos têm e-mail de família */
   if (d.acao === 'familias_info') {

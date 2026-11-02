@@ -440,6 +440,9 @@
   .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#071621;display:grid;place-items:center;color:#fff;text-align:center;padding:20px }
   .al-pausa div{ display:grid;gap:14px;justify-items:center;max-width:620px } .al-pausa img{ width:min(86vw,560px);border-radius:18px } .al-pausa b{ font-size:26px } .al-pausa span{ opacity:.8 }
   .al-cont{ position:fixed;inset:0;z-index:2147482000;background:#071621;display:flex;flex-direction:column } .al-cont iframe{ flex:1;border:0;width:100%;background:#fff }
+  .al-cont-fora{ background:rgba(7,22,33,.92);align-items:center;justify-content:center;padding:20px } .al-fora{ background:#fff;color:#0c2338;border-radius:20px;padding:26px;display:grid;gap:12px;justify-items:center;text-align:center;max-width:440px }
+  .al-fora span{ font-size:44px } .al-fora b{ font-size:21px } .al-fora small{ color:#5b6b7b;font-size:15px } .al-fora-ir{ display:block;width:100%;background:#8DC63F;color:#0f2c4a;font-weight:900;font-size:19px;border-radius:14px;padding:15px;text-decoration:none }
+  .al-fora button{ font:inherit;border:0;background:none;color:#5b6b7b;cursor:pointer;text-decoration:underline }
   .al-cont-topo{ display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f2c4a;color:#fff } .al-cont-topo b{ flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
   .al-cont-topo a{ color:#cfe3f5;font-weight:700 } .al-cont-topo button{ font:inherit;font-weight:800;border:0;border-radius:10px;padding:9px 14px;background:#8DC63F;color:#0f2c4a;cursor:pointer }
   .al-folha{ position:fixed;left:0;right:0;bottom:0;z-index:2147482500;background:#fff;color:#0c2338;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);padding:18px;display:grid;gap:12px;font-size:18px }
@@ -9349,8 +9352,16 @@
   }
   const idMae = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   // abrir conteúdo: para a turma toda ou só para um aluno (ex.: prova adaptada)
+  // site de fora: o servidor confere se ele deixa abrir dentro do Portal (muitos bloqueiam); se não deixar, o aluno recebe um cartão "Abrir o site"
+  async function siteAbreDentro(url){
+    if(/^https:\/\/([\w-]+\.)*portaldoeducador\.com\.br\//.test(url) || /youtube\.com\/|youtu\.be\//.test(url)) return true;
+    try{ const r = await Promise.race([fnTrab({ acao:"pode_embutir", url }), new Promise((_, n) => setTimeout(() => n(new Error("tempo")), 8000))]); return r && typeof r.embed === "boolean" ? r.embed : null; }
+    catch(e){ console.warn("pode embutir:", e.message || e); return null; }
+  }
   async function abrirNosAparelhos(url, nome, alunoId){
-    const cmd = { id:idMae(), url, nome:String(nome || "").slice(0, 80), em:Date.now() };
+    const embed = await siteAbreDentro(url);
+    if(embed === false) toast("Este site não deixa ser mostrado dentro do Portal: os alunos recebem um botão para abrir o site num toque.");
+    const cmd = { id:idMae(), url, nome:String(nome || "").slice(0, 80), em:Date.now(), ...(embed === false ? { embed:false } : {}) };
     await avvSet(alunoId ? { comandos:{ [alunoId]:cmd } } : { comando:cmd });
     if(MAV.mc){ const c = { id:cmd.id, tipo:"abrirLink", url, nome:cmd.nome, ts:{ ".sv":"timestamp" } };
       if(alunoId){ const ap = aparelhosDoAluno(alunoId); if(ap.length){ const patch = {}; ap.forEach(x => { patch[x.dev] = c; }); fbMae("aulas/" + MAV.mc + "/controle/comandos", "PATCH", patch).catch(() => {}); } }
@@ -9538,7 +9549,7 @@
       // ordens que já existiam quando o aluno entrou não abrem de novo
       const cmds = [d.comando, (d.comandos || {})[k]].filter(c => c && c.id);
       if(AL.vistos === null){ AL.vistos = new Set(cmds.map(c => c.id)); }
-      else cmds.forEach(c => { if(!AL.vistos.has(c.id)){ AL.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")) alAbrir(c.url, c.nome); } });
+      else cmds.forEach(c => { if(!AL.vistos.has(c.id)){ AL.vistos.add(c.id); if(!ext() && /^https?:\/\//i.test(c.url || "")) alAbrir(c.url, c.nome, c.embed !== false); } });
       const pa = d.pausa_alunos || {}; alPausa(!ext() && (typeof pa[k] === "boolean" ? pa[k] : !!d.pausa));
       alPesquisa(d.pesquisa && d.pesquisa.ativa ? d.pesquisa : null);
     }, e => console.warn("aula ao vivo:", e.code)));
@@ -9563,8 +9574,15 @@
     b.innerHTML = '<div><img alt="" src="/maestro/aluno/bloqueio/msg' + (1 + Math.floor(Math.random() * 3)) + '.jpg"><b>⏸️ Atenção ao professor</b><span>A tela volta sozinha quando o professor liberar.</span></div>';
     document.body.appendChild(b); try{ navigator.vibrate && navigator.vibrate(150); }catch(e){}
   }
-  function alAbrir(url, nome){
+  function alAbrir(url, nome, dentro){
     const v = $("alConteudo"); if(v) v.remove();
+    if(dentro === false){
+      // o site não deixa abrir dentro do Portal: cartão grande para abrir o site num toque
+      const c = document.createElement("div"); c.id = "alConteudo"; c.className = "al-cont al-cont-fora";
+      c.innerHTML = '<div class="al-fora"><span>📲</span><b></b><small>O professor mandou este site. Ele abre fora do Portal; quando terminar, volte para cá.</small><a class="al-fora-ir" target="_blank" rel="noopener">Abrir o site</a><button type="button" data-action="al-fechar-cont">Agora não</button></div>';
+      c.querySelector("b").textContent = nome || url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 60); c.querySelector("a").href = url;
+      document.body.appendChild(c); return;
+    }
     const yt = String(url).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]{11})/);
     const f = document.createElement("div"); f.id = "alConteudo"; f.className = "al-cont";
     f.innerHTML = '<div class="al-cont-topo"><b></b><a target="_blank" rel="noopener">Abrir fora</a><button type="button" data-action="al-fechar-cont">✕ Fechar</button></div><iframe allow="autoplay; fullscreen; camera; microphone" allowfullscreen></iframe>';
