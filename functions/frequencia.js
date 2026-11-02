@@ -9,7 +9,7 @@ import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE 
 import * as FREQ from './frequencia-nucleo.js';
 
 const ID = /^[A-Za-z0-9_-]{1,80}$/, DATA = /^20\d\d-[01]\d-[0-3]\d$/;
-const LINK = 'https://app.portaldoeducador.com.br/apps/frequencia/#busca';
+const LINK = 'https://www.portaldoeducador.com.br/apps/frequencia/#busca';
 
 export const freqResumo = onDocumentWritten(
   { document: 'freq_chamadas/{id}', region: REGIAO_FIRESTORE, timeoutSeconds: 60, maxInstances: 10 },

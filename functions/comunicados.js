@@ -96,7 +96,7 @@ export function montarEmail(c, com, dest, token) {
     : '<p style="margin:6px 0 0">Não quer mais receber comunicados? <a href="' + URL_SAIR + '?t=' + token + '" style="color:#62758a">Clique aqui</a>.</p>';
   const html = '<!doctype html><html><body style="margin:0;background:#eef2f6;font-family:Arial,Helvetica,sans-serif;color:#0c2338">' +
     '<div style="max-width:600px;margin:0 auto;padding:18px 12px">' +
-    '<div style="background:#0f2c4a;border-radius:14px 14px 0 0;padding:16px 20px;color:#fff"><img src="https://app.portaldoeducador.com.br/assets/pde-logo-128.png" width="40" height="40" alt="" style="vertical-align:middle;border-radius:50%"> <b style="font-size:17px;vertical-align:middle;margin-left:8px">Portal do Educador</b></div>' +
+    '<div style="background:#0f2c4a;border-radius:14px 14px 0 0;padding:16px 20px;color:#fff"><img src="https://www.portaldoeducador.com.br/assets/pde-logo-128.png" width="40" height="40" alt="" style="vertical-align:middle;border-radius:50%"> <b style="font-size:17px;vertical-align:middle;margin-left:8px">Portal do Educador</b></div>' +
     '<div style="background:#fff;padding:22px 20px;border-radius:0 0 14px 14px;font-size:15px;line-height:1.55"><p style="margin:0 0 14px;font-weight:700">' + ola + '</p>' + paras + botao + '</div>' +
     '<div style="font-size:12px;color:#62758a;padding:12px 6px;line-height:1.5"><p style="margin:0">Você recebe este e-mail porque tem cadastro no Portal do Educador · NEWPC Tecnologia.</p>' + sair + '</div></div></body></html>';
   const texto = ola + '\n\n' + String(com.mensagem || '') + (com.botao_link ? '\n\n' + (com.botao_texto || 'Abrir') + ': ' + com.botao_link : '') +

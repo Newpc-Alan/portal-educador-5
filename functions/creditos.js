@@ -30,7 +30,7 @@ export const CREDITOS_PADRAO = {
   ]
 };
 export const PLANOS_COM_IA = ['intermediario', 'completo', 'personalizado'];
-const LINK_PAINEL = 'https://app.portaldoeducador.com.br/entrar/#creditos';
+const LINK_PAINEL = 'https://www.portaldoeducador.com.br/entrar/#creditos';
 
 export const mesAtual = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace('-', '');
 const ms = v => !v ? 0 : typeof v.toMillis === 'function' ? v.toMillis() : v instanceof Date ? v.getTime() : typeof v === 'number' ? v : typeof v === 'string' ? (Date.parse(v) || 0) : (v._seconds || v.seconds || 0) * 1000;
@@ -226,7 +226,7 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
     if (pedido && pedido.data().email) {
       const p = pedido.data();
       await transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: p.email, subject: `Créditos do Portal IA liberados: ${creditos.toLocaleString('pt-BR')}`,
-        html: moldura('Créditos liberados', `<p>Olá, ${esc(String(p.solicitante || '').split(' ')[0])}.</p><p>Foram liberados <b>${creditos.toLocaleString('pt-BR')} créditos</b> do Portal IA para <b>${esc(p.conta_nome)}</b>, válidos até <b>${validade.toLocaleDateString('pt-BR')}</b>.</p>`, 'https://app.portaldoeducador.com.br/apps/portal-ia/', 'Abrir o Portal IA') }).catch(e => console.warn('creditos: e-mail', e.message));
+        html: moldura('Créditos liberados', `<p>Olá, ${esc(String(p.solicitante || '').split(' ')[0])}.</p><p>Foram liberados <b>${creditos.toLocaleString('pt-BR')} créditos</b> do Portal IA para <b>${esc(p.conta_nome)}</b>, válidos até <b>${validade.toLocaleDateString('pt-BR')}</b>.</p>`, 'https://www.portaldoeducador.com.br/apps/portal-ia/', 'Abrir o Portal IA') }).catch(e => console.warn('creditos: e-mail', e.message));
     }
     return { ok: true };
   }
@@ -275,7 +275,7 @@ export const emailPedidoRecarga = onDocumentCreated({ document: 'recargas_pedido
 <p>${rede ? 'Próximo passo: proposta e empenho com a Secretaria. Depois do empenho, libere em Créditos de IA.' : 'Próximo passo: enviar ao professor os dados de pagamento (Pix ou boleto). Depois do pagamento, libere em Créditos de IA.'}</p>`, LINK_PAINEL, 'Abrir Créditos de IA') }).catch(e => console.warn('creditos: e-mail NEWPC', e.message));
   if (p.email) await tr.sendMail({ from: de, to: p.email, subject: 'Recebemos seu pedido de créditos do Portal IA',
     html: moldura('Pedido recebido', `<p>Olá, ${esc(String(p.solicitante || '').split(' ')[0])}.</p><p>Recebemos o pedido de <b>${esc(p.pacote_nome)}</b> (${brl(p.valor)}) para <b>${esc(p.conta_nome)}</b>.</p>
-<p>${rede ? 'A equipe da NEWPC vai entrar em contato para a proposta e o empenho. Os créditos são liberados assim que o empenho for emitido.' : 'A equipe da NEWPC vai enviar por e-mail os dados para pagamento. Os créditos são liberados assim que o pagamento for confirmado.'}</p>`, 'https://app.portaldoeducador.com.br/apps/portal-ia/', 'Abrir o Portal IA') }).catch(e => console.warn('creditos: e-mail solicitante', e.message));
+<p>${rede ? 'A equipe da NEWPC vai entrar em contato para a proposta e o empenho. Os créditos são liberados assim que o empenho for emitido.' : 'A equipe da NEWPC vai enviar por e-mail os dados para pagamento. Os créditos são liberados assim que o pagamento for confirmado.'}</p>`, 'https://www.portaldoeducador.com.br/apps/portal-ia/', 'Abrir o Portal IA') }).catch(e => console.warn('creditos: e-mail solicitante', e.message));
 });
 
 export const emailAlertaCreditos = onDocumentCreated({ document: 'creditos_alertas/{id}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] }, async ev => {
@@ -288,5 +288,5 @@ export const emailAlertaCreditos = onDocumentCreated({ document: 'creditos_alert
 <p>Quando o saldo zerar, os professores deixam de gerar materiais pela rede. O sistema é pré-pago: não há cobrança além do que foi contratado.</p>`;
   const tr = transporte(), de = `"Portal do Educador" <${SMTP_USUARIO.value()}>`;
   await tr.sendMail({ from: de, to: destinos().join(','), subject: `Créditos do Portal IA em ${a.nivel}%: ${nome}`, html: moldura('Créditos acabando', corpo, LINK_PAINEL, 'Abrir Créditos de IA') }).catch(e => console.warn('creditos: alerta NEWPC', e.message));
-  if (emails.length) await tr.sendMail({ from: de, to: emails.join(','), subject: `Créditos do Portal IA em ${a.nivel}%`, html: moldura('Créditos acabando', corpo + '<p>Para pedir uma recarga, abra o Painel da Rede e toque em Solicitar recarga.</p>', 'https://app.portaldoeducador.com.br/painel/', 'Abrir o Painel da Rede') }).catch(e => console.warn('creditos: alerta Secretaria', e.message));
+  if (emails.length) await tr.sendMail({ from: de, to: emails.join(','), subject: `Créditos do Portal IA em ${a.nivel}%`, html: moldura('Créditos acabando', corpo + '<p>Para pedir uma recarga, abra o Painel da Rede e toque em Solicitar recarga.</p>', 'https://www.portaldoeducador.com.br/painel/', 'Abrir o Painel da Rede') }).catch(e => console.warn('creditos: alerta Secretaria', e.message));
 });

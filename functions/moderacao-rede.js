@@ -13,7 +13,7 @@ import { feedRede } from './rede-feed.js';
 import { escolasDoAlcance } from './envio-comum.js';
 
 const txt = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, n);
-const APP = 'https://app.portaldoeducador.com.br';
+const APP = 'https://www.portaldoeducador.com.br';
 const COLS = { ia: 'portal_ia_rede', trab: 'trabalhos_rede' };
 const LINK_TRAB = '/entrar/#trabalhos-rede';
 

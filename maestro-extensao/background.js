@@ -28,7 +28,7 @@
 
 const FIREBASE_URL = "https://newpc-sala-default-rtdb.firebaseio.com";
 const VERSAO = "0.9.0";
-const URL_PORTAL = "https://app.portaldoeducador.com.br/";
+const URL_PORTAL = "https://www.portaldoeducador.com.br/";
 const VALIDADE_COMANDO_MS = 120000; // ordem com mais de 2 min (ex.: aluno voltou de uma queda de rede) não é executada
 const INTERVALO_MS = 3000;          // consulta de comandos
 const HEARTBEAT_A_CADA = 5;         // presença a cada 5 ciclos (15 s)

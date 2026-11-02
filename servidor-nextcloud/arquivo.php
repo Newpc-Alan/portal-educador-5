@@ -62,7 +62,8 @@ header('X-Content-Type-Options: nosniff');
 // o leitor de PDF do Chrome não abre em página com "sandbox"; para os demais tipos, a página fica isolada
 if ($mime !== 'application/pdf') header("Content-Security-Policy: sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'");
 header('Referrer-Policy: no-referrer');
-header('Access-Control-Allow-Origin: https://app.portaldoeducador.com.br');
+$origem = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (in_array($origem, ['https://www.portaldoeducador.com.br', 'https://app.portaldoeducador.com.br'], true)) { header('Access-Control-Allow-Origin: ' . $origem); header('Vary: Origin'); }
 header('Cache-Control: private, max-age=300');
 header('Accept-Ranges: bytes');
 header('Content-Type: ' . $mime);
