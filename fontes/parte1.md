@@ -74,13 +74,13 @@ No cadastro de teste, preencha nome, WhatsApp, função, estado, município, red
 
 O Início reúne o que você usa no dia a dia e o que está liberado para você.
 
-<!-- captura: Início do professor com o cartão Dar aula agora, Para hoje, Novidades da sua rede, notícia em destaque e os cartões de O que você quer fazer? -->
+<!-- captura: Início do professor com o cartão Sala de aula gerenciada, Para hoje, Novidades da sua rede, notícia em destaque e os cartões de O que você quer fazer? -->
 
 De cima para baixo:
 
 1. **Saudação** com o seu município e escola.
 2. **Busca do Portal** (veja logo abaixo).
-3. **Cartões da aula**: **Dar aula agora** (Turma ao Vivo) e, quando o Portal Maestro está no plano, **Sala de aula gerenciada** com **▶ Abrir sala gerenciada** e **Lousa**. Com uma aula aberta, o primeiro cartão vira **🟢 Aula do 6º Ano A em andamento**, com o horário de término e **↩ Voltar para a aula**.
+3. **Cartão da aula**: **Sala de aula gerenciada** (antes "Dar aula agora"; o antigo cartão do Maestro saiu do Início em nov/2026), com **▶ Começar a aula** e **🔗 Só enviar conteúdo**. Com uma aula aberta, o primeiro cartão vira **🟢 Aula do 6º Ano A em andamento**, com o horário de término, **⏹ Encerrar** e **↩ Voltar para a aula**.
 4. **Para hoje**: as pendências reais do dia. Turmas sem chamada, prova na sala de espera, prova em andamento ou agendada para hoje e respostas abertas para corrigir. Sem pendência, aparece **Tudo em dia por aqui**.
 5. **Continuar minha formação** (quando a Formação Continuada está no plano e você tem curso em andamento): o curso mais recente, com a porcentagem feita e **Continuar meu curso**.
 6. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
@@ -525,7 +525,7 @@ Estes recursos ligam o professor aos aparelhos dos alunos (tablet, Chromebook ou
 
 ### Enviar conteúdo para a turma
 
-1. Toque em **🔗 Só enviar conteúdo** (cartão Dar aula agora), em **🔗 Enviar conteúdo** (Minhas Turmas) ou em **🔗 Enviar link ou arquivo** (Turma ao Vivo).
+1. Toque em **🔗 Só enviar conteúdo** (cartão Sala de aula gerenciada), em **🔗 Enviar conteúdo** (Minhas Turmas) ou em **🔗 Enviar link ou arquivo** (Turma ao Vivo).
 2. Escolha o modo:
    - **🔗 Link de um site ou vídeo**: YouTube toca dentro do Portal; outros sites abrem com um botão para o aluno (sites que permitem abrem dentro da tela do aluno).
    - **📎 Arquivo (PDF, slides, vídeo)**: PDF, PowerPoint, Word, Excel, imagem, vídeo ou áudio, até 100 MB.
@@ -538,9 +538,9 @@ Estes recursos ligam o professor aos aparelhos dos alunos (tablet, Chromebook ou
 Arquivos acima de 20 MB (vídeos) fazem parte da Turma ao Vivo, no plano Completo. Para vídeos longos, prefira um link do YouTube.
 :::
 
-### Dar aula agora
+### Sala de aula gerenciada (Sala de aula gerenciada)
 
-O cartão **Dar aula agora**, no Início, abre a aula num caminho só: turma, tempo e painel ao vivo.
+O cartão **Sala de aula gerenciada** (antigo "Dar aula agora"), no Início, abre a aula num caminho só: turma, tempo e painel ao vivo.
 
 1. Toque em **▶ Começar a aula**.
 2. Escolha a turma (a última usada vem marcada).
@@ -1081,7 +1081,7 @@ O Portal gera uma mensagem pronta para enviar (**Copiar mensagem**). A pessoa en
 - **🧾 Auditoria**: entrada pela carteirinha comparada com a chamada do professor, aluno por aluno. No mesmo lugar, **📸 Entradas no Portal pela carteirinha** traz a chave **Tirar foto ao entrar com a carteirinha** (desligada até a direção ligar) e a lista do dia, com **👁️ Ver** (cada abertura fica na auditoria) e a situação de cada entrada.
 
 :::regra
-A carteirinha da escola entra no Portal direto, sem senha, mas só com a **aula da turma aberta** (Dar aula agora), e a sessão termina com a aula. Com a foto ligada, o aparelho tira uma foto com a câmera da frente: serve só para conferir se quem entrou é o dono da carteirinha, é vista pelo professor da aula e pela direção e é apagada em 15 dias. Avise as famílias antes de ligar. Sem câmera, o aluno entra e a lista mostra "sem foto".
+A carteirinha da escola entra no Portal direto, sem senha, mas só com a **aula da turma aberta** (Sala de aula gerenciada), e a sessão termina com a aula. Com a foto ligada, o aparelho tira uma foto com a câmera da frente: serve só para conferir se quem entrou é o dono da carteirinha, é vista pelo professor da aula e pela direção e é apagada em 15 dias. Avise as famílias antes de ligar. Sem câmera, o aluno entra e a lista mostra "sem foto".
 :::
 
 ![Mural de chegada](mural.png){85}
@@ -1264,7 +1264,7 @@ Não. Eles têm dados de alunos e famílias, então não vão para a rede nem pa
 Sua rede usa aprovação antes. A coordenação ou a Secretaria analisa e você recebe um e-mail quando aprovarem (ou pedirem ajuste).
 
 **O aluno não consegue entrar pelo QR do cartão.**
-A entrada por QR só funciona com a aula aberta: toque em **Dar aula agora** ou **Abrir entrada por QR**. Se a câmera estiver bloqueada, o aluno digita o código e o PIN.
+A entrada por QR só funciona com a aula aberta: toque em **Sala de aula gerenciada** › **▶ Começar a aula** ou **Abrir entrada por QR**. Se a câmera estiver bloqueada, o aluno digita o código e o PIN.
 
 **O aluno não aparece na Turma ao Vivo.**
 A presença vale com a aula aberta (cartão, código e PIN ou Google). Confira se a aula está aberta e se o aluno entrou na conta dele, e não na de um colega.

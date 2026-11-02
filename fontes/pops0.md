@@ -95,3 +95,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.15 | 02/11/2026 | POP-PDE-32: Quiz rápido com relatório de aproveitamento e alerta de bateria | NEWPC Tecnologia | |
 | 2.16 | 02/11/2026 | POP-PDE-32: acervo de quizzes (meus e da rede), compartilhamento e acervo da pesquisa rápida | NEWPC Tecnologia | |
 | 2.17 | 02/11/2026 | POP-PDE-32: encerrar a aula a qualquer momento (Turma ao Vivo ou Início) | NEWPC Tecnologia | |
+| 2.18 | 02/11/2026 | Cartão do Início renomeado para Sala de aula gerenciada (o cartão do Maestro saiu) | NEWPC Tecnologia | |

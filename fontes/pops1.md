@@ -840,7 +840,7 @@ Fazer o aluno entrar no Portal em segundos, sem e-mail e sem senha, só durante 
 
 **Abrir a aula**
 
-5. No Início, use **Dar aula agora** › **▶ Começar a aula**, escolha a turma e o tempo (30 min, 40 min, 50 min, 1 hora, 2 horas ou outro tempo de 5 a 360 minutos). Sem Turma ao Vivo no plano, abra pela tela da turma: **Alunos** › **Abrir entrada por QR**.
+5. No Início, use **Sala de aula gerenciada** › **▶ Começar a aula**, escolha a turma e o tempo (30 min, 40 min, 50 min, 1 hora, 2 horas ou outro tempo de 5 a 360 minutos). Sem Turma ao Vivo no plano, abra pela tela da turma: **Alunos** › **Abrir entrada por QR**.
 6. Os alunos apontam a câmera para o QR do cartão e entram direto, com boas-vindas pelo nome. Sem câmera: em `app.portaldoeducador.com.br/entrar` › **Sou aluno**, digitam o código e o PIN (ou usam **📷 Ler QR**).
 7. Faltando 5 minutos, o professor recebe um aviso; aos 3 minutos, pode prorrogar (+10 min a +1 hora) ou **Encerrar agora**. No painel da Turma ao Vivo, **+10 min** e **⏹ Encerrar aula** fazem o mesmo.
 8. Quando o tempo acaba, quem entrou pelo cartão vê "A aula terminou" e sai sozinho, liberando o aparelho para o próximo colega.
