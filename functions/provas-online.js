@@ -10,6 +10,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { randomUUID } from 'node:crypto';
+import { expiraAuditoria } from './auditoria.js';
 
 const REGIAO = 'southamerica-east1';
 const ABRE_EM_MS = 10000;
@@ -369,8 +370,13 @@ export function aplicarCorrecao(r, q, it, porQuem) {
   const pontos = Math.round(Math.min(q.valor, Math.max(0, Number(String(it.pontos).replace(',', '.')))) * 100) / 100;
   if (!isFinite(pontos)) throw new HttpsError('invalid-argument', 'Pontuação inválida.');
   const por = { ...(r.por_questao || {}) };
-  por[q.id] = { ...(por[q.id] || {}), auto: false, pendente: false, manual: true, ok: pontos >= q.valor, pontos,
-    comentario: txt(String(it.comentario || '').trim(), 600), lingua: txt(String(it.lingua || '').trim(), 600), corrigido_por: porQuem, corrigido_em: Date.now() };
+  const antes = por[q.id] || {};
+  // depois de finalizada a correção, cada mudança guarda o histórico: quando, quem, de quantos para quantos pontos e o motivo
+  const revisoes = Array.isArray(antes.revisoes) ? antes.revisoes.slice(-19) : [];
+  if (it.justificativa) revisoes.push({ em: Date.now(), por: porQuem, de: antes.pendente ? null : (Number(antes.pontos) || 0), para: pontos, motivo: txt(String(it.justificativa).trim(), 500) });
+  por[q.id] = { ...antes, auto: false, pendente: false, manual: true, ok: pontos >= q.valor, pontos,
+    comentario: txt(String(it.comentario || '').trim(), 600), lingua: txt(String(it.lingua || '').trim(), 600), corrigido_por: porQuem, corrigido_em: Date.now(),
+    ...(revisoes.length ? { revisoes } : {}) };
   delete por[q.id].aproximada;
   const nota = Math.round(Object.values(por).reduce((t, x) => t + (Number(x.pontos) || 0), 0) * 100) / 100;
   const pendentes = Object.values(por).filter(x => x.pendente).length;
@@ -385,20 +391,43 @@ export const corrigirProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 60 }
     if (!CRITERIOS.includes(d.criterio)) throw new HttpsError('invalid-argument', 'Critério inválido.');
     await pref.update({ criterio_lingua: d.criterio });
   }
+  // finalizar a correção: só sem nenhuma questão pendente; daí em diante, mudar nota exige justificativa (fica no histórico e na auditoria)
+  if (d.finalizar === true) {
+    if (p.correcao_finalizada) return { ok: true, ja: true };
+    if (p.status !== 'encerrada' && ms(p.fecha_em) > Date.now()) throw new HttpsError('failed-precondition', 'A prova ainda está aberta. Encerre a prova antes de finalizar a correção.');
+    const pend = await pref.collection('po_resultados').where('pendentes', '>', 0).get();
+    if (!pend.empty) throw new HttpsError('failed-precondition', 'Ainda há ' + pend.size + ' aluno(s) com questão para corrigir.');
+    await pref.update({ correcao_finalizada: true, correcao_finalizada_em: FieldValue.serverTimestamp(), correcao_finalizada_por: txt(u.nome, 60) });
+    await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'provas_online', doc: id,
+      autor_uid: u.uid, autor_tipo: 'usuario', autor_email: txt(u.email, 120), perfil: txt(u.perfil, 30), municipio_id: txt(u.municipio_id, 64), escola_id: txt(p.escola_id, 64),
+      detalhe: 'Finalizou a correção da prova "' + txt(p.titulo, 120) + '"', campos: ['correcao_finalizada'], valores: { titulo: { para: txt(p.titulo, 120) } } });
+    return { ok: true };
+  }
   const itens = Array.isArray(d.itens) ? d.itens.slice(0, 80) : [];
+  const justificativa = String(d.justificativa || '').trim();
   const qs = Object.fromEntries((p.questoes || []).map(q => [q.id, q])), feitos = [];
-  for (const it of itens) {
+  for (const it0 of itens) {
+    let it = it0;
     const q = qs[String(it.qid || '')], chave = String(it.uid || '');
     if (!q || !/^[A-Za-z0-9_-]{1,80}$/.test(chave)) throw new HttpsError('invalid-argument', 'Questão ou aluno inválido.');
     const rref = pref.collection('po_resultados').doc(chave);
     await db.runTransaction(async tx => {
       const r = (await tx.get(rref)).data();
       if (!r) throw new HttpsError('failed-precondition', 'Este aluno ainda não entregou a prova.');
+      // finalizada: mudar o que já estava corrigido exige justificativa; o que ainda estava pendente (entrega tardia) corrige normal
+      const revisao = p.correcao_finalizada && !((r.por_questao || {})[q.id] || {}).pendente;
+      if (revisao && justificativa.length < 15) throw new HttpsError('failed-precondition', 'A correção desta prova já foi finalizada. Para mudar a nota, escreva a justificativa (pelo menos 15 letras).');
+      if (revisao) it = { ...it0, justificativa };
       const novo = aplicarCorrecao(r, q, it, txt(u.nome, 60));
-      tx.update(rref, { ...novo, corrigido_em: FieldValue.serverTimestamp() });
-      feitos.push({ uid: chave, nota: novo.nota, pendentes: novo.pendentes });
+      tx.update(rref, { ...novo, corrigido_em: FieldValue.serverTimestamp(), ...(revisao ? { reavaliada: true } : {}) });
+      feitos.push({ uid: chave, nome: r.nome || '', qn: (p.questoes || []).indexOf(q) + 1, de: r.nota, nota: novo.nota, pendentes: novo.pendentes, revisao });
     });
   }
+  // reavaliação depois de finalizada: registro nominal na auditoria (quem, aluno, questão, nota antes e depois e o motivo)
+  for (const f of feitos.filter(x => x.revisao)) await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao',
+    colecao: 'po_resultados', doc: id + '/' + f.uid, autor_uid: u.uid, autor_tipo: 'usuario', autor_email: txt(u.email, 120), perfil: txt(u.perfil, 30), municipio_id: txt(u.municipio_id, 64), escola_id: txt(p.escola_id, 64),
+    detalhe: 'Reavaliou a questão ' + f.qn + ' de ' + txt(f.nome, 80) + ' na prova "' + txt(p.titulo, 120) + '". Motivo: ' + txt(justificativa, 300),
+    campos: ['nota'], valores: { nota: { de: f.de, para: f.nota } } });
   return { ok: true, feitos };
 });
 

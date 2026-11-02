@@ -126,6 +126,29 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .corr-c,.corr-l{width:100%;border:1px solid #cfd8e3;border-radius:8px;padding:6px 8px;font:inherit;font-size:.88rem;margin-top:4px}
 .corr-l{background:#fffaf0}
 .corr-rod{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+.corr-bts{display:flex;gap:8px;flex-wrap:wrap}
+.corr-fin{background:#eef3f8;border:1px solid #cfdbe7;color:#0f2c4a;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:.9rem}
+.corr-faltam{background:#fff7e6;border:1px solid #f3d79b;color:#7a5200;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:.9rem}
+.corr-pronta{background:#eaf6ec;border:1px solid #b9dcc1;color:#1a5a24;border-radius:10px;padding:8px 12px;margin-bottom:8px;font-size:.9rem}
+.corr-nav{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 6px}
+.corr-nav b{color:#0f2c4a}
+.corr-alunos{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px}
+.corr-chip{flex:0 0 auto;border:1.5px solid #cfdbe7;background:#fff;border-radius:999px;padding:4px 11px;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer;color:#2c3e55}
+.corr-chip.pend{border-color:#f3c76b;background:#fff8e8}
+.corr-chip.ok{border-color:#b9dcc1;background:#f1faf3}
+.corr-chip.rev::after{content:" ↺";color:#2671AB}
+.corr-chip.on{background:#0f2c4a;border-color:#0f2c4a;color:#fff}
+.corr-quem{display:flex;align-items:center;gap:12px;background:#0f2c4a;color:#fff;border-radius:12px;padding:10px 12px;margin:-2px -4px 10px}
+.corr-quem small{display:block;font-size:.72rem;opacity:.75;text-transform:uppercase;letter-spacing:.05em}
+.corr-quem b{display:block;font-size:1.25rem;line-height:1.2}
+.corr-quem .chip{margin-left:auto}
+.corr-av{width:44px;height:44px;border-radius:50%;background:#8DC63F;color:#0f2c4a;display:grid;place-items:center;font-weight:800;flex:0 0 auto}
+.corr-resp small{display:block;font-size:.75rem;font-weight:700;color:#62758a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.corr-al.travado .corr-pts,.corr-al.travado textarea{opacity:.65}
+.corr-reav{margin-top:8px;background:#fff7e6;border:1px solid #f3d79b;border-radius:10px;padding:8px 10px;font-size:.88rem}
+.corr-reav textarea{width:100%;margin-top:6px;border:1px solid #e5c47a;border-radius:8px;padding:6px 8px;font:inherit}
+.corr-hist{margin-top:8px;border-top:1px dashed #cfdbe7;padding-top:6px;font-size:.84rem;color:#2c3e55}
+.corr-hist p{margin:3px 0 0}
 /* foto de confirmação */
 .foto-box{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border:1.5px solid #cfe0d3;background:#f6fbf7;border-radius:14px;padding:12px;margin:12px 0}
 .foto-box .cam{width:160px;height:120px;border-radius:10px;background:#0f2c4a;overflow:hidden;display:grid;place-items:center;color:#fff;font-size:2rem;flex-shrink:0}
@@ -647,7 +670,7 @@ function desenharPainel(){
   const pendTotal = Object.values(PN.res).reduce((t, r) => t + (r.pendentes || 0), 0), temAbertas = p.questoes.some(q => !["multipla", "vf"].includes(q.tipo));
   // a função de correção ainda não foi publicada no servidor: mostra o aviso no lugar do botão (troca para true na publicação)
   if(temAbertas && Object.keys(PN.res).length && !CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<span class="btn btn-gh btn-sm" aria-disabled="true" style="cursor:default;opacity:.75">✍️ Correção das questões abertas: em ativação</span>');
-  if(temAbertas && Object.keys(PN.res).length && CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">✍️ Corrigir questões abertas'+(pendTotal ? " ("+pendTotal+" para corrigir)" : "")+'</button>');
+  if(temAbertas && Object.keys(PN.res).length && CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">'+(E.prova.correcao_finalizada ? "🔒 Correção finalizada · rever" : "✍️ Corrigir questões abertas"+(pendTotal ? " ("+pendTotal+" para corrigir)" : ""))+'</button>');
 }
 // ordem de atenção: bloqueados primeiro, depois quem saiu da tela, quem está fazendo (menos avançado antes), sala, não entrou, entregou
 function prioridade(a, nq){
@@ -704,67 +727,120 @@ function modalLiberar(uid){
 const CORRECAO_NO_AR = true;    // vira true quando corrigirProvaOnline estiver publicada (GitHub Actions ou Cloud Shell)
 // por questão: todas as respostas da turma, uma embaixo da outra, com a resposta esperada no topo
 const CRIT = { conteudo:"Avaliar só o conteúdo: erros de português não tiram ponto", apontar:"Apontar erros de português sem descontar (o aluno vê a observação)", descontar:"Erros de português contam na nota" };
-const CO = { qid:"", gab:null, sujo:{} };
+const CO = { qid:"", uid:"", lista:[], gab:null, sujo:{}, reavaliando:false };
 const corrigivel = (q, x) => !["multipla", "vf"].includes(q.tipo) || (x && x.manual);
 // objetiva = corrigida sozinha: múltipla e V/F sempre; várias respostas e grade quando o professor marcou o gabarito
 const objetiva = q => ["multipla", "vf"].includes(q.tipo) || (["checkbox", "grade_radio", "grade_check"].includes(q.tipo) && !!(CO.gab && CO.gab[q.id] && CO.gab[q.id].gab));
-async function abrirCorrecao(qid){
+// um aluno por vez (nov/2026): o nome de quem está sendo corrigido fica em destaque; Salvar leva ao próximo.
+// Finalizar a correção trava as notas: mudar depois exige justificativa, que fica no histórico do aluno e na Auditoria.
+async function abrirCorrecao(qid, uidAlvo){
   const p = E.prova;
   if(!CO.gab){ try{ const g = await getDoc(doc(db, "provas_online_gab", p.id)); CO.gab = g.exists() ? (g.data().gab || {}) : {}; }catch(e){ CO.gab = {}; } }
   const abertas = p.questoes.filter(q => !objetiva(q));
   if(!abertas.length){ toast("Esta prova só tem questões objetivas: já foram corrigidas sozinhas."); return; }
+  const pq = (uid, q) => ((PN.res[uid] || {}).por_questao || {})[q.id] || {};
   const pend = q => Object.values(PN.res).filter(r => ((r.por_questao || {})[q.id] || {}).pendente).length;
-  CO.qid = qid || (abertas.find(q => pend(q)) || abertas[0]).id; CO.sujo = {};
-  let bg = $("corrBg"); if(!bg){ bg = document.createElement("div"); bg.id = "corrBg"; bg.className = "fotos-bg"; document.body.appendChild(bg); }
+  const pendTot = abertas.reduce((t, q) => t + pend(q), 0);
+  CO.qid = qid || CO.qid && abertas.some(q => q.id === CO.qid) && CO.qid || (abertas.find(q => pend(q)) || abertas[0]).id;
   const q = p.questoes.find(x => x.id === CO.qid), qi = p.questoes.indexOf(q), g = CO.gab[q.id] || {}, crit = p.criterio_lingua || "conteudo";
-  const entregaram = (p.alunos || []).filter(a => PN.res[a.uid]).sort((a, b) => (((PN.res[b.uid].por_questao || {})[q.id] || {}).pendente ? 1 : 0) - (((PN.res[a.uid].por_questao || {})[q.id] || {}).pendente ? 1 : 0) || a.nome.localeCompare(b.nome, "pt-BR"));
+  // ordem fixa (alfabética): "aluno 3 de 9" é sempre o mesmo aluno
+  const lista = (p.alunos || []).filter(a => PN.res[a.uid]).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  CO.lista = lista.map(a => a.uid);
+  if(uidAlvo) CO.uid = uidAlvo;
+  if(!CO.uid || !CO.lista.includes(CO.uid)){ const pr = lista.find(a => pq(a.uid, q).pendente); CO.uid = (pr || lista[0] || {}).uid || ""; }
+  CO.reavaliando = false; CO.sujo = {};
+  const fin = !!p.correcao_finalizada, aberta = p.status !== "encerrada" && ms(p.fecha_em) > Date.now();
+  let bg = $("corrBg"); if(!bg){ bg = document.createElement("div"); bg.id = "corrBg"; bg.className = "fotos-bg"; document.body.appendChild(bg); }
+  const i = CO.lista.indexOf(CO.uid), a = lista[i];
   const meio = Math.round(q.valor / 2 * 100) / 100;
-  bg.innerHTML = '<div class="card corr"><div class="corr-top"><h2 style="margin:0">✍️ Correção das questões abertas</h2><button class="btn btn-gh btn-sm" data-action="corr-fechar">Fechar</button></div>' +
+  const estado = x => x.pendente ? '<span class="chip c-age">para corrigir</span>' : x.aproximada ? '<span class="chip c-age">aceita com erro de digitação: confira</span>' : x.manual ? '<span class="chip c-ent">corrigida</span>' : x.branco ? '<span class="chip c-nao">em branco</span>' : '<span class="chip c-ent">corrigida sozinha</span>';
+  const topo = fin ? '<div class="corr-fin">🔒 Correção finalizada' + (p.correcao_finalizada_por ? " por " + esc(p.correcao_finalizada_por) : "") + (p.correcao_finalizada_em ? " em " + dataHora(ms(p.correcao_finalizada_em)) : "") + '. Para mudar uma nota, abra o aluno e use <b>Reavaliar</b>, com justificativa.</div>'
+    : pendTot ? '<div class="corr-faltam">Faltam <b>' + pendTot + '</b> correção(ões) nesta prova.</div>'
+    : '<div class="corr-pronta">✅ Tudo corrigido. ' + (aberta ? "Encerre a prova para poder finalizar a correção." : "Confira e toque em <b>Finalizar correção</b>.") + '</div>';
+  let corpo = '<p class="sub">Ninguém entregou ainda.</p>';
+  if(a){
+    const x = pq(a.uid, q), resp = ((PN.tent[a.uid] || {}).respostas || {})[q.id], trava = fin && !x.pendente;
+    const hist = (x.revisoes || []).slice().reverse();
+    corpo = '<div class="corr-al' + (trava ? " travado" : "") + '" data-uid="' + esc(a.uid) + '">' +
+      '<div class="corr-quem"><span class="corr-av">' + esc(a.nome.split(/\s+/).slice(0, 2).map(s => s[0]).join("").toUpperCase()) + '</span><div><small>Corrigindo a resposta de</small><b>' + esc(a.nome) + '</b></div>' + estado(x) + '</div>' +
+      '<div class="corr-resp"><small>Resposta do aluno</small>' + respostaHtml(q, resp, { ...g, exp:"" }, null) + '</div>' +
+      '<div class="corr-pts"><span>Nota:</span>' + [0, meio, q.valor].map(v => '<button class="btn btn-sm btn-gh' + (!x.pendente && Number(x.pontos) === v ? " on" : "") + '" data-action="corr-pt" data-arg="' + v + '"' + (trava ? " disabled" : "") + '>' + String(v).replace(".", ",") + "</button>").join("") +
+        '<input type="number" min="0" max="' + q.valor + '" step="0.25" class="corr-n" id="corrN" value="' + (x.pendente ? "" : (x.pontos ?? "")) + '" aria-label="Pontos de ' + esc(a.nome) + '"' + (trava ? " disabled" : "") + '> <small>de ' + q.valor + "</small></div>" +
+      '<textarea class="corr-c" id="corrC" rows="2" maxlength="600" placeholder="Comentário para o aluno (opcional)"' + (trava ? " disabled" : "") + '>' + esc(x.comentario || "") + "</textarea>" +
+      (crit !== "conteudo" ? '<textarea class="corr-l" id="corrL" rows="1" maxlength="600" placeholder="✍️ Português: ' + (crit === "descontar" ? "erros que tiraram ponto" : "o que o aluno precisa revisar (não desconta)") + '"' + (trava ? " disabled" : "") + '>' + esc(x.lingua || "") + "</textarea>" : "") +
+      (trava ? '<div class="corr-reav" id="corrReav" hidden><label for="corrJ"><b>Justificativa da reavaliação</b> (obrigatória, fica no histórico do aluno e na Auditoria)</label><textarea id="corrJ" rows="2" maxlength="500" placeholder="Ex.: revisei a resposta com a coordenação; o aluno explicou o raciocínio corretamente"></textarea></div>' : "") +
+      (hist.length ? '<div class="corr-hist"><b>Histórico de reavaliações</b>' + hist.map(h => '<p>' + dataHora(h.em) + " · " + esc(h.por || "") + ": " + (h.de == null ? "-" : String(h.de).replace(".", ",")) + " → " + String(h.para).replace(".", ",") + " pt · " + esc(h.motivo || "") + "</p>").join("") + "</div>" : "") +
+      "</div>";
+  }
+  bg.innerHTML = '<div class="card corr"><div class="corr-top"><h2 style="margin:0">✍️ Correção das questões abertas</h2><button class="btn btn-gh btn-sm" data-action="corr-fechar">Fechar</button></div>' + topo +
     '<div class="corr-qs">' + abertas.map(x => { const n = pend(x); return '<button class="btn btn-sm ' + (x.id === q.id ? "btn-ok" : "btn-gh") + '" data-action="corr-q" data-arg="' + x.id + '">Questão ' + (p.questoes.indexOf(x) + 1) + (n ? ' <span class="chip c-age">' + n + '</span>' : ' ✓') + "</button>"; }).join("") + "</div>" +
-    '<label class="corr-crit">Português nesta prova: <select id="corrCrit">' + Object.entries(CRIT).map(([k, v]) => '<option value="' + k + '"' + (k === crit ? " selected" : "") + ">" + esc(v) + "</option>").join("") + "</select></label>" +
+    '<label class="corr-crit">Português nesta prova: <select id="corrCrit"' + (fin ? " disabled" : "") + '>' + Object.entries(CRIT).map(([k, v]) => '<option value="' + k + '"' + (k === crit ? " selected" : "") + ">" + esc(v) + "</option>").join("") + "</select></label>" +
     '<div class="corr-q"><p><b>' + (qi + 1) + ".</b> " + esc(q.enun).replace(/\n/g, "<br>") + ' <small>(vale ' + q.valor + " pt)</small></p>" +
       (g.exp ? '<p class="exp">Resposta esperada: <b>' + esc(g.exp) + "</b></p>" : '<p class="sub">Sem resposta esperada cadastrada.</p>') + "</div>" +
-    '<div class="corr-lista">' + (entregaram.length ? entregaram.map(a => {
-      const x = ((PN.res[a.uid].por_questao || {})[q.id]) || {}, resp = ((PN.tent[a.uid] || {}).respostas || {})[q.id];
-      const est = x.pendente ? '<span class="chip c-age">para corrigir</span>' : x.aproximada ? '<span class="chip c-age">aceita com erro de digitação: confira</span>' : x.manual ? '<span class="chip c-ent">corrigida por você</span>' : x.branco ? '<span class="chip c-nao">em branco</span>' : x.auto ? '<span class="chip c-ent">corrigida sozinha</span>' : "";
-      return '<div class="corr-al" data-uid="' + esc(a.uid) + '"><div class="corr-al-top"><b>' + esc(a.nome) + "</b>" + est + "</div>" + respostaHtml(q, resp, { ...g, exp:"" }, null) +
-        '<div class="corr-pts"><span>Nota:</span>' + [0, meio, q.valor].map(v => '<button class="btn btn-sm btn-gh' + (!x.pendente && Number(x.pontos) === v ? " on" : "") + '" data-action="corr-pt" data-arg="' + esc(a.uid) + "|" + v + '">' + String(v).replace(".", ",") + "</button>").join("") +
-        '<input type="number" min="0" max="' + q.valor + '" step="0.25" class="corr-n" data-uid="' + esc(a.uid) + '" value="' + (x.pendente ? "" : (x.pontos ?? "")) + '" aria-label="Pontos de ' + esc(a.nome) + '"> <small>de ' + q.valor + "</small></div>" +
-        '<textarea class="corr-c" data-uid="' + esc(a.uid) + '" rows="2" maxlength="600" placeholder="Comentário para o aluno (opcional)">' + esc(x.comentario || "") + "</textarea>" +
-        (crit !== "conteudo" ? '<textarea class="corr-l" data-uid="' + esc(a.uid) + '" rows="1" maxlength="600" placeholder="✍️ Português: ' + (crit === "descontar" ? "erros que tiraram ponto" : "o que o aluno precisa revisar (não desconta)") + '">' + esc(x.lingua || "") + "</textarea>" : "") + "</div>";
-    }).join("") : '<p class="sub">Ninguém entregou ainda.</p>') + "</div>" +
-    '<div class="corr-rod"><span class="sub" id="corrMsg"></span><button class="btn btn-ok" data-action="corr-salvar">Salvar correções desta questão</button></div></div>';
+    (lista.length ? '<div class="corr-nav"><button class="btn btn-gh btn-sm" data-action="corr-ir" data-arg="-1"' + (i <= 0 ? " disabled" : "") + '>← Anterior</button><b>Aluno ' + (i + 1) + " de " + lista.length + '</b><button class="btn btn-gh btn-sm" data-action="corr-ir" data-arg="1"' + (i >= lista.length - 1 ? " disabled" : "") + '>Próximo →</button></div>' +
+      '<div class="corr-alunos" role="tablist" aria-label="Alunos">' + lista.map((al, k) => { const x = pq(al.uid, q);
+        return '<button class="corr-chip' + (k === i ? " on" : "") + (x.pendente ? " pend" : " ok") + (x.revisoes && x.revisoes.length ? " rev" : "") + '" data-action="corr-aluno" data-arg="' + esc(al.uid) + '" title="' + esc(al.nome) + (x.pendente ? " · para corrigir" : " · corrigida") + '">' + esc(al.nome.split(" ")[0]) + "</button>"; }).join("") + "</div>" : "") +
+    '<div class="corr-lista">' + corpo + "</div>" +
+    '<div class="corr-rod"><span class="sub" id="corrMsg"></span><span class="corr-bts">' +
+      (!fin && !pendTot && !aberta ? '<button class="btn btn-gh" data-action="corr-finalizar">🔒 Finalizar correção</button>' : "") +
+      (a ? (fin && !pq(a.uid, q).pendente ? '<button class="btn btn-ok" data-action="corr-reavaliar" id="corrBtn">Reavaliar a nota de ' + esc(a.nome.split(" ")[0]) + '</button>'
+        : '<button class="btn btn-ok" data-action="corr-salvar" id="corrBtn">' + (i < lista.length - 1 ? "Salvar e ir para o próximo" : "Salvar") + '</button>') : "") +
+    "</span></div></div>";
   $("corrCrit").addEventListener("change", e => salvarCriterio(e.target.value));
-  bg.querySelectorAll(".corr-n,.corr-c,.corr-l").forEach(el => el.addEventListener("input", () => { CO.sujo[el.dataset.uid] = true; contarSujos(); }));
+  bg.querySelectorAll("#corrN,#corrC,#corrL").forEach(el => el.addEventListener("input", () => { CO.sujo[CO.uid] = true; contarSujos(); }));
 }
 let avisoSaida = 0;
-function confirmarSaida(){ if(Date.now() - avisoSaida < 4000) return true; avisoSaida = Date.now(); toast("Há correções não salvas. Toque de novo para sair sem salvar.", true); return false; }
-function contarSujos(){ const n = Object.keys(CO.sujo).length; const m = $("corrMsg"); if(m) m.textContent = n ? n + " aluno(s) com correção ainda não salva" : ""; }
-function marcarPontos(arg){
-  const [uid, v] = arg.split("|"), el = document.querySelector('.corr-n[data-uid="' + CSS.escape(uid) + '"]'); if(!el) return;
-  el.value = v; CO.sujo[uid] = true; contarSujos();
-  el.closest(".corr-pts").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.arg === arg));
+function confirmarSaida(){ if(Date.now() - avisoSaida < 4000) return true; avisoSaida = Date.now(); toast("A nota deste aluno não foi salva. Toque de novo para sair sem salvar.", true); return false; }
+function contarSujos(){ const m = $("corrMsg"); if(m) m.textContent = Object.keys(CO.sujo).length ? "Nota ainda não salva" : ""; }
+function marcarPontos(v){
+  const el = $("corrN"); if(!el || el.disabled) return;
+  el.value = v; CO.sujo[CO.uid] = true; contarSujos();
+  el.closest(".corr-pts").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.arg === v));
 }
+function irAluno(passo){ const k = CO.lista.indexOf(CO.uid) + passo; if(k < 0 || k >= CO.lista.length) return; abrirCorrecao(CO.qid, CO.lista[k]); }
 async function salvarCriterio(v){
-  try{ await chamar("corrigirProvaOnline", { id:E.prova.id, criterio:v }); E.prova.criterio_lingua = v; toast("Critério de português salvo."); abrirCorrecao(CO.qid); }
+  try{ await chamar("corrigirProvaOnline", { id:E.prova.id, criterio:v }); E.prova.criterio_lingua = v; toast("Critério de português salvo."); abrirCorrecao(CO.qid, CO.uid); }
   catch(e){ toast(e.message || "Não foi possível salvar.", true); }
 }
+function liberarReavaliacao(btn){
+  const box = $("corrReav"); if(!box) return;
+  if(box.hidden){
+    box.hidden = false; document.querySelectorAll(".corr-al [disabled]").forEach(el => el.disabled = false);
+    document.querySelector(".corr-al").classList.remove("travado"); CO.reavaliando = true;
+    btn.textContent = "Salvar reavaliação"; $("corrJ").focus(); return;
+  }
+  salvarCorrecao(btn);
+}
 async function salvarCorrecao(btn){
-  const itens = Object.keys(CO.sujo).map(uid => {
-    const n = document.querySelector('.corr-n[data-uid="' + CSS.escape(uid) + '"]'), c = document.querySelector('.corr-c[data-uid="' + CSS.escape(uid) + '"]'), l = document.querySelector('.corr-l[data-uid="' + CSS.escape(uid) + '"]');
-    return { uid, qid:CO.qid, pontos:n ? n.value : "", comentario:c ? c.value : "", lingua:l ? l.value : "" };
-  });
-  const semNota = itens.filter(it => it.pontos === "");
-  if(semNota.length){ toast("Dê a nota de " + semNota.length + " aluno(s) antes de salvar (pode ser 0).", true); return; }
-  if(!itens.length){ toast("Nada para salvar nesta questão."); return; }
-  btn.disabled = true; btn.textContent = "Salvando...";
+  const n = $("corrN"), c = $("corrC"), l = $("corrL"), j = $("corrJ");
+  if(!n || !CO.uid) return;
+  if(n.value === ""){ toast("Dê a nota antes de salvar (pode ser 0).", true); n.focus(); return; }
+  const it = { uid:CO.uid, qid:CO.qid, pontos:n.value, comentario:c ? c.value : "", lingua:l ? l.value : "" };
+  const dados = { id:E.prova.id, itens:[it] };
+  if(CO.reavaliando){ const t = (j && j.value || "").trim(); if(t.length < 15){ toast("Escreva a justificativa da reavaliação (pelo menos 15 letras).", true); if(j) j.focus(); return; } dados.justificativa = t; }
+  const rot = btn.textContent; btn.disabled = true; btn.textContent = "Salvando...";
   try{
-    await chamar("corrigirProvaOnline", { id:E.prova.id, itens });
-    toast(itens.length + " correção(ões) salvas. A nota de cada aluno já foi recalculada.");
+    await chamar("corrigirProvaOnline", dados);
+    const nome = ((E.prova.alunos || []).find(a => a.uid === CO.uid) || {}).nome || "aluno";
+    toast(CO.reavaliando ? "Reavaliação de " + nome + " salva e registrada." : "Nota de " + nome + " salva.");
     CO.sujo = {};
-    // espera o resultado novo chegar e vai para a próxima questão com pendência
-    setTimeout(() => { const prox = E.prova.questoes.find(q => !objetiva(q) && Object.values(PN.res).some(r => ((r.por_questao || {})[q.id] || {}).pendente)); abrirCorrecao(prox ? prox.id : CO.qid); }, 900);
-  }catch(e){ toast(e.message || "Não foi possível salvar.", true); btn.disabled = false; btn.textContent = "Salvar correções desta questão"; }
+    const reav = CO.reavaliando, k = CO.lista.indexOf(CO.uid);
+    // espera o resultado novo chegar; segue para o próximo aluno desta questão (na reavaliação, fica no mesmo aluno)
+    setTimeout(() => {
+      if(reav){ abrirCorrecao(CO.qid, CO.uid); return; }
+      const prox = CO.lista.slice(k + 1).find(u => (((PN.res[u] || {}).por_questao || {})[CO.qid] || {}).pendente) || CO.lista.slice(0, k).find(u => (((PN.res[u] || {}).por_questao || {})[CO.qid] || {}).pendente);
+      if(prox){ abrirCorrecao(CO.qid, prox); return; }
+      const outra = E.prova.questoes.find(q => !objetiva(q) && Object.values(PN.res).some(r => ((r.por_questao || {})[q.id] || {}).pendente));
+      if(outra){ toast("Questão concluída. Indo para a Questão " + (E.prova.questoes.indexOf(outra) + 1) + "."); CO.uid = ""; abrirCorrecao(outra.id); return; }
+      abrirCorrecao(CO.qid, CO.lista[Math.min(k + 1, CO.lista.length - 1)]);
+    }, 900);
+  }catch(e){ toast(e.message || "Não foi possível salvar.", true); btn.disabled = false; btn.textContent = rot; }
+}
+async function finalizarCorrecao(btn){
+  if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = "Finalizar? Depois, mudar nota exige justificativa. Toque de novo"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "🔒 Finalizar correção"; } }, 5000); return; }
+  btn.disabled = true; btn.textContent = "Finalizando...";
+  try{ await chamar("corrigirProvaOnline", { id:E.prova.id, finalizar:true }); toast("Correção finalizada. As notas estão travadas."); setTimeout(() => abrirCorrecao(CO.qid, CO.uid), 900); }
+  catch(e){ toast(e.message || "Não foi possível finalizar.", true); btn.disabled = false; delete btn.dataset.confirma; btn.textContent = "🔒 Finalizar correção"; }
 }
 /* ---------- auditoria: relatório por aluno (prova respondida + registro de horários) ---------- */
 const MOTIVO = { aluno:"entregue pelo aluno", tempo:"entregue automaticamente: tempo esgotado", encerrada_professor:"entregue quando o professor encerrou a prova", bloqueada_no_fim:"prova estava bloqueada no fim do horário" };
@@ -791,7 +867,8 @@ function respostaHtml(q, r, g, pq){
       return "<td>" + ((Array.isArray(v[li]) ? v[li].includes(ci) : v[li] === ci) ? "●" : "") + (certo ? " ✓" : "") + "</td>"; }).join("") + "</tr>").join("") + "</table>"; }
   else { const txt = String(r == null ? "" : r).trim(); h = '<div class="resp">' + (txt ? esc(txt).replace(/\n/g, "<br>") : "<i>em branco</i>") + "</div>" + (g && g.exp ? '<p class="exp">Resposta esperada: ' + esc(g.exp) + "</p>" : ""); }
   const st = !pq ? "" : pq.pendente ? "aguardando correção do professor" : pq.branco ? "em branco · 0 pt" : pq.manual ? "corrigida pelo professor · " + (pq.pontos || 0) + " pt" : (pq.ok ? "certa" : pq.pontos > 0 ? "parcial" : "errada") + (pq.aproximada ? " (aceita com erro de digitação)" : "") + (pq.certas != null && !pq.ok ? " · marcou " + pq.certas + " de " + pq.n_certas + " certa(s)" + (pq.erradas ? " e " + pq.erradas + " errada(s)" : "") : "") + (pq.linhas_ok != null && !pq.ok ? " · " + pq.linhas_ok + " de " + pq.linhas + " linha(s) certa(s)" : "") + " · " + (pq.pontos || 0) + " pt";
-  return h + (st ? '<p class="pq">' + st + "</p>" : "") + (pq && pq.comentario ? '<p class="pq">Comentário: ' + esc(pq.comentario) + "</p>" : "") + (pq && pq.lingua ? '<p class="pq">Português: ' + esc(pq.lingua) + "</p>" : "");
+  return h + (st ? '<p class="pq">' + st + "</p>" : "") + (pq && pq.comentario ? '<p class="pq">Comentário: ' + esc(pq.comentario) + "</p>" : "") + (pq && pq.lingua ? '<p class="pq">Português: ' + esc(pq.lingua) + "</p>" : "") +
+    (pq && pq.revisoes && pq.revisoes.length ? '<p class="pq">Nota revista pelo professor em ' + dataHora(pq.revisoes[pq.revisoes.length - 1].em) + '. Motivo: ' + esc(pq.revisoes[pq.revisoes.length - 1].motivo || "") + "</p>" : "");
 }
 async function relatorios(uids, btn){
   if(!uids.length){ toast("Nenhum aluno fez a prova ainda.", true); return; }
@@ -881,9 +958,13 @@ document.addEventListener("click", e => {
   else if(a === "foto-tirar") fotoTirar();
   else if(a === "pn-fotos") painelFotos();
   else if(a === "pn-corrigir"){ if(CORRECAO_NO_AR) abrirCorrecao(); }
-  else if(a === "corr-q"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; abrirCorrecao(arg); }
+  else if(a === "corr-q"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; CO.uid = ""; abrirCorrecao(arg); }
   else if(a === "corr-pt") marcarPontos(arg);
   else if(a === "corr-salvar") salvarCorrecao(el);
+  else if(a === "corr-reavaliar") liberarReavaliacao(el);
+  else if(a === "corr-finalizar") finalizarCorrecao(el);
+  else if(a === "corr-ir"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; irAluno(Number(arg)); }
+  else if(a === "corr-aluno"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; abrirCorrecao(CO.qid, arg); }
   else if(a === "corr-fechar"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; const b = $("corrBg"); if(b) b.remove(); }
   else if(a === "fotos-fechar"){ const b = $("fotosBg"); if(b) b.remove(); }
   else if(a === "pn-copiar"){ const url = location.origin + "/prova/?id=" + encodeURIComponent(E.prova.id || params.get("painel"));
