@@ -163,7 +163,9 @@ export async function encerrarAulaMaestro(codigo) {
   await maestroFb(`aulas/${codigo}/encerradaEm`, 'PUT', { '.sv': 'timestamp' });
 }
 
-export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = true }) {
+// Portal Maestro na gaveta (02/11/2026): a aula não cria mais aula no banco do Maestro (fechado); a sala gerenciada é o Controle da aula do Portal
+export const MAESTRO_LIGADO = false;
+export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
   if (!ts.exists) throw new HttpsError('not-found', 'Turma não encontrada.');

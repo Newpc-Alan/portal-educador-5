@@ -2006,11 +2006,12 @@
     ler();
   });
   document.querySelector(".como").addEventListener("click", (e) => { const b = e.target.closest("[data-como]"); if(b) definirComo(b.dataset.como); });
+  const MAESTRO_NA_GAVETA_LOGIN = true;   // nov/2026: sem a entrada pelo número da aula no app do tablet
   (function(){
     const ps = new URLSearchParams(location.search), q = ps.get("como");
     definirComo(ps.has("qr") ? "aluno" : (q === "aluno" || q === "professor" ? q : comoEntrar()));
     // app do Maestro no tablet (1.2+): abre aqui, no login do aluno; quem ainda não tem conta do Portal entra só pelo número da aula
-    if(/PortalMaestroApp/.test(navigator.userAgent)){
+    if(/PortalMaestroApp/.test(navigator.userAgent) && !MAESTRO_NA_GAVETA_LOGIN){
       const c = document.querySelector(".como"), l = document.createElement("p");
       l.style.cssText = "text-align:center;margin:12px 0 0;font-size:14px";
       l.innerHTML = 'Sem conta no Portal? <a href="/maestro/aluno/" style="font-weight:800;color:#2671AB">Entrar com o número da aula</a>';
@@ -8553,7 +8554,10 @@
 
   // ---------- Maestro: atalho de aula ----------
   // devolve a URL do Maestro quando ele esta liberado para este usuario (ou "previa" para o admin)
+  // Portal Maestro na gaveta (02/11/2026): a sala de aula gerenciada é o Controle da aula do Portal; nenhum atalho leva ao painel antigo
+  const MAESTRO_NA_GAVETA = true;
   function maestroDisponivel(doPlano, admin){
+    if(MAESTRO_NA_GAVETA) return null;
     const c = cfgDe("maestro");
     if(!c.url) return null;
     if(admin) return { url:c.url, previa:c.status !== "liberado" };
@@ -9283,6 +9287,7 @@
     return r.json();
   }
   function iniciarMaestroAv(mc){
+    if(MAESTRO_NA_GAVETA) return;   // banco do Maestro fechado: não consulta
     pararMaestroAv(); MAV.mc = mc; MAV.alunos = {}; MAV.controle = {}; MAV.sel = ""; MAV.matsMae = null; MAV.falhas = 0;
     lerMaestroAv(); MAV.timer = setInterval(lerMaestroAv, 3000);
   }
