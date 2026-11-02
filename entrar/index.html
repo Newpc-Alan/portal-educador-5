@@ -5631,14 +5631,25 @@
   // ===================== COMUNICADOS POR E-MAIL (admin, nov/2026) =====================
   // Escreve, escolhe o público, confere quantas pessoas recebem, manda um teste para si e envia. O robô (enviarComunicados)
   // manda aos poucos pela conta comunicados@portaldoeducador.com.br; a senha fica só no Secret Manager.
-  const CM_PERFIS = [["professor","Professores"],["gestor","Gestão da escola (direção e coordenação)"],["secretaria","Secretaria de Educação"],["aluno","Alunos"],["pre","Pré-cadastrados que ainda não entraram"]];
+  const CM_PERFIS = [["professor","Professores"],["gestor","Gestão da escola (direção e coordenação)"],["secretaria","Secretaria de Educação"],["aluno","Alunos"],["pre","Pré-cadastrados que ainda não entraram"],["lista","Lista colada (cadastros do site antigo)"]];
   const CM_LIC = [["institucional","Contrato da rede"],["avulsa","Avulsa"],["teste","Teste"],["cortesia","Cortesia"]];
   const CM_ST = { agendado:["Agendado","c-age"], enviando:["Enviando","c-age"], concluido:["Concluído","c-ok"], cancelado:["Cancelado","c-nao"] };
   const cm = { conta:null, timer:0, lista:[] };
   function cmPublico(){
     return { perfis:[...document.querySelectorAll('#cmPerfis input:checked')].map(x => x.value),
       municipios:[...document.querySelectorAll('#cmMuns input:checked')].map(x => x.value), escola:($("cmEscola") || {}).value || "",
-      licencas:[...document.querySelectorAll('#cmLic input:checked')].map(x => x.value), vencidas:!!($("cmVenc") || {}).checked, formacao:($("cmForm") || {}).value || "" };
+      licencas:[...document.querySelectorAll('#cmLic input:checked')].map(x => x.value), vencidas:!!($("cmVenc") || {}).checked, formacao:($("cmForm") || {}).value || "",
+      lista:cmLerLista() };
+  }
+  // lista colada (planilha, CSV ou um e-mail por linha): pega o e-mail de cada linha e, se houver, o nome que vem antes dele
+  function cmLerLista(){
+    const marcado = document.querySelector('#cmPerfis input[value="lista"]'), t = $("cmListaTxt");
+    if(!marcado || !marcado.checked || !t) return [];
+    const out = [], vistos = new Set();
+    t.value.split(/\r?\n/).forEach(l => { const m = l.match(/[^\s;,<>"']+@[^\s;,<>"']+\.[^\s;,<>"']+/); if(!m) return;
+      const e = m[0].toLowerCase(); if(vistos.has(e)) return; vistos.add(e);
+      const n = l.slice(0, m.index).replace(/[;,\t"]+/g, " ").trim(); out.push({ e, n:/@/.test(n) ? "" : n.slice(0, 80) }); });
+    return out.slice(0, 8000);
   }
   async function renderComunicados(){
     try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
@@ -5648,6 +5659,7 @@
         '<div class="row2"><div class="field"><label>Tipo</label><select id="cmTipo"><option value="info">Informativo (respeita quem pediu para não receber)</option><option value="servico">Aviso de serviço (vai para todos: mudança de acesso, manutenção)</option></select></div>'+
         '<div class="field"><label for="cmAgendar">Enviar em (opcional)</label><input type="datetime-local" id="cmAgendar"></div></div>'+
         '<div class="field"><label>Para quem</label><div class="cm-chk" id="cmPerfis">'+CM_PERFIS.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"'+(k === "professor" ? " checked" : "")+'> '+v+'</label>').join("")+'</div></div>'+
+        '<div class="field" id="cmListaWrap" hidden><label for="cmListaTxt">Lista de e-mails <small>(cole da planilha: uma pessoa por linha, com ou sem o nome; quem já tem conta no Portal fica de fora)</small></label><textarea id="cmListaTxt" rows="6" spellcheck="false" placeholder="Maria Souza;maria@email.com&#10;joao@email.com"></textarea></div>'+
         '<div class="field" id="cmLicWrap"><label>Licença dos professores <small>(nenhuma marcada = todas)</small></label><div class="cm-chk" id="cmLic">'+CM_LIC.map(([k, v]) => '<label><input type="checkbox" value="'+k+'"> '+v+'</label>').join("")+
           '<label><input type="checkbox" id="cmVenc"> Incluir licenças vencidas (para oferta de renovação)</label></div></div>'+
         '<div class="field" id="cmFormWrap"><label for="cmForm">Situação na Formação Continuada <small>(professores e gestão)</small></label><select id="cmForm"><option value="">Todos</option><option value="nao_comecou">Ainda não começaram nenhum curso</option><option value="andamento">Começaram e não concluíram</option><option value="parado">Pararam no meio (sem avançar há 14 dias)</option><option value="concluiu">Concluíram</option></select></div>'+
@@ -5743,9 +5755,10 @@
     btn.disabled = true; try{ await setDoc(doc(db, "config", "comunicados"), dados); toast("Configuração salva."); }catch(e){ toast("Não foi possível salvar ("+(e.code || "erro")+").", true); } btn.disabled = false;
   }
   document.addEventListener("change", ev => { const t = ev.target; if(!t || !t.closest) return;
+    if(t.closest("#cmPerfis")){ const w = $("cmListaWrap"), l = document.querySelector('#cmPerfis input[value="lista"]'); if(w && l) w.hidden = !l.checked; }
     if(t.closest("#cmPerfis")){ const w = $("cmLicWrap"), p = document.querySelector('#cmPerfis input[value="professor"]'); if(w && p) w.hidden = !p.checked; }
     if(t.closest("#cmPerfis")){ const w = $("cmFormWrap"), q = [...document.querySelectorAll('#cmPerfis input:checked')].some(x => ["professor","gestor"].includes(x.value)); if(w){ w.hidden = !q; if(!q) $("cmForm").value = ""; } }
-    if(t.closest("#cmPerfis") || t.closest("#cmLic") || t.id === "cmTipo" || t.id === "cmEscola" || t.id === "cmForm"){ cmContar(); }
+    if(t.closest("#cmPerfis") || t.closest("#cmLic") || t.id === "cmTipo" || t.id === "cmEscola" || t.id === "cmForm" || t.id === "cmListaTxt"){ cmContar(); }
     else if(t.closest("#cmMuns")){ cmEscolas(); cmContar(); } });
 
   async function renderAuditoria(){

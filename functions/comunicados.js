@@ -19,7 +19,9 @@ import { situacoesFormacao } from './formacao-uso.js';
 const REGIAO = 'southamerica-east1';
 const SENHA = defineSecret('COMUNICADOS_SMTP_SENHA');
 const PERFIS = { professor: 'Professores', gestor: 'Gestão da escola (direção e coordenação)', secretaria: 'Secretaria de Educação', aluno: 'Alunos',
-  pre: 'Pré-cadastrados que ainda não entraram no Portal novo' };
+  pre: 'Pré-cadastrados que ainda não entraram no Portal novo', lista: 'Lista colada (ex.: cadastros do site antigo)' };
+// id do destinatário sem conta no Portal (pré-cadastro ou lista colada): o mesmo e-mail tem sempre o mesmo id, e o "não quero receber" vale para os dois
+const idEmail = e => 'em_' + createHash('sha256').update(e).digest('hex').slice(0, 28);
 const TAM_LOTE = 400;
 const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia'];
 const msDe = v => v && v.toMillis ? v.toMillis() : (v && v._seconds ? v._seconds * 1000 : 0);
@@ -60,29 +62,43 @@ function normalizarPublico(p) {
   const formacao = ['nao_comecou', 'andamento', 'parado', 'concluiu'].includes(String(p && p.formacao || '')) ? String(p.formacao) : '';
   const escola = /^[A-Za-z0-9_-]{1,80}$/.test(String(p && p.escola || '')) ? String(p.escola) : '';
   if (!perfis.length) throw new HttpsError('invalid-argument', 'Escolha pelo menos um público.');
-  return { perfis, municipios, escola, licencas, vencidas, formacao };
+  // lista colada: [{ e: e-mail, n: nome }], até 8.000 linhas; só vale com o público "lista" marcado
+  const lista = perfis.includes('lista') ? (Array.isArray(p && p.lista) ? p.lista : []).slice(0, 8000)
+    .map(x => ({ e: String(x && x.e || '').trim().toLowerCase().slice(0, 120), n: txt(String(x && x.n || '').trim(), 80) })) : [];
+  if (perfis.includes('lista') && !lista.length) throw new HttpsError('invalid-argument', 'Cole a lista de e-mails.');
+  return { perfis, municipios, escola, licencas, vencidas, formacao, lista };
 }
 async function destinatarios(db, pub, tipo) {
   const out = [], vistos = new Set(); let semEmail = 0, sairam = 0, vencidasFora = 0;
   const sitF = pub.formacao ? await situacoesFormacao(db, null) : null;
   const off = new Set(); if (tipo !== 'servico') (await db.collection('comunicados_pref').where('off', '==', true).get()).forEach(d => off.add(d.id));
   // pré-cadastros (professores e equipe importados do site antigo ou pela rede) que ainda não entraram: convite para o primeiro acesso
-  if (pub.perfis.includes('pre')) {
-    const jaEntraram = new Set();
+  const jaEntraram = new Set();
+  if (pub.perfis.includes('pre') || pub.perfis.includes('lista'))
     (await db.collection('usuarios').select('email').get()).forEach(d => { const e = String(d.get('email') || '').trim().toLowerCase(); if (e) jaEntraram.add(e); });
+  if (pub.perfis.includes('pre')) {
     (await db.collection('pre_cadastros').where('status', '==', 'ativo').get()).forEach(d => {
       const u = d.data(), email = String(u.email || d.id).trim().toLowerCase();
       if (u.perfil === 'aluno' || jaEntraram.has(email)) return;
       if (pub.municipios.length && !pub.municipios.includes(u.municipio_id || '__sem')) return;
       if (pub.escola && u.escola_id !== pub.escola && !(u.escolas_ids || []).includes(pub.escola)) return;
       if (!okEmail(email)) { semEmail++; return; }
-      const uid = 'pre_' + createHash('sha256').update(email).digest('hex').slice(0, 28);
+      const uid = idEmail(email);
       if (off.has(uid)) { sairam++; return; }
       if (vistos.has(email)) return; vistos.add(email);
       out.push({ uid, email, nome: txt(String(u.nome || '').split(' ')[0], 40), perfil: 'pre', lic: '' });
     });
   }
-  for (const perfil of pub.perfis.filter(x => x !== 'pre')) {
+  // lista colada: quem já tem conta no Portal fica de fora (recebe pelos outros públicos)
+  for (const x of pub.lista) {
+    if (!okEmail(x.e)) { semEmail++; continue; }
+    if (jaEntraram.has(x.e)) continue;
+    const uid = idEmail(x.e);
+    if (off.has(uid)) { sairam++; continue; }
+    if (vistos.has(x.e)) continue; vistos.add(x.e);
+    out.push({ uid, email: x.e, nome: txt(x.n.split(' ')[0], 40), perfil: 'lista', lic: '' });
+  }
+  for (const perfil of pub.perfis.filter(x => x !== 'pre' && x !== 'lista')) {
     const sn = await db.collection('usuarios').where('perfil', '==', perfil).where('status', '==', 'ativo').get();
     sn.forEach(d => {
       const u = d.data();
@@ -162,7 +178,8 @@ export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, mem
     const tk = await tokens(db, r.lista);
     const ref = db.collection('comunicados_email').doc();
     const lotes = []; for (let i = 0; i < r.lista.length; i += TAM_LOTE) lotes.push(r.lista.slice(i, i + TAM_LOTE).map(x => ({ ...x, t: tk[x.uid] })));
-    await ref.set({ ...com, publico: pub, total: r.lista.length, enviados: 0, falhas: 0, lotes: lotes.length, status: quando > Date.now() ? 'agendado' : 'enviando',
+    const { lista: _l, ...pubSalvo } = pub; pubSalvo.lista_n = pub.lista.length;   // a lista colada não fica no documento (só nos lotes)
+    await ref.set({ ...com, publico: pubSalvo, total: r.lista.length, enviados: 0, falhas: 0, lotes: lotes.length, status: quando > Date.now() ? 'agendado' : 'enviando',
       agendado_para: Timestamp.fromMillis(quando), criado_em: FieldValue.serverTimestamp(), criado_por: txt(u.nome, 60), criado_por_uid: u.uid });
     for (let i = 0; i < lotes.length; i++) await ref.collection('envio_lotes').doc(String(i).padStart(3, '0')).set({ n: i, itens: lotes[i], prox: 0, falhas: [] });
     const pubTxt = pub.perfis.map(p => PERFIS[p]).join(', ') + (pub.municipios.length ? ' · ' + pub.municipios.length + ' município(s)' + (pub.municipios.includes('__sem') ? ' (inclui sem município)' : '') : ' · todos os municípios') + (pub.escola ? ' · 1 escola' : '') +
