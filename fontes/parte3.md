@@ -290,6 +290,8 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | `auditoria` | Trilha de auditoria do Portal (ver **Auditoria**) |
 | `uso_real`, `stats` | Uso real por semana e contadores do painel de uso. Só funções gravam, só admin lê |
 | `backup_config`, `backups_log` | Backup |
+| `busca_indice` | Índice compacto da busca geral do Início (`_meta` + partes `p01`, `p02`...). Só funções gravam; lê quem lê os catálogos (`licenciado()`) |
+| `buscas_mes` | O que a rede procura, por mês: termo normalizado e contadores (`n`, `zero`, `clique`), geral e por município, sem identificar a pessoa. Só funções gravam, só admin lê. TTL em `expira_em` (13 meses) |
 
 ### Regras de acesso que merecem atenção
 
@@ -336,6 +338,7 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 Em `fieldOverrides` do `firestore.indexes.json`:
 
 - **TTL** em `auditoria.expira_em`: o Firestore apaga sozinho o registro vencido (em geral até 24 h depois da data).
+- **TTL** em `buscas_mes.expira_em` (13 meses) e índice desligado em `buscas_mes.termos`, `buscas_mes.por_mun` e `busca_indice.itens`.
 - Índice desligado nos mapas grandes da frequência, da busca ativa e das entradas, para não pagar indexação desnecessária.
 - Índices próprios em `lembretes` (`proxima`, `proximo_aviso`).
 
@@ -417,6 +420,16 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 |---|---|---|
 | `linkArquivoNc` | callable | Link assinado para abrir no servidor NEWPC um item de `acervo` ou `acervo_rede` que tenha `nc_caminho` |
 
+### Busca geral do Início (`busca.js`)
+
+| Função | Tipo | O que faz |
+|---|---|---|
+| `indiceBusca` | agendada (a cada 2 h, 06:15 a 22:15) | Lê os catálogos publicados (`videos`, `jogos`, `atividades`, `biblioteca`, `colorir`, `acervo`) e grava o índice compacto em `busca_indice` (partes de até ~700 KB; imagem do Storage guardada só como caminho e token) |
+| `atualizarIndiceBusca` | callable, só admin | O mesmo, na hora (botão no Painel); registra na Auditoria |
+| `registrarBusca` | callable | Soma o termo em `buscas_mes/{AAAA-MM}` (geral e por município). Ignora termo com menos de 3 letras ou com 5+ dígitos. Não grava uid nem e-mail |
+
+No navegador, a busca lê `busca_indice/_meta` (1 leitura) e só baixa as partes quando o índice mudou (guarda em `localStorage`, chave `pde_busca_idx`). Acervo do município e Meus trabalhos são lidos na primeira busca da sessão. Ferramentas vêm dos próprios cartões da tela, que já seguem plano e perfil. O registro do termo é feito uma vez por termo por sessão, 2,5 s depois de parar de digitar ou ao abrir um resultado.
+
 ### Auditoria
 
 | Função | Tipo | O que faz |
@@ -485,6 +498,7 @@ Correção automática: múltipla escolha, verdadeiro ou falso, resposta curta (
 | A cada 5 min | `fecharProvasOnline` |
 | A cada 15 min | `emailPreCadastros`, `emailLembretes` |
 | De hora em hora, minuto 15 | `expirarSenhasProvisorias` |
+| A cada 2 h, das 06:15 às 22:15 | `indiceBusca` |
 | 02:17 diário | Workflow **Copiar acervo para o Nextcloud** (GitHub Actions, só arquivos novos) |
 | 03:15 diário | `limparFotosProvas` |
 | 03:17 diário | `limparFotosPortaria` |
@@ -519,6 +533,7 @@ Trilha de tudo o que acontece no Portal, para atender o pedido de auditar qualqu
 | Campos técnicos | `atualizado_em`, `ultimo_acesso`, `ultimo`, `em`, `ts` e semelhantes não contam como alteração |
 | Coleções ignoradas (`IGNORAR`) | A própria `auditoria`, contadores, presença ao vivo, filas internas e reações: `backups_log`, `stats`, `temas_populares`, `vistos`, `tele_sessoes`, `cmd`, `avisos_contador`, `rec_busca`, `uso_real`, `ia_uso`, `portal_ia_uso`, `freq_resumo`, `rede_feed`, `nc_mapa`, `qr_aulas`, `po_sala`, `turma_aluno_estado`, `turma_presenca`, `*_reacoes`, `tv_telas`, `tv_pareamentos`, `portaria_vistas` |
 | Documento ignorado | `config/nc_copia` |
+| Busca geral | `busca_indice` e `buscas_mes` estão em `IGNORAR` (índice refeito a cada 2 h e contadores). A busca de cada pessoa **não** é auditada, por decisão de privacidade (é leitura e já é agregada sem identificar). O botão **Atualizar o índice** grava um registro próprio |
 | Retenção | `expira_em` = gravação + 183 dias. A política de TTL apaga sozinha |
 
 A tela busca por período com um filtro de igualdade no banco (pessoa, município ou ação, nessa ordem de prioridade), filtra o resto na tela, carrega de 300 em 300 e exporta com **Exportar planilha (CSV)**.
@@ -565,7 +580,7 @@ Ficam em `scripts/`. Os que usam `firebase-admin` rodam na pasta `functions` (pe
 | `fotos-portal-ia.mjs`, `consulta-foto-card.mjs` | Fotos dos cards com os personagens da NEWPC | Não (grava em `functions/saida/`) |
 | `publicar-documento.mjs` | PDF para a Documentação/Ajuda, com versões | Sim |
 | `limpar-testes.mjs`, `inventario-dados.mjs` | Limpeza dos dados de teste e da Rede Modelo; inventário demonstração x real | Só com `--executar`; não |
-| `consulta-*.mjs` | Consultas para decisão e diagnóstico (auditoria, acervo, Portal IA, rede, uso real, logs) | A maioria não (ver o aviso acima) |
+| `consulta-*.mjs` | Consultas para decisão e diagnóstico (auditoria, acervo, Portal IA, rede, uso real, logs, `busca-indice` para medir o índice da busca e `buscas` para o que a rede procura) | A maioria não (ver o aviso acima) |
 | `diag-provas-online.mjs` | Diagnóstico das provas online | Não |
 | `enviar-historico.mjs` | Envia uma vez o histórico de cadastros e Dicas em CSV | Não grava, envia e-mail |
 | `importar-atividades.mjs` | Banco Curricular do Drive para Atividades | Só com `--gravar` |
@@ -598,6 +613,7 @@ Scripts que usam o `firebase-admin` precisam terminar com `process.exit(0)`, sen
 | Script | Cobre |
 |---|---|
 | `teste-regras-apps.mjs` | Aplicativos, gestão escolar e a maior parte das regras gerais |
+| `teste-regras-busca.mjs` | Busca geral: índice lido por licenciados, buscas só pelo admin, ninguém grava pelo navegador |
 | `teste-regras-aluno.mjs` | Perfil aluno |
 | `teste-regras-extras.mjs` | Liberações exclusivas do professor |
 | `teste-regras-grade.mjs`, `teste-regras-substituicao.mjs` | Grade das turmas e substituição de professor |

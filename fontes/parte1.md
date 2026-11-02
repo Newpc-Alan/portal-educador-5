@@ -79,11 +79,12 @@ O Início reúne o que você usa no dia a dia e o que está liberado para você.
 De cima para baixo:
 
 1. **Saudação** com o seu município e escola.
-2. **Cartões da aula**: **Dar aula agora** (Turma ao Vivo) e, quando o Portal Maestro está no plano, **Sala de aula gerenciada** com **▶ Abrir sala gerenciada** e **Lousa**. Com uma aula aberta, o primeiro cartão vira **🟢 Aula do 6º Ano A em andamento**, com o horário de término e **↩ Voltar para a aula**.
-3. **Para hoje**: as pendências reais do dia. Turmas sem chamada, prova na sala de espera, prova em andamento ou agendada para hoje e respostas abertas para corrigir. Sem pendência, aparece **Tudo em dia por aqui**.
-4. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
-5. **Notícia em destaque** (veja "Notícias e pesquisas rápidas").
-6. **O que você quer fazer?**: cartões grandes com foto, em três faixas:
+2. **Busca do Portal** (veja logo abaixo).
+3. **Cartões da aula**: **Dar aula agora** (Turma ao Vivo) e, quando o Portal Maestro está no plano, **Sala de aula gerenciada** com **▶ Abrir sala gerenciada** e **Lousa**. Com uma aula aberta, o primeiro cartão vira **🟢 Aula do 6º Ano A em andamento**, com o horário de término e **↩ Voltar para a aula**.
+4. **Para hoje**: as pendências reais do dia. Turmas sem chamada, prova na sala de espera, prova em andamento ou agendada para hoje e respostas abertas para corrigir. Sem pendência, aparece **Tudo em dia por aqui**.
+5. **📢 Novidades da sua rede**: os últimos materiais que colegas do município compartilharam (veja "Educador em Rede").
+6. **Notícia em destaque** (veja "Notícias e pesquisas rápidas").
+7. **O que você quer fazer?**: cartões grandes com foto, em três faixas:
 
    | Faixa | Cartões |
    |---|---|
@@ -92,12 +93,40 @@ De cima para baixo:
    | **Minha escola** | **Reservar equipamento**, **Avisar defeito** (chamado técnico), **Calendário da escola** e **Aviso na TV da escola** |
 
    Os cartões mostram selos como "2 turmas sem chamada" ou "5 para corrigir". Cada cartão segue o plano do município: o que não foi contratado aparece em "Conheça mais do Portal". Dentro de qualquer ferramenta, o botão **← Voltar ao Portal**, no topo, traz de volta ao Início. A Folha Mágica e o Teleprompter ficam em **Aplicativos Úteis** (em "Mais recursos do Portal") e voltam para lá com **← Aplicativos**.
-7. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
-8. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
-9. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
+8. **Mais recursos do Portal** (recolhido): Vídeos, Jogos, Atividades, Biblioteca, Datas e os demais módulos do plano. O Portal lembra se você deixou aberto ou fechado.
+9. **Conheça mais do Portal**: recursos que ainda não estão liberados para você, em tamanho menor. Toque para ver a apresentação do recurso.
+10. **Próximas datas** comemorativas, com o kit de conteúdos de cada uma.
 
 :::nota
 Se o plano do município tem poucas ações liberadas, os módulos de conteúdo contratados sobem para os cartões grandes em vez de ficar em "Mais recursos". Professor com licença avulsa não vê os cartões que dependem de turmas da rede (chamada, notas, provas online).
+:::
+
+### Busca do Portal
+
+A caixa **O que você procura?**, no topo do Início, procura em todo o Portal de uma vez. Escreva do seu jeito: "chamada", "jogo de frações", "alfabetização" ou um código da BNCC, como **EF03MA01**.
+
+<!-- captura: busca do Início aberta com Ferramentas, Conteúdos e Meus trabalhos -->
+
+Os resultados aparecem enquanto você digita, em três grupos:
+
+| Grupo | O que traz | Ao tocar |
+|---|---|---|
+| **Ferramentas** | Os cartões do Início, o menu e os Aplicativos Úteis | Abre a ferramenta, como no cartão |
+| **Conteúdos** | Vídeos, jogos, atividades e planos, livros, histórias, desenhos e o acervo da sua rede | Vídeo, jogo e atividade abrem na hora; livro e desenho abrem na Biblioteca ou no Colorir; arquivo abre no Acervo, já filtrado |
+| **Meus trabalhos** | Suas provas, aulas da Lousa, materiais do Portal IA, roteiros e folhas | Abre o trabalho |
+
+- A busca entende sinônimos do dia a dia: "frequência" ou "falta" acham a chamada, "boletim" acha as notas, "parecer" acha a Central de Relatórios, "quebrou" acha Avisar defeito.
+- Acento não importa: "fracoes" acha "Frações".
+- No teclado: setas para escolher, **Enter** para abrir, **Esc** para fechar. **Ctrl+K** (no Mac, **Cmd+K**) abre a busca de qualquer tela.
+- **Ver mais** mostra o restante de um grupo.
+- O que está fora do plano do município aparece com o selo **🔒 Conheça** e abre a apresentação do recurso.
+
+:::nota
+A primeira busca do dia pode levar alguns segundos: o Portal baixa a lista de conteúdos uma vez e guarda no aparelho. Conteúdo publicado agora entra na busca em até 2 horas (no próprio módulo, aparece na hora).
+:::
+
+:::nota
+Para melhorar o Portal, contamos quais palavras são buscadas e quais não acham nada, somadas por município. **Não guardamos quem buscou.**
 :::
 
 ### O que significam os selos
@@ -896,6 +925,8 @@ O gestor (diretor ou coordenador) tem no menu: **Início**, **Painel da Escola**
 
 <!-- captura: Início da Direção com A escola hoje, Para hoje, Substituições de hoje e os atalhos com foto -->
 
+No topo fica a mesma **Busca do Portal** do professor (veja "Busca do Portal"): ache qualquer ferramenta da escola pelo nome do dia a dia, como "boletim", "substituição" ou "carteirinha".
+
 1. **A escola hoje**: presença do dia, chamadas feitas, alunos em alerta e chamados técnicos.
 2. **Para hoje**: pendências reais da escola.
 3. **Substituições de hoje**, com o botão **Professor faltou** (veja abaixo).
@@ -1016,7 +1047,7 @@ TV antiga que não roda o player? Abra `app.portaldoeducador.com.br/tv/teste/` n
 
 ## Secretaria escolar e Portaria
 
-**Secretaria escolar**: o Início traz os atalhos do dia a dia em duas faixas. **Atendimento**: **Ficha do aluno**, **Famílias**, **Busca ativa** e **Boletim escolar**. **Rotina**: **Portaria e mural de chegada**, **Grade das turmas** e **Calendário da escola**. A tela **Gestão Escolar**, no menu, continua reunindo tudo: Famílias, busca ativa, portaria, mural de chegada, carteirinhas, auditoria, comunicados, Grade das turmas, Ficha do Aluno e **Boletim escolar** (boletim de cada aluno, uma página por aluno ou a turma inteira, com brasão e assinaturas). Quem liga e desliga os avisos automáticos é o gestor; a secretaria escolar acompanha os envios e manda comunicados.
+**Secretaria escolar**: o Início traz a **Busca do Portal** no topo e os atalhos do dia a dia em duas faixas. **Atendimento**: **Ficha do aluno**, **Famílias**, **Busca ativa** e **Boletim escolar**. **Rotina**: **Portaria e mural de chegada**, **Grade das turmas** e **Calendário da escola**. A tela **Gestão Escolar**, no menu, continua reunindo tudo: Famílias, busca ativa, portaria, mural de chegada, carteirinhas, auditoria, comunicados, Grade das turmas, Ficha do Aluno e **Boletim escolar** (boletim de cada aluno, uma página por aluno ou a turma inteira, com brasão e assinaturas). Quem liga e desliga os avisos automáticos é o gestor; a secretaria escolar acompanha os envios e manda comunicados.
 
 **Portaria**: ao entrar, vai direto para a tela de entrada. Ligue a câmera (ou o leitor USB) e as leituras aparecem com som: "✅ Bom dia, Ana!". Sem internet, as leituras ficam guardadas e sobem depois.
 

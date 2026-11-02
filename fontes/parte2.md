@@ -566,7 +566,7 @@ Menu **Painel**, com seis abas. **Todo número, barra e linha é clicável**: ab
 | Pessoas e uso | Cadastros, testes, conversão, licenças vencendo, aguardando aprovação, alunos, quem acessou (hoje e em 7 dias, com os botões abertos), cadastros e acessos por dia (clique na barra do dia), professores por estado, **pessoas por perfil**, **entradas por tela** (da Auditoria, com IP), botões mais abertos, recursos mais pedidos fora do plano, arquivos do acervo mais abertos e últimos cadastros |
 | Portal IA e créditos | Usos, créditos consumidos e custo estimado do mês; **redes com saldo baixo** (20% ou menos); **pedidos de recarga pendentes**; alertas de saldo; usos por tipo; quem mais consumiu; e a tabela de **contas de créditos** (clique numa conta para ver os movimentos: quando, quem, quanto e em quê) |
 | Sala Conectada e rede | Educador em Rede (compartilhados, publicados, **aguardando aprovação**, ocultos, com denúncia, por município); envios para a turma, entradas de alunos pelo cartão QR e envios às famílias, com gráfico por dia |
-| Conteúdo e participação | Rede atendida, conteúdo publicado, Novidades em uso, **acervo dos municípios** (arquivos, material NEWPC, por município), participação e as pendências com atalho. Cada cartão abre a lista do banco (até 1.000 itens) |
+| Conteúdo e participação | Rede atendida, conteúdo publicado, Novidades em uso, **acervo dos municípios** (arquivos, material NEWPC, por município), **O que a rede procura** (veja abaixo), participação e as pendências com atalho. Cada cartão abre a lista do banco (até 1.000 itens) |
 | Infraestrutura e custos | Leituras e gravações do banco, armazenamento, funções e erros, **registros de auditoria por dia** (clique no dia para ver o que aconteceu), Servidor NEWPC e atalhos para os consoles |
 | 💾 Backup | Backup manual e semanal automático |
 
@@ -582,6 +582,19 @@ A tabela "Interesse por município" é argumento de venda: mostra quantos profes
 
 :::regra
 Envios para a turma, avisos às famílias e entradas por tela vêm da **Auditoria**, que começou em 01/11/2026. Antes dessa data não há registro nominal desses eventos. O Painel lê os dados direto do banco a cada abertura; quando a base passar de uns 2 mil usuários, a NEWPC vai ligar um resumo calculado pelo servidor para manter a tela rápida e barata.
+:::
+
+### O que a rede procura
+
+Na aba **Conteúdo e participação**, o bloco **O que a rede procura** mostra o que professores e gestores digitaram na busca do Início no mês: total de buscas, **procuraram e não acharam**, quantos abriram um resultado, municípios buscando e quantos conteúdos estão na busca.
+
+- **Mais procurados** e **Procurados e não achados**: clique no termo para ver os números por município.
+- Os termos aparecem sem acento e em minúsculas, do jeito que são somados ("educacao financeira").
+- Nada identifica a pessoa: só o termo e os contadores, por município. Números longos (CPF, telefone, matrícula) nem são guardados. Cada mês fica guardado por 13 meses.
+- **Atualizar o índice da busca agora**: refaz na hora a lista de conteúdos da busca (ela se refaz sozinha a cada 2 horas, das 6h às 22h). Use depois de publicar muitos conteúdos de uma vez. A ação fica na Auditoria.
+
+:::dica
+"Procurados e não achados" é a pauta de produção de conteúdo: o que os professores querem e o Portal ainda não tem. Por município, é argumento para a conversa com a Secretaria ("seus professores procuraram alfabetização 300 vezes este mês").
 :::
 
 ### Backup
