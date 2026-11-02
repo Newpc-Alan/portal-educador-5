@@ -452,6 +452,8 @@
   #avMae .ca-linha{ background:#0f2c4a;color:#fff;border-radius:14px;padding:10px 14px }
   .ca-bts{ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px } @media (max-width:1200px){ .ca-bts{ grid-template-columns:repeat(3,minmax(0,1fr)) } } @media (max-width:700px){ .ca-bts{ grid-template-columns:1fr 1fr } }
   .ca-qz .btn-mini{ font:inherit;font-size:13px;font-weight:800;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:10px;padding:6px 10px;cursor:pointer } .ca-qz .btn-qz-fim{ background:#1a6b2a;border-color:#1a6b2a;color:#fff;margin-left:auto }
+  .ce-sim{ background:#c62828;color:#fff;border:0 } .ce-sim:hover{ background:#a91f1f }
+  .hj-bts{ display:flex;flex-wrap:wrap;gap:0 8px } .hj-bts .hj-btn{ padding:9px 12px } .hj-btn.hj-enc{ background:#fff;color:#c62828;box-shadow:inset 0 0 0 2px #c62828 }
   .pq-acervo{ display:grid;gap:8px;margin-top:8px } .pq-grupo{ display:flex;flex-wrap:wrap;gap:6px;align-items:center } .pq-grupo small{ width:100%;font-weight:800;color:#5b6b7b;font-size:12px }
   .pq-chip{ font:inherit;font-size:13.5px;border:1.5px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:6px 11px;cursor:pointer } .pq-chip:hover,.pq-chip.on{ border-color:#1a6b2a;background:#eaf6dc }
   .qz-abas{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px } .qz-abas button{ font:inherit;font-weight:800;font-size:14px;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:7px 14px;cursor:pointer } .qz-abas button.on{ background:#0f2c4a;border-color:#0f2c4a;color:#fff }
@@ -7293,6 +7295,7 @@
     else if(acao === "ini-enviar-turma"){ janelaEnviarTurma(el.dataset.turma || ""); }
     else if(acao === "ini-ao-vivo"){ abrirAoVivo(); }
     else if(acao === "dar-aula"){ darAula(); }
+    else if(acao === "ini-encerrar-aula"){ encerrarAulaInicio(el.dataset.arg, el); }
     else if(acao === "nt-compartilhar"){ compartilharNoticia(el.dataset.id); }
     else if(acao === "nt-faixa-reagir"){ reagirFaixa(el.dataset.arg); }
     else if(acao === "av-mais"){ if(!AV.tid) return; el.disabled = true; chamarEntradaQr({ turma_id:AV.tid, acao:"prorrogar", minutos:10 }).then(r => { toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); qrAoVivo("ver"); }).catch(e => toast(e && e.message ? e.message : "Não deu para prorrogar agora.", true)).finally(() => { el.disabled = false; }); }
@@ -9068,12 +9071,12 @@
   function htmlCartaoAula(){
     const okVivo = temRecurso("turma_ao_vivo"), okSala = temRecurso("sala_digital");
     if(usuarioAtual._avulso || (!okVivo && !okSala)) return "";
-    const aberta = Object.values(TA.aulas).filter(a => a.ate > Date.now()).sort((a, b) => a.ate - b.ate)[0];
+    const abertaE = Object.entries(TA.aulas).filter(([, a]) => a.ate > Date.now()).sort((x, y) => x[1].ate - y[1].ate)[0], aberta = abertaE && abertaE[1];
     if(aberta && okVivo){
       const falta = Math.max(1, Math.ceil((aberta.ate - Date.now()) / 60e3));
       return '<div class="hj-card verde hj-aula on" id="cartaoAula"><span class="hj-img" style="background-image:url(\'' + fotoAcao("turma-ao-vivo") + '\'),url(\'' + fotoAcao("turmas") + '\')"></span>' +
         '<span class="hj-tx"><b>🟢 Aula do ' + escapeHtml(aberta.nome) + ' em andamento</b><small>Até ' + horaCurta(aberta.ate) + ' · faltam ' + falta + ' min. Os alunos entram com o cartão.</small>' +
-        '<button type="button" class="hj-btn" data-action="dar-aula">↩ Voltar para a aula</button></span></div>';
+        '<span class="hj-bts"><button type="button" class="hj-btn" data-action="dar-aula">↩ Voltar para a aula</button><button type="button" class="hj-btn hj-enc" data-action="ini-encerrar-aula" data-arg="' + escapeAttr(abertaE[0]) + '" title="Encerrar a aula agora">⏹ Encerrar</button></span></span></div>';
     }
     return '<div class="hj-card verde hj-aula" id="cartaoAula"><span class="hj-img" style="background-image:url(\'' + fotoAcao("turma-ao-vivo") + '\'),url(\'' + fotoAcao("turmas") + '\')"></span>' +
       '<span class="hj-tx"><b>Dar aula agora</b><small>Escolha a turma e o tempo: os alunos entram com o cartão, você envia o conteúdo e vê quem está na sala.</small>' +
@@ -9118,8 +9121,10 @@
   // entrada por QR da turma (cartão do aluno): o professor escolhe o tempo da aula, direto do painel ao vivo
   async function qrAoVivo(acao){
     const b = $("avQr"), tid = AV.tid; if(!b || !tid) return;
-    if(acao === "fechar" && b.dataset.confirma !== "1"){ b.dataset.confirma = "1"; b.textContent = "Fechar a entrada? Toque de novo"; setTimeout(() => { if(b.dataset.confirma === "1"){ delete b.dataset.confirma; pintarQrAoVivo(); } }, 4000); return; }
-    delete b.dataset.confirma; b.disabled = true; if(acao === "fechar") b.textContent = "Fechando...";
+    if(acao === "fechar"){ const nomeT = ($("avTurma") && $("avTurma").selectedOptions[0] || {}).textContent || "";
+      if(!(await confirmarEncerrar(nomeT))) return;
+      await arrumarAntesDeEncerrar(); }
+    b.disabled = true; if(acao === "fechar") b.textContent = "Encerrando...";
     try{
       let r;
       if(acao === "abrir"){ const sel = $("avTurma"); r = await abrirTempoAula(tid, sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : ""); if(!r){ pintarQrAoVivo(); return; } }
@@ -9132,8 +9137,42 @@
       atualizarCartaoAula();
     }catch(e){ console.warn("qr:", e); if(AV.tid === tid){ AV.qrAte = null; b.disabled = false; b.className = "av-qr"; b.textContent = "QR: tentar de novo"; b.dataset.prox = "ver"; } }
   }
+  // o professor encerra quando quiser (nov/2026): confirmação clara, sem o "toque de novo"
+  function confirmarEncerrar(nome){
+    return new Promise(ok => {
+      const v = $("ceFundo"); if(v) v.remove();
+      const f = document.createElement("div"); f.id = "ceFundo"; f.className = "et-fundo";
+      const qz = AVV.tid && quizAtivo();
+      f.innerHTML = '<div class="et-jan" role="alertdialog" aria-modal="true" aria-labelledby="ceTit"><div class="et-topo"><h3 id="ceTit">⏹ Encerrar a aula' + (nome ? " do " + escapeHtml(nome) : "") + '?</h3></div><div class="et-corpo">' +
+        '<p class="et-d">A aula termina agora: as telas são liberadas, quem entrou pelo cartão sai da conta e o Controle da aula se fecha. Os materiais enviados continuam em “Enviados” e no histórico dos alunos.' +
+        (qz ? "<br><b>O quiz em andamento será encerrado e o relatório fica salvo em Meus trabalhos.</b>" : "") + '</p>' +
+        '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-ce="nao">Continuar a aula</button><button type="button" class="btn ce-sim" data-ce="sim">⏹ Encerrar agora</button></div></div></div>';
+      document.body.appendChild(f);
+      const fim = v => { f.remove(); ok(v); };
+      f.addEventListener("click", e => { const b = e.target.closest("[data-ce]"); if(b) fim(b.dataset.ce === "sim"); });
+      f.addEventListener("keydown", e => { if(e.key === "Escape") fim(false); });
+      f.querySelector('[data-ce="nao"]').focus();
+    });
+  }
+  // antes de fechar: guarda o relatório do quiz aberto e tira a pausa das telas
+  async function arrumarAntesDeEncerrar(){
+    try{ if(AVV.tid && quizAtivo()) await encerrarQuiz(null, true); }catch(e){ console.warn("quiz ao encerrar:", e); }
+    try{ if(AVV.tid && (AVV.doc.pausa || Object.values(AVV.doc.pausa_alunos || {}).some(Boolean))) await avvSet({ pausa:false, pausa_alunos:{} }); }catch(e){}
+  }
+  // encerrar pelo cartão do Início (sem entrar na Turma ao Vivo)
+  async function encerrarAulaInicio(tid, el){
+    const a = TA.aulas[tid]; if(!a) return;
+    if(!(await confirmarEncerrar(a.nome))) return;
+    if(el){ el.disabled = true; el.textContent = "Encerrando..."; }
+    try{ if(AVV.tid === tid) await arrumarAntesDeEncerrar();
+      else { await setDoc(doc(db, "aula_vivo", tid), { pausa:false, pausa_alunos:{}, atualizado_em:serverTimestamp(), por:usuarioAtual.uid }, { mergeFields:["pausa", "pausa_alunos", "atualizado_em", "por"] }).catch(() => {}); }
+      await chamarEntradaQr({ turma_id:tid, acao:"fechar" }); delete TA.aulas[tid]; atualizarCartaoAula();
+      if(AV.tid === tid){ AV.qrAte = 0; pintarQrAoVivo(); }
+      toast("Aula encerrada. Quem entrou pelo cartão sai agora."); }
+    catch(e){ console.warn(e); toast("Não deu para encerrar agora (" + (e.code || "erro") + "). Tente de novo.", true); if(el){ el.disabled = false; el.textContent = "⏹ Encerrar aula"; } }
+  }
   function pintarQrAoVivo(){
-    const b = $("avQr"); if(!b || AV.qrAte === null || b.dataset.confirma) return;
+    const b = $("avQr"); if(!b || AV.qrAte === null) return;
     const aberto = AV.qrAte > Date.now(); b.disabled = false;
     b.className = "av-qr " + (aberto ? "encerrar" : "fechado"); b.dataset.prox = aberto ? "fechar" : "abrir";
     const falta = Math.ceil((AV.qrAte - Date.now()) / 60e3), st = $("avStatus"), mais = $("avMais");
@@ -9656,7 +9695,7 @@
         catch(err){ console.warn(err); $("qzMsg").textContent = "Não deu para lançar agora (" + (err.code || "erro") + ")."; b.disabled = false; } }
     });
   }
-  async function encerrarQuiz(el){
+  async function encerrarQuiz(el, silencioso){
     const q = quizAtivo(); if(!q) return;
     if(el) el.disabled = true;
     try{ const g = await quizGuardado(q.id); if(!g){ toast("Não encontrei o gabarito deste quiz na sua conta.", true); return; }
@@ -9667,7 +9706,7 @@
       Object.assign(g, { resultado, status:"encerrado", encerrado_em:Timestamp.now() });
       // a correção vai para a tela de cada aluno (cada um vê só as próprias respostas)
       await avvSet({ quiz:{ id:q.id, titulo:q.titulo, perguntas:q.perguntas, ativa:false, gab:g.perguntas.map(p => p.gab), em:q.em || Date.now() } });
-      relatorioQuiz(g);
+      if(silencioso) toast("🧠 Quiz encerrado: o relatório está em Meus trabalhos › Quizzes rápidos."); else relatorioQuiz(g);
     }catch(e){ console.warn(e); toast("Não deu para encerrar agora (" + (e.code || "erro") + ").", true); }
     finally{ if(el) el.disabled = false; }
   }
