@@ -407,6 +407,8 @@
   .av-al{ display:grid;justify-items:center;gap:6px;padding:10px 6px;border-radius:14px;background:#f4f6f8;opacity:.55;transition:opacity .3s,background .3s }
   .av-av{ width:48px;height:48px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:16px;background:#cfd8e2;color:#5b6b7b;border:3px solid transparent }
   .av-nm{ font-size:12.5px;text-align:center;line-height:1.2 }
+  .av-al.fora{ opacity:1;background:#fdecec } .av-al.fora .av-av{ background:#c62828;color:#fff;border-color:#ef9a9a;box-shadow:0 0 0 4px rgba(198,40,40,.18) } .av-al.fora .av-nm{ font-weight:700;color:#a11d1d }
+  .av-leg-cor{ display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#62758a;margin-left:auto } .av-leg-cor i{ display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px }
   .av-al.on{ opacity:1;background:#eef7e3 } .av-al.on .av-av{ background:#1a6b2a;color:#fff;border-color:#8DC63F;box-shadow:0 0 0 4px rgba(141,198,63,.25) } .av-al.on .av-nm{ font-weight:700;color:#1a5a24 }
   .av-busca{ display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:10px } .av-busca h4{ margin:0 }
   .av-busca input,.av-busca select{ font:inherit;padding:8px 10px;border:1px solid #cfdbe7;border-radius:10px;min-height:40px;min-width:0 }
@@ -2054,7 +2056,7 @@
     console.warn("retorno do login:", e.code);
     showMsg(traduzErro(e.code), "error");
   }).finally(() => { try{ sessionStorage.removeItem("pde_login_redirect"); }catch(err){} });
-  $("btnSair").addEventListener("click", () => signOut(auth));
+  $("btnSair").addEventListener("click", () => sairDaConta());
 
   // ===================== SENHA PROVISÓRIA =====================
   // mostra a senha provisória uma única vez, com botões para copiar e para mandar por WhatsApp
@@ -6759,7 +6761,7 @@
     else if(acao === "ini-conheca"){ abrirConheca(el); }
     else if(acao === "ini-conheca-fechar"){ fecharConheca(); }
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
-    else if(acao === "alu-sair"){ signOut(auth); }
+    else if(acao === "alu-sair"){ sairDaConta(); }
     else if(acao === "mt-abrir"){ abrirMaterialAluno(el.dataset.arg); desenharMateriaisAluno(); }
     else if(acao === "mt-site"){ abrirSiteAluno(ev, el); }
     else if(acao === "mt-fechar"){ if(document.fullscreenElement) document.exitFullscreen().catch(() => {}); const f = $("mtFundo"); if(f){ mtFechar(f.dataset.id); f.remove(); } desenharMateriaisAluno(); if($("mhFundo")) desenharHistAulas(); }
@@ -6916,7 +6918,7 @@
     }
     else if(acao === "sim-trocar"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo(null); mostrarEscolhaAdmin(); }
     else if(acao === "sim-sair"){ if(usuarioReal) usuarioAtual = usuarioReal; usuarioReal = null; guardarVerComo({ perfil:"admin" }); abrirApp(); }
-    else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} signOut(auth); }
+    else if(acao === "aluno-outra-conta"){ try{ sessionStorage.setItem("pde_como","aluno"); }catch(e){} sairDaConta(); }
     else if(acao === "aluno-sou-professor"){ try{ sessionStorage.setItem("pde_como","professor"); }catch(e){} usuarioAtual.alunoSemAcesso = false; abrirApp(); }
     else if(acao === "dir-faltou"){ abrirFaltou(); }
     else if(acao === "sb-fechar"){ fecharFaltou(); }
@@ -8362,7 +8364,7 @@
         '<button type="button" class="av-ac" data-action="av-feitos"><span>📁</span>Enviar algo que já fiz</button>' +
         '<button type="button" class="av-ac" data-action="av-lousa"><span>🖼️</span>Abrir a Lousa</button>' +
         '<a class="av-ac" href="/provas/" target="_blank" rel="noopener"><span>📝</span>Aplicar prova online</a></div>' +
-      '<div class="av-corpo"><section class="av-sala"><h4>Na sala <small>atualiza sozinho</small></h4><div id="avAlunos" class="av-alunos">Carregando...</div></section>' +
+      '<div class="av-corpo"><section class="av-sala"><h4 style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">Na sala <small>atualiza sozinho</small><span class="av-leg-cor"><span><i style="background:#1a6b2a"></i>na aula</span><span><i style="background:#c62828"></i>saiu da página</span><span><i style="background:#cfd8e2"></i>fora do Portal</span></span></h4><div id="avAlunos" class="av-alunos">Carregando...</div></section>' +
         '<section class="av-env-sec"><div class="av-busca"><h4>Enviados</h4><input id="avQ" type="search" placeholder="Buscar pelo tema" aria-label="Buscar nos conteúdos enviados">' +
           '<select id="avPer" aria-label="Período"><option value="">Tudo</option><option value="hoje">Hoje</option><option value="7">7 dias</option><option value="30">30 dias</option></select></div>' +
           '<div id="avMats" class="av-mats">Carregando...</div></section></div></div>';
@@ -8475,7 +8477,7 @@
       const f = document.createElement("div"); f.id = "faFundo"; f.className = "fa-fundo";
       f.innerHTML = '<div class="fa-caixa"><div class="fa-ic">👋</div><b>A aula terminou</b><span>Saindo da sua conta para o próximo colega usar o aparelho.</span></div>';
       document.body.appendChild(f);
-      setTimeout(async () => { try{ await signOut(auth); }catch(e){} f.remove(); }, 6000);
+      setTimeout(async () => { try{ await sairDaConta(); }catch(e){} f.remove(); }, 6000);
     }
   }
   /* ---------- Dar aula agora: turma -> tempo -> aula aberta (entrada por QR + Turma ao Vivo), num caminho só ---------- */
@@ -8594,19 +8596,25 @@
     if(mais) mais.hidden = !aberto;
   }
   const msAv = x => x && x.toMillis ? x.toMillis() : 0;
-  const onlineAv = id => { const p = AV.pres[id]; return !!p && !p.fora && Date.now() - msAv(p.em) < ON_MS; };
+  const onlineAv = id => { const p = AV.pres[id]; return !!p && !p.fora && !p.saiu && Date.now() - msAv(p.em) < ON_MS; };
+  // três estados (nov/2026): verde = na aula; vermelho = saiu da página (trocou de aba, fechou ou o tablet apagou) sem sair da conta;
+  // sem cor = saiu da conta ou não entrou. Sinal com mais de 3 h é de outra aula: sem cor.
+  const FORA_MS = 3 * 3600e3;
+  const estadoAv = id => { const p = AV.pres[id]; if(!p || p.saiu) return ""; if(onlineAv(id)) return "on"; return Date.now() - msAv(p.em) < FORA_MS ? "fora" : ""; };
+  const ORD_AV = { on:0, fora:1, "":2 };
   const listaAv = () => AV.alunos.length ? AV.alunos : Object.entries(AV.pres).map(([id, p]) => ({ id, nome:p.nome || "Aluno" }));
   function desenharAoVivo(){
     const box = $("avAlunos"); if(!box){ pararAoVivo(); return; }
     const lista = listaAv(), n = lista.filter(a => onlineAv(a.id)).length, tot = lista.length;
-    $("avKOn").textContent = n; $("avKOnT").textContent = tot ? "de " + tot + " na sala agora" : "na sala agora";
+    const nFora = lista.filter(a => estadoAv(a.id) === "fora").length;
+    $("avKOn").textContent = n; $("avKOnT").textContent = (tot ? "de " + tot + " na sala agora" : "na sala agora") + (nFora ? " · " + nFora + (nFora > 1 ? " saíram" : " saiu") + " da página" : "");
     $("avKEnv").textContent = AV.mats.length + (AV.mats.length >= 200 ? "+" : "");
     const ult = AV.mats[0], vu = ult && AV.vistos[ult.id];
     $("avKUlt").textContent = ult && vu ? Object.keys(vu).length + (tot ? "/" + tot : "") : "–";
     $("avKUltT").textContent = ult ? "abriram “" + String(ult.titulo || "o último").slice(0, 28) + "”" : "nada enviado ainda";
     const html = !tot ? '<p class="av-leg">Nenhum aluno cadastrado nesta turma.</p>' :
-      lista.slice().sort((a, b) => (onlineAv(b.id) - onlineAv(a.id)) || a.nome.localeCompare(b.nome, "pt-BR")).map(a => { const on = onlineAv(a.id);
-        return '<div class="av-al' + (on ? " on" : "") + '" title="' + escapeAttr(a.nome) + (on ? " · na sala" : " · fora") + '"><span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></div>"; }).join("");
+      lista.slice().sort((a, b) => (ORD_AV[estadoAv(a.id)] - ORD_AV[estadoAv(b.id)]) || a.nome.localeCompare(b.nome, "pt-BR")).map(a => { const st = estadoAv(a.id);
+        return '<div class="av-al' + (st ? " " + st : "") + '" title="' + escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") + '"><span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></div>"; }).join("");
     if(box.innerHTML !== html) box.innerHTML = html;
     desenharMatsAoVivo();
   }
@@ -8631,11 +8639,19 @@
   const MT = { unsub:null, lista:[], abertos:new Set(), primeira:true, tid:"", chave:"", pulso:null };
   // Turma ao vivo: enquanto o Portal do Aluno está aberto (e visível), avisa a cada minuto que o aluno está ali
   function pulsoAluno(forcarFora){
-    if(!MT.tid || !MT.chave || !MT.viaQr) return;   // Turma ao Vivo é só de quem entrou pelo cartão (QR) na sala
+    if(!MT.tid || !MT.chave || !MT.viaQr || MT.saindo) return;   // Turma ao Vivo é só de quem entrou pelo cartão (QR) na sala
     const fora = forcarFora === true || document.visibilityState !== "visible";   // saiu do Portal: avisa na hora, o professor vê sem esperar
     if(fora && MT.foraEnviado) return; MT.foraEnviado = fora;
     setDoc(doc(db, "turma_presenca", MT.tid, "alunos", MT.chave), { nome:String(usuarioAtual.nome || "Aluno").slice(0, 80), em:serverTimestamp(), fora }).catch(e => console.warn("presença:", e.code));
   }
+  // saiu da conta: avisa o professor (o aluno fica sem cor) antes de desconectar; sem isso ele ficaria vermelho (saiu da página)
+  async function marcarSaidaAluno(){
+    if(!MT.tid || !MT.chave || !MT.viaQr || MT.saindo) return;
+    MT.saindo = true; clearInterval(MT.pulso); MT.pulso = null;
+    const gravar = setDoc(doc(db, "turma_presenca", MT.tid, "alunos", MT.chave), { nome:String(usuarioAtual.nome || "Aluno").slice(0, 80), em:serverTimestamp(), fora:true, saiu:true });
+    await Promise.race([gravar.catch(e => console.warn("presença (saída):", e.code)), new Promise(r => setTimeout(r, 2500))]);
+  }
+  async function sairDaConta(){ try{ await marcarSaidaAluno(); }catch(e){} return signOut(auth); }
   async function materiaisAluno(){
     let tid = usuarioAtual.turma_id || "", chave = usuarioAtual.aluno_id || "";
     MT.viaQr = false;
@@ -8643,7 +8659,9 @@
     if(!tid || !$("iniMateriais")) return;
     MT.tid = tid; MT.chave = chave || usuarioAtual.uid;
     try{ const est = await getDoc(doc(db, "turma_aluno_estado", tid, "alunos", MT.chave)); if(est.exists()) MT.fechadosNuvem = est.data().fechados || []; }catch(e){ console.warn("histórico:", e.code); }
-    if(!MT.pulso && MT.viaQr){ pulsoAluno(); MT.pulso = setInterval(() => pulsoAluno(), 20000); document.addEventListener("visibilitychange", () => pulsoAluno()); window.addEventListener("pagehide", () => { MT.foraEnviado = false; pulsoAluno(true); }); }
+    MT.saindo = false;
+    if(!MT.pulso && MT.viaQr){ pulsoAluno(); MT.pulso = setInterval(() => pulsoAluno(), 20000);
+      if(!MT.ouvindo){ MT.ouvindo = true; document.addEventListener("visibilitychange", () => pulsoAluno()); window.addEventListener("pagehide", () => { MT.foraEnviado = false; pulsoAluno(true); }); } }
     if(MT.unsub){ MT.unsub(); MT.unsub = null; }
     MT.unsub = onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(120)), sn => {
       const l = []; sn.forEach(d => l.push({ id:d.id, tid, ...d.data() })); MT.lista = l; MT.temMais = l.length >= 120; desenharMateriaisAluno();
