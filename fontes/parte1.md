@@ -607,7 +607,7 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 
 | Parte | O que mostra |
 |---|---|
-| Topo | Turma, situação da aula (**🟢 Aula até 10:40 · faltam 25 min**), **+10 min**, **⏹ Encerrar aula** (ou **▶ Abrir a aula**) e **Sair do painel** |
+| Topo | Turma, situação da aula (**🟢 Aula até 10:40 · faltam 25 min**), **+10 min**, **⏹ Encerrar aula** (ou **▶ Abrir a aula**) e **Sair do painel**. Você encerra quando quiser, antes do tempo: confirme em **⏹ Encerrar agora**. Se houver quiz aberto, ele é encerrado e o relatório fica salvo; telas pausadas são liberadas. Fora do painel, o cartão **Aula em andamento** do Início também tem **⏹ Encerrar** |
 | Indicadores | 👥 quantos estão na sala agora (e quantos saíram da página) · 📤 materiais enviados · 👁️ quantos abriram o último |
 | Ações | **🔗 Enviar link ou arquivo** · **📁 Enviar algo que já fiz** (aulas da Lousa e materiais do Portal IA) · **🖼️ Abrir a Lousa** · **📝 Aplicar prova online** |
 | 🎼 Maestro | Aparelhos seguindo a aula, **📲 Abrir nos aparelhos** e **🔒 Pausar as telas** (veja "Aparelhos controlados na aula") |

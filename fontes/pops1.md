@@ -1168,7 +1168,7 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 7. Se a escola liga a foto da carteirinha, confira em **📸 Entradas pela carteirinha** quem entrou sem senha (**👁️ Ver foto**). Rosto que não confere: **Não é este aluno**.
 8. Antes de encerrar, verifique a aprendizagem com **🧠 Quiz rápido** (3 a 10 perguntas bastam; procure antes em **📁 Meus quizzes** e **🤝 Da rede** para não gastar crédito de IA à toa): lance, acompanhe quantos terminaram e toque em **🏁 Encerrar e ver relatório**. Pergunta com menos de 50% de acerto é a primeira a retomar na próxima aula; exporte o PDF se a coordenação pedir.
 9. Tablet com 🪫 (bateria baixa) na faixa do Controle da aula: peça para ligar na tomada ou no carrinho antes da próxima atividade.
-10. No fim, toque em **■ Encerrar aula** (ou deixe o tempo acabar): os aparelhos são liberados e saem da aula.
+10. No fim, toque em **⏹ Encerrar aula** e confirme em **⏹ Encerrar agora** (dá para encerrar antes do tempo, pela Turma ao Vivo ou pelo cartão do Início; ou deixe o tempo acabar): os aparelhos são liberados e saem da aula, e o quiz aberto é encerrado com o relatório salvo.
 
 ### Pontos de controle
 - ☐ Todos os alunos presentes aparecem verdes antes de começar a atividade.
