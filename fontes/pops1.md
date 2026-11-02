@@ -1181,7 +1181,7 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 - ☐ Alunos que entraram pelo número da aula (linha à parte) foram identificados e orientados a usar a conta.
 
 ### Registros
-Presença em `turma_presenca`, materiais em "Enviados" (com quem abriu) e abertura e encerramento da aula na Auditoria.
+Presença em `turma_presenca`, materiais no "Histórico de envios" (com quem abriu) e abertura e encerramento da aula na Auditoria.
 
 ### Erros comuns
 - **Tablet não vai para a aula:** app abaixo de 1.2 ou aula fechada. Atualizar o app; conferir o cartão **Aula em andamento**.
