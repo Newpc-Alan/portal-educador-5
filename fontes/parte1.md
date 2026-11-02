@@ -825,10 +825,17 @@ Depois que alguém entregou, o painel mostra **🔁 Recuperação**. Ela reaplic
 
 ### Minhas Turmas
 
-1. Em **Meu cadastro**, marque as escolas onde você dá aula (até 5).
-2. Em **Minhas Turmas**, use **+ Nova turma** ou **Adicionar** uma turma que a escola já criou.
-3. Na turma nova, escolha **Escola**, **Etapa / Ano**, a letra da **Turma**, **Turno** e **Ano letivo**. O nome segue o padrão da rede (ex.: "6º Ano A") e o Portal não deixa criar turma repetida.
-4. Em **Alunos**, digite um aluno por linha (com a matrícula depois de ponto e vírgula, se quiser) e toque em **Adicionar à turma**.
+A regra da rede: **quem matricula é a escola** (Ficha do Aluno), **quem distribui é a Direção** (Grade das turmas) e o professor **escolhe dentro do que é dele**.
+
+1. Em **Meu cadastro**, marque as escolas onde você dá aula (até 5) e os **Anos em que dou aula** (ex.: 6º, 7º e 9º ano).
+2. As turmas em que a Direção colocou você na **Grade das turmas** entram sozinhas em **Minhas Turmas**, com a marca **📋 Grade: disciplina**. Essas não saem da lista pelo professor: quem muda é a Direção.
+3. Em **Turmas que já existem nas suas escolas** aparecem **só as turmas dos anos em que você dá aula** (marcados em Meu cadastro ou vindos da grade). Toque em **Adicionar** para incluir na sua lista.
+4. Turma própria (reforço, projeto): **+ Nova turma**, com **Escola**, **Etapa / Ano**, a letra da **Turma**, **Turno** e **Ano letivo**. O Portal não deixa criar turma repetida.
+5. Em **Alunos** de uma turma sua, use **Procurar aluno da escola**: digite o nome ou a matrícula. Aparecem só os alunos matriculados pela escola nos seus anos, com a turma de cada um. Quem já está numa turma da escola entra pela turma (**Adicionar a turma ...**), sem cadastrar o aluno de novo.
+
+:::atencao
+**Aluno que a escola ainda não matriculou** (no fim do quadro) cria um cadastro só do professor, que não vai para o boletim nem para o Censo. O certo é a secretaria da escola matricular na Ficha do Aluno. O professor sem rede (licença particular) continua digitando um aluno por linha.
+:::
 
 Na lista de turmas, cada linha tem **Alunos**, **🔗 Enviar conteúdo** (Sala Conectada) e **📡 Ao vivo** (Turma ao Vivo).
 
@@ -918,7 +925,7 @@ Em **📌 Minha agenda**, crie lembretes (escola ou pessoal), com repetição e 
 
 ### Meu cadastro
 
-Em **Meu cadastro** você atualiza seus dados, marca as escolas onde dá aula, confere a licença, vê **🎓 Meus certificados da Formação** (com **Ver** e **Validar**) e abre a **Minha ficha funcional** (**Abrir minha ficha**): foto para o crachá, lotação, formação e diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém redigitar.
+Em **Meu cadastro** você atualiza seus dados, marca as escolas onde dá aula e os **Anos em que dou aula** (o Portal mostra abaixo as turmas que já vêm da Grade), confere a licença, vê **🎓 Meus certificados da Formação** (com **Ver** e **Validar**) e abre a **Minha ficha funcional** (**Abrir minha ficha**): foto para o crachá, lotação, formação e diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém redigitar.
 
 ## Aluno
 
