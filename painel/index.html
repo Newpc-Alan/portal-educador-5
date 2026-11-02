@@ -124,6 +124,12 @@ table.tab{width:100%;border-collapse:collapse}
       <div class="card"><div class="h2">🔎 Busca ativa</div><div class="sub">Alunos abaixo da frequência mínima ou faltando seguido (sem nomes neste painel)</div><div id="gBusca" style="margin-top:10px"></div></div>
     </div>
 
+    <div class="secao blocoForm" id="formacao">Formação Continuada</div>
+    <div class="grid2 blocoForm">
+      <div class="card"><div class="h2">🎓 Professores na Formação por escola</div><div class="sub" id="frmSub"></div><div id="gFrm" style="margin-top:10px"></div></div>
+      <div class="card"><div class="h2">📜 Certificados e horas</div><div class="sub">Cursos com certificado emitido pelos professores da rede</div><div id="gFrmC" style="margin-top:10px"></div></div>
+    </div>
+
     <div class="secao">Calendário e infraestrutura</div>
     <div class="grid2">
       <div class="card"><div class="h2">📅 Dias letivos</div><div class="sub" id="calSub"></div><div id="gCal" style="margin-top:10px"></div></div>
@@ -231,6 +237,19 @@ function desenhar(){
     (ehEscola ? '<a class="atalhos" href="/apps/frequencia/#busca" style="text-decoration:none"><span class="pill alerta">Abrir a lista da busca ativa →</span></a>'
       : (() => { const l = d.escolas.filter(e => e.freqRisco || e.freqAtencao).sort((x, y) => (y.freqRisco + y.freqAtencao) - (x.freqRisco + x.freqAtencao)).slice(0, 8), mx = Math.max(1, ...l.map(e => e.freqRisco + e.freqAtencao));
         return l.map(e => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + ((e.freqRisco + e.freqAtencao) / mx * 100) + '%;background:#C2362C"></i></span><span class="v">' + (e.freqRisco + e.freqAtencao) + "</span></div>").join(""); })());
+  // formação continuada (perfil do cursista ligado ao município desde nov/2026)
+  const fm = d.formacao; document.querySelectorAll(".blocoForm").forEach(el => el.hidden = !fm);
+  if(fm){
+    const pAdesao = fm.professores ? fm.cursistas / fm.professores : null;
+    $("frmSub").textContent = n(fm.cursistas) + " de " + n(fm.professores) + " professores começaram algum curso · " + n(fm.concluiram) + " concluíram pelo menos um";
+    const comProf = d.escolas.filter(e => e.professores).map(e => ({ e, p:e.formCursistas / e.professores })).sort((x, y) => y.p - x.p);
+    $("gFrm").innerHTML = comProf.length ? comProf.map(({ e, p }) => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + Math.round(p * 100) + '%;background:' + (p >= 0.5 ? "#5A9420" : p >= 0.2 ? "#F9A825" : "#C2362C") + '"></i></span><span class="v" title="' + n(e.formCursistas) + " de " + n(e.professores) + ' professores">' + pc(p) + "</span></div>").join("")
+      : '<div class="sub">Sem professores cadastrados nas escolas.</div>';
+    $("gFrmC").innerHTML = '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:10px">' +
+      kpi("Adesão", pc(pAdesao), "professores que começaram", pAdesao === null ? "" : pAdesao >= 0.5 ? "ok" : pAdesao >= 0.2 ? "alerta" : "ruim") + kpi("Certificados", n(fm.certificados), "emitidos") + kpi("Horas certificadas", n(fm.horas), "soma da carga horária") +
+      kpi("Sem começar", n(Math.max(0, fm.professores - fm.cursistas)), "professores") + "</div>" +
+      (fm.cursos && fm.cursos.length ? '<div class="sub" style="margin-bottom:4px">Cursos mais concluídos</div>' + (() => { const mx = Math.max(1, ...fm.cursos.map(c => c.n)); return fm.cursos.map(c => '<div class="hbar"><span class="t">' + esc(c.t) + '</span><span class="trilho"><i style="width:' + (c.n / mx * 100) + '%"></i></span><span class="v">' + n(c.n) + "</span></div>").join(""); })() : "");
+  }
   // calendário
   $("calSub").textContent = c.publicado ? "Base da rede: " + c.baseDias + " dias e " + n(c.baseHoras) + " h · mínimo " + c.metaDias + " dias e " + c.metaHoras + " h (LDB, art. 24)" : "O calendário de " + d.ano + " ainda não foi publicado.";
   $("gCal").innerHTML = c.publicado ? d.escolas.map(e => { const ok = e.dias >= e.metaDias && e.horas >= e.metaHoras;

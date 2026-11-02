@@ -63,6 +63,7 @@ export function daEscola(d, ids) {
     calendario: { ...d.calendario, escolasAbaixo: abaixo },
     infra: { abertos: soma('chamadosAbertos'), atrasados48h: soma('chamadosAtrasados'), resolvidos30: null, horasMedia: null, equipamentos: soma('equipamentos'), tvs: soma('tvs'), tvsOnline: soma('tvsOnline'), problemas: [] },
     relatorios: null, escolas,
+    formacao: d.formacao ? { professores: soma('professores'), cursistas: soma('formCursistas'), concluiram: soma('formConcluiram'), certificados: soma('formCert'), horas: soma('formHoras'), cursos: [] } : null,
     hoje: { dia: (d.hoje || {}).dia || '', turmas: soma('hojeTurmas'), turmasCom: soma('hojeTurmasCom'), alunos: soma('hojeAlunos'), presentes: soma('hojePresentes'),
       escolasAtivas: escolas.filter(e => e.hojeTurmas).length, escolasCom: escolas.filter(e => e.hojeTurmasCom).length },
     frequencia: (() => { const a = soma('freqAulas'), f = soma('freqFaltas'); return { turmas: soma('freqTurmas'), turmas7: soma('freqTurmas7'), alunos: soma('freqAlunos'), freq: a ? (a - f) / a : null, risco: soma('freqRisco'), atencao: soma('freqAtencao'), casosAbertos: soma('casosAbertos'), casosEncaminhados: soma('casosEncaminhados'), casosResolvidos: null }; })(),
@@ -79,7 +80,7 @@ export async function montar(db, m) {
   const E = {}; escolas.forEach(e => { E[e.id] = { id: e.id, nome: e.nome, professores: 0, ativos30: 0, alunos: 0, provas: 0, respostas: 0, ac: 0, tot: 0,
     dias: null, horas: null, metaDias: 200, metaHoras: 800, chamadosAbertos: 0, chamadosAtrasados: 0, equipamentos: 0, tvs: 0, tvsOnline: 0,
     freq: null, freqAlunos: 0, freqRisco: 0, freqAtencao: 0, freqTurmas: 0, freqTurmas7: 0, freqAulas: 0, freqFaltas: 0, freqAlerta: 0, casosAbertos: 0, casosEncaminhados: 0,
-    chamadosParados: 0, hojeTurmas: 0, hojeTurmasCom: 0, hojeAlunos: 0, hojePresentes: 0 }; });
+    chamadosParados: 0, hojeTurmas: 0, hojeTurmasCom: 0, hojeAlunos: 0, hojePresentes: 0, formCursistas: 0, formConcluiram: 0, formCert: 0, formHoras: 0 }; });
   const erros = [];
   const tenta = async (nome, f) => { try { return await f(); } catch (e) { erros.push(nome); console.error('painelSecretaria', m, nome, e.message); return null; } };
 
@@ -215,6 +216,22 @@ export async function montar(db, m) {
       else { frq.casosAbertos++; if (e) e.casosAbertos++; if (x.status === 'encaminhado') { frq.casosEncaminhados++; if (e) e.casosEncaminhados++; } } });
   });
 
+  // ---------- Formação Continuada (perfil do cursista ligado ao município desde nov/2026): adesão, conclusão e horas certificadas ----------
+  const form = { professores: uso.professores, cursistas: 0, concluiram: 0, certificados: 0, horas: 0, cursos: {} };
+  await tenta('formacao', async () => {
+    const us = (await db.collection('users').where('municipio_id', '==', m).get()).docs;
+    for (const lote of pedacos(us, 10)) await Promise.all(lote.map(async ud => {
+      const x = ud.data(), escs = (x.escolas_ids && x.escolas_ids.length ? x.escolas_ids : [x.escola_id]).filter(id => E[id]);
+      const [pr, cs] = await Promise.all([ud.ref.collection('progresso').get(), db.collection('certificados').where('uid', '==', ud.id).get()]);
+      const ativos = cs.docs.map(c => c.data()).filter(c => c.ativo !== false), horas = ativos.reduce((t, c) => t + Number(c.cargaHoraria || 0), 0);
+      const concl = pr.docs.filter(p => p.data().concluido === true).length;
+      if (!pr.size && !ativos.length) return;
+      form.cursistas++; if (concl || ativos.length) form.concluiram++; form.certificados += ativos.length; form.horas += horas;
+      ativos.forEach(c => { const t = String(c.cursoTitulo || c.curso || c.cursoId || 'Curso').slice(0, 80); form.cursos[t] = (form.cursos[t] || 0) + 1; });
+      escs.forEach(id => { E[id].formCursistas++; if (concl || ativos.length) E[id].formConcluiram++; E[id].formCert += ativos.length; E[id].formHoras += horas; });
+    }));
+  });
+
   // ---------- relatórios pedagógicos (Central de Relatórios) ----------
   const rel = { enviados: 0, aprovados: 0, devolvidos: 0, rascunhos: 0 };
   await tenta('relatorios', async () => {
@@ -227,6 +244,7 @@ export async function montar(db, m) {
     totais: { escolas: escolas.length, alunos: Object.values(E).reduce((s, e) => s + e.alunos, 0) },
     uso, aprendizagem: { provas: apr.provas, respostas: apr.respostas, acerto: apr.tot ? apr.ac / apr.tot : null, habilidades: apr.habilidades.slice(0, 40), semHab: apr.semHab },
     calendario: cal, infra: inf, relatorios: rel, frequencia: frq, hoje: hj,
+    formacao: { ...form, cursos: Object.entries(form.cursos).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ t, n })) },
     escolas: Object.values(E).map(e => ({ ...e, acerto: e.tot ? e.ac / e.tot : null, qtot: e.tot, ac: undefined, tot: undefined })),
     erros
   };

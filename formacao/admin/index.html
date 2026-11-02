@@ -892,7 +892,11 @@ const ApiFirebase = {
         S.usuario = u;
         if (u){
           // force:true garante que o token traga o papel recém-atribuído
-          const token = await u.getIdTokenResult(true);
+          let token = await u.getIdTokenResult(true);
+          // administrador do Portal: o papel de admin da Formação vem junto (vincularContaFormacao acerta o token na hora)
+          if (!token.claims.papel){
+            try { const r = await this.chamar("vincularContaFormacao", {}); if (r && r.papelAtualizado) token = await u.getIdTokenResult(true); } catch(e){}
+          }
           S.papel = token.claims.papel || null;
         } else S.papel = null;
         resolve();
@@ -2152,7 +2156,7 @@ function aoMudarAutenticacao(){
       <div class="aviso a-atencao" style="text-align:left"><span><b>Sem permissão de acesso</b>
       A conta ${esc(S.usuario.email)} não tem papel de editor nem de administrador na Formação Continuada.</span></div>
       <p style="font-size:.84rem;color:var(--suave);text-align:left">
-      Se um administrador acabou de conceder seu acesso, saia e entre de novo — o papel viaja no token e só é atualizado no login.</p>
+      Se um administrador acabou de conceder seu acesso, saia e entre de novo: o papel viaja no token e só é atualizado no login.</p>
       <button class="btn b-neutro b-bloco" id="btnSairAcesso">Sair</button>`;
     $("#btnSairAcesso").addEventListener("click", ()=>Api.sair());
     return;

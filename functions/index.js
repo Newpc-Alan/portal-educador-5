@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue, FieldPath } from 'firebase-admin/firestore';
@@ -6,6 +7,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { randomBytes, randomInt } from 'node:crypto';
 import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
 import { expiraAuditoria } from './auditoria.js';
+import { camposDoPortal } from './formacao-sync.js';
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
@@ -243,7 +245,7 @@ export const emitirCertificado = onCall(async req=>{
     const ref=db.doc(`certificados/${codigo}`);if((await tx.get(ref)).exists)throw new HttpsError('aborted','Tente emitir novamente.');
     const programa=x.modulos.sort((a,b)=>(a.ordem||0)-(b.ordem||0)).map(m=>({modulo:m.titulo||'',aulas:x.aulas.filter(a=>a.moduloId===m.id).sort((a,b)=>(a.ordem||0)-(b.ordem||0)).map(a=>a.titulo||'')}));
     const c={uid,nome,cpf,cpfMascarado:`***.${cpf.slice(3,6)}.${cpf.slice(6,9)}-**`,email:req.auth.token.email||'',cursoId,
-      cursoTitulo:x.curso.titulo,cargaHoraria:Number(x.curso.horas||0),municipio:perfil.municipio||'',escola:perfil.escola||'',
+      cursoTitulo:x.curso.titulo,cargaHoraria:Number(x.curso.horas||0),municipio:perfil.municipio||'',escola:perfil.escola||'',municipio_id:perfil.municipio_id||'',escola_id:perfil.escola_id||'',
       notaFinal:x.curso.quizAtivo?t.melhorNota:null,periodoInicioISO:x.prog.iniciadoServidorISO||x.prog.iniciadoEmISO,
       periodoFimISO:x.prog.concluidoEmISO,programa,totalAulas:x.aulas.length,emitidoEmISO:new Date().toISOString(),ativo:true,
       versaoCurso:Number(x.curso.versao||1)};
@@ -350,18 +352,42 @@ export const relatorioAdesao = onCall({timeoutSeconds:120},async req=>{
 
 // Portal 5.0: no primeiro acesso à Formação, cria o perfil a partir do cadastro do Portal
 // e traz os certificados emitidos na Academia antiga com o mesmo e-mail verificado.
+// papel "admin" da Formação para quem é administrador ativo do Portal; tira quando deixa de ser (só o que o Portal deu)
+async function garantirPapelPortal(uid,u){
+  const deveSer=!!u && u.perfil==='admin' && u.status==='ativo';
+  let rec; try{ rec=await getAuth().getUser(uid); }catch{ return false; }
+  const c={...(rec.customClaims||{})};
+  if(deveSer && c.papel!=='admin'){ c.papel='admin'; c.papel_origem='portal'; }
+  else if(!deveSer && c.papel==='admin' && c.papel_origem==='portal'){ delete c.papel; delete c.papel_origem; }
+  else return false;
+  await getAuth().setCustomUserClaims(uid,c);
+  const b=db.batch(), ref=db.doc(`equipe/${uid}`);
+  if(c.papel==='admin') b.set(ref,{email:rec.email||'',papel:'admin',nome:rec.displayName||u.nome||'',origem:'portal',atualizadoEm:carimbo()},{merge:true}); else b.delete(ref);
+  b.create(db.collection('auditoria').doc(),{em:carimbo(),expira_em:expiraAuditoria(),acao:'alterou',origem:'funcao',colecao:'equipe',doc:uid,autor_uid:'',autor_tipo:'sistema',
+    detalhe:(c.papel==='admin'?'Deu':'Tirou')+' o papel de administrador da Formação Continuada para '+(rec.email||uid)+' (segue o perfil de administrador do Portal)',campos:['papel'],valores:{papel:{para:c.papel||''}}});
+  await b.commit();
+  return true;
+}
+// muda o papel na hora em que o perfil ou a situação do usuário do Portal muda
+export const papelFormacaoPortal = onDocumentWritten('usuarios/{uid}', async ev=>{
+  const a=ev.data.before.exists?ev.data.before.data():null, d=ev.data.after.exists?ev.data.after.data():null;
+  const era=!!a && a.perfil==='admin' && a.status==='ativo', eh=!!d && d.perfil==='admin' && d.status==='ativo';
+  if(era===eh) return;
+  await garantirPapelPortal(ev.params.uid, d);
+});
 export const vincularContaFormacao = onCall(async req=>{
   const uid=login(req);
   const u=await exigirLicenca(uid);
   const perfilRef=db.doc(`users/${uid}`), perfil=(await perfilRef.get()).data();
-  let escola='', municipio='';
-  if(u.escola_id){ const e=(await db.doc(`escolas/${u.escola_id}`).get()).data()||{}; escola=e.nome||''; }
-  if(u.municipio_id){ const m=(await db.doc(`municipios/${u.municipio_id}`).get()).data()||{}; municipio=[m.nome,m.uf].filter(Boolean).join('/'); }
+  // perfil do cursista sempre igual ao cadastro do Portal (município e escola pelos ids); criado no primeiro acesso
+  const sinc=await camposDoPortal(db,u);
   if(!perfil){
     await perfilRef.set({ nome:String(u.nome||req.auth.token.name||'').slice(0,160), email:req.auth.token.email||'',
-      municipio:(municipio||u.municipio_cad||'').slice(0,160), escola:(escola||u.escola_texto||'').slice(0,240),
-      cargo:u.funcao||'Professor(a)', cpf:'', aceiteTermos:'1.0', criadoEm:carimbo() });
-  }
+      municipio:(sinc.municipio||u.municipio_cad||'').slice(0,160), escola:(sinc.escola||u.escola_texto||'').slice(0,240),
+      cargo:u.funcao||'Professor(a)', cpf:'', aceiteTermos:'1.0', criadoEm:carimbo(), ...sinc });
+  } else await perfilRef.set(sinc,{merge:true});
+  // administrador do Portal é administrador da Formação (papel no token, sincronizado aqui e pelo gatilho papelFormacaoPortal)
+  const papelAtualizado=await garantirPapelPortal(uid,u);
   let movidos=0;
   const email=req.auth.token.email||'';
   if(email && req.auth.token.email_verified){
@@ -376,7 +402,7 @@ export const vincularContaFormacao = onCall(async req=>{
       await b.commit(); movidos++;
     }
   }
-  return { ok:true, certificados:movidos, perfilCriado:!perfil };
+  return { ok:true, certificados:movidos, perfilCriado:!perfil, papelAtualizado };
 });
 export { painelUso } from './painel.js';
 export { emailTvConectada, emailComunicadoTv } from './tv.js';

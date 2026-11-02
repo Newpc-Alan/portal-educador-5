@@ -35,6 +35,9 @@ function linha(c, id, x) {
       m: hist ? 'historias' : 'biblioteca', g: corta(x.capa_url, 300) });
   } else if (c === 'colorir') {
     Object.assign(base, { s: corta(x.colecao || 'Desenho para colorir', 80), k: corta([x.colecao, 'colorir desenho pintar'].join(' '), 120), m: 'colorir', g: corta(x.thumb_url, 300) });
+  } else if (c === 'cursos') {
+    Object.assign(base, { s: corta(['Curso da Formação Continuada', x.horas ? x.horas + ' h' : '', x.nivel].filter(Boolean).join(' · '), 80),
+      k: corta([x.resumo, String(x.descricao || '').slice(0, 160), 'formacao curso certificado'].join(' '), 220), m: 'formacao', g: corta(x.capaURL, 300) });
   } else if (c === 'acervo') {
     Object.assign(base, { s: corta([x.disciplina, (x.etapas || []).join(', ')].filter(Boolean).join(' · ') || 'Arquivo', 80),
       k: corta([x.disciplina, (x.etapas || []).join(' '), String(x.descricao || '').slice(0, 160)].join(' '), 220), b: lista(x.bncc), m: corta(x.modulo, 30) });
@@ -48,8 +51,9 @@ function linha(c, id, x) {
 export async function montarIndiceBusca(db) {
   const COLECOES = ['videos', 'jogos', 'atividades', 'biblioteca', 'colorir', 'acervo'];
   const todas = [], por = {};
-  for (const c of COLECOES) {
-    const sn = await db.collection(c).where('publicado', '==', true).get();
+  for (const c of COLECOES.concat(['cursos'])) {
+    // cursos da Formação usam status 'publicado' (os demais catálogos, publicado: true)
+    const sn = c === 'cursos' ? await db.collection(c).where('status', '==', 'publicado').get() : await db.collection(c).where('publicado', '==', true).get();
     let n = 0; sn.forEach(d => { const l = linha(c, d.id, d.data()); if (l) { todas.push(l); n++; } });
     por[c] = n;
   }

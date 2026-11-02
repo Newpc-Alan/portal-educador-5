@@ -878,6 +878,7 @@ header.topo, body > header{background:radial-gradient(600px 200px at 0% 0%,rgba(
 
     <label class="rot" for="pfEscola">Escola</label>
     <input class="campo" id="pfEscola" style="width:100%" placeholder="Ex.: EM Prof. João Silva">
+    <p class="ajuda" id="pfRedeAviso" hidden style="font-size:.82rem;color:#4b5b6b;margin:6px 0 0">Município e escola vêm do seu cadastro no Portal do Educador. Para mudar, fale com a secretaria da sua escola.</p>
     <div style="height:12px"></div>
 
     <label class="rot" for="pfCargo">Função</label>
@@ -2921,6 +2922,9 @@ function abrirPerfil(msg){
   $("#pfCPF").value       = formatarCPF(E.perfil?.cpf || "");
   $("#pfMunicipio").value = E.perfil?.municipio || "";
   $("#pfEscola").value    = E.perfil?.escola || "";
+  // ligado a uma rede: município e escola seguem o cadastro do Portal (não se edita aqui)
+  const daRede = !!E.perfil?.municipio_id;
+  $("#pfMunicipio").readOnly = daRede; $("#pfEscola").readOnly = daRede; $("#pfRedeAviso").hidden = !daRede;
   $("#pfCargo").value     = E.perfil?.cargo || "";
   $("#modalPerfil").classList.add("aberto");
   if (msg) alerta(msg, "atencao", "#msgPerfil");
@@ -2996,8 +3000,8 @@ $("#btnSalvarPerfil").addEventListener("click", async ()=>{
   const botaoPerfil=$("#btnSalvarPerfil");botaoPerfil.disabled=true;
   try {
   await Dados.salvarPerfil({
-    nome, cpf, municipio:$("#pfMunicipio").value.trim(),
-    escola:$("#pfEscola").value.trim(), cargo:$("#pfCargo").value
+    nome, cpf, cargo:$("#pfCargo").value,
+    ...(E.perfil?.municipio_id ? {} : { municipio:$("#pfMunicipio").value.trim(), escola:$("#pfEscola").value.trim() })
   });
   alerta("Dados salvos.", "ok", "#msgPerfil");
   atualizarBotaoConta();
