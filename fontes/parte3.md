@@ -62,7 +62,7 @@ Gmail SMTP (conta Google da NEWPC): envio de todos os e-mails automáticos
 | `/apps/portal-ia/` | Portal IA. O endereço antigo `/apps/ia-studio/` redireciona para cá |
 | `/apps/...` | Ficha do Aluno (`alunos`), Calendário, Corretor, Equipe, Famílias, Folha Mágica, Frequência, Grade das turmas (`grade`), Notas, Recursos, Ficha do Servidor (`servidores`), Teleprompter (+ controle), Turma na Lousa (`turma`) e painel das TVs (`tv`) |
 
-O projeto Android do app do aluno do Portal Maestro fica em `maestro-app/` (WebView próprio, com câmera liberada para a entrada por QR). Desde a 1.2 abre em `/entrar/?qr`; o Portal reconhece o app pelo `PortalMaestroApp` no agente do navegador e, com aula aberta, leva o aluno para `/maestro/aluno/`.
+O projeto Android do app do aluno do Portal Maestro fica em `maestro-app/` (WebView próprio, com câmera liberada para a entrada por QR). Desde a 1.2 abre em `/entrar/?qr`. Com aula aberta, o Portal do Aluno carrega `/assets/js/maestro-ponte.js` (versão `web-portal-1.0`): a própria página entra na aula do Maestro com o nome e a matrícula, manda presença, aplica a pausa (com a trava de 2 minutos sem painel), abre o conteúdo enviado num quadro por cima do Portal e tem o botão de mão. Vale para o app e para navegador sem a extensão; com a extensão, quem segue é a extensão. `/maestro/aluno/` fica para quem entra só pelo número.
 
 A extensão do aluno para Chromebook fica em `maestro-extensao/` (fonte oficial desde a 0.9). O `portal.js` roda só em app.portaldoeducador.com.br: marca a página (`data-maestro-ext`) e repassa a mensagem `maestro-entrar` (número de 6 dígitos, nome e matrícula) para o service worker, que entra na aula como se o aluno tivesse digitado o número.
 

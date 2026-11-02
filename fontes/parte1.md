@@ -505,7 +505,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 1. No próprio tablet, entre no Portal, abra **Aplicativos Úteis** e toque em **Baixar o app**.
 2. Abra o arquivo baixado (barra de notificações ou pasta Downloads) e toque em **Instalar**.
 3. Se o Android pedir, toque em **Configurações** e ative **Permitir desta fonte** para o navegador; volte e toque em **Instalar**.
-4. Abra o app: ele abre no **login do aluno do Portal**. O aluno mostra o cartão para a câmera ou digita o código e o PIN. Com a aula da turma aberta, o app leva o aluno sozinho para a aula, sem digitar número. Escola que ainda não tem aluno cadastrado usa **Entrar com o número da aula**, logo abaixo do login.
+4. Abra o app: ele abre no **login do aluno do Portal**. O aluno mostra o cartão para a câmera ou digita o código e o PIN e cai direto no **Portal do Aluno**. Com a aula da turma aberta, o tablet já segue o professor, sem digitar número. Escola que ainda não tem aluno cadastrado usa **Entrar com o número da aula**, logo abaixo do login.
 5. Para atualizar, repita o passo 1: a versão nova instala por cima, sem perder nada.
 
 O Portal conta os downloads (uma vez por pessoa por dia) para o Painel do administrador.
@@ -558,9 +558,9 @@ Desde novembro de 2026, o Portal Maestro funciona **dentro** do Dar aula agora. 
 
 | Aparelho do aluno | Como entra | O que o professor controla |
 |---|---|---|
-| **Tablet com o app do Maestro (1.2 ou mais novo)** | Abre no login do Portal: cartão QR ou código e PIN. Com a aula aberta, vai sozinho para a aula | Pausar a tela, abrir conteúdo, mão levantada |
+| **Tablet com o app do Maestro (1.2 ou mais novo)** | Abre no login do Portal: cartão QR ou código e PIN. O aluno fica no **Portal do Aluno** e, com a aula aberta, o tablet passa a seguir o professor (aviso "🎼 Você está na aula do professor" e botão **✋ Levantar a mão**) | Pausar a tela, abrir conteúdo, mão levantada |
 | **Chromebook com a extensão do Maestro (0.9 ou mais nova)** | O aluno entra no Portal (cartão, código e PIN ou conta Google da escola) e o Chromebook entra na aula sozinho. Na tela da extensão: **Entrar com a minha conta do Portal** | Pausar a tela, abrir conteúdo em aba, ver a aba aberta, mão levantada |
-| **Computador ou celular sem o Maestro** | Entra no Portal normalmente | Presença e materiais (sem pausar a tela) |
+| **Computador ou celular sem a extensão** | Entra no Portal normalmente; com a aula aberta, a página do Portal segue o professor | Presença, materiais, pausa e conteúdo dentro do Portal (se o aluno trocar de aba, aparece em vermelho) |
 
 No painel **📡 Turma ao Vivo**, a faixa **🎼 Maestro** mostra quantos aparelhos estão seguindo a aula e traz:
 
