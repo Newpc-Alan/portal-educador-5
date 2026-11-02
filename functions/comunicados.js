@@ -12,13 +12,14 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import nodemailer from 'nodemailer';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { expiraAuditoria } from './auditoria.js';
 import { situacoesFormacao } from './formacao-uso.js';
 
 const REGIAO = 'southamerica-east1';
 const SENHA = defineSecret('COMUNICADOS_SMTP_SENHA');
-const PERFIS = { professor: 'Professores', gestor: 'Gestão da escola (direção e coordenação)', secretaria: 'Secretaria de Educação', aluno: 'Alunos' };
+const PERFIS = { professor: 'Professores', gestor: 'Gestão da escola (direção e coordenação)', secretaria: 'Secretaria de Educação', aluno: 'Alunos',
+  pre: 'Pré-cadastrados que ainda não entraram no Portal novo' };
 const TAM_LOTE = 400;
 const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia'];
 const msDe = v => v && v.toMillis ? v.toMillis() : (v && v._seconds ? v._seconds * 1000 : 0);
@@ -65,7 +66,23 @@ async function destinatarios(db, pub, tipo) {
   const out = [], vistos = new Set(); let semEmail = 0, sairam = 0, vencidasFora = 0;
   const sitF = pub.formacao ? await situacoesFormacao(db, null) : null;
   const off = new Set(); if (tipo !== 'servico') (await db.collection('comunicados_pref').where('off', '==', true).get()).forEach(d => off.add(d.id));
-  for (const perfil of pub.perfis) {
+  // pré-cadastros (professores e equipe importados do site antigo ou pela rede) que ainda não entraram: convite para o primeiro acesso
+  if (pub.perfis.includes('pre')) {
+    const jaEntraram = new Set();
+    (await db.collection('usuarios').select('email').get()).forEach(d => { const e = String(d.get('email') || '').trim().toLowerCase(); if (e) jaEntraram.add(e); });
+    (await db.collection('pre_cadastros').where('status', '==', 'ativo').get()).forEach(d => {
+      const u = d.data(), email = String(u.email || d.id).trim().toLowerCase();
+      if (u.perfil === 'aluno' || jaEntraram.has(email)) return;
+      if (pub.municipios.length && !pub.municipios.includes(u.municipio_id || '__sem')) return;
+      if (pub.escola && u.escola_id !== pub.escola && !(u.escolas_ids || []).includes(pub.escola)) return;
+      if (!okEmail(email)) { semEmail++; return; }
+      const uid = 'pre_' + createHash('sha256').update(email).digest('hex').slice(0, 28);
+      if (off.has(uid)) { sairam++; return; }
+      if (vistos.has(email)) return; vistos.add(email);
+      out.push({ uid, email, nome: txt(String(u.nome || '').split(' ')[0], 40), perfil: 'pre', lic: '' });
+    });
+  }
+  for (const perfil of pub.perfis.filter(x => x !== 'pre')) {
     const sn = await db.collection('usuarios').where('perfil', '==', perfil).where('status', '==', 'ativo').get();
     sn.forEach(d => {
       const u = d.data();
