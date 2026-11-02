@@ -20,6 +20,13 @@ const DOCK = ['edudock-frente', 'edudock-verso'].map(n => ({ mime: 'image/webp',
 const ESTILO = '. Fidelidade total às pessoas de referência: mesmo rosto, idade, cabelo, óculos, tom de pele e uniforme, sem embelezar nem mudar traços. Estética de fotografia cinematográfica de campanha publicitária: imagem clara e luminosa, luz suave de janela com contraluz quente, cores ricas e vibrantes, profundidade de campo rasa (fundo levemente desfocado, bokeh), sensação de volume e profundidade 3D, nitidez alta nos rostos e no tablet, lente de 50mm';
 // [card, personagens (na ordem da cena), cena]
 const CARDS = [
+  // Formação Continuada (capas padrão dos cursos e trilhas, nov/2026)
+  ['fc-estudo', ['prof-ruiva'], 'a professora estudando um curso online à noite em casa, sentada à mesa com notebook mostrando uma videoaula, fones de ouvido no pescoço, caderno de anotações aberto e uma xícara ao lado, expressão concentrada e satisfeita'],
+  ['fc-oficina', ['prof-barba', 'prof-colar'], 'formação de professores numa sala da escola: o professor e a professora sentados lado a lado com notebooks, fazendo anotações e conversando animados durante uma oficina, ao fundo um telão com slides de formação'],
+  ['fc-certificado', ['prof-grisalho'], 'o professor sorrindo orgulhoso na sala dos professores segurando um certificado impresso de curso concluído, notebook aberto na mesa ao lado'],
+  ['fc-google', ['prof-loira'], 'a professora numa sala de aula usando um Chromebook aberto na mesa, criando uma atividade digital para a turma, tela com uma plataforma de sala de aula on-line colorida, alunos ao fundo desfocados'],
+  ['fc-lousa', ['prof-barba'], 'o professor em pé tocando uma grande lousa digital interativa na frente da sala, desenhando um esquema colorido com o dedo, expressão confiante'],
+  ['fc-trilha', ['prof-ruiva', 'prof-grisalho'], 'dois professores caminhando juntos pelo corredor da escola conversando, cada um segurando ' + TABLET_MAO + ', clima de parceria e evolução'],
   ['faltou', ['prof-grisalho', 'prof-loira'], 'o diretor no corredor da escola, segurando um tablet, conversando com a professora e mostrando na tela a troca de professor da turma do dia, clima de solução rápida e cordial'],
   ['grade', ['prof-colar'], 'a coordenadora pedagógica diante de um grande quadro de horários semanal na parede da coordenação, com faixas coloridas por disciplina e turma, organizando com um tablet na mão'],
   ['ficha-aluno', ['prof-ruiva'], 'a secretária escolar no balcão de atendimento da secretaria da escola, sorrindo, consultando no computador a ficha de um aluno, com pastas organizadas na estante ao fundo'],
