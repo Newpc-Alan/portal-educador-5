@@ -69,6 +69,7 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-28 | Fechamento do bimestre e boletim | Escola |
 | POP-PDE-29 | Backup no servidor NEWPC e restauração em caso de desastre | Técnico |
 | POP-PDE-30 | Comunicado por e-mail para a rede | Comunicação |
+| POP-PDE-31 | Acompanhamento semanal pelo Painel do administrador | Gestão |
 
 ## Controle de revisões
 
@@ -80,3 +81,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.2 | 01/11/2026 | POP-23 (prova online: correção um aluno por vez, finalizar e reavaliar com justificativa) | NEWPC Tecnologia | |
 | 2.3 | 01/11/2026 | POP-PDE-30 (comunicado por e-mail para a rede) | NEWPC Tecnologia | |
 | 2.4 | 01/11/2026 | POP-PDE-30: filtro por licença do professor e Sem município (avulsos) | NEWPC Tecnologia | |
+| 2.5 | 01/11/2026 | POP-PDE-31 (acompanhamento semanal pelo Painel); Painel com aulas abertas agora, correção das provas online e comunicados | NEWPC Tecnologia | |

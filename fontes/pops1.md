@@ -398,6 +398,7 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 19. Registre as ocorrências (bloqueios, trocas de aparelho, novas chances).
 
 ### Pontos de controle
+- ☐ Correção das questões abertas finalizada em até 7 dias depois do fim da prova (o Painel do administrador mostra as atrasadas).
 - ☐ Gabarito e classificação conferidos antes de aplicar.
 - ☐ Mesmo critério de nova chance para toda a turma.
 - ☐ Ocorrências registradas.
@@ -1115,6 +1116,34 @@ Lista **Enviados e agendados**, **Auditoria** (quem criou, testou, cancelou, a c
 :::atencao
 Nunca use várias contas para "dividir" o envio e passar do limite da Webnode: isso leva o domínio para listas de spam. Se o volume crescer além do que a Webnode aguenta, troca-se o serviço de envio (Amazon SES ou Brevo) na configuração, sem mudar a tela.
 :::
+
+## POP-PDE-31 · Acompanhamento semanal pelo Painel do administrador {: .nova }
+
+@@ POP-PDE-31 | Gestão | Administrador do Portal (NEWPC) | Toda segunda-feira, e antes de reunião com Secretaria
+
+### Objetivo
+Ler o Painel do administrador numa rotina fixa, para agir antes que o problema chegue como reclamação da escola ou da Secretaria. Todo número é clicável e mostra de onde veio (com planilha).
+
+### Passo a passo
+1. **Pessoas e uso:** conferir **Aguardando aprovação** (aprovar ou recusar no mesmo dia), **Vencendo em 30 dias** (avisar o comercial) e **Conversão do teste**. **Aulas abertas agora** mostra quem está dando aula no Turma ao Vivo.
+2. **Portal IA e créditos:** redes com saldo baixo e pedidos de recarga pendentes (POP-PDE-20).
+3. **Sala Conectada e rede:** materiais **aguardando aprovação** e **com denúncia** (POP-PDE-21); envios para a turma e entradas pelo QR no mês.
+4. **Conteúdo e participação:**
+   - **Provas online · correção:** se houver **pendentes há mais de 7 dias**, clicar, ver professor e turma e avisar a direção da escola. Olhar as **reavaliações de nota** da semana (motivo e professor).
+   - **Comunicados por e-mail:** fila andando e **falhas** (baixar a lista em Comunicados › Ver falhas e corrigir os e-mails no cadastro).
+   - **O que a rede procura:** levar os **procurados e não achados** para a pauta de produção de conteúdo.
+   - **Pendências:** resolver cada linha pelo atalho.
+5. **Infraestrutura e custos:** leituras e gravações do banco perto das cotas, erros de funções, **Servidor NEWPC** no ar e registros de auditoria por dia.
+6. **💾 Backup:** último backup no servidor com menos de 36 horas (POP-PDE-29).
+
+### Pontos de controle
+- ☐ Nenhum cadastro aguardando aprovação há mais de 2 dias úteis.
+- ☐ Nenhuma prova online com correção pendente há mais de 7 dias sem contato com a escola.
+- ☐ Comunicados sem falhas pendentes de correção.
+- ☐ Backup e servidor NEWPC em dia.
+
+### Registros
+O próprio Painel (com Exportar planilha em cada número), a Auditoria e a Ficha de execução quando houver contato com escola ou Secretaria.
 
 # Ficha de execução
 
