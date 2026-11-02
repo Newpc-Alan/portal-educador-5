@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F2C4A">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Portal Maestro · Aluno</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/aluno-192.png">
+<link rel="apple-touch-icon" href="icons/aluno-192.png">
+<style>
+  :root { --noite:#05091a; --azul:#0F2C4A; --azul-2:#16406b; --ciano:#3ea8ce; --lima:#a6c544; --lima-esc:#557a1f;
+          --ambar:#e0a321; --vermelho:#c0392b; --cinza:#5b6b7a; --borda:#d9e1e8; --fundo:#f3f6f9;
+          --grad:linear-gradient(135deg,#184489 0%,#3ea8ce 100%); }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; }
+  body { font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif; color:var(--azul); background:var(--fundo); overscroll-behavior:none; }
+  button { font:inherit; cursor:pointer; }
+  [hidden] { display:none !important; }
+
+  /* ---------- entrada ---------- */
+  #telaEntrar { min-height:100%; display:flex; align-items:center; justify-content:center; padding:24px 16px;
+                background:radial-gradient(circle at 50% 30%, #16406b 0%, #0f2c4a 55%, #05091a 100%); }
+  .cartao { width:100%; max-width:440px; background:#fff; border-radius:20px; padding:30px 24px 24px; box-shadow:0 20px 50px rgba(0,0,0,.35);
+            position:relative; overflow:hidden; }
+  .cartao::after { content:""; position:absolute; left:0; right:0; bottom:0; height:6px; background:linear-gradient(90deg,var(--ciano),var(--lima)); }
+  .marca { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  .marca img { width:56px; height:56px; flex:none; border-radius:14px; }
+  .marca b { display:block; font-size:18px; }
+  .marca span { font-size:13px; color:var(--cinza); }
+  h1 { font-size:24px; margin:0 0 6px; }
+  .sub { margin:0 0 16px; color:var(--cinza); font-size:15px; }
+  label { display:block; font-size:12px; font-weight:700; color:var(--cinza); text-transform:uppercase; letter-spacing:.5px; margin:14px 0 6px; }
+  input, textarea { width:100%; padding:13px 14px; border:2px solid var(--borda); border-radius:12px; font:inherit; font-size:17px; color:var(--azul); background:#fff; }
+  input:focus, textarea:focus { outline:none; border-color:var(--ciano); }
+  #codigo { font-size:34px; letter-spacing:10px; text-align:center; font-weight:800; padding:12px; }
+  .btn { width:100%; margin-top:20px; padding:15px; border:0; border-radius:12px; background:var(--grad); color:#fff; font-size:17px; font-weight:700; }
+  .btn:disabled { opacity:.55; }
+  .msg { min-height:22px; margin-top:12px; font-size:14px; text-align:center; }
+  .msg.erro { color:var(--vermelho); }
+  .dica-instalar { margin-top:14px; padding-top:14px; border-top:1px solid var(--borda); font-size:13px; color:var(--cinza); text-align:center; }
+  .dica-instalar button { margin-top:8px; border:2px solid var(--ciano); background:#fff; color:var(--azul); border-radius:10px; padding:9px 14px; font-weight:700; }
+
+  /* ---------- na aula ---------- */
+  #telaAula { position:fixed; inset:0; display:flex; flex-direction:column; }
+  header.topo { display:flex; align-items:center; gap:10px; padding:10px 14px; padding-top:max(10px, env(safe-area-inset-top));
+                background:linear-gradient(120deg,#05091a,#16406b); color:#fff; border-bottom:4px solid; border-image:linear-gradient(90deg,var(--ciano),var(--lima)) 1; }
+  header.topo img { width:34px; height:34px; flex:none; border-radius:9px; }
+  .ident { flex:1; min-width:0; }
+  .ident b { display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ident span { font-size:12px; opacity:.8; }
+  .pill { font-size:12px; font-weight:700; padding:5px 10px; border-radius:20px; background:rgba(166,197,68,.2); color:#d8f08a; white-space:nowrap; }
+  .pill.off { background:rgba(224,163,33,.2); color:#ffd77a; }
+  .menu-btn { border:0; background:rgba(255,255,255,.12); color:#fff; border-radius:10px; padding:8px 12px; font-size:13px; font-weight:700; }
+
+  #palco { flex:1; position:relative; overflow:hidden; background:var(--fundo); }
+  #espera { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; gap:10px; }
+  #espera .onda { width:110px; height:110px; border-radius:50%; background:var(--grad); display:flex; align-items:center; justify-content:center;
+                  box-shadow:0 0 0 0 rgba(62,168,206,.5); animation:onda 2.4s ease-out infinite; }
+  #espera .onda img { width:70px; height:70px; }
+  @keyframes onda { 0% { box-shadow:0 0 0 0 rgba(62,168,206,.45); } 100% { box-shadow:0 0 0 34px rgba(62,168,206,0); } }
+  #espera h2 { margin:14px 0 0; font-size:22px; }
+  #espera p { margin:0; color:var(--cinza); max-width:360px; }
+
+  #conteudo { position:absolute; inset:0; display:flex; flex-direction:column; background:#fff; }
+  .barra-conteudo { display:flex; align-items:center; gap:8px; padding:8px 10px; background:#fff; border-bottom:1px solid var(--borda); }
+  .barra-conteudo .tit { flex:1; min-width:0; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .barra-conteudo button { border:1px solid var(--borda); background:var(--fundo); color:var(--azul); border-radius:9px; padding:7px 10px; font-size:13px; font-weight:700; white-space:nowrap; }
+  #quadros { flex:1; position:relative; }
+  #quadros iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:#fff; }
+  .abas-atv { display:flex; gap:6px; padding:6px 10px; background:var(--fundo); border-bottom:1px solid var(--borda); overflow-x:auto; }
+  .abas-atv button { flex:none; border:1px solid var(--borda); background:#fff; color:var(--azul); border-radius:20px; padding:5px 12px; font-size:13px; font-weight:700; }
+  .abas-atv button.ativa { background:var(--azul); color:#fff; border-color:var(--azul); }
+  #espera .prof { font-weight:700; color:var(--azul); }
+  #espera .dicas { margin-top:10px; display:flex; flex-direction:column; gap:6px; font-size:14px; color:var(--cinza); }
+  #bloqueio .faixa { position:absolute; left:50%; bottom:22px; transform:translateX(-50%); z-index:2; background:rgba(15,44,74,.9); color:#fff; padding:10px 18px; border-radius:30px; font-weight:700; font-size:15px; text-align:center; max-width:calc(100% - 32px); }
+  #chegou { position:absolute; left:50%; top:14px; transform:translateX(-50%); z-index:7; display:flex; align-items:center; gap:10px; background:var(--lima); color:#05091a; padding:10px 18px; border-radius:14px; font-weight:800; font-size:16px; box-shadow:0 10px 30px rgba(5,9,26,.35); animation:sobe .35s ease-out; max-width:calc(100% - 32px); }
+
+  /* cronômetro da atividade */
+  #chipTempo { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:5; min-width:180px;
+               background:rgba(5,9,26,.92); color:#fff; border-radius:16px; padding:8px 16px 10px; text-align:center; box-shadow:0 8px 24px rgba(5,9,26,.35); }
+  #chipTempo .t { font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--ciano); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; }
+  #chipTempo .n { font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1; }
+  #chipTempo .b { height:5px; border-radius:4px; background:rgba(255,255,255,.15); overflow:hidden; margin-top:4px; }
+  #chipTempo .b i { display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--ciano),var(--lima)); transition:width .25s linear; }
+  #chipTempo.fim .n { color:#ff8a7d; animation:pulsa 1s ease-in-out infinite; }
+  #chipTempo.fim .b i { background:var(--vermelho); }
+  @keyframes pulsa { 50% { opacity:.45; } }
+
+  /* cartões da pesquisa e da pergunta (sobem por baixo) */
+  #cartoes { position:absolute; left:0; right:0; bottom:78px; bottom:calc(78px + env(safe-area-inset-bottom)); z-index:6; padding:12px;
+             display:flex; flex-direction:column; gap:10px; align-items:center; pointer-events:none; }
+  .folha { pointer-events:auto; width:100%; max-width:560px; background:linear-gradient(160deg,var(--azul-2),var(--noite)); color:#fff;
+           border-radius:18px; padding:16px; box-shadow:0 14px 40px rgba(5,9,26,.45); animation:sobe .35s ease-out; }
+  @keyframes sobe { from { transform:translateY(30px); opacity:0; } }
+  .folha .rot { font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--ciano); margin-bottom:6px; }
+  .folha.pq .rot { color:var(--lima); }
+  .folha .perg { font-size:19px; font-weight:700; line-height:1.3; margin:0 0 12px; }
+  .cores { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .cores button { border:0; border-radius:14px; padding:14px 4px; font-size:14px; font-weight:800; color:#05091a; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .cores .bola { width:26px; height:26px; border-radius:50%; border:3px solid rgba(5,9,26,.25); }
+  .verde { background:var(--lima); } .amarelo { background:var(--ambar); } .vermelho { background:#e5675a; color:#fff !important; }
+  .alts { display:grid; gap:8px; }
+  .alts button { text-align:left; border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.08); color:#fff; border-radius:12px; padding:12px; font-size:15px; font-weight:600;
+                 display:flex; gap:10px; align-items:center; }
+  .alts .letra { width:26px; height:26px; flex:none; border-radius:50%; background:var(--ciano); color:#05091a; font-weight:800; display:flex; align-items:center; justify-content:center; }
+  .folha textarea { background:rgba(255,255,255,.95); min-height:84px; font-size:16px; resize:none; }
+  .folha .enviar { margin-top:10px; width:100%; border:0; border-radius:12px; padding:13px; background:var(--lima); color:#05091a; font-weight:800; font-size:16px; }
+  .folha .ok { text-align:center; font-weight:800; color:var(--lima); padding:8px 0 2px; }
+  .folha .erro { color:#ff9d92; font-size:14px; margin-top:8px; }
+
+  /* mão levantada */
+  #fabMao { position:absolute; right:16px; bottom:16px; bottom:max(16px, env(safe-area-inset-bottom)); z-index:4; border:0; border-radius:40px;
+            padding:14px 20px; font-size:17px; font-weight:800; display:flex; align-items:center; gap:8px;
+            background:linear-gradient(135deg,#e0a321,#f3c34d); color:#3d2a00; box-shadow:0 8px 22px rgba(224,163,33,.45); }
+  #fabMao .ico { font-size:24px; display:inline-block; }
+  #fabMao.erguida { background:#fff3d6; color:#6b4b00; box-shadow:inset 0 0 0 3px #e0a321, 0 8px 22px rgba(224,163,33,.35); }
+  #fabMao.erguida .ico { animation:aceno 1s ease-in-out infinite; transform-origin:70% 90%; }
+  @keyframes aceno { 0%,100% { transform:rotate(-12deg); } 50% { transform:rotate(14deg); } }
+
+  /* bloqueio com mensagens motivacionais */
+  #bloqueio { position:fixed; inset:0; z-index:50; background:#dbeaf7; user-select:none; touch-action:none; }
+  #bloqueio .camada { position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; transition:opacity 1.2s ease; }
+  #bloqueio .camada.visivel { opacity:1; }
+  /* tablet em pé: mostra a arte inteira, sem cortar a frase */
+  @media (orientation:portrait) { #bloqueio .camada { background-size:contain; background-repeat:no-repeat; } }
+  #bloqueio .nome { position:absolute; top:18px; left:18px; z-index:2; display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.88);
+                    color:#0F2C4A; font-size:15px; font-weight:700; padding:8px 14px; border-radius:30px; box-shadow:0 4px 14px rgba(15,44,74,.18); }
+  #bloqueio .nome::before { content:""; width:9px; height:9px; border-radius:50%; background:#3ea8ce; }
+
+  /* avisos */
+  #aviso { position:fixed; left:50%; bottom:90px; transform:translateX(-50%); z-index:60; max-width:calc(100% - 32px);
+           background:rgba(5,9,26,.94); color:#fff; padding:12px 18px; border-radius:14px; font-weight:700; font-size:15px; text-align:center;
+           box-shadow:0 10px 30px rgba(5,9,26,.4); }
+
+  /* menu sair */
+  #menu { position:fixed; inset:0; z-index:40; background:rgba(5,9,26,.5); display:flex; align-items:flex-end; justify-content:center; }
+  #menu .caixa { width:100%; max-width:440px; background:#fff; border-radius:18px 18px 0 0; padding:20px 18px; padding-bottom:max(20px, env(safe-area-inset-bottom)); }
+  #menu .caixa p { margin:0 0 6px; color:var(--cinza); font-size:14px; }
+  #menu .caixa b { font-size:18px; }
+  .sec { width:100%; margin-top:10px; padding:13px; border:0; border-radius:12px; background:#e6ebf0; color:var(--azul); font-size:16px; font-weight:700; }
+  .perigo { background:#fde7e5; color:#b3261e; }
+
+  @media (max-width:420px) {
+    .cores button { font-size:12.5px; }
+    #fabMao .txt { display:none; }
+    #fabMao { padding:14px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ ENTRAR NA AULA ============ -->
+<section id="telaEntrar">
+  <main class="cartao">
+    <div class="marca">
+      <img src="icons/aluno-192.png" alt="Portal do Educador">
+      <div><b>Portal Maestro</b><span>Portal do Educador · O professor conduz, a turma acompanha</span></div>
+    </div>
+    <h1>Entrar na aula</h1>
+    <p class="sub">Digite o número que o professor mostrou e o seu nome.</p>
+    <label for="codigo">Número da aula</label>
+    <input id="codigo" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off">
+    <label for="nome">Seu nome</label>
+    <input id="nome" maxlength="60" placeholder="Como o professor vai te ver" autocomplete="off">
+    <button class="btn" id="btnEntrar" data-action="entrar">Entrar na aula</button>
+    <div class="msg" id="msgEntrar"></div>
+    <div class="dica-instalar" id="dicaInstalar" hidden>
+      Use sempre pelo ícone na tela inicial: abre em tela cheia, sem barra do navegador.
+      <br><button data-action="instalar">📲 Instalar o Portal Maestro</button>
+    </div>
+  </main>
+</section>
+
+<!-- ============ NA AULA ============ -->
+<section id="telaAula" hidden>
+  <header class="topo">
+    <img src="icons/aluno-192.png" alt="">
+    <div class="ident"><b id="topoNome">Aluno</b><span>Aula <span id="topoAula">------</span></span></div>
+    <span class="pill" id="pill">Conectado</span>
+    <button class="menu-btn" data-action="menu">Sair</button>
+  </header>
+
+  <div id="palco">
+    <div id="espera">
+      <div class="onda"><img src="icons/aluno-192.png" alt=""></div>
+      <h2>Você está na aula</h2>
+      <p class="prof" id="esperaProf"></p>
+      <p>Fique nesta tela. Quando o professor enviar uma atividade, ela abre aqui sozinha.</p>
+      <div class="dicas"><span>✋ Quer falar? Toque em <b>Levantar a mão</b>.</span></div>
+    </div>
+
+    <div id="conteudo" hidden>
+      <div class="barra-conteudo">
+        <span class="tit" id="conteudoTitulo">Conteúdo</span>
+        <button data-action="abrirFora" title="Use se a página não carregar aqui">↗ Abrir fora</button>
+        <button data-action="fecharConteudo">✕ Fechar</button>
+      </div>
+      <div class="abas-atv" id="abasAtv" hidden></div>
+      <div id="quadros"></div>
+    </div>
+
+    <div id="chegou" role="status" hidden></div>
+
+    <div id="chipTempo" hidden>
+      <div class="t" id="tempoTitulo">Atividade</div>
+      <div class="n" id="tempoNum">00:00</div>
+      <div class="b"><i id="tempoBarra"></i></div>
+    </div>
+
+    <div id="cartoes">
+      <div class="folha" id="folhaPesquisa" hidden>
+        <div class="rot">Pesquisa rápida</div>
+        <p class="perg" id="pesqPergunta">Entenderam?</p>
+        <div class="cores" id="pesqCores">
+          <button class="verde" data-action="pesquisa" data-valor="verde"><span class="bola"></span>Entendi</button>
+          <button class="amarelo" data-action="pesquisa" data-valor="amarelo"><span class="bola"></span>Mais ou menos</button>
+          <button class="vermelho" data-action="pesquisa" data-valor="vermelho"><span class="bola"></span>Não entendi</button>
+        </div>
+        <div class="ok" id="pesqOk" hidden>Resposta enviada ✓</div>
+        <div class="erro" id="pesqErro" hidden></div>
+      </div>
+
+      <div class="folha pq" id="folhaPergunta" hidden>
+        <div class="rot">Pergunta do professor para você</div>
+        <p class="perg" id="pqTexto"></p>
+        <div class="alts" id="pqAlts" hidden></div>
+        <div id="pqLivre" hidden>
+          <textarea id="pqResposta" maxlength="500" placeholder="Escreva sua resposta"></textarea>
+          <button class="enviar" data-action="enviarPergunta">Enviar resposta</button>
+        </div>
+        <div class="ok" id="pqOk" hidden>Resposta enviada ✓</div>
+        <div class="erro" id="pqErro" hidden></div>
+      </div>
+    </div>
+
+    <button id="fabMao" data-action="mao"><span class="ico">✋</span><span class="txt" id="txtMao">Levantar a mão</span></button>
+  </div>
+</section>
+
+<div id="bloqueio" hidden>
+  <div class="camada" id="camadaA"></div>
+  <div class="camada" id="camadaB"></div>
+  <div class="nome" id="bloqNome">Aluno</div>
+  <div class="faixa">Atenção ao professor · sua atividade continua aqui depois</div>
+</div>
+
+<div id="menu" hidden>
+  <div class="caixa">
+    <p>Você está na aula <b id="menuAula"></b></p>
+    <button class="sec perigo" data-action="sair">Sair da aula</button>
+    <button class="sec" data-action="fecharMenu">Continuar na aula</button>
+  </div>
+</div>
+
+<div id="aviso" hidden></div>
+
+<script>
+/* Portal Maestro · página do aluno (Android, tablets e qualquer navegador) · web-1.0.0
+   Conversa com o mesmo painel do professor que a extensão do Chrome usa, na mesma estrutura do banco:
+     aulas/{codigo}/alunos/{id}                presença (nome, bloqueado, aba, versao, ultimaAtividade)
+     aulas/{codigo}/alunos/{id}/mao            mão levantada (o professor apaga ao atender)
+     aulas/{codigo}/controle/...               bloqueio, comandos (abrirLink), afinacao, compasso, perguntas, professorVivo
+     aulas/{codigo}/respostas/afinacao/{idPergunta}/{id}   e   respostas/perguntas/{id}/{idPergunta}
+   Limite desta versão: o controle vale dentro desta página. Para travar o tablet nela, use o modo quiosque do gerenciador. */
+(function () {
+  "use strict";
+  const VERSAO = "web-1.2.0";   // nov/2026: dentro do Portal (entra pela conta do aluno, sem digitar número)
+  const INTERVALO_MS = 3000;
+  const HEARTBEAT_A_CADA = 5;          // presença a cada 15 s
+  const PAINEL_SEM_SINAL_MS = 120000;  // trava de segurança, igual à extensão
+  const MENSAGENS = ["bloqueio/msg1.jpg", "bloqueio/msg2.jpg", "bloqueio/msg3.jpg"];
+  const TROCA_MS = 40000;
+  const CHAVE = "portalMaestroAluno";
+
+  // banco: produção; em teste local (127.0.0.1/localhost) aceita ?fb=
+  let FIREBASE_URL = "https://newpc-sala-default-rtdb.firebaseio.com";
+  const params = new URLSearchParams(location.search);
+  // vindo do Portal: ?aula=123456&nome=Ana%20Souza&aluno=<id da matrícula>
+  const PORTAL = {
+    aula: /^\d{6}$/.test(params.get("aula") || "") && params.get("portal") === "1" ? params.get("aula") : "",
+    nome: String(params.get("nome") || "").trim().slice(0, 60),
+    aluno: /^[A-Za-z0-9_-]{1,64}$/.test(params.get("aluno") || "") ? params.get("aluno") : ""
+  };
+  if (/^(127\.0\.0\.1|localhost)$/.test(location.hostname) && params.get("fb")) FIREBASE_URL = params.get("fb");
+
+  const NOMES = {
+    "portal360.portaldoeducador.com.br/apps/sistema-solar/": "Sistema Solar",
+    "portal360.portaldoeducador.com.br/apps/dna/": "DNA Imersivo",
+    "portal360.portaldoeducador.com.br/apps/corpo-humano/": "Corpo Humano Imersivo",
+    "portal360.portaldoeducador.com.br/apps/terra/": "Terra por Dentro",
+    "portal360.portaldoeducador.com.br/apps/celula/": "Célula 3D",
+    "portal360.portaldoeducador.com.br/": "Catálogo Portal 360",
+    "jogos.portaldoeducador.com.br/": "Copa do Conhecimento",
+    "app.portaldoeducador.com.br/jogos/": "Jogos do Portal",
+    "lousa.portaldoeducador.com.br/": "Lousa Interativa",
+    "www.portaldoeducador-aluno.com.br/": "Portal do Aluno"
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const ANDROID = /Android/i.test(navigator.userAgent);
+
+  // ---------- estado guardado no aparelho ----------
+  let S = { deviceId: "", aula: null, nome: "", professor: "", alunoId: "", doPortal: false, executados: [], afinacaoRespondida: null, perguntaRespondida: null, mao: false, offset: 0, conteudo: null, atividades: [] };
+  const MAX_ATIVIDADES = 3;           // atividades mantidas abertas (preserva o progresso ao trocar)
+  const VALIDADE_COMANDO_MS = 120000; // ordem com mais de 2 min não é executada (aluno que voltou de uma queda)
+  function carregar() {
+    try { Object.assign(S, JSON.parse(localStorage.getItem(CHAVE) || "{}")); } catch (e) { /* sem armazenamento: segue em memória */ }
+    if (!S.deviceId) {
+      S.deviceId = "web_" + Date.now() + "_" + Math.random().toString(36).slice(2, 11);
+      salvar();
+    }
+  }
+  function salvar() {
+    try { localStorage.setItem(CHAVE, JSON.stringify(S)); } catch (e) { /* ignora */ }
+  }
+
+  // ---------- Firebase REST ----------
+  async function fb(caminho, metodo, corpo, keepalive) {
+    const op = { method: metodo || "GET", headers: { "Content-Type": "application/json" } };
+    if (corpo !== undefined) op.body = JSON.stringify(corpo);
+    if (keepalive) op.keepalive = true;
+    const r = await fetch(`${FIREBASE_URL}/${caminho}.json`, op);
+    if (!r.ok) throw new Error(`Firebase ${r.status}`);
+    return r.json();
+  }
+
+  // ---------- utilidades de tela ----------
+  let avisoTimer = null;
+  function aviso(texto, ms) {
+    const el = $("aviso");
+    el.textContent = texto;
+    el.hidden = false;
+    clearTimeout(avisoTimer);
+    avisoTimer = setTimeout(() => { el.hidden = true; }, ms || 3500);
+  }
+  function msgEntrar(texto, erro) {
+    $("msgEntrar").textContent = texto || "";
+    $("msgEntrar").className = "msg" + (erro ? " erro" : "");
+  }
+  function bipe(notas) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      (notas || [0, 0.35, 0.7]).forEach((t) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 880;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
+        g.gain.exponentialRampToValueAtTime(0.3, ctx.currentTime + t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.25);
+        o.connect(g).connect(ctx.destination);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.3);
+      });
+    } catch (e) { /* sem áudio */ }
+  }
+  function vibrar(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { /* ignora */ } }
+  function formatar(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }
+  function nomeDoLink(url) {
+    try {
+      const u = new URL(url);
+      const chave = u.host + u.pathname;
+      for (const k in NOMES) if (chave === k || chave === k.replace(/\/$/, "")) return NOMES[k];
+      return u.host.replace(/^www\./, "") + (u.pathname.length > 1 ? u.pathname : "");
+    } catch (e) { return "Conteúdo"; }
+  }
+  // links do YouTube não abrem dentro de outra página; a versão "embed" abre
+  function paraQuadro(url) {
+    try {
+      const u = new URL(url);
+      if (/(^|\.)youtube\.com$/.test(u.hostname) && u.searchParams.get("v")) return "https://www.youtube.com/embed/" + u.searchParams.get("v");
+      if (u.hostname === "youtu.be") return "https://www.youtube.com/embed" + u.pathname;
+    } catch (e) { /* mantém */ }
+    return url;
+  }
+
+  // ---------- tela cheia e tela sempre acesa ----------
+  const INSTALADO = matchMedia("(display-mode: fullscreen), (display-mode: standalone)").matches;
+  let wakeLock = null;
+  async function manterAcesa() {
+    try { if ("wakeLock" in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); } } catch (e) { /* sem suporte */ }
+  }
+  function telaCheia() {
+    if (INSTALADO || document.fullscreenElement) return;
+    try { const p = document.documentElement.requestFullscreen({ navigationUI: "hide" }); if (p && p.catch) p.catch(() => {}); } catch (e) { /* sem suporte */ }
+  }
+
+  // ---------- instalação (PWA) ----------
+  let pedidoInstalar = null;
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); pedidoInstalar = e; $("dicaInstalar").hidden = false; });
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+
+  // ---------- presença ----------
+  let foraDaPagina = false;
+  function abaAtual() {
+    if (S.bloqueado) return { titulo: "⏸️ Tela pausada (no app do aluno)", url: "" };
+    if (foraDaPagina) return { titulo: "⚠ Saiu da página do Maestro", url: "" };
+    if (S.conteudo) return { titulo: nomeDoLink(S.conteudo).slice(0, 120), url: S.conteudo.slice(0, 300) };
+    return { titulo: "Na aula · aguardando o professor", url: "" };
+  }
+  async function enviarPresenca(keepalive) {
+    if (!S.aula) return;
+    const antes = Date.now();
+    const r = await fb(`aulas/${S.aula}/alunos/${S.deviceId}`, "PATCH", {
+      nome: S.nome || "Aluno sem nome",
+      email: (window.navigator.userAgent.includes("PortalMaestroApp") ? "📱 App do tablet" : ANDROID ? "📱 Android · página do aluno" : "🌐 Navegador · página do aluno") + (S.doPortal ? " · conta do Portal" : ""),
+      aluno_id: S.alunoId || null,
+      bloqueado: !!S.bloqueado,
+      aba: abaAtual(),
+      versao: VERSAO,
+      ultimaAtividade: { ".sv": "timestamp" }
+    }, undefined, keepalive);
+    if (r && typeof r.ultimaAtividade === "number") {
+      S.offset = r.ultimaAtividade - Math.round((antes + Date.now()) / 2);
+      salvar();
+    }
+  }
+
+  // ---------- conteúdo enviado pelo professor ----------
+  // Cada atividade fica no seu próprio quadro: trocar de atividade não apaga o progresso da anterior.
+  function quadroDe(url) {
+    return [...$("quadros").querySelectorAll("iframe")].find((f) => f.dataset.url === url) || null;
+  }
+  function criarQuadro(url) {
+    const f = document.createElement("iframe");
+    f.dataset.url = url;
+    f.title = "Atividade enviada pelo professor";
+    f.setAttribute("allow", "camera; xr-spatial-tracking; fullscreen; autoplay; accelerometer; gyroscope");   // camera: entrada do Portal por QR
+    f.setAttribute("allowfullscreen", "");
+    f.src = paraQuadro(url);
+    $("quadros").appendChild(f);
+    return f;
+  }
+  function desenharAbas() {
+    const lista = S.atividades || [];
+    $("abasAtv").hidden = lista.length < 2;
+    $("abasAtv").textContent = "";
+    lista.forEach((url) => {
+      const b = document.createElement("button");
+      b.dataset.action = "trocarAtividade";
+      b.dataset.url = url;
+      b.textContent = nomeDoLink(url);
+      if (url === S.conteudo) b.className = "ativa";
+      $("abasAtv").appendChild(b);
+    });
+  }
+  function mostrarAtividade(url) {
+    S.conteudo = url;
+    S.atividades = [url].concat((S.atividades || []).filter((u) => u !== url));
+    // limita as atividades abertas e descarta as mais antigas
+    S.atividades.slice(MAX_ATIVIDADES).forEach((u) => { const f = quadroDe(u); if (f) f.remove(); });
+    S.atividades = S.atividades.slice(0, MAX_ATIVIDADES);
+    salvar();
+    const ativo = quadroDe(url) || criarQuadro(url);
+    $("quadros").querySelectorAll("iframe").forEach((f) => { f.hidden = f !== ativo; });
+    $("conteudoTitulo").textContent = nomeDoLink(url);
+    $("conteudo").hidden = false;
+    $("espera").hidden = true;
+    desenharAbas();
+  }
+  let chegouTimer = null;
+  function abrirConteudo(url, doProfessor) {
+    mostrarAtividade(url);
+    if (doProfessor) {
+      const el = $("chegou");
+      el.textContent = "📚 Nova atividade do professor: " + nomeDoLink(url);
+      el.hidden = false;
+      clearTimeout(chegouTimer);
+      chegouTimer = setTimeout(() => { el.hidden = true; }, 4500);
+      vibrar([60, 40, 60]);
+      bipe([0, 0.15]);
+    }
+    enviarPresenca().catch(() => {});
+  }
+  function fecharConteudo() {
+    const atual = S.conteudo;
+    const f = quadroDe(atual);
+    if (f) f.remove();
+    S.atividades = (S.atividades || []).filter((u) => u !== atual);
+    if (S.atividades.length) { mostrarAtividade(S.atividades[0]); enviarPresenca().catch(() => {}); return; }
+    S.conteudo = null; salvar();
+    $("conteudo").hidden = true;
+    $("espera").hidden = false;
+    desenharAbas();
+    enviarPresenca().catch(() => {});
+  }
+
+  function executarComando(cmd) {
+    if (!cmd || !cmd.id || S.executados.includes(cmd.id)) return;
+    S.executados = S.executados.concat(cmd.id).slice(-30);
+    salvar();
+    // ordem antiga (o aluno voltou depois de muito tempo sem conexão): não executa
+    if (typeof cmd.ts === "number" && Date.now() + (S.offset || 0) - cmd.ts > VALIDADE_COMANDO_MS) return;
+    if (cmd.tipo === "abrirLink" && /^https?:\/\//i.test(cmd.url || "")) {
+      abrirConteudo(cmd.url, true);
+      // confirma ao painel que a atividade abriu
+      fb(`aulas/${S.aula}/alunos/${S.deviceId}`, "PATCH", { ultimoCmd: { id: cmd.id, ts: { ".sv": "timestamp" } } }).catch(() => {});
+    }
+  }
+
+  // ---------- bloqueio ----------
+  let msgAtual = -1, frente = 0, trocaTimer = null;
+  function mostrarMensagem() {
+    let i = 0;
+    if (MENSAGENS.length > 1) do { i = Math.floor(Math.random() * MENSAGENS.length); } while (i === msgAtual);
+    msgAtual = i;
+    const camadas = [$("camadaA"), $("camadaB")];
+    const prox = camadas[1 - frente];
+    const img = new Image();
+    img.onload = () => {
+      prox.style.backgroundImage = `url("${MENSAGENS[i]}")`;
+      prox.classList.add("visivel");
+      camadas[frente].classList.remove("visivel");
+      frente = 1 - frente;
+    };
+    img.src = MENSAGENS[i];
+  }
+  function aplicarBloqueio(ligar) {
+    if (ligar === !!S.bloqueado) return;
+    S.bloqueado = ligar; salvar();
+    $("bloqueio").hidden = !ligar;
+    if (ligar) {
+      $("bloqNome").textContent = S.nome || "Aluno";
+      $("menu").hidden = true;
+      if (document.activeElement) document.activeElement.blur();
+      mostrarMensagem();
+      clearInterval(trocaTimer);
+      trocaTimer = setInterval(mostrarMensagem, TROCA_MS);
+      vibrar([80, 60, 80]);
+    } else {
+      clearInterval(trocaTimer);
+    }
+    enviarPresenca().catch(() => {});
+  }
+
+  // ---------- pesquisa rápida, pergunta e cronômetro ----------
+  let pesqId = null, pqId = null, comp = null, compId = null, compTotal = 1, avisouFim = false, enviando = false;
+
+  function atualizarRegencia(controle) {
+    const a = controle.afinacao;
+    const pesq = a && a.ativa && a.id && a.id !== S.afinacaoRespondida ? a : null;
+    if (pesq && pesq.id !== pesqId) {
+      pesqId = pesq.id;
+      $("pesqPergunta").textContent = String(pesq.pergunta || "Entenderam?").slice(0, 140);
+      $("pesqCores").hidden = false; $("pesqOk").hidden = true; $("pesqErro").hidden = true;
+      $("folhaPesquisa").hidden = false;
+      bipe([0, 0.18]); vibrar(120);
+    } else if (!pesq && pesqId && $("pesqOk").hidden) {
+      pesqId = null; $("folhaPesquisa").hidden = true;
+    }
+
+    const p = controle.perguntas ? controle.perguntas[S.deviceId] : null;
+    const pq = p && p.ativa && p.id && p.id !== S.perguntaRespondida ? p : null;
+    if (pq && pq.id !== pqId) montarPergunta(pq);
+    else if (!pq && pqId && $("pqOk").hidden) { pqId = null; $("folhaPergunta").hidden = true; }
+
+    const c = controle.compasso;
+    if (c && c.ativo && c.id && typeof c.inicio === "number" && c.duracaoMs > 0) {
+      const fimLocal = c.inicio + c.duracaoMs - (S.offset || 0);
+      if (Date.now() < fimLocal + 8000) {
+        if (c.id !== compId) { compId = c.id; compTotal = Math.max(1000, fimLocal - Date.now()); avisouFim = false; }
+        comp = { titulo: String(c.titulo || "Atividade").slice(0, 60), fimLocal };
+      } else comp = null;
+    } else { comp = null; compId = null; }
+    $("chipTempo").hidden = !comp;
+    if (comp) $("tempoTitulo").textContent = comp.titulo;
+    tick();
+  }
+
+  function montarPergunta(p) {
+    pqId = p.id;
+    $("pqTexto").textContent = String(p.texto || "").slice(0, 300);
+    $("pqOk").hidden = true; $("pqErro").hidden = true;
+    const opcoes = Array.isArray(p.opcoes) ? p.opcoes.map((o) => String(o).slice(0, 80)).filter(Boolean).slice(0, 4) : [];
+    const box = $("pqAlts");
+    box.textContent = "";
+    if (opcoes.length >= 2) {
+      opcoes.forEach((op, i) => {
+        const b = document.createElement("button");
+        b.dataset.action = "alternativa";
+        b.dataset.valor = op;
+        const l = document.createElement("span"); l.className = "letra"; l.textContent = "ABCD"[i];
+        const t = document.createElement("span"); t.textContent = op;
+        b.append(l, t);
+        box.appendChild(b);
+      });
+      box.hidden = false; $("pqLivre").hidden = true;
+    } else {
+      box.hidden = true; $("pqLivre").hidden = false; $("pqResposta").value = "";
+    }
+    $("folhaPergunta").hidden = false;
+    bipe([0, 0.18]); vibrar(120);
+  }
+
+  function tick() {
+    if (!comp) return;
+    const resta = comp.fimLocal - Date.now();
+    $("tempoNum").textContent = resta > 0 ? formatar(resta) : "TEMPO!";
+    $("tempoBarra").style.width = Math.max(0, Math.min(100, (resta / compTotal) * 100)) + "%";
+    $("chipTempo").classList.toggle("fim", resta <= 0);
+    if (resta <= 0 && !avisouFim) { avisouFim = true; bipe(); vibrar([200, 100, 200]); }
+  }
+  setInterval(tick, 250);
+
+  async function responderPesquisa(valor) {
+    if (enviando || !pesqId) return;
+    enviando = true;
+    const id = pesqId;
+    try {
+      await fb(`aulas/${S.aula}/respostas/afinacao/${id}/${S.deviceId}`, "PUT", { valor, nome: S.nome || "", ts: { ".sv": "timestamp" } });
+      S.afinacaoRespondida = id; salvar();
+      $("pesqCores").hidden = true; $("pesqOk").hidden = false;
+      setTimeout(() => { if (pesqId === id) { pesqId = null; $("folhaPesquisa").hidden = true; } }, 1400);
+    } catch (e) {
+      $("pesqErro").textContent = "Sem conexão. Tente de novo."; $("pesqErro").hidden = false;
+    }
+    enviando = false;
+  }
+
+  async function responderPergunta(resposta) {
+    resposta = String(resposta || "").trim().slice(0, 500);
+    if (!resposta) { $("pqErro").textContent = "Escreva sua resposta."; $("pqErro").hidden = false; return; }
+    if (enviando || !pqId) return;
+    enviando = true;
+    const id = pqId;
+    try {
+      await fb(`aulas/${S.aula}/respostas/perguntas/${S.deviceId}/${id}`, "PUT", { resposta, ts: { ".sv": "timestamp" } });
+      S.perguntaRespondida = id; salvar();
+      $("pqAlts").hidden = true; $("pqLivre").hidden = true; $("pqOk").hidden = false; $("pqErro").hidden = true;
+      if (document.activeElement) document.activeElement.blur();
+      setTimeout(() => { if (pqId === id) { pqId = null; $("folhaPergunta").hidden = true; } }, 1400);
+    } catch (e) {
+      $("pqErro").textContent = "Sem conexão. Tente de novo."; $("pqErro").hidden = false;
+    }
+    enviando = false;
+  }
+
+  // ---------- mão levantada ----------
+  function desenharMao() {
+    $("fabMao").classList.toggle("erguida", !!S.mao);
+    $("txtMao").textContent = S.mao ? "Mão levantada" : "Levantar a mão";
+  }
+  async function alternarMao() {
+    if (!S.aula) return;
+    const levantar = !S.mao;
+    $("fabMao").disabled = true;
+    try {
+      if (levantar) await fb(`aulas/${S.aula}/alunos/${S.deviceId}/mao`, "PUT", { ".sv": "timestamp" });
+      else await fb(`aulas/${S.aula}/alunos/${S.deviceId}/mao`, "DELETE");
+      S.mao = levantar; salvar(); desenharMao();
+      aviso(levantar ? "✋ O professor já está vendo sua mão." : "Mão abaixada.", 2500);
+    } catch (e) {
+      aviso("Sem conexão. Tente de novo.");
+    }
+    $("fabMao").disabled = false;
+  }
+  async function conferirMao() {
+    if (!S.aula || !S.mao) return;
+    const v = await fb(`aulas/${S.aula}/alunos/${S.deviceId}/mao`);
+    if (v === null) { S.mao = false; salvar(); desenharMao(); aviso("👀 O professor viu sua mão!", 4000); vibrar(150); }
+  }
+
+  // ---------- ciclo ----------
+  let volta = 0, cicloTimer = null, cicloRodando = false;
+  async function verificarControle() {
+    const controle = await fb(`aulas/${S.aula}/controle`);
+    if (!controle || controle.encerrada) { encerrar("A aula foi encerrada pelo professor."); return; }
+    if (typeof controle.ate === "number" && Date.now() + (S.offset || 0) > controle.ate + 60000) { encerrar("O tempo da aula acabou."); return; }
+
+    const ind = controle.bloqueio ? controle.bloqueio[S.deviceId] : undefined;
+    let deveBloquear = typeof ind === "boolean" ? ind : !!controle.bloqueioGeral;
+    if (deveBloquear) {
+      const vivo = typeof controle.professorVivo === "number" ? controle.professorVivo : 0;
+      if (Date.now() + (S.offset || 0) - vivo > PAINEL_SEM_SINAL_MS) deveBloquear = false; // trava de segurança
+    }
+    aplicarBloqueio(deveBloquear);
+
+    const meu = controle.comandos ? controle.comandos[S.deviceId] : null;
+    [controle.comando, meu].filter((c) => c && c.id).sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach(executarComando);
+    atualizarRegencia(controle);
+  }
+  async function ciclo() {
+    if (cicloRodando || !S.aula) return;
+    cicloRodando = true;
+    clearTimeout(cicloTimer);
+    let ok = true;
+    try { await verificarControle(); } catch (e) { ok = false; }
+    try { await conferirMao(); } catch (e) { /* próxima volta */ }
+    if (S.aula && volta % HEARTBEAT_A_CADA === 0) { try { await enviarPresenca(); } catch (e) { ok = false; } }
+    volta++;
+    if (S.aula) {
+      $("pill").textContent = ok ? (S.bloqueado ? "Tela bloqueada" : "Conectado") : "Sem internet";
+      $("pill").classList.toggle("off", !ok);
+      cicloTimer = setTimeout(ciclo, INTERVALO_MS);
+    }
+    cicloRodando = false;
+  }
+
+  // ---------- entrar e sair ----------
+  function mostrarAula() {
+    $("telaEntrar").hidden = true;
+    $("telaAula").hidden = false;
+    $("topoNome").textContent = S.nome;
+    $("topoAula").textContent = S.aula;
+    $("menuAula").textContent = S.aula;
+    desenharMao();
+    $("esperaProf").textContent = S.professor ? "Aula de " + S.professor : "";
+    if (S.conteudo) mostrarAtividade(S.conteudo); else { $("conteudo").hidden = true; $("espera").hidden = false; desenharAbas(); }
+    try { history.pushState({ maestro: 1 }, ""); } catch (e) { /* ignora */ }
+    manterAcesa();
+  }
+  function mostrarEntrada(texto, erro) {
+    $("telaAula").hidden = true;
+    $("bloqueio").hidden = true;
+    $("menu").hidden = true;
+    $("telaEntrar").hidden = false;
+    $("nome").value = S.nome || $("nome").value;
+    $("codigo").value = params.get("aula") && /^\d{6}$/.test(params.get("aula")) ? params.get("aula") : "";
+    msgEntrar(texto, erro);
+  }
+
+  async function entrar() {
+    const codigo = $("codigo").value.replace(/\D/g, "");
+    const nome = $("nome").value.trim().slice(0, 60);
+    if (codigo.length !== 6) return msgEntrar("O número da aula tem 6 dígitos.", true);
+    if (!nome) return msgEntrar("Digite seu nome.", true);
+    telaCheia();
+    $("btnEntrar").disabled = true;
+    msgEntrar("Conectando...");
+    let aula;
+    try { aula = await fb(`aulas/${codigo}`); }
+    catch (e) { $("btnEntrar").disabled = false; return msgEntrar("Sem conexão com o servidor. Verifique a internet.", true); }
+    $("btnEntrar").disabled = false;
+    if (!aula) return msgEntrar("Aula não encontrada. Confira o número com o professor.", true);
+    if (aula.controle && aula.controle.encerrada) return msgEntrar("Esta aula já foi encerrada.", true);
+
+    // comandos e perguntas que já existiam antes de entrar não são repetidos
+    const c = aula.controle || {};
+    const antigos = [];
+    if (c.comando && c.comando.id) antigos.push(c.comando.id);
+    if (c.comandos && c.comandos[S.deviceId]) antigos.push(c.comandos[S.deviceId].id);
+    Object.assign(S, { alunoId: PORTAL.aluno || "", doPortal: !!PORTAL.aula, aula: codigo, nome, professor: String(aula.professor || "").slice(0, 60), executados: antigos, bloqueado: false, mao: false, conteudo: null, atividades: [], afinacaoRespondida: null, perguntaRespondida: null });
+    salvar();
+    msgEntrar("");
+    mostrarAula();
+    volta = 0;
+    try { await enviarPresenca(); } catch (e) { /* o ciclo tenta de novo */ }
+    fb(`aulas/${S.aula}/alunos/${S.deviceId}`, "PATCH", { entrouEm: { ".sv": "timestamp" } }).catch(() => {});
+    volta = 1;
+    ciclo();
+  }
+
+  function limparAula() {
+    clearTimeout(cicloTimer);
+    clearInterval(trocaTimer);
+    Object.assign(S, { aula: null, bloqueado: false, mao: false, conteudo: null, atividades: [], executados: [] });
+    salvar();
+    $("quadros").textContent = "";
+    $("folhaPesquisa").hidden = true; $("folhaPergunta").hidden = true; $("chipTempo").hidden = true;
+    pesqId = pqId = comp = compId = null;
+    if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  }
+  function encerrar(texto) {
+    const voltar = S.doPortal;
+    limparAula();
+    mostrarEntrada(texto, false);
+    // veio do Portal (entrou pela conta): ao terminar a aula, volta para o Portal do Aluno
+    if (voltar) { S.doPortal = false; salvar(); setTimeout(() => location.replace("/entrar/"), 2500); }
+  }
+  async function sair() {
+    if (S.bloqueado) return;
+    const aula = S.aula;
+    if (aula) fb(`aulas/${aula}/alunos/${S.deviceId}`, "DELETE").catch(() => {});
+    encerrar("Você saiu da aula.");
+  }
+
+  // ---------- ações (data-action) ----------
+  const acoes = {
+    entrar,
+    instalar() { if (pedidoInstalar) { pedidoInstalar.prompt(); pedidoInstalar = null; $("dicaInstalar").hidden = true; } },
+    menu() { if (!S.bloqueado) $("menu").hidden = false; },
+    fecharMenu() { $("menu").hidden = true; },
+    sair,
+    mao: alternarMao,
+    fecharConteudo,
+    abrirFora() { if (S.conteudo) window.open(S.conteudo, "_blank", "noopener"); },
+    trocarAtividade(el) { mostrarAtividade(el.dataset.url); enviarPresenca().catch(() => {}); },
+    pesquisa(el) { responderPesquisa(el.dataset.valor); },
+    alternativa(el) { responderPergunta(el.dataset.valor); },
+    enviarPergunta() { responderPergunta($("pqResposta").value); }
+  };
+  document.addEventListener("click", (e) => {
+    const alvo = e.target.closest("[data-action]");
+    if (alvo && acoes[alvo.dataset.action]) acoes[alvo.dataset.action](alvo);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !$("telaEntrar").hidden) entrar();
+  });
+  $("codigo").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
+
+  // botão "voltar" do Android: dentro da aula ele fecha o conteúdo, mas não tira o aluno da página
+  window.addEventListener("popstate", () => {
+    if (!S.aula) return;
+    try { history.pushState({ maestro: 1 }, ""); } catch (e) { /* ignora */ }
+    if (S.bloqueado) return;
+    if (!$("menu").hidden) { $("menu").hidden = true; return; }
+    if (S.conteudo) { fecharConteudo(); return; }
+    aviso("Para sair, use o botão Sair no topo.");
+  });
+
+  // saiu da página (outro app, tela inicial): o professor vê no painel
+  document.addEventListener("visibilitychange", () => {
+    if (!S.aula) return;
+    if (document.visibilityState === "hidden") {
+      foraDaPagina = true;
+      enviarPresenca(true).catch(() => {});
+    } else {
+      foraDaPagina = false;
+      manterAcesa();
+      volta = 0;
+      ciclo();
+    }
+  });
+  document.addEventListener("contextmenu", (e) => { if (S.bloqueado) e.preventDefault(); });
+
+  // ---------- início ----------
+  carregar();
+  S.bloqueado = false; // o bloqueio só volta se o painel confirmar (como na extensão)
+  if (PORTAL.aula && PORTAL.nome && S.aula !== PORTAL.aula) {
+    // o Portal mandou o aluno para cá já logado: entra sozinho, sem digitar número nem nome
+    try { history.replaceState(null, "", location.pathname); } catch (e) { /* ignora */ }
+    mostrarEntrada("Entrando na aula...");
+    $("codigo").value = PORTAL.aula; $("nome").value = PORTAL.nome;
+    entrar();
+  } else if (S.aula) {
+    mostrarAula();
+    ciclo();
+  } else {
+    mostrarEntrada("");
+  }
+})();
+</script>
+</body>
+</html>

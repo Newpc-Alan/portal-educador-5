@@ -24,7 +24,8 @@ import android.widget.FrameLayout;
 
 // Portal Maestro · Aluno: abre a página do aluno em tela cheia, sem depender do Chrome instalado no tablet.
 public class MainActivity extends Activity {
-    private static final String INICIO = "https://sala.portaldoeducador.com.br/aluno/";
+    // 1.2 (nov/2026): abre no login do aluno do Portal (cartão QR, código + PIN); com aula aberta, o Portal leva para a aula do Maestro
+    private static final String INICIO = "https://app.portaldoeducador.com.br/entrar/?qr";
     private WebView web;
     private FrameLayout raiz;
     private View telaCheia;

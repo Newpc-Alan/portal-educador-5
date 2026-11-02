@@ -421,6 +421,19 @@
   .av-nm{ font-size:12.5px;text-align:center;line-height:1.2 }
   .av-al.fora{ opacity:1;background:#fdecec } .av-al.fora .av-av{ background:#c62828;color:#fff;border-color:#ef9a9a;box-shadow:0 0 0 4px rgba(198,40,40,.18) } .av-al.fora .av-nm{ font-weight:700;color:#a11d1d }
   .av-leg-cor{ display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#62758a;margin-left:auto } .av-leg-cor i{ display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px }
+  /* Maestro dentro do Dar aula (nov/2026): aparelho controlado, tela pausada e mão levantada no próprio cartão do aluno */
+  button.av-al{ font:inherit;border:0;cursor:pointer;position:relative }
+  .av-ap{ position:absolute;top:4px;right:6px;font-size:14px;line-height:1 } .av-mao{ position:absolute;top:4px;left:6px;font-size:16px;animation:avMao 1s ease-in-out infinite alternate }
+  @keyframes avMao{ from{ transform:rotate(-12deg) } to{ transform:rotate(12deg) } }
+  .av-al.pausa .av-av{ outline:3px dashed #0f2c4a;outline-offset:2px }
+  .av-mae{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 20px 0;padding:10px 14px;border-radius:14px;background:#0f2c4a;color:#fff;font-size:14px }
+  .av-mae b{ font-size:15px } .av-mae small{ opacity:.8 } .av-mae .av-esp{ flex:1 }
+  .av-mae button{ font:inherit;font-weight:800;font-size:14px;border:0;border-radius:10px;padding:9px 12px;cursor:pointer;background:#fff;color:#0f2c4a }
+  .av-mae button.on{ background:#8DC63F } .av-mae button:disabled{ opacity:.5;cursor:default }
+  .av-det{ grid-column:1/-1;background:#fff;border:2px solid #0f2c4a;border-radius:14px;padding:12px;display:grid;gap:8px }
+  .av-det b{ font-size:15px } .av-det small{ color:#5b6b7b } .av-det .av-det-ac{ display:flex;flex-wrap:wrap;gap:8px }
+  .av-det button{ font:inherit;font-weight:700;border:1px solid #cfdbe7;background:#f4f7fa;border-radius:10px;padding:8px 12px;cursor:pointer }
+  .av-outros{ grid-column:1/-1;font-size:12.5px;color:#5b6b7b;padding:6px 2px }
   .av-al.on{ opacity:1;background:#eef7e3 } .av-al.on .av-av{ background:#1a6b2a;color:#fff;border-color:#8DC63F;box-shadow:0 0 0 4px rgba(141,198,63,.25) } .av-al.on .av-nm{ font-weight:700;color:#1a5a24 }
   .av-busca{ display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin-bottom:10px } .av-busca h4{ margin:0 }
   .av-busca input,.av-busca select{ font:inherit;padding:8px 10px;border:1px solid #cfdbe7;border-radius:10px;min-height:40px;min-width:0 }
@@ -1933,6 +1946,13 @@
   (function(){
     const ps = new URLSearchParams(location.search), q = ps.get("como");
     definirComo(ps.has("qr") ? "aluno" : (q === "aluno" || q === "professor" ? q : comoEntrar()));
+    // app do Maestro no tablet (1.2+): abre aqui, no login do aluno; quem ainda não tem conta do Portal entra só pelo número da aula
+    if(/PortalMaestroApp/.test(navigator.userAgent)){
+      const c = document.querySelector(".como"), l = document.createElement("p");
+      l.style.cssText = "text-align:center;margin:12px 0 0;font-size:14px";
+      l.innerHTML = 'Sem conta no Portal? <a href="/maestro/aluno/" style="font-weight:800;color:#2671AB">Entrar com o número da aula</a>';
+      if(c && c.parentNode) c.parentNode.insertBefore(l, c.nextSibling);
+    }
   })();
   // ---------- entrada por QR do cartão de acesso: aponta a câmera e entra, sem digitar nada ----------
   // O link do cartão é .../entrar/#q=<matrícula>.<chave>: a parte depois do # nunca vai para o servidor nem para o histórico.
@@ -7107,6 +7127,11 @@
     else if(acao === "nt-faixa-reagir"){ reagirFaixa(el.dataset.arg); }
     else if(acao === "av-mais"){ if(!AV.tid) return; el.disabled = true; chamarEntradaQr({ turma_id:AV.tid, acao:"prorrogar", minutos:10 }).then(r => { toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); qrAoVivo("ver"); }).catch(e => toast(e && e.message ? e.message : "Não deu para prorrogar agora.", true)).finally(() => { el.disabled = false; }); }
     else if(acao === "av-feitos"){ if(AV.tid) feitosParaTurma(AV.tid); }
+    else if(acao === "av-mae-al"){ MAV.sel = MAV.sel === el.dataset.arg ? "" : el.dataset.arg; desenharAoVivo(); }
+    else if(acao === "av-mae-pausa"){ maePausarTodos(el.dataset.arg === "1", el); }
+    else if(acao === "av-mae-um"){ maePausarAluno(el.dataset.arg, el.dataset.liga === "1"); }
+    else if(acao === "av-mae-mao"){ maeBaixarMao(el.dataset.arg); }
+    else if(acao === "av-mae-link"){ janelaLinkMae(); }
     else if(acao === "av-lousa"){ fecharAoVivo(); abrirLousa(); }
     else if(acao === "mt-ao-vivo"){ abrirAoVivo(el.dataset.id); }
     else if(acao === "ini-vivo-plano"){ toast("Turma ao Vivo (quem está na sala e quem abriu cada material) faz parte do plano Completo. Fale com a NEWPC para liberar."); }
@@ -8666,7 +8691,7 @@
   /* Turma ao vivo (professor): quem está na sala agora, o que foi enviado, quem já abriu e a busca no que já foi enviado. Independe do Maestro. */
   const AV = { tid:"", alunos:[], pres:{}, mats:[], vistos:{}, subs:[], relogio:null, q:"", per:"", aberto:"" };
   const ON_MS = 50000;   // o aluno manda sinal a cada 20 s; sem sinal há 50 s = fora
-  function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; clearInterval(AV.relogio); AV.relogio = null; }
+  function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
   function fecharAoVivo(){ pararAoVivo(); const f = $("avFundo"); if(f) f.remove(); atualizarCartaoAula(); }
   const iniciais = n => String(n || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
   async function abrirAoVivo(tidPre){
@@ -8686,6 +8711,7 @@
         '<button type="button" class="av-ac" data-action="av-feitos"><span>📁</span>Enviar algo que já fiz</button>' +
         '<button type="button" class="av-ac" data-action="av-lousa"><span>🖼️</span>Abrir a Lousa</button>' +
         '<a class="av-ac" href="/provas/" target="_blank" rel="noopener"><span>📝</span>Aplicar prova online</a></div>' +
+      '<div class="av-mae" id="avMae" hidden></div>' +
       '<div class="av-corpo"><section class="av-sala"><h4 style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">Na sala <small>atualiza sozinho</small><span class="av-leg-cor"><span><i style="background:#1a6b2a"></i>na aula</span><span><i style="background:#c62828"></i>saiu da página</span><span><i style="background:#cfd8e2"></i>fora do Portal</span></span></h4><div id="avAlunos" class="av-alunos">Carregando...</div></section>' +
         '<section class="av-env-sec"><div class="av-busca"><h4>Enviados</h4><input id="avQ" type="search" placeholder="Buscar pelo tema" aria-label="Buscar nos conteúdos enviados">' +
           '<select id="avPer" aria-label="Período"><option value="">Tudo</option><option value="hoje">Hoje</option><option value="7">7 dias</option><option value="30">30 dias</option></select></div>' +
@@ -8709,7 +8735,10 @@
       AV.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); }catch(e){ console.warn("alunos:", e.code); }
     if(AV.tid !== tid) return;
     // a aula atual (aberta_em / aberta_ate): vermelho só vale para quem saiu durante ESTA aula
-    AV.subs.push(onSnapshot(doc(db, "qr_aulas", tid), s => { const x = s.data() || {}; AV.aulaIni = msAv(x.aberta_em); AV.aulaFim = msAv(x.aberta_ate); desenharAoVivo(); }, e => console.warn("aula:", e.code)));
+    AV.subs.push(onSnapshot(doc(db, "qr_aulas", tid), s => { const x = s.data() || {}; AV.aulaIni = msAv(x.aberta_em); AV.aulaFim = msAv(x.aberta_ate);
+      const mc = AV.aulaFim > Date.now() && /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
+      if(mc !== MAV.mc){ if(mc) iniciarMaestroAv(mc); else pararMaestroAv(); }
+      desenharAoVivo(); }, e => console.warn("aula:", e.code)));
     AV.subs.push(onSnapshot(collection(db, "turma_presenca", tid, "alunos"), sn => { AV.pres = {}; sn.forEach(d => { AV.pres[d.id] = d.data(); }); desenharAoVivo(); }, e => console.warn("presença:", e.code)));
     AV.subs.push(onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(200)), sn => {
       AV.mats = []; sn.forEach(d => AV.mats.push({ id:d.id, ...d.data() }));
@@ -8925,16 +8954,18 @@
   // sem cor = saiu da conta ou não entrou. Sinal com mais de 3 h é de outra aula: sem cor.
   const FORA_MS = 3 * 3600e3;
   // aula encerrada ou sinal de antes da aula atual começar: sem cor (não fica "preso" no vermelho de uma aula anterior)
-  const estadoAv = id => { const p = AV.pres[id]; if(!p || p.saiu) return ""; if(onlineAv(id)) return "on";
+  const estadoAv = id => { const m = estadoMaeAluno(id); if(m) return m;
+    const p = AV.pres[id]; if(!p || p.saiu) return ""; if(onlineAv(id)) return "on";
     const em = msAv(p.em);
     if(AV.aulaIni && em < AV.aulaIni) return "";
     if(AV.aulaFim && AV.aulaFim <= Date.now()) return "";
     return Date.now() - em < FORA_MS ? "fora" : ""; };
   const ORD_AV = { on:0, fora:1, "":2 };
   const listaAv = () => AV.alunos.length ? AV.alunos : Object.entries(AV.pres).map(([id, p]) => ({ id, nome:p.nome || "Aluno" }));
+  const onlineAvTotal = id => onlineAv(id) || estadoMaeAluno(id) === "on";
   function desenharAoVivo(){
     const box = $("avAlunos"); if(!box){ pararAoVivo(); return; }
-    const lista = listaAv(), n = lista.filter(a => onlineAv(a.id)).length, tot = lista.length;
+    const lista = listaAv(), n = lista.filter(a => onlineAvTotal(a.id)).length, tot = lista.length;
     const nFora = lista.filter(a => estadoAv(a.id) === "fora").length;
     $("avKOn").textContent = n; $("avKOnT").textContent = (tot ? "de " + tot + " na sala agora" : "na sala agora") + (nFora ? " · " + nFora + (nFora > 1 ? " saíram" : " saiu") + " da página" : "");
     $("avKEnv").textContent = AV.mats.length + (AV.mats.length >= 200 ? "+" : "");
@@ -8943,8 +8974,14 @@
     $("avKUltT").textContent = ult ? "abriram “" + String(ult.titulo || "o último").slice(0, 28) + "”" : "nada enviado ainda";
     const html = !tot ? '<p class="av-leg">Nenhum aluno cadastrado nesta turma.</p>' :
       lista.slice().sort((a, b) => (ORD_AV[estadoAv(a.id)] - ORD_AV[estadoAv(b.id)]) || a.nome.localeCompare(b.nome, "pt-BR")).map(a => { const st = estadoAv(a.id);
-        return '<div class="av-al' + (st ? " " + st : "") + '" title="' + escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") + '"><span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></div>"; }).join("");
+        const ap = aparelhosDoAluno(a.id), on = ap.filter(x => x.on), pausa = on.some(x => x.pausado), mao = ap.some(x => x.mao);
+        const tit = escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") +
+          (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
+        const marcas = (on.length ? '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "📱") + (pausa ? "🔒" : "") + "</span>" : "") + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "");
+        const det = MAV.sel === a.id ? htmlDetMae(a) : "";
+        return (ap.length ? '<button type="button" data-action="av-mae-al" data-arg="' + escapeAttr(a.id) + '"' : "<div") + ' class="av-al' + (st ? " " + st : "") + (pausa ? " pausa" : "") + '" title="' + tit + '">' + marcas + '<span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span>" + (ap.length ? "</button>" : "</div>") + det; }).join("") + htmlOutrosMae();
     if(box.innerHTML !== html) box.innerHTML = html;
+    desenharBarraMae();
     desenharMatsAoVivo();
   }
   function desenharMatsAoVivo(){
@@ -8964,22 +9001,192 @@
           (ab && v ? '<div class="av-falta">' + (faltam.length ? "<b>Ainda não abriram:</b> " + faltam.map(a => escapeHtml(a.nome.split(" ").slice(0, 2).join(" "))).join(", ") : "Todos já abriram. 🎉") + "</div>" : "") + "</div>"; }).join("");
     if(mb.innerHTML !== html) mb.innerHTML = html;
   }
+  /* ---------- Maestro dentro do Dar aula (nov/2026) ----------
+     Ao abrir a aula, o servidor cria a aula do Maestro (banco newpc-sala) e grava o número em qr_aulas.maestro_codigo.
+     Aqui o professor vê, no cartão de cada aluno, o aparelho controlado (Chromebook com a extensão ou app do tablet), a tela pausada
+     e a mão levantada, e comanda: pausar/liberar telas, abrir um link nos aparelhos, baixar a mão. O sinal de vida do painel
+     (controle/professorVivo) segue enquanto esta tela estiver aberta: sem ele por 2 minutos, os aparelhos se liberam sozinhos. */
+  const MAESTRO_FB = "https://newpc-sala-default-rtdb.firebaseio.com";
+  const MAV = { mc:"", alunos:{}, controle:{}, timer:null, emConsulta:false, offset:0, ultimoVivo:0, sel:"", matsMae:null, falhas:0 };
+  const ON_MAE_MS = 45000;
+  async function fbMae(caminho, metodo, corpo){
+    const r = await fetch(MAESTRO_FB + "/" + caminho + ".json", { method:metodo || "GET", headers:{ "Content-Type":"application/json" }, body:corpo === undefined ? undefined : JSON.stringify(corpo) });
+    if(!r.ok) throw new Error("maestro " + r.status);
+    return r.json();
+  }
+  function iniciarMaestroAv(mc){
+    pararMaestroAv(); MAV.mc = mc; MAV.alunos = {}; MAV.controle = {}; MAV.sel = ""; MAV.matsMae = null; MAV.falhas = 0;
+    lerMaestroAv(); MAV.timer = setInterval(lerMaestroAv, 3000);
+  }
+  function pararMaestroAv(){ clearInterval(MAV.timer); MAV.timer = null; MAV.mc = ""; MAV.alunos = {}; MAV.controle = {}; const b = $("avMae"); if(b) b.hidden = true; }
+  async function lerMaestroAv(){
+    if(!MAV.mc || MAV.emConsulta) return; MAV.emConsulta = true; const mc = MAV.mc;
+    try{
+      if(Date.now() - MAV.ultimoVivo > 15000){ MAV.ultimoVivo = Date.now(); const antes = Date.now(), v = await fbMae("aulas/" + mc + "/controle/professorVivo", "PUT", { ".sv":"timestamp" });
+        if(typeof v === "number") MAV.offset = v - Math.round((antes + Date.now()) / 2); }
+      const a = await fbMae("aulas/" + mc);
+      if(mc !== MAV.mc) return;
+      MAV.alunos = (a && a.alunos) || {}; MAV.controle = (a && a.controle) || {}; MAV.falhas = 0;
+      enviarNovosAoTablet();
+      desenharAoVivo();
+    }catch(e){ MAV.falhas++; if(MAV.falhas === 3) console.warn("maestro:", e.message); desenharBarraMae(); }
+    finally{ MAV.emConsulta = false; }
+  }
+  const agoraMae = () => Date.now() + MAV.offset;
+  // aparelhos do aluno (um aluno pode ter mais de um); id = matrícula (aluno_id) que o Portal passou ao aparelho
+  function aparelhosDoAluno(alunoId){
+    if(!MAV.mc) return [];
+    const bl = MAV.controle.bloqueio || {}, geral = !!MAV.controle.bloqueioGeral;
+    return Object.entries(MAV.alunos).filter(([, x]) => x && x.aluno_id === alunoId).map(([dev, x]) => {
+      const on = agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS, chromebook = !/^web-/.test(String(x.versao || ""));
+      const pausado = typeof bl[dev] === "boolean" ? bl[dev] : geral;
+      const aba = x.aba && x.aba.titulo ? String(x.aba.titulo).slice(0, 60) : "";
+      return { dev, on, chromebook, pausado: !!x.bloqueado || pausado, mao: !!x.mao, aba, saiu: /Saiu da página/.test(aba),
+        tipo: chromebook ? "Chromebook" : /App do tablet/.test(String(x.email || "")) ? "Tablet (app)" : "Celular/navegador", versao: x.versao || "" };
+    });
+  }
+  function estadoMaeAluno(alunoId){
+    const ap = aparelhosDoAluno(alunoId); if(!ap.length) return "";
+    if(ap.some(x => x.on && !x.saiu)) return "on";
+    if(ap.some(x => x.on && x.saiu)) return "fora";
+    return "";
+  }
+  function htmlDetMae(a){
+    const ap = aparelhosDoAluno(a.id); if(!ap.length) return "";
+    return '<div class="av-det"><b>' + escapeHtml(a.nome) + '</b>' + ap.map(x => '<small>' + (x.chromebook ? "💻 " : "📱 ") + escapeHtml(x.tipo) + (x.on ? " · agora: " + escapeHtml(x.aba || "na aula") : " · desconectado") + (x.pausado ? " · tela pausada" : "") + "</small>").join("") +
+      '<div class="av-det-ac">' + (ap.some(x => x.pausado) ? '<button type="button" data-action="av-mae-um" data-arg="' + escapeAttr(a.id) + '" data-liga="0">🔓 Liberar a tela</button>' : '<button type="button" data-action="av-mae-um" data-arg="' + escapeAttr(a.id) + '" data-liga="1">🔒 Pausar a tela</button>') +
+      (ap.some(x => x.mao) ? '<button type="button" data-action="av-mae-mao" data-arg="' + escapeAttr(a.id) + '">✋ Atendi: baixar a mão</button>' : "") + "</div></div>";
+  }
+  // aparelhos que entraram pelo número (sem conta do Portal): aparecem à parte, pelo nome digitado
+  function htmlOutrosMae(){
+    if(!MAV.mc) return "";
+    const ids = new Set(AV.alunos.map(a => a.id));
+    const l = Object.values(MAV.alunos).filter(x => x && (!x.aluno_id || !ids.has(x.aluno_id)) && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS);
+    return l.length ? '<div class="av-outros">Também conectados pelo número da aula: ' + l.map(x => escapeHtml(String(x.nome || "Aluno").slice(0, 40)) + (x.mao ? " ✋" : "")).join(", ") + "</div>" : "";
+  }
+  function desenharBarraMae(){
+    const b = $("avMae"); if(!b) return;
+    if(!MAV.mc){ b.hidden = true; return; }
+    const devs = Object.values(MAV.alunos).filter(x => x && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS);
+    const maos = Object.values(MAV.alunos).filter(x => x && x.mao).length, geral = !!MAV.controle.bloqueioGeral;
+    const html = '<span>🎼</span><b>Maestro</b><small>' + (MAV.falhas >= 3 ? "reconectando..." : devs.length + (devs.length === 1 ? " aparelho seguindo a aula" : " aparelhos seguindo a aula") + (maos ? " · ✋ " + maos : "")) +
+      ' · número ' + escapeHtml(MAV.mc) + '</small><span class="av-esp"></span>' +
+      '<button type="button" data-action="av-mae-link"' + (devs.length ? "" : " disabled") + '>📲 Abrir nos aparelhos</button>' +
+      '<button type="button" class="' + (geral ? "on" : "") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '"' + (devs.length || geral ? "" : " disabled") + '>' + (geral ? "🔓 Liberar as telas" : "🔒 Pausar as telas") + "</button>";
+    if(b.innerHTML !== html) b.innerHTML = html;
+    b.hidden = false;
+  }
+  async function maePausarTodos(ligar, el){
+    if(!MAV.mc) return; if(el) el.disabled = true;
+    try{ await fbMae("aulas/" + MAV.mc + "/controle", "PATCH", { bloqueioGeral:!!ligar, bloqueio:null }); MAV.controle.bloqueioGeral = !!ligar; MAV.controle.bloqueio = null;
+      toast(ligar ? "🔒 Telas pausadas: os alunos veem a mensagem de atenção ao professor." : "🔓 Telas liberadas."); }
+    catch(e){ toast("Não deu para falar com os aparelhos agora. Tente de novo.", true); }
+    desenharAoVivo();
+  }
+  async function maePausarAluno(alunoId, ligar){
+    const ap = aparelhosDoAluno(alunoId); if(!ap.length) return;
+    const patch = {}; ap.forEach(x => { patch[x.dev] = !!ligar; });
+    try{ await fbMae("aulas/" + MAV.mc + "/controle/bloqueio", "PATCH", patch); MAV.controle.bloqueio = Object.assign({}, MAV.controle.bloqueio || {}, patch); }
+    catch(e){ toast("Não deu para falar com o aparelho agora.", true); }
+    desenharAoVivo();
+  }
+  async function maeBaixarMao(alunoId){
+    const ap = aparelhosDoAluno(alunoId).filter(x => x.mao);
+    try{ await Promise.all(ap.map(x => fbMae("aulas/" + MAV.mc + "/alunos/" + x.dev + "/mao", "DELETE"))); ap.forEach(x => { if(MAV.alunos[x.dev]) delete MAV.alunos[x.dev].mao; }); }
+    catch(e){ toast("Não deu para baixar a mão agora.", true); }
+    desenharAoVivo();
+  }
+  const idMae = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  async function abrirNosAparelhos(url, nome, so){
+    const cmd = { id:idMae(), tipo:"abrirLink", url, nome:String(nome || "").slice(0, 80), ts:{ ".sv":"timestamp" } };
+    if(so && so.length){ const patch = {}; so.forEach(d => { patch[d] = cmd; }); await fbMae("aulas/" + MAV.mc + "/controle/comandos", "PATCH", patch); }
+    else await fbMae("aulas/" + MAV.mc + "/controle/comando", "PUT", cmd);
+  }
+  const urlMat = m => m.url || m.arquivo_url || "";
+  // tablet no app do Maestro não está com o Portal aberto: o material novo enviado à turma também abre nele
+  // (no Chromebook o Portal já abre o material sozinho; não abre duas vezes)
+  function enviarNovosAoTablet(){
+    if(!MAV.mc) return;
+    if(MAV.matsMae === null){ MAV.matsMae = new Set(AV.mats.map(m => m.id)); return; }
+    const novos = AV.mats.filter(m => !MAV.matsMae.has(m.id) && urlMat(m)); if(!novos.length) return;
+    novos.forEach(m => MAV.matsMae.add(m.id));
+    const tablets = Object.entries(MAV.alunos).filter(([, x]) => x && /^web-/.test(String(x.versao || "")) && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).map(([d]) => d);
+    if(tablets.length) abrirNosAparelhos(urlMat(novos[0]), novos[0].titulo || "", tablets).catch(e => console.warn("maestro (material):", e.message));
+  }
+  function janelaLinkMae(){
+    const velho = $("mlFundo"); if(velho) velho.remove();
+    const mats = AV.mats.filter(urlMat).slice(0, 6);
+    const f = document.createElement("div"); f.id = "mlFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan" role="dialog" aria-modal="true" aria-labelledby="mlTit"><div class="et-topo"><h3 id="mlTit">📲 Abrir nos aparelhos da turma</h3><button type="button" data-ml="fechar">Fechar</button></div><div class="et-corpo">' +
+      '<p class="et-d">Abre na hora em todos os Chromebooks e tablets que estão seguindo a aula (Maestro). Para registrar o material na turma, use “Enviar link ou arquivo”.</p>' +
+      (mats.length ? '<b class="et-rot">Enviados para a turma</b><div class="ta-ops">' + mats.map((m, i) => '<button type="button" class="ta-op" data-ml="mat" data-i="' + i + '">' + escapeHtml(String(m.titulo || "Material").slice(0, 50)) + "</button>").join("") + "</div>" : "") +
+      '<label>Ou cole um link<input id="mlUrl" type="url" inputmode="url" placeholder="https://..." maxlength="2000"></label><p id="mlMsg" class="et-msg" role="status"></p>' +
+      '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-ml="fechar">Cancelar</button><button type="button" class="btn btn-primary" data-ml="url">Abrir nos aparelhos</button></div></div></div>';
+    document.body.appendChild(f);
+    const ir = async (url, nome) => { try{ await abrirNosAparelhos(url, nome); toast("📲 Abrindo nos aparelhos da turma."); f.remove(); }catch(e){ $("mlMsg").textContent = "Não deu para falar com os aparelhos agora."; } };
+    f.addEventListener("click", e => { const b = e.target.closest("[data-ml]"); if(!b) return; const k = b.dataset.ml;
+      if(k === "fechar") return f.remove();
+      if(k === "mat"){ const m = mats[Number(b.dataset.i)]; if(m) ir(urlMat(m), m.titulo || ""); return; }
+      let u = $("mlUrl").value.trim(); if(u && !/^https?:\/\//i.test(u)) u = "https://" + u;
+      if(!/^https:\/\/[^\s]+\.[^\s]+/.test(u)){ $("mlMsg").textContent = "Cole um link que comece com https://"; return; }
+      ir(u, u.replace(/^https:\/\/(www\.)?/, "").slice(0, 60)); });
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
+    $("mlUrl").focus();
+  }
   /* Materiais da turma: o que os professores enviaram pelo Portal IA (versão do aluno, sem gabarito) */
   const MT = { unsub:null, lista:[], abertos:new Set(), primeira:true, tid:"", chave:"", pulso:null };
   // Turma ao vivo: enquanto o Portal do Aluno está aberto (e visível), avisa a cada minuto que o aluno está ali
   function pulsoAluno(forcarFora){
-    if(!MT.tid || !MT.chave || !MT.viaQr || MT.saindo) return;   // Turma ao Vivo é só de quem entrou pelo cartão (QR) na sala
+    if(!MT.tid || !MT.chave || !naAulaAluno() || MT.saindo) return;   // Turma ao Vivo: quem entrou pelo cartão ou, com aula aberta, por código + PIN ou Google
     const fora = forcarFora === true || document.visibilityState !== "visible";   // saiu do Portal: avisa na hora, o professor vê sem esperar
     if(fora && MT.foraEnviado) return; MT.foraEnviado = fora;
     setDoc(doc(db, "turma_presenca", MT.tid, "alunos", MT.chave), { nome:String(usuarioAtual.nome || "Aluno").slice(0, 80), em:serverTimestamp(), fora }).catch(e => console.warn("presença:", e.code));
   }
   // saiu da conta: avisa o professor (o aluno fica sem cor) antes de desconectar; sem isso ele ficaria vermelho (saiu da página)
   async function marcarSaidaAluno(){
-    if(!MT.tid || !MT.chave || !MT.viaQr || MT.saindo) return;
+    if(!MT.tid || !MT.chave || !naAulaAluno() || MT.saindo) return;
     MT.saindo = true; clearInterval(MT.pulso); MT.pulso = null;
     const gravar = setDoc(doc(db, "turma_presenca", MT.tid, "alunos", MT.chave), { nome:String(usuarioAtual.nome || "Aluno").slice(0, 80), em:serverTimestamp(), fora:true, saiu:true });
     await Promise.race([gravar.catch(e => console.warn("presença (saída):", e.code)), new Promise(r => setTimeout(r, 2500))]);
   }
+  // Aula aberta pelo professor ("Dar aula"): vale para qualquer forma de login do aluno (cartão, código + PIN ou Google)
+  // e leva o aparelho para a aula do Maestro, sem digitar número: app do tablet vai para a página do aluno do Maestro;
+  // Chromebook com a extensão do Maestro recebe o aviso e passa a seguir o professor (bloqueio, envio, mãos).
+  const naAulaAluno = () => MT.viaQr || (MT.aulaAte || 0) > Date.now();
+  const APP_MAESTRO = /PortalMaestroApp/.test(navigator.userAgent);
+  function vigiarAulaAluno(tid){
+    if(MT.aulaTid === tid && MT.aulaUnsub) return;
+    if(MT.aulaUnsub){ MT.aulaUnsub(); MT.aulaUnsub = null; }
+    MT.aulaTid = tid;
+    MT.aulaUnsub = onSnapshot(doc(db, "qr_aulas", tid), s => {
+      const x = s.data() || {}, antes = naAulaAluno();
+      MT.aulaAte = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0;
+      MT.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
+      if(naAulaAluno() !== antes){ MT.foraEnviado = null; pulsoAluno(); }
+      levarAoMaestro();
+    }, e => console.warn("aula da turma:", e.code));
+  }
+  function levarAoMaestro(){
+    const c = MT.maestro; if(!c || !((MT.aulaAte || 0) > Date.now()) || MT.saindo) return;
+    const nome = String(usuarioAtual.nome || "Aluno").trim().slice(0, 60), aluno = MT.chave || "";
+    if(APP_MAESTRO){
+      let ja = ""; try{ ja = sessionStorage.getItem("pde_maestro_ida") || ""; }catch(e){}
+      if(ja === c) return;   // já foi e voltou (saiu da aula): não leva de novo à força
+      try{ sessionStorage.setItem("pde_maestro_ida", c); }catch(e){}
+      location.href = "/maestro/aluno/?portal=1&aula=" + c + "&nome=" + encodeURIComponent(nome) + "&aluno=" + encodeURIComponent(aluno);
+      return;
+    }
+    if(document.documentElement.dataset.maestroExt && MT.maestroAvisado !== c){
+      MT.maestroAvisado = c;
+      window.postMessage({ fonte:"portal-educador", tipo:"maestro-entrar", aula:c, nome, aluno }, location.origin);
+    }
+  }
+  // a extensão do Maestro (0.9+) responde quando entrou: o aluno vê que o Chromebook está seguindo a aula
+  window.addEventListener("message", ev => {
+    const d = ev.data; if(ev.source !== window || !d || d.fonte !== "maestro-extensao") return;
+    if(d.tipo === "pronta" && MT.maestro) levarAoMaestro();
+    if(d.tipo === "entrou" && !d.ja) toast(d.ok ? "💻 Este computador entrou na aula do professor." : (d.erro || "O computador não conseguiu entrar na aula."), !d.ok);
+  });
   async function sairDaConta(){ try{ await marcarSaidaAluno(); }catch(e){} return signOut(auth); }
   async function materiaisAluno(){
     let tid = usuarioAtual.turma_id || "", chave = usuarioAtual.aluno_id || "";
@@ -8989,7 +9196,8 @@
     MT.tid = tid; MT.chave = chave || usuarioAtual.uid;
     try{ const est = await getDoc(doc(db, "turma_aluno_estado", tid, "alunos", MT.chave)); if(est.exists()) MT.fechadosNuvem = est.data().fechados || []; }catch(e){ console.warn("histórico:", e.code); }
     MT.saindo = false;
-    if(!MT.pulso && MT.viaQr){ pulsoAluno(); MT.pulso = setInterval(() => pulsoAluno(), 20000);
+    vigiarAulaAluno(tid);
+    if(!MT.pulso){ pulsoAluno(); MT.pulso = setInterval(() => pulsoAluno(), 20000);
       if(!MT.ouvindo){ MT.ouvindo = true; document.addEventListener("visibilitychange", () => pulsoAluno()); window.addEventListener("pagehide", () => { MT.foraEnviado = false; pulsoAluno(true); }); } }
     if(MT.unsub){ MT.unsub(); MT.unsub = null; }
     MT.unsub = onSnapshot(query(collection(db, "turma_materiais", tid, "itens"), orderBy("criado_em", "desc"), limit(120)), sn => {
@@ -9000,7 +9208,7 @@
       const novo = l.find(m => !MT.abertos.has(m.id) && ms(m.criado_em) > visto && Date.now() - ms(m.criado_em) < 2 * 3600000);
       MT.primeira = false;
       // abrir sozinho em tela cheia é coisa da aula ao vivo (entrada pelo cartão); quem entrou com Google ou senha vê na lista
-      if(novo && MT.viaQr && !$("mtFundo")) abrirMaterialAluno(novo.id, true);
+      if(novo && naAulaAluno() && !$("mtFundo")) abrirMaterialAluno(novo.id, true);
     }, e => console.warn("materiais da turma:", e.code));
   }
   // aberto e fechado = vai para o Histórico de aulas (guardado neste aparelho, por aluno)

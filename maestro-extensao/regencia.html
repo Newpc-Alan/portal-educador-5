@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Portal Maestro</title>
+<style>
+  :root { --noite:#05091a; --azul:#0F2C4A; --azul-2:#16406b; --ciano:#3ea8ce; --lima:#a6c544; --ambar:#e0a321; --vermelho:#c0392b; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body { font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif; color:#fff; background:linear-gradient(160deg,var(--azul-2) 0%,var(--noite) 100%);
+         display:flex; flex-direction:column; user-select:none; }
+  header { display:flex; align-items:center; gap:8px; padding:10px 14px; font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+           border-bottom:1px solid rgba(255,255,255,.12); }
+  header img { width:24px; height:24px; }
+  main { flex:1; padding:12px 14px 14px; display:flex; flex-direction:column; gap:12px; overflow:auto; }
+  .bloco { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:12px; }
+  .rotulo { font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:var(--ciano); margin-bottom:6px; }
+  .pergunta { font-size:18px; font-weight:700; margin:0 0 10px; line-height:1.25; }
+  .opcoes { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .opcoes button { border:0; border-radius:12px; padding:10px 4px; font:inherit; font-size:12.5px; font-weight:700; color:#05091a; cursor:pointer;
+                   display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .opcoes button:hover { filter:brightness(1.08); }
+  .opcoes .bola { width:22px; height:22px; border-radius:50%; border:3px solid rgba(5,9,26,.25); }
+  .verde { background:var(--lima); } .amarelo { background:var(--ambar); } .vermelho { background:#e5675a; color:#fff !important; }
+  .enviado { text-align:center; font-weight:700; color:var(--lima); padding:6px 0; }
+  .titulo-atv { font-size:15px; font-weight:700; margin-bottom:4px; }
+  .tempo { font-size:52px; font-weight:800; letter-spacing:2px; text-align:center; line-height:1.05; font-variant-numeric:tabular-nums; }
+  .barra { height:8px; border-radius:6px; background:rgba(255,255,255,.12); overflow:hidden; margin-top:8px; }
+  .barra i { display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--ciano),var(--lima)); transition:width .25s linear; }
+  .fim .tempo { color:#ff8a7d; animation:pulsa 1s ease-in-out infinite; }
+  .fim .barra i { background:var(--vermelho); }
+  @keyframes pulsa { 50% { opacity:.45; } }
+  .bloco.pq { border-color:rgba(166,197,68,.55); box-shadow:0 0 0 2px rgba(166,197,68,.18) inset; }
+  .pq .rotulo { color:var(--lima); }
+  .pq-texto { font-size:17px; font-weight:700; margin:0 0 10px; line-height:1.3; user-select:text; }
+  .pq-opcoes { display:grid; gap:8px; }
+  .pq-opcoes button { text-align:left; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); color:#fff; border-radius:11px;
+                      padding:10px 12px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; display:flex; gap:10px; align-items:center; }
+  .pq-opcoes button:hover { background:rgba(62,168,206,.25); border-color:var(--ciano); }
+  .pq-opcoes .letra { width:24px; height:24px; flex:none; border-radius:50%; background:var(--ciano); color:#05091a; font-weight:800;
+                      display:flex; align-items:center; justify-content:center; font-size:12px; }
+  textarea { width:100%; min-height:70px; resize:vertical; border-radius:11px; border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.95);
+             color:#0F2C4A; font:inherit; font-size:15px; padding:9px 10px; }
+  textarea:focus { outline:2px solid var(--ciano); }
+  .btn-enviar { margin-top:8px; width:100%; border:0; border-radius:11px; padding:10px; font:inherit; font-weight:700; font-size:15px; color:#fff;
+                background:linear-gradient(135deg,#184489,#3ea8ce); cursor:pointer; }
+  .erro { color:#ff9b8f; font-size:13px; margin-top:6px; text-align:center; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+  <header><img src="icons/icon48.png" alt="">Portal Maestro</header>
+  <main>
+    <section class="bloco" id="blocoAfinacao" hidden>
+      <div class="rotulo">📊 Pesquisa rápida</div>
+      <p class="pergunta" id="pergunta">Entenderam?</p>
+      <div class="opcoes" id="opcoes">
+        <button class="verde" data-action="responder" data-valor="verde"><span class="bola"></span>Entendi</button>
+        <button class="amarelo" data-action="responder" data-valor="amarelo"><span class="bola"></span>Mais ou menos</button>
+        <button class="vermelho" data-action="responder" data-valor="vermelho"><span class="bola"></span>Não entendi</button>
+      </div>
+      <div class="enviado" id="enviado" hidden>Resposta enviada ao professor</div>
+    </section>
+
+    <section class="bloco pq" id="blocoPergunta" hidden>
+      <div class="rotulo">Pergunta do professor para você</div>
+      <p class="pq-texto" id="pqTexto"></p>
+      <div class="pq-opcoes" id="pqOpcoes" hidden></div>
+      <div id="pqLivre" hidden>
+        <textarea id="pqResposta" maxlength="500" placeholder="Escreva sua resposta"></textarea>
+        <button class="btn-enviar" data-action="enviarPergunta">Enviar resposta</button>
+      </div>
+      <div class="enviado" id="pqEnviado" hidden>Resposta enviada ao professor</div>
+      <div class="erro" id="pqErro" hidden></div>
+    </section>
+
+    <section class="bloco" id="blocoCompasso" hidden>
+      <div class="rotulo">⏱️ Cronômetro</div>
+      <div class="titulo-atv" id="tituloAtv">Atividade</div>
+      <div class="tempo" id="tempo">00:00</div>
+      <div class="barra"><i id="barra"></i></div>
+    </section>
+  </main>
+<script src="regencia.js"></script>
+</body>
+</html>
