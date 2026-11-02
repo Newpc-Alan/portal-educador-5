@@ -37,7 +37,13 @@ const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#
   .al-qz-ops button.certa{ border-color:#1a6b2a;background:#eaf6dc } .al-qz-ops button.errada{ border-color:#c62828;background:#fde8e8 }
   .al-qz-nav{ display:flex;gap:10px;padding:12px 16px;background:#fff;box-shadow:0 -6px 18px rgba(0,0,0,.08);justify-content:space-between;align-items:center }
   .al-qz-nav button{ font:inherit;font-weight:800;border:0;border-radius:14px;padding:13px 18px;cursor:pointer;background:#eef3f8;color:#0f2c4a } .al-qz-nav .vai{ background:#8DC63F;color:#0f2c4a } .al-qz-nav small{ color:#5b6b7b;font-size:14px;text-align:center }
-  .al-qz-pts{ display:flex;gap:5px;flex-wrap:wrap;justify-content:center } .al-qz-pts button{ width:30px;height:30px;padding:0;border-radius:50%;font-size:13px;background:#e1e8f0 } .al-qz-pts button.r{ background:#bfe5a1 } .al-qz-pts button.at{ box-shadow:0 0 0 3px #0f2c4a }
+  .al-qz-pts{ display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px } .al-qz-pts button{ width:46px;height:46px;padding:0;border:0;border-radius:50%;font:inherit;font-size:18px;font-weight:800;background:#e1e8f0;color:#0f2c4a;cursor:pointer }
+  .al-qz-pts button.r{ background:#bfe5a1 } .al-qz-pts button.at{ box-shadow:0 0 0 4px #0f2c4a }
+  .al-qz-fonte{ display:flex;gap:6px } .al-qz-fonte button{ font:inherit;font-weight:900;border:0;border-radius:10px;background:#fff;color:#0f2c4a;width:44px;height:38px;cursor:pointer } .al-qz-fonte button:disabled{ opacity:.4 }
+  .al-quiz .al-qz-corpo{ zoom:var(--qz-zoom,1) }
+  .al-qz-conf{ display:grid;gap:12px;justify-items:center;text-align:center;padding:24px 10px } .al-qz-conf b{ font-size:24px } .al-qz-conf p{ font-size:19px;color:#33475b }
+  .al-qz-conf .bts{ display:flex;gap:10px;flex-wrap:wrap;justify-content:center } .al-qz-conf button{ font:inherit;font-weight:800;font-size:17px;border:0;border-radius:14px;padding:14px 20px;cursor:pointer }
+  .al-qz-conf .vai{ background:#8DC63F;color:#0f2c4a } .al-qz-conf .volta{ background:#eef3f8;color:#0f2c4a }
   .al-qz-fim{ display:grid;gap:12px;justify-items:center;text-align:center;padding:30px 10px } .al-qz-fim b{ font-size:26px } .al-qz-fim .nota{ font-size:54px;font-weight:900;color:#1a6b2a }
   .al-qz-volta{ font:inherit;font-weight:800;font-size:17px;border:0;border-radius:14px;padding:13px 22px;background:#8DC63F;color:#0f2c4a;cursor:pointer;margin-top:6px }
   .al-qz-rev{ border:2px solid #e1e8f0;border-radius:14px;padding:10px 12px;display:grid;gap:4px;font-size:15px;text-align:left;background:#fff } .al-qz-rev.ok{ border-color:#bfe5a1 } .al-qz-rev.er{ border-color:#ffb4b4 }
@@ -181,11 +187,19 @@ function quiz(){
   if(R.fim){ f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-fim"><span style="font-size:54px">✅</span><b>Respostas enviadas!</b><small>Voltando para o Portal... A correção aparece aqui quando o professor encerrar.</small><button type="button" class="al-qz-volta" data-al="qz-voltar">Voltar ao Portal agora</button></div></div>';
     clearTimeout(S.qzVolta); S.qzVolta = setTimeout(() => { S.qzVoltou = q.id; quiz(); }, 2500); return; }
   const i = Math.min(Math.max(0, S.qzI), n - 1), qi = O.q[i], p = q.perguntas[qi], falta = R.r.slice(0, n).filter(v => v < 0).length;
-  f.innerHTML = topo + "<span>" + (i + 1) + " de " + n + '</span></div><div class="al-qz-corpo"><div class="al-qz-p">' + esc(p.p) + '</div><div class="al-qz-ops">' +
+  const z = zoomQuiz(); f.style.setProperty("--qz-zoom", ZOOMS[z]);
+  // confirmação: enviar com perguntas em branco
+  if(S.qzConf){ const brancos = O.q.map((x, k) => R.r[x] < 0 ? k + 1 : 0).filter(Boolean);
+    if(brancos.length){ const lista = brancos.length === 1 ? "a " + brancos[0] : brancos.slice(0, -1).map(x => "a " + x).join(", ") + " e a " + brancos[brancos.length - 1];
+      f.innerHTML = topo + '</div><div class="al-qz-corpo"><div class="al-qz-conf"><span style="font-size:50px">🤔</span><b>Faltam respostas</b><p>Você não respondeu ' + (brancos.length === 1 ? "a pergunta " + brancos[0] : "as perguntas " + lista.replace(/a /g, "")) + '.<br>Tem certeza que quer enviar assim?</p>' +
+        '<div class="bts"><button type="button" class="volta" data-al="qz-ir" data-i="' + (brancos[0] - 1) + '">✏️ Responder ' + (brancos.length === 1 ? "a " + brancos[0] : "as que faltam") + '</button><button type="button" class="vai" data-al="qz-enviar-mesmo">Enviar assim mesmo</button></div></div></div>';
+      return; }
+    S.qzConf = false; }
+  f.innerHTML = topo + "<span>" + (i + 1) + " de " + n + '</span><span class="al-qz-fonte"><button type="button" data-al="qz-fonte" data-d="-1" aria-label="Diminuir a letra"' + (z ? "" : " disabled") + '>A−</button><button type="button" data-al="qz-fonte" data-d="1" aria-label="Aumentar a letra"' + (z < ZOOMS.length - 1 ? "" : " disabled") + '>A+</button></span></div><div class="al-qz-corpo"><div class="al-qz-p">' + esc(p.p) + '</div><div class="al-qz-ops">' +
     O.o[qi].map((orig, k) => '<button type="button" data-al="qz-r" data-k="' + orig + '"' + (R.r[qi] === orig ? ' class="on"' : "") + "><i>" + LT[k] + "</i>" + esc(p.ops[orig]) + "</button>").join("") + "</div>" +
     '<div class="al-qz-pts">' + O.q.map((x, k) => '<button type="button" data-al="qz-ir" data-i="' + k + '" class="' + (R.r[x] >= 0 ? "r" : "") + (k === i ? " at" : "") + '">' + (k + 1) + "</button>").join("") + "</div></div>" +
     '<div class="al-qz-nav"><button type="button" data-al="qz-ir" data-i="' + (i - 1) + '"' + (i ? "" : " disabled") + '>← Anterior</button><small>' + (falta ? "Faltam " + falta : "Todas respondidas") + "</small>" +
-    (i < n - 1 ? '<button type="button" class="vai" data-al="qz-ir" data-i="' + (i + 1) + '">Próxima →</button>' : '<button type="button" class="vai" data-al="qz-enviar">' + (falta ? "Enviar assim mesmo" : "✅ Enviar respostas") + "</button>") + "</div>";
+    (i < n - 1 ? '<button type="button" class="vai" data-al="qz-ir" data-i="' + (i + 1) + '">Próxima →</button>' : '<button type="button" class="vai" data-al="qz-enviar">' + "✅ Enviar respostas" + "</button>") + "</div>";
 }
 // embaralha por aluno (perguntas e alternativas), sempre igual para o mesmo aluno no mesmo quiz; a resposta é gravada na ordem original,
 // então o gabarito e o relatório do professor não mudam
@@ -196,6 +210,9 @@ function ordemQuiz(q){
   const rnd = semente(q.id + ":" + S.chave);
   return (S.qzOrd = { id:q.id, q:embaralhar(q.perguntas.length, rnd), o:q.perguntas.map(p => embaralhar((p.ops || []).length, rnd)) });
 }
+// tamanho da letra do quiz (fica guardado neste aparelho)
+const ZOOMS = [1, 1.15, 1.3, 1.5, 1.75];
+function zoomQuiz(){ let z = 0; try{ z = Number(localStorage.getItem("pde_qz_zoom")) || 0; }catch(e){} return Math.max(0, Math.min(ZOOMS.length - 1, z)); }
 function gravarQuiz(){ const R = S.qzR; return meu({ quiz:{ id:R.id, r:R.r.slice(0, 30), fim:!!R.fim } }); }
 function botoes(){
   if(!S.ligado) return;
@@ -232,8 +249,10 @@ function clique(ev){
   else if(k === "qz-r" && S.qz && S.qz.ativa && S.qzR && !S.qzR.fim){ const n = S.qz.perguntas.length, i = Math.min(S.qzI, n - 1);
     S.qzR.r[ordemQuiz(S.qz).q[i]] = Number(b.dataset.k); gravarQuiz().catch(() => aviso("Sem conexão: a resposta será enviada quando voltar."));
     quiz(); setTimeout(() => { if(S.qzI === i && i < n - 1){ S.qzI = i + 1; quiz(); } }, 450); }
-  else if(k === "qz-ir"){ S.qzI = Number(b.dataset.i) || 0; quiz(); }
-  else if(k === "qz-enviar" && S.qzR){ S.qzR.fim = true; gravarQuiz().then(() => quiz()).catch(() => { S.qzR.fim = false; aviso("Sem conexão. Tente de novo."); }); quiz(); }
+  else if(k === "qz-ir"){ S.qzConf = false; S.qzI = Number(b.dataset.i) || 0; quiz(); }
+  else if(k === "qz-fonte"){ const z = Math.max(0, Math.min(ZOOMS.length - 1, zoomQuiz() + Number(b.dataset.d))); try{ localStorage.setItem("pde_qz_zoom", String(z)); }catch(e){} quiz(); }
+  else if(k === "qz-enviar" && S.qzR && S.qz && S.qzR.r.slice(0, S.qz.perguntas.length).some(v => v < 0)){ S.qzConf = true; quiz(); }
+  else if((k === "qz-enviar" || k === "qz-enviar-mesmo") && S.qzR){ S.qzConf = false; S.qzR.fim = true; gravarQuiz().then(() => quiz()).catch(() => { S.qzR.fim = false; aviso("Sem conexão. Tente de novo."); }); quiz(); }
   else if(k === "qz-voltar" && S.qz){ clearTimeout(S.qzVolta); S.qzVoltou = S.qz.id; quiz(); }
   else if(k === "qz-ok" && S.qz){ S.qzFechado = S.qz.id; try{ sessionStorage.setItem("pde_qz_fechado", S.qz.id); }catch(e){} quiz(); }
   else if(k === "pq"){ const f = $("alPesq"); if(!f) return; const id = f.dataset.id;
