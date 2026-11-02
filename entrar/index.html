@@ -278,6 +278,33 @@
   .ini-ola{ display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:20px }
   .ini-ola h2{ font-size:20px }
   .ini-ola p{ font-size:13px;color:var(--muted);margin-top:3px }
+  /* busca geral do Início */
+  .bg-wrap{ position:relative;margin:-6px 0 22px;z-index:30 }
+  .bg-caixa{ display:flex;align-items:center;gap:10px;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:0 14px;box-shadow:0 8px 22px -18px rgba(15,44,74,.6);transition:border-color .15s, box-shadow .15s }
+  .bg-caixa:focus-within{ border-color:#2671AB;box-shadow:0 0 0 4px rgba(38,113,171,.14) }
+  .bg-lupa{ font-size:18px;opacity:.7 }
+  .bg-caixa input{ flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:15px;padding:14px 0;color:var(--ink) }
+  .bg-kbd{ font-family:inherit;font-size:11px;font-weight:600;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#f6f8fb;white-space:nowrap }
+  .bg-res{ position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 50px -24px rgba(15,44,74,.55);max-height:min(70vh,560px);overflow:auto;padding:6px 0 8px }
+  .bg-grupo + .bg-grupo{ border-top:1px solid var(--line);margin-top:4px;padding-top:4px }
+  .bg-gt{ font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 16px 4px }
+  .bg-gt small{ font-weight:700;background:#eef2f7;border-radius:999px;padding:1px 7px;margin-left:4px;letter-spacing:0 }
+  .bg-item{ display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;text-align:left;font:inherit;color:inherit;padding:7px 16px;cursor:pointer }
+  .bg-item:hover, .bg-item.on{ background:#eef5fb }
+  .bg-th{ flex:0 0 auto;width:54px;height:40px;border-radius:8px;background:#e8eef4 center/cover no-repeat;display:grid;place-items:center;font-size:20px }
+  .bg-th.branco{ background-color:#fff;background-size:contain;border:1px solid var(--line) }
+  .bg-tx{ flex:1;min-width:0;display:flex;flex-direction:column }
+  .bg-tx b{ font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .bg-tx b mark{ background:#fff1a8;color:inherit;border-radius:3px;padding:0 1px }
+  .bg-tx small{ font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .bg-tag{ flex:0 0 auto;font-size:11px;font-weight:700;color:#2C3E55;background:#eef2f7;border-radius:999px;padding:3px 9px }
+  .bg-tag.cq{ background:#fff4e0;color:#8a5a00 }
+  .bg-item.trava .bg-th{ filter:grayscale(.6);opacity:.8 }
+  .bg-mais{ display:block;border:0;background:none;font:inherit;font-size:13px;font-weight:700;color:#2671AB;padding:6px 16px 4px 82px;cursor:pointer }
+  .bg-mais:hover{ text-decoration:underline }
+  .bg-vazio{ padding:16px;font-size:14px;color:var(--muted);line-height:1.5 }
+  .bg-vazio b{ color:var(--ink) }
+  @media (max-width:640px){ .bg-kbd, .bg-tag{ display:none } .bg-th{ width:44px;height:34px } .bg-mais{ padding-left:72px } }
   .ini-ola.ini-aluno h2{ font-size:30px;line-height:1.15 }
   .ini-nome-aluno{ font-size:19px;font-weight:700;color:var(--azul, #0f2c4a);margin-top:4px }
   .ini-leg{ display:flex;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap }
@@ -3932,6 +3959,40 @@
       '<div class="pn-graficos"><div class="pn-card"><h3>Arquivos por município</h3>'+barrasHorizontais(porMun, 10, "arquivo(s)", "acv_mun")+'</div></div>';
   }
 
+  // ---------- Conteúdo: o que a rede procura na busca geral do Início (buscas_mes, agregado) ----------
+  async function painelBuscas(){
+    const el = $("pnBuscas"); if(!el) return;
+    const mes = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7);
+    let b = {}, meta = null;
+    try{ const [x, m] = await Promise.all([getDoc(doc(db, "buscas_mes", mes)), getDoc(doc(db, "busca_indice", "_meta"))]);
+      b = x.exists() ? x.data() : {}; meta = m.exists() ? m.data() : null; }
+    catch(e){ el.innerHTML = '<div class="empty">Não foi possível ler as buscas ('+escapeHtml(e.code || "erro")+').</div>'; return; }
+    if(!$("pnBuscas")) return;
+    const nome = k => k.replace(/_/g, " ");
+    const termos = b.termos || {}, todos = {}, semAchar = {};
+    Object.entries(termos).forEach(([k, v]) => { todos[nome(k)] = v.n || 0; if(v.zero) semAchar[nome(k)] = v.zero; });
+    const zeros = Object.values(semAchar).reduce((t, x) => t + x, 0), cliques = Object.values(termos).reduce((t, v) => t + (v.clique || 0), 0);
+    const porMun = b.por_mun || {};
+    const linhasTermo = t => Object.entries(porMun).map(([m, v]) => { const x = ((v.termos || {})[t.replace(/ /g, "_")]) || {}; return x.n ? { c:[pnNomeMun(m) || (m === "sem_municipio" ? "Sem município" : m), fmt(x.n), fmt(x.zero || 0), fmt(x.clique || 0)] } : null; }).filter(Boolean);
+    Object.assign(pn.det, {
+      bg_termo: (t) => ({ titulo:"Buscas por \u201c"+t+"\u201d ("+mes+")", cols:["Município", "Buscas", "Sem resultado", "Abriram um resultado"], rows:linhasTermo(t), nota:"Fonte: busca geral do Início, agregada por município. Não guarda quem buscou." }),
+      bg_todos: () => ({ titulo:"Termos buscados ("+mes+")", cols:["Termo", "Buscas", "Sem resultado", "Abriram um resultado"],
+        rows:Object.entries(termos).sort((x, y) => (y[1].n || 0) - (x[1].n || 0)).map(([k, v]) => ({ c:[nome(k), fmt(v.n || 0), fmt(v.zero || 0), fmt(v.clique || 0)] })), nota:"Fonte: busca geral do Início (buscas_mes). Guardado por 13 meses, sem identificar a pessoa." }),
+      bg_mun: () => ({ titulo:"Buscas por município ("+mes+")", cols:["Município", "Buscas", "Termos diferentes"],
+        rows:Object.entries(porMun).sort((x, y) => (y[1].total || 0) - (x[1].total || 0)).map(([m, v]) => ({ c:[pnNomeMun(m) || (m === "sem_municipio" ? "Sem município" : m), fmt(v.total || 0), fmt(Object.keys(v.termos || {}).length)] })) })
+    });
+    const quando = meta && meta.atualizado_em ? pnDataHora(meta.atualizado_em) : "ainda não gerado";
+    el.innerHTML = '<div class="pn-tiles pn-tiles-2">'+
+      pnTile("Buscas no mês", fmt(b.total || 0), fmt(Object.keys(termos).length)+" termos diferentes", "", "bg_todos") +
+      pnTile("Procuraram e não acharam", fmt(zeros), (b.total ? Math.round(zeros / b.total * 100) : 0)+"% das buscas: pauta de conteúdo", zeros ? "pn-alerta" : "", "bg_todos") +
+      pnTile("Abriram um resultado", fmt(cliques), "", "", "bg_todos") +
+      pnTile("Municípios buscando", fmt(Object.keys(porMun).length), "", "", "bg_mun") +
+      pnTile("Conteúdos na busca", fmt(meta ? meta.total || 0 : 0), "índice: "+quando, "", "") + '</div>'+
+      '<div class="pn-graficos"><div class="pn-card"><h3>Mais procurados</h3>'+barrasHorizontais(todos, 12, "busca(s)", "bg_termo")+'</div>'+
+      '<div class="pn-card"><h3>Procurados e não achados</h3>'+barrasHorizontais(semAchar, 12, "busca(s) sem resultado", "bg_termo")+'</div></div>'+
+      '<p style="margin-top:10px"><button type="button" class="btn btn-ghost" data-action="pn-bg-indice">Atualizar o índice da busca agora</button> <small style="color:var(--muted)">O índice se refaz sozinho a cada 2 horas (6h às 22h). Use depois de publicar muitos conteúdos.</small></p>';
+  }
+
   // ---------- Infraestrutura: volume da Auditoria por dia (contagem, barata) ----------
   async function painelAuditoriaVolume(){
     const el = $("pnAud"); if(!el) return;
@@ -4020,6 +4081,7 @@
       tile("Materiais do Portal IA (mês)", fmt(iaU("gerar") + iaU("ajustar")), fmt(iaU("imagem"))+" imagens · "+fmt(iaU("questoes_prova"))+" provas com IA") +
       tile("Usos de IA no mês", fmt(iaTot), "custo estimado US$ "+iaUsd.toFixed(2).replace(".", ",")) + '</div>';
     h += '<h3 class="pn-sec">Acervo dos municípios</h3><div id="pnAcvMun"><div class="empty">Carregando...</div></div>';
+    h += '<h3 class="pn-sec">O que a rede procura <small style="font-weight:600;color:var(--muted)">(busca do Início, sem identificar ninguém)</small></h3><div id="pnBuscas"><div class="empty">Carregando...</div></div>';
     h += '<h3 class="pn-sec">Participação</h3><div class="pn-tiles pn-tiles-2">'+
       tile("Certificados emitidos", v(n.certTotal), v(n.cert30)+" nos últimos 30 dias", "", "certTotal") + tile("Relatórios", v(n.relTotal), v(n.relAprov)+" aprovados", "", "relTotal") +
       tile("Provas no Corretor", v(n.avaliacoes), v(n.respostas)+" cartões e notas lançados", "", "avaliacoes") + tile("Aulas no Maestro", v(n.maestro), "", "", "maestro") +
@@ -4033,6 +4095,7 @@
       : '<div class="empty" style="padding:6px 0">Nada pendente. 👏</div>')+'</div>';
     $("pnCorpo").innerHTML = h;
     painelAcervoMunicipios();
+    painelBuscas();
     $("pnAtual").textContent = "Atualizado às "+new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})+" · contagem direta do banco";
   }
 
@@ -5113,7 +5176,7 @@
 
   // ---------- Auditoria (admin): trilha gravada pelo servidor; 6 meses de retenção (Marco Civil, art. 15) ----------
   const AUD_ACOES = { entrou:["Entrou no Portal","#2E9BD6"], criou:["Criou","#1a6b2a"], alterou:["Alterou","#c98a00"], excluiu:["Excluiu","#d32f2f"], acessou:["Abriu/baixou","#6a4bc4"] };
-  const AUD_COLECOES = { usuarios:"Usuários", municipios:"Municípios", escolas:"Escolas", turmas:"Turmas", alunos:"Alunos", acervo:"Acervo do Portal", acervo_rede:"Acervo do município",
+  const AUD_COLECOES = { usuarios:"Usuários", municipios:"Municípios", escolas:"Escolas", turmas:"Turmas", alunos:"Alunos", acervo:"Acervo do Portal", acervo_rede:"Acervo do município", busca_indice:"Índice da busca",
     acervo_rede_arvore:"Pastas do acervo", acessos_dia:"Acervo (acessos)", notas_planilhas:"Notas", notas_escola:"Notas da escola", notas_fechadas:"Notas fechadas", fechamentos:"Fechamento de período",
     freq_chamadas:"Frequência", relatorios:"Relatórios", provas_online:"Provas online", portal_ia_docs:"Portal IA", creditos:"Créditos de IA", config:"Configurações",
     noticias:"Notícias", videos:"Vídeos", jogos:"Jogos", atividades:"Atividades", servidores:"Servidores", substituicoes:"Substituições", sessao:"Sessão",
@@ -5643,13 +5706,10 @@
     if(t.status === "agendada" && t.aguardando) return "Sala de espera";
     return ab && agora < ab ? "Agendada" : "Aberta";
   }
-  async function renderTrabalhos(){
-    let pasta = ""; try{ pasta = sessionStorage.getItem("pde_tr_pasta") || ""; }catch(e){}
-    trs.pasta = TR_TIPOS[pasta] || pasta === "rede" ? pasta : ""; trs.sub = ""; trs.busca = ""; trs.editando = ""; trs.rede = null;
-    $("conteudo").innerHTML = '<div class="tr-topo"><div class="tr-trilha" id="trTrilha"></div><input type="search" id="trBusca" class="usr-busca" placeholder="Buscar em todos os trabalhos" aria-label="Buscar nos meus trabalhos"></div>'+
-      '<div class="tr-filtros" id="trFiltros"></div><p class="tr-cont" id="trCont">Carregando seus trabalhos...</p><div id="trGrade"></div>';
+  // todos os trabalhos da pessoa (Meus trabalhos e a busca geral do Início usam a mesma leitura)
+  async function lerMeusTrabalhos(){
     const uid = usuarioAtual.uid, ms = v => msDe(v) || (v && v.seconds ? v.seconds * 1000 : 0), ler = (q, f) => getDocs(q).then(sn => { const l = []; sn.forEach(d => l.push(f(d.id, d.data()))); return l; }).catch(e => { console.warn("trabalhos:", e.code); return []; });
-    const partes = await Promise.all([
+    return Promise.all([
       ler(collection(db,"usuarios",uid,"trabalhos"), (id, t) => ({ tipo:"lousa", id, titulo:t.titulo || "Lousa sem nome", sub:"", det:(t.paginas || 1)+" página(s)", mini:t.miniatura || "", arquivo:t.arquivo || "", em:ms(t.atualizado_em) })),
       ler(query(collection(db,"portal_ia_docs"), where("uid","==",uid)), (id, t) => ({ tipo:"portalia", id, titulo:t.titulo || t.tema || "Material sem nome", sub:t.tipo_nome || "Material", det:(t.tipo_nome || "Material")+(t.rede ? " · na rede" : ""), rede:!!t.rede, imagens:Object.keys(t.imagens || {}).length, em:ms(t.atualizado_em) })),
       ler(collection(db,"usuarios",uid,"provas"), (id, t) => ({ tipo:"prova", id, titulo:t.titulo || "Prova sem nome", sub:t.disciplina || "", det:[t.disciplina, t.turma, t.questoes ? t.questoes+" questões" : ""].filter(Boolean).join(" · ") || "Prova", em:ms(t.atualizado_em) })),
@@ -5658,6 +5718,13 @@
       ler(collection(db,"usuarios",uid,"roteiros"), (id, t) => ({ tipo:"roteiro", id, titulo:t.titulo || "Roteiro sem título", sub:"", det:"Teleprompter"+(t.palavras ? " · "+t.palavras+" palavras" : ""), em:ms(t.atualizado_em) })),
       ler(collection(db,"usuarios",uid,"folhas"), (id, t) => ({ tipo:"folha", id, titulo:t.nome || "Folha sem nome", sub:"", det:"Folha Mágica", em:ms(t.atualizado_em) }))
     ]);
+  }
+  async function renderTrabalhos(){
+    let pasta = ""; try{ pasta = sessionStorage.getItem("pde_tr_pasta") || ""; }catch(e){}
+    trs.pasta = TR_TIPOS[pasta] || pasta === "rede" ? pasta : ""; trs.sub = ""; trs.busca = ""; trs.editando = ""; trs.rede = null;
+    $("conteudo").innerHTML = '<div class="tr-topo"><div class="tr-trilha" id="trTrilha"></div><input type="search" id="trBusca" class="usr-busca" placeholder="Buscar em todos os trabalhos" aria-label="Buscar nos meus trabalhos"></div>'+
+      '<div class="tr-filtros" id="trFiltros"></div><p class="tr-cont" id="trCont">Carregando seus trabalhos...</p><div id="trGrade"></div>';
+    const partes = await lerMeusTrabalhos();
     if(!$("trGrade")) return;   // saiu da tela enquanto carregava
     trs.itens = partes.flat().sort((a, b) => b.em - a.em);
     desenharTrabalhos();
@@ -6684,6 +6751,11 @@
     else if(acao === "ntadm-pub"){ alternarNoticia(el.dataset.id, "publicado"); }
     else if(acao === "ntadm-fixar"){ alternarNoticia(el.dataset.id, "fixada"); }
     else if(acao === "ntadm-del"){ excluirNoticia(el.dataset.id, el); }
+    else if(acao === "pn-bg-indice"){ el.disabled = true; el.textContent = "Atualizando...";
+      try{ const r = await chamarBackup("atualizarIndiceBusca", {}, 300000); toast("Índice atualizado: "+fmt(r.total)+" conteúdos."); BG.idx = null; BG.carregando = null; painelBuscas(); }
+      catch(e){ toast("Não consegui atualizar ("+(e.code || "erro")+").", true); el.disabled = false; el.textContent = "Atualizar o índice da busca agora"; } }
+    else if(acao === "bg-abrir"){ bgAbrir(+el.dataset.arg, el); }
+    else if(acao === "bg-mais"){ BG.abertos[el.dataset.arg] = true; bgBuscar(BG.termo); const q = $("bgQ"); if(q) q.focus(); }
     else if(acao === "ini-conheca"){ abrirConheca(el); }
     else if(acao === "ini-conheca-fechar"){ fecharConheca(); }
     else if(acao === "ini-interesse"){ registrarInteresse(el.dataset.mod, el); }
@@ -6986,6 +7058,7 @@
       (admin ? abasPrevia(ehAluno ? "aluno" : "professor") : '')+
       '</div>'+
       '</div>'+
+      (ehAluno ? '' : caixaBusca())+
       (ehAluno
         ? '<div id="iniAula"></div><div id="iniProvas"></div><div id="iniMateriais"></div><div id="iniHist" class="hist-faixa"></div><div id="iniNoticias"></div>'+
           '<section class="ini-sec ini-alu" aria-labelledby="aluTit"><h3 id="aluTit">Aprender brincando</h3>'+
@@ -7123,13 +7196,231 @@
     $("secTitulo").textContent = "Início";
     const esc = usuarioAtual.escola_nome || (usuarioAtual.escolas_nomes || [])[0] || "sua escola";
     const grupos = [...new Set(ACOES_SECESC.map(a => a.g))];
-    $("conteudo").innerHTML = '<div class="ini-ola"><h2>'+saudacao()+', '+escapeHtml(String(usuarioAtual.nome || "").split(" ")[0])+'!</h2><p>'+escapeHtml(esc)+'</p></div>'+
+    $("conteudo").innerHTML = '<div class="ini-ola"><h2>'+saudacao()+', '+escapeHtml(String(usuarioAtual.nome || "").split(" ")[0])+'!</h2><p>'+escapeHtml(esc)+'</p></div>'+caixaBusca()+
       '<section class="ini-sec" aria-labelledby="acTit"><h3 id="acTit">O que você quer fazer?</h3><div class="ac-grid" id="iniAcoes">'+
       grupos.map(g => '<h4 class="ac-faixa">'+escapeHtml(g)+'</h4>'+ACOES_SECESC.filter(a => a.g === g).map(a =>
         '<a class="ac-card '+a.cor+'" href="'+a.href+'" data-action="ini-abrir" data-mod="gestao" data-ac="'+escapeAttr(a.titulo)+'"><span class="ac-img" style="background-image:url(\''+fotoAcao(a.foto)+'\')"></span>'+
         '<span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span></a>').join("")).join("")+'</div></section>';
   }
   const saudacao = () => { const h = new Date().getHours(); return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"; };
+
+  // ===================== BUSCA GERAL DO INÍCIO (nov/2026) =====================
+  // Uma caixa só: ferramentas (os próprios cartões da tela, que já seguem o plano e o perfil), conteúdos (índice
+  // busca_indice, lido uma vez e guardado no aparelho) e Meus trabalhos. Ctrl+K abre de qualquer tela.
+  // O que a rede procura vai agregado e sem identificar a pessoa para registrarBusca (painel do administrador).
+  const BG = { idx:null, carregando:null, rede:null, trab:null, res:[], ativo:-1, termo:"", registrados:new Set(), pendente:null, timer:0, abertos:{} };
+  const BG_PARAR = new Set(["de","da","do","das","dos","para","pra","com","e","o","a","os","as","um","uma","no","na","nos","nas","em","por","sobre","que"]);
+  const BG_SIN = { frequencia:["chamada","presenca"], falta:["chamada","frequencia"], faltas:["chamada","frequencia"], presenca:["chamada"], chamada:["frequencia","presenca"],
+    boletim:["notas"], nota:["notas","boletim"], media:["notas"], parecer:["relatorio"], pareceres:["relatorio"], relatorio:["parecer"], quadro:["lousa"], lousa:["quadro"],
+    defeito:["chamado","quebrado"], quebrado:["defeito"], quebrou:["defeito"], conserto:["defeito"], chamado:["defeito"], impressora:["defeito"], internet:["defeito"],
+    chromebook:["reservar","equipamento"], chromebooks:["reservar","equipamento"], notebook:["reservar","equipamento"], tablet:["reservar","maestro"], tablets:["reservar","maestro"],
+    reserva:["reservar"], laboratorio:["reservar"], tv:["televisao","aviso"], televisao:["tv"], prova:["avaliacao","simulado"], provas:["avaliacao","simulado"], avaliacao:["prova"],
+    simulado:["prova"], mat:["matematica"], port:["portugues","lingua portuguesa"], portugues:["lingua portuguesa"], lp:["lingua portuguesa"], cien:["ciencias"], hist:["historia"],
+    geo:["geografia"], ingles:["lingua inglesa"], alfabetizacao:["letramento","alfabet"], ia:["portal ia","inteligencia artificial"], planejamento:["plano de aula"],
+    plano:["planejamento"], video:["videos"], filme:["video"], jogo:["jogos","game"], jogar:["jogo"], game:["jogo"], livro:["biblioteca","leitura"], livros:["biblioteca"],
+    leitura:["livro","biblioteca"], historinha:["historia"], desenho:["colorir"], desenhos:["colorir"], pintar:["colorir"], aluno:["alunos","turma"], turma:["turmas"],
+    calendario:["agenda","feriado","letivo"], feriado:["calendario"], agenda:["calendario"], senha:["cadastro"], cadastro:["meu cadastro"], teleprompter:["roteiro","ler na tela"],
+    folha:["folha magica","caligrafia","pauta"], caligrafia:["folha"], pauta:["folha"], gabarito:["corrigir","cartao"], correcao:["corrigir"], corrigir:["correcao","gabarito"],
+    fracao:["fracoes"], fracoes:["fracao"], substituicao:["faltou"], substituir:["faltou"], familia:["familias","responsaveis"], pais:["familias","responsaveis"], recado:["comunicado","aviso"],
+    comunicado:["recado","aviso"], aviso:["comunicado","tv"], app:["aplicativos"], apk:["maestro"], vr:["360","realidade virtual"], museu:["museus"], curso:["formacao"], cursos:["formacao"],
+    certificado:["formacao"], dica:["dicas"], servidor:["servidores","ficha do servidor"], professor:["equipe"], grade:["horario"], horario:["grade"], portaria:["carteirinha"] };
+  const BG_TIPO = { videos:["\u{1F3AC}","Vídeo"], jogos:["\u{1F3AE}","Jogo"], atividades:["\u{1F4DD}","Atividade"], biblioteca:["\u{1F4DA}","Livro"], colorir:["\u{1F58D}\u{FE0F}","Para colorir"],
+    acervo:["\u{1F4C4}","Arquivo"], rede:["\u{1F3EB}","Da sua rede"] };
+  const BG_APPS = [
+    { t:"Turma na Lousa", s:"Sorteio de alunos, grupos, cronômetro e placar", href:"/apps/turma/", g:"/assets/apps/capas/turma.webp", k:"sortear sorteio grupos cronometro semaforo barulho mapa da sala placar" },
+    { t:"Folha Mágica", s:"Pauta, caligrafia, quadriculado e mais, para imprimir", href:"/apps/folha/", g:"/assets/apps/capas/folha.webp", k:"folha pauta musical caligrafia milimetrado quadriculado plano cartesiano imprimir" },
+    { t:"Teleprompter", s:"Ler na tela para gravar vídeo ou apresentar", href:"/apps/teleprompter/", g:"/assets/apps/capas/teleprompter.webp", k:"teleprompter roteiro ler na tela gravar videoaula" },
+    { t:"Enviar para a TV da escola", s:"Fotos e vídeos da turma nas TVs da escola", href:"/apps/tv/#playlists", g:"/assets/apps/capas/tv.webp", k:"tv televisao totem playlist foto video" },
+    { t:"App do Maestro (tablet do aluno)", s:"Baixar e instalar o app Android do aluno", href:"/apps/", g:"/assets/cards/maestro.webp", k:"maestro app apk android tablet instalar baixar" }
+  ];
+  const bgNorm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const bgImg = g => !g ? "" : g.startsWith("yt:") ? "https://i.ytimg.com/vi/"+encodeURIComponent(g.slice(3))+"/mqdefault.jpg"
+    : g.startsWith("fs:") ? (() => { const [c, tk] = g.slice(3).split("|"); return "https://firebasestorage.googleapis.com/v0/b/portal-educador-5.firebasestorage.app/o/"+c+"?alt=media"+(tk ? "&token="+tk : ""); })() : g;
+  const RE_BNCC_BG = /^e[fiom]\d{2}[a-z]{2}\d{2,3}$/i;
+  function caixaBusca(){
+    return '<div class="bg-wrap" id="bgWrap"><div class="bg-caixa"><span class="bg-lupa" aria-hidden="true">\u{1F50E}</span>'+
+      '<input type="search" id="bgQ" autocomplete="off" spellcheck="false" placeholder="O que você procura? Ex.: chamada, jogo de frações, EF03MA01" aria-label="Buscar no Portal" aria-controls="bgRes" aria-expanded="false">'+
+      '<kbd class="bg-kbd">Ctrl K</kbd></div><div class="bg-res" id="bgRes" role="listbox" hidden></div></div>';
+  }
+  // índice dos conteúdos: guarda no aparelho e só baixa de novo quando o índice mudar (1 leitura para conferir)
+  async function bgCarregarIndice(){
+    if(BG.idx) return BG.idx;
+    if(BG.carregando) return BG.carregando;
+    BG.carregando = (async () => {
+      let itens = [];
+      try{
+        const meta = await getDoc(doc(db, "busca_indice", "_meta"));
+        if(meta.exists()){
+          const m = meta.data(), versao = String(msDe(m.atualizado_em) || m.total || "");
+          let cache = null; try{ cache = JSON.parse(localStorage.getItem("pde_busca_idx") || "null"); }catch(e){}
+          if(cache && cache.v === versao && Array.isArray(cache.itens)) itens = cache.itens;
+          else {
+            const partes = await Promise.all((m.partes || []).map(id => getDoc(doc(db, "busca_indice", id)).then(d => d.exists() ? (d.data().itens || []) : []).catch(() => [])));
+            itens = partes.flat();
+            try{ localStorage.setItem("pde_busca_idx", JSON.stringify({ v:versao, itens })); }catch(e){ try{ localStorage.removeItem("pde_busca_idx"); }catch(x){} }
+          }
+        }
+      }catch(e){ console.warn("busca (índice):", e.code || e); }
+      itens.forEach(x => { x._t = bgNorm(x.t); x._o = bgNorm([x.s, x.k].join(" ")); x._b = (x.b || []).map(v => v.toLowerCase()); });
+      BG.idx = itens; return itens;
+    })();
+    return BG.carregando;
+  }
+  async function bgCarregarExtras(){
+    const mun = usuarioAtual.municipio_id;
+    if(BG.uid !== usuarioAtual.uid){ BG.uid = usuarioAtual.uid; BG.rede = null; BG.trab = null; BG.registrados = new Set(); }
+    if(BG.rede === null){ BG.rede = [];
+      if(mun && usuarioAtual.perfil !== "aluno"){ try{ const sr = await getDocs(query(collection(db,"acervo_rede"), where("municipio_id","==",mun), where("publicado","==",true)));
+        sr.forEach(d => { const x = d.data(); BG.rede.push({ c:"rede", i:d.id, t:x.titulo || "Arquivo", s:[x.disciplina, (x.etapas || []).join(", ")].filter(Boolean).join(" · ") || "Arquivo da sua rede",
+          _t:bgNorm(x.titulo), _o:bgNorm([x.descricao, x.disciplina, (x.etapas || []).join(" "), x.categoria].join(" ")), _b:(x.bncc || []).map(v => String(v).toLowerCase()) }); }); }
+        catch(e){ console.warn("busca (acervo da rede):", e.code); } } }
+    if(BG.trab === null){ BG.trab = [];
+      if(["professor","gestor","admin"].includes(usuarioAtual.perfil)){ try{ (await lerMeusTrabalhos()).flat().forEach(x => { const T = TR_TIPOS[x.tipo] || {};
+        BG.trab.push({ c:"trab", i:x.id, tipo:x.tipo, t:x.titulo, s:[T.nome, x.det].filter(Boolean).join(" · "), ico:T.ico, g:x.mini || "", _t:bgNorm(x.titulo), _o:bgNorm([T.nome, T.pasta, x.sub, x.det].join(" ")), _b:[] }); }); }
+        catch(e){ console.warn("busca (trabalhos):", e.code || e); } } }
+  }
+  // ferramentas: os cartões que a própria tela mostrou (já com plano e perfil) + o menu + os Aplicativos Úteis
+  function bgFerramentas(){
+    const l = [], vistos = new Set();
+    const por = (t, s, el, g, trava, k, href) => { const n = bgNorm(t); if(!t || vistos.has(n)) return; vistos.add(n); l.push({ c:"ferr", t, s, el, g, trava, href, _t:n, _o:bgNorm(s+" "+(k || "")), _b:[] }); };
+    document.querySelectorAll("#conteudo .ac-card, #conteudo .ini-card").forEach(el => {
+      if(el.closest("#bgWrap")) return;
+      const b = el.querySelector("b"), sm = el.querySelector("small"), im = el.querySelector(".ac-img, .ini-img");
+      const g = im && (im.style.backgroundImage || "").replace(/^url\(["']?|["']?\)$/g, "");
+      por(b ? b.textContent.trim() : "", sm ? sm.textContent.trim() : (el.dataset.desc || ""), el, g || "", el.classList.contains("trava"), el.dataset.mod || "");
+    });
+    document.querySelectorAll("#nav a[data-sec]").forEach(a => { if(a.offsetParent === null || a.dataset.sec === "inicio" || a.dataset.sec === "apoioInicio") return;
+      const t = a.textContent.replace(/[^\p{L}\p{N} ]/gu, " ").replace(/\s+/g, " ").trim(); por(t, "Menu do Portal", a, "", false, a.dataset.sec); });
+    if(!planoVigente || planoVigente.has("apps")) BG_APPS.forEach(x => por(x.t, x.s + " · Aplicativos Úteis", null, x.g, false, x.k + " aplicativos uteis", x.href));
+    return l;
+  }
+  function bgTokens(q){
+    return bgNorm(q).replace(/[^a-z0-9 ]+/g, " ").split(/\s+/).filter(w => w.length >= 2 && !BG_PARAR.has(w));
+  }
+  // nota de cada item: todas as palavras precisam aparecer (ou um sinônimo); título vale mais que o resto
+  function bgNota(x, toks, bncc){
+    if(bncc) return x._b.includes(bncc) ? 50 : 0;
+    let nota = 0;
+    for(const w of toks){
+      const alts = [w].concat(BG_SIN[w] || []);
+      let melhor = 0;
+      for(const a of alts){
+        const sin = a !== w ? 0.6 : 1;
+        if(x._t.startsWith(a)) melhor = Math.max(melhor, 7 * sin);
+        else if(x._t.includes(" "+a)) melhor = Math.max(melhor, 6 * sin);
+        else if(x._t.includes(a)) melhor = Math.max(melhor, 4 * sin);
+        else if(x._o.includes(a)) melhor = Math.max(melhor, 2 * sin);
+      }
+      if(!melhor) return 0;
+      nota += melhor;
+    }
+    return nota;
+  }
+  function bgDestaque(t, toks){
+    let h = escapeHtml(t);
+    toks.forEach(w => { if(w.length < 2) return; const n = bgNorm(t); const i = n.indexOf(w); if(i < 0) return;
+      const orig = t.slice(i, i + w.length); h = h.replace(escapeHtml(orig), '<mark>'+escapeHtml(orig)+'</mark>'); });
+    return h;
+  }
+  async function bgBuscar(q){
+    BG.termo = q;
+    const el = $("bgRes"), inp = $("bgQ"); if(!el || !inp) return;
+    const toks = bgTokens(q), bncc = RE_BNCC_BG.test(q.trim()) ? q.trim().toLowerCase() : "";
+    if(!toks.length && !bncc){ el.hidden = true; inp.setAttribute("aria-expanded", "false"); BG.res = []; return; }
+    const ferr = bgFerramentas();
+    const precisaCarregar = !BG.idx || BG.rede === null || BG.trab === null;
+    if(precisaCarregar){ el.hidden = false; inp.setAttribute("aria-expanded", "true");
+      if(!el.innerHTML || el.dataset.estado !== "pronto") el.innerHTML = '<div class="bg-vazio">Procurando em todo o Portal...</div>';
+      await Promise.all([bgCarregarIndice(), bgCarregarExtras()]);
+      if(BG.termo !== q) return; }
+    const pontua = l => l.map(x => ({ x, n:bgNota(x, toks, bncc) })).filter(o => o.n > 0).sort((a, b) => (b.n - a.n) || (a.x.t.length - b.x.t.length)).map(o => o.x);
+    const grupos = [
+      { id:"ferr", nome:"Ferramentas", l:pontua(ferr) },
+      // conteúdos: só o que está no plano de quem usa (mesma regra dos módulos)
+      { id:"cont", nome:"Conteúdos", l:pontua((BG.idx || []).filter(x => !planoVigente || !x.m || planoVigente.has(x.m)).concat(BG.rede || [])) },
+      { id:"trab", nome:"Meus trabalhos", l:pontua(BG.trab || []) }
+    ].filter(g => g.l.length);
+    BG.res = []; BG.ativo = -1;
+    const total = grupos.reduce((s, g) => s + g.l.length, 0);
+    el.dataset.estado = "pronto"; el.hidden = false; inp.setAttribute("aria-expanded", "true");
+    if(!total){
+      el.innerHTML = '<div class="bg-vazio"><b>Nada encontrado para “'+escapeHtml(q)+'”.</b><br>Tente outra palavra (ex.: frações, chamada, alfabetização) ou um código da BNCC.</div>';
+      bgAgendarRegistro(q, 0); return;
+    }
+    el.innerHTML = grupos.map(g => {
+      const lim = BG.abertos[g.id] ? 40 : (g.id === "cont" ? 6 : 4);
+      return '<div class="bg-grupo"><div class="bg-gt">'+g.nome+' <small>'+g.l.length+'</small></div>'+g.l.slice(0, lim).map(x => {
+        const k = BG.res.push(x) - 1, tp = x.c === "ferr" ? null : x.c === "trab" ? [x.ico || "\u{1F4C1}", (TR_TIPOS[x.tipo] || {}).nome || "Trabalho"] : BG_TIPO[x.c] || ["\u{1F4C4}", ""];
+        let img = x.c === "jogos" ? urlCapaJogo({ capa:x.g || "", url:x.u || "" }) : bgImg(x.g);
+        return '<button type="button" class="bg-item'+(x.trava ? " trava" : "")+'" role="option" id="bgOp'+k+'" data-action="bg-abrir" data-arg="'+k+'">'+
+          '<span class="bg-th'+(x.c === "colorir" || x.c === "atividades" ? " branco" : "")+'"'+(img ? ' style="background-image:url(\''+escapeAttr(String(img).replace(/'/g, "%27"))+'\')"' : '')+'>'+(img ? '' : (tp ? tp[0] : "\u{2728}"))+'</span>'+
+          '<span class="bg-tx"><b>'+bgDestaque(x.t, toks)+'</b><small>'+escapeHtml(x.s || "")+'</small></span>'+
+          (x.trava ? '<span class="bg-tag cq">\u{1F512} Conheça</span>' : tp ? '<span class="bg-tag">'+escapeHtml(tp[1])+'</span>' : '')+'</button>';
+      }).join("")+(g.l.length > lim ? '<button type="button" class="bg-mais" data-action="bg-mais" data-arg="'+g.id+'">Ver mais '+(g.l.length - lim)+' em '+g.nome+'</button>' : '')+'</div>';
+    }).join("");
+    bgAgendarRegistro(q, total);
+  }
+  // registro agregado: um por termo por sessão, quando a pessoa para de digitar (ou clica num resultado)
+  function bgAgendarRegistro(q, n){
+    clearTimeout(BG.timer); BG.pendente = { q, n };
+    BG.timer = setTimeout(() => bgRegistrar(false), 2500);
+  }
+  function bgRegistrar(clicou){
+    clearTimeout(BG.timer); const p = BG.pendente; BG.pendente = null;
+    if(!p || usuarioAtual._sim || !auth.currentUser) return;
+    const chave = bgTokens(p.q).join(" ") || p.q.trim().toLowerCase(); if(chave.length < 3 || BG.registrados.has(chave)) return;
+    BG.registrados.add(chave);
+    import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js").then(({ getFunctions, httpsCallable }) =>
+      httpsCallable(getFunctions(app, "southamerica-east1"), "registrarBusca", { timeout:10000 })({ termo:p.q, resultados:p.n, clicou })).catch(() => {});
+  }
+  function bgFechar(limpar){
+    const el = $("bgRes"), inp = $("bgQ"); if(el) el.hidden = true; if(inp){ inp.setAttribute("aria-expanded", "false"); if(limpar) inp.value = ""; }
+    BG.ativo = -1;
+  }
+  function bgMover(d){
+    if(!BG.res.length) return;
+    BG.ativo = (BG.ativo + d + BG.res.length) % BG.res.length;
+    document.querySelectorAll("#bgRes .bg-item").forEach((b, i) => b.classList.toggle("on", i === BG.ativo));
+    const b = $("bgOp"+BG.ativo); if(b){ b.scrollIntoView({ block:"nearest" }); $("bgQ").setAttribute("aria-activedescendant", b.id); }
+  }
+  async function bgAbrir(k, btn){
+    const x = BG.res[k]; if(!x) return;
+    if(BG.pendente) bgRegistrar(true);
+    bgFechar(false);
+    if(x.c === "ferr"){ if(x.el && x.el.isConnected) x.el.click(); else if(x.href) location.href = x.href; return; }
+    if(x.c === "trab"){ abrirTrabalho({ tipo:x.tipo, id:x.i }); return; }
+    if(x.c === "biblioteca"){ registrarModulo(x.m); location.href = "/biblioteca/?abrir="+encodeURIComponent(x.i)+(x.m === "historias" ? "#historias" : ""); return; }
+    if(x.c === "colorir"){ registrarModulo("colorir"); location.href = "/colorir/?abrir="+encodeURIComponent(x.i); return; }
+    if(x.c === "atividades"){ registrarModulo("atividades"); abrirAt(x.i); return; }
+    if(x.c === "acervo" || x.c === "rede"){
+      // o arquivo abre na tela do Acervo, já filtrado pelo título (lá ficam Ver e Baixar)
+      await renderAcervo(x.c === "rede" ? "__rede" : ""); const b = $("acvBusca");
+      if(b){ b.value = x.t; acv.busca = x.t; desenharAcervo(); } return;
+    }
+    try{
+      const s = await getDoc(doc(db, x.c, x.i)); if(!s.exists()){ toast("Este conteúdo não está mais disponível.", true); return; }
+      const it = { id:s.id, ...s.data() };
+      if(x.c === "videos"){ registrarModulo("videos"); if(!vds.itens.some(v => v.id === it.id)) vds.itens.push(it); abrirVideo(it.id); }
+      else if(x.c === "jogos"){ registrarModulo("jogos"); if(!jgs.itens.some(v => v.id === it.id)) jgs.itens.push(it); abrirJogo(it.id); }
+    }catch(e){ toast("Não consegui abrir agora ("+(e.code || "erro")+").", true); }
+  }
+  // Ctrl+K (ou Cmd+K) de qualquer tela: volta ao Início e põe o cursor na busca
+  function bgFocar(){
+    const q = $("bgQ"); if(q){ q.focus(); q.select(); return; }
+    const a = document.querySelector('#nav a[data-sec="inicio"], #nav a[data-sec="apoioInicio"]'); if(!a) return; a.click();
+    let n = 0; const t = setInterval(() => { const q2 = $("bgQ"); if(q2 || ++n > 40){ clearInterval(t); if(q2){ q2.focus(); q2.scrollIntoView({ block:"center" }); } } }, 100);
+  }
+  document.addEventListener("input", ev => { if(ev.target && ev.target.id === "bgQ"){ BG.abertos = {}; bgBuscar(ev.target.value); } });
+  document.addEventListener("keydown", ev => {
+    if((ev.ctrlKey || ev.metaKey) && !ev.altKey && (ev.key === "k" || ev.key === "K")){ if(usuarioAtual && usuarioAtual.perfil !== "aluno" && ($("bgQ") || document.querySelector('#nav a[data-sec="inicio"], #nav a[data-sec="apoioInicio"]'))){ ev.preventDefault(); bgFocar(); } return; }
+    if(!ev.target || ev.target.id !== "bgQ") return;
+    if(ev.key === "ArrowDown"){ ev.preventDefault(); bgMover(1); }
+    else if(ev.key === "ArrowUp"){ ev.preventDefault(); bgMover(-1); }
+    else if(ev.key === "Enter"){ ev.preventDefault(); bgAbrir(BG.ativo >= 0 ? BG.ativo : 0); }
+    else if(ev.key === "Escape"){ bgFechar(true); }
+  });
+  document.addEventListener("focusin", ev => { if(ev.target && ev.target.id === "bgQ"){ bgCarregarIndice(); if(ev.target.value.trim()) bgBuscar(ev.target.value); } });
+  document.addEventListener("click", ev => { const w = $("bgWrap"); if(w && !w.contains(ev.target) && $("bgRes") && !$("bgRes").hidden){ if(BG.pendente) bgRegistrar(false); bgFechar(false); } });
   async function renderInicioDirecao(admin){
     const primeiro = String(usuarioAtual.nome || "").split(" ")[0];
     // escolas que ele dirige (até 5); o administrador escolhe qualquer uma na prévia
@@ -7149,7 +7440,7 @@
       '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial da direção" : saudacao()+", "+escapeHtml(primeiro)+"!")+'</h2>'+
       '<p>'+escapeHtml(dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1))+(nomeEsc ? ' · '+escapeHtml(nomeEsc) : '')+'</p>'+
       (admin ? abasPrevia("gestor") : '')+
-      '</div>'+(escolas.length > 1 ? '<label class="dir-esc">Escola <select id="dirEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(e.id === esc ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></label>' : '')+'</div>'+
+      '</div>'+(escolas.length > 1 ? '<label class="dir-esc">Escola <select id="dirEscola">'+escolas.map(e => '<option value="'+escapeAttr(e.id)+'"'+(e.id === esc ? " selected" : "")+'>'+escapeHtml(e.nome)+'</option>').join("")+'</select></label>' : '')+'</div>'+caixaBusca()+
       (esc ? '' : '<div class="hj-vazio">Seu cadastro ainda não está ligado a uma escola. Fale com a Secretaria de Educação.</div>')+
       '<section class="ini-sec" aria-labelledby="dirIndTit"><h3 id="dirIndTit">A escola hoje</h3><div class="dir-ind" id="dirInd"><div class="hj-vazio">Conferindo a escola...</div></div></section>'+
       '<section class="ini-sec" id="iniHojeSec" aria-labelledby="hjTit"><h3 id="hjTit">Para hoje</h3><div id="iniHoje"><div class="hj-vazio">Conferindo as pendências...</div></div></section>'+
