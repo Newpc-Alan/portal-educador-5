@@ -9193,7 +9193,7 @@
       const pausado = typeof bl[dev] === "boolean" ? bl[dev] : geral;
       const aba = x.aba && x.aba.titulo ? String(x.aba.titulo).slice(0, 60) : "";
       return { dev, on, chromebook, pausado: !!x.bloqueado || pausado, mao: !!x.mao, aba, saiu: /Saiu da página/.test(aba),
-        tipo: chromebook ? "Chromebook" : /App do tablet/.test(String(x.email || "")) ? "Tablet (app)" : "Celular/navegador", versao: x.versao || "" };
+        tipo: chromebook ? "Chromebook" : /App do tablet/.test(String(x.email || "")) ? "Tablet (app)" : /Navegador/.test(String(x.email || "")) ? "Computador (navegador)" : "Celular", versao: x.versao || "" };
     });
   }
   function estadoMaeAluno(alunoId){
@@ -9261,7 +9261,8 @@
     if(MAV.matsMae === null){ MAV.matsMae = new Set(AV.mats.map(m => m.id)); return; }
     const novos = AV.mats.filter(m => !MAV.matsMae.has(m.id) && urlMat(m)); if(!novos.length) return;
     novos.forEach(m => MAV.matsMae.add(m.id));
-    const tablets = Object.entries(MAV.alunos).filter(([, x]) => x && /^web-/.test(String(x.versao || "")) && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).map(([d]) => d);
+    // só a página antiga do aluno do Maestro (web-1.x); quem está no Portal do Aluno (web-portal) já abre o material sozinho
+    const tablets = Object.entries(MAV.alunos).filter(([, x]) => x && /^web-\d/.test(String(x.versao || "")) && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).map(([d]) => d);
     if(tablets.length) abrirNosAparelhos(urlMat(novos[0]), novos[0].titulo || "", tablets).catch(e => console.warn("maestro (material):", e.message));
   }
   function janelaLinkMae(){
@@ -9323,17 +9324,16 @@
   function levarAoMaestro(){
     const c = MT.maestro; if(!c || !((MT.aulaAte || 0) > Date.now()) || MT.saindo) return;
     const nome = String(usuarioAtual.nome || "Aluno").trim().slice(0, 60), aluno = MT.chave || "";
-    if(APP_MAESTRO){
-      let ja = ""; try{ ja = sessionStorage.getItem("pde_maestro_ida") || ""; }catch(e){}
-      if(ja === c) return;   // já foi e voltou (saiu da aula): não leva de novo à força
-      try{ sessionStorage.setItem("pde_maestro_ida", c); }catch(e){}
-      location.href = "/maestro/aluno/?portal=1&aula=" + c + "&nome=" + encodeURIComponent(nome) + "&aluno=" + encodeURIComponent(aluno);
+    // Chromebook com a extensão: a extensão segue o professor (bloqueio do aparelho inteiro)
+    if(document.documentElement.dataset.maestroExt){
+      if(MT.maestroAvisado !== c){ MT.maestroAvisado = c; window.postMessage({ fonte:"portal-educador", tipo:"maestro-entrar", aula:c, nome, aluno }, location.origin); }
       return;
     }
-    if(document.documentElement.dataset.maestroExt && MT.maestroAvisado !== c){
-      MT.maestroAvisado = c;
-      window.postMessage({ fonte:"portal-educador", tipo:"maestro-entrar", aula:c, nome, aluno }, location.origin);
-    }
+    // app do tablet e navegador sem extensão: o aluno continua no Portal e esta página segue o professor (pausa, conteúdo, mão)
+    if(MT.maestroPonte === c) return;
+    MT.maestroPonte = c;
+    import("/assets/js/maestro-ponte.js").then(m => m.entrarNaAulaMaestro({ codigo:c, nome, aluno })).then(ok => { if(ok && APP_MAESTRO) toast("🎼 Você está na aula do professor."); })
+      .catch(e => { console.warn("maestro:", e); MT.maestroPonte = ""; });
   }
   // a extensão do Maestro (0.9+) responde quando entrou: o aluno vê que o Chromebook está seguindo a aula
   window.addEventListener("message", ev => {
@@ -9341,7 +9341,9 @@
     if(d.tipo === "pronta" && MT.maestro) levarAoMaestro();
     if(d.tipo === "entrou" && !d.ja) toast(d.ok ? "💻 Este computador entrou na aula do professor." : (d.erro || "O computador não conseguiu entrar na aula."), !d.ok);
   });
-  async function sairDaConta(){ try{ await marcarSaidaAluno(); }catch(e){} return signOut(auth); }
+  async function sairDaConta(){ try{ await marcarSaidaAluno(); }catch(e){}
+    if(MT.maestroPonte){ try{ (await import("/assets/js/maestro-ponte.js")).sairDaAulaMaestro(); }catch(e){} MT.maestroPonte = ""; }
+    return signOut(auth); }
   async function materiaisAluno(){
     let tid = usuarioAtual.turma_id || "", chave = usuarioAtual.aluno_id || "";
     MT.viaQr = false;
