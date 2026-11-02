@@ -564,10 +564,13 @@ Desde novembro de 2026, o Portal Maestro funciona **dentro** do Dar aula agora. 
 
 No painel **📡 Turma ao Vivo**, com a aula aberta, aparece o **🎛️ Controle da aula**. Ele funciona **dentro do Portal**, para qualquer aluno que entrou na conta (tablet, celular ou computador), com ou sem o Portal Maestro:
 
-- **⏸️ PAUSAR AS TELAS DA TURMA** (botão vermelho, em destaque): a tela de todos os alunos mostra "Atenção ao professor". Para voltar, **▶️ LIBERAR AS TELAS DA TURMA** (botão verde, piscando).
+- **⏸️ Pausar as telas**: a tela de todos os alunos mostra "Atenção ao professor". Com as telas pausadas, o botão fica verde e vira **▶️ Liberar as telas**, e a faixa mostra **⏸️ Telas pausadas**.
 - **Contadores**: ✋ quantas mãos estão levantadas (com os nomes), 💬 mensagens novas dos alunos, 👥 quantos estão na sala e, se a escola usa o Portal Maestro, 🎼 quantos aparelhos o Maestro controla.
-- **📲 Abrir para a turma**: abre na hora, na tela de todos, algo escolhido em três abas: **🏫 Do Portal** (jogos, vídeos, livros e histórias, colorir, com busca), **📤 Enviados à turma** (sem repetir) e **🔗 Link externo**.
-- **📊 Pesquisa rápida**: a pergunta aparece na tela de todos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. O resultado aparece no Controle da aula (com quantos ainda não responderam) e no cartão de cada aluno. **Encerrar pesquisa** fecha.
+- **📲 Abrir conteúdo para a turma**: abre na hora, na tela de todos, algo escolhido em três abas: **🏫 Do Portal** (jogos, vídeos, livros e histórias, colorir, com busca), **📤 Enviados à turma** (sem repetir) e **🔗 Link externo**. Site que não deixa ser mostrado dentro do Portal (ex.: portais de notícia, Google Docs) chega ao aluno como um cartão com o botão **Abrir o site**, e o professor é avisado.
+- **📚 Acervo do município**: escolha um arquivo do acervo da sua rede; ele vai para a turma (fica em **Enviados**, com quem abriu) e abre na hora na tela de quem está na aula. Arquivo guardado no servidor da NEWPC ainda não vai direto: baixe no Acervo e envie por **Enviar link ou arquivo**.
+- **📊 Pesquisa rápida**: a pergunta aparece na tela de todos; cada aluno responde 🟢 Entendi, 🟡 Mais ou menos ou 🔴 Não entendi. O resultado aparece abaixo dos botões (com quantos ainda não responderam) e no cartão de cada aluno. O mesmo botão vira **Encerrar pesquisa**.
+
+O controle funciona em **qualquer tela do Portal** em que o aluno estiver (Início, Biblioteca, Colorir, Museus...).
 
 Toque no **cartão do aluno** para:
 
