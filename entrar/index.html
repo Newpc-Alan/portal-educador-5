@@ -1134,6 +1134,10 @@
   .cad-topo p{ font-size:13.5px;color:var(--muted) }
   .field label small{ font-weight:500;opacity:.8 }
   .cad-etapas{ display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px }
+  .cad-anos{ grid-template-columns:repeat(auto-fill,minmax(130px,1fr)) } .mc-grade{ display:block;margin-top:6px;color:#1a6b2a;font-weight:600 }
+  .al-busca-res{ display:grid;gap:6px;margin-top:10px } .al-busca-it{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;border:1px solid var(--line);border-radius:10px;padding:8px 12px }
+  .al-busca-it b{ display:block } .al-busca-it small{ color:#5b6b7b } .al-busca-it small.ok{ color:#1a6b2a;font-weight:700 }
+  .al-novo-det{ margin-top:14px } .al-novo-det summary{ cursor:pointer;font-weight:700;color:#5b6b7b }
   .cad-etapas label{ display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink);border:1.5px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer;margin:0 }
   .cad-etapas input{ width:16px;height:16px;accent-color:var(--green) }
   .cad-aceite{ display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--muted);line-height:1.5;margin:6px 0 16px;cursor:pointer }
@@ -3249,6 +3253,18 @@
   // ===================== MINHAS TURMAS (professor monta as proprias turmas) =====================
   const mt = { editando:null };
   function minhasTurmasIds(){ return (usuarioAtual.turmas_ids||[]).map(x => String(x).trim()); }
+  /* Turmas e alunos que o professor de rede enxerga (nov/2026): quem matricula é a escola (Ficha do Aluno), quem distribui é a Direção (Grade das turmas)
+     e o professor só escolhe dentro do que é dele: as turmas em que a grade o coloca e as turmas dos anos que ele marca em Meu cadastro. */
+  const ANOS_AULA = [["bebes","Berçário"],["cbp","Maternal"],["cp","Pré-escola"],["1","1º ano"],["2","2º ano"],["3","3º ano"],["4","4º ano"],["5","5º ano"],["6","6º ano"],["7","7º ano"],["8","8º ano"],["9","9º ano"],["em1","1ª série EM"],["em2","2ª série EM"],["em3","3ª série EM"],["eja","EJA"],["multi","Multisseriada"]];
+  const codAnoTurma = t => String(t.ano_serie || TUR_COD[(turParse(t.nome) || {}).etapa] || "");
+  const ehDaGrade = t => (t.grade || []).some(g => g && g.professor_uid === usuarioAtual.uid);
+  const discDaGrade = t => [...new Set((t.grade || []).filter(g => g && g.professor_uid === usuarioAtual.uid).map(g => g.disciplina).filter(Boolean))];
+  function meusAnosAula(){
+    const a = new Set((usuarioAtual.anos_aula || []).map(String));
+    (cacheTurmas || []).filter(t => t.status !== "inativa" && ehDaGrade(t)).forEach(t => { const c = codAnoTurma(t); if(c) a.add(c); });
+    return a;
+  }
+  const professorDeRede = () => usuarioAtual.perfil === "professor" && !usuarioAtual._avulso && licencaDe(usuarioAtual, usuarioAtual._muni).tipo === "institucional";
   async function renderMinhasTurmas(){
     $("conteudo").innerHTML = '<div class="sectionbar"><span class="count" id="mtCont">Carregando...</span>'+
       '<button class="btn btn-primary btn-add" data-action="mt-nova">+ Nova turma</button></div>'+
@@ -3260,24 +3276,36 @@
     }
     try{
       await Promise.all([ carregarCacheTurmas(), carregarCacheEscolas() ]);
+      // turmas em que a Direção colocou este professor na grade entram sozinhas na lista dele
+      const daGrade = cacheTurmas.filter(t => t.status !== "inativa" && ehDaGrade(t) && minhasEscolasIds().includes(t.escola_id));
+      const faltam = daGrade.filter(t => !minhasTurmasIds().includes(t.id.trim()));
+      if(faltam.length){ const ids = [...new Set([...minhasTurmasIds(), ...faltam.map(t => t.id.trim())])].slice(0, 60);
+        try{ await updateDoc(doc(db,"usuarios",usuarioAtual.uid), { turmas_ids:ids, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }); usuarioAtual.turmas_ids = ids; }
+        catch(e){ console.warn("turmas da grade:", e.code || e); } }
       const meus = new Set(minhasTurmasIds());
       const minhas = cacheTurmas.filter(t => meus.has(t.id.trim()) || t.criado_por === usuarioAtual.uid);
-      const outras = cacheTurmas.filter(t => !meus.has(t.id.trim()) && t.criado_por !== usuarioAtual.uid);
+      // professor de rede: das outras turmas da escola, só as dos anos em que ele dá aula (Meu cadastro + grade)
+      const anos = meusAnosAula(), rede = professorDeRede();
+      const outras = cacheTurmas.filter(t => !meus.has(t.id.trim()) && t.criado_por !== usuarioAtual.uid && t.status !== "inativa" && (!rede || anos.has(codAnoTurma(t))));
       $("mtCont").textContent = minhas.length+" turma(s) sob sua responsabilidade";
       $("mtLista").innerHTML = !minhas.length
         ? '<div class="empty"><div class="ei">\u{1F4DA}</div>Você ainda não tem turmas. Crie uma em "+ Nova turma" ou adicione uma turma que já existe na sua escola, logo abaixo.</div>'
         : '<div class="tablewrap"><table><thead><tr><th>Turma</th><th>Escola</th><th>Turno</th><th>Ano</th><th>Ações</th></tr></thead><tbody>'+
           minhas.map(t => { const dono = t.criado_por === usuarioAtual.uid;
-            return '<tr><td><b>'+escapeHtml(t.nome)+'</b>'+(turRotuloSerie(t) ? '<br><small class="muni-tag">'+escapeHtml(turRotuloSerie(t))+'</small>' : '')+'</td>'+
+            const disc = discDaGrade(t);
+            return '<tr><td><b>'+escapeHtml(t.nome)+'</b>'+(turRotuloSerie(t) ? '<br><small class="muni-tag">'+escapeHtml(turRotuloSerie(t))+'</small>' : '')+(disc.length ? '<br><small class="muni-tag" title="A Direção colocou você nesta turma (Grade das turmas)">📋 Grade: '+escapeHtml(disc.join(", "))+'</small>' : '')+'</td>'+
             '<td><span class="muni-tag">'+escapeHtml(t.escola_nome||"-")+'</span></td><td>'+escapeHtml(t.turno||"-")+'</td><td>'+escapeHtml(String(t.ano_letivo||"-"))+'</td>'+
             '<td><div class="usr-acoes"><button class="btn-mini btn-result" data-action="mt-alunos" data-id="'+escapeAttr(t.id)+'">Alunos</button>'+
             (temRecurso("sala_digital") ? '<button class="btn-mini btn-gerenciar" data-action="ini-enviar-turma" data-turma="'+escapeAttr(t.id)+'">🔗 Enviar conteúdo</button>' : '')+
             (temRecurso("turma_ao_vivo") ? '<button class="btn-mini btn-gerenciar" data-action="mt-ao-vivo" data-id="'+escapeAttr(t.id)+'">📡 Ao vivo</button>' : '')+
             (dono ? '<button class="btn-mini btn-gerenciar" data-action="mt-editar" data-id="'+escapeAttr(t.id)+'">Editar</button>' : '')+
-            '<button class="btn-mini btn-recusar" data-action="'+(dono ? "mt-excluir" : "mt-tirar")+'" data-id="'+escapeAttr(t.id)+'">'+(dono ? "Excluir" : "Tirar da lista")+'</button></div></td></tr>'; }).join("")+
+            (disc.length ? '' : '<button class="btn-mini btn-recusar" data-action="'+(dono ? "mt-excluir" : "mt-tirar")+'" data-id="'+escapeAttr(t.id)+'">'+(dono ? "Excluir" : "Tirar da lista")+'</button>')+'</div></td></tr>'; }).join("")+
           '</tbody></table></div>';
-      $("mtOutras").innerHTML = outras.length
-        ? '<div class="imp-card" style="margin-top:16px"><h3>Turmas que já existem nas suas escolas</h3><p class="d">Se a turma já foi cadastrada pela escola ou por outro professor, é só adicionar à sua lista.</p>'+
+      const rotAnos = ANOS_AULA.filter(([c]) => anos.has(c)).map(([, n]) => n).join(", ");
+      $("mtOutras").innerHTML = rede && !anos.size
+        ? '<div class="imp-card" style="margin-top:16px"><h3>Turmas da sua escola</h3><p class="d">Para ver as turmas da escola, marque em <b>Meu cadastro</b> os anos em que você dá aula (ou peça à Direção para incluir você na <b>Grade das turmas</b>). Você só vê as turmas e os alunos desses anos.</p><div class="imp-acoes"><button class="btn btn-primary" data-action="ir-meucadastro">Marcar os anos em Meu cadastro</button></div></div>'
+        : outras.length
+        ? '<div class="imp-card" style="margin-top:16px"><h3>Turmas que já existem nas suas escolas</h3><p class="d">'+(rede ? 'Mostrando só as turmas dos anos em que você dá aula: <b>'+escapeHtml(rotAnos)+'</b> (ajuste em Meu cadastro). ' : '')+'Se a turma já foi cadastrada pela escola ou por outro professor, é só adicionar à sua lista.</p>'+
           '<div class="mt-outras">'+outras.map(t => '<div class="mt-outra"><span><b>'+escapeHtml(t.nome)+'</b><small>'+escapeHtml([t.escola_nome, t.turno, t.ano_letivo].filter(Boolean).join(" · "))+'</small></span>'+
           '<button class="btn-mini btn-gerenciar" data-action="mt-adicionar" data-id="'+escapeAttr(t.id)+'">Adicionar</button></div>').join("")+'</div></div>'
         : "";
@@ -3349,11 +3377,17 @@
           '<div class="qr-entrada" id="qrEntrada"><b class="st">Entrada por QR: verificando...</b></div></div>'+
         '<div class="ps"><b><span class="n">2</span>Monte a prova</b><p>Em Provas e Avaliações, escolha as questões e clique em “Aplicar online” para esta turma.</p><a class="btn btn-ghost" href="/provas/">📝 Abrir Provas e Avaliações</a></div>'+
         '<div class="ps"><b><span class="n">3</span>Acompanhe ao vivo</b><p>Veja quem entrou, quem terminou e libere quem saiu da tela. A correção das objetivas é automática.</p><a class="btn btn-ghost" href="/prova/">📡 Provas online</a></div></div>'+
-      (dono ? '<div class="imp-card"><h3>Adicionar alunos</h3><p class="d">Digite um aluno por linha. Se quiser, coloque a matrícula depois de um ponto e vírgula (ex: Ana Souza; 2026-0012).</p>'+
+      (dono && professorDeRede() ? '<div class="imp-card"><h3>Procurar aluno da escola</h3><p class="d">Digite o nome ou a matrícula. Aparecem só os alunos que a escola matriculou nos anos em que você dá aula. Quem já está numa turma da escola entra pela turma: adicione a turma à sua lista, sem cadastrar o aluno de novo.</p>'+
+        '<input type="search" id="alBusca" class="md-busca" placeholder="Ex.: Heitor ou 2026-0012" autocomplete="off" aria-label="Procurar aluno pelo nome ou matrícula"><div id="alBuscaRes" class="al-busca-res"></div>'+
+        '<details class="al-novo-det"><summary>Aluno que a escola ainda não matriculou</summary><p class="d">Use só se o aluno não aparece na busca. O certo é a secretaria da escola matricular na Ficha do Aluno; aluno cadastrado aqui não vai para o boletim nem para o Censo.</p>'+
+        '<textarea id="alNovos" class="al-novos" rows="3" placeholder="Ana Souza&#10;Bruno Lima; 2026-0013"></textarea>'+
+        '<div class="imp-acoes"><button class="btn btn-ghost" data-action="al-adicionar" id="alAdd">Adicionar à turma</button></div></details></div>'
+      : dono ? '<div class="imp-card"><h3>Adicionar alunos</h3><p class="d">Digite um aluno por linha. Se quiser, coloque a matrícula depois de um ponto e vírgula (ex: Ana Souza; 2026-0012).</p>'+
         '<textarea id="alNovos" class="al-novos" rows="4" placeholder="Ana Souza&#10;Bruno Lima; 2026-0013"></textarea>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="al-adicionar" id="alAdd">Adicionar à turma</button></div></div>' : '')+
       '<div id="alLista"><div class="empty">Carregando alunos...</div></div>';
     estadoEntradaQr("ver");
+    if($("alBusca")){ let tm = null; $("alBusca").addEventListener("input", e => { clearTimeout(tm); tm = setTimeout(() => buscarAlunoEscola(e.target.value), 300); }); }
     await listarAlunosTurma();
   }
   // entrada por QR da turma: o professor abre (vale 4 horas) e os alunos entram mostrando o cartão para a câmera
@@ -3432,6 +3466,38 @@
       l.map(a => { const x = al.acesso[a.id]; return '<tr><td>'+escapeHtml(x.nome)+'</td><td class="m">'+escapeHtml(x.codigo)+'</td><td class="m">'+escapeHtml(x.pin)+'</td></tr>'; }).join("")+
       '</tbody></table><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
     w.document.close();
+  }
+  // busca de aluno da escola (professor de rede): só turmas dos anos dele nas escolas dele; carrega uma vez por turma aberta
+  async function alunosDosMeusAnos(){
+    const t = al.turma; if(al.busca && al.busca.tid === t.id) return al.busca.lista;
+    await carregarCacheTurmas();
+    const anos = meusAnosAula(), escolas = new Set(minhasEscolasIds());
+    const ts = cacheTurmas.filter(x => x.status !== "inativa" && x.id !== t.id && escolas.has(x.escola_id) && anos.has(codAnoTurma(x)));
+    const nomeT = {}; ts.forEach(x => { nomeT[x.id] = x.nome; });
+    const lista = [];
+    for(const esc of escolas){
+      const ids = ts.filter(x => x.escola_id === esc).map(x => x.id);
+      for(let i = 0; i < ids.length; i += 30){
+        const sn = await getDocs(query(collection(db, "alunos"), where("escola_id", "==", esc), where("turma_id", "in", ids.slice(i, i + 30))));
+        sn.forEach(d => { const a = d.data(); if(a.status === "inativo" || a.situacao === "transferido") return; lista.push({ id:d.id, nome:a.nome_social || a.nome || "", matricula:a.matricula || "", turma_id:a.turma_id, turma:nomeT[a.turma_id] || "" }); });
+      }
+    }
+    al.busca = { tid:t.id, lista };
+    return lista;
+  }
+  async function buscarAlunoEscola(txt){
+    const box = $("alBuscaRes"); if(!box) return;
+    const q = String(txt || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    if(q.length < 2){ box.innerHTML = ""; return; }
+    box.innerHTML = '<div class="d">Procurando...</div>';
+    let l = [];
+    try{ l = await alunosDosMeusAnos(); }catch(e){ console.warn("busca aluno:", e.code || e); box.innerHTML = '<div class="d">Não foi possível procurar agora ('+escapeHtml(e.code || "erro")+').</div>'; return; }
+    const sem = v => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const achou = l.filter(a => sem(a.nome).includes(q) || sem(a.matricula).includes(q)).slice(0, 20);
+    const minhas = new Set(minhasTurmasIds());
+    box.innerHTML = !achou.length ? '<div class="d">Nenhum aluno com esse nome ou matrícula nos anos em que você dá aula. Se for aluno novo, peça à secretaria da escola para matricular.</div>' :
+      achou.map(a => '<div class="al-busca-it"><span><b>'+escapeHtml(a.nome)+'</b><small>'+escapeHtml([a.matricula ? "Matrícula " + a.matricula : "", a.turma ? "Turma " + a.turma : ""].filter(Boolean).join(" · "))+'</small></span>'+
+        (minhas.has(a.turma_id) ? '<small class="ok">✓ a turma '+escapeHtml(a.turma)+' já está na sua lista</small>' : '<button type="button" class="btn-mini btn-gerenciar" data-action="al-busca-turma" data-id="'+escapeAttr(a.turma_id)+'">Adicionar a turma '+escapeHtml(a.turma)+'</button>')+'</div>').join("");
   }
   async function adicionarAlunos(){
     const t = al.turma;
@@ -6449,6 +6515,9 @@
         '<div class="field"><label for="mcFuncao">Função</label><select id="mcFuncao">'+["","Professor(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Técnico(a) da Secretaria","Outra"].map(f => '<option'+((u.funcao||"")===f ? " selected" : "")+'>'+f+'</option>').join("")+'</select></div></div>'+
         (inst ? "" : '<div class="row2"><div class="field"><label for="mcEscola">Escola</label><input type="text" id="mcEscola" value="'+escapeAttr(u.escola_texto||"")+'"></div>'+
           '<div class="field"><label for="mcInep">INEP <small>(opcional)</small></label><input type="text" id="mcInep" maxlength="8" value="'+escapeAttr(u.escola_inep||"")+'"></div></div>')+
+        (inst && u.perfil === "professor" ? '<div class="field"><label>Anos em que dou aula <small>(você vê só as turmas e os alunos destes anos nas suas escolas)</small></label><div class="cad-etapas cad-anos">'+
+          ANOS_AULA.map(([c, n]) => '<label><input type="checkbox" name="mcAno" value="'+escapeAttr(c)+'"'+((u.anos_aula || []).includes(c) ? " checked" : "")+'> '+escapeHtml(n)+'</label>').join("")+'</div>'+
+          '<small class="mc-grade" id="mcGrade"></small></div>' : '')+
         '<div class="field"><label>Etapas em que atua</label><div class="cad-etapas">'+ETAPAS.map(e => '<label><input type="checkbox" name="mcEtapa" value="'+escapeAttr(e)+'"'+(etapasMarc.has(e) ? " checked" : "")+'> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
         linha("E-mail", u.email)+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button></div></div>'+
@@ -6463,7 +6532,9 @@
         (lic.dias !== null && !lic.semFim ? linha("Dias restantes", Math.max(0, lic.dias)) : "")+
         (inst ? "" : '<a class="btn btn-primary btn-add" style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
       '</div></div></div>';
-    if(inst && u.perfil === "professor") carregarEscolasCadastro();
+    if(inst && u.perfil === "professor"){ carregarEscolasCadastro();
+      carregarCacheTurmas().then(() => { const g = (cacheTurmas || []).filter(t => t.status !== "inativa" && ehDaGrade(t)), el = $("mcGrade"); if(!el) return;
+        el.textContent = g.length ? "📋 Pela Grade das turmas, a Direção colocou você em: " + g.map(t => t.nome + (discDaGrade(t).length ? " (" + discDaGrade(t).join(", ") + ")" : "")).join("; ") + ". Esses anos já valem, mesmo sem marcar." : ""; }).catch(() => {}); }
     if(u.perfil !== "aluno") certificadosCadastro();
   }
   async function carregarEscolasCadastro(){
@@ -6481,6 +6552,7 @@
     if(whats && (whats.length < 10 || whats.length > 11)){ toast("WhatsApp com DDD, só números.", true); return; }
     const dados = { nome, whatsapp:whats, funcao:g("mcFuncao")||"", etapas:[...document.querySelectorAll('input[name="mcEtapa"]:checked')].map(i => i.value),
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    if(document.querySelector('input[name="mcAno"]')) dados.anos_aula = [...document.querySelectorAll('input[name="mcAno"]:checked')].map(i => i.value).slice(0, 17);
     if($("mcEscola")){ dados.escola_texto = g("mcEscola"); const inep = g("mcInep"); if(inep && !/^\d{8}$/.test(inep)){ toast("INEP com 8 números.", true); return; } dados.escola_inep = inep || ""; }
     const btn = $("mcSalvar"); btn.disabled = true;
     try{ await updateDoc(doc(db,"usuarios",usuarioAtual.uid), dados); Object.assign(usuarioAtual, dados);
@@ -7153,6 +7225,8 @@
       catch(e){ toast("Não deu para mudar agora. Tente de novo.", true); el.disabled = false; }
     }
     else if(acao === "alu-inicio"){ selecionar(MENUS.aluno.itens[0]); window.scrollTo({ top:0 }); }
+    else if(acao === "ir-meucadastro"){ const it = (MENUS.professor.itens || []).find(i => i.id === "meucadastro"); if(it) selecionar(it); }
+    else if(acao === "al-busca-turma"){ mudarMinhaLista(el.dataset.id, true); }
     else if(acao === "ini-turmas"){ const it = (MENUS.professor.itens || []).find(i => i.id === "turmas"); if(it) selecionar(it); }
     else if(acao === "tc-fechar"){ const f = $("tcFundo"); if(f) f.remove(); }
     else if(["tc-rede", "tc-tirar", "tc-email"].includes(acao)){ acaoCompTrabalho(acao, el); }
