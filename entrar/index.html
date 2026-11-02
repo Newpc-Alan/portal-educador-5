@@ -461,7 +461,8 @@
   .qz-erro{ font:inherit;font-size:12.5px;font-weight:800;border:1.5px solid #e0a321;background:#fff8e1;color:#7a5200;border-radius:99px;padding:3px 10px;cursor:pointer;margin-left:6px }
   .qz-acv{ display:grid;gap:8px;max-height:52vh;overflow:auto } .qz-acv .ml-it small{ display:block } .qz-acv .vazio{ color:#5b6b7b;padding:10px }
   .qz-jan{ max-width:820px;width:min(96vw,820px) } .qz-l{ display:grid;gap:4px;font-weight:700;font-size:14px;color:#0f2c4a;margin:8px 0 } .qz-l textarea,.qz-l input,.qz-l select{ font:inherit;font-weight:400;padding:9px 10px;border:1px solid #cfdbe7;border-radius:10px }
-  .qz-lin{ display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px } @media (max-width:600px){ .qz-lin{ grid-template-columns:1fr } .qr-cards{ grid-template-columns:1fr 1fr !important } }
+  .qz-lin{ display:grid;grid-template-columns:1fr 1fr 1.6fr 1.2fr;gap:10px }
+  .qz-filtros{ display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;margin-bottom:8px } .qz-filtros select{ font:inherit;padding:8px 10px;border:1px solid #cfdbe7;border-radius:10px;min-width:0 } @media (max-width:600px){ .qz-filtros{ grid-template-columns:1fr } } @media (max-width:600px){ .qz-lin{ grid-template-columns:1fr } .qr-cards{ grid-template-columns:1fr 1fr !important } }
   .qz-lista{ display:grid;gap:12px;max-height:52vh;overflow:auto;margin:8px 0 } .qz-q{ border:2px solid #e1e8f0;border-radius:14px;padding:10px;display:grid;gap:6px }
   .qz-qtopo{ display:flex;gap:8px;align-items:flex-start } .qz-qtopo textarea{ flex:1;font:inherit;font-weight:700;padding:7px 9px;border:1px solid #cfdbe7;border-radius:10px } .qz-tirar{ border:0;background:none;font-size:18px;cursor:pointer }
   .qz-op{ display:flex;align-items:center;gap:8px;border-radius:10px;padding:3px 6px } .qz-op.certa{ background:#eaf6dc } .qz-op span{ font-weight:900;color:#0f2c4a;width:18px } .qz-op input[data-qz-e="op"]{ flex:1;font:inherit;padding:6px 9px;border:1px solid #cfdbe7;border-radius:9px }
@@ -9610,6 +9611,11 @@
      aula_vivo/{turma}/alunos/{k}    quiz:{ id, r:[índice escolhido ou -1], fim }
      usuarios/{uid}/quizzes/{id}     perguntas com gabarito e o relatório (Meus trabalhos › Quizzes rápidos) */
   const QZ = { cache:{} };
+  // disciplina e ano do quiz (para achar nos acervos); "Interdisciplinar" é a disciplina genérica
+  const anoDoNome = n => { const m = String(n || "").match(/(\d{1,2})\s*[ºo°]?\s*ano/i); return m ? m[1] + "º ano" : ""; };
+  const opcoesDisc = (sel, filtro) => (filtro ? "" : '<option value="">Escolha a disciplina</option>') + DISCIPLINAS.map(d => '<option value="' + escapeAttr(d) + '"' + (d === sel ? " selected" : "") + ">" + (d === "Interdisciplinar" ? "🌐 Geral (interdisciplinar)" : escapeHtml(d)) + "</option>").join("");
+  const opcoesAno = (sel, filtro) => (filtro ? "" : '<option value="">Escolha o ano</option>') + ANOS_AULA.map(a => '<option value="' + escapeAttr(a[1]) + '"' + (a[1] === sel ? " selected" : "") + ">" + escapeHtml(a[1]) + "</option>").join("");
+  const lembrarDisc = d => { try{ if(d) localStorage.setItem("pde_qz_disc_" + usuarioAtual.uid, d); }catch(e){} };
   // tela de espera da IA (logo do Portal com recados), a mesma da Lousa e do Portal IA
   function carregarPensando(){
     if(window.PDEPensando) return Promise.resolve(window.PDEPensando);
@@ -9650,7 +9656,13 @@
   function janelaQuiz(){
     if(quizAtivo()){ toast("Já há um quiz em andamento: encerre o atual antes de lançar outro.", true); return; }
     const velho = $("qzFundo"); if(velho) velho.remove();
-    const st = { perg:[] };
+    const st = { perg:[], disciplina:"", ano:anoDoNome(nomeTurmaAv()) }; st.anoTurma = st.ano;
+    // disciplina e ano já vêm preenchidos (ano da turma; disciplina da Grade ou a última usada) para facilitar a busca nos acervos
+    try{ st.disciplina = localStorage.getItem("pde_qz_disc_" + usuarioAtual.uid) || ""; }catch(e){}
+    getDoc(doc(db, "turmas", AVV.tid)).then(d => { const t = d.data() || {}, g = discDaGrade(t), cod = codAnoTurma(t), lab = (ANOS_AULA.find(a => a[0] === cod) || [])[1];
+      if(lab){ st.ano = lab; st.anoTurma = lab; } if(g.length && DISCIPLINAS.includes(g[0])) st.disciplina = g[0];
+      const sd = $("qzDisc"), sa = $("qzAno"); if(sd && st.disciplina) sd.value = st.disciplina; if(sa && st.ano) sa.value = st.ano;
+      const fd = $("qzFDisc"), fa = $("qzFAno"); if(fa && st.anoTurma && !fa.dataset.mexeu){ fa.value = st.anoTurma; fa.dispatchEvent(new Event("change")); } }).catch(() => {});
     const f = document.createElement("div"); f.id = "qzFundo"; f.className = "et-fundo";
     f.innerHTML = '<div class="et-jan qz-jan" role="dialog" aria-modal="true" aria-labelledby="qzTit"><div class="et-topo"><h3 id="qzTit">🧠 Quiz rápido</h3><button type="button" data-qz="x">Fechar</button></div><div class="et-corpo" id="qzCorpo"></div></div>';
     document.body.appendChild(f);
@@ -9658,7 +9670,8 @@
     // acervo: reaproveita um quiz já feito (seu ou de colega do município) sem gastar crédito de IA
     const acervo = async qual => {
       $("qzCorpo").innerHTML = abas(qual) + '<p class="et-d">' + (qual === "meus" ? "Seus quizzes já aplicados: reaproveite sem gastar crédito de IA. Dá para revisar antes de lançar." : qual === "geral" ? "Acervo geral do Portal: quizzes criados com IA por professores de todas as redes e já aplicados em sala. Sem custo de crédito; revise antes de lançar." : "Quizzes que colegas do seu município compartilharam. Use uma cópia: você revisa e lança para a sua turma.") + '</p>' +
-        '<input id="qzBusca" type="search" class="md-busca" placeholder="Procure pelo tema, disciplina ou turma" autocomplete="off"><div id="qzAcv" class="qz-acv"><div class="vazio">Carregando...</div></div>';
+        '<div class="qz-filtros"><select id="qzFDisc" aria-label="Disciplina"><option value="">Todas as disciplinas</option>' + opcoesDisc("", true) + '</select><select id="qzFAno" aria-label="Ano"><option value="">Todos os anos</option>' + opcoesAno(st.anoTurma, true) + '</select>' +
+        '<input id="qzBusca" type="search" class="md-busca" placeholder="Procure pelo tema" autocomplete="off"></div><div id="qzAcv" class="qz-acv"><div class="vazio">Carregando...</div></div>';
       let l = [];
       try{ if(qual === "meus"){ const sn = await getDocs(collection(db, "usuarios", usuarioAtual.uid, "quizzes")); sn.forEach(d => l.push({ id:d.id, ...d.data() })); }
         else if(qual === "geral"){ const sn = await getDocs(query(collection(db, "quizzes_geral"), where("status", "==", "publicado"), limit(500))); sn.forEach(d => l.push({ id:d.id, ...d.data(), _geral:true })); }
@@ -9666,19 +9679,23 @@
       catch(e){ const b = $("qzAcv"); if(b) b.innerHTML = '<div class="vazio">Não foi possível carregar (' + escapeHtml(e.code || "erro") + ").</div>"; return; }
       l = l.filter(x => Array.isArray(x.perguntas) && x.perguntas.length).sort((a, b) => (msDe(b.atualizado_em) || msDe(b.criado_em) || 0) - (msDe(a.atualizado_em) || msDe(a.criado_em) || 0));
       const desenhar = t => { const box = $("qzAcv"); if(!box) return; t = semAcento(String(t || "").trim());
-        const vis = l.filter(x => !t || semAcento([x.titulo, x.disciplina, x.turma_nome, x.autor_nome, x.ano, x.rede_nome].join(" ")).includes(t)).slice(0, 80);
+        const fd = ($("qzFDisc") || {}).value || "", fa = ($("qzFAno") || {}).value || "";
+        const vis = l.filter(x => (!fd || x.disciplina === fd || (fd !== "Interdisciplinar" && !x.disciplina)) && (!fa || (x.ano || anoDoNome(x.turma_nome)) === fa)
+          && (!t || semAcento([x.titulo, x.disciplina, x.turma_nome, x.autor_nome, x.ano, x.rede_nome].join(" ")).includes(t))).slice(0, 80);
         box.innerHTML = vis.length ? vis.map(x => '<button type="button" class="ml-it" data-qz="usar" data-id="' + escapeAttr(x.id) + '"><span>🧠</span><b>' + escapeHtml(String(x.titulo || "Quiz").slice(0, 90)) + "</b><small>" +
           escapeHtml(qual === "geral" ? [x.perguntas.length + " perguntas", x.disciplina, x.ano, "rede de " + (x.rede_nome || "?"), "aplicado " + (x.aplicacoes || 1) + (x.aplicacoes > 1 ? " vezes" : " vez"), "acerto médio " + (x.media || 0) + "%", (x.revisar || []).length ? "⚠️ confira a pergunta " + x.revisar.map(i => i + 1).join(", ") : ""].filter(Boolean).join(" · ")
-            : [x.perguntas.length + " perguntas", x.disciplina, x.turma_nome, qual === "rede" ? "por " + String(x.autor_nome || "colega").split(" ").slice(0, 2).join(" ") : (x.resultado ? "aproveitamento " + x.resultado.media + "%" : ""), dataTr(msDe(x.criado_em))].filter(Boolean).join(" · ")) + "</small></button>").join("")
-          : '<div class="vazio">' + (l.length ? "Nada encontrado." : qual === "geral" ? "O acervo geral ainda está vazio: os quizzes criados com IA entram aqui depois de aplicados em sala." : qual === "meus" ? "Você ainda não aplicou nenhum quiz." : "Nenhum colega do seu município compartilhou quiz ainda. No relatório do quiz, use 🤝 Compartilhar com a rede.") + "</div>"; };
+            : [x.perguntas.length + " perguntas", x.disciplina, x.ano || x.turma_nome, qual === "rede" ? "por " + String(x.autor_nome || "colega").split(" ").slice(0, 2).join(" ") : (x.resultado ? "aproveitamento " + x.resultado.media + "%" : ""), dataTr(msDe(x.criado_em))].filter(Boolean).join(" · ")) + "</small></button>").join("")
+          : '<div class="vazio">' + (l.length ? "Nada encontrado com esses filtros. Experimente “Todos os anos” ou “Todas as disciplinas”." : qual === "geral" ? "O acervo geral ainda está vazio: os quizzes criados com IA entram aqui depois de aplicados em sala." : qual === "meus" ? "Você ainda não aplicou nenhum quiz." : "Nenhum colega do seu município compartilhou quiz ainda. No relatório do quiz, use 🤝 Compartilhar com a rede.") + "</div>"; };
       st.acervo = l; desenhar(""); $("qzBusca").addEventListener("input", e => desenhar(e.target.value));
+      ["qzFDisc", "qzFAno"].forEach(i => $(i).addEventListener("change", e => { e.target.dataset.mexeu = e.isTrusted ? "1" : e.target.dataset.mexeu || ""; desenhar($("qzBusca").value); }));
     };
     const passo1 = () => { $("qzCorpo").innerHTML = abas("novo") +
       '<p class="et-d">Perguntas de múltipla escolha para ver se a turma absorveu o conteúdo. Aparecem na hora na tela dos alunos da aula; no fim sai o relatório de aproveitamento, guardado em Meus trabalhos e pronto para PDF.</p>' +
       '<label class="qz-l">Tema ou conteúdo da aula<textarea id="qzTema" rows="3" maxlength="300" placeholder="Ex.: frações equivalentes; ciclo da água; verbos no pretérito"></textarea></label>' +
       '<div class="qz-lin"><label class="qz-l">Quantas perguntas<select id="qzQtd">' + [3, 5, 8, 10, 12, 15, 20].map(n => '<option' + (n === 5 ? " selected" : "") + ">" + n + "</option>").join("") + '</select></label>' +
       '<label class="qz-l">Nível<select id="qzNivel"><option value="fácil">Fácil</option><option value="médio" selected>Médio</option><option value="difícil">Difícil</option></select></label>' +
-      '<label class="qz-l">Disciplina (opcional)<input id="qzDisc" maxlength="80"></label></div>' +
+      '<label class="qz-l">Disciplina<select id="qzDisc">' + opcoesDisc(st.disciplina) + '</select></label>' +
+      '<label class="qz-l">Ano<select id="qzAno">' + opcoesAno(st.ano) + '</select></label></div>' +
       '<p id="qzMsg" class="et-msg" role="status"></p><div class="et-acoes"><button type="button" class="btn btn-ghost" data-qz="manual">✍️ Escrever eu mesmo</button><button type="button" class="btn btn-primary" data-qz="ia">✨ Criar com IA · 1 crédito</button></div>';
       $("qzTema").focus(); };
     const vazia = () => ({ p:"", ops:["", "", "", ""], gab:0 });
@@ -9702,22 +9719,23 @@
       if(a === "aba"){ st.aba = b.dataset.aba; return b.dataset.aba === "novo" ? passo1() : acervo(b.dataset.aba); }
       if(a === "usar"){ const x = (st.acervo || []).find(y => y.id === b.dataset.id); if(!x) return;
         st.perg = x.perguntas.slice(0, 30).map(q => ({ p:String(q.p || ""), ops:(q.ops || []).slice(0, 5).map(String), gab:Number(q.gab) || 0 }));
-        st.titulo = String(x.titulo || "Quiz rápido").slice(0, 120); st.disciplina = String(x.disciplina || ""); st.origem = x._geral ? "geral" : "acervo"; st.geral_id = x._geral ? x.id : ""; st.voltar = st.aba; return passo2(); }
+        st.titulo = String(x.titulo || "Quiz rápido").slice(0, 120); st.disciplina = String(x.disciplina || ""); st.ano = String(x.ano || anoDoNome(x.turma_nome) || st.ano || ""); st.origem = x._geral ? "geral" : "acervo"; st.geral_id = x._geral ? x.id : ""; st.voltar = st.aba; return passo2(); }
       if(a === "erro" && st.geral_id){ const motivo = (prompt("O que está errado neste quiz? (ex.: gabarito da pergunta 3)") || "").trim().slice(0, 300); if(!motivo) return;
         try{ await setDoc(doc(db, "quizzes_geral", st.geral_id, "avisos", usuarioAtual.uid), { motivo, em:serverTimestamp() }); toast("Obrigado! A NEWPC vai conferir este quiz."); }
         catch(e){ toast(e.code === "permission-denied" ? "Você já avisou sobre este quiz." : "Não deu para enviar agora.", true); } return; }
-      if(a === "manual"){ st.titulo = ($("qzTema").value || "").trim().slice(0, 120) || "Quiz rápido"; st.disciplina = $("qzDisc").value.trim().slice(0, 80); st.origem = "manual"; st.perg = Array.from({ length:Number($("qzQtd").value) || 5 }, vazia); return passo2(); }
+      if((a === "ia" || a === "manual") && (!$("qzDisc").value || !$("qzAno").value)){ $("qzMsg").textContent = "Escolha a disciplina e o ano (use “Geral” se o quiz for de várias disciplinas)."; return; }
+      if(a === "manual"){ st.titulo = ($("qzTema").value || "").trim().slice(0, 120) || "Quiz rápido"; st.disciplina = $("qzDisc").value; st.ano = $("qzAno").value; st.origem = "manual"; lembrarDisc(st.disciplina); st.perg = Array.from({ length:Number($("qzQtd").value) || 5 }, vazia); return passo2(); }
       if(a === "ia"){ const tema = ($("qzTema").value || "").trim(); if(tema.length < 3){ $("qzMsg").textContent = "Escreva o tema ou conteúdo da aula."; return; }
         b.disabled = true; $("qzMsg").textContent = "✨ Criando as perguntas... (desconta 1 crédito do Portal IA, devolvido se a IA falhar)";
         const pensa = await carregarPensando();
         if(pensa) pensa.abrir({ titulo:"Criando o quiz", etapas:["Lendo o tema da aula", "Pensando nas perguntas", "Escrevendo as alternativas", "Conferindo o gabarito"], tempo:"uns 20 a 40 segundos" });
         try{ const { getFunctions:gf, httpsCallable:hc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
           const r = (await hc(gf(app, "southamerica-east1"), "portalIa", { timeout:200000 })({ acao:"questoes_prova", tema, qtd:Number($("qzQtd").value) || 5, tipos:"multipla",
-              nivel:$("qzNivel").value, disciplina:$("qzDisc").value.trim(), turma:nomeTurmaAv(), obs:"Quiz rápido no fim da aula para verificar se a turma absorveu o conteúdo: perguntas curtas, diretas e de leitura rápida no tablet; alternativas curtas." })).data;
+              nivel:$("qzNivel").value, disciplina:$("qzDisc").value === "Interdisciplinar" ? "" : $("qzDisc").value, turma:$("qzAno").value || nomeTurmaAv(), obs:"Quiz rápido no fim da aula para verificar se a turma absorveu o conteúdo: perguntas curtas, diretas e de leitura rápida no tablet; alternativas curtas." })).data;
           st.perg = (r.questoes || []).filter(q => q.tipo === "multipla" && Array.isArray(q.alts) && q.alts.length >= 2 && q.gab >= 0).slice(0, 30)
             .map(q => ({ p:String(q.enun || "").slice(0, 400), ops:q.alts.slice(0, 5).map(o => String(o).slice(0, 160)), gab:q.gab }));
           if(!st.perg.length) throw new Error("A IA não devolveu perguntas de múltipla escolha. Tente de novo.");
-          st.titulo = tema.slice(0, 120); st.disciplina = $("qzDisc").value.trim().slice(0, 80); st.origem = "ia"; passo2();
+          st.titulo = tema.slice(0, 120); st.disciplina = $("qzDisc").value; st.ano = $("qzAno").value; st.origem = "ia"; lembrarDisc(st.disciplina); passo2();
           // 1 crédito do Portal IA foi descontado: atualiza o saldo do menu (o servidor devolve o crédito se a IA falhar)
           try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} montarSaldoIA(); toast("✨ Perguntas criadas · 1 crédito do Portal IA usado."); }
         catch(err){ console.warn(err); const m = $("qzMsg"); if(m) m.textContent = (err && err.message) || "A IA não respondeu agora. Tente de novo ou escreva as perguntas."; b.disabled = false; }
@@ -9734,7 +9752,7 @@
         const perguntas = st.perg.map(q => { const certa = q.ops[q.gab], ops = q.ops.filter(Boolean); return { p:q.p, ops, gab:ops.indexOf(certa) }; });
         const id = "qz" + idMae(), titulo = st.titulo || "Quiz rápido";
         b.disabled = true; $("qzMsg").textContent = "Lançando para a turma...";
-        try{ const dados = { titulo, tema:titulo, disciplina:String(st.disciplina || "").slice(0, 80), origem:st.origem || "manual", ...(st.geral_id ? { geral_id:st.geral_id } : {}), turma_id:AVV.tid, turma_nome:nomeTurmaAv(), perguntas, status:"aplicando", criado_em:serverTimestamp(), atualizado_em:serverTimestamp() };
+        try{ const dados = { titulo, tema:titulo, disciplina:String(st.disciplina || "").slice(0, 80), ano:String(st.ano || "").slice(0, 30), origem:st.origem || "manual", ...(st.geral_id ? { geral_id:st.geral_id } : {}), turma_id:AVV.tid, turma_nome:nomeTurmaAv(), perguntas, status:"aplicando", criado_em:serverTimestamp(), atualizado_em:serverTimestamp() };
           await setDoc(doc(db, "usuarios", usuarioAtual.uid, "quizzes", id), dados);
           QZ.cache[id] = { id, ...dados, criado_em:Timestamp.now() };
           await avvSet({ quiz:{ id, titulo, perguntas:perguntas.map(q => ({ p:q.p, ops:q.ops })), ativa:true, em:Date.now() } });
@@ -9825,7 +9843,7 @@
       const ja = await getDoc(ref).then(d => d.exists()).catch(() => false); if(el) el.textContent = el.dataset.txt;
       if(ja){ if(!confirm("Este quiz já está na rede. Quer tirar da rede?")) return; await deleteDoc(ref); toast("Quiz retirado da rede."); if(el){ el.textContent = "🤝 Compartilhar com a rede"; el.classList.remove("qr-na-rede"); } return; }
       await setDoc(ref, { uid:usuarioAtual.uid, autor_nome:String(usuarioAtual.nome || "Professor").slice(0, 80), municipio_id:mun, titulo:String(g.titulo || "Quiz rápido").slice(0, 120),
-        disciplina:String(g.disciplina || "").slice(0, 80), turma_nome:String(g.turma_nome || "").slice(0, 80), perguntas:(g.perguntas || []).slice(0, 30).map(q => ({ p:String(q.p).slice(0, 400), ops:(q.ops || []).slice(0, 5).map(o => String(o).slice(0, 160)), gab:Number(q.gab) || 0 })), criado_em:serverTimestamp() });
+        disciplina:String(g.disciplina || "").slice(0, 80), ano:String(g.ano || anoDoNome(g.turma_nome)).slice(0, 30), turma_nome:String(g.turma_nome || "").slice(0, 80), perguntas:(g.perguntas || []).slice(0, 30).map(q => ({ p:String(q.p).slice(0, 400), ops:(q.ops || []).slice(0, 5).map(o => String(o).slice(0, 160)), gab:Number(q.gab) || 0 })), criado_em:serverTimestamp() });
       toast("🤝 Compartilhado: os professores do seu município já encontram em Quiz rápido › Da rede."); if(el){ el.textContent = "✅ Na rede · tocar para tirar"; el.classList.add("qr-na-rede"); }
     }catch(e){ console.warn(e); if(el && el.dataset.txt) el.textContent = el.dataset.txt; toast("Não deu para compartilhar agora (" + (e.code || "erro") + ").", true); }
     finally{ if(el) el.disabled = false; }

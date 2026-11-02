@@ -265,7 +265,7 @@ service cloud.firestore {
     match /usuarios/{uid}/quizzes/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());
       allow create, update: if logado() && request.auth.uid == uid && (licenciado() || eu().perfil in ["gestor", "admin"])
-        && novo().keys().hasOnly(["titulo", "tema", "disciplina", "origem", "geral_id", "turma_id", "turma_nome", "perguntas", "resultado", "status", "criado_em", "atualizado_em", "encerrado_em"])
+        && novo().keys().hasOnly(["titulo", "tema", "disciplina", "ano", "origem", "geral_id", "turma_id", "turma_nome", "perguntas", "resultado", "status", "criado_em", "atualizado_em", "encerrado_em"])
         && novo().titulo is string && novo().titulo.size() <= 120 && novo().perguntas is list && novo().perguntas.size() <= 30
         && novo().get("resultado", {}) is map && novo().get("status", "") in ["aplicando", "encerrado"];
     }
@@ -287,7 +287,7 @@ service cloud.firestore {
       allow read: if logado() && (admin() || (eu().status == "ativo" && eu().perfil in ["professor", "gestor"] && resource.data.municipio_id == eu().get("municipio_id", "-")));
       allow create: if logado() && eu().status == "ativo" && eu().perfil in ["professor", "gestor", "admin"] && novo().uid == request.auth.uid
         && novo().municipio_id == eu().get("municipio_id", "-") && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)/quizzes/$(id))
-        && novo().keys().hasOnly(["uid", "autor_nome", "municipio_id", "titulo", "disciplina", "turma_nome", "perguntas", "criado_em"])
+        && novo().keys().hasOnly(["uid", "autor_nome", "municipio_id", "titulo", "disciplina", "ano", "turma_nome", "perguntas", "criado_em"])
         && novo().titulo is string && novo().titulo.size() <= 120 && novo().autor_nome is string && novo().autor_nome.size() <= 80
         && novo().perguntas is list && novo().perguntas.size() > 0 && novo().perguntas.size() <= 30 && novo().criado_em == request.time;
       allow delete: if logado() && (admin() || resource.data.uid == request.auth.uid);

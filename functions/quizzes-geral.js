@@ -37,7 +37,7 @@ export const quizParaAcervoGeral = onDocumentWritten({ ...OPC, document: 'usuari
   const m = mun ? (await db.doc(`municipios/${mun}`).get()).data() || {} : {};
   const susp = perguntasSuspeitas(res);
   await db.doc(`quizzes_geral/${ev.params.id}`).set({
-    titulo: txt(depois.titulo || 'Quiz', 120), disciplina: txt(depois.disciplina, 80), ano: anoDaTurma(depois.turma_nome), perguntas: perg, n: perg.length,
+    titulo: txt(depois.titulo || 'Quiz', 120), disciplina: txt(depois.disciplina, 80), ano: txt(depois.ano, 30) || anoDaTurma(depois.turma_nome), perguntas: perg, n: perg.length,
     rede_nome: txt(m.nome ? m.nome + (m.uf ? '/' + m.uf : '') : 'Portal do Educador', 80), municipio_id: mun, origem: 'ia',
     aplicacoes: 1, alunos: n, media: Math.round(res.media || 0), revisar: susp, avisos: 0,
     status: 'publicado', criado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp()
