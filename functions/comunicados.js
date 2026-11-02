@@ -32,7 +32,7 @@ async function adminAtivo(req) {
   if (!u || u.perfil !== 'admin' || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Só o administrador do Portal envia comunicados.');
   return { uid: req.auth.uid, email: String(req.auth.token.email || u.email || ''), ...u };
 }
-async function config(db) {
+export async function config(db) {
   const c = (await db.doc('config/comunicados').get()).data() || {};
   const porta = [465, 587].includes(Number(c.porta)) ? Number(c.porta) : PADRAO.porta;
   return { host: /^[a-z0-9.-]{4,100}$/i.test(c.host || '') ? c.host : PADRAO.host, porta, por_hora: Math.min(2000, Math.max(10, Number(c.por_hora) || PADRAO.por_hora)),
@@ -71,7 +71,7 @@ async function destinatarios(db, pub, tipo) {
   }
   return { lista: out, semEmail, sairam };
 }
-function montarEmail(c, com, dest, token) {
+export function montarEmail(c, com, dest, token) {
   const paras = String(com.mensagem || '').split(/\n{2,}/).map(p => '<p style="margin:0 0 14px">' + esc(p).replace(/\n/g, '<br>').replace(/(https:\/\/[^\s<]+)/g, '<a href="$1" style="color:#2671AB">$1</a>') + '</p>').join('');
   const ola = dest.nome ? 'Olá, ' + esc(dest.nome) + '!' : 'Olá!';
   const botao = com.botao_link ? '<p style="margin:18px 0"><a href="' + esc(com.botao_link) + '" style="background:#1a6b2a;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px;display:inline-block">' + esc(com.botao_texto || 'Abrir') + '</a></p>' : '';
