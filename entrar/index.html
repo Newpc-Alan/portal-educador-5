@@ -562,6 +562,21 @@
   .ac-card.trava .ac-tx{ border-top-color:#c3ccd6 } .ac-card.trava .ac-tx b{ color:#61758a }
   /* Maestro no Início: cartão pequeno, igual aos cartões do dia */
   .au-lista{ margin-bottom:20px;grid-template-columns:repeat(auto-fill,minmax(0,440px)) }
+  /* Sala de aula gerenciada: o cartão-maestro do professor */
+  .au-lista:has(.sg-hero){ grid-template-columns:1fr }
+  .sg-hero{ position:relative;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);min-height:230px;border-radius:20px;overflow:hidden;background:linear-gradient(115deg,#0f2c4a 0%,#123a5e 55%,#1a6b2a 140%);color:#fff;box-shadow:0 14px 34px -16px rgba(15,44,74,.55) }
+  .sg-hero .sg-foto{ grid-column:2;grid-row:1;background:#123a5e center/cover no-repeat;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 30%);mask-image:linear-gradient(90deg,transparent 0,#000 30%) }
+  .sg-tx{ grid-column:1;grid-row:1;padding:22px 24px;display:grid;gap:8px;align-content:center;position:relative;z-index:1 }
+  .sg-kicker{ font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#bfe5a1 }
+  .sg-tit{ font-size:26px;line-height:1.15;font-weight:900 } .sg-sub{ color:#d6e4f1;font-size:15px;line-height:1.45;max-width:46ch }
+  .sg-poder{ list-style:none;margin:4px 0 2px;padding:0;display:flex;flex-wrap:wrap;gap:6px } .sg-poder li{ font-size:13px;font-weight:700;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:5px 10px }
+  .sg-bts{ display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:6px }
+  .sg-btn{ font:inherit;font-size:17px;font-weight:900;border:0;border-radius:14px;padding:13px 22px;background:#8DC63F;color:#0f2c4a;cursor:pointer;box-shadow:0 8px 20px -8px rgba(141,198,63,.8) } .sg-btn:hover{ background:#9ed24f }
+  .sg-btn.sg-trava{ background:#8a98a6;color:#fff;box-shadow:none } .sg-btn.sg-enc{ background:transparent;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.7);font-size:15px }
+  .sg-sec{ font:inherit;font-size:14px;font-weight:700;border:0;background:none;color:#d6e4f1;cursor:pointer;text-decoration:underline;text-underline-offset:3px }
+  .sg-hero.on{ background:linear-gradient(115deg,#0d3a1a 0%,#1a6b2a 60%,#2671AB 150%) } .sg-hero.on .sg-kicker::before{ content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#8DC63F;margin-right:7px;animation:sgPulso 1.6s infinite }
+  @keyframes sgPulso{ 50%{ opacity:.3 } }
+  @media (max-width:720px){ .sg-hero{ grid-template-columns:1fr } .sg-hero .sg-foto{ grid-column:1;grid-row:1;opacity:.28;-webkit-mask-image:none;mask-image:none } .sg-tit{ font-size:22px } }
   .hj-card.azul{ border-left-color:#2671AB } .hj-card.azul .hj-btn{ background:#2671AB } .hj-card .hj-btn.hj-trava{ background:#8a98a6 }
   .au-lousa{ margin:8px 0 0 6px;background:transparent;border:1px solid var(--line);color:var(--navy);border-radius:11px;padding:8px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;vertical-align:top }
   .au-lousa:hover{ border-color:var(--navy) }
@@ -9154,17 +9169,20 @@
     const okVivo = temRecurso("turma_ao_vivo"), okSala = temRecurso("sala_digital");
     if(usuarioAtual._avulso || (!okVivo && !okSala)) return "";
     const abertaE = Object.entries(TA.aulas).filter(([, a]) => a.ate > Date.now()).sort((x, y) => x[1].ate - y[1].ate)[0], aberta = abertaE && abertaE[1];
+    // o cartão mais importante do professor (nov/2026): ele é o maestro da turma; a sala de aula gerenciada é onde ele rege a aula
+    const foto = '<span class="sg-foto" style="background-image:url(\'' + fotoAcao("turma-ao-vivo") + '\'),url(\'' + fotoAcao("turmas") + '\')"></span>';
+    const poderes = '<ul class="sg-poder"><li>🔒 Pausa todas as telas</li><li>📲 Abre o conteúdo em todos</li><li>✋ Atende quem levanta a mão</li><li>🧠 Quiz com relatório</li></ul>';
     if(aberta && okVivo){
       const falta = Math.max(1, Math.ceil((aberta.ate - Date.now()) / 60e3));
-      return '<div class="hj-card verde hj-aula on" id="cartaoAula"><span class="hj-img" style="background-image:url(\'' + fotoAcao("turma-ao-vivo") + '\'),url(\'' + fotoAcao("turmas") + '\')"></span>' +
-        '<span class="hj-tx"><b>🟢 Aula do ' + escapeHtml(aberta.nome) + ' em andamento</b><small>Até ' + horaCurta(aberta.ate) + ' · faltam ' + falta + ' min. Os alunos entram com o cartão.</small>' +
-        '<span class="hj-bts"><button type="button" class="hj-btn" data-action="dar-aula">↩ Voltar para a aula</button><button type="button" class="hj-btn hj-enc" data-action="ini-encerrar-aula" data-arg="' + escapeAttr(abertaE[0]) + '" title="Encerrar a aula agora">⏹ Encerrar</button></span></span></div>';
+      return '<div class="sg-hero on" id="cartaoAula">' + foto + '<div class="sg-tx"><span class="sg-kicker">🎼 Você está regendo a aula</span>' +
+        '<b class="sg-tit">' + escapeHtml(aberta.nome) + ' em andamento</b><small class="sg-sub">Até ' + horaCurta(aberta.ate) + ' · faltam ' + falta + ' min. A turma está acompanhando você.</small>' +
+        '<span class="sg-bts"><button type="button" class="sg-btn" data-action="dar-aula">↩ Voltar para a regência</button><button type="button" class="sg-btn sg-enc" data-action="ini-encerrar-aula" data-arg="' + escapeAttr(abertaE[0]) + '" title="Encerrar a aula agora">⏹ Encerrar</button></span></div></div>';
     }
-    return '<div class="hj-card verde hj-aula" id="cartaoAula"><span class="hj-img" style="background-image:url(\'' + fotoAcao("turma-ao-vivo") + '\'),url(\'' + fotoAcao("turmas") + '\')"></span>' +
-      '<span class="hj-tx"><b>Sala de aula gerenciada</b><small>Escolha a turma e o tempo: você controla as telas, envia conteúdo, faz pesquisa e quiz e vê quem está na sala.</small>' +
-      (okVivo ? '<button type="button" class="hj-btn" data-action="dar-aula" data-ac="aovivo">▶ Começar a aula</button>'
-        : '<button type="button" class="hj-btn hj-trava" data-action="ini-vivo-plano" title="Disponível no plano Completo">🔒 Começar a aula</button>') +
-      '<button type="button" class="au-lousa" data-action="ini-enviar-turma" data-ac="enviarturma">🔗 Só enviar conteúdo</button></span></div>';
+    return '<div class="sg-hero" id="cartaoAula">' + foto + '<div class="sg-tx"><span class="sg-kicker">🎼 Sala de aula gerenciada</span>' +
+      '<b class="sg-tit">Você é o maestro da sua turma</b><small class="sg-sub">Abra a aula e conduza tudo de um só lugar: as telas, o conteúdo, a participação e o resultado.</small>' + poderes +
+      '<span class="sg-bts">' + (okVivo ? '<button type="button" class="sg-btn" data-action="dar-aula" data-ac="aovivo">▶ Começar a aula</button>'
+        : '<button type="button" class="sg-btn sg-trava" data-action="ini-vivo-plano" title="Disponível no plano Completo">🔒 Começar a aula</button>') +
+      '<button type="button" class="sg-sec" data-action="ini-enviar-turma" data-ac="enviarturma">🔗 Só enviar conteúdo</button></span></div></div>';
   }
   function atualizarCartaoAula(){ const c = $("cartaoAula"); if(c) c.outerHTML = htmlCartaoAula(); }
   // "Enviar algo que já fiz": aulas da Lousa e materiais do Portal IA para alunos, direto para a turma da aula
