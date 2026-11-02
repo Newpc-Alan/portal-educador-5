@@ -1095,7 +1095,7 @@ Enviar mensagens por e-mail a professores, gestão das escolas, Secretarias de E
 ### Passo a passo
 1. Menu **Sistema › Comunicados por e-mail**.
 2. **Tipo:** **Informativo** (novidades, formação, pesquisas: respeita quem pediu para não receber) ou **Aviso de serviço** (mudança de acesso, manutenção: vai para todos). Na dúvida, Informativo.
-3. **Para quem:** marque os públicos e, se for o caso, os municípios e a escola. Confira a caixa azul: total de pessoas, quantas não têm e-mail e o tempo estimado.
+3. **Para quem:** marque os públicos e, se for o caso, a **licença dos professores** (contrato da rede, avulsa, teste, cortesia; vencidas só marcando a opção), os municípios (inclusive **Sem município**, para os avulsos) e a escola. Confira a caixa azul: total de pessoas, quantas não têm e-mail e o tempo estimado.
 4. Escreva **Assunto** e **Mensagem** (parágrafos separados por linha em branco). Botão e link são opcionais e o link precisa começar com https://.
 5. Toque em **Enviar teste para mim** e confira na sua caixa de entrada (e no spam) como chegou.
 6. Se quiser, preencha **Enviar em** para agendar.

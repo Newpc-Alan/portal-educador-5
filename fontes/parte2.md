@@ -594,6 +594,8 @@ Menu **Sistema › ✉️ Comunicados por e-mail**. Mensagem para a rede cadastr
 |---|---|
 | Tipo | **Informativo** (respeita quem pediu para não receber) ou **Aviso de serviço** (vai para todos) |
 | Para quem | Professores, Gestão da escola (direção e coordenação), Secretaria de Educação e Alunos; municípios (nenhum = todos) e escola (com um município marcado) |
+| Licença dos professores | **Contrato da rede**, **Avulsa**, **Teste** e **Cortesia** (nenhuma = todas). Licença vencida fica de fora, a não ser que marque **Incluir licenças vencidas** (oferta de renovação) |
+| Sem município | Na lista de municípios, **Sem município (professores avulsos)** alcança quem não está ligado a uma rede. Sem nenhum município marcado, os avulsos já entram |
 | Caixa azul | Quantas pessoas recebem, por público; quantas não têm e-mail; quantas pediram para não receber; tempo estimado |
 | Assunto, Mensagem, Botão | O e-mail começa com "Olá, nome!" e sai com a identidade do Portal |
 | Enviar em | Agenda o envio (até 60 dias) |

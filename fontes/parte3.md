@@ -426,7 +426,7 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 
 | Função | Tipo | O que faz |
 |---|---|---|
-| `comunicadoEmail` | callable, só admin | `contar` (público por perfil, município e escola; só conta ativa com e-mail; informativo pula `comunicados_pref.off`), `teste` (manda só para o admin), `enviar` (confere o número confirmado, cria tokens, grava o comunicado e os lotes), `cancelar` |
+| `comunicadoEmail` | callable, só admin | `contar` (público por perfil, município (`__sem` = sem município), escola e licença do professor (`licencas`, `vencidas`); só conta ativa com e-mail; informativo pula `comunicados_pref.off`), `teste` (manda só para o admin), `enviar` (confere o número confirmado, cria tokens, grava o comunicado e os lotes), `cancelar` |
 | `enviarComunicados` | agendada, a cada 5 min | Manda a cota do período (envios por hora / 12) pela conta da Webnode (SMTP com `COMUNICADOS_SMTP_SENHA`), um e-mail por pessoa com `List-Unsubscribe`; para tudo se o servidor recusar a senha; conclui e registra na Auditoria |
 | `descadastroEmail` | HTTP público | Página "não quero mais receber" com confirmação por botão (POST) e opção de voltar a receber; registra na Auditoria |
 

@@ -79,3 +79,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.1 | 01/11/2026 | POP-PDE-29 (backup no servidor NEWPC e restauração em caso de desastre); POP-PDE-16 atualizado | NEWPC Tecnologia | |
 | 2.2 | 01/11/2026 | POP-23 (prova online: correção um aluno por vez, finalizar e reavaliar com justificativa) | NEWPC Tecnologia | |
 | 2.3 | 01/11/2026 | POP-PDE-30 (comunicado por e-mail para a rede) | NEWPC Tecnologia | |
+| 2.4 | 01/11/2026 | POP-PDE-30: filtro por licença do professor e Sem município (avulsos) | NEWPC Tecnologia | |
