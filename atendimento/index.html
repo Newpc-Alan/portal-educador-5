@@ -66,6 +66,26 @@
   .entrar .bt{ width:100%; margin-top:8px; padding:11px; }
   .toast{ position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:#1d2b3a; color:#fff; padding:10px 16px; border-radius:10px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:92vw; z-index:9; }
   .toast.on{ opacity:1; } .toast.err{ background:#b03a2e; }
+  /* quadro (kanban): uma coluna por pessoa da equipe; arraste o cartão para transferir */
+  .quadro{ flex:1; min-height:0; display:flex; flex-direction:column; background:var(--fundo); }
+  .cols{ flex:1; min-height:0; overflow:auto; display:flex; gap:12px; padding:0 12px 12px; align-items:flex-start; }
+  body.modo-quadro .app{ max-width:none; }
+  .quadro[hidden]{ display:none; }
+  .col{ flex:0 0 260px; max-height:100%; display:flex; flex-direction:column; background:#e6ecf2; border-radius:14px; border:2px dashed transparent; transition:border-color .12s, background .12s; }
+  .col.alvo{ border-color:var(--verde); background:#dcf2e1; }
+  .col.fim.alvo{ border-color:#b03a2e; background:#fbe3e0; }
+  .col h3{ margin:0; padding:10px 12px; font-size:14px; display:flex; align-items:center; gap:6px; }
+  .col h3 em{ margin-left:auto; font-style:normal; background:#fff; border-radius:999px; padding:0 8px; font-size:12px; color:var(--suave); }
+  .col h3 i{ width:9px; height:9px; border-radius:50%; background:var(--lima); flex:0 0 auto; } .col h3 i.off{ background:#9aa8b6; }
+  .col small.sub{ padding:0 12px 6px; margin-top:-6px; color:var(--suave); font-size:12px; }
+  .cards{ overflow:auto; padding:0 8px 8px; display:grid; gap:8px; min-height:60px; }
+  .cartao{ background:#fff; border-radius:10px; padding:9px 10px; box-shadow:0 1px 2px rgba(15,44,74,.12); cursor:grab; touch-action:none; user-select:none; border-left:4px solid var(--lima); }
+  .cartao.esperando{ border-left-color:var(--laranja); } .cartao.atrasada{ border-left-color:#d0453a; }
+  .cartao b{ display:block; font-size:14px; } .cartao small{ display:block; color:var(--suave); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cartao .linha{ display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+  .fantasma{ position:fixed; z-index:50; pointer-events:none; width:240px; transform:rotate(2deg); box-shadow:0 10px 24px rgba(0,0,0,.25); opacity:.95; }
+  .cartao.saindo{ opacity:.35; }
+  .dica{ font-size:13px; color:var(--suave); margin:0; padding:10px 14px; }
   /* celular: lista ou conversa, uma de cada vez */
   @media (max-width:760px){
     .corpo{ grid-template-columns:1fr; }
@@ -100,7 +120,9 @@
       <button type="button" class="on" data-action="aba" data-f="minhas">Minhas <span id="nMinhas"></span></button>
       <button type="button" data-action="aba" data-f="fila">Fila <span id="nFila"></span></button>
       <button type="button" data-action="aba" data-f="todas">Todas</button>
+      <button type="button" data-action="aba" data-f="quadro">▦ Quadro</button>
     </div>
+    <div class="quadro" id="quadro" hidden></div>
     <div class="corpo" id="corpo">
       <div class="lista" id="lista"><p class="vazio">Carregando…</p></div>
       <div class="conv" id="conv"><p class="vazio">Escolha uma conversa.</p></div>
@@ -151,16 +173,92 @@ function montar(membro, nome){
   if(!membro) $("btDisp").hidden = true;
   attNotif();
   st.unsub.push(onSnapshot(collection(db, "wa_equipe"), sn => {
-    st.equipe = sn.docs.map(d => ({ id:d.id, ...d.data() })); st.eu = st.equipe.find(m => m.id === st.uid) || null;
+    st.equipe = sn.docs.map(d => ({ id:d.id, ...d.data() })); st.eu = st.equipe.find(m => m.id === st.uid) || null; if(!arr.ativo) quadro();
     const b = $("btDisp"); if(b && st.eu){ const on = st.eu.disponivel !== false; b.classList.toggle("on", on); b.textContent = on ? "Disponível" : "Indisponível"; }
   }, () => {}));
   st.unsub.push(onSnapshot(query(collection(db, "wa_conversas"), orderBy("ultima_em", "desc"), limit(200)), sn => {
-    st.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); lista(); if(st.sel) cabecalho();
+    st.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); lista(); if(st.sel) cabecalho(); if(!arr.ativo) quadro();
   }, e => { $("lista").innerHTML = '<p class="vazio">Sem acesso às conversas (' + esc(e.code || "erro") + ').</p>'; }));
   const h = (location.hash.match(/^#c=(\d{8,15})$/) || [])[1]; if(h) setTimeout(() => abrir(h), 600);
+  // tela larga abre no quadro (ou no que a pessoa usou por último); link de notificação abre a conversa
+  let ult = ""; try{ ult = localStorage.getItem("pde_at_modo") || ""; }catch(e){}
+  if(!h && (location.hash === "#quadro" || ult === "quadro" || (!ult && innerWidth >= 1000))) setTimeout(() => modo("quadro"), 50);
 }
 const minha = c => c.atribuido_uid === st.uid;
 function filtradas(f){ const at = st.conversas.filter(c => c.estado === "atendente"); return f === "minhas" ? at.filter(minha) : f === "fila" ? at.filter(c => !c.atribuido_uid) : st.conversas; }
+// ---- quadro kanban
+const MIN = 60e3, msDe = t => (t && t.toMillis ? t.toMillis() : 0);
+function cartao(c){
+  const espera = c.aguardando_desde ? Math.round((Date.now() - msDe(c.aguardando_desde)) / MIN) : null;
+  const cls = espera == null ? "" : espera >= 10 ? " atrasada" : " esperando";
+  return '<div class="cartao' + cls + '" data-card="' + esc(c.id) + '"><b>' + esc(c.nome || c.nome_whatsapp || num(c.id)) + (c.nao_lidas ? '<span class="selo">' + c.nao_lidas + '</span>' : "") + '</b>' +
+    '<small>' + esc(String(c.ultima || "")) + '</small><div class="linha">' + (c.setor ? '<span class="selo az" style="margin:0">' + esc(SET[c.setor] || c.setor) + '</span>' : "") +
+    (espera != null ? '<span class="selo" style="margin:0">' + (espera < 1 ? "agora" : "espera " + espera + " min") + '</span>' : '<small style="display:inline">' + quando(c.ultima_em) + '</small>') + '</div></div>';
+}
+function quadro(){
+  const q = $("quadro"); if(!q || q.hidden) return;
+  const at = st.conversas.filter(c => c.estado === "atendente");
+  const pessoas = st.equipe.filter(m => m.ativo).sort((a, b) => (b.id === st.uid) - (a.id === st.uid) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+  const col = (id, titulo, sub, lista, extra) => '<div class="col' + (extra || "") + '" data-col="' + esc(id) + '"><h3>' + titulo + '<em>' + lista.length + '</em></h3>' + (sub ? '<small class="sub">' + sub + '</small>' : "") +
+    '<div class="cards">' + (lista.map(cartao).join("") || '<small class="sub" style="padding:8px 4px">Solte um cartão aqui</small>') + '</div></div>';
+  const fila = at.filter(c => !c.atribuido_uid || !pessoas.some(m => m.id === c.atribuido_uid));
+  q.innerHTML = '<p class="dica">Arraste o cartão para a coluna de outra pessoa para transferir. Toque no cartão para abrir a conversa. No celular: segure o cartão meio segundo e arraste.</p><div class="cols" id="cols">' +
+    col("fila", "📥 Fila sem dono", "quem pegar, fica com ela", fila) +
+    pessoas.map(m => col("uid:" + m.id, '<i class="' + (m.disponivel === false ? "off" : "") + '"></i>' + esc(String(m.nome || "").split(" ")[0]) + (m.id === st.uid ? " (você)" : ""),
+      esc((m.setores || []).map(x => SET[x] || x).join(" · ")) + (m.disponivel === false ? " · indisponível" : ""), at.filter(c => c.atribuido_uid === m.id))).join("") +
+    col("fim", "✅ Encerrar", "solte aqui para encerrar e mandar a pesquisa", [], " fim") + '</div>';
+}
+// arrastar com mouse ou dedo (no celular: segure o cartão meio segundo)
+const arr = { card:null, fantasma:null, x0:0, y0:0, timer:null, ativo:false, toque:false, alvo:null };
+function colSob(x, y){ const el = document.elementFromPoint(x, y); return el && el.closest(".col"); }
+document.addEventListener("pointerdown", e => {
+  const c = e.target.closest(".cartao"); if(!c || !$("quadro") || $("quadro").hidden) return;
+  arr.card = c; arr.x0 = e.clientX; arr.y0 = e.clientY; arr.ativo = false; arr.toque = e.pointerType !== "mouse";
+  if(arr.toque) arr.timer = setTimeout(() => comecar(e.clientX, e.clientY), 450);
+});
+function comecar(x, y){
+  if(!arr.card) return; arr.ativo = true;
+  const r = arr.card.getBoundingClientRect(); arr.dx = x - r.left; arr.dy = y - r.top;
+  arr.fantasma = arr.card.cloneNode(true); arr.fantasma.classList.add("fantasma"); document.body.appendChild(arr.fantasma);
+  arr.card.classList.add("saindo"); mover(x, y); if(navigator.vibrate) navigator.vibrate(15);
+}
+function mover(x, y){
+  arr.fantasma.style.left = (x - arr.dx) + "px"; arr.fantasma.style.top = (y - arr.dy) + "px";
+  const c = colSob(x, y); if(c !== arr.alvo){ if(arr.alvo) arr.alvo.classList.remove("alvo"); arr.alvo = c; if(c) c.classList.add("alvo"); }
+  const q = $("cols"), r = q.getBoundingClientRect();   // rola o quadro quando chega na borda
+  if(x > r.right - 40) q.scrollLeft += 18; else if(x < r.left + 40) q.scrollLeft -= 18;
+}
+document.addEventListener("pointermove", e => {
+  if(!arr.card) return;
+  if(!arr.ativo){
+    if(arr.toque){ if(Math.hypot(e.clientX - arr.x0, e.clientY - arr.y0) > 10){ clearTimeout(arr.timer); arr.card = null; } return; }
+    if(Math.hypot(e.clientX - arr.x0, e.clientY - arr.y0) > 6) comecar(e.clientX, e.clientY); else return;
+  }
+  e.preventDefault(); mover(e.clientX, e.clientY);
+}, { passive:false });
+function soltar(e){
+  clearTimeout(arr.timer); const card = arr.card; if(!card) return;
+  const ativo = arr.ativo, alvo = arr.alvo, id = card.dataset.card;
+  if(arr.fantasma) arr.fantasma.remove(); card.classList.remove("saindo"); if(alvo) alvo.classList.remove("alvo");
+  Object.assign(arr, { card:null, fantasma:null, ativo:false, alvo:null });
+  if(!ativo){ if(e.type === "pointerup"){ st.filtro = "todas"; modo("lista"); abrir(id); } return; }
+  if(!alvo) return;
+  const destino = alvo.dataset.col, c = st.conversas.find(x => x.id === id) || {};
+  const atual = c.atribuido_uid ? "uid:" + c.atribuido_uid : "fila"; if(destino === atual) return;
+  if(destino === "fim"){ chamar("whatsappResponder", { wa_id:id, texto:"", encerrar:true }).then(() => toast("Atendimento encerrado.")).catch(erro); return; }
+  const dados = destino === "fila" ? { wa_id:id, fila:true } : { wa_id:id, para_uid:destino.slice(4) };
+  card.style.opacity = ".5";
+  chamar("whatsappTransferir", dados).then(r => toast(destino === "fila" ? "Devolvida para a fila." : "Transferida para " + r.para + ".")).catch(e2 => { card.style.opacity = ""; erro(e2); });
+}
+document.addEventListener("pointerup", soltar); document.addEventListener("pointercancel", soltar);
+function modo(m){
+  const q = $("quadro"), c = $("corpo"); if(!q || !c) return;
+  q.hidden = m !== "quadro"; c.hidden = m === "quadro"; c.style.display = m === "quadro" ? "none" : ""; document.body.classList.toggle("modo-quadro", m === "quadro");
+  if(m === "quadro"){ st.filtroQuadro = true; quadro(); } else st.filtroQuadro = false;
+  document.querySelectorAll('[data-action="aba"]').forEach(b => b.classList.toggle("on", m === "quadro" ? b.dataset.f === "quadro" : b.dataset.f === st.filtro));
+}
+setInterval(() => { if($("quadro") && !$("quadro").hidden && !arr.ativo) quadro(); }, 60e3);   // atualiza o tempo de espera
+
 function lista(){
   const l = $("lista"); if(!l) return;
   $("nMinhas").textContent = "(" + filtradas("minhas").length + ")"; $("nFila").textContent = "(" + filtradas("fila").length + ")";
@@ -228,9 +326,9 @@ document.addEventListener("click", ev => {
   if(a === "google"){ const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt:"select_account" }); signInWithPopup(auth, p).catch(e => e && /popup/.test(e.code || "") ? signInWithRedirect(auth, p) : erro(e)); }
   else if(a === "senha") signInWithEmailAndPassword(auth, $("eEmail").value.trim(), $("eSenha").value).catch(() => toast("E-mail ou senha não conferem.", true));
   else if(a === "sair"){ try{ localStorage.removeItem("pde_at_tok"); }catch(e){} signOut(auth); }
-  else if(a === "aba"){ st.filtro = el.dataset.f; lista(); }
+  else if(a === "aba"){ if(el.dataset.f === "quadro"){ modo("quadro"); try{ localStorage.setItem("pde_at_modo", "quadro"); }catch(e){} } else { st.filtro = el.dataset.f; modo("lista"); lista(); try{ localStorage.setItem("pde_at_modo", "lista"); }catch(e){} } }
   else if(a === "abrir") abrir(el.dataset.id);
-  else if(a === "voltar"){ $("corpo").classList.remove("abrindo"); st.sel = ""; history.replaceState(null, "", location.pathname); lista(); }
+  else if(a === "voltar"){ $("corpo").classList.remove("abrindo"); st.sel = ""; history.replaceState(null, "", location.pathname); lista(); let u = ""; try{ u = localStorage.getItem("pde_at_modo") || ""; }catch(e){} if(u === "quadro") modo("quadro"); }
   else if(a === "enviar"){ const t = $("texto"), v = t.value.trim(); if(!v) return; el.disabled = true; chamar("whatsappResponder", { wa_id:st.sel, texto:v }).then(() => { t.value = ""; }).catch(erro).finally(() => el.disabled = false); }
   else if(a === "encerrar") chamar("whatsappResponder", { wa_id:st.sel, texto:"", encerrar:true }).then(() => toast("Atendimento encerrado. O robô volta a responder.")).catch(erro);
   else if(a === "assumir") chamar("whatsappTransferir", { wa_id:st.sel, para_uid:st.uid }).then(() => toast("A conversa agora está com você.")).catch(erro);

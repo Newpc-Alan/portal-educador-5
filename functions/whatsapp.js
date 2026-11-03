@@ -543,6 +543,14 @@ export const whatsappTransferir = onCall({ region: REGIAO, secrets: [SMTP_SENHA]
   const ref = db.doc('wa_conversas/' + waId), conv = (await ref.get()).data();
   if (!conv) throw new HttpsError('not-found', 'Conversa não encontrada.');
   let alvo = null, setor = SETORES[d.setor] ? d.setor : (conv.setor || 'suporte');
+  // devolver para a fila (quadro: soltar o cartão na coluna Fila)
+  if (d.fila === true) {
+    await ref.set({ estado: 'atendente', setor, atribuido_uid: '', atribuido_nome: '', fila_desde: FieldValue.serverTimestamp(),
+      aguardando_desde: conv.aguardando_desde || FieldValue.serverTimestamp() }, { merge: true });
+    await guardar(ref, 'sistema', (u.nomeCompleto || u.nome) + ' devolveu a conversa para a fila (' + SETORES[setor] + ')' + (nota ? ': ' + nota : ''));
+    await auditar(db, waId, 'Conversa devolvida para a fila por ' + (u.nomeCompleto || u.nome));
+    return { ok: true, para: 'a fila', setor };
+  }
   if (d.para_uid) {
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(d.para_uid))) throw new HttpsError('invalid-argument', 'Membro inválido.');
     const m = await db.doc('wa_equipe/' + d.para_uid).get();
