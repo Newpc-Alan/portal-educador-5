@@ -705,13 +705,13 @@ O robô reconhece o professor pelo WhatsApp do cadastro (com ou sem o 9). Dados 
 
 ## Painel da TV {: .nova }
 
-Painel ao vivo para a TV do escritório, em **www.portaldoeducador.com.br/tv/painel/**. Atualiza sozinho a cada minuto e funciona com a TV na horizontal ou em pé.
+Painel ao vivo para a TV do escritório, em **www.portaldoeducador.com.br/tv/painel/**. Atualiza sozinho a cada minuto e cabe inteiro em qualquer TV (HD, Full HD ou 4K, na horizontal ou em pé), sem rolagem. Para tela cheia, toque em **Tela cheia** ou aperte **OK** no controle (ou Enter/F no teclado). A tela não apaga sozinha enquanto o painel estiver aberto.
 
 | Bloco | O que mostra |
 |---|---|
 | WhatsApp agora | Fila sem dono (fica laranja quando tem alguém esperando), em atendimento, conversas do dia, % resolvidas pelo robô, tempo médio até a 1ª resposta da equipe, chamados abertos e contatos comerciais da semana |
 | Equipe | Cada membro: disponível ou não, quantas conversas está atendendo e quantas encerrou hoje |
-| Usuários | Cadastros ativos, professores, quem entrou nos últimos 7 dias, novos do dia e da semana, aguardando aprovação |
+| Usuários | **Novos cadastros nos últimos 7 dias** em destaque (com os de hoje e da semana), **licenças que vencem amanhã** (e nos próximos 7 dias), aguardando aprovação, cadastros ativos, professores, quem entrou nos últimos 7 dias e **contratos de rede que vencem amanhã** (e nos próximos 30 dias). Vencimentos e aprovações ficam laranja quando há algum |
 | Uso do Portal hoje | Pessoas que entraram, materiais do Portal IA e aulas ao vivo acontecendo |
 | Redes | Até 12 redes ativas, com professores e escolas |
 
