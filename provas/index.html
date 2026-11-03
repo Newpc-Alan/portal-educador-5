@@ -3972,6 +3972,8 @@ onAuthStateChanged(auth, async (user) => {
   if(!u || u.status !== "ativo"){ location.replace("/entrar/"); return; }
   P.prof = u.nome || user.displayName || "";
   P.admin = u.perfil === "admin";
+  // teste de 7 dias: até 5 provas guardadas em Minhas provas (vitrine do plano completo)
+  N.teste = u.perfil === "professor" && u.licenca_tipo === "teste";
   if(["professor", "gestor"].includes(u.perfil)) montarChipIA(user.uid);
   $("pde-quem").textContent = "Conectado como " + (P.prof || user.email) + " · salva neste aparelho";
   if(u.municipio_id) P.muni = await ler("municipios", u.municipio_id);
@@ -4031,7 +4033,19 @@ onAuthStateChanged(auth, async (user) => {
    Pastas:            Firestore usuarios/{uid}/pastas_provas/{id}
    Banco de questoes: Storage professores/{uid}/provas/_banco.json.gz (mescla com o do aparelho)          */
 const G = () => window.PDEProvas;
-const N = { uid:null, provas:[], pastas:[], pasta:"*", busca:"", ordem:"data", ultimoEnviado:"", form:null, bancoAssin:"" };
+const PROVAS_TESTE = 5;
+// conta as provas guardadas; no teste, a 6ª abre o convite em vez de salvar
+async function limiteTeste(){
+  if(!N.teste) return true;
+  try{ await carregarLista(); }catch(e){}
+  if((N.provas || []).length < PROVAS_TESTE) return true;
+  const r = await G().pdeDialog({ titulo:"Suas 5 provas grátis do teste já foram usadas", ico:"\u{1F4DD}",
+    msg:"Gostou? No plano completo as provas são ilimitadas, com prova online, correção automática e notas direto no diário. Você ainda pode abrir, editar e imprimir as 5 provas que já guardou.",
+    opcoes:[ { v:"zap", l:"Quero continuar", d:"fale com a gente no WhatsApp" }, { v:"nao", l:"Agora não", d:"" } ] });
+  if(r === "zap") window.open("https://wa.me/556798757275?text=" + encodeURIComponent("Olá! Estou no teste do Portal do Educador, usei as 5 provas grátis e quero continuar."), "_blank", "noopener");
+  return false;
+}
+const N = { uid:null, provas:[], pastas:[], teste:false, pasta:"*", busca:"", ordem:"data", ultimoEnviado:"", form:null, bancoAssin:"" };
 const KN = () => "pe_provas_nuvem_" + N.uid;
 function atual(){ try{ return JSON.parse(localStorage.getItem(KN()) || "null"); }catch(e){ return null; } }
 function definirAtual(x){ try{ x ? localStorage.setItem(KN(), JSON.stringify(x)) : localStorage.removeItem(KN()); }catch(e){} chipNuvem(); }
@@ -4246,6 +4260,7 @@ async function mpSalvar(){
   try{
     let pasta = r.pasta;
     if(pasta === "__nova__"){ const n = await pedir({ titulo:"Nova pasta", rotulo:"Nome da pasta", nome:"", botao:"Criar pasta" }); if(!n || !n.nome) return; pasta = await criarPasta(n.nome); }
+    if(!(await limiteTeste())) return;
     const id = doc(collection(db, "usuarios", N.uid, "provas")).id;
     chipNuvem("☁ Salvando...");
     await enviar({ id, titulo:r.nome, pasta_id:pasta, nova:true });
@@ -4265,6 +4280,7 @@ async function mpNovaProva(){
 }
 async function mpDuplicar(id){
   const p = N.provas.find(x => x.id === id); if(!p) return;
+  if(!(await limiteTeste())) return;
   try{
     const b = await getBlob(stRef(st, caminho(id)));
     const novo = doc(collection(db, "usuarios", N.uid, "provas")).id;
