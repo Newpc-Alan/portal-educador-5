@@ -705,6 +705,10 @@ Rodízio e transferência:
 - **Assumir** traz a conversa para você. **Transferir** manda para o próximo do setor (rodízio) ou para uma pessoa da equipe, com recado opcional; quem recebe ganha um e-mail.
 - Quem responde uma conversa da fila fica com ela. A pessoa do outro lado sempre vê **Equipe Portal do Educador**, nunca o nome de quem atendeu.
 - Fora do horário (segunda a sexta, 8h às 18h), o robô avisa que a resposta vem no próximo horário.
+- **Ninguém fica no vácuo:** enquanto a equipe não responde, o robô tenta ajudar pelo manual com a nova mensagem ou confirma que ela chegou (no máximo a cada 10 min). Se a pessoa disser *resolvido*, a conversa se encerra.
+- **10 minutos sem resposta da equipe** (no horário de atendimento): a conversa passa para o próximo do setor, até 2 vezes; depois, todos do setor são avisados.
+- **2 horas sem retorno da pessoa** depois da última resposta da equipe: o robô encerra sozinho e manda a pesquisa.
+- **Pesquisa de satisfação** ao encerrar (Ótimo, Regular, Ruim). Avaliação ruim gera e-mail para a equipe; o painel da TV mostra a % de ótimo do dia.
 
 Na tela:
 
