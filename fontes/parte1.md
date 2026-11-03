@@ -6,7 +6,7 @@ Esta parte mostra como cada pessoa usa o Portal no dia a dia: professores, aluno
 
 ### Como entrar
 
-1. Acesse `app.portaldoeducador.com.br/entrar/`.
+1. Acesse `www.portaldoeducador.com.br/entrar/`.
 2. No topo, escolha **Sou professor** ou **Sou aluno**.
 3. Escolha uma das formas de entrar:
 
@@ -64,6 +64,7 @@ No cadastro de teste, preencha nome, WhatsApp (com DDD, ex.: (67) 99999-0000), f
 ### A moldura do Portal
 
 - **Menu lateral** com as áreas do seu perfil e, no rodapé, o botão **Sair**. Todos os perfis têm o item **Ajuda**, com os manuais sempre na versão mais nova (**Abrir** ou **Baixar**).
+- **Suporte pelo WhatsApp: (67) 9875-7275.** O assistente do Portal tira dúvidas a partir deste manual, abre chamado de equipamento, manda o link de acesso para o e-mail do seu cadastro e, se precisar, passa a conversa para uma pessoa da equipe. Digite **menu** a qualquer momento. Nunca informe senha nem dados de aluno pelo WhatsApp.
 - **Mini-calendário** no menu: mostra se hoje é dia letivo, o período e o próximo evento. Tocar num dia abre o calendário completo; **＋ Minha agenda** abre os seus lembretes.
 - **Créditos do Portal IA** (professor e gestor), logo abaixo do calendário: quantos créditos você pode usar, uma barra de saldo e o botão **💳 Comprar créditos**. Quando o saldo está acabando, o botão vira **Recarregar créditos**; quando acaba, **Comprar créditos agora**.
 - **Botão Lousa**, flutuante no canto da tela, para professores e gestão. Fica **verde e piscando** quando há uma aula aberta na Lousa, até você voltar para ela.
@@ -303,7 +304,7 @@ O Portal IA, a Aula com IA da Lousa e o Gerar com IA das Provas usam créditos. 
 
 ### Buscador da BNCC
 
-Em `app.portaldoeducador.com.br/bncc/` (aberto, sem login) ou pelo atalho **🔎 Buscar habilidade da BNCC** do Portal IA.
+Em `www.portaldoeducador.com.br/bncc/` (aberto, sem login) ou pelo atalho **🔎 Buscar habilidade da BNCC** do Portal IA.
 
 1. Escolha a **Etapa** (Ensino Fundamental, Educação Infantil, Ensino Médio), o **Ano ou grupo** e o **Componente**.
 2. Busque em **Palavra ou código** (ex.: frações, EF05MA03, leitura de mapas).
@@ -397,7 +398,7 @@ Cursos com certificado para o professor, com o mesmo visual do Portal: cursos e 
 3. A aula só conta quando você cumpre o tempo mínimo e assiste pelo menos 90% de cada vídeo.
 4. Depois de todas as aulas, faça a **Avaliação final** (padrão: nota mínima de 70% e 3 tentativas).
 5. Os cursos também aparecem na **Busca do Portal**, no Início.
-6. Toque em **Emitir meu certificado**. Ele sai em nome da NEWPC TECNOLOGIA LTDA (CNPJ 20.892.343/0001-15), com o seu nome, CPF, curso, carga horária e, no verso, o conteúdo programático. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `app.portaldoeducador.com.br/validar/`.
+6. Toque em **Emitir meu certificado**. Ele sai em nome da NEWPC TECNOLOGIA LTDA (CNPJ 20.892.343/0001-15), com o seu nome, CPF, curso, carga horária e, no verso, o conteúdo programático. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `www.portaldoeducador.com.br/validar/`.
 
 ![Formação Continuada](s49-formacao.png){85}
 
@@ -951,7 +952,7 @@ Em **Meu cadastro** você atualiza seus dados, marca as escolas onde dá aula e 
 
 ### Entrar
 
-Toque em **Sou aluno**. Para divulgar às turmas, use o link `app.portaldoeducador.com.br/entrar/?como=aluno`.
+Toque em **Sou aluno**. Para divulgar às turmas, use o link `www.portaldoeducador.com.br/entrar/?como=aluno`.
 
 | Forma | Como funciona |
 |---|---|
@@ -1124,7 +1125,7 @@ O modo de moderação (aprovação antes ou depois) é escolhido pela Secretaria
 
 ### Portal do Educador TV
 
-1. Na TV, abra `app.portaldoeducador.com.br/tv/`. Aparece um código de 6 caracteres.
+1. Na TV, abra `www.portaldoeducador.com.br/tv/`. Aparece um código de 6 caracteres.
 2. No painel, toque em **＋ Conectar TV**, digite o código, dê um nome, escolha o formato (horizontal ou vertical/totem) e a playlist.
 3. Monte as **Playlists** com fotos, vídeos (até 50 MB), YouTube, páginas e textos.
 4. Para o **totem da portaria**, ligue a opção na configuração da TV (com foto na entrada, se desejar).
@@ -1132,7 +1133,7 @@ O modo de moderação (aprovação antes ou depois) é escolhido pela Secretaria
 ![Código para conectar a TV](s107-tv-codigo.png){75}
 
 :::dica
-TV antiga que não roda o player? Abra `app.portaldoeducador.com.br/tv/teste/` na TV, tire uma foto do resultado e envie ao suporte NEWPC.
+TV antiga que não roda o player? Abra `www.portaldoeducador.com.br/tv/teste/` na TV, tire uma foto do resultado e envie ao suporte NEWPC.
 :::
 
 ## Secretaria escolar e Portaria

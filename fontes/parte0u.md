@@ -69,11 +69,11 @@ O Portal do Educador é uma plataforma de apoio ao professor usada pelas redes m
 
 | Endereço | O que é |
 |---|---|
-| `app.portaldoeducador.com.br` | Página de apresentação do Portal 5.0 |
-| `app.portaldoeducador.com.br/entrar/` | Entrada e ambiente principal de todos os perfis |
-| `app.portaldoeducador.com.br/entrar/?como=aluno` | Entrada já no modo aluno (útil para divulgar às escolas) |
-| `app.portaldoeducador.com.br/bncc/` | Buscador público da BNCC (habilidades por etapa, ano e componente) |
-| `app.portaldoeducador.com.br/maestro/` | Apresentação do Portal Maestro |
+| `www.portaldoeducador.com.br` | Página de apresentação do Portal 5.0 |
+| `www.portaldoeducador.com.br/entrar/` | Entrada e ambiente principal de todos os perfis |
+| `www.portaldoeducador.com.br/entrar/?como=aluno` | Entrada já no modo aluno (útil para divulgar às escolas) |
+| `www.portaldoeducador.com.br/bncc/` | Buscador público da BNCC (habilidades por etapa, ano e componente) |
+| `www.portaldoeducador.com.br/maestro/` | Apresentação do Portal Maestro |
 | `jogos.portaldoeducador.com.br` | Jogos educacionais |
 | `sala.portaldoeducador.com.br` | Portal Maestro |
 | `portal360.portaldoeducador.com.br` | Portal 360º VR |
@@ -93,6 +93,6 @@ Versão 2.0, de 1º de novembro de 2026. Principais novidades em relação à ve
 | **Acervo por município**, organizado em pastas, com botão **Baixar** | Acervo |
 | **Notícias** com destaque, link público e imagem para redes sociais | Início |
 | **Famílias**: envio de material e recados às famílias | Gestão Escolar |
-| **Buscador da BNCC** público | `app.portaldoeducador.com.br/bncc/` |
+| **Buscador da BNCC** público | `www.portaldoeducador.com.br/bncc/` |
 | **Auditoria**: tudo o que é criado, alterado ou excluído fica registrado, com as entradas no Portal | Sistema (administrador NEWPC) |
 

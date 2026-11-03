@@ -668,7 +668,7 @@ O pacote de backup contém dados pessoais (LGPD). Guarde só em Drive compartilh
 
 ## Atendimento WhatsApp {: .nova }
 
-Menu **Sistema** › **Atendimento WhatsApp**. É a central do robô do Portal no WhatsApp (API oficial da Meta, número exclusivo do Portal).
+Menu **Sistema** › **Atendimento WhatsApp**. É a central do robô do Portal no WhatsApp, número **(67) 9875-7275** (API oficial da Meta, número exclusivo do Portal). O botão verde **Fale conosco** do site, os botões comerciais do site e a Ajuda do Portal levam para ele.
 
 O que o robô faz sozinho:
 
@@ -678,6 +678,7 @@ O que o robô faz sozinho:
 | Problema em equipamento | Pede escola, equipamento e defeito, abre um chamado com **protocolo** e avisa a equipe por e-mail |
 | Não consigo entrar | Se o número for de um cadastro do Portal, manda o link de acesso para o e-mail cadastrado (mostra o e-mail mascarado). Número desconhecido não recebe link |
 | Falar com atendente | Passa a conversa para a equipe, que recebe um e-mail de aviso |
+| Portal na minha rede | Contato comercial: pede nome, cargo, instituição e município e passa para a equipe comercial (selo **comercial** na tela). Os botões do site ("Falar com um consultor", "Pedir uma proposta") e os de assinar ou renovar a licença caem direto aqui |
 
 Na tela:
 
