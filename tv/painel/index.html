@@ -66,6 +66,8 @@
   .rv h3 small{ color:var(--lima); font-size:.55em; margin-left:.3em; letter-spacing:.08em; }
   .rv p{ margin:.45em 0 0; color:#d6e4f1; font-size:1.15em; }
   .rv p b{ color:#fff; font-size:1.3em; }
+  .rv p.id{ color:var(--lima); font-size:1em; font-weight:700; margin-top:.35em; }
+  .rv p.ed{ color:var(--suave); font-size:.95em; margin-top:.3em; }
   .recursos{ flex:1 1 0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); grid-auto-rows:minmax(0, 1fr); gap:var(--gap); min-height:0; }
   .rc{ position:relative; border-radius:1.2em; overflow:hidden; background:#0b2238 center/cover no-repeat; border:1px solid rgba(255,255,255,.1); min-height:0; display:flex; align-items:flex-end; text-align:left; padding:0; }
   .rc::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,32,54,0) 25%, rgba(10,32,54,.92) 78%); }
@@ -201,7 +203,7 @@
         </div>
         <div class="slide" data-s="1">
           <h2>Redes que já usam o <em>Portal</em></h2>
-          <p class="sub">Escolas e educadores com acesso liberado em cada rede</p>
+          <p class="sub">Escolas, alunos e IDEB de cada rede (dados oficiais) e educadores com acesso ao Portal</p>
           <div class="redes-v" id="vRedes"></div>
         </div>
         <div class="slide" data-s="2">
@@ -370,10 +372,10 @@
   // ---------- números da vitrine (só os que existem; nada de zero de vitrine) ----------
   function cartoes(p){
     var l = [
-      [p.redes, "redes municipais de ensino", "verde"],
-      [p.escolas, "escolas com o Portal", ""],
-      [p.educadores, "educadores com acesso liberado", "verde", (p.professores_ativos != null && p.convidados != null) ? fmt(p.professores_ativos) + " professores já entraram · " + fmt(p.convidados) + " convidados chegando" : ""],
-      [p.alunos, "alunos cadastrados", ""],
+      [p.redes, "redes municipais atendidas", "verde"],
+      [p.escolas, "escolas nas redes atendidas", "", p.escolas_portal ? fmt(p.escolas_portal) + " já cadastradas no Portal" : ""],
+      [p.alunos_rede, "alunos nas redes atendidas", "verde", "Censo Escolar, informado por cada rede"],
+      [p.educadores, "educadores com acesso ao Portal", "", (p.professores_ativos != null && p.convidados != null) ? fmt(p.professores_ativos) + " professores já entraram · " + fmt(p.convidados) + " convidados chegando" : ""],
       [p.ia_total, "materiais criados com o Portal IA", ""],
       [p.recursos, "aulas, atividades, jogos e vídeos no acervo", ""],
       [p.provas, "provas online criadas", ""]
@@ -387,12 +389,15 @@
       requestAnimationFrame(passo);
     });
   }
+  function ideb(r){ return (r.ideb_ai || r.ideb_af) ? "IDEB " + [r.ideb_ai ? "AI " + fmt(r.ideb_ai) : "", r.ideb_af ? "AF " + fmt(r.ideb_af) : ""].filter(Boolean).join(" · ") + (r.ideb_ano ? " (" + r.ideb_ano + ")" : "") : ""; }
   function redesHtml(lista, interativo){
     if(!lista || !lista.length) return '<p class="vazio">Nenhuma rede ativa.</p>';
     return lista.slice(0, 12).map(function(r, i){
       var tag = interativo ? 'button type="button" data-action="rede" data-i="' + i + '"' : 'div';
+      var l1 = [r.escolas ? '<b>' + fmt(r.escolas) + '</b> escola' + (r.escolas === 1 ? '' : 's') : '', r.alunos ? '<b>' + fmt(r.alunos) + '</b> alunos' : ''].filter(Boolean).join(' · ');
       return '<' + tag + ' class="rv"><h3>' + esc(r.nome) + '<small>' + esc(r.uf) + '</small></h3>' +
-        '<p><b>' + fmt(r.escolas) + '</b> escola' + (r.escolas === 1 ? '' : 's') + ' · <b>' + fmt(r.educadores) + '</b> educadores</p></' + (interativo ? 'button' : 'div') + '>';
+        (l1 ? '<p>' + l1 + '</p>' : '') + (ideb(r) ? '<p class="id">' + esc(ideb(r)) + '</p>' : '') +
+        (r.educadores ? '<p class="ed">' + fmt(r.educadores) + ' educadores com acesso ao Portal</p>' : '') + '</' + (interativo ? 'button' : 'div') + '>';
     }).join("");
   }
   function recursosHtml(interativo){
@@ -513,7 +518,8 @@
   function abrirRede(i){
     var r = ((D && D.publico && D.publico.redes_lista) || [])[i]; if(!r) return;
     abrirModal('<h3>' + esc(r.nome) + ' <small style="color:var(--lima);font-size:.45em">' + esc(r.uf) + '</small></h3>' +
-      '<div class="lin"><div><b>' + fmt(r.escolas) + '</b><span>escolas no Portal</span></div><div><b>' + fmt(r.educadores) + '</b><span>educadores com acesso</span></div></div>' +
+      '<div class="lin"><div><b>' + fmt(r.escolas) + '</b><span>escolas na rede</span></div><div><b>' + fmt(r.alunos) + '</b><span>alunos' + (r.censo_ano ? ' (Censo ' + r.censo_ano + ')' : '') + '</span></div><div>' + (r.educadores ? '<b>' + fmt(r.educadores) + '</b><span>educadores com acesso</span>' : '<b style="font-size:2em;color:var(--lima)">Em implantação</b><span>acesso dos educadores</span>') + '</div></div>' +
+      (ideb(r) ? '<p><b>' + esc(ideb(r)) + '</b> <small style="color:var(--suave)">(AI: anos iniciais · AF: anos finais)</small></p>' : '') +
       '<p>Professores e gestão entram com a conta Google da rede e encontram planejamento com IA, aulas para a lousa, provas com correção pelo celular e a gestão da Secretaria num só lugar.</p>');
   }
   function abrirRecurso(i){
