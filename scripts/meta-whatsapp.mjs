@@ -14,7 +14,7 @@ let contas = String(process.env.CONTAS || '').split(/[\s,]+/).filter(x => /^\d{1
   const ids = gs.filter(g => /whatsapp/.test(g.scope)).flatMap(g => g.target_ids || []);
   contas = [...new Set([...contas, ...ids])]; }
 if (pnid) {
-  const n = await api(pnid + '?fields=verified_name,name_status,status,code_verification_status,quality_rating,platform_type,throughput,messaging_limit_tier');
+  const n = await api(pnid + '?fields=display_phone_number,verified_name,name_status,status,code_verification_status,quality_rating,platform_type,throughput,messaging_limit_tier');
   console.log('::notice::número: ' + (n.ok ? JSON.stringify(n.j).replace(/[{}"]/g, ' ') : 'ERRO ' + limpa(JSON.stringify(n.j.error || {}).slice(0, 300))));
 }
 for (const c of contas) {
