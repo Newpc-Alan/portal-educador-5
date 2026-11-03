@@ -28,7 +28,7 @@ const TOKEN = defineSecret('WHATSAPP_TOKEN');
 const APP_SECRET = defineSecret('WHATSAPP_APP_SECRET');
 const VERIFY = defineSecret('WHATSAPP_VERIFY');
 const GEMINI = defineSecret('GEMINI_API_KEY');
-const GRAPH = 'https://graph.facebook.com/v21.0/';
+const GRAPH = 'https://graph.facebook.com/v25.0/';
 const SITE = 'https://www.portaldoeducador.com.br';
 const MODELOS = ['gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemini-flash-latest'];
 const txt = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').trim().slice(0, n);
