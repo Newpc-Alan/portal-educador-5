@@ -132,7 +132,7 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
   });
   if (r.erro) {
     const avulso = ' Você pode comprar créditos avulsos no Portal IA.';
-    const demo = ctx.eu && ctx.eu.licenca_tipo === 'teste' && !mun;
+    const demo = ctx.eu && ctx.eu.licenca_tipo === 'teste';
     if (demo && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus créditos de demonstração do teste acabaram. Para continuar usando o Portal IA, fale com a gente no WhatsApp (67) 9875-7275 ou compre créditos avulsos no Portal IA.');
     const msg = { plano: (opc.rede === false ? 'Este uso não é pago pela sua rede e você não tem créditos avulsos suficientes.' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede.') + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
       teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A Secretaria de Educação já foi avisada.' + avulso }[r.erro];
@@ -260,7 +260,7 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
     // quem já estava em teste antes da demonstração existir: dá o pacote a quem tem teste ativo e ainda não recebeu
     const sn = await db.collection('usuarios').where('licenca_tipo', '==', 'teste').get();
     let deu = 0, pulou = 0;
-    for (const doc of sn.docs) { const u = doc.data(); if (u.municipio_id || u.perfil !== 'professor' || u.status !== 'ativo') { pulou++; continue; }
+    for (const doc of sn.docs) { const u = doc.data(); if (u.perfil !== 'professor' || u.status !== 'ativo') { pulou++; continue; }
       const r = await darDemo(db, doc.id, u).catch(() => ({ ok: false })); if (r.ok) deu++; else pulou++; }
     return { ok: true, deu, pulou };
   }
@@ -271,7 +271,7 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
 // Quem se cadastra sozinho (licença de teste) ganha um pacote de demonstração na carteira própria, válido até o fim do teste.
 // Uma vez por conta e por e-mail (creditos_demo/{e-mail}): apagar e recriar a conta não dá créditos de novo.
 export const creditosDemoTeste = onDocumentCreated({ document: 'usuarios/{uid}', region: REGIAO_FIRESTORE, maxInstances: 5 }, async ev => {
-  const u = ev.data && ev.data.data(); if (!u || u.licenca_tipo !== 'teste' || u.municipio_id || u.perfil !== 'professor') return;
+  const u = ev.data && ev.data.data(); if (!u || u.licenca_tipo !== 'teste' || u.perfil !== 'professor') return;   // o município escolhido no autocadastro não importa: teste é teste
   await darDemo(getFirestore(), ev.params.uid, u);
 });
 export async function darDemo(db, uid, u) {
