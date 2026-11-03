@@ -138,8 +138,14 @@
   document.addEventListener("input", e => { const t = e.target; if(t && t.classList && t.classList.contains("campo-erro")) t.classList.remove("campo-erro"); }, true);
   // estilo do campo com erro (uma vez por página)
   const css = document.createElement("style");
-  css.textContent = ".campo-erro{border-color:#c0392b !important;background:#fff5f4 !important;}";
+  css.textContent = ".campo-erro{border-color:#c0392b !important;background:#fff5f4 !important;}" +
+    "@keyframes pde-balanca{0%,100%{translate:0}20%{translate:-9px}40%{translate:9px}60%{translate:-6px}80%{translate:6px}}.pde-balanca{animation:pde-balanca .35s ease}";
   (document.head || document.documentElement).appendChild(css);
 
-  window.PDE_PADRAO = Object.assign({ conferir, aplicar, dig, cpfOk, cnpjOk, EXEMPLO }, TIPOS);
+  // janela de cadastro: clicar fora NÃO fecha (perderia o que foi digitado); a janela balança para mostrar que continua aberta
+  function balancar(fundo){
+    const m = fundo && (fundo.querySelector(".modal") || fundo.firstElementChild); if(!m) return;
+    m.classList.remove("pde-balanca"); void m.offsetWidth; m.classList.add("pde-balanca");
+  }
+  window.PDE_PADRAO = Object.assign({ conferir, aplicar, dig, cpfOk, cnpjOk, EXEMPLO, balancar }, TIPOS);
 })();
