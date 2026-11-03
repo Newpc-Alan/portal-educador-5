@@ -1,0 +1,59 @@
+# Domínios autorizados para login (Firebase Authentication). Roda só quando alguém clica em "Run workflow".
+# "listar" só lê. "adicionar" inclui os domínios pedidos e mantém todos os que já existem (nunca remove).
+name: Domínios do login
+
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: "Projeto: oficial ou teste"
+        type: choice
+        options: [oficial, teste]
+        default: oficial
+      acao:
+        description: "listar (só lê) ou adicionar"
+        type: choice
+        options: [listar, adicionar]
+        default: listar
+      dominios:
+        description: "Domínios para adicionar, separados por vírgula"
+        required: false
+        default: "www.portaldoeducador.com.br,portaldoeducador.com.br"
+
+permissions:
+  contents: read
+
+jobs:
+  rodar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJETO: ${{ inputs.ambiente == 'oficial' && 'portal-educador-5' || 'portal-educador-5-teste' }}
+    steps:
+      - name: Credencial
+        env:
+          CHAVE: ${{ inputs.ambiente == 'oficial' && secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_TESTE }}
+        run: |
+          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo da conta de serviço do ambiente ${{ inputs.ambiente }}."; exit 1; fi
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ inputs.ambiente == 'oficial' && secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_TESTE }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Domínios
+        env:
+          ACAO: ${{ inputs.acao }}
+          NOVOS: ${{ inputs.dominios }}
+        run: |
+          set -e
+          TOKEN=$(gcloud auth print-access-token)
+          URL="https://identitytoolkit.googleapis.com/admin/v2/projects/$PROJETO/config"
+          ATUAL=$(curl -sf -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: $PROJETO" "$URL" | jq -c '.authorizedDomains')
+          echo "Antes: $ATUAL" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$ACAO" != "adicionar" ]; then exit 0; fi
+          LISTA=$(jq -nc --argjson a "$ATUAL" --arg n "$NOVOS" '($a + ($n | split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(test("^[a-z0-9.-]+\\.[a-z]{2,}$"))))) | unique')
+          curl -sf -X PATCH -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: $PROJETO" -H "Content-Type: application/json" \
+            "$URL?updateMask=authorizedDomains" -d "{\"authorizedDomains\": $LISTA}" | jq -c '.authorizedDomains' | sed 's/^/Depois: /' | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Apagar a credencial
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
