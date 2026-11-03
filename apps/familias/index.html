@@ -95,6 +95,7 @@ table.tab{border-collapse:collapse;width:100%;font-size:.86rem}
 .toast.show{opacity:1;transform:translateX(-50%)}
 .toast.err{background:var(--red)}
 </style>
+<script src="/assets/js/padrao-cadastro.js"></script>
 </head>
 <body>
 <div class="app">
@@ -193,15 +194,14 @@ const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 const PARENTESCOS = ["Mãe", "Pai", "Avó", "Avô", "Tia", "Tio", "Irmã", "Irmão", "Madrasta", "Padrasto", "Responsável legal", "Outro"];
 
 // telefone: guarda só dígitos com 55 + DDD + número (10 ou 11 dígitos depois do 55)
+// telefone no padrão do Portal (padrao-cadastro.js): grava "55" + DDD + número; null quando não tem conserto
 function telefone(v){
-  let d = String(v || "").replace(/\D/g, "");
-  if(!d) return "";
-  if(d.startsWith("0")) d = d.replace(/^0+/, "");
-  if(d.length === 10 || d.length === 11) d = "55" + d;
-  return /^55\d{10,11}$/.test(d) ? d : null;
+  if(!String(v || "").replace(/\D/g, "")) return "";
+  const r = PDE_PADRAO.tel(v);
+  return r.ok ? "55" + PDE_PADRAO.dig(r.fmt) : null;
 }
 const telBonito = d => !d ? "" : "(" + d.slice(2, 4) + ") " + (d.length === 13 ? d.slice(4, 9) + "-" + d.slice(9) : d.slice(4, 8) + "-" + d.slice(8));
-const emailOk = e => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const emailOk = e => PDE_PADRAO.email(e).ok;
 
 const E = { user:null, u:null, admin:false, aba:"lista", escolas:[], escolasNomes:{}, escola:"", turmas:[], alunos:[], fam:{}, filtro:"todos", edit:null, imp:[] };
 

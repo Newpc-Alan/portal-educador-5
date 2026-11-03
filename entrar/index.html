@@ -1401,6 +1401,7 @@
   .campo-erro{ border-color:#c0392b !important; background:#fff5f4 !important; }
 </style>
 <script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
+<script src="/assets/js/padrao-cadastro.js"></script>
 </head>
 <body>
 
@@ -1647,7 +1648,7 @@
         <div class="field esc-cnpj"><label for="escCnpj">CNPJ <small>(escola ou unidade executora)</small></label><div class="esc-linha"><input type="text" id="escCnpj" maxlength="18" placeholder="00.000.000/0000-00" autocomplete="off"><button type="button" data-action="esc-cnpj" title="Preencher com os dados da Receita">Buscar</button></div><small class="esc-st" id="escCnpjSt"></small></div></div>
       <div class="row2"><div class="field esc-ddd"><label for="escDdd">DDD</label><input type="text" id="escDdd" inputmode="numeric" maxlength="2" placeholder="67"></div>
         <div class="field"><label for="escFone">Telefone</label><input type="text" id="escFone" inputmode="numeric" maxlength="10" placeholder="3000-0000"></div>
-        <div class="field"><label for="escEmail">E-mail</label><input type="email" id="escEmail" placeholder="escola@semed.gov.br"></div></div>
+        <div class="field"><label for="escEmail">E-mail</label><input type="email" id="escEmail" placeholder="escola@semed.ms.gov.br" data-padrao="email"></div></div>
       <div class="row2"><div class="field esc-cep"><label for="escCep">CEP</label><input type="text" id="escCep" inputmode="numeric" maxlength="9" placeholder="79000-000"><small class="esc-st" id="escCepSt"></small></div>
         <div class="field"><label for="escRua">Logradouro</label><input type="text" id="escRua" placeholder="Rua, avenida..."></div></div>
       <div class="row2"><div class="field esc-num"><label for="escNum">Número</label><input type="text" id="escNum" maxlength="12" placeholder="S/N"></div>
@@ -2871,26 +2872,13 @@
     return dv(12) === Number(c[12]) && dv(13) === Number(c[13]); }
   // telefone no padrão brasileiro: (DD) 0000-0000 fixo ou (DD) 90000-0000 celular. Tira +55 e o 0 da operadora.
   // Devolve { ok, fmt } (fmt vazio quando o campo está vazio).
-  const DDD_VALIDOS = new Set("11 12 13 14 15 16 17 18 19 21 22 24 27 28 31 32 33 34 35 37 38 41 42 43 44 45 46 47 48 49 51 53 54 55 61 62 63 64 65 66 67 68 69 71 73 74 75 77 79 81 82 83 84 85 86 87 88 89 91 92 93 94 95 96 97 98 99".split(" "));
-  function telBR(t){
-    let d = soDig(t); if(!d) return { ok:true, fmt:"" };
-    if(d.length > 11 && d.startsWith("55")) d = d.slice(2);
-    if(d.startsWith("0")){ d = d.replace(/^0+/, ""); if(d.length === 12 || d.length === 13) d = d.slice(2); }   // 0 + operadora + DDD + número
-    const ddd = d.slice(0, 2), n = d.slice(2);
-    const fixo = n.length === 8 && /^[2-5]/.test(n), cel = n.length === 9 && n[0] === "9";
-    if(!DDD_VALIDOS.has(ddd) || !(fixo || cel)) return { ok:false, fmt:t };
-    return { ok:true, fmt:"(" + ddd + ") " + (cel ? n.slice(0, 5) + "-" + n.slice(5) : n.slice(0, 4) + "-" + n.slice(4)) };
-  }
-  const emailOk = e => !e || /^[^@\s<>,;]+@[^@\s<>,;]+\.[a-z]{2,}$/i.test(e);
+  const telBR = t => PDE_PADRAO.tel(t);
+  const emailOk = e => PDE_PADRAO.email(e).ok;
   // código IBGE começa pelo código da UF (MS = 50)
   const UF_IBGE = { RO:"11", AC:"12", AM:"13", RR:"14", PA:"15", AP:"16", TO:"17", MA:"21", PI:"22", CE:"23", RN:"24", PB:"25", PE:"26", AL:"27", SE:"28", BA:"29",
     MG:"31", ES:"32", RJ:"33", SP:"35", PR:"41", SC:"42", RS:"43", MS:"50", MT:"51", GO:"52", DF:"53" };
   // nome do município no padrão: sem "Município de"/"Prefeitura Municipal de", só iniciais maiúsculas (de, da, do, das, dos, e em minúsculas)
-  function nomeMunicipio(t){
-    let n = String(t || "").replace(/\s+/g, " ").trim().replace(/^(prefeitura\s+(municipal\s+)?de\s+|munic[ií]pio\s+de\s+)/i, "");
-    return n.toLowerCase().split(" ").map((w, i) => i > 0 && /^(de|da|do|das|dos|e|d')$/.test(w) ? w
-      : w.split("-").map(x => x ? x[0].toUpperCase() + x.slice(1) : x).join("-")).join(" ");
-  }
+  const nomeMunicipio = t => PDE_PADRAO.municipio(t).fmt;
   function muniAba(aba){
     document.querySelectorAll("#modalMunicipio .muni-abas button").forEach(b => b.classList.toggle("on", b.dataset.aba === aba));
     document.querySelectorAll("#modalMunicipio .muni-sec").forEach(s => s.hidden = s.dataset.sec !== aba);
@@ -2951,13 +2939,13 @@
     const ini = vv("cInicio"), fim = vv("cFim"); if(ini && fim && ini > fim) return erro("ctr", "A vigência termina antes de começar.", "cFim");
     const notas = {}; for(const [cp, k] of [["iAI","ai"],["iAF","af"],["iEM","em"]]){ const n = numBR(vv(cp)); if(vv(cp) && (n == null || n < 0 || n > 10)) return erro("num", "IDEB vai de 0 a 10.", cp); notas[k] = n; }
     const inteiro = cp => { const n = parseInt(vv(cp), 10); return isFinite(n) && n >= 0 ? n : null; };
-    const pessoa = k => ({ nome:vv("p"+k+"Nome"), email:vv("p"+k+"Email").toLowerCase(), tel:vv("p"+k+"Tel") });
+    const pessoa = k => ({ nome:PDE_PADRAO.nome(vv("p"+k+"Nome")).fmt, email:vv("p"+k+"Email").toLowerCase(), tel:vv("p"+k+"Tel") });
     const publico = { nome, uf, ibge, cnpj_prefeitura:soDig(vv("muniCnpjPref")), cnpj_educacao:soDig(vv("muniCnpjEdu")), endereco:vv("muniEnd"), cep:vv("muniCep"),
       telefone:vv("muniTel"), email:vv("muniEmail").toLowerCase(), site:vv("muniSite"),
       contrato_numero:vv("cNumero"), vigencia_inicio:ini, vigencia_fim:fim, vigencia_fim_ts:fim ? Timestamp.fromMillis(msDe(fim)) : null,
       rede:{ escolas:inteiro("nEscolas"), alunos:inteiro("nAlunos"), professores:inteiro("nProfs"), censo:inteiro("nCenso") },
       ideb:{ ...notas, ano:inteiro("iAno") }, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
-    const privado = { pessoas:{ prefeito:vv("pPrefeito"), mandato:vv("pMandato"), secretario:pessoa("Sec"), tecnico:pessoa("Tec"), gestor:pessoa("Ges"), fiscal:pessoa("Fis") },
+    const privado = { pessoas:{ prefeito:PDE_PADRAO.nome(vv("pPrefeito")).fmt, mandato:vv("pMandato"), secretario:pessoa("Sec"), tecnico:pessoa("Tec"), gestor:pessoa("Ges"), fiscal:pessoa("Fis") },
       contrato:{ modalidade:$("cModalidade").value, processo:vv("cProcesso"), valor_total:numBR(vv("cValor")), valor_mensal:numBR(vv("cMensal")), empenho:vv("cEmpenho"), objeto:vv("cObjeto"), obs:vv("cObs") },
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     // mesmo nome e UF de outro município já cadastrado: provável duplicado
@@ -3157,7 +3145,9 @@
     const cnpj = cnpjLimpo($("escCnpj").value);
     if(cnpj && !cnpjValido(cnpj)){ toast("CNPJ inválido. Confira os dígitos.", true); $("escCnpj").focus(); return; }
     const ddd = escDig($("escDdd").value), fone = escDig($("escFone").value);
-    if(fone && (!/^[1-9]\d$/.test(ddd) || fone.length < 8)){ toast("Telefone: informe o DDD (2 dígitos) e o número (8 ou 9 dígitos).", true); $(ddd.length === 2 ? "escFone" : "escDdd").focus(); return; }
+    if(fone && !PDE_PADRAO.tel(ddd + fone).ok){ toast("Telefone inválido: informe o DDD e o número (ex.: 67 e 3255-1351, ou 67 e 99999-0000).", true); $(ddd.length === 2 ? "escFone" : "escDdd").focus(); return; }
+    const escMail = PDE_PADRAO.email($("escEmail").value); if(!escMail.ok){ toast("E-mail da escola inválido (ex.: escola@semed.ms.gov.br).", true); $("escEmail").focus(); return; } $("escEmail").value = escMail.fmt;
+    ["escDir", "escCoord"].forEach(i => { $(i).value = PDE_PADRAO.nome($(i).value).fmt; });
     const cep = escDig($("escCep").value);
     if(cep && cep.length !== 8){ toast("O CEP tem 8 dígitos.", true); $("escCep").focus(); return; }
     const extra = {}; Object.entries(ESC_CAMPOS).forEach(([i, k]) => { extra[k] = $(i).value.trim(); });
@@ -6595,7 +6585,7 @@
       '<div class="cad-card">'+
       '<div class="cad-topo"><h2>Bem-vindo(a) ao Portal do Educador!</h2><p>Preencha seus dados para liberar <b>7 dias de teste grátis</b>. Leva menos de 1 minuto.</p></div>'+
       '<div class="field"><label for="cadNome">Nome completo</label><input type="text" id="cadNome" autocomplete="name"></div>'+
-      '<div class="row2"><div class="field"><label for="cadWhats">WhatsApp</label><input type="tel" id="cadWhats" inputmode="tel" placeholder="(67) 99999-9999" autocomplete="tel"></div>'+
+      '<div class="row2"><div class="field"><label for="cadWhats">WhatsApp</label><input type="tel" id="cadWhats" inputmode="tel" placeholder="(67) 99999-9999" autocomplete="tel" data-padrao="tel" data-padrao-rotulo="WhatsApp"></div>'+
       '<div class="field"><label for="cadFuncao">Função</label><select id="cadFuncao"><option value="">Selecione...</option><option>Professor(a)</option><option>Coordenador(a) pedagógico(a)</option><option>Diretor(a)</option><option>Técnico(a) da Secretaria</option><option>Outra</option></select></div></div>'+
       '<div class="row2"><div class="field" style="flex:0 0 110px"><label for="cadUf">Estado</label><select id="cadUf"><option value="">UF</option>'+UFS.map(u => '<option'+(u==="MS"?"":"")+'>'+u+'</option>').join("")+'</select></div>'+
       '<div class="field"><label for="cadMuni">Município</label><select id="cadMuni" disabled><option value="">Escolha o estado primeiro</option></select><input type="text" id="cadMuniTxt" placeholder="Digite o município" style="display:none"></div></div>'+
@@ -6626,14 +6616,15 @@
   }
   async function enviarCadastro(){
     const g = (id) => $(id).value.trim();
-    const nome = g("cadNome"), whats = g("cadWhats").replace(/\D/g,""), uf = g("cadUf"), funcao = g("cadFuncao"), rede = g("cadRede"), escola = g("cadEscola"), inep = g("cadInep");
+    $("cadNome").value = PDE_PADRAO.nome(g("cadNome")).fmt;
+    const nome = g("cadNome"), whats = PDE_PADRAO.dig(PDE_PADRAO.tel(g("cadWhats")).fmt), uf = g("cadUf"), funcao = g("cadFuncao"), rede = g("cadRede"), escola = g("cadEscola"), inep = g("cadInep");
     const selM = $("cadMuni"); const usaTxt = selM.style.display === "none";
     const muniNome = usaTxt ? g("cadMuniTxt") : (selM.value ? selM.options[selM.selectedIndex].textContent : "");
     const muniIbge = usaTxt ? "" : selM.value;
     const etapas = [...document.querySelectorAll('input[name="cadEtapa"]:checked')].map(i => i.value);
     const falta = [];
     if(nome.length < 5) falta.push("nome completo");
-    if(whats.length < 10 || whats.length > 11) falta.push("WhatsApp com DDD");
+    if(!whats || !PDE_PADRAO.tel(whats).ok) falta.push("WhatsApp com DDD válido, ex.: (67) 99999-0000");
     if(!funcao) falta.push("função");
     if(!uf || !muniNome) falta.push("estado e município");
     if(!rede) falta.push("rede");
@@ -6684,7 +6675,7 @@
       '<div class="mc-grid">'+
       '<div class="imp-card"><h3>Meus dados</h3>'+
         '<div class="field"><label for="mcNome">Nome completo</label><input type="text" id="mcNome" maxlength="80" value="'+escapeAttr(u.nome||"")+'"></div>'+
-        '<div class="row2"><div class="field"><label for="mcWhats">WhatsApp</label><input type="tel" id="mcWhats" value="'+escapeAttr(u.whatsapp||"")+'" placeholder="(67) 99999-9999"></div>'+
+        '<div class="row2"><div class="field"><label for="mcWhats">WhatsApp</label><input type="tel" id="mcWhats" value="'+escapeAttr(PDE_PADRAO.tel(u.whatsapp||"").fmt)+'" placeholder="(67) 99999-9999" data-padrao="tel" data-padrao-rotulo="WhatsApp"></div>'+
         '<div class="field"><label for="mcFuncao">Função</label><select id="mcFuncao">'+["","Professor(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Técnico(a) da Secretaria","Outra"].map(f => '<option'+((u.funcao||"")===f ? " selected" : "")+'>'+f+'</option>').join("")+'</select></div></div>'+
         (inst ? "" : '<div class="row2"><div class="field"><label for="mcEscola">Escola</label><input type="text" id="mcEscola" value="'+escapeAttr(u.escola_texto||"")+'"></div>'+
           '<div class="field"><label for="mcInep">INEP <small>(opcional)</small></label><input type="text" id="mcInep" maxlength="8" value="'+escapeAttr(u.escola_inep||"")+'"></div></div>')+
@@ -6720,9 +6711,10 @@
   }
   async function salvarMeusDados(){
     const g = (id) => ($(id) ? $(id).value.trim() : undefined);
-    const nome = g("mcNome"), whats = (g("mcWhats")||"").replace(/\D/g,"");
+    if($("mcNome")) $("mcNome").value = PDE_PADRAO.nome(g("mcNome")).fmt;
+    const nome = g("mcNome"), whats = PDE_PADRAO.dig(PDE_PADRAO.tel(g("mcWhats")||"").fmt);
     if(!nome || nome.length < 5){ toast("Informe o nome completo.", true); return; }
-    if(whats && (whats.length < 10 || whats.length > 11)){ toast("WhatsApp com DDD, só números.", true); return; }
+    if(whats && !PDE_PADRAO.tel(whats).ok){ toast("WhatsApp inválido. Use DDD + número: (67) 99999-0000.", true); return; }
     const dados = { nome, whatsapp:whats, funcao:g("mcFuncao")||"", etapas:[...document.querySelectorAll('input[name="mcEtapa"]:checked')].map(i => i.value),
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     if(document.querySelector('input[name="mcAno"]')) dados.anos_aula = [...document.querySelectorAll('input[name="mcAno"]:checked')].map(i => i.value).slice(0, 17);
@@ -6976,9 +6968,9 @@
   }
   async function salvarNovoUsuario(){
     const perfil = $("nuPerfil").value, msg = t => { $("nuMsg").className = "msg error"; $("nuMsg").textContent = t; };
-    const d = { nome:$("nuNome").value.trim(), email:$("nuEmail").value.trim().toLowerCase(), perfil, municipio_id:$("nuMuni").value };
+    const d = { nome:PDE_PADRAO.nome($("nuNome").value).fmt, email:$("nuEmail").value.trim().toLowerCase(), perfil, municipio_id:$("nuMuni").value };
     if(d.nome.length < 3) return msg("Informe o nome completo.");
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) return msg("Informe um e-mail válido.");
+    if(!d.email || !PDE_PADRAO.email(d.email).ok) return msg("Informe um e-mail válido (ex.: nome@escola.ms.gov.br).");
     if(!d.municipio_id) return msg("Escolha o município.");
     if(perfil === "aluno"){ d.aluno_id = $("nuAluno") ? $("nuAluno").value : ""; if(!d.aluno_id) return msg("Escolha a matrícula do aluno."); }
     else if(perfil !== "secretaria"){ d.escolas_ids = [...document.querySelectorAll('input[name="nuEsc"]:checked')].map(x => x.value); d.turmas_ids = [...document.querySelectorAll('input[name="nuTur"]:checked')].map(x => x.value); if(!d.escolas_ids.length) return msg("Marque ao menos uma escola."); }
@@ -12665,7 +12657,7 @@
       const email = String(d.email||"").trim().toLowerCase();
       const r = { linha:d._linha, col1:d.nome, col2:email, col3:"", st:"erro", msg:"" };
       if(!d.nome){ r.msg = "Falta o nome"; erros.push(r); return; }
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ r.msg = "E-mail inválido"; erros.push(r); return; }
+      if(!email || !PDE_PADRAO.email(email).ok){ r.msg = "E-mail inválido"; erros.push(r); return; }
       const muni = acharMunicipio(d.municipio);
       if(!muni){ r.msg = "Município “"+d.municipio+"” não cadastrado. Importe as escolas primeiro."; erros.push(r); return; }
       const termos = String(d.escolas||"").split(/[|;]/).map(x => x.trim()).filter(Boolean);
@@ -12677,7 +12669,7 @@
       if(g){
         if(g.muni.id !== muni.id){ r.msg = "Mesmo e-mail em outro município (linha "+g.linha+")"; erros.push(r); return; }
         achadas.forEach(e => g.escolas.set(e.id, e)); g.linhas.push(d._linha);
-      }else grupos.set(email, { linha:d._linha, linhas:[d._linha], nome:d.nome.trim(), email, muni, escolas:new Map(achadas.map(e => [e.id, e])) });
+      }else grupos.set(email, { linha:d._linha, linhas:[d._linha], nome:PDE_PADRAO.nome(d.nome).fmt, email, muni, escolas:new Map(achadas.map(e => [e.id, e])) });
     });
     const out = [];
     grupos.forEach(g => {
@@ -12716,7 +12708,7 @@
       const email = String(d.email||"").trim().toLowerCase();
       const r = { linha:d._linha, col1:d.nome, col2:email, col3:"", st:"erro", msg:"" };
       if(!d.nome){ r.msg = "Falta o nome"; return r; }
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ r.msg = "E-mail inválido"; return r; }
+      if(!email || !PDE_PADRAO.email(email).ok){ r.msg = "E-mail inválido"; return r; }
       const perfil = perfilDoTexto(d.perfil);
       if(!perfil){ r.msg = "Perfil “"+(d.perfil||"")+"” não reconhecido: use Gestor, Secretaria escolar, Portaria ou Secretaria de Educação"; return r; }
       const muni = acharMunicipio(d.municipio);
@@ -12730,7 +12722,7 @@
       else if(perfil !== "gestor" && esc.length > 1){ r.msg = PERFIS_EQUIPE[perfil]+" fica em uma escola só"; return r; }
       else if(esc.length > 5){ r.msg = "Gestor com mais de 5 escolas"; return r; }
       r.col3 = PERFIS_EQUIPE[perfil]+" · "+[muni.nome].concat(esc.map(e => e.nome)).join(" · ");
-      r.pessoa = { nome:d.nome.trim(), email, perfil, muni, escolas:esc };
+      r.pessoa = { nome:PDE_PADRAO.nome(d.nome).fmt, email, perfil, muni, escolas:esc };
       if(vistos.has(email)){ r.st = "ign"; r.msg = "Repetido na planilha"; return r; }
       vistos.add(email);
       const u = porEmail[email];
@@ -12760,7 +12752,7 @@
       const escTxt = String(d.escola || d.escolas || "").split(/[|;]/)[0].trim();
       const r = { linha:d._linha, col1:d.nome, col2:email, col3:"", st:"erro", msg:"" };
       if(!d.nome){ r.msg = "Falta o nome"; return r; }
-      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ r.msg = "E-mail inválido"; return r; }
+      if(!email || !PDE_PADRAO.email(email).ok){ r.msg = "E-mail inválido"; return r; }
       const muni = acharMunicipio(d.municipio);
       if(!muni){ r.msg = "Município “"+d.municipio+"” não cadastrado. Importe as escolas primeiro."; return r; }
       let escola = null;
