@@ -1404,6 +1404,21 @@
   .qr-entrada.aberta{ background:#e9f6e3;border-color:#8DC63F } .qr-entrada b.st{ display:block;margin-bottom:6px;color:#0f2c4a }
   .qr-entrada .lk{ display:flex;gap:6px;align-items:center;margin-top:8px } .qr-entrada code{ background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px;word-break:break-all }
   .campo-erro{ border-color:#c0392b !important; background:#fff5f4 !important; }
+  /* atualização cadastral obrigatória */
+  .atz-bg{ position:fixed; inset:0; z-index:9000; background:rgba(12,35,56,.86); display:flex; align-items:flex-start; justify-content:center; overflow:auto; padding:24px 12px; }
+  .atz{ background:#fff; border-radius:18px; max-width:780px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+  .atz-topo{ display:flex; gap:14px; align-items:center; padding:18px 22px; border-bottom:1px solid #e6ecf2; }
+  .atz-topo img{ width:52px; height:52px; } .atz-topo h2{ margin:0; font-size:20px; color:#0f2c4a; } .atz-topo p{ margin:4px 0 0; color:#5b6b7c; font-size:14px; }
+  .atz-corpo{ padding:16px 22px; } .atz-l2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; } .atz-l3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .atz-grade{ display:flex; flex-wrap:wrap; gap:6px 14px; padding:6px 0; }
+  .atz .atz-chk{ display:inline-flex !important; flex-direction:row; gap:6px; align-items:center; font-size:14px; font-weight:500; color:#1d2b3a; background:#f4f7fa; border-radius:8px; padding:6px 10px; margin:0; cursor:pointer; }
+  .atz .atz-chk input, .atz .atz-aceite input{ width:auto !important; height:auto; margin:0; flex:0 0 auto; accent-color:#1a6b2a; }
+  .atz .atz-aceite{ font-weight:400; color:#1d2b3a; }
+  .atz-grade.campo-erro{ outline:2px solid #c0392b; border-radius:8px; }
+  .atz-obs{ color:#5b6b7c; font-size:13px; } .atz-aceite{ display:flex; gap:8px; align-items:flex-start; font-size:14px; margin-top:8px; }
+  .atz-erro{ display:none; background:#fff5f4; color:#a3271c; border:1px solid #f2c4bf; border-radius:10px; padding:10px 12px; margin-top:12px; font-weight:600; }
+  .atz-pe{ display:flex; justify-content:space-between; gap:10px; padding:14px 22px; border-top:1px solid #e6ecf2; position:sticky; bottom:0; background:#fff; border-radius:0 0 18px 18px; }
+  @media (max-width:640px){ .atz-l2, .atz-l3{ grid-template-columns:1fr; } }
 </style>
 <script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
 <script src="/assets/js/padrao-cadastro.js"></script>
@@ -2494,6 +2509,8 @@
       if(!v){ mostrarEscolhaAdmin(); return; }
       if(v.perfil !== "admin"){ prepararSimulacao(v).then(abrirApp); return; }
     }
+    // professor da rede: confirma os dados no 1º acesso e a cada ano letivo antes de usar
+    if(precisaAtualizar(usuarioAtual)){ mostrarAtualizacao(); return; }
     const perfil = usuarioAtual.perfil || "professor";
     const nome = usuarioAtual.nome || "Usuário";
     $("uAv").textContent = (nome[0]||"?").toUpperCase();
@@ -6983,7 +7000,7 @@
           '<small class="mc-grade" id="mcGrade"></small></div>' : '')+
         '<div class="field"><label>Etapas em que atua</label><div class="cad-etapas">'+ETAPAS.map(e => '<label><input type="checkbox" name="mcEtapa" value="'+escapeAttr(e)+'"'+(etapasMarc.has(e) ? " checked" : "")+'> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
         linha("E-mail", u.email)+
-        '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button></div></div>'+
+        '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button>'+(inst && u.perfil === "professor" ? '<button class="btn btn-ghost" data-action="atz-abrir">Atualizar cadastro completo (CPF, nascimento, disciplinas)</button>' : '')+'</div></div>'+
       '<div>'+
       (inst && u.perfil === "professor" ? '<div class="imp-card"><h3>Escolas onde dou aula</h3><p class="d">Município: <b>'+escapeHtml(u.municipio_nome||"-")+'</b>. Marque até 5 escolas. Você passa a ver as turmas dessas escolas.</p><div id="mcEscolas" class="chk-lista"><div class="vazio">Carregando escolas...</div></div>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-escolas" id="mcSalvarEsc">Salvar escolas</button></div></div>' : '')+
@@ -7039,6 +7056,93 @@
     catch(e){ console.warn(e); toast(e.code === "permission-denied" ? "Só é possível marcar escolas do seu município." : "Erro ao salvar ("+(e.code||"erro")+").", true); }
     finally{ btn.disabled = false; }
   }
+
+  // ===================== ATUALIZAÇÃO CADASTRAL OBRIGATÓRIA (professor da rede, nov/2026) =====================
+  // No 1º acesso e a cada ano letivo (a partir de 1º de fevereiro) o professor da rede confirma os dados antes de usar o Portal.
+  // Não fecha clicando fora; só sai com tudo certo (ou pelo botão Sair). O WhatsApp certo é o que faz o robô do WhatsApp reconhecer a pessoa.
+  function inicioAnoLetivo(t = Date.now()){ const d = new Date(t - 4*3600e3), a = d.getUTCFullYear(); const fev = Date.UTC(a, 1, 1) + 4*3600e3; return t >= fev ? fev : Date.UTC(a - 1, 1, 1) + 4*3600e3; }
+  function precisaAtualizar(u){
+    if(!u || u.perfil !== "professor" || u._sim || u.semCadastro || u.status !== "ativo") return false;
+    if((u.licenca_tipo || "institucional") !== "institucional" || !u.municipio_id) return false;
+    const em = u.cadastro_atualizado_em && u.cadastro_atualizado_em.toMillis ? u.cadastro_atualizado_em.toMillis() : 0;
+    if(em < inicioAnoLetivo()) return true;
+    const faltando = !PDE_PADRAO.whatsapp(u.whatsapp || "").ok || !u.whatsapp || !PDE_PADRAO.cpf(u.cpf || "").ok || !u.cpf || !u.nascimento || !u.funcao ||
+      !(u.anos_aula || []).length || !(u.etapas || []).length || !(u.disciplinas || []).length || !minhasEscolasIds().length;
+    return faltando;
+  }
+  async function mostrarAtualizacao(){
+    const u = usuarioAtual, ja = !!(u.cadastro_atualizado_em);
+    $("loginView").style.display = "none"; $("appView").style.display = "none";
+    let bg = $("atzBg"); if(bg) bg.remove();
+    bg = document.createElement("div"); bg.id = "atzBg"; bg.className = "atz-bg";
+    const chk = (nome, lista, marc) => lista.map(([v, t]) => '<label class="atz-chk"><input type="checkbox" name="'+nome+'" value="'+escapeAttr(v)+'"'+(marc.has(v) ? " checked" : "")+'> '+escapeHtml(t)+'</label>').join("");
+    bg.innerHTML = '<div class="atz" role="dialog" aria-modal="true" aria-labelledby="atzTit">'+
+      '<div class="atz-topo"><img src="/assets/pde-logo-128.png" alt=""><div><h2 id="atzTit">'+(ja ? "Atualize seu cadastro para o ano letivo" : "Complete seu cadastro para começar")+'</h2>'+
+        '<p>'+escapeHtml(u.municipio_nome || "Sua rede")+' · leva 2 minutos. Seus dados ficam protegidos e só a rede e a equipe do Portal veem.</p></div></div>'+
+      '<div class="atz-corpo">'+
+        '<div class="atz-l2"><div class="field"><label for="atzNome">Nome completo *</label><input id="atzNome" maxlength="80" data-padrao="nome" value="'+escapeAttr(u.nome || "")+'"></div>'+
+        '<div class="field"><label for="atzWhats">WhatsApp *</label><input id="atzWhats" type="tel" inputmode="tel" data-padrao="whatsapp" placeholder="(67) 99999-0000" value="'+escapeAttr(u.whatsapp ? PDE_PADRAO.whatsapp(u.whatsapp).fmt : "")+'"></div></div>'+
+        '<div class="atz-l3"><div class="field"><label for="atzCpf">CPF *</label><input id="atzCpf" inputmode="numeric" data-padrao="cpf" placeholder="000.000.000-00" value="'+escapeAttr(u.cpf || "")+'"></div>'+
+        '<div class="field"><label for="atzNasc">Data de nascimento *</label><input id="atzNasc" type="date" value="'+escapeAttr(u.nascimento || "")+'" max="'+new Date(Date.now() - 16*365.25*864e5).toISOString().slice(0, 10)+'" min="1930-01-01"></div>'+
+        '<div class="field"><label for="atzFuncao">Função *</label><select id="atzFuncao">'+["","Professor(a)","Professor(a) e coordenador(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Outra"].map(f => '<option'+(f === (u.funcao || "") ? " selected" : "")+'>'+escapeHtml(f)+'</option>').join("")+'</select></div></div>'+
+        '<div class="field"><label>Escolas onde dou aula * <small>(até 5)</small></label><div class="atz-grade" id="atzEscolas"><small>Carregando as escolas da rede…</small></div></div>'+
+        '<div class="field"><label>Anos em que dou aula *</label><div class="atz-grade">'+chk("atzAno", ANOS_AULA, new Set(u.anos_aula || []))+'</div></div>'+
+        '<div class="field"><label>Etapas *</label><div class="atz-grade">'+chk("atzEtapa", ETAPAS.map(e => [e, e]), new Set(u.etapas || []))+'</div></div>'+
+        '<div class="field"><label>Disciplinas que leciono *</label><div class="atz-grade">'+chk("atzDisc", DISCIPLINAS.map(e => [e, e]), new Set(u.disciplinas || []))+'</div></div>'+
+        '<p class="atz-obs">Foto para o crachá é opcional: depois, em <b>Meu cadastro › Minha ficha funcional</b>.</p>'+
+        '<label class="atz-aceite"><input type="checkbox" id="atzAceite"'+(u.privacidade_aceite_em ? " checked" : "")+'> Li e concordo com a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>. Meus dados são usados para o meu acesso, a minha formação e o atendimento do Portal na minha rede.</label>'+
+        '<div class="atz-erro" id="atzErro" role="alert"></div>'+
+      '</div>'+
+      '<div class="atz-pe"><button type="button" class="btn btn-ghost" data-action="atz-sair">Sair</button><button type="button" class="btn btn-primary" data-action="atz-salvar" id="atzSalvar">Salvar e continuar</button></div></div>';
+    document.body.appendChild(bg);
+    try{
+      await carregarCacheEscolas(); const minhas = new Set(minhasEscolasIds());
+      $("atzEscolas").innerHTML = cacheEscolas.length ? cacheEscolas.map(e => '<label class="atz-chk"><input type="checkbox" name="atzEsc" value="'+escapeAttr(e.id)+'"'+(minhas.has(e.id) ? " checked" : "")+'> '+escapeHtml(e.nome)+'</label>').join("")
+        : '<small>Sua rede ainda não tem escolas no Portal. Fale com a Secretaria ou com o suporte pelo WhatsApp (67) 9875-7275.</small>';
+    }catch(e){ $("atzEscolas").innerHTML = '<small>Não consegui carregar as escolas. Recarregue a página.</small>'; }
+  }
+  function atzErro(msg, el){ const e = $("atzErro"); e.textContent = msg; e.style.display = msg ? "block" : "none"; if(el){ el.classList && el.classList.add("campo-erro"); el.focus && el.focus(); el.scrollIntoView && el.scrollIntoView({ block:"center", behavior:"smooth" }); } return false; }
+  async function salvarAtualizacao(){
+    document.querySelectorAll("#atzBg .campo-erro").forEach(x => x.classList.remove("campo-erro"));
+    const v = id => ($(id).value || "").trim(), marc = n => [...document.querySelectorAll('input[name="'+n+'"]:checked')].map(i => i.value);
+    const nome = PDE_PADRAO.nome(v("atzNome")).fmt; $("atzNome").value = nome;
+    if(nome.split(" ").filter(w => w.length > 1).length < 2) return atzErro("Escreva o nome completo (nome e sobrenome).", $("atzNome"));
+    const w = PDE_PADRAO.whatsapp(v("atzWhats")); if(!v("atzWhats") || !w.ok) return atzErro("WhatsApp inválido. " + PDE_PADRAO.EXEMPLO.whatsapp, $("atzWhats"));
+    const c = PDE_PADRAO.cpf(v("atzCpf")); if(!v("atzCpf") || !c.ok) return atzErro("CPF inválido. Confira os 11 números.", $("atzCpf"));
+    const nasc = v("atzNasc"), idade = nasc ? (Date.now() - Date.parse(nasc + "T12:00:00")) / (365.25*864e5) : 0;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(nasc) || idade < 16 || idade > 95) return atzErro("Confira a data de nascimento.", $("atzNasc"));
+    if(!v("atzFuncao")) return atzErro("Escolha a sua função.", $("atzFuncao"));
+    // a escola principal (a que veio da rede) continua em primeiro
+    const ant = minhasEscolasIds(), esc = marc("atzEsc").sort((a, b) => (ant.indexOf(a) < 0 ? 99 : ant.indexOf(a)) - (ant.indexOf(b) < 0 ? 99 : ant.indexOf(b))); if(!esc.length) return atzErro("Marque pelo menos uma escola onde você dá aula.", $("atzEscolas"));
+    if(esc.length > 5) return atzErro("Marque no máximo 5 escolas.", $("atzEscolas"));
+    const anos = marc("atzAno"), etapas = marc("atzEtapa"), disc = marc("atzDisc");
+    if(!anos.length) return atzErro("Marque os anos em que você dá aula.", document.querySelector('input[name="atzAno"]').closest(".atz-grade"));
+    if(!etapas.length) return atzErro("Marque pelo menos uma etapa.", document.querySelector('input[name="atzEtapa"]').closest(".atz-grade"));
+    if(!disc.length) return atzErro("Marque as disciplinas que você leciona.", document.querySelector('input[name="atzDisc"]').closest(".atz-grade"));
+    if(!$("atzAceite").checked) return atzErro("Para continuar, marque a concordância com a Política de Privacidade.", $("atzAceite"));
+    atzErro("");
+    const nomes = esc.map(id => (cacheEscolas.find(e => e.id === id) || {}).nome || "");
+    const dados = { nome, whatsapp:PDE_PADRAO.dig(w.fmt), cpf:c.fmt, nascimento:nasc, funcao:v("atzFuncao"), anos_aula:anos.slice(0, 17), etapas, disciplinas:disc.slice(0, 20),
+      cadastro_atualizado_em:serverTimestamp(), privacidade_aceite_em:usuarioAtual.privacidade_aceite_em || serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    if(ant.length !== esc.length || ant.some((x, i) => x !== esc[i])){
+      Object.assign(dados, { escolas_ids:esc, escolas_nomes:nomes, escola_id:esc[0], vinculo_alterado_em:serverTimestamp(), vinculo_alterado_por:usuarioAtual.uid,
+        turmas_ids:minhasTurmasIds().filter(tid => { const t = (cacheTurmas || []).find(x => x.id.trim() === tid); return !t || esc.includes(t.escola_id); }) });
+    }
+    const b = $("atzSalvar"); b.disabled = true; b.textContent = "Salvando…";
+    try{
+      await updateDoc(doc(db, "usuarios", usuarioAtual.uid), dados);
+      Object.assign(usuarioAtual, dados, { cadastro_atualizado_em:Timestamp.now(), privacidade_aceite_em:usuarioAtual.privacidade_aceite_em || Timestamp.now() });
+      $("atzBg").remove(); toast("Cadastro atualizado. Bom trabalho!"); abrirApp();
+    }catch(e){ console.warn(e); b.disabled = false; b.textContent = "Salvar e continuar";
+      atzErro(e.code === "permission-denied" ? "Não foi possível salvar: confira as escolas (só as da sua rede) e tente de novo." : "Não foi possível salvar agora (" + (e.code || "erro") + "). Tente de novo."); }
+  }
+  document.addEventListener("click", ev => {
+    const el = ev.target.closest("[data-action^='atz-']"); if(!el) return;
+    if(el.dataset.action === "atz-salvar") salvarAtualizacao();
+    else if(el.dataset.action === "atz-sair"){ const bg = $("atzBg"); if(bg) bg.remove(); signOut(auth); }
+    else if(el.dataset.action === "atz-abrir") mostrarAtualizacao();
+  });
+  document.addEventListener("change", ev => { if(ev.target.name === "atzEsc"){ const n = document.querySelectorAll('input[name="atzEsc"]:checked').length; if(n > 5){ ev.target.checked = false; toast("No máximo 5 escolas.", true); } } });
 
   // ===================== ESPERA (professor ainda nao aprovado) =====================
   function mostrarEspera(){

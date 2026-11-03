@@ -249,7 +249,14 @@ service cloud.firestore {
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
              ["nome", "whatsapp", "funcao", "escola_texto", "escola_inep", "etapas", "anos_aula", "ultimo_acesso", "atualizado_em", "atualizado_por",
-              "escolas_ids", "escolas_nomes", "escola_id", "turmas_ids", "vinculo_alterado_em", "vinculo_alterado_por"])
+              "escolas_ids", "escolas_nomes", "escola_id", "turmas_ids", "vinculo_alterado_em", "vinculo_alterado_por",
+              "cpf", "nascimento", "disciplinas", "cadastro_atualizado_em", "privacidade_aceite_em"])
+        // atualização cadastral (nov/2026): CPF no formato 000.000.000-00, nascimento AAAA-MM-DD, até 20 disciplinas, datas do servidor
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["cpf"]) || (novo().cpf is string && novo().cpf.matches("^[0-9]{3}[.][0-9]{3}[.][0-9]{3}-[0-9]{2}$")))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["nascimento"]) || (novo().nascimento is string && novo().nascimento.matches("^(19|20)[0-9]{2}-[0-1][0-9]-[0-3][0-9]$")))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["disciplinas"]) || (novo().disciplinas is list && novo().disciplinas.size() <= 20))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["cadastro_atualizado_em"]) || novo().cadastro_atualizado_em == request.time)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["privacidade_aceite_em"]) || novo().privacidade_aceite_em == request.time)
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["anos_aula"]) || (novo().anos_aula is list && novo().anos_aula.size() <= 17))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["escolas_ids", "escola_id"]) || (resource.data.perfil == "professor" && escolasValidas())));
       allow delete: if admin();
