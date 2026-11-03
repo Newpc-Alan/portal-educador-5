@@ -7,7 +7,7 @@
 //   WHATSAPP_APP_SECRET  chave secreta do app (confere a assinatura de cada aviso da Meta)
 //   WHATSAPP_VERIFY      código combinado para a Meta confirmar o endereço do robô
 //   GEMINI_API_KEY       (o mesmo do Portal IA) para responder dúvidas
-// Configuração (sem segredo, só o administrador lê): wa_config/geral { phone_number_id, ligado, equipe_emails[] }
+// Configuração (sem segredo, só o administrador lê): wa_config/geral { phone_number_id, ligado, equipe_emails[], comercial_emails[] }
 //
 // Coleções (só funções gravam; só o administrador lê):
 //   wa_conversas/{wa_id}                  quem é, estado do menu, última mensagem
@@ -38,9 +38,12 @@ const MENU = [
   { id: 'duvida', title: 'Dúvida sobre o Portal', description: 'Como fazer algo no Portal do Educador' },
   { id: 'chamado', title: 'Problema em equipamento', description: 'Chromebook, tablet, lousa, rede' },
   { id: 'acesso', title: 'Não consigo entrar', description: 'Receber o link de acesso no e-mail' },
-  { id: 'atendente', title: 'Falar com atendente', description: 'Uma pessoa da equipe responde' }
+  { id: 'atendente', title: 'Falar com atendente', description: 'Uma pessoa da equipe responde' },
+  { id: 'comercial', title: 'Portal na minha rede', description: 'Conhecer, assinar ou renovar o Portal' }
 ];
 // sem \b: em JS o \b não entende letra acentuada ("olá" falhava)
+// pedido comercial (botões do site e do Portal chegam com texto pronto): vai para um consultor, não para o manual
+const COMERCIAL = /(quero (conhecer|saber mais|ver (uma )?demonstra|assinar|renovar|levar)|proposta|consultor|demonstra[cç][aã]o|contratar|or[cç]amento)/i;
 const SAUDACAO = /^(oi+|ola|olá|oie|bom dia|boa tarde|boa noite|menu|inicio|início|ajuda|opcoes|opções|voltar|0)(?=$|[\s!.,?]|$)/i;
 
 // ---------- Meta ----------
@@ -154,12 +157,24 @@ async function tratar(db, cfg, msg, contato) {
   // em atendimento humano: o robô só volta se a pessoa pedir o menu
   if (conv.estado === 'atendente' && !SAUDACAO.test(entrada)) { await ref.set({ nao_lidas: FieldValue.increment(1) }, { merge: true }); return; }
 
+  if (entrada === 'comercial' || (msg.type === 'text' && conv.estado !== 'comercial' && COMERCIAL.test(entrada))) {
+    await estado('comercial'); await ref.set({ assunto: 'comercial', pedido: txt(entrada, 300) }, { merge: true });
+    await responder(texto('Que bom! Um consultor da NEWPC vai falar com você por aqui. Para agilizar, conte numa mensagem só: *seu nome*, *cargo*, *instituição ou rede* e *município*.'));
+    return;
+  }
+  if (conv.estado === 'comercial' && msg.type === 'text' && !SAUDACAO.test(entrada)) {
+    await estado('atendente'); await ref.set({ fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1, lead: txt(entrada, 800) }, { merge: true });
+    await responder(texto('Obrigado! Passei para a equipe comercial da NEWPC. Um consultor responde por aqui em horário comercial.'));
+    const para = cfg.comercial_emails && cfg.comercial_emails.length ? { ...cfg, equipe_emails: cfg.comercial_emails } : cfg;
+    await avisarEquipe(para, 'WhatsApp comercial: ' + (nome || waId), '<p><b>Novo contato comercial pelo WhatsApp</b> (' + esc(waId) + ')</p><p>Pedido: ' + esc(conv.pedido || '-') + '</p><p>Dados: ' + esc(entrada) + '</p><p>Responda pela tela de Atendimento do Portal.</p>');
+    await auditar(db, waId, 'Contato comercial passado para a equipe'); return;
+  }
   if (SAUDACAO.test(entrada) || (!conv.estado && msg.type !== 'interactive')) { await estado('menu'); await responder(menu(nome)); return; }
 
   if (entrada === 'duvida') { await estado('duvida'); await responder(texto('Escreva sua dúvida numa mensagem só. Ex.: "Como faço um quiz com a turma?"')); return; }
   if (entrada === 'chamado') { await estado('chamado'); await responder(texto('Conte numa mensagem só: a *escola*, o *equipamento* (ex.: Chromebook 12, lousa da sala 3) e *o que está acontecendo*.')); return; }
   if (entrada === 'atendente') {
-    await estado('atendente'); await ref.set({ fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1 }, { merge: true });
+    await estado('atendente'); await ref.set({ fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1, assunto: 'suporte' }, { merge: true });
     await responder(texto('Certo! Passei a sua conversa para a equipe do Portal do Educador. Uma pessoa responde por aqui assim que possível, em horário comercial.'));
     await avisarEquipe(cfg, 'WhatsApp: ' + (nome || waId) + ' pediu atendente', '<p><b>' + esc(nome || '-') + '</b> (' + esc(waId) + ')' + (quem ? ', ' + esc(quem.perfil) + ' de ' + esc(quem.municipio_nome || '-') : ', sem cadastro no Portal') + ', pediu para falar com uma pessoa.</p><p>Responda pela tela de Atendimento do Portal.</p>');
     await auditar(db, waId, 'Conversa passada para atendente'); return;
