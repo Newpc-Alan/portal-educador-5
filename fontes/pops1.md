@@ -1221,12 +1221,12 @@ Use esta ficha quando a rotina não gerar registro automático no sistema.
 Responder no mesmo dia as conversas que o robô passou para a equipe (rodízio por setor) e dar andamento aos chamados de equipamento.
 
 ### Pré-requisitos
-- Perfil de administrador ativo no Portal.
-- Robô ligado (a tela mostra **Robô ligado**).
+- Cadastrado na **Equipe de atendimento** (o administrador cadastra pelo e-mail do Portal).
+- App **Atendimento PDE** instalado no celular (www.portaldoeducador.com.br/atendimento/ › Adicionar à tela inicial) com as notificações ativadas.
 
 ### Procedimento
 1. Ao receber o e-mail de aviso ("nova conversa para você", "transferiu uma conversa para você" ou "Chamado pelo WhatsApp"), abra **Sistema** › **Atendimento WhatsApp** (ou o item **Atendimento WhatsApp** no seu menu).
-2. Comece o dia ligando **Disponível para receber conversas** e desligue ao sair (almoço, reunião, fim do expediente).
+2. Comece o dia ligando **Disponível** (no app ou na tela do Portal) e desligue ao sair (almoço, reunião, fim do expediente).
 3. Em **Minhas**, abra cada conversa, leia o histórico (o que o robô já respondeu) e responda em **Enviar**. Escreva como pessoa, curto e com o próximo passo claro. Olhe também a **Fila sem dono** e use **Assumir**.
 4. Não é do seu setor ou não sabe resolver? **Transferir** para o setor certo (rodízio) ou para a pessoa certa, com um recado do que já foi feito.
 5. Se for dúvida que o manual não cobre, anote para incluir no Manual do Usuário (depois da nova versão, recarregue a base do robô: workflow **Robô do WhatsApp**, ação **conhecimento**).

@@ -680,6 +680,21 @@ O que o robô faz sozinho:
 | Falar com atendente | Passa a conversa, por rodízio, para alguém do setor Suporte, que recebe um e-mail de aviso |
 | Portal na minha rede | Contato comercial: pede nome, cargo, instituição e município e passa para a equipe comercial (selo **comercial** na tela). Os botões do site ("Falar com um consultor", "Pedir uma proposta") e os de assinar ou renovar a licença caem direto aqui |
 
+O robô como agente: antes de procurar no manual, ele entende o pedido e responde com os dados do Portal, só da própria pessoa (reconhecida pelo WhatsApp do cadastro):
+
+| Pedido | O que o robô faz |
+|---|---|
+| "Até quando vale minha licença?", "a que escola estou ligado?" | Mostra situação, perfil, rede, escola e validade do acesso |
+| "Não consigo entrar", "esqueci a senha" | Manda o link de acesso para o e-mail do cadastro |
+| "Como está o protocolo AB12CD?" | Mostra a situação dos chamados abertos por aquele número |
+| "A escola X já está cadastrada?" | Procura entre as escolas da rede da pessoa; se não achar, passa para o Suporte |
+| Contratar, renovar, proposta | Vai para o Comercial |
+| Pede uma pessoa ou reclamação | Vai para o Suporte |
+
+Número que não é de nenhum cadastro não recebe dado algum.
+
+**App Atendimento PDE** (www.portaldoeducador.com.br/atendimento/): a equipe atende pelo celular sem abrir o Portal. Abra o link no celular, use **Adicionar à tela inicial** (no iPhone: Compartilhar › Adicionar à Tela de Início), entre com a conta do Portal (fica conectada) e toque em **Ativar** nas notificações. O celular avisa quando chega conversa para você, quando o professor responde e quando alguém transfere uma conversa. No app: Minhas, Fila, Todas, responder, Assumir, Transferir, Encerrar e Disponível.
+
 Rodízio e transferência:
 
 - A **Equipe de atendimento** (quadro no fim da tela, só o administrador edita) lista quem atende e em quais setores: **Suporte**, **Técnico** e **Comercial**. Para cadastrar, digite o e-mail da pessoa no Portal (ela precisa ter entrado uma vez), marque os setores e toque em **Adicionar ou atualizar**. **Tirar da equipe** não apaga nada: o histórico continua com o nome.

@@ -102,3 +102,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.21 | 02/11/2026 | POP-PDE-32: acervo geral de quizzes do Portal (todas as redes) | NEWPC Tecnologia | |
 | 2.24 | 03/11/2026 | POP-PDE-33: atendimento pelo WhatsApp do Portal (robô, chamados e contato comercial) | NEWPC Tecnologia | |
 | 2.25 | 03/11/2026 | POP-PDE-33: rodízio por setor, Disponível, Assumir e Transferir | NEWPC Tecnologia | |
+| 2.26 | 03/11/2026 | POP-PDE-33: app Atendimento PDE no celular e robô agente | NEWPC Tecnologia | |
