@@ -12,6 +12,7 @@ import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_
 export const CREDITOS_PADRAO = {
   precos: { texto: 1, ajuste: 1, imagem: 5 },
   teto_padrao: 60,            // créditos da rede por professor por mês (0 = sem teto)
+  demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
   alertas: [20, 5],           // % do saldo para avisar a NEWPC e a Secretaria
   validade_meses: 12,
   dolar: 5.6,
@@ -131,6 +132,8 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
   });
   if (r.erro) {
     const avulso = ' Você pode comprar créditos avulsos no Portal IA.';
+    const demo = ctx.eu && ctx.eu.licenca_tipo === 'teste' && !mun;
+    if (demo && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus créditos de demonstração do teste acabaram. Para continuar usando o Portal IA, fale com a gente no WhatsApp (67) 9875-7275 ou compre créditos avulsos no Portal IA.');
     const msg = { plano: (opc.rede === false ? 'Este uso não é pago pela sua rede e você não tem créditos avulsos suficientes.' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede.') + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
       teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A Secretaria de Educação já foi avisada.' + avulso }[r.erro];
     throw new HttpsError('resource-exhausted', msg);
@@ -253,8 +256,41 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
     });
     return { ok: true };
   }
+  if (d.acao === 'demo_testes') {
+    // quem já estava em teste antes da demonstração existir: dá o pacote a quem tem teste ativo e ainda não recebeu
+    const sn = await db.collection('usuarios').where('licenca_tipo', '==', 'teste').get();
+    let deu = 0, pulou = 0;
+    for (const doc of sn.docs) { const u = doc.data(); if (u.municipio_id || u.perfil !== 'professor' || u.status !== 'ativo') { pulou++; continue; }
+      const r = await darDemo(db, doc.id, u).catch(() => ({ ok: false })); if (r.ok) deu++; else pulou++; }
+    return { ok: true, deu, pulou };
+  }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
 });
+
+/* ---------------------------------------------------------------- demonstração no teste de 7 dias */
+// Quem se cadastra sozinho (licença de teste) ganha um pacote de demonstração na carteira própria, válido até o fim do teste.
+// Uma vez por conta e por e-mail (creditos_demo/{e-mail}): apagar e recriar a conta não dá créditos de novo.
+export const creditosDemoTeste = onDocumentCreated({ document: 'usuarios/{uid}', region: REGIAO_FIRESTORE, maxInstances: 5 }, async ev => {
+  const u = ev.data && ev.data.data(); if (!u || u.licenca_tipo !== 'teste' || u.municipio_id || u.perfil !== 'professor') return;
+  await darDemo(getFirestore(), ev.params.uid, u);
+});
+export async function darDemo(db, uid, u) {
+  const cc = cfgCreditos((await db.doc('config/portal_ia').get()).data() || {}), n = inteiro(cc.demo_teste, 0, 500);
+  if (!n) return { ok: false, motivo: 'desligado' };
+  const email = String(u.email || '').trim().toLowerCase(), fim = ms(u.licenca_fim) || Date.now() + 7 * 864e5;
+  if (fim <= Date.now()) return { ok: false, motivo: 'teste_vencido' };
+  const marca = db.doc('creditos_demo/' + (email || uid).replace(/\//g, '_')), ref = db.doc('creditos/prof_' + uid);
+  return db.runTransaction(async t => {
+    const [mk, c] = await Promise.all([t.get(marca), t.get(ref)]);
+    if (mk.exists) return { ok: false, motivo: 'ja_recebeu' };
+    const atual = c.exists ? c.data() : {}, pacId = 'demo' + Date.now().toString(36);
+    const pac = [...(atual.pacotes || []), { id: pacId, creditos: n, restante: n, validade: Timestamp.fromMillis(fim), origem: 'demo', obs: 'Demonstração (teste 7 dias)', criado_em: Timestamp.now(), por: 'sistema' }];
+    t.set(ref, { tipo: 'professor', ref_id: uid, nome: txt(u.nome || email, 120), pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, atualizado_em: FieldValue.serverTimestamp(), ...(c.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) }, { merge: true });
+    t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos: n, validade: Timestamp.fromMillis(fim), obs: 'Demonstração (teste 7 dias)', por: 'sistema', em: FieldValue.serverTimestamp() });
+    t.set(marca, { uid, creditos: n, em: FieldValue.serverTimestamp() });
+    return { ok: true, creditos: n };
+  });
+}
 
 /* ---------------------------------------------------------------- e-mails */
 function moldura(titulo, corpo, link, rotulo) {

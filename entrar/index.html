@@ -12579,7 +12579,7 @@
   // ================= CRÉDITOS DE IA (pré-pago do Portal IA) =================
   // Carteiras: creditos/mun_{municipio} e creditos/prof_{uid}. Só a função creditosAdmin grava; aqui o administrador
   // lança créditos (depois do empenho ou do pagamento), define o teto por professor, atende os pedidos e ajusta preços e pacotes.
-  const CR_PADRAO = { precos:{ texto:1, ajuste:1, imagem:5 }, teto_padrao:60, alertas:[20,5], validade_meses:12, dolar:5.6,
+  const CR_PADRAO = { precos:{ texto:1, ajuste:1, imagem:5 }, teto_padrao:60, demo_teste:10, alertas:[20,5], validade_meses:12, dolar:5.6,
     pacotes_rede:[{ id:"rede-1000", nome:"1.000 créditos", creditos:1000, valor:250 }, { id:"rede-5000", nome:"5.000 créditos", creditos:5000, valor:1000 }, { id:"rede-20000", nome:"20.000 créditos", creditos:20000, valor:3600 }],
     pacotes_professor:[{ id:"prof-100", nome:"100 créditos", creditos:100, valor:29.9 }, { id:"prof-300", nome:"300 créditos", creditos:300, valor:79.9 }] };
   const crA = { cfg:null, cart:[], munis:[], pedidos:[], form:{}, edu:{}, aberto:"" };
@@ -12644,7 +12644,8 @@
     crA.cart.filter(k => String(k.id).startsWith("prof_")).forEach(k => { if(!L.has(k.id)) L.set(k.id, { conta:k.id, nome:k.nome || k.id, email:"", tipo:"Carteira própria", fim:0, status:"" }); });
     const lista = [...L.values()].sort((a,b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
     if(!lista.length) return "";
-    return '<div class="cr-bloco"><h3>Professores fora de rede · avulsos, cortesia e teste ('+lista.length+')</h3><p class="sub">Cada professor tem a própria carteira. Quem está em teste só usa o Portal IA com créditos lançados aqui.</p>'+
+    return '<div class="cr-bloco"><h3>Professores fora de rede · avulsos, cortesia e teste ('+lista.length+')</h3><p class="sub">Cada professor tem a própria carteira. Quem se cadastra sozinho (teste de 7 dias) ganha '+crNum(crA.cfg.demo_teste ?? 10)+' créditos de demonstração automaticamente, válidos até o fim do teste (uma vez por e-mail; ajuste em Preços e pacotes). '+
+        '<button class="btn-mini btn-gerenciar" data-action="cr-demo-testes">Dar a demonstração a quem já está em teste</button></p>'+
       '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Licença</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+
       lista.map(x => { const k = carteira(x.conta), s = crSaldo(k), cm = ((k && k.consumo) || {})[mes] || {}, venc = x.fim && x.fim < Date.now();
         return '<tr><td><b>'+escapeHtml(x.nome)+'</b>'+(x.email ? '<br><small>'+escapeHtml(x.email)+'</small>' : '')+'</td><td>'+escapeHtml(x.tipo)+(x.fim ? '<br><small style="color:'+(venc ? "#b3261e" : "var(--muted)")+'">'+(venc ? "venceu " : "até ")+crData(x.fim)+'</small>' : '')+'</td>'+
@@ -12698,7 +12699,8 @@
       '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
         '<div class="cr-form"><label>Material (créditos)<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label>'+
         '<label>Teto padrão por professor/mês<input id="crTetoPad" type="number" min="0" value="'+cfg.teto_padrao+'"></label><label>Alerta 1 (%)<input id="crAl1" type="number" min="1" max="90" value="'+cfg.alertas[0]+'"></label><label>Alerta 2 (%)<input id="crAl2" type="number" min="1" max="90" value="'+cfg.alertas[1]+'"></label>'+
-        '<label>Validade (meses)<input id="crVal" type="number" min="1" max="36" value="'+cfg.validade_meses+'"></label><label>Dólar (R$)<input id="crDol" type="number" min="1" step="0.01" value="'+dol+'"></label></div>'+
+        '<label>Validade (meses)<input id="crVal" type="number" min="1" max="36" value="'+cfg.validade_meses+'"></label><label>Dólar (R$)<input id="crDol" type="number" min="1" step="0.01" value="'+dol+'"></label>'+
+        '<label>Demonstração no teste de 7 dias (créditos)<input id="crDemo" type="number" min="0" max="500" value="'+(cfg.demo_teste ?? 10)+'"></label></div>'+
         '<h3 style="margin-top:16px">Pacotes da rede</h3><table class="cr-tab cr-pac"><thead><tr><th>Nome</th><th>Créditos</th><th>Valor (R$)</th><th>R$ por crédito</th><th></th></tr></thead><tbody>'+linhaPac(cfg.pacotes_rede, "rede")+'</tbody></table><button class="btn-mini btn-gerenciar" style="margin-top:8px" data-action="cr-pac-mais" data-tipo="rede">+ Pacote da rede</button>'+
         '<h3 style="margin-top:16px">Pacotes do professor (avulso)</h3><table class="cr-tab cr-pac"><thead><tr><th>Nome</th><th>Créditos</th><th>Valor (R$)</th><th>R$ por crédito</th><th></th></tr></thead><tbody>'+linhaPac(cfg.pacotes_professor, "professor")+'</tbody></table><button class="btn-mini btn-gerenciar" style="margin-top:8px" data-action="cr-pac-mais" data-tipo="professor">+ Pacote do professor</button>'+
         '<div style="margin-top:14px"><button class="btn btn-primary" data-action="cr-salvar-cfg" id="crSalvarCfg">Salvar preços e pacotes</button></div></div>';
@@ -12708,6 +12710,7 @@
     c.precos = { texto:n("crPTexto", 1), ajuste:n("crPAjuste", 0), imagem:n("crPImagem", 1) };
     c.teto_padrao = n("crTetoPad", 0); c.alertas = [n("crAl1", 1), n("crAl2", 1)].sort((a,b) => b-a); c.validade_meses = Math.min(36, n("crVal", 1));
     c.dolar = Math.max(1, Number(($("crDol") || {}).value) || 5.6);
+    c.demo_teste = Math.min(500, n("crDemo", 0));
     document.querySelectorAll("[data-pac]").forEach(el => { const l = el.dataset.pac === "rede" ? c.pacotes_rede : c.pacotes_professor, p = l[+el.dataset.i]; if(!p) return;
       p[el.dataset.k] = el.dataset.k === "nome" ? el.value.trim().slice(0, 60) : Math.max(0, Number(el.value) || 0); });
   }
@@ -12819,7 +12822,7 @@
     if(!ok(c.pacotes_rede) || !ok(c.pacotes_professor)){ toast("Todo pacote precisa de nome e quantidade de créditos.", true); return; }
     const limpa = (l, pre) => l.map((p, i) => ({ id:p.id || (pre + "-" + Date.now().toString(36) + i), nome:p.nome, creditos:Math.round(p.creditos), valor:Math.round(p.valor * 100) / 100 }));
     const b = $("crSalvarCfg"); b.disabled = true; b.textContent = "Salvando...";
-    try{ await setDoc(doc(db,"config","portal_ia"), { creditos:{ precos:c.precos, teto_padrao:c.teto_padrao, alertas:c.alertas, validade_meses:c.validade_meses, dolar:c.dolar,
+    try{ await setDoc(doc(db,"config","portal_ia"), { creditos:{ precos:c.precos, teto_padrao:c.teto_padrao, demo_teste:c.demo_teste, alertas:c.alertas, validade_meses:c.validade_meses, dolar:c.dolar,
         pacotes_rede:limpa(c.pacotes_rede, "rede"), pacotes_professor:limpa(c.pacotes_professor, "prof") }, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid }, { merge:true });
       toast("Preços e pacotes salvos."); renderCreditosAdmin(); }
     catch(e){ console.warn(e); toast("Não salvou ("+(e.code || "erro")+").", true); b.disabled = false; b.textContent = "Salvar preços e pacotes"; }
@@ -12852,6 +12855,9 @@
       el.disabled = true; el.textContent = "Retirando...";
       try{ await crChamar({ acao:"retirar_pacote", conta:el.dataset.conta, pacote_id:el.dataset.pac, motivo:"Retirado pelo administrador na Central de IA" }); toast("Pacote retirado."); renderCreditosAdmin(); }
       catch(e){ el.disabled = false; toast(e.message || "Não retirou.", true); } }
+    else if(a === "cr-demo-testes"){ el.disabled = true; el.textContent = "Lançando...";
+      try{ const r = await crChamar({ acao:"demo_testes" }); toast("Demonstração lançada para "+r.deu+" professor(es) em teste."+(r.pulou ? " "+r.pulou+" já tinham recebido ou não estão com teste ativo." : "")); renderCreditosAdmin(); }
+      catch(e){ el.disabled = false; toast(e.message || "Não lançou.", true); } }
     else if(a === "cr-salvar-lanc") crSalvarLanc();
     else if(a === "cr-salvar-cfg") crSalvarCfg();
     else if(a === "ia-salvar") iaSalvar();
