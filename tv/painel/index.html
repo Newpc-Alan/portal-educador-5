@@ -8,235 +8,561 @@
 <meta name="theme-color" content="#0f2c4a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Painel da equipe · Portal do Educador</title>
+<title>Painel · Portal do Educador</title>
 <link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-  /* Painel de gestão para TV: cabe inteiro em qualquer tela (HD, Full HD, 4K, horizontal ou em pé), sem rolagem.
-     Tudo é medido pela tela: a fonte base usa o menor entre largura e altura, então nada estoura. */
-  :root{ --azul:#0f2c4a; --verde:#1a6b2a; --lima:#8DC63F; --laranja:#f5a623; --texto:#eaf2fa; --suave:#9fb6cc; --gap:1.1vmin; }
-  *{ box-sizing:border-box; }
+  /* Painel da TV v2 (nov/2026): TV touch na recepção.
+     Em repouso: VITRINE (apresentação automática com os números da rede). Ao tocar: menu interativo.
+     Gestão (fila, equipe, vencimentos) só com PIN; sem toque por um tempo, volta sozinho para a vitrine.
+     Tudo medido pela tela (HD, Full HD, 4K, horizontal ou em pé), sem rolagem. */
+  :root{ --azul:#0f2c4a; --azul2:#163d63; --verde:#1a6b2a; --lima:#8DC63F; --laranja:#f5a623; --verm:#e05a4f; --texto:#eaf2fa; --suave:#9fb6cc; --gap:1.2vmin; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ margin:0; height:100%; }
   body{ background:radial-gradient(120vmax 70vmax at 85% -10%, #1d4a76 0%, var(--azul) 55%, #0a2036 100%); color:var(--texto);
-        font-family:Inter, system-ui, "Segoe UI", Roboto, sans-serif; overflow:hidden; cursor:none;
-        font-size:min(1.02vw, 1.85vh); }
+        font-family:Inter, system-ui, "Segoe UI", Roboto, sans-serif; overflow:hidden; cursor:none; user-select:none; -webkit-user-select:none;
+        font-size:min(1.05vw, 1.9vh); }
   body.mouse{ cursor:auto; }
-  .tela{ height:100vh; height:100dvh; display:grid; gap:var(--gap); padding:1.8vmin 2vmin;
-         grid-template-columns:1.12fr 1fr; grid-template-rows:auto auto minmax(0, 1fr) auto auto;
-         grid-template-areas:"topo topo" "wa wa" "equipe gente" "redes redes" "rodape rodape"; }
-  header{ grid-area:topo; display:flex; align-items:center; gap:1.2em; min-width:0; }
-  header img{ height:3.6em; width:auto; }
-  header h1{ font-size:2.1em; margin:0; font-weight:800; letter-spacing:-.01em; line-height:1.05; }
-  header h1 small{ display:block; font-size:.42em; color:var(--lima); font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-top:.3em; }
+  button{ font:inherit; color:inherit; cursor:pointer; }
+  .app{ height:100vh; height:100dvh; display:flex; flex-direction:column; padding:2vmin 2.4vmin; gap:var(--gap); }
+
+  /* topo fixo */
+  header{ display:flex; align-items:center; gap:1.2em; min-width:0; flex:0 0 auto; }
+  header img{ height:3.4em; width:auto; }
+  header h1{ font-size:2em; margin:0; font-weight:800; letter-spacing:-.01em; line-height:1.05; }
+  header h1 small{ display:block; font-size:.42em; color:var(--lima); font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-top:.35em; }
   .relogio{ margin-left:auto; text-align:right; white-space:nowrap; }
-  .relogio b{ display:block; font-size:2.6em; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .relogio b{ display:block; font-size:2.5em; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
   .relogio span{ color:var(--suave); font-size:.95em; }
-  .estado{ display:inline-block; margin-top:.4em; font-size:.8em; padding:.15em .7em; border-radius:999px; background:rgba(141,198,63,.18); color:var(--lima); }
-  .estado.off{ background:rgba(224,90,79,.2); color:#ffb4ad; }
-  h2{ margin:0 0 .6em; font-size:.92em; text-transform:uppercase; letter-spacing:.1em; color:var(--lima); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bloco{ background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.07); border-radius:1.1em; padding:1em 1.1em; min-height:0; min-width:0; overflow:hidden; display:flex; flex-direction:column; }
-  .wa{ grid-area:wa; } .esq{ grid-area:equipe; display:grid; grid-template-rows:minmax(0, 1fr) auto; gap:var(--gap); min-height:0; } .gente{ grid-area:gente; display:grid; min-height:0; }
-  .redes-b{ grid-area:redes; } footer{ grid-area:rodape; }
+  .estado{ display:inline-block; margin-top:.45em; font-size:.8em; padding:.18em .75em; border-radius:999px; background:rgba(141,198,63,.18); color:var(--lima); }
+  .estado.off{ background:rgba(224,90,79,.25); color:#ffc1bb; font-weight:700; }
+  .voltar{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); border-radius:999px; padding:.7em 1.3em; font-weight:700; font-size:1.05em; }
+  .voltar[hidden]{ display:none; }
+
+  main{ flex:1 1 0; min-height:0; position:relative; }
+  .pag{ position:absolute; inset:0; display:none; flex-direction:column; min-height:0; }
+  .pag.on{ display:flex; animation:entra .45s ease both; }
+  @keyframes entra{ from{ opacity:0; transform:translateY(1.5vmin); } to{ opacity:1; transform:none; } }
+  h2{ margin:0 0 .5em; font-size:2.4em; font-weight:800; letter-spacing:-.01em; line-height:1.1; }
+  h2 em{ font-style:normal; color:var(--lima); }
+  .sub{ color:var(--suave); font-size:1.15em; margin:-.2em 0 1.1em; }
+
+  /* ===== VITRINE ===== */
+  .slide{ position:absolute; inset:0; display:flex; flex-direction:column; opacity:0; pointer-events:none; transition:opacity .8s ease; }
+  .slide.on{ opacity:1; }
+  .numeros{ flex:1 1 0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); grid-auto-rows:minmax(0, 1fr); gap:var(--gap); min-height:0; }
+  .num{ background:linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.03)); border:1px solid rgba(255,255,255,.09); border-radius:1.3em;
+        padding:1.2em 1.4em; display:flex; flex-direction:column; justify-content:center; min-width:0; min-height:0; overflow:hidden; }
+  .num b{ font-size:5.6em; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.02em; color:#fff; white-space:nowrap; }
+  .num span{ font-size:1.35em; color:#d6e4f1; margin-top:.35em; line-height:1.25; }
+  .num.verde{ background:linear-gradient(150deg, rgba(141,198,63,.35), rgba(26,107,42,.45)); border-color:rgba(141,198,63,.55); }
+  .num.verde b{ color:#fff; }
+  .num small{ display:block; color:var(--suave); font-size:.95em; margin-top:.45em; }
+  .redes-v{ flex:1 1 0; display:grid; grid-template-columns:repeat(auto-fit, minmax(17em, 1fr)); grid-auto-rows:minmax(0, 1fr); gap:var(--gap); min-height:0; align-content:stretch; }
+  .rv{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); border-radius:1.1em; padding:1em 1.2em; display:flex; flex-direction:column; justify-content:center; min-height:0; overflow:hidden; text-align:left; }
+  .rv h3{ margin:0; font-size:1.7em; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rv h3 small{ color:var(--lima); font-size:.55em; margin-left:.3em; letter-spacing:.08em; }
+  .rv p{ margin:.45em 0 0; color:#d6e4f1; font-size:1.15em; }
+  .rv p b{ color:#fff; font-size:1.3em; }
+  .recursos{ flex:1 1 0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); grid-auto-rows:minmax(0, 1fr); gap:var(--gap); min-height:0; }
+  .rc{ position:relative; border-radius:1.2em; overflow:hidden; background:#0b2238 center/cover no-repeat; border:1px solid rgba(255,255,255,.1); min-height:0; display:flex; align-items:flex-end; text-align:left; padding:0; }
+  .rc::after{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,32,54,0) 25%, rgba(10,32,54,.92) 78%); }
+  .rc div{ position:relative; z-index:1; padding:1em 1.2em; }
+  .rc b{ display:block; font-size:1.6em; font-weight:800; }
+  .rc span{ display:block; color:#d6e4f1; font-size:1.05em; margin-top:.25em; line-height:1.3; }
+  .contato{ flex:1 1 0; display:grid; grid-template-columns:auto 1fr; gap:4vmin; align-items:center; min-height:0; }
+  .qr{ background:#fff; border-radius:1.3em; padding:1.4em; width:min(38vh, 30vw); height:min(38vh, 30vw); display:flex; align-items:center; justify-content:center; }
+  .qr img, .qr canvas{ width:100% !important; height:100% !important; }
+  .contato h2{ font-size:3em; }
+  .contato .tel{ font-size:3.4em; font-weight:900; color:var(--lima); letter-spacing:-.01em; margin:.1em 0 .25em; white-space:nowrap; }
+  .contato p{ font-size:1.4em; color:#d6e4f1; margin:.3em 0; }
+  .pontos{ display:flex; justify-content:center; gap:.7em; margin-top:1.2vmin; flex:0 0 auto; }
+  .pontos i{ width:.75em; height:.75em; border-radius:50%; background:rgba(255,255,255,.25); transition:all .4s; }
+  .pontos i.on{ background:var(--lima); width:2.4em; border-radius:999px; }
+  .toque{ align-self:center; margin-top:1.2vmin; flex:0 0 auto; background:var(--lima); color:var(--azul); font-weight:800; font-size:1.4em; border:0; border-radius:999px;
+          padding:.7em 1.8em; box-shadow:0 0 0 0 rgba(141,198,63,.7); animation:pulsa 2.2s infinite; }
+  @keyframes pulsa{ 0%{ box-shadow:0 0 0 0 rgba(141,198,63,.65); } 70%{ box-shadow:0 0 0 1.4em rgba(141,198,63,0); } 100%{ box-shadow:0 0 0 0 rgba(141,198,63,0); } }
+
+  /* ===== MENU ===== */
+  .menu{ flex:1 1 0; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); grid-auto-rows:minmax(0, 1fr); gap:var(--gap); min-height:0; }
+  .tile{ border-radius:1.3em; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.07); display:flex; flex-direction:column; justify-content:flex-end;
+         align-items:flex-start; text-align:left; padding:1.3em 1.5em; min-height:0; overflow:hidden; position:relative; background-size:cover; background-position:center; transition:transform .15s; }
+  .tile:active{ transform:scale(.97); }
+  .tile::before{ content:""; position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,32,54,.1) 10%, rgba(10,32,54,.9) 80%); }
+  .tile > *{ position:relative; z-index:1; }
+  .tile i{ font-style:normal; font-size:3em; line-height:1; margin-bottom:.25em; }
+  .tile b{ font-size:2em; font-weight:800; }
+  .tile span{ color:#d6e4f1; font-size:1.15em; margin-top:.3em; }
+  .tile.grande{ grid-row:span 2; }
+  .tile.cad{ background:linear-gradient(150deg, #23425f, #12304c); }
+  .tile.cad::before{ display:none; }
+
+  /* detalhe (rede ou recurso tocado) */
+  .modal{ position:fixed; inset:0; z-index:8; background:rgba(5,18,32,.72); display:none; align-items:center; justify-content:center; padding:6vmin; }
+  .modal.on{ display:flex; animation:entra .3s ease both; }
+  .caixa{ background:linear-gradient(160deg, #1b4268, #0f2c4a); border:1px solid rgba(255,255,255,.18); border-radius:1.5em; padding:2em 2.4em; max-width:70vw; width:100%; box-shadow:0 2em 5em rgba(0,0,0,.5); }
+  .caixa h3{ margin:0 0 .4em; font-size:2.6em; font-weight:900; }
+  .caixa p{ font-size:1.35em; color:#d6e4f1; line-height:1.45; margin:.4em 0; }
+  .caixa .lin{ display:flex; gap:var(--gap); margin:1em 0 .4em; }
+  .caixa .lin div{ flex:1; background:rgba(255,255,255,.08); border-radius:1em; padding:.9em 1.1em; }
+  .caixa .lin b{ display:block; font-size:3.4em; font-weight:900; line-height:1; }
+  .caixa .lin span{ color:var(--suave); font-size:1.1em; }
+  .caixa .fechar{ margin-top:1.2em; }
+
+  /* ===== PIN ===== */
+  .pin{ flex:1 1 0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; }
+  .pin .dig{ display:flex; gap:1em; margin:1em 0 1.4em; }
+  .pin .dig i{ width:1.4em; height:1.4em; border-radius:50%; border:.18em solid rgba(255,255,255,.5); }
+  .pin .dig i.on{ background:var(--lima); border-color:var(--lima); }
+  .teclas{ display:grid; grid-template-columns:repeat(3, 6.5em); gap:1em; }
+  .teclas button{ height:5.2em; border-radius:1.1em; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.08); font-size:1.6em; font-weight:800; }
+  .teclas button:active{ background:rgba(141,198,63,.35); }
+  .pin .msg{ min-height:1.6em; color:#ffc1bb; font-weight:700; font-size:1.2em; margin-top:.8em; text-align:center; }
+
+  /* ===== GESTÃO ===== */
+  .gest{ flex:1 1 0; display:grid; gap:var(--gap); min-height:0; grid-template-columns:1.12fr 1fr; grid-template-rows:auto minmax(0, 1fr) auto;
+         grid-template-areas:"wa wa" "equipe gente" "redes redes"; }
+  .bloco{ background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.07); border-radius:1.1em; padding:.9em 1em; min-height:0; min-width:0; overflow:hidden; display:flex; flex-direction:column; }
+  .bloco h4{ margin:0 0 .55em; font-size:.92em; text-transform:uppercase; letter-spacing:.1em; color:var(--lima); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .g-wa{ grid-area:wa; } .g-esq{ grid-area:equipe; display:grid; grid-template-rows:minmax(0, 1fr) auto; gap:var(--gap); min-height:0; } .g-gente{ grid-area:gente; display:grid; min-height:0; } .g-redes{ grid-area:redes; }
   .kpis{ display:grid; grid-template-columns:repeat(8, minmax(0, 1fr)); gap:var(--gap); }
-  .kpi, .mini{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.07); border-radius:.9em; padding:.7em .8em; min-width:0; }
-  .kpi b{ display:block; font-size:2.9em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .mini b{ display:block; font-size:1.9em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .kpi span, .mini span{ display:block; color:var(--suave); font-size:.9em; line-height:1.25; }
+  .kpi, .mini{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.07); border-radius:.9em; padding:.6em .75em; min-width:0; }
+  .kpi b{ display:block; font-size:2.6em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mini b{ display:block; font-size:1.85em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kpi span, .mini span{ display:block; color:var(--suave); font-size:.88em; line-height:1.25; }
+  .kpi span em, .mini span em{ display:block; font-style:normal; font-size:.88em; margin-top:.15em; color:#b9cadb; }
   .alerta{ background:rgba(245,166,35,.16) !important; border-color:rgba(245,166,35,.6) !important; } .alerta b{ color:var(--laranja); }
   .bom b{ color:var(--lima); }
-  /* destaques: novos nos últimos 7 dias e vencimentos de amanhã */
   .grade{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--gap); }
   .grade.g4{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
   .destaque{ grid-column:span 2; background:linear-gradient(135deg, rgba(141,198,63,.28), rgba(26,107,42,.35)) !important; border-color:rgba(141,198,63,.6) !important; display:flex; align-items:center; gap:.9em; }
-  .destaque b{ font-size:3.4em; color:#fff; }
-  .destaque span{ color:#e2f3cf; font-size:1em; }
-  .destaque span em{ display:block; font-style:normal; font-size:.82em; color:#c7e3a8; margin-top:.2em; }
-  .vence b{ font-size:2.5em; }
-  .vence span em{ display:block; font-style:normal; font-size:.85em; margin-top:.2em; }
-  .equipe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(12.5em, 1fr)); gap:var(--gap); align-content:start; overflow:hidden; min-height:0; flex:1 1 0; }
-  .pessoa{ background:rgba(255,255,255,.06); border-radius:.9em; padding:.7em .8em; display:grid; grid-template-columns:auto 1fr; gap:.15em .6em; align-items:center; min-width:0; }
+  .destaque b{ font-size:3.2em; color:#fff; }
+  .equipe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(12em, 1fr)); gap:var(--gap); align-content:start; overflow:hidden; min-height:0; flex:1 1 0; }
+  .pessoa{ background:rgba(255,255,255,.06); border-radius:.9em; padding:.6em .75em; display:grid; grid-template-columns:auto 1fr; gap:.15em .6em; align-items:center; min-width:0; }
   .bola{ width:.85em; height:.85em; border-radius:50%; background:var(--lima); box-shadow:0 0 .6em rgba(141,198,63,.8); grid-row:span 2; }
   .bola.off{ background:#5b6f84; box-shadow:none; }
-  .pessoa b{ font-size:1.25em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pessoa b{ font-size:1.2em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pessoa small{ color:var(--suave); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pessoa .nums{ grid-column:1 / -1; display:flex; gap:1.1em; margin-top:.3em; font-size:.92em; white-space:nowrap; overflow:hidden; }
-  .pessoa .nums em{ font-style:normal; font-weight:800; font-size:1.35em; color:#fff; margin-right:.2em; }
+  .pessoa .nums{ grid-column:1 / -1; display:flex; gap:1.1em; margin-top:.25em; font-size:.9em; white-space:nowrap; overflow:hidden; }
+  .pessoa .nums em{ font-style:normal; font-weight:800; font-size:1.3em; color:#fff; margin-right:.2em; }
   .vazio{ color:var(--suave); font-style:italic; margin:0; }
-  /* equipe grande: os cartões encolhem até caber (sem cortar ninguém) */
-  .equipe.c1{ grid-template-columns:repeat(auto-fill, minmax(10.5em, 1fr)); } .equipe.c1 .pessoa{ padding:.5em .7em; } .equipe.c1 .pessoa b{ font-size:1.1em; }
-  .equipe.c2 .pessoa small{ display:none; } .equipe.c2 .pessoa .bola{ grid-row:auto; }
-  .equipe.c3{ grid-template-columns:repeat(auto-fill, minmax(9em, 1fr)); } .equipe.c3 .pessoa .nums{ font-size:.8em; gap:.7em; }
-  .equipe.c4 .pessoa .nums span:last-child{ display:none; } .equipe.c4 .pessoa{ padding:.35em .6em; }
-  .equipe.c5{ font-size:.85em; } .equipe.c6{ font-size:.72em; } .equipe.c7{ font-size:.6em; }
-  .redes{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.45em 1.6em; }
+  .equipe.c1 .pessoa small{ display:none; } .equipe.c1 .pessoa .bola{ grid-row:auto; } .equipe.c2{ font-size:.85em; } .equipe.c3{ font-size:.72em; } .equipe.c4{ font-size:.6em; }
+  .redes{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.4em 1.6em; }
   .rede{ display:grid; grid-template-columns:minmax(0, 10em) 1fr auto; align-items:center; gap:.7em; min-width:0; }
   .rede:nth-child(n+9){ display:none; }
   .rede .n{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .barra{ height:.75em; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; }
-  .barra i{ display:block; height:100%; background:linear-gradient(90deg, var(--verde), var(--lima)); border-radius:999px; min-width:.4em; }
+  .barra{ height:.75em; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; display:flex; }
+  .barra i{ display:block; height:100%; background:linear-gradient(90deg, var(--verde), var(--lima)); }
+  .barra i.c{ background:rgba(141,198,63,.35); }
   .rede .v{ font-variant-numeric:tabular-nums; color:var(--suave); white-space:nowrap; text-align:right; }
   .rede .v b{ color:#fff; }
-  footer{ display:flex; justify-content:space-between; gap:1em; color:var(--suave); font-size:.8em; }
+  .g-rod{ display:flex; justify-content:space-between; gap:1em; color:var(--suave); font-size:.85em; flex:0 0 auto; margin-top:.6vmin; }
+  .g-rod button{ background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2); border-radius:999px; padding:.35em 1em; font-weight:700; }
 
-  /* TV em pé (totem, painel vertical): uma coluna, tudo empilhado e ainda sem rolagem */
+  /* TV em pé (totem): uma coluna */
   @media (orientation:portrait){
-    body{ font-size:min(1.85vw, 1.02vh); }
-    .tela{ grid-template-columns:1fr; grid-template-rows:auto auto auto minmax(0, 1fr) auto auto;
-           grid-template-areas:"topo" "wa" "gente" "equipe" "redes" "rodape"; }
-    .gente .grade.g4 .mini{ padding:.6em .8em; }
+    body{ font-size:min(1.9vw, 1.05vh); }
+    .numeros, .recursos, .menu{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .tile.grande{ grid-row:auto; }
+    .contato{ grid-template-columns:1fr; justify-items:center; text-align:center; }
+    .qr{ width:42vw; height:42vw; }
+    .gest{ grid-template-columns:1fr; grid-template-rows:auto auto minmax(0, 1fr) auto; grid-template-areas:"wa" "gente" "equipe" "redes"; }
     .kpis{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
     .redes{ grid-template-columns:1fr; }
-    .rede:nth-child(n+9){ display:none; }
-    .grade.g4{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+    .caixa{ max-width:92vw; }
   }
-  /* tela muito larga e baixa (barra de LED, ultrawide): menos linhas de rede */
   @media (min-aspect-ratio:21/9){ .rede:nth-child(n+7){ display:none; } }
 
-  /* entrar em tela cheia (o navegador só deixa depois de um toque, clique ou tecla do controle) */
-  .cheia{ position:fixed; left:50%; transform:translateX(-50%); bottom:2vmin; z-index:5; font:inherit; font-size:1em; font-weight:700; color:#0f2c4a; background:var(--lima);
-          border:0; border-radius:999px; padding:.8em 1.4em; cursor:pointer; box-shadow:0 .5em 1.5em rgba(0,0,0,.35); }
+  .cheia{ position:fixed; right:2vmin; bottom:2vmin; z-index:5; font-size:.95em; font-weight:700; color:#0f2c4a; background:#fff; border:0; border-radius:999px; padding:.6em 1.1em; box-shadow:0 .5em 1.5em rgba(0,0,0,.35); }
   .cheia[hidden]{ display:none; }
   .aviso{ display:none; position:fixed; inset:0; z-index:9; align-items:center; justify-content:center; text-align:center; padding:6vmin; background:var(--azul); font-size:1.6em; }
   .aviso.on{ display:flex; }
 </style>
 </head>
 <body>
-<div class="tela">
+<div class="app">
   <header>
     <img src="/assets/pde-logo-128.png" alt="">
-    <h1>Painel da equipe<small>Portal do Educador · atendimento e uso ao vivo</small></h1>
+    <h1 id="titulo">Portal do Educador<small>Tecnologia para a educação pública · NEWPC</small></h1>
+    <button type="button" class="voltar" data-action="vitrine" id="btVoltar" hidden>← Voltar</button>
     <div class="relogio"><b id="hora">--:--</b><span id="data"></span><br><span class="estado" id="estado">conectando…</span></div>
   </header>
 
-  <section class="bloco wa">
-    <h2>💬 WhatsApp (67) 9875-7275 · agora</h2>
-    <div class="kpis">
-      <div class="kpi" id="kFila"><b data-k="whatsapp.fila">–</b><span>na fila sem dono</span></div>
-      <div class="kpi"><b data-k="whatsapp.em_atendimento">–</b><span>em atendimento</span></div>
-      <div class="kpi"><b data-k="whatsapp.conversas_hoje">–</b><span>conversas hoje</span></div>
-      <div class="kpi bom"><b data-k="whatsapp.resolvidas_robo_pct" data-suf="%">–</b><span>resolvidas pelo robô</span></div>
-      <div class="kpi" id="kResp"><b data-k="whatsapp.resposta_media_min" data-suf=" min">–</b><span>até a 1ª resposta da equipe</span></div>
-      <div class="kpi" id="kCham"><b data-k="whatsapp.chamados_abertos">–</b><span>chamados abertos</span></div>
-      <div class="kpi bom"><b data-k="whatsapp.comerciais_semana">–</b><span>contatos comerciais na semana</span></div>
-      <div class="kpi bom"><b data-k="whatsapp.satisfacao_pct" data-suf="%">–</b><span>avaliaram como ótimo hoje <em id="nAval" style="font-style:normal"></em></span></div>
-    </div>
-  </section>
+  <main>
+    <!-- VITRINE: roda sozinha -->
+    <section class="pag on" id="pgVitrine" data-action="menu">
+      <div style="position:relative;flex:1 1 0;min-height:0">
+        <div class="slide on" data-s="0">
+          <h2>O Portal do Educador <em>em números</em></h2>
+          <p class="sub">Atualizado ao vivo, direto da plataforma</p>
+          <div class="numeros" id="vNumeros"></div>
+        </div>
+        <div class="slide" data-s="1">
+          <h2>Redes que já usam o <em>Portal</em></h2>
+          <p class="sub">Escolas e educadores com acesso liberado em cada rede</p>
+          <div class="redes-v" id="vRedes"></div>
+        </div>
+        <div class="slide" data-s="2">
+          <h2>O que o professor <em>encontra</em></h2>
+          <p class="sub">Tudo num só lugar, com a conta Google da escola</p>
+          <div class="recursos" id="vRecursos"></div>
+        </div>
+        <div class="slide" data-s="3">
+          <div class="contato">
+            <div class="qr" id="qr1"></div>
+            <div>
+              <h2>Quer o Portal na <em>sua rede?</em></h2>
+              <p>Aponte a câmera do celular e fale com a gente no WhatsApp</p>
+              <div class="tel">(67) 9875-7275</div>
+              <p>www.portaldoeducador.com.br</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="pontos" id="pontos"><i class="on"></i><i></i><i></i><i></i></div>
+      <button type="button" class="toque" data-action="menu">👆 Toque na tela para conhecer</button>
+    </section>
 
-  <div class="esq">
-  <section class="bloco">
-    <h2>👥 Equipe de atendimento · conversas agora e encerradas hoje</h2>
-    <div class="equipe" id="equipe"><p class="vazio">Carregando…</p></div>
-  </section>
-    <section class="bloco">
-      <h2>⚡ Uso do Portal hoje</h2>
-      <div class="grade">
-        <div class="mini"><b data-k="uso.acessos_hoje">–</b><span>pessoas entraram hoje</span></div>
-        <div class="mini"><b data-k="uso.ia_hoje">–</b><span>materiais do Portal IA</span></div>
-        <div class="mini"><b data-k="uso.aulas_agora">–</b><span>aulas ao vivo agora</span></div>
+    <!-- MENU interativo -->
+    <section class="pag" id="pgMenu">
+      <h2>O que você quer <em>ver?</em></h2>
+      <div class="menu">
+        <button type="button" class="tile grande" data-action="ir" data-pg="pgNumeros" style="background-image:url(/assets/inicio/painel-rede.webp)"><i>📊</i><b>Números ao vivo</b><span>Redes, escolas, educadores e uso da plataforma</span></button>
+        <button type="button" class="tile" data-action="ir" data-pg="pgRedes" style="background-image:url(/assets/inicio/painel-escola.webp)"><i>🏛️</i><b>Nossas redes</b><span>Toque em uma rede para ver os números</span></button>
+        <button type="button" class="tile" data-action="ir" data-pg="pgRecursos" style="background-image:url(/assets/inicio/portal-ia.webp)"><i>✨</i><b>O que o Portal faz</b><span>Toque em cada recurso</span></button>
+        <button type="button" class="tile" data-action="ir" data-pg="pgContato" style="background-image:url(/assets/inicio/comunicado.webp)"><i>💬</i><b>Fale com a gente</b><span>WhatsApp pelo QR Code</span></button>
+        <button type="button" class="tile" data-action="ir" data-pg="pgPin" style="background-image:url(/assets/inicio/equipe.webp)"><i>🔒</i><b>Gestão da equipe</b><span>Atendimento, fila e vencimentos · com PIN</span></button>
       </div>
     </section>
-  </div>
 
-  <div class="gente">
-    <section class="bloco">
-      <h2>🎓 Usuários</h2>
-      <div class="grade g4">
-        <div class="mini destaque"><b data-k="usuarios.novos_7d">–</b><span>novos cadastros nos últimos 7 dias<em id="novosHoje"></em></span></div>
-        <div class="mini vence" id="kVence"><b data-k="vencimentos.licencas_amanha">–</b><span>licenças vencem amanhã<em id="vence7"></em></span></div>
-        <div class="mini" id="kPend"><b data-k="usuarios.pendentes">–</b><span>aguardando aprovação</span></div>
-        <div class="mini"><b data-k="usuarios.cadastrados">–</b><span>cadastros ativos</span></div>
-        <div class="mini"><b data-k="usuarios.professores">–</b><span>professores</span></div>
-        <div class="mini"><b data-k="usuarios.ativos_7d">–</b><span>entraram nos últimos 7 dias</span></div>
-        <div class="mini vence" id="kCtr"><b data-k="vencimentos.contratos_amanha">–</b><span>contratos de rede vencem amanhã<em id="ctr30"></em></span></div>
+    <section class="pag" id="pgNumeros">
+      <h2>Números <em>ao vivo</em></h2>
+      <p class="sub" id="nSub">Direto da plataforma</p>
+      <div class="numeros" id="iNumeros"></div>
+    </section>
+
+    <section class="pag" id="pgRedes">
+      <h2>Nossas <em>redes</em></h2>
+      <p class="sub">Toque em uma rede</p>
+      <div class="redes-v" id="iRedes"></div>
+    </section>
+
+    <section class="pag" id="pgRecursos">
+      <h2>O que o Portal <em>faz</em></h2>
+      <p class="sub">Toque em um recurso para saber mais</p>
+      <div class="recursos" id="iRecursos"></div>
+    </section>
+
+    <section class="pag" id="pgContato">
+      <div class="contato">
+        <div class="qr" id="qr2"></div>
+        <div>
+          <h2>Fale com a <em>gente</em></h2>
+          <p>Aponte a câmera do celular para o código e a conversa abre no WhatsApp</p>
+          <div class="tel">(67) 9875-7275</div>
+          <p>www.portaldoeducador.com.br · NEWPC Tecnologia · Campo Grande/MS</p>
+        </div>
       </div>
     </section>
-  </div>
 
-  <section class="bloco redes-b">
-    <h2>🏛️ Redes no Portal · professores ativos e escolas</h2>
-    <div class="redes" id="redes"><p class="vazio">Carregando…</p></div>
-  </section>
+    <section class="pag" id="pgPin">
+      <div class="pin">
+        <h2>Gestão da <em>equipe</em></h2>
+        <p class="sub">Digite o PIN da equipe</p>
+        <div class="dig" id="pinDig"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="teclas" id="teclas"></div>
+        <div class="msg" id="pinMsg" role="status"></div>
+      </div>
+    </section>
 
-  <footer><span>Atualiza sozinho a cada minuto · só números, sem dados pessoais</span><span id="atual"></span></footer>
+    <!-- GESTÃO (só com PIN) -->
+    <section class="pag" id="pgGestao">
+      <div class="gest">
+        <section class="bloco g-wa">
+          <h4>💬 WhatsApp (67) 9875-7275 · agora e hoje</h4>
+          <div class="kpis">
+            <div class="kpi" id="kFila"><b data-k="whatsapp.fila">–</b><span>na fila sem dono</span></div>
+            <div class="kpi"><b data-k="whatsapp.em_atendimento">–</b><span>com a equipe agora</span></div>
+            <div class="kpi"><b data-k="whatsapp.conversas_hoje">–</b><span>conversas com mensagem hoje</span></div>
+            <div class="kpi bom"><b data-k="whatsapp.resolvidas_robo_pct" data-suf="%">–</b><span>sem precisar da equipe<em id="eTransf"></em></span></div>
+            <div class="kpi" id="kResp"><b data-k="whatsapp.resposta_media_min" data-suf=" min">–</b><span>até a 1ª resposta da equipe</span></div>
+            <div class="kpi"><b id="eEnc">–</b><span>encerradas hoje<em id="eEncD"></em></span></div>
+            <div class="kpi" id="kCham"><b data-k="whatsapp.chamados_abertos">–</b><span>chamados abertos</span></div>
+            <div class="kpi bom"><b data-k="whatsapp.satisfacao_pct" data-suf="%">–</b><span>avaliaram como ótimo<em id="nAval"></em></span></div>
+          </div>
+        </section>
+        <div class="g-esq">
+          <section class="bloco">
+            <h4>👥 Equipe · conversas agora e encerradas hoje</h4>
+            <div class="equipe" id="equipe"><p class="vazio">Carregando…</p></div>
+          </section>
+          <section class="bloco">
+            <h4>⚡ Uso do Portal hoje</h4>
+            <div class="grade">
+              <div class="mini"><b data-k="uso.acessos_hoje">–</b><span>pessoas entraram hoje</span></div>
+              <div class="mini"><b data-k="uso.ia_hoje">–</b><span>materiais do Portal IA</span></div>
+              <div class="mini"><b data-k="uso.aulas_agora">–</b><span>aulas ao vivo agora</span></div>
+            </div>
+          </section>
+        </div>
+        <div class="g-gente">
+          <section class="bloco">
+            <h4>🎓 Usuários e vencimentos</h4>
+            <div class="grade g4">
+              <div class="mini destaque"><b data-k="usuarios.novos_7d">–</b><span>novos cadastros nos últimos 7 dias<em id="novosHoje"></em></span></div>
+              <div class="mini" id="kVence"><b data-k="vencimentos.licencas_amanha">–</b><span>licenças vencem amanhã<em id="vence7"></em></span></div>
+              <div class="mini" id="kPend"><b data-k="usuarios.pendentes">–</b><span>aguardando aprovação</span></div>
+              <div class="mini"><b data-k="usuarios.cadastrados">–</b><span>contas ativas</span></div>
+              <div class="mini"><b data-k="usuarios.convidados">–</b><span>convidados que ainda não entraram</span></div>
+              <div class="mini"><b data-k="usuarios.ativos_7d">–</b><span>entraram nos últimos 7 dias</span></div>
+              <div class="mini" id="kCtr"><b data-k="vencimentos.contratos_amanha">–</b><span>contratos de rede vencem amanhã<em id="ctr30"></em></span></div>
+              <div class="mini" id="kConv"><b id="eConv">–</b><span>convites por e-mail saindo<em id="eConvD"></em></span></div>
+            </div>
+          </section>
+        </div>
+        <section class="bloco g-redes">
+          <h4>🏛️ Redes · educadores que já entraram + convidados · escolas</h4>
+          <div class="redes" id="redes"><p class="vazio">Carregando…</p></div>
+        </section>
+      </div>
+      <div class="g-rod"><span id="gAtual"></span><button type="button" data-action="sair">🔒 Sair da gestão</button></div>
+    </section>
+  </main>
 </div>
-<button type="button" class="cheia" id="btCheia" data-action="cheia" hidden>⛶ Tela cheia</button>
-<div class="aviso" id="aviso"><div><b>Link do painel sem chave válida.</b><br><br>Gere o link em Sistema › Atendimento WhatsApp › Painel da TV.</div></div>
 
+<div class="modal" id="modal" data-action="fechar"><div class="caixa" id="caixa"></div></div>
+<button type="button" class="cheia" id="btCheia" data-action="cheia" hidden>⛶ Tela cheia</button>
+<div class="aviso" id="aviso"><div><b>Link do painel sem chave válida.</b><br><br>Gere o link no Portal em Atendimento WhatsApp › Painel da TV.</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script>
 (function(){
   "use strict";
+  // ES5 de propósito: navegador de Smart TV costuma ser antigo
   var $ = function(id){ return document.getElementById(id); };
-  // a chave vem no link; fica guardada na TV para o painel abrir sozinho como aplicativo (manifesto em tela cheia)
+  var cada = function(lista, fn){ Array.prototype.forEach.call(lista, fn); };
   var daUrl = (new URLSearchParams(location.search).get("k") || "").replace(/[^A-Za-z0-9_-]/g, "");
   var CHAVE = daUrl;
   try{ if(daUrl) localStorage.setItem("pde_painel_tv_k", daUrl); else CHAVE = localStorage.getItem("pde_painel_tv_k") || ""; }catch(e){}
   var URL_DADOS = ((window.PDE_AMBIENTE && window.PDE_AMBIENTE.funcoes) || "https://southamerica-east1-portal-educador-5.cloudfunctions.net/") + "painelTv?k=" + encodeURIComponent(CHAVE);
+  var WHATS = "https://wa.me/556798757275?text=" + encodeURIComponent("Olá! Vi o Portal do Educador na TV da NEWPC e quero saber mais.");
   var SET = { suporte:"Suporte", tecnico:"Técnico", comercial:"Comercial" };
-  var ultimo = 0;
+  var D = null, G = null, ultimo = 0, PIN = "", digitando = "";
+  var TEMPO_MENU = 60e3, TEMPO_GESTAO = 3 * 60e3, SLIDE = 12e3;
+
+  // recursos do Portal (texto institucional: só o que a plataforma faz hoje)
+  var RECURSOS = [
+    { img:"portal-ia", t:"Portal IA", s:"Planos de aula, atividades e provas em minutos", d:"O professor descreve a turma e o conteúdo e o Portal IA monta o plano de aula, a atividade ou a prova alinhada à BNCC. Ele revisa, ajusta e imprime ou projeta." },
+    { img:"lousa", t:"Lousa interativa", s:"Aulas prontas para a lousa digital e a TV", d:"Aulas interativas, jogos e aplicações 3D para conduzir na lousa digital ou na TV da sala, com a turma participando." },
+    { img:"provas-online", t:"Provas e correção", s:"Prova online ou impressa, com correção pelo celular", d:"O professor aplica a prova online no Chromebook ou impressa com cartão-resposta, e corrige pelo celular. As notas vão direto para o diário." },
+    { img:"turma-ao-vivo", t:"Turma ao vivo", s:"A turma responde pelo celular ou Chromebook", d:"Quiz e atividades em tempo real: o professor projeta, os alunos respondem e o resultado aparece na hora para toda a turma." },
+    { img:"frequencia-rede", t:"Gestão da rede", s:"Frequência, notas e relatórios da Secretaria", d:"A Secretaria acompanha frequência, notas, uso da plataforma e busca ativa de cada escola, em painéis prontos para a tomada de decisão." },
+    { img:"aprendizagem", t:"Formação continuada", s:"Cursos para o professor usar a tecnologia em sala", d:"Trilhas de formação com certificado, para o professor dominar as ferramentas e levar a tecnologia para a rotina da sala de aula." }
+  ];
+
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
   function fmt(v){ return v == null ? "–" : Number(v).toLocaleString("pt-BR"); }
   function pega(o, k){ return k.split(".").reduce(function(a, p){ return a == null ? a : a[p]; }, o); }
-  function relogio(){
-    var d = new Date();
-    $("hora").textContent = d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" });
-    $("data").textContent = d.toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long", timeZone:"America/Campo_Grande" });
-    if(ultimo && Date.now() - ultimo > 5 * 60e3){ var e = $("estado"); e.textContent = "sem atualização há " + Math.round((Date.now() - ultimo) / 60e3) + " min"; e.className = "estado off"; }
+  function hhmm(t){ return new Date(t).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" }); }
+
+  // ---------- números da vitrine (só os que existem; nada de zero de vitrine) ----------
+  function cartoes(p){
+    var l = [
+      [p.redes, "redes municipais de ensino", "verde"],
+      [p.escolas, "escolas com o Portal", ""],
+      [p.educadores, "educadores com acesso liberado", "verde", (p.professores_ativos != null && p.convidados != null) ? fmt(p.professores_ativos) + " professores já entraram · " + fmt(p.convidados) + " convidados chegando" : ""],
+      [p.alunos, "alunos cadastrados", ""],
+      [p.ia_total, "materiais criados com o Portal IA", ""],
+      [p.recursos, "aulas, atividades, jogos e vídeos no acervo", ""],
+      [p.provas, "provas online criadas", ""]
+    ].filter(function(x){ return x[0] != null && x[0] > 0; }).slice(0, 6);
+    return l.map(function(x){ return '<div class="num ' + x[2] + '"><b data-ate="' + x[0] + '">0</b><span>' + x[1] + '</span>' + (x[3] ? '<small>' + esc(x[3]) + '</small>' : '') + '</div>'; }).join("");
   }
-  function desenhar(d){
-    document.querySelectorAll("[data-k]").forEach(function(el){ var v = pega(d, el.dataset.k); el.textContent = v == null ? "–" : fmt(v) + (el.dataset.suf || ""); });
-    var w = d.whatsapp || {}, u = d.usuarios || {}, v = d.vencimentos || {};
+  function contar(raiz){
+    cada(raiz.querySelectorAll("[data-ate]"), function(el){
+      var fim = Number(el.getAttribute("data-ate")) || 0, t0 = null, dur = 1600;
+      function passo(t){ if(t0 === null) t0 = t; var k = Math.min(1, (t - t0) / dur); k = 1 - Math.pow(1 - k, 3); el.textContent = fmt(Math.round(fim * k)); if(k < 1) requestAnimationFrame(passo); }
+      requestAnimationFrame(passo);
+    });
+  }
+  function redesHtml(lista, interativo){
+    if(!lista || !lista.length) return '<p class="vazio">Nenhuma rede ativa.</p>';
+    return lista.slice(0, 12).map(function(r, i){
+      var tag = interativo ? 'button type="button" data-action="rede" data-i="' + i + '"' : 'div';
+      return '<' + tag + ' class="rv"><h3>' + esc(r.nome) + '<small>' + esc(r.uf) + '</small></h3>' +
+        '<p><b>' + fmt(r.escolas) + '</b> escola' + (r.escolas === 1 ? '' : 's') + ' · <b>' + fmt(r.educadores) + '</b> educadores</p></' + (interativo ? 'button' : 'div') + '>';
+    }).join("");
+  }
+  function recursosHtml(interativo){
+    return RECURSOS.map(function(r, i){
+      var tag = interativo ? 'button type="button" data-action="recurso" data-i="' + i + '"' : 'div';
+      return '<' + tag + ' class="rc" style="background-image:url(/assets/inicio/' + r.img + '.webp)"><div><b>' + esc(r.t) + '</b><span>' + esc(r.s) + '</span></div></' + (interativo ? 'button' : 'div') + '>';
+    }).join("");
+  }
+  function desenharPublico(){
+    if(!D) return; var p = D.publico || {};
+    $("vNumeros").innerHTML = cartoes(p); $("iNumeros").innerHTML = cartoes(p);
+    $("vRedes").innerHTML = redesHtml(p.redes_lista, false); $("iRedes").innerHTML = redesHtml(p.redes_lista, true);
+    $("nSub").textContent = "Direto da plataforma · atualizado às " + hhmm(D.gerado_em);
+    if(slideAt === 0 && pagina === "pgVitrine") contar($("vNumeros"));
+  }
+
+  // ---------- gestão ----------
+  function desenharGestao(){
+    if(!G) return; var d = G;
+    cada(document.querySelectorAll("#pgGestao [data-k]"), function(el){ var v = pega(d, el.getAttribute("data-k")); el.textContent = v == null ? "–" : fmt(v) + (el.getAttribute("data-suf") || ""); });
+    var w = d.whatsapp || {}, u = d.usuarios || {}, v = d.vencimentos || {}, cv = d.convites || {};
     $("kFila").classList.toggle("alerta", (w.fila || 0) > 0);
     $("kResp").classList.toggle("alerta", (w.resposta_media_min || 0) > 15);
     $("kCham").classList.toggle("alerta", (w.chamados_abertos || 0) > 0);
     $("kPend").classList.toggle("alerta", (u.pendentes || 0) > 0);
     $("kVence").classList.toggle("alerta", (v.licencas_amanha || 0) > 0);
     $("kCtr").classList.toggle("alerta", (v.contratos_amanha || 0) > 0);
-    $("nAval").textContent = w.avaliacoes_hoje ? "(" + fmt(w.avaliacoes_hoje) + ")" : "";
+    $("eTransf").textContent = fmt(w.transferidas_hoje) + " passaram para a equipe";
+    $("eEnc").textContent = fmt((w.encerradas_equipe || 0) + (w.encerradas_auto || 0));
+    $("eEncD").textContent = fmt(w.encerradas_equipe) + " pela equipe · " + fmt(w.encerradas_auto) + " por inatividade";
+    $("nAval").textContent = w.avaliacoes_hoje ? fmt(w.avaliacoes_hoje) + " avaliação(ões) hoje" : "sem avaliações hoje";
     $("novosHoje").textContent = u.novos_hoje == null ? "" : fmt(u.novos_hoje) + " hoje · " + fmt(u.novos_semana) + " nesta semana";
     $("vence7").textContent = v.licencas_7d == null ? "" : fmt(v.licencas_7d) + " nos próximos 7 dias";
     $("ctr30").textContent = v.contratos_30d == null ? "" : fmt(v.contratos_30d) + " nos próximos 30 dias";
+    $("eConv").textContent = cv.total ? fmt(cv.enviados) + " de " + fmt(cv.total) : "0";
+    $("eConvD").textContent = cv.total ? (cv.falhas ? fmt(cv.falhas) + " falha(s)" : "sem falhas") : "nenhum envio em andamento";
+    $("kConv").classList.toggle("alerta", (cv.falhas || 0) > 0);
     var eq = d.equipe || [];
     $("equipe").innerHTML = eq.length ? eq.map(function(p){
       return '<div class="pessoa"><i class="bola' + (p.disponivel ? "" : " off") + '"></i><b>' + esc(p.nome) + '</b>' +
         '<small>' + esc((p.setores || []).map(function(s){ return SET[s] || s; }).join(" · ")) + (p.disponivel ? "" : " · indisponível") + '</small>' +
         '<div class="nums"><span><em>' + fmt(p.comigo) + '</em>agora</span><span><em>' + fmt(p.atendidas_hoje) + '</em>hoje</span></div></div>';
     }).join("") : '<p class="vazio">Equipe ainda não cadastrada.</p>';
-    var redes = d.redes || [], max = Math.max.apply(null, redes.map(function(r){ return r.professores || 0; }).concat([1]));
+    var redes = d.redes || [], max = Math.max.apply(null, redes.map(function(r){ return (r.professores || 0) + (r.convidados || 0); }).concat([1]));
     $("redes").innerHTML = redes.length ? redes.map(function(r){
-      return '<div class="rede"><span class="n">' + esc(r.nome) + (r.uf ? "/" + esc(r.uf) : "") + '</span><span class="barra"><i style="width:' + Math.round(100 * (r.professores || 0) / max) + '%"></i></span>' +
-        '<span class="v"><b>' + fmt(r.professores) + '</b> prof. · ' + fmt(r.escolas) + ' esc.</span></div>';
+      return '<div class="rede"><span class="n">' + esc(r.nome) + (r.uf ? "/" + esc(r.uf) : "") + '</span><span class="barra"><i style="width:' + (100 * (r.professores || 0) / max) + '%"></i><i class="c" style="width:' + (100 * (r.convidados || 0) / max) + '%"></i></span>' +
+        '<span class="v"><b>' + fmt(r.professores) + '</b> + ' + fmt(r.convidados) + ' conv. · ' + fmt(r.escolas) + ' esc.</span></div>';
     }).join("") : '<p class="vazio">Nenhuma rede ativa.</p>';
-    // só depois de tudo desenhado (as redes mudam a altura do meio da tela)
-    ajustar(); requestAnimationFrame(ajustar);
-    $("atual").textContent = "Atualizado às " + new Date(d.gerado_em || Date.now()).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" });
+    caber($("equipe"), ["c1", "c2", "c3", "c4"]);
+    $("gAtual").textContent = "Atualizado às " + hhmm(d.gerado_em || Date.now()) + " · volta sozinho para a apresentação após 3 min sem toque";
   }
-  // aplica classes de compactação uma a uma até o conteúdo caber no bloco
   function caber(el, niveis){
     niveis.forEach(function(c){ el.classList.remove(c); });
     for(var i = 0; i < niveis.length && el.scrollHeight > el.clientHeight + 1; i++) el.classList.add(niveis[i]);
   }
-  function ajustar(){ caber($("equipe"), ["c1", "c2", "c3", "c4", "c5", "c6", "c7"]); }
-  var tRes = null; window.addEventListener("resize", function(){ clearTimeout(tRes); tRes = setTimeout(ajustar, 200); });
-  if(document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar);
-  function buscar(){
-    if(!CHAVE){ $("aviso").classList.add("on"); return; }
-    fetch(URL_DADOS, { cache:"no-store" }).then(function(r){
+
+  // ---------- dados ----------
+  function estado(txt, off){ var e = $("estado"); e.textContent = txt; e.className = "estado" + (off ? " off" : ""); }
+  function pedir(pin){
+    var op = pin ? { method:"POST", cache:"no-store", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ pin:pin }) } : { cache:"no-store" };
+    return fetch(URL_DADOS, op).then(function(r){
       if(r.status === 403){ $("aviso").classList.add("on"); throw new Error("chave"); }
       if(!r.ok) throw new Error("http " + r.status);
       return r.json();
     }).then(function(d){
-      $("aviso").classList.remove("on"); ultimo = Date.now(); desenhar(d);
-      try{ localStorage.setItem("pde_painel_tv", JSON.stringify(d)); }catch(e){}
-      var e = $("estado"); e.textContent = "ao vivo"; e.className = "estado";
-    }).catch(function(err){
-      if(String(err && err.message) === "chave") return;
-      var e = $("estado"); e.textContent = "sem conexão: mostrando o último dado"; e.className = "estado off";
+      $("aviso").classList.remove("on"); ultimo = Date.now(); D = d; desenharPublico();
+      try{ localStorage.setItem("pde_painel_tv2", JSON.stringify({ gerado_em:d.gerado_em, publico:d.publico })); }catch(e){}
+      estado("ao vivo · " + hhmm(d.gerado_em), false);
+      return d;
     });
   }
+  function buscar(){
+    if(!CHAVE){ $("aviso").classList.add("on"); return; }
+    pedir(pagina === "pgGestao" ? PIN : "").then(function(d){
+      if(pagina === "pgGestao"){ if(d.gestao){ G = d.gestao; desenharGestao(); } else sair(); }
+    }).catch(function(err){ if(String(err && err.message) !== "chave") estado(ultimo ? "sem conexão desde " + hhmm(ultimo) : "sem conexão", true); });
+  }
+  function relogio(){
+    var d = new Date();
+    $("hora").textContent = hhmm(d);
+    $("data").textContent = d.toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long", timeZone:"America/Campo_Grande" });
+    // dado velho nunca passa por atual
+    if(ultimo && Date.now() - ultimo > 3 * 60e3) estado("sem atualização desde " + hhmm(ultimo), true);
+  }
 
-  // ---- tela cheia: botão na primeira vez; qualquer toque, clique ou tecla do controle (OK/Enter) também entra
+  // ---------- navegação ----------
+  var pagina = "pgVitrine", tOcioso = null, tSlide = null, slideAt = 0;
+  function ir(pg){
+    pagina = pg;
+    cada(document.querySelectorAll(".pag"), function(s){ s.classList.toggle("on", s.id === pg); });
+    $("btVoltar").hidden = pg === "pgVitrine";
+    $("btVoltar").textContent = pg === "pgMenu" ? "← Apresentação" : "← Voltar";
+    $("btVoltar").setAttribute("data-action", pg === "pgMenu" ? "vitrine" : "menu");
+    $("titulo").firstChild.nodeValue = pg === "pgGestao" ? "Painel da equipe" : "Portal do Educador";
+    clearInterval(tSlide);
+    if(pg === "pgVitrine"){ slide(0); tSlide = setInterval(function(){ slide((slideAt + 1) % 4); }, SLIDE); }
+    if(pg === "pgNumeros") contar($("iNumeros"));
+    if(pg === "pgPin"){ digitando = ""; pinDots(); $("pinMsg").textContent = D && D.tem_pin === false ? "PIN ainda não definido: defina no Portal, em Atendimento WhatsApp › Painel da TV." : ""; }
+    if(pg !== "pgGestao" && pg !== "pgPin"){ PIN = ""; G = null; }
+    acordar();
+  }
+  function slide(i){
+    slideAt = i;
+    cada(document.querySelectorAll(".slide"), function(s){ s.classList.toggle("on", Number(s.getAttribute("data-s")) === i); });
+    cada($("pontos").children, function(p, k){ p.classList.toggle("on", k === i); });
+    if(i === 0) contar($("vNumeros"));
+  }
+  function acordar(){
+    clearTimeout(tOcioso);
+    if(pagina === "pgVitrine") return;
+    tOcioso = setTimeout(function(){ fecharModal(); ir("pgVitrine"); }, pagina === "pgGestao" ? TEMPO_GESTAO : TEMPO_MENU);
+  }
+  function sair(){ PIN = ""; G = null; ir("pgVitrine"); }
+
+  // ---------- detalhe ----------
+  function abrirModal(html){ $("caixa").innerHTML = html + '<button type="button" class="voltar fechar" data-action="fechar">Fechar</button>'; $("modal").classList.add("on"); }
+  function fecharModal(){ $("modal").classList.remove("on"); }
+  function abrirRede(i){
+    var r = ((D && D.publico && D.publico.redes_lista) || [])[i]; if(!r) return;
+    abrirModal('<h3>' + esc(r.nome) + ' <small style="color:var(--lima);font-size:.45em">' + esc(r.uf) + '</small></h3>' +
+      '<div class="lin"><div><b>' + fmt(r.escolas) + '</b><span>escolas no Portal</span></div><div><b>' + fmt(r.educadores) + '</b><span>educadores com acesso</span></div></div>' +
+      '<p>Professores e gestão entram com a conta Google da rede e encontram planejamento com IA, aulas para a lousa, provas com correção pelo celular e a gestão da Secretaria num só lugar.</p>');
+  }
+  function abrirRecurso(i){
+    var r = RECURSOS[i]; if(!r) return;
+    abrirModal('<div style="height:24vh;border-radius:1em;background:#0b2238 url(/assets/inicio/' + r.img + '.webp) center/cover;margin-bottom:1em"></div><h3>' + esc(r.t) + '</h3><p>' + esc(r.d) + '</p>');
+  }
+
+  // ---------- PIN ----------
+  function pinDots(){ cada($("pinDig").children, function(d, k){ d.classList.toggle("on", k < digitando.length); }); }
+  $("teclas").innerHTML = ["1","2","3","4","5","6","7","8","9","limpar","0","ok"].map(function(t){
+    return '<button type="button" data-action="tecla" data-t="' + t + '">' + (t === "limpar" ? "⌫" : t === "ok" ? "OK" : t) + '</button>';
+  }).join("");
+  function tecla(t){
+    if(t === "limpar"){ digitando = digitando.slice(0, -1); pinDots(); return; }
+    if(t === "ok"){ entrarPin(); return; }
+    if(digitando.length < 6){ digitando += t; pinDots(); $("pinMsg").textContent = ""; }
+  }
+  function entrarPin(){
+    if(digitando.length < 4){ $("pinMsg").textContent = "O PIN tem pelo menos 4 números."; return; }
+    var tentativa = digitando; digitando = ""; pinDots(); $("pinMsg").textContent = "Conferindo…";
+    pedir(tentativa).then(function(d){
+      if(d.gestao){ PIN = tentativa; G = d.gestao; ir("pgGestao"); desenharGestao(); return; }
+      $("pinMsg").textContent = d.pin_erro === "travado" ? "Muitas tentativas. Aguarde 5 minutos." : d.pin_erro === "sem_pin" ? "PIN ainda não definido no Portal." : "PIN incorreto.";
+    }).catch(function(){ $("pinMsg").textContent = "Sem conexão. Tente de novo."; });
+  }
+
+  // ---------- toques (delegação; nada de onclick no HTML) ----------
+  document.addEventListener("click", function(e){
+    entrarCheia(); acordar();
+    var a = e.target.closest("[data-action]"); if(!a) return;
+    var acao = a.getAttribute("data-action");
+    if(acao === "menu"){ ir("pgMenu"); }
+    else if(acao === "vitrine"){ ir("pgVitrine"); }
+    else if(acao === "ir"){ ir(a.getAttribute("data-pg")); }
+    else if(acao === "rede"){ abrirRede(Number(a.getAttribute("data-i"))); }
+    else if(acao === "recurso"){ abrirRecurso(Number(a.getAttribute("data-i"))); }
+    else if(acao === "fechar"){ if(e.target === a || a.classList.contains("fechar")) fecharModal(); }
+    else if(acao === "tecla"){ tecla(a.getAttribute("data-t")); }
+    else if(acao === "sair"){ sair(); }
+  });
+  document.addEventListener("keydown", function(e){
+    acordar();
+    if(pagina === "pgPin" && /^\d$/.test(e.key)){ tecla(e.key); return; }
+    if(pagina === "pgPin" && e.key === "Backspace"){ tecla("limpar"); return; }
+    if(e.key === "Escape" || e.key === "Back" || e.key === "GoBack"){ fecharModal(); ir(pagina === "pgMenu" ? "pgVitrine" : "pgMenu"); return; }
+    if(pagina === "pgVitrine" && (e.key === "Enter" || e.key === "OK" || e.key === "Select")) ir("pgMenu");
+  });
+
+  // ---------- tela cheia e tela sempre acesa ----------
   var el = document.documentElement;
   var podeCheia = !!(el.requestFullscreen || el.webkitRequestFullscreen);
   function emCheia(){ return !!(document.fullscreenElement || document.webkitFullscreenElement) || window.matchMedia("(display-mode: fullscreen)").matches; }
@@ -244,23 +570,26 @@
     if(!podeCheia || emCheia()) return;
     var p = el.requestFullscreen ? el.requestFullscreen({ navigationUI:"hide" }) : el.webkitRequestFullscreen();
     if(p && p.catch) p.catch(function(){});
-    try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock(screen.orientation.type).catch(function(){}); }catch(e){}
   }
   function attBotao(){ $("btCheia").hidden = !podeCheia || emCheia(); }
-  document.addEventListener("click", function(e){ if(e.target.closest('[data-action="cheia"]') || !emCheia()) entrarCheia(); });
-  document.addEventListener("keydown", function(e){ if(["Enter", " ", "f", "F", "OK", "Select"].indexOf(e.key) >= 0) entrarCheia(); });
   document.addEventListener("fullscreenchange", attBotao); document.addEventListener("webkitfullscreenchange", attBotao);
-  // a tela da TV não apaga sozinha enquanto o painel estiver aberto (onde o navegador permitir)
-  var trava = null;
-  function manterAcesa(){ try{ if(navigator.wakeLock && document.visibilityState === "visible") navigator.wakeLock.request("screen").then(function(t){ trava = t; }).catch(function(){}); }catch(e){} }
-  document.addEventListener("visibilitychange", manterAcesa);
-  // cursor some sozinho; aparece se mexer o mouse
+  function manterAcesa(){ try{ if(navigator.wakeLock && document.visibilityState === "visible") navigator.wakeLock.request("screen").catch(function(){}); }catch(e){} }
+  document.addEventListener("visibilitychange", function(){ manterAcesa(); if(document.visibilityState === "visible") buscar(); });
   var tCursor = null;
   document.addEventListener("mousemove", function(){ document.body.classList.add("mouse"); clearTimeout(tCursor); tCursor = setTimeout(function(){ document.body.classList.remove("mouse"); }, 3000); });
 
-  try{ var g = JSON.parse(localStorage.getItem("pde_painel_tv") || "null"); if(g) desenhar(g); }catch(e){}
-  attBotao(); manterAcesa();
+  // ---------- QR do WhatsApp ----------
+  function qr(){
+    if(!window.QRCode){ setTimeout(qr, 1500); return; }
+    ["qr1", "qr2"].forEach(function(id){ $(id).innerHTML = ""; new window.QRCode($(id), { text:WHATS, width:512, height:512, colorDark:"#0f2c4a", colorLight:"#ffffff", correctLevel:window.QRCode.CorrectLevel.M }); });
+  }
+
+  // ---------- início ----------
+  $("vRecursos").innerHTML = recursosHtml(false); $("iRecursos").innerHTML = recursosHtml(true);
+  try{ var g = JSON.parse(localStorage.getItem("pde_painel_tv2") || "null"); if(g && g.publico){ D = g; ultimo = 0; desenharPublico(); estado("dado guardado das " + hhmm(g.gerado_em) + " · conectando…", true); } }catch(e){}
+  attBotao(); manterAcesa(); qr();
   setTimeout(function(){ $("btCheia").hidden = true; }, 20000);
+  ir("pgVitrine");
   relogio(); setInterval(relogio, 15e3);
   buscar(); setInterval(buscar, 60e3);
   // recarrega de madrugada (versão nova do painel e memória limpa)
