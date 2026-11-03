@@ -17,6 +17,7 @@
 //   wa_vistos/{wamid}                     ids já tratados (a Meta pode reenviar); expira_em tem TTL de 7 dias
 //   bot_conhecimento/{id}                 trechos dos manuais (titulo, texto) que o robô usa para responder
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -97,11 +98,42 @@ async function conhecimento(db) {
   CONHECIMENTO = l; CONHECIMENTO_EM = Date.now(); return l;
 }
 const VAZIAS = new Set('a o e de da do das dos em no na nos nas um uma para por com como que se eu meu minha ao os as é ou mais'.split(' '));
-function buscar(lista, pergunta, n = 5) {
-  const termos = sa(pergunta).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !VAZIAS.has(w));
+// palavras do dia a dia → como o manual chama (amplia a busca sem depender da palavra exata)
+const SINONIMOS = { carteira: 'carteirinha cartao cracha', cracha: 'carteirinha cartao', qr: 'qrcode carteirinha cartao', qrcode: 'qr carteirinha',
+  senha: 'entrar acesso link', login: 'entrar acesso', logar: 'entrar acesso', prova: 'avaliacao gerador', avaliacao: 'prova', nota: 'notas boletim media',
+  chamada: 'frequencia presenca', presenca: 'frequencia chamada', falta: 'frequencia', boletim: 'notas', lousa: 'quadro', tablet: 'aparelho dispositivo',
+  chromebook: 'aparelho dispositivo', aula: 'turma', aluno: 'alunos', turma: 'turmas', imprimir: 'impressao pdf', baixar: 'download pdf' };
+// radical: corta o fim da palavra (carteiras → cartei, imprimir → imprim) para achar plural, diminutivo e conjugação
+const radical = w => w.length <= 5 ? w : w.slice(0, Math.max(5, Math.min(7, w.length - 3)));
+function buscar(lista, pergunta, n = 6) {
+  let palavras = sa(pergunta).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2 && !VAZIAS.has(w));
+  palavras = palavras.concat(...palavras.map(w => (SINONIMOS[w] || SINONIMOS[w.replace(/s$/, '')] || '').split(' ').filter(Boolean)));
+  const termos = [...new Set(palavras.map(radical))];
   if (!termos.length) return [];
-  return lista.map(x => ({ x, p: termos.reduce((s, t) => s + (x.chave.includes(t) ? 1 + (sa(x.titulo).includes(t) ? 1 : 0) : 0), 0) }))
+  // palavra rara vale mais (idf): "carteirinha" pesa mais que "portal"
+  const N = lista.length || 1, peso = {};
+  termos.forEach(t => { const df = lista.reduce((c, x) => c + (x.chave.includes(t) ? 1 : 0), 0); peso[t] = df ? Math.log(1 + N / df) : 0; });
+  return lista.map(x => ({ x, p: termos.reduce((s, t) => s + (x.chave.includes(t) ? peso[t] * (sa(x.titulo).includes(t) ? 2 : 1) : 0), 0) }))
     .filter(r => r.p > 0).sort((a, b) => b.p - a.p).slice(0, n).map(r => r.x);
+}
+// segunda chance: a IA escolhe, pelos títulos do manual, onde está a resposta (quando a busca por palavra errou)
+async function escolherSecoes(lista, pergunta) {
+  const titulos = [...new Set(lista.map(x => x.titulo))].slice(0, 400);
+  const corpo = { systemInstruction: { parts: [{ text: 'Escolha até 3 títulos do manual que respondem à pergunta. Responda só o JSON com os números.' }] },
+    contents: [{ role: 'user', parts: [{ text: 'TÍTULOS:\n' + titulos.map((t, i) => i + ': ' + t).join('\n') + '\n\nPERGUNTA: ' + txt(pergunta, 400) }] }],
+    generationConfig: { maxOutputTokens: 60, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' }, responseSchema: { type: 'OBJECT', properties: { secoes: { type: 'ARRAY', items: { type: 'INTEGER' } } }, required: ['secoes'] } } };
+  for (const modelo of MODELOS) {
+    try {
+      const chamar = c => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() }, body: JSON.stringify(c), signal: AbortSignal.timeout(8000) });
+      let r = await chamar(corpo); if (r.status === 400) { delete corpo.generationConfig.thinkingConfig; r = await chamar(corpo); }
+      if (!r.ok) continue;
+      const j = await r.json(), o = JSON.parse(((j.candidates || [])[0] || {}).content?.parts?.map(p => p.text || '').join('') || '{}');
+      const esc = (o.secoes || []).map(i => titulos[i]).filter(Boolean);
+      return lista.filter(x => esc.includes(x.titulo)).slice(0, 6);
+    } catch (e) { /* próximo modelo */ }
+  }
+  return [];
 }
 // ---------- agente: entende o pedido e resolve consultando o Portal ----------
 // Classifica a mensagem (uma chamada curta à IA) e, quando é algo que o Portal sabe responder, responde com os dados reais:
@@ -172,8 +204,17 @@ async function escolaNaRede(db, quem, nomeEscola) {
 }
 
 async function responderDuvida(db, pergunta, quem) {
-  const trechos = buscar(await conhecimento(db), pergunta);
-  if (!trechos.length) return null;
+  const lista = await conhecimento(db);
+  let trechos = buscar(lista, pergunta);
+  let resp = trechos.length ? await responderComTrechos(trechos, pergunta, quem) : null;
+  if (!resp) {   // a busca por palavra não achou: a IA aponta a seção pelos títulos e tentamos de novo
+    const outros = await escolherSecoes(lista, pergunta);
+    const novos = outros.filter(x => !trechos.includes(x));
+    if (novos.length) resp = await responderComTrechos(novos, pergunta, quem);
+  }
+  return resp;
+}
+async function responderComTrechos(trechos, pergunta, quem) {
   const contexto = trechos.map((t, i) => '[' + (i + 1) + '] ' + t.titulo + '\n' + t.texto.slice(0, 2500)).join('\n\n');
   const instrucao = 'Você é o assistente de suporte do Portal do Educador (plataforma para professores de escolas públicas). ' +
     'Responda em português do Brasil, de forma curta e prática, em passos numerados quando for um procedimento, no máximo 12 linhas, sem markdown (use *negrito* só para nomes de botões). ' +
@@ -267,6 +308,8 @@ async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
 export const diaCG = (t = Date.now()) => new Date(t - 4 * 3600e3).toISOString().slice(0, 10);
 // set com merge junta os mapas aninhados (por_setor, atendidas_por); ponto no nome da chave NÃO vira caminho no set
 const metricas = (db, campos) => db.doc('wa_metricas/' + diaCG()).set({ ...campos, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+// pesquisa de satisfação ao encerrar (botões); a resposta vai para wa_metricas e para a conversa
+const PESQUISA = botoes('Como foi o atendimento?', [{ id: 'nota_3', title: '😀 Ótimo' }, { id: 'nota_2', title: '😐 Regular' }, { id: 'nota_1', title: '🙁 Ruim' }]);
 const AVISO_HORARIO = 'Nosso atendimento humano é de segunda a sexta, das 8h às 18h. Sua mensagem fica registrada e respondemos no próximo horário.';
 
 // ---------- conversa ----------
@@ -293,8 +336,34 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Por enquanto eu entendo só mensagens de texto. Escreva sua dúvida ou digite *menu*.')); return; }
 
   // em atendimento humano: o robô só volta se a pessoa pedir o menu
+  if (/^nota_[123]$/.test(entrada)) {
+    const nota = Number(entrada.slice(5));
+    await ref.set({ avaliacao: nota, avaliado_em: FieldValue.serverTimestamp(), estado: 'menu' }, { merge: true });
+    await metricas(db, { avaliacoes: FieldValue.increment(1), avaliacao_soma: FieldValue.increment(nota), ['nota_' + nota]: FieldValue.increment(1) });
+    await responder(texto(nota === 1 ? 'Obrigado por avisar. Vamos rever esse atendimento. Se quiser, conte numa mensagem o que faltou.' : 'Obrigado pela avaliação! Quando precisar, é só chamar.'));
+    if (nota === 1) await avisarEquipe(cfg, 'WhatsApp: avaliação ruim de ' + (nome || waId), '<p>' + esc(nome || waId) + ' avaliou o atendimento como <b>ruim</b>. Veja a conversa na tela Atendimento WhatsApp.</p>');
+    return;
+  }
   if (conv.estado === 'atendente' && !SAUDACAO.test(entrada)) {
     await ref.set({ nao_lidas: FieldValue.increment(1) }, { merge: true });
+    if (/^(resolvido|resolveu|obrigad[oa]|era isso|deu certo)\b/i.test(sa(entrada)) && conv.aguardando_desde) {
+      await ref.set({ estado: 'menu', atribuido_uid: '', atribuido_nome: '', aguardando_desde: FieldValue.delete(), fila_desde: FieldValue.delete() }, { merge: true });
+      await guardar(ref, 'sistema', 'A pessoa marcou como resolvido antes da equipe responder');
+      await metricas(db, { resolvidas_espera: FieldValue.increment(1) });
+      await responder(texto('Que bom que resolveu! Vou avisar a equipe que não precisa mais.'));
+      await responder(PESQUISA);
+      return;
+    }
+    // ninguém da equipe respondeu ainda: o robô não deixa no vácuo. Tenta ajudar pelo manual; se não souber, confirma que chegou.
+    if (conv.aguardando_desde && msg.type === 'text') {
+      const ajuda = entrada.length >= 12 ? await responderDuvida(db, entrada, quem).catch(() => null) : null;
+      const ack = conv.ack_em && conv.ack_em.toMillis ? conv.ack_em.toMillis() : 0;
+      if (ajuda) await responder(texto('Enquanto a equipe não chega, veja se isto ajuda:\n\n' + ajuda + '\n\nSe resolver, pode só dizer *resolvido*.'));
+      else if (Date.now() - ack > 10 * 60e3) {
+        await ref.set({ ack_em: FieldValue.serverTimestamp() }, { merge: true });
+        await responder(texto('Recebi sua mensagem e ela já está com ' + (conv.atribuido_nome ? 'uma pessoa da equipe' : 'a equipe') + (conv.setor ? ' (' + SETORES[conv.setor] + ')' : '') + '. Em breve alguém responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
+      }
+    }
     const ult = conv.notificado_em && conv.notificado_em.toMillis ? conv.notificado_em.toMillis() : 0;
     if (conv.atribuido_uid && Date.now() - ult > 60e3) { await ref.set({ notificado_em: FieldValue.serverTimestamp() }, { merge: true }); await notificar(db, [conv.atribuido_uid], (conv.nome || conv.nome_whatsapp || 'Contato') + ' respondeu', entrada, waId); }
     return;
@@ -447,6 +516,7 @@ export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxI
   // a pessoa vê só a equipe, nunca o nome de quem atendeu (o nome fica no histórico interno)
   if (msg) {
     await enviar(cfg, waId, texto('*Equipe Portal do Educador:* ' + msg)); await guardar(ref, 'equipe', msg, { autor_uid: req.auth.uid, autor_nome: quem });
+    await ref.set({ ultima_equipe_em: FieldValue.serverTimestamp() }, { merge: true });
     // tempo até a 1ª resposta humana depois que o robô passou a conversa
     const desde = conv.aguardando_desde && conv.aguardando_desde.toMillis ? conv.aguardando_desde.toMillis() : 0;
     if (desde) { await metricas(db, { resp_soma_s: FieldValue.increment(Math.round((Date.now() - desde) / 1000)), resp_n: FieldValue.increment(1) }); await ref.update({ aguardando_desde: FieldValue.delete() }); }
@@ -454,12 +524,13 @@ export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxI
   if (encerrar) await metricas(db, { encerradas: FieldValue.increment(1), atendidas_por: { [req.auth.uid]: FieldValue.increment(1) } });
   if (encerrar) {
     await enviar(cfg, waId, texto('Atendimento encerrado. Se precisar de mais alguma coisa, é só digitar *menu*.'));
-    await guardar(ref, 'robo', 'Atendimento encerrado');
+    await enviar(cfg, waId, PESQUISA).catch(() => {});
+    await guardar(ref, 'robo', 'Atendimento encerrado (pesquisa de satisfação enviada)');
   }
   // quem responde uma conversa da fila (sem dono) fica com ela
   const dono = conv.atribuido_uid ? {} : { atribuido_uid: req.auth.uid, atribuido_nome: u.nomeCompleto || quem, atribuido_em: FieldValue.serverTimestamp() };
   await ref.set({ estado: encerrar ? 'menu' : 'atendente', nao_lidas: 0, atendente_uid: req.auth.uid, atendente_nome: quem, ...dono,
-    ...(encerrar ? { fila_desde: FieldValue.delete(), atribuido_uid: '', atribuido_nome: '', setor: FieldValue.delete() } : {}) }, { merge: true });
+    ...(encerrar ? { fila_desde: FieldValue.delete(), atribuido_uid: '', atribuido_nome: '', setor: FieldValue.delete(), aguardando_desde: FieldValue.delete() } : {}) }, { merge: true });
   if (encerrar) await auditar(db, waId, 'Atendimento encerrado por ' + quem);
   return { ok: true };
 });
@@ -518,4 +589,57 @@ export const whatsappEquipe = onCall({ region: REGIAO, maxInstances: 3, timeoutS
     return { ok: true };
   }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
+});
+
+// ---------- rotina (a cada 5 min): ninguém fica no vácuo e conversa parada se encerra sozinha ----------
+// Tempos em wa_config/geral (minutos): sla_min (10) sem resposta humana → passa para o próximo do setor (até 2 vezes) e avisa todos;
+// fim_humano_min (120) sem a pessoa responder depois da equipe → encerra com pesquisa; fim_robo_min (30) conversa com o robô parada → volta ao menu.
+export const whatsappRotina = onSchedule({ region: REGIAO, schedule: 'every 5 minutes', timeZone: 'America/Campo_Grande', secrets: [TOKEN, SMTP_SENHA], timeoutSeconds: 120, memory: '256MiB' }, async () => {
+  const db = getFirestore(), cfg = (await db.doc('wa_config/geral').get()).data() || {};
+  if (!cfg.ligado || !cfg.phone_number_id) return;
+  const agora = Date.now(), ms = t => (t && t.toMillis ? t.toMillis() : 0);
+  const SLA = (cfg.sla_min || 10) * 60e3, FIM_H = (cfg.fim_humano_min || 120) * 60e3, FIM_R = (cfg.fim_robo_min || 30) * 60e3;
+  const emAt = await db.collection('wa_conversas').where('estado', '==', 'atendente').get();
+  for (const d of emAt.docs) {
+    const c = d.data(), ref = d.ref, waId = d.id, dentro24 = agora - ms(c.ultima_pessoa_em) < 23.5 * 3600e3;
+    try {
+      // 1) ninguém respondeu ainda
+      if (c.aguardando_desde) {
+        const espera = agora - ms(c.aguardando_desde);
+        if (espera < SLA || !dentroHorario()) continue;
+        const ultimoAviso = ms(c.sla_aviso_em); if (agora - ultimoAviso < SLA) continue;
+        const setor = c.setor || 'suporte', vezes = c.reencaminhada || 0;
+        const m = vezes < 2 ? await proximoDoSetor(db, setor, c.atribuido_uid || '') : null;
+        await ref.set({ sla_aviso_em: FieldValue.serverTimestamp(), reencaminhada: FieldValue.increment(1),
+          ...(m ? { atribuido_uid: m.uid, atribuido_nome: m.nome, atribuido_em: FieldValue.serverTimestamp() } : {}) }, { merge: true });
+        const min = Math.round(espera / 60e3), quem = c.nome || c.nome_whatsapp || 'Contato';
+        await guardar(ref, 'sistema', (m ? 'Sem resposta há ' + min + ' min: passou para ' + m.nome : 'Sem resposta há ' + min + ' min: toda a equipe do setor foi avisada'));
+        if (m) await Promise.all([notificar(db, [m.uid], 'Conversa esperando há ' + min + ' min', quem + ' · ' + SETORES[setor], waId),
+          avisarPessoa(m.email, 'WhatsApp: ' + quem + ' espera há ' + min + ' min', '<p>' + esc(quem) + ' espera resposta há ' + min + ' minutos. A conversa passou para você.</p><p>' + SITE + '/atendimento/#c=' + waId + '</p>')]);
+        else {
+          const sn = await db.collection('wa_equipe').where('setores', 'array-contains', setor).get();
+          await notificar(db, sn.docs.filter(x => x.data().ativo === true).map(x => x.id), 'Conversa esperando há ' + min + ' min', quem + ' · ' + SETORES[setor], waId);
+          await avisarEquipe(cfg, 'WhatsApp: ' + quem + ' espera há ' + min + ' min sem resposta', '<p>Ninguém respondeu ainda. Assuma pela tela de atendimento: ' + SITE + '/atendimento/</p>');
+        }
+        if (dentro24 && vezes === 0) await enviar(cfg, waId, texto('Ainda estamos com a sua conversa. Já chamei mais alguém da equipe para responder.')).then(() => guardar(ref, 'robo', 'Aviso de espera enviado')).catch(() => {});
+        await metricas(db, { sla_estouros: FieldValue.increment(1) });
+        continue;
+      }
+      // 2) a equipe respondeu e a pessoa sumiu: encerra com pesquisa
+      const ultima = Math.max(ms(c.ultima_pessoa_em), ms(c.ultima_equipe_em));
+      if (ultima && agora - ultima > FIM_H && ms(c.ultima_equipe_em) >= ms(c.ultima_pessoa_em)) {
+        await ref.set({ estado: 'menu', atribuido_uid: '', atribuido_nome: '', fila_desde: FieldValue.delete(), setor: FieldValue.delete(), nao_lidas: 0 }, { merge: true });
+        if (dentro24) {
+          await enviar(cfg, waId, texto('Como não tivemos mais retorno, encerrei este atendimento. Se precisar, é só mandar *menu*.')).catch(() => {});
+          await enviar(cfg, waId, PESQUISA).catch(() => {});
+        }
+        await guardar(ref, 'sistema', 'Encerrada por falta de resposta da pessoa');
+        await metricas(db, { encerradas_auto: FieldValue.increment(1) });
+        await auditar(db, waId, 'Atendimento encerrado por inatividade');
+      }
+    } catch (e) { console.warn('whatsapp rotina:', waId.slice(-4), e.message); }
+  }
+  // 3) conversa com o robô parada no meio (esperando a dúvida, o chamado ou os dados comerciais): volta ao menu sem mensagem
+  const meio = await db.collection('wa_conversas').where('estado', 'in', ['duvida', 'chamado', 'comercial']).get();
+  await Promise.all(meio.docs.filter(d => agora - ms(d.data().ultima_em) > FIM_R).map(d => d.ref.set({ estado: 'menu' }, { merge: true })));
 });
