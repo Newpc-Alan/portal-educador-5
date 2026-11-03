@@ -38,7 +38,10 @@ service firebase.storage {
 
     // Portal do Educador TV: fotos e videos das escolas (a TV le pelo link com token gerado no envio)
     function equipeTvEscola(esc) {
-      return request.auth != null && eu().status == "ativo" && (eu().perfil == "admin"
+      return request.auth != null && eu().status == "ativo" && (
+        // TV própria do avulso, cortesia ou teste (pasta u_{uid}); vem antes para não consultar uma escola que não existe
+        (esc == "u_" + request.auth.uid && eu().perfil == "professor" && eu().get("licenca_tipo", "institucional") in ["avulsa", "cortesia", "teste"])
+        || eu().perfil == "admin"
         || (licenciado() && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]))
         || (eu().perfil == "gestor" && esc in eu().get("escolas_ids", [eu().get("escola_id", "")]))
         || (eu().perfil == "secretaria" && firestore.get(/databases/(default)/documents/escolas/$(esc)).data.municipio_id == eu().get("municipio_id", "-")));

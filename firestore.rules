@@ -404,8 +404,13 @@ service cloud.firestore {
       return admin() || (licenciado() && esc in minhasEscolas()) || gestorDaEscola(esc)
         || (ativo() && eu().perfil == "secretaria" && muniDaEscola(esc) == eu().get("municipio_id", "-"));
     }
+    // TV própria do professor avulso, cortesia ou teste: o "local" é u_{uid}, sem escola e sem município
+    function tvPessoal(esc) {
+      return esc is string && esc == "u_" + request.auth.uid && ativo() && eu().perfil == "professor" && eu().get("licenca_tipo", "institucional") in ["avulsa", "cortesia", "teste"]
+        && eu().get("licenca_fim", null) != null && eu().licenca_fim > request.time;
+    }
     function tvLeitor(esc, m) {
-      return admin() || (ativo() && eu().perfil != "aluno" && (esc in minhasEscolas() || (eu().perfil == "secretaria" && m == eu().get("municipio_id", "-"))));
+      return tvPessoal(esc) || admin() || (ativo() && eu().perfil != "aluno" && (esc in minhasEscolas() || (eu().perfil == "secretaria" && m == eu().get("municipio_id", "-"))));
     }
     match /tv_pareamentos/{cod} {
       allow create: if cod.matches("^[A-HJ-NP-Z2-9]{6}$") && novo().keys().hasOnly(["chave", "criado_em", "orientacao", "resolucao"])
@@ -416,19 +421,22 @@ service cloud.firestore {
     match /tv_telas/{chave} {
       allow get: if true;
       allow list: if tvLeitor(resource.data.escola_id, resource.data.municipio_id);
-      allow create: if chave.matches("^[A-Za-z0-9]{20}$") && tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id);
-      allow update: if (tvEquipeEscola(resource.data.escola_id) && novo().escola_id == resource.data.escola_id && novo().municipio_id == resource.data.municipio_id)
+      allow create: if chave.matches("^[A-Za-z0-9]{20}$") && ((tvPessoal(novo().escola_id) && novo().municipio_id == "" && novo().get("canal", "") == "" && novo().get("modo", "tv") == "tv")
+        || (tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id)));
+      allow update: if (tvPessoal(resource.data.escola_id) && novo().escola_id == resource.data.escola_id && novo().municipio_id == "" && novo().get("canal", "") == "" && novo().get("modo", "tv") == "tv")
+        || (tvEquipeEscola(resource.data.escola_id) && novo().escola_id == resource.data.escola_id && novo().municipio_id == resource.data.municipio_id)
         || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(["visto_em", "resolucao", "aparelho"]) && novo().visto_em == request.time
             && novo().resolucao is string && novo().resolucao.size() < 20 && novo().aparelho is string && novo().aparelho.size() < 20);
-      allow delete: if tvEquipeEscola(resource.data.escola_id);
+      allow delete: if tvPessoal(resource.data.escola_id) || tvEquipeEscola(resource.data.escola_id);
     }
     match /tv_playlists/{id} {
       allow get: if true;
       allow list: if tvLeitor(resource.data.escola_id, resource.data.municipio_id);
-      allow create: if tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id) && novo().itens is list && novo().itens.size() <= 80;
-      allow update: if tvEquipeEscola(resource.data.escola_id) && novo().escola_id == resource.data.escola_id && novo().municipio_id == resource.data.municipio_id
+      allow create: if ((tvPessoal(novo().escola_id) && novo().municipio_id == "") || (tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id)))
         && novo().itens is list && novo().itens.size() <= 80;
-      allow delete: if tvEquipeEscola(resource.data.escola_id);
+      allow update: if ((tvPessoal(resource.data.escola_id) && novo().municipio_id == "") || (tvEquipeEscola(resource.data.escola_id) && novo().municipio_id == resource.data.municipio_id))
+        && novo().escola_id == resource.data.escola_id && novo().itens is list && novo().itens.size() <= 80;
+      allow delete: if tvPessoal(resource.data.escola_id) || tvEquipeEscola(resource.data.escola_id);
     }
     // ---------- Notas e Medias ----------
     // regra de calculo do municipio (bimestres, pesos, media minima, recuperacao, frequencia): a secretaria define, a rede le

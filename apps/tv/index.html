@@ -135,7 +135,7 @@ button{cursor:pointer}
       <select class="sel-escola" id="selEscola" aria-label="Escola" hidden></select>
       <button class="tb on" data-action="ir" data-arg="telas">📺 Telas</button>
       <button class="tb" data-action="ir" data-arg="playlists">🎞️ Playlists</button>
-      <button class="tb" data-action="ir" data-arg="avisos">📢 Comunicados</button>
+      <button class="tb" data-action="ir" data-arg="avisos" id="tbAvisos">📢 Comunicados</button>
       <button class="tb" data-action="ir" data-arg="campanhas" id="tbCamp" hidden>🎗️ Campanhas</button>
       <a class="tb voltar" id="tvVoltar" href="/entrar/">← Voltar ao Portal</a>
     </nav>
@@ -164,13 +164,15 @@ const ORI = { auto:"Automática", h:"Horizontal", v:"Vertical (totem)" };
 const TURNOS = [["manha","Manhã","07:00"],["tarde","Tarde","13:00"],["noite","Noite","18:30"]];
 const ms = v => v && v.toMillis ? v.toMillis() : (v && v.__ms) || (typeof v === "number" ? v : 0);
 
-const E = { user:null, u:null, perfil:"", admin:false, escolas:[], escolaId:"", escola:null, muni:null, canal:null,
+const E = { user:null, u:null, perfil:"", admin:false, pessoal:false, escolas:[], escolaId:"", escola:null, muni:null, canal:null,
   telas:null, playlists:null, plSel:"", aba:"telas", form:null, salvarT:0 };
 
 /* ===================== dados ===================== */
 async function carregarEscolas(){
   const u = E.u; let lista = [];
-  if(E.admin){ const s = await getDocs(collection(db, "escolas")); s.forEach(d => lista.push({ id:d.id, ...d.data() })); }
+  // professor avulso, cortesia ou teste: TV própria, só com o que ele publica (nada da escola nem da Secretaria do município)
+  if(E.pessoal){ lista = [{ id:"u_" + E.user.uid, nome:"Minhas TVs", municipio_id:"", pessoal:true }]; }
+  else if(E.admin){ const s = await getDocs(collection(db, "escolas")); s.forEach(d => lista.push({ id:d.id, ...d.data() })); }
   else if(E.perfil === "secretaria" && u.municipio_id){ const s = await getDocs(query(collection(db, "escolas"), where("municipio_id", "==", u.municipio_id))); s.forEach(d => lista.push({ id:d.id, ...d.data() })); }
   else {
     const ids = (u.escolas_ids && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean);
@@ -186,7 +188,7 @@ async function carregarEscolas(){
 async function trocarEscola(id){
   E.escolaId = id; E.escola = E.escolas.find(x => x.id === id) || null; E.telas = null; E.playlists = null; E.plSel = ""; E.canal = null; E.muni = null;
   try{ localStorage.setItem("pde_tv_escola_" + E.user.uid, id); }catch(e){}
-  if(E.escola && E.escola.municipio_id){ try{ const s = await getDoc(doc(db, "municipios", E.escola.municipio_id)); E.muni = s.exists() ? { id:s.id, ...s.data() } : null; }catch(e){} }
+  if(E.escola && E.escola.municipio_id && !E.escola.pessoal){ try{ const s = await getDoc(doc(db, "municipios", E.escola.municipio_id)); E.muni = s.exists() ? { id:s.id, ...s.data() } : null; }catch(e){} }
   ir(E.aba);
 }
 const filtroEscola = () => [where("escola_id", "==", E.escolaId), where("municipio_id", "==", E.escola.municipio_id || "")];
@@ -194,7 +196,7 @@ async function carregarTelas(){ const s = await getDocs(query(collection(db, "tv
 async function carregarPlaylists(){ const s = await getDocs(query(collection(db, "tv_playlists"), ...filtroEscola())); E.playlists = []; s.forEach(d => E.playlists.push({ id:d.id, ...d.data() })); E.playlists.sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")); }
 // um canal de comunicados por município (id aleatório: só as TVs da rede sabem qual é)
 async function garantirCanal(criar){
-  const m = E.escola && E.escola.municipio_id; if(!m) return null;
+  const m = E.escola && !E.escola.pessoal && E.escola.municipio_id; if(!m) return null;
   if(E.canal && E.canal.municipio_id === m) return E.canal;
   const s = await getDocs(query(collection(db, "tv_canais"), where("municipio_id", "==", m)));
   const lista = []; s.forEach(d => lista.push({ id:d.id, ...d.data() })); lista.sort((a, b) => a.id.localeCompare(b.id));
@@ -657,11 +659,12 @@ onAuthStateChanged(auth, async user => {
   if(!u || u.status !== "ativo" || u.perfil === "aluno"){ location.replace("/entrar/"); return; }
   const sim = u.perfil === "admin" ? (() => { try{ const v = JSON.parse(sessionStorage.getItem("pde_ver_como") || "null"); return v && v.perfil !== "admin" ? v.perfil : ""; }catch(e){ return ""; } })() : "";
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim; E.perfil = sim || u.perfil;
+  E.pessoal = !sim && u.perfil === "professor" && ["avulsa", "cortesia", "teste"].includes(u.licenca_tipo);
   
   $("quem").textContent = (u.nome || user.email) + " · " + ({ admin:"Administrador", secretaria:"Secretaria", gestor:"Gestão escolar", professor:"Professor(a)" }[E.perfil] || "");
   try{ await carregarEscolas(); }catch(e){ console.error(e); }
-  $("tbCamp").hidden = !E.admin;
-  const h = (location.hash || "").slice(1); E.aba = ["telas", "playlists", "avisos", "campanhas"].includes(h) ? h : (E.perfil === "secretaria" ? "avisos" : "telas");
+  $("tbCamp").hidden = !E.admin; $("tbAvisos").hidden = !!E.pessoal;
+  const h = (location.hash || "").slice(1); E.aba = ["telas", "playlists", "avisos", "campanhas"].filter(x => !(E.pessoal && x === "avisos")).includes(h) ? h : (E.perfil === "secretaria" ? "avisos" : "telas");
   await trocarEscola(E.escolaId);
 });
 </script>
