@@ -48,6 +48,10 @@
   .muni-pessoa{ border:1px solid var(--line);border-radius:10px;padding:8px 12px 2px;margin:0 0 12px } .muni-pessoa legend{ font-weight:700;font-size:13px;color:#0f2c4a;padding:0 4px } .muni-pessoa legend small{ font-weight:400;color:var(--muted) }
   .muni-priv{ font-size:12.5px;color:#7a5a00;background:#fff8e1;border:1px solid #f2dfa0;border-radius:8px;padding:7px 10px;margin:0 0 12px }
   .muni-dica{ font-size:12.5px;color:var(--muted);margin:0 0 10px;display:block }
+  .hist-acoes{ margin:-2px 0 8px } .hist-tab{ margin:0 0 10px } .hist-tab table{ width:100%;border-collapse:collapse;font-size:13px }
+  .hist-tab th,.hist-tab td{ padding:6px 8px;border-bottom:1px solid var(--line);text-align:left } .hist-tab th{ color:var(--muted);font-weight:600;font-size:12px }
+  .hist-tab .sobe{ color:#1a6b2a;font-weight:700 } .hist-tab .desce{ color:#c0392b;font-weight:700 } .hist-tab .igual{ color:var(--muted) }
+  .hist-tab .hist-x{ border:0;background:none;color:#c0392b;cursor:pointer;font-size:14px } .hist-tab .hist-vazio{ color:var(--muted);font-size:12.5px }
   .muni-perigo{ margin-top:16px;border:1px solid #f1c4c4;background:#fff6f6;border-radius:10px;padding:12px 14px } .muni-perigo p{ font-size:13px;color:#5b3a3a;margin:4px 0 8px }
   .muni-perigo-bt{ display:flex;gap:8px;flex-wrap:wrap;margin-top:8px } .muni-perigo-bt .btn{ width:auto;flex:0 0 auto;padding:9px 16px } .muni-del{ color:#b3261e !important;border-color:#e8a9a9 !important }
   .muni-chk{ display:flex;gap:8px;align-items:center;font-size:13px }
@@ -1612,17 +1616,22 @@
         <div class="field"><label for="cObs">Observações</label><textarea id="cObs" rows="2" maxlength="600"></textarea></div>
       </section>
       <section class="muni-sec" data-sec="num" hidden>
-        <p class="muni-dica">Números do Censo Escolar: usados nos painéis, nas cotas de IA e nas propostas.</p>
+        <fieldset class="muni-pessoa"><legend>Censo Escolar da rede, ano a ano</legend>
+        <p class="muni-dica">Usado nos painéis, nas cotas de IA e nas propostas (vale sempre o ano mais recente). Cada ano fica guardado para mostrar a evolução da rede.</p>
         <div class="row2"><div class="field"><label for="nEscolas">Escolas</label><input type="number" id="nEscolas" min="0" max="9999"></div>
           <div class="field"><label for="nAlunos">Alunos</label><input type="number" id="nAlunos" min="0" max="999999"></div>
           <div class="field"><label for="nProfs">Professores</label><input type="number" id="nProfs" min="0" max="99999"></div>
           <div class="field"><label for="nCenso">Censo de</label><input type="number" id="nCenso" min="2000" max="2100" placeholder="2025"></div></div>
-        <fieldset class="muni-pessoa"><legend>Último IDEB da rede municipal</legend><div class="row2">
+          <div class="hist-acoes"><button type="button" class="btn btn-ghost btn-add" data-action="muni-censo-guardar">+ Guardar este ano no histórico</button></div>
+          <div id="censoHist" class="hist-tab"></div></fieldset>
+        <fieldset class="muni-pessoa"><legend>IDEB da rede municipal, edição a edição</legend><div class="row2">
           <div class="field"><label for="iAI">Anos iniciais</label><input type="text" id="iAI" inputmode="decimal" maxlength="4" placeholder="5,8"></div>
           <div class="field"><label for="iAF">Anos finais</label><input type="text" id="iAF" inputmode="decimal" maxlength="4" placeholder="4,9"></div>
           <div class="field"><label for="iEM">Ensino médio</label><input type="text" id="iEM" inputmode="decimal" maxlength="4" placeholder="-"></div>
-          <div class="field"><label for="iAno">Edição</label><input type="number" id="iAno" min="2005" max="2100" placeholder="2023"></div></div>
-          <small class="muni-dica">Fonte: INEP (ideb.inep.gov.br). Deixe em branco a etapa que a rede não oferece.</small></fieldset>
+          <div class="field"><label for="iAno">Edição</label><input type="number" id="iAno" min="2005" max="2101" step="2" placeholder="2023"></div></div>
+          <div class="hist-acoes"><button type="button" class="btn btn-ghost btn-add" data-action="muni-ideb-guardar">+ Guardar esta edição no histórico</button></div>
+          <div id="idebHist" class="hist-tab"></div>
+          <small class="muni-dica">Fonte: INEP (ideb.inep.gov.br). O IDEB sai a cada dois anos (2005, 2007 ... 2023, 2025). Digite a edição e as notas e guarde; para corrigir uma edição, digite o ano dela que as notas voltam para os campos. Deixe em branco a etapa que a rede não oferece.</small></fieldset>
       </section>
       <div class="muni-perigo" id="muniPerigo" hidden>
         <b>Arquivar ou excluir</b>
@@ -2861,7 +2870,44 @@
   // ---------- cadastro completo do município ----------
   // municipios/{id}: o que o Portal usa (lido por quem tem cadastro: nada sigiloso aqui)
   // municipios_privado/{id}: pessoas, valores, processo e empenho (só o administrador lê e grava)
-  const muniCad = { id:null, doc:null, priv:null };
+  const muniCad = { id:null, doc:null, priv:null, ideb:{}, censo:{} };
+  // histórico do IDEB (edição → notas) e do Censo (ano → números): o mais recente vira o "atual" usado no resto do Portal
+  const histNum = v => v == null || v === "" ? "" : fmtBR(v, 1);
+  const histDif = (a, b, casas) => { if(a == null || b == null) return ""; const d = Math.round((a - b) * Math.pow(10, casas)) / Math.pow(10, casas);
+    return d > 0 ? ' <span class="sobe">▲ ' + fmtBR(d, casas) + '</span>' : d < 0 ? ' <span class="desce">▼ ' + fmtBR(-d, casas) + '</span>' : ' <span class="igual">=</span>'; };
+  function desenharHistIdeb(){
+    const anos = Object.keys(muniCad.ideb).sort().reverse(), el = $("idebHist"); if(!el) return;
+    if(!anos.length){ el.innerHTML = '<p class="hist-vazio">Nenhuma edição guardada ainda.</p>'; return; }
+    el.innerHTML = '<table><tr><th>Edição</th><th>Anos iniciais</th><th>Anos finais</th><th>Ensino médio</th><th></th></tr>' + anos.map((a, i) => {
+      const x = muniCad.ideb[a], ant = muniCad.ideb[anos[i + 1]] || {};
+      const c = k => x[k] == null ? "-" : histNum(x[k]) + (anos[i + 1] ? histDif(x[k], ant[k], 1) : "");
+      return '<tr><td><b>' + a + '</b></td><td>' + c("ai") + '</td><td>' + c("af") + '</td><td>' + c("em") + '</td><td><button type="button" class="hist-x" data-action="muni-ideb-tirar" data-ano="' + a + '" title="Tirar esta edição">✕</button></td></tr>'; }).join("") + '</table>';
+  }
+  function desenharHistCenso(){
+    const anos = Object.keys(muniCad.censo).sort().reverse(), el = $("censoHist"); if(!el) return;
+    if(!anos.length){ el.innerHTML = '<p class="hist-vazio">Nenhum ano guardado ainda.</p>'; return; }
+    el.innerHTML = '<table><tr><th>Censo</th><th>Escolas</th><th>Alunos</th><th>Professores</th><th></th></tr>' + anos.map((a, i) => {
+      const x = muniCad.censo[a], ant = muniCad.censo[anos[i + 1]] || {};
+      const c = k => x[k] == null ? "-" : fmt(x[k]) + (anos[i + 1] ? histDif(x[k], ant[k], 0) : "");
+      return '<tr><td><b>' + a + '</b></td><td>' + c("escolas") + '</td><td>' + c("alunos") + '</td><td>' + c("professores") + '</td><td><button type="button" class="hist-x" data-action="muni-censo-tirar" data-ano="' + a + '" title="Tirar este ano">✕</button></td></tr>'; }).join("") + '</table>';
+  }
+  // lê os campos do IDEB; devolve { ano, notas } ou { erro, campo } (campos vazios = null)
+  function lerIdeb(){
+    const notas = {}; for(const [cp, k] of [["iAI","ai"],["iAF","af"],["iEM","em"]]){ const n = numBR(vv(cp)); if(vv(cp) && (n == null || n < 0 || n > 10)) return { erro:"IDEB vai de 0 a 10.", campo:cp }; notas[k] = vv(cp) ? Math.round(n * 10) / 10 : null; }
+    const ano = parseInt(vv("iAno"), 10), algum = notas.ai != null || notas.af != null || notas.em != null;
+    if(!algum && !vv("iAno")) return { vazio:true };
+    if(!isFinite(ano) || ano < 2005 || ano > new Date().getFullYear() + 1 || ano % 2 === 0) return { erro:"A edição do IDEB é um ano ímpar a partir de 2005 (ex.: 2023, 2025).", campo:"iAno" };
+    if(!algum) return { erro:"Informe pelo menos uma nota do IDEB dessa edição.", campo:"iAI" };
+    return { ano:String(ano), notas };
+  }
+  function lerCenso(){
+    const n = cp => { const v = parseInt(vv(cp), 10); return isFinite(v) && v >= 0 ? v : null; };
+    const x = { escolas:n("nEscolas"), alunos:n("nAlunos"), professores:n("nProfs") }, ano = parseInt(vv("nCenso"), 10), algum = x.escolas != null || x.alunos != null || x.professores != null;
+    if(!algum && !vv("nCenso")) return { vazio:true };
+    if(!isFinite(ano) || ano < 2000 || ano > new Date().getFullYear()) return { erro:"Informe o ano do Censo (ex.: 2025).", campo:"nCenso" };
+    if(!algum) return { erro:"Informe pelo menos um número do Censo desse ano.", campo:"nEscolas" };
+    return { ano:String(ano), x };
+  }
   const vv = id => ($(id).value || "").trim();
   const soDig = t => String(t || "").replace(/\D/g, "");
   const numBR = t => { const x = String(t || "").trim().replace(/\./g, "").replace(",", "."); const n = Number(x); return x && isFinite(n) ? n : null; };
@@ -2902,6 +2948,10 @@
     set("cValor", fmtBR(c.valor_total)); set("cMensal", fmtBR(c.valor_mensal)); set("cEmpenho", c.empenho); set("cObjeto", c.objeto); set("cObs", c.obs);
     set("nEscolas", r.escolas); set("nAlunos", r.alunos); set("nProfs", r.professores); set("nCenso", r.censo);
     set("iAI", fmtBR(ib.ai, 1)); set("iAF", fmtBR(ib.af, 1)); set("iEM", fmtBR(ib.em, 1)); set("iAno", ib.ano);
+    // históricos: cadastros antigos só tinham o "último"; ele entra como primeira linha
+    muniCad.ideb = JSON.parse(JSON.stringify(M.ideb_historico || {})); if(ib.ano && !muniCad.ideb[ib.ano] && (ib.ai != null || ib.af != null || ib.em != null)) muniCad.ideb[String(ib.ano)] = { ai:ib.ai ?? null, af:ib.af ?? null, em:ib.em ?? null };
+    muniCad.censo = JSON.parse(JSON.stringify(M.rede_historico || {})); if(r.censo && !muniCad.censo[r.censo] && (r.escolas != null || r.alunos != null || r.professores != null)) muniCad.censo[String(r.censo)] = { escolas:r.escolas ?? null, alunos:r.alunos ?? null, professores:r.professores ?? null };
+    desenharHistIdeb(); desenharHistCenso();
     $("muniPerigoMsg").textContent = ""; $("muniCortar").checked = true;
     $("muniArquivar").hidden = M.status === "inativo";
     muniAba("id"); $("modalMunicipio").classList.add("show"); $("muniNome").focus();
@@ -2918,6 +2968,11 @@
     if(k === "tel"){ const r = telBR(t.value); t.value = r.fmt; t.classList.toggle("campo-erro", !r.ok); }
     if(k === "nome") t.value = nomeMunicipio(t.value);
     if(k === "site"){ let u = t.value.trim().replace(/^http:\/\//i, "https://"); if(!/^https:\/\//i.test(u)) u = "https://" + u; t.value = u.toLowerCase(); }
+  });
+  // digitou o ano de uma edição já guardada: as notas dela voltam para os campos (para corrigir)
+  $("modalMunicipio").addEventListener("change", (e) => {
+    if(e.target.id === "iAno"){ const x = muniCad.ideb[String(parseInt(e.target.value, 10))]; if(x){ $("iAI").value = histNum(x.ai); $("iAF").value = histNum(x.af); $("iEM").value = histNum(x.em); } }
+    if(e.target.id === "nCenso"){ const x = muniCad.censo[String(parseInt(e.target.value, 10))]; if(x){ $("nEscolas").value = x.escolas ?? ""; $("nAlunos").value = x.alunos ?? ""; $("nProfs").value = x.professores ?? ""; } }
   });
   $("muniSalvar").addEventListener("click", async () => {
     $("muniNome").value = nomeMunicipio(vv("muniNome"));
@@ -2937,14 +2992,18 @@
     if(vv("muniSite") && !/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}(\/\S*)?$/i.test(vv("muniSite"))) return erro("id", "Site inválido (ex.: https://www.bonito.ms.gov.br).", "muniSite");
     for(const [cp, rot] of [["muniCnpjPref","da Prefeitura"],["muniCnpjEdu","da Secretaria/Fundo"]]) if(vv(cp) && !cnpjOk(vv(cp))) return erro("id", "CNPJ "+rot+" inválido.", cp);
     const ini = vv("cInicio"), fim = vv("cFim"); if(ini && fim && ini > fim) return erro("ctr", "A vigência termina antes de começar.", "cFim");
-    const notas = {}; for(const [cp, k] of [["iAI","ai"],["iAF","af"],["iEM","em"]]){ const n = numBR(vv(cp)); if(vv(cp) && (n == null || n < 0 || n > 10)) return erro("num", "IDEB vai de 0 a 10.", cp); notas[k] = n; }
+    // o que está nos campos entra no histórico; o atual é sempre o ano mais recente do histórico
+    { const r = lerIdeb(); if(r.erro) return erro("num", r.erro, r.campo); if(r.ano) muniCad.ideb[r.ano] = r.notas; }
+    { const r = lerCenso(); if(r.erro) return erro("num", r.erro, r.campo); if(r.ano) muniCad.censo[r.ano] = r.x; }
+    const ultIdeb = Object.keys(muniCad.ideb).sort().pop(), ultCenso = Object.keys(muniCad.censo).sort().pop();
     const inteiro = cp => { const n = parseInt(vv(cp), 10); return isFinite(n) && n >= 0 ? n : null; };
     const pessoa = k => ({ nome:PDE_PADRAO.nome(vv("p"+k+"Nome")).fmt, email:vv("p"+k+"Email").toLowerCase(), tel:vv("p"+k+"Tel") });
     const publico = { nome, uf, ibge, cnpj_prefeitura:soDig(vv("muniCnpjPref")), cnpj_educacao:soDig(vv("muniCnpjEdu")), endereco:vv("muniEnd"), cep:vv("muniCep"),
       telefone:vv("muniTel"), email:vv("muniEmail").toLowerCase(), site:vv("muniSite"),
       contrato_numero:vv("cNumero"), vigencia_inicio:ini, vigencia_fim:fim, vigencia_fim_ts:fim ? Timestamp.fromMillis(msDe(fim)) : null,
-      rede:{ escolas:inteiro("nEscolas"), alunos:inteiro("nAlunos"), professores:inteiro("nProfs"), censo:inteiro("nCenso") },
-      ideb:{ ...notas, ano:inteiro("iAno") }, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      rede:ultCenso ? { ...muniCad.censo[ultCenso], censo:Number(ultCenso) } : { escolas:null, alunos:null, professores:null, censo:null },
+      ideb:ultIdeb ? { ...muniCad.ideb[ultIdeb], ano:Number(ultIdeb) } : { ai:null, af:null, em:null, ano:null },
+      ideb_historico:muniCad.ideb, rede_historico:muniCad.censo, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     const privado = { pessoas:{ prefeito:PDE_PADRAO.nome(vv("pPrefeito")).fmt, mandato:vv("pMandato"), secretario:pessoa("Sec"), tecnico:pessoa("Tec"), gestor:pessoa("Ges"), fiscal:pessoa("Fis") },
       contrato:{ modalidade:$("cModalidade").value, processo:vv("cProcesso"), valor_total:numBR(vv("cValor")), valor_mensal:numBR(vv("cMensal")), empenho:vv("cEmpenho"), objeto:vv("cObjeto"), obs:vv("cObs") },
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
@@ -7544,6 +7603,12 @@
     else if(acao === "muni-plano"){ abrirModalPlano(el.dataset.id); }
     else if(acao === "muni-editar"){ abrirModalMunicipio(el.dataset.id); }
     else if(acao === "muni-aba"){ muniAba(el.dataset.aba); }
+    else if(acao === "muni-ideb-guardar"){ const r = lerIdeb(); if(r.vazio){ toast("Digite a edição e as notas.", true); return; } if(r.erro){ toast(r.erro, true); $(r.campo).focus(); return; }
+      muniCad.ideb[r.ano] = r.notas; desenharHistIdeb(); ["iAI","iAF","iEM","iAno"].forEach(i => { $(i).value = ""; }); toast("IDEB " + r.ano + " no histórico. Salve o município para gravar."); }
+    else if(acao === "muni-ideb-tirar"){ delete muniCad.ideb[el.dataset.ano]; desenharHistIdeb(); toast("Edição " + el.dataset.ano + " tirada. Salve o município para gravar."); }
+    else if(acao === "muni-censo-guardar"){ const r = lerCenso(); if(r.vazio){ toast("Digite o ano e os números do Censo.", true); return; } if(r.erro){ toast(r.erro, true); $(r.campo).focus(); return; }
+      muniCad.censo[r.ano] = r.x; desenharHistCenso(); ["nEscolas","nAlunos","nProfs","nCenso"].forEach(i => { $(i).value = ""; }); toast("Censo " + r.ano + " no histórico. Salve o município para gravar."); }
+    else if(acao === "muni-censo-tirar"){ delete muniCad.censo[el.dataset.ano]; desenharHistCenso(); toast("Ano " + el.dataset.ano + " tirado. Salve o município para gravar."); }
     else if(acao === "muni-arquivar"){ arquivarMunicipio(); }
     else if(acao === "muni-excluir"){ excluirMunicipio(); }
     else if(acao === "muni-reativar"){ reativarMunicipio(el.dataset.id); }
