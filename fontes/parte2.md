@@ -703,6 +703,23 @@ Pelas regras da Meta, a equipe só pode responder até **24 horas** depois da ú
 
 O robô reconhece o professor pelo WhatsApp do cadastro (com ou sem o 9). Dados de alunos não passam pelo robô nem pela IA. Tudo o que importa (chamado aberto, link enviado, conversa passada ou encerrada) fica na **Auditoria**.
 
+## Painel da TV {: .nova }
+
+Painel ao vivo para a TV do escritório, em **www.portaldoeducador.com.br/tv/painel/**. Atualiza sozinho a cada minuto e funciona com a TV na horizontal ou em pé.
+
+| Bloco | O que mostra |
+|---|---|
+| WhatsApp agora | Fila sem dono (fica laranja quando tem alguém esperando), em atendimento, conversas do dia, % resolvidas pelo robô, tempo médio até a 1ª resposta da equipe, chamados abertos e contatos comerciais da semana |
+| Equipe | Cada membro: disponível ou não, quantas conversas está atendendo e quantas encerrou hoje |
+| Usuários | Cadastros ativos, professores, quem entrou nos últimos 7 dias, novos do dia e da semana, aguardando aprovação |
+| Uso do Portal hoje | Pessoas que entraram, materiais do Portal IA e aulas ao vivo acontecendo |
+| Redes | Até 12 redes ativas, com professores e escolas |
+
+Para colocar na TV: **Sistema** › **Atendimento WhatsApp** › **Painel da TV** › **Mostrar o link**. Abra o link no navegador da TV em tela cheia ou cadastre como página web na programação da TV Escola. O link leva uma chave: **Trocar a chave** desliga o link antigo na hora (use se o link vazar).
+
+REGRA
+O painel mostra só números e o primeiro nome da equipe de atendimento. Nenhum telefone, e-mail ou texto de conversa aparece na TV.
+
 ## Auditoria
 
 Menu **Sistema** › **Auditoria**. É a trilha de tudo o que acontece no Portal. Quem grava é o servidor: ninguém consegue apagar nem editar um registro, nem o administrador.
