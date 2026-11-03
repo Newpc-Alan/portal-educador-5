@@ -17,7 +17,7 @@ export const expiraAuditoria = () => Timestamp.fromMillis(Date.now() + RETENCAO_
 const IGNORAR = new Set(['auditoria', 'backups_log', 'stats', 'temas_populares', 'vistos', 'tele_sessoes', 'cmd', 'avisos_contador', 'rec_busca',
   'uso_real', 'ia_uso', 'portal_ia_uso', 'freq_resumo', 'rede_feed', 'nc_mapa', 'qr_aulas', 'po_sala', 'turma_aluno_estado', 'turma_presenca',
   'videos_reacoes', 'biblioteca_reacoes', 'noticias_reacoes', 'atividades_reacoes', 'tv_telas', 'tv_pareamentos', 'portaria_vistas', 'login_carteirinha', 'escola_config', 'busca_indice', 'buscas_mes', 'comunicados_email', 'envio_lotes', 'comunicados_pref',
-  'wa_conversas', 'wa_vistos', 'bot_conhecimento', 'wa_equipe']);   // WhatsApp: o robô registra na auditoria só os fatos (chamado, link, atendente)
+  'wa_conversas', 'wa_vistos', 'bot_conhecimento', 'wa_equipe', 'wa_metricas', 'painel_tv']);   // WhatsApp: o robô registra na auditoria só os fatos (chamado, link, atendente)
 const IGNORAR_DOC = new Set(['config/nc_copia']);
 // campos que mudam sozinhos a cada gravação e não dizem nada
 const CAMPO_TECNICO = /^(atualizado_em|atualizadoEm|ultimo|ultimo_acesso|ultima_atividade|visto_em|em|ts|modificado_em)$/;

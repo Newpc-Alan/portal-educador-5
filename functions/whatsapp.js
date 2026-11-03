@@ -166,8 +166,9 @@ async function avisarPessoa(email, assunto, html) {
 // passa a conversa para alguém do setor (rodízio); sem ninguém disponível, fica na fila do setor e a lista padrão é avisada
 async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
   const m = await proximoDoSetor(db, setor).catch(e => { console.warn('whatsapp: rodízio', e.message); return null; });
-  await ref.set({ estado: 'atendente', setor, fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1,
+  await ref.set({ estado: 'atendente', setor, fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1, encaminhada_em: FieldValue.serverTimestamp(), aguardando_desde: FieldValue.serverTimestamp(),
     atribuido_uid: m ? m.uid : '', atribuido_nome: m ? m.nome : '', atribuido_em: FieldValue.serverTimestamp() }, { merge: true });
+  await metricas(db, { transferidas: FieldValue.increment(1), por_setor: { [setor]: FieldValue.increment(1) } });
   await guardar(ref, 'sistema', 'Encaminhada para ' + (m ? m.nome : 'a fila do setor') + ' (' + SETORES[setor] + ')');
   const html = '<p>' + esc(resumo) + '</p>' + (contexto ? '<p>' + esc(contexto) + '</p>' : '') + '<p>Responda pela tela <b>Atendimento WhatsApp</b> do Portal: ' + SITE + '/entrar/#whatsapp</p>';
   if (m) await avisarPessoa(m.email, 'WhatsApp (' + SETORES[setor] + '): nova conversa para você', html);
@@ -175,6 +176,10 @@ async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
   await auditar(db, waId, 'Conversa encaminhada: ' + SETORES[setor] + (m ? ' › ' + m.nome : ' › fila'));
   return m;
 }
+// métricas do dia (painel da TV): wa_metricas/{AAAA-MM-DD} no horário de Campo Grande
+export const diaCG = (t = Date.now()) => new Date(t - 4 * 3600e3).toISOString().slice(0, 10);
+// set com merge junta os mapas aninhados (por_setor, atendidas_por); ponto no nome da chave NÃO vira caminho no set
+const metricas = (db, campos) => db.doc('wa_metricas/' + diaCG()).set({ ...campos, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
 const AVISO_HORARIO = 'Nosso atendimento humano é de segunda a sexta, das 8h às 18h. Sua mensagem fica registrada e respondemos no próximo horário.';
 
 // ---------- conversa ----------
@@ -208,7 +213,7 @@ async function tratar(db, cfg, msg, contato) {
     return;
   }
   if (conv.estado === 'comercial' && msg.type === 'text' && !SAUDACAO.test(entrada)) {
-    await ref.set({ lead: txt(entrada, 800) }, { merge: true });
+    await ref.set({ lead: txt(entrada, 800), comercial_em: FieldValue.serverTimestamp() }, { merge: true });
     await responder(texto('Obrigado! Passei para um consultor do Portal do Educador, que responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
     await encaminhar(db, cfg, ref, waId, 'comercial', 'Novo contato comercial: ' + (nome || 'contato') + '.', 'Pedido: ' + (conv.pedido || '-') + ' · Dados: ' + entrada);
     return;
@@ -333,7 +338,13 @@ export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxI
   if (Date.now() - ult > 24 * 3600e3) throw new HttpsError('failed-precondition', 'Passaram 24 h da última mensagem desta pessoa. O WhatsApp só deixa responder depois que ela escrever de novo.');
   const quem = txt(String(u.nome || 'Equipe').split(' ')[0], 30);
   // a pessoa vê só a equipe, nunca o nome de quem atendeu (o nome fica no histórico interno)
-  if (msg) { await enviar(cfg, waId, texto('*Equipe Portal do Educador:* ' + msg)); await guardar(ref, 'equipe', msg, { autor_uid: req.auth.uid, autor_nome: quem }); }
+  if (msg) {
+    await enviar(cfg, waId, texto('*Equipe Portal do Educador:* ' + msg)); await guardar(ref, 'equipe', msg, { autor_uid: req.auth.uid, autor_nome: quem });
+    // tempo até a 1ª resposta humana depois que o robô passou a conversa
+    const desde = conv.aguardando_desde && conv.aguardando_desde.toMillis ? conv.aguardando_desde.toMillis() : 0;
+    if (desde) { await metricas(db, { resp_soma_s: FieldValue.increment(Math.round((Date.now() - desde) / 1000)), resp_n: FieldValue.increment(1) }); await ref.update({ aguardando_desde: FieldValue.delete() }); }
+  }
+  if (encerrar) await metricas(db, { encerradas: FieldValue.increment(1), atendidas_por: { [req.auth.uid]: FieldValue.increment(1) } });
   if (encerrar) {
     await enviar(cfg, waId, texto('Atendimento encerrado. Se precisar de mais alguma coisa, é só digitar *menu*.'));
     await guardar(ref, 'robo', 'Atendimento encerrado');

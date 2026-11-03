@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<script src="/assets/js/ambiente.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Painel da equipe · Portal do Educador</title>
+<link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Painel de gestão para a TV do escritório: números ao vivo, leitura de longe, sem dado pessoal. */
+  :root{ --azul:#0f2c4a; --azul2:#163a5f; --azul3:#1d4a76; --verde:#1a6b2a; --lima:#8DC63F; --laranja:#f5a623; --vermelho:#e05a4f; --texto:#eaf2fa; --suave:#9fb6cc; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ background:radial-gradient(1200px 700px at 85% -10%, #1d4a76 0%, var(--azul) 55%, #0a2036 100%); color:var(--texto);
+        font-family:Inter, system-ui, "Segoe UI", Roboto, sans-serif; font-size:clamp(12px, 1.05vw, 22px); overflow:hidden; }
+  .tela{ height:100vh; display:grid; grid-template-rows:auto auto 1fr auto; gap:1.6vh; padding:2.2vh 2.2vw; }
+  header{ display:flex; align-items:center; gap:1.2vw; }
+  header img{ width:3.4vw; min-width:42px; height:auto; }
+  header h1{ font-size:2em; margin:0; font-weight:800; letter-spacing:-.01em; }
+  header h1 small{ display:block; font-size:.45em; color:var(--lima); font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-top:.2em; }
+  .relogio{ margin-left:auto; text-align:right; }
+  .relogio b{ display:block; font-size:2.4em; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  .relogio span{ color:var(--suave); font-size:.95em; }
+  .estado{ display:inline-block; margin-top:.4em; font-size:.8em; padding:.15em .7em; border-radius:999px; background:rgba(141,198,63,.18); color:var(--lima); }
+  .estado.off{ background:rgba(224,90,79,.2); color:#ffb4ad; }
+  h2{ margin:0 0 .7vh; font-size:.95em; text-transform:uppercase; letter-spacing:.1em; color:var(--lima); font-weight:700; display:flex; align-items:center; gap:.5em; }
+  .kpis{ display:grid; grid-template-columns:repeat(7, 1fr); gap:1vw; }
+  .kpi{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:1.4vh 1vw; }
+  .kpi b{ display:block; font-size:3.1em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; }
+  .kpi span{ color:var(--suave); font-size:.92em; }
+  .kpi.alerta{ background:rgba(245,166,35,.16); border-color:rgba(245,166,35,.55); }
+  .kpi.alerta b{ color:var(--laranja); }
+  .kpi.bom b{ color:var(--lima); }
+  .meio{ display:grid; grid-template-columns:1.15fr 1fr; gap:1.4vw; min-height:0; }
+  .bloco{ background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:1.6vh 1.2vw; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+  .equipe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(13.5em, 1fr)); gap:.9vw; align-content:start; overflow:hidden; }
+  .pessoa{ background:rgba(255,255,255,.06); border-radius:14px; padding:1.1vh .9vw; display:grid; grid-template-columns:auto 1fr; gap:.2em .7em; align-items:center; }
+  .bola{ width:.85em; height:.85em; border-radius:50%; background:var(--lima); box-shadow:0 0 .6em rgba(141,198,63,.8); grid-row:span 2; }
+  .bola.off{ background:#5b6f84; box-shadow:none; }
+  .pessoa b{ font-size:1.25em; }
+  .pessoa small{ color:var(--suave); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pessoa .nums{ grid-column:1 / -1; display:flex; gap:1.2em; margin-top:.3em; font-size:.95em; }
+  .pessoa .nums em{ font-style:normal; font-weight:800; font-size:1.35em; color:#fff; margin-right:.2em; }
+  .vazio{ color:var(--suave); font-style:italic; }
+  .colunas{ display:grid; grid-template-rows:1fr auto; gap:1.4vh; min-height:0; }
+  .grade{ display:grid; grid-template-columns:repeat(3, 1fr); gap:.8vw; }
+  .mini{ background:rgba(255,255,255,.06); border-radius:14px; padding:.8vh .9vw; }
+  .mini b{ display:block; font-size:1.9em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; }
+  .mini span{ color:var(--suave); font-size:.88em; }
+  .mini.alerta b{ color:var(--laranja); }
+  .redes{ display:grid; grid-template-columns:repeat(2, 1fr); gap:.6vh 1.6vw; }
+  .rede{ display:grid; grid-template-columns:10em 1fr 10.5em; align-items:center; gap:.7em; }
+  .rede .n{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .barra{ height:.75em; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; }
+  .barra i{ display:block; height:100%; background:linear-gradient(90deg, var(--verde), var(--lima)); border-radius:999px; min-width:.4em; }
+  .rede .v{ font-variant-numeric:tabular-nums; color:var(--suave); white-space:nowrap; text-align:right; }
+  .rede .v b{ color:#fff; }
+  footer{ display:flex; justify-content:space-between; color:var(--suave); font-size:.8em; }
+  /* TV em pé (totem): uma coluna */
+  @media (orientation:portrait){
+    body{ font-size:clamp(12px, 1.9vw, 26px); overflow:auto; }
+    .tela{ height:auto; min-height:100vh; }
+    .kpis{ grid-template-columns:repeat(4, 1fr); }
+    .meio{ grid-template-columns:1fr; }
+    .redes{ grid-template-columns:1fr; }
+  }
+  .aviso{ display:none; position:fixed; inset:0; align-items:center; justify-content:center; text-align:center; padding:6vw; background:var(--azul); font-size:1.6em; }
+  .aviso.on{ display:flex; }
+</style>
+</head>
+<body>
+<div class="tela">
+  <header>
+    <img src="/assets/pde-logo-128.png" alt="">
+    <h1>Painel da equipe<small>Portal do Educador · atendimento e uso ao vivo</small></h1>
+    <div class="relogio"><b id="hora">--:--</b><span id="data"></span><br><span class="estado" id="estado">conectando…</span></div>
+  </header>
+
+  <section>
+    <h2>💬 WhatsApp (67) 9875-7275 · agora</h2>
+    <div class="kpis">
+      <div class="kpi" id="kFila"><b data-k="whatsapp.fila">–</b><span>na fila sem dono</span></div>
+      <div class="kpi"><b data-k="whatsapp.em_atendimento">–</b><span>em atendimento</span></div>
+      <div class="kpi"><b data-k="whatsapp.conversas_hoje">–</b><span>conversas hoje</span></div>
+      <div class="kpi bom"><b data-k="whatsapp.resolvidas_robo_pct" data-suf="%">–</b><span>resolvidas pelo robô</span></div>
+      <div class="kpi" id="kResp"><b data-k="whatsapp.resposta_media_min" data-suf=" min">–</b><span>até a 1ª resposta da equipe</span></div>
+      <div class="kpi" id="kCham"><b data-k="whatsapp.chamados_abertos">–</b><span>chamados abertos</span></div>
+      <div class="kpi bom"><b data-k="whatsapp.comerciais_semana">–</b><span>contatos comerciais na semana</span></div>
+    </div>
+  </section>
+
+  <div class="meio">
+    <div class="bloco">
+      <h2>👥 Equipe de atendimento</h2>
+      <div class="equipe" id="equipe"><p class="vazio">Carregando…</p></div>
+    </div>
+    <div class="colunas">
+      <div class="bloco">
+        <h2>🎓 Usuários</h2>
+        <div class="grade">
+          <div class="mini"><b data-k="usuarios.cadastrados">–</b><span>cadastros ativos</span></div>
+          <div class="mini"><b data-k="usuarios.professores">–</b><span>professores</span></div>
+          <div class="mini"><b data-k="usuarios.ativos_7d">–</b><span>entraram nos últimos 7 dias</span></div>
+          <div class="mini"><b data-k="usuarios.novos_hoje">–</b><span>novos hoje</span></div>
+          <div class="mini"><b data-k="usuarios.novos_semana">–</b><span>novos na semana</span></div>
+          <div class="mini" id="kPend"><b data-k="usuarios.pendentes">–</b><span>aguardando aprovação</span></div>
+        </div>
+      </div>
+      <div class="bloco">
+        <h2>⚡ Uso do Portal hoje</h2>
+        <div class="grade">
+          <div class="mini"><b data-k="uso.acessos_hoje">–</b><span>pessoas entraram hoje</span></div>
+          <div class="mini"><b data-k="uso.ia_hoje">–</b><span>materiais do Portal IA</span></div>
+          <div class="mini"><b data-k="uso.aulas_agora">–</b><span>aulas ao vivo agora</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="bloco">
+    <h2>🏛️ Redes no Portal · professores ativos e escolas</h2>
+    <div class="redes" id="redes"><p class="vazio">Carregando…</p></div>
+  </section>
+
+  <footer><span>Atualiza sozinho a cada minuto · só números, sem dados pessoais</span><span id="atual"></span></footer>
+</div>
+<div class="aviso" id="aviso"><div><b>Link do painel sem chave válida.</b><br><br>Gere o link em Sistema › Atendimento WhatsApp › Painel da TV.</div></div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var CHAVE = (new URLSearchParams(location.search).get("k") || "").replace(/[^A-Za-z0-9_-]/g, "");
+  var URL_DADOS = ((window.PDE_AMBIENTE && window.PDE_AMBIENTE.funcoes) || "https://southamerica-east1-portal-educador-5.cloudfunctions.net/") + "painelTv?k=" + encodeURIComponent(CHAVE);
+  var SET = { suporte:"Suporte", tecnico:"Técnico", comercial:"Comercial" };
+  var ultimo = 0;
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
+  function fmt(v){ return v == null ? "–" : Number(v).toLocaleString("pt-BR"); }
+  function pega(o, k){ return k.split(".").reduce(function(a, p){ return a == null ? a : a[p]; }, o); }
+  function relogio(){
+    var d = new Date();
+    $("hora").textContent = d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" });
+    $("data").textContent = d.toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long", timeZone:"America/Campo_Grande" });
+    if(ultimo && Date.now() - ultimo > 5 * 60e3){ var e = $("estado"); e.textContent = "sem atualização há " + Math.round((Date.now() - ultimo) / 60e3) + " min"; e.className = "estado off"; }
+  }
+  function desenhar(d){
+    document.querySelectorAll("[data-k]").forEach(function(el){ var v = pega(d, el.dataset.k); el.textContent = v == null ? "–" : fmt(v) + (el.dataset.suf || ""); });
+    var w = d.whatsapp || {};
+    $("kFila").classList.toggle("alerta", (w.fila || 0) > 0);
+    $("kResp").classList.toggle("alerta", (w.resposta_media_min || 0) > 15);
+    $("kCham").classList.toggle("alerta", (w.chamados_abertos || 0) > 0);
+    $("kPend").classList.toggle("alerta", ((d.usuarios || {}).pendentes || 0) > 0);
+    var eq = d.equipe || [];
+    $("equipe").innerHTML = eq.length ? eq.map(function(p){
+      return '<div class="pessoa"><i class="bola' + (p.disponivel ? "" : " off") + '"></i><b>' + esc(p.nome) + '</b>' +
+        '<small>' + esc((p.setores || []).map(function(s){ return SET[s] || s; }).join(" · ")) + (p.disponivel ? "" : " · indisponível") + '</small>' +
+        '<div class="nums"><span><em>' + fmt(p.comigo) + '</em>atendendo</span><span><em>' + fmt(p.atendidas_hoje) + '</em>encerradas hoje</span></div></div>';
+    }).join("") : '<p class="vazio">Equipe ainda não cadastrada.</p>';
+    var redes = d.redes || [], max = Math.max.apply(null, redes.map(function(r){ return r.professores || 0; }).concat([1]));
+    $("redes").innerHTML = redes.length ? redes.map(function(r){
+      return '<div class="rede"><span class="n">' + esc(r.nome) + (r.uf ? "/" + esc(r.uf) : "") + '</span><span class="barra"><i style="width:' + Math.round(100 * (r.professores || 0) / max) + '%"></i></span>' +
+        '<span class="v"><b>' + fmt(r.professores) + '</b> prof. · ' + fmt(r.escolas) + ' escolas</span></div>';
+    }).join("") : '<p class="vazio">Nenhuma rede ativa.</p>';
+    $("atual").textContent = "Atualizado às " + new Date(d.gerado_em || Date.now()).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" });
+  }
+  function buscar(){
+    if(!CHAVE){ $("aviso").classList.add("on"); return; }
+    fetch(URL_DADOS, { cache:"no-store" }).then(function(r){
+      if(r.status === 403){ $("aviso").classList.add("on"); throw new Error("chave"); }
+      if(!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(d){
+      $("aviso").classList.remove("on"); ultimo = Date.now(); desenhar(d);
+      try{ localStorage.setItem("pde_painel_tv", JSON.stringify(d)); }catch(e){}
+      var e = $("estado"); e.textContent = "ao vivo"; e.className = "estado";
+    }).catch(function(err){
+      if(String(err && err.message) === "chave") return;
+      var e = $("estado"); e.textContent = "sem conexão: mostrando o último dado"; e.className = "estado off";
+    });
+  }
+  // abre com o último dado guardado (TV religada sem internet ainda mostra algo)
+  try{ var g = JSON.parse(localStorage.getItem("pde_painel_tv") || "null"); if(g) desenhar(g); }catch(e){}
+  relogio(); setInterval(relogio, 15e3);
+  buscar(); setInterval(buscar, 60e3);
+  // recarrega a página de madrugada (pega versão nova do painel e limpa a memória da TV)
+  setInterval(function(){ var h = new Date(Date.now() - 4 * 3600e3).getUTCHours(); if(h === 4 && Date.now() - performance.timeOrigin > 3600e3) location.reload(); }, 10 * 60e3);
+})();
+</script>
+</body>
+</html>

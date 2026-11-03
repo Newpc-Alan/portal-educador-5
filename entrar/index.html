@@ -5808,7 +5808,9 @@
         '</div><label class="wa-disp" id="waDispBox" hidden><input type="checkbox" id="waDisp" data-action="wa-disp"> Disponível para receber conversas</label></div>'+
         '<div id="waChamados"></div>'+
         '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d" style="padding:12px">Escolha uma conversa.</p></div></div>'+
-        (wa.admin ? '<div id="waEquipe" class="wa-equipe"></div>' : '')+
+        (wa.admin ? '<div id="waEquipe" class="wa-equipe"></div>'+
+          '<div class="wa-equipe"><h4 style="margin:0 0 4px">Painel da TV</h4><p class="d">Painel ao vivo para a TV do escritório: fila e números do WhatsApp, equipe, usuários, uso do Portal e redes. Só números e o primeiro nome da equipe, sem dado pessoal. Abra o link no navegador da TV em tela cheia ou cadastre como página web na programação da TV Escola. Trocar a chave desliga o link antigo na hora.</p>'+
+          '<div class="wa-eq-form"><button class="btn btn-primary btn-add" data-action="wa-tv-link">Mostrar o link</button><button class="btn btn-ghost btn-add" data-action="wa-tv-trocar">Trocar a chave</button></div><div id="waTvLink"></div></div>' : '')+
       '</div>'+
       '<style>.wa-grade{display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:14px;margin-top:12px}.wa-lista{border:1px solid #dfe6ee;border-radius:12px;max-height:560px;overflow:auto}'+
       '.wa-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:8px}.wa-filtros{display:flex;gap:6px;flex-wrap:wrap}'+
@@ -5944,6 +5946,13 @@
     else if(a === "wa-transf-fechar"){ const b = $("waTransf"); if(b) b.hidden = true; }
     else if(a === "wa-transferir") waTransferir();
     else if(a === "wa-eq-salvar") waEqSalvar();
+    else if(a === "wa-tv-link" || a === "wa-tv-trocar") waFn("painelTvChave", { trocar:a === "wa-tv-trocar" }).then(r => {
+      const el = $("waTvLink"); if(!el) return;
+      el.innerHTML = '<div class="wa-eq-form"><input type="text" id="waTvUrl" readonly value="'+escapeAttr(r.link)+'" style="flex:1;min-width:260px;font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px">'+
+        '<button class="btn btn-ghost btn-add" data-action="wa-tv-copiar">Copiar</button><a class="btn btn-ghost btn-add" href="'+escapeAttr(r.link)+'" target="_blank" rel="noopener">Abrir</a></div>';
+      if(a === "wa-tv-trocar") toast("Chave trocada. O link antigo parou de funcionar.");
+    }).catch(waErro);
+    else if(a === "wa-tv-copiar"){ const i = $("waTvUrl"); if(i){ navigator.clipboard.writeText(i.value).then(() => toast("Link copiado.")).catch(() => { i.select(); toast("Selecione e copie o link.", true); }); } }
     else if(a === "wa-eq-editar"){ $("waEqEmail").value = el.dataset.email; const s = (el.dataset.setores || "").split(","); document.querySelectorAll('input[name="waEqSetor"]').forEach(i => i.checked = s.includes(i.value)); $("waEqEmail").focus(); }
     else if(a === "wa-eq-ativo") waFn("whatsappEquipe", { acao:"ativo", uid:el.dataset.id, ativo:el.dataset.ativo === "1" }).then(() => toast("Equipe atualizada.")).catch(waErro);
     else if(a === "wa-resolver") updateDoc(doc(db, "wa_chamados", el.dataset.id), { status:"resolvido", atualizado_em:serverTimestamp() }).then(() => toast("Chamado marcado como resolvido.")).catch(() => toast("Não foi possível atualizar.", true));
