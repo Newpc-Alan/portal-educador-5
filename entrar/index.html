@@ -13070,7 +13070,7 @@
       const muni = acharMunicipio(d.municipio);
       if(!muni){ r.msg = "Município “"+d.municipio+"” não cadastrado. Importe as escolas primeiro."; erros.push(r); return; }
       const termos = String(d.escolas||"").split(/[|;]/).map(x => x.trim()).filter(Boolean);
-      if(!termos.length){ r.msg = "Falta a escola"; erros.push(r); return; }
+      // sem escola na planilha: entra só com o município e escolhe as escolas na atualização cadastral do 1º acesso
       const achadas = [], faltando = [];
       termos.forEach(t => { const e = acharEscola(t, muni.id); e ? achadas.push(e) : faltando.push(t); });
       if(faltando.length){ r.msg = "Escola não encontrada: "+faltando.join(", "); erros.push(r); return; }
@@ -13083,14 +13083,14 @@
     const out = [];
     grupos.forEach(g => {
       const nomesEsc = [...g.escolas.values()].map(e => e.nome);
-      const r = { linha:g.linhas.join(", "), col1:g.nome, col2:g.email, col3:g.muni.nome+" · "+nomesEsc.join(", "), grupo:g, st:"novo", msg:"" };
+      const r = { linha:g.linhas.join(", "), col1:g.nome, col2:g.email, col3:g.muni.nome+" · "+(nomesEsc.join(", ") || "escolhe a escola no 1º acesso"), grupo:g, st:"novo", msg:"" };
       const u = porEmail[g.email];
       if(u){
         if(u.perfil === "admin"){ r.st = "ign"; r.msg = "É administrador, não alterado"; }
         else if(u.status === "inativo"){ r.st = "ign"; r.msg = "Cadastro desativado, não alterado"; }
         else { r.st = "atu"; r.msg = "Já entrou no Portal: aprova e vincula agora"; r.usuarioId = u.id; r.usuario = u; }
       }else if(preExist.has(g.email)){ r.st = "atu"; r.msg = "Atualiza pré-cadastro"; }
-      else r.msg = "Pré-cadastro novo";
+      else r.msg = "Pré-cadastro novo" + (g.escolas.size ? "" : " (sem escola)");
       out.push(r);
     });
     return out.concat(erros).sort((a,b) => parseInt(a.linha,10) - parseInt(b.linha,10));
@@ -13249,12 +13249,12 @@
             esc.forEach(e => ids.add(e.id));
             const lista = [...ids];
             ops.push([doc(db,"usuarios",r.usuarioId), { status:"ativo", municipio_id:g.muni.id, municipio_nome:g.muni.nome,
-              escolas_ids:lista, escolas_nomes:lista.map(id => (cacheEscolas.find(e=>e.id===id)||{}).nome || ""), escola_id:lista[0],
+              escolas_ids:lista, escolas_nomes:lista.map(id => (cacheEscolas.find(e=>e.id===id)||{}).nome || ""), escola_id:lista[0] || null,
               licenca_tipo:"institucional", licenca_fim:null, aprovado_em:serverTimestamp(), aprovado_por:usuarioAtual.uid, origem_vinculo:"importacao", ...quem }, "update"]);
           }else{
             ops.push([doc(db,"pre_cadastros",g.email), { nome:g.nome, email:g.email, perfil:"professor", status:"ativo", licenca_tipo:"institucional",
               municipio_id:g.muni.id, municipio_nome:g.muni.nome, escolas_ids:esc.map(e=>e.id), escolas_nomes:esc.map(e=>e.nome),
-              escola_id:esc[0].id, turmas_ids:[], importado_em:serverTimestamp(), importado_por:usuarioAtual.uid, ...quem }, "set"]);
+              escola_id:esc[0] ? esc[0].id : null, turmas_ids:[], importado_em:serverTimestamp(), importado_por:usuarioAtual.uid, ...quem }, "set"]);
           }
         });
       }
