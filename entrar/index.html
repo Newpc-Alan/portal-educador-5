@@ -1686,6 +1686,13 @@
       <div class="row2"><div class="field"><label for="escDir">Diretor(a)</label><input type="text" id="escDir"></div>
         <div class="field"><label for="escCoord">Coordenador(a) pedagógico(a)</label><input type="text" id="escCoord"></div></div>
       <div class="field"><label for="escAto">Ato de autorização / criação <small>(opcional)</small></label><input type="text" id="escAto" placeholder="Ex.: Decreto nº 123/1998"></div>
+      <div class="muni-perigo" id="escPerigo" hidden>
+        <b>Excluir ou juntar escola</b>
+        <p>Para escola cadastrada em duplicidade: os professores e pré-cadastros ligados a ela passam para a escola escolhida em "Juntar com" e esta é excluída. Escola com turmas ou alunos não sai por aqui.</p>
+        <div class="field"><label for="escJuntar">Juntar com</label><select id="escJuntar"></select></div>
+        <div class="muni-perigo-bt"><button type="button" class="btn btn-ghost muni-del" data-action="esc-excluir" id="escExcluir">Excluir escola</button></div>
+        <p class="muni-msg" id="escPerigoMsg" role="status"></p>
+      </div>
     </div>
     <div class="mf"><button class="btn btn-ghost" id="escCancelar">Cancelar</button><button class="btn btn-primary" id="escSalvar">Salvar escola</button></div>
   </div>
@@ -3207,7 +3214,52 @@
   $("escFone").addEventListener("input", e => { e.target.value = escFmtFone(escDig(e.target.value).slice(0, 9)); });
   $("escCep").addEventListener("input", e => { const d = escDig(e.target.value).slice(0, 8); e.target.value = escFmtCep(d); if(d.length === 8) escBuscarCep(); else { escCepBuscado = ""; escStatus("escCepSt", ""); } });
   $("escCep").addEventListener("blur", () => escBuscarCep());
-  $("modalEscola").addEventListener("click", e => { if(e.target.closest('[data-action="esc-cnpj"]')) escBuscarCnpj(); });
+  $("modalEscola").addEventListener("click", e => { if(e.target.closest('[data-action="esc-cnpj"]')) escBuscarCnpj(); else if(e.target.closest('[data-action="esc-excluir"]')) excluirEscola(); });
+  // nome sem acento, sem "escola municipal", "E.M.", pontuação: acha a provável duplicada
+  const escChave = n => semAcento(String(n || "")).toLowerCase().replace(/\b(escola|municipal|e\s?m|de|da|do|dos|das|educacao|integral|prof|profa|professor|professora|polo|rural|cmei|ensino|fundamental)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
+  function escPrepararPerigo(){
+    const box = $("escPerigo"), b = $("escExcluir"); box.hidden = !escEditando; $("escPerigoMsg").textContent = ""; delete b.dataset.confirma; b.textContent = "Excluir escola"; b.disabled = false;
+    if(!escEditando) return;
+    const k = escChave(escEditando.nome), irmas = cacheEscolas.filter(x => x.id !== escEditando.id && x.municipio_id === escEditando.municipio_id).sort((x, y) => String(x.nome).localeCompare(String(y.nome), "pt-BR"));
+    const sel = $("escJuntar"); sel.innerHTML = '<option value="">Não juntar (só excluir, se ninguém estiver ligado)</option>';
+    irmas.forEach(x => { const o = document.createElement("option"); o.value = x.id; o.textContent = x.nome; sel.appendChild(o); });
+    const par = irmas.find(x => escChave(x.nome) === k); sel.value = par ? par.id : "";
+  }
+  async function excluirEscola(){
+    const e = escEditando; if(!e) return;
+    const b = $("escExcluir"), msg = $("escPerigoMsg"), alvoId = $("escJuntar").value, alvo = cacheEscolas.find(x => x.id === alvoId);
+    b.disabled = true; msg.textContent = "Conferindo o que está ligado...";
+    try{
+      const conta = async col => (await getCountFromServer(query(collection(db, col), where("escola_id", "==", e.id)))).data().count;
+      const [t, a] = await Promise.all([conta("turmas"), conta("alunos")]);
+      if(t || a){ msg.textContent = "Não dá para excluir: tem " + [t ? t + " turma(s)" : "", a ? a + " aluno(s)" : ""].filter(Boolean).join(" e ") + " nesta escola."; return; }
+      const pessoas = new Map();
+      for(const col of ["usuarios", "pre_cadastros"]) for(const q of [where("escola_id", "==", e.id), where("escolas_ids", "array-contains", e.id)]){
+        const sn = await getDocs(query(collection(db, col), q)); sn.forEach(d => pessoas.set(d.ref.path, d));
+      }
+      const n = pessoas.size;
+      if(n && !alvo){ msg.textContent = n + " pessoa(s) ligada(s) a esta escola. Escolha em \"Juntar com\" para onde elas vão."; return; }
+      const chave = e.id + "|" + alvoId + "|" + n;
+      if(b.dataset.confirma !== chave){
+        b.dataset.confirma = chave; b.textContent = n ? "Passar " + n + " pessoa(s) e excluir? Toque de novo" : "Excluir de vez? Toque de novo";
+        msg.textContent = n ? n + " pessoa(s) passam para " + alvo.nome + "." : "Ninguém ligado a esta escola.";
+        setTimeout(() => { if(b.dataset.confirma === chave){ delete b.dataset.confirma; b.textContent = "Excluir escola"; } }, 8000); return;
+      }
+      msg.textContent = "Atualizando...";
+      const nomeDe = id => (cacheEscolas.find(x => x.id === id) || {}).nome || "";
+      let lote = writeBatch(db), q = 0;
+      for(const d of pessoas.values()){
+        const u = d.data(), velhos = Array.isArray(u.escolas_ids) && u.escolas_ids.length ? u.escolas_ids : (u.escola_id ? [u.escola_id] : []);
+        const ids = [...new Set(velhos.map(id => id === e.id ? alvoId : id))].filter(Boolean), nomes = ids.map(nomeDe);
+        lote.update(d.ref, { escolas_ids:ids, escolas_nomes:nomes, escola_id:ids[0] || null, escola_nome:nomes[0] || "", atualizado_em:serverTimestamp() });
+        if(++q === 400){ await lote.commit(); lote = writeBatch(db); q = 0; }
+      }
+      if(q) await lote.commit();
+      await deleteDoc(doc(db, "escolas", e.id));
+      fecharModalEscola(); toast(e.nome + " excluída" + (n ? "; " + n + " pessoa(s) passaram para " + alvo.nome : "") + "."); cacheEscolas = []; await listarEscolas();
+    }catch(ex){ console.warn(ex); msg.textContent = "Não excluiu (" + (ex.code || "erro") + ")."; }
+    finally{ b.disabled = false; }
+  }
 
   async function abrirModalEscola(ev, esc){
     escEditando = esc && esc.id ? esc : null;
@@ -3222,6 +3274,7 @@
     $("escFone").value = E0.tel_numero ? escFmtFone(E0.tel_numero) : tel.length >= 10 ? escFmtFone(tel.slice(2)) : escFmtFone(tel);
     if(!E0.logradouro && E0.endereco) $("escRua").value = E0.endereco;
     $("escCep").value = escFmtCep(escDig(E0.cep)); escCepBuscado = escDig(E0.cep);
+    escPrepararPerigo();
     escStatus("escCepSt", ""); escStatus("escCnpjSt", "");
     const sel = $("escMuni"); sel.innerHTML = '<option value="">Carregando...</option>';
     $("modalEscola").classList.add("show");
