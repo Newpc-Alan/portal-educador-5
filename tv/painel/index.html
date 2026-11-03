@@ -3,71 +3,102 @@
 <head>
 <meta charset="utf-8">
 <script src="/assets/js/ambiente.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f2c4a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Painel da equipe · Portal do Educador</title>
 <link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
-  /* Painel de gestão para a TV do escritório: números ao vivo, leitura de longe, sem dado pessoal. */
-  :root{ --azul:#0f2c4a; --azul2:#163a5f; --azul3:#1d4a76; --verde:#1a6b2a; --lima:#8DC63F; --laranja:#f5a623; --vermelho:#e05a4f; --texto:#eaf2fa; --suave:#9fb6cc; }
+  /* Painel de gestão para TV: cabe inteiro em qualquer tela (HD, Full HD, 4K, horizontal ou em pé), sem rolagem.
+     Tudo é medido pela tela: a fonte base usa o menor entre largura e altura, então nada estoura. */
+  :root{ --azul:#0f2c4a; --verde:#1a6b2a; --lima:#8DC63F; --laranja:#f5a623; --texto:#eaf2fa; --suave:#9fb6cc; --gap:1.1vmin; }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
-  body{ background:radial-gradient(1200px 700px at 85% -10%, #1d4a76 0%, var(--azul) 55%, #0a2036 100%); color:var(--texto);
-        font-family:Inter, system-ui, "Segoe UI", Roboto, sans-serif; font-size:clamp(12px, 1.05vw, 22px); overflow:hidden; }
-  .tela{ height:100vh; display:grid; grid-template-rows:auto auto 1fr auto; gap:1.6vh; padding:2.2vh 2.2vw; }
-  header{ display:flex; align-items:center; gap:1.2vw; }
-  header img{ width:3.4vw; min-width:42px; height:auto; }
-  header h1{ font-size:2em; margin:0; font-weight:800; letter-spacing:-.01em; }
-  header h1 small{ display:block; font-size:.45em; color:var(--lima); font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-top:.2em; }
-  .relogio{ margin-left:auto; text-align:right; }
-  .relogio b{ display:block; font-size:2.4em; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+  body{ background:radial-gradient(120vmax 70vmax at 85% -10%, #1d4a76 0%, var(--azul) 55%, #0a2036 100%); color:var(--texto);
+        font-family:Inter, system-ui, "Segoe UI", Roboto, sans-serif; overflow:hidden; cursor:none;
+        font-size:min(1.02vw, 1.85vh); }
+  body.mouse{ cursor:auto; }
+  .tela{ height:100vh; height:100dvh; display:grid; gap:var(--gap); padding:1.8vmin 2vmin;
+         grid-template-columns:1.12fr 1fr; grid-template-rows:auto auto minmax(0, 1fr) auto auto;
+         grid-template-areas:"topo topo" "wa wa" "equipe gente" "redes redes" "rodape rodape"; }
+  header{ grid-area:topo; display:flex; align-items:center; gap:1.2em; min-width:0; }
+  header img{ height:3.6em; width:auto; }
+  header h1{ font-size:2.1em; margin:0; font-weight:800; letter-spacing:-.01em; line-height:1.05; }
+  header h1 small{ display:block; font-size:.42em; color:var(--lima); font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-top:.3em; }
+  .relogio{ margin-left:auto; text-align:right; white-space:nowrap; }
+  .relogio b{ display:block; font-size:2.6em; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
   .relogio span{ color:var(--suave); font-size:.95em; }
   .estado{ display:inline-block; margin-top:.4em; font-size:.8em; padding:.15em .7em; border-radius:999px; background:rgba(141,198,63,.18); color:var(--lima); }
   .estado.off{ background:rgba(224,90,79,.2); color:#ffb4ad; }
-  h2{ margin:0 0 .7vh; font-size:.95em; text-transform:uppercase; letter-spacing:.1em; color:var(--lima); font-weight:700; display:flex; align-items:center; gap:.5em; }
-  .kpis{ display:grid; grid-template-columns:repeat(7, 1fr); gap:1vw; }
-  .kpi{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:1.4vh 1vw; }
-  .kpi b{ display:block; font-size:3.1em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; }
-  .kpi span{ color:var(--suave); font-size:.92em; }
-  .kpi.alerta{ background:rgba(245,166,35,.16); border-color:rgba(245,166,35,.55); }
-  .kpi.alerta b{ color:var(--laranja); }
-  .kpi.bom b{ color:var(--lima); }
-  .meio{ display:grid; grid-template-columns:1.15fr 1fr; gap:1.4vw; min-height:0; }
-  .bloco{ background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.07); border-radius:18px; padding:1.6vh 1.2vw; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
-  .equipe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(13.5em, 1fr)); gap:.9vw; align-content:start; overflow:hidden; }
-  .pessoa{ background:rgba(255,255,255,.06); border-radius:14px; padding:1.1vh .9vw; display:grid; grid-template-columns:auto 1fr; gap:.2em .7em; align-items:center; }
+  h2{ margin:0 0 .6em; font-size:.92em; text-transform:uppercase; letter-spacing:.1em; color:var(--lima); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bloco{ background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.07); border-radius:1.1em; padding:1em 1.1em; min-height:0; min-width:0; overflow:hidden; display:flex; flex-direction:column; }
+  .wa{ grid-area:wa; } .esq{ grid-area:equipe; display:grid; grid-template-rows:minmax(0, 1fr) auto; gap:var(--gap); min-height:0; } .gente{ grid-area:gente; display:grid; min-height:0; }
+  .redes-b{ grid-area:redes; } footer{ grid-area:rodape; }
+  .kpis{ display:grid; grid-template-columns:repeat(7, minmax(0, 1fr)); gap:var(--gap); }
+  .kpi, .mini{ background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.07); border-radius:.9em; padding:.7em .8em; min-width:0; }
+  .kpi b{ display:block; font-size:2.9em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mini b{ display:block; font-size:1.9em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .kpi span, .mini span{ display:block; color:var(--suave); font-size:.9em; line-height:1.25; }
+  .alerta{ background:rgba(245,166,35,.16) !important; border-color:rgba(245,166,35,.6) !important; } .alerta b{ color:var(--laranja); }
+  .bom b{ color:var(--lima); }
+  /* destaques: novos nos últimos 7 dias e vencimentos de amanhã */
+  .grade{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--gap); }
+  .grade.g4{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+  .destaque{ grid-column:span 2; background:linear-gradient(135deg, rgba(141,198,63,.28), rgba(26,107,42,.35)) !important; border-color:rgba(141,198,63,.6) !important; display:flex; align-items:center; gap:.9em; }
+  .destaque b{ font-size:3.4em; color:#fff; }
+  .destaque span{ color:#e2f3cf; font-size:1em; }
+  .destaque span em{ display:block; font-style:normal; font-size:.82em; color:#c7e3a8; margin-top:.2em; }
+  .vence b{ font-size:2.5em; }
+  .vence span em{ display:block; font-style:normal; font-size:.85em; margin-top:.2em; }
+  .equipe{ display:grid; grid-template-columns:repeat(auto-fill, minmax(12.5em, 1fr)); gap:var(--gap); align-content:start; overflow:hidden; min-height:0; flex:1 1 0; }
+  .pessoa{ background:rgba(255,255,255,.06); border-radius:.9em; padding:.7em .8em; display:grid; grid-template-columns:auto 1fr; gap:.15em .6em; align-items:center; min-width:0; }
   .bola{ width:.85em; height:.85em; border-radius:50%; background:var(--lima); box-shadow:0 0 .6em rgba(141,198,63,.8); grid-row:span 2; }
   .bola.off{ background:#5b6f84; box-shadow:none; }
-  .pessoa b{ font-size:1.25em; }
+  .pessoa b{ font-size:1.25em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pessoa small{ color:var(--suave); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pessoa .nums{ grid-column:1 / -1; display:flex; gap:1.2em; margin-top:.3em; font-size:.95em; }
+  .pessoa .nums{ grid-column:1 / -1; display:flex; gap:1.1em; margin-top:.3em; font-size:.92em; white-space:nowrap; overflow:hidden; }
   .pessoa .nums em{ font-style:normal; font-weight:800; font-size:1.35em; color:#fff; margin-right:.2em; }
-  .vazio{ color:var(--suave); font-style:italic; }
-  .colunas{ display:grid; grid-template-rows:1fr auto; gap:1.4vh; min-height:0; }
-  .grade{ display:grid; grid-template-columns:repeat(3, 1fr); gap:.8vw; }
-  .mini{ background:rgba(255,255,255,.06); border-radius:14px; padding:.8vh .9vw; }
-  .mini b{ display:block; font-size:1.9em; font-weight:800; line-height:1.05; font-variant-numeric:tabular-nums; }
-  .mini span{ color:var(--suave); font-size:.88em; }
-  .mini.alerta b{ color:var(--laranja); }
-  .redes{ display:grid; grid-template-columns:repeat(2, 1fr); gap:.6vh 1.6vw; }
-  .rede{ display:grid; grid-template-columns:10em 1fr 10.5em; align-items:center; gap:.7em; }
+  .vazio{ color:var(--suave); font-style:italic; margin:0; }
+  /* equipe grande: os cartões encolhem até caber (sem cortar ninguém) */
+  .equipe.c1{ grid-template-columns:repeat(auto-fill, minmax(10.5em, 1fr)); } .equipe.c1 .pessoa{ padding:.5em .7em; } .equipe.c1 .pessoa b{ font-size:1.1em; }
+  .equipe.c2 .pessoa small{ display:none; } .equipe.c2 .pessoa .bola{ grid-row:auto; }
+  .equipe.c3{ grid-template-columns:repeat(auto-fill, minmax(9em, 1fr)); } .equipe.c3 .pessoa .nums{ font-size:.8em; gap:.7em; }
+  .equipe.c4 .pessoa .nums span:last-child{ display:none; } .equipe.c4 .pessoa{ padding:.35em .6em; }
+  .equipe.c5{ font-size:.85em; } .equipe.c6{ font-size:.72em; } .equipe.c7{ font-size:.6em; }
+  .redes{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.45em 1.6em; }
+  .rede{ display:grid; grid-template-columns:minmax(0, 10em) 1fr auto; align-items:center; gap:.7em; min-width:0; }
+  .rede:nth-child(n+9){ display:none; }
   .rede .n{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .barra{ height:.75em; background:rgba(255,255,255,.08); border-radius:999px; overflow:hidden; }
   .barra i{ display:block; height:100%; background:linear-gradient(90deg, var(--verde), var(--lima)); border-radius:999px; min-width:.4em; }
   .rede .v{ font-variant-numeric:tabular-nums; color:var(--suave); white-space:nowrap; text-align:right; }
   .rede .v b{ color:#fff; }
-  footer{ display:flex; justify-content:space-between; color:var(--suave); font-size:.8em; }
-  /* TV em pé (totem): uma coluna */
+  footer{ display:flex; justify-content:space-between; gap:1em; color:var(--suave); font-size:.8em; }
+
+  /* TV em pé (totem, painel vertical): uma coluna, tudo empilhado e ainda sem rolagem */
   @media (orientation:portrait){
-    body{ font-size:clamp(12px, 1.9vw, 26px); overflow:auto; }
-    .tela{ height:auto; min-height:100vh; }
-    .kpis{ grid-template-columns:repeat(4, 1fr); }
-    .meio{ grid-template-columns:1fr; }
+    body{ font-size:min(1.85vw, 1.02vh); }
+    .tela{ grid-template-columns:1fr; grid-template-rows:auto auto auto minmax(0, 1fr) auto auto;
+           grid-template-areas:"topo" "wa" "gente" "equipe" "redes" "rodape"; }
+    .gente .grade.g4 .mini{ padding:.6em .8em; }
+    .kpis{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
     .redes{ grid-template-columns:1fr; }
+    .rede:nth-child(n+9){ display:none; }
+    .grade.g4{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
   }
-  .aviso{ display:none; position:fixed; inset:0; align-items:center; justify-content:center; text-align:center; padding:6vw; background:var(--azul); font-size:1.6em; }
+  /* tela muito larga e baixa (barra de LED, ultrawide): menos linhas de rede */
+  @media (min-aspect-ratio:21/9){ .rede:nth-child(n+7){ display:none; } }
+
+  /* entrar em tela cheia (o navegador só deixa depois de um toque, clique ou tecla do controle) */
+  .cheia{ position:fixed; left:50%; transform:translateX(-50%); bottom:2vmin; z-index:5; font:inherit; font-size:1em; font-weight:700; color:#0f2c4a; background:var(--lima);
+          border:0; border-radius:999px; padding:.8em 1.4em; cursor:pointer; box-shadow:0 .5em 1.5em rgba(0,0,0,.35); }
+  .cheia[hidden]{ display:none; }
+  .aviso{ display:none; position:fixed; inset:0; z-index:9; align-items:center; justify-content:center; text-align:center; padding:6vmin; background:var(--azul); font-size:1.6em; }
   .aviso.on{ display:flex; }
 </style>
 </head>
@@ -79,7 +110,7 @@
     <div class="relogio"><b id="hora">--:--</b><span id="data"></span><br><span class="estado" id="estado">conectando…</span></div>
   </header>
 
-  <section>
+  <section class="bloco wa">
     <h2>💬 WhatsApp (67) 9875-7275 · agora</h2>
     <div class="kpis">
       <div class="kpi" id="kFila"><b data-k="whatsapp.fila">–</b><span>na fila sem dono</span></div>
@@ -92,48 +123,54 @@
     </div>
   </section>
 
-  <div class="meio">
-    <div class="bloco">
-      <h2>👥 Equipe de atendimento</h2>
-      <div class="equipe" id="equipe"><p class="vazio">Carregando…</p></div>
-    </div>
-    <div class="colunas">
-      <div class="bloco">
-        <h2>🎓 Usuários</h2>
-        <div class="grade">
-          <div class="mini"><b data-k="usuarios.cadastrados">–</b><span>cadastros ativos</span></div>
-          <div class="mini"><b data-k="usuarios.professores">–</b><span>professores</span></div>
-          <div class="mini"><b data-k="usuarios.ativos_7d">–</b><span>entraram nos últimos 7 dias</span></div>
-          <div class="mini"><b data-k="usuarios.novos_hoje">–</b><span>novos hoje</span></div>
-          <div class="mini"><b data-k="usuarios.novos_semana">–</b><span>novos na semana</span></div>
-          <div class="mini" id="kPend"><b data-k="usuarios.pendentes">–</b><span>aguardando aprovação</span></div>
-        </div>
+  <div class="esq">
+  <section class="bloco">
+    <h2>👥 Equipe de atendimento · conversas agora e encerradas hoje</h2>
+    <div class="equipe" id="equipe"><p class="vazio">Carregando…</p></div>
+  </section>
+    <section class="bloco">
+      <h2>⚡ Uso do Portal hoje</h2>
+      <div class="grade">
+        <div class="mini"><b data-k="uso.acessos_hoje">–</b><span>pessoas entraram hoje</span></div>
+        <div class="mini"><b data-k="uso.ia_hoje">–</b><span>materiais do Portal IA</span></div>
+        <div class="mini"><b data-k="uso.aulas_agora">–</b><span>aulas ao vivo agora</span></div>
       </div>
-      <div class="bloco">
-        <h2>⚡ Uso do Portal hoje</h2>
-        <div class="grade">
-          <div class="mini"><b data-k="uso.acessos_hoje">–</b><span>pessoas entraram hoje</span></div>
-          <div class="mini"><b data-k="uso.ia_hoje">–</b><span>materiais do Portal IA</span></div>
-          <div class="mini"><b data-k="uso.aulas_agora">–</b><span>aulas ao vivo agora</span></div>
-        </div>
-      </div>
-    </div>
+    </section>
   </div>
 
-  <section class="bloco">
+  <div class="gente">
+    <section class="bloco">
+      <h2>🎓 Usuários</h2>
+      <div class="grade g4">
+        <div class="mini destaque"><b data-k="usuarios.novos_7d">–</b><span>novos cadastros nos últimos 7 dias<em id="novosHoje"></em></span></div>
+        <div class="mini vence" id="kVence"><b data-k="vencimentos.licencas_amanha">–</b><span>licenças vencem amanhã<em id="vence7"></em></span></div>
+        <div class="mini" id="kPend"><b data-k="usuarios.pendentes">–</b><span>aguardando aprovação</span></div>
+        <div class="mini"><b data-k="usuarios.cadastrados">–</b><span>cadastros ativos</span></div>
+        <div class="mini"><b data-k="usuarios.professores">–</b><span>professores</span></div>
+        <div class="mini"><b data-k="usuarios.ativos_7d">–</b><span>entraram nos últimos 7 dias</span></div>
+        <div class="mini vence" id="kCtr"><b data-k="vencimentos.contratos_amanha">–</b><span>contratos de rede vencem amanhã<em id="ctr30"></em></span></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="bloco redes-b">
     <h2>🏛️ Redes no Portal · professores ativos e escolas</h2>
     <div class="redes" id="redes"><p class="vazio">Carregando…</p></div>
   </section>
 
   <footer><span>Atualiza sozinho a cada minuto · só números, sem dados pessoais</span><span id="atual"></span></footer>
 </div>
+<button type="button" class="cheia" id="btCheia" data-action="cheia" hidden>⛶ Tela cheia</button>
 <div class="aviso" id="aviso"><div><b>Link do painel sem chave válida.</b><br><br>Gere o link em Sistema › Atendimento WhatsApp › Painel da TV.</div></div>
 
 <script>
 (function(){
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
-  var CHAVE = (new URLSearchParams(location.search).get("k") || "").replace(/[^A-Za-z0-9_-]/g, "");
+  // a chave vem no link; fica guardada na TV para o painel abrir sozinho como aplicativo (manifesto em tela cheia)
+  var daUrl = (new URLSearchParams(location.search).get("k") || "").replace(/[^A-Za-z0-9_-]/g, "");
+  var CHAVE = daUrl;
+  try{ if(daUrl) localStorage.setItem("pde_painel_tv_k", daUrl); else CHAVE = localStorage.getItem("pde_painel_tv_k") || ""; }catch(e){}
   var URL_DADOS = ((window.PDE_AMBIENTE && window.PDE_AMBIENTE.funcoes) || "https://southamerica-east1-portal-educador-5.cloudfunctions.net/") + "painelTv?k=" + encodeURIComponent(CHAVE);
   var SET = { suporte:"Suporte", tecnico:"Técnico", comercial:"Comercial" };
   var ultimo = 0;
@@ -148,24 +185,39 @@
   }
   function desenhar(d){
     document.querySelectorAll("[data-k]").forEach(function(el){ var v = pega(d, el.dataset.k); el.textContent = v == null ? "–" : fmt(v) + (el.dataset.suf || ""); });
-    var w = d.whatsapp || {};
+    var w = d.whatsapp || {}, u = d.usuarios || {}, v = d.vencimentos || {};
     $("kFila").classList.toggle("alerta", (w.fila || 0) > 0);
     $("kResp").classList.toggle("alerta", (w.resposta_media_min || 0) > 15);
     $("kCham").classList.toggle("alerta", (w.chamados_abertos || 0) > 0);
-    $("kPend").classList.toggle("alerta", ((d.usuarios || {}).pendentes || 0) > 0);
+    $("kPend").classList.toggle("alerta", (u.pendentes || 0) > 0);
+    $("kVence").classList.toggle("alerta", (v.licencas_amanha || 0) > 0);
+    $("kCtr").classList.toggle("alerta", (v.contratos_amanha || 0) > 0);
+    $("novosHoje").textContent = u.novos_hoje == null ? "" : fmt(u.novos_hoje) + " hoje · " + fmt(u.novos_semana) + " nesta semana";
+    $("vence7").textContent = v.licencas_7d == null ? "" : fmt(v.licencas_7d) + " nos próximos 7 dias";
+    $("ctr30").textContent = v.contratos_30d == null ? "" : fmt(v.contratos_30d) + " nos próximos 30 dias";
     var eq = d.equipe || [];
     $("equipe").innerHTML = eq.length ? eq.map(function(p){
       return '<div class="pessoa"><i class="bola' + (p.disponivel ? "" : " off") + '"></i><b>' + esc(p.nome) + '</b>' +
         '<small>' + esc((p.setores || []).map(function(s){ return SET[s] || s; }).join(" · ")) + (p.disponivel ? "" : " · indisponível") + '</small>' +
-        '<div class="nums"><span><em>' + fmt(p.comigo) + '</em>atendendo</span><span><em>' + fmt(p.atendidas_hoje) + '</em>encerradas hoje</span></div></div>';
+        '<div class="nums"><span><em>' + fmt(p.comigo) + '</em>agora</span><span><em>' + fmt(p.atendidas_hoje) + '</em>hoje</span></div></div>';
     }).join("") : '<p class="vazio">Equipe ainda não cadastrada.</p>';
     var redes = d.redes || [], max = Math.max.apply(null, redes.map(function(r){ return r.professores || 0; }).concat([1]));
     $("redes").innerHTML = redes.length ? redes.map(function(r){
       return '<div class="rede"><span class="n">' + esc(r.nome) + (r.uf ? "/" + esc(r.uf) : "") + '</span><span class="barra"><i style="width:' + Math.round(100 * (r.professores || 0) / max) + '%"></i></span>' +
-        '<span class="v"><b>' + fmt(r.professores) + '</b> prof. · ' + fmt(r.escolas) + ' escolas</span></div>';
+        '<span class="v"><b>' + fmt(r.professores) + '</b> prof. · ' + fmt(r.escolas) + ' esc.</span></div>';
     }).join("") : '<p class="vazio">Nenhuma rede ativa.</p>';
+    // só depois de tudo desenhado (as redes mudam a altura do meio da tela)
+    ajustar(); requestAnimationFrame(ajustar);
     $("atual").textContent = "Atualizado às " + new Date(d.gerado_em || Date.now()).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", timeZone:"America/Campo_Grande" });
   }
+  // aplica classes de compactação uma a uma até o conteúdo caber no bloco
+  function caber(el, niveis){
+    niveis.forEach(function(c){ el.classList.remove(c); });
+    for(var i = 0; i < niveis.length && el.scrollHeight > el.clientHeight + 1; i++) el.classList.add(niveis[i]);
+  }
+  function ajustar(){ caber($("equipe"), ["c1", "c2", "c3", "c4", "c5", "c6", "c7"]); }
+  var tRes = null; window.addEventListener("resize", function(){ clearTimeout(tRes); tRes = setTimeout(ajustar, 200); });
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar);
   function buscar(){
     if(!CHAVE){ $("aviso").classList.add("on"); return; }
     fetch(URL_DADOS, { cache:"no-store" }).then(function(r){
@@ -181,12 +233,36 @@
       var e = $("estado"); e.textContent = "sem conexão: mostrando o último dado"; e.className = "estado off";
     });
   }
-  // abre com o último dado guardado (TV religada sem internet ainda mostra algo)
+
+  // ---- tela cheia: botão na primeira vez; qualquer toque, clique ou tecla do controle (OK/Enter) também entra
+  var el = document.documentElement;
+  var podeCheia = !!(el.requestFullscreen || el.webkitRequestFullscreen);
+  function emCheia(){ return !!(document.fullscreenElement || document.webkitFullscreenElement) || window.matchMedia("(display-mode: fullscreen)").matches; }
+  function entrarCheia(){
+    if(!podeCheia || emCheia()) return;
+    var p = el.requestFullscreen ? el.requestFullscreen({ navigationUI:"hide" }) : el.webkitRequestFullscreen();
+    if(p && p.catch) p.catch(function(){});
+    try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock(screen.orientation.type).catch(function(){}); }catch(e){}
+  }
+  function attBotao(){ $("btCheia").hidden = !podeCheia || emCheia(); }
+  document.addEventListener("click", function(e){ if(e.target.closest('[data-action="cheia"]') || !emCheia()) entrarCheia(); });
+  document.addEventListener("keydown", function(e){ if(["Enter", " ", "f", "F", "OK", "Select"].indexOf(e.key) >= 0) entrarCheia(); });
+  document.addEventListener("fullscreenchange", attBotao); document.addEventListener("webkitfullscreenchange", attBotao);
+  // a tela da TV não apaga sozinha enquanto o painel estiver aberto (onde o navegador permitir)
+  var trava = null;
+  function manterAcesa(){ try{ if(navigator.wakeLock && document.visibilityState === "visible") navigator.wakeLock.request("screen").then(function(t){ trava = t; }).catch(function(){}); }catch(e){} }
+  document.addEventListener("visibilitychange", manterAcesa);
+  // cursor some sozinho; aparece se mexer o mouse
+  var tCursor = null;
+  document.addEventListener("mousemove", function(){ document.body.classList.add("mouse"); clearTimeout(tCursor); tCursor = setTimeout(function(){ document.body.classList.remove("mouse"); }, 3000); });
+
   try{ var g = JSON.parse(localStorage.getItem("pde_painel_tv") || "null"); if(g) desenhar(g); }catch(e){}
+  attBotao(); manterAcesa();
+  setTimeout(function(){ $("btCheia").hidden = true; }, 20000);
   relogio(); setInterval(relogio, 15e3);
   buscar(); setInterval(buscar, 60e3);
-  // recarrega a página de madrugada (pega versão nova do painel e limpa a memória da TV)
-  setInterval(function(){ var h = new Date(Date.now() - 4 * 3600e3).getUTCHours(); if(h === 4 && Date.now() - performance.timeOrigin > 3600e3) location.reload(); }, 10 * 60e3);
+  // recarrega de madrugada (versão nova do painel e memória limpa)
+  setInterval(function(){ var h = new Date(Date.now() - 4 * 3600e3).getUTCHours(); if(h === 4 && performance.now() > 3600e3) location.reload(); }, 10 * 60e3);
 })();
 </script>
 </body>

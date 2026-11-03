@@ -20,6 +20,7 @@ const primeiro = s => String(s || '').trim().split(/\s+/)[0] || '';
 let CACHE = null, CACHE_EM = 0;
 async function montar(db) {
   const agora = Date.now(), hoje = inicioDia(agora), semana = inicioSemana(agora), d7 = agora - 7 * 864e5;
+  const amanha = hoje + 864e5, depois = hoje + 2 * 864e5, em7 = hoje + 8 * 864e5;
   const U = db.collection('usuarios'), C = db.collection('wa_conversas');
   const [eqSn, emAt, metSn, entradas, munSn] = await Promise.all([
     db.collection('wa_equipe').get(),
@@ -29,7 +30,8 @@ async function montar(db) {
     db.collection('municipios').where('status', '==', 'ativo').select('nome', 'uf').get().catch(() => null)
   ]);
   const met = metSn.data() || {};
-  const [convHoje, transfHoje, chamados, comerciais, cadastrados, pendentes, novosHoje, novosSemana, ativos7, iaHoje, aulasAgora, professores] = await Promise.all([
+  const M = db.collection('municipios');
+  const [convHoje, transfHoje, chamados, comerciais, cadastrados, pendentes, novosHoje, novosSemana, ativos7, iaHoje, aulasAgora, professores, novos7, licAmanha, lic7, ctrAmanha, ctr30] = await Promise.all([
     n(C.where('ultima_em', '>=', ts(hoje))),
     n(C.where('encaminhada_em', '>=', ts(hoje))),
     n(db.collection('wa_chamados').where('status', '==', 'aberto')),
@@ -41,7 +43,14 @@ async function montar(db) {
     n(U.where('ultimo_acesso', '>=', ts(d7))),
     n(db.collection('portal_ia_docs').where('criado_em', '>=', ts(hoje))),
     n(db.collection('qr_aulas').where('aberta_ate', '>', ts(agora))),
-    n(U.where('perfil', '==', 'professor').where('status', '==', 'ativo'))
+    n(U.where('perfil', '==', 'professor').where('status', '==', 'ativo')),
+    n(U.where('criado_em', '>=', ts(d7))),
+    // licenças individuais (teste, avulsa, cortesia) que terminam amanhã e nos próximos 7 dias
+    n(U.where('licenca_fim', '>=', ts(amanha)).where('licenca_fim', '<', ts(depois))),
+    n(U.where('licenca_fim', '>=', ts(amanha)).where('licenca_fim', '<', ts(em7))),
+    // contratos das redes (vigência) que terminam amanhã e nos próximos 30 dias
+    n(M.where('vigencia_fim_ts', '>=', ts(amanha)).where('vigencia_fim_ts', '<', ts(depois))),
+    n(M.where('vigencia_fim_ts', '>=', ts(amanha)).where('vigencia_fim_ts', '<', ts(hoje + 31 * 864e5)))
   ]);
   // equipe: só primeiro nome, situação e quantas conversas estão com cada um
   const comCada = {}; let fila = 0;
@@ -66,7 +75,8 @@ async function montar(db) {
       resposta_media_min: met.resp_n ? Math.round(met.resp_soma_s / met.resp_n / 60) : null, encerradas_hoje: met.encerradas || 0,
       chamados_abertos: chamados, comerciais_semana: comerciais },
     equipe,
-    usuarios: { cadastrados, professores, pendentes, novos_hoje: novosHoje, novos_semana: novosSemana, ativos_7d: ativos7 },
+    usuarios: { cadastrados, professores, pendentes, novos_hoje: novosHoje, novos_semana: novosSemana, novos_7d: novos7, ativos_7d: ativos7 },
+    vencimentos: { licencas_amanha: licAmanha, licencas_7d: lic7, contratos_amanha: ctrAmanha, contratos_30d: ctr30 },
     uso: { acessos_hoje: acessosHoje, ia_hoje: iaHoje, aulas_agora: aulasAgora },
     redes
   };
