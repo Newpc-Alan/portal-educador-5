@@ -2549,6 +2549,8 @@
     const daModeracao = location.hash === "#moderacao" && menu.itens.find(i => i.id === "moderacao");
     if(daModeracao) history.replaceState(null, "", location.pathname + location.search);
     selecionar(daModeracao || (location.hash === "#creditos" && menu.itens.find(i => i.id === "creditos")) || (sessionStorage.getItem("pde_tr_pasta") === "rede" && menu.itens.find(i => i.id === "trabalhos")) || primeiro);
+    menuAtendimento(perfil);
+    if(location.hash === "#whatsapp" && perfil === "admin"){ history.replaceState(null, "", location.pathname + location.search); const w = menu.itens.find(i => i.id === "whatsapp"); if(w) setTimeout(() => selecionar(w), 50); }
     faixaSimulacao();
     registrarAcesso();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
@@ -2739,10 +2741,10 @@
       if(item.id === "docs"){ renderDocumentacao(); return; }
       if(item.id === "auditoria"){ renderAuditoria(); return; }
       if(item.id === "comunicados"){ renderComunicados(); return; }
-      if(item.id === "whatsapp"){ renderWhatsapp(); return; }
       if(item.id === "simulador"){ renderSimulador(); return; }
       if(item.id === "usoreal"){ renderUsoReal(); return; }
     }
+    if(item.id === "whatsapp"){ renderWhatsapp(); return; }   // administrador ou membro da equipe de atendimento (as regras conferem)
     if(item.id === "ajuda"){ renderAjuda(); return; }
     if(item.id === "inicio"){ renderInicio(); return; }
     if(item.id === "meucadastro"){ renderMeuCadastro(); return; }
@@ -5768,84 +5770,188 @@
     return out.slice(0, 8000);
   }
   // ---------- Atendimento WhatsApp (robô do Portal, nov/2026) ----------
-  // A conversa chega pelo robô; quando a pessoa pede atendente, aparece aqui com selo. A equipe responde por aqui
-  // (a função whatsappResponder manda pela API da Meta). O WhatsApp só deixa responder até 24 h depois da última mensagem da pessoa.
-  const wa = { sel:"", unsub:[], conversas:[], msgs:[], chamados:[] };
-  function waParar(){ wa.unsub.forEach(f => { try{ f(); }catch(e){} }); wa.unsub = []; }
+  // O robô atende primeiro. Quando ele não sabe, ou a pessoa pede, a conversa vai por rodízio para alguém do setor
+  // (Suporte, Técnico, Comercial) cadastrado na Equipe de atendimento. Quem recebe pode responder, transferir ou encerrar.
+  // O WhatsApp só deixa responder até 24 h depois da última mensagem da pessoa.
+  const WA_SETORES = { suporte:"Suporte", tecnico:"Técnico", comercial:"Comercial" };
+  const wa = { sel:"", unsub:[], conversas:[], chamados:[], equipe:[], filtro:"minhas", eu:null, admin:false };
+  function waParar(){ wa.unsub.forEach(f => { try{ f(); }catch(e){} }); wa.unsub = []; if(wa.unsubMsg){ try{ wa.unsubMsg(); }catch(e){} wa.unsubMsg = null; } }
   const waQuando = t => { const d = t && t.toDate ? t.toDate() : null; if(!d) return ""; const hoje = new Date().toDateString() === d.toDateString();
     return hoje ? d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" })+" "+d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); };
   const waNum = id => { const d = String(id || "").replace(/^55/, ""); return d.length >= 10 ? "("+d.slice(0, 2)+") "+d.slice(2, -4)+"-"+d.slice(-4) : id; };
+  async function waFn(nome, dados){
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), nome, { timeout:20000 })(dados)).data;
+  }
+  const waErro = e => toast((e && e.message || "Não foi possível.").replace(/^.*?: /, ""), true);
+  // item "Atendimento WhatsApp" no menu de quem é da equipe e não é administrador
+  async function menuAtendimento(perfil){
+    if(perfil === "admin" || perfil === "aluno" || !auth.currentUser) return;
+    try{
+      const e = await getDoc(doc(db, "wa_equipe", auth.currentUser.uid)); if(!e.exists() || e.data().ativo !== true) return;
+      const nav = $("nav"); if(!nav || nav.querySelector('[data-sec="whatsapp"]')) return;
+      const item = { id:"whatsapp", ico:"\u{1F4AC}", label:"Atendimento WhatsApp" };
+      const a = document.createElement("a"); a.dataset.sec = item.id; a.innerHTML = '<span class="ico">'+item.ico+'</span>'+item.label;
+      a.addEventListener("click", () => selecionar(item)); nav.appendChild(a);
+      if(location.hash === "#whatsapp"){ history.replaceState(null, "", location.pathname + location.search); selecionar(item); }
+    }catch(err){}
+  }
   async function renderWhatsapp(){
-    waParar(); wa.sel = "";
+    waParar(); wa.sel = ""; wa.admin = usuarioAtual && usuarioAtual.perfil === "admin";
     let cfg = {}; try{ const c = await getDoc(doc(db, "wa_config", "geral")); cfg = c.exists() ? c.data() : {}; }catch(e){}
     $("conteudo").innerHTML =
       '<div class="imp-card" id="waTela"><h3>\u{1F4AC} Atendimento WhatsApp</h3>'+
         '<p class="d">Robô '+(cfg.ligado ? '<b style="color:var(--verde,#1a6b2a)">ligado</b>' : '<b style="color:#c0392b">desligado</b>')+
-        '. Ele responde dúvidas pelo Manual do Usuário, abre chamados de equipamento e manda o link de acesso por e-mail. Quando a pessoa pede atendente, a conversa fica com o selo <span class="wa-selo">aguardando</span> e a equipe responde aqui. Pelas regras do WhatsApp, só dá para responder até 24 h depois da última mensagem da pessoa.</p>'+
+        ' no (67) 9875-7275. Ele responde pelo Manual do Usuário; quando não sabe, ou a pessoa pede, a conversa vai por <b>rodízio</b> para alguém do setor (Suporte, Técnico ou Comercial). Quem recebe responde, <b>transfere</b> ou encerra. Pelas regras do WhatsApp, só dá para responder até 24 h depois da última mensagem da pessoa.</p>'+
+        '<div class="wa-topo"><div class="wa-filtros" role="tablist">'+
+          [["minhas","Minhas"],["fila","Fila sem dono"],["todas","Todas"]].map(([k, v]) => '<button type="button" role="tab" data-action="wa-filtro" data-f="'+k+'" class="'+(wa.filtro === k ? "on" : "")+'">'+v+' <em id="waCnt_'+k+'"></em></button>').join("")+
+        '</div><label class="wa-disp" id="waDispBox" hidden><input type="checkbox" id="waDisp" data-action="wa-disp"> Disponível para receber conversas</label></div>'+
         '<div id="waChamados"></div>'+
-        '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d">Escolha uma conversa.</p></div></div></div>'+
-      '<style>.wa-grade{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:14px;margin-top:12px}.wa-lista{border:1px solid #dfe6ee;border-radius:12px;max-height:560px;overflow:auto}'+
+        '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d" style="padding:12px">Escolha uma conversa.</p></div></div>'+
+        (wa.admin ? '<div id="waEquipe" class="wa-equipe"></div>' : '')+
+      '</div>'+
+      '<style>.wa-grade{display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:14px;margin-top:12px}.wa-lista{border:1px solid #dfe6ee;border-radius:12px;max-height:560px;overflow:auto}'+
+      '.wa-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:8px}.wa-filtros{display:flex;gap:6px;flex-wrap:wrap}'+
+      '.wa-filtros button{border:1px solid #cfd8e3;background:#fff;border-radius:999px;padding:6px 12px;font:inherit;cursor:pointer}.wa-filtros button.on{background:#0f2c4a;color:#fff;border-color:#0f2c4a}.wa-filtros em{font-style:normal;opacity:.75}'+
+      '.wa-disp{display:flex;gap:6px;align-items:center;font-size:.92em}'+
       '.wa-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #eef2f6;background:#fff;padding:10px 12px;cursor:pointer;font:inherit}.wa-item:hover,.wa-item.on{background:#eef6f0}'+
-      '.wa-item b{display:block}.wa-item small{color:#5b6b7c}.wa-selo{display:inline-block;background:#fde8c8;color:#8a4b00;border-radius:999px;padding:1px 8px;font-size:.78em;font-weight:600}'+
+      '.wa-item b{display:block}.wa-item small{color:#5b6b7c}.wa-selo{display:inline-block;background:#fde8c8;color:#8a4b00;border-radius:999px;padding:1px 8px;font-size:.78em;font-weight:600;margin-left:4px}'+
+      '.wa-selo.az{background:#dbeafe;color:#0f2c4a}.wa-selo.vd{background:#dcf2e1;color:#1a6b2a}'+
       '.wa-conv{border:1px solid #dfe6ee;border-radius:12px;display:flex;flex-direction:column;min-height:420px}.wa-msgs{flex:1;overflow:auto;padding:12px;max-height:440px;background:#f6f8fa}'+
       '.wa-m{max-width:78%;margin:6px 0;padding:8px 10px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}.wa-m small{display:block;color:#5b6b7c;font-size:.75em;margin-top:2px}'+
-      '.wa-pessoa{background:#fff;border:1px solid #e3e8ee}.wa-robo{background:#e8eef4;margin-left:auto}.wa-equipe{background:#d9f0de;margin-left:auto}'+
+      '.wa-pessoa{background:#fff;border:1px solid #e3e8ee}.wa-robo{background:#e8eef4;margin-left:auto}.wa-equipe-m{background:#d9f0de;margin-left:auto}.wa-sistema{background:none;color:#5b6b7c;font-size:.85em;text-align:center;max-width:100%;margin:8px auto}'+
+      '.wa-cab{padding:10px 12px;border-bottom:1px solid #eef2f6;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}'+
       '.wa-resp{display:flex;gap:8px;padding:10px;border-top:1px solid #eef2f6;flex-wrap:wrap}.wa-resp textarea{flex:1;min-width:200px;font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px}'+
+      '.wa-transf{display:flex;flex-wrap:wrap;gap:8px;padding:10px;border-top:1px dashed #cfd8e3;background:#fbfcfd}.wa-transf select,.wa-transf input{font:inherit;padding:6px 8px;border:1px solid #cfd8e3;border-radius:8px}.wa-transf input{flex:1;min-width:160px}'+
       '.wa-ch{border:1px solid #f0d9b5;background:#fffaf2;border-radius:10px;padding:8px 12px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}'+
+      '.wa-equipe{margin-top:22px;border-top:1px solid #eef2f6;padding-top:14px}.wa-eq-tab{width:100%;border-collapse:collapse;font-size:.93em}.wa-eq-tab td,.wa-eq-tab th{padding:7px 8px;border-bottom:1px solid #eef2f6;text-align:left}'+
+      '.wa-eq-form{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0}.wa-eq-form input[type=email]{flex:1;min-width:220px;font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px}'+
       '@media(max-width:760px){.wa-grade{grid-template-columns:1fr}}</style>';
-    wa.unsub.push(onSnapshot(query(collection(db, "wa_conversas"), orderBy("ultima_em", "desc"), limit(150)), sn => {
+    wa.unsub.push(onSnapshot(collection(db, "wa_equipe"), sn => {
+      if(!$("waTela")){ waParar(); return; }
+      wa.equipe = sn.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+      wa.eu = wa.equipe.find(m => m.id === (auth.currentUser && auth.currentUser.uid)) || null;
+      const box = $("waDispBox"); if(box){ box.hidden = !(wa.eu && wa.eu.ativo); const c = $("waDisp"); if(c && wa.eu) c.checked = wa.eu.disponivel !== false; }
+      waDesenharEquipe(); waDesenharLista();
+    }, () => {}));
+    wa.unsub.push(onSnapshot(query(collection(db, "wa_conversas"), orderBy("ultima_em", "desc"), limit(200)), sn => {
       if(!$("waTela")){ waParar(); return; }
       wa.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); waDesenharLista();
-    }, e => { const l = $("waLista"); if(l) l.innerHTML = '<p class="d">Não consegui abrir as conversas ('+escapeHtml(e.code || "erro")+').</p>'; }));
+      if(wa.sel) waCabecalho();
+    }, e => { const l = $("waLista"); if(l) l.innerHTML = '<p class="d" style="padding:12px">Não consegui abrir as conversas ('+escapeHtml(e.code || "erro")+').</p>'; }));
     wa.unsub.push(onSnapshot(query(collection(db, "wa_chamados"), where("status", "==", "aberto"), limit(100)), sn => {
       if(!$("waTela")){ waParar(); return; }
       wa.chamados = sn.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => ((b.criado_em && b.criado_em.toMillis()) || 0) - ((a.criado_em && a.criado_em.toMillis()) || 0));
       const el = $("waChamados"); if(!el) return;
-      el.innerHTML = wa.chamados.length ? '<h4 style="margin:10px 0 4px">Chamados abertos pelo WhatsApp ('+wa.chamados.length+')</h4>'+wa.chamados.map(c =>
-        '<div class="wa-ch"><div><b>'+escapeHtml(c.protocolo || c.id.slice(0, 6))+'</b> · '+escapeHtml(c.nome || waNum(c.wa_id))+(c.municipio_nome ? ' · '+escapeHtml(c.municipio_nome) : '')+' · <small>'+waQuando(c.criado_em)+'</small><br>'+escapeHtml(c.descricao || "")+'</div>'+
+      el.innerHTML = wa.chamados.length ? '<h4 style="margin:12px 0 4px">Chamados abertos pelo WhatsApp ('+wa.chamados.length+')</h4>'+wa.chamados.map(c =>
+        '<div class="wa-ch"><div><b>'+escapeHtml(c.protocolo || c.id.slice(0, 6))+'</b> · '+escapeHtml(c.nome || waNum(c.wa_id))+(c.municipio_nome ? ' · '+escapeHtml(c.municipio_nome) : '')+' · <small>'+waQuando(c.criado_em)+'</small>'+
+        (c.atribuido_nome ? ' <span class="wa-selo vd">'+escapeHtml(c.atribuido_nome)+'</span>' : ' <span class="wa-selo">sem técnico</span>')+'<br>'+escapeHtml(c.descricao || "")+'</div>'+
         '<button class="btn btn-ghost btn-add" data-action="wa-resolver" data-id="'+escapeAttr(c.id)+'">Marcar resolvido</button></div>').join("") : "";
     }, () => {}));
   }
+  const waMinha = c => c.atribuido_uid && auth.currentUser && c.atribuido_uid === auth.currentUser.uid;
+  function waFiltradas(f){
+    const emAt = wa.conversas.filter(c => c.estado === "atendente");
+    if(f === "minhas") return emAt.filter(waMinha);
+    if(f === "fila") return emAt.filter(c => !c.atribuido_uid);
+    return wa.conversas;
+  }
   function waDesenharLista(){
     const l = $("waLista"); if(!l) return;
-    if(!wa.conversas.length){ l.innerHTML = '<p class="d" style="padding:12px">Nenhuma conversa ainda.</p>'; return; }
-    const ord = [...wa.conversas].sort((a, b) => (b.estado === "atendente") - (a.estado === "atendente"));
-    l.innerHTML = ord.map(c => '<button class="wa-item'+(c.id === wa.sel ? " on" : "")+'" data-action="wa-abrir" data-id="'+escapeAttr(c.id)+'">'+
-      '<b>'+escapeHtml(c.nome || c.nome_whatsapp || waNum(c.id))+(c.estado === "atendente" ? ' <span class="wa-selo">aguardando'+(c.nao_lidas ? " · "+c.nao_lidas : "")+'</span>' : "")+(c.assunto === "comercial" ? ' <span class="wa-selo" style="background:#dbeafe;color:#0f2c4a">comercial</span>' : "")+'</b>'+
+    ["minhas","fila","todas"].forEach(k => { const e = $("waCnt_"+k); if(e) e.textContent = k === "todas" ? "" : "("+waFiltradas(k).length+")"; });
+    document.querySelectorAll('[data-action="wa-filtro"]').forEach(b => b.classList.toggle("on", b.dataset.f === wa.filtro));
+    const lista = waFiltradas(wa.filtro);
+    if(!lista.length){ l.innerHTML = '<p class="d" style="padding:12px">'+(wa.filtro === "minhas" ? "Nenhuma conversa com você agora." : wa.filtro === "fila" ? "Fila vazia." : "Nenhuma conversa ainda.")+'</p>'; return; }
+    l.innerHTML = lista.map(c => '<button class="wa-item'+(c.id === wa.sel ? " on" : "")+'" data-action="wa-abrir" data-id="'+escapeAttr(c.id)+'">'+
+      '<b>'+escapeHtml(c.nome || c.nome_whatsapp || waNum(c.id))+
+        (c.estado === "atendente" ? (c.atribuido_uid ? '<span class="wa-selo vd">'+escapeHtml(waMinha(c) ? "comigo" : (c.atribuido_nome || "atribuída"))+'</span>' : '<span class="wa-selo">fila</span>')+(c.nao_lidas ? '<span class="wa-selo">'+c.nao_lidas+' nova(s)</span>' : '') : "")+
+        (c.setor ? '<span class="wa-selo az">'+escapeHtml(WA_SETORES[c.setor] || c.setor)+'</span>' : (c.assunto === "comercial" ? '<span class="wa-selo az">Comercial</span>' : ''))+'</b>'+
       '<small>'+escapeHtml(c.uid ? (c.perfil || "")+(c.municipio_nome ? " · "+c.municipio_nome : "") : "sem cadastro no Portal")+' · '+waQuando(c.ultima_em)+'</small><br><small>'+escapeHtml(String(c.ultima || "").slice(0, 70))+'</small></button>').join("");
+  }
+  function waCabecalho(){
+    const c = wa.conversas.find(x => x.id === wa.sel) || {}, cab = $("waCab"); if(!cab) return;
+    const dono = c.estado === "atendente" ? (c.atribuido_uid ? (waMinha(c) ? "com você" : "com "+(c.atribuido_nome || "outra pessoa")) : "na fila") : "com o robô";
+    cab.innerHTML = '<div><b>'+escapeHtml(c.nome || c.nome_whatsapp || "")+'</b> · '+escapeHtml(waNum(wa.sel))+(c.email ? ' · '+escapeHtml(c.email) : '')+
+      '<br><small>Conversa '+escapeHtml(dono)+(c.setor ? ' · '+escapeHtml(WA_SETORES[c.setor] || c.setor) : '')+'</small>'+
+      (c.lead ? '<br><small>Contato comercial: '+escapeHtml(c.lead)+'</small>' : '')+'</div>'+
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">'+(waMinha(c) ? '' : '<button class="btn btn-ghost btn-add" data-action="wa-assumir">Assumir</button>')+
+      '<button class="btn btn-ghost btn-add" data-action="wa-transf-abrir">Transferir</button></div>';
   }
   function waAbrir(id){
     wa.sel = id; waDesenharLista();
     if(wa.unsubMsg){ try{ wa.unsubMsg(); }catch(e){} }
-    const c = wa.conversas.find(x => x.id === id) || {};
-    $("waConv").innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #eef2f6"><b>'+escapeHtml(c.nome || c.nome_whatsapp || "")+'</b> · '+escapeHtml(waNum(id))+
-      (c.email ? ' · '+escapeHtml(c.email) : '')+(c.lead ? '<br><small>Contato comercial: '+escapeHtml(c.lead)+'</small>' : '')+'</div><div class="wa-msgs" id="waMsgs"></div>'+
-      '<div class="wa-resp"><textarea id="waTexto" rows="2" maxlength="3000" placeholder="Escreva a resposta"></textarea>'+
+    $("waConv").innerHTML = '<div class="wa-cab" id="waCab"></div><div class="wa-msgs" id="waMsgs"></div>'+
+      '<div class="wa-transf" id="waTransf" hidden><select id="waTransfPara" aria-label="Transferir para"></select><input id="waTransfNota" maxlength="500" placeholder="Recado para quem vai receber (opcional)">'+
+      '<button class="btn btn-primary btn-add" data-action="wa-transferir">Transferir</button><button class="btn btn-ghost btn-add" data-action="wa-transf-fechar">Cancelar</button></div>'+
+      '<div class="wa-resp"><textarea id="waTexto" rows="2" maxlength="3000" placeholder="Escreva a resposta (a pessoa vê: Equipe Portal do Educador)"></textarea>'+
       '<button class="btn btn-primary btn-add" data-action="wa-enviar">Enviar</button><button class="btn btn-ghost btn-add" data-action="wa-encerrar">Encerrar atendimento</button></div>';
+    waCabecalho();
     wa.unsubMsg = onSnapshot(query(collection(db, "wa_conversas", id, "mensagens"), orderBy("em", "desc"), limit(200)), sn => {
       const box = $("waMsgs"); if(!box || wa.sel !== id){ try{ wa.unsubMsg(); }catch(e){} return; }
-      box.innerHTML = sn.docs.reverse().map(d => { const m = d.data();
-        return '<div class="wa-m wa-'+(m.de === "equipe" ? "equipe" : m.de === "robo" ? "robo" : "pessoa")+'">'+escapeHtml(m.texto || "")+'<small>'+(m.de === "equipe" ? escapeHtml(m.autor_nome || "Equipe") : m.de === "robo" ? "Robô" : "Pessoa")+' · '+waQuando(m.em)+'</small></div>'; }).join("");
+      box.innerHTML = sn.docs.slice().reverse().map(d => { const m = d.data();
+        if(m.de === "sistema") return '<div class="wa-m wa-sistema">'+escapeHtml(m.texto || "")+' · '+waQuando(m.em)+'</div>';
+        return '<div class="wa-m wa-'+(m.de === "equipe" ? "equipe-m" : m.de === "robo" ? "robo" : "pessoa")+'">'+escapeHtml(m.texto || "")+'<small>'+(m.de === "equipe" ? escapeHtml(m.autor_nome || "Equipe") : m.de === "robo" ? "Robô" : "Pessoa")+' · '+waQuando(m.em)+'</small></div>'; }).join("");
       box.scrollTop = box.scrollHeight;
     }, () => {});
-    wa.unsub.push(() => { try{ wa.unsubMsg && wa.unsubMsg(); }catch(e){} });
+  }
+  function waAbrirTransf(){
+    const s = $("waTransfPara"), box = $("waTransf"); if(!s || !box) return;
+    const eu = auth.currentUser && auth.currentUser.uid;
+    const pessoas = wa.equipe.filter(m => m.ativo && m.id !== eu);
+    s.innerHTML = '<optgroup label="Próximo disponível do setor">'+Object.entries(WA_SETORES).map(([k, v]) => '<option value="setor:'+k+'">'+v+' (rodízio)</option>').join("")+'</optgroup>'+
+      (pessoas.length ? '<optgroup label="Pessoa da equipe">'+pessoas.map(m => '<option value="uid:'+escapeAttr(m.id)+'">'+escapeHtml(m.nome)+' · '+escapeHtml((m.setores || []).map(x => WA_SETORES[x] || x).join(", "))+(m.disponivel === false ? " (indisponível)" : "")+'</option>').join("")+'</optgroup>' : '');
+    box.hidden = false; s.focus();
+  }
+  async function waTransferir(){
+    const v = ($("waTransfPara") || {}).value || "", nota = (($("waTransfNota") || {}).value || "").trim();
+    const dados = { wa_id:wa.sel, nota }; if(v.startsWith("setor:")) dados.setor = v.slice(6); else if(v.startsWith("uid:")) dados.para_uid = v.slice(4); else return;
+    try{ const r = await waFn("whatsappTransferir", dados); toast("Conversa transferida para "+r.para+"."); const b = $("waTransf"); if(b) b.hidden = true; }catch(e){ waErro(e); }
   }
   async function waResponder(encerrar){
     const t = $("waTexto"), texto = t ? t.value.trim() : "";
     if(!encerrar && !texto){ toast("Escreva a resposta.", true); return; }
-    try{
-      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-      await httpsCallable(getFunctions(app, "southamerica-east1"), "whatsappResponder", { timeout:20000 })({ wa_id:wa.sel, texto, encerrar });
-      if(t) t.value = ""; toast(encerrar ? "Atendimento encerrado. O robô volta a responder." : "Mensagem enviada.");
-    }catch(e){ toast((e && e.message || "Não foi possível enviar.").replace(/^.*?: /, ""), true); }
+    try{ await waFn("whatsappResponder", { wa_id:wa.sel, texto, encerrar }); if(t) t.value = ""; toast(encerrar ? "Atendimento encerrado. O robô volta a responder." : "Mensagem enviada."); }catch(e){ waErro(e); }
+  }
+  // ----- Equipe de atendimento (só administrador)
+  function waDesenharEquipe(){
+    const el = $("waEquipe"); if(!el) return;
+    el.innerHTML = '<h4 style="margin:0 0 4px">Equipe de atendimento</h4><p class="d">Quem recebe as conversas por rodízio. A pessoa precisa ter conta no Portal (entrar uma vez) e passa a ver esta tela no menu. Cada um liga ou desliga o próprio <b>Disponível</b>.</p>'+
+      '<div class="wa-eq-form"><input type="email" id="waEqEmail" placeholder="E-mail da pessoa no Portal" data-padrao="email" autocomplete="off">'+
+      Object.entries(WA_SETORES).map(([k, v]) => '<label><input type="checkbox" name="waEqSetor" value="'+k+'"'+(k === "suporte" ? " checked" : "")+'> '+v+'</label>').join("")+
+      '<button class="btn btn-primary btn-add" data-action="wa-eq-salvar">Adicionar ou atualizar</button></div>'+
+      (wa.equipe.length ? '<table class="wa-eq-tab"><thead><tr><th>Nome</th><th>Setores</th><th>Situação</th><th></th></tr></thead><tbody>'+wa.equipe.map(m =>
+        '<tr><td>'+escapeHtml(m.nome || "")+'<br><small>'+escapeHtml(m.email || "")+'</small></td><td>'+escapeHtml((m.setores || []).map(x => WA_SETORES[x] || x).join(", "))+'</td>'+
+        '<td>'+(m.ativo ? (m.disponivel === false ? '<span class="wa-selo">indisponível</span>' : '<span class="wa-selo vd">disponível</span>') : '<span class="wa-selo">fora da equipe</span>')+'</td>'+
+        '<td><button class="btn btn-ghost btn-add" data-action="wa-eq-editar" data-email="'+escapeAttr(m.email || "")+'" data-setores="'+escapeAttr((m.setores || []).join(","))+'">Editar</button> '+
+        '<button class="btn btn-ghost btn-add" data-action="wa-eq-ativo" data-id="'+escapeAttr(m.id)+'" data-ativo="'+(m.ativo ? "0" : "1")+'">'+(m.ativo ? "Tirar da equipe" : "Voltar à equipe")+'</button></td></tr>').join("")+'</tbody></table>' : '<p class="d">Ninguém cadastrado ainda: sem equipe, as conversas ficam na fila e o aviso vai para o e-mail padrão.</p>');
+  }
+  async function waEqSalvar(){
+    const email = (($("waEqEmail") || {}).value || "").trim().toLowerCase();
+    const setores = [...document.querySelectorAll('input[name="waEqSetor"]:checked')].map(i => i.value);
+    if(!PDE_PADRAO.email(email).ok || !email){ toast("Informe um e-mail válido.", true); return; }
+    if(!setores.length){ toast("Marque pelo menos um setor.", true); return; }
+    try{ const r = await waFn("whatsappEquipe", { acao:"salvar", email, setores }); toast(r.nome+" está na equipe de atendimento."); $("waEqEmail").value = ""; }catch(e){ waErro(e); }
   }
   document.addEventListener("click", ev => {
     const el = ev.target.closest("[data-action^='wa-']"); if(!el || !$("waTela")) return;
     const a = el.dataset.action;
     if(a === "wa-abrir") waAbrir(el.dataset.id);
+    else if(a === "wa-filtro"){ wa.filtro = el.dataset.f; waDesenharLista(); }
     else if(a === "wa-enviar") waResponder(false);
     else if(a === "wa-encerrar") waResponder(true);
+    else if(a === "wa-assumir") waFn("whatsappTransferir", { wa_id:wa.sel, para_uid:auth.currentUser.uid }).then(() => toast("A conversa agora está com você.")).catch(waErro);
+    else if(a === "wa-transf-abrir") waAbrirTransf();
+    else if(a === "wa-transf-fechar"){ const b = $("waTransf"); if(b) b.hidden = true; }
+    else if(a === "wa-transferir") waTransferir();
+    else if(a === "wa-eq-salvar") waEqSalvar();
+    else if(a === "wa-eq-editar"){ $("waEqEmail").value = el.dataset.email; const s = (el.dataset.setores || "").split(","); document.querySelectorAll('input[name="waEqSetor"]').forEach(i => i.checked = s.includes(i.value)); $("waEqEmail").focus(); }
+    else if(a === "wa-eq-ativo") waFn("whatsappEquipe", { acao:"ativo", uid:el.dataset.id, ativo:el.dataset.ativo === "1" }).then(() => toast("Equipe atualizada.")).catch(waErro);
     else if(a === "wa-resolver") updateDoc(doc(db, "wa_chamados", el.dataset.id), { status:"resolvido", atualizado_em:serverTimestamp() }).then(() => toast("Chamado marcado como resolvido.")).catch(() => toast("Não foi possível atualizar.", true));
+  });
+  document.addEventListener("change", ev => {
+    if(ev.target.id !== "waDisp" || !$("waTela") || !auth.currentUser) return;
+    updateDoc(doc(db, "wa_equipe", auth.currentUser.uid), { disponivel:ev.target.checked, atualizado_em:serverTimestamp() })
+      .then(() => toast(ev.target.checked ? "Você está disponível para receber conversas." : "Você não vai receber conversas novas até ligar de novo.")).catch(waErro);
   });
 
   async function renderComunicados(){

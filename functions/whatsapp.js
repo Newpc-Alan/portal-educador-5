@@ -12,7 +12,8 @@
 // Coleções (só funções gravam; só o administrador lê):
 //   wa_conversas/{wa_id}                  quem é, estado do menu, última mensagem
 //   wa_conversas/{wa_id}/mensagens/{id}   histórico (entrada e saída)
-//   wa_chamados/{id}                      chamados abertos pelo WhatsApp
+//   wa_chamados/{id}                      chamados abertos pelo WhatsApp (atribuido_uid: técnico da vez)
+//   wa_equipe/{uid}                       equipe de atendimento: nome, email, setores[suporte|tecnico|comercial], ativo, disponivel, ultimo_em (rodízio)
 //   wa_vistos/{wamid}                     ids já tratados (a Meta pode reenviar); expira_em tem TTL de 7 dias
 //   bot_conhecimento/{id}                 trechos dos manuais (titulo, texto) que o robô usa para responder
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
@@ -111,10 +112,13 @@ async function responderDuvida(db, pergunta, quem) {
     (quem && quem.perfil ? ' Quem pergunta é ' + quem.perfil + '.' : '');
   for (const modelo of MODELOS) {
     try {
-      const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() },
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: instrucao }] }, contents: [{ role: 'user', parts: [{ text: 'TRECHOS DO MANUAL:\n' + contexto + '\n\nPERGUNTA: ' + txt(pergunta, 600) }] }], generationConfig: { maxOutputTokens: 900 } })
-      });
+      const corpo = { systemInstruction: { parts: [{ text: instrucao }] }, contents: [{ role: 'user', parts: [{ text: 'TRECHOS DO MANUAL:\n' + contexto + '\n\nPERGUNTA: ' + txt(pergunta, 600) }] }],
+        generationConfig: { maxOutputTokens: 700, thinkingConfig: { thinkingLevel: 'low' } } };
+      const chamar = c => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() }, body: JSON.stringify(c), signal: AbortSignal.timeout(12000) });
+      let r = await chamar(corpo);
+      // modelo que não aceita o ajuste de raciocínio: tenta de novo sem ele
+      if (r.status === 400) { delete corpo.generationConfig.thinkingConfig; r = await chamar(corpo); }
       if (!r.ok) continue;
       const j = await r.json(), out = txt(((j.candidates || [])[0] || {}).content?.parts?.map(p => p.text || '').join('') || '', 3500);
       if (!out) continue;
@@ -137,19 +141,60 @@ async function avisarEquipe(cfg, assunto, html) {
   try { await transporte().sendMail({ from: `"Portal do Educador · WhatsApp" <${SMTP_USUARIO.value()}>`, to: para, subject: assunto, html }); } catch (e) { console.warn('whatsapp: e-mail da equipe', e.message); }
 }
 
+// ---------- equipe: rodízio por setor e transferência ----------
+const SETORES = { suporte: 'Suporte', tecnico: 'Técnico', comercial: 'Comercial' };
+// horário de atendimento humano: segunda a sexta, 8h às 18h (Mato Grosso do Sul)
+function dentroHorario(d = new Date()) {
+  const ms = new Date(d.getTime() - 4 * 3600e3), dia = ms.getUTCDay(), h = ms.getUTCHours();
+  return dia >= 1 && dia <= 5 && h >= 8 && h < 18;
+}
+// escolhe o membro ativo e disponível do setor que recebeu conversa há mais tempo (rodízio justo) e marca a vez dele
+async function proximoDoSetor(db, setor, exceto) {
+  return db.runTransaction(async tx => {
+    const sn = await tx.get(db.collection('wa_equipe').where('setores', 'array-contains', setor));
+    const livres = sn.docs.filter(d => d.data().ativo === true && d.data().disponivel !== false && d.id !== exceto)
+      .sort((a, b) => ((a.data().ultimo_em && a.data().ultimo_em.toMillis()) || 0) - ((b.data().ultimo_em && b.data().ultimo_em.toMillis()) || 0));
+    if (!livres.length) return null;
+    const d = livres[0]; tx.update(d.ref, { ultimo_em: FieldValue.serverTimestamp() });
+    return { uid: d.id, nome: d.data().nome || '', email: d.data().email || '' };
+  });
+}
+async function avisarPessoa(email, assunto, html) {
+  if (!email) return;
+  try { await transporte().sendMail({ from: `"Portal do Educador · WhatsApp" <${SMTP_USUARIO.value()}>`, to: email, subject: assunto, html }); } catch (e) { console.warn('whatsapp: aviso', e.message); }
+}
+// passa a conversa para alguém do setor (rodízio); sem ninguém disponível, fica na fila do setor e a lista padrão é avisada
+async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
+  const m = await proximoDoSetor(db, setor).catch(e => { console.warn('whatsapp: rodízio', e.message); return null; });
+  await ref.set({ estado: 'atendente', setor, fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1,
+    atribuido_uid: m ? m.uid : '', atribuido_nome: m ? m.nome : '', atribuido_em: FieldValue.serverTimestamp() }, { merge: true });
+  await guardar(ref, 'sistema', 'Encaminhada para ' + (m ? m.nome : 'a fila do setor') + ' (' + SETORES[setor] + ')');
+  const html = '<p>' + esc(resumo) + '</p>' + (contexto ? '<p>' + esc(contexto) + '</p>' : '') + '<p>Responda pela tela <b>Atendimento WhatsApp</b> do Portal: ' + SITE + '/entrar/#whatsapp</p>';
+  if (m) await avisarPessoa(m.email, 'WhatsApp (' + SETORES[setor] + '): nova conversa para você', html);
+  else await avisarEquipe(cfg, 'WhatsApp (' + SETORES[setor] + '): conversa na fila sem atendente disponível', html);
+  await auditar(db, waId, 'Conversa encaminhada: ' + SETORES[setor] + (m ? ' › ' + m.nome : ' › fila'));
+  return m;
+}
+const AVISO_HORARIO = 'Nosso atendimento humano é de segunda a sexta, das 8h às 18h. Sua mensagem fica registrada e respondemos no próximo horário.';
+
 // ---------- conversa ----------
 async function tratar(db, cfg, msg, contato) {
   const waId = String(msg.from || ''); if (!/^\d{8,15}$/.test(waId)) return;
-  const ref = db.doc('wa_conversas/' + waId), conv = (await ref.get()).data() || {};
+  const ref = db.doc('wa_conversas/' + waId);
+  // "lida" + "digitando..." na hora: a pessoa vê que o atendimento começou enquanto o robô prepara a resposta
+  const digitando = fetch(GRAPH + cfg.phone_number_id + '/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: msg.id, typing_indicator: { type: 'text' } }) }).catch(() => {});
   const entrada = msg.type === 'text' ? txt(msg.text && msg.text.body, 1500)
     : msg.type === 'interactive' ? txt((msg.interactive.list_reply || msg.interactive.button_reply || {}).id, 40) : '';
-  const quem = await identificar(db, waId);
+  const [snConv, quem] = await Promise.all([ref.get(), identificar(db, waId).catch(() => null)]);
+  const conv = snConv.data() || {};
   const nome = quem ? quem.nome : txt(contato && contato.profile && contato.profile.name, 40).split(' ')[0];
-  await ref.set({ wa_id: waId, nome_whatsapp: txt(contato && contato.profile && contato.profile.name, 80), uid: quem ? quem.uid : '', nome: quem ? quem.nome : '', email: quem ? quem.email : '',
+  const cabecalho = ref.set({ wa_id: waId, nome_whatsapp: txt(contato && contato.profile && contato.profile.name, 80), uid: quem ? quem.uid : '', nome: quem ? quem.nome : '', email: quem ? quem.email : '',
     perfil: quem ? quem.perfil : '', municipio_nome: quem ? (quem.municipio_nome || '') : '', ultima_pessoa_em: FieldValue.serverTimestamp(),
     ultima: txt(entrada || '[' + msg.type + ']', 200), ultima_em: FieldValue.serverTimestamp() }, { merge: true });
-  await guardar(ref, 'pessoa', entrada || '[' + msg.type + ']', { tipo: msg.type, wamid: txt(msg.id, 120) });
-  const responder = async corpo => { await enviar(cfg, waId, corpo); await guardar(ref, 'robo', corpo.text ? corpo.text.body : (corpo.interactive.body || {}).text || '[menu]'); };
+  const gravando = guardar(ref, 'pessoa', entrada || '[' + msg.type + ']', { tipo: msg.type, wamid: txt(msg.id, 120) });
+  const responder = async corpo => { await Promise.all([enviar(cfg, waId, corpo), guardar(ref, 'robo', corpo.text ? corpo.text.body : (corpo.interactive.body || {}).text || '[menu]')]); };
+  await Promise.all([cabecalho, gravando, digitando]);
   const estado = async e => ref.set({ estado: e, estado_em: FieldValue.serverTimestamp() }, { merge: true });
 
   if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Por enquanto eu entendo só mensagens de texto. Escreva sua dúvida ou digite *menu*.')); return; }
@@ -163,21 +208,21 @@ async function tratar(db, cfg, msg, contato) {
     return;
   }
   if (conv.estado === 'comercial' && msg.type === 'text' && !SAUDACAO.test(entrada)) {
-    await estado('atendente'); await ref.set({ fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1, lead: txt(entrada, 800) }, { merge: true });
-    await responder(texto('Obrigado! Passei para a equipe comercial da NEWPC. Um consultor responde por aqui em horário comercial.'));
-    const para = cfg.comercial_emails && cfg.comercial_emails.length ? { ...cfg, equipe_emails: cfg.comercial_emails } : cfg;
-    await avisarEquipe(para, 'WhatsApp comercial: ' + (nome || waId), '<p><b>Novo contato comercial pelo WhatsApp</b> (' + esc(waId) + ')</p><p>Pedido: ' + esc(conv.pedido || '-') + '</p><p>Dados: ' + esc(entrada) + '</p><p>Responda pela tela de Atendimento do Portal.</p>');
-    await auditar(db, waId, 'Contato comercial passado para a equipe'); return;
+    await ref.set({ lead: txt(entrada, 800) }, { merge: true });
+    await responder(texto('Obrigado! Passei para um consultor do Portal do Educador, que responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
+    await encaminhar(db, cfg, ref, waId, 'comercial', 'Novo contato comercial: ' + (nome || 'contato') + '.', 'Pedido: ' + (conv.pedido || '-') + ' · Dados: ' + entrada);
+    return;
   }
   if (SAUDACAO.test(entrada) || (!conv.estado && msg.type !== 'interactive')) { await estado('menu'); await responder(menu(nome)); return; }
 
   if (entrada === 'duvida') { await estado('duvida'); await responder(texto('Escreva sua dúvida numa mensagem só. Ex.: "Como faço um quiz com a turma?"')); return; }
   if (entrada === 'chamado') { await estado('chamado'); await responder(texto('Conte numa mensagem só: a *escola*, o *equipamento* (ex.: Chromebook 12, lousa da sala 3) e *o que está acontecendo*.')); return; }
+  const quemTxt = (nome || 'Contato') + (quem ? ' · ' + (quem.perfil || '') + (quem.municipio_nome ? ' de ' + quem.municipio_nome : '') : ' · sem cadastro no Portal');
   if (entrada === 'atendente') {
-    await estado('atendente'); await ref.set({ fila_desde: FieldValue.serverTimestamp(), nao_lidas: 1, assunto: 'suporte' }, { merge: true });
-    await responder(texto('Certo! Passei a sua conversa para a equipe do Portal do Educador. Uma pessoa responde por aqui assim que possível, em horário comercial.'));
-    await avisarEquipe(cfg, 'WhatsApp: ' + (nome || waId) + ' pediu atendente', '<p><b>' + esc(nome || '-') + '</b> (' + esc(waId) + ')' + (quem ? ', ' + esc(quem.perfil) + ' de ' + esc(quem.municipio_nome || '-') : ', sem cadastro no Portal') + ', pediu para falar com uma pessoa.</p><p>Responda pela tela de Atendimento do Portal.</p>');
-    await auditar(db, waId, 'Conversa passada para atendente'); return;
+    await ref.set({ assunto: 'suporte' }, { merge: true });
+    await responder(texto('Certo! Passei a sua conversa para uma pessoa da equipe do Portal do Educador, que responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
+    await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ' pediu atendente.');
+    return;
   }
   if (entrada === 'acesso') {
     if (!quem || !quem.email) { await responder(texto('Não achei um cadastro no Portal com este WhatsApp. Entre em ' + SITE + '/entrar com a sua conta Google ou peça o link de acesso pelo e-mail na própria tela. Se precisar, digite *menu* e escolha *Falar com atendente*.')); return; }
@@ -191,15 +236,23 @@ async function tratar(db, cfg, msg, contato) {
     } catch (e) { console.warn('whatsapp: link', e.message); await responder(texto('Não consegui gerar o link agora. Tente de novo em alguns minutos ou digite *menu* › *Falar com atendente*.')); }
     await estado('menu'); return;
   }
-  if (entrada === 'nao_resolveu') { await tratar(db, cfg, { ...msg, type: 'interactive', interactive: { button_reply: { id: 'atendente' } } }, contato); return; }
+  if (entrada === 'nao_resolveu') {
+    await ref.set({ assunto: 'suporte' }, { merge: true });
+    await responder(texto('Tudo bem! Passei a sua conversa para uma pessoa da equipe, que continua por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
+    await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': a resposta do robô não resolveu.', 'Última pergunta: ' + (conv.ultima || '-'));
+    return;
+  }
 
   if (conv.estado === 'chamado') {
     const c = await db.collection('wa_chamados').add({ wa_id: waId, uid: quem ? quem.uid : '', nome: quem ? quem.nome : nome || '', municipio_nome: quem ? (quem.municipio_nome || '') : '',
       descricao: entrada, status: 'aberto', criado_em: FieldValue.serverTimestamp() });
     const prot = c.id.slice(0, 6).toUpperCase();
-    await c.update({ protocolo: prot });
-    await responder(texto('Chamado aberto! Protocolo *' + prot + '*. A equipe técnica da NEWPC vai entrar em contato. Para outra coisa, digite *menu*.'));
-    await avisarEquipe(cfg, 'Chamado pelo WhatsApp ' + prot + (quem && quem.municipio_nome ? ' · ' + quem.municipio_nome : ''), '<p><b>Protocolo ' + prot + '</b> · ' + esc(nome || '-') + ' (' + esc(waId) + ')</p><p>' + esc(entrada) + '</p>');
+    const tec = await proximoDoSetor(db, 'tecnico').catch(() => null);
+    await c.update({ protocolo: prot, atribuido_uid: tec ? tec.uid : '', atribuido_nome: tec ? tec.nome : '' });
+    await responder(texto('Chamado aberto! Protocolo *' + prot + '*. A equipe técnica vai entrar em contato. Para outra coisa, digite *menu*.'));
+    const htmlCh = '<p><b>Protocolo ' + esc(prot) + '</b> · ' + esc(quemTxt) + '</p><p>' + esc(entrada) + '</p><p>Veja na tela <b>Atendimento WhatsApp</b> do Portal.</p>';
+    if (tec) await avisarPessoa(tec.email, 'Chamado pelo WhatsApp ' + prot + ' para você', htmlCh);
+    else await avisarEquipe(cfg, 'Chamado pelo WhatsApp ' + prot + (quem && quem.municipio_nome ? ' · ' + quem.municipio_nome : ''), htmlCh);
     await auditar(db, waId, 'Chamado ' + prot + ' aberto pelo WhatsApp'); await estado('menu'); return;
   }
 
@@ -209,13 +262,22 @@ async function tratar(db, cfg, msg, contato) {
     await responder(texto(resp));
     await responder(botoes('Isso resolveu?', [{ id: 'menu', title: 'Sim, obrigado' }, { id: 'nao_resolveu', title: 'Falar com atendente' }]));
   } else {
-    await responder(botoes('Não encontrei isso nos manuais do Portal. Quer falar com uma pessoa da equipe?', [{ id: 'atendente', title: 'Falar com atendente' }, { id: 'menu', title: 'Ver o menu' }]));
+    // o robô não sabe: passa direto para uma pessoa da equipe (rodízio do suporte)
+    await ref.set({ assunto: 'suporte' }, { merge: true });
+    await responder(texto('Essa eu não encontrei no manual do Portal. Passei sua pergunta para uma pessoa da equipe, que responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
+    await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': o robô não encontrou resposta.', 'Pergunta: ' + entrada);
+    return;
   }
   await estado('menu');
 }
 
 // ---------- endereço que a Meta chama ----------
-export const whatsappWebhook = onRequest({ region: REGIAO, secrets: [TOKEN, APP_SECRET, VERIFY, GEMINI, SMTP_SENHA], maxInstances: 5, timeoutSeconds: 60, memory: '512MiB' }, async (req, res) => {
+// configuração em memória por 60 s (uma leitura a menos por mensagem)
+let CFG = null, CFG_EM = 0;
+async function config(db) { if (!CFG || Date.now() - CFG_EM > 60e3) { CFG = (await db.doc('wa_config/geral').get()).data() || {}; CFG_EM = Date.now(); } return CFG; }
+
+// minInstances 1: um servidor sempre acordado (sem a espera de 3 a 8 s da primeira mensagem)
+export const whatsappWebhook = onRequest({ region: REGIAO, secrets: [TOKEN, APP_SECRET, VERIFY, GEMINI, SMTP_SENHA], minInstances: 1, maxInstances: 5, timeoutSeconds: 60, memory: '512MiB', cpu: 1 }, async (req, res) => {
   if (req.method === 'GET') {   // a Meta confirma o endereço uma vez
     const ok = req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === VERIFY.value();
     res.status(ok ? 200 : 403).send(ok ? String(req.query['hub.challenge'] || '') : 'não');
@@ -223,18 +285,22 @@ export const whatsappWebhook = onRequest({ region: REGIAO, secrets: [TOKEN, APP_
   }
   if (req.method !== 'POST') { res.status(405).send(''); return; }
   if (!assinaturaOk(req)) { res.status(401).send(''); return; }
-  res.status(200).send('ok');   // responde logo; a Meta reenvia se demorar
-  const db = getFirestore(), cfg = (await db.doc('wa_config/geral').get()).data() || {};
-  if (!cfg.ligado || !cfg.phone_number_id) return;
+  // trabalha ANTES de responder: depois da resposta o Google reduz a CPU ao mínimo e tudo fica lento
+  const db = getFirestore(), cfg = await config(db);
+  if (!cfg.ligado || !cfg.phone_number_id) { res.status(200).send('ok'); return; }
+  const tarefas = [];
   for (const e of (req.body && req.body.entry) || []) for (const ch of e.changes || []) {
     const v = ch.value || {}; if (v.metadata && String(v.metadata.phone_number_id) !== String(cfg.phone_number_id)) continue;
     for (const m of v.messages || []) {
       // a Meta pode mandar a mesma mensagem duas vezes: guarda o id e ignora repetidas
       const marca = db.doc('wa_vistos/' + txt(m.id, 200).replace(/[\/]/g, '_'));
-      try { await marca.create({ em: FieldValue.serverTimestamp(), expira_em: Timestamp.fromMillis(Date.now() + 7 * 86400e3) }); } catch (e) { continue; }
-      try { await tratar(db, cfg, m, (v.contacts || [])[0]); } catch (e) { console.error('whatsapp:', e.message); }
+      tarefas.push(marca.create({ em: FieldValue.serverTimestamp(), expira_em: Timestamp.fromMillis(Date.now() + 7 * 86400e3) })
+        .then(() => tratar(db, cfg, m, (v.contacts || [])[0]), () => null)
+        .catch(e => console.error('whatsapp:', e.message)));
     }
   }
+  await Promise.all(tarefas);
+  res.status(200).send('ok');
 });
 
 // ---------- tela de Atendimento (só administrador) ----------
@@ -242,11 +308,21 @@ export const whatsappWebhook = onRequest({ region: REGIAO, secrets: [TOKEN, APP_
 async function souAdmin(req) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre no Portal.');
   const u = (await getFirestore().doc('usuarios/' + req.auth.uid).get()).data() || {};
-  if (u.perfil !== 'admin' || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Só a equipe do Portal atende pelo WhatsApp.');
+  if (u.perfil !== 'admin' || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Só o administrador do Portal faz isso.');
   return u;
 }
+// quem atende: administrador ativo ou membro ativo da equipe de atendimento
+async function souAtendente(req) {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Entre no Portal.');
+  const db = getFirestore();
+  const [u, eq] = await Promise.all([db.doc('usuarios/' + req.auth.uid).get(), db.doc('wa_equipe/' + req.auth.uid).get()]);
+  const ud = u.data() || {}, ed = eq.data() || {};
+  const admin = ud.perfil === 'admin' && ud.status === 'ativo';
+  if (!admin && !(eq.exists && ed.ativo === true)) throw new HttpsError('permission-denied', 'Só a equipe de atendimento usa esta tela.');
+  return { nome: txt(String(ed.nome || ud.nome || 'Equipe').split(' ')[0], 30), nomeCompleto: txt(ed.nome || ud.nome || '', 80), admin };
+}
 export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxInstances: 5, timeoutSeconds: 20 }, async req => {
-  const u = await souAdmin(req), db = getFirestore();
+  const u = await souAtendente(req), db = getFirestore();
   const waId = String((req.data || {}).wa_id || ''), msg = txt((req.data || {}).texto, 3000), encerrar = !!(req.data || {}).encerrar;
   if (!/^\d{8,15}$/.test(waId)) throw new HttpsError('invalid-argument', 'Conversa inválida.');
   const ref = db.doc('wa_conversas/' + waId), conv = (await ref.get()).data();
@@ -262,7 +338,65 @@ export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxI
     await enviar(cfg, waId, texto('Atendimento encerrado. Se precisar de mais alguma coisa, é só digitar *menu*.'));
     await guardar(ref, 'robo', 'Atendimento encerrado');
   }
-  await ref.set({ estado: encerrar ? 'menu' : 'atendente', nao_lidas: 0, atendente_uid: req.auth.uid, atendente_nome: quem, ...(encerrar ? { fila_desde: FieldValue.delete() } : {}) }, { merge: true });
+  // quem responde uma conversa da fila (sem dono) fica com ela
+  const dono = conv.atribuido_uid ? {} : { atribuido_uid: req.auth.uid, atribuido_nome: u.nomeCompleto || quem, atribuido_em: FieldValue.serverTimestamp() };
+  await ref.set({ estado: encerrar ? 'menu' : 'atendente', nao_lidas: 0, atendente_uid: req.auth.uid, atendente_nome: quem, ...dono,
+    ...(encerrar ? { fila_desde: FieldValue.delete(), atribuido_uid: '', atribuido_nome: '', setor: FieldValue.delete() } : {}) }, { merge: true });
   if (encerrar) await auditar(db, waId, 'Atendimento encerrado por ' + quem);
   return { ok: true };
+});
+
+// transferir a conversa: para um membro (para_uid), para o próximo do setor (setor) ou assumir (para_uid = eu)
+export const whatsappTransferir = onCall({ region: REGIAO, secrets: [SMTP_SENHA], maxInstances: 5, timeoutSeconds: 20 }, async req => {
+  const u = await souAtendente(req), db = getFirestore(), d = req.data || {};
+  const waId = String(d.wa_id || ''), nota = txt(d.nota, 500);
+  if (!/^\d{8,15}$/.test(waId)) throw new HttpsError('invalid-argument', 'Conversa inválida.');
+  const ref = db.doc('wa_conversas/' + waId), conv = (await ref.get()).data();
+  if (!conv) throw new HttpsError('not-found', 'Conversa não encontrada.');
+  let alvo = null, setor = SETORES[d.setor] ? d.setor : (conv.setor || 'suporte');
+  if (d.para_uid) {
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(d.para_uid))) throw new HttpsError('invalid-argument', 'Membro inválido.');
+    const m = await db.doc('wa_equipe/' + d.para_uid).get();
+    if (!m.exists || m.data().ativo !== true) throw new HttpsError('failed-precondition', 'Essa pessoa não está ativa na equipe de atendimento.');
+    alvo = { uid: m.id, nome: m.data().nome || '', email: m.data().email || '' };
+    if (!SETORES[d.setor] && (m.data().setores || []).length && !(m.data().setores || []).includes(setor)) setor = m.data().setores[0];
+  } else {
+    alvo = await proximoDoSetor(db, setor, req.auth.uid);
+    if (!alvo) throw new HttpsError('failed-precondition', 'Ninguém disponível no setor ' + SETORES[setor] + ' agora.');
+  }
+  const assumiu = alvo.uid === req.auth.uid;
+  await ref.set({ estado: 'atendente', setor, atribuido_uid: alvo.uid, atribuido_nome: alvo.nome, atribuido_em: FieldValue.serverTimestamp() }, { merge: true });
+  await guardar(ref, 'sistema', assumiu ? u.nomeCompleto + ' assumiu a conversa' : 'Transferida por ' + (u.nomeCompleto || u.nome) + ' para ' + alvo.nome + ' (' + SETORES[setor] + ')' + (nota ? ': ' + nota : ''));
+  if (!assumiu) await avisarPessoa(alvo.email, 'WhatsApp: ' + (u.nomeCompleto || u.nome) + ' transferiu uma conversa para você',
+    '<p>' + esc(conv.nome || conv.nome_whatsapp || 'Contato') + (conv.municipio_nome ? ' · ' + esc(conv.municipio_nome) : '') + '</p>' + (nota ? '<p>Recado: ' + esc(nota) + '</p>' : '') + '<p>Responda pela tela <b>Atendimento WhatsApp</b> do Portal: ' + SITE + '/entrar/#whatsapp</p>');
+  await auditar(db, waId, assumiu ? 'Conversa assumida por ' + u.nomeCompleto : 'Conversa transferida para ' + alvo.nome + ' (' + SETORES[setor] + ')');
+  return { ok: true, para: alvo.nome, setor };
+});
+
+// cadastro da equipe de atendimento (só administrador). A pessoa precisa ter conta no Portal (o e-mail localiza o cadastro).
+export const whatsappEquipe = onCall({ region: REGIAO, maxInstances: 3, timeoutSeconds: 20 }, async req => {
+  await souAdmin(req); const db = getFirestore(), d = req.data || {};
+  if (d.acao === 'salvar') {
+    const email = txt(d.email, 160).toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/.test(email)) throw new HttpsError('invalid-argument', 'E-mail inválido.');
+    const setores = (Array.isArray(d.setores) ? d.setores : []).filter(x => SETORES[x]);
+    if (!setores.length) throw new HttpsError('invalid-argument', 'Marque pelo menos um setor.');
+    const sn = await db.collection('usuarios').where('email', '==', email).limit(2).get();
+    if (sn.size !== 1) throw new HttpsError('not-found', sn.size ? 'Mais de um cadastro com esse e-mail.' : 'Não achei cadastro no Portal com esse e-mail. A pessoa precisa entrar no Portal uma vez antes.');
+    const uref = sn.docs[0], ud = uref.data();
+    if (ud.status !== 'ativo') throw new HttpsError('failed-precondition', 'O cadastro dessa pessoa no Portal não está ativo.');
+    const ref = db.doc('wa_equipe/' + uref.id), antes = await ref.get();
+    await ref.set({ nome: txt(ud.nome, 80) || email, email, setores, ativo: true, disponivel: antes.exists ? antes.data().disponivel !== false : true,
+      atualizado_em: FieldValue.serverTimestamp(), ...(antes.exists ? {} : { criado_em: FieldValue.serverTimestamp(), ultimo_em: Timestamp.fromMillis(0) }) }, { merge: true });
+    await auditar(db, uref.id, 'Equipe de atendimento: ' + email + ' (' + setores.join(', ') + ')');
+    return { ok: true, uid: uref.id, nome: ud.nome || email };
+  }
+  if (d.acao === 'ativo') {   // tirar ou voltar da equipe (não apaga: o histórico das conversas continua com o nome)
+    if (!/^[A-Za-z0-9_-]{1,128}$/.test(String(d.uid || ''))) throw new HttpsError('invalid-argument', 'Membro inválido.');
+    const ref = db.doc('wa_equipe/' + d.uid); if (!(await ref.get()).exists) throw new HttpsError('not-found', 'Membro não encontrado.');
+    await ref.update({ ativo: !!d.ativo, atualizado_em: FieldValue.serverTimestamp() });
+    await auditar(db, d.uid, 'Equipe de atendimento: ' + (d.ativo ? 'voltou' : 'saiu'));
+    return { ok: true };
+  }
+  throw new HttpsError('invalid-argument', 'Ação desconhecida.');
 });
