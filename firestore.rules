@@ -1332,9 +1332,11 @@ service cloud.firestore {
     match /wa_conversas/{id} { allow read: if admin() || waEquipe(); allow write: if false;
       match /mensagens/{m} { allow read: if admin() || waEquipe(); allow write: if false; } }
     match /wa_chamados/{id} { allow read: if admin() || waEquipe(); allow update: if (admin() || waEquipe()) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "obs", "atualizado_em"]); allow create, delete: if false; }
-    // a própria pessoa liga e desliga "disponível"; o resto só pelas funções (cadastro do administrador e rodízio)
+    // a própria pessoa liga e desliga "disponível" e registra os aparelhos que recebem notificação (tokens, até 10);
+    // o resto só pelas funções (cadastro do administrador e rodízio)
     match /wa_equipe/{uid} { allow read: if admin() || waEquipe();
-      allow update: if request.auth != null && request.auth.uid == uid && waEquipe() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["disponivel", "atualizado_em"]);
+      allow update: if request.auth != null && request.auth.uid == uid && waEquipe() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["disponivel", "atualizado_em", "tokens"])
+        && (!("tokens" in request.resource.data) || (request.resource.data.tokens is list && request.resource.data.tokens.size() <= 10));
       allow create, delete: if false; }
     match /wa_vistos/{id} { allow read, write: if false; }
     match /bot_conhecimento/{id} { allow read: if admin(); allow write: if false; }

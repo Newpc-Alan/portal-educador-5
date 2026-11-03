@@ -20,6 +20,7 @@ import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
+import { getMessaging } from 'firebase-admin/messaging';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 import { expiraAuditoria } from './auditoria.js';
@@ -102,6 +103,74 @@ function buscar(lista, pergunta, n = 5) {
   return lista.map(x => ({ x, p: termos.reduce((s, t) => s + (x.chave.includes(t) ? 1 + (sa(x.titulo).includes(t) ? 1 : 0) : 0), 0) }))
     .filter(r => r.p > 0).sort((a, b) => b.p - a.p).slice(0, n).map(r => r.x);
 }
+// ---------- agente: entende o pedido e resolve consultando o Portal ----------
+// Classifica a mensagem (uma chamada curta à IA) e, quando é algo que o Portal sabe responder, responde com os dados reais:
+//   cadastro (situação, perfil, rede, escola, licença), acesso (manda o link), chamado (status pelo protocolo),
+//   escola (se a escola já está cadastrada na rede), comercial e humano. O resto vai para o manual.
+// Só fala de dados da PRÓPRIA pessoa, reconhecida pelo WhatsApp do cadastro. Número desconhecido não recebe dado nenhum.
+const ACOES_AGENTE = ['cadastro', 'acesso', 'chamado', 'escola', 'comercial', 'humano', 'manual'];
+async function classificar(pergunta) {
+  const corpo = { systemInstruction: { parts: [{ text: 'Classifique a mensagem de um professor ao suporte do Portal do Educador. Responda só o JSON. acao: ' +
+      'cadastro (quer saber do próprio cadastro, situação, licença, plano, validade, a que rede ou escola está ligado), ' +
+      'acesso (não consegue entrar, esqueceu a senha, link de acesso, login), chamado (pergunta sobre um chamado/protocolo já aberto), ' +
+      'escola (quer saber se uma escola já está cadastrada ou pede para vincular/adicionar escola), comercial (contratar, preço, proposta, renovar, assinar), ' +
+      'humano (pede uma pessoa, reclamação, assunto delicado) ou manual (dúvida de como usar o Portal). protocolo: código de 6 letras/números se houver. escola: nome da escola se houver.' }] },
+    contents: [{ role: 'user', parts: [{ text: txt(pergunta, 600) }] }],
+    generationConfig: { maxOutputTokens: 120, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' },
+      responseSchema: { type: 'OBJECT', properties: { acao: { type: 'STRING', enum: ACOES_AGENTE }, protocolo: { type: 'STRING' }, escola: { type: 'STRING' } }, required: ['acao'] } } };
+  for (const modelo of MODELOS) {
+    try {
+      const chamar = c => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() }, body: JSON.stringify(c), signal: AbortSignal.timeout(8000) });
+      let r = await chamar(corpo);
+      if (r.status === 400) { delete corpo.generationConfig.thinkingConfig; r = await chamar(corpo); }
+      if (!r.ok) continue;
+      const j = await r.json(), t = ((j.candidates || [])[0] || {}).content?.parts?.map(p => p.text || '').join('') || '';
+      const o = JSON.parse(t); if (ACOES_AGENTE.includes(o.acao)) return o;
+    } catch (e) { /* próximo modelo */ }
+  }
+  return { acao: 'manual' };
+}
+const dataBR = v => { const ms = v && v.toMillis ? v.toMillis() : (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? Date.parse(v.slice(0, 10) + 'T12:00:00-04:00') : 0);
+  return ms ? new Date(ms).toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' }) : ''; };
+const PERFIS = { professor: 'Professor(a)', gestor: 'Gestão da escola', secretaria: 'Secretaria de Educação', secretaria_escolar: 'Secretaria escolar', portaria: 'Portaria', admin: 'Administrador', aluno: 'Aluno' };
+async function meuCadastro(db, quem) {
+  const u = (await db.doc('usuarios/' + quem.uid).get()).data() || {};
+  const [mun, esc] = await Promise.all([u.municipio_id ? db.doc('municipios/' + u.municipio_id).get() : null, u.escola_id ? db.doc('escolas/' + u.escola_id).get() : null]);
+  const m = mun && mun.exists ? mun.data() : null, e = esc && esc.exists ? esc.data() : null;
+  const tipo = u.licenca_tipo || 'institucional';
+  const fim = tipo === 'institucional' ? (m && (m.vigencia_fim_ts || m.vigencia_fim)) : u.licenca_fim;
+  const linhas = ['Encontrei seu cadastro, ' + quem.nome + ':', '• Situação: *' + (u.status === 'ativo' ? 'ativo' : u.status === 'pendente' ? 'em análise pela equipe' : 'inativo') + '*',
+    '• Perfil: ' + (PERFIS[u.perfil] || u.perfil || '-')];
+  if (m) linhas.push('• Rede: ' + (m.nome || '-') + (m.uf ? '/' + m.uf : ''));
+  if (e) linhas.push('• Escola: ' + (e.nome || '-'));
+  else if (u.perfil === 'professor' && tipo === 'institucional') linhas.push('• Escola: ainda sem vínculo (a gestão da escola ou a Secretaria faz o vínculo)');
+  linhas.push('• Acesso: ' + ({ institucional: 'pela rede (contrato do município)', teste: 'teste grátis', avulsa: 'licença individual', cortesia: 'cortesia' }[tipo] || tipo) + (dataBR(fim) ? ', válido até *' + dataBR(fim) + '*' : ''));
+  linhas.push('', 'Algo errado? Digite *menu* › *Falar com atendente*.');
+  return linhas.join('\n');
+}
+async function statusChamado(db, waId, protocolo) {
+  const p = String(protocolo || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  let sn = p ? await db.collection('wa_chamados').where('protocolo', '==', p).limit(3).get() : null;
+  let docs = sn ? sn.docs.filter(d => d.data().wa_id === waId) : [];   // só os chamados abertos por este número
+  if (!docs.length) { sn = await db.collection('wa_chamados').where('wa_id', '==', waId).limit(20).get(); docs = sn.docs.sort((a, b) => ((b.data().criado_em && b.data().criado_em.toMillis()) || 0) - ((a.data().criado_em && a.data().criado_em.toMillis()) || 0)).slice(0, 3); }
+  if (!docs.length) return 'Não encontrei chamado aberto por este WhatsApp' + (p ? ' com o protocolo ' + p : '') + '. Para abrir um, digite *menu* › *Problema em equipamento*.';
+  return 'Seus chamados:\n' + docs.map(d => { const c = d.data(); return '• *' + (c.protocolo || d.id.slice(0, 6).toUpperCase()) + '* (' + (dataBR(c.criado_em) || '-') + '): ' +
+    (c.status === 'resolvido' ? 'resolvido ✅' : c.atribuido_uid ? 'com o técnico, em andamento' : 'aberto, aguardando técnico'); }).join('\n');
+}
+const semAcento = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(escola|municipal|estadual|e\.?m\.?|emef|emei|ceim?|cmei)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+async function escolaNaRede(db, quem, nomeEscola) {
+  const u = (await db.doc('usuarios/' + quem.uid).get()).data() || {};
+  if (!u.municipio_id) return 'Seu cadastro ainda não está ligado a uma rede. Digite *menu* › *Falar com atendente* que a equipe faz o vínculo.';
+  const sn = await db.collection('escolas').where('municipio_id', '==', u.municipio_id).select('nome').get();
+  const alvo = semAcento(nomeEscola);
+  const nomes = sn.docs.map(d => d.data().nome || '').filter(Boolean);
+  if (!alvo) return nomes.length ? 'A sua rede tem ' + nomes.length + ' escolas cadastradas no Portal. Qual é o nome da sua escola?' : 'Sua rede ainda não tem escolas cadastradas. A equipe já foi avisada; digite *menu* › *Falar com atendente* se for urgente.';
+  const achou = nomes.filter(n => { const a = semAcento(n); return a.includes(alvo) || alvo.includes(a) || alvo.split(' ').filter(w => w.length > 3).every(w => a.includes(w)); }).slice(0, 5);
+  if (achou.length) return 'Sim! Encontrei na sua rede:\n' + achou.map(n => '• ' + n).join('\n') + '\n\nPara entrar nela, abra *Meu cadastro* no Portal e escolha a escola. Se não aparecer, digite *menu* › *Falar com atendente*.';
+  return 'Não encontrei "' + txt(nomeEscola, 60) + '" entre as escolas da sua rede no Portal. Vou passar para a equipe conferir com a Secretaria.';
+}
+
 async function responderDuvida(db, pergunta, quem) {
   const trechos = buscar(await conhecimento(db), pergunta);
   if (!trechos.length) return null;
@@ -159,6 +228,20 @@ async function proximoDoSetor(db, setor, exceto) {
     return { uid: d.id, nome: d.data().nome || '', email: d.data().email || '' };
   });
 }
+// notificação no celular (app de atendimento /atendimento/): tokens em wa_equipe/{uid}.tokens; os que morreram saem da lista
+async function notificar(db, uids, titulo, corpo, waId) {
+  const lista = [...new Set((uids || []).filter(Boolean))]; if (!lista.length) return;
+  await Promise.all(lista.map(async uid => {
+    const ref = db.doc('wa_equipe/' + uid), m = (await ref.get()).data() || {};
+    const tokens = (m.tokens || []).filter(t => typeof t === 'string' && t.length > 20).slice(0, 10); if (!tokens.length) return;
+    try {
+      const r = await getMessaging().sendEachForMulticast({ tokens, data: { titulo: txt(titulo, 80), corpo: txt(corpo, 160), wa_id: String(waId || ''), link: '/atendimento/' + (waId ? '#c=' + waId : '') },
+        webpush: { headers: { Urgency: 'high', TTL: '3600' } } });
+      const mortos = r.responses.map((x, i) => !x.success && /registration-token-not-registered|invalid-argument|invalid-registration/.test((x.error && x.error.code) || '') ? tokens[i] : null).filter(Boolean);
+      if (mortos.length) await ref.update({ tokens: FieldValue.arrayRemove(...mortos) });
+    } catch (e) { console.warn('whatsapp: notificação', e.message); }
+  }));
+}
 async function avisarPessoa(email, assunto, html) {
   if (!email) return;
   try { await transporte().sendMail({ from: `"Portal do Educador · WhatsApp" <${SMTP_USUARIO.value()}>`, to: email, subject: assunto, html }); } catch (e) { console.warn('whatsapp: aviso', e.message); }
@@ -170,9 +253,13 @@ async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
     atribuido_uid: m ? m.uid : '', atribuido_nome: m ? m.nome : '', atribuido_em: FieldValue.serverTimestamp() }, { merge: true });
   await metricas(db, { transferidas: FieldValue.increment(1), por_setor: { [setor]: FieldValue.increment(1) } });
   await guardar(ref, 'sistema', 'Encaminhada para ' + (m ? m.nome : 'a fila do setor') + ' (' + SETORES[setor] + ')');
-  const html = '<p>' + esc(resumo) + '</p>' + (contexto ? '<p>' + esc(contexto) + '</p>' : '') + '<p>Responda pela tela <b>Atendimento WhatsApp</b> do Portal: ' + SITE + '/entrar/#whatsapp</p>';
-  if (m) await avisarPessoa(m.email, 'WhatsApp (' + SETORES[setor] + '): nova conversa para você', html);
-  else await avisarEquipe(cfg, 'WhatsApp (' + SETORES[setor] + '): conversa na fila sem atendente disponível', html);
+  const html = '<p>' + esc(resumo) + '</p>' + (contexto ? '<p>' + esc(contexto) + '</p>' : '') + '<p>Responda pelo app de atendimento: ' + SITE + '/atendimento/</p>';
+  if (m) { await avisarPessoa(m.email, 'WhatsApp (' + SETORES[setor] + '): nova conversa para você', html); await notificar(db, [m.uid], 'Nova conversa · ' + SETORES[setor], resumo, waId); }
+  else {
+    await avisarEquipe(cfg, 'WhatsApp (' + SETORES[setor] + '): conversa na fila sem atendente disponível', html);
+    const sn = await db.collection('wa_equipe').where('setores', 'array-contains', setor).get().catch(() => null);
+    if (sn) await notificar(db, sn.docs.filter(d => d.data().ativo === true).map(d => d.id), 'Conversa na fila · ' + SETORES[setor], resumo, waId);
+  }
   await auditar(db, waId, 'Conversa encaminhada: ' + SETORES[setor] + (m ? ' › ' + m.nome : ' › fila'));
   return m;
 }
@@ -183,21 +270,22 @@ const metricas = (db, campos) => db.doc('wa_metricas/' + diaCG()).set({ ...campo
 const AVISO_HORARIO = 'Nosso atendimento humano é de segunda a sexta, das 8h às 18h. Sua mensagem fica registrada e respondemos no próximo horário.';
 
 // ---------- conversa ----------
-async function tratar(db, cfg, msg, contato) {
+// interno: o próprio agente reaproveita um fluxo do menu (sem registrar de novo a mensagem nem mandar "digitando")
+async function tratar(db, cfg, msg, contato, interno = false) {
   const waId = String(msg.from || ''); if (!/^\d{8,15}$/.test(waId)) return;
   const ref = db.doc('wa_conversas/' + waId);
   // "lida" + "digitando..." na hora: a pessoa vê que o atendimento começou enquanto o robô prepara a resposta
-  const digitando = fetch(GRAPH + cfg.phone_number_id + '/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' },
+  const digitando = interno ? null : fetch(GRAPH + cfg.phone_number_id + '/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: msg.id, typing_indicator: { type: 'text' } }) }).catch(() => {});
   const entrada = msg.type === 'text' ? txt(msg.text && msg.text.body, 1500)
     : msg.type === 'interactive' ? txt((msg.interactive.list_reply || msg.interactive.button_reply || {}).id, 40) : '';
   const [snConv, quem] = await Promise.all([ref.get(), identificar(db, waId).catch(() => null)]);
   const conv = snConv.data() || {};
   const nome = quem ? quem.nome : txt(contato && contato.profile && contato.profile.name, 40).split(' ')[0];
-  const cabecalho = ref.set({ wa_id: waId, nome_whatsapp: txt(contato && contato.profile && contato.profile.name, 80), uid: quem ? quem.uid : '', nome: quem ? quem.nome : '', email: quem ? quem.email : '',
+  const cabecalho = interno ? null : ref.set({ wa_id: waId, nome_whatsapp: txt(contato && contato.profile && contato.profile.name, 80), uid: quem ? quem.uid : '', nome: quem ? quem.nome : '', email: quem ? quem.email : '',
     perfil: quem ? quem.perfil : '', municipio_nome: quem ? (quem.municipio_nome || '') : '', ultima_pessoa_em: FieldValue.serverTimestamp(),
     ultima: txt(entrada || '[' + msg.type + ']', 200), ultima_em: FieldValue.serverTimestamp() }, { merge: true });
-  const gravando = guardar(ref, 'pessoa', entrada || '[' + msg.type + ']', { tipo: msg.type, wamid: txt(msg.id, 120) });
+  const gravando = interno ? null : guardar(ref, 'pessoa', entrada || '[' + msg.type + ']', { tipo: msg.type, wamid: txt(msg.id, 120) });
   const responder = async corpo => { await Promise.all([enviar(cfg, waId, corpo), guardar(ref, 'robo', corpo.text ? corpo.text.body : (corpo.interactive.body || {}).text || '[menu]')]); };
   await Promise.all([cabecalho, gravando, digitando]);
   const estado = async e => ref.set({ estado: e, estado_em: FieldValue.serverTimestamp() }, { merge: true });
@@ -205,7 +293,12 @@ async function tratar(db, cfg, msg, contato) {
   if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Por enquanto eu entendo só mensagens de texto. Escreva sua dúvida ou digite *menu*.')); return; }
 
   // em atendimento humano: o robô só volta se a pessoa pedir o menu
-  if (conv.estado === 'atendente' && !SAUDACAO.test(entrada)) { await ref.set({ nao_lidas: FieldValue.increment(1) }, { merge: true }); return; }
+  if (conv.estado === 'atendente' && !SAUDACAO.test(entrada)) {
+    await ref.set({ nao_lidas: FieldValue.increment(1) }, { merge: true });
+    const ult = conv.notificado_em && conv.notificado_em.toMillis ? conv.notificado_em.toMillis() : 0;
+    if (conv.atribuido_uid && Date.now() - ult > 60e3) { await ref.set({ notificado_em: FieldValue.serverTimestamp() }, { merge: true }); await notificar(db, [conv.atribuido_uid], (conv.nome || conv.nome_whatsapp || 'Contato') + ' respondeu', entrada, waId); }
+    return;
+  }
 
   if (entrada === 'comercial' || (msg.type === 'text' && conv.estado !== 'comercial' && COMERCIAL.test(entrada))) {
     await estado('comercial'); await ref.set({ assunto: 'comercial', pedido: txt(entrada, 300) }, { merge: true });
@@ -256,12 +349,26 @@ async function tratar(db, cfg, msg, contato) {
     await c.update({ protocolo: prot, atribuido_uid: tec ? tec.uid : '', atribuido_nome: tec ? tec.nome : '' });
     await responder(texto('Chamado aberto! Protocolo *' + prot + '*. A equipe técnica vai entrar em contato. Para outra coisa, digite *menu*.'));
     const htmlCh = '<p><b>Protocolo ' + esc(prot) + '</b> · ' + esc(quemTxt) + '</p><p>' + esc(entrada) + '</p><p>Veja na tela <b>Atendimento WhatsApp</b> do Portal.</p>';
-    if (tec) await avisarPessoa(tec.email, 'Chamado pelo WhatsApp ' + prot + ' para você', htmlCh);
+    if (tec) { await avisarPessoa(tec.email, 'Chamado pelo WhatsApp ' + prot + ' para você', htmlCh); await notificar(db, [tec.uid], 'Chamado ' + prot, entrada, ''); }
     else await avisarEquipe(cfg, 'Chamado pelo WhatsApp ' + prot + (quem && quem.municipio_nome ? ' · ' + quem.municipio_nome : ''), htmlCh);
     await auditar(db, waId, 'Chamado ' + prot + ' aberto pelo WhatsApp'); await estado('menu'); return;
   }
 
-  // qualquer outro texto: trata como dúvida
+  // qualquer outro texto: o agente entende o pedido; se for dúvida de uso, vai para o manual
+  const pedido = msg.type === 'text' ? await classificar(entrada) : { acao: 'manual' };
+  await metricas(db, { ['agente_' + pedido.acao]: FieldValue.increment(1) });
+  if (pedido.acao === 'acesso') { await tratar(db, cfg, { ...msg, id: msg.id + '_a', type: 'interactive', interactive: { list_reply: { id: 'acesso' } } }, contato, true); return; }
+  if (pedido.acao === 'comercial') { await tratar(db, cfg, { ...msg, id: msg.id + '_c', type: 'interactive', interactive: { list_reply: { id: 'comercial' } } }, contato, true); return; }
+  if (pedido.acao === 'humano') { await tratar(db, cfg, { ...msg, id: msg.id + '_h', type: 'interactive', interactive: { list_reply: { id: 'atendente' } } }, contato, true); return; }
+  if (pedido.acao === 'chamado') { await responder(texto(await statusChamado(db, waId, pedido.protocolo))); await estado('menu'); return; }
+  if (pedido.acao === 'cadastro' || pedido.acao === 'escola') {
+    if (!quem) { await responder(texto('Não achei um cadastro no Portal com este WhatsApp. Atualize o WhatsApp em *Meu cadastro* no Portal, ou digite *menu* › *Falar com atendente*.')); await estado('menu'); return; }
+    if (pedido.acao === 'cadastro') { await responder(texto(await meuCadastro(db, quem))); await estado('menu'); return; }
+    const r = await escolaNaRede(db, quem, pedido.escola);
+    await responder(texto(r));
+    if (/Vou passar para a equipe/.test(r)) { await ref.set({ assunto: 'suporte' }, { merge: true }); await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': escola não encontrada na rede.', 'Escola informada: ' + (pedido.escola || entrada)); return; }
+    await estado('menu'); return;
+  }
   const resp = await responderDuvida(db, entrada, quem);
   if (resp) {
     await responder(texto(resp));
@@ -378,8 +485,9 @@ export const whatsappTransferir = onCall({ region: REGIAO, secrets: [SMTP_SENHA]
   const assumiu = alvo.uid === req.auth.uid;
   await ref.set({ estado: 'atendente', setor, atribuido_uid: alvo.uid, atribuido_nome: alvo.nome, atribuido_em: FieldValue.serverTimestamp() }, { merge: true });
   await guardar(ref, 'sistema', assumiu ? u.nomeCompleto + ' assumiu a conversa' : 'Transferida por ' + (u.nomeCompleto || u.nome) + ' para ' + alvo.nome + ' (' + SETORES[setor] + ')' + (nota ? ': ' + nota : ''));
+  if (!assumiu) await notificar(db, [alvo.uid], 'Conversa transferida por ' + (u.nome || 'equipe'), (conv.nome || conv.nome_whatsapp || 'Contato') + (nota ? ': ' + nota : ''), waId);
   if (!assumiu) await avisarPessoa(alvo.email, 'WhatsApp: ' + (u.nomeCompleto || u.nome) + ' transferiu uma conversa para você',
-    '<p>' + esc(conv.nome || conv.nome_whatsapp || 'Contato') + (conv.municipio_nome ? ' · ' + esc(conv.municipio_nome) : '') + '</p>' + (nota ? '<p>Recado: ' + esc(nota) + '</p>' : '') + '<p>Responda pela tela <b>Atendimento WhatsApp</b> do Portal: ' + SITE + '/entrar/#whatsapp</p>');
+    '<p>' + esc(conv.nome || conv.nome_whatsapp || 'Contato') + (conv.municipio_nome ? ' · ' + esc(conv.municipio_nome) : '') + '</p>' + (nota ? '<p>Recado: ' + esc(nota) + '</p>' : '') + '<p>Responda pelo app de atendimento: ' + SITE + '/atendimento/</p>');
   await auditar(db, waId, assumiu ? 'Conversa assumida por ' + u.nomeCompleto : 'Conversa transferida para ' + alvo.nome + ' (' + SETORES[setor] + ')');
   return { ok: true, para: alvo.nome, setor };
 });

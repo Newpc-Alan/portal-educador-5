@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<script src="/assets/js/ambiente.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0f2c4a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Atendimento">
+<title>Atendimento · Portal do Educador</title>
+<link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
+<link rel="apple-touch-icon" href="/tv/icone-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* App de atendimento do WhatsApp do Portal (celular primeiro). A equipe entra uma vez, fica conectada
+     e recebe notificação quando chega conversa. Tudo continua no Portal: nada fica no WhatsApp pessoal. */
+  :root{ --azul:#0f2c4a; --verde:#1a6b2a; --lima:#8DC63F; --fundo:#eef2f6; --linha:#dfe6ee; --suave:#5b6b7c; --laranja:#f5a623; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ font-family:Inter, system-ui, "Segoe UI", Roboto, sans-serif; background:var(--fundo); color:#1d2b3a; font-size:16px; }
+  button{ font:inherit; cursor:pointer; }
+  .app{ max-width:980px; margin:0 auto; height:100dvh; display:flex; flex-direction:column; background:#fff; }
+  .topo{ background:var(--azul); color:#fff; padding:calc(10px + env(safe-area-inset-top)) 14px 10px; display:flex; align-items:center; gap:10px; }
+  .topo img{ width:34px; height:34px; }
+  .topo b{ font-size:17px; } .topo small{ display:block; color:var(--lima); font-size:12px; }
+  .topo .dir{ margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .chip{ border:1px solid rgba(255,255,255,.35); background:transparent; color:#fff; border-radius:999px; padding:6px 10px; font-size:13px; }
+  .chip.on{ background:var(--lima); color:var(--azul); border-color:var(--lima); font-weight:700; }
+  .faixa{ background:#fff7e6; color:#7a4b00; padding:10px 14px; font-size:14px; display:flex; gap:10px; align-items:center; border-bottom:1px solid #f3dfb4; }
+  .faixa button{ margin-left:auto; background:var(--azul); color:#fff; border:0; border-radius:8px; padding:7px 12px; }
+  .faixa[hidden]{ display:none; }
+  .abas{ display:flex; border-bottom:1px solid var(--linha); background:#fff; }
+  .abas button{ flex:1; background:none; border:0; padding:12px 6px; font-weight:600; color:var(--suave); border-bottom:3px solid transparent; }
+  .abas button.on{ color:var(--azul); border-color:var(--verde); }
+  .corpo{ flex:1; min-height:0; display:grid; grid-template-columns:minmax(260px, 360px) 1fr; }
+  .lista{ overflow:auto; border-right:1px solid var(--linha); }
+  .item{ display:block; width:100%; text-align:left; border:0; border-bottom:1px solid #eef2f6; background:#fff; padding:12px 14px; }
+  .item.on, .item:hover{ background:#eef6f0; }
+  .item b{ display:block; } .item small{ color:var(--suave); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .selo{ display:inline-block; border-radius:999px; padding:1px 8px; font-size:12px; font-weight:700; margin-left:6px; background:#fde8c8; color:#8a4b00; }
+  .selo.vd{ background:#dcf2e1; color:var(--verde); } .selo.az{ background:#dbeafe; color:var(--azul); }
+  .conv{ display:flex; flex-direction:column; min-height:0; }
+  .cab{ padding:10px 14px; border-bottom:1px solid var(--linha); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .cab .voltar{ display:none; background:none; border:0; font-size:22px; padding:0 6px 0 0; }
+  .cab .acoes{ margin-left:auto; display:flex; gap:6px; }
+  .bt{ border:1px solid #cfd8e3; background:#fff; border-radius:10px; padding:8px 12px; font-weight:600; color:var(--azul); }
+  .bt.pri{ background:var(--verde); border-color:var(--verde); color:#fff; }
+  .msgs{ flex:1; overflow:auto; padding:12px; background:#f6f8fa; }
+  .m{ max-width:82%; margin:6px 0; padding:8px 10px; border-radius:12px; white-space:pre-wrap; word-wrap:break-word; }
+  .m small{ display:block; color:var(--suave); font-size:11px; margin-top:2px; }
+  .m.pessoa{ background:#fff; border:1px solid #e3e8ee; } .m.robo{ background:#e8eef4; margin-left:auto; } .m.equipe{ background:#d9f0de; margin-left:auto; }
+  .m.sistema{ background:none; color:var(--suave); font-size:13px; text-align:center; max-width:100%; margin:8px auto; }
+  .resp{ display:flex; gap:8px; padding:10px; padding-bottom:calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--linha); }
+  .resp textarea{ flex:1; font:inherit; padding:10px; border:1px solid #cfd8e3; border-radius:12px; resize:none; max-height:30vh; }
+  .transf{ padding:10px; border-top:1px dashed #cfd8e3; background:#fbfcfd; display:grid; gap:8px; }
+  .transf select, .transf input{ font:inherit; padding:9px; border:1px solid #cfd8e3; border-radius:10px; width:100%; }
+  .transf[hidden]{ display:none; }
+  .vazio{ color:var(--suave); padding:16px; }
+  .entrar{ margin:auto; max-width:380px; padding:28px 22px; text-align:center; }
+  .entrar img{ width:72px; } .entrar h1{ font-size:20px; color:var(--azul); }
+  .entrar input{ width:100%; font:inherit; padding:11px; border:1px solid #cfd8e3; border-radius:10px; margin:6px 0; }
+  .entrar .bt{ width:100%; margin-top:8px; padding:11px; }
+  .toast{ position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:#1d2b3a; color:#fff; padding:10px 16px; border-radius:10px; opacity:0; transition:opacity .2s; pointer-events:none; max-width:92vw; z-index:9; }
+  .toast.on{ opacity:1; } .toast.err{ background:#b03a2e; }
+  /* celular: lista ou conversa, uma de cada vez */
+  @media (max-width:760px){
+    .corpo{ grid-template-columns:1fr; }
+    .corpo.abrindo .lista{ display:none; } .corpo:not(.abrindo) .conv{ display:none; }
+    .cab .voltar{ display:block; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="entrar" id="telaEntrar" hidden>
+    <img src="/assets/pde-logo-128.png" alt="">
+    <h1>Atendimento WhatsApp</h1>
+    <p style="color:var(--suave)">Entre com a conta do Portal cadastrada na equipe de atendimento. Você fica conectado neste aparelho.</p>
+    <button type="button" class="bt pri" data-action="google">Entrar com Google</button>
+    <p style="color:var(--suave);margin:16px 0 4px">ou com e-mail e senha</p>
+    <input type="email" id="eEmail" placeholder="E-mail" autocomplete="email">
+    <input type="password" id="eSenha" placeholder="Senha" autocomplete="current-password">
+    <button type="button" class="bt" data-action="senha">Entrar</button>
+  </div>
+  <div class="entrar" id="telaSem" hidden>
+    <img src="/assets/pde-logo-128.png" alt="">
+    <h1>Você ainda não está na equipe</h1>
+    <p style="color:var(--suave)">Peça ao administrador para cadastrar seu e-mail em Sistema › Atendimento WhatsApp › Equipe de atendimento.</p>
+    <button type="button" class="bt" data-action="sair">Sair</button>
+  </div>
+  <template id="tplPrincipal">
+    <div class="topo"><img src="/assets/pde-logo-128.png" alt=""><div><b>Atendimento</b><small id="quem"></small></div>
+      <div class="dir"><button type="button" class="chip" id="btDisp" data-action="disp">Disponível</button><button type="button" class="chip" data-action="sair" aria-label="Sair">Sair</button></div></div>
+    <div class="faixa" id="faixaNotif" hidden><span id="faixaTxt">Ative as notificações para saber na hora quando chegar conversa.</span><button type="button" data-action="notif">Ativar</button></div>
+    <div class="abas" role="tablist">
+      <button type="button" class="on" data-action="aba" data-f="minhas">Minhas <span id="nMinhas"></span></button>
+      <button type="button" data-action="aba" data-f="fila">Fila <span id="nFila"></span></button>
+      <button type="button" data-action="aba" data-f="todas">Todas</button>
+    </div>
+    <div class="corpo" id="corpo">
+      <div class="lista" id="lista"><p class="vazio">Carregando…</p></div>
+      <div class="conv" id="conv"><p class="vazio">Escolha uma conversa.</p></div>
+    </div>
+  </template>
+</div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+
+const app = initializeApp(window.PDE_AMBIENTE.fb);
+const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1");
+const $ = id => document.getElementById(id);
+const SET = { suporte:"Suporte", tecnico:"Técnico", comercial:"Comercial" };
+const st = { eu:null, uid:"", equipe:[], conversas:[], filtro:"minhas", sel:"", unsub:[], unsubMsg:null };
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const num = id => { const d = String(id || "").replace(/^55/, ""); return d.length >= 10 ? "(" + d.slice(0, 2) + ") " + d.slice(2, -4) + "-" + d.slice(-4) : id; };
+const quando = t => { const d = t && t.toDate ? t.toDate() : null; if(!d) return ""; return new Date().toDateString() === d.toDateString() ? d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" }) + " " + d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); };
+function toast(t, err){ const el = $("toast"); el.textContent = t; el.className = "toast on" + (err ? " err" : ""); clearTimeout(toast.t); toast.t = setTimeout(() => el.className = "toast", 2800); }
+const erro = e => toast(String(e && e.message || "Não foi possível.").replace(/^.*?: /, ""), true);
+const chamar = (nome, dados) => httpsCallable(fns, nome, { timeout:20000 })(dados).then(r => r.data);
+
+await setPersistence(auth, browserLocalPersistence).catch(() => {});
+getRedirectResult(auth).catch(() => {});
+let swReg = null;
+if("serviceWorker" in navigator) swReg = await navigator.serviceWorker.register("/atendimento/sw.js", { scope:"/atendimento/" }).catch(() => null);
+
+onAuthStateChanged(auth, async user => {
+  st.unsub.forEach(f => { try{ f(); }catch(e){} }); st.unsub = [];
+  $("telaEntrar").hidden = !!user; $("telaSem").hidden = true;
+  const velho = document.querySelector(".principal"); if(velho) velho.remove();
+  if(!user) return;
+  st.uid = user.uid;
+  const [eq, us] = await Promise.all([getDoc(doc(db, "wa_equipe", user.uid)).catch(() => null), getDoc(doc(db, "usuarios", user.uid)).catch(() => null)]);
+  const admin = us && us.exists() && us.data().perfil === "admin" && us.data().status === "ativo";
+  if(!(eq && eq.exists() && eq.data().ativo === true) && !admin){ $("telaSem").hidden = false; return; }
+  montar(eq && eq.exists() ? eq.data() : null, (us && us.data() && us.data().nome) || user.email);
+});
+
+function montar(membro, nome){
+  const w = document.createElement("div"); w.className = "principal"; w.style.cssText = "display:flex;flex-direction:column;flex:1;min-height:0";
+  w.appendChild($("tplPrincipal").content.cloneNode(true)); $("app").appendChild(w);
+  $("quem").textContent = String(nome || "").split(" ")[0] + (membro ? " · " + (membro.setores || []).map(s => SET[s] || s).join(", ") : " · administrador");
+  if(!membro) $("btDisp").hidden = true;
+  attNotif();
+  st.unsub.push(onSnapshot(collection(db, "wa_equipe"), sn => {
+    st.equipe = sn.docs.map(d => ({ id:d.id, ...d.data() })); st.eu = st.equipe.find(m => m.id === st.uid) || null;
+    const b = $("btDisp"); if(b && st.eu){ const on = st.eu.disponivel !== false; b.classList.toggle("on", on); b.textContent = on ? "Disponível" : "Indisponível"; }
+  }, () => {}));
+  st.unsub.push(onSnapshot(query(collection(db, "wa_conversas"), orderBy("ultima_em", "desc"), limit(200)), sn => {
+    st.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); lista(); if(st.sel) cabecalho();
+  }, e => { $("lista").innerHTML = '<p class="vazio">Sem acesso às conversas (' + esc(e.code || "erro") + ').</p>'; }));
+  const h = (location.hash.match(/^#c=(\d{8,15})$/) || [])[1]; if(h) setTimeout(() => abrir(h), 600);
+}
+const minha = c => c.atribuido_uid === st.uid;
+function filtradas(f){ const at = st.conversas.filter(c => c.estado === "atendente"); return f === "minhas" ? at.filter(minha) : f === "fila" ? at.filter(c => !c.atribuido_uid) : st.conversas; }
+function lista(){
+  const l = $("lista"); if(!l) return;
+  $("nMinhas").textContent = "(" + filtradas("minhas").length + ")"; $("nFila").textContent = "(" + filtradas("fila").length + ")";
+  document.querySelectorAll('[data-action="aba"]').forEach(b => b.classList.toggle("on", b.dataset.f === st.filtro));
+  const v = filtradas(st.filtro);
+  l.innerHTML = v.length ? v.map(c => '<button type="button" class="item' + (c.id === st.sel ? " on" : "") + '" data-action="abrir" data-id="' + esc(c.id) + '"><b>' + esc(c.nome || c.nome_whatsapp || num(c.id)) +
+    (c.nao_lidas && c.estado === "atendente" ? '<span class="selo">' + c.nao_lidas + '</span>' : "") + (c.setor ? '<span class="selo az">' + esc(SET[c.setor] || c.setor) + '</span>' : "") +
+    (c.estado === "atendente" && c.atribuido_uid && !minha(c) ? '<span class="selo vd">' + esc(String(c.atribuido_nome || "").split(" ")[0]) + '</span>' : "") + '</b>' +
+    '<small>' + esc(String(c.ultima || "")) + '</small><small>' + esc(c.municipio_nome || (c.uid ? "" : "sem cadastro")) + ' · ' + quando(c.ultima_em) + '</small></button>').join("")
+    : '<p class="vazio">' + (st.filtro === "minhas" ? "Nenhuma conversa com você agora." : st.filtro === "fila" ? "Fila vazia." : "Nenhuma conversa.") + '</p>';
+}
+function cabecalho(){
+  const c = st.conversas.find(x => x.id === st.sel) || {}, el = $("cabTxt"); if(!el) return;
+  const dono = c.estado === "atendente" ? (c.atribuido_uid ? (minha(c) ? "com você" : "com " + String(c.atribuido_nome || "").split(" ")[0]) : "na fila") : "com o robô";
+  el.innerHTML = '<b>' + esc(c.nome || c.nome_whatsapp || num(st.sel)) + '</b><br><small style="color:var(--suave)">' + esc(num(st.sel)) + ' · ' + esc(dono) + (c.municipio_nome ? ' · ' + esc(c.municipio_nome) : '') + '</small>' + (c.lead ? '<br><small>' + esc(c.lead) + '</small>' : '');
+  const a = $("btAssumir"); if(a) a.hidden = minha(c);
+}
+function abrir(id){
+  st.sel = id; lista(); $("corpo").classList.add("abrindo"); history.replaceState(null, "", "#c=" + id);
+  if(st.unsubMsg){ try{ st.unsubMsg(); }catch(e){} }
+  $("conv").innerHTML = '<div class="cab"><button type="button" class="voltar" data-action="voltar" aria-label="Voltar">‹</button><div id="cabTxt"></div><div class="acoes"><button type="button" class="bt" id="btAssumir" data-action="assumir">Assumir</button><button type="button" class="bt" data-action="transf">Transferir</button></div></div>' +
+    '<div class="msgs" id="msgs"></div><div class="transf" id="transf" hidden><select id="tPara"></select><input id="tNota" maxlength="500" placeholder="Recado para quem vai receber (opcional)"><div style="display:flex;gap:8px"><button type="button" class="bt pri" data-action="transferir">Transferir</button><button type="button" class="bt" data-action="transf-fechar">Cancelar</button></div></div>' +
+    '<div class="resp"><textarea id="texto" rows="1" maxlength="3000" placeholder="Escreva a resposta"></textarea><button type="button" class="bt pri" data-action="enviar">Enviar</button></div>' +
+    '<div style="padding:0 10px 10px;text-align:right"><button type="button" class="bt" data-action="encerrar">Encerrar atendimento</button></div>';
+  cabecalho();
+  st.unsubMsg = onSnapshot(query(collection(db, "wa_conversas", id, "mensagens"), orderBy("em", "desc"), limit(200)), sn => {
+    const box = $("msgs"); if(!box || st.sel !== id) return;
+    box.innerHTML = sn.docs.slice().reverse().map(d => { const m = d.data();
+      if(m.de === "sistema") return '<div class="m sistema">' + esc(m.texto || "") + ' · ' + quando(m.em) + '</div>';
+      return '<div class="m ' + (m.de === "equipe" ? "equipe" : m.de === "robo" ? "robo" : "pessoa") + '">' + esc(m.texto || "") + '<small>' + (m.de === "equipe" ? esc(m.autor_nome || "Equipe") : m.de === "robo" ? "Robô" : "Pessoa") + ' · ' + quando(m.em) + '</small></div>'; }).join("");
+    box.scrollTop = box.scrollHeight;
+  }, () => {});
+}
+function abrirTransf(){
+  const s = $("tPara"); if(!s) return;
+  const outros = st.equipe.filter(m => m.ativo && m.id !== st.uid);
+  s.innerHTML = '<optgroup label="Próximo disponível do setor">' + Object.entries(SET).map(([k, v]) => '<option value="setor:' + k + '">' + v + ' (rodízio)</option>').join("") + '</optgroup>' +
+    (outros.length ? '<optgroup label="Pessoa da equipe">' + outros.map(m => '<option value="uid:' + esc(m.id) + '">' + esc(m.nome) + (m.disponivel === false ? " (indisponível)" : "") + '</option>').join("") + '</optgroup>' : "");
+  $("transf").hidden = false;
+}
+// ---- notificações no aparelho (precisa de um toque para pedir permissão; no iPhone, só com o app instalado na tela inicial)
+function attNotif(){
+  const f = $("faixaNotif"); if(!f) return;
+  const suporta = "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+  const ios = /iPhone|iPad/.test(navigator.userAgent), instalado = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if(!suporta){ f.hidden = false; $("faixaTxt").textContent = ios && !instalado ? "No iPhone: toque em Compartilhar › Adicionar à Tela de Início e abra pelo ícone para receber notificações." : "Este navegador não recebe notificações. Use o Chrome."; f.querySelector("button").hidden = true; return; }
+  f.hidden = Notification.permission === "granted" && localStorage.getItem("pde_at_tok") === "1";
+  if(Notification.permission === "granted" && localStorage.getItem("pde_at_tok") !== "1") registrarAparelho();
+}
+async function registrarAparelho(){
+  try{
+    if(Notification.permission !== "granted" && (await Notification.requestPermission()) !== "granted"){ toast("Sem permissão, as notificações ficam desligadas.", true); return; }
+    const { getMessaging, getToken } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js");
+    const reg = swReg || await navigator.serviceWorker.register("/atendimento/sw.js", { scope:"/atendimento/" });
+    const tok = await getToken(getMessaging(app), { serviceWorkerRegistration:reg });
+    if(!tok) throw new Error("sem token");
+    if(st.eu){ const lista = [...new Set([tok, ...(st.eu.tokens || [])])].slice(0, 10); await updateDoc(doc(db, "wa_equipe", st.uid), { tokens:lista, atualizado_em:serverTimestamp() }); }
+    try{ localStorage.setItem("pde_at_tok", "1"); }catch(e){}
+    $("faixaNotif").hidden = true; toast("Notificações ligadas neste aparelho.");
+  }catch(e){ console.warn(e); toast("Não consegui ligar as notificações (" + (e.code || e.message || "erro") + ").", true); }
+}
+document.addEventListener("click", ev => {
+  const el = ev.target.closest("[data-action]"); if(!el) return;
+  const a = el.dataset.action;
+  if(a === "google"){ const p = new GoogleAuthProvider(); p.setCustomParameters({ prompt:"select_account" }); signInWithPopup(auth, p).catch(e => e && /popup/.test(e.code || "") ? signInWithRedirect(auth, p) : erro(e)); }
+  else if(a === "senha") signInWithEmailAndPassword(auth, $("eEmail").value.trim(), $("eSenha").value).catch(() => toast("E-mail ou senha não conferem.", true));
+  else if(a === "sair"){ try{ localStorage.removeItem("pde_at_tok"); }catch(e){} signOut(auth); }
+  else if(a === "aba"){ st.filtro = el.dataset.f; lista(); }
+  else if(a === "abrir") abrir(el.dataset.id);
+  else if(a === "voltar"){ $("corpo").classList.remove("abrindo"); st.sel = ""; history.replaceState(null, "", location.pathname); lista(); }
+  else if(a === "enviar"){ const t = $("texto"), v = t.value.trim(); if(!v) return; el.disabled = true; chamar("whatsappResponder", { wa_id:st.sel, texto:v }).then(() => { t.value = ""; }).catch(erro).finally(() => el.disabled = false); }
+  else if(a === "encerrar") chamar("whatsappResponder", { wa_id:st.sel, texto:"", encerrar:true }).then(() => toast("Atendimento encerrado. O robô volta a responder.")).catch(erro);
+  else if(a === "assumir") chamar("whatsappTransferir", { wa_id:st.sel, para_uid:st.uid }).then(() => toast("A conversa agora está com você.")).catch(erro);
+  else if(a === "transf") abrirTransf();
+  else if(a === "transf-fechar") $("transf").hidden = true;
+  else if(a === "transferir"){ const v = $("tPara").value, d = { wa_id:st.sel, nota:$("tNota").value.trim() }; if(v.startsWith("setor:")) d.setor = v.slice(6); else d.para_uid = v.slice(4);
+    chamar("whatsappTransferir", d).then(r => { toast("Transferida para " + r.para + "."); $("transf").hidden = true; }).catch(erro); }
+  else if(a === "disp" && st.eu){ const on = st.eu.disponivel === false; updateDoc(doc(db, "wa_equipe", st.uid), { disponivel:on, atualizado_em:serverTimestamp() }).then(() => toast(on ? "Você está disponível." : "Você não recebe conversas novas até ligar de novo.")).catch(erro); }
+  else if(a === "notif") registrarAparelho();
+});
+document.addEventListener("keydown", ev => { if(ev.target.id === "texto" && ev.key === "Enter" && !ev.shiftKey && window.matchMedia("(min-width:761px)").matches){ ev.preventDefault(); const b = document.querySelector('[data-action="enviar"]'); if(b) b.click(); } });
+document.addEventListener("input", ev => { if(ev.target.id === "texto"){ ev.target.style.height = "auto"; ev.target.style.height = Math.min(ev.target.scrollHeight, innerHeight * .3) + "px"; } });
+// tocar na notificação com o app aberto: vai direto para a conversa
+navigator.serviceWorker && navigator.serviceWorker.addEventListener("message", e => { if(e.data && e.data.wa_id) abrir(e.data.wa_id); });
+</script>
+</body>
+</html>

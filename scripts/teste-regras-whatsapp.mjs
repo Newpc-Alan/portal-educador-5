@@ -30,6 +30,8 @@ await t('membro ativo lê mensagens', assertSucceeds(getDocs(collection(fs('at1'
 await t('membro ativo lê a equipe', assertSucceeds(getDocs(collection(fs('at1'), 'wa_equipe'))));
 await t('membro ativo marca chamado resolvido', assertSucceeds(updateDoc(doc(fs('at1'), 'wa_chamados/c1'), { status: 'resolvido' })));
 await t('membro liga/desliga o próprio disponível', assertSucceeds(updateDoc(doc(fs('at1'), 'wa_equipe/at1'), { disponivel: false })));
+await t('membro registra o próprio aparelho para notificação', assertSucceeds(updateDoc(doc(fs('at1'), 'wa_equipe/at1'), { tokens: ['tok1'] })));
+await t('no máximo 10 aparelhos', assertFails(updateDoc(doc(fs('at1'), 'wa_equipe/at1'), { tokens: Array.from({ length: 11 }, (_, i) => 't' + i) })));
 await t('membro não muda os próprios setores', assertFails(updateDoc(doc(fs('at1'), 'wa_equipe/at1'), { setores: ['comercial'] })));
 await t('membro não mexe no outro', assertFails(updateDoc(doc(fs('at1'), 'wa_equipe/at2'), { disponivel: false })));
 await t('membro não muda a configuração', assertFails(setDoc(doc(fs('at1'), 'wa_config/geral'), { ligado: false })));
