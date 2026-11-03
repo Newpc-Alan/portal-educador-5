@@ -1218,22 +1218,25 @@ Use esta ficha quando a rotina não gerar registro automático no sistema.
 @@ POP-PDE-33 | Atendimento | Equipe de suporte NEWPC | Conversa com selo "aguardando" ou chamado aberto pelo WhatsApp
 
 ### Objetivo
-Responder no mesmo dia quem pediu atendente no WhatsApp do Portal e dar andamento aos chamados de equipamento abertos pelo robô.
+Responder no mesmo dia as conversas que o robô passou para a equipe (rodízio por setor) e dar andamento aos chamados de equipamento.
 
 ### Pré-requisitos
 - Perfil de administrador ativo no Portal.
 - Robô ligado (a tela mostra **Robô ligado**).
 
 ### Procedimento
-1. Ao receber o e-mail "WhatsApp: ... pediu atendente" ou "Chamado pelo WhatsApp", abra **Sistema** › **Atendimento WhatsApp**.
-2. **Conversas com selo aguardando**: abra, leia o histórico (o que o robô já respondeu) e responda em **Enviar**. Escreva como pessoa, curto e com o próximo passo claro.
-3. Se for dúvida que o manual não cobre, anote para incluir no Manual do Usuário (depois da nova versão, recarregue a base do robô: workflow **Robô do WhatsApp**, ação **conhecimento**).
-4. Resolvido, toque em **Encerrar atendimento**. O robô volta a atender aquele número.
-5. **Chamados abertos**: encaminhe ao técnico da região com o protocolo. Concluído o atendimento, **Marcar resolvido**.
-6. Mais de 24 h sem resposta da pessoa: o Portal não deixa enviar. Registre no chamado e aguarde ela voltar a escrever, ou fale pelo telefone da escola.
+1. Ao receber o e-mail de aviso ("nova conversa para você", "transferiu uma conversa para você" ou "Chamado pelo WhatsApp"), abra **Sistema** › **Atendimento WhatsApp** (ou o item **Atendimento WhatsApp** no seu menu).
+2. Comece o dia ligando **Disponível para receber conversas** e desligue ao sair (almoço, reunião, fim do expediente).
+3. Em **Minhas**, abra cada conversa, leia o histórico (o que o robô já respondeu) e responda em **Enviar**. Escreva como pessoa, curto e com o próximo passo claro. Olhe também a **Fila sem dono** e use **Assumir**.
+4. Não é do seu setor ou não sabe resolver? **Transferir** para o setor certo (rodízio) ou para a pessoa certa, com um recado do que já foi feito.
+5. Se for dúvida que o manual não cobre, anote para incluir no Manual do Usuário (depois da nova versão, recarregue a base do robô: workflow **Robô do WhatsApp**, ação **conhecimento**).
+6. Resolvido, toque em **Encerrar atendimento**. O robô volta a atender aquele número.
+7. **Chamados abertos**: o técnico da vez aparece no cartão; ele atende ou repassa ao técnico da região com o protocolo. Concluído o atendimento, **Marcar resolvido**.
+8. Mais de 24 h sem resposta da pessoa: o Portal não deixa enviar. Registre no chamado e aguarde ela voltar a escrever, ou fale pelo telefone da escola.
 
 ### Pontos de controle
-- ☐ Nenhuma conversa com selo aguardando no fim do expediente.
+- ☐ Nenhuma conversa em Minhas nem na Fila sem dono no fim do expediente.
+- ☐ Disponível desligado ao sair.
 - ☐ Todo chamado aberto tem técnico designado em até 1 dia útil.
 - ☐ Nunca pedir senha, CPF ou dado de aluno pelo WhatsApp.
 

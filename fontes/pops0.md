@@ -100,3 +100,5 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.19 | 02/11/2026 | POP-PDE-32: Portal Maestro na gaveta (sala gerenciada só pelo Portal; extensão retirada) | NEWPC Tecnologia | |
 | 2.20 | 02/11/2026 | POP-PDE-32: a aula tem dono; Assumir a turma quando a aula anterior ficou aberta | NEWPC Tecnologia | |
 | 2.21 | 02/11/2026 | POP-PDE-32: acervo geral de quizzes do Portal (todas as redes) | NEWPC Tecnologia | |
+| 2.24 | 03/11/2026 | POP-PDE-33: atendimento pelo WhatsApp do Portal (robô, chamados e contato comercial) | NEWPC Tecnologia | |
+| 2.25 | 03/11/2026 | POP-PDE-33: rodízio por setor, Disponível, Assumir e Transferir | NEWPC Tecnologia | |

@@ -674,11 +674,22 @@ O que o robô faz sozinho:
 
 | Opção do menu | O que acontece |
 |---|---|
-| Dúvida sobre o Portal | Responde a partir do **Manual do Usuário**. Se a resposta não estiver no manual, não inventa: oferece falar com a equipe |
+| Dúvida sobre o Portal | Responde a partir do **Manual do Usuário**. Se a resposta não estiver no manual, não inventa: passa a conversa sozinho para alguém do Suporte |
 | Problema em equipamento | Pede escola, equipamento e defeito, abre um chamado com **protocolo** e avisa a equipe por e-mail |
 | Não consigo entrar | Se o número for de um cadastro do Portal, manda o link de acesso para o e-mail cadastrado (mostra o e-mail mascarado). Número desconhecido não recebe link |
-| Falar com atendente | Passa a conversa para a equipe, que recebe um e-mail de aviso |
+| Falar com atendente | Passa a conversa, por rodízio, para alguém do setor Suporte, que recebe um e-mail de aviso |
 | Portal na minha rede | Contato comercial: pede nome, cargo, instituição e município e passa para a equipe comercial (selo **comercial** na tela). Os botões do site ("Falar com um consultor", "Pedir uma proposta") e os de assinar ou renovar a licença caem direto aqui |
+
+Rodízio e transferência:
+
+- A **Equipe de atendimento** (quadro no fim da tela, só o administrador edita) lista quem atende e em quais setores: **Suporte**, **Técnico** e **Comercial**. Para cadastrar, digite o e-mail da pessoa no Portal (ela precisa ter entrado uma vez), marque os setores e toque em **Adicionar ou atualizar**. **Tirar da equipe** não apaga nada: o histórico continua com o nome.
+- Cada conversa que sai do robô vai para o próximo **disponível** do setor, em rodízio (quem recebeu há mais tempo). Só essa pessoa recebe o e-mail de aviso. Sem ninguém disponível, a conversa fica em **Fila sem dono** e o aviso vai para o e-mail padrão da equipe.
+- Chamado de equipamento vai para o técnico da vez (aparece no cartão do chamado).
+- Cada membro liga ou desliga o próprio **Disponível para receber conversas** (almoço, reunião, férias).
+- Filtros: **Minhas** (comigo), **Fila sem dono** e **Todas**.
+- **Assumir** traz a conversa para você. **Transferir** manda para o próximo do setor (rodízio) ou para uma pessoa da equipe, com recado opcional; quem recebe ganha um e-mail.
+- Quem responde uma conversa da fila fica com ela. A pessoa do outro lado sempre vê **Equipe Portal do Educador**, nunca o nome de quem atendeu.
+- Fora do horário (segunda a sexta, 8h às 18h), o robô avisa que a resposta vem no próximo horário.
 
 Na tela:
 
