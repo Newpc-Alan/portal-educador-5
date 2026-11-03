@@ -46,7 +46,7 @@ Se a conta Google também estiver ligada, ela continua funcionando normalmente.
 | A rede já importou o seu e-mail | Você entra direto, já com município, escolas e turmas |
 | Você não foi cadastrado pela rede | Aparece **Complete seu cadastro**, com 7 dias de teste grátis |
 
-No cadastro de teste, preencha nome, WhatsApp, função, estado, município, rede, escola, etapas em que atua e aceite a política de privacidade. Toque em **Liberar meu teste grátis**. Se a sua escola é atendida pela prefeitura com o Portal, preencha normalmente: a equipe vincula você à rede.
+No cadastro de teste, preencha nome, WhatsApp (com DDD, ex.: (67) 99999-0000), função, estado, município, rede, escola, etapas em que atua e aceite a política de privacidade. Toque em **Liberar meu teste grátis**. Se a sua escola é atendida pela prefeitura com o Portal, preencha normalmente: a equipe vincula você à rede.
 
 ![Cadastro do teste grátis](s11-cadastro.png){80}
 
@@ -1081,7 +1081,7 @@ O Portal gera uma mensagem pronta para enviar (**Copiar mensagem**). A pessoa en
 - **🔎 Busca ativa**: frequência média, alunos abaixo do mínimo (com 10 aulas ou mais), faltas seguidas (3 dias ou mais) e turmas sem chamada. Toque no aluno para abrir a **ficha de busca ativa**: contatos com a família, motivo, encaminhamento (CRAS, CREAS, Conselho Tutelar, Saúde, Secretaria, Ministério Público) e retorno combinado.
 - **📺 Mural de chegada**: quem chegou, quem faltou e quem está em acompanhamento, com **👁 Modo público** para a TV de área comum.
 - **🚪 Portaria**: leitura da carteirinha pela câmera ou por leitor USB, funcionando até sem internet. **🚸 Saída: quem pode buscar** mostra os autorizados com foto.
-- **🪪 Carteirinhas**: dez por folha A4, com brasão, nome e turma. O QR não tem dados pessoais.
+- **🪪 Carteirinhas**: o Portal pergunta onde imprimir: **folha A4** (dez por folha, para recortar e plastificar) ou **impressora de crachá** (um cartão por página, no tamanho do cartão de PVC CR80, 85,6 x 54 mm, sem borda). Com brasão, nome e turma. O QR não tem dados pessoais. A escolha fica lembrada no navegador.
 - **🧾 Auditoria**: entrada pela carteirinha comparada com a chamada do professor, aluno por aluno. No mesmo lugar, **📸 Entradas no Portal pela carteirinha** traz a chave **Tirar foto ao entrar com a carteirinha** (desligada até a direção ligar) e a lista do dia, com **👁️ Ver** (cada abertura fica na auditoria) e a situação de cada entrada.
 
 :::regra

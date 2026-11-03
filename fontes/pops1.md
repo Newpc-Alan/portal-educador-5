@@ -20,7 +20,7 @@ Colocar uma rede municipal em funcionamento no Portal com cadastros corretos, pl
 3. **Conferir as planilhas** recebidas: e-mails válidos, uma escola por linha, INEP com 8 dígitos, turmas no padrão do Portal (etapa e letra, ex.: "5º Ano A").
 4. **Importar as escolas** (POP-PDE-02). Conferir em Municípios se não nasceu município duplicado.
 5. **Configurar o plano** (POP-PDE-03), enviar o logo da prefeitura e liberar a IA na **Central de IA** quando contratada (POP-PDE-20).
-6. **Completar os dados de cada escola** em **Escolas**: INEP, CNPJ (botão **Buscar** traz os dados da Receita), CEP (preenche o endereço), DDD, telefone, diretor e coordenador. Esses dados saem no cabeçalho de relatórios, declarações e provas.
+6. **Completar os dados de cada escola** em **Escolas**: INEP, CNPJ (botão **Buscar** traz os dados da Receita), CEP (preenche o endereço), DDD, telefone, e-mail, diretor e coordenador. Esses dados saem no cabeçalho de relatórios, declarações e provas. Telefone, CEP, e-mail e CNPJ só são aceitos no padrão de cadastro do Portal (Manual da equipe, "Padrão de cadastro").
 7. **Cadastrar as turmas** em **Turmas** (etapa, letra, turno e ano letivo). O Portal monta o nome e bloqueia turma repetida.
 8. **Importar gestão e equipe**, depois **professores** (POP-PDE-02), nessa ordem.
 9. **Matricular os alunos** pela **Ficha do Aluno** › **📥 Importar planilha** (as turmas precisam existir antes). Se a rede tiver e-mail próprio de aluno, informe o domínio no plano ou importe a lista de alunos em Importar cadastros.
@@ -835,7 +835,7 @@ Fazer o aluno entrar no Portal em segundos, sem e-mail e sem senha, só durante 
 
 1. Em **Minhas Turmas**, clique em **Alunos** na turma.
 2. No passo 1, **Acesso dos alunos**, clique em **🔑 Gerar / ver cartões**. Cada aluno recebe um código de 6 caracteres, um PIN de 4 números e um QR.
-3. Clique em **🖨️ Imprimir cartões com QR** (folha A4, 2 colunas) e em **📋 Lista com PIN (professor)**. O PIN não vai no cartão.
+3. Clique em **🖨️ Imprimir cartões com QR** e escolha **Folha A4** (2 colunas, para recortar) ou **Impressora de crachá** (um cartão por página, tamanho CR80). Depois, **📋 Lista com PIN (professor)**. O PIN não vai no cartão.
 4. Recorte e entregue os cartões. Guarde a lista com PIN com o professor ou na secretaria escolar.
 
 **Abrir a aula**
@@ -1212,3 +1212,28 @@ Use esta ficha quando a rotina não gerar registro automático no sistema.
 <div style="border:1px solid #dce4ec;border-radius:6px;height:26mm"></div>
 
 <div class="assina"><div>Executado por</div><div>Conferido por</div><div>Data</div></div>
+
+## POP-PDE-33 · Atendimento pelo WhatsApp do Portal {: .nova }
+
+@@ POP-PDE-33 | Atendimento | Equipe de suporte NEWPC | Conversa com selo "aguardando" ou chamado aberto pelo WhatsApp
+
+### Objetivo
+Responder no mesmo dia quem pediu atendente no WhatsApp do Portal e dar andamento aos chamados de equipamento abertos pelo robô.
+
+### Pré-requisitos
+- Perfil de administrador ativo no Portal.
+- Robô ligado (a tela mostra **Robô ligado**).
+
+### Procedimento
+1. Ao receber o e-mail "WhatsApp: ... pediu atendente" ou "Chamado pelo WhatsApp", abra **Sistema** › **Atendimento WhatsApp**.
+2. **Conversas com selo aguardando**: abra, leia o histórico (o que o robô já respondeu) e responda em **Enviar**. Escreva como pessoa, curto e com o próximo passo claro.
+3. Se for dúvida que o manual não cobre, anote para incluir no Manual do Usuário (depois da nova versão, recarregue a base do robô: workflow **Robô do WhatsApp**, ação **conhecimento**).
+4. Resolvido, toque em **Encerrar atendimento**. O robô volta a atender aquele número.
+5. **Chamados abertos**: encaminhe ao técnico da região com o protocolo. Concluído o atendimento, **Marcar resolvido**.
+6. Mais de 24 h sem resposta da pessoa: o Portal não deixa enviar. Registre no chamado e aguarde ela voltar a escrever, ou fale pelo telefone da escola.
+
+### Pontos de controle
+- ☐ Nenhuma conversa com selo aguardando no fim do expediente.
+- ☐ Todo chamado aberto tem técnico designado em até 1 dia útil.
+- ☐ Nunca pedir senha, CPF ou dado de aluno pelo WhatsApp.
+

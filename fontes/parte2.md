@@ -177,19 +177,42 @@ Menu **Municípios** › **+ Novo Município** ou botão **Cadastro** na linha d
 
 | Aba | Campos | Quem vê |
 |---|---|---|
-| Identificação | Nome *, UF *, código IBGE (7 dígitos), CNPJ da Prefeitura, CNPJ da Secretaria / Fundo de Educação, endereço da Secretaria, CEP, telefone, e-mail institucional, site da Prefeitura | Quem tem cadastro no município |
+| Identificação | Nome *, UF *, código IBGE (7 dígitos), CNPJ da Prefeitura, CNPJ da Secretaria / Fundo de Educação, endereço da Secretaria (CEP, logradouro, número, complemento e bairro: o CEP preenche a rua e o bairro e avisa se for de outra cidade), telefone, e-mail institucional, site da Prefeitura | Quem tem cadastro no município |
 | Pessoas | Prefeito(a) e mandato; Secretário(a) de Educação; Ponto focal técnico (TI da rede); Gestor do contrato (Lei 14.133, art. 117); Fiscal do contrato. Cada um com nome, e-mail e telefone | 🔒 Só o administrador |
 | Contrato | Nº do contrato / ata, vigência início e fim, modalidade (pregão eletrônico, adesão a ata, concorrência, dispensa, inexigibilidade, outra), processo / edital, valor total, valor mensal, nota de empenho, objeto e observações | Nº e vigência: o Portal usa para a licença. Valores, processo e empenho: 🔒 só o administrador |
-| Rede e IDEB | Escolas, alunos, professores e ano do Censo; último IDEB (anos iniciais, anos finais, ensino médio) e a edição | Usado nos painéis, nas cotas de IA e nas propostas |
+| Rede e IDEB | Histórico do Censo Escolar ano a ano (escolas, alunos, professores) e do IDEB edição a edição (anos iniciais, anos finais, ensino médio), com ▲ ou ▼ em relação à edição anterior | O ano mais recente de cada um é o usado nos painéis, nas cotas de IA e nas propostas |
 
 <!-- captura: janela de cadastro do município na aba Contrato, com as quatro abas visíveis -->
 
 :::regra
-- O Portal confere o IBGE (7 dígitos), os dois CNPJ (dígitos verificadores), a vigência (o fim não pode vir antes do início) e o IDEB (0 a 10).
+- O Portal confere o IBGE (7 dígitos, começando pelo código da UF: MS = 50), os dois CNPJ (dígitos verificadores), a vigência (o fim não pode vir antes do início) e o IDEB (0 a 10).
+- Telefones, CEP, e-mails e site seguem o padrão de cadastro (veja abaixo). O nome do município fica sem "Município de" ou "Prefeitura Municipal de": "MUNICIPIO DE BONITO" vira "Bonito".
 - Nome e UF iguais a outro município já cadastrado são recusados.
+- Rede e IDEB: digite o ano e os números e toque em **+ Guardar no histórico**; o que estiver nos campos ao salvar também entra. A edição do IDEB precisa ser um ano ímpar a partir de 2005 (o IDEB sai a cada dois anos). Para corrigir um ano já guardado, digite o ano dele: os números voltam para os campos. O ✕ tira o ano do histórico.
 - Trocar o nome ou a UF atualiza sozinho o nome copiado nas escolas e turmas.
 - A lista mostra o plano reconhecido, os módulos (professor e aluno), o nº do contrato, a vigência (com o selo "vencido") e, embaixo do nome, escolas, alunos e IDEB.
 :::
+
+### Padrão de cadastro (vale para toda a plataforma)
+
+Todo cadastro do Portal grava os dados num formato só, para a base não ficar com cada registro de um jeito. O Portal corrige sozinho o que dá para corrigir e não deixa salvar o que está errado.
+
+| Dado | Como fica gravado | O Portal corrige sozinho | O Portal recusa |
+|---|---|---|---|
+| Telefone | (67) 3255-1351, (67) 99999-0000, 0800 067 0053 ou 4004-1234 | Falta de parênteses ou espaço, +55, 0 + operadora | Sem DDD, DDD que não existe, número curto, fixo começando com 1 |
+| WhatsApp | (67) 99999-0000 (ou fixo com DDD) | O mesmo do telefone | Também recusa 0800 e números únicos (4004, 3003...), que não têm WhatsApp |
+| CEP | 79290-000 | Só números | Menos ou mais de 8 números |
+| CPF e CNPJ | 123.456.789-09 · 03.073.673/0001-60 | Só números | Dígitos verificadores errados |
+| NIS e Cartão SUS (ficha do aluno) | NIS com 11 números; SUS com 15 | Só números | Tamanho errado; NIS com dígito verificador errado |
+| E-mail | Tudo em minúsculas | Maiúsculas e espaços | Sem @ ou sem domínio completo (ex.: nome@municipio) |
+| Site | https://www.municipio.ms.gov.br | Falta do https:// | Endereço sem domínio |
+| Nomes de pessoas | Maria da Silva | Nome todo em MAIÚSCULAS ou todo em minúsculas | Não recusa |
+
+Onde vale: Municípios (dados e pessoas), Escolas, primeiro cadastro do professor, Meu cadastro, novo usuário, importação de professores e equipe, Ficha do Aluno e responsáveis, Famílias, Servidores, Equipe de apoio e abertura de chamado pelo QR do equipamento. O campo errado fica vermelho e a mensagem diz o formato certo. Nomes de alunos não são mexidos, para continuarem iguais aos do Censo.
+
+Nas janelas de cadastro, clicar fora da janela não fecha mais (a janela balança para mostrar que continua aberta): feche em **Cancelar** ou salve. Assim ninguém perde o que já digitou por um clique sem querer.
+
+Os cadastros feitos antes desse padrão continuam como estavam até alguém abrir e salvar de novo; aí passam pela mesma conferência.
 
 ### Arquivar ou excluir
 
@@ -642,6 +665,31 @@ No topo da aba fica o card **🖥️ Servidor NEWPC**: a cópia da **aplicação
 :::atencao
 O pacote de backup contém dados pessoais (LGPD). Guarde só em Drive compartilhado da NEWPC, com acesso restrito.
 :::
+
+## Atendimento WhatsApp {: .nova }
+
+Menu **Sistema** › **Atendimento WhatsApp**. É a central do robô do Portal no WhatsApp (API oficial da Meta, número exclusivo do Portal).
+
+O que o robô faz sozinho:
+
+| Opção do menu | O que acontece |
+|---|---|
+| Dúvida sobre o Portal | Responde a partir do **Manual do Usuário**. Se a resposta não estiver no manual, não inventa: oferece falar com a equipe |
+| Problema em equipamento | Pede escola, equipamento e defeito, abre um chamado com **protocolo** e avisa a equipe por e-mail |
+| Não consigo entrar | Se o número for de um cadastro do Portal, manda o link de acesso para o e-mail cadastrado (mostra o e-mail mascarado). Número desconhecido não recebe link |
+| Falar com atendente | Passa a conversa para a equipe, que recebe um e-mail de aviso |
+
+Na tela:
+
+- **Chamados abertos pelo WhatsApp**: cada um com protocolo, quem abriu e o defeito. **Marcar resolvido** tira da lista.
+- **Conversas**: as que estão com o selo **aguardando** sobem para o topo, com o número de mensagens não lidas. Toque numa conversa para ver o histórico (pessoa, robô e equipe).
+- **Enviar** manda a resposta pelo WhatsApp assinada como **Equipe Portal do Educador** (o nome de quem respondeu fica só no histórico interno). Enquanto a conversa está com a equipe, o robô fica quieto.
+- **Encerrar atendimento** devolve a conversa ao robô e avisa a pessoa que ela pode digitar *menu*.
+
+REGRA
+Pelas regras da Meta, a equipe só pode responder até **24 horas** depois da última mensagem da pessoa. Passado esse prazo, o Portal recusa o envio: é preciso esperar a pessoa escrever de novo.
+
+O robô reconhece o professor pelo WhatsApp do cadastro (com ou sem o 9). Dados de alunos não passam pelo robô nem pela IA. Tudo o que importa (chamado aberto, link enviado, conversa passada ou encerrada) fica na **Auditoria**.
 
 ## Auditoria
 

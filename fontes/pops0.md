@@ -71,6 +71,7 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-30 | Comunicado por e-mail para a rede | Comunicação |
 | POP-PDE-31 | Acompanhamento semanal pelo Painel do administrador | Gestão |
 | POP-PDE-32 | Aula com aparelhos controlados (Dar aula + Portal Maestro) | Sala de aula |
+| POP-PDE-33 | Atendimento pelo WhatsApp do Portal | Atendimento |
 
 ## Controle de revisões
 
