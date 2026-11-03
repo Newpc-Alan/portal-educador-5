@@ -5,6 +5,11 @@ name: Escola de laboratório
 on:
   workflow_dispatch:
     inputs:
+      ambiente:
+        description: "Onde: teste (homologação, recomendado) ou oficial"
+        type: choice
+        options: [teste, oficial]
+        default: teste
       modo:
         description: "O que fazer"
         type: choice
@@ -31,12 +36,14 @@ jobs:
         run: cd functions && npm ci
       - name: Credencial
         env:
-          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CHAVE: ${{ inputs.ambiente == 'oficial' && secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_TESTE }}
         run: |
-          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo FIREBASE_SERVICE_ACCOUNT no repositório."; exit 1; fi
+          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo da conta de serviço do ambiente ${{ inputs.ambiente }}."; exit 1; fi
           printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
       - name: Rodar
+        env:
+          PROJETO: ${{ inputs.ambiente == 'oficial' && 'portal-educador-5' || 'portal-educador-5-teste' }}
         run: cd functions && node ../scripts/lab-escola.mjs "--${{ inputs.modo }}"
       - name: Apagar a credencial do runner
         if: always()

@@ -12,7 +12,7 @@ import { getStorage } from 'firebase-admin/storage';
 // foto da entrada (opcional, por totem): conferência de carteirinha emprestada; guardada só por este prazo
 export const RETENCAO_FOTOS_DIAS = 15;
 // bucket só das fotos, em São Paulo (southamerica-east1), sem lixeira e com apagamento automático no próprio bucket como segunda garantia
-export const BUCKET_PORTARIA = 'portal-educador-5-portaria';
+export const BUCKET_PORTARIA = (process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'portal-educador-5') + '-portaria';
 
 const CHAVE = /^[A-Za-z0-9]{20}$/, ID = /^[A-Za-z0-9_-]{1,64}$/, HORA = /^[0-2]\d:[0-5]\d$/, DATA = /^20\d\d-[01]\d-[0-3]\d$/;
 const hojeMS = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Campo_Grande', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());

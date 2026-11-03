@@ -22,7 +22,7 @@ const PERFIS = { professor: 'Professores', gestor: 'Gestão da escola (direção
 const TAM_LOTE = 400;
 const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia'];
 const msDe = v => v && v.toMillis ? v.toMillis() : (v && v._seconds ? v._seconds * 1000 : 0);
-const URL_SAIR = 'https://southamerica-east1-portal-educador-5.cloudfunctions.net/descadastroEmail';
+const URL_SAIR = 'https://southamerica-east1-' + (process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'portal-educador-5') + '.cloudfunctions.net/descadastroEmail';
 const PADRAO = { host: 'smtp.mail.webnode.com', porta: 465, por_hora: 100, remetente: 'comunicados@portaldoeducador.com.br', nome: 'Portal do Educador' };
 const txt = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').slice(0, n);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

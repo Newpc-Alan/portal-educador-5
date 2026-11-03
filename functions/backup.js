@@ -13,8 +13,8 @@ import { getStorage } from 'firebase-admin/storage';
 import { createGzip } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 
-const PROJETO = 'portal-educador-5';
-export const BUCKET_BACKUP = 'portal-educador-5-backups';
+const PROJETO = (process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'portal-educador-5');   // oficial ou teste: o projeto onde a função roda
+export const BUCKET_BACKUP = PROJETO + '-backups';
 const META = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default';
 const OPC = { region: 'southamerica-east1' };
 
