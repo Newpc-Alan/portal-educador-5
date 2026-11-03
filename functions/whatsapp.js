@@ -240,7 +240,8 @@ export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxI
   const ult = conv.ultima_pessoa_em && conv.ultima_pessoa_em.toMillis ? conv.ultima_pessoa_em.toMillis() : 0;
   if (Date.now() - ult > 24 * 3600e3) throw new HttpsError('failed-precondition', 'Passaram 24 h da última mensagem desta pessoa. O WhatsApp só deixa responder depois que ela escrever de novo.');
   const quem = txt(String(u.nome || 'Equipe').split(' ')[0], 30);
-  if (msg) { await enviar(cfg, waId, texto('*' + quem + ' (Portal do Educador):* ' + msg)); await guardar(ref, 'equipe', msg, { autor_uid: req.auth.uid, autor_nome: quem }); }
+  // a pessoa vê só a equipe, nunca o nome de quem atendeu (o nome fica no histórico interno)
+  if (msg) { await enviar(cfg, waId, texto('*Equipe Portal do Educador:* ' + msg)); await guardar(ref, 'equipe', msg, { autor_uid: req.auth.uid, autor_nome: quem }); }
   if (encerrar) {
     await enviar(cfg, waId, texto('Atendimento encerrado. Se precisar de mais alguma coisa, é só digitar *menu*.'));
     await guardar(ref, 'robo', 'Atendimento encerrado');
