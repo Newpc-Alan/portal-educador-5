@@ -12582,7 +12582,7 @@
   const CR_PADRAO = { precos:{ texto:1, ajuste:1, imagem:5 }, teto_padrao:60, alertas:[20,5], validade_meses:12, dolar:5.6,
     pacotes_rede:[{ id:"rede-1000", nome:"1.000 créditos", creditos:1000, valor:250 }, { id:"rede-5000", nome:"5.000 créditos", creditos:5000, valor:1000 }, { id:"rede-20000", nome:"20.000 créditos", creditos:20000, valor:3600 }],
     pacotes_professor:[{ id:"prof-100", nome:"100 créditos", creditos:100, valor:29.9 }, { id:"prof-300", nome:"300 créditos", creditos:300, valor:79.9 }] };
-  const crA = { cfg:null, cart:[], munis:[], pedidos:[], form:{} };
+  const crA = { cfg:null, cart:[], munis:[], pedidos:[], form:{}, edu:{}, aberto:"" };
   const crMs = v => !v ? 0 : v.toMillis ? v.toMillis() : v.seconds ? v.seconds * 1000 : v.__ms || (typeof v === "number" ? v : Date.parse(v) || 0);
   const crNum = n => Number(n || 0).toLocaleString("pt-BR");
   const crBrl = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
@@ -12604,7 +12604,7 @@
     // professores com exceção de IA e licenças avulsas (as redes vêm da matriz)
     crA.profs = []; const vistos = new Set();
     const [qe, qa] = await Promise.all([getDocs(query(collection(db,"usuarios"), where("ia_extra","!=",null))).catch(e => { console.warn("ia_extra:", e.code); return null; }),
-      getDocs(query(collection(db,"usuarios"), where("licenca_tipo","in",["avulsa","cortesia"]))).catch(e => { console.warn("avulsos:", e.code); return null; })]);
+      getDocs(query(collection(db,"usuarios"), where("licenca_tipo","in",["avulsa","cortesia","teste"]))).catch(e => { console.warn("avulsos:", e.code); return null; })]);
     [qe, qa].forEach(q => q && q.forEach(d => { if(vistos.has(d.id)) return; vistos.add(d.id); crA.profs.push({ id:d.id, ...d.data() }); }));
     crA.profs.sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
     crA.cart = []; if(ks) ks.forEach(d => crA.cart.push({ id:d.id, ...d.data() }));
@@ -12612,7 +12612,43 @@
     crA.munis.sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
     crA.pedidos = []; if(ps) ps.forEach(d => crA.pedidos.push({ id:d.id, ...d.data() }));
     crA.pedidos.sort((a,b) => crMs(a.em) - crMs(b.em));
+    // educadores de cada rede: quem já entrou e os importados que ainda não fizeram o 1º acesso (base para distribuir créditos)
+    crA.edu = {};
+    const contaQ = q => getCountFromServer(q).then(r => r.data().count).catch(e => { console.warn("contagem:", e.code); return null; });
+    const EDU = ["professor","gestor","secretaria"];
+    await Promise.all(crA.munis.filter(m => ["intermediario","completo","personalizado"].includes(m.plano_nome)).map(async m => {
+      const [ativos, viaPre, pre] = await Promise.all([
+        contaQ(query(collection(db,"usuarios"), where("municipio_id","==",m.id), where("perfil","in",EDU), where("status","==","ativo"))),
+        contaQ(query(collection(db,"usuarios"), where("municipio_id","==",m.id), where("origem","==","pre_cadastro"))),
+        contaQ(query(collection(db,"pre_cadastros"), where("municipio_id","==",m.id), where("perfil","in",EDU)))]);
+      crA.edu[m.id] = { ativos, aguardando:(pre == null || viaPre == null) ? null : Math.max(0, pre - viaPre) };
+    }));
     desenharCreditosAdmin();
+  }
+  // botões da linha: lançar, ver pacotes (para retirar)
+  function crBotoes(conta, k){ const n = ((k && k.pacotes) || []).filter(p => crMs(p.validade) > Date.now()).length;
+    return '<button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(conta)+'">+ Créditos</button>'+
+      (n ? ' <button class="btn-mini btn-recusar" data-action="cr-pacotes" data-conta="'+escapeAttr(conta)+'">'+(crA.aberto === conta ? "Fechar" : "Pacotes ("+n+")")+'</button>' : ''); }
+  function crPacotes(conta, k, cols){
+    if(crA.aberto !== conta || !k) return "";
+    const pac = (k.pacotes || []).filter(p => crMs(p.validade) > Date.now()).sort((a,b) => crMs(b.criado_em) - crMs(a.criado_em));
+    return '<tr class="cr-pacs"><td colspan="'+cols+'"><b>Pacotes de '+escapeHtml(k.nome || conta)+'</b> · retirar tira o que <u>resta</u> do pacote (o que já foi usado fica no histórico).'+
+      '<table class="cr-tab" style="margin-top:6px"><thead><tr><th>Lançado em</th><th>Créditos</th><th>Restam</th><th>Vence</th><th>Origem / obs.</th><th></th></tr></thead><tbody>'+
+      pac.map(p => '<tr><td>'+crData(crMs(p.criado_em))+'</td><td class="n">'+crNum(p.creditos)+'</td><td class="n"><b>'+crNum(p.restante)+'</b></td><td>'+crData(crMs(p.validade))+'</td><td>'+escapeHtml((p.origem === "pedido" ? "Pedido" : "Manual")+(p.obs ? " · "+p.obs : ""))+'</td>'+
+        '<td><button class="btn-mini btn-recusar" data-action="cr-retirar" data-conta="'+escapeAttr(conta)+'" data-pac="'+escapeAttr(p.id)+'">Retirar '+crNum(p.restante)+'</button></td></tr>').join("")+'</tbody></table></td></tr>';
+  }
+  // professores fora de rede (avulso, cortesia, teste) e quem já tem carteira própria, todos com saldo e uso
+  function crTabelaProfs(carteira, mes){
+    const L = new Map(), TIPO = { avulsa:"Avulso", cortesia:"Cortesia", teste:"Teste (7 dias)", institucional:"Rede" };
+    crA.profs.forEach(u => L.set("prof_"+u.id, { conta:"prof_"+u.id, nome:u.nome || u.email || u.id, email:u.email || "", tipo:TIPO[u.licenca_tipo] || u.licenca_tipo || "-", fim:crMs(u.licenca_fim), status:u.status || "" }));
+    crA.cart.filter(k => String(k.id).startsWith("prof_")).forEach(k => { if(!L.has(k.id)) L.set(k.id, { conta:k.id, nome:k.nome || k.id, email:"", tipo:"Carteira própria", fim:0, status:"" }); });
+    const lista = [...L.values()].sort((a,b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+    if(!lista.length) return "";
+    return '<div class="cr-bloco"><h3>Professores fora de rede · avulsos, cortesia e teste ('+lista.length+')</h3><p class="sub">Cada professor tem a própria carteira. Quem está em teste só usa o Portal IA com créditos lançados aqui.</p>'+
+      '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Licença</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+
+      lista.map(x => { const k = carteira(x.conta), s = crSaldo(k), cm = ((k && k.consumo) || {})[mes] || {}, venc = x.fim && x.fim < Date.now();
+        return '<tr><td><b>'+escapeHtml(x.nome)+'</b>'+(x.email ? '<br><small>'+escapeHtml(x.email)+'</small>' : '')+'</td><td>'+escapeHtml(x.tipo)+(x.fim ? '<br><small style="color:'+(venc ? "#b3261e" : "var(--muted)")+'">'+(venc ? "venceu " : "até ")+crData(x.fim)+'</small>' : '')+'</td>'+
+          '<td class="n"><b>'+crNum(s.saldo)+'</b><br><small>de '+crNum(s.total)+'</small></td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'<br><small>'+crNum(cm.usos)+' usos</small></td><td>'+crBotoes(x.conta, k)+'</td></tr>'+crPacotes(x.conta, k, 6); }).join("")+'</tbody></table></div></div>';
   }
   function desenharCreditosAdmin(){
     const cfg = crA.cfg, mes = crMes(), dol = Number(cfg.dolar) || 5.6;
@@ -12625,11 +12661,14 @@
     const linhaMun = m => { const k = carteira("mun_"+m.id), s = crSaldo(k), pct = s.total ? Math.round(s.saldo / s.total * 100) : 0, cm = ((k && k.consumo) || {})[mes] || {};
       const tag = !s.total ? '<span class="cr-tag ne">sem créditos</span>' : pct <= (cfg.alertas[1] || 5) ? '<span class="cr-tag ru">'+pct+'%</span>' : pct <= (cfg.alertas[0] || 20) ? '<span class="cr-tag al">'+pct+'%</span>' : '<span class="cr-tag ok">'+pct+'%</span>';
       const cor = pct <= (cfg.alertas[1] || 5) ? "#b3261e" : pct <= (cfg.alertas[0] || 20) ? "#e0a100" : "#1a6b2a";
+      const ed = crA.edu[m.id] || {}, nEd = (ed.ativos || 0) + (ed.aguardando || 0), porEd = nEd ? s.saldo / nEd : 0;
       return '<tr><td><b>'+escapeHtml(m.nome || m.id)+(m.uf ? "/"+escapeHtml(m.uf) : "")+'</b><br><small style="color:var(--muted)">'+escapeHtml(({ intermediario:"Intermediário · só texto", completo:"Completo · texto e imagem", personalizado:"Personalizado · só texto" })[m.plano_nome] || m.plano_nome)+'</small></td>'+
+        '<td class="n"><b>'+(ed.ativos == null ? "-" : crNum(ed.ativos))+'</b> já entraram<br><small>'+(ed.aguardando == null ? "-" : crNum(ed.aguardando))+' importados aguardando</small></td>'+
+        '<td class="n">'+(nEd ? '<b>'+porEd.toLocaleString("pt-BR", { maximumFractionDigits:1 })+'</b><br><small>sugestão: '+crNum(Math.ceil(nEd * 15 / 100) * 100)+'</small>' : '<small>sem educadores</small>')+'</td>'+
         '<td class="n"><b>'+crNum(s.saldo)+'</b><br><small>de '+crNum(s.total)+'</small></td><td><div class="cr-barra"><i style="width:'+pct+'%;background:'+cor+'"></i></div> '+tag+'</td>'+
         '<td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'<br><small>'+crNum(cm.usos)+' usos</small></td><td class="n">'+crBrl((cm.custo_usd || 0) * dol)+'</td>'+
         '<td><input class="cr-teto" type="number" min="0" step="1" data-cr-teto="mun_'+escapeAttr(m.id)+'" value="'+((k && k.teto_professor != null) ? k.teto_professor : cfg.teto_padrao)+'" aria-label="Teto por professor de '+escapeAttr(m.nome || "")+'"> <button class="btn-mini btn-gerenciar" data-action="cr-teto" data-conta="mun_'+escapeAttr(m.id)+'">Salvar</button></td>'+
-        '<td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="mun_'+escapeAttr(m.id)+'">+ Créditos</button></td></tr>'; };
+        '<td>'+crBotoes("mun_"+m.id, k)+'</td></tr>'+crPacotes("mun_"+m.id, k, 10); };
     const profs = crA.cart.filter(k => k.tipo === "professor" || String(k.id).startsWith("prof_"));
     const linhaPedido = p => '<tr><td>'+crData(crMs(p.em))+'</td><td><b>'+escapeHtml(p.conta_nome || p.conta)+'</b><br><small>'+(p.tipo === "rede" ? "Rede municipal" : "Professor avulso")+' · '+escapeHtml(p.solicitante || "")+' · '+escapeHtml(p.email || "")+'</small>'+(p.obs ? '<br><small>Obs.: '+escapeHtml(p.obs)+'</small>' : "")+'</td>'+
       '<td>'+escapeHtml(p.pacote_nome || "")+'</td><td class="n">'+crBrl(p.valor)+'</td>'+
@@ -12646,16 +12685,15 @@
       (crA.pedidos.length ? '<div class="cr-bloco"><h3>Pedidos de recarga</h3><p class="sub">Rede: libere depois do empenho. Professor avulso: libere depois do pagamento (Pix ou boleto enviado por e-mail).</p><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Data</th><th>Quem</th><th>Pacote</th><th>Valor</th><th></th></tr></thead><tbody>'+crA.pedidos.map(linhaPedido).join("")+'</tbody></table></div></div>' : "")+
       '<div class="cr-bloco" id="crForm"><h3>Lançar créditos</h3><p class="sub">Cada lançamento vira um pacote com validade própria. O consumo tira primeiro do pacote que vence antes.</p><div class="cr-form">'+
         '<label>Conta<select id="crConta"><option value="">Escolha</option><optgroup label="Redes municipais">'+crA.munis.map(m => '<option value="mun_'+escapeAttr(m.id)+'"'+(f.conta === "mun_"+m.id ? " selected" : "")+'>'+escapeHtml(m.nome || m.id)+(m.uf ? "/"+escapeHtml(m.uf) : "")+(["intermediario","completo","personalizado"].includes(m.plano_nome) ? "" : " (plano sem Portal IA)")+'</option>').join("")+'</optgroup>'+
-        '<optgroup label="Professores avulsos">'+profs.map(k => '<option value="'+escapeAttr(k.id)+'"'+(f.conta === k.id ? " selected" : "")+'>'+escapeHtml(k.nome || k.id)+'</option>').join("")+(f.conta && f.conta.startsWith("prof_") && !profs.some(k => k.id === f.conta) ? '<option value="'+escapeAttr(f.conta)+'" selected>'+escapeHtml(f.nome || f.conta)+'</option>' : "")+'<option value="email">Outro professor (pelo e-mail)...</option></optgroup></select></label>'+
+        '<optgroup label="Professores fora de rede">'+[...new Map([...crA.profs.map(u => ["prof_"+u.id, { id:"prof_"+u.id, nome:(u.nome || u.email || u.id)+" · "+(u.licenca_tipo || "")}]), ...profs.map(k => [k.id, k])]).values()].map(k => '<option value="'+escapeAttr(k.id)+'"'+(f.conta === k.id ? " selected" : "")+'>'+escapeHtml(k.nome || k.id)+'</option>').join("")+(f.conta && f.conta.startsWith("prof_") && !profs.some(k => k.id === f.conta) ? '<option value="'+escapeAttr(f.conta)+'" selected>'+escapeHtml(f.nome || f.conta)+'</option>' : "")+'<option value="email">Outro professor (pelo e-mail)...</option></optgroup></select></label>'+
         '<label id="crEmailBox"'+(f.conta === "email" ? "" : " hidden")+'>E-mail do professor<input id="crEmail" type="email" placeholder="professor@..."></label>'+
         '<label>Créditos<input id="crQtd" type="number" min="1" step="1" value="'+escapeAttr(f.creditos || "")+'"></label>'+
         '<label>Validade (meses)<input id="crMeses" type="number" min="1" max="36" value="'+(f.meses || cfg.validade_meses || 12)+'"></label>'+
         '<label style="grid-column:span 2">Observação (nº do empenho, NF, Pix)<input id="crObs" maxlength="300" value="'+escapeAttr(f.obs || "")+'"></label>'+
         '<button class="btn btn-primary" data-action="cr-salvar-lanc" id="crSalvarLanc">Lançar créditos</button></div>'+(f.pedido_id ? '<p class="usr-aviso">Liberando o pedido de <b>'+escapeHtml(f.nome || "")+'</b>. Ao lançar, o pedido fica como aprovado e quem pediu recebe um e-mail.</p>' : "")+'</div>'+
-      '<div class="cr-bloco"><h3>Redes com Portal IA</h3><p class="sub">Intermediário: só texto. Completo: texto e imagem. O teto é o máximo de créditos da rede que cada professor usa por mês (0 = sem teto). Alertas automáticos para a NEWPC e a Secretaria com '+cfg.alertas.join("% e ")+'% do saldo.</p>'+
-        (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
-      (profs.length ? '<div class="cr-bloco"><h3>Professores com créditos avulsos</h3><div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Professor</th><th>Saldo</th><th>Vence</th><th>Uso no mês</th><th></th></tr></thead><tbody>'+profs.map(k => { const s = crSaldo(k), cm = (k.consumo || {})[mes] || {};
-        return '<tr><td>'+escapeHtml(k.nome || k.id)+'</td><td class="n"><b>'+crNum(s.saldo)+'</b> de '+crNum(s.total)+'</td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'</td><td><button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(k.id)+'">+ Créditos</button></td></tr>'; }).join("")+'</tbody></table></div></div>' : "")+
+      '<div class="cr-bloco"><h3>Redes com Portal IA</h3><p class="sub"><b>Como distribuir:</b> "Educadores" soma quem já entrou e os importados que ainda não fizeram o 1º acesso. "Créditos por educador" é o saldo dividido por eles; a sugestão é 15 por educador. Para tirar créditos, use <b>Pacotes</b> e retire o pacote lançado. Intermediário: só texto. Completo: texto e imagem. O teto é o máximo de créditos da rede que cada professor usa por mês (0 = sem teto). Alertas automáticos para a NEWPC e a Secretaria com '+cfg.alertas.join("% e ")+'% do saldo.</p>'+
+        (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Educadores</th><th>Créditos por educador</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor/mês</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
+      crTabelaProfs(carteira, mes)+
       desenharCentralIA(cfg, carteira)+
       '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
         '<div class="cr-form"><label>Material (créditos)<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label>'+
@@ -12808,6 +12846,12 @@
       try{ await crChamar({ acao:"cancelar_pedido", id:el.dataset.id }); toast("Pedido cancelado."); renderCreditosAdmin(); }catch(e){ toast(e.message || "Erro.", true); } }
     else if(a === "cr-teto"){ const inp = document.querySelector('[data-cr-teto="'+el.dataset.conta+'"]'); el.disabled = true;
       try{ await crChamar({ acao:"teto", conta:el.dataset.conta, teto:Math.max(0, Math.round(Number(inp.value) || 0)) }); toast("Teto salvo."); renderCreditosAdmin(); }catch(e){ el.disabled = false; toast(e.message || "Erro.", true); } }
+    else if(a === "cr-pacotes"){ crA.aberto = crA.aberto === el.dataset.conta ? "" : el.dataset.conta; desenharCreditosAdmin(); }
+    else if(a === "cr-retirar"){
+      if(!el.dataset.confirma){ el.dataset.confirma = "1"; el.textContent = "Confirmar retirada"; setTimeout(() => { if(el.isConnected){ delete el.dataset.confirma; renderCreditosAdmin(); } }, 6000); return; }
+      el.disabled = true; el.textContent = "Retirando...";
+      try{ await crChamar({ acao:"retirar_pacote", conta:el.dataset.conta, pacote_id:el.dataset.pac, motivo:"Retirado pelo administrador na Central de IA" }); toast("Pacote retirado."); renderCreditosAdmin(); }
+      catch(e){ el.disabled = false; toast(e.message || "Não retirou.", true); } }
     else if(a === "cr-salvar-lanc") crSalvarLanc();
     else if(a === "cr-salvar-cfg") crSalvarCfg();
     else if(a === "ia-salvar") iaSalvar();
