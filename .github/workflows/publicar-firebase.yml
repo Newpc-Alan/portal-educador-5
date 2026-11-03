@@ -28,6 +28,10 @@ on:
         description: "Funções para APAGAR do Firebase, separadas por vírgula (deixe vazio para não apagar nada)"
         required: false
         default: ""
+      aceitar_custo:
+        description: "Aceitar função com custo fixo (minInstances, ex.: robô do WhatsApp sempre acordado). Só com autorização do Alan"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -94,7 +98,7 @@ jobs:
         run: |
           set -o pipefail
           # em caso de erro, as últimas linhas viram aviso no resumo da execução (dá para ler sem abrir o log)
-          if ! firebase deploy --only "${{ inputs.alvo }}" --project "$PROJETO" --non-interactive 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
+          if ! firebase deploy --only "${{ inputs.alvo }}" --project "$PROJETO" --non-interactive ${{ inputs.aceitar_custo && '--force' || '' }} 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
             grep -iE "error|erro|denied|permission|failed|secret" "$RUNNER_TEMP/deploy.log" | tail -8 | sed 's/^/::error::/'
             exit 1
           fi
