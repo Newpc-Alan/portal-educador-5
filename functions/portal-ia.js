@@ -8,7 +8,7 @@ import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-import { situacao, reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
+import { situacao, reservarCreditos, estornarCreditos, registrarConsumo, daRede } from './creditos.js';
 import { feedRede } from './rede-feed.js';
 import { statusAoCompartilhar, avisarModeradores } from './moderacao-rede.js';
 import { SMTP_SENHA } from './dicas.js';
@@ -496,10 +496,11 @@ async function contexto(db, uid) {
   // quem usa cada recurso agora é decidido na Central de IA (ia-acesso.js), recurso a recurso
   let plano = 'basico', muni = null;
   if (admin) plano = 'completo';
-  else if (eu.municipio_id) { const m = await db.doc(`municipios/${eu.municipio_id}`).get(); muni = m.exists ? m.data() : null; plano = (muni && muni.plano_nome) || 'basico'; }
+  // só quem é da rede (licença institucional) usa o plano e a Central de IA do município; avulso, cortesia e teste seguem a própria licença
+  else if (daRede(eu)) { const m = await db.doc(`municipios/${eu.municipio_id}`).get(); muni = m.exists ? m.data() : null; plano = (muni && muni.plano_nome) || 'basico'; }
   else if (eu.plano_avulso) plano = eu.plano_avulso;
   // quem pode usar e quanto: créditos da rede (plano Intermediário ou Completo) e créditos avulsos do professor (creditos.js)
-  const ia = { admin, geral: geralIA(c), rede: admin ? new Set() : iaDaRede(muni, plano), user: admin ? new Set() : iaDoUsuario(eu) };
+  const ia = { admin, geral: geralIA(c), rede: admin ? new Set() : iaDaRede(muni, plano), user: admin ? new Set() : iaDoUsuario(daRede(eu) ? eu : { ...eu, municipio_id: '' }) };
   return { eu, cfg, cfgRaw: c, admin, plano, muni, ia, uid, usoRef: db.doc(`portal_ia_uso/${uid}_${mesAtual()}`) };
 }
 function contextoTexto(cx) {

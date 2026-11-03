@@ -12618,7 +12618,7 @@
     const EDU = ["professor","gestor","secretaria"];
     await Promise.all(crA.munis.filter(m => ["intermediario","completo","personalizado"].includes(m.plano_nome)).map(async m => {
       const [ativos, viaPre, pre] = await Promise.all([
-        contaQ(query(collection(db,"usuarios"), where("municipio_id","==",m.id), where("perfil","in",EDU), where("status","==","ativo"))),
+        contaQ(query(collection(db,"usuarios"), where("municipio_id","==",m.id), where("perfil","in",EDU), where("status","==","ativo"), where("licenca_tipo","==","institucional"))),
         contaQ(query(collection(db,"usuarios"), where("municipio_id","==",m.id), where("origem","==","pre_cadastro"))),
         contaQ(query(collection(db,"pre_cadastros"), where("municipio_id","==",m.id), where("perfil","in",EDU)))]);
       crA.edu[m.id] = { ativos, aguardando:(pre == null || viaPre == null) ? null : Math.max(0, pre - viaPre) };
@@ -12692,7 +12692,7 @@
         '<label>Validade (meses)<input id="crMeses" type="number" min="1" max="36" value="'+(f.meses || cfg.validade_meses || 12)+'"></label>'+
         '<label style="grid-column:span 2">Observação (nº do empenho, NF, Pix)<input id="crObs" maxlength="300" value="'+escapeAttr(f.obs || "")+'"></label>'+
         '<button class="btn btn-primary" data-action="cr-salvar-lanc" id="crSalvarLanc">Lançar créditos</button></div>'+(f.pedido_id ? '<p class="usr-aviso">Liberando o pedido de <b>'+escapeHtml(f.nome || "")+'</b>. Ao lançar, o pedido fica como aprovado e quem pediu recebe um e-mail.</p>' : "")+'</div>'+
-      '<div class="cr-bloco"><h3>Redes com Portal IA</h3><p class="sub"><b>Como distribuir:</b> "Educadores" soma quem já entrou e os importados que ainda não fizeram o 1º acesso. "Créditos por educador" é o saldo dividido por eles; a sugestão é 15 por educador. Para tirar créditos, use <b>Pacotes</b> e retire o pacote lançado. Intermediário: só texto. Completo: texto e imagem. O teto é o máximo de créditos da rede que cada professor usa por mês (0 = sem teto). Alertas automáticos para a NEWPC e a Secretaria com '+cfg.alertas.join("% e ")+'% do saldo.</p>'+
+      '<div class="cr-bloco"><h3>Redes com Portal IA</h3><p class="sub"><b>Como distribuir:</b> só conta quem é da rede (licença institucional); avulsos, cortesia e teste nunca usam a carteira da rede, mesmo tendo escolhido a cidade no cadastro. "Educadores" soma quem já entrou e os importados que ainda não fizeram o 1º acesso. "Créditos por educador" é o saldo dividido por eles; a sugestão é 15 por educador. Para tirar créditos, use <b>Pacotes</b> e retire o pacote lançado. Intermediário: só texto. Completo: texto e imagem. O teto é o máximo de créditos da rede que cada professor usa por mês (0 = sem teto). Alertas automáticos para a NEWPC e a Secretaria com '+cfg.alertas.join("% e ")+'% do saldo.</p>'+
         (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Educadores</th><th>Créditos por educador</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor/mês</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
       crTabelaProfs(carteira, mes)+
       desenharCentralIA(cfg, carteira)+

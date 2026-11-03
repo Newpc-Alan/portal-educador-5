@@ -31,6 +31,10 @@ export const CREDITOS_PADRAO = {
   ]
 };
 export const PLANOS_COM_IA = ['intermediario', 'completo', 'personalizado'];
+// avulso, cortesia e teste NUNCA usam a carteira da rede, mesmo com o município preenchido no cadastro:
+// na mesma cidade pode haver contrato com a prefeitura, com o estado etc. e professores que compram por conta própria.
+export const LICENCAS_FORA_DE_REDE = ['avulsa', 'cortesia', 'teste'];
+export const daRede = eu => !!(eu && eu.municipio_id) && !LICENCAS_FORA_DE_REDE.includes(eu.licenca_tipo);
 const LINK_PAINEL = 'https://www.portaldoeducador.com.br/entrar/#creditos';
 
 export const mesAtual = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace('-', '');
@@ -74,7 +78,7 @@ export function devolverPacotes(pacotes, tirado) {
 export async function situacao(db, ctx, opc = {}) {
   const cc = cfgCreditos(ctx.cfgRaw);
   if (ctx.admin) return { admin: true, plano: ctx.plano, precos: cc.precos, pode_usar: true, pode_imagem: true, rede: null, pessoal: null };
-  const mun = ctx.eu.municipio_id || '', temRede = !!mun && (opc.redeTexto ?? PLANOS_COM_IA.includes(ctx.plano));
+  const mun = daRede(ctx.eu) ? ctx.eu.municipio_id : '', temRede = !!mun && (opc.redeTexto ?? PLANOS_COM_IA.includes(ctx.plano));
   const [ms_, ps, us] = await Promise.all([temRede ? db.doc(`creditos/mun_${mun}`).get() : null, db.doc(`creditos/prof_${ctx.uid}`).get(), db.doc(`portal_ia_uso/${ctx.uid}_${mesAtual()}`).get()]);
   const uso = us.exists ? us.data() : {};
   let rede = null;
@@ -100,7 +104,7 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
   const cc = cfgCreditos(ctx.cfgRaw), custo = cc.precos[acao] || 1, campo = acao === 'imagem' ? 'imagens' : 'textos';
   const usoRef = db.doc(`portal_ia_uso/${ctx.uid}_${mesAtual()}`);
   if (ctx.admin) { await usoRef.set({ uid: ctx.uid, mes: mesAtual(), [campo]: FieldValue.increment(1), atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); return { conta: 'admin', custo: 0, campo, usoRef }; }
-  const mun = ctx.eu.municipio_id || '', temRede = !!mun && (opc.rede ?? PLANOS_COM_IA.includes(ctx.plano)), imagemRede = opc.rede ?? ctx.plano === 'completo';
+  const mun = daRede(ctx.eu) ? ctx.eu.municipio_id : '', temRede = !!mun && (opc.rede ?? PLANOS_COM_IA.includes(ctx.plano)), imagemRede = opc.rede ?? ctx.plano === 'completo';
   const refMun = temRede ? db.doc(`creditos/mun_${mun}`) : null, refProf = db.doc(`creditos/prof_${ctx.uid}`);
   const r = await db.runTransaction(async t => {
     const [m, p, u] = await Promise.all([refMun ? t.get(refMun) : null, t.get(refProf), t.get(usoRef)]);

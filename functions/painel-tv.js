@@ -96,7 +96,7 @@ async function montar(db) {
       censo: { escolas: num((d.data().rede || {}).escolas), alunos: num((d.data().rede || {}).alunos), professores: num((d.data().rede || {}).professores), ano: num((d.data().rede || {}).censo) },
       ideb: { ai: num((d.data().ideb || {}).ai), af: num((d.data().ideb || {}).af), ano: num((d.data().ideb || {}).ano) },
       escolas: await n(db.collection('escolas').where('municipio_id', '==', d.id)),
-      professores: await n(U.where('municipio_id', '==', d.id).where('perfil', 'in', EDU).where('status', '==', 'ativo')),
+      professores: await n(U.where('municipio_id', '==', d.id).where('perfil', 'in', EDU).where('status', '==', 'ativo').where('licenca_tipo', '==', 'institucional')),
       convidados: conv ? (conv.por[d.id] || 0) : null })));
     redes = redes.sort((a, b) => ((b.professores || 0) + (b.convidados || 0)) - ((a.professores || 0) + (a.convidados || 0)) || (b.escolas || 0) - (a.escolas || 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
   }
