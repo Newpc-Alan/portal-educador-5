@@ -3622,10 +3622,17 @@
     finally{ if(b && b.isConnected){ b.disabled = false; b.textContent = "🔑 Gerar / ver cartões"; } }
   }
   function carregarQrLib(){ return window.QRCode ? Promise.resolve() : new Promise((ok, erro) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = ok; sc.onerror = erro; document.head.appendChild(sc); }); }
+  // cartão de acesso na impressora de crachá: uma página por cartão, no tamanho do PVC (CR80, 85,6 x 54 mm), sem borda
+  const CSS_CRACHA_ACESSO = '@page{size:85.6mm 54mm;margin:0}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0f2c4a;-webkit-print-color-adjust:exact;print-color-adjust:exact}.f{display:block}'+
+    '.c{width:85.6mm;height:54mm;box-sizing:border-box;padding:3.2mm 4mm;display:flex;flex-direction:column;page-break-after:always;break-after:page;overflow:hidden;border-top:4mm solid #0f2c4a}'+
+    '.t{font-size:7pt;color:#1a6b2a;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.n{font-size:10.5pt;font-weight:800;margin:.6mm 0 1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'+
+    '.g{display:flex;gap:3mm;align-items:center;flex:1}.g img{width:27mm;height:27mm}.r{font-size:6.5pt;color:#667;font-weight:700}.v{font:800 14pt ui-monospace,Consolas,monospace;letter-spacing:1.5px;margin-bottom:.6mm}'+
+    '.d{font-size:7pt;color:#1a6b2a;font-weight:700;line-height:1.25}.i{font-size:5.6pt;color:#556;line-height:1.25}';
   async function imprimirCartoes(){
     if(!al.acesso) return;
     try{ await carregarQrLib(); }catch(e){ toast("Não foi possível carregar o gerador de QR.", true); return; }
-    const { qrDataUrl } = await import("/assets/js/carteirinha.js");
+    const { qrDataUrl, perguntarFormato } = await import("/assets/js/carteirinha.js");
+    const formato = await perguntarFormato("Imprimir cartões de acesso"); if(!formato) return;
     const info = al.acessoInfo || {}, l = al.lista.filter(a => al.acesso[a.id]);
     const cards = l.map(a => { const x = al.acesso[a.id];
       return '<div class="c"><div class="t">Portal do Educador · '+escapeHtml(info.turma || al.turma.nome)+'</div><div class="n">'+escapeHtml(x.nome)+'</div>'+
@@ -3633,10 +3640,10 @@
         '<div class="i">Sem câmera? Em <b>www.portaldoeducador.com.br/entrar</b> › <b>Sou aluno</b>, digite o código e o PIN que o professor tem.</div></div>'; }).join("");
     const w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
     w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartões de acesso · '+escapeHtml(info.turma || al.turma.nome)+'</title><style>'+
-      '@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#0f2c4a}.f{display:grid;grid-template-columns:1fr 1fr;gap:6mm}'+
+      (formato === "cracha" ? CSS_CRACHA_ACESSO : '@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#0f2c4a}.f{display:grid;grid-template-columns:1fr 1fr;gap:6mm}'+
       '.c{border:1.5px dashed #1a6b2a;border-radius:10px;padding:4mm 5mm;break-inside:avoid;height:50mm;box-sizing:border-box;display:flex;flex-direction:column}'+
       '.t{font-size:9pt;color:#1a6b2a;font-weight:700}.n{font-size:12pt;font-weight:800;margin:1mm 0 2mm}.g{display:flex;gap:4mm;align-items:center;flex:1}.g img{width:26mm;height:26mm}'+
-      '.d{font-size:8.5pt;color:#1a6b2a;font-weight:700;line-height:1.3;margin-top:1mm}.g img{width:30mm;height:30mm}.r{font-size:7.5pt;color:#667;font-weight:700}.v{font:800 17pt ui-monospace,Consolas,monospace;letter-spacing:2px;margin-bottom:1mm}.i{font-size:7.5pt;color:#445}'+
+      '.d{font-size:8.5pt;color:#1a6b2a;font-weight:700;line-height:1.3;margin-top:1mm}.g img{width:30mm;height:30mm}.r{font-size:7.5pt;color:#667;font-weight:700}.v{font:800 17pt ui-monospace,Consolas,monospace;letter-spacing:2px;margin-bottom:1mm}.i{font-size:7.5pt;color:#445}')+
       '</style></head><body><div class="f">'+cards+'</div><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
     w.document.close();
   }

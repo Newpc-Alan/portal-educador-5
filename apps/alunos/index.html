@@ -981,10 +981,11 @@ async function removerDoc(i){
 async function gerarCart(alunos, nomeArq, fotoAgora){
   if(!window.jspdf || !window.QRCode){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
   if(!alunos.length){ toast("Nenhum aluno cursando neste filtro.", true); return; }
+  const formato = await CART.perguntarFormato("Imprimir carteirinha" + (alunos.length > 1 ? "s" : "")); if(!formato) return;
   toast("Gerando " + alunos.length + " carteirinha(s)...");
   let muni = {}; try{ const m = await getDoc(doc(db, "municipios", E.escolasMuni[E.escola] || alunos[0].municipio_id || "")); if(m.exists()) muni = m.data(); }catch(e){}
   const lista = alunos.map(a => ({ a:{ id:a.id, nome:a.nome_social || a.nome, foto:fotoAgora && fotoAgora.id === a.id ? "agora" : a.foto || "" }, turma:turmaNome(a.turma_id) || a.turma_nome || "" }));
-  const r = await CART.gerarPdf({ lista, escola:E.escolasNomes[E.escola] || "", muni, ano:+hojeMS().slice(0, 4), urlFoto:p => p === "agora" ? Promise.resolve(fotoAgora.url) : urlFoto(p) });
+  const r = await CART.gerarPdf({ lista, escola:E.escolasNomes[E.escola] || "", muni, ano:+hojeMS().slice(0, 4), urlFoto:p => p === "agora" ? Promise.resolve(fotoAgora.url) : urlFoto(p), formato });
   window.__ultimoPdf = alunos.length <= 60 ? r.pdf.output("datauristring") : "";
   r.pdf.save(nomeArq);
   toast(alunos.length + " carteirinha(s) gerada(s)" + (r.pedidas ? ", " + r.comFoto + " com foto." : ". Sem fotos: tire pela ficha de cada aluno."));

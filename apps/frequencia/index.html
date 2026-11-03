@@ -1353,14 +1353,15 @@ async function gerarCarteirinhas(modo){
   const turmas = modo === "todas" ? b.turmas : b.turmas.filter(t => t.id === tid);
   const lista = turmas.flatMap(t => Object.values(b.alunos).filter(a => a.turma_id === t.id).sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR")).map(a => ({ a, turma:t.nome || "" })));
   if(!lista.length){ toast("Nenhum aluno cadastrado " + (modo === "todas" ? "nesta escola." : "nesta turma."), true); return; }
+  const formato = await CART.perguntarFormato("Imprimir carteirinhas"); if(!formato) return;
   $("caInfo").textContent = "Gerando " + lista.length + " carteirinhas...";
   await new Promise(r => setTimeout(r, 30));
   let muni = { nome:"", logo_url:"" }; try{ const m = await getDoc(doc(db, "municipios", turmas[0].municipio_id || E.u.municipio_id)); if(m.exists()) muni = m.data(); }catch(e){}
   const escola = E.escolasNomes[E.muEscola] || turmas[0].escola_nome || "";
-  const r = await CART.gerarPdf({ lista, escola, muni, ano:+hojeMS().slice(0, 4), urlFoto:fotoCad, progresso:t => { $("caInfo").textContent = t; } });
+  const r = await CART.gerarPdf({ lista, escola, muni, ano:+hojeMS().slice(0, 4), urlFoto:fotoCad, formato, progresso:t => { $("caInfo").textContent = t; } });
   window.__ultimoPdf = lista.length <= 60 ? r.pdf.output("datauristring") : "";
   r.pdf.save("carteirinhas-" + slug(modo === "todas" ? escola : turmas[0].nome) + ".pdf");
-  $("caInfo").textContent = lista.length + " carteirinhas geradas (" + Math.ceil(lista.length / 10) + " folha(s) A4)" + (r.pedidas ? ", " + r.comFoto + " com foto." : ". Para sair com foto, tire a foto do aluno na Ficha do Aluno.");
+  $("caInfo").textContent = lista.length + " carteirinhas geradas (" + (formato === "cracha" ? lista.length + " página(s) no tamanho do crachá" : Math.ceil(lista.length / 10) + " folha(s) A4") + ")" + (r.pedidas ? ", " + r.comFoto + " com foto." : ". Para sair com foto, tire a foto do aluno na Ficha do Aluno.");
 }
 
 /* ===================== portaria (totem de entrada) ===================== */
