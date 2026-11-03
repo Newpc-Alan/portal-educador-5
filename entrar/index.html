@@ -2985,7 +2985,7 @@
     if(cepD) $("muniCep").value = cepD.slice(0, 5) + "-" + cepD.slice(5);
     // telefones: só no padrão (DD) 0000-0000 ou (DD) 90000-0000
     for(const [cp, aba, rot] of [["muniTel","id","Telefone"],["pSecTel","pes","Telefone do(a) secretário(a)"],["pTecTel","pes","Telefone do ponto focal técnico"],["pGesTel","pes","Telefone do gestor do contrato"],["pFisTel","pes","Telefone do fiscal do contrato"]]){
-      const r = telBR(vv(cp)); if(!r.ok) return erro(aba, rot+" inválido. Use DDD + número: (67) 3255-1351 ou (67) 99999-0000.", cp); $(cp).value = r.fmt; }
+      const r = telBR(vv(cp)); if(!r.ok) return erro(aba, rot+" inválido. Use DDD + número: (67) 3255-1351 ou (67) 99999-0000 (0800 também vale).", cp); $(cp).value = r.fmt; }
     for(const [cp, aba, rot] of [["muniEmail","id","E-mail institucional"],["pSecEmail","pes","E-mail do(a) secretário(a)"],["pTecEmail","pes","E-mail do ponto focal técnico"],["pGesEmail","pes","E-mail do gestor do contrato"],["pFisEmail","pes","E-mail do fiscal do contrato"]])
       if(!emailOk(vv(cp))) return erro(aba, rot+" inválido (ex.: nome@municipio.ms.gov.br).", cp);
     if(vv("muniSite")){ let u = vv("muniSite").replace(/^http:\/\//i, "https://"); if(!/^https:\/\//i.test(u)) u = "https://" + u; $("muniSite").value = u.toLowerCase(); }
@@ -6644,7 +6644,7 @@
       '<div class="cad-card">'+
       '<div class="cad-topo"><h2>Bem-vindo(a) ao Portal do Educador!</h2><p>Preencha seus dados para liberar <b>7 dias de teste grátis</b>. Leva menos de 1 minuto.</p></div>'+
       '<div class="field"><label for="cadNome">Nome completo</label><input type="text" id="cadNome" autocomplete="name"></div>'+
-      '<div class="row2"><div class="field"><label for="cadWhats">WhatsApp</label><input type="tel" id="cadWhats" inputmode="tel" placeholder="(67) 99999-9999" autocomplete="tel" data-padrao="tel" data-padrao-rotulo="WhatsApp"></div>'+
+      '<div class="row2"><div class="field"><label for="cadWhats">WhatsApp</label><input type="tel" id="cadWhats" inputmode="tel" placeholder="(67) 99999-9999" autocomplete="tel" data-padrao="whatsapp"></div>'+
       '<div class="field"><label for="cadFuncao">Função</label><select id="cadFuncao"><option value="">Selecione...</option><option>Professor(a)</option><option>Coordenador(a) pedagógico(a)</option><option>Diretor(a)</option><option>Técnico(a) da Secretaria</option><option>Outra</option></select></div></div>'+
       '<div class="row2"><div class="field" style="flex:0 0 110px"><label for="cadUf">Estado</label><select id="cadUf"><option value="">UF</option>'+UFS.map(u => '<option'+(u==="MS"?"":"")+'>'+u+'</option>').join("")+'</select></div>'+
       '<div class="field"><label for="cadMuni">Município</label><select id="cadMuni" disabled><option value="">Escolha o estado primeiro</option></select><input type="text" id="cadMuniTxt" placeholder="Digite o município" style="display:none"></div></div>'+
@@ -6676,14 +6676,14 @@
   async function enviarCadastro(){
     const g = (id) => $(id).value.trim();
     $("cadNome").value = PDE_PADRAO.nome(g("cadNome")).fmt;
-    const nome = g("cadNome"), whats = PDE_PADRAO.dig(PDE_PADRAO.tel(g("cadWhats")).fmt), uf = g("cadUf"), funcao = g("cadFuncao"), rede = g("cadRede"), escola = g("cadEscola"), inep = g("cadInep");
+    const nome = g("cadNome"), whats = PDE_PADRAO.dig(PDE_PADRAO.whatsapp(g("cadWhats")).fmt), uf = g("cadUf"), funcao = g("cadFuncao"), rede = g("cadRede"), escola = g("cadEscola"), inep = g("cadInep");
     const selM = $("cadMuni"); const usaTxt = selM.style.display === "none";
     const muniNome = usaTxt ? g("cadMuniTxt") : (selM.value ? selM.options[selM.selectedIndex].textContent : "");
     const muniIbge = usaTxt ? "" : selM.value;
     const etapas = [...document.querySelectorAll('input[name="cadEtapa"]:checked')].map(i => i.value);
     const falta = [];
     if(nome.length < 5) falta.push("nome completo");
-    if(!whats || !PDE_PADRAO.tel(whats).ok) falta.push("WhatsApp com DDD válido, ex.: (67) 99999-0000");
+    if(!whats || !PDE_PADRAO.whatsapp(whats).ok) falta.push("WhatsApp com DDD válido, ex.: (67) 99999-0000");
     if(!funcao) falta.push("função");
     if(!uf || !muniNome) falta.push("estado e município");
     if(!rede) falta.push("rede");
@@ -6734,7 +6734,7 @@
       '<div class="mc-grid">'+
       '<div class="imp-card"><h3>Meus dados</h3>'+
         '<div class="field"><label for="mcNome">Nome completo</label><input type="text" id="mcNome" maxlength="80" value="'+escapeAttr(u.nome||"")+'"></div>'+
-        '<div class="row2"><div class="field"><label for="mcWhats">WhatsApp</label><input type="tel" id="mcWhats" value="'+escapeAttr(PDE_PADRAO.tel(u.whatsapp||"").fmt)+'" placeholder="(67) 99999-9999" data-padrao="tel" data-padrao-rotulo="WhatsApp"></div>'+
+        '<div class="row2"><div class="field"><label for="mcWhats">WhatsApp</label><input type="tel" id="mcWhats" value="'+escapeAttr(PDE_PADRAO.whatsapp(u.whatsapp||"").fmt)+'" placeholder="(67) 99999-9999" data-padrao="whatsapp"></div>'+
         '<div class="field"><label for="mcFuncao">Função</label><select id="mcFuncao">'+["","Professor(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Técnico(a) da Secretaria","Outra"].map(f => '<option'+((u.funcao||"")===f ? " selected" : "")+'>'+f+'</option>').join("")+'</select></div></div>'+
         (inst ? "" : '<div class="row2"><div class="field"><label for="mcEscola">Escola</label><input type="text" id="mcEscola" value="'+escapeAttr(u.escola_texto||"")+'"></div>'+
           '<div class="field"><label for="mcInep">INEP <small>(opcional)</small></label><input type="text" id="mcInep" maxlength="8" value="'+escapeAttr(u.escola_inep||"")+'"></div></div>')+
@@ -6771,9 +6771,9 @@
   async function salvarMeusDados(){
     const g = (id) => ($(id) ? $(id).value.trim() : undefined);
     if($("mcNome")) $("mcNome").value = PDE_PADRAO.nome(g("mcNome")).fmt;
-    const nome = g("mcNome"), whats = PDE_PADRAO.dig(PDE_PADRAO.tel(g("mcWhats")||"").fmt);
+    const nome = g("mcNome"), whats = PDE_PADRAO.dig(PDE_PADRAO.whatsapp(g("mcWhats")||"").fmt);
     if(!nome || nome.length < 5){ toast("Informe o nome completo.", true); return; }
-    if(whats && !PDE_PADRAO.tel(whats).ok){ toast("WhatsApp inválido. Use DDD + número: (67) 99999-0000.", true); return; }
+    if(whats && !PDE_PADRAO.whatsapp(whats).ok){ toast("WhatsApp inválido. Use DDD + número: (67) 99999-0000.", true); return; }
     const dados = { nome, whatsapp:whats, funcao:g("mcFuncao")||"", etapas:[...document.querySelectorAll('input[name="mcEtapa"]:checked')].map(i => i.value),
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     if(document.querySelector('input[name="mcAno"]')) dados.anos_aula = [...document.querySelectorAll('input[name="mcAno"]:checked')].map(i => i.value).slice(0, 17);
