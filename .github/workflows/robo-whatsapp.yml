@@ -4,6 +4,7 @@
 #                 (Secret Manager), onde a função do robô lê. Nada é impresso no log.
 #   configurar    grava wa_config/geral: phone_number_id (copiado do painel da Meta) e ligado (liga/desliga o robô)
 #   conhecimento  recarrega a base de dúvidas a partir do Manual do Usuário (ramo manuais, pasta fontes)
+#   logs          últimas chamadas e erros do robô (sem número nem texto de mensagem)
 #   situacao      mostra a configuração e quantas conversas/chamados existem (sem nome nem número de ninguém)
 name: Robô do WhatsApp
 
@@ -13,7 +14,7 @@ on:
       acao:
         description: "O que fazer"
         type: choice
-        options: [situacao, segredos, configurar, conhecimento]
+        options: [situacao, logs, segredos, configurar, conhecimento]
         default: situacao
       ambiente:
         description: "Ambiente"
@@ -87,6 +88,10 @@ jobs:
       - name: Base de conhecimento
         if: inputs.acao == 'conhecimento'
         run: cd functions && node ../scripts/carregar-conhecimento.mjs --origem manual-usuario ../manuais/fontes/parte0u.md ../manuais/fontes/parte1.md --gravar
+
+      - name: Registros do robô
+        if: inputs.acao == 'logs'
+        run: cd functions && node ../scripts/logs-whatsapp.mjs
 
       - name: Situação
         if: inputs.acao == 'situacao'
