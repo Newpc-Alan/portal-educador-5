@@ -4,6 +4,7 @@
 #                 (Secret Manager), onde a função do robô lê. Nada é impresso no log.
 #   configurar    grava wa_config/geral: phone_number_id (copiado do painel da Meta) e ligado (liga/desliga o robô)
 #   conhecimento  recarrega a base de dúvidas a partir do Manual do Usuário (ramo manuais, pasta fontes)
+#   meta          confere o número e os apps inscritos na conta do WhatsApp; com assinar, inscreve o app
 #   logs          últimas chamadas e erros do robô (sem número nem texto de mensagem)
 #   situacao      mostra a configuração e quantas conversas/chamados existem (sem nome nem número de ninguém)
 name: Robô do WhatsApp
@@ -14,7 +15,7 @@ on:
       acao:
         description: "O que fazer"
         type: choice
-        options: [situacao, logs, segredos, configurar, conhecimento]
+        options: [situacao, logs, meta, segredos, configurar, conhecimento]
         default: situacao
       ambiente:
         description: "Ambiente"
@@ -24,6 +25,13 @@ on:
       phone_number_id:
         description: "Identificação do número de telefone (painel da Meta). Só em configurar"
         default: ""
+      contas:
+        description: "Ids da conta do WhatsApp (copiados do painel, separados por vírgula). Só em meta"
+        default: ""
+      assinar:
+        description: "Inscrever o app na conta do número? Só em meta"
+        type: boolean
+        default: false
       ligado:
         description: "Robô ligado? Só em configurar"
         type: boolean
@@ -88,6 +96,15 @@ jobs:
       - name: Base de conhecimento
         if: inputs.acao == 'conhecimento'
         run: cd functions && node ../scripts/carregar-conhecimento.mjs --origem manual-usuario ../manuais/fontes/parte0u.md ../manuais/fontes/parte1.md --gravar
+
+      - name: Ligação com a Meta
+        if: inputs.acao == 'meta'
+        env:
+          WHATSAPP_TOKEN: ${{ secrets.WHATSAPP_TOKEN }}
+          PNID: ${{ inputs.phone_number_id }}
+          CONTAS: ${{ inputs.contas }}
+          ASSINAR: ${{ inputs.assinar }}
+        run: node scripts/meta-whatsapp.mjs
 
       - name: Registros do robô
         if: inputs.acao == 'logs'
