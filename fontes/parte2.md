@@ -702,6 +702,7 @@ Rodízio e transferência:
 - Chamado de equipamento vai para o técnico da vez (aparece no cartão do chamado).
 - Cada membro liga ou desliga o próprio **Disponível para receber conversas** (almoço, reunião, férias).
 - Filtros: **Minhas** (comigo), **Fila sem dono** e **Todas**.
+- **Quadro da equipe** (app Atendimento PDE › **▦ Quadro**, ou www.portaldoeducador.com.br/atendimento/#quadro): uma coluna por pessoa da equipe, mais **Fila sem dono** e **Encerrar**. Arraste o cartão da conversa para a coluna de quem vai atender (no celular, segure o cartão meio segundo e arraste). Soltar na Fila devolve sem dono; soltar em Encerrar encerra e manda a pesquisa. O cartão mostra o setor, mensagens novas e há quanto tempo espera (laranja; vermelho a partir de 10 minutos). Toque no cartão para abrir a conversa.
 - **Assumir** traz a conversa para você. **Transferir** manda para o próximo do setor (rodízio) ou para uma pessoa da equipe, com recado opcional; quem recebe ganha um e-mail.
 - Quem responde uma conversa da fila fica com ela. A pessoa do outro lado sempre vê **Equipe Portal do Educador**, nunca o nome de quem atendeu.
 - Fora do horário (segunda a sexta, 8h às 18h), o robô avisa que a resposta vem no próximo horário.
