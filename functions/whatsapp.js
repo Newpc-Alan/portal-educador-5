@@ -40,7 +40,8 @@ const MENU = [
   { id: 'acesso', title: 'Não consigo entrar', description: 'Receber o link de acesso no e-mail' },
   { id: 'atendente', title: 'Falar com atendente', description: 'Uma pessoa da equipe responde' }
 ];
-const SAUDACAO = /^(oi+|ola|olá|bom dia|boa tarde|boa noite|menu|inicio|início|ajuda|opcoes|opções|voltar|0)\b/i;
+// sem \b: em JS o \b não entende letra acentuada ("olá" falhava)
+const SAUDACAO = /^(oi+|ola|olá|oie|bom dia|boa tarde|boa noite|menu|inicio|início|ajuda|opcoes|opções|voltar|0)(?=$|[\s!.,?]|$)/i;
 
 // ---------- Meta ----------
 function assinaturaOk(req) {
