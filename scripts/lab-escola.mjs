@@ -12,7 +12,7 @@ import { pathToFileURL } from 'node:url';
 const req = createRequire(process.cwd() + '/');
 const { initializeApp, applicationDefault } = await import(pathToFileURL(req.resolve('firebase-admin/app')).href);
 const { getFirestore, Timestamp, FieldPath } = await import(pathToFileURL(req.resolve('firebase-admin/firestore')).href);
-if (!process.env.LAB_FAKE) initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
+if (!process.env.LAB_FAKE) initializeApp({ credential: applicationDefault(), projectId: process.env.PROJETO || 'portal-educador-5' });
 // LAB_FAKE: banco em memória para testar o script sem tocar no Firestore
 const db = process.env.LAB_FAKE ? (await import(process.env.LAB_FAKE)).db : getFirestore();
 const espera = ms => new Promise(ok => setTimeout(ok, process.env.LAB_FAKE ? 1 : ms));

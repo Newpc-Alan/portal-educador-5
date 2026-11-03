@@ -43,7 +43,7 @@ function linha(c, id, x) {
       k: corta([x.disciplina, (x.etapas || []).join(' '), String(x.descricao || '').slice(0, 160)].join(' '), 220), b: lista(x.bncc), m: corta(x.modulo, 30) });
   }
   // imagem do Storage: guarda só o caminho e o token (o navegador remonta a URL); economiza ~40% do índice
-  if (base.g) base.g = base.g.replace('https://firebasestorage.googleapis.com/v0/b/portal-educador-5.firebasestorage.app/o/', 'fs:').replace('?alt=media&token=', '|');
+  if (base.g) base.g = base.g.replace(/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[a-z0-9-]+\.firebasestorage\.app\/o\//, 'fs:').replace('?alt=media&token=', '|');
   for (const k of Object.keys(base)) if (base[k] === '' || (Array.isArray(base[k]) && !base[k].length)) delete base[k];
   return base;
 }

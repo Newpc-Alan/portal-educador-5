@@ -1,16 +1,23 @@
-# Publica regras e funções do Firebase (projeto portal-educador-5) sem depender do Cloud Shell.
+# Publica regras, funções e (só no teste) o site no Firebase, sem depender do Cloud Shell.
+# Ambiente: "teste" (portal-educador-5-teste, homologação) ou "oficial" (portal-educador-5). Sempre o teste primeiro.
 # Roda só quando alguém clica em "Run workflow" na aba Actions do GitHub (nunca sozinho a cada commit).
 #
 # Configuração única (feita pelo Alan, a chave nunca passa pelo chat):
 #   Settings > Secrets and variables > Actions > New repository secret
-#   Nome: FIREBASE_SERVICE_ACCOUNT   Valor: o conteúdo inteiro do arquivo .json da conta de serviço
+#   Nome: FIREBASE_SERVICE_ACCOUNT   Valor: o conteúdo inteiro do arquivo .json da conta de serviço (oficial)
+#   Nome: FIREBASE_SERVICE_ACCOUNT_TESTE   Valor: o mesmo, da conta de serviço do projeto de teste
 name: Publicar no Firebase
 
 on:
   workflow_dispatch:
     inputs:
+      ambiente:
+        description: "Onde publicar: teste (homologação) ou oficial"
+        type: choice
+        options: [teste, oficial]
+        default: teste
       alvo:
-        description: "O que publicar (formato do --only do Firebase)"
+        description: "O que publicar (formato do --only do Firebase; \"hosting\" = o site, só no teste)"
         required: true
         default: "firestore:rules,functions:publicarProvaOnline,functions:entregarProvaOnline,functions:acaoProvaOnline,functions:fecharProvasOnline,functions:corrigirProvaOnline,functions:iniciarAula,functions:sortearProva,functions:emitirCertificado,functions:vincularContaFormacao"
       testar_regras:
@@ -34,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PROJETO: portal-educador-5
+      PROJETO: ${{ inputs.ambiente == 'oficial' && 'portal-educador-5' || 'portal-educador-5-teste' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -67,11 +74,18 @@ jobs:
             firebase emulators:exec --only firestore,storage --project demo-pe5 "node $t $( case "$t" in *fotos*|*storage*) echo storage.rules;; *) echo firestore.rules;; esac )"
           done
 
+      - name: Conferir o alvo
+        run: |
+          echo "Ambiente: ${{ inputs.ambiente }} (projeto $PROJETO) · alvo: ${{ inputs.alvo }}" >> "$GITHUB_STEP_SUMMARY"
+          # o site oficial é o GitHub Pages (ramo main); hosting do Firebase só existe no teste
+          if [ "${{ inputs.ambiente }}" = "oficial" ] && echo "${{ inputs.alvo }}" | grep -q "hosting"; then
+            echo "::error::O site oficial sai pelo GitHub Pages (ramo main). hosting só no ambiente de teste."; exit 1; fi
+
       - name: Credencial
         env:
-          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          CHAVE: ${{ inputs.ambiente == 'oficial' && secrets.FIREBASE_SERVICE_ACCOUNT || secrets.FIREBASE_SERVICE_ACCOUNT_TESTE }}
         run: |
-          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo FIREBASE_SERVICE_ACCOUNT no repositório."; exit 1; fi
+          if [ -z "$CHAVE" ]; then echo "::error::Falta o segredo da conta de serviço do ambiente ${{ inputs.ambiente }} (FIREBASE_SERVICE_ACCOUNT ou FIREBASE_SERVICE_ACCOUNT_TESTE)."; exit 1; fi
           printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
           echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
 

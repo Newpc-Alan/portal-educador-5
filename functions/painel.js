@@ -5,7 +5,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
-const PROJETO = 'portal-educador-5';
+const PROJETO = (process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'portal-educador-5');
 const DIA = 86400;
 let cache = null; // { em, dados }: evita consultar de novo a cada clique (5 minutos)
 
