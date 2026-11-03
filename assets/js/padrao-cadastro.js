@@ -15,9 +15,18 @@
   const R = (ok, fmt) => ({ ok, fmt });
 
   // telefone: (DD) 0000-0000 fixo ou (DD) 90000-0000 celular; tira +55 e o 0 + operadora
-  function tel(t){
+  // números especiais sem DDD: 0800/0300/0303/0500/0900 (gratuito, tarifa única) e 3003/3004/4003/4004/4020/4062 (número único nas capitais)
+  const ESPECIAL_0 = /^0(800|300|303|500|900)\d{6,7}$/, ESPECIAL_4 = /^(3003|3004|4003|4004|4020|4062)\d{4}$/;
+  function especial(d){
+    if(ESPECIAL_0.test(d)) return d.slice(0, 4) + " " + d.slice(4, 7) + " " + d.slice(7);
+    if(ESPECIAL_4.test(d)) return d.slice(0, 4) + "-" + d.slice(4);
+    return "";
+  }
+  // opt.whatsapp: só número que pode ter WhatsApp (recusa 0800 e números únicos)
+  function tel(t, opt){
     if(vazio(t)) return R(true, "");
     let d = dig(t);
+    { const e = especial(d.startsWith("55") && d.length > 11 ? d.slice(2) : d); if(e) return opt && opt.whatsapp ? R(false, String(t).trim()) : R(true, e); }
     if(d.length > 11 && d.startsWith("55")) d = d.slice(2);
     if(d.startsWith("0")){ d = d.replace(/^0+/, ""); if(d.length === 12 || d.length === 13) d = d.slice(2); }
     const ddd = d.slice(0, 2), n = d.slice(2);
@@ -87,9 +96,11 @@
       : w.split("-").map(x => x ? x[0].toUpperCase() + x.slice(1) : x).join("-")).join(" "));
   }
 
-  const TIPOS = { tel, cep, cpf, cnpj, nis, email, site, nome, municipio };
+  const whatsapp = t => tel(t, { whatsapp:true });
+  const TIPOS = { tel, whatsapp, cep, cpf, cnpj, nis, email, site, nome, municipio };
   const EXEMPLO = {
-    tel: "Use DDD + número: (67) 3255-1351 ou (67) 99999-0000.",
+    tel: "Use DDD + número: (67) 3255-1351 ou (67) 99999-0000. Também vale 0800 067 0053.",
+    whatsapp: "Use DDD + número: (67) 99999-0000.",
     cep: "O CEP tem 8 dígitos (ex.: 79290-000).",
     cpf: "Confira os 11 dígitos (ex.: 123.456.789-09).",
     cnpj: "Confira os 14 dígitos (ex.: 03.073.673/0001-60).",
@@ -97,7 +108,7 @@
     email: "Confira o e-mail (ex.: nome@escola.ms.gov.br).",
     site: "Confira o endereço (ex.: https://www.municipio.ms.gov.br)."
   };
-  const ROTULO = { tel: "Telefone", cep: "CEP", cpf: "CPF", cnpj: "CNPJ", nis: "NIS", email: "E-mail", site: "Site" };
+  const ROTULO = { tel: "Telefone", whatsapp: "WhatsApp", cep: "CEP", cpf: "CPF", cnpj: "CNPJ", nis: "NIS", email: "E-mail", site: "Site" };
 
   // nome do campo para a mensagem: data-padrao-rotulo, senão o <label for>, senão o tipo
   function rotuloDe(el, tipo){
