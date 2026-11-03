@@ -160,6 +160,7 @@ button.fi-av::after{content:"📷";position:absolute;right:-2px;bottom:-2px;font
 .imp-op{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
 @media (max-width:760px){ .fundo{padding:0} .modal.ficha{border-radius:0;height:100vh;height:100dvh;display:flex;flex-direction:column} .fi-corpo{flex:1;max-height:none;overflow:auto;padding:16px} .fi-cab,.fi-rod{padding-left:16px;padding-right:16px} .fi-rod .pct i{width:60px} }
 </style>
+<script src="/assets/js/padrao-cadastro.js"></script>
 </head>
 <body>
 <div class="app">
@@ -419,15 +420,14 @@ const DOCS = { historico:"Histórico escolar", transferencia:"Declaração de tr
   vacina:"Cartão de vacina", laudo:"Laudo ou relatório médico", pei:"PEI ou relatório de acompanhamento", outro:"Outro documento" };
 
 // telefone: só dígitos com 55 + DDD + número
+// telefone no padrão do Portal (padrao-cadastro.js): grava "55" + DDD + número; null quando não tem conserto
 function telefone(v){
-  let d = String(v || "").replace(/\D/g, "");
-  if(!d) return "";
-  if(d.startsWith("0")) d = d.replace(/^0+/, "");
-  if(d.length === 10 || d.length === 11) d = "55" + d;
-  return /^55\d{10,11}$/.test(d) ? d : null;
+  if(!String(v || "").replace(/\D/g, "")) return "";
+  const r = PDE_PADRAO.tel(v);
+  return r.ok ? "55" + PDE_PADRAO.dig(r.fmt) : null;
 }
 const telBonito = d => !d ? "" : "(" + d.slice(2, 4) + ") " + (d.length === 13 ? d.slice(4, 9) + "-" + d.slice(9) : d.slice(4, 8) + "-" + d.slice(8));
-const emailOk = e => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const emailOk = e => PDE_PADRAO.email(e).ok;
 const soDig = (v, n) => String(v || "").replace(/\D/g, "").slice(0, n);
 const cpfValido = d => { d = String(d || ""); if(!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false; const dv = n => { let s = 0; for(let i = 0; i < n; i++) s += +d[i] * (n + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; }; return dv(9) === +d[9] && dv(10) === +d[10]; };
 const cpfBonito = d => d.length === 11 ? d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9) : d;
@@ -762,6 +762,9 @@ async function salvar(){
   if(!t){ aba("id"); toast("Escolha a turma.", true); return; }
   const nasc = $("f_nasc").value; if(nasc && (nasc > hojeMS() || nasc < "1990-01-01")){ aba("id"); toast("Data de nascimento inválida.", true); return; }
   { const em = String($("f_email").value || "").trim().toLowerCase(); if(em && !emailOk(em)){ aba("id"); toast("E-mail do aluno inválido.", true); return; } const outro = em && E.alunos.find(x => x.email === em && x.id !== (ed.id || "")); if(outro){ aba("id"); toast("Este e-mail já está na matrícula de " + outro.nome + ".", true); return; } }
+  if(!PDE_PADRAO.nis($("f_nis").value).ok){ aba("id"); toast("NIS inválido: são 11 números e o último confere os demais.", true); $("f_nis").focus(); return; }
+  { const sus = soDig($("f_sus").value, 18); if(sus && sus.length !== 15){ aba("id"); toast("Cartão SUS incompleto: são 15 números.", true); $("f_sus").focus(); return; } }
+  { const cp = soDig($("f_cep").value, 9); if(cp && cp.length !== 8){ aba("end"); toast("O CEP tem 8 números (ex.: 79290-000).", true); $("f_cep").focus(); return; } }
   const cpf = soDig($("f_cpf").value, 11); if(cpf && !cpfValido(cpf)){ aba("id"); toast(cpf.length !== 11 ? "CPF incompleto: são 11 números." : "CPF inválido: os dígitos verificadores não conferem.", true); return; }
   if($("f_em_tel").value.trim() && telefone($("f_em_tel").value) === null){ aba("sau"); toast("Telefone de emergência inválido.", true); return; }
   const { resp, erros } = respValidos(); if(erros.length){ aba("end"); toast(erros[0], true); return; }
