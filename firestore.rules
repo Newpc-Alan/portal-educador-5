@@ -1325,6 +1325,13 @@ service cloud.firestore {
     match /equipe/{uid} { allow read: if fEditor(); allow write: if false; }
     // trilha de auditoria do Portal (IPs, quem fez o quê): só o administrador do Portal lê; ninguém grava pelo navegador
     match /auditoria/{id} { allow read: if admin(); allow write: if false; }
+    // robô do WhatsApp (nov/2026): só as funções gravam; a equipe (admin) lê e configura
+    match /wa_config/{id} { allow read, write: if admin(); }
+    match /wa_conversas/{id} { allow read: if admin(); allow write: if false;
+      match /mensagens/{m} { allow read: if admin(); allow write: if false; } }
+    match /wa_chamados/{id} { allow read: if admin(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "obs", "atualizado_em"]); allow create, delete: if false; }
+    match /wa_vistos/{id} { allow read, write: if false; }
+    match /bot_conhecimento/{id} { allow read: if admin(); allow write: if false; }
     match /cursos/{cid} {
       allow read: if resource.data.status == 'publicado' || fEditor();
       allow create: if fEditor() && request.resource.data.status == 'rascunho'

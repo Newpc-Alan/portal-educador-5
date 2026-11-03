@@ -1876,6 +1876,7 @@
       { id:"modulos",    ico:"\u{1F9E9}", label:"Módulos do Portal" },
       { id:"docs",      ico:"\u{1F4DA}", label:"Documentação" },
       { id:"comunicados", ico:"\u2709\u{FE0F}", label:"Comunicados por e-mail" },
+      { id:"whatsapp", ico:"\u{1F4AC}", label:"Atendimento WhatsApp" },
       { id:"auditoria", ico:"\u{1F50E}", label:"Auditoria" },
       { id:"vercomo",   ico:"\u{1F9EA}", label:"Entrar como..." } ] },
     secretaria: { itens: [
@@ -2738,6 +2739,7 @@
       if(item.id === "docs"){ renderDocumentacao(); return; }
       if(item.id === "auditoria"){ renderAuditoria(); return; }
       if(item.id === "comunicados"){ renderComunicados(); return; }
+      if(item.id === "whatsapp"){ renderWhatsapp(); return; }
       if(item.id === "simulador"){ renderSimulador(); return; }
       if(item.id === "usoreal"){ renderUsoReal(); return; }
     }
@@ -5765,6 +5767,87 @@
       const n = l.slice(0, m.index).replace(/[;,\t"]+/g, " ").trim(); out.push({ e, n:/@/.test(n) ? "" : n.slice(0, 80) }); });
     return out.slice(0, 8000);
   }
+  // ---------- Atendimento WhatsApp (robô do Portal, nov/2026) ----------
+  // A conversa chega pelo robô; quando a pessoa pede atendente, aparece aqui com selo. A equipe responde por aqui
+  // (a função whatsappResponder manda pela API da Meta). O WhatsApp só deixa responder até 24 h depois da última mensagem da pessoa.
+  const wa = { sel:"", unsub:[], conversas:[], msgs:[], chamados:[] };
+  function waParar(){ wa.unsub.forEach(f => { try{ f(); }catch(e){} }); wa.unsub = []; }
+  const waQuando = t => { const d = t && t.toDate ? t.toDate() : null; if(!d) return ""; const hoje = new Date().toDateString() === d.toDateString();
+    return hoje ? d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }) : d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" })+" "+d.toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); };
+  const waNum = id => { const d = String(id || "").replace(/^55/, ""); return d.length >= 10 ? "("+d.slice(0, 2)+") "+d.slice(2, -4)+"-"+d.slice(-4) : id; };
+  async function renderWhatsapp(){
+    waParar(); wa.sel = "";
+    let cfg = {}; try{ const c = await getDoc(doc(db, "wa_config", "geral")); cfg = c.exists() ? c.data() : {}; }catch(e){}
+    $("conteudo").innerHTML =
+      '<div class="imp-card" id="waTela"><h3>\u{1F4AC} Atendimento WhatsApp</h3>'+
+        '<p class="d">Robô '+(cfg.ligado ? '<b style="color:var(--verde,#1a6b2a)">ligado</b>' : '<b style="color:#c0392b">desligado</b>')+
+        '. Ele responde dúvidas pelo Manual do Usuário, abre chamados de equipamento e manda o link de acesso por e-mail. Quando a pessoa pede atendente, a conversa fica com o selo <span class="wa-selo">aguardando</span> e a equipe responde aqui. Pelas regras do WhatsApp, só dá para responder até 24 h depois da última mensagem da pessoa.</p>'+
+        '<div id="waChamados"></div>'+
+        '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d">Escolha uma conversa.</p></div></div></div>'+
+      '<style>.wa-grade{display:grid;grid-template-columns:minmax(220px,320px) 1fr;gap:14px;margin-top:12px}.wa-lista{border:1px solid #dfe6ee;border-radius:12px;max-height:560px;overflow:auto}'+
+      '.wa-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #eef2f6;background:#fff;padding:10px 12px;cursor:pointer;font:inherit}.wa-item:hover,.wa-item.on{background:#eef6f0}'+
+      '.wa-item b{display:block}.wa-item small{color:#5b6b7c}.wa-selo{display:inline-block;background:#fde8c8;color:#8a4b00;border-radius:999px;padding:1px 8px;font-size:.78em;font-weight:600}'+
+      '.wa-conv{border:1px solid #dfe6ee;border-radius:12px;display:flex;flex-direction:column;min-height:420px}.wa-msgs{flex:1;overflow:auto;padding:12px;max-height:440px;background:#f6f8fa}'+
+      '.wa-m{max-width:78%;margin:6px 0;padding:8px 10px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}.wa-m small{display:block;color:#5b6b7c;font-size:.75em;margin-top:2px}'+
+      '.wa-pessoa{background:#fff;border:1px solid #e3e8ee}.wa-robo{background:#e8eef4;margin-left:auto}.wa-equipe{background:#d9f0de;margin-left:auto}'+
+      '.wa-resp{display:flex;gap:8px;padding:10px;border-top:1px solid #eef2f6;flex-wrap:wrap}.wa-resp textarea{flex:1;min-width:200px;font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px}'+
+      '.wa-ch{border:1px solid #f0d9b5;background:#fffaf2;border-radius:10px;padding:8px 12px;margin:6px 0;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}'+
+      '@media(max-width:760px){.wa-grade{grid-template-columns:1fr}}</style>';
+    wa.unsub.push(onSnapshot(query(collection(db, "wa_conversas"), orderBy("ultima_em", "desc"), limit(150)), sn => {
+      if(!$("waTela")){ waParar(); return; }
+      wa.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); waDesenharLista();
+    }, e => { const l = $("waLista"); if(l) l.innerHTML = '<p class="d">Não consegui abrir as conversas ('+escapeHtml(e.code || "erro")+').</p>'; }));
+    wa.unsub.push(onSnapshot(query(collection(db, "wa_chamados"), where("status", "==", "aberto"), limit(100)), sn => {
+      if(!$("waTela")){ waParar(); return; }
+      wa.chamados = sn.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => ((b.criado_em && b.criado_em.toMillis()) || 0) - ((a.criado_em && a.criado_em.toMillis()) || 0));
+      const el = $("waChamados"); if(!el) return;
+      el.innerHTML = wa.chamados.length ? '<h4 style="margin:10px 0 4px">Chamados abertos pelo WhatsApp ('+wa.chamados.length+')</h4>'+wa.chamados.map(c =>
+        '<div class="wa-ch"><div><b>'+escapeHtml(c.protocolo || c.id.slice(0, 6))+'</b> · '+escapeHtml(c.nome || waNum(c.wa_id))+(c.municipio_nome ? ' · '+escapeHtml(c.municipio_nome) : '')+' · <small>'+waQuando(c.criado_em)+'</small><br>'+escapeHtml(c.descricao || "")+'</div>'+
+        '<button class="btn btn-ghost btn-add" data-action="wa-resolver" data-id="'+escapeAttr(c.id)+'">Marcar resolvido</button></div>').join("") : "";
+    }, () => {}));
+  }
+  function waDesenharLista(){
+    const l = $("waLista"); if(!l) return;
+    if(!wa.conversas.length){ l.innerHTML = '<p class="d" style="padding:12px">Nenhuma conversa ainda.</p>'; return; }
+    const ord = [...wa.conversas].sort((a, b) => (b.estado === "atendente") - (a.estado === "atendente"));
+    l.innerHTML = ord.map(c => '<button class="wa-item'+(c.id === wa.sel ? " on" : "")+'" data-action="wa-abrir" data-id="'+escapeAttr(c.id)+'">'+
+      '<b>'+escapeHtml(c.nome || c.nome_whatsapp || waNum(c.id))+(c.estado === "atendente" ? ' <span class="wa-selo">aguardando'+(c.nao_lidas ? " · "+c.nao_lidas : "")+'</span>' : "")+'</b>'+
+      '<small>'+escapeHtml(c.uid ? (c.perfil || "")+(c.municipio_nome ? " · "+c.municipio_nome : "") : "sem cadastro no Portal")+' · '+waQuando(c.ultima_em)+'</small><br><small>'+escapeHtml(String(c.ultima || "").slice(0, 70))+'</small></button>').join("");
+  }
+  function waAbrir(id){
+    wa.sel = id; waDesenharLista();
+    if(wa.unsubMsg){ try{ wa.unsubMsg(); }catch(e){} }
+    const c = wa.conversas.find(x => x.id === id) || {};
+    $("waConv").innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #eef2f6"><b>'+escapeHtml(c.nome || c.nome_whatsapp || "")+'</b> · '+escapeHtml(waNum(id))+
+      (c.email ? ' · '+escapeHtml(c.email) : '')+'</div><div class="wa-msgs" id="waMsgs"></div>'+
+      '<div class="wa-resp"><textarea id="waTexto" rows="2" maxlength="3000" placeholder="Escreva a resposta"></textarea>'+
+      '<button class="btn btn-primary btn-add" data-action="wa-enviar">Enviar</button><button class="btn btn-ghost btn-add" data-action="wa-encerrar">Encerrar atendimento</button></div>';
+    wa.unsubMsg = onSnapshot(query(collection(db, "wa_conversas", id, "mensagens"), orderBy("em", "desc"), limit(200)), sn => {
+      const box = $("waMsgs"); if(!box || wa.sel !== id){ try{ wa.unsubMsg(); }catch(e){} return; }
+      box.innerHTML = sn.docs.reverse().map(d => { const m = d.data();
+        return '<div class="wa-m wa-'+(m.de === "equipe" ? "equipe" : m.de === "robo" ? "robo" : "pessoa")+'">'+escapeHtml(m.texto || "")+'<small>'+(m.de === "equipe" ? escapeHtml(m.autor_nome || "Equipe") : m.de === "robo" ? "Robô" : "Pessoa")+' · '+waQuando(m.em)+'</small></div>'; }).join("");
+      box.scrollTop = box.scrollHeight;
+    }, () => {});
+    wa.unsub.push(() => { try{ wa.unsubMsg && wa.unsubMsg(); }catch(e){} });
+  }
+  async function waResponder(encerrar){
+    const t = $("waTexto"), texto = t ? t.value.trim() : "";
+    if(!encerrar && !texto){ toast("Escreva a resposta.", true); return; }
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      await httpsCallable(getFunctions(app, "southamerica-east1"), "whatsappResponder", { timeout:20000 })({ wa_id:wa.sel, texto, encerrar });
+      if(t) t.value = ""; toast(encerrar ? "Atendimento encerrado. O robô volta a responder." : "Mensagem enviada.");
+    }catch(e){ toast((e && e.message || "Não foi possível enviar.").replace(/^.*?: /, ""), true); }
+  }
+  document.addEventListener("click", ev => {
+    const el = ev.target.closest("[data-action^='wa-']"); if(!el || !$("waTela")) return;
+    const a = el.dataset.action;
+    if(a === "wa-abrir") waAbrir(el.dataset.id);
+    else if(a === "wa-enviar") waResponder(false);
+    else if(a === "wa-encerrar") waResponder(true);
+    else if(a === "wa-resolver") updateDoc(doc(db, "wa_chamados", el.dataset.id), { status:"resolvido", atualizado_em:serverTimestamp() }).then(() => toast("Chamado marcado como resolvido.")).catch(() => toast("Não foi possível atualizar.", true));
+  });
+
   async function renderComunicados(){
     try{ if(!cacheMunicipios.length) await carregarCacheMunicipios(); }catch(e){}
     let cfg = {}; try{ const c = await getDoc(doc(db, "config", "comunicados")); cfg = c.exists() ? c.data() : {}; }catch(e){}
