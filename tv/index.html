@@ -408,12 +408,16 @@ async function listaPortaria(){
   }catch(e){ console.warn("portaria lista", e.message || e); }
   seloPortaria();
 }
-// foto na entrada (opcional, ligada pelo gestor): câmera frontal do totem, uma foto pequena só no momento da leitura
+// foto na entrada (opcional, ligada pelo gestor): câmera frontal ou traseira (escolha da tela), uma foto pequena só no momento da leitura
 async function cameraPortaria(on){
   PT.foto = on;
-  if(!on){ if(PT.cam){ PT.cam.getTracks().forEach(t => t.stop()); PT.cam = null; } seloPortaria(); return; }
+  const lado = P.tela && P.tela.camera_entrada === "environment" ? "environment" : "user";
+  // trocou a câmera na configuração: desliga a atual e liga a outra
+  if(PT.cam && (!on || PT.camLado !== lado)){ PT.cam.getTracks().forEach(t => { t.onended = null; t.stop(); }); PT.cam = null; PT.ic = null; }
+  if(!on){ seloPortaria(); return; }
   if(PT.cam || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-  try{ PT.cam = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user", width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
+  PT.camLado = lado;
+  try{ PT.cam = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:lado }, width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
     const v = $("ptCam"); v.srcObject = PT.cam; await v.play().catch(() => {}); }
   catch(e){ console.warn("portaria camera", e.name || e); PT.cam = null;
     PT.camMotivo = { NotAllowedError:"permissão da câmera negada neste navegador", NotReadableError:"câmera em uso por outro programa ou aba", NotFoundError:"nenhuma câmera encontrada", OverconstrainedError:"câmera não aceita a configuração" }[e.name] || "erro ao ligar a câmera (" + (e.name || e) + ")"; }
@@ -456,7 +460,7 @@ async function diagCamera(){
   const atualizar = async () => {
     const tr = PT.cam && PT.cam.getVideoTracks()[0], st = tr && tr.getSettings ? tr.getSettings() : {};
     if(PT.cam){ await fotoPortaria(); }
-    d.innerHTML = '<b>📷 Teste da câmera</b><div style="height:' + Math.round(Math.min(392, innerWidth * .84) * .75 + 8) + 'px"></div>' + (tr ? "Câmera: " + escH(tr.label || "sem nome") + "<br>Imagem: " + (st.width || v.videoWidth || "?") + " × " + (st.height || v.videoHeight || "?") + " · " + escH(tr.readyState) + (tr.muted ? " · <span class=ruim>sem sinal (muted)</span>" : "") : "") +
+    d.innerHTML = '<b>📷 Teste da câmera</b><div style="height:' + Math.round(Math.min(392, innerWidth * .84) * .75 + 8) + 'px"></div>' + (tr ? "Câmera: " + escH(tr.label || "sem nome") + "<br>Escolhida: " + (PT.camLado === "environment" ? "traseira" : "frontal") + (st.facingMode ? " · em uso: " + (st.facingMode === "environment" ? "traseira" : st.facingMode === "user" ? "frontal" : escH(st.facingMode)) : "") + "<br>Imagem: " + (st.width || v.videoWidth || "?") + " × " + (st.height || v.videoHeight || "?") + " · " + escH(tr.readyState) + (tr.muted ? " · <span class=ruim>sem sinal (muted)</span>" : "") : "") +
       "<br>Brilho: " + (PT.camBrilho === undefined ? "–" : PT.camBrilho) + ' <span class="' + (PT.camBrilho >= 10 ? 'ok">ok' : 'ruim">escuro') + "</span>" +
       (PT.camMotivo ? '<br><span class="ruim">' + escH(PT.camMotivo) + "</span>" : '<br><span class="ok">Foto funcionando.</span>') +
       '<br><small>Fecha sozinho em 30 s. Digite CAMERA de novo para repetir.</small>';

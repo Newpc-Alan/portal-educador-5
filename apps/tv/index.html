@@ -255,8 +255,11 @@ const podePortaria = () => E.admin || E.perfil === "gestor";
 function htmlPortaria(on){
   return podePortaria() ? '<label class="chave" style="align-items:flex-start"><input type="checkbox" id="fPort"' + (on ? " checked" : "") + '> <span><b>Totem da portaria</b>: com um leitor de código USB ligado ao aparelho, registra a entrada dos alunos pela carteirinha. A programação continua passando e, a cada carteirinha, aparece um OK verde grande com o primeiro nome e um som.</span></label>' : "";
 }
-function htmlFoto(on){
-  return podePortaria() ? '<label class="chave" style="align-items:flex-start;margin-left:26px"><input type="checkbox" id="fFoto"' + (on ? " checked" : "") + '> <span><b>Foto na entrada</b> (só no totem da portaria): a câmera do totem tira uma foto pequena no momento da leitura, para conferir carteirinha emprestada. Só a gestão da escola vê, e as fotos são apagadas sozinhas depois de 15 dias. O totem mostra o aviso "Foto registrada na entrada".</span></label>' : "";
+function htmlFoto(on, lado){
+  return podePortaria() ? '<label class="chave" style="align-items:flex-start;margin-left:26px"><input type="checkbox" id="fFoto"' + (on ? " checked" : "") + '> <span><b>Foto na entrada</b> (só no totem da portaria): a câmera do totem tira uma foto pequena no momento da leitura, para conferir carteirinha emprestada. Só a gestão da escola vê, e as fotos são apagadas sozinhas depois de 15 dias. O totem mostra o aviso "Foto registrada na entrada". Desligada, o totem não liga a câmera.</span></label>' +
+    '<div class="campo" style="margin-left:52px"><label for="fCamLado">Câmera da foto <small>(aparelho com duas câmeras)</small></label><select id="fCamLado">' +
+    [["user", "Frontal (a da tela, virada para quem passa)"], ["environment", "Traseira (a de trás do aparelho)"]].map(([v, n]) => '<option value="' + v + '"' + ((lado || "user") === v ? " selected" : "") + ">" + n + "</option>").join("") +
+    '</select><small>Com uma câmera só, o totem usa a que tiver. Para conferir, digite CAMERA no leitor do totem e aperte Enter.</small></div>' : "";
 }
 function opcoesPl(sel, vazio){ return (vazio ? '<option value="">' + vazio + "</option>" : "") + E.playlists.map(p => '<option value="' + esc(p.id) + '"' + (p.id === sel ? " selected" : "") + ">" + esc(p.nome) + "</option>").join(""); }
 async function garantirPlaylist(){
@@ -288,7 +291,7 @@ async function conectar(){
     const canal = await garantirCanal(true).catch(() => null);
     await setDoc(doc(db, "tv_telas", p.chave), { nome, escola_id:E.escolaId, escola_nome:E.escola.nome || "", municipio_id:E.escola.municipio_id || "",
       orientacao:E.form.ori, playlist_id:$("fPl").value, agenda:{}, letreiro:"", campanhas:true, cidade:E.muni ? [E.muni.nome, E.muni.uf].filter(Boolean).join(" · ") : "",
-      lat:"", lon:"", logo_url:logoEscola(), canal:canal ? canal.id : "", modo:$("fPort") && $("fPort").checked ? "portaria" : "tv", foto_entrada:!!($("fPort") && $("fPort").checked && $("fFoto") && $("fFoto").checked), criado_por:E.user.uid, criado_nome:E.u.nome || E.user.email || "",
+      lat:"", lon:"", logo_url:logoEscola(), canal:canal ? canal.id : "", modo:$("fPort") && $("fPort").checked ? "portaria" : "tv", foto_entrada:!!($("fPort") && $("fPort").checked && $("fFoto") && $("fFoto").checked), camera_entrada:$("fCamLado") && $("fCamLado").value === "environment" ? "environment" : "user", criado_por:E.user.uid, criado_nome:E.u.nome || E.user.email || "",
       criado_em:serverTimestamp(), atualizado_em:serverTimestamp() });
     deleteDoc(doc(db, "tv_pareamentos", cod)).catch(() => {});
     fecharModal(); E.telas = null; toast("TV conectada! Em alguns segundos ela começa a exibir.");
@@ -306,7 +309,7 @@ function modalTela(id){
     '<div class="campo"><label>Trocar a playlist por turno (opcional)</label>' + TURNOS.map(([k, n, h]) =>
       '<div class="agenda"><b>' + n + '</b><input type="time" id="ag_' + k + '" value="' + esc((ag[k] && ag[k].inicio) || h) + '" aria-label="Início do turno ' + n + '"><select id="agp_' + k + '" aria-label="Playlist do turno ' + n + '">' + opcoesPl(ag[k] && ag[k].playlist_id, "Mantém a padrão") + "</select></div>").join("") +
       '<small>A partir do horário, a TV troca sozinha para a playlist escolhida.</small></div>' +
-    htmlPortaria(t.modo === "portaria") + htmlFoto(t.foto_entrada === true) +
+    htmlPortaria(t.modo === "portaria") + htmlFoto(t.foto_entrada === true, t.camera_entrada) +
     '<label class="chave"><input type="checkbox" id="fCamp"' + (t.campanhas === false ? "" : " checked") + '> Exibir as campanhas educativas do Portal do Educador (dengue, trânsito, Outubro Rosa...)</label>' +
     '<div class="campo"><label for="fLet">Letreiro (texto que corre no rodapé)</label><input id="fLet" maxlength="300" value="' + esc(t.letreiro || "") + '" placeholder="Bem-vindos à ' + esc(E.escola.nome) + '"></div>' +
     '<div class="campos"><div class="campo"><label for="fCid">Cidade exibida</label><input id="fCid" maxlength="60" value="' + esc(t.cidade || "") + '"></div>' +
@@ -323,7 +326,8 @@ async function salvarTela(){
   try{
     const dados = { nome, orientacao:E.form.ori, playlist_id:$("fPl").value, agenda, letreiro:$("fLet").value.trim(), cidade:$("fCid").value.trim(),
       lat:String(E.form.lat || ""), lon:String(E.form.lon || ""), logo_url:logoEscola(), campanhas:$("fCamp").checked, atualizado_em:serverTimestamp() };
-    if($("fPort")){ dados.modo = $("fPort").checked ? "portaria" : "tv"; dados.foto_entrada = $("fPort").checked && !!($("fFoto") && $("fFoto").checked); }
+    if($("fPort")){ dados.modo = $("fPort").checked ? "portaria" : "tv"; dados.foto_entrada = $("fPort").checked && !!($("fFoto") && $("fFoto").checked);
+      dados.camera_entrada = $("fCamLado") && $("fCamLado").value === "environment" ? "environment" : "user"; }
     await updateDoc(doc(db, "tv_telas", t.id), dados);
     Object.assign(t, dados); fecharModal(); toast("Configuração salva. A TV atualiza em segundos."); telaTelas();
   }catch(e){ toast("Não foi possível salvar (" + (e.code || "erro") + ").", true); $("btOk").disabled = false; }
