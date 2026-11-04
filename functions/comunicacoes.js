@@ -12,6 +12,7 @@ import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js
 const REGIAO = 'southamerica-east1';
 const SITE = 'https://www.portaldoeducador.com.br';
 const ENTRAR = SITE + '/entrar/';
+const LOGO = SITE + '/assets/pde-logo-256.png';
 const LAB = 'lab-muni';
 const NOME_PLANO = { basico: 'Básico', intermediario: 'Intermediário', completo: 'Completo', personalizado: 'Personalizado' };
 const ITENS_PLANO = {
@@ -26,7 +27,9 @@ const primeiro = n => esc(String(n || '').trim().split(/\s+/)[0] || 'professor(a
 
 export function moldura(titulo, corpo, rotulo, link) {
   return `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#0c2338;max-width:600px">
-<div style="background:#0f2c4a;color:#fff;padding:18px 22px;border-radius:12px 12px 0 0;border-bottom:4px solid #8DC63F"><b style="font-size:18px">${esc(titulo)}</b><br><span style="color:#b9d7a3;font-size:12px">Portal do Educador · uma solução NEWPC Tecnologia</span></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f2c4a;border-radius:12px 12px 0 0;border-bottom:4px solid #8DC63F"><tr>
+<td width="76" style="padding:16px 0 16px 20px;vertical-align:middle"><img src="${LOGO}" width="60" height="60" alt="Portal do Educador" style="display:block;border:0;border-radius:50%"></td>
+<td style="padding:16px 22px 16px 14px;vertical-align:middle;color:#fff"><b style="font-size:18px">${esc(titulo)}</b><br><span style="color:#b9d7a3;font-size:12px">Portal do Educador · uma solução NEWPC Tecnologia</span></td></tr></table>
 <div style="border:1px solid #dce4ed;border-top:0;padding:20px 22px;border-radius:0 0 12px 12px">${corpo}
 <p style="margin:18px 0 6px"><a href="${link}" style="display:inline-block;background:#1a6b2a;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:bold">${esc(rotulo)}</a></p>
 <p style="margin:14px 0 0;font-size:12px;color:#5b6b7b">Dúvidas? Responda este e-mail ou fale com o nosso atendimento pelo WhatsApp do Portal do Educador.</p></div></div>`;
