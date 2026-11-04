@@ -9101,6 +9101,7 @@
     { g:"turma", rede:true, id:"turmas",     titulo:"Minhas turmas",      sub:"Alunos, código e PIN de acesso",    foto:"turmas",             cor:"azul",  acao:"ini-turmas" },
     { g:"turma", rede:true, id:"gabarito",   titulo:"Corrigir gabarito",  sub:"Fotografe os cartões-resposta",     foto:"corrigir-gabarito",  cor:"verde", mod:"gestao",     href:"/apps/corretor/" },
     { g:"turma", rede:true, rec:"prova_online", id:"respostas",  titulo:"Corrigir respostas", sub:"Questões abertas da prova online",  foto:"corrigir-respostas", cor:"verde", mod:"provas",     href:"/prova/" },
+    { g:"turma", rede:true, id:"pareceres", titulo:"Pareceres da turma", sub:"O parecer do bimestre com o Portal IA, a partir dos dados de cada aluno", foto:"central-relatorios", cor:"verde", mod:"relatorios", href:"/apps/pareceres/" },
     { g:"turma", id:"relatorios", titulo:"Central de Relatórios", sub:"Pareceres e relatórios do aluno, prontos para a escola e a família", foto:"central-relatorios", cor:"azul", mod:"relatorios", acao:"ini-relatorios" },
     { g:"escola", rede:true, id:"reservar",  titulo:"Reservar equipamento", sub:"Carrinho de Chromebooks, laboratório e sala de VR", foto:"/assets/apps/capas/recursos.webp", cor:"azul", mod:"gestao", href:"/apps/recursos/#reservar" },
     { g:"escola", rede:true, id:"defeito",   titulo:"Avisar defeito",     sub:"Equipamento com problema: abra o chamado",  foto:"avisar-defeito",     cor:"alerta", mod:"gestao",   href:"/apps/recursos/#chamados" },
@@ -9186,8 +9187,9 @@
     // as pendencias de prova do "Para hoje" sao todas da prova online
     const okGestao = estadoMod("gestao", doPlano, admin) === "ok", okProvas = estadoMod("provas", doPlano, admin) === "ok" && temRecurso("prova_online");
     // plano sem chamada, notas nem provas: nao ha pendencia do dia para mostrar
-    const sec = $("iniHojeSec"); if(sec) sec.hidden = !okGestao && !okProvas;
-    if(!okGestao && !okProvas) return;
+    const okRel = estadoMod("relatorios", doPlano, admin) === "ok";
+    const sec = $("iniHojeSec"); if(sec) sec.hidden = !okGestao && !okProvas && !okRel;
+    if(!okGestao && !okProvas && !okRel) return;
     const tarefas = [];
     // 1) chamada de hoje (dias de semana), nas turmas da lista do professor
     const semana = new Date(agora - 4*3600000).getUTCDay();
@@ -9203,6 +9205,18 @@
           det: faltam === turmas.length ? (turmas.length === 1 ? "Sua turma ainda está sem chamada." : "Nenhuma das suas "+turmas.length+" turmas tem chamada hoje.") : faltam+" de "+turmas.length+" turmas ainda sem chamada.",
           btn:"Fazer chamada", href:"/apps/frequencia/", mod:"gestao" });
       }
+    })());
+    // 1b) fim do bimestre (calendário da rede): nas duas últimas semanas, lembrar dos Pareceres da turma
+    if(okRel && turmas.length && usuarioAtual.municipio_id && (usuarioAtual.licenca_tipo || "institucional") === "institucional") tarefas.push((async () => {
+      const ano = new Date(agora - 4*3600000).getUTCFullYear(), hj = hojeISO();
+      const c = await getDoc(doc(db, "cal_rede", usuarioAtual.municipio_id + "_" + ano)); if(!c.exists()) return;
+      const per = (c.data().periodos || []).map((x, i) => ({ ...x, n:i + 1 })).find(x => x.inicio <= hj && hj <= x.fim); if(!per) return;
+      const faltam = Math.round((Date.parse(per.fim + "T12:00:00") - Date.parse(hj + "T12:00:00")) / 864e5); if(faltam > 14) return;
+      const nP = ["", "semestre", "semestre", "trimestre", "bimestre"][(c.data().periodos || []).length] || "período";
+      iniProf.badges.pareceres = faltam <= 0 ? "Termina hoje" : "Faltam " + faltam + (faltam === 1 ? " dia" : " dias");
+      itens.push({ ordem:2, cor:"alerta", foto:"central-relatorios", titulo:"Pareceres do " + per.n + "º " + nP,
+        det:"O " + per.n + "º " + nP + " termina " + (faltam <= 0 ? "hoje" : "em " + per.fim.slice(8, 10) + "/" + per.fim.slice(5, 7)) + ". O Portal já tem a frequência e as notas da turma: gere os pareceres e só revise.",
+        btn:"Fazer pareceres", href:"/apps/pareceres/", mod:"relatorios" });
     })());
     // 2) provas online: sala de espera, aberta agora, agendada para hoje e respostas abertas
     if(okProvas) tarefas.push((async () => {
