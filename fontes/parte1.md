@@ -43,12 +43,35 @@ Se a conta Google também estiver ligada, ela continua funcionando normalmente.
 
 | Situação | O que acontece |
 |---|---|
-| A rede já importou o seu e-mail | Você entra direto, já com município, escolas e turmas |
+| A rede já importou o seu e-mail | Você entra com a conta da escola já ligado ao município e à escola e, antes de começar, aparece **Complete seu cadastro para começar** |
 | Você não foi cadastrado pela rede | Aparece **Complete seu cadastro**, com 7 dias de teste grátis |
+
+**Atualização cadastral (professor da rede).** No primeiro acesso e no começo de cada ano letivo (a partir de 1º de fevereiro), o Portal pede para conferir os dados antes de abrir. Os campos já vêm preenchidos com o que a rede enviou. São obrigatórios: nome completo, WhatsApp (com DDD), CPF, data de nascimento, função, as escolas onde você dá aula (até 5), os anos, as etapas e as disciplinas que leciona, e o aceite da Política de Privacidade. A tela só libera com tudo certo; o campo com problema fica vermelho e diz o que corrigir. A foto para o crachá é opcional, em **Meu cadastro › Minha ficha funcional**. Para mudar depois: **Meu cadastro › Atualizar cadastro completo**.
+
+O WhatsApp certo é importante: é por ele que o atendimento do Portal no WhatsApp reconhece você e mostra a sua licença, a sua escola e os seus chamados.
 
 No cadastro de teste, preencha nome, WhatsApp (com DDD, ex.: (67) 99999-0000), função, estado, município, rede, escola, etapas em que atua e aceite a política de privacidade. Toque em **Liberar meu teste grátis**. Se a sua escola é atendida pela prefeitura com o Portal, preencha normalmente: a equipe vincula você à rede.
 
 ![Cadastro do teste grátis](s11-cadastro.png){80}
+
+### O teste grátis de 7 dias {: .nova }
+
+Quem se cadastra sozinho ganha 7 dias para conhecer o Portal. No topo do Início aparece a faixa **Seu teste está rendendo**, com os dias que faltam, os créditos de IA, as provas grátis e o botão **Quero continuar** (abre o WhatsApp do Portal com a mensagem pronta).
+
+| No teste | O que você tem |
+|---|---|
+| Liberado | Portal IA com **10 créditos de demonstração**, atividades, jogos, vídeos, datas comemorativas, colorir, histórias, biblioteca, museus, dicas, aplicativos (com a sua TV própria) e Formação Continuada |
+| Provas e Avaliações | Até **5 provas** guardadas em Minhas provas. Na sexta, aparece o convite para continuar; as 5 já guardadas continuam abrindo, editando e imprimindo |
+| Para a sua escola 🔒 | Gestão Escolar, Central de Relatórios, Portal 360º VR e Portal Maestro. Ficam em **Conheça mais do Portal**: toque para conhecer |
+
+- Os 10 créditos valem até o fim do teste e são dados uma vez por e-mail. Quando acabam, o Portal IA avisa e mostra como continuar.
+- Nos 2 últimos dias aparece o aviso **Faltam X dias** com o caminho para continuar sem perder o que você criou.
+
+**Quero isso na minha escola.** Os recursos com cadeado são contratados pela Secretaria de Educação para a rede. Na vitrine de cada um, preencha a escola e o município, marque **Autorizo a NEWPC a entrar em contato comigo e com a minha escola** e toque em **Enviar pedido**. A equipe comercial recebe o pedido na hora; depois do envio, o botão **Falar agora no WhatsApp** abre a conversa com a mensagem pronta.
+
+:::regra
+Professor em teste, avulso ou de cortesia nunca usa os créditos nem o plano da rede, mesmo tendo escolhido a cidade no cadastro: na mesma cidade pode haver contrato com a prefeitura, com o estado e professores que compram por conta própria. Os créditos dele são os da própria carteira.
+:::
 
 ### Telas de aviso
 
@@ -499,7 +522,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 | **Turma na Lousa** | Sortear alunos, formar grupos, cronômetro, semáforo do barulho (o som não é gravado), mapa da sala e placar |
 | **Folha Mágica** | 14 modelos de folha (pauta musical, caligrafia, milimetrado, plano cartesiano, Cornell...), com cabeçalho da escola e opção "uma por aluno" |
 | **Teleprompter** | Roteiro rolando na tela, com controle pelo celular via QR code |
-| **Enviar para a TV da escola** | Colocar fotos, vídeos e avisos na programação da TV da escola |
+| **Enviar para a TV da escola** | Colocar fotos, vídeos e avisos na programação da TV da escola. Professor avulso, de cortesia ou em teste tem **Minhas TVs**: conecta as TVs dele, monta as playlists e só aparece o que ele publica (sem escola, sem comunicados da Secretaria) |
 | **App do Maestro (tablet do aluno)** | Baixar o app Android do aluno do Portal Maestro, sempre na versão mais nova |
 
 **Instalar o app do Maestro no tablet do aluno**
@@ -1246,6 +1269,12 @@ Espere 2 minutos e olhe no spam ou lixo eletrônico. Abra o link no mesmo aparel
 
 **Entrei e caí no teste grátis, mas sou da rede.**
 Você provavelmente entrou com outro e-mail. Saia e entre com o e-mail que a escola cadastrou. Se continuar, avise a coordenação para a NEWPC conferir.
+
+**Estou no teste e um recurso aparece com cadeado "Para a sua escola".**
+É um recurso que a Secretaria contrata para a rede (Gestão Escolar, Central de Relatórios, Portal 360º VR, Portal Maestro). Toque nele, conheça e use **Quero isso na minha escola** para a NEWPC procurar a sua escola.
+
+**Acabaram os meus 10 créditos de demonstração.**
+Para continuar usando o Portal IA, compre créditos avulsos em **Comprar créditos** ou fale com a equipe pelo WhatsApp (67) 9875-7275.
 
 **Um botão aparece "Em breve" ou "Fora do plano".**
 "Em breve" está sendo preparado. "Fora do plano" não foi contratado pelo seu município. Esses recursos ficam em **Conheça mais do Portal**, no fim do Início.

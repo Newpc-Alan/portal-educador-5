@@ -96,3 +96,10 @@ Versão 2.0, de 1º de novembro de 2026. Principais novidades em relação à ve
 | **Buscador da BNCC** público | `www.portaldoeducador.com.br/bncc/` |
 | **Auditoria**: tudo o que é criado, alterado ou excluído fica registrado, com as entradas no Portal | Sistema (administrador NEWPC) |
 
+Atualização de 4 de novembro de 2026:
+
+| Novidade | Onde aparece |
+|---|---|
+| **Teste grátis de 7 dias** com tudo à vista: recursos da escola com cadeado e **Quero isso na minha escola**, 5 provas grátis, Formação liberada e 10 créditos de IA de demonstração | Início do professor em teste |
+| **Minhas TVs**: o professor avulso ou em teste monta a própria TV, sem misturar com a da escola | Portal TV |
+

@@ -72,6 +72,9 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-31 | Acompanhamento semanal pelo Painel do administrador | Gestão |
 | POP-PDE-32 | Aula com aparelhos controlados (Dar aula + Portal Maestro) | Sala de aula |
 | POP-PDE-33 | Atendimento pelo WhatsApp do Portal | Atendimento |
+| POP-PDE-34 | Pedido "Quero isso na minha escola" | Comercial |
+| POP-PDE-35 | Painel da TV na recepção | Atendimento |
+| POP-PDE-36 | Convite de primeiro acesso para a rede importada | Implantação |
 
 ## Controle de revisões
 
@@ -103,3 +106,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.24 | 03/11/2026 | POP-PDE-33: atendimento pelo WhatsApp do Portal (robô, chamados e contato comercial) | NEWPC Tecnologia | |
 | 2.25 | 03/11/2026 | POP-PDE-33: rodízio por setor, Disponível, Assumir e Transferir | NEWPC Tecnologia | |
 | 2.26 | 03/11/2026 | POP-PDE-33: app Atendimento PDE no celular e robô agente | NEWPC Tecnologia | |
+| 2.27 | 04/11/2026 | POP-PDE-20 (franquia mensal, créditos por educador, retirar pacote, fora de rede e demonstração do teste); POP-PDE-30 (máximo por dia e Reenviar falhas); novos POP-PDE-34 (pedido "Quero isso na minha escola"), 35 (Painel da TV na recepção) e 36 (convite de primeiro acesso) | NEWPC Tecnologia | |

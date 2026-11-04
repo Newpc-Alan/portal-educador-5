@@ -413,8 +413,8 @@ O painel guarda situação, saídas, trocas, liberações (com o nome do profess
 @@ POP-PDE-13 | Escola | Técnico NEWPC e gestor da escola | Instalação de TV, troca de aparelho ou novo totem
 
 ### Procedimento
-1. Na TV, abra `app.portaldoeducador.com.br/tv/teste/`. Se o veredito indicar versão leve ou TV box, siga a orientação da tela.
-2. Abra `app.portaldoeducador.com.br/tv/` e anote o código de 6 caracteres.
+1. Na TV, abra `www.portaldoeducador.com.br/tv/teste/`. Se o veredito indicar versão leve ou TV box, siga a orientação da tela.
+2. Abra `www.portaldoeducador.com.br/tv/` e anote o código de 6 caracteres.
 3. No painel (**Portal do Educador TV › Telas**), toque em **＋ Conectar TV**, informe o código, o nome do local (ex.: "Pátio · Entrada"), o formato e a playlist.
 4. Para totem da portaria: ligue **Totem da portaria** e, se a escola decidir, **Foto na entrada**.
 5. Configure a TV para abrir o Portal sozinha ao ligar (modo quiosque, conforme a orientação **Tela cheia e quiosque**).
@@ -684,7 +684,9 @@ Liberar a IA só para quem tem direito, com créditos pré-pagos, validade contr
 ### Como funciona
 - Cada rede tem uma carteira e cada professor pode ter a sua (créditos avulsos). Cada lançamento vira um pacote com validade própria (padrão: 12 meses); o consumo tira primeiro do pacote que vence antes.
 - Preços padrão: 1 material = 1 crédito, 1 ajuste com a IA = 1 crédito, 1 imagem = 5 créditos.
-- A rede paga primeiro, até o **teto por professor** no mês (padrão: 60 créditos; 0 = sem teto). Bateu o teto ou acabou o saldo, o Portal usa os créditos próprios do professor, se ele tiver.
+- A rede paga primeiro, até o **teto por professor** no mês (sem teto gravado na rede, vale a franquia do plano). Bateu o teto ou acabou o saldo, o Portal usa os créditos próprios do professor, se ele tiver.
+- **Franquia mensal**: todo dia às 3h15 a rede recebe o pacote do mês = educadores de rede ativos × franquia (20 no Intermediário e no Personalizado, 40 no Completo), válido até o fim do mês.
+- Só a licença institucional usa a carteira da rede. Avulso, cortesia e teste usam sempre a carteira própria, mesmo com o município no cadastro. O teste de 7 dias ganha 10 créditos de demonstração.
 - Alertas automáticos por e-mail para a NEWPC e para a Secretaria quando o saldo da rede chega a 20% e a 5%.
 
 ### Procedimento
@@ -693,32 +695,37 @@ Liberar a IA só para quem tem direito, com créditos pré-pagos, validade contr
 1. Em **Sistema** › **Central de IA**, bloco **✨ Central de IA**, confira em **1 · Recursos (chave geral)** se o recurso está **Ligado**.
 2. Em **2 · Redes**, aplique o pacote com **Intermediário** ou **Completo** (ou **Nenhum**) e ajuste caixa por caixa: Portal IA, Imagens, Provas com IA, Lousa IA Básica e Ultra. Clique em **Salvar Central de IA**.
 3. Em **Redes com Portal IA**, ajuste o **Teto por professor** se o contrato definir outro valor e clique em **Salvar** na linha.
+4. Toque em **Conferir a franquia do mês**: a lista mostra quanto cada rede recebe agora e já aplica. Rede com zero educadores ainda não teve primeiro acesso; a franquia entra sozinha conforme eles entram.
+5. Crédito extra de implantação ou cortesia: dimensione pela coluna **Créditos por educador** (sugestão: 15 por educador já cadastrado ou importado) e não por um número igual para todas as redes. Lançou errado? **Pacotes** › **Retirar** na linha.
 
 **Vender ou recarregar créditos da rede**
 
-4. A Secretaria pede pelo **Painel da Rede** › **Solicitar recarga** (até 3 pedidos aguardando por conta). A NEWPC recebe o e-mail e envia a proposta.
-5. Depois do **empenho**, abra o pedido em **Pedidos de recarga** e clique em **Liberar**: o formulário **Lançar créditos** já vem preenchido. Confira créditos e validade, escreva em **Observação** o nº do empenho ou da NF e clique em **Lançar créditos**. O pedido fica aprovado e quem pediu recebe e-mail.
-6. Venda sem pedido pelo Portal: em **Lançar créditos**, escolha a **Conta** (rede), a quantidade, a validade e a observação.
+6. A Secretaria pede pelo **Painel da Rede** › **Solicitar recarga** (até 3 pedidos aguardando por conta). A NEWPC recebe o e-mail e envia a proposta.
+7. Depois do **empenho**, abra o pedido em **Pedidos de recarga** e clique em **Liberar**: o formulário **Lançar créditos** já vem preenchido. Confira créditos e validade, escreva em **Observação** o nº do empenho ou da NF e clique em **Lançar créditos**. O pedido fica aprovado e quem pediu recebe e-mail.
+8. Venda sem pedido pelo Portal: em **Lançar créditos**, escolha a **Conta** (rede), a quantidade, a validade e a observação.
 
 **Pedido avulso do professor**
 
-7. O professor pede no Portal IA em **💳 Comprar créditos** › **Fazer o pedido**. A NEWPC envia os dados de pagamento (Pix ou boleto) ao e-mail dele.
-8. Confirmado o pagamento, **Liberar** o pedido e **Lançar créditos** com a referência do pagamento na observação.
-9. Pedido que não será atendido: **Cancelar** (confirmar).
-10. Professor que deve usar um recurso de IA fora do plano da rede: em **3 · Professores (avulsos e exceções)**, **Adicionar professor pelo e-mail ou nome**, marque os recursos e salve (ele paga com os créditos próprios).
+9. O professor pede no Portal IA em **💳 Comprar créditos** › **Fazer o pedido**. A NEWPC envia os dados de pagamento (Pix ou boleto) ao e-mail dele.
+10. Confirmado o pagamento, **Liberar** o pedido e **Lançar créditos** com a referência do pagamento na observação.
+11. Pedido que não será atendido: **Cancelar** (confirmar).
+12. Professor que deve usar um recurso de IA fora do plano da rede: em **3 · Professores (avulsos e exceções)**, **Adicionar professor pelo e-mail ou nome**, marque os recursos e salve (ele paga com os créditos próprios).
+13. Acompanhe avulsos, cortesias e testes na tabela **Professores fora de rede**. Quem estava em teste antes da demonstração existir: **Dar a demonstração a quem já está em teste**.
 
 **Alerta de saldo**
 
-11. Ao receber o alerta de 20%, o comercial procura a Secretaria para a recarga. Com 5%, a prioridade é alta: quando zerar, os professores deixam de gerar materiais pela rede.
+14. Ao receber o alerta de 20%, o comercial procura a Secretaria para a recarga. Com 5%, a prioridade é alta: quando zerar, os professores deixam de gerar materiais pela rede.
 
 **Revisão mensal**
 
-12. Confira os indicadores do topo (créditos ativos, consumo do mês, **Custo real de IA no mês**, **Custo real por crédito**) e compare com o preço de venda. Ajustes em **Preços e pacotes** só com aprovação do Alan.
+15. Confira os indicadores do topo (créditos ativos, consumo do mês, **Custo real de IA no mês**, **Custo real por crédito**) e compare com o preço de venda. Ajustes em **Preços e pacotes** só com aprovação do Alan.
 
 ### Pontos de controle
 - ☐ Nenhum crédito de rede lançado sem empenho, nem crédito avulso sem pagamento confirmado (cortesias registradas como tal na observação).
 - ☐ Recursos marcados na Central de IA iguais ao contrato.
 - ☐ Alerta de 5% tratado no mesmo dia (meta sugerida).
+- ☐ Franquia do mês conferida no dia 1º e depois de cada importação de professores.
+- ☐ Nenhum crédito de rede lançado para avulso, cortesia ou teste.
 
 ### Registros
 Cada lançamento fica na carteira com observação, validade e quem lançou; o consumo fica registrado por uso. A Auditoria registra as mudanças nas carteiras e na Central de IA. Guarde empenho, NF ou comprovante de pagamento na pasta da rede.
@@ -841,7 +848,7 @@ Fazer o aluno entrar no Portal em segundos, sem e-mail e sem senha, só durante 
 **Abrir a aula**
 
 5. No Início, use **Sala de aula gerenciada** › **▶ Começar a aula**, escolha a turma e o tempo (30 min, 40 min, 50 min, 1 hora, 2 horas ou outro tempo de 5 a 360 minutos). Sem Turma ao Vivo no plano, abra pela tela da turma: **Alunos** › **Abrir entrada por QR**.
-6. Os alunos apontam a câmera para o QR do cartão e entram direto, com boas-vindas pelo nome. Sem câmera: em `app.portaldoeducador.com.br/entrar` › **Sou aluno**, digitam o código e o PIN (ou usam **📷 Ler QR**).
+6. Os alunos apontam a câmera para o QR do cartão e entram direto, com boas-vindas pelo nome. Sem câmera: em `www.portaldoeducador.com.br/entrar` › **Sou aluno**, digitam o código e o PIN (ou usam **📷 Ler QR**).
 7. Faltando 5 minutos, o professor recebe um aviso; aos 3 minutos, pode prorrogar (+10 min a +1 hora) ou **Encerrar agora**. No painel da Turma ao Vivo, **+10 min** e **⏹ Encerrar aula** fazem o mesmo.
 8. Quando o tempo acaba, quem entrou pelo cartão vê "A aula terminou" e sai sozinho, liberando o aparelho para o próximo colega.
 
@@ -1091,7 +1098,7 @@ Enviar mensagens por e-mail a professores, gestão das escolas, Secretarias de E
 ### Pré-requisitos (uma vez)
 1. Conta **comunicados@portaldoeducador.com.br** criada na Webnode.
 2. Senha dessa conta cadastrada pelo Alan no Google Cloud, em **Secret Manager › COMUNICADOS_SMTP_SENHA** (nunca em chat, planilha ou código).
-3. Em **Comunicados por e-mail › Configuração do envio**: servidor `smtp.mail.webnode.com`, porta 465 e envios por hora (comece com 100).
+3. Em **Comunicados por e-mail › Configuração do envio**: servidor `smtp.mail.webnode.com`, porta 465, envios por hora (comece com 100) e **Máximo por dia** (700, abaixo do limite diário da Webnode).
 
 ### Passo a passo
 1. Menu **Sistema › Comunicados por e-mail**.
@@ -1102,12 +1109,14 @@ Enviar mensagens por e-mail a professores, gestão das escolas, Secretarias de E
 6. Se quiser, preencha **Enviar em** para agendar.
 7. Toque em **Enviar comunicado** e confirme o número de pessoas tocando de novo.
 8. Acompanhe em **Enviados e agendados**: barra de progresso, falhas (**Ver falhas** baixa a planilha) e **Cancelar** enquanto não terminou.
+9. Passou do máximo do dia ou a Webnode recusou por limite diário: o envio pausa sozinho e continua no dia seguinte. Não crie outro comunicado para "apressar".
+10. Terminou com falhas? Abra **Ver falhas**: e-mail inexistente se corrige no cadastro; o resto, toque em **Reenviar falhas** (dois toques). Sai um comunicado novo só para quem não recebeu.
 
 ### Pontos de controle
 - ☐ Teste conferido antes do envio (texto, link, remetente, não caiu no spam).
 - ☐ Público e número de pessoas conferidos na caixa azul.
 - ☐ Para alunos: só avisos escolares, nunca conteúdo comercial.
-- ☐ Falhas conferidas no fim (e-mails errados corrigidos no cadastro).
+- ☐ Falhas conferidas no fim (e-mails errados corrigidos no cadastro) e reenviadas uma vez.
 - ☐ Primeiro envio grande: medir o tempo e a entrega com cerca de 100 pessoas antes de mandar para toda a rede.
 
 ### Registros
@@ -1240,3 +1249,73 @@ Responder no mesmo dia as conversas que o robô passou para a equipe (rodízio p
 - ☐ Todo chamado aberto tem técnico designado em até 1 dia útil.
 - ☐ Nunca pedir senha, CPF ou dado de aluno pelo WhatsApp.
 
+## POP-PDE-34 · Pedido "Quero isso na minha escola" {: .nova }
+
+@@ POP-PDE-34 | Comercial | Comercial NEWPC | E-mail [Lead Portal] ou [Lead sala VR] na caixa do comercial
+
+### Objetivo
+Transformar o interesse do professor em teste ou avulso numa conversa com a escola e a Secretaria, sem demora e sem tratar o professor como comprador.
+
+### Procedimento
+1. Ao receber o e-mail, confira recurso, escola, município e WhatsApp. O professor já autorizou o contato.
+2. Responda o próprio e-mail (vai direto para ele) em até 1 dia útil: agradeça, pergunte quem cuida da tecnologia na escola ou na Secretaria e ofereça uma demonstração de 20 minutos.
+3. **[Lead sala VR]**: o assunto é a sala de realidade virtual (kit de óculos, carrinho, conteúdo 360º e treinamento). Encaminhe para a proposta da sala VR, não para o plano do Portal.
+4. Município já atendido pela NEWPC: avise o responsável pela conta da rede antes de falar com a Secretaria (o pedido pode virar aditivo).
+5. Município novo: registre no funil comercial com a origem "Portal, teste" e a escola de quem pediu.
+
+### Pontos de controle
+- ☐ Resposta em até 1 dia útil.
+- ☐ Nenhuma promessa ao professor de liberar o recurso só para ele: os recursos com cadeado são contratados pela escola ou pela Secretaria.
+- ☐ O dado do professor fica só no e-mail e no funil comercial (LGPD).
+
+### Registros
+E-mail no comercial, pedido na coleção `leads_portal` (1 por recurso por pessoa a cada 24 h) e linha na Auditoria.
+
+## POP-PDE-35 · Painel da TV na recepção {: .nova }
+
+@@ POP-PDE-35 | Atendimento | Administrador do Portal (NEWPC) | Instalação da TV, troca de equipe ou suspeita de que o PIN vazou
+
+### Objetivo
+Manter a TV touch da recepção mostrando os números reais do Portal para visitantes, com a gestão da equipe protegida por PIN.
+
+### Procedimento
+1. Em **Sistema** › **Atendimento WhatsApp** › **Painel da TV**, toque em **Mostrar o link** e abra o link no navegador da TV.
+2. Em **Definir PIN**, grave um PIN de 4 a 6 números e passe só para a equipe interna (pessoalmente, nunca em grupo).
+3. Na TV, toque na tela para entrar em tela cheia. Confira a vitrine girando e o menu ao tocar.
+4. Imagem cortada nas bordas: ajuste a TV para **Ajustar à tela** ou **Original**.
+5. Saiu alguém da equipe ou o PIN vazou: **Definir PIN** de novo. Link vazou: **Trocar a chave** (desliga o link antigo e apaga o PIN), abra o novo link na TV e defina o PIN de novo.
+6. Rede nova não aparece na vitrine: cadastre o Censo ou o IDEB em **Municípios** › **Rede e IDEB**.
+
+### Pontos de controle
+- ☐ Selo do topo verde (atualizando). Vermelho com "sem atualização desde": confira a internet da TV.
+- ☐ PIN trocado a cada saída da equipe.
+- ☐ Ninguém deixa a gestão aberta para o visitante (volta sozinha à vitrine em 3 min).
+
+### Registros
+Troca de chave e de PIN ficam na Auditoria.
+
+## POP-PDE-36 · Convite de primeiro acesso para a rede importada {: .nova }
+
+@@ POP-PDE-36 | Implantação | Administrador do Portal (NEWPC) | Depois de importar os professores e a gestão de uma rede
+
+### Objetivo
+Levar os pré-cadastrados ao primeiro acesso, com o cadastro completo, sem estourar o limite de envio e sem mandar e-mail duas vezes.
+
+### Pré-requisitos
+- Professores e gestão importados (Parte 2, Passo 5) e a Secretaria avisada de que o convite vai sair.
+
+### Procedimento
+1. Em **Sistema** › **Comunicados por e-mail**, tipo **Aviso de serviço**, público **Pré-cadastrados que ainda não entraram** e o município da rede.
+2. Assunto com o nome do município; mensagem curta: o endereço `www.portaldoeducador.com.br/entrar/`, entrar com a conta Google do e-mail importado e completar a atualização cadastral.
+3. **Enviar teste para mim** e conferir.
+4. Um comunicado por rede, começando pela menor. Com o total do dia acima de 700, o robô divide sozinho; não junte redes para "ganhar tempo".
+5. No dia seguinte, confira as falhas e use **Reenviar falhas** (POP-PDE-30).
+6. Na semana, acompanhe no Painel do administrador quantos já entraram e mande lembrete só para quem continua em **Pré-cadastrados que ainda não entraram**.
+
+### Pontos de controle
+- ☐ Domínio de e-mail da rede conferido com a TI (conta institucional bloqueando e-mail de fora derruba o convite).
+- ☐ Aluno nunca entra neste convite sem o OK da Secretaria.
+- ☐ Número de primeiros acessos anotado na ficha da implantação.
+
+### Registros
+Comunicado em **Enviados e agendados**, Auditoria e a ficha de execução da implantação.

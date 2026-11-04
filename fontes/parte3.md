@@ -9,7 +9,7 @@ O Portal é um site estático: cada tela é um `index.html` autocontido, com CSS
 ```
 Navegador (professor, aluno, gestão, secretaria, TV, totem, tablet do Maestro)
    |  HTML/JS estático no GitHub Pages
-   |  repo Newpc-Alan/portal-educador-5 · domínio app.portaldoeducador.com.br
+   |  repo Newpc-Alan/portal-educador-5 · domínio www.portaldoeducador.com.br
    |  Firebase JS SDK 10.12.2 (gstatic) · login Google, e-mail/senha ou cartão QR
    v
 Firebase · projeto portal-educador-5
@@ -29,7 +29,7 @@ Gmail SMTP (conta Google da NEWPC): envio de todos os e-mails automáticos
 | Item | Situação |
 |---|---|
 | Repositório | `github.com/Newpc-Alan/portal-educador-5` |
-| Domínio | arquivo `CNAME` com `app.portaldoeducador.com.br` |
+| Domínio | arquivo `CNAME` com `www.portaldoeducador.com.br` (desde nov/2026; o endereço antigo `app.` continua aceito pela extensão do Maestro) |
 | Publicação | GitHub Pages publica a branch `main` a cada `git push` (1 a 2 minutos) |
 | Branch de trabalho | `vitrine-ia`, mantida igual à `main` (ver **Fluxo de publicação**) |
 | Build | Não há. O que está na `main` é o que vai ao ar |
@@ -64,7 +64,7 @@ Gmail SMTP (conta Google da NEWPC): envio de todos os e-mails automáticos
 
 O projeto Android do app do aluno do Portal Maestro fica em `maestro-app/` (WebView próprio, com câmera liberada para a entrada por QR). Desde a 1.2 abre em `/entrar/?qr`. Com aula aberta, o Portal do Aluno carrega `/assets/js/maestro-ponte.js` (versão `web-portal-1.0`): a própria página entra na aula do Maestro com o nome e a matrícula, manda presença, aplica a pausa (com a trava de 2 minutos sem painel), abre o conteúdo enviado num quadro por cima do Portal e tem o botão de mão. Vale para o app e para navegador sem a extensão; com a extensão, quem segue é a extensão. `/maestro/aluno/` fica para quem entra só pelo número.
 
-A extensão do aluno para Chromebook fica em `maestro-extensao/` (fonte oficial desde a 0.9). O `portal.js` roda só em app.portaldoeducador.com.br: marca a página (`data-maestro-ext`) e repassa a mensagem `maestro-entrar` (número de 6 dígitos, nome e matrícula) para o service worker, que entra na aula como se o aluno tivesse digitado o número.
+A extensão do aluno para Chromebook fica em `maestro-extensao/` (fonte oficial desde a 0.9). O `portal.js` roda só em www.portaldoeducador.com.br (e no antigo app.): marca a página (`data-maestro-ext`) e repassa a mensagem `maestro-entrar` (número de 6 dígitos, nome e matrícula) para o service worker, que entra na aula como se o aluno tivesse digitado o número.
 
 **Maestro dentro do Dar aula:** `entradaQrTurma` (abrir) cria a aula no Realtime Database do Maestro (projeto `newpc-sala`, `aulas/{codigo}` com `turma_id`, `origem: portal` e `controle/ate`) e grava o número em `qr_aulas.maestro_codigo`; prorrogar atualiza `controle/ate`; fechar grava `controle/encerrada`. Falha no Maestro não impede a aula. A extensão e a página do aluno saem sozinhas 1 minuto depois de `controle/ate`. O painel Turma ao Vivo lê `aulas/{codigo}` a cada 3 s, mantém `controle/professorVivo` e grava pausa (`bloqueioGeral`, `bloqueio/{aparelho}`), comandos (`comando`, `comandos/{aparelho}`) e baixa a mão. Aparelho e aluno se ligam por `alunos/{aparelho}.aluno_id` (matrícula).
 
@@ -271,7 +271,16 @@ Coleções gravadas só pelas funções e sem regra de leitura (o navegador nunc
 | `temas_populares` | Ranking dos temas escolhidos (só identificadores do banco de temas) | Qualquer logado |
 | `config/portal_ia` | Modelos, preços, pacotes e chave geral de cada recurso de IA | Qualquer logado |
 
+| `creditos_demo/{email}` | Marca de quem já ganhou a demonstração do teste (uma vez por e-mail) | Só as funções |
+| `leads_portal/{uid}_{modulo}` | Pedidos "Quero isso na minha escola" (escola, município, recurso, autorização de contato) | Só o admin; só a função grava |
+
 Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 créditos. A rede paga primeiro (com teto mensal por professor); acabou ou bateu o teto, usa os créditos do próprio professor. Toda escrita nessas coleções é das funções.
+
+**Quem usa a carteira da rede** (`daRede` em `creditos.js`): só o usuário com `licenca_tipo` institucional. `LICENCAS_FORA_DE_REDE` (avulsa, cortesia, teste) usa sempre `prof_{uid}`, mesmo com `municipio_id` preenchido: no mesmo município pode haver contrato da prefeitura, do estado e professor que compra avulso.
+
+**Teto** (`tetoRede`): `teto_professor` da carteira da rede; sem ele, a franquia do plano em `config/portal_ia.creditos.franquia` (intermediario 20, completo 40, personalizado 20); sem franquia, `teto_padrao`.
+
+**Franquia mensal** (`aplicarFranquia`): para cada município ativo (menos `lab-muni`) com plano de IA, conta em `usuarios` os perfis professor, gestor e secretaria, ativos e institucionais, e mantém na carteira `mun_{id}` o pacote `franquia-AAAAMM` = educadores × franquia (ou `municipios.franquia_professor`), válido até o fim do mês. O pacote só cresce (quem sai no meio do mês não tira crédito) e cada aumento grava um movimento.
 
 ### Recursos da escola, TV e Teleprompter
 
@@ -280,7 +289,7 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | `rec_config`, `rec_itens`, `rec_contratos` | Equipamentos, movimentações e contratos com SLA |
 | `rec_qr`, `rec_busca`, `rec_pub` | Etiqueta QR, busca pública por patrimônio e cartaz da escola |
 | `rec_chamados`, `rec_reservas` | Chamados técnicos (abertos sem login pela etiqueta) e reservas de equipamento |
-| `tv_pareamentos`, `tv_telas`, `tv_playlists`, `tv_canais`, `tv_campanhas` | Pareamento por código, telas, programação, comunicados da secretaria e campanhas padrão |
+| `tv_pareamentos`, `tv_telas`, `tv_playlists`, `tv_canais`, `tv_campanhas` | Pareamento por código, telas, programação, comunicados da secretaria e campanhas padrão. Professor avulso, de cortesia ou em teste usa o local próprio `escola_id = "u_{uid}"` com `municipio_id` vazio e sem canal (regra `tvPessoal`; Storage na pasta `u_{uid}`) |
 | `tele_sessoes` | Controle remoto do Teleprompter pelo celular |
 
 ### Conteúdo, acervo, avaliação e Formação
@@ -315,6 +324,8 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | Auditoria | Ninguém grava pelo navegador (`write: if false`). Lê só o administrador do Portal (`admin()`); o papel admin da Formação não lê |
 | Portal IA | `portal_ia_docs` não aceita criação pelo navegador; a edição só mexe em texto, título, favorito e HTML (até 300 KB) |
 | Créditos | Leitura por dono da carteira; nenhuma escrita pelo navegador |
+| TV própria (`tvPessoal(esc)`) | `esc == "u_" + uid`, conta ativa, perfil professor, licença avulsa, cortesia ou teste e `licenca_fim` no futuro. Não põe município nem canal da Secretaria; professor de rede não usa |
+| `leads_portal`, `creditos_demo` | Leitura só do admin (leads); nenhuma escrita pelo navegador |
 | Notícias públicas | `noticias_publicas` tem leitura aberta (sem login) e guarda só título, texto, foto e mídia |
 | Materiais da turma | O aluno lê pela turma do claim `turma_id` ou do cadastro; a equipe da escola também |
 
@@ -404,7 +415,12 @@ Segredo nunca entra no código, no chat ou em arquivo do repositório. Fica só 
 |---|---|---|
 | `portalIa` | callable | Porta única da IA. Ações: `cota`, `entender`, `gerar`, `ajustar`, `imagem`, `remover_imagem`, `questoes_prova` (Gerar com IA das Provas), `aula_lousa` (Aula com IA), `converter_atividade` e `foto_ref` (só admin), `compartilhar`, `descompartilhar`, `usar`, `denunciar`, `enviar_email`, `opcoes_envio`, `enviar_turma`, `pref_resumo_rede` |
 | `portalIaLimpar` | gatilho ao excluir `portal_ia_docs` | Apaga as imagens do material excluído |
-| `creditosPedido`, `creditosAdmin` | callables | Pedido de recarga (professor ou secretaria) e gestão das carteiras e da Central de IA pelo admin |
+| `creditosPedido`, `creditosAdmin` | callables | Pedido de recarga (professor ou secretaria) e gestão das carteiras e da Central de IA pelo admin. Ações novas de nov/2026: `retirar` (pacote), `demo_testes`, `franquia` (com `simular`) |
+| `creditosFranquia` | 03:15 diário | `aplicarFranquia`: franquia do mês por educador ativo de rede |
+| `creditosDemoTeste` | gatilho ao criar `usuarios` | Professor com licença teste ganha `config/portal_ia.creditos.demo_teste` (padrão 10) em `prof_{uid}`, válidos até o fim do teste; marca em `creditos_demo/{email}` |
+| `painelTv` | HTTP público (GET e POST) | Painel da TV da recepção, com a chave de `painel_tv/config`. Devolve `publico` (totais, redes com dado oficial de `municipios.rede` e `municipios.ideb`, recursos) e, só num POST com o PIN certo (`pin_hash` = sha256 de `chave:pin`), `gestao`. Cinco PINs errados travam 5 min. Pré-cadastros sem conta em cache de 15 min |
+| `painelTvChave` | callable, só admin | Mostra, troca a chave (apaga o PIN) e grava o PIN (4 a 6 números) |
+| `leadEscola` | callable | Pedido "Quero isso na minha escola" (gestao, relatorios, portal360, maestro): exige `autorizo` e escola/município, 1 por recurso a cada 24 h, e-mail **[Lead Portal]** ou **[Lead sala VR]** para `wa_config/geral.comercial_emails` (sem lista, os destinos padrão), Auditoria |
 | `emailPedidoRecarga`, `emailAlertaCreditos` | gatilhos | Avisam a NEWPC de pedidos e de saldo baixo |
 
 Detalhes do `portalIa`:
@@ -437,7 +453,8 @@ Os envios usam `envio-comum.js`: quem a pessoa alcança, destinatários, limite 
 | Função | Tipo | O que faz |
 |---|---|---|
 | `comunicadoEmail` | callable, só admin | `contar` (público por perfil, município (`__sem` = sem município), escola e licença do professor (`licencas`, `vencidas`); só conta ativa com e-mail; informativo pula `comunicados_pref.off`), `teste` (manda só para o admin), `enviar` (confere o número confirmado, cria tokens, grava o comunicado e os lotes), `cancelar` |
-| `enviarComunicados` | agendada, a cada 5 min | Manda a cota do período (envios por hora / 12) pela conta da Webnode (SMTP com `COMUNICADOS_SMTP_SENHA`), um e-mail por pessoa com `List-Unsubscribe`; para tudo se o servidor recusar a senha; conclui e registra na Auditoria |
+| `enviarComunicados` | agendada, a cada 5 min | Manda a cota do período (o menor entre envios por hora / 12 e o que falta do `por_dia`, padrão 700) pela conta da Webnode (SMTP com `COMUNICADOS_SMTP_SENHA`), um e-mail por pessoa com `List-Unsubscribe`; para tudo se o servidor recusar a senha; conclui e registra na Auditoria. Recusa de limite diário (`LIMITE_DIA`: Max RcptTo, daily limit, Sending Prohibited, quota) não conta como falha: o lote para sem avançar e `config/comunicados_envio.pausa_ate` = agora + 6 h |
+| Ação `reenviar` do `comunicadoEmail` | callable, só admin | `reenviarFalhas`: comunicado novo com as falhas do concluído, sem os erros definitivos (5.1.x, usuário inexistente); marca `reenviado_para` no original |
 | `descadastroEmail` | HTTP público | Página "não quero mais receber" com confirmação por botão (POST) e opção de voltar a receber; registra na Auditoria |
 
 ### Formação Continuada integrada (`index.js`, `formacao-sync.js`)
@@ -535,7 +552,8 @@ Correção automática: múltipla escolha, verdadeiro ou falso, resposta curta (
 | A cada 15 min | `emailPreCadastros`, `emailLembretes` |
 | De hora em hora, minuto 15 | `expirarSenhasProvisorias` |
 | A cada 2 h, das 06:15 às 22:15 | `indiceBusca` |
-| A cada 5 min | `enviarComunicados` (só trabalha com comunicado na fila) |
+| A cada 5 min | `enviarComunicados` (só trabalha com comunicado na fila e fora da pausa do limite diário) |
+| 03:15 diário | `creditosFranquia` |
 | 02:17 diário | Workflow **Copiar acervo para o Nextcloud** (GitHub Actions, só arquivos novos) |
 | 03:15 diário | `limparFotosProvas` |
 | 03:17 diário | `limparFotosPortaria` |
@@ -617,7 +635,7 @@ Ficam em `scripts/`. Os que usam `firebase-admin` rodam na pasta `functions` (pe
 | `fotos-portal-ia.mjs`, `consulta-foto-card.mjs` | Fotos dos cards com os personagens da NEWPC | Não (grava em `functions/saida/`) |
 | `publicar-documento.mjs` | PDF para a Documentação/Ajuda, com versões | Sim |
 | `limpar-testes.mjs`, `inventario-dados.mjs` | Limpeza dos dados de teste e da Rede Modelo; inventário demonstração x real | Só com `--executar`; não |
-| `consulta-*.mjs` | Consultas para decisão e diagnóstico (auditoria, acervo, Portal IA, rede, uso real, logs, `busca-indice` para medir o índice da busca e `buscas` para o que a rede procura) | A maioria não (ver o aviso acima) |
+| `consulta-*.mjs` | Consultas para decisão e diagnóstico (auditoria, acervo, Portal IA, rede, uso real, logs, `busca-indice` para medir o índice da busca e `buscas` para o que a rede procura). Novas de nov/2026: `convites` (situação dos convites por rede), `convites-falhas` (falhas por domínio e motivo), `convites-reenviar` e `precos-creditos` / `precos-creditos-gravar` (tabela de pacotes e franquia). Mostram só contagens e domínios: o repositório é público e o log do Actions também | A maioria não; `convites-reenviar` e `precos-creditos-gravar` gravam |
 | `diag-provas-online.mjs` | Diagnóstico das provas online | Não |
 | `enviar-historico.mjs` | Envia uma vez o histórico de cadastros e Dicas em CSV | Não grava, envia e-mail |
 | `importar-atividades.mjs` | Banco Curricular do Drive para Atividades | Só com `--gravar` |
@@ -629,7 +647,7 @@ Ficam em `scripts/`. Os que usam `firebase-admin` rodam na pasta `functions` (pe
 | `tv-campanhas-padrao.py` | Campanhas padrão da TV | Sim (idempotente) |
 | `gibis/` | Gibi próprio "Turma do Pantanal" | `publicar.py` grava |
 | `maestro-apk.sh`, `maestro-apk-webview.sh` | Geração do APK do Maestro (usados pelo workflow) | Não |
-| `teste-regras-*.mjs` | Testes das regras no emulador | Não |
+| `teste-regras-*.mjs` | Testes das regras no emulador (inclui `teste-regras-tv-pessoal.mjs`: 15 casos da TV própria do avulso) | Não |
 | `teste-calendario.mjs`, `teste-frequencia.mjs` | Testes dos núcleos de cálculo | Não |
 | `teste-portaria.mjs` | Teste real da função de portaria | Temporário, limpa no fim |
 
