@@ -7713,6 +7713,7 @@
     else if(gest && !ed.escolas.size){ av.className += " alerta"; av.textContent = "Para o gestor, marque o município e a(s) escola(s) que ele(a) dirige ou coordena."; }
     else if(gest){ av.textContent = "Gestor de "+ed.escolas.size+" escola(s): vê as turmas, professores, avaliações e relatórios da escola, ajusta o calendário da escola, cuida dos equipamentos e chamados e das TVs. Se também dá aula, marque as turmas abaixo."; }
     else if(!inst && !L.fim){ av.className += " alerta"; av.textContent = "Informe até quando a licença vale."; }
+    else if(!inst && ed.municipio_id && ed.escolas.size){ av.className += " alerta"; av.textContent = "Atenção: a licença continua como "+(ROTULO_TIPO[L.tipo]||L.tipo).toLowerCase()+". Para ele entrar como professor desta rede, com as turmas e os créditos da rede, troque a Licença para Institucional (contrato do município)."; }
     else if(!inst){ av.textContent = "Licença "+(ROTULO_TIPO[L.tipo]||L.tipo).toLowerCase()+" até "+dataBR(L.fim)+". O professor vê os botões liberados do Portal; turmas e alunos da rede ficam fora."; }
     else if(!ed.escolas.size){ av.className += " alerta"; av.textContent = "Para aprovar um professor, marque o município e pelo menos uma escola."; }
     else{ av.textContent = "Ao salvar, o professor passa a ver "+ed.turmas.size+" turma(s) em "+ed.escolas.size+" escola(s). Ele só precisa entrar de novo ou tocar em “Verificar novamente”."; }
@@ -7742,6 +7743,8 @@
     };
     if(ed.perfil === "secretaria"){ Object.assign(dados, { escolas_ids:[], escolas_nomes:[], escola_id:null, turmas_ids:[], licenca_tipo:"institucional" }); }
     if(ed.perfil === "gestor"){ dados.licenca_tipo = "institucional"; }   // turmas marcadas: se o gestor também dá aula
+    // quem deixa de ser professor (equipe NEWPC, gestão, Secretaria, apoio) não carrega mais a licença de teste ou avulsa
+    if(ed.perfil !== "professor"){ Object.assign(dados, { licenca_tipo:"institucional", licenca_fim:null, licenca_plano:"", licenca_pacote:"" }); }
     if(ed.perfil === "professor"){
       Object.assign(dados, { licenca_tipo:L.tipo, licenca_plano: inst ? "" : L.plano,
         licenca_inicio: inst ? null : (L.ini || ""), licenca_fim: inst ? null : Timestamp.fromMillis(msDe(L.fim)),
@@ -12731,7 +12734,8 @@
     crA.profs = []; const vistos = new Set();
     const [qe, qa] = await Promise.all([getDocs(query(collection(db,"usuarios"), where("ia_extra","!=",null))).catch(e => { console.warn("ia_extra:", e.code); return null; }),
       getDocs(query(collection(db,"usuarios"), where("licenca_tipo","in",["avulsa","cortesia","teste"]))).catch(e => { console.warn("avulsos:", e.code); return null; })]);
-    [qe, qa].forEach(q => q && q.forEach(d => { if(vistos.has(d.id)) return; vistos.add(d.id); crA.profs.push({ id:d.id, ...d.data() }); }));
+    // só professor: equipe NEWPC, gestão e Secretaria que um dia foram teste ou avulso não entram (a licença deles não vale mais)
+    [qe, qa].forEach(q => q && q.forEach(d => { if(vistos.has(d.id)) return; vistos.add(d.id); const x = d.data(); if(x.perfil && x.perfil !== "professor") return; crA.profs.push({ id:d.id, ...x }); }));
     crA.profs.sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
     crA.cart = []; if(ks) ks.forEach(d => crA.cart.push({ id:d.id, ...d.data() }));
     crA.munis = []; if(ms) ms.forEach(d => crA.munis.push({ id:d.id, ...d.data() }));
