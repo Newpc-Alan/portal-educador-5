@@ -7292,6 +7292,22 @@
     return lic.vencida ? situacao(u) === "expirado" : (lic.dias !== null && !lic.semFim && lic.dias <= 30);
   }
   // autocadastro de um municipio que a NEWPC ja atende (nome + UF)
+  // a escola que o professor escreveu no autocadastro x o cadastro de escolas do município: INEP igual ou nome parecido
+  // (sem acento e sem as palavras de sempre: escola, municipal, estadual, professor...). Só sugere: o administrador confere.
+  const PALAVRAS_COMUNS = new Set(["escola","esc","municipal","mun","estadual","est","e","de","da","do","das","dos","em","ee","eem","emef","emei","eme","cmei","ceim","ceinf","creche","centro","educacao","educacional","ensino","fundamental","basico","prof","professor","professora","profa","profo","polo","unidade","escolar"]);
+  const tokensEscola = t => norm(t).split(" ").filter(w => w && !PALAVRAS_COMUNS.has(w));
+  function sugerirEscola(texto, inep, escolas){
+    if(!escolas.length) return null;
+    const ip = String(inep || "").replace(/\D/g, "");
+    if(ip.length === 8){ const e = escolas.find(x => String(x.inep || "").replace(/\D/g, "") === ip); if(e) return { e, como:"pelo INEP" }; }
+    const a = tokensEscola(texto); if(!a.length) return null;
+    let melhor = null;
+    escolas.forEach(e => { const b = tokensEscola(e.nome); if(!b.length) return;
+      const comum = a.filter(w => b.some(x => x === w || (w.length >= 5 && x.length >= 5 && (x.startsWith(w) || w.startsWith(x))))).length;
+      const nota = comum / Math.max(a.length, b.length);
+      if(!melhor || nota > melhor.nota) melhor = { e, nota }; });
+    return melhor && melhor.nota >= 0.5 ? { e:melhor.e, como:"pelo nome (" + Math.round(melhor.nota * 100) + "% parecido)" } : null;
+  }
   function deMunicipioCliente(u){
     if(!u.municipio_cad) return null;
     const n = norm(u.municipio_cad), uf = String(u.uf||"").toUpperCase();
@@ -7601,9 +7617,17 @@
       licOriginal: JSON.stringify([u.licenca_tipo||"institucional", u.licenca_plano||"", isoDe(msDe(u.licenca_fim))]),
       cad: u
     };
-    // autocadastro de municipio atendido: sugere converter para institucional
+    // autocadastro de municipio atendido: todo município cadastrado tem contrato com a NEWPC, então o professor entra como da rede
+    // (licença institucional) e a escola que ele informou é confrontada com o cadastro de escolas do município
     const cli = deMunicipioCliente(u);
     if(cli && !usr.editando.municipio_id) usr.editando.municipio_id = cli.id;
+    if(cli && usr.editando.status === "ativo" && u.status !== "ativo" && (u.perfil || "professor") === "professor" && usr.editando.lic.tipo !== "institucional"){ usr.editando.lic.tipo = "institucional"; usr.editando.licAuto = true; }
+    usr.editando.sugEscola = null;
+    if(cli && !usr.editando.escolas.size && (u.escola_texto || u.escola_inep)){
+      const s = sugerirEscola(u.escola_texto, u.escola_inep, cacheEscolas.filter(e => e.municipio_id === usr.editando.municipio_id));
+      if(s){ usr.editando.escolas.add(s.e.id); usr.editando.sugEscola = s; }
+      else usr.editando.sugEscola = { nenhuma:true };
+    }
     // sem municipio salvo: herda da primeira escola marcada
     if(!usr.editando.municipio_id && usr.editando.escolas.size){
       const e = cacheEscolas.find(x => usr.editando.escolas.has(x.id)); if(e) usr.editando.municipio_id = e.municipio_id || "";
@@ -7646,7 +7670,9 @@
     const c = ed.cad || {};
     $("usrCadInfo").innerHTML = c.escola_texto || c.municipio_cad
       ? "Informado no cadastro: <b>"+escapeHtml([c.escola_texto, [c.municipio_cad, c.uf].filter(Boolean).join("/"), c.rede].filter(Boolean).join(" · "))+"</b>"+(c.whatsapp ? " · WhatsApp "+escapeHtml(c.whatsapp) : "")+
-        (deMunicipioCliente(c) ? '<br><span class="tag-cliente">Município atendido pela NEWPC: para vincular à rede, mude o tipo para Institucional.</span>' : "")
+        (deMunicipioCliente(c) ? '<br><span class="tag-cliente">Município atendido pela NEWPC' + (ed.licAuto ? ': a licença já foi trocada para Institucional (confira e salve).' : '.') + '</span>' : "") +
+        (ed.sugEscola && ed.sugEscola.e ? '<br><span class="tag-cliente">✓ Escola marcada ' + escapeHtml(ed.sugEscola.como) + ': <b>' + escapeHtml(ed.sugEscola.e.nome) + '</b>. Confira antes de salvar.</span>'
+          : ed.sugEscola && ed.sugEscola.nenhuma ? '<br><span class="tag-cliente" style="background:#fff3d6;color:#6b4500">Nenhuma escola do cadastro parecida com "' + escapeHtml(c.escola_texto || c.escola_inep || "") + '": marque a escola na lista ou cadastre em Escolas.</span>' : "")
       : "";
     $("usrMuni").closest(".field").style.display = inst || adm ? "" : "none";
     // escolas do municipio
