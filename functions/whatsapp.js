@@ -288,6 +288,31 @@ async function avisarPessoa(email, assunto, html) {
   if (!email) return;
   try { await transporte().sendMail({ from: `"Portal do Educador · WhatsApp" <${SMTP_USUARIO.value()}>`, to: email, subject: assunto, html }); } catch (e) { console.warn('whatsapp: aviso', e.message); }
 }
+// aviso no WhatsApp pessoal da equipe (nov/2026): todo membro ativo com "whatsapp_aviso" recebe (Alan e Leonardo sempre).
+// Usa o modelo aprovado pde_alerta_atendimento; sem ele (ainda em aprovação), manda texto se o membro falou com o robô nas últimas 24 h.
+const MODELO_ALERTA = 'pde_alerta_atendimento';
+async function alertaWhats(db, cfg, waId, quem, situacao) {
+  const sn = await db.collection('wa_equipe').where('ativo', '==', true).get().catch(() => null); if (!sn) return;
+  const alvos = sn.docs.map(d => d.data()).filter(m => m.avisos_wa !== false && /^\d{10,13}$/.test(String(m.whatsapp_aviso || '')));
+  if (alvos.some(m => variantes(m.whatsapp_aviso).includes(String(waId)))) return;   // conversa de alguém da equipe (teste): ninguém é avisado
+  const deQuem = txt(quem || 'Um contato', 80), sit = txt(situacao, 80);
+  await Promise.all(alvos.map(async m => {
+    const vs = variantes(m.whatsapp_aviso);
+    const para = vs.find(x => x.startsWith('55') && x.length === 13) || vs.find(x => x.startsWith('55'));
+    try {
+      await enviar(cfg, para, { type: 'template', template: { name: MODELO_ALERTA, language: { code: 'pt_BR' },
+        components: [{ type: 'body', parameters: [{ type: 'text', text: deQuem }, { type: 'text', text: sit }] }] } });
+    } catch (e) {
+      let ult = 0, conv = '';
+      for (const v of vs.filter(x => x.startsWith('55'))) { const c = (await db.doc('wa_conversas/' + v).get()).data(); const t = c && c.ultima_pessoa_em && c.ultima_pessoa_em.toMillis ? c.ultima_pessoa_em.toMillis() : 0; if (t > ult) { ult = t; conv = v; } }
+      if (conv && Date.now() - ult < 23.5 * 3600e3) await enviar(cfg, conv, { type: 'interactive', interactive: { type: 'cta_url', header: { type: 'text', text: 'Portal do Educador' },
+        body: { text: '🔔 Atendimento do Portal do Educador: ' + deQuem + ' ' + sit + '. Toque no botão para abrir a conversa.' }, footer: { text: 'Aviso para a equipe' },
+        action: { name: 'cta_url', parameters: { display_text: 'Abrir o atendimento', url: SITE + '/atendimento/' } } } }).catch(e2 => console.warn('whatsapp: alerta texto', e2.message));
+      else console.warn('whatsapp: alerta sem modelo aprovado e fora das 24 h', e.message);
+    }
+  }));
+}
+const quemDe = c => { const n = (c && (c.nome || c.nome_whatsapp)) || 'Um contato'; return n + (c && c.municipio_nome ? ' (' + c.municipio_nome + ')' : ''); };
 // passa a conversa para alguém do setor (rodízio); sem ninguém disponível, fica na fila do setor e a lista padrão é avisada
 async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
   const m = await proximoDoSetor(db, setor).catch(e => { console.warn('whatsapp: rodízio', e.message); return null; });
@@ -303,6 +328,8 @@ async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {
     if (sn) await notificar(db, sn.docs.filter(d => d.data().ativo === true).map(d => d.id), 'Conversa na fila · ' + SETORES[setor], resumo, waId);
   }
   await auditar(db, waId, 'Conversa encaminhada: ' + SETORES[setor] + (m ? ' › ' + m.nome : ' › fila'));
+  const conv = (await ref.get()).data() || {};
+  await alertaWhats(db, cfg, waId, quemDe(conv), 'precisa de um atendente (' + SETORES[setor] + ')').catch(e => console.warn('whatsapp: alerta', e.message));
   return m;
 }
 // métricas do dia (painel da TV): wa_metricas/{AAAA-MM-DD} no horário de Campo Grande
@@ -331,7 +358,10 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     ultima: txt(entrada || '[' + msg.type + ']', 200), ultima_em: FieldValue.serverTimestamp() }, { merge: true });
   const gravando = interno ? null : guardar(ref, 'pessoa', entrada || '[' + msg.type + ']', { tipo: msg.type, wamid: txt(msg.id, 120) });
   const responder = async corpo => { await Promise.all([enviar(cfg, waId, corpo), guardar(ref, 'robo', corpo.text ? corpo.text.body : (corpo.interactive.body || {}).text || '[menu]')]); };
-  await Promise.all([cabecalho, gravando, digitando]);
+  // primeiro contato do dia desta pessoa: a equipe fica sabendo, mesmo com o robô atendendo
+  const primeiroDoDia = !interno && diaCG(conv.ultima_pessoa_em && conv.ultima_pessoa_em.toMillis ? conv.ultima_pessoa_em.toMillis() : 0) !== diaCG()
+    ? alertaWhats(db, cfg, waId, (quem ? quem.nome : nome) + (quem && quem.municipio_nome ? ' (' + quem.municipio_nome + ')' : ''), 'começou a conversar com o robô').catch(e => console.warn('whatsapp: alerta', e.message)) : null;
+  await Promise.all([cabecalho, gravando, digitando, primeiroDoDia]);
   const estado = async e => ref.set({ estado: e, estado_em: FieldValue.serverTimestamp() }, { merge: true });
 
   if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Por enquanto eu entendo só mensagens de texto. Escreva sua dúvida ou digite *menu*.')); return; }
@@ -610,7 +640,9 @@ export const whatsappEquipe = onCall({ region: REGIAO, maxInstances: 3, timeoutS
     const uref = sn.docs[0], ud = uref.data();
     if (ud.status !== 'ativo') throw new HttpsError('failed-precondition', 'O cadastro dessa pessoa no Portal não está ativo.');
     const ref = db.doc('wa_equipe/' + uref.id), antes = await ref.get();
-    await ref.set({ nome: txt(ud.nome, 80) || email, email, setores, ativo: true, disponivel: antes.exists ? antes.data().disponivel !== false : true,
+    let wz = String(d.whatsapp_aviso || '').replace(/\D/g, ''); if (wz.startsWith('55') && wz.length > 11) wz = wz.slice(2);
+    if (wz && !/^\d{10,11}$/.test(wz)) throw new HttpsError('invalid-argument', 'WhatsApp para avisos: use DDD + número.');
+    await ref.set({ whatsapp_aviso: wz, avisos_wa: !!wz, nome: txt(ud.nome, 80) || email, email, setores, ativo: true, disponivel: antes.exists ? antes.data().disponivel !== false : true,
       atualizado_em: FieldValue.serverTimestamp(), ...(antes.exists ? {} : { criado_em: FieldValue.serverTimestamp(), ultimo_em: Timestamp.fromMillis(0) }) }, { merge: true });
     await auditar(db, uref.id, 'Equipe de atendimento: ' + email + ' (' + setores.join(', ') + ')');
     return { ok: true, uid: uref.id, nome: ud.nome || email };
@@ -656,6 +688,7 @@ export const whatsappRotina = onSchedule({ region: REGIAO, schedule: 'every 5 mi
           await avisarEquipe(cfg, 'WhatsApp: ' + quem + ' espera há ' + min + ' min sem resposta', '<p>Ninguém respondeu ainda. Assuma pela tela de atendimento: ' + SITE + '/atendimento/</p>');
         }
         if (dentro24 && vezes === 0) await enviar(cfg, waId, texto('Ainda estamos com a sua conversa. Já chamei mais alguém da equipe para responder.')).then(() => guardar(ref, 'robo', 'Aviso de espera enviado')).catch(() => {});
+        await alertaWhats(db, cfg, waId, quemDe(c), 'espera resposta há ' + min + ' min').catch(e => console.warn('whatsapp: alerta', e.message));
         await metricas(db, { sla_estouros: FieldValue.increment(1) });
         continue;
       }

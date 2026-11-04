@@ -6055,11 +6055,13 @@
     el.innerHTML = '<h4 style="margin:0 0 4px">Equipe de atendimento</h4><p class="d">Quem recebe as conversas por rodízio. A pessoa precisa ter conta no Portal (entrar uma vez) e passa a ver esta tela no menu. Cada um liga ou desliga o próprio <b>Disponível</b>.</p>'+
       '<div class="wa-eq-form"><input type="email" id="waEqEmail" placeholder="E-mail da pessoa no Portal" data-padrao="email" autocomplete="off">'+
       Object.entries(WA_SETORES).map(([k, v]) => '<label><input type="checkbox" name="waEqSetor" value="'+k+'"'+(k === "suporte" ? " checked" : "")+'> '+v+'</label>').join("")+
+      '<input type="tel" id="waEqWhats" inputmode="tel" maxlength="16" placeholder="WhatsApp para avisos (DDD + número)" data-padrao="tel" autocomplete="off" style="min-width:230px">'+
       '<button class="btn btn-primary btn-add" data-action="wa-eq-salvar">Adicionar ou atualizar</button></div>'+
+      '<p class="d" style="margin:6px 0 0">Com o WhatsApp preenchido, a pessoa recebe no celular, vindo do número do Portal: quem precisa de atendente, quem espera resposta e o primeiro contato do dia de cada pessoa.</p>'+
       (wa.equipe.length ? '<table class="wa-eq-tab"><thead><tr><th>Nome</th><th>Setores</th><th>Situação</th><th></th></tr></thead><tbody>'+wa.equipe.map(m =>
-        '<tr><td>'+escapeHtml(m.nome || "")+'<br><small>'+escapeHtml(m.email || "")+'</small></td><td>'+escapeHtml((m.setores || []).map(x => WA_SETORES[x] || x).join(", "))+'</td>'+
+        '<tr><td>'+escapeHtml(m.nome || "")+'<br><small>'+escapeHtml(m.email || "")+'</small>'+(m.whatsapp_aviso ? '<br><small>🔔 avisos no WhatsApp '+escapeHtml(telBR(m.whatsapp_aviso).fmt || m.whatsapp_aviso)+'</small>' : '')+'</td><td>'+escapeHtml((m.setores || []).map(x => WA_SETORES[x] || x).join(", "))+'</td>'+
         '<td>'+(m.ativo ? (m.disponivel === false ? '<span class="wa-selo">indisponível</span>' : '<span class="wa-selo vd">disponível</span>') : '<span class="wa-selo">fora da equipe</span>')+'</td>'+
-        '<td><button class="btn btn-ghost btn-add" data-action="wa-eq-editar" data-email="'+escapeAttr(m.email || "")+'" data-setores="'+escapeAttr((m.setores || []).join(","))+'">Editar</button> '+
+        '<td><button class="btn btn-ghost btn-add" data-action="wa-eq-editar" data-email="'+escapeAttr(m.email || "")+'" data-whats="'+escapeAttr(m.whatsapp_aviso || "")+'" data-setores="'+escapeAttr((m.setores || []).join(","))+'">Editar</button> '+
         '<button class="btn btn-ghost btn-add" data-action="wa-eq-ativo" data-id="'+escapeAttr(m.id)+'" data-ativo="'+(m.ativo ? "0" : "1")+'">'+(m.ativo ? "Tirar da equipe" : "Voltar à equipe")+'</button></td></tr>').join("")+'</tbody></table>' : '<p class="d">Ninguém cadastrado ainda: sem equipe, as conversas ficam na fila e o aviso vai para o e-mail padrão.</p>');
   }
   async function waEqSalvar(){
@@ -6067,7 +6069,9 @@
     const setores = [...document.querySelectorAll('input[name="waEqSetor"]:checked')].map(i => i.value);
     if(!PDE_PADRAO.email(email).ok || !email){ toast("Informe um e-mail válido.", true); return; }
     if(!setores.length){ toast("Marque pelo menos um setor.", true); return; }
-    try{ const r = await waFn("whatsappEquipe", { acao:"salvar", email, setores }); toast(r.nome+" está na equipe de atendimento."); $("waEqEmail").value = ""; }catch(e){ waErro(e); }
+    const whatsapp_aviso = (($("waEqWhats") || {}).value || "").replace(/\D/g, "");
+    if(whatsapp_aviso && !/^\d{10,13}$/.test(whatsapp_aviso)){ toast("WhatsApp para avisos: DDD + número.", true); return; }
+    try{ const r = await waFn("whatsappEquipe", { acao:"salvar", email, setores, whatsapp_aviso }); toast(r.nome+" está na equipe de atendimento."+(whatsapp_aviso ? " Avisos no WhatsApp ligados." : "")); $("waEqEmail").value = ""; if($("waEqWhats")) $("waEqWhats").value = ""; }catch(e){ waErro(e); }
   }
   document.addEventListener("click", ev => {
     const el = ev.target.closest("[data-action^='wa-']"); if(!el || !$("waTela")) return;
@@ -6091,7 +6095,7 @@
       if(!/^\d{4,6}$/.test(pin)){ toast("O PIN tem de 4 a 6 números.", true); return; }
       waFn("painelTvChave", { pin }).then(() => { i.value = ""; toast("PIN da gestão definido. Use na TV, em Gestão da equipe."); }).catch(waErro); }
     else if(a === "wa-tv-copiar"){ const i = $("waTvUrl"); if(i){ navigator.clipboard.writeText(i.value).then(() => toast("Link copiado.")).catch(() => { i.select(); toast("Selecione e copie o link.", true); }); } }
-    else if(a === "wa-eq-editar"){ $("waEqEmail").value = el.dataset.email; const s = (el.dataset.setores || "").split(","); document.querySelectorAll('input[name="waEqSetor"]').forEach(i => i.checked = s.includes(i.value)); $("waEqEmail").focus(); }
+    else if(a === "wa-eq-editar"){ $("waEqEmail").value = el.dataset.email; if($("waEqWhats")) $("waEqWhats").value = el.dataset.whats ? (telBR(el.dataset.whats).fmt || el.dataset.whats) : ""; const s = (el.dataset.setores || "").split(","); document.querySelectorAll('input[name="waEqSetor"]').forEach(i => i.checked = s.includes(i.value)); $("waEqEmail").focus(); }
     else if(a === "wa-eq-ativo") waFn("whatsappEquipe", { acao:"ativo", uid:el.dataset.id, ativo:el.dataset.ativo === "1" }).then(() => toast("Equipe atualizada.")).catch(waErro);
     else if(a === "wa-resolver") updateDoc(doc(db, "wa_chamados", el.dataset.id), { status:"resolvido", atualizado_em:serverTimestamp() }).then(() => toast("Chamado marcado como resolvido.")).catch(() => toast("Não foi possível atualizar.", true));
   });
