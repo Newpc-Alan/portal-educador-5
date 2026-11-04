@@ -26,7 +26,11 @@ const TAM_LOTE = 400;
 const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia'];
 const msDe = v => v && v.toMillis ? v.toMillis() : (v && v._seconds ? v._seconds * 1000 : 0);
 const URL_SAIR = 'https://southamerica-east1-' + (process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'portal-educador-5') + '.cloudfunctions.net/descadastroEmail';
-const PADRAO = { host: 'smtp.mail.webnode.com', porta: 465, por_hora: 100, remetente: 'comunicados@portaldoeducador.com.br', nome: 'Portal do Educador' };
+const PADRAO = { host: 'smtp.mail.webnode.com', porta: 465, por_hora: 100, por_dia: 700, remetente: 'comunicados@portaldoeducador.com.br', nome: 'Portal do Educador' };
+// limite diário do servidor de e-mail (a Webnode recusa com "550 5.2.0 Sending Prohibited (Max RcptTo Daily limit)"): não é falha da pessoa.
+// Quando acontece, o envio pausa 6 h e continua de onde parou; e o robô nunca passa de por_dia envios no dia (config/comunicados_envio).
+export const LIMITE_DIA = /Max RcptTo|daily limit|Sending Prohibited|too many recipients|quota/i;
+const diaCGc = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
 const txt = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').slice(0, n);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const okEmail = e => /^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$/.test(e);
@@ -42,6 +46,7 @@ export async function config(db) {
   const c = (await db.doc('config/comunicados').get()).data() || {};
   const porta = [465, 587].includes(Number(c.porta)) ? Number(c.porta) : PADRAO.porta;
   return { host: /^[a-z0-9.-]{4,100}$/i.test(c.host || '') ? c.host : PADRAO.host, porta, por_hora: Math.min(2000, Math.max(10, Number(c.por_hora) || PADRAO.por_hora)),
+    por_dia: Math.min(5000, Math.max(50, Number(c.por_dia) || PADRAO.por_dia)),
     remetente: okEmail(c.remetente || '') ? c.remetente : PADRAO.remetente, nome: txt(c.nome || PADRAO.nome, 60) };
 }
 const transporte = c => nodemailer.createTransport({ host: c.host, port: c.porta, secure: c.porta === 465, requireTLS: c.porta === 587,
@@ -187,6 +192,28 @@ export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, mem
     await auditar(db, u, 'criou', ref.id, (quando > Date.now() ? 'Agendou' : 'Enviou') + ' o comunicado "' + com.assunto + '" para ' + r.lista.length + ' pessoa(s): ' + pubTxt, { total: { para: r.lista.length } });
     return { ok: true, id: ref.id, total: r.lista.length };
   }
+  if (acao === 'reenviar') {
+    // quem não recebeu por limite do servidor (ou outra falha que não seja e-mail inexistente) entra num comunicado novo, igual ao original
+    const id = String(d.id || ''); if (!/^[A-Za-z0-9]{10,40}$/.test(id)) throw new HttpsError('invalid-argument', 'Comunicado inválido.');
+    const ref = db.doc('comunicados_email/' + id), x = (await ref.get()).data();
+    if (!x) throw new HttpsError('not-found', 'Comunicado não encontrado.');
+    if (x.reenviado_para) throw new HttpsError('failed-precondition', 'As falhas deste comunicado já foram reenviadas.');
+    const definitivo = /5\.1\.[0-9]|user unknown|does not exist|no such user|mailbox unavailable|invalid recipient/i;
+    const itens = [], vistos = new Set();
+    for (const l of (await ref.collection('envio_lotes').orderBy('n').get()).docs) {
+      const ld = l.data(), por = new Map((ld.itens || []).map(it => [it.email, it]));
+      for (const f of (ld.falhas || [])) { if (definitivo.test(String(f.erro || '')) || vistos.has(f.email)) continue; const it = por.get(f.email); if (it) { vistos.add(f.email); itens.push(it); } }
+    }
+    if (!itens.length) throw new HttpsError('failed-precondition', 'Nenhuma falha para reenviar (as que existem são de e-mail inexistente).');
+    const novo = db.collection('comunicados_email').doc(), lotes = [];
+    for (let i = 0; i < itens.length; i += TAM_LOTE) lotes.push(itens.slice(i, i + TAM_LOTE));
+    await novo.set({ tipo: x.tipo, assunto: x.assunto, mensagem: x.mensagem, botao_texto: x.botao_texto || '', botao_link: x.botao_link || '', publico: { ...(x.publico || {}), reenvio_de: id },
+      total: itens.length, enviados: 0, falhas: 0, lotes: lotes.length, status: 'enviando', agendado_para: Timestamp.now(), criado_em: FieldValue.serverTimestamp(), criado_por: txt(u.nome, 60), criado_por_uid: u.uid, reenvio_de: id });
+    for (let i = 0; i < lotes.length; i++) await novo.collection('envio_lotes').doc(String(i).padStart(3, '0')).set({ n: i, itens: lotes[i], prox: 0, falhas: [] });
+    await ref.update({ reenviado_para: novo.id, reenviado_em: FieldValue.serverTimestamp() });
+    await auditar(db, u, 'criou', novo.id, 'Reenvio das falhas do comunicado "' + x.assunto + '": ' + itens.length + ' pessoa(s)', { total: { para: itens.length } });
+    return { ok: true, id: novo.id, total: itens.length };
+  }
   if (acao === 'cancelar') {
     const id = String(d.id || ''); if (!/^[A-Za-z0-9]{10,40}$/.test(id)) throw new HttpsError('invalid-argument', 'Comunicado inválido.');
     const ref = db.doc('comunicados_email/' + id), x = (await ref.get()).data();
@@ -205,7 +232,11 @@ export const enviarComunicados = onSchedule({ region: REGIAO, schedule: 'every 5
   const sn = await db.collection('comunicados_email').where('status', 'in', ['enviando', 'agendado']).get();
   const fila = sn.docs.filter(d => (d.data().agendado_para || agora).toMillis() <= agora.toMillis()).sort((a, b) => a.data().agendado_para.toMillis() - b.data().agendado_para.toMillis());
   if (!fila.length) return;
-  const c = await config(db); let cota = Math.max(1, Math.floor(c.por_hora / 12));
+  const c = await config(db), envRef = db.doc('config/comunicados_envio'), env = (await envRef.get()).data() || {};
+  if (env.pausa_ate && env.pausa_ate.toMillis() > Date.now()) return;               // servidor de e-mail pediu para esperar
+  const hoje = diaCGc(), jaHoje = env.dia === hoje ? (env.enviados_dia || 0) : 0;
+  let cota = Math.min(Math.max(1, Math.floor(c.por_hora / 12)), Math.max(0, c.por_dia - jaHoje)); if (cota <= 0) return;
+  let enviadosRodada = 0, pausou = false;
   const t = transporte(c), inicio = Date.now();
   try {
     for (const cd of fila) {
@@ -218,8 +249,10 @@ export const enviarComunicados = onSchedule({ region: REGIAO, schedule: 'every 5
         let prox = l.prox; const novasFalhas = [];
         while (prox < l.itens.length && cota > 0 && Date.now() - inicio < 240000) {
           const dest = l.itens[prox];
-          try { await t.sendMail(montarEmail(c, com, dest, dest.t)); enviados++; }
-          catch (e) { falhas++; novasFalhas.push({ email: dest.email, erro: txt(e.message, 140) }); if (/auth|login|credential|535|534/i.test(String(e.message))) { cota = 0; console.error('comunicados: o servidor recusou a senha', e.message); break; } }
+          try { await t.sendMail(montarEmail(c, com, dest, dest.t)); enviados++; enviadosRodada++; }
+          catch (e) {
+            if (LIMITE_DIA.test(String(e.message))) { cota = 0; pausou = true; console.warn('comunicados: limite diário do servidor; pausa de 6 h', txt(e.message, 120)); break; }   // não avança: tenta de novo depois
+            falhas++; novasFalhas.push({ email: dest.email, erro: txt(e.message, 140) }); if (/auth|login|credential|535|534/i.test(String(e.message))) { cota = 0; console.error('comunicados: o servidor recusou a senha', e.message); break; } }
           prox++; cota--;
         }
         await ld.ref.update({ prox, ...(novasFalhas.length ? { falhas: FieldValue.arrayUnion(...novasFalhas) } : {}) });
@@ -231,7 +264,10 @@ export const enviarComunicados = onSchedule({ region: REGIAO, schedule: 'every 5
       if (acabou) await auditar(db, null, 'alterou', cd.id, 'Comunicado "' + com.assunto + '" concluído: ' + ((com.enviados || 0) + enviados) + ' enviado(s), ' + ((com.falhas || 0) + falhas) + ' falha(s)');
       if (!acabou) break;
     }
-  } finally { t.close(); }
+  } finally {
+    t.close();
+    await envRef.set({ dia: hoje, enviados_dia: jaHoje + enviadosRodada, ...(pausou ? { pausa_ate: Timestamp.fromMillis(Date.now() + 6 * 3600e3), ultima_pausa_em: FieldValue.serverTimestamp() } : {}) }, { merge: true }).catch(() => {});
+  }
 });
 
 // "não quero mais receber": a página pede confirmação (o clique automático de antivírus não descadastra ninguém)

@@ -6078,7 +6078,8 @@
         '<div class="field"><label for="cmPorta">Porta</label><select id="cmPorta"><option value="465"'+(Number(cfg.porta || 465) === 465 ? " selected" : "")+'>465 (SSL)</option><option value="587"'+(Number(cfg.porta) === 587 ? " selected" : "")+'>587 (STARTTLS)</option></select></div></div>'+
         '<div class="row2"><div class="field"><label for="cmRem">Conta que envia</label><input id="cmRem" value="'+escapeAttr(cfg.remetente || "comunicados@portaldoeducador.com.br")+'"></div>'+
         '<div class="field"><label for="cmNome">Nome do remetente</label><input id="cmNome" maxlength="60" value="'+escapeAttr(cfg.nome || "Portal do Educador")+'"></div>'+
-        '<div class="field"><label for="cmHora">Envios por hora</label><input type="number" id="cmHora" min="10" max="2000" value="'+escapeAttr(cfg.por_hora || 100)+'"></div></div>'+
+        '<div class="field"><label for="cmHora">Envios por hora</label><input type="number" id="cmHora" min="10" max="2000" value="'+escapeAttr(cfg.por_hora || 100)+'"></div>'+
+        '<div class="field"><label for="cmDia">Máximo por dia <small>(o servidor da Webnode recusa acima do limite diário; o robô para e continua no dia seguinte)</small></label><input type="number" id="cmDia" min="50" max="5000" value="'+escapeAttr(cfg.por_dia || 700)+'"></div></div>'+
         '<p class="d">A senha da conta não fica aqui: ela está guardada no Google (Secret Manager, nome COMUNICADOS_SMTP_SENHA). Comece com 100 por hora e aumente se a Webnode aceitar.</p>'+
         '<button class="btn btn-ghost btn-add" data-action="cm-cfg">Salvar configuração</button></details>';
     cmContar(); cmListar();
@@ -6138,6 +6139,7 @@
         '<small>'+escapeHtml([(c.publico && c.publico.perfis || []).map(p => (CM_PERFIS.find(x => x[0] === p) || [p, p])[1].split(" (")[0]).join(", "), c.tipo === "servico" ? "aviso de serviço" : "informativo", "por "+(c.criado_por || "-"), c.status === "agendado" ? "agendado para "+pnDataHora(c.agendado_para) : pnDataHora(c.criado_em)].join(" · "))+'</small>'+
         '<div class="cm-barra"><i style="width:'+pct+'%"></i></div><small>'+fmt(c.enviados || 0)+' de '+fmt(c.total || 0)+' enviados'+(c.falhas ? ' · <b style="color:#b3261e">'+fmt(c.falhas)+' falha(s)</b>' : '')+'</small>'+
         '<div class="cm-it-acoes">'+(c.falhas ? '<button class="btn-mini btn-gerenciar" data-action="cm-falhas" data-id="'+escapeAttr(c.id)+'">Ver falhas</button>' : '')+
+        (c.falhas && c.status === "concluido" && !c.reenviado_para ? '<button class="btn-mini btn-gerenciar" data-action="cm-reenviar" data-id="'+escapeAttr(c.id)+'">Reenviar falhas</button>' : (c.reenviado_para ? '<span class="cm-ok" style="font-size:12px;color:var(--muted)">falhas reenviadas</span>' : ''))+
         (["enviando","agendado"].includes(c.status) ? '<button class="btn-mini cm-x" data-action="cm-cancelar" data-id="'+escapeAttr(c.id)+'">Cancelar</button>' : '')+'</div></div>'; }).join("");
   }
   async function cmFalhas(id){
@@ -6151,8 +6153,8 @@
     btn.disabled = true; try{ await chamarBackup("comunicadoEmail", { acao:"cancelar", id }, 30000); toast("Comunicado cancelado."); cmListar(); }catch(e){ toast(e.message || "Não foi possível cancelar.", true); btn.disabled = false; }
   }
   async function cmSalvarCfg(btn){
-    const porta = Number($("cmPorta").value), por_hora = Math.min(2000, Math.max(10, Math.round(Number($("cmHora").value) || 100)));
-    const dados = { host:$("cmHost").value.trim(), porta, remetente:$("cmRem").value.trim().toLowerCase(), nome:$("cmNome").value.trim().slice(0, 60), por_hora, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+    const porta = Number($("cmPorta").value), por_hora = Math.min(2000, Math.max(10, Math.round(Number($("cmHora").value) || 100))), por_dia = Math.min(5000, Math.max(50, Math.round(Number(($("cmDia") || {}).value) || 700)));
+    const dados = { host:$("cmHost").value.trim(), porta, remetente:$("cmRem").value.trim().toLowerCase(), nome:$("cmNome").value.trim().slice(0, 60), por_hora, por_dia, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     if(!/^[a-z0-9.-]{4,100}$/i.test(dados.host) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(dados.remetente)){ toast("Confira o servidor e a conta.", true); return; }
     btn.disabled = true; try{ await setDoc(doc(db, "config", "comunicados"), dados); toast("Configuração salva."); }catch(e){ toast("Não foi possível salvar ("+(e.code || "erro")+").", true); } btn.disabled = false;
   }
@@ -7841,6 +7843,11 @@
     else if(acao === "cm-enviar"){ cmEnviar(el); }
     else if(acao === "cm-falhas"){ cmFalhas(el.dataset.id); }
     else if(acao === "cm-cancelar"){ cmCancelar(el.dataset.id, el); }
+    else if(acao === "cm-reenviar"){
+      if(el.dataset.confirma !== "1"){ el.dataset.confirma = "1"; el.textContent = "Reenviar? Toque de novo"; return; }
+      el.disabled = true; chamarBackup("comunicadoEmail", { acao:"reenviar", id:el.dataset.id }, 60000)
+        .then(r => { toast("Reenvio na fila: " + r.total + " pessoa(s). Sai aos poucos, respeitando o limite diário."); cmListar(); })
+        .catch(e => { el.disabled = false; toast(e.message || "Não reenviou.", true); }); }
     else if(acao === "cm-cfg"){ cmSalvarCfg(el); }
     else if(acao === "bg-abrir"){ bgAbrir(+el.dataset.arg, el); }
     else if(acao === "bg-mais"){ BG.abertos[el.dataset.arg] = true; bgBuscar(BG.termo); const q = $("bgQ"); if(q) q.focus(); }
