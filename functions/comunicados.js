@@ -154,6 +154,28 @@ async function tokens(db, lista) {
   return out;
 }
 
+// quem não recebeu por limite do servidor (ou outra falha que não seja e-mail inexistente) entra num comunicado novo, igual ao original
+export async function reenviarFalhas(db, id, autor) {
+  if (!/^[A-Za-z0-9]{10,40}$/.test(id)) throw new HttpsError('invalid-argument', 'Comunicado inválido.');
+  const ref = db.doc('comunicados_email/' + id), x = (await ref.get()).data();
+  if (!x) throw new HttpsError('not-found', 'Comunicado não encontrado.');
+  if (x.reenviado_para) throw new HttpsError('failed-precondition', 'As falhas deste comunicado já foram reenviadas.');
+  const definitivo = /5\.1\.[0-9]|user unknown|does not exist|no such user|mailbox unavailable|invalid recipient/i;
+  const itens = [], vistos = new Set();
+  for (const l of (await ref.collection('envio_lotes').orderBy('n').get()).docs) {
+    const ld = l.data(), por = new Map((ld.itens || []).map(it => [it.email, it]));
+    for (const f of (ld.falhas || [])) { if (definitivo.test(String(f.erro || '')) || vistos.has(f.email)) continue; const it = por.get(f.email); if (it) { vistos.add(f.email); itens.push(it); } }
+  }
+  if (!itens.length) throw new HttpsError('failed-precondition', 'Nenhuma falha para reenviar (as que existem são de e-mail inexistente).');
+  const novo = db.collection('comunicados_email').doc(), lotes = [];
+  for (let i = 0; i < itens.length; i += TAM_LOTE) lotes.push(itens.slice(i, i + TAM_LOTE));
+  await novo.set({ tipo: x.tipo, assunto: x.assunto, mensagem: x.mensagem, botao_texto: x.botao_texto || '', botao_link: x.botao_link || '', publico: { ...(x.publico || {}), reenvio_de: id },
+    total: itens.length, enviados: 0, falhas: 0, lotes: lotes.length, status: 'enviando', agendado_para: Timestamp.now(), criado_em: FieldValue.serverTimestamp(), criado_por: txt(autor.nome || 'NEWPC', 60), criado_por_uid: autor.uid || '', reenvio_de: id });
+  for (let i = 0; i < lotes.length; i++) await novo.collection('envio_lotes').doc(String(i).padStart(3, '0')).set({ n: i, itens: lotes[i], prox: 0, falhas: [] });
+  await ref.update({ reenviado_para: novo.id, reenviado_em: FieldValue.serverTimestamp() });
+  return { id: novo.id, total: itens.length, assunto: x.assunto };
+}
+
 export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, memory: '512MiB', secrets: [SENHA] }, async req => {
   const u = await adminAtivo(req), d = req.data || {}, db = getFirestore(), acao = String(d.acao || '');
   if (acao === 'contar') {
@@ -193,26 +215,9 @@ export const comunicadoEmail = onCall({ region: REGIAO, timeoutSeconds: 300, mem
     return { ok: true, id: ref.id, total: r.lista.length };
   }
   if (acao === 'reenviar') {
-    // quem não recebeu por limite do servidor (ou outra falha que não seja e-mail inexistente) entra num comunicado novo, igual ao original
-    const id = String(d.id || ''); if (!/^[A-Za-z0-9]{10,40}$/.test(id)) throw new HttpsError('invalid-argument', 'Comunicado inválido.');
-    const ref = db.doc('comunicados_email/' + id), x = (await ref.get()).data();
-    if (!x) throw new HttpsError('not-found', 'Comunicado não encontrado.');
-    if (x.reenviado_para) throw new HttpsError('failed-precondition', 'As falhas deste comunicado já foram reenviadas.');
-    const definitivo = /5\.1\.[0-9]|user unknown|does not exist|no such user|mailbox unavailable|invalid recipient/i;
-    const itens = [], vistos = new Set();
-    for (const l of (await ref.collection('envio_lotes').orderBy('n').get()).docs) {
-      const ld = l.data(), por = new Map((ld.itens || []).map(it => [it.email, it]));
-      for (const f of (ld.falhas || [])) { if (definitivo.test(String(f.erro || '')) || vistos.has(f.email)) continue; const it = por.get(f.email); if (it) { vistos.add(f.email); itens.push(it); } }
-    }
-    if (!itens.length) throw new HttpsError('failed-precondition', 'Nenhuma falha para reenviar (as que existem são de e-mail inexistente).');
-    const novo = db.collection('comunicados_email').doc(), lotes = [];
-    for (let i = 0; i < itens.length; i += TAM_LOTE) lotes.push(itens.slice(i, i + TAM_LOTE));
-    await novo.set({ tipo: x.tipo, assunto: x.assunto, mensagem: x.mensagem, botao_texto: x.botao_texto || '', botao_link: x.botao_link || '', publico: { ...(x.publico || {}), reenvio_de: id },
-      total: itens.length, enviados: 0, falhas: 0, lotes: lotes.length, status: 'enviando', agendado_para: Timestamp.now(), criado_em: FieldValue.serverTimestamp(), criado_por: txt(u.nome, 60), criado_por_uid: u.uid, reenvio_de: id });
-    for (let i = 0; i < lotes.length; i++) await novo.collection('envio_lotes').doc(String(i).padStart(3, '0')).set({ n: i, itens: lotes[i], prox: 0, falhas: [] });
-    await ref.update({ reenviado_para: novo.id, reenviado_em: FieldValue.serverTimestamp() });
-    await auditar(db, u, 'criou', novo.id, 'Reenvio das falhas do comunicado "' + x.assunto + '": ' + itens.length + ' pessoa(s)', { total: { para: itens.length } });
-    return { ok: true, id: novo.id, total: itens.length };
+    const r = await reenviarFalhas(db, String(d.id || ''), { nome: u.nome, uid: u.uid });
+    await auditar(db, u, 'criou', r.id, 'Reenvio das falhas do comunicado "' + r.assunto + '": ' + r.total + ' pessoa(s)', { total: { para: r.total } });
+    return { ok: true, id: r.id, total: r.total };
   }
   if (acao === 'cancelar') {
     const id = String(d.id || ''); if (!/^[A-Za-z0-9]{10,40}$/.test(id)) throw new HttpsError('invalid-argument', 'Comunicado inválido.');
