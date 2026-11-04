@@ -165,7 +165,7 @@ export async function encerrarAulaMaestro(codigo) {
 
 // Portal Maestro na gaveta (02/11/2026): a aula não cria mais aula no banco do Maestro (fechado); a sala gerenciada é o Controle da aula do Portal
 export const MAESTRO_LIGADO = false;
-// troca de professor (nov/2026): quem chega pede; o professor da sala aprova ou recusa; sem resposta em 60 s, quem pediu pode assumir. Direção e coordenação assumem direto.
+// troca de professor (nov/2026): quem chega pede; SÓ o professor da sala libera (aprova ou recusa, mesmo antes do fim do tempo dele). Direção e coordenação assumem direto (aula esquecida aberta).
 export const ESPERA_PEDIDO_MS = 60e3;
 const PEDIDO_VALE_MS = 10 * 60e3;
 // a matéria do professor nesta turma: a grade da turma; sem grade, o cadastro dele. Com mais de uma, vale a que ele escolheu (se for dele)
@@ -252,12 +252,11 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
   if (acao === 'abrir') {
     if (aberta && !dono) {
       if (!assumir) return ocupada();
-      // professor só assume pelo pedido: aprovado (a troca acontece na resposta) ou sem resposta em 60 s; a direção assume direto
-      if (!chefe && !meuPedido) return { ...(await ocupada()), precisa_pedir: true };
-      if (!chefe && agora - pendMs < ESPERA_PEDIDO_MS) return ocupada();
+      // professor só entra pela aprovação do professor da sala (a troca acontece na resposta dele); a direção assume direto
+      if (!chefe) return { ...(await ocupada()), ...(meuPedido ? {} : { precisa_pedir: true }) };
       const min = minutosOk(minutos, MAX_AULA_MIN) || minutosOk(meuPedido ? pend.minutos : 0, MAX_AULA_MIN) || 60;
-      const { ate, mc, deNome } = await passar({ para: uid, paraNome: meuNome, paraDisc: discNaTurma(ts.data(), uid, eu, disciplina || (meuPedido ? pend.disc : '')), min, como: chefe && !meuPedido ? 'direcao' : 'sem_resposta' });
-      await auditar('Assumiu a turma ' + nome + ' de ' + deNome + (chefe && !meuPedido ? ' (direção/coordenação)' : ' (sem resposta ao pedido em 60 s)'));
+      const { ate, mc, deNome } = await passar({ para: uid, paraNome: meuNome, paraDisc: discNaTurma(ts.data(), uid, eu, disciplina || (meuPedido ? pend.disc : '')), min, como: 'direcao' });
+      await auditar('Assumiu a turma ' + nome + ' de ' + deNome + ' (direção/coordenação)');
       return { aberta_ate: ate.getTime(), maestro_codigo: mc };
     }
     const min = minutosOk(minutos, MAX_AULA_MIN) || 60, ate = new Date(agora + min * 60e3);
