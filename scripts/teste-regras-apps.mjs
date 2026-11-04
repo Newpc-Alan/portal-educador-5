@@ -442,6 +442,8 @@ await t('gestor registra outra entrada (merge)', assertSucceeds(setDoc(doc(gest1
 await t('gestor le entradas do dia', assertSucceeds(getDocs(query(collection(gest1, 'freq_entradas'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
 await t('gestor de outra escola nao registra', assertFails(setDoc(doc(gest, IDE), ent, { merge: true })));
 await t('gestor de outra escola nao le entradas', assertFails(getDoc(doc(gest, IDE))));
+await t('professor da escola le a entrada da turma (chamada)', assertSucceeds(getDoc(doc(prof, IDE))));
+await t('professor de outra escola nao le a entrada', assertFails(getDoc(doc(prof2, IDE))));
 await t('professor nao registra entrada', assertFails(setDoc(doc(prof, 'freq_entradas/tf1_2026-10-27'), { ...ent, dia: '2026-10-27' })));
 await t('secretaria nao le entradas com nomes', assertFails(getDoc(doc(sec, IDE))));
 await t('entrada com id diferente', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-28'), ent)));

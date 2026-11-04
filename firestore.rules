@@ -578,8 +578,9 @@ service cloud.firestore {
     }
 
     // entradas pela portaria (carteirinha com QR): um documento por turma e dia; so a gestao da escola grava
+    // o professor da escola le para conferir na chamada quem passou pela portaria (so mostra, nao muda a chamada)
     match /freq_entradas/{id} {
-      allow read: if admin() || entradaEscola(resource.data.escola_id);
+      allow read: if admin() || entradaEscola(resource.data.escola_id) || (vinculado() && resource.data.escola_id in minhasEscolas());
       allow create, update: if (admin() || entradaEscola(novo().escola_id))
         && id == novo().turma_id + "_" + novo().dia
         && (resource == null || (resource.data.escola_id == novo().escola_id && resource.data.turma_id == novo().turma_id && resource.data.dia == novo().dia))

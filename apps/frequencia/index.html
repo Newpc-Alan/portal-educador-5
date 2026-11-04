@@ -97,6 +97,7 @@ button{cursor:pointer}
 .sa-aut img,.sa-aut u{width:100%;aspect-ratio:1;border-radius:10px;object-fit:cover;background:#e6eef6;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:1.8rem;color:#6b7c90;margin-bottom:6px}
 .sa-aut b{display:block;font-size:.9rem}.sa-aut small{display:block;color:var(--muted);font-size:.76rem}
 .sa-restr{background:#fde8e6;border:1.5px solid #f0b7b0;color:#8a1f16;border-radius:12px;padding:10px 12px;font-weight:700;margin:10px 0}
+.al .nm small.po{color:#3d6b0c}.al .nm small.po.sem{color:#8a5a00}.al .nm small.po.alerta{color:#9c2a20;font-weight:800}
 .al .al-alerta{border:1px solid #f3dfa6;background:#fff8e6;border-radius:8px;padding:6px 8px;font-size:.9rem;cursor:pointer;line-height:1}
 .al .bts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .pf{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 0;width:48px;font-weight:800;font-size:.95rem}
@@ -618,7 +619,21 @@ async function carregarCalendario(t){
 const discAtual = () => String($("disciplina").value || "").trim().replace(/\s+/g, " ").slice(0, 60);
 const chaveDoc = () => E.user.uid + "_" + E.turma.id + "_" + $("dia").value + "_" + slug(discAtual());
 const chaveRascunho = () => "pde_freq_rasc_" + chaveDoc();
+// portaria x chamada (nov/2026): o professor vê quem passou a carteirinha na entrada da escola. Só informa; a chamada é dele.
+function ouvirEntradaTurma(){
+  const k = E.turma && PORTARIA_ATIVA ? E.turma.id + "_" + $("dia").value : "";
+  if(k === E.entKey) return;
+  if(E.entOuvinte){ E.entOuvinte(); E.entOuvinte = null; }
+  E.entKey = k; E.entradas = null;
+  if(!k) return;
+  E.entOuvinte = onSnapshot(doc(db, "freq_entradas", k), s => {
+    if(E.entKey !== k) return;
+    E.entradas = s.exists() ? (s.data().entradas || {}) : null;
+    desenharChamada();
+  }, e => { console.warn("entradas:", e.code); E.entradas = null; });
+}
 async function abrirChamada(){
+  ouvirEntradaTurma();
   E.faltas = {}; E.just = {}; E.existe = false; E.sujo = false; $("conteudo").value = "";
   const disc = discAtual();
   if(E.turma && disc && slug(disc)){
@@ -701,12 +716,16 @@ function desenharChamada(){
   if(!disc){ $("lista").innerHTML = '<div class="vazio"><b>Escreva a disciplina</b>Nos anos iniciais, use "Polivalente (anos iniciais)": a chamada vale para o dia todo.</div>'; $("contagem").innerHTML = ""; rodape(); return; }
   if(!E.alunos.length){ $("lista").innerHTML = '<div class="vazio"><b>Esta turma não tem alunos cadastrados</b>Cadastre os alunos em Turmas, no Portal.</div>'; $("contagem").innerHTML = ""; rodape(); return; }
   const nF = E.alunos.filter(a => E.faltas[a.id]).length;
+  const EN = E.entradas, nEnt = EN ? E.alunos.filter(a => EN[a.id]).length : 0, nEntFalta = EN ? E.alunos.filter(a => EN[a.id] && E.faltas[a.id] >= E.aulas).length : 0;
+  if(EN) info += '<div class="aviso azul">🚪 <b>' + nEnt + " de " + E.alunos.length + "</b> passaram a carteirinha na portaria" + ($("dia").value === hj ? " hoje (atualiza sozinho)" : " neste dia") + ". É só para conferir: a chamada continua sendo sua, pelo que você vê na sala." +
+    (nEntFalta ? '<br><b style="color:#9c2a20">⚠ ' + nEntFalta + (nEntFalta === 1 ? " aluno entrou na escola e está com falta" : " alunos entraram na escola e estão com falta") + ".</b> Confira se estão em outro lugar da escola e avise a coordenação." : "") + "</div>";
+  $("infoDia").innerHTML = info;
   $("contagem").innerHTML = '<span class="pill ok" style="font-size:.86rem">' + (E.alunos.length - nF) + (E.alunos.length - nF === 1 ? " presente" : " presentes") + "</span>" + '<span class="pill ' + (nF ? "ruim" : "cinza") + '" style="font-size:.86rem">' + nF + (nF === 1 ? " falta" : " faltas") + "</span>" +
     '<span class="sub">' + E.alunos.length + " alunos · " + E.aulas + (E.aulas > 1 ? " aulas" : " aula") + "</span>";
   $("lista").innerHTML = E.alunos.slice(0, 80).map((a, i) => {
     const f = E.faltas[a.id] || 0, j = !!E.just[a.id];
     return '<div class="al' + (f ? " falta" : "") + '"><span class="num">' + (i + 1) + '</span><span class="nm" data-action="alternar" data-arg="' + esc(a.id) + '" title="' + esc(a.nome) + '">' + (a.foto ? '<img class="al-fot" alt="" data-cad="' + esc(a.foto) + '">' : "") + esc(a.nome) +
-      (f ? "<small>" + (f < E.aulas ? "faltou " + f + " de " + E.aulas + " aulas" : "faltou") + (j ? " · justificada" : "") + "</small>" : "") + '</span><span class="bts">' + alertasAluno(a) +
+      (f ? "<small>" + (f < E.aulas ? "faltou " + f + " de " + E.aulas + " aulas" : "faltou") + (j ? " · justificada" : "") + "</small>" : "") + poAluno(a, f) + '</span><span class="bts">' + alertasAluno(a) +
       '<button class="pf p' + (f ? "" : " on") + '" data-action="presente" data-arg="' + esc(a.id) + '" aria-label="Presente: ' + esc(a.nome) + '">P</button>' +
       '<button class="pf f' + (f ? " on" : "") + '" data-action="falta" data-arg="' + esc(a.id) + '" aria-label="Falta: ' + esc(a.nome) + '">F</button>' +
       (f && E.aulas > 1 ? '<select class="qt" data-qt="' + esc(a.id) + '" aria-label="Aulas que faltou">' + Array.from({ length:E.aulas }, (_, k) => '<option value="' + (k + 1) + '"' + (k + 1 === f ? " selected" : "") + ">" + (k + 1 === E.aulas ? "todas" : (k + 1) + " de " + E.aulas) + "</option>").join("") + "</select>" : "") +
@@ -714,6 +733,14 @@ function desenharChamada(){
       "</span></div>";
   }).join("") + (E.alunos.length > 80 ? '<div class="aviso amarelo">A chamada aceita até 80 alunos. Fale com a secretaria para dividir esta turma.</div>' : "");
   carregarFotosCad($("lista")); rodape();
+}
+// linha da portaria embaixo do nome: entrou às HH:MM, não passou a carteirinha, ou entrou e está com falta (destaque)
+function poAluno(a, f){
+  const EN = E.entradas; if(!EN) return "";
+  const h = EN[a.id];
+  if(h && f >= E.aulas) return '<small class="po alerta">🚪 entrou na escola às ' + esc(h) + " e está com falta</small>";
+  if(h) return '<small class="po">🚪 entrou às ' + esc(h) + "</small>";
+  return f ? "" : '<small class="po sem">🚪 não passou a carteirinha</small>';
 }
 function rodape(){
   const ok = E.turma && discAtual() && E.alunos.length && $("dia").value <= hojeMS();
