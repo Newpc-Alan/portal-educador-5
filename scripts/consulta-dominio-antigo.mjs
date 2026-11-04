@@ -16,6 +16,7 @@ function varrer(v, caminho, onde) {
   if (v && typeof v === 'object' && !v.toDate && !v._path) Object.entries(v).forEach(([k, x]) => varrer(x, caminho ? caminho + '.' + k : k, onde));
 }
 const PULAR = new Set(['auditoria', 'stats', 'uso_real', 'busca_indice', 'buscas_mes', 'wa_metricas', 'portal_ia_uso', 'ia_uso']);
+const SUBS = new Set(['config', 'municipios', 'tv_campanhas', 'catalogos', 'acervo_rede', 'noticias']);
 const cols = await db.listCollections();
 for (const c of cols) {
   if (PULAR.has(c.id)) continue;
@@ -24,10 +25,9 @@ for (const c of cols) {
     let q = c.orderBy('__name__').limit(500); if (ult) q = q.startAfter(ult);
     const s = await q.get(); if (s.empty) break;
     for (const d of s.docs) { docsLidos++; varrer(d.data(), '', c.id);
-      if (['config', 'municipios', 'modulos', 'tv_campanhas', 'catalogos'].includes(c.id) || docsLidos < 60000) {
-        // subcoleções só nas coleções de configuração e catálogo (as de alunos e uso são grandes e não guardam link)
-        if (['config', 'municipios', 'tv_campanhas', 'catalogos', 'acervo_rede', 'noticias'].includes(c.id)) for (const sc of await d.ref.listCollections()) { const ss = await sc.limit(500).get(); ss.forEach(x => { docsLidos++; varrer(x.data(), '', c.id + '/*/' + sc.id); }); }
-      } }
+      // subcoleções só nas coleções de configuração e catálogo (as de alunos e de uso são grandes e não guardam link)
+      if (SUBS.has(c.id)) for (const sc of await d.ref.listCollections()) { const ss = await sc.limit(500).get(); ss.forEach(x => { docsLidos++; varrer(x.data(), '', c.id + '/*/' + sc.id); }); }
+    }
     ult = s.docs[s.docs.length - 1]; if (s.size < 500) break;
   }
 }
