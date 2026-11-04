@@ -432,6 +432,6 @@ export { leadEscola } from './leads.js';
 export { pareceres } from './pareceres.js';
 export { coerenciaLicenca } from './licencas.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
-export { whatsappWebhook, whatsappResponder, whatsappTransferir, whatsappEquipe, whatsappRotina } from './whatsapp.js';
+export { whatsappWebhook, whatsappResponder, whatsappTesteModelos, whatsappTransferir, whatsappEquipe, whatsappRotina } from './whatsapp.js';
 export { painelTv, painelTvChave } from './painel-tv.js';
 export { quizParaAcervoGeral, avisoQuizGeral } from './quizzes-geral.js';

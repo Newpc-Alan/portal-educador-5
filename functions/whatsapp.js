@@ -25,6 +25,7 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 import { expiraAuditoria } from './auditoria.js';
+import { MODELOS_WA, RODAPE_WA, preencherWA, URL_ENTRAR } from './comunicacoes.js';
 
 const REGIAO = 'southamerica-east1';
 const TOKEN = defineSecret('WHATSAPP_TOKEN');
@@ -536,6 +537,31 @@ export const whatsappResponder = onCall({ region: REGIAO, secrets: [TOKEN], maxI
 });
 
 // transferir a conversa: para um membro (para_uid), para o próximo do setor (setor) ou assumir (para_uid = eu)
+// teste dos avisos automáticos (só administrador): manda os modelos com valores de exemplo para o WhatsApp de quem pediu.
+// Sem modelo aprovado, a Meta só aceita dentro das 24 h depois da última mensagem da pessoa: por isso pede um "oi" antes.
+export const whatsappTesteModelos = onCall({ region: REGIAO, secrets: [TOKEN], maxInstances: 2, timeoutSeconds: 60 }, async req => {
+  const u = await souAdmin(req), db = getFirestore();
+  const cfg = (await db.doc('wa_config/geral').get()).data() || {};
+  if (!cfg.ligado || !cfg.phone_number_id) throw new HttpsError('failed-precondition', 'O robô do WhatsApp está desligado.');
+  const num = String((req.data || {}).numero || u.whatsapp || '').replace(/\D/g, '');
+  if (num.length < 10 || num.length > 13) throw new HttpsError('invalid-argument', 'Informe o WhatsApp com DDD.');
+  let waId = '', ult = 0;
+  for (const v of variantes(num).filter(x => x.startsWith('55'))) {
+    const c = (await db.doc('wa_conversas/' + v).get()).data(); const t = c && c.ultima_pessoa_em && c.ultima_pessoa_em.toMillis ? c.ultima_pessoa_em.toMillis() : 0;
+    if (t > ult) { ult = t; waId = v; } }
+  if (!waId || Date.now() - ult > 24 * 3600e3) throw new HttpsError('failed-precondition', 'Mande um "oi" deste WhatsApp para o número do Portal e toque de novo. Sem modelo aprovado, a Meta só deixa enviar até 24 h depois da sua última mensagem.');
+  let n = 0;
+  for (const m of MODELOS_WA) {
+    await enviar(cfg, waId, { type: 'interactive', interactive: { type: 'cta_url', header: { type: 'text', text: 'Portal do Educador' },
+      body: { text: txt(preencherWA(m.corpo, m.exemplo), 1000) }, footer: { text: txt('Teste: ' + m.nome, 60) },
+      action: { name: 'cta_url', parameters: { display_text: 'Entrar no Portal', url: URL_ENTRAR } } } });
+    n++; await new Promise(r => setTimeout(r, 700));
+  }
+  const ref = db.doc('wa_conversas/' + waId);
+  await guardar(ref, 'equipe', '[teste dos ' + n + ' modelos de aviso automático]', { autor_uid: req.auth.uid, autor_nome: txt(String(u.nome || '').split(' ')[0], 30) });
+  await auditar(db, waId, 'Teste dos modelos de aviso automático enviado por ' + txt(u.nome || '', 60) + ' (' + n + ' mensagens)');
+  return { enviados: n, final: waId.slice(-4) };
+});
 export const whatsappTransferir = onCall({ region: REGIAO, secrets: [SMTP_SENHA], maxInstances: 5, timeoutSeconds: 20 }, async req => {
   const u = await souAtendente(req), db = getFirestore(), d = req.data || {};
   const waId = String(d.wa_id || ''), nota = txt(d.nota, 500);

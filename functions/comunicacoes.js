@@ -123,3 +123,18 @@ export const comunicacaoLembretes = onSchedule({ schedule: '7 9 * * *', timeZone
   }
   console.log('comunicacoes: lembretes enviados', n);
 });
+
+// modelos do WhatsApp (mesmo texto cadastrado na Meta); exemplo = valores de teste de cada {{n}}
+export const RODAPE_WA = 'Portal do Educador · NEWPC Tecnologia';
+export const MODELOS_WA = [
+  { nome: 'pde_boas_vindas_teste', momento: 'teste_inicio', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Seu teste grátis do Portal do Educador começou e vai até {{2}}. Para começar, abra o Portal IA e peça um plano de aula ou uma atividade com gabarito para a sua turma. Qualquer dúvida, é só responder esta mensagem.', exemplo: ['Maria', '11/11/2026'] },
+  { nome: 'pde_teste_terminando', momento: 'teste_fim', categoria: 'MARKETING', corpo: 'Olá, {{1}}! Seu teste grátis do Portal do Educador termina em {{2}}. Para continuar com seus materiais e com o Portal IA, responda esta mensagem que enviamos os planos disponíveis.', exemplo: ['Maria', '11/11/2026'] },
+  { nome: 'pde_licenca_ativa', momento: 'compra', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Sua licença do Portal do Educador está ativa até {{2}}, no plano {{3}}. Os créditos do plano renovam todo mês, e os pacotes extras acumulam no seu saldo por 12 meses.', exemplo: ['Maria', '04/11/2027', 'Intermediário'] },
+  { nome: 'pde_licenca_renovada', momento: 'renovacao', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Sua licença do Portal do Educador foi renovada e agora vale até {{2}}. Obrigado por seguir com a gente!', exemplo: ['Maria', '04/11/2027'] },
+  { nome: 'pde_licenca_vencendo', momento: 'vencendo', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Sua licença do Portal do Educador vence em {{2}}. Para não perder o acesso aos seus materiais, responda esta mensagem que enviamos a renovação.', exemplo: ['Maria', '11/11/2026'] },
+  { nome: 'pde_plano_alterado', momento: 'plano', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Seu plano do Portal do Educador mudou de {{2}} para {{3}}. Entre no Portal para conhecer os recursos do seu novo plano.', exemplo: ['Maria', 'Básico', 'Completo'] },
+  { nome: 'pde_boas_vindas_rede', momento: 'rede', categoria: 'UTILITY', corpo: 'Olá, {{1}}! A Prefeitura Municipal de {{2}}, por meio da Secretaria Municipal de Educação, liberou para você o Portal do Educador, em parceria com a NEWPC Tecnologia. Entre com o e-mail {{3}} e confira suas turmas em Minhas Turmas.', exemplo: ['Maria', 'São Gabriel do Oeste/MS', 'maria@gmail.com'] }
+];
+export const preencherWA = (corpo, vals) => corpo.replace(/\{\{(\d+)\}\}/g, (_, n) => String(vals[Number(n) - 1] ?? ''));
+export const URL_ENTRAR = ENTRAR;
+
