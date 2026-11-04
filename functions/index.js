@@ -428,6 +428,7 @@ export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } fro
 export { portalIa, portalIaLimpar } from './portal-ia.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos, creditosDemoTeste, creditosFranquia } from './creditos.js';
 export { leadEscola } from './leads.js';
+export { pareceres } from './pareceres.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
 export { whatsappWebhook, whatsappResponder, whatsappTransferir, whatsappEquipe, whatsappRotina } from './whatsapp.js';
 export { painelTv, painelTvChave } from './painel-tv.js';

@@ -27,7 +27,7 @@ export const PADRAO = {
   planos: {}
 };
 // o Google desliga versões antigas; se a escolhida sumir, a função tenta a próxima sem o professor ver erro
-const RESERVA_TEXTO = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+export const RESERVA_TEXTO = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 const RESERVA_IMAGEM = ['gemini-3.1-flash-image', 'gemini-3-pro-image-preview', 'gemini-2.5-flash-image'];
 
 /* ------------------------------------------------------------------ o que o Portal IA sabe fazer */
@@ -260,7 +260,7 @@ export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000) {
   }
   throw new HttpsError('unavailable', 'Nenhum modelo da IA está disponível agora. Avise a NEWPC.');
 }
-async function geminiJson(chave, modelos, sistema, pedido, esquema, temp, limiteMs = 85000) {
+export async function geminiJson(chave, modelos, sistema, pedido, esquema, temp, limiteMs = 85000) {
   // Gemini 3 em diante: temperatura padrão (1.0), como o Google recomenda; abaixo disso ele entra em repetição e estoura o limite
   const r = await geminiFluxo(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: pedido }] }],
     generationConfig: { ...(/gemini-[3-9]/.test(modelos[0] || '') ? {} : { temperature: temp ?? 0.6 }), responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 32000 } }, limiteMs);
@@ -485,7 +485,7 @@ export function conferirDoc(d, tipo, qtd) {
 /* ------------------------------------------------------------------ quem pode, quanto pode */
 const mesAtual = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace('-', '');
 const txt = (v, n) => String(v ?? '').trim().slice(0, n);
-async function contexto(db, uid) {
+export async function contexto(db, uid) {
   const [us, cs] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc('config/portal_ia').get()]);
   const eu = us.exists ? us.data() : null;
   if (!eu || eu.status !== 'ativo' || !['professor', 'gestor', 'admin'].includes(eu.perfil)) throw new HttpsError('permission-denied', 'O Portal IA é para professores e gestores com cadastro ativo.');

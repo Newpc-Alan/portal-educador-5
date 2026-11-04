@@ -447,6 +447,9 @@ await t('rede com a entrada desligada nao registra', assertFails(setDoc(doc(gest
 await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'municipios/m1'), { nome: 'Ribas', entrada_escola: 'qr' }); });
 await t('rede so QR registra entrada', assertSucceeds(setDoc(doc(gest1, 'freq_entradas/tf1_2026-11-02'), { ...ent, dia: '2026-11-02' })));
 await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'municipios/m1'), { nome: 'Ribas' }); });
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'pareceres/tf1_2026_4_al1'), { turma_id: 'tf1', aluno_id: 'al1', texto: 'x', status: 'rascunho' }); });
+await t('professor nao le parecer direto no banco (so pela funcao)', assertFails(getDoc(doc(prof, 'pareceres/tf1_2026_4_al1'))));
+await t('professor nao grava parecer direto no banco', assertFails(setDoc(doc(prof, 'pareceres/tf1_2026_4_al2'), { texto: 'x' })));
 await t('professor da escola le a entrada da turma (chamada)', assertSucceeds(getDoc(doc(prof, IDE))));
 await t('professor de outra escola nao le a entrada', assertFails(getDoc(doc(prof2, IDE))));
 await t('professor nao registra entrada', assertFails(setDoc(doc(prof, 'freq_entradas/tf1_2026-10-27'), { ...ent, dia: '2026-10-27' })));
