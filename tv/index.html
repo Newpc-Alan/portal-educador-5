@@ -400,12 +400,14 @@ async function chamarPortaria(corpo){
 async function listaPortaria(){
   try{
     const d = await chamarPortaria({ acao:"lista" });
-    PT.alunos = d.alunos || {}; PT.turmas = d.turmas || {};
+    PT.alunos = d.alunos || {}; PT.turmas = d.turmas || {}; PT.desligada = false;
+    // a rede pode ter a foto desligada em Planos e módulos (só QR): o servidor manda foto:false e o totem não liga a câmera
+    if(PT.fotoRede !== (d.foto === true)){ PT.fotoRede = d.foto === true; if(P.tela) cameraPortaria(PT.ativo && P.tela.foto_entrada === true && PT.fotoRede); }
     if(PT.dia !== d.dia){ PT.dia = d.dia; PT.hoje = new Set(); }
     (d.entraram || []).forEach(id => PT.hoje.add(id));
     PT.retencao = d.retencao || 15;
     ls.set("pde_tv_portaria", { alunos:PT.alunos, turmas:PT.turmas, dia:PT.dia, hoje:[...PT.hoje] });
-  }catch(e){ console.warn("portaria lista", e.message || e); }
+  }catch(e){ console.warn("portaria lista", e.message || e); PT.desligada = /desligada/i.test(e.message || ""); if(PT.desligada && PT.cam) cameraPortaria(false); }
   seloPortaria();
 }
 // foto na entrada (opcional, ligada pelo gestor): câmera frontal ou traseira (escolha da tela), uma foto pequena só no momento da leitura
@@ -469,7 +471,7 @@ async function diagCamera(){
   PT.diagFim = setTimeout(() => { clearInterval(PT.diagT); d.hidden = true; v.classList.remove("diag"); }, 30000);
 }
 function ligarPortaria(on){
-  if(P.tela) cameraPortaria(on && P.tela.foto_entrada === true);
+  if(P.tela) cameraPortaria(on && P.tela.foto_entrada === true && PT.fotoRede !== false);
   if(on === PT.ativo) return;
   PT.ativo = on; clearInterval(PT.listaT); clearInterval(PT.filaT); $("ptSelo").hidden = !on;
   if(!on) return;
@@ -484,6 +486,7 @@ function seloPortaria(){
   if(!PT.ativo) return;
   if(PT.dia && PT.dia !== diaMS()){ PT.dia = diaMS(); PT.hoje = new Set(); }
   $("ptSelo").className = "pt-selo" + (PT.fila.length ? " fila" : "");
+  if(PT.desligada){ $("ptSelo").className = "pt-selo fila"; $("ptSelo").innerHTML = "<i></i>Portaria desligada para esta rede (Planos e módulos)"; return; }
   $("ptSelo").innerHTML = "<i></i>Portaria · " + PT.hoje.size + (PT.hoje.size === 1 ? " entrada hoje" : " entradas hoje") + (PT.fila.length ? " · " + PT.fila.length + " aguardando internet" : "") +
     (PT.foto ? " · 📷 Foto registrada na entrada" + (!PT.cam ? " (câmera desligada" + (PT.camMotivo ? ": " + PT.camMotivo : "") + ")" : PT.camEscura >= 2 ? " (câmera sem imagem: confira tampa, luz e cabo)" : "") : "");
 }

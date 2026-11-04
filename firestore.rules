@@ -587,6 +587,8 @@ service cloud.firestore {
         && novo().keys().hasOnly(["escola_id", "municipio_id", "turma_id", "turma_nome", "dia", "ano", "entradas", "nomes", "fotos", "atualizado_em"])
         && (resource == null || novo().get("fotos", null) == resource.data.get("fotos", null))
         && (admin() || (turmaDoc(novo().turma_id).escola_id == novo().escola_id && turmaDoc(novo().turma_id).municipio_id == novo().municipio_id))
+        // a rede pode desligar a confirmação de entrada em Planos e módulos
+        && (admin() || get(/databases/$(database)/documents/municipios/$(novo().municipio_id)).data.get("entrada_escola", "qr_foto") != "desligada")
         && dataOk(novo().dia) && novo().ano is int && int(novo().dia.split("-")[0]) == novo().ano
         && novo().entradas is map && novo().entradas.size() <= 80 && novo().nomes is map && novo().nomes.size() <= 80 && texto(novo().turma_nome, 80);
       allow delete: if admin();

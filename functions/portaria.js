@@ -26,6 +26,12 @@ export const portaria = onRequest({ region: 'southamerica-east1', cors: true, in
   const db = getFirestore(), tela = (await db.doc(`tv_telas/${chave}`).get()).data();
   if (!tela || tela.modo !== 'portaria' || !ID.test(String(tela.escola_id || ''))) { res.status(403).json({ erro: 'Esta tela não está em modo Portaria.' }); return; }
   const escola = tela.escola_id, hoje = hojeMS();
+  // confirmação de entrada da rede (Planos e módulos): desligada, só QR ou QR + câmera; sem escolha gravada, QR + câmera (o totem ainda decide a foto)
+  let muniId = String(tela.municipio_id || '');
+  if (!ID.test(muniId)) muniId = String(((await db.doc(`escolas/${escola}`).get()).data() || {}).municipio_id || '');
+  const modoRede = ID.test(muniId) ? (((await db.doc(`municipios/${muniId}`).get()).data() || {}).entrada_escola || 'qr_foto') : 'qr_foto';
+  if (modoRede === 'desligada') { res.status(403).json({ erro: 'A confirmação de entrada está desligada para esta rede.' }); return; }
+  const fotoLiberada = modoRede === 'qr_foto';
 
   if (b.acao === 'lista') {
     const [sa, st, se] = await Promise.all([
@@ -37,7 +43,7 @@ export const portaria = onRequest({ region: 'southamerica-east1', cors: true, in
     // só o primeiro nome vai para o aparelho (é o que aparece na tela)
     const alunos = {}; sa.forEach(d => { const a = d.data(); if (a.nome && a.status !== 'inativo' && turmas[a.turma_id]) alunos[d.id] = [String(a.nome).trim().split(/\s+/)[0], a.turma_id]; });
     const entraram = []; se.forEach(d => entraram.push(...Object.keys(d.data().entradas || {})));
-    res.json({ escola: tela.escola_nome || '', dia: hoje, turmas, alunos, entraram, foto: tela.foto_entrada === true, retencao: RETENCAO_FOTOS_DIAS });
+    res.json({ escola: tela.escola_nome || '', dia: hoje, turmas, alunos, entraram, foto: fotoLiberada && tela.foto_entrada === true, retencao: RETENCAO_FOTOS_DIAS });
     return;
   }
 
@@ -54,7 +60,7 @@ export const portaria = onRequest({ region: 'southamerica-east1', cors: true, in
     // agrupa por turma e dia; a primeira hora registrada fica (não sobrescreve quem já entrou)
     const grupos = {}, ok = [];
     lista.forEach(e => { const a = al[e.id]; if (!a || !turmas[a.turma_id]) return; const k = a.turma_id + '_' + e.dia; (grupos[k] = grupos[k] || { turma: a.turma_id, dia: e.dia, itens: [] }).itens.push({ ...e, nome: String(a.nome).slice(0, 80) }); });
-    const comFoto = tela.foto_entrada === true, bucket = comFoto ? getStorage().bucket(BUCKET_PORTARIA) : null;
+    const comFoto = fotoLiberada && tela.foto_entrada === true, bucket = comFoto ? getStorage().bucket(BUCKET_PORTARIA) : null;
     for (const [k, g] of Object.entries(grupos)) {
       const ref = db.doc(`freq_entradas/${k}`);
       let novos = [];

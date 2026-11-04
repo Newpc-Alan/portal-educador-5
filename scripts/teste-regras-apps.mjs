@@ -442,6 +442,11 @@ await t('gestor registra outra entrada (merge)', assertSucceeds(setDoc(doc(gest1
 await t('gestor le entradas do dia', assertSucceeds(getDocs(query(collection(gest1, 'freq_entradas'), where('escola_id', '==', 'e1'), where('dia', '==', '2026-10-26')))));
 await t('gestor de outra escola nao registra', assertFails(setDoc(doc(gest, IDE), ent, { merge: true })));
 await t('gestor de outra escola nao le entradas', assertFails(getDoc(doc(gest, IDE))));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'municipios/m1'), { nome: 'Ribas', entrada_escola: 'desligada' }); });
+await t('rede com a entrada desligada nao registra', assertFails(setDoc(doc(gest1, 'freq_entradas/tf1_2026-10-31'), { ...ent, dia: '2026-10-31' })));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'municipios/m1'), { nome: 'Ribas', entrada_escola: 'qr' }); });
+await t('rede so QR registra entrada', assertSucceeds(setDoc(doc(gest1, 'freq_entradas/tf1_2026-11-02'), { ...ent, dia: '2026-11-02' })));
+await env.withSecurityRulesDisabled(async (c) => { await setDoc(doc(c.firestore(), 'municipios/m1'), { nome: 'Ribas' }); });
 await t('professor da escola le a entrada da turma (chamada)', assertSucceeds(getDoc(doc(prof, IDE))));
 await t('professor de outra escola nao le a entrada', assertFails(getDoc(doc(prof2, IDE))));
 await t('professor nao registra entrada', assertFails(setDoc(doc(prof, 'freq_entradas/tf1_2026-10-27'), { ...ent, dia: '2026-10-27' })));

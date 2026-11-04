@@ -1068,9 +1068,11 @@ const podeMural = () => E.gestor || E.secEsc || E.admin;
 const podeFotos = () => E.gestor || E.admin;
 const podeEntrada = () => PORTARIA_ATIVA && (podeMural() || E.portaria);
 const podeFicha = () => FICHA_ATIVA && podeMural();
-// portaria e carteirinhas ligam quando as regras de freq_entradas (e leitura de alunos pelo gestor) estiverem publicadas
-const PORTARIA_ATIVA = true;
+// confirmação de entrada da rede (Planos e módulos do município): "desligada" tira a portaria, a auditoria e a portaria na chamada
+// (as carteirinhas continuam: também servem para entrar no Portal). Sem escolha gravada, fica ligada.
+let PORTARIA_ATIVA = true;
 const podePortaria = () => PORTARIA_ATIVA && podeMural();
+const podeCart = () => podeMural();
 const pillCaso = c => !c ? '<span class="pill cinza">Sem registro</span>' : '<span class="pill ' + STATUS[c.status][1] + '">' + STATUS[c.status][0] + "</span>" + (c.registros && c.registros.length ? ' <span class="sub">' + c.registros.length + "</span>" : "");
 async function carregarCasos(){
   E.casos = {};
@@ -1766,7 +1768,12 @@ onAuthStateChanged(auth, async user => {
     $("carregando").hidden = false; $("carregando").innerHTML = '<div class="card vazio"><b>A frequência da rede fica no Painel da Rede</b>Por escola, com a frequência média e o número de alunos que precisam de busca ativa, sem nomes de alunos.<br><br><a class="btn btn-pri" href="/painel/">Abrir o Painel da Rede</a></div>';
     return;
   }
-  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = !podeEntrada(); $("tabCart").hidden = $("tabAudit").hidden = !podePortaria();
+  if(u.municipio_id && !E.admin){ try{ const sm = await getDoc(doc(db, "municipios", u.municipio_id)); PORTARIA_ATIVA = !sm.exists() || sm.data().entrada_escola !== "desligada"; }catch(e){ console.warn("municipio:", e.code); } }
+  $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = !podeEntrada(); $("tabAudit").hidden = !podePortaria(); $("tabCart").hidden = !podeCart();
+  if(E.portaria && !PORTARIA_ATIVA){
+    $("tabChamada").hidden = $("tabHist").hidden = $("tabBusca").hidden = true; document.querySelectorAll(".sec").forEach(s => s.classList.remove("on"));
+    $("carregando").hidden = false; $("carregando").innerHTML = '<div class="card vazio"><b>A confirmação de entrada está desligada nesta rede</b>Fale com a direção da escola ou com a Secretaria de Educação.</div>'; return;
+  }
   if(E.portaria){
     // portaria: só a tela de entrada (sem busca ativa, mural com faltas, carteirinhas ou fotos)
     $("tabChamada").hidden = $("tabHist").hidden = $("tabBusca").hidden = true;
@@ -1783,7 +1790,7 @@ onAuthStateChanged(auth, async user => {
   if(ult){ $("disciplina").value = ult.d || ""; E.aulas = ult.a || 1; }
   if(ult && E.turmas.some(t => t.id === ult.t)){ $("selTurma").value = ult.t; await abrirTurma(ult.t); } else desenharChamada();
   E.hashInicial = location.hash; const h = location.hash.replace("#", "").replace(/^mural-publico$/, "mural");
-  if(["historico", "busca"].includes(h) || ((h === "mural" && podeMural()) || (["portaria", "carteirinhas", "auditoria"].includes(h) && podePortaria()))) ir(h); else ir("chamada");
+  if(["historico", "busca"].includes(h) || ((h === "mural" && podeMural()) || (["portaria", "auditoria"].includes(h) && podePortaria()) || (h === "carteirinhas" && podeCart()))) ir(h); else ir("chamada");
 });
 </script>
 <!-- trava pelo plano do município / pacote da licença (professor) -->
