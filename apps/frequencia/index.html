@@ -599,7 +599,7 @@ async function abrirTurma(id){
   }catch(e){ console.warn("alunos:", e.code); toast("Não foi possível carregar os alunos desta turma.", true); }
   E.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   // com grade, a chamada já abre numa disciplina deste professor na turma
-  const daGrade = discDaGrade(t);
+  const daGrade = minhasDisc(t).lista;
   if(daGrade.length && !daGrade.includes(discAtual()) && !subDe(t.id, slug(discAtual()), $("dia").value)){ $("disciplina").value = daGrade[0]; E.discOutra = false; }
   await carregarCalendario(t);
   await abrirChamada();
@@ -689,13 +689,28 @@ async function abrirAulaHoje(arg){
 }
 // disciplinas deste professor na grade da turma (montada pela Direção ou pela Secretaria da escola)
 function discDaGrade(t){ return t && Array.isArray(t.grade) ? [...new Set(t.grade.filter(g => g.professor_uid === E.user.uid && g.disciplina).map(g => g.disciplina))] : []; }
+// disciplinas que o professor dá (nov/2026): 1º a grade da turma; sem grade, as do cadastro dele (atualização cadastral);
+// só sem nenhuma das duas (ou para a gestão) aparece a lista geral com "Outra disciplina"
+const ANOS_POLI = ["bebes", "cbp", "cp", "1", "2", "3", "4", "5", "multi"];
+function minhasDisc(t){
+  const subs = (E.subs || []).filter(x => t && x.turma_id === t.id).map(x => x.disciplina), grade = discDaGrade(t);
+  if(grade.length) return { lista:[...new Set(grade.concat(subs))], livre:false, origem:"grade" };
+  const cad = Array.isArray(E.u && E.u.disciplinas) ? E.u.disciplinas.filter(d => d && d !== "Educação Infantil" && d !== "Educação Especial") : [];
+  const poli = (E.u && Array.isArray(E.u.anos_aula) && E.u.anos_aula.some(a => ANOS_POLI.includes(String(a)))) || (E.u && (E.u.disciplinas || []).includes("Educação Infantil"));
+  const doCad = [...(poli ? ["Polivalente (anos iniciais)"] : []), ...cad, ...((E.u && (E.u.disciplinas || []).includes("Educação Especial")) ? ["Educação Especial"] : [])];
+  if(E.u && E.u.perfil === "professor" && doCad.length) return { lista:[...new Set(doCad.concat(subs))], livre:false, origem:"cadastro" };
+  return { lista:[...new Set(DISC.concat(subs))], livre:true, origem:"geral" };
+}
 function desenharSelDisc(){
   const sel = $("selDisc"), inp = $("disciplina"); if(!sel) return;
-  const v = discAtual(), daGrade = discDaGrade(E.turma).concat((E.subs || []).filter(x => E.turma && x.turma_id === E.turma.id).map(x => x.disciplina));
-  const lista = [...new Set([...(daGrade.length ? daGrade : DISC), ...(v ? [v] : [])])];
-  sel.innerHTML = '<option value="">Escolha a disciplina...</option>' + lista.map(d => '<option value="' + esc(d) + '"' + (d === v ? " selected" : "") + ">" + esc(d) + "</option>").join("") +
-    '<option value="__outra"' + (E.discOutra ? " selected" : "") + ">Outra disciplina...</option>";
-  inp.hidden = !E.discOutra;
+  const v = discAtual(), m = minhasDisc(E.turma);
+  const lista = [...new Set([...m.lista, ...(v ? [v] : [])])];
+  // uma disciplina só: já vem escolhida
+  if(lista.length === 1 && !v && !E.discOutra){ $("disciplina").value = lista[0]; setTimeout(() => abrirChamada(), 0); }
+  sel.innerHTML = (lista.length === 1 ? "" : '<option value="">Escolha a disciplina...</option>') + lista.map(d => '<option value="' + esc(d) + '"' + (d === (v || (lista.length === 1 ? lista[0] : "")) ? " selected" : "") + ">" + esc(d) + "</option>").join("") +
+    (m.livre ? '<option value="__outra"' + (E.discOutra ? " selected" : "") + ">Outra disciplina...</option>" : "");
+  sel.title = m.origem === "grade" ? "Disciplinas da grade da turma" : m.origem === "cadastro" ? "Disciplinas do seu cadastro. Para mudar: Meu cadastro, no Portal" : "";
+  inp.hidden = !(m.livre && E.discOutra);
 }
 function desenharChamada(){
   desenharSelDisc(); desenharMinhasAulas();
