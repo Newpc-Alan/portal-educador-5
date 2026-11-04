@@ -1429,6 +1429,18 @@
   .atz .atz-chk input, .atz .atz-aceite input{ width:auto !important; height:auto; margin:0; flex:0 0 auto; accent-color:#1a6b2a; }
   .atz .atz-aceite{ font-weight:400; color:#1d2b3a; }
   .atz-grade.campo-erro{ outline:2px solid #c0392b; border-radius:8px; }
+  .anos-gs{ display:grid; gap:0; border:1px solid #e3e9ef; border-radius:12px; padding:2px 12px; background:#fbfcfd; }
+  .anos-g{ display:grid; grid-template-columns:200px 1fr; gap:6px 12px; align-items:start; padding:8px 0; border-bottom:1px dashed #e3e9ef; }
+  .anos-g:last-child{ border-bottom:0; }
+  .anos-g > b{ font-size:13px; color:#0f2c4a; padding-top:7px; line-height:1.3; }
+  .anos-g > b small{ display:block; font-weight:500; color:#5b6b7c; font-size:11.5px; }
+  .anos-g > div{ display:flex; flex-wrap:wrap; gap:6px; }
+  .anos-g label{ display:inline-flex !important; flex-direction:row; gap:6px; align-items:center; font-size:14px; font-weight:500; color:#1d2b3a; background:#fff; border:1.5px solid #dfe6ee; border-radius:8px; padding:6px 10px; margin:0; cursor:pointer; }
+  .anos-g label:has(input:checked){ border-color:#1a6b2a; background:#eef7e8; }
+  .anos-g input{ width:auto !important; height:auto; margin:0; accent-color:#1a6b2a; }
+  .anos-aee{ display:flex !important; gap:8px; align-items:center; font-size:14px; font-weight:500; margin-top:8px; }
+  .anos-aee input{ width:auto !important; margin:0; accent-color:#1a6b2a; }
+  @media (max-width:640px){ .anos-g{ grid-template-columns:1fr; } .anos-g > b{ padding-top:0; } }
   .atz-obs{ color:#5b6b7c; font-size:13px; } .atz-aceite{ display:flex; gap:8px; align-items:flex-start; font-size:14px; margin-top:8px; }
   .atz-erro{ display:none; background:#fff5f4; color:#a3271c; border:1px solid #f2c4bf; border-radius:10px; padding:10px 12px; margin-top:12px; font-weight:600; }
   .atz-pe{ display:flex; justify-content:space-between; gap:10px; padding:14px 22px; border-top:1px solid #e6ecf2; position:sticky; bottom:0; background:#fff; border-radius:0 0 18px 18px; }
@@ -3527,6 +3539,23 @@
   function minhasTurmasIds(){ return (usuarioAtual.turmas_ids||[]).map(x => String(x).trim()); }
   /* Turmas e alunos que o professor de rede enxerga (nov/2026): quem matricula é a escola (Ficha do Aluno), quem distribui é a Direção (Grade das turmas)
      e o professor só escolhe dentro do que é dele: as turmas em que a grade o coloca e as turmas dos anos que ele marca em Meu cadastro. */
+  // anos agrupados pela etapa (nov/2026): o professor marca só os anos; a etapa sai sozinha dos anos marcados
+  const GRUPOS_ANOS = [["Educação Infantil", "Educação Infantil", "", ["bebes","cbp","cp"]], ["Anos Iniciais (1º ao 5º)", "Anos Iniciais", "1º ao 5º ano", ["1","2","3","4","5"]],
+    ["Anos Finais (6º ao 9º)", "Anos Finais", "6º ao 9º ano", ["6","7","8","9"]], ["Ensino Médio", "Ensino Médio", "1ª a 3ª série", ["em1","em2","em3"]], ["", "Outras turmas", "EJA e multisseriada", ["eja","multi"]]];
+  function htmlAnosAgrupados(nome, marcados, aee){
+    const nm = Object.fromEntries(ANOS_AULA), m = new Set((marcados || []).map(String));
+    return '<div class="anos-gs">' + GRUPOS_ANOS.map(([, t, sub, anos]) => '<div class="anos-g"><b>' + escapeHtml(t) + (sub ? "<small>" + escapeHtml(sub) + "</small>" : "") + "</b><div>" +
+      anos.map(a => '<label><input type="checkbox" name="' + nome + '" value="' + escapeAttr(a) + '"' + (m.has(a) ? " checked" : "") + "> " + escapeHtml(nm[a] || a) + "</label>").join("") + "</div></div>").join("") + "</div>" +
+      '<label class="anos-aee"><input type="checkbox" name="' + nome + 'Aee"' + (aee ? " checked" : "") + '> Também atendo Educação Especial (AEE, sala de recursos)</label>';
+  }
+  function etapasDosAnos(anos, aee){
+    const a = new Set(anos), e = [];
+    GRUPOS_ANOS.forEach(([et, , , l]) => { if(et && l.some(x => a.has(x))) e.push(et); });
+    if(a.has("eja")) e.push("EJA");
+    if(a.has("multi") && !e.includes("Anos Iniciais (1º ao 5º)")) e.push("Anos Iniciais (1º ao 5º)");
+    if(aee) e.push("Educação Especial");
+    return e;
+  }
   const ANOS_AULA = [["bebes","Berçário"],["cbp","Maternal"],["cp","Pré-escola"],["1","1º ano"],["2","2º ano"],["3","3º ano"],["4","4º ano"],["5","5º ano"],["6","6º ano"],["7","7º ano"],["8","8º ano"],["9","9º ano"],["em1","1ª série EM"],["em2","2ª série EM"],["em3","3ª série EM"],["eja","EJA"],["multi","Multisseriada"]];
   // código do ano da turma (6, 7, em1...): ano_serie novo já é o código; turmas antigas guardam "6º Ano" ou só o nome
   const CODS_ANO = new Set(Object.values(TUR_COD));
@@ -7069,10 +7098,10 @@
         '<div class="field"><label for="mcFuncao">Função</label><select id="mcFuncao">'+["","Professor(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Técnico(a) da Secretaria","Outra"].map(f => '<option'+((u.funcao||"")===f ? " selected" : "")+'>'+f+'</option>').join("")+'</select></div></div>'+
         (inst ? "" : '<div class="row2"><div class="field"><label for="mcEscola">Escola</label><input type="text" id="mcEscola" value="'+escapeAttr(u.escola_texto||"")+'"></div>'+
           '<div class="field"><label for="mcInep">INEP <small>(opcional)</small></label><input type="text" id="mcInep" maxlength="8" value="'+escapeAttr(u.escola_inep||"")+'"></div></div>')+
-        (inst && u.perfil === "professor" ? '<div class="field"><label>Anos em que dou aula <small>(você vê só as turmas e os alunos destes anos nas suas escolas)</small></label><div class="cad-etapas cad-anos">'+
-          ANOS_AULA.map(([c, n]) => '<label><input type="checkbox" name="mcAno" value="'+escapeAttr(c)+'"'+((u.anos_aula || []).includes(c) ? " checked" : "")+'> '+escapeHtml(n)+'</label>').join("")+'</div>'+
+        (inst && u.perfil === "professor" ? '<div class="field"><label>Anos em que dou aula <small>(você vê só as turmas e os alunos destes anos nas suas escolas; a etapa entra sozinha)</small></label>'+
+          htmlAnosAgrupados("mcAno", u.anos_aula, etapasMarc.has("Educação Especial"))+
           '<small class="mc-grade" id="mcGrade"></small></div>' : '')+
-        '<div class="field"><label>Etapas em que atua</label><div class="cad-etapas">'+ETAPAS.map(e => '<label><input type="checkbox" name="mcEtapa" value="'+escapeAttr(e)+'"'+(etapasMarc.has(e) ? " checked" : "")+'> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
+        (inst && u.perfil === "professor" ? '' : '<div class="field"><label>Etapas em que atua</label><div class="cad-etapas">'+ETAPAS.map(e => '<label><input type="checkbox" name="mcEtapa" value="'+escapeAttr(e)+'"'+(etapasMarc.has(e) ? " checked" : "")+'> '+escapeHtml(e)+'</label>').join("")+'</div></div>')+
         linha("E-mail", u.email)+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button>'+(inst && u.perfil === "professor" ? '<button class="btn btn-ghost" data-action="atz-abrir">Atualizar cadastro completo (CPF, nascimento, disciplinas)</button>' : '')+'</div></div>'+
       '<div>'+
@@ -7107,7 +7136,8 @@
     if(whats && !PDE_PADRAO.whatsapp(whats).ok){ toast("WhatsApp inválido. Use DDD + número: (67) 99999-0000.", true); return; }
     const dados = { nome, whatsapp:whats, funcao:g("mcFuncao")||"", etapas:[...document.querySelectorAll('input[name="mcEtapa"]:checked')].map(i => i.value),
       atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
-    if(document.querySelector('input[name="mcAno"]')) dados.anos_aula = [...document.querySelectorAll('input[name="mcAno"]:checked')].map(i => i.value).slice(0, 17);
+    if(document.querySelector('input[name="mcAno"]')){ dados.anos_aula = [...document.querySelectorAll('input[name="mcAno"]:checked')].map(i => i.value).slice(0, 17);
+      dados.etapas = etapasDosAnos(dados.anos_aula, !!document.querySelector('input[name="mcAnoAee"]:checked')); }
     if($("mcEscola")){ dados.escola_texto = g("mcEscola"); const inep = g("mcInep"); if(inep && !/^\d{8}$/.test(inep)){ toast("INEP com 8 números.", true); return; } dados.escola_inep = inep || ""; }
     const btn = $("mcSalvar"); btn.disabled = true;
     try{ await updateDoc(doc(db,"usuarios",usuarioAtual.uid), dados); Object.assign(usuarioAtual, dados);
@@ -7138,6 +7168,7 @@
   function precisaAtualizar(u){
     if(!u || u.perfil !== "professor" || u._sim || u.semCadastro || u.status !== "ativo") return false;
     if((u.licenca_tipo || "institucional") !== "institucional" || !u.municipio_id) return false;
+    if(u.municipio_id === "lab-muni") return false;   // contas fictícias do Laboratório NEWPC: não são pessoas, não atualizam cadastro
     const em = u.cadastro_atualizado_em && u.cadastro_atualizado_em.toMillis ? u.cadastro_atualizado_em.toMillis() : 0;
     if(em < inicioAnoLetivo()) return true;
     const faltando = !PDE_PADRAO.whatsapp(u.whatsapp || "").ok || !u.whatsapp || !PDE_PADRAO.cpf(u.cpf || "").ok || !u.cpf || !u.nascimento || !u.funcao ||
@@ -7160,11 +7191,10 @@
         '<div class="field"><label for="atzNasc">Data de nascimento *</label><input id="atzNasc" type="date" value="'+escapeAttr(u.nascimento || "")+'" max="'+new Date(Date.now() - 16*365.25*864e5).toISOString().slice(0, 10)+'" min="1930-01-01"></div>'+
         '<div class="field"><label for="atzFuncao">Função *</label><select id="atzFuncao">'+["","Professor(a)","Professor(a) e coordenador(a)","Coordenador(a) pedagógico(a)","Diretor(a)","Outra"].map(f => '<option'+(f === (u.funcao || "") ? " selected" : "")+'>'+escapeHtml(f)+'</option>').join("")+'</select></div></div>'+
         '<div class="field"><label>Escolas onde dou aula * <small>(até 5)</small></label><div class="atz-grade" id="atzEscolas"><small>Carregando as escolas da rede…</small></div></div>'+
-        '<div class="field"><label>Anos em que dou aula *</label><div class="atz-grade">'+chk("atzAno", ANOS_AULA, new Set(u.anos_aula || []))+'</div></div>'+
-        '<div class="field"><label>Etapas *</label><div class="atz-grade">'+chk("atzEtapa", ETAPAS.map(e => [e, e]), new Set(u.etapas || []))+'</div></div>'+
-        '<div class="field"><label>Disciplinas que leciono *</label><div class="atz-grade">'+chk("atzDisc", DISCIPLINAS.map(e => [e, e]), new Set(u.disciplinas || []))+'</div></div>'+
+        '<div class="field"><label>Anos em que dou aula * <small>(a etapa entra sozinha)</small></label><div id="atzAnos">'+htmlAnosAgrupados("atzAno", u.anos_aula, (u.etapas || []).includes("Educação Especial"))+'</div></div>'+
+        '<div class="field"><label>Disciplinas que leciono * <small>(na Educação Infantil, a disciplina entra sozinha)</small></label><div class="atz-grade" id="atzDiscs">'+chk("atzDisc", DISCIPLINAS.filter(d => d !== "Educação Infantil" && d !== "Educação Especial").map(e => [e, e]), new Set(u.disciplinas || []))+'</div></div>'+
         '<p class="atz-obs">Foto para o crachá é opcional: depois, em <b>Meu cadastro › Minha ficha funcional</b>.</p>'+
-        '<label class="atz-aceite"><input type="checkbox" id="atzAceite"'+(u.privacidade_aceite_em ? " checked" : "")+'> Li e concordo com a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>. Meus dados são usados para o meu acesso, a minha formação e o atendimento do Portal na minha rede.</label>'+
+        '<label class="atz-aceite"><input type="checkbox" id="atzAceite"'+(u.privacidade_aceite_em ? " checked" : "")+'> <span>Li e concordo com a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>. Meus dados são usados para o meu acesso, a minha formação e o atendimento do Portal na minha rede.</span></label>'+
         '<div class="atz-erro" id="atzErro" role="alert"></div>'+
       '</div>'+
       '<div class="atz-pe"><button type="button" class="btn btn-ghost" data-action="atz-sair">Sair</button><button type="button" class="btn btn-primary" data-action="atz-salvar" id="atzSalvar">Salvar e continuar</button></div></div>';
@@ -7189,10 +7219,11 @@
     // a escola principal (a que veio da rede) continua em primeiro
     const ant = minhasEscolasIds(), esc = marc("atzEsc").sort((a, b) => (ant.indexOf(a) < 0 ? 99 : ant.indexOf(a)) - (ant.indexOf(b) < 0 ? 99 : ant.indexOf(b))); if(!esc.length) return atzErro("Marque pelo menos uma escola onde você dá aula.", $("atzEscolas"));
     if(esc.length > 5) return atzErro("Marque no máximo 5 escolas.", $("atzEscolas"));
-    const anos = marc("atzAno"), etapas = marc("atzEtapa"), disc = marc("atzDisc");
-    if(!anos.length) return atzErro("Marque os anos em que você dá aula.", document.querySelector('input[name="atzAno"]').closest(".atz-grade"));
-    if(!etapas.length) return atzErro("Marque pelo menos uma etapa.", document.querySelector('input[name="atzEtapa"]').closest(".atz-grade"));
-    if(!disc.length) return atzErro("Marque as disciplinas que você leciona.", document.querySelector('input[name="atzDisc"]').closest(".atz-grade"));
+    const anos = marc("atzAno"), aee = !!document.querySelector('input[name="atzAnoAee"]:checked'), etapas = etapasDosAnos(anos, aee), disc = marc("atzDisc");
+    if(anos.some(a => ["bebes","cbp","cp"].includes(a))) disc.push("Educação Infantil");
+    if(aee) disc.push("Educação Especial");
+    if(!anos.length) return atzErro("Marque os anos em que você dá aula.", $("atzAnos"));
+    if(!disc.length) return atzErro("Marque as disciplinas que você leciona.", $("atzDiscs"));
     if(!$("atzAceite").checked) return atzErro("Para continuar, marque a concordância com a Política de Privacidade.", $("atzAceite"));
     atzErro("");
     const nomes = esc.map(id => (cacheEscolas.find(e => e.id === id) || {}).nome || "");
