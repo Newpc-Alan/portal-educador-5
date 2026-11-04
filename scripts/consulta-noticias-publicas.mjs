@@ -18,6 +18,6 @@ for (const d of sn.docs) {
   await db.doc('noticias_publicas/' + d.id).set({ tipo: n.tipo || 'noticia', titulo: n.titulo || '', resumo: n.resumo || '', corpo: n.corpo || '', midia_url: n.midia_url || '',
     imagem_url: n.imagem_url || '', inicio: n.inicio || n.criado_em || FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp() });
   const pub = await fetch(base + 'noticias_publicas/' + d.id), orig = await fetch(base + 'noticias/' + d.id);
-  ok(pub.status === 200 && orig.status === 403, '"' + n.titulo + '" · cópia pública abre sem login (HTTP ' + pub.status + ') · original fechada (HTTP ' + orig.status + ') · link https://app.portaldoeducador.com.br/noticia/?id=' + d.id);
+  ok(pub.status === 200 && orig.status === 403, '"' + n.titulo + '" · cópia pública abre sem login (HTTP ' + pub.status + ') · original fechada (HTTP ' + orig.status + ') · link https://www.portaldoeducador.com.br/noticia/?id=' + d.id);
 }
 process.exit(falhas ? 1 : 0);

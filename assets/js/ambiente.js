@@ -1,5 +1,5 @@
 // Portal do Educador · qual ambiente esta página usa (nov/2026)
-// OFICIAL: www/app.portaldoeducador.com.br (professores e redes de verdade).
+// OFICIAL: www.portaldoeducador.com.br (o antigo app. redireciona para o www) (professores e redes de verdade).
 // TESTE (homologação): teste.portaldoeducador.com.br e os endereços do projeto de teste. Tudo que muda passa
 // primeiro pelo teste; depois de validado, a mesma versão vai para o oficial. O teste nunca toca no banco oficial.
 // Carregar ANTES dos outros scripts:  <script src="/assets/js/ambiente.js"></script>

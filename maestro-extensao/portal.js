@@ -1,5 +1,5 @@
 // Portal Maestro · ponte com o Portal do Educador (v0.9)
-// Roda só nas páginas de app.portaldoeducador.com.br. O aluno entra no Portal com a conta dele (cartão QR, código + PIN ou Google);
+// Roda só nas páginas do Portal (www e o antigo app.). O aluno entra no Portal com a conta dele (cartão QR, código + PIN ou Google);
 // quando a turma tem aula aberta, o Portal avisa por aqui e o Chromebook entra na aula do Maestro sozinho, sem digitar número.
 // Só aceita mensagens da própria página (mesma origem) e só repassa: número da aula (6 dígitos), nome e id da matrícula.
 document.documentElement.dataset.maestroExt = chrome.runtime.getManifest().version;

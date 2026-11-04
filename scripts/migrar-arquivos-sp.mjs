@@ -65,7 +65,7 @@ if (etapa === 'preparar') {
     log('bucket criado: ' + NOVO + ' em ' + REGIAO);
   } else log('bucket ja existia: ' + NOVO);
   const [mv] = await velho.getMetadata();
-  const cors = (mv.cors && mv.cors.length) ? mv.cors : [{ origin: ['https://app.portaldoeducador.com.br', 'https://www.portaldoeducador.com.br'], method: ['GET', 'HEAD'], responseHeader: ['Content-Type', 'Content-Encoding', 'Content-Length'], maxAgeSeconds: 3600 }];
+  const cors = (mv.cors && mv.cors.length) ? mv.cors : [{ origin: ['https://www.portaldoeducador.com.br', 'https://app.portaldoeducador.com.br', 'https://www.portaldoeducador.com.br'], method: ['GET', 'HEAD'], responseHeader: ['Content-Type', 'Content-Encoding', 'Content-Length'], maxAgeSeconds: 3600 }];
   await novo.setCorsConfiguration(cors); log('cors copiado (' + cors.length + ' regra)');
   // liga o bucket ao Firebase (regras do Storage e SDK passam a valer nele)
   const cli = await new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] }).getClient();

@@ -17,7 +17,7 @@ try { const r = await cliente.request({ url: 'https://secretmanager.googleapis.c
 catch (e) { console.log('::error::Não consegui ler a senha no Secret Manager: ' + (e.response && e.response.status) + ' ' + String(e.message).slice(0, 120)); process.exit(1); }
 const db = getFirestore(), c = await config(db);
 console.log('::notice::Enviando teste de ' + c.remetente + ' por ' + c.host + ':' + c.porta + ' para ' + para);
-const com = { tipo: 'info', assunto: '[TESTE] Comunicado do Portal do Educador', mensagem: 'Este é um teste da nova ferramenta de Comunicados por e-mail do Portal do Educador.\n\nSe você recebeu esta mensagem na caixa de entrada, o envio pela conta comunicados@portaldoeducador.com.br está funcionando.\n\nConfira também o remetente, o nome e a aparência no celular.', botao_texto: 'Abrir o Portal', botao_link: 'https://app.portaldoeducador.com.br/entrar/' };
+const com = { tipo: 'info', assunto: '[TESTE] Comunicado do Portal do Educador', mensagem: 'Este é um teste da nova ferramenta de Comunicados por e-mail do Portal do Educador.\n\nSe você recebeu esta mensagem na caixa de entrada, o envio pela conta comunicados@portaldoeducador.com.br está funcionando.\n\nConfira também o remetente, o nome e a aparência no celular.', botao_texto: 'Abrir o Portal', botao_link: 'https://www.portaldoeducador.com.br/entrar/' };
 for (const porta of [c.porta, c.porta === 465 ? 587 : 465]) {
   try {
     const t = nodemailer.createTransport({ host: c.host, port: porta, secure: porta === 465, requireTLS: porta === 587, auth: { user: c.remetente, pass: senha }, connectionTimeout: 20000 });
