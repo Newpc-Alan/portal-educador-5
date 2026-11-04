@@ -1,0 +1,20 @@
+// Só leitura: envios da aula ao vivo e materiais da turma de laboratório (horários, tipo, se é do professor da aula). Sem nomes de alunos.
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+const req = createRequire(process.cwd() + '/');
+const { initializeApp, applicationDefault } = await import(pathToFileURL(req.resolve('firebase-admin/app')).href);
+const { getFirestore } = await import(pathToFileURL(req.resolve('firebase-admin/firestore')).href);
+initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
+const db = getFirestore(), h = ms => ms ? new Date(ms - 4 * 3600e3).toISOString().slice(11, 19) : '-', ms = x => x && x.toMillis ? x.toMillis() : 0;
+const tid = 'lab-t6a';
+const q = (await db.doc(`qr_aulas/${tid}`).get()).data() || {};
+const dono = q.por || '';
+console.log(`::notice::aula por=${dono.slice(0, 6)} disc=${q.por_disc || '-'} aberta_em=${h(ms(q.aberta_em))} ate=${h(ms(q.aberta_ate))} duracao=${q.duracao_min || '-'} encerrada_por=${(q.encerrada_por || '').slice(0, 6)} pedido=${q.pedido ? q.pedido.status : '-'} troca=${q.troca ? q.troca.como : '-'}`);
+const av = (await db.doc(`aula_vivo/${tid}`).get()).data() || {};
+const c = av.comando; console.log(`::notice::aula_vivo atualizado=${h(ms(av.atualizado_em))} por=${String(av.por || '').slice(0, 6)} comando=${c ? `id ${String(c.id).slice(0, 10)} em ${h(ms(c.em) || Number(c.em) || 0)} embed ${c.embed} dominio ${(() => { try { return new URL(c.url).hostname; } catch (e) { return '?'; } })()}` : '-'} comandos_individuais=${Object.keys(av.comandos || {}).length}`);
+const hs = await db.collection(`aula_vivo/${tid}/historico`).orderBy('em', 'desc').limit(10).get();
+hs.docs.forEach(d => { const x = d.data(); console.log(`::notice::historico ${h(ms(x.em))} tipo=${x.tipo || 'conteudo'} so_um_aluno=${!!x.aluno_id} do_dono=${x.por === dono} dominio=${(() => { try { return new URL(x.url).hostname; } catch (e) { return '-'; } })()}`); });
+const mt = await db.collection(`turma_materiais/${tid}/itens`).orderBy('criado_em', 'desc').limit(8).get();
+mt.docs.forEach(d => { const x = d.data(); console.log(`::notice::material ${h(ms(x.criado_em))} tipo=${x.tipo_item} do_dono=${x.autor_uid === dono} acervo=${!!x.acervo_id} embed=${x.embed} youtube=${!!x.youtube}`); });
+const pr = await db.collection(`turma_presenca/${tid}/alunos`).get(); let on = 0, rec = 0; pr.docs.forEach(p => { const y = p.data(); if (ms(y.em) > Date.now() - 3 * 3600e3) { rec++; if (!y.saiu && !y.fora) on++; } });
+console.log(`::notice::presenca ultimas_3h=${rec} sem_sair=${on}`);
