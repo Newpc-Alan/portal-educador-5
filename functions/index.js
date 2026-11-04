@@ -9,7 +9,7 @@ import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPubli
 import { expiraAuditoria } from './auditoria.js';
 import { camposDoPortal } from './formacao-sync.js';
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
-export { comunicacaoProfessor, comunicacaoLembretes } from './comunicacoes.js';
+export { comunicacaoProfessor, comunicacaoLembretes, comunicacaoManual } from './comunicacoes.js';
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
 export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao, corrigirProvaOnline } from './provas-online.js';

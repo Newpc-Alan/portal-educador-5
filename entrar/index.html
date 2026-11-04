@@ -1883,6 +1883,7 @@
     </div>
     <div class="mf usr-mf">
       <button class="btn btn-ghost" data-action="usr-senha" id="usrSenha" title="Para quem não consegue entrar">🔑 Senha provisória</button>
+      <button class="btn btn-ghost" data-action="usr-boasvindas" id="usrBoasVindas" title="Manda o e-mail que cabe na situação do professor (rede, teste, licença ou cortesia)" hidden>✉️ E-mail de boas-vindas</button>
       <button class="btn btn-ghost" data-action="usr-cancelar">Cancelar</button>
       <button class="btn btn-primary" data-action="usr-salvar" id="usrSalvar">Salvar</button>
     </div>
@@ -7664,6 +7665,7 @@
     document.querySelectorAll('#usrStatus input').forEach(r => { r.disabled = ehEu; });
     desenharModalUsuario();
     $("usrSenha").hidden = ehEu || u.perfil === "admin" || !u.email;
+    if($("usrBoasVindas")) $("usrBoasVindas").hidden = !(usuarioAtual.perfil === "admin" && u.perfil === "professor" && u.status === "ativo" && u.email && u.municipio_id !== "lab-muni");
     $("modalUsuario").classList.add("show");
   }
   function fecharModalUsuario(){ $("modalUsuario").classList.remove("show"); usr.editando = null; }
@@ -8121,6 +8123,11 @@
     else if(acao === "imp-limpar"){ imp.linhas = []; $("impTexto").value = ""; $("impPrevia").innerHTML = ""; }
     else if(acao === "usr-cancelar"){ fecharModalUsuario(); }
     else if(acao === "usr-salvar"){ salvarUsuario(); }
+    else if(acao === "usr-boasvindas"){ const u = usr.editando && usr.lista.find(x => x.id === usr.editando.uid); if(!u) return; const b = $("usrBoasVindas"); b.disabled = true; b.textContent = "Enviando...";
+      import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js").then(({ getFunctions, httpsCallable }) => httpsCallable(getFunctions(app, "southamerica-east1"), "comunicacaoManual")({ uid:u.id }))
+        .then(() => toast("E-mail de boas-vindas enviado para " + (u.nome || u.email) + "."))
+        .catch(e => toast((e && e.message || "Não foi possível enviar.").replace(/^.*?: /, ""), true))
+        .finally(() => { b.disabled = false; b.textContent = "✉️ E-mail de boas-vindas"; }); }
     else if(acao === "usr-senha"){ const u = usr.editando && usr.lista.find(x => x.id === usr.editando.uid); if(u) gerarSenhaProvisoria(u.email, u.nome, $("usrSenha")); }
     else if(acao === "sim-entrar"){
       const muni = $("simMuni") ? $("simMuni").value : "";

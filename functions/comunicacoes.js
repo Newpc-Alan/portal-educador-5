@@ -6,6 +6,7 @@
 // WhatsApp: fase 2, quando os modelos forem aprovados pela Meta (o mesmo registro guarda o canal).
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 
@@ -109,6 +110,26 @@ export const comunicacaoProfessor = onDocumentWritten({ document: 'usuarios/{uid
   const a = ev.data.before.exists ? ev.data.before.data() : null, d = ev.data.after.exists ? ev.data.after.data() : null;
   const m = momentoDe(a, d); if (!m) return;
   await enviar(getFirestore(), ev.params.uid, d, m);
+});
+
+// reenvio manual (administrador, botão no Gerenciar): manda o e-mail que cabe na situação atual da pessoa; no máximo 1 por dia
+export const comunicacaoManual = onCall({ region: REGIAO, secrets: [SMTP_SENHA], maxInstances: 3, timeoutSeconds: 30 }, async req => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Entre no Portal.');
+  const db = getFirestore(), eu = (await db.doc('usuarios/' + req.auth.uid).get()).data() || {};
+  if (eu.perfil !== 'admin' || eu.status !== 'ativo') throw new HttpsError('permission-denied', 'Só o administrador do Portal faz isso.');
+  const uid = String((req.data || {}).uid || ''); if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) throw new HttpsError('invalid-argument', 'Cadastro inválido.');
+  const u = (await db.doc('usuarios/' + uid).get()).data();
+  if (!u || u.perfil !== 'professor' || u.status !== 'ativo' || !u.email) throw new HttpsError('failed-precondition', 'O e-mail de boas-vindas é para professor ativo com e-mail.');
+  if (u.municipio_id === LAB || String(u.email).endsWith('@portaldoeducador.com.br')) throw new HttpsError('failed-precondition', 'Conta do laboratório não recebe e-mail.');
+  const t = u.licenca_tipo || 'institucional';
+  const momento = t === 'teste' ? 'teste_inicio' : t === 'avulsa' ? 'compra' : t === 'cortesia' ? 'cortesia' : u.municipio_id ? 'rede' : '';
+  if (!momento) throw new HttpsError('failed-precondition', 'Vincule o professor a uma rede ou a uma licença antes.');
+  const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+  const ok = await enviar(db, uid, u, { momento, chave: 'manual-' + dia });
+  if (!ok) throw new HttpsError('already-exists', 'Este e-mail já foi enviado hoje para esta pessoa (ou o envio falhou). Tente amanhã.');
+  await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), acao: 'alterou', origem: 'funcao', colecao: 'comunicacoes', doc: uid, autor_uid: req.auth.uid, autor_tipo: 'usuario', autor_email: eu.email || '', perfil: 'admin',
+    detalhe: 'E-mail de boas-vindas (' + momento + ') reenviado pelo administrador', campos: [], valores: {} }).catch(() => {});
+  return { momento };
 });
 
 // todo dia às 9h: teste terminando em 2 dias e licença avulsa vencendo em 7 dias
