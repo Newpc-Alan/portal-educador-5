@@ -165,7 +165,17 @@ export async function encerrarAulaMaestro(codigo) {
 
 // Portal Maestro na gaveta (02/11/2026): a aula não cria mais aula no banco do Maestro (fechado); a sala gerenciada é o Controle da aula do Portal
 export const MAESTRO_LIGADO = false;
-export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO, assumir = false }) {
+// troca de professor (nov/2026): quem chega pede; o professor da sala aprova ou recusa; sem resposta em 60 s, quem pediu pode assumir. Direção e coordenação assumem direto.
+export const ESPERA_PEDIDO_MS = 60e3;
+const PEDIDO_VALE_MS = 10 * 60e3;
+// a matéria do professor nesta turma: a grade da turma; sem grade, o cadastro dele. Com mais de uma, vale a que ele escolheu (se for dele)
+export function discNaTurma(t, uid, eu, pedida) {
+  const g = [...new Set(((t && t.grade) || []).filter(x => x && x.professor_uid === uid && x.disciplina).map(x => String(x.disciplina).slice(0, 60)))];
+  const lista = g.length ? g : (Array.isArray(eu && eu.disciplinas) ? eu.disciplinas.filter(d => d && d !== 'Educação Infantil' && d !== 'Educação Especial').map(d => String(d).slice(0, 60)) : []);
+  const p = String(pedida || '').slice(0, 60);
+  return lista.includes(p) ? p : lista.length === 1 ? lista[0] : '';
+}
+export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO, assumir = false, resposta = '', disciplina = '' }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
   if (!ts.exists) throw new HttpsError('not-found', 'Turma não encontrada.');
@@ -175,16 +185,56 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
   // a aula tem dono (nov/2026): quem abriu conduz; outro professor da turma vê "em aula com Fulano" e só entra se encerrar a aula do colega (fica na auditoria)
   const ant = (await ref.get()).data() || {}, antAte = ant.aberta_ate && ant.aberta_ate.toMillis ? ant.aberta_ate.toMillis() : 0, aberta = antAte > agora;
   const dono = !aberta || ant.por === uid, chefe = ['admin', 'gestor', 'secretaria_escolar'].includes(eu.perfil);
+  const pend = aberta && ant.pedido && ant.pedido.status === 'pendente' && ant.pedido.uid && ant.pedido.em && ant.pedido.em.toMillis && agora - ant.pedido.em.toMillis() < PEDIDO_VALE_MS ? ant.pedido : null;
+  const pendMs = pend ? pend.em.toMillis() : 0, meuPedido = !!pend && pend.uid === uid;
+  const infoPedido = () => meuPedido ? { pedido: { em: pendMs, espera: ESPERA_PEDIDO_MS } } : (pend ? { pedido: { de_outro: String(pend.nome || 'outro professor').slice(0, 80) } } : {});
   const nomeDono = async () => String(ant.por_nome || (ant.por ? ((await db.doc(`usuarios/${ant.por}`).get()).data() || {}).nome : '') || 'outro professor').slice(0, 80);
-  const ocupada = async () => ({ aberta_ate: antAte, ocupada: { nome: await nomeDono(), ate: antAte } });
+  const ocupada = async () => ({ aberta_ate: antAte, ocupada: { nome: await nomeDono(), disc: String(ant.por_disc || ''), ate: antAte }, ...infoPedido() });
   // aula nova (ou encerrada): o Controle da aula começa limpo (sem pausa, conteúdo, pesquisa ou quiz da aula anterior)
   const limparControle = () => db.doc(`aula_vivo/${turmaId}`).set({ pausa: false, pausa_alunos: {}, comandos: {}, atualizado_em: FieldValue.serverTimestamp(), por: uid });
   const auditar = async detalhe => db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'qr_aulas', doc: turmaId,
     autor_uid: uid, autor_tipo: 'usuario', perfil: eu.perfil || '', detalhe: String(detalhe).slice(0, 300), campos: [], valores: {} }).catch(e => console.warn('auditoria aula:', e.message));
+  // a turma passa de um professor para outro sem a aula fechar no meio (os alunos do cartão continuam conectados); o Controle da aula começa limpo
+  const passar = async ({ para, paraNome, paraDisc, min, como }) => {
+    const ate = new Date(agora + min * 60e3), deNome = await nomeDono();
+    await ref.set({ aberta_ate: ate, aberta_em: new Date(agora), prorrogado_min: 0, encerrada_por: '', duracao_min: min, por: para, por_nome: paraNome, por_disc: paraDisc, turma_nome: nome,
+      maestro_codigo: '', pedido: FieldValue.delete(), troca: { de_uid: String(ant.por || ''), de_nome: deNome, de_disc: String(ant.por_disc || ''), para_nome: paraNome, para_disc: paraDisc, como, em: new Date(agora) },
+      atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    await limparControle().catch(e => console.warn('limpar aula:', e.message));
+    if (maestro && /^\d{6}$/.test(String(ant.maestro_codigo || ''))) await encerrarAulaMaestro(ant.maestro_codigo).catch(e => console.warn('maestro (troca):', e.message));
+    let mc = '';
+    if (maestro) { mc = await abrirAulaMaestro({ atual: '', professor: paraNome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (troca):', e.message); return ''; }); if (mc) await ref.set({ maestro_codigo: mc }, { merge: true }); }
+    return { ate, mc, deNome };
+  };
+  if (acao === 'pedir') {
+    if (!aberta) return { aberta_ate: 0 };
+    if (dono) return { aberta_ate: antAte };
+    if (pend) return ocupada();   // já tem pedido (meu ou de outro) aguardando resposta
+    const min = minutosOk(minutos, MAX_AULA_MIN) || 60, disc = discNaTurma(ts.data(), uid, eu, disciplina);
+    await ref.set({ pedido: { uid, nome: meuNome, disc, minutos: min, em: new Date(agora), status: 'pendente' }, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    await auditar('Pediu para assumir a turma ' + nome + ' (em aula com ' + (await nomeDono()) + ')');
+    return { aberta_ate: antAte, ocupada: { nome: await nomeDono(), disc: String(ant.por_disc || ''), ate: antAte }, pedido: { em: agora, espera: ESPERA_PEDIDO_MS } };
+  }
+  if (acao === 'cancelar') {
+    if (meuPedido) await ref.set({ pedido: FieldValue.delete(), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    return { aberta_ate: aberta ? antAte : 0 };
+  }
+  if (acao === 'responder') {
+    if (!aberta || ant.por !== uid) return { aberta_ate: aberta ? antAte : 0, sem_pedido: true };
+    if (!pend) return { aberta_ate: antAte, sem_pedido: true };
+    if (resposta === 'sim') {
+      await passar({ para: pend.uid, paraNome: String(pend.nome || 'Professor').slice(0, 80), paraDisc: String(pend.disc || '').slice(0, 60), min: minutosOk(pend.minutos, MAX_AULA_MIN) || 60, como: 'aprovado' });
+      await auditar('Passou a turma ' + nome + ' para ' + String(pend.nome || 'outro professor') + ' (pedido aprovado)');
+      return { aberta_ate: 0, passou: true };
+    }
+    await ref.set({ pedido: { status: 'recusado', resp_em: new Date(agora) }, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    await auditar('Recusou o pedido de ' + String(pend.nome || 'outro professor') + ' para assumir a turma ' + nome);
+    return { aberta_ate: antAte, recusou: true };
+  }
   if (acao === 'fechar') {
     if (!aberta) return { aberta_ate: 0 };
-    if (!dono && !assumir && !chefe) return ocupada();
-    await ref.set({ aberta_ate: new Date(agora), encerrada_por: uid, turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    if (!dono && !chefe) return ocupada();   // professor não encerra a aula do colega: pede para assumir
+    await ref.set({ aberta_ate: new Date(agora), encerrada_por: uid, pedido: FieldValue.delete(), turma_nome: nome, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
     await limparControle().catch(e => console.warn('limpar aula:', e.message));
     if (!dono) await auditar('Encerrou a aula do ' + nome + ' aberta por ' + (await nomeDono()));
     if (maestro && /^\d{6}$/.test(String(ant.maestro_codigo || ''))) await encerrarAulaMaestro(ant.maestro_codigo).catch(e => console.warn('maestro (fechar):', e.message));
@@ -200,21 +250,30 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
     return { aberta_ate: ate.getTime(), maestro_codigo: mc };
   }
   if (acao === 'abrir') {
-    if (aberta && !dono && !assumir) return ocupada();
+    if (aberta && !dono) {
+      if (!assumir) return ocupada();
+      // professor só assume pelo pedido: aprovado (a troca acontece na resposta) ou sem resposta em 60 s; a direção assume direto
+      if (!chefe && !meuPedido) return { ...(await ocupada()), precisa_pedir: true };
+      if (!chefe && agora - pendMs < ESPERA_PEDIDO_MS) return ocupada();
+      const min = minutosOk(minutos, MAX_AULA_MIN) || minutosOk(meuPedido ? pend.minutos : 0, MAX_AULA_MIN) || 60;
+      const { ate, mc, deNome } = await passar({ para: uid, paraNome: meuNome, paraDisc: discNaTurma(ts.data(), uid, eu, disciplina || (meuPedido ? pend.disc : '')), min, como: chefe && !meuPedido ? 'direcao' : 'sem_resposta' });
+      await auditar('Assumiu a turma ' + nome + ' de ' + deNome + (chefe && !meuPedido ? ' (direção/coordenação)' : ' (sem resposta ao pedido em 60 s)'));
+      return { aberta_ate: ate.getTime(), maestro_codigo: mc };
+    }
     const min = minutosOk(minutos, MAX_AULA_MIN) || 60, ate = new Date(agora + min * 60e3);
     // o mesmo professor reabrindo a própria aula: continua a mesma aula (só muda o tempo); senão é aula nova
     const continua = aberta && dono;
     const [maestro_codigo] = await Promise.all([
       maestro ? abrirAulaMaestro({ atual: continua ? ant.maestro_codigo : '', professor: meuNome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (abrir):', e.message); return ''; }) : '',
-      ref.set({ aberta_ate: ate, ...(continua ? {} : { aberta_em: new Date(agora), prorrogado_min: 0, encerrada_por: '' }), duracao_min: min, por: uid, por_nome: meuNome, turma_nome: nome,
+      ref.set({ aberta_ate: ate, ...(continua ? {} : { aberta_em: new Date(agora), prorrogado_min: 0, encerrada_por: '', pedido: FieldValue.delete(), troca: FieldValue.delete() }), duracao_min: min, por: uid, por_nome: meuNome,
+        por_disc: discNaTurma(ts.data(), uid, eu, disciplina) || (continua ? String(ant.por_disc || '') : ''), turma_nome: nome,
         maestro_codigo: continua ? String(ant.maestro_codigo || '') : '', atualizado_em: FieldValue.serverTimestamp() }, { merge: true }),
       continua ? null : limparControle().catch(e => console.warn('limpar aula:', e.message))
     ]);
     if (maestro && maestro_codigo !== (continua ? String(ant.maestro_codigo || '') : '')) await ref.set({ maestro_codigo }, { merge: true });
-    if (aberta && !dono) await auditar('Assumiu a turma ' + nome + ': encerrou a aula aberta por ' + (await nomeDono()) + ' e abriu a sua');
     return { aberta_ate: ate.getTime(), maestro_codigo };
   }
-  return { aberta_ate: aberta ? antAte : 0, maestro_codigo: aberta ? String(ant.maestro_codigo || '') : '', ...(aberta && !dono ? { ocupada: { nome: await nomeDono(), ate: antAte } } : {}) };
+  return { aberta_ate: aberta ? antAte : 0, maestro_codigo: aberta ? String(ant.maestro_codigo || '') : '', ...(aberta && !dono ? { ocupada: { nome: await nomeDono(), disc: String(ant.por_disc || ''), ate: antAte }, ...infoPedido() } : {}) };
 }
 
 // conta Google (ou outro login com e-mail confirmado) do aluno: liga à matrícula pelo e-mail gravado na Ficha do Aluno
@@ -249,7 +308,8 @@ export const entrarAlunoQr = onCall({ region: REGIAO, maxInstances: 20, memory: 
 export const entradaQrTurma = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const d = req.data || {};
-  return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar', 'prorrogar'].includes(d.acao) ? d.acao : 'ver', minutos: d.minutos, assumir: d.assumir === true });
+  return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar', 'prorrogar', 'pedir', 'cancelar', 'responder'].includes(d.acao) ? d.acao : 'ver',
+    minutos: d.minutos, assumir: d.assumir === true, resposta: d.resposta === 'sim' ? 'sim' : 'nao', disciplina: typeof d.disciplina === 'string' ? d.disciplina.slice(0, 60) : '' });
 });
 export const vincularContaAluno = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');

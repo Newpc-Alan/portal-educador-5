@@ -458,6 +458,16 @@
   .ca-bts{ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px } @media (max-width:1200px){ .ca-bts{ grid-template-columns:repeat(3,minmax(0,1fr)) } } @media (max-width:700px){ .ca-bts{ grid-template-columns:1fr 1fr } }
   .ca-qz .btn-mini{ font:inherit;font-size:13px;font-weight:800;border:2px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:10px;padding:6px 10px;cursor:pointer } .ca-qz .btn-qz-fim{ background:#1a6b2a;border-color:#1a6b2a;color:#fff;margin-left:auto }
   .ce-sim{ background:#c62828;color:#fff;border:0 } .ce-sim:hover{ background:#a91f1f }
+  .tp-jan{ max-width:560px;text-align:center } .tp-jan .et-corpo{ display:grid;gap:12px;justify-items:center }
+  .tp-ico{ font-size:54px;line-height:1 } .tp-nome{ font-size:24px;font-weight:800;color:#0f2c4a;margin:0 } .tp-disc{ display:inline-block;background:#eaf4e2;color:#1a6b2a;font-weight:800;border-radius:999px;padding:5px 14px;font-size:15px }
+  .tp-txt{ font-size:16px;color:#3c4b5a;margin:0;line-height:1.45 } .tp-cont{ font-size:14px;color:#5b6b7b;font-weight:700 }
+  .tp-bts{ display:flex;gap:10px;flex-wrap:wrap;justify-content:center;width:100% } .tp-bts .btn{ flex:1 1 200px;font-size:17px;padding:14px 16px;border-radius:14px;font-weight:800 }
+  .tp-sim{ background:#1a6b2a;color:#fff;border:0 } .tp-sim:hover{ background:#14551f } .tp-sim:disabled{ opacity:.5;cursor:default }
+  .tr-aluno{ position:fixed;inset:0;z-index:9600;background:rgba(7,22,33,.72);display:flex;align-items:center;justify-content:center;padding:16px }
+  .tr-aluno > div{ background:#fff;border-radius:22px;max-width:560px;width:100%;padding:26px 22px;text-align:center;display:grid;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.35) }
+  .tr-aluno h3{ margin:0;font-size:24px;color:#0f2c4a } .tr-lin{ display:flex;align-items:center;gap:12px;border-radius:14px;padding:12px 14px;text-align:left;font-size:17px }
+  .tr-lin.sai{ background:#f4f6f8;color:#5b6b7b } .tr-lin.entra{ background:#eaf4e2;color:#0f2c4a;font-weight:700 } .tr-lin span{ font-size:30px }
+  .tr-aluno button{ justify-self:center;font-size:16px;font-weight:800;border-radius:12px;padding:12px 26px;background:#0f2c4a;color:#fff;border:0;cursor:pointer }
   .hj-bts{ display:flex;flex-wrap:wrap;gap:0 8px } .hj-bts .hj-btn{ padding:9px 12px } .hj-btn.hj-enc{ background:#fff;color:#c62828;box-shadow:inset 0 0 0 2px #c62828 }
   .pq-acervo{ display:grid;gap:8px;margin-top:8px } .pq-grupo{ display:flex;flex-wrap:wrap;gap:6px;align-items:center } .pq-grupo small{ width:100%;font-weight:800;color:#5b6b7b;font-size:12px }
   .pq-chip{ font:inherit;font-size:13.5px;border:1.5px solid #d6e2ec;background:#fff;color:#0f2c4a;border-radius:99px;padding:6px 11px;cursor:pointer } .pq-chip:hover,.pq-chip.on{ border-color:#1a6b2a;background:#eaf6dc }
@@ -7949,6 +7959,7 @@
     else if(acao === "ini-encerrar-aula"){ encerrarAulaInicio(el.dataset.arg, el); }
     else if(acao === "nt-compartilhar"){ compartilharNoticia(el.dataset.id); }
     else if(acao === "nt-faixa-reagir"){ reagirFaixa(el.dataset.arg); }
+    else if(AV_CONDUZ.includes(acao) && AV.tid && AV.ocupada){ toast("A turma está em aula com " + AV.ocupada.nome + ". Só quem conduz a aula comanda as telas.", true); }
     else if(acao === "av-mais"){ if(!AV.tid) return; el.disabled = true; chamarEntradaQr({ turma_id:AV.tid, acao:"prorrogar", minutos:10 }).then(r => { toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); qrAoVivo("ver"); }).catch(e => toast(e && e.message ? e.message : "Não deu para prorrogar agora.", true)).finally(() => { el.disabled = false; }); }
     else if(acao === "av-feitos"){ if(AV.tid) feitosParaTurma(AV.tid); }
     else if(acao === "av-mae-al"){ MAV.sel = MAV.sel === el.dataset.arg ? "" : el.dataset.arg; desenharAoVivo(); }
@@ -9550,6 +9561,7 @@
     const f = document.createElement("div"); f.id = "etFundo"; f.className = "et-fundo";
     f.innerHTML = '<div class="et-jan" role="dialog" aria-modal="true" aria-labelledby="etTit"><div class="et-topo"><h3 id="etTit">🔗 Enviar conteúdo para a turma</h3><button type="button" data-action="et-fechar">Fechar</button></div><div class="et-corpo">' +
       '<p class="et-d">Vai para "Materiais da turma" no Portal do Aluno. Se a turma estiver com o Portal aberto, aparece na hora, em tela cheia.</p>' +
+      (AV.tid && AV.ocupada && (!preTurma || preTurma === AV.tid) ? '<p class="et-d" style="background:#fff6e0;border-radius:10px;padding:8px 10px;color:#7a5200"><b>A turma está em aula com ' + escapeHtml(AV.ocupada.nome) + '.</b> O material fica em "Materiais da turma", mas não abre na tela dos alunos agora, para não atrapalhar a aula.</p>' : '') +
       '<div class="et-modos" role="tablist"><button type="button" data-action="et-modo" data-arg="link" aria-selected="true">🔗 Link de um site ou vídeo</button><button type="button" data-action="et-modo" data-arg="arquivo" aria-selected="false">📎 Arquivo (PDF, slides, vídeo)</button></div>' +
       '<label id="etBoxLink">Link<input id="etUrl" type="url" inputmode="url" placeholder="https://..." maxlength="2000"><small>YouTube toca dentro do Portal. Outros sites abrem com um botão para o aluno.</small></label>' +
       '<label id="etBoxArq" hidden>Arquivo<input id="etArq" type="file" accept="' + ET_ACEITA + '"><small>PDF, PowerPoint, Word, Excel, imagem, vídeo (até 100 MB) ou áudio.</small></label>' +
@@ -9619,6 +9631,8 @@
   }
   /* Turma ao vivo (professor): quem está na sala agora, o que foi enviado, quem já abriu e a busca no que já foi enviado. Independe do Maestro. */
   const AV = { tid:"", alunos:[], pres:{}, mats:[], vistos:{}, subs:[], relogio:null, q:"", per:"", aberto:"" };
+  // comandos da aula: só quem conduz (com a turma em aula com outro professor, a tela fica só de leitura; o banco também barra)
+  const AV_CONDUZ = ["av-mais", "av-mae-pausa", "av-mae-um", "av-mae-mao", "av-mae-link", "av-mae-af", "av-mae-af-fim", "av-qz", "av-qz-fim", "av-qz-parcial", "av-acervo", "av-chat", "av-um-link", "av-hist-abrir"];
   const ON_MS = 50000;   // o aluno manda sinal a cada 20 s; sem sinal há 50 s = fora
   function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; (AVV.subs || []).forEach(u => { try{ u(); }catch(e){} }); AVV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
   function fecharAoVivo(){ pararAoVivo(); const f = $("avFundo"); if(f) f.remove(); atualizarCartaoAula(); }
@@ -9672,6 +9686,9 @@
       AV.ocupada = AV.aulaFim > Date.now() && x.por && x.por !== usuarioAtual.uid ? { nome:x.por_nome || (AV.ocupada && AV.ocupada.nome) || "outro professor", ate:AV.aulaFim } : null;
       AV.donoAula = x.por || "";
       if(donoAntes !== undefined && AV.donoAula !== donoAntes && AV.donoAula === usuarioAtual.uid) iniciarAulaVivoProf(tid);   // a turma passou a ser minha: religa mãos, respostas e conversa
+      acompanharPedido(tid, x);
+      // a turma passou para outro professor com a aula seguindo: quem saiu sai do painel (nov/2026)
+      if(donoAntes === usuarioAtual.uid && AV.donoAula && AV.donoAula !== usuarioAtual.uid && AV.aulaFim > Date.now()){ delete TA.aulas[tid]; avisoTurmaPassou(x); fecharAoVivo(); return; }
       if(AV.aulaFim > Date.now() && AV.qrAte !== AV.aulaFim){ AV.qrAte = AV.aulaFim; } else if(AV.aulaFim <= Date.now() && AV.qrAte) AV.qrAte = 0;
       AVV.chat = (AVV.chatTodos || []).filter(m => desdeAula(m.em)); pintarQrAoVivo();
       const mc = AV.aulaFim > Date.now() && /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
@@ -9747,7 +9764,11 @@
   function vigiarAulasProf(){
     if(TA.unsub || !usuarioAtual || usuarioAtual.perfil === "aluno") return;
     TA.unsub = onSnapshot(query(collection(db, "qr_aulas"), where("por", "==", usuarioAtual.uid)), sn => {
-      TA.aulas = {}; sn.forEach(d => { const x = d.data(), ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; if(ate > Date.now()) TA.aulas[d.id] = { ate, nome:x.turma_nome || "turma" }; });
+      const antes = TA.aulas; TA.aulas = {}; sn.forEach(d => { const x = d.data(), ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; if(ate > Date.now()){ TA.aulas[d.id] = { ate, nome:x.turma_nome || "turma" }; pedidoRecebido(d.id, x); } });
+      if(PR.tid && !TA.aulas[PR.tid]) fecharPedidoRecebido();
+      // aula que saiu da minha lista antes da hora, fora do painel: confere se passou para outro professor e avisa
+      Object.entries(antes || {}).forEach(([tid, a]) => { if(TA.aulas[tid] || a.ate <= Date.now() || AV.tid === tid) return;
+        getDoc(doc(db, "qr_aulas", tid)).then(s => { const x = s.data() || {}; if(x.por && x.por !== usuarioAtual.uid && msAv(x.aberta_ate) > Date.now() && x.troca && x.troca.de_uid === usuarioAtual.uid) avisoTurmaPassou(x); }).catch(() => {}); });
       atualizarCartaoAula(); conferirAulasProf();
     }, e => console.warn("aulas abertas:", e.code));
     TA.relogio = setInterval(() => { conferirAulasProf(); atualizarCartaoAula(); }, 15000);
@@ -9891,9 +9912,9 @@
       const v = $("ceFundo"); if(v) v.remove();
       const f = document.createElement("div"); f.id = "ceFundo"; f.className = "et-fundo";
       f.innerHTML = '<div class="et-jan" role="alertdialog" aria-modal="true" aria-labelledby="ceTit"><div class="et-topo"><h3 id="ceTit">🔒 ' + escapeHtml(nome || "A turma") + ' está em aula</h3></div><div class="et-corpo">' +
-        '<p class="et-d">A aula foi aberta por <b>' + escapeHtml(oc.nome) + '</b> e vai até <b>' + horaCurta(oc.ate) + '</b>. Se o horário dela já acabou e ficou aberta por esquecimento, você pode encerrar a aula anterior e começar a sua.</p>' +
-        '<p class="et-d">A pausa, o conteúdo, a pesquisa e o quiz da aula anterior são encerrados (o quiz fica sem relatório) e a conversa com os alunos não passa para você. ' + escapeHtml(String(oc.nome).split(" ")[0]) + ' vê que a turma passou para você, e fica registrado na auditoria.</p>' +
-        '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-ce="nao">Voltar</button><button type="button" class="btn ce-sim" data-ce="sim">🔁 Encerrar a aula anterior e começar a minha</button></div></div></div>';
+        '<p class="et-d">A aula foi aberta por <b>' + escapeHtml(oc.nome) + '</b> e vai até <b>' + horaCurta(oc.ate) + '</b>. Como direção ou coordenação, você assume direto, sem esperar resposta.</p>' +
+        '<p class="et-d">A pausa, o conteúdo, a pesquisa e o quiz da aula anterior são encerrados (o quiz fica sem relatório) e a conversa com os alunos não passa para você. ' + escapeHtml(String(oc.nome).split(" ")[0]) + ' recebe o aviso e sai do painel; os alunos continuam conectados e veem a troca. Fica registrado na auditoria.</p>' +
+        '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-ce="nao">Voltar</button><button type="button" class="btn ce-sim" data-ce="sim">🔁 Assumir a turma agora</button></div></div></div>';
       document.body.appendChild(f);
       const fim = v => { f.remove(); ok(v); };
       f.addEventListener("click", e => { const b = e.target.closest("[data-ce]"); if(b) fim(b.dataset.ce === "sim"); });
@@ -9901,13 +9922,118 @@
       f.querySelector('[data-ce="nao"]').focus();
     });
   }
+  /* ---------- Troca de professor com a aula em andamento (nov/2026) ----------
+     Quem chega pede a turma; o professor da sala recebe uma janela grande (nome e matéria de quem pediu) e aprova ou recusa.
+     Sem resposta em 60 s, quem pediu pode assumir. Na troca, quem saiu fecha o painel e os alunos veem quem saiu e quem entrou.
+     Direção e coordenação assumem direto. Tudo fica na auditoria (servidor: entradaTurma, ações pedir / responder / cancelar). */
+  const chefeAula = () => ["admin", "gestor", "secretaria_escolar"].includes(usuarioAtual && usuarioAtual.perfil);
+  const PED = { tid:"", fim:0, min:0, timer:null, nomeT:"" };
+  const profDisc = (nome, disc) => escapeHtml(nome || "Professor") + (disc ? ' <span class="tp-disc">' + escapeHtml(disc) + "</span>" : "");
+  async function pedirTurma(tid, nomeT){
+    const oc = AV.ocupada || { nome:"outro professor" };
+    const min = await escolherTempo({ titulo:"🔁 Pedir a turma", texto:"A turma " + escapeHtml(nomeT || "") + " está em aula com <b>" + escapeHtml(oc.nome) + "</b>. Quanto tempo vai durar a sua aula? " + escapeHtml(String(oc.nome).split(" ")[0]) + " recebe o pedido na tela e aprova ou recusa.", opcoes:TEMPOS_AULA });
+    if(!min) return;
+    let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"pedir", minutos:min }); }
+    catch(e){ toast(e && e.message ? e.message : "Não deu para pedir agora.", true); return; }
+    if(!r.ocupada){ qrAoVivo("ver"); toast(r.aberta_ate ? "A turma já está com você." : "A aula anterior acabou. Você já pode abrir a sua."); return; }
+    if(r.pedido && r.pedido.de_outro){ toast(r.pedido.de_outro + " já pediu esta turma. Aguarde a resposta.", true); return; }
+    Object.assign(PED, { tid, min, nomeT, fim:Date.now() + ((r.pedido && r.pedido.espera) || 60000) });
+    janelaPedido(r.ocupada);
+  }
+  function janelaPedido(oc){
+    const v = $("tpFundo"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "tpFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="tpTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">⏳</div>' +
+      '<h3 id="tpTit" class="tp-nome">Pedido enviado</h3><p class="tp-txt">Aguardando <b>' + escapeHtml(oc.nome) + '</b>' + (oc.disc ? " (" + escapeHtml(oc.disc) + ")" : "") + ' aprovar a troca na tela dele.</p>' +
+      '<p class="tp-cont" id="tpCont" role="status"></p><div class="tp-bts"><button type="button" class="btn btn-ghost" data-tp="cancelar">Cancelar pedido</button>' +
+      '<button type="button" class="btn tp-sim" data-tp="assumir" disabled>🔁 Assumir agora</button></div></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("click", async e => { const b = e.target.closest("[data-tp]"); if(!b) return; const a = b.dataset.tp;
+      if(a === "fechar"){ fecharPedido(); return; }
+      if(a === "cancelar"){ b.disabled = true; chamarEntradaQr({ turma_id:PED.tid, acao:"cancelar" }).catch(() => {}); fecharPedido(); toast("Pedido cancelado."); return; }
+      if(a === "assumir"){ b.disabled = true; b.textContent = "Assumindo...";
+        try{ const r = await chamarEntradaQr({ turma_id:PED.tid, acao:"abrir", minutos:PED.min, assumir:true });
+          if(r.ocupada){ toast("Ainda não: aguarde mais alguns segundos.", true); b.disabled = false; b.textContent = "🔁 Assumir agora"; return; }
+          const tid = PED.tid; fecharPedido(); turmaAssumida(tid, r); }
+        catch(err){ toast(err && err.message ? err.message : "Não deu para assumir agora.", true); b.disabled = false; b.textContent = "🔁 Assumir agora"; } } });
+    clearInterval(PED.timer); PED.timer = setInterval(contarPedido, 1000); contarPedido();
+  }
+  function contarPedido(){
+    const c = $("tpCont"); if(!c){ clearInterval(PED.timer); return; }
+    const s = Math.max(0, Math.ceil((PED.fim - Date.now()) / 1000)), b = document.querySelector('#tpFundo [data-tp="assumir"]');
+    if(s > 0){ c.textContent = "Se não houver resposta, você poderá assumir em " + s + " s."; return; }
+    c.textContent = "Sem resposta. Você já pode assumir a turma (fica registrado na auditoria).";
+    if(b && b.textContent.indexOf("Assumindo") < 0) b.disabled = false;
+  }
+  function fecharPedido(){ clearInterval(PED.timer); PED.tid = ""; const f = $("tpFundo"); if(f) f.remove(); }
+  function turmaAssumida(tid, r){
+    if(AV.tid === tid){ AV.qrAte = r.aberta_ate || 0; AV.ocupada = null; pintarQrAoVivo(); }
+    if(r.aberta_ate > Date.now()) TA.aulas[tid] = { ate:r.aberta_ate, nome:PED.nomeT || ($("avTurma") && $("avTurma").selectedOptions[0] || {}).textContent || "turma" };
+    atualizarCartaoAula(); toast("A turma é sua até " + horaCurta(r.aberta_ate) + ". Os alunos continuam conectados.");
+  }
+  // quem pediu acompanha a resposta pela própria aula (qr_aulas)
+  function acompanharPedido(tid, x){
+    if(PED.tid !== tid || !$("tpFundo")) return;
+    if(x.por === usuarioAtual.uid){ const ate = msAv(x.aberta_ate); fecharPedido(); turmaAssumida(tid, { aberta_ate:ate }); bipe(); return; }
+    const p = x.pedido;
+    if(p && p.uid === usuarioAtual.uid && p.status === "recusado"){
+      clearInterval(PED.timer); PED.tid = "";
+      const f = $("tpFundo"); if(f) f.querySelector(".et-corpo").innerHTML = '<div class="tp-ico" aria-hidden="true">✋</div><h3 class="tp-nome">Pedido recusado</h3><p class="tp-txt"><b>' + escapeHtml(x.por_nome || "O professor") + '</b> continua com a turma. Combine com ele ou peça à coordenação.</p><div class="tp-bts"><button type="button" class="btn btn-primary" data-tp="fechar">Entendi</button></div>';
+      return; }
+    if(!p || p.uid !== usuarioAtual.uid){ if(!(msAv(x.aberta_ate) > Date.now())){ fecharPedido(); toast("A aula anterior acabou. Você já pode abrir a sua."); } }
+  }
+  // o professor da sala: janela grande em qualquer tela do Portal, com nome e matéria de quem pediu
+  const PR = { chave:"", tid:"", fim:0, timer:null };
+  function pedidoRecebido(tid, x){
+    const p = x.pedido, chave = p && p.status === "pendente" && p.uid && p.uid !== usuarioAtual.uid ? tid + "_" + msAv(p.em) : "";
+    if(!chave){ if(PR.tid === tid){ fecharPedidoRecebido(); } return; }
+    if(PR.chave === chave) return;
+    PR.chave = chave; PR.tid = tid; PR.fim = Math.max(Date.now() + 5000, Date.now() + 60000 - Math.max(0, Date.now() - msAv(p.em)));
+    const v = $("prFundo"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "prFundo"; f.className = "et-fundo"; f.style.zIndex = "9700";
+    f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="prTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">🔔</div>' +
+      '<p class="tp-txt">Pedido para assumir a turma <b>' + escapeHtml(x.turma_nome || "") + '</b></p><h3 id="prTit" class="tp-nome">' + profDisc(p.nome, p.disc) + '</h3>' +
+      '<p class="tp-txt">quer assumir a aula agora. Se você aprovar, a turma passa para ' + escapeHtml(String(p.nome || "o professor").split(" ")[0]) + ', seu painel fecha e os alunos continuam conectados.</p>' +
+      '<p class="tp-cont" id="prCont" role="status"></p><div class="tp-bts"><button type="button" class="btn btn-ghost" data-pr="nao">❌ Não, continuo na aula</button><button type="button" class="btn tp-sim" data-pr="sim">✅ Sim, passar a turma</button></div></div></div>';
+    document.body.appendChild(f); bipe(); setTimeout(bipe, 600);
+    f.addEventListener("click", async e => { const b = e.target.closest("[data-pr]"); if(!b) return; const sim = b.dataset.pr === "sim", t = PR.tid;
+      f.querySelectorAll("[data-pr]").forEach(x2 => { x2.disabled = true; }); b.textContent = sim ? "Passando a turma..." : "Recusando...";
+      try{ if(sim && AVV.tid === t) await arrumarAntesDeEncerrar();
+        const r = await chamarEntradaQr({ turma_id:t, acao:"responder", resposta:sim ? "sim" : "nao" });
+        fecharPedidoRecebido();
+        if(r.sem_pedido) toast("O pedido já tinha sido cancelado ou a aula mudou.");
+        else if(!sim) toast("Pedido recusado. Você continua com a turma."); }
+      catch(err){ toast(err && err.message ? err.message : "Não deu para responder agora.", true); f.querySelectorAll("[data-pr]").forEach(x2 => { x2.disabled = false; }); } });
+    clearInterval(PR.timer); PR.timer = setInterval(() => { const c = $("prCont"); if(!c){ clearInterval(PR.timer); return; }
+      const s = Math.max(0, Math.ceil((PR.fim - Date.now()) / 1000));
+      c.textContent = s > 0 ? "Sem resposta em " + s + " s, " + String(p.nome || "o professor").split(" ")[0] + " poderá assumir." : "O tempo de resposta acabou: " + String(p.nome || "o professor").split(" ")[0] + " já pode assumir."; }, 1000);
+    const sim = f.querySelector('[data-pr="sim"]'); if(sim) sim.focus();
+  }
+  function fecharPedidoRecebido(){ clearInterval(PR.timer); PR.chave = ""; PR.tid = ""; const f = $("prFundo"); if(f) f.remove(); }
+  // quem saiu: janela dizendo para quem a turma passou
+  function avisoTurmaPassou(x){
+    const t = x.troca || {}, nome = t.para_nome || x.por_nome || "outro professor", disc = t.para_disc || x.por_disc || "";
+    if(PR.tid) fecharPedidoRecebido();
+    const v = $("tsFundo"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "tsFundo"; f.className = "et-fundo"; f.style.zIndex = "9700";
+    f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="tsTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">🔁</div>' +
+      '<p class="tp-txt">A turma <b>' + escapeHtml(x.turma_nome || "") + '</b> agora está com</p><h3 id="tsTit" class="tp-nome">' + profDisc(nome, disc) + '</h3>' +
+      '<p class="tp-txt">' + (t.como === "aprovado" ? "Você aprovou a troca." : t.como === "direcao" ? "A direção ou a coordenação passou a turma." : "O pedido ficou sem resposta e a turma foi assumida.") + ' Seu painel da aula foi fechado; os materiais enviados continuam no histórico da turma.</p>' +
+      '<div class="tp-bts"><button type="button" class="btn btn-primary" data-ts="ok">Entendi</button></div></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("click", e => { if(e.target.closest("[data-ts]")) f.remove(); });
+    const b = f.querySelector("[data-ts]"); if(b) b.focus();
+  }
   async function qrAoVivo(acao){
     const b = $("avQr"), tid = AV.tid; if(!b || !tid) return;
     if(acao === "fechar"){ const nomeT = ($("avTurma") && $("avTurma").selectedOptions[0] || {}).textContent || "";
       if(!(await confirmarEncerrar(nomeT))) return;
       await arrumarAntesDeEncerrar(); }
     if(acao === "assumir"){ const sel = $("avTurma"), nomeT = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "";
-      if(!AV.ocupada || !(await confirmarAssumir(AV.ocupada, nomeT))) return;
+      if(!AV.ocupada) return;
+      // professor pede ao colega da sala (nov/2026); direção e coordenação assumem direto
+      if(!chefeAula()){ pedirTurma(tid, nomeT); return; }
+      if(!(await confirmarAssumir(AV.ocupada, nomeT))) return;
       acao = "abrir"; AV.assumindo = true; }
     b.disabled = true; if(acao === "fechar") b.textContent = "Encerrando...";
     try{
@@ -10722,6 +10848,8 @@
       const x = s.data() || {}, antes = naAulaAluno();
       MT.aulaAte = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0;
       MT.aulaIni = x.aberta_em && x.aberta_em.toMillis ? x.aberta_em.toMillis() : 0;
+      MT.aulaPor = String(x.por || "");
+      avisoTrocaAluno(x);
       if(MT.lista) { desenharMateriaisAluno(); abrirUltimoDaAula(); }
       MT.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
       // o professor marcou "Não é este aluno" depois que esta sessão começou: sai da conta na hora
@@ -10791,8 +10919,22 @@
   const msMt = x => x && x.toMillis ? x.toMillis() : 0;
   function ultimoDaAula(){
     if(!((MT.aulaAte || 0) > Date.now()) || !MT.aulaIni) return null;
-    const m = (MT.lista || [])[0];   // a lista vem do mais novo para o mais antigo
+    // só o que o professor DA AULA enviou abre na tela (nov/2026): material de outro professor da turma fica em Materiais / Histórico de aulas
+    const m = (MT.lista || []).find(x => !MT.aulaPor || !x.autor_uid || x.autor_uid === MT.aulaPor);   // a lista vem do mais novo para o mais antigo
     return m && msMt(m.criado_em) >= MT.aulaIni - 60000 ? m : null;
+  }
+  // troca de professor no meio da aula: o aluno vê quem saiu e quem entrou (uma vez por troca, nos primeiros 10 min)
+  function avisoTrocaAluno(x){
+    const t = x.troca, em = t && t.em && t.em.toMillis ? t.em.toMillis() : 0;
+    if(!em || !(MT.aulaAte > Date.now()) || Date.now() - em > 10 * 60e3) return;
+    const chave = "pde_troca_" + MT.tid + "_" + em; try{ if(sessionStorage.getItem(chave)) return; sessionStorage.setItem(chave, "1"); }catch(e){}
+    const prof = (n, d) => "Prof. " + escapeHtml(String(n || "").split(" ").slice(0, 2).join(" ") || "da turma") + (d ? " · " + escapeHtml(d) : "");
+    const v = $("trAluno"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "trAluno"; f.className = "tr-aluno"; f.setAttribute("role", "alertdialog"); f.setAttribute("aria-labelledby", "trTit");
+    f.innerHTML = '<div><h3 id="trTit">🔁 Troca de professor</h3>' + (t.de_nome ? '<div class="tr-lin sai"><span aria-hidden="true">👋</span><div>Saiu: ' + prof(t.de_nome, t.de_disc) + '</div></div>' : "") +
+      '<div class="tr-lin entra"><span aria-hidden="true">🙋</span><div>Entrou: ' + prof(t.para_nome || x.por_nome, t.para_disc || x.por_disc) + '</div></div><small style="color:#5b6b7b">Você continua conectado. Agora quem conduz a aula é o novo professor.</small><button type="button" data-tr="ok">Ok</button></div>';
+    document.body.appendChild(f);
+    const fim = () => f.remove(); f.addEventListener("click", e => { if(e.target.closest("[data-tr]")) fim(); }); setTimeout(fim, 12000);
   }
   function abrirUltimoDaAula(){
     const m = ultimoDaAula(); if(!m || m.acervo_id || MT.abertos.has(m.id) || mtFechados().has(m.id) || $("mtFundo") || $("alConteudo")) return;   // do Acervo: já abre pelo Controle da aula
