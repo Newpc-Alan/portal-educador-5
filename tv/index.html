@@ -54,6 +54,15 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 /* teste da câmera do totem: digite CAMERA no leitor ou no teclado e aperte Enter */
 .pt-diag{position:fixed;right:2vmin;top:2vmin;z-index:60;width:min(420px,90vw);background:rgba(7,22,33,.94);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:16px;padding:14px;font:600 14px/1.45 system-ui,sans-serif}
 .pt-diag b{display:block;font-size:16px;margin-bottom:6px}.pt-diag .ok{color:#8dc63f}.pt-diag .ruim{color:#ff8a7a}
+/* foto na entrada: prévia ao vivo no canto, com moldura do rosto; na leitura a moldura acende e a foto sai meio segundo depois */
+.pt-prev{position:fixed;right:2vmin;top:2vmin;z-index:56;width:min(26vmin,240px);aspect-ratio:3/4;border-radius:18px;overflow:hidden;background:#000;
+  box-shadow:0 1vmin 4vmin rgba(0,0,0,.5);border:3px solid rgba(255,255,255,.35);transition:border-color .2s, transform .2s}
+.pt-prev video{width:100%;height:100%;object-fit:cover}
+.pt-prev.frontal video{transform:scaleX(-1)}
+.pt-prev i{position:absolute;left:16%;right:16%;top:10%;bottom:18%;border:3px dashed rgba(255,255,255,.75);border-radius:50%}
+.pt-prev span{position:absolute;left:0;right:0;bottom:0;padding:.8vmin;background:rgba(7,22,33,.75);color:#fff;text-align:center;font:700 max(11px,1.6vmin)/1.25 system-ui,sans-serif}
+.pt-prev.agora{border-color:#8DC63F;transform:scale(1.06)}
+.pt-prev.agora i{border-style:solid;border-color:#8DC63F}
 #ptCam.diag{position:fixed!important;right:calc(2vmin + 14px)!important;left:auto!important;top:calc(2vmin + 44px)!important;width:min(392px,84vw)!important;height:auto!important;opacity:1!important;z-index:61!important;border-radius:10px;background:#000}
 
 /* ---------- player ---------- */
@@ -178,7 +187,7 @@ body.sem-cursor,body.sem-cursor *{cursor:none!important}
 <div class="pt-flash" id="ptFlash" hidden><div class="pt-ico" id="ptIco"></div><b id="ptTit"></b><span id="ptSub"></span></div>
 <div class="pt-selo" id="ptSelo" hidden></div>
 <div class="pt-diag" id="ptDiag" hidden></div>
-<video id="ptCam" playsinline muted autoplay style="position:fixed;left:0;top:0;width:160px;height:120px;opacity:.01;pointer-events:none;z-index:-1"></video>
+<div class="pt-prev" id="ptPrev" hidden><video id="ptCam" playsinline muted autoplay></video><i aria-hidden="true"></i><span id="ptPrevTx">Olhe para cá ao passar a carteirinha</span></div>
 
 <script nomodule>
 /* navegador de TV antigo (sem módulos de JavaScript): abre a versão leve do player, com a mesma chave da tela */
@@ -416,16 +425,18 @@ async function cameraPortaria(on){
   const lado = P.tela && P.tela.camera_entrada === "environment" ? "environment" : "user";
   // trocou a câmera na configuração: desliga a atual e liga a outra
   if(PT.cam && (!on || PT.camLado !== lado)){ PT.cam.getTracks().forEach(t => { t.onended = null; t.stop(); }); PT.cam = null; PT.ic = null; }
-  if(!on){ seloPortaria(); return; }
+  if(!on){ prevPortaria(); seloPortaria(); return; }
   if(PT.cam || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   PT.camLado = lado;
   try{ PT.cam = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:lado }, width:{ ideal:640 }, height:{ ideal:480 } }, audio:false });
     const v = $("ptCam"); v.srcObject = PT.cam; await v.play().catch(() => {}); }
   catch(e){ console.warn("portaria camera", e.name || e); PT.cam = null;
     PT.camMotivo = { NotAllowedError:"permissão da câmera negada neste navegador", NotReadableError:"câmera em uso por outro programa ou aba", NotFoundError:"nenhuma câmera encontrada", OverconstrainedError:"câmera não aceita a configuração" }[e.name] || "erro ao ligar a câmera (" + (e.name || e) + ")"; }
+  prevPortaria();
   if(PT.cam){ PT.camMotivo = ""; PT.cam.getVideoTracks().forEach(t => { t.onended = () => { PT.camMotivo = "a câmera foi desconectada"; PT.cam = null; seloPortaria(); setTimeout(() => cameraPortaria(PT.foto), 3000); }; }); }
   seloPortaria();
 }
+function prevPortaria(){ const p = $("ptPrev"); if(!p) return; p.hidden = !(PT.ativo && PT.foto && PT.cam); p.classList.toggle("frontal", PT.camLado !== "environment"); }
 // pega um quadro novo da câmera: ImageCapture (direto da câmera, quando o navegador tem) ou o próprio vídeo
 async function quadroPortaria(){
   const v = $("ptCam"), tr = PT.cam && PT.cam.getVideoTracks()[0];
@@ -441,8 +452,9 @@ async function fotoPortaria(){
   for(let i = 0; i < 4; i++){
     try{
       const q = await quadroPortaria();
-      if(q){ const w = q.videoWidth || q.width, h = q.videoHeight || q.height, k = Math.min(1, 320 / w), c = document.createElement("canvas");
-        c.width = Math.round(w * k); c.height = Math.round(h * k); const x = c.getContext("2d", { willReadFrequently:true }); x.drawImage(q, 0, 0, c.width, c.height);
+      // recorte em retrato no centro (onde está a moldura do rosto), no máximo 320 px de altura
+      if(q){ const W = q.videoWidth || q.width, H = q.videoHeight || q.height, sw = Math.min(W, Math.round(H * 3 / 4)), sx = Math.round((W - sw) / 2), k = Math.min(1, 320 / H), c = document.createElement("canvas");
+        c.width = Math.round(sw * k); c.height = Math.round(H * k); const x = c.getContext("2d", { willReadFrequently:true }); x.drawImage(q, sx, 0, sw, H, 0, 0, c.width, c.height);
         const d = x.getImageData(0, 0, c.width, c.height).data; let soma = 0, n = 0; for(let j = 0; j < d.length; j += 64){ soma += d[j] * .3 + d[j + 1] * .59 + d[j + 2] * .11; n++; }
         PT.camBrilho = Math.round(soma / n);
         if(soma / n >= 10){ PT.camMotivo = ""; if(PT.camEscura){ PT.camEscura = 0; seloPortaria(); } const u = c.toDataURL("image/jpeg", 0.65); return u.slice(u.indexOf(",") + 1); } }
@@ -473,7 +485,7 @@ async function diagCamera(){
 function ligarPortaria(on){
   if(P.tela) cameraPortaria(on && P.tela.foto_entrada === true && PT.fotoRede !== false);
   if(on === PT.ativo) return;
-  PT.ativo = on; clearInterval(PT.listaT); clearInterval(PT.filaT); $("ptSelo").hidden = !on;
+  PT.ativo = on; clearInterval(PT.listaT); clearInterval(PT.filaT); $("ptSelo").hidden = !on; prevPortaria();
   if(!on) return;
   const c = ls.get("pde_tv_portaria", null);
   if(c){ PT.alunos = c.alunos || {}; PT.turmas = c.turmas || {}; PT.dia = c.dia || ""; PT.hoje = new Set(c.dia === diaMS() ? c.hoje || [] : []); }
@@ -521,7 +533,12 @@ function cartaoPortaria(txt){
   const item = { id, hora:horaMS(), dia:diaMS() };
   // a foto fica só na memória (não cabe na fila guardada do aparelho); se o totem reiniciar sem internet, a entrada sobe sem foto
   // no máximo 1,5 s esperando a foto: a entrada nunca fica presa por causa da câmera
-  Promise.race([fotoPortaria(), new Promise(r => setTimeout(() => r(""), 2500))]).then(foto => {
+  // com foto: a moldura acende e a foto sai meio segundo depois, para o aluno olhar (a carteirinha já saiu da frente)
+  const pv = $("ptPrev"), comFoto = PT.foto && PT.cam;
+  if(comFoto && pv){ pv.classList.add("agora"); $("ptPrevTx").textContent = "Olhe para a câmera"; }
+  const tirar = () => new Promise(r => setTimeout(r, comFoto ? 650 : 0)).then(fotoPortaria);
+  Promise.race([tirar(), new Promise(r => setTimeout(() => r(""), 3000))]).then(foto => {
+    if(pv){ pv.classList.remove("agora"); $("ptPrevTx").textContent = "Olhe para cá ao passar a carteirinha"; }
     if(foto) PT.fotos[id + "|" + item.dia] = foto;
     PT.fila.push(item); ls.set("pde_tv_portaria_fila", PT.fila); seloPortaria();
     enviarPortaria();

@@ -390,6 +390,8 @@ const cham = { professor_uid: 'prof', professor_nome: 'P', escola_id: 'e1', muni
 const IDC = 'freq_chamadas/prof_tf1_2026-10-22_matematica', gest1 = ctx('gest1');
 await t('professor lanca a chamada', assertSucceeds(setDoc(doc(prof, IDC), cham)));
 await t('professor corrige a chamada', assertSucceeds(setDoc(doc(prof, IDC), { ...cham, faltas: {} })));
+await t('chamada com motivo de divergencia da portaria', assertSucceeds(setDoc(doc(prof, IDC), { ...cham, divergencias: { al1: { t: 'sem_entrada', m: 'esqueceu' } } })));
+await t('divergencias precisam ser um mapa', assertFails(setDoc(doc(prof, IDC), { ...cham, divergencias: 'x' })));
 await t('chamada com id diferente do conteudo', assertFails(setDoc(doc(prof, 'freq_chamadas/prof_tf1_2026-10-23_matematica'), cham)));
 await t('chamada em nome de outro', assertFails(setDoc(doc(prof2, IDC.replace('prof_', 'prof2_')), cham)));
 await t('chamada em turma de outra escola', assertFails(setDoc(doc(prof, 'freq_chamadas/prof_tf9_2026-10-22_matematica'), { ...cham, turma_id: 'tf9' })));

@@ -98,6 +98,10 @@ button{cursor:pointer}
 .sa-aut b{display:block;font-size:.9rem}.sa-aut small{display:block;color:var(--muted);font-size:.76rem}
 .sa-restr{background:#fde8e6;border:1.5px solid #f0b7b0;color:#8a1f16;border-radius:12px;padding:10px 12px;font-weight:700;margin:10px 0}
 .al .nm small.po{color:#3d6b0c}.al .nm small.po.sem{color:#8a5a00}.al .nm small.po.alerta{color:#9c2a20;font-weight:800}
+.al-div{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin:-2px 0 6px 42px;padding:7px 10px;border-radius:10px;background:#fbe3e0;color:#9c2a20;font-size:.78rem;font-weight:700}
+.al-div.ok{background:#eef2f6;color:#33475b}
+.al-div select{border:1.5px solid #e2b3ad;border-radius:8px;padding:6px 8px;font-size:.8rem;font-weight:600;background:#fff;color:#0c2338;min-height:36px}
+.aviso select{margin-top:6px;border:1.5px solid #c9e4a8;border-radius:8px;padding:6px 8px;font-size:.8rem;font-weight:600;background:#fff;color:#0c2338;min-height:36px}
 .al .al-alerta{border:1px solid #f3dfa6;background:#fff8e6;border-radius:8px;padding:6px 8px;font-size:.9rem;cursor:pointer;line-height:1}
 .al .bts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .pf{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 0;width:48px;font-weight:800;font-size:.95rem}
@@ -558,7 +562,7 @@ const hojeMS = () => new Intl.DateTimeFormat("en-CA", { timeZone:"America/Campo_
 const dataBr = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "–";
 const dataLonga = d => SEMANA[new Date(d + "T12:00:00").getDay()] + ", " + dataBr(d) + "/" + d.slice(0, 4);
 const pct = v => v === null || v === undefined ? "–" : String(Math.round(v * 10) / 10).replace(".", ",") + "%";
-const E = { user:null, u:null, admin:false, sim:"", gestor:false, aba:"chamada", turmas:[], turma:null, alunos:[], aulas:1, faltas:{}, just:{}, existe:false, sujo:false,
+const E = { div:{}, preRede:false, user:null, u:null, admin:false, sim:"", gestor:false, aba:"chamada", turmas:[], turma:null, alunos:[], aulas:1, faltas:{}, just:{}, existe:false, sujo:false,
   cal:null, calChave:"", resumos:[], filtro:"alerta", hist:[], escolasNomes:{}, casos:{}, ficha:null, muEscola:"", muAntes:{}, muOuvintes:[], muModo:"anos", muAno:"", muTurnoSel:"auto", muPublico:false, muMeta:{}, muRot:0, muEntradas:{}, base:{ escola:"", turmas:[], alunos:{} }, poFila:[], poUlt:{} };
 
 /* ===================== abas ===================== */
@@ -629,19 +633,21 @@ function ouvirEntradaTurma(){
   E.entOuvinte = onSnapshot(doc(db, "freq_entradas", k), s => {
     if(E.entKey !== k) return;
     E.entradas = s.exists() ? (s.data().entradas || {}) : null;
-    desenharChamada();
+    aplicarPre(); desenharChamada();
   }, e => { console.warn("entradas:", e.code); E.entradas = null; });
 }
 async function abrirChamada(){
   ouvirEntradaTurma();
+  E.div = {}; E.preOk = false;
   E.faltas = {}; E.just = {}; E.existe = false; E.sujo = false; $("conteudo").value = "";
   const disc = discAtual();
   if(E.turma && disc && slug(disc)){
     try{
       const s = await getDoc(doc(db, "freq_chamadas", chaveDoc()));
-      if(s.exists()){ const c = s.data(); E.existe = true; E.aulas = c.aulas || 1; E.faltas = { ...(c.faltas || {}) }; E.just = { ...(c.just || {}) }; $("conteudo").value = c.conteudo || ""; }
+      if(s.exists()){ const c = s.data(); E.existe = true; E.aulas = c.aulas || 1; E.faltas = { ...(c.faltas || {}) }; E.just = { ...(c.just || {}) }; E.div = { ...(c.divergencias || {}) }; $("conteudo").value = c.conteudo || ""; }
     }catch(e){ console.warn("chamada:", e.code); }
-    if(!E.existe){ try{ const r = JSON.parse(localStorage.getItem(chaveRascunho()) || "null"); if(r){ E.aulas = r.aulas || E.aulas; E.faltas = r.faltas || {}; E.just = r.just || {}; $("conteudo").value = r.conteudo || ""; E.sujo = true; } }catch(e){} }
+    if(!E.existe){ try{ const r = JSON.parse(localStorage.getItem(chaveRascunho()) || "null"); if(r){ E.aulas = r.aulas || E.aulas; E.faltas = r.faltas || {}; E.just = r.just || {}; E.div = r.div || {}; $("conteudo").value = r.conteudo || ""; E.sujo = true; } }catch(e){} }
+    aplicarPre();
     try{ localStorage.setItem("pde_freq_ultima_" + E.user.uid, JSON.stringify({ t:E.turma.id, d:disc, a:E.aulas })); }catch(e){}
   }
   desenharChamada();
@@ -732,7 +738,13 @@ function desenharChamada(){
   if(!E.alunos.length){ $("lista").innerHTML = '<div class="vazio"><b>Esta turma não tem alunos cadastrados</b>Cadastre os alunos em Turmas, no Portal.</div>'; $("contagem").innerHTML = ""; rodape(); return; }
   const nF = E.alunos.filter(a => E.faltas[a.id]).length;
   const EN = E.entradas, nEnt = EN ? E.alunos.filter(a => EN[a.id]).length : 0, nEntFalta = EN ? E.alunos.filter(a => EN[a.id] && E.faltas[a.id] >= E.aulas).length : 0;
-  if(EN) info += '<div class="aviso azul">🚪 <b>' + nEnt + " de " + E.alunos.length + "</b> passaram a carteirinha na portaria" + ($("dia").value === hj ? " hoje (atualiza sozinho)" : " neste dia") + ". É só para conferir: a chamada continua sendo sua, pelo que você vê na sala." +
+  const semMot = E.alunos.filter(a => { const t = divDe(a, E.faltas[a.id] || 0); return t && !(E.div[a.id] && E.div[a.id].t === t && E.div[a.id].m); });
+  const semMotSE = semMot.filter(a => divDe(a, E.faltas[a.id] || 0) === "sem_entrada").length;
+  if(EN && preVale()) info += '<div class="aviso verde">🚪 <b>Dupla confirmação:</b> ' + (E.preOk ? "a portaria já marcou a chamada: " : "") + "<b>" + nEnt + " de " + E.alunos.length + "</b> passaram a carteirinha" + ($("dia").value === hj ? " hoje (atualiza sozinho)" : "") + ". Confira na sala: quem você mudar contra a portaria pede um motivo, que fica registrado na Auditoria." +
+    (semMot.length ? '<br><b style="color:#9c2a20">' + semMot.length + (semMot.length === 1 ? " aluno precisa" : " alunos precisam") + " do motivo para salvar.</b>" : "") +
+    (semMotSE > 1 ? ' <select data-motall="sem_entrada" aria-label="Mesmo motivo para todos os presentes sem portaria"><option value="">Mesmo motivo para os ' + semMotSE + " presentes sem portaria...</option>" + MOTIVOS.sem_entrada.map(([v, n]) => '<option value="' + v + '">' + n + "</option>").join("") + "</select>" : "") + "</div>";
+  else if(E.preRede && E.turma && $("dia").value === hj && !EN && PORTARIA_ATIVA) info += '<div class="aviso amarelo">🚪 Portaria sem registro desta turma hoje: a chamada começa com todos presentes, como sempre.</div>';
+  else if(EN) info += '<div class="aviso azul">🚪 <b>' + nEnt + " de " + E.alunos.length + "</b> passaram a carteirinha na portaria" + ($("dia").value === hj ? " hoje (atualiza sozinho)" : " neste dia") + ". É só para conferir: a chamada continua sendo sua, pelo que você vê na sala." +
     (nEntFalta ? '<br><b style="color:#9c2a20">⚠ ' + nEntFalta + (nEntFalta === 1 ? " aluno entrou na escola e está com falta" : " alunos entraram na escola e estão com falta") + ".</b> Confira se estão em outro lugar da escola e avise a coordenação." : "") + "</div>";
   $("infoDia").innerHTML = info;
   $("contagem").innerHTML = '<span class="pill ok" style="font-size:.86rem">' + (E.alunos.length - nF) + (E.alunos.length - nF === 1 ? " presente" : " presentes") + "</span>" + '<span class="pill ' + (nF ? "ruim" : "cinza") + '" style="font-size:.86rem">' + nF + (nF === 1 ? " falta" : " faltas") + "</span>" +
@@ -745,9 +757,32 @@ function desenharChamada(){
       '<button class="pf f' + (f ? " on" : "") + '" data-action="falta" data-arg="' + esc(a.id) + '" aria-label="Falta: ' + esc(a.nome) + '">F</button>' +
       (f && E.aulas > 1 ? '<select class="qt" data-qt="' + esc(a.id) + '" aria-label="Aulas que faltou">' + Array.from({ length:E.aulas }, (_, k) => '<option value="' + (k + 1) + '"' + (k + 1 === f ? " selected" : "") + ">" + (k + 1 === E.aulas ? "todas" : (k + 1) + " de " + E.aulas) + "</option>").join("") + "</select>" : "") +
       (f ? '<button class="pf j' + (j ? " on" : "") + '" data-action="just" data-arg="' + esc(a.id) + '" title="Atestado ou motivo informado pela família">Justificada</button>' : "") +
-      "</span></div>";
+      "</span></div>" + linhaDiv(a, f);
   }).join("") + (E.alunos.length > 80 ? '<div class="aviso amarelo">A chamada aceita até 80 alunos. Fale com a secretaria para dividir esta turma.</div>' : "");
   carregarFotosCad($("lista")); rodape();
+}
+// dupla confirmação (nov/2026): a portaria pré-marca a chamada de HOJE (passou = presente, não passou = falta) quando a turma
+// tem entradas no dia; o professor confere na sala. Quem ele mudar contra a portaria precisa de motivo, que fica na Auditoria.
+const MOTIVOS = {
+  sem_entrada: [["esqueceu", "Esqueceu ou perdeu a carteirinha"], ["portao", "Entrou por outro portão"], ["atrasado", "Chegou depois, sem passar na portaria"], ["sem_cart", "Ainda não tem carteirinha"], ["outro", "Outro motivo"]],
+  com_entrada: [["saiu", "Saiu da escola durante a aula"], ["outro_local", "Está em outro lugar da escola"], ["emprestada", "Carteirinha usada por outra pessoa"], ["outro", "Outro motivo"]]
+};
+const nomeMotivo = (t, m) => ((MOTIVOS[t] || []).find(x => x[0] === m) || [, ""])[1];
+const preVale = () => !!(E.preRede && E.entradas && Object.keys(E.entradas).length);
+function aplicarPre(){
+  if(!E.turma || !preVale() || $("dia").value !== hojeMS() || E.existe || E.sujo) return;
+  E.faltas = {}; E.just = {}; E.alunos.forEach(a => { if(!E.entradas[a.id]) E.faltas[a.id] = E.aulas; }); E.preOk = true;
+}
+function divDe(a, f){
+  if(!preVale()) return "";
+  const entrou = !!E.entradas[a.id];
+  return !entrou && !f ? "sem_entrada" : entrou && f >= E.aulas ? "com_entrada" : "";
+}
+function linhaDiv(a, f){
+  const t = divDe(a, f); if(!t) return "";
+  const m = E.div[a.id] && E.div[a.id].t === t ? E.div[a.id].m : "";
+  return '<div class="al-div' + (m ? " ok" : "") + '"><span>' + (t === "sem_entrada" ? "Presente sem passar na portaria" : "Passou na portaria e está com falta: a coordenação vê na Auditoria") + '</span><select data-mot="' + esc(a.id) + '" data-t="' + t + '" aria-label="Motivo para ' + esc(a.nome) + '"><option value="">Escolha o motivo...</option>' +
+    MOTIVOS[t].map(([v, n]) => '<option value="' + v + '"' + (v === m ? " selected" : "") + ">" + n + "</option>").join("") + "</select></div>";
 }
 // linha da portaria embaixo do nome: entrou às HH:MM, não passou a carteirinha, ou entrou e está com falta (destaque)
 function poAluno(a, f){
@@ -760,15 +795,18 @@ function poAluno(a, f){
 function rodape(){
   const ok = E.turma && discAtual() && E.alunos.length && $("dia").value <= hojeMS();
   $("btnSalvar").disabled = !ok; $("btnExcluir").hidden = !E.existe;
-  $("rodInfo").textContent = !E.turma ? "" : E.sujo ? "Alterações ainda não salvas" + (E.existe ? "" : " · rascunho guardado neste aparelho") : E.existe ? "Chamada salva" : "Todos começam presentes: marque só quem faltou.";
+  $("rodInfo").textContent = !E.turma ? "" : E.sujo ? "Alterações ainda não salvas" + (E.existe ? "" : " · rascunho guardado neste aparelho") : E.existe ? "Chamada salva" : E.preOk ? "A portaria já marcou quem entrou: confira na sala e salve." : "Todos começam presentes: marque só quem faltou.";
 }
 function mexeu(){
   E.sujo = true;
-  try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, conteudo:$("conteudo").value })); }catch(e){}
+  try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, div:E.div, conteudo:$("conteudo").value })); }catch(e){}
   desenharChamada();
 }
 async function salvar(){
   if($("btnSalvar").disabled) return;
+  const falta = E.alunos.slice(0, 80).filter(a => { const t = divDe(a, E.faltas[a.id] || 0); return t && !(E.div[a.id] && E.div[a.id].t === t && E.div[a.id].m); });
+  if(falta.length){ toast("Escolha o motivo de " + falta.length + (falta.length === 1 ? " aluno" : " alunos") + " marcado(s) diferente da portaria: " + falta.slice(0, 3).map(a => a.nome.split(" ")[0]).join(", ") + (falta.length > 3 ? "..." : "") + ".", true);
+    const sel = document.querySelector('[data-mot="' + falta[0].id + '"]'); if(sel){ sel.scrollIntoView({ block:"center", behavior:"smooth" }); sel.focus(); } return; }
   const t = E.turma, disc = discAtual(), dia = $("dia").value, ids = E.alunos.slice(0, 80).map(a => a.id), lista = new Set(ids);
   const faltas = {}, just = {}, nomes = {};
   E.alunos.slice(0, 80).forEach(a => { nomes[a.id] = a.nome; });
@@ -776,6 +814,9 @@ async function salvar(){
   const d = { professor_uid:E.user.uid, professor_nome:String(E.u.nome || "").slice(0, 80), escola_id:t.escola_id || "", municipio_id:t.municipio_id || E.u.municipio_id || "",
     turma_id:t.id, turma_nome:String(t.nome || "").slice(0, 80), disciplina:disc, disc_id:slug(disc), dia, ano:+dia.slice(0, 4), aulas:E.aulas,
     lista:ids, nomes, faltas, just, conteudo:String($("conteudo").value || "").slice(0, 600), atualizado_em:serverTimestamp() };
+  // divergências com a portaria, com o motivo (vão para a Auditoria da portaria)
+  const divs = {}; E.alunos.slice(0, 80).forEach(a => { const tt = divDe(a, faltas[a.id] || 0); if(tt && E.div[a.id] && E.div[a.id].t === tt && E.div[a.id].m) divs[a.id] = { t:tt, m:E.div[a.id].m }; });
+  if(Object.keys(divs).length) d.divergencias = divs;
   const sb = subDe(t.id, slug(disc), dia);
   if(sb){ d.titular_uid = sb.titular_uid; d.titular_nome = String(sb.titular_nome || "").slice(0, 80); }
   $("btnSalvar").disabled = true; $("status").textContent = "Salvando...";
@@ -1595,7 +1636,8 @@ function linhasAuditoria(){
   return Object.values(alunos).map(al => {
     const e = A.ent[al.id], d = A.dias[al.turma_id], r = FREQ.conciliar(al.id, e ? e.h : "", d && d.a ? d : null);
     const chs = A.ch[al.turma_id] || [], disc = chs.filter(c => +(c.faltas || {})[al.id] > 0).map(c => c.disciplina + (chs.length > 1 && (c.aulas || 1) > 1 ? " (" + c.faltas[al.id] + " de " + c.aulas + ")" : "") + (c.professor_nome ? " · " + String(c.professor_nome).split(" ")[0] : ""));
-    return { id:al.id, nome:al.nome, turma_id:al.turma_id, turma:(turmas[al.turma_id] || {}).nome || "", h:e ? e.h : "", foto:e ? e.foto : "", disc, ...r };
+    const motivos = [...new Set(chs.map(c => (c.divergencias || {})[al.id]).filter(Boolean).map(v => nomeMotivo(v.t, v.m) + (chs.length > 1 ? "" : "")).filter(Boolean))];
+    return { id:al.id, nome:al.nome, turma_id:al.turma_id, turma:(turmas[al.turma_id] || {}).nome || "", h:e ? e.h : "", foto:e ? e.foto : "", disc, motivos, ...r };
   }).sort((x, y) => AU_ORDEM.indexOf(x.s) - AU_ORDEM.indexOf(y.s) || String(x.turma).localeCompare(String(y.turma), "pt-BR", { numeric:true }) || x.nome.localeCompare(y.nome, "pt-BR"));
 }
 const fotoVencida = dia => dia < CAL.soma(hojeMS(), -15);
@@ -1623,7 +1665,7 @@ function desenharAuditoria(){
   $("auImpSub").textContent = "Gerado em " + new Date().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " por " + (E.u.nome || E.user.email) + " · Portal do Educador · uso restrito à gestão escolar (LGPD)";
   $("auTabela").innerHTML = l.length ? "<thead><tr><th>Aluno</th><th>Turma</th><th>Entrada</th><th>Foto</th><th>Chamada do dia</th><th>Situação</th></tr></thead><tbody>" +
     l.map(x => { const sit = AU_SIT[x.s], cls = x.s === "saiu" ? "au-div" : FREQ.DIVERGENCIAS.includes(x.s) ? "au-att" : "";
-      const chTxt = !x.a ? "–" : !x.f ? "Presente nas " + x.a + (x.a === 1 ? " aula" : " aulas") : "Falta em " + x.f + " de " + x.a + (x.j ? " · justificada" : "") + (x.disc.length ? ": " + x.disc.join("; ") : "");
+      const chTxt = (!x.a ? "–" : !x.f ? "Presente nas " + x.a + (x.a === 1 ? " aula" : " aulas") : "Falta em " + x.f + " de " + x.a + (x.j ? " · justificada" : "") + (x.disc.length ? ": " + x.disc.join("; ") : "")) + (x.motivos.length ? " · Motivo: " + x.motivos.join("; ") : "");
       return '<tr class="clic ' + cls + '" data-action="au-aluno" data-arg="' + esc(x.turma_id + "|" + x.id) + '"><td><b>' + esc(x.nome) + "</b></td><td>" + esc(x.turma) + "</td><td>" + (x.h ? "<b>" + esc(x.h) + "</b>" : '<span class="sub">não passou</span>') +
         "</td><td>" + botaoFoto(x, A.dia) + '</td><td class="au-ch">' + esc(chTxt) + '</td><td><span class="pill ' + sit[1] + '">' + esc(x.s === "parcial" ? "Entrou, faltou " + x.f + " de " + x.a + " aulas" : sit[0]) + "</span></td></tr>"; }).join("") + "</tbody>"
     : '<tbody><tr><td class="sub" style="padding:24px">' + (A.filtro === "div" ? (entr || turmasCom ? "Nenhuma divergência entre a entrada e a chamada neste dia. 👏" : "Ainda não há entradas nem chamadas neste dia.") : "Nenhum aluno encontrado.") + "</td></tr></tbody>";
@@ -1738,6 +1780,8 @@ document.addEventListener("change", ev => {
   }
   else if(t.id === "dia"){ if(t.value > hojeMS()) t.value = hojeMS(); if(E.turma){ carregarCalendario(E.turma).then(abrirChamada); } else desenharChamada(); E.histTurma = ""; }
   else if(t.dataset && t.dataset.qt){ E.faltas[t.dataset.qt] = +t.value; mexeu(); }
+  else if(t.dataset && t.dataset.mot){ if(t.value) E.div[t.dataset.mot] = { t:t.dataset.t, m:t.value }; else delete E.div[t.dataset.mot]; mexeu(); }
+  else if(t.dataset && t.dataset.motall && t.value){ E.alunos.forEach(a => { if(divDe(a, E.faltas[a.id] || 0) === t.dataset.motall && !(E.div[a.id] && E.div[a.id].m)) E.div[a.id] = { t:t.dataset.motall, m:t.value }; }); mexeu(); }
 });
 document.addEventListener("input", ev => { if(ev.target.id === "conteudo") { E.sujo = true; try{ localStorage.setItem(chaveRascunho(), JSON.stringify({ aulas:E.aulas, faltas:E.faltas, just:E.just, conteudo:$("conteudo").value })); }catch(e){} rodape(); } else if(ev.target.id === "busca") desenharBusca(); else if(ev.target.id === "auBusca") desenharAuditoria(); else if(ev.target.id === "saBusca") buscarSaida(); });
 // tela cheia: só o mural na TV (a ficha continua abrindo por cima)
@@ -1768,7 +1812,7 @@ onAuthStateChanged(auth, async user => {
     $("carregando").hidden = false; $("carregando").innerHTML = '<div class="card vazio"><b>A frequência da rede fica no Painel da Rede</b>Por escola, com a frequência média e o número de alunos que precisam de busca ativa, sem nomes de alunos.<br><br><a class="btn btn-pri" href="/painel/">Abrir o Painel da Rede</a></div>';
     return;
   }
-  if(u.municipio_id && !E.admin){ try{ const sm = await getDoc(doc(db, "municipios", u.municipio_id)); PORTARIA_ATIVA = !sm.exists() || sm.data().entrada_escola !== "desligada"; }catch(e){ console.warn("municipio:", e.code); } }
+  if(u.municipio_id && !E.admin){ try{ const sm = await getDoc(doc(db, "municipios", u.municipio_id)); PORTARIA_ATIVA = !sm.exists() || sm.data().entrada_escola !== "desligada"; E.preRede = PORTARIA_ATIVA && (!sm.exists() || sm.data().chamada_portaria !== false); }catch(e){ console.warn("municipio:", e.code); } }
   $("tabMural").hidden = !podeMural(); $("tabPortaria").hidden = !podeEntrada(); $("tabAudit").hidden = !podePortaria(); $("tabCart").hidden = !podeCart();
   if(E.portaria && !PORTARIA_ATIVA){
     $("tabChamada").hidden = $("tabHist").hidden = $("tabBusca").hidden = true; document.querySelectorAll(".sec").forEach(s => s.classList.remove("on"));
