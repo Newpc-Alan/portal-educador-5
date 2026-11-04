@@ -9754,7 +9754,7 @@
     let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, ...(assumir ? { assumir:true } : {}) }); } finally{ espera(); }
     // a turma está em aula com outro professor: pergunta se assume (não abre por cima sem querer)
     if(r && r.ocupada){
-      if(!chefeAula()){ if(AV.tid === tid) AV.ocupada = r.ocupada; pedirTurma(tid, nomeTurma, min); return null; }
+      if(AV.tid === tid) AV.ocupada = r.ocupada; pedirTurma(tid, nomeTurma, min); return null;
       if(!(await confirmarAssumir(r.ocupada, nomeTurma))) return null;
       const espera2 = telaEspera("Assumindo a turma", ["Encerrando a aula anterior", "Abrindo a sua aula", "Quase lá"]);
       try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, assumir:true }); } finally{ espera2(); }
@@ -9960,7 +9960,8 @@
     f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="tpTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">⏳</div>' +
       '<h3 id="tpTit" class="tp-nome">Você bateu na porta</h3><p class="tp-txt">Aguardando <b>' + escapeHtml(oc.nome) + '</b>' + (oc.disc ? " (" + escapeHtml(oc.disc) + ")" : "") + ' aprovar a troca na tela dele.</p>' +
       '<p class="tp-txt">Só ' + escapeHtml(String(oc.nome).split(" ")[0]) + ' pode liberar a turma. Se ele não estiver na sala, peça à coordenação.</p>' +
-      '<p class="tp-cont" id="tpCont" role="status"></p><div class="tp-bts"><button type="button" class="btn btn-ghost" data-tp="cancelar">Cancelar pedido</button></div></div></div>';
+      '<p class="tp-cont" id="tpCont" role="status"></p><div class="tp-bts"><button type="button" class="btn btn-ghost" data-tp="cancelar">Cancelar pedido</button>' +
+      (chefeAula() ? '<button type="button" class="btn ce-sim" data-tp="assumir">⚠️ Assumir sem esperar (direção)</button>' : '') + '</div></div></div>';
     document.body.appendChild(f);
     f.addEventListener("click", async e => { const b = e.target.closest("[data-tp]"); if(!b) return; const a = b.dataset.tp;
       if(a === "fechar"){ fecharPedido(); return; }
@@ -10044,10 +10045,8 @@
       await arrumarAntesDeEncerrar(); }
     if(acao === "assumir"){ const sel = $("avTurma"), nomeT = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "";
       if(!AV.ocupada) return;
-      // professor pede ao colega da sala (nov/2026); direção e coordenação assumem direto
-      if(!chefeAula()){ pedirTurma(tid, nomeT); return; }
-      if(!(await confirmarAssumir(AV.ocupada, nomeT))) return;
-      acao = "abrir"; AV.assumindo = true; }
+      // todo mundo bate na porta (nov/2026); direção e coordenação têm, na espera, o "assumir sem esperar"
+      pedirTurma(tid, nomeT); return; }
     b.disabled = true; if(acao === "fechar") b.textContent = "Encerrando...";
     try{
       let r;
