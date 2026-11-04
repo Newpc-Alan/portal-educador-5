@@ -9941,7 +9941,7 @@
      Só ele libera, mesmo com tempo de aula sobrando (sem prazo automático). Na troca, quem saiu fecha o painel e os alunos veem quem saiu e quem entrou.
      Direção e coordenação assumem direto. Tudo fica na auditoria (servidor: entradaTurma, ações pedir / responder / cancelar). */
   const chefeAula = () => ["admin", "gestor", "secretaria_escolar"].includes(usuarioAtual && usuarioAtual.perfil);
-  const PED = { tid:"", fim:0, min:0, timer:null, nomeT:"" };
+  const PED = { tid:"", fim:0, min:0, timer:null, nomeT:"", unsub:null };
   const profDisc = (nome, disc) => escapeHtml(nome || "Professor") + (disc ? ' <span class="tp-disc">' + escapeHtml(disc) + "</span>" : "");
   async function pedirTurma(tid, nomeT, minPre){
     const oc = AV.ocupada || { nome:"outro professor" };
@@ -9972,6 +9972,9 @@
           const tid = PED.tid; fecharPedido(); turmaAssumida(tid, r); }
         catch(err){ toast(err && err.message ? err.message : "Não deu para assumir agora.", true); b.disabled = false; b.textContent = "🔁 Assumir agora"; } } });
     clearInterval(PED.timer); PED.timer = setInterval(contarPedido, 1000); contarPedido();
+    // a resposta chega em qualquer tela do Portal (não só no painel da aula): a janela fecha sozinha quando a turma vira minha
+    if(PED.unsub) PED.unsub(); const tidP = PED.tid;
+    PED.unsub = onSnapshot(doc(db, "qr_aulas", tidP), s => acompanharPedido(tidP, s.data() || {}), () => {});
   }
   function contarPedido(){
     const c = $("tpCont"); if(!c){ clearInterval(PED.timer); return; }
@@ -9979,7 +9982,8 @@
     c.textContent = "Esperando a resposta há " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
     if(s >= 600){ fecharPedido(); toast("O pedido venceu (10 min sem resposta). Se precisar, peça de novo ou fale com a coordenação.", true); }
   }
-  function fecharPedido(){ clearInterval(PED.timer); PED.tid = ""; const f = $("tpFundo"); if(f) f.remove(); }
+  function pararPedido(){ clearInterval(PED.timer); PED.tid = ""; if(PED.unsub){ PED.unsub(); PED.unsub = null; } }
+  function fecharPedido(){ pararPedido(); const f = $("tpFundo"); if(f) f.remove(); }
   function turmaAssumida(tid, r){
     if(AV.tid === tid){ AV.qrAte = r.aberta_ate || 0; AV.ocupada = null; pintarQrAoVivo(); }
     if(r.aberta_ate > Date.now()) TA.aulas[tid] = { ate:r.aberta_ate, nome:PED.nomeT || ($("avTurma") && $("avTurma").selectedOptions[0] || {}).textContent || "turma" };
@@ -9988,10 +9992,10 @@
   // quem pediu acompanha a resposta pela própria aula (qr_aulas)
   function acompanharPedido(tid, x){
     if(PED.tid !== tid || !$("tpFundo")) return;
-    if(x.por === usuarioAtual.uid){ const ate = msAv(x.aberta_ate); fecharPedido(); turmaAssumida(tid, { aberta_ate:ate }); bipe(); return; }
+    if(x.por === usuarioAtual.uid){ const ate = msAv(x.aberta_ate), nomeT = PED.nomeT; fecharPedido(); PED.nomeT = nomeT; turmaAssumida(tid, { aberta_ate:ate }); bipe(); return; }
     const p = x.pedido;
     if(p && p.uid === usuarioAtual.uid && p.status === "recusado"){
-      clearInterval(PED.timer); PED.tid = "";
+      pararPedido();
       const f = $("tpFundo"); if(f) f.querySelector(".et-corpo").innerHTML = '<div class="tp-ico" aria-hidden="true">✋</div><h3 class="tp-nome">Pedido recusado</h3><p class="tp-txt"><b>' + escapeHtml(x.por_nome || "O professor") + '</b> continua com a turma. Combine com ele ou peça à coordenação.</p><div class="tp-bts"><button type="button" class="btn btn-primary" data-tp="fechar">Entendi</button></div>';
       return; }
     if(!p || p.uid !== usuarioAtual.uid){ if(!(msAv(x.aberta_ate) > Date.now())){ fecharPedido(); toast("A aula anterior acabou. Você já pode abrir a sua."); } }
