@@ -426,7 +426,7 @@ export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespos
 export { professoresDaEscola } from './grade-turmas.js';
 export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } from './notas-fechamento.js';
 export { portalIa, portalIaLimpar } from './portal-ia.js';
-export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos, creditosDemoTeste } from './creditos.js';
+export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos, creditosDemoTeste, creditosFranquia } from './creditos.js';
 export { leadEscola } from './leads.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
 export { whatsappWebhook, whatsappResponder, whatsappTransferir, whatsappEquipe, whatsappRotina } from './whatsapp.js';

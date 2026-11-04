@@ -6,6 +6,7 @@
 // A rede gasta primeiro (com teto mensal por professor); acabou ou bateu o teto, usa os créditos do próprio professor.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE } from './dicas.js';
 
@@ -13,6 +14,8 @@ export const CREDITOS_PADRAO = {
   precos: { texto: 1, ajuste: 1, imagem: 5 },
   teto_padrao: 60,            // créditos da rede por professor por mês (0 = sem teto)
   demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
+  // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; também é o teto por professor
+  franquia: { intermediario: 20, completo: 40, personalizado: 20 },
   alertas: [20, 5],           // % do saldo para avisar a NEWPC e a Secretaria
   validade_meses: 12,
   dolar: 5.6,
@@ -20,14 +23,15 @@ export const CREDITOS_PADRAO = {
   custo_modelo: { 'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.1-flash-lite': [0.1, 0.4], 'gemini-flash-latest': [0.75, 3.75] },
   custo_imagem: 0.067,
   // sugestões: o administrador ajusta valores e quantidades no painel
+  // tabela de nov/2026: pelo menos o dobro do custo real (R$ 0,19 por crédito em out/2026)
   pacotes_rede: [
-    { id: 'rede-1000', nome: '1.000 créditos', creditos: 1000, valor: 250 },
-    { id: 'rede-5000', nome: '5.000 créditos', creditos: 5000, valor: 1000 },
-    { id: 'rede-20000', nome: '20.000 créditos', creditos: 20000, valor: 3600 }
+    { id: 'rede-1000', nome: '1.000 créditos', creditos: 1000, valor: 400 },
+    { id: 'rede-5000', nome: '5.000 créditos', creditos: 5000, valor: 1900 },
+    { id: 'rede-20000', nome: '20.000 créditos', creditos: 20000, valor: 7200 }
   ],
   pacotes_professor: [
-    { id: 'prof-100', nome: '100 créditos', creditos: 100, valor: 29.9 },
-    { id: 'prof-300', nome: '300 créditos', creditos: 300, valor: 79.9 }
+    { id: 'prof-100', nome: '100 créditos', creditos: 100, valor: 49.9 },
+    { id: 'prof-300', nome: '300 créditos', creditos: 300, valor: 129.9 }
   ]
 };
 export const PLANOS_COM_IA = ['intermediario', 'completo', 'personalizado'];
@@ -44,8 +48,11 @@ const txt = (v, n) => String(v ?? '').trim().slice(0, n);
 
 export function cfgCreditos(c) {
   const x = (c && c.creditos) || {};
-  return { ...CREDITOS_PADRAO, ...x, precos: { ...CREDITOS_PADRAO.precos, ...(x.precos || {}) }, custo_modelo: { ...CREDITOS_PADRAO.custo_modelo, ...(x.custo_modelo || {}) } };
+  return { ...CREDITOS_PADRAO, ...x, precos: { ...CREDITOS_PADRAO.precos, ...(x.precos || {}) }, custo_modelo: { ...CREDITOS_PADRAO.custo_modelo, ...(x.custo_modelo || {}) },
+    franquia: { ...CREDITOS_PADRAO.franquia, ...(x.franquia || {}) } };
 }
+// teto mensal por professor na carteira da rede: o que o administrador gravou na rede; sem isso, a franquia do plano; sem franquia, o padrão
+export const tetoRede = (c, cc, plano) => (c && c.teto_professor != null) ? c.teto_professor : (Number((cc.franquia || {})[plano]) > 0 ? Number(cc.franquia[plano]) : cc.teto_padrao);
 
 /* ---------------------------------------------------------------- contas da carteira (funções puras, testáveis) */
 export function saldoDe(carteira, agora = Date.now()) {
@@ -83,7 +90,7 @@ export async function situacao(db, ctx, opc = {}) {
   const uso = us.exists ? us.data() : {};
   let rede = null;
   if (temRede) {
-    const c = ms_ && ms_.exists ? ms_.data() : {}, s = saldoDe(c), teto = c.teto_professor ?? cc.teto_padrao;
+    const c = ms_ && ms_.exists ? ms_.data() : {}, s = saldoDe(c), teto = tetoRede(c, cc, ctx.plano);
     const usado = uso.creditos_rede || 0;
     rede = { saldo: s.saldo, validade: s.validade, teto, usado_mes: usado, restante_mes: teto > 0 ? Math.max(0, Math.min(teto - usado, s.saldo)) : s.saldo, imagem: opc.redeImagem ?? ctx.plano === 'completo' };
   }
@@ -111,7 +118,7 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
     const uso = u.exists ? u.data() : {}, agora = Date.now();
     let motivo = !temRede ? 'plano' : 'saldo';
     if (refMun && (acao !== 'imagem' || imagemRede)) {
-      const c = m && m.exists ? m.data() : null, teto = c ? (c.teto_professor ?? cc.teto_padrao) : 0;
+      const c = m && m.exists ? m.data() : null, teto = c ? tetoRede(c, cc, ctx.plano) : 0;
       if (c && teto > 0 && (uso.creditos_rede || 0) + custo > teto) motivo = 'teto';
       else if (c) {
         const d = debitarPacotes(c.pacotes, custo, agora);
@@ -260,6 +267,7 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
     });
     return { ok: true };
   }
+  if (d.acao === 'franquia') return { ok: true, simulado: d.simular === true, redes: await aplicarFranquia(db, d.simular === true) };
   if (d.acao === 'demo_testes') {
     // quem já estava em teste antes da demonstração existir: dá o pacote a quem tem teste ativo e ainda não recebeu
     const sn = await db.collection('usuarios').where('licenca_tipo', '==', 'teste').get();
@@ -295,6 +303,41 @@ export async function darDemo(db, uid, u) {
     return { ok: true, creditos: n };
   });
 }
+
+/* ---------------------------------------------------------------- franquia mensal da rede */
+// Todo dia às 3h15: cada rede ativa com plano de IA recebe o pacote do mês "franquia-AAAAMM" = educadores de rede ativos × franquia do plano,
+// válido até o último dia do mês. Quem entra no meio do mês soma no dia seguinte (o pacote cresce; nunca diminui nem duplica).
+// Só conta licença institucional (avulso, cortesia e teste nunca usam a carteira da rede). franquia_professor no município troca o valor do plano.
+const EDU_REDE = ['professor', 'gestor', 'secretaria'];
+export async function aplicarFranquia(db, simular = false) {
+  const cc = cfgCreditos((await db.doc('config/portal_ia').get()).data() || {});
+  const d = new Date(Date.now() - 4 * 3600e3), ano = d.getUTCFullYear(), mes = d.getUTCMonth();
+  const fimMes = Date.UTC(ano, mes + 1, 1) + 4 * 3600e3 - 1000, id = 'franquia-' + ano + String(mes + 1).padStart(2, '0');
+  const out = [];
+  for (const m of (await db.collection('municipios').where('status', '==', 'ativo').get()).docs) {
+    const md = m.data(), plano = md.plano_nome; if (m.id === 'lab-muni' || !PLANOS_COM_IA.includes(plano)) continue;
+    const f = inteiro(md.franquia_professor ?? cc.franquia[plano], 0, 1000); if (!f) continue;
+    const n = (await db.collection('usuarios').where('municipio_id', '==', m.id).where('perfil', 'in', EDU_REDE).where('status', '==', 'ativo').where('licenca_tipo', '==', 'institucional').count().get()).data().count;
+    const alvo = n * f, ref = db.doc('creditos/mun_' + m.id);
+    const add = await db.runTransaction(async t => {
+      const c = await t.get(ref), atual = c.exists ? c.data() : {}, pac = [...(atual.pacotes || [])], i = pac.findIndex(p => p.id === id);
+      const antes = i >= 0 ? (pac[i].creditos || 0) : 0; if (alvo <= antes) return 0;
+      const mais = alvo - antes, obs = 'Franquia do plano · ' + n + ' educador(es) × ' + f;
+      if (i >= 0) pac[i] = { ...pac[i], creditos: alvo, restante: (pac[i].restante || 0) + mais, obs };
+      else pac.push({ id, creditos: alvo, restante: alvo, validade: Timestamp.fromMillis(fimMes), origem: 'franquia', obs, criado_em: Timestamp.now(), por: 'sistema' });
+      if (simular) return mais;
+      t.set(ref, { tipo: 'municipio', ref_id: m.id, nome: txt(md.nome || m.id, 120), pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, atualizado_em: FieldValue.serverTimestamp(), ...(c.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) }, { merge: true });
+      t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos: mais, validade: Timestamp.fromMillis(fimMes), obs: obs + ' (' + id.slice(9) + ')', por: 'sistema', em: FieldValue.serverTimestamp() });
+      return mais;
+    });
+    out.push({ rede: md.nome || m.id, plano, educadores: n, franquia: f, mes: alvo, somou: add });
+  }
+  return out;
+}
+export const creditosFranquia = onSchedule({ schedule: '15 3 * * *', timeZone: 'America/Campo_Grande', region: 'southamerica-east1', maxInstances: 1, timeoutSeconds: 300 }, async () => {
+  const r = await aplicarFranquia(getFirestore());
+  console.log('franquia:', r.filter(x => x.somou).map(x => x.rede + ' +' + x.somou).join(', ') || 'nada a somar');
+});
 
 /* ---------------------------------------------------------------- e-mails */
 function moldura(titulo, corpo, link, rotulo) {
