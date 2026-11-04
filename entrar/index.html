@@ -391,6 +391,8 @@
   .av-topo{ display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 20px;background:#0f2c4a;color:#fff;border-bottom:3px solid #8DC63F }
   .av-topo h3{ margin:0;font-size:20px;color:#fff } .av-topo select{ font:inherit;font-size:16px;font-weight:700;padding:8px 12px;border-radius:10px;border:0;min-height:42px }
   .av-esp{ flex:1 }
+  .av-dono{ font-size:20px;font-weight:800;background:#1a6b2a;color:#fff;border-radius:12px;padding:7px 14px;letter-spacing:.2px } .av-dono small{ font-size:14px;font-weight:700;opacity:.9 }
+  .al-prof-bar{ position:sticky;top:0;z-index:9000;background:#0f2c4a;color:#fff;font-size:21px;font-weight:800;text-align:center;padding:10px 14px;border-bottom:3px solid #8DC63F }
   .av-status{ font-weight:800;font-size:15px;padding:9px 12px;border-radius:12px } .av-status.on{ background:rgba(141,198,63,.18);color:#c9f08f } .av-status.off{ color:#c9d6e2;font-weight:600 }
   .av-mais{ border:0;border-radius:12px;padding:11px 14px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;background:#8DC63F;color:#0f2c4a }
   .av-qr.encerrar{ background:#fdeceb;color:#8c1d18 }
@@ -9644,7 +9646,7 @@
     const f = document.createElement("div"); f.id = "avFundo"; f.className = "av-fundo";
     f.innerHTML = '<div class="av-jan" role="dialog" aria-modal="true" aria-labelledby="avTit">' +
       '<div class="av-topo"><h3 id="avTit">📡 Turma ao Vivo</h3><select id="avTurma" aria-label="Turma">' + ts.map(t => '<option value="' + escapeAttr(t.id) + '">' + escapeHtml(t.nome || "Turma") + "</option>").join("") + '</select>' +
-        '<span class="av-status" id="avStatus"></span><button type="button" class="av-mais" id="avMais" data-action="av-mais" hidden>+10 min</button>' +
+        '<span class="av-dono" id="avDono" hidden></span><span class="av-status" id="avStatus"></span><button type="button" class="av-mais" id="avMais" data-action="av-mais" hidden>+10 min</button>' +
         '<button type="button" class="av-qr" id="avQr" data-action="av-qr" disabled>Verificando a aula...</button>' +
         '<span class="av-esp"></span><button type="button" class="av-x" data-action="av-fechar" title="A aula continua aberta: volte pelo Início">Sair do painel</button></div>' +
       '<div class="av-kpis"><div class="av-kpi verde"><span>👥</span><b id="avKOn">0</b><small id="avKOnT">na sala agora</small></div>' +
@@ -9684,7 +9686,7 @@
       // a aula tem dono (nov/2026): aberta por outro professor = só leitura aqui, com a opção de assumir a turma
       const eraOutro = !!AV.ocupada, donoAntes = AV.donoAula;
       AV.ocupada = AV.aulaFim > Date.now() && x.por && x.por !== usuarioAtual.uid ? { nome:x.por_nome || (AV.ocupada && AV.ocupada.nome) || "outro professor", ate:AV.aulaFim } : null;
-      AV.donoAula = x.por || "";
+      AV.donoAula = x.por || ""; AV.donoNome = String(x.por_nome || ""); AV.donoDisc = String(x.por_disc || "");
       if(donoAntes !== undefined && AV.donoAula !== donoAntes && AV.donoAula === usuarioAtual.uid) iniciarAulaVivoProf(tid);   // a turma passou a ser minha: religa mãos, respostas e conversa
       acompanharPedido(tid, x);
       // a turma passou para outro professor com a aula seguindo: quem saiu sai do painel (nov/2026)
@@ -9944,7 +9946,7 @@
     const v = $("tpFundo"); if(v) v.remove();
     const f = document.createElement("div"); f.id = "tpFundo"; f.className = "et-fundo";
     f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="tpTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">⏳</div>' +
-      '<h3 id="tpTit" class="tp-nome">Pedido enviado</h3><p class="tp-txt">Aguardando <b>' + escapeHtml(oc.nome) + '</b>' + (oc.disc ? " (" + escapeHtml(oc.disc) + ")" : "") + ' aprovar a troca na tela dele.</p>' +
+      '<h3 id="tpTit" class="tp-nome">Você bateu na porta</h3><p class="tp-txt">Aguardando <b>' + escapeHtml(oc.nome) + '</b>' + (oc.disc ? " (" + escapeHtml(oc.disc) + ")" : "") + ' aprovar a troca na tela dele.</p>' +
       '<p class="tp-cont" id="tpCont" role="status"></p><div class="tp-bts"><button type="button" class="btn btn-ghost" data-tp="cancelar">Cancelar pedido</button>' +
       '<button type="button" class="btn tp-sim" data-tp="assumir" disabled>🔁 Assumir agora</button></div></div></div>';
     document.body.appendChild(f);
@@ -9991,8 +9993,8 @@
     PR.chave = chave; PR.tid = tid; PR.fim = Math.max(Date.now() + 5000, Date.now() + 60000 - Math.max(0, Date.now() - msAv(p.em)));
     const v = $("prFundo"); if(v) v.remove();
     const f = document.createElement("div"); f.id = "prFundo"; f.className = "et-fundo"; f.style.zIndex = "9700";
-    f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="prTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">🔔</div>' +
-      '<p class="tp-txt">Pedido para assumir a turma <b>' + escapeHtml(x.turma_nome || "") + '</b></p><h3 id="prTit" class="tp-nome">' + profDisc(p.nome, p.disc) + '</h3>' +
+    f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="prTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">🚪</div>' +
+      '<p class="tp-txt" style="font-size:19px;font-weight:800;color:#0f2c4a">Tem um professor batendo na porta da turma <b>' + escapeHtml(x.turma_nome || "") + '</b></p><h3 id="prTit" class="tp-nome">' + profDisc(p.nome, p.disc) + '</h3>' +
       '<p class="tp-txt">quer assumir a aula agora. Se você aprovar, a turma passa para ' + escapeHtml(String(p.nome || "o professor").split(" ")[0]) + ', seu painel fecha e os alunos continuam conectados.</p>' +
       '<p class="tp-cont" id="prCont" role="status"></p><div class="tp-bts"><button type="button" class="btn btn-ghost" data-pr="nao">❌ Não, continuo na aula</button><button type="button" class="btn tp-sim" data-pr="sim">✅ Sim, passar a turma</button></div></div></div>';
     document.body.appendChild(f); bipe(); setTimeout(bipe, 600);
@@ -10087,6 +10089,9 @@
   function pintarQrAoVivo(){
     const b = $("avQr"); if(!b || AV.qrAte === null) return;
     const aberto = AV.qrAte > Date.now(), deOutro = aberto && !!AV.ocupada; b.disabled = false;
+    // quem conduz a aula, grande no alto do painel (nov/2026)
+    const dn = $("avDono"); if(dn){ const nm = AV.donoNome || (AV.ocupada && AV.ocupada.nome) || "";
+      dn.hidden = !(aberto && nm); if(!dn.hidden){ const h = "🎼 Prof. " + escapeHtml(nm.split(" ").slice(0, 2).join(" ")) + (AV.donoDisc ? " <small>· " + escapeHtml(AV.donoDisc) + "</small>" : ""); if(dn.innerHTML !== h) dn.innerHTML = h; } }
     if(deOutro){ const st = $("avStatus"), mais = $("avMais");
       b.className = "av-qr fechado"; b.dataset.prox = "assumir"; b.textContent = "🔁 Assumir a turma"; b.title = "Encerra a aula do colega e abre a sua";
       if(st){ st.className = "av-status off"; st.textContent = "🔒 Em aula com " + AV.ocupada.nome + " até " + horaCurta(AV.ocupada.ate); }
@@ -10848,7 +10853,7 @@
       const x = s.data() || {}, antes = naAulaAluno();
       MT.aulaAte = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0;
       MT.aulaIni = x.aberta_em && x.aberta_em.toMillis ? x.aberta_em.toMillis() : 0;
-      MT.aulaPor = String(x.por || "");
+      MT.aulaPor = String(x.por || ""); barraProfAluno(x);
       avisoTrocaAluno(x);
       if(MT.lista) { desenharMateriaisAluno(); abrirUltimoDaAula(); }
       MT.maestro = /^\d{6}$/.test(String(x.maestro_codigo || "")) ? x.maestro_codigo : "";
@@ -10876,6 +10881,7 @@
     if(d.tipo === "entrou" && !d.ja) toast(d.ok ? "💻 Este computador entrou na aula do professor." : (d.erro || "O computador não conseguiu entrar na aula."), !d.ok);
   });
   async function sairDaConta(){ try{ await marcarSaidaAluno(); }catch(e){}
+    clearTimeout(MT.barraT); const pb = $("alProfBar"); if(pb) pb.remove();
     try{ window.dispatchEvent(new Event("pde-saindo")); }catch(e){}
     return signOut(auth); }
   async function materiaisAluno(){
@@ -10922,6 +10928,16 @@
     // só o que o professor DA AULA enviou abre na tela (nov/2026): material de outro professor da turma fica em Materiais / Histórico de aulas
     const m = (MT.lista || []).find(x => !MT.aulaPor || !x.autor_uid || x.autor_uid === MT.aulaPor);   // a lista vem do mais novo para o mais antigo
     return m && msMt(m.criado_em) >= MT.aulaIni - 60000 ? m : null;
+  }
+  // quem está dando a aula, grande no alto da tela do aluno (some sozinha quando a aula acaba)
+  function barraProfAluno(x){
+    let b = $("alProfBar"); clearTimeout(MT.barraT);
+    const nm = String(x.por_nome || "").split(" ").slice(0, 2).join(" "), on = (MT.aulaAte || 0) > Date.now() && nm;
+    if(!on){ if(b) b.remove(); return; }
+    if(!b){ b = document.createElement("div"); b.id = "alProfBar"; b.className = "al-prof-bar"; b.setAttribute("role", "status"); document.body.prepend(b); }
+    const t = "🎼 " + (x.por_disc ? "Aula de " + x.por_disc + " · Prof. " : "Em aula com Prof. ") + nm;
+    if(b.textContent !== t) b.textContent = t;
+    MT.barraT = setTimeout(() => barraProfAluno(x), Math.min(MT.aulaAte - Date.now() + 1000, 2147e6));
   }
   // troca de professor no meio da aula: o aluno vê quem saiu e quem entrou (uma vez por troca, nos primeiros 10 min)
   function avisoTrocaAluno(x){
