@@ -6,7 +6,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": "portal-educador-5"})
 db = firestore.client()
-BASE = "https://app.portaldoeducador.com.br/assets/gibis/turma-do-pantanal/ciclo-da-agua/v2/"
+BASE = "https://www.portaldoeducador.com.br/assets/gibis/turma-do-pantanal/ciclo-da-agua/v2/"
 paginas = [f"{BASE}p{i:02d}.webp" for i in range(9)]
 ref = db.document("biblioteca/newpc-gibi-agua")
 novo = not ref.get().exists

@@ -8,7 +8,7 @@ from firebase_admin import credentials, firestore
 firebase_admin.initialize_app(credentials.ApplicationDefault(), {"projectId": "portal-educador-5"})
 db = firestore.client()
 VERDE, AMARELO, ROSA = "#43A047", "#F9A825", "#E91E63"
-IMG = "https://app.portaldoeducador.com.br/assets/tv/campanhas/"
+IMG = "https://www.portaldoeducador.com.br/assets/tv/campanhas/"
 CAMPANHAS = [
   dict(id="dengue-1", imagem_url=IMG + "dengue.webp", categoria="Combate à dengue", cor=VERDE, meses=[], titulo="10 minutos por semana contra a dengue",
        texto="Uma vez por semana, elimine a água parada: vire garrafas e baldes, tampe a caixa-d'água, limpe as calhas e coloque areia nos pratinhos das plantas. O mesmo mosquito transmite zika e chikungunya."),

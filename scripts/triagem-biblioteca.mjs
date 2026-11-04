@@ -113,7 +113,7 @@ if (process.env.SMTP_SENHA) {
     html: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#0c2338"><p><b>Triagem da Biblioteca do Portal do Educador</b></p>
 <p>Nenhuma obra foi copiada. Cada título só entra no Portal 5.0 depois que um administrador confirma a licença no painel da Biblioteca (aba Triagem), e a confirmação fica registrada.</p>
 <ul>${linhas}</ul><p>A planilha completa vai anexa. Comerciais só entram com contrato ou autorização da editora ou autor.</p>
-<p><a href="https://app.portaldoeducador.com.br/biblioteca/#triagem">Abrir a Triagem no Portal</a></p></div>`,
+<p><a href="https://www.portaldoeducador.com.br/biblioteca/#triagem">Abrir a Triagem no Portal</a></p></div>`,
     attachments: [{ filename: 'triagem-biblioteca.csv', content: csv, contentType: 'text/csv; charset=utf-8' }]
   });
   console.log('Planilha enviada para alan@ e leonardo@.');

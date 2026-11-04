@@ -59,7 +59,7 @@ async function gravar(lista) {
 async function criar() {
   const agora = Timestamp.now(), docs = [];
   docs.push([db.doc(`municipios/${MUNI}`), { nome: MUNI_NOME, uf: 'MS', status: 'ativo', demo: true, modulos_professor: [], modulos_aluno: [], modulos_secretaria: ['painel'],
-    logo_url: 'https://app.portaldoeducador.com.br/assets/pde-logo-256.png', criado_em: agora }]);
+    logo_url: 'https://www.portaldoeducador.com.br/assets/pde-logo-256.png', criado_em: agora }]);
   docs.push([db.doc(`notas_regras/${MUNI}`), { periodos: 4, pesos: [1, 1, 1, 1], media_minima: 6, nota_max: 10, arredondamento: 'decimo', composicao: 'media', rec_periodo: 'maior',
     rec_final: true, peso_media: 1, peso_exame: 1, media_final_minima: 5, freq_minima: 75, atualizado_em: agora, atualizado_por: 'demo' }]);
   const per = [['2026-02-09', '2026-04-24'], ['2026-04-27', '2026-07-10'], ['2026-07-27', '2026-09-30'], ['2026-10-01', '2026-12-11']].map(([inicio, fim]) => ({ inicio, fim }));

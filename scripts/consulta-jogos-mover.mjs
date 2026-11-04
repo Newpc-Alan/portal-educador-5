@@ -7,7 +7,7 @@ const { initializeApp, applicationDefault } = await import(pathToFileURL(req.res
 const { getFirestore, FieldValue, Timestamp } = await import(pathToFileURL(req.resolve('firebase-admin/firestore')).href);
 initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
 const db = getFirestore(), GRAVAR = globalThis.GRAVAR === true;
-const ANT = 'https://jogos.portaldoeducador.com.br/', NOVA = 'https://app.portaldoeducador.com.br/jogos/';
+const ANT = 'https://jogos.portaldoeducador.com.br/', NOVA = 'https://www.portaldoeducador.com.br/jogos/';
 const s = await db.collection('jogos').get(); const muda = [];
 s.forEach(d => { const u = String(d.data().url || ''); if (u.startsWith(ANT)) muda.push({ ref: d.ref, id: d.id, de: u, para: NOVA + u.slice(ANT.length) }); });
 console.log('::notice::jogos no catálogo: ' + s.size + ' · com o endereço antigo: ' + muda.length + (GRAVAR ? ' · GRAVANDO' : ' · só simulação'));
