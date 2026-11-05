@@ -236,7 +236,7 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
 <div class="app">
   <header class="topo">
     <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Aplicativos Úteis</small><b>Recursos da Escola</b>
-      <select id="selEscola" aria-label="Escola" hidden></select><span id="nomeEscola"></span></div></div>
+      <select id="selRedeTopo" aria-label="Rede contratante" hidden></select> <select id="selEscola" aria-label="Escola" hidden></select><span id="nomeEscola"></span></div></div>
     <nav class="topo-acoes" aria-label="Seções">
       <button class="tb on" data-action="ir" data-arg="reservar">📅 Reservar</button>
       <button class="tb" data-action="ir" data-arg="minhas">🗂️ Minhas reservas</button>
@@ -611,14 +611,27 @@ async function carregarEscolas(){
   E.escolas = lista;
   E.municipios.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
   const nomeM = id => { const m = E.municipios.find(x => x.id === id); return m ? m.nome : ""; };
-  $("selEscola").hidden = lista.length < 2;
-  $("selEscola").innerHTML = lista.map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome || "Escola") + (E.admin ? " · " + esc(e.municipio_nome || nomeM(e.municipio_id)) : "") + "</option>").join("");
+  // administrador: primeiro a rede contratante (com a quantidade de escolas), depois as escolas dela
+  if(E.admin && E.municipios.length > 1){
+    const qtd = id => lista.filter(e => e.municipio_id === id).length, salvo = (() => { try{ return localStorage.getItem("pde_rec_escola") || ""; }catch(e){ return ""; } })();
+    const mSalvo = (lista.find(e => e.id === salvo) || lista[0] || {}).municipio_id || "";
+    $("selRedeTopo").innerHTML = E.municipios.filter(m => qtd(m.id)).map(m => '<option value="' + esc(m.id) + '"' + (m.id === mSalvo ? " selected" : "") + ">" + esc(m.nome || m.id) + (m.uf ? "/" + esc(m.uf) : "") + " (" + qtd(m.id) + ")</option>").join("");
+    $("selRedeTopo").hidden = false;
+  }
+  montarSelEscola();
   const opM = E.municipios.map(m => '<option value="' + esc(m.id) + '">' + esc(m.nome || m.id) + (m.uf ? "/" + esc(m.uf) : "") + "</option>").join("");
   $("selMuni").innerHTML = opM; $("selMuniCt").innerHTML = opM; $("selMuniEst").innerHTML = opM;
+}
+function montarSelEscola(){
+  const m = $("selRedeTopo").hidden ? null : $("selRedeTopo").value, lista = E.escolas.filter(e => m === null || e.municipio_id === m);
+  $("selEscola").hidden = lista.length < 2 && $("selRedeTopo").hidden;
+  $("selEscola").innerHTML = lista.map(e => '<option value="' + esc(e.id) + '">' + esc(e.nome || "Escola") + "</option>").join("");
+  return lista;
 }
 async function escolherEscola(id){
   E.esc = id; E.escola = E.escolas.find(e => e.id === id) || null; E.sel.clear();
   try{ localStorage.setItem("pde_rec_escola", id); }catch(e){}
+  if(!$("selRedeTopo").hidden && E.escola && $("selRedeTopo").value !== E.escola.municipio_id){ $("selRedeTopo").value = E.escola.municipio_id; montarSelEscola(); }
   $("selEscola").value = id; $("nomeEscola").textContent = $("selEscola").hidden && E.escola ? E.escola.nome || "" : "";
   document.querySelectorAll(".gestor").forEach(b => b.hidden = !podeGerir());
   document.querySelectorAll(".rede").forEach(b => b.hidden = !veRede());
@@ -1397,6 +1410,7 @@ document.addEventListener("click", ev => { const b = ev.target.closest("[data-ac
 document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selEscola"){ rascunho = null; escolherEscola(t.value); }
+  else if(t.id === "selRedeTopo"){ rascunho = null; const l = montarSelEscola(); if(l[0]) escolherEscola(l[0].id); if($("selMuni")){ $("selMuni").value = t.value; $("selMuniCt").value = t.value; $("selMuniEst").value = t.value; E.redeM = t.value; } }
   else if(t.id === "diaInput" && t.value){ E.dia = t.value; carregarReservas(); }
   else if(t.id === "chRede") carregarChamados();
   else if(t.id === "selMuni"){ E.redeM = t.value; carregarRede(); }
