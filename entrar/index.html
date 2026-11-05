@@ -1624,11 +1624,13 @@
         <button type="button" data-action="muni-aba" data-aba="num">Rede e IDEB</button>
       </nav>
       <section class="muni-sec" data-sec="id">
-        <div class="row2"><div class="field" style="flex:2"><label for="muniNome">Nome do município *</label><input type="text" id="muniNome" maxlength="80" placeholder="Ex.: São Gabriel do Oeste" data-mask="nome"></div>
+        <div class="row2"><div class="field"><label for="muniTipo">Tipo de rede *</label><select id="muniTipo"><option value="municipal">Municipal (prefeitura)</option><option value="estadual">Estadual</option><option value="particular">Particular (escola ou grupo)</option><option value="instituicao">Instituição (fundação, ONG, instituto)</option></select></div>
+          <div class="field" style="flex:2" id="muniCidadeBox" hidden><label for="muniCidade">Cidade da rede</label><input type="text" id="muniCidade" maxlength="80" placeholder="Ex.: Campo Grande" data-mask="cidade"></div></div>
+        <div class="row2"><div class="field" style="flex:2"><label for="muniNome" id="muniNomeRot">Nome do município *</label><input type="text" id="muniNome" maxlength="80" placeholder="Ex.: São Gabriel do Oeste" data-mask="nome"></div>
           <div class="field"><label for="muniUf">UF *</label><select id="muniUf"><option value="">Selecione...</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MS</option><option>MT</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
           <div class="field"><label for="muniIbge">Código IBGE</label><input type="text" id="muniIbge" inputmode="numeric" maxlength="7" placeholder="7 dígitos"></div></div>
-        <div class="row2"><div class="field"><label for="muniCnpjPref">CNPJ da Prefeitura</label><input type="text" id="muniCnpjPref" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" data-mask="cnpj"></div>
-          <div class="field"><label for="muniCnpjEdu">CNPJ da Secretaria / Fundo de Educação</label><input type="text" id="muniCnpjEdu" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" data-mask="cnpj"></div></div>
+        <div class="row2"><div class="field"><label for="muniCnpjPref" id="muniCnpjPrefRot">CNPJ da Prefeitura</label><input type="text" id="muniCnpjPref" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" data-mask="cnpj"></div>
+          <div class="field"><label for="muniCnpjEdu" id="muniCnpjEduRot">CNPJ da Secretaria / Fundo de Educação</label><input type="text" id="muniCnpjEdu" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" data-mask="cnpj"></div></div>
         <p class="muni-dica" style="margin:4px 0 6px"><b>Endereço da Secretaria de Educação</b> · digite o CEP que o Portal preenche a rua e o bairro.</p>
         <div class="row2"><div class="field esc-cep"><label for="muniCep">CEP</label><input type="text" id="muniCep" inputmode="numeric" maxlength="9" placeholder="00000-000" data-mask="cep"><small class="esc-st" id="muniCepSt"></small></div>
           <div class="field" style="flex:2.4"><label for="muniRua">Logradouro</label><input type="text" id="muniRua" maxlength="120" placeholder="Rua, avenida..."></div></div>
@@ -1700,7 +1702,7 @@
         <p class="muni-msg" id="muniPerigoMsg" role="status"></p>
       </div>
     </div>
-    <div class="mf"><button class="btn btn-ghost" id="muniCancelar">Cancelar</button><button class="btn btn-primary" id="muniSalvar">Salvar município</button></div>
+    <div class="mf"><button class="btn btn-ghost" id="muniCancelar">Cancelar</button><button class="btn btn-primary" id="muniSalvar">Salvar</button></div>
   </div>
 </div>
 
@@ -1919,7 +1921,7 @@
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início (prévia)" },
       { id:"simulador",  ico:"\u{1F9EE}", label:"Simulador de preços" },
       { grupo:"Redes e cadastros", ico:"\u{1F3DB}\u{FE0F}" },
-      { id:"municipios", ico:"\u{1F3DB}\u{FE0F}", label:"Municípios" },
+      { id:"municipios", ico:"\u{1F3DB}\u{FE0F}", label:"Redes contratantes" },
       { id:"escolas",    ico:"\u{1F3EB}", label:"Escolas" },
       { id:"turmas",     ico:"\u{1F4DA}", label:"Turmas" },
       { id:"alunos",     ico:"\u{1F9D2}", label:"Alunos" },
@@ -2878,7 +2880,7 @@
     $("conteudo").innerHTML =
       '<div class="sectionbar"><span class="count" id="muniCount">Carregando...</span>'+
       '<label class="muni-filtro"><input type="checkbox" data-action="muni-arquivados"'+(muniVerArq ? " checked" : "")+'> Mostrar arquivados</label>'+
-      '<button class="btn btn-primary btn-add" id="btnNovoMuni">+ Novo Município</button></div>'+
+      '<button class="btn btn-primary btn-add" id="btnNovoMuni">+ Nova rede contratante</button></div>'+
       '<div class="tablewrap" id="muniTabela"><div class="empty"><div class="ei">\u{1F3DB}\u{FE0F}</div>Carregando...</div></div>';
     $("btnNovoMuni").addEventListener("click", () => abrirModalMunicipio(null));
     await listarMunicipios();
@@ -2889,9 +2891,9 @@
       await carregarCacheMunicipios();
       if(muniVerArq){ const sn = await getDocs(query(collection(db,"municipios"), orderBy("nome"))); muniTodos = []; sn.forEach(d => muniTodos.push({ id:d.id, ...d.data() })); }
       const lista = muniVerArq ? muniTodos : cacheMunicipios, arq = lista.filter(m => m.status === "inativo").length;
-      $("muniCount").textContent = cacheMunicipios.length+" município(s) ativo(s)"+(muniVerArq ? " · "+arq+" arquivado(s)" : "");
+      $("muniCount").textContent = cacheMunicipios.length+" rede(s) contratante(s) ativa(s)"+(muniVerArq ? " · "+arq+" arquivado(s)" : "");
       if(lista.length===0){ $("muniTabela").innerHTML = '<div class="empty"><div class="ei">\u{1F3DB}\u{FE0F}</div>Nenhum município cadastrado ainda.</div>'; return; }
-      let html = '<table><thead><tr><th>Logo</th><th>Município</th><th>UF</th><th>Status</th><th>Módulos liberados</th><th>Contrato</th><th></th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>Logo</th><th>Rede contratante</th><th>UF</th><th>Status</th><th>Módulos liberados</th><th>Contrato</th><th></th></tr></thead><tbody>';
       lista.forEach(m => { const st=m.status||"piloto";
         const np = Array.isArray(m.modulos_professor) ? m.modulos_professor.length : 0;
         const na = Array.isArray(m.modulos_aluno) ? m.modulos_aluno.length : 0;
@@ -2899,7 +2901,7 @@
         const ctr = (m.contrato_numero ? escapeHtml(m.contrato_numero) : '<span class="muni-tag">sem nº</span>')+(m.vigencia_fim ? '<br><small>até '+escapeHtml(dataBR(m.vigencia_fim))+'</small>'+(venceu ? ' <span class="pill expirado">vencido</span>' : '') : '');
         const ideb = m.ideb && (m.ideb.ai || m.ideb.af) ? 'IDEB '+[m.ideb.ai ? "AI "+m.ideb.ai : "", m.ideb.af ? "AF "+m.ideb.af : ""].filter(Boolean).join(" · ")+(m.ideb.ano ? " ("+m.ideb.ano+")" : "") : "";
         const sub = [m.rede && m.rede.escolas ? m.rede.escolas+" escolas" : "", m.rede && m.rede.alunos ? Number(m.rede.alunos).toLocaleString("pt-BR")+" alunos" : "", ideb].filter(Boolean).join(" · ");
-        html += '<tr'+(st === "inativo" ? ' class="muni-arq"' : '')+'><td>'+logoCelula("municipios", m)+'</td><td><b>'+escapeHtml(m.nome)+'</b>'+(sub ? '<br><small style="color:var(--muted)">'+escapeHtml(sub)+'</small>' : '')+'</td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+(st === "inativo" ? "arquivado" : st)+'</span></td>'+
+        html += '<tr'+(st === "inativo" ? ' class="muni-arq"' : '')+'><td>'+logoCelula("municipios", m)+'</td><td><b>'+escapeHtml(m.nome)+'</b> <span class="muni-tag">'+TIPO_REDE[tipoRede(m)]+(tipoRede(m) !== "municipal" && m.cidade ? " · "+escapeHtml(m.cidade) : "")+'</span>'+(sub ? '<br><small style="color:var(--muted)">'+escapeHtml(sub)+'</small>' : '')+'</td><td>'+escapeHtml(m.uf||"-")+'</td><td><span class="pill '+st+'">'+(st === "inativo" ? "arquivado" : st)+'</span></td>'+
           '<td class="usr-vinc">'+(np||na ? (NOME_PLANO[nomeDoPlano(m.modulos_professor, m.recursos, m.modulos_secretaria)] ? '<b>'+NOME_PLANO[nomeDoPlano(m.modulos_professor, m.recursos, m.modulos_secretaria)]+'</b><br>' : '')+np+' p/ professor · '+na+' p/ aluno' : 'Nenhum ainda')+'</td><td class="usr-vinc">'+ctr+'</td>'+
           '<td style="white-space:nowrap"><button class="btn-mini btn-gerenciar" data-action="muni-editar" data-id="'+escapeAttr(m.id)+'">Cadastro</button> '+
           (st === "inativo" ? '<button class="btn-mini btn-gerenciar" data-action="muni-reativar" data-id="'+escapeAttr(m.id)+'">Reativar</button>' : '<button class="btn-mini btn-gerenciar" data-action="muni-plano" data-id="'+escapeAttr(m.id)+'">Plano e módulos</button>')+'</td></tr>'; });
@@ -2995,6 +2997,19 @@
     MG:"31", ES:"32", RJ:"33", SP:"35", PR:"41", SC:"42", RS:"43", MS:"50", MT:"51", GO:"52", DF:"53" };
   // nome do município no padrão: sem "Município de"/"Prefeitura Municipal de", só iniciais maiúsculas (de, da, do, das, dos, e em minúsculas)
   const nomeMunicipio = t => PDE_PADRAO.municipio(t).fmt;
+  // rede contratante: prefeitura, rede estadual, escola ou grupo particular, instituição. Cada uma é um cliente isolado,
+  // mesmo quando estão na mesma cidade (o cadastro continua em municipios/{id}; a cidade vira um campo)
+  const TIPO_REDE = { municipal:"Municipal", estadual:"Estadual", particular:"Particular", instituicao:"Instituição" };
+  const tipoRede = m => TIPO_REDE[m && m.tipo_rede] ? m.tipo_rede : "municipal";
+  function ajustarTipoRede(){
+    const t = $("muniTipo").value, mun = t === "municipal";
+    $("muniCidadeBox").hidden = mun;
+    $("muniNomeRot").textContent = mun ? "Nome do município *" : t === "estadual" ? "Nome da rede (ex.: Rede Estadual de MS) *" : t === "particular" ? "Nome da escola ou do grupo *" : "Nome da instituição *";
+    $("muniNome").placeholder = mun ? "Ex.: São Gabriel do Oeste" : t === "particular" ? "Ex.: Colégio Status" : t === "instituicao" ? "Ex.: Fundação Astropontes" : "Ex.: Rede Estadual de MS";
+    $("muniNome").dataset.mask = mun ? "nome" : "";
+    $("muniCnpjPrefRot").textContent = mun ? "CNPJ da Prefeitura" : t === "estadual" ? "CNPJ do Governo do Estado" : t === "particular" ? "CNPJ da escola ou mantenedora" : "CNPJ da instituição";
+    $("muniCnpjEduRot").textContent = mun || t === "estadual" ? "CNPJ da Secretaria / Fundo de Educação" : "Outro CNPJ pagador (se houver)";
+  }
   function muniAba(aba){
     document.querySelectorAll("#modalMunicipio .muni-abas button").forEach(b => b.classList.toggle("on", b.dataset.aba === aba));
     document.querySelectorAll("#modalMunicipio .muni-sec").forEach(s => s.hidden = s.dataset.sec !== aba);
@@ -3008,9 +3023,9 @@
     if(id){ try{ const p = await getDoc(doc(db,"municipios_privado",id)); muniCad.priv = p.exists() ? p.data() : {}; }catch(e){ console.warn("municipios_privado:", e.code); muniCad.priv = {}; } }
     const M = m || {}, P = muniCad.priv || {}, pes = P.pessoas || {}, c = P.contrato || {}, r = M.rede || {}, ib = M.ideb || {};
     const set = (k, v) => { $(k).value = v == null ? "" : v; };
-    $("muniTitulo").textContent = id ? M.nome : "Novo município";
+    $("muniTitulo").textContent = id ? M.nome : "Nova rede contratante";
     $("muniSub").textContent = id ? "Edite o que precisar. Só o nome e a UF são obrigatórios." : "Cadastro completo do cliente. Só o nome e a UF são obrigatórios.";
-    set("muniNome", M.nome); set("muniUf", M.uf || "MS"); set("muniIbge", M.ibge); set("muniCnpjPref", fmtCnpj(M.cnpj_prefeitura)); set("muniCnpjEdu", fmtCnpj(M.cnpj_educacao));
+    set("muniTipo", tipoRede(M)); set("muniCidade", M.cidade); ajustarTipoRede(); set("muniNome", M.nome); set("muniUf", M.uf || "MS"); set("muniIbge", M.ibge); set("muniCnpjPref", fmtCnpj(M.cnpj_prefeitura)); set("muniCnpjEdu", fmtCnpj(M.cnpj_educacao));
     set("muniCep", M.cep); set("muniRua", M.logradouro || (M.numero == null && !M.bairro ? M.endereco : "")); set("muniNum", M.numero); set("muniComp", M.complemento); set("muniBairro", M.bairro);
     muniCepBuscado = soDig(M.cep); escStatus("muniCepSt", ""); set("muniTel", telBR(M.telefone).fmt); set("muniEmail", M.email); set("muniSite", M.site);
     set("pPrefeito", pes.prefeito); set("pMandato", pes.mandato);
@@ -3038,10 +3053,12 @@
     if(k === "moeda"){ const n = numBR(t.value); t.value = n == null ? t.value : fmtBR(n); }
     if(k === "tel"){ const r = telBR(t.value); t.value = r.fmt; t.classList.toggle("campo-erro", !r.ok); }
     if(k === "nome") t.value = nomeMunicipio(t.value);
+    if(k === "cidade") t.value = nomeMunicipio(t.value);
     if(k === "site"){ let u = t.value.trim().replace(/^http:\/\//i, "https://"); if(!/^https:\/\//i.test(u)) u = "https://" + u; t.value = u.toLowerCase(); }
   });
   // digitou o ano de uma edição já guardada: as notas dela voltam para os campos (para corrigir)
   $("modalMunicipio").addEventListener("change", (e) => {
+    if(e.target.id === "muniTipo") ajustarTipoRede();
     if(e.target.id === "iAno"){ const x = muniCad.ideb[String(parseInt(e.target.value, 10))]; if(x){ $("iAI").value = histNum(x.ai); $("iAF").value = histNum(x.af); $("iEM").value = histNum(x.em); } }
     if(e.target.id === "nCenso"){ const x = muniCad.censo[String(parseInt(e.target.value, 10))]; if(x){ $("nEscolas").value = x.escolas ?? ""; $("nAlunos").value = x.alunos ?? ""; $("nProfs").value = x.professores ?? ""; } }
   });
@@ -3061,18 +3078,22 @@
     if(end.rua) $("muniRua").value = end.rua;
     if(end.bairro) $("muniBairro").value = end.bairro;
     const nome = vv("muniNome");
-    if(nome && escSemAcento(nomeMunicipio(nome)) !== escSemAcento(end.cidade)) escStatus("muniCepSt", "CEP de " + end.cidade + "/" + end.uf + ", outra cidade", "erro");
+    const cidRef = $("muniTipo").value === "municipal" ? nome : vv("muniCidade");
+    if(cidRef && escSemAcento(nomeMunicipio(cidRef)) !== escSemAcento(end.cidade)) escStatus("muniCepSt", "CEP de " + end.cidade + "/" + end.uf + ", outra cidade", "erro");
     else escStatus("muniCepSt", end.rua ? end.cidade + "/" + end.uf : "CEP geral: digite o logradouro", end.rua ? "ok" : "");
     (end.rua ? $("muniNum") : $("muniRua")).focus();
   }
   $("muniCep").addEventListener("input", e => { const d = soDig(e.target.value).slice(0, 8); e.target.value = escFmtCep(d); if(d.length === 8) muniBuscarCep(); else { muniCepBuscado = ""; escStatus("muniCepSt", ""); } });
   $("muniSalvar").addEventListener("click", async () => {
-    $("muniNome").value = nomeMunicipio(vv("muniNome"));
+    const tipo_rede = $("muniTipo").value || "municipal", ehMun = tipo_rede === "municipal";
+    $("muniNome").value = ehMun ? nomeMunicipio(vv("muniNome")) : vv("muniNome").replace(/\s+/g, " ").trim();
+    if(!ehMun) $("muniCidade").value = vv("muniCidade") ? nomeMunicipio(vv("muniCidade")) : "";
     const nome = vv("muniNome"), uf = $("muniUf").value, erro = (aba, msg, campo) => { muniAba(aba); toast(msg, true); if(campo) $(campo).focus(); };
-    if(!nome) return erro("id", "Informe o nome do município.", "muniNome");
+    if(!nome) return erro("id", ehMun ? "Informe o nome do município." : "Informe o nome da rede.", "muniNome");
+    if((tipo_rede === "particular" || tipo_rede === "instituicao") && !vv("muniCidade")) return erro("id", "Informe a cidade da rede.", "muniCidade");
     if(!uf) return erro("id", "Selecione o estado (UF).", "muniUf");
     const ibge = soDig(vv("muniIbge")); if(ibge && ibge.length !== 7) return erro("id", "O código IBGE tem 7 dígitos.", "muniIbge");
-    if(ibge && UF_IBGE[uf] && !ibge.startsWith(UF_IBGE[uf])) return erro("id", "O código IBGE de um município de "+uf+" começa com "+UF_IBGE[uf]+". Confira o código ou a UF.", "muniIbge");
+    if(ibge && UF_IBGE[uf] && !ibge.startsWith(UF_IBGE[uf])) return erro("id", "O código IBGE de uma cidade de "+uf+" começa com "+UF_IBGE[uf]+". Confira o código ou a UF.", "muniIbge");
     const cepD = soDig(vv("muniCep")); if(cepD && cepD.length !== 8) return erro("id", "O CEP tem 8 dígitos (ex.: 79290-000).", "muniCep");
     if(cepD) $("muniCep").value = cepD.slice(0, 5) + "-" + cepD.slice(5);
     // telefones: só no padrão (DD) 0000-0000 ou (DD) 90000-0000
@@ -3090,7 +3111,7 @@
     const ultIdeb = Object.keys(muniCad.ideb).sort().pop(), ultCenso = Object.keys(muniCad.censo).sort().pop();
     const inteiro = cp => { const n = parseInt(vv(cp), 10); return isFinite(n) && n >= 0 ? n : null; };
     const pessoa = k => ({ nome:PDE_PADRAO.nome(vv("p"+k+"Nome")).fmt, email:vv("p"+k+"Email").toLowerCase(), tel:vv("p"+k+"Tel") });
-    const publico = { nome, uf, ibge, cnpj_prefeitura:soDig(vv("muniCnpjPref")), cnpj_educacao:soDig(vv("muniCnpjEdu")), logradouro:vv("muniRua"), numero:vv("muniNum"), complemento:vv("muniComp"), bairro:vv("muniBairro"),
+    const publico = { nome, uf, tipo_rede, cidade:ehMun ? nome : vv("muniCidade"), ibge, cnpj_prefeitura:soDig(vv("muniCnpjPref")), cnpj_educacao:soDig(vv("muniCnpjEdu")), logradouro:vv("muniRua"), numero:vv("muniNum"), complemento:vv("muniComp"), bairro:vv("muniBairro"),
       endereco:vv("muniRua") ? vv("muniRua") + (vv("muniNum") ? ", " + vv("muniNum") : ", S/N") + (vv("muniComp") ? " - " + vv("muniComp") : "") + (vv("muniBairro") ? ", " + vv("muniBairro") : "") : "", cep:vv("muniCep"),
       telefone:vv("muniTel"), email:vv("muniEmail").toLowerCase(), site:vv("muniSite"),
       contrato_numero:vv("cNumero"), vigencia_inicio:ini, vigencia_fim:fim, vigencia_fim_ts:fim ? Timestamp.fromMillis(msDe(fim)) : null,
@@ -3126,7 +3147,7 @@
       await setDoc(doc(db,"municipios_privado",id), privado, { merge:true });
       fecharModalMunicipio(); toast(muniCad.id ? "Cadastro atualizado." : "Município cadastrado!"); cacheMunicipios = []; await listarMunicipios();
     }catch(e){ console.warn(e); toast("Erro ao salvar ("+(e.code || "erro")+").", true); }
-    finally{ $("muniSalvar").disabled = false; $("muniSalvar").textContent = "Salvar município"; }
+    finally{ $("muniSalvar").disabled = false; $("muniSalvar").textContent = "Salvar"; }
   });
   // arquivar: some das listas e bloqueia o Portal do Aluno; opcionalmente encerra a vigência hoje (guarda a anterior para reativar)
   async function arquivarMunicipio(){
@@ -4700,7 +4721,7 @@
     const tile = (rot, val, sub, cls, k) => pnTile(rot, val, sub, cls, k ? (CD[k] ? "col|"+k : k) : "");
     const alerta = (x) => x ? "pn-alerta" : "";
     let h = '<h3 class="pn-sec">Rede atendida</h3><div class="pn-tiles pn-tiles-2">'+
-      tile("Municípios", v(n.municipios), "", "", "municipios") + tile("Escolas", v(n.escolas), "", "", "escolas") + tile("Turmas", v(n.turmas), "", "", "turmas") +
+      tile("Redes contratantes", v(n.municipios), "", "", "municipios") + tile("Escolas", v(n.escolas), "", "", "escolas") + tile("Turmas", v(n.turmas), "", "", "turmas") +
       tile("Professores", v(n.professores), v(n.preProf)+" aguardando 1º acesso", "", "professores") + tile("Alunos", v(n.alunos), v(n.preAlu)+" aguardando 1º acesso", "", "alunos") +
       tile("Cursistas da Formação", v(n.cursistas), "", "", "cursistas") + '</div>';
     h += '<h3 class="pn-sec">Conteúdo publicado</h3><div class="pn-tiles pn-tiles-2">'+
