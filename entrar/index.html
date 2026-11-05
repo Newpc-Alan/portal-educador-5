@@ -5941,6 +5941,8 @@
         '<div id="waChamados"></div>'+
         '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d" style="padding:12px">Escolha uma conversa.</p></div></div>'+
         (wa.admin ? '<div id="waEquipe" class="wa-equipe"></div>'+
+          '<div class="wa-equipe"><h4 style="margin:0 0 4px">Modelos de mensagem na Meta</h4><p class="d">Os avisos automáticos (boas-vindas, licença, plano, rede e aviso para a equipe) só saem a qualquer hora depois que a Meta aprova cada modelo. O Portal envia os modelos com o texto certo; a aprovação leva de minutos a 24 h.</p>'+
+          '<div class="wa-eq-form"><button class="btn btn-ghost" data-action="wa-modelos" data-acao="listar">Ver situação</button><button class="btn btn-primary btn-add" data-action="wa-modelos" data-acao="cadastrar">Enviar os que faltam para aprovação</button></div><div id="waModelosRes" role="status" class="d"></div></div>'+
           '<div class="wa-equipe"><h4 style="margin:0 0 4px">Teste dos avisos automáticos</h4><p class="d">Manda para o seu WhatsApp as 7 mensagens automáticas (boas-vindas, teste, licença, plano e rede) com dados de exemplo. Antes, mande um "oi" do seu celular para o número do Portal: sem modelo aprovado, a Meta só deixa enviar até 24 h depois da sua última mensagem.</p>'+
           '<div class="wa-eq-form"><input type="tel" id="waTesteNum" inputmode="tel" maxlength="16" placeholder="WhatsApp com DDD" value="'+escapeAttr(usuarioAtual.whatsapp || "")+'" style="font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px;width:200px"><button class="btn btn-primary btn-add" data-action="wa-teste-modelos">Enviar teste ao meu WhatsApp</button></div><p class="d" id="waTesteRes" role="status"></p></div>'+
           '<div class="wa-equipe"><h4 style="margin:0 0 4px">Painel da TV</h4><p class="d">Painel ao vivo para a TV do escritório: fila e números do WhatsApp, equipe, usuários, uso do Portal e redes. Só números e o primeiro nome da equipe, sem dado pessoal. Abra o link no navegador da TV em tela cheia ou cadastre como página web na programação da TV Escola. Trocar a chave desliga o link antigo na hora.</p>'+
@@ -7965,6 +7967,12 @@
     else if(["tc-rede", "tc-tirar", "tc-email"].includes(acao)){ acaoCompTrabalho(acao, el); }
     else if(acao === "ini-enviar-turma"){ janelaEnviarTurma(el.dataset.turma || ""); }
     else if(acao === "ini-ao-vivo"){ abrirAoVivo(); }
+    else if(acao === "wa-modelos"){ const r0 = $("waModelosRes"); if(!r0) return; el.disabled = true; r0.textContent = el.dataset.acao === "cadastrar" ? "Enviando para a Meta..." : "Consultando a Meta...";
+      const ST = { APPROVED:"✅ aprovado", PENDING:"⏳ em análise", REJECTED:"❌ recusado", PAUSED:"⏸️ pausado", DISABLED:"⛔ desativado", NAO_CADASTRADO:"➖ não enviado" };
+      waFn("whatsappModelos", { acao:el.dataset.acao }).then(r => {
+        r0.innerHTML = '<table class="wa-eq-tab"><thead><tr><th>Modelo</th><th>Tipo</th><th>Situação</th></tr></thead><tbody>' + r.modelos.map(m => '<tr><td><code>'+escapeHtml(m.nome)+'</code></td><td>'+(m.categoria === "MARKETING" ? "Marketing" : "Utilidade")+'</td><td>'+escapeHtml(ST[m.status] || m.status)+(m.motivo ? '<br><small>'+escapeHtml(m.motivo)+'</small>' : '')+'</td></tr>').join("") + '</tbody></table>' +
+          (r.erros && r.erros.length ? '<p class="d" style="color:#a3261b">'+r.erros.map(escapeHtml).join("<br>")+'</p>' : ''); })
+        .catch(e => { r0.textContent = (e && e.message) || "Não deu para falar com a Meta."; }).finally(() => { el.disabled = false; }); }
     else if(acao === "wa-teste-modelos"){ const r0 = $("waTesteRes"); el.disabled = true; if(r0) r0.textContent = "Enviando...";
       waFn("whatsappTesteModelos", { numero:($("waTesteNum") || {}).value || "" }).then(r => { if(r0) r0.textContent = "Pronto: " + r.enviados + " mensagens enviadas para o WhatsApp final " + r.final + "."; })
         .catch(e => { if(r0) r0.textContent = (e && e.message) || "Não deu para enviar."; }).finally(() => { el.disabled = false; }); }

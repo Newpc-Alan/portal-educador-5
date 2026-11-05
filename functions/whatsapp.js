@@ -25,7 +25,7 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 import { expiraAuditoria } from './auditoria.js';
-import { MODELOS_WA, RODAPE_WA, preencherWA, URL_ENTRAR } from './comunicacoes.js';
+import { MODELOS_WA, MODELO_ALERTA_WA, RODAPE_WA, preencherWA, URL_ENTRAR } from './comunicacoes.js';
 
 const REGIAO = 'southamerica-east1';
 const TOKEN = defineSecret('WHATSAPP_TOKEN');
@@ -501,6 +501,8 @@ export const whatsappWebhook = onRequest({ region: REGIAO, secrets: [TOKEN, APP_
   const db = getFirestore(), cfg = await config(db);
   if (!cfg.ligado || !cfg.phone_number_id) { res.status(200).send('ok'); return; }
   const tarefas = [];
+  const waba = ((req.body && req.body.entry) || []).map(e => String(e.id || '')).find(x => /^\d{6,25}$/.test(x));
+  if (waba && cfg.waba_id !== waba) tarefas.push(db.doc('wa_config/geral').set({ waba_id: waba }, { merge: true }).catch(() => null));   // conta do WhatsApp Business (para os modelos)
   for (const e of (req.body && req.body.entry) || []) for (const ch of e.changes || []) {
     const v = ch.value || {}; if (v.metadata && String(v.metadata.phone_number_id) !== String(cfg.phone_number_id)) continue;
     for (const m of v.messages || []) {
@@ -591,6 +593,47 @@ export const whatsappTesteModelos = onCall({ region: REGIAO, secrets: [TOKEN], m
   await guardar(ref, 'equipe', '[teste dos ' + n + ' modelos de aviso automático]', { autor_uid: req.auth.uid, autor_nome: txt(String(u.nome || '').split(' ')[0], 30) });
   await auditar(db, waId, 'Teste dos modelos de aviso automático enviado por ' + txt(u.nome || '', 60) + ' (' + n + ' mensagens)');
   return { enviados: n, final: waId.slice(-4) };
+});
+// modelos de mensagem na Meta (só administrador): lista a situação e cadastra os que faltam, com o mesmo texto do Portal
+async function wabaDe(db, cfg) {
+  if (cfg.waba_id) return cfg.waba_id;
+  const r = await fetch(GRAPH + 'debug_token?input_token=' + encodeURIComponent(TOKEN.value()) + '&access_token=' + encodeURIComponent(TOKEN.value()));
+  const j = await r.json().catch(() => ({}));
+  const g = ((j.data && j.data.granular_scopes) || []).find(x => x.scope === 'whatsapp_business_management');
+  const id = g && (g.target_ids || [])[0];
+  if (!id) throw new HttpsError('failed-precondition', 'A chave do WhatsApp não tem a permissão de gerenciar modelos (whatsapp_business_management). Gere a chave do usuário do sistema com essa permissão.');
+  await db.doc('wa_config/geral').set({ waba_id: String(id) }, { merge: true });
+  return String(id);
+}
+function corpoModelo(m) {
+  const url = m.url || URL_ENTRAR;
+  return { name: m.nome, language: 'pt_BR', category: m.categoria,
+    components: [ { type: 'HEADER', format: 'TEXT', text: 'Portal do Educador' },
+      { type: 'BODY', text: m.corpo, example: { body_text: [m.exemplo] } },
+      { type: 'FOOTER', text: m.rodape || RODAPE_WA },
+      { type: 'BUTTONS', buttons: [{ type: 'URL', text: m.botao || 'Entrar no Portal', url }] } ] };
+}
+export const whatsappModelos = onCall({ region: REGIAO, secrets: [TOKEN], maxInstances: 2, timeoutSeconds: 120 }, async req => {
+  const u = await souAdmin(req), db = getFirestore(), cfg = (await db.doc('wa_config/geral').get()).data() || {};
+  const waba = await wabaDe(db, cfg), todos = [...MODELOS_WA, MODELO_ALERTA_WA];
+  const lista = async () => {
+    const r = await fetch(GRAPH + waba + '/message_templates?fields=name,status,category,rejected_reason&limit=200', { headers: { Authorization: 'Bearer ' + TOKEN.value() } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new HttpsError('failed-precondition', 'A Meta recusou a consulta dos modelos: ' + txt((j.error && j.error.message) || r.status, 200));
+    const m = {}; (j.data || []).forEach(t => { if (t.name) m[t.name] = t; }); return m;
+  };
+  let meta = await lista(); const erros = [];
+  if ((req.data || {}).acao === 'cadastrar') {
+    for (const m of todos) {
+      if (meta[m.nome]) continue;
+      const r = await fetch(GRAPH + waba + '/message_templates', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' }, body: JSON.stringify(corpoModelo(m)) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); erros.push(m.nome + ': ' + txt((j.error && (j.error.error_user_msg || j.error.message)) || r.status, 200)); }
+      await new Promise(x => setTimeout(x, 400));
+    }
+    await auditar(db, 'modelos', 'Modelos de mensagem enviados para aprovação da Meta por ' + txt(u.nome || '', 60) + (erros.length ? ' (' + erros.length + ' com erro)' : ''));
+    meta = await lista();
+  }
+  return { modelos: todos.map(m => ({ nome: m.nome, categoria: m.categoria, status: meta[m.nome] ? meta[m.nome].status : 'NAO_CADASTRADO', motivo: meta[m.nome] && meta[m.nome].rejected_reason !== 'NONE' ? (meta[m.nome].rejected_reason || '') : '' })), erros };
 });
 export const whatsappTransferir = onCall({ region: REGIAO, secrets: [SMTP_SENHA], maxInstances: 5, timeoutSeconds: 20 }, async req => {
   const u = await souAtendente(req), db = getFirestore(), d = req.data || {};
