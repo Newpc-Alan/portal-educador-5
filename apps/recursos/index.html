@@ -125,6 +125,17 @@ table.itens{width:100%;border-collapse:collapse}
 .tag.em_uso{background:#e9f5dc;color:#3d6b0c}
 .tag.manutencao{background:#fff3d6;color:#8a5a00}
 .tag.estoque{background:#e3f1fb;color:#1f5f91}
+.chips-tipo{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chips-tipo:empty{display:none}
+.chip-t{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-weight:700;font-size:.82rem;color:var(--ink-2);cursor:pointer}
+.chip-t b{margin-left:4px;color:var(--muted);font-weight:800}
+.chip-t.on{background:var(--azul);border-color:var(--azul);color:#fff}
+.chip-t.on b{color:#cfe0f0}
+.resumo-est{margin-bottom:12px;padding:10px 14px}
+.resumo-est summary{cursor:pointer;font-weight:800;color:var(--azul)}
+.resumo-est .tabela-wrap{margin-top:10px}
+table.itens .num{text-align:right;white-space:nowrap}
+.rede-n{display:block;font-size:.72rem;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.02em}
 .tag.baixado{background:#eef2f6;color:var(--muted)}
 .tag.alerta{background:#fbe3e0;color:#9c2a20}
 
@@ -330,11 +341,13 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
   <section class="sec" id="s-estoque">
     <div class="card barra">
       <select class="sel" id="selMuniEst" aria-label="Município"></select>
-      <div class="seg" id="segEst"><button class="on" data-action="filtro-est" data-arg="estoque">No estoque</button><button data-action="filtro-est" data-arg="todos">Todo o município</button></div>
+      <div class="seg" id="segEst"><button class="on" data-action="filtro-est" data-arg="estoque">No estoque</button><button data-action="filtro-est" data-arg="todos">Tudo</button></div>
       <span class="esp"></span>
       <button class="btn btn-gh" data-action="importar">📥 Importar inventário</button>
-      <button class="btn btn-ok" data-action="massa">＋ Cadastro em massa</button>
+      <button class="btn btn-ok" data-action="massa" id="btnMassa">＋ Cadastro em massa</button>
     </div>
+    <div class="chips-tipo" id="chipsTipo" role="group" aria-label="Filtrar por tipo"></div>
+    <div id="estResumo"></div>
     <div class="barra" style="margin-bottom:10px">
       <input class="busca" id="buscaEst" placeholder="Buscar por patrimônio, série, nome, modelo..." aria-label="Buscar no estoque">
       <span class="sub" id="contaEst"></span><span class="esp"></span>
@@ -553,9 +566,9 @@ const norm = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLow
 
 const TIPOS = [
   ["carrinho", "🛒", "Carrinho de Chromebooks", true], ["laboratorio", "🖥️", "Laboratório de informática", true],
-  ["lousa", "🧑‍🏫", "Lousa digital", true], ["vr", "🥽", "Sala de realidade virtual", true], ["projetor", "📽️", "Projetor ou TV móvel", true],
+  ["lousa", "🧑‍🏫", "Lousa digital", true], ["suporte", "🖼️", "Suporte de tela", false], ["vr", "🥽", "Sala de realidade virtual", true], ["projetor", "📽️", "Projetor ou TV móvel", true],
   ["chromebook", "💻", "Chromebook ou notebook", false], ["tablet", "📱", "Tablet", false], ["computador", "🖥️", "Computador", false],
-  ["tv", "📺", "TV ou totem", false], ["impressora", "🖨️", "Impressora", false], ["rede", "📶", "Rede ou Wi-Fi", false], ["outro", "📦", "Outro", false]
+  ["tv", "📺", "TV ou totem", false], ["impressora", "🖨️", "Impressora", false], ["rede", "📶", "Rede ou Wi-Fi", false], ["nobreak", "🔋", "Nobreak", false], ["outro", "📦", "Outro", false]
 ];
 const TIPO = id => TIPOS.find(t => t[0] === id) || TIPOS[TIPOS.length - 1];
 const SIT = { em_uso:"Em uso", manutencao:"Em manutenção", estoque:"Em estoque", baixado:"Baixado" };
@@ -568,7 +581,7 @@ const ST = { aberto:"Aberto", em_atendimento:"Em atendimento", resolvido:"Resolv
 const E = { user:null, u:null, admin:false, escolas:[], municipios:[], esc:"", escola:null, itens:[], qrs:{}, cfg:PADRAO_CFG, contratos:[],
   dia:hoje(), turno:"M", reservas:[], minhas:[], chamados:[], filtroCh:"abertos", sec:"reservar", sel:new Set(), turmas:[],
   edit:null, lote:false, alvoRes:null, alvoCh:null, ficha:null, redeM:"", periodo:30, rede:null, ctEdit:null, csv:[],
-  est:{ itens:[], cts:[], filtro:"estoque", sel:new Set() }, massa:[] };
+  est:{ itens:[], cts:[], filtro:"estoque", sel:new Set(), rede:"", tipo:"todos", resumoAberto:true }, massa:[] };
 
 const minhasEscolas = () => (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean);
 const gestorDe = escId => E.admin || (E.u.perfil === "gestor" && minhasEscolas().includes(escId));
@@ -640,7 +653,7 @@ async function carregarEscolas(){
   }
   montarSelEscola();
   const opM = E.municipios.map(m => '<option value="' + esc(m.id) + '">' + esc(m.nome || m.id) + (m.uf ? "/" + esc(m.uf) : "") + "</option>").join("");
-  $("selMuni").innerHTML = opM; $("selMuniCt").innerHTML = opM; $("selMuniEst").innerHTML = opM;
+  $("selMuni").innerHTML = opM; $("selMuniCt").innerHTML = opM; $("selMuniEst").innerHTML = (E.admin ? '<option value="*">🌎 Todas as redes</option>' : "") + opM;
 }
 function montarSelEscola(){
   const m = $("selRedeTopo").hidden ? null : $("selRedeTopo").value, lista = E.escolas.filter(e => m === null || e.municipio_id === m);
@@ -1082,7 +1095,7 @@ const SIN = { nome:["nome", "equipamento", "descricao", "item"], tipo:["tipo", "
   garantia_ate:["garantia_ate", "garantia", "fim_garantia"], reservavel:["reservavel"], obs:["obs", "observacao", "observacoes"] };
 function dataCsv(v){ v = String(v || "").trim(); let m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(m){ const a = m[3].length === 2 ? "20" + m[3] : m[3]; return a + "-" + m[2].padStart(2, "0") + "-" + m[1].padStart(2, "0"); } m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[1] + "-" + m[2] + "-" + m[3] : ""; }
 function tipoCsv(v){ const t = norm(v); if(!t) return "chromebook";
-  const regras = [["carrinho", "carrinho"], ["laborat", "laboratorio"], ["lousa", "lousa"], ["realidade", "vr"], ["oculos", "vr"], ["projetor", "projetor"], ["chromebook", "chromebook"], ["notebook", "chromebook"], ["netbook", "chromebook"],
+  const regras = [["suporte", "suporte"], ["pedestal", "suporte"], ["nobreak", "nobreak"], ["carrinho", "carrinho"], ["laborat", "laboratorio"], ["lousa", "lousa"], ["realidade", "vr"], ["oculos", "vr"], ["projetor", "projetor"], ["chromebook", "chromebook"], ["notebook", "chromebook"], ["netbook", "chromebook"],
     ["tablet", "tablet"], ["computador", "computador"], ["desktop", "computador"], ["impressora", "impressora"], ["roteador", "rede"], ["switch", "rede"], ["wi-fi", "rede"], ["wifi", "rede"], ["totem", "tv"], ["tv", "tv"]];
   const r = regras.find(([k]) => t.includes(k)); return r ? r[1] : (TIPOS.some(x => x[0] === t) ? t : "outro"); }
 function sitCsv(v){ const t = norm(v); return t.includes("manut") ? "manutencao" : t.includes("estoq") ? "estoque" : (t.includes("baix") || t.includes("inserv")) ? "baixado" : "em_uso"; }
@@ -1248,33 +1261,62 @@ async function excluirContrato(){
 // o estoque do município são os equipamentos sem escola (recebidos e ainda não entregues)
 async function carregarEstoque(){
   if(!E.redeM && E.municipios[0]) E.redeM = E.municipios[0].id;
-  $("selMuniEst").value = E.redeM;
-  $("estBox").innerHTML = '<div class="carregando"><div class="giro"></div>Carregando...</div>';
+  const todas = E.est.rede === "*";
+  $("selMuniEst").value = todas ? "*" : E.redeM;
+  $("estBox").innerHTML = '<div class="carregando"><div class="giro"></div>Carregando...</div>'; $("estResumo").innerHTML = ""; $("chipsTipo").innerHTML = "";
   const itens = [];
-  try{ const s = await getDocs(query(collection(db, "rec_itens"), where("municipio_id", "==", E.redeM))); s.forEach(d => itens.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("estoque:", e.code || e); }
+  try{ const s = await getDocs(todas ? collection(db, "rec_itens") : query(collection(db, "rec_itens"), where("municipio_id", "==", E.redeM))); s.forEach(d => itens.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("estoque:", e.code || e); }
   itens.sort((a, b) => String(a.patrimonio || a.nome).localeCompare(String(b.patrimonio || b.nome), "pt-BR", { numeric:true }));
-  E.est.itens = itens; E.est.cts = await lerContratos(E.redeM);
+  E.est.itens = itens;
+  if(todas){ const l = []; try{ const s = await getDocs(collection(db, "rec_contratos")); s.forEach(d => l.push({ id:d.id, ...d.data() })); }catch(e){ console.warn("contratos:", e.code || e); } E.est.cts = l; }
+  else E.est.cts = await lerContratos(E.redeM);
   desenharEstoque();
 }
+const doTipo = i => E.est.tipo === "todos" || (i.tipo || "outro") === E.est.tipo;
 function listaEst(){
   const t = norm($("buscaEst").value);
-  return E.est.itens.filter(i => (E.est.filtro === "todos" || !i.escola_id) && (!t || norm([i.nome, i.patrimonio, i.serie, i.marca, i.modelo, nomeEscola(i.escola_id)].join(" ")).includes(t)));
+  return E.est.itens.filter(i => (E.est.filtro === "todos" || !i.escola_id) && doTipo(i) && (!t || norm([i.nome, i.patrimonio, i.serie, i.marca, i.modelo, nomeEscola(i.escola_id), nomeMuni(i.municipio_id)].join(" ")).includes(t)));
+}
+// visão geral (equipe NEWPC): totais por tipo e quadro por rede (todas as redes) ou por escola (uma rede)
+function desenharResumoEst(){
+  const todas = E.est.rede === "*", base = E.est.itens, porTipo = {};
+  base.forEach(i => { const k = i.tipo || "outro"; porTipo[k] = (porTipo[k] || 0) + 1; });
+  $("chipsTipo").innerHTML = '<button class="chip-t' + (E.est.tipo === "todos" ? " on" : "") + '" data-action="tipo-est" data-arg="todos">Todos <b>' + base.length + "</b></button>" +
+    TIPOS.filter(t => porTipo[t[0]]).map(t => '<button class="chip-t' + (E.est.tipo === t[0] ? " on" : "") + '" data-action="tipo-est" data-arg="' + t[0] + '">' + t[1] + " " + esc(t[2]) + " <b>" + porTipo[t[0]] + "</b></button>").join("");
+  const l = base.filter(doTipo), grupos = new Map();
+  const chave = i => todas ? i.municipio_id || "" : i.escola_id || "";
+  l.forEach(i => { const k = chave(i); if(!grupos.has(k)) grupos.set(k, { n:0, esc:0, est:0, man:0, escolas:new Set() }); const g = grupos.get(k); g.n++; if(i.escola_id){ g.esc++; g.escolas.add(i.escola_id); } else g.est++; if(sitDe(i) === "manutencao") g.man++; });
+  const soma = f => [...grupos.values()].reduce((a, g) => a + g[f], 0), nomeT = E.est.tipo === "todos" ? "Equipamentos" : TIPO(E.est.tipo)[2];
+  const kpi = (t, v, s2) => '<div class="kpi"><small>' + t + "</small><b>" + v + "</b><span>" + s2 + "</span></div>";
+  if(!l.length){ $("estResumo").innerHTML = ""; return; }
+  const nomeG = k => todas ? nomeMuni(k) || "Sem rede" : (k ? nomeEscola(k) : "📦 Estoque da rede");
+  const linhas = [...grupos.entries()].sort((a, b) => b[1].n - a[1].n);
+  $("estResumo").innerHTML = '<div class="kpis">' + kpi(esc(nomeT), soma("n"), todas ? grupos.size + " rede(s)" : "nesta rede") + kpi("Nas escolas", soma("esc"), todas ? [...grupos.values()].reduce((a, g) => a + g.escolas.size, 0) + " escola(s)" : grupos.size - (grupos.has("") ? 1 : 0) + " escola(s)") +
+    kpi("No estoque", soma("est"), "aguardando entrega") + kpi("Em manutenção", soma("man"), "fora de uso") + "</div>" +
+    '<details class="card resumo-est"' + (E.est.resumoAberto ? " open" : "") + '><summary>' + (todas ? "Por rede" : "Por escola") + " · " + esc(nomeT.toLowerCase()) + " (" + linhas.length + ")</summary>" +
+    '<div class="tabela-wrap"><table class="itens"><thead><tr><th>' + (todas ? "Rede" : "Escola") + '</th><th class="num">Total</th>' + (todas ? '<th class="num">Nas escolas</th><th class="num">No estoque</th>' : "") + '<th class="num">Manutenção</th>' + (todas ? "<th></th>" : "") + "</tr></thead><tbody>" +
+    linhas.map(([k, g]) => "<tr><td><b>" + esc(nomeG(k)) + '</b></td><td class="num"><b>' + g.n + "</b></td>" + (todas ? '<td class="num">' + g.esc + (g.escolas.size ? " <small>em " + g.escolas.size + " esc.</small>" : "") + '</td><td class="num">' + g.est + "</td>" : "") +
+      '<td class="num">' + (g.man || "") + "</td>" + (todas ? '<td class="ac"><button class="btn btn-gh btn-sm" data-action="abrir-rede-est" data-arg="' + esc(k) + '">Abrir</button></td>' : "") + "</tr>").join("") +
+    "</tbody></table></div></details>";
 }
 function desenharEstoque(){
+  const todas = E.est.rede === "*";
   document.querySelectorAll("#segEst button").forEach(b => b.classList.toggle("on", b.dataset.arg === E.est.filtro));
+  desenharResumoEst();
   const l = listaEst(), sel = [...E.est.sel].filter(id => E.est.itens.some(i => i.id === id)), selEst = sel.filter(id => !(E.est.itens.find(i => i.id === id) || {}).escola_id);
-  const noEst = E.est.itens.filter(i => !i.escola_id).length;
-  $("contaEst").textContent = noEst + " no estoque · " + E.est.itens.length + " no município";
+  const base = E.est.itens.filter(doTipo), noEst = base.filter(i => !i.escola_id).length;
+  $("contaEst").textContent = l.length + " na lista · " + noEst + " no estoque · " + base.length + (todas ? " em todas as redes" : " na rede");
   $("btnEtqEst").disabled = !sel.length; $("btnEtqEst").textContent = "🖨️ Etiquetas QR" + (sel.length ? " (" + sel.length + ")" : "");
-  $("btnEntregar").disabled = !selEst.length; $("btnEntregar").textContent = "🚚 Entregar para escola" + (selEst.length ? " (" + selEst.length + ")" : "");
-  if(!l.length){ $("estBox").innerHTML = '<div class="vazio card"><b>' + (E.est.filtro === "estoque" ? "Nada no estoque deste município" : "Nenhum equipamento neste município") + "</b>Use Cadastro em massa para registrar uma entrega: dados comuns uma vez, depois patrimônio e série de cada um.</div>"; return; }
+  $("btnEntregar").disabled = todas || !selEst.length; $("btnEntregar").textContent = "🚚 Entregar para escola" + (selEst.length && !todas ? " (" + selEst.length + ")" : "");
+  $("btnEntregar").title = todas ? "Escolha uma rede para entregar equipamentos" : ""; $("btnMassa").disabled = todas; $("btnMassa").title = todas ? "Escolha uma rede para o cadastro em massa" : "";
+  if(!l.length){ $("estBox").innerHTML = '<div class="vazio card"><b>' + (E.est.filtro === "estoque" ? "Nada no estoque" + (E.est.tipo !== "todos" ? " deste tipo" : "") : "Nenhum equipamento" + (E.est.tipo !== "todos" ? " deste tipo" : "")) + "</b>" + (E.est.filtro === "estoque" ? "Toque em Tudo para ver também o que já está nas escolas." : "Use Cadastro em massa para registrar uma entrega: dados comuns uma vez, depois patrimônio e série de cada um.") + "</div>"; return; }
   const todos = l.every(i => E.est.sel.has(i.id)), ctDe = id => E.est.cts.find(c => c.id === id);
-  $("estBox").innerHTML = '<div class="tabela-wrap"><table class="itens"><thead><tr><th><input type="checkbox" data-selest="todos"' + (todos ? " checked" : "") + ' aria-label="Selecionar todos"></th><th>Patrimônio</th><th>Nº de série</th><th>Equipamento</th><th class="esc-m">Contrato</th><th>Escola</th><th></th></tr></thead><tbody>' +
-    l.slice(0, 1000).map(i => { const s = sitDe(i), ct = ctDe(i.contrato_id);
+  $("estBox").innerHTML = '<div class="tabela-wrap"><table class="itens"><thead><tr><th><input type="checkbox" data-selest="todos"' + (todos ? " checked" : "") + ' aria-label="Selecionar todos"></th><th>Patrimônio</th><th>Nº de série</th><th>Equipamento</th><th class="esc-m">Contrato</th><th>' + (todas ? "Rede · escola" : "Escola") + "</th><th></th></tr></thead><tbody>" +
+    l.slice(0, 1000).map(i => { const s = sitDe(i), ct = ctDe(i.contrato_id), rede = todas ? '<small class="rede-n">' + esc(nomeMuni(i.municipio_id)) + "</small>" : "";
       return '<tr class="' + s + '"><td><input type="checkbox" data-selest="' + esc(i.id) + '"' + (E.est.sel.has(i.id) ? " checked" : "") + ' aria-label="Selecionar"></td><td><b>' + esc(i.patrimonio || "") + "</b></td><td>" + esc(i.serie || "") + "</td>" +
         "<td>" + TIPO(i.tipo)[1] + " " + esc(i.nome) + "<small>" + esc([i.marca, i.modelo].filter(Boolean).join(" ")) + '</small></td><td class="esc-m">' + esc(ct ? ct.numero : "") + "</td>" +
-        "<td>" + (i.escola_id ? esc(nomeEscola(i.escola_id)) + "<small>" + esc(i.local || "") + "</small>" : '<span class="tag estoque">📦 Estoque</span>') + '</td><td class="ac"><button class="btn btn-gh btn-sm" data-action="ficha" data-arg="' + esc(i.id) + '">Ficha</button></td></tr>'; }).join("") +
-    "</tbody></table></div>" + (l.length > 1000 ? '<p class="sub" style="margin-top:8px">Mostrando 1000 de ' + l.length + ". Use a busca para achar os demais.</p>" : "");
+        "<td>" + rede + (i.escola_id ? esc(nomeEscola(i.escola_id)) + "<small>" + esc(i.local || "") + "</small>" : '<span class="tag estoque">📦 Estoque</span>') + (s === "manutencao" ? ' <span class="tag manutencao">🔧 Manutenção</span>' : "") + '</td><td class="ac"><button class="btn btn-gh btn-sm" data-action="ficha" data-arg="' + esc(i.id) + '">Ficha</button></td></tr>'; }).join("") +
+    "</tbody></table></div>" + (l.length > 1000 ? '<p class="sub" style="margin-top:8px">Mostrando 1000 de ' + l.length + ". Use a busca ou o filtro de tipo para achar os demais.</p>" : "");
 }
 function abrirMassa(){
   $("mTipo").innerHTML = TIPOS.map(t => '<option value="' + t[0] + '">' + t[1] + " " + t[2] + "</option>").join(""); $("mTipo").value = "chromebook";
@@ -1429,6 +1471,8 @@ function escolaDoSetor(setor, m){
 }
 function tipoDoProduto(p){
   const t = String(p).toUpperCase();
+  if(/SUPORTE|PEDESTAL/.test(t)) return "suporte";
+  if(/NOBREAK|\bUPS\b/.test(t)) return "nobreak";
   if(/CHROMEBOOK|NOTEBOOK/.test(t)) return "chromebook";
   if(/TELA INTERATIVA|LOUSA|MONITOR PROFISSIONAL|FLIP/.test(t)) return "lousa";
   if(/MODULO PC|COMPUTADOR|DESKTOP/.test(t)) return "computador";
@@ -1594,12 +1638,15 @@ const ACOES = {
   "salvar-horarios": () => salvarHorarios(),
   "periodo": p => { E.periodo = +p; if(E.rede) desenharRede(); }, "exportar-rede": () => exportarRede(), "exportar-sla": () => exportarSla(),
   "novo-contrato": () => abrirContrato(null), "editar-contrato": id => abrirContrato(id), "add-renovacao": () => addRenovacao(), "salvar-contrato": () => salvarContrato(), "excluir-contrato": () => excluirContrato(),
-  "filtro-est": f => { E.est.filtro = f; desenharEstoque(); }, "massa": () => abrirMassa(), "importar": () => abrirImport(), "gravar-import": () => gravarImport(), "conferir-massa": () => conferirMassa(), "gravar-massa": () => gravarMassa(),
+  "filtro-est": f => { E.est.filtro = f; desenharEstoque(); },
+  "tipo-est": t => { E.est.tipo = t; E.est.sel.clear(); desenharEstoque(); },
+  "abrir-rede-est": m => { E.est.rede = ""; E.redeM = m; E.est.sel.clear(); carregarEstoque(); }, "massa": () => abrirMassa(), "importar": () => abrirImport(), "gravar-import": () => gravarImport(), "conferir-massa": () => conferirMassa(), "gravar-massa": () => gravarMassa(),
   "entregar": () => abrirEntrega(), "confirmar-entrega": () => confirmarEntrega(),
   "etiquetas-est": () => imprimirEtiquetas(E.est.itens.filter(i => E.est.sel.has(i.id))),
-  "exportar-est": () => baixarCsv("estoque-" + hoje() + ".csv", [CAB_ITENS, ...listaEst().map(i => linhaItem(i, E.est.cts))]),
+  "exportar-est": () => baixarCsv("equipamentos-" + (E.est.tipo === "todos" ? "" : E.est.tipo + "-") + hoje() + ".csv", [["rede", ...CAB_ITENS], ...listaEst().map(i => [nomeMuni(i.municipio_id), ...linhaItem(i, E.est.cts)])]),
   "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
 };
+document.addEventListener("toggle", ev => { if(ev.target.classList && ev.target.classList.contains("resumo-est")) E.est.resumoAberto = ev.target.open; }, true);
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
 document.addEventListener("change", ev => {
   const t = ev.target;
@@ -1608,12 +1655,12 @@ document.addEventListener("change", ev => {
   else if(t.dataset && t.dataset.impOn != null){ IMP.redes[+t.dataset.impOn].on = t.checked; desenharImport(); }
   else if(t.dataset && t.dataset.impRede != null){ const r = IMP.redes[+t.dataset.impRede]; r.m = t.value; r.on = !!t.value; montarSetores(r); carregarExistentes().then(desenharImport); }
   else if(t.dataset && t.dataset.impSetor != null){ const r = IMP.redes[+t.dataset.impSetor], x = r.setores.get(t.dataset.setor); if(x){ x.dest = t.value; desenharImport(); } }
-  else if(t.id === "selRedeTopo"){ rascunho = null; const l = montarSelEscola(); if(l[0]) escolherEscola(l[0].id); if($("selMuni")){ $("selMuni").value = t.value; $("selMuniCt").value = t.value; $("selMuniEst").value = t.value; E.redeM = t.value; } }
+  else if(t.id === "selRedeTopo"){ rascunho = null; const l = montarSelEscola(); if(l[0]) escolherEscola(l[0].id); if($("selMuni")){ $("selMuni").value = t.value; $("selMuniCt").value = t.value; $("selMuniEst").value = t.value; E.redeM = t.value; E.est.rede = ""; } }
   else if(t.id === "diaInput" && t.value){ E.dia = t.value; carregarReservas(); }
   else if(t.id === "chRede") carregarChamados();
   else if(t.id === "selMuni"){ E.redeM = t.value; carregarRede(); }
   else if(t.id === "selMuniCt"){ E.redeM = t.value; carregarListaContratos(); }
-  else if(t.id === "selMuniEst"){ E.redeM = t.value; E.est.sel.clear(); carregarEstoque(); }
+  else if(t.id === "selMuniEst"){ if(t.value === "*") E.est.rede = "*"; else { E.est.rede = ""; E.redeM = t.value; } E.est.sel.clear(); carregarEstoque(); }
   else if(t.dataset.selest){ const ids = t.dataset.selest === "todos" ? listaEst().map(i => i.id) : [t.dataset.selest]; ids.forEach(id => t.checked ? E.est.sel.add(id) : E.est.sel.delete(id)); desenharEstoque(); }
   else if(t.id === "filtroSit") desenharItens();
   else if(t.id === "arqCsv" && t.files[0]){ const r = new FileReader(); r.onload = () => { $("txtCsv").value = r.result; conferirCsv(); }; r.readAsText(t.files[0], "utf-8"); }
