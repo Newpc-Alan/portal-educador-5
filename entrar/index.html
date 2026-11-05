@@ -1712,7 +1712,7 @@
     <div class="mh"><h3 id="escTit">Nova Escola</h3><p>Os dados abaixo saem no cabeçalho dos relatórios, declarações e provas.</p></div>
     <div class="mb" style="max-height:62vh;overflow:auto">
       <div class="field"><label for="escNome">Nome da escola</label><input type="text" id="escNome" placeholder="Ex: Escola Municipal Centro"></div>
-      <div class="field"><label for="escMuni">Município</label><select id="escMuni"><option value="">Carregando...</option></select></div>
+      <div class="field"><label for="escMuni">Rede contratante</label><select id="escMuni"><option value="">Carregando...</option></select></div>
       <div class="row2"><div class="field"><label for="escInep">Código INEP</label><input type="text" id="escInep" inputmode="numeric" maxlength="8" placeholder="8 dígitos"></div>
         <div class="field esc-cnpj"><label for="escCnpj">CNPJ <small>(escola ou unidade executora)</small></label><div class="esc-linha"><input type="text" id="escCnpj" maxlength="18" placeholder="00.000.000/0000-00" autocomplete="off"><button type="button" data-action="esc-cnpj" title="Preencher com os dados da Receita">Buscar</button></div><small class="esc-st" id="escCnpjSt"></small></div></div>
       <div class="row2"><div class="field esc-ddd"><label for="escDdd">DDD</label><input type="text" id="escDdd" inputmode="numeric" maxlength="2" placeholder="67"></div>
@@ -1723,6 +1723,8 @@
       <div class="row2"><div class="field esc-num"><label for="escNum">Número</label><input type="text" id="escNum" maxlength="12" placeholder="S/N"></div>
         <div class="field"><label for="escComp">Complemento</label><input type="text" id="escComp" maxlength="60" placeholder="Bloco, sala..."></div>
         <div class="field"><label for="escBairro">Bairro</label><input type="text" id="escBairro" maxlength="80"></div></div>
+      <div class="row2"><div class="field" style="flex:2"><label for="escCidade">Cidade <small>(o CEP preenche)</small></label><input type="text" id="escCidade" maxlength="80" placeholder="Ex.: Campo Grande"></div>
+        <div class="field esc-num"><label for="escCidadeUf">UF</label><input type="text" id="escCidadeUf" maxlength="2" placeholder="MS"></div></div>
       <div class="row2"><div class="field"><label for="escDir">Diretor(a)</label><input type="text" id="escDir"></div>
         <div class="field"><label for="escCoord">Coordenador(a) pedagógico(a)</label><input type="text" id="escCoord"></div></div>
       <div class="field"><label for="escAto">Ato de autorização / criação <small>(opcional)</small></label><input type="text" id="escAto" placeholder="Ex.: Decreto nº 123/1998"></div>
@@ -3232,7 +3234,7 @@
     }catch(e){ console.warn(e); $("escTabela").innerHTML = '<div class="empty">Erro ao carregar ('+e.code+').</div>'; }
   }
   let escEditando = null;
-  const ESC_CAMPOS = { escInep:"inep", escCnpj:"cnpj", escEmail:"email", escRua:"logradouro", escNum:"numero", escComp:"complemento", escBairro:"bairro", escDir:"diretor", escCoord:"coordenador", escAto:"ato" };
+  const ESC_CAMPOS = { escInep:"inep", escCnpj:"cnpj", escEmail:"email", escRua:"logradouro", escNum:"numero", escComp:"complemento", escBairro:"bairro", escDir:"diretor", escCoord:"coordenador", escAto:"ato", escCidade:"cidade", escCidadeUf:"cidade_uf" };
   // máscaras e validações do cadastro da escola
   const escDig = v => String(v || "").replace(/\D/g, "");
   const escFmtCep = d => d.length > 5 ? d.slice(0, 5) + "-" + d.slice(5, 8) : d;
@@ -3267,7 +3269,8 @@
     if(!end){ escStatus("escCepSt", "CEP não encontrado. Preencha à mão.", "erro"); return; }
     if(end.rua) $("escRua").value = end.rua;
     if(end.bairro) $("escBairro").value = end.bairro;
-    const opt = $("escMuni").options[$("escMuni").selectedIndex], muni = opt && opt.value ? opt.dataset.nome : "";
+    if(end.cidade){ $("escCidade").value = end.cidade; $("escCidadeUf").value = end.uf || ""; }
+    const opt = $("escMuni").options[$("escMuni").selectedIndex], muni = opt && opt.value && opt.dataset.tipo === "municipal" ? opt.dataset.nome : "";   // rede estadual ou particular pode ter escola em outra cidade
     if(muni && escSemAcento(muni) !== escSemAcento(end.cidade)) escStatus("escCepSt", "CEP de " + end.cidade + "/" + end.uf + ", outro município", "erro");
     else escStatus("escCepSt", end.rua ? end.cidade + "/" + end.uf : "CEP geral: digite o logradouro", end.rua ? "ok" : "");
     (end.rua ? $("escNum") : $("escRua")).focus();
@@ -3366,8 +3369,8 @@
     try{
       const lista = cacheMunicipios.length ? cacheMunicipios : await carregarCacheMunicipios();
       if(lista.length===0){ sel.innerHTML = '<option value="">Nenhum município. Cadastre primeiro.</option>'; return; }
-      sel.innerHTML = '<option value="">Selecione o município...</option>';
-      lista.forEach(m => { const o=document.createElement("option"); o.value=m.id; o.textContent=m.nome+" / "+(m.uf||""); o.dataset.nome=m.nome; o.dataset.uf=m.uf||""; sel.appendChild(o); });
+      sel.innerHTML = '<option value="">Selecione a rede...</option>';
+      lista.forEach(m => { const o=document.createElement("option"); o.value=m.id; o.textContent=m.nome+" / "+(m.uf||"")+(tipoRede(m) !== "municipal" ? " · "+TIPO_REDE[tipoRede(m)] : ""); o.dataset.nome=m.nome; o.dataset.uf=m.uf||""; o.dataset.tipo=tipoRede(m); o.dataset.cidade=m.cidade||""; sel.appendChild(o); });
       if(escEditando) sel.value = escEditando.municipio_id || "";
       $("escNome").focus();
     }catch(e){ console.warn(e); sel.innerHTML = '<option value="">Erro ao carregar</option>'; }
@@ -3378,7 +3381,7 @@
   $("escSalvar").addEventListener("click", async () => {
     const nome=$("escNome").value.trim(); const sel=$("escMuni"); const muniId=sel.value; const opt=sel.options[sel.selectedIndex];
     if(!nome){ toast("Informe o nome da escola.", true); return; }
-    if(!muniId){ toast("Selecione o município.", true); return; }
+    if(!muniId){ toast("Selecione a rede contratante.", true); return; }
     const inep = $("escInep").value.trim();
     if(inep && !/^\d{8}$/.test(inep)){ toast("O código INEP tem 8 dígitos.", true); return; }
     const cnpj = cnpjLimpo($("escCnpj").value);
@@ -3391,6 +3394,9 @@
     if(cep && cep.length !== 8){ toast("O CEP tem 8 dígitos.", true); $("escCep").focus(); return; }
     const extra = {}; Object.entries(ESC_CAMPOS).forEach(([i, k]) => { extra[k] = $(i).value.trim(); });
     extra.cnpj = cnpj ? cnpjFmt(cnpj) : "";
+    // cidade da escola: o CEP preenche; sem CEP, a rede municipal usa o próprio município e a particular a cidade da rede
+    extra.cidade_uf = extra.cidade_uf.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
+    if(!extra.cidade){ extra.cidade = opt.dataset.tipo === "municipal" ? opt.dataset.nome || "" : opt.dataset.cidade || ""; if(extra.cidade && !extra.cidade_uf) extra.cidade_uf = opt.dataset.uf || ""; }
     extra.cep = escFmtCep(cep); extra.tel_ddd = fone ? ddd : ""; extra.tel_numero = fone;
     extra.telefone = fone ? "(" + ddd + ") " + escFmtFone(fone) : "";
     // texto pronto para o cabeçalho dos documentos (relatórios e declarações leem "endereco")
