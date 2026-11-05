@@ -308,7 +308,7 @@ async function alertaWhats(db, cfg, waId, quem, situacao) {
       let ult = 0, conv = '';
       for (const v of vs.filter(x => x.startsWith('55'))) { const c = (await db.doc('wa_conversas/' + v).get()).data(); const t = c && c.ultima_pessoa_em && c.ultima_pessoa_em.toMillis ? c.ultima_pessoa_em.toMillis() : 0; if (t > ult) { ult = t; conv = v; } }
       if (conv && Date.now() - ult < 23.5 * 3600e3) await enviar(cfg, conv, { type: 'interactive', interactive: { type: 'cta_url', header: { type: 'text', text: 'Portal do Educador' },
-        body: { text: '🔔 Atendimento do Portal do Educador: ' + deQuem + ' ' + sit + '. Toque no botão para abrir a conversa.' }, footer: { text: 'Aviso para a equipe' },
+        body: { text: 'Novo chamado no atendimento do Portal do Educador. Contato: ' + deQuem + '. Situação: ' + sit + '. Toque no botão para responder.' }, footer: { text: 'Aviso para a equipe' },
         action: { name: 'cta_url', parameters: { display_text: 'Abrir o atendimento', url: SITE + '/atendimento/' } } } }).catch(e2 => console.warn('whatsapp: alerta texto', e2.message));
       else console.warn('whatsapp: alerta sem modelo aprovado e fora das 24 h', e.message);
     }
