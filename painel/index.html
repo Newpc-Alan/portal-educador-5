@@ -89,6 +89,14 @@ table.tab{width:100%;border-collapse:collapse}
 .mcx .acs button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 16px;font-weight:700}
 .mcx .acs .pri{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
 @media (max-width:700px){ .cr{grid-template-columns:1fr} }
+.verde-topo{display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:center}
+.selo{width:140px;height:140px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;font-weight:800;border:6px solid rgba(255,255,255,.6);box-shadow:0 10px 24px -12px rgba(0,0,0,.45)}
+.selo small{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;opacity:.9}.selo b{font-size:1.25rem;letter-spacing:.04em}.selo span{font-size:.7rem;opacity:.9}
+.selo.ouro{background:radial-gradient(circle at 30% 30%,#f5d76e,#b8860b)}.selo.prata{background:radial-gradient(circle at 30% 30%,#e4e9ee,#8a97a5)}
+.selo.bronze{background:radial-gradient(circle at 30% 30%,#e3a76b,#8c5a2b)}.selo.nenhum{background:radial-gradient(circle at 30% 30%,#9fc98a,#1a6b2a)}
+.kpi.verde::after{background:#1a6b2a}
+.como{font-size:.8rem;color:var(--muted);margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}
+@media (max-width:640px){ .verde-topo{grid-template-columns:1fr;justify-items:center;text-align:center} }
 </style>
 </head>
 <body>
@@ -137,6 +145,9 @@ table.tab{width:100%;border-collapse:collapse}
       <div class="card"><div class="h2">🛠️ Suporte técnico e equipamentos</div><div class="sub">Chamados abertos pela etiqueta QR dos equipamentos</div><div id="gInf" style="margin-top:10px"></div></div>
     </div>
 
+    <div class="secao" id="verde" style="color:#1a6b2a">Impacto ambiental · Selo Rede Verde</div>
+    <div class="card" id="cardVerde"><div class="sub">Calculando o papel e a impressão que a rede deixou de usar...</div></div>
+
     <div class="secao">Escola por escola</div>
     <div class="tabela-wrap"><table class="tab" id="tabEsc"></table></div>
 
@@ -177,7 +188,7 @@ async function carregar(forcar){
   try{
     const r = await chamar({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined, escolas:S.sim && S.sim.perfil === "gestor" ? (S.sim.escolas || []) : undefined, forcar:!!forcar });
     S.d = r.data; desenhar(); $("carregando").hidden = true; $("corpo").hidden = false;
-    carregarCreditos();
+    carregarCreditos(); carregarVerde(!!forcar);
     irParaHash();
   }catch(e){
     console.warn("painel:", e.code, e.message);
@@ -359,6 +370,44 @@ async function relatorio(){
   pdf.save("relatorio-rede-" + String(d.municipio.nome || "municipio").normalize("NFD").replace(/[^\w]+/g, "-").toLowerCase() + "-" + new Date().toISOString().slice(0, 10) + ".pdf");
 }
 
+// Selo Rede Verde: papel e impressão evitados no ano letivo (função impactoVerde); valores estimados, regras explicadas no próprio card
+const chamarVerde = httpsCallable(getFunctions(fb, "southamerica-east1"), "impactoVerde", { timeout:310000 });
+const NIVEL = { ouro:"Ouro", prata:"Prata", bronze:"Bronze" }, FONTE_V = { provas:"Provas online", materiais:"Materiais enviados à turma", familias:"Avisos e comunicados às famílias", chamada:"Chamada digital (diário de classe)" };
+const brl0 = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL", maximumFractionDigits:0 });
+const n1 = v => Number(v || 0).toLocaleString("pt-BR", { maximumFractionDigits:1 });
+async function carregarVerde(forcar){
+  const c = $("cardVerde"); if(!c) return;
+  c.innerHTML = '<div class="sub">Calculando o papel e a impressão que a rede deixou de usar...</div>';
+  try{
+    const r = (await chamarVerde({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined, escolas:S.sim && S.sim.perfil === "gestor" ? (S.sim.escolas || []) : undefined, forcar:!!forcar })).data;
+    desenharVerde(r);
+  }catch(e){ console.warn("verde:", e.code, e.message); c.innerHTML = '<div class="sub">Não foi possível calcular o impacto ambiental agora. ' + esc(e.message || "") + "</div>"; }
+}
+function desenharVerde(r){
+  const f = r.fatores, nv = f.niveis, s = r.selo, ehEscola = r.escopo === "escola", quem = ehEscola ? "A escola" : "A rede";
+  const selo = '<div class="selo ' + (s.nivel || "nenhum") + '"><small>Selo Rede Verde</small><b>' + (s.nivel ? NIVEL[s.nivel].toUpperCase() : "EM CURSO") + "</b><span>" + r.ano + "</span></div>";
+  const frase = !r.total ? quem + " ainda não tem uso registrado que substitua impressão em " + r.ano + "."
+    : quem + " evitou <b>" + n(r.total) + " folhas</b> em " + r.ano + " (" + n1(r.por_aluno) + " por aluno)." + (s.proximo ? " Faltam " + n1(s.falta_por_aluno) + " folhas por aluno para o nível " + NIVEL[s.proximo] + "." : " Nível máximo alcançado.");
+  const mx = Math.max(1, ...Object.values(r.folhas));
+  const fontes = Object.keys(FONTE_V).map(k => '<div class="hbar"><span class="t">' + FONTE_V[k] + '</span><span class="trilho"><i style="width:' + (r.folhas[k] / mx * 100) + '%;background:#1a6b2a"></i></span><span class="v">' + n(r.folhas[k]) + "</span></div>").join("");
+  const rk = r.escolas.filter(e => e.alunos).slice(0, 10);
+  const ranking = rk.length ? '<div class="tabela-wrap" style="margin-top:10px"><table class="tab"><thead><tr><th>#</th><th>Escola</th><th style="text-align:right">Folhas</th><th style="text-align:right">Por aluno</th></tr></thead><tbody>' +
+    rk.map((e, i) => "<tr><td>" + (i + 1) + "</td><td>" + esc(e.nome) + '</td><td class="n">' + n(e.total) + '</td><td class="n">' + n1(e.por_aluno) + "</td></tr>").join("") + "</tbody></table></div>" : "";
+  $("cardVerde").innerHTML =
+    '<div class="verde-topo">' + selo + '<div><div class="h2">🌱 ' + (s.nivel ? (ehEscola ? "Escola" : "Rede") + " Verde · nível " + NIVEL[s.nivel] : "Rumo ao Selo Rede Verde") + '</div><div class="sub" style="font-size:.92rem">' + frase + '</div>' +
+    '<div class="sub" style="margin-top:4px">Níveis por aluno no ano: Bronze ' + n(nv.bronze) + " · Prata " + n(nv.prata) + " · Ouro " + n(nv.ouro) + " folhas</div></div></div>" +
+    '<div class="kpis" style="margin-top:14px">' +
+      kpi("Folhas evitadas", n(r.total), "≈ " + n(Math.round(r.resmas)) + " resmas de 500 folhas", "verde") +
+      kpi("Economia estimada", brl0(r.economia), "a " + brl(f.custo_pagina) + " por página (papel + toner)", "verde") +
+      kpi("Cartuchos de toner", n1(r.toner), "rendimento de " + n(f.paginas_toner) + " páginas cada", "verde") +
+      kpi("CO₂e evitado (kg)", n1(r.co2_kg), "só a fabricação do papel (estimativa)", "verde") + "</div>" +
+    '<div class="grid2"><div style="min-width:0"><div class="h2" style="font-size:.95rem">De onde vem a economia</div>' + fontes + "</div>" +
+    '<div style="min-width:0">' + (ehEscola ? "" : '<div class="h2" style="font-size:.95rem">Escolas que mais economizam</div><div class="sub">"Por aluno" deixa a comparação justa entre escolas grandes e pequenas.</div>' + ranking) + "</div></div>" +
+    '<div class="como"><b>Como calculamos.</b> Estimativa a partir do uso registrado no Portal em ' + r.ano + ": cada prova online entregue conta 1 folha a cada 10 questões; cada material enviado à turma (menos links) conta 1 folha por aluno; " +
+    "cada aviso ou comunicado enviado por e-mail à família conta 1 folha; o diário digital conta 1 folha a cada 20 chamadas. Toner pelo rendimento do cartucho; CO₂e pelo fator de " + n1(f.co2_g_folha) + " g por folha A4 " +
+    "(Environmental Paper Network, Paper Calculator), só a fabricação do papel. " + (f.personalizado ? "Fatores ajustados para o município. " : "Custo por página e rendimento do toner são valores de referência. ") +
+    "O uso digital também consome energia e equipamentos, por isso não falamos em impacto zero. <b>Não é crédito de carbono certificado.</b></div>";
+}
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return;
   if(b.dataset.action === "atualizar") carregar(true); else if(b.dataset.action === "pdf") relatorio();
   else if(b.dataset.action === "fm-lista") listaFormacao(b); else if(b.dataset.action === "fm-fechar"){ const m = $("mFm"); if(m) m.remove(); }
