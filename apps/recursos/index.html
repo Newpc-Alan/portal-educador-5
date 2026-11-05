@@ -167,6 +167,15 @@ table.itens{width:100%;border-collapse:collapse}
 .modal{position:fixed;inset:0;z-index:90;background:rgba(7,22,33,.55);display:grid;place-items:center;padding:16px}
 .modal-box{background:#fff;border-radius:16px;padding:20px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 30px 60px -20px rgba(7,22,33,.6)}
 .modal-box.largo{width:min(820px,100%)}
+.imp-rede{border:1px solid #dbe6ef;border-radius:12px;padding:10px 12px;margin-top:10px}
+.imp-rede.off{opacity:.55}
+.imp-rede .topo-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.imp-rede .topo-r b{font-size:.95rem}
+.imp-rede table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.imp-rede td,.imp-rede th{padding:5px 6px;border-top:1px solid #edf2f6;text-align:left;vertical-align:middle}
+.imp-rede td select{max-width:280px;font-size:.8rem;padding:4px 6px;border-radius:7px;border:1px solid #cfdbe6}
+.imp-rede .nums{font-size:.8rem;color:#45607a}
+.imp-rede .alerta{color:#a4511d}
 .modal-box h3{font-size:1.05rem;margin-bottom:4px}
 .campo{display:flex;flex-direction:column;gap:5px;margin-top:12px;min-width:0}
 .campo>label{font-size:.76rem;font-weight:700;color:var(--ink-2)}
@@ -323,6 +332,7 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
       <select class="sel" id="selMuniEst" aria-label="Município"></select>
       <div class="seg" id="segEst"><button class="on" data-action="filtro-est" data-arg="estoque">No estoque</button><button data-action="filtro-est" data-arg="todos">Todo o município</button></div>
       <span class="esp"></span>
+      <button class="btn btn-gh" data-action="importar">📥 Importar inventário</button>
       <button class="btn btn-ok" data-action="massa">＋ Cadastro em massa</button>
     </div>
     <div class="barra" style="margin-bottom:10px">
@@ -477,6 +487,16 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
   <label class="chave"><input type="checkbox" id="mNumerar"><span>Numerar os nomes (Notebook Positivo 001, 002...)<small>Ajuda a escola a diferenciar os aparelhos no dia a dia.</small></span></label>
   <div class="resumo" id="massaResumo" hidden></div>
   <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-gh" data-action="conferir-massa">Conferir</button><button class="btn btn-ok" data-action="gravar-massa" id="btnMassa" disabled>Cadastrar</button></div>
+</div></div>
+
+<!-- importar inventário (planilha da NEWPC: um equipamento por linha, com rede, contrato e setor) -->
+<div class="modal" id="mImport" hidden><div class="modal-box largo">
+  <h3>Importar inventário</h3>
+  <p class="sub">Suba a relação de equipamentos (Excel ou CSV) com as colunas Local, Equipamento, Série Fabricante, Status, Nome Fantasia, CNPJ, Produto, Contrato e Setor. O Portal liga cada linha à rede pelo CNPJ, ao contrato pelo número e à escola pelo setor. Confira a prévia e ajuste o que precisar: nada é gravado antes de você confirmar. A planilha não sai do seu computador, só os equipamentos vão para o Portal.</p>
+  <div class="campo"><label for="impArq">Planilha</label><input type="file" id="impArq" accept=".xlsx,.xls,.csv"></div>
+  <div id="impPrevia"></div>
+  <div class="resumo" id="impResumo" hidden></div>
+  <div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="gravar-import" id="btnImport" disabled>Importar</button></div>
 </div></div>
 
 <!-- entregar -->
@@ -1384,6 +1404,180 @@ async function salvarHorarios(){
 }
 
 /* ===================== eventos ===================== */
+/* ===================== importar inventário (planilha) ===================== */
+// Uma linha por equipamento. Rede: pelo CNPJ (Prefeitura ou Secretaria/Fundo) ou pelo nome do "Local". Escola: pelo "Setor" (nome normalizado);
+// setor administrativo ("SEC. EDUCACAO") ou sem escola parecida vai para o estoque da rede, e o administrador ajusta na prévia.
+// Já cadastrado (mesmo nº de série ou patrimônio na rede): se a planilha aponta outra escola, vira transferência (com histórico); senão fica como está.
+const IMP = { linhas:[], redes:[], existentes:{}, contratos:{} };
+const soDig = v => String(v || "").replace(/\D/g, "");
+const PARADAS = new Set("ESC ESCOLA E M EM EMEI MUNICIPAL MUN ESTADUAL EE PROF PROFA PROFESSOR PROFESSORA DR DRA DE DA DO DOS DAS CMEI CEI CEMEI CENTRO EDUCACAO EDUCACIONAL INFANTIL POLO INTEGRAL ENSINO FUNDAMENTAL SEC SECRETARIA UNIDADE UNID".split(" "));
+const tokens = t => norm(t).toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim().split(" ").filter(w => w && !PARADAS.has(w));
+const quase = (a, b) => { if(a === b) return true; if(a.length < 5 || b.length < 5 || Math.abs(a.length - b.length) > 1) return false;
+  let i = 0, j = 0, dif = 0; while(i < a.length && j < b.length){ if(a[i] === b[j]){ i++; j++; continue; } if(++dif > 1) return false; if(a.length > b.length) i++; else if(b.length > a.length) j++; else { i++; j++; } }
+  return dif + (a.length - i) + (b.length - j) <= 1; };   // um erro de digitação (Solom/Solon, Luigi/Luiggi)
+function escolaDoSetor(setor, m){
+  const ts = tokens(setor); if(!ts.length) return "";
+  let melhor = "", nota = 0, empate = false;
+  E.escolas.filter(e => e.municipio_id === m).forEach(e => {
+    const te = new Set(tokens(e.nome)), tl = [...te], comuns = ts.filter(w => te.has(w) || tl.some(x => quase(w, x))).length;
+    if(!comuns) return;
+    const n = comuns / Math.max(ts.length, te.size);
+    if(comuns < ts.length && comuns < te.size) return;   // um precisa caber inteiro no outro
+    if(n > nota){ melhor = e.id; nota = n; empate = false; } else if(n === nota) empate = true;
+  });
+  return empate ? "" : melhor;
+}
+function tipoDoProduto(p){
+  const t = String(p).toUpperCase();
+  if(/CHROMEBOOK|NOTEBOOK/.test(t)) return "chromebook";
+  if(/TELA INTERATIVA|LOUSA|MONITOR PROFISSIONAL|FLIP/.test(t)) return "lousa";
+  if(/MODULO PC|COMPUTADOR|DESKTOP/.test(t)) return "computador";
+  if(/GABINETE DE RECARGA|CARRINHO/.test(t)) return "carrinho";
+  if(/PONTO DE ACESSO|ACCESS POINT|ROTEADOR|STARLINK|CONVERSOR|ANTENA|SWITCH/.test(t)) return "rede";
+  if(/TABLET/.test(t)) return "tablet";
+  if(/PROJETOR/.test(t)) return "projetor";
+  if(/IMPRESSORA/.test(t)) return "impressora";
+  if(/\bTV\b|TOTEM/.test(t)) return "tv";
+  return "outro";
+}
+const MARCAS = ["SAMSUNG", "LENOVO", "ACER", "DELL", "POSITIVO", "MULTILASER", "INTELBRAS", "UBIQUITI", "APC", "SMS", "RACKTRON", "JEYTECH", "STARLINK", "FIBERWAN", "HP", "ASUS"];
+const marcaDo = p => { const t = String(p).toUpperCase(); const m = MARCAS.find(x => new RegExp("\\b" + x + "\\b").test(t)); return m ? m.charAt(0) + m.slice(1).toLowerCase() : (/\bDGT/.test(t) ? "DGT" : ""); };
+function nomeCurto(p, tipo){
+  const t = String(p).toUpperCase(), mc = marcaDo(p);
+  const base = tipo === "chromebook" ? (/NOTEBOOK/.test(t) ? "Notebook" : "Chromebook") : tipo === "lousa" ? (/MONITOR/.test(t) ? "Monitor interativo" : "Tela interativa") : tipo === "computador" ? "Módulo PC" :
+    tipo === "carrinho" ? "Gabinete de recarga" : tipo === "rede" ? (/STARLINK/.test(t) ? "Starlink" : /CONVERSOR/.test(t) ? "Conversor de mídia" : /ROTEADOR/.test(t) ? "Roteador" : "Ponto de acesso Wi-Fi") :
+    /NOBREAK/.test(t) ? "Nobreak" : /SUPORTE|PEDESTAL/.test(t) ? "Suporte" : /WEBCAM/.test(t) ? "Webcam" : String(p).split(/\s+/).slice(0, 3).join(" ");
+  return (base + (mc && !base.includes(mc) ? " " + mc : "")).slice(0, 80);
+}
+async function lerPlanilha(arq){
+  if(!window.XLSX) await new Promise((ok, erro) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = erro; document.head.appendChild(sc); });
+  const wb = XLSX.read(await arq.arrayBuffer(), { type:"array" }), ws = wb.Sheets[wb.SheetNames[0]];
+  const m = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
+  const h = m.findIndex(r => r.some(c => /s[ée]rie/i.test(c)) && r.some(c => /setor/i.test(c)));
+  if(h < 0) throw new Error("Não achei o cabeçalho (precisa das colunas Série Fabricante e Setor).");
+  const cab = m[h].map(c => norm(c).replace(/[^a-z]/g, "")), col = k => cab.findIndex(c => c.startsWith(k));
+  const C = { local:col("local"), pat:col("equipamento"), serie:col("serie"), status:col("status"), nome:col("nomefantasia"), cnpj:col("cnpj"), produto:col("produto"), contrato:col("contrato"), setor:col("setor") };
+  if(C.serie < 0 || C.setor < 0 || C.produto < 0) throw new Error("Faltam colunas: Série Fabricante, Produto e Setor são obrigatórias.");
+  const v = (r, k) => C[k] < 0 ? "" : String(r[C[k]] || "").trim();
+  return m.slice(h + 1).filter(r => v(r, "serie") || v(r, "pat")).map(r => ({ local:v(r, "local"), patrimonio:v(r, "pat").slice(0, 30), serie:v(r, "serie").slice(0, 60), status:v(r, "status"),
+    cliente:v(r, "nome"), cnpj:soDig(v(r, "cnpj")), produto:v(r, "produto"), contrato:v(r, "contrato").slice(0, 40), setor:v(r, "setor").slice(0, 80) }));
+}
+function redeDaLinha(l){
+  const pc = E.municipios.find(m => l.cnpj && (soDig(m.cnpj_prefeitura) === l.cnpj || soDig(m.cnpj_educacao) === l.cnpj));
+  if(pc) return pc.id;
+  const n = norm(l.local).replace(/[^a-z0-9]/g, ""), pn = E.municipios.filter(m => (m.tipo_rede || "municipal") === "municipal" && norm(m.nome).replace(/[^a-z0-9]/g, "") === n);
+  return pn.length === 1 ? pn[0].id : "";
+}
+function abrirImport(){ IMP.linhas = []; IMP.redes = []; $("impArq").value = ""; $("impPrevia").innerHTML = ""; $("impResumo").hidden = true; $("btnImport").disabled = true; $("mImport").hidden = false; }
+async function carregarImport(arq){
+  $("impPrevia").innerHTML = '<div class="carregando"><div class="giro"></div>Lendo a planilha...</div>'; $("btnImport").disabled = true;
+  try{ IMP.linhas = await lerPlanilha(arq); }catch(e){ $("impPrevia").innerHTML = '<div class="resumo erro">' + esc(e.message || "Não foi possível ler a planilha.") + "</div>"; return; }
+  // agrupa por cliente da planilha (CNPJ + nome), cada grupo vira uma rede
+  const g = new Map();
+  IMP.linhas.forEach(l => { const k = l.cnpj + "|" + l.cliente; if(!g.has(k)) g.set(k, { chave:k, cliente:l.cliente || l.local, local:l.local, cnpj:l.cnpj, m:redeDaLinha(l), linhas:[], setores:new Map(), on:true }); g.get(k).linhas.push(l); });
+  IMP.redes = [...g.values()].sort((a, b) => a.cliente.localeCompare(b.cliente, "pt-BR"));
+  IMP.redes.forEach(r => { r.on = !!r.m; montarSetores(r); });
+  await carregarExistentes();
+  desenharImport();
+}
+function montarSetores(r){
+  const s = new Map();
+  r.linhas.forEach(l => { if(!s.has(l.setor)) s.set(l.setor, { setor:l.setor, n:0, prod:new Map(), dest:r.m ? escolaDoSetor(l.setor, r.m) : "" }); const x = s.get(l.setor); x.n++; const t = nomeCurto(l.produto, tipoDoProduto(l.produto)); x.prod.set(t, (x.prod.get(t) || 0) + 1); });
+  r.setores = new Map([...s.entries()].sort((a, b) => b[1].n - a[1].n));
+}
+async function carregarExistentes(){
+  for(const m of new Set(IMP.redes.filter(r => r.m).map(r => r.m))){
+    if(IMP.existentes[m]) continue;
+    const mapa = new Map();
+    try{ const s = await getDocs(query(collection(db, "rec_itens"), where("municipio_id", "==", m))); s.forEach(d => { const i = { id:d.id, ...d.data() }; [i.serie, i.patrimonio].map(chaveNum).filter(v => v.length >= 2).forEach(k => mapa.set(k, i)); }); }catch(e){ console.warn("existentes:", e.code || e); }
+    IMP.existentes[m] = mapa; IMP.contratos[m] = await lerContratos(m);
+  }
+}
+// o que vai acontecer com cada linha: novo, transferência (já existe em outro lugar) ou igual
+function planoDe(r){
+  const ex = IMP.existentes[r.m] || new Map(), vistos = new Set(), p = { novos:[], transf:[], iguais:0, rep:0, cts:new Set() };
+  r.linhas.forEach(l => {
+    const ks = [l.serie, l.patrimonio].map(chaveNum).filter(v => v.length >= 2);
+    if(!ks.length || ks.some(k => vistos.has(k))){ p.rep++; return; } ks.forEach(k => vistos.add(k));
+    const dest = r.setores.get(l.setor).dest, ja = ks.map(k => ex.get(k)).find(Boolean);
+    if(l.contrato) p.cts.add(l.contrato);
+    if(!ja) p.novos.push({ l, dest });
+    else if(dest && ja.escola_id !== dest) p.transf.push({ l, dest, it:ja });
+    else p.iguais++;
+  });
+  return p;
+}
+function desenharImport(){
+  const opRede = sel => '<option value="">Escolha a rede...</option>' + E.municipios.map(m => '<option value="' + esc(m.id) + '"' + (m.id === sel ? " selected" : "") + ">" + esc(m.nome) + (m.uf ? "/" + esc(m.uf) : "") + "</option>").join("");
+  let tN = 0, tT = 0, tI = 0;
+  $("impPrevia").innerHTML = '<p class="sub" style="margin-top:8px"><b>' + IMP.linhas.length + "</b> linhas em " + IMP.redes.length + " cliente(s). Desmarque o que não quiser importar agora.</p>" + IMP.redes.map((r, k) => {
+    const p = r.m ? planoDe(r) : null;
+    if(r.on && p){ tN += p.novos.length; tT += p.transf.length; tI += p.iguais; }
+    const escR = r.m ? E.escolas.filter(e => e.municipio_id === r.m).sort((a, b) => String(a.nome).localeCompare(String(b.nome), "pt-BR")) : [];
+    const ctsNovos = p ? [...p.cts].filter(c => !(IMP.contratos[r.m] || []).some(x => chaveNum(x.numero) === chaveNum(c))) : [];
+    return '<div class="imp-rede' + (r.on ? "" : " off") + '"><div class="topo-r"><label class="chave" style="margin:0"><input type="checkbox" data-imp-on="' + k + '"' + (r.on ? " checked" : "") + (r.m ? "" : " disabled") + "><span></span></label>" +
+      "<b>" + esc(r.cliente) + "</b><span class=\"nums\">" + esc(r.local) + (r.cnpj ? " · CNPJ " + esc(r.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")) : "") + " · " + r.linhas.length + " linhas</span>" +
+      '<span class="esp"></span><select data-imp-rede="' + k + '" aria-label="Rede no Portal">' + opRede(r.m) + "</select></div>" +
+      (p ? '<div class="nums" style="margin-top:6px">✚ ' + p.novos.length + " novos · ↪ " + p.transf.length + " mudam de escola · ✓ " + p.iguais + " já estão certos" + (p.rep ? ' · <span class="alerta">' + p.rep + " repetidos ou sem número (ignorados)</span>" : "") +
+        " · contrato " + esc([...p.cts].join(", ") || "sem número") + (ctsNovos.length ? ' <span class="alerta">(será criado: ' + esc(ctsNovos.join(", ")) + ")</span>" : "") + "</div>" +
+        "<table><thead><tr><th>Setor na planilha</th><th>Equipamentos</th><th>Vai para</th></tr></thead><tbody>" + [...r.setores.values()].map(x =>
+          "<tr><td>" + esc(x.setor || "(sem setor)") + '</td><td class="nums">' + x.n + " · " + esc([...x.prod.entries()].map(([t, n]) => n + " " + t).join(", ")).slice(0, 160) + "</td>" +
+          '<td><select data-imp-setor="' + k + '" data-setor="' + esc(x.setor) + '"><option value="">📦 Estoque de ' + esc(nomeMuni(r.m)) + "</option>" + escR.map(e => '<option value="' + esc(e.id) + '"' + (e.id === x.dest ? " selected" : "") + ">" + esc(e.nome) + "</option>").join("") + "</select></td></tr>").join("") + "</tbody></table>"
+        : '<div class="nums alerta" style="margin-top:6px">Rede não encontrada no Portal. Cadastre em Redes contratantes ou escolha acima.</div>') + "</div>";
+  }).join("");
+  const box = $("impResumo"); box.hidden = false; box.className = "resumo";
+  box.innerHTML = "Vai acontecer: <b>" + tN + "</b> equipamentos novos (cada um com etiqueta QR), <b>" + tT + "</b> mudam de escola (fica no histórico) e " + tI + " já estão certos.";
+  $("btnImport").disabled = !(tN + tT);
+}
+async function gravarImport(){
+  const alvos = IMP.redes.filter(r => r.on && r.m); if(!alvos.length) return;
+  $("btnImport").disabled = true; const box = $("impResumo"), afetadas = new Set(); let feitos = 0, total = 0, criados = 0;
+  const planos = alvos.map(r => ({ r, p:planoDe(r) })); planos.forEach(x => total += x.p.novos.length + x.p.transf.length);
+  try{
+    for(const { r, p } of planos){
+      const m = r.m, cts = IMP.contratos[m] || [];
+      // contratos que ainda não existem nesta rede
+      for(const num of p.cts){
+        if(cts.some(c => chaveNum(c.numero) === chaveNum(num))) continue;
+        const ref = doc(collection(db, "rec_contratos")), d = { municipio_id:m, numero:num, tipo:"locacao", processo:"", objeto:"Locação de equipamentos", inicio:"", fim:"", sla_atendimento_h:24, sla_solucao_h:72,
+          renovacoes:[], obs:"Criado pela importação do inventário em " + dataBr(hoje()) + ". Complete vigência e prazos.", atualizado_em:serverTimestamp(), criado_em:serverTimestamp() };
+        await setDoc(ref, d); cts.push({ id:ref.id, ...d }); criados++;
+      }
+      IMP.contratos[m] = cts;
+      const ctId = num => (cts.find(c => chaveNum(c.numero) === chaveNum(num)) || {}).id || "";
+      const ops = [...p.novos.map(x => ({ t:"n", ...x })), ...p.transf.map(x => ({ t:"t", ...x }))];
+      for(let k = 0; k < ops.length; k += 70){
+        const b = writeBatch(db);
+        for(const o of ops.slice(k, k + 70)){
+          const l = o.l, dest = o.dest, lugar = dest ? nomeEscola(dest) : "Estoque · " + nomeMuni(m), os = /\bOS\b/i.test(l.status);
+          if(o.t === "n"){
+            const tipo = tipoDoProduto(l.produto), ref = doc(collection(db, "rec_itens")), qr = novaChave(20);
+            const d = { escola_id:dest, municipio_id:m, nome:nomeCurto(l.produto, tipo), tipo, local:"", patrimonio:l.patrimonio, marca:marcaDo(l.produto).slice(0, 40), modelo:l.produto.slice(0, 60), serie:l.serie,
+              origem:"newpc", contrato_id:ctId(l.contrato), entregue_em:"", garantia_ate:"", situacao:os ? "manutencao" : dest ? "em_uso" : "estoque", reservavel:false,
+              obs:("Importado do inventário NEWPC" + (l.setor ? " · setor: " + l.setor : "") + (l.status ? " · " + l.status : "")).slice(0, 300), qr,
+              criado_em:serverTimestamp(), criado_por:E.user.uid, atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+            b.set(ref, d); b.set(doc(db, "rec_qr", qr), { ...qrDe(ref.id, d), escola_nome:String(lugar).slice(0, 120), chamado_aberto:null, chamado_status:"", chamado_conf:0 });
+            movDoc(b, ref.id, "cadastro", "", lugar, "Importação do inventário"); indexar(b, d, null);
+          } else {
+            const it = o.it, de = it.escola_id ? nomeEscola(it.escola_id) : "Estoque · " + nomeMuni(m), novo = { ...it, escola_id:dest, situacao:os ? "manutencao" : "em_uso" };
+            b.update(doc(db, "rec_itens", it.id), { escola_id:dest, situacao:novo.situacao, contrato_id:it.contrato_id || ctId(l.contrato), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid });
+            b.update(doc(db, "rec_qr", it.qr), { escola_id:dest, municipio_id:m, escola_nome:String(lugar).slice(0, 120) });
+            movDoc(b, it.id, "transferencia", de, lugar, "Atualização do inventário"); indexar(b, novo, it);
+            if(it.escola_id) afetadas.add(it.escola_id);
+          }
+          if(dest) afetadas.add(dest);
+        }
+        await b.commit(); feitos += Math.min(70, ops.length - k);
+        box.innerHTML = "Importando... " + feitos + " de " + total;
+      }
+      IMP.existentes[m] = null;
+    }
+    box.innerHTML = "Atualizando a lista pública de equipamentos das escolas...";
+    for(const e of afetadas) await publicarCartaz(e);
+    toast(feitos + " equipamentos importados" + (criados ? " e " + criados + " contrato(s) criado(s)" : "") + "."); $("mImport").hidden = true;
+  }catch(e){ console.warn("importar:", e.code || e); box.className = "resumo erro"; box.innerHTML = "Parou em " + feitos + " de " + total + " (" + esc(e.code || e.message || "erro") + "). Rode de novo: o que já entrou aparece como \"já estão certos\"."; }
+  IMP.existentes = {}; await carregarEstoque();
+}
 const ACOES = {
   "ir": s => ir(s),
   "dia": d => { E.dia = somaDias(E.dia, +d); carregarReservas(); }, "hoje": () => { E.dia = hoje(); carregarReservas(); },
@@ -1400,7 +1594,7 @@ const ACOES = {
   "salvar-horarios": () => salvarHorarios(),
   "periodo": p => { E.periodo = +p; if(E.rede) desenharRede(); }, "exportar-rede": () => exportarRede(), "exportar-sla": () => exportarSla(),
   "novo-contrato": () => abrirContrato(null), "editar-contrato": id => abrirContrato(id), "add-renovacao": () => addRenovacao(), "salvar-contrato": () => salvarContrato(), "excluir-contrato": () => excluirContrato(),
-  "filtro-est": f => { E.est.filtro = f; desenharEstoque(); }, "massa": () => abrirMassa(), "conferir-massa": () => conferirMassa(), "gravar-massa": () => gravarMassa(),
+  "filtro-est": f => { E.est.filtro = f; desenharEstoque(); }, "massa": () => abrirMassa(), "importar": () => abrirImport(), "gravar-import": () => gravarImport(), "conferir-massa": () => conferirMassa(), "gravar-massa": () => gravarMassa(),
   "entregar": () => abrirEntrega(), "confirmar-entrega": () => confirmarEntrega(),
   "etiquetas-est": () => imprimirEtiquetas(E.est.itens.filter(i => E.est.sel.has(i.id))),
   "exportar-est": () => baixarCsv("estoque-" + hoje() + ".csv", [CAB_ITENS, ...listaEst().map(i => linhaItem(i, E.est.cts))]),
@@ -1410,6 +1604,10 @@ document.addEventListener("click", ev => { const b = ev.target.closest("[data-ac
 document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selEscola"){ rascunho = null; escolherEscola(t.value); }
+  else if(t.id === "impArq" && t.files && t.files[0]) carregarImport(t.files[0]);
+  else if(t.dataset && t.dataset.impOn != null){ IMP.redes[+t.dataset.impOn].on = t.checked; desenharImport(); }
+  else if(t.dataset && t.dataset.impRede != null){ const r = IMP.redes[+t.dataset.impRede]; r.m = t.value; r.on = !!t.value; montarSetores(r); carregarExistentes().then(desenharImport); }
+  else if(t.dataset && t.dataset.impSetor != null){ const r = IMP.redes[+t.dataset.impSetor], x = r.setores.get(t.dataset.setor); if(x){ x.dest = t.value; desenharImport(); } }
   else if(t.id === "selRedeTopo"){ rascunho = null; const l = montarSelEscola(); if(l[0]) escolherEscola(l[0].id); if($("selMuni")){ $("selMuni").value = t.value; $("selMuniCt").value = t.value; $("selMuniEst").value = t.value; E.redeM = t.value; } }
   else if(t.id === "diaInput" && t.value){ E.dia = t.value; carregarReservas(); }
   else if(t.id === "chRede") carregarChamados();
