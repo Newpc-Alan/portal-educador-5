@@ -254,10 +254,10 @@ async function avisarEquipe(cfg, assunto, html) {
 
 // ---------- equipe: rodízio por setor e transferência ----------
 const SETORES = { suporte: 'Suporte', tecnico: 'Técnico', comercial: 'Comercial' };
-// horário de atendimento humano: segunda a sexta, 8h às 18h (Mato Grosso do Sul)
+// horário de atendimento humano: segunda a sexta, 7h às 17h (horário de Mato Grosso do Sul)
 function dentroHorario(d = new Date()) {
   const ms = new Date(d.getTime() - 4 * 3600e3), dia = ms.getUTCDay(), h = ms.getUTCHours();
-  return dia >= 1 && dia <= 5 && h >= 8 && h < 18;
+  return dia >= 1 && dia <= 5 && h >= 7 && h < 17;
 }
 // escolhe o membro ativo e disponível do setor que recebeu conversa há mais tempo (rodízio justo) e marca a vez dele
 async function proximoDoSetor(db, setor, exceto) {
@@ -338,7 +338,7 @@ export const diaCG = (t = Date.now()) => new Date(t - 4 * 3600e3).toISOString().
 const metricas = (db, campos) => db.doc('wa_metricas/' + diaCG()).set({ ...campos, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
 // pesquisa de satisfação ao encerrar (botões); a resposta vai para wa_metricas e para a conversa
 const PESQUISA = botoes('Como foi o atendimento?', [{ id: 'nota_3', title: '😀 Ótimo' }, { id: 'nota_2', title: '😐 Regular' }, { id: 'nota_1', title: '🙁 Ruim' }]);
-const AVISO_HORARIO = 'Nosso atendimento humano é de segunda a sexta, das 8h às 18h. Sua mensagem fica registrada e respondemos no próximo horário.';
+const AVISO_HORARIO = 'Nosso horário de atendimento é de segunda a sexta, das 7h às 17h (horário de MS). Sua mensagem fica registrada e em breve entraremos em contato.';
 
 // ---------- conversa ----------
 // interno: o próprio agente reaproveita um fluxo do menu (sem registrar de novo a mensagem nem mandar "digitando")
