@@ -241,6 +241,20 @@ const CASOS = [
   { nome: 'Lorena Bastos Reis', caso: 'comum' },
   { nome: 'Murilo Santana Prado', caso: 'comum' }
 ];
+// Grade completa (nov/2026): os 4 professores do laboratório dão aula no 5º, 7º, 8º e 9º Ano A, com os dias da GRADE.
+// Só troca o campo grade das turmas (merge); alunos e o resto da turma ficam como estão.
+async function gradeTodos() {
+  const agora = Timestamp.now(), grade = [], faltam = [];
+  for (const k of Object.keys(GRADE)) {
+    const u = (await db.collection('usuarios').where('email', '==', k + '@portaldoeducador.com.br').limit(1).get()).docs[0];
+    if (!u) { faltam.push(k); continue; }
+    grade.push({ professor_uid: u.id, professor_nome: String(u.data().nome || GRADE[k].disc).slice(0, 80), disciplina: GRADE[k].disc, dias: GRADE[k].dias, aulas: GRADE[k].aulas });
+  }
+  const turmas = ['lab-t5a', 'lab-t7a', 'lab-t8a', 'lab-t9a'];
+  for (const t of turmas) await db.doc(`turmas/${t}`).set({ grade, grade_chaves: grade.map(x => x.professor_uid + '|' + x.disciplina), grade_em: agora, grade_por: 'lab', grade_por_nome: 'Laboratório' }, { merge: true });
+  aviso(`GRADE COMPLETA: ${turmas.length} turmas (5º, 7º, 8º e 9º Ano A) com ${grade.map(g => g.professor_nome + ' (' + g.disciplina + ')').join(', ')}.` + (faltam.length ? ' Sem conta: ' + faltam.join(', ') : ''));
+}
+
 async function maisAlunos() {
   const agora = Timestamp.now(), docs = [], conta = async e => (await db.collection('usuarios').where('email', '==', e).limit(1).get()).docs[0];
   const port = await conta('prof.portugues@portaldoeducador.com.br'), mat = await conta('prof.matematica@portaldoeducador.com.br');
@@ -305,5 +319,6 @@ else if (cmd === '--historico') await historico();
 else if (cmd === '--apagar') await apagar();
 else if (cmd === '--turmas-extra') await turmasExtra();
 else if (cmd === '--mais-alunos') await maisAlunos();
+else if (cmd === '--grade-todos') await gradeTodos();
 else { console.log('Use --diagnostico, --criar, --historico ou --apagar'); process.exit(1); }
 
