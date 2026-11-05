@@ -251,8 +251,13 @@ async function teste() {
     const linhas = gunzipSync(readFileSync(TMP + '/t/banco.ndjson.gz')).toString().split('\n').filter(Boolean);
     let validas = 0; for (const l of linhas) { const o = JSON.parse(l); if (o.p && o.d) validas++; }
     if (validas !== resumo.documentos) problemas.push('banco: ' + validas + ' linhas válidas, o resumo diz ' + resumo.documentos);
+    // usuários: o pacote tem que bater com a contagem feita NA HORA do backup (resumo.json). Comparar com o Portal de agora dava
+    // falso alarme, porque entra gente nova entre o backup e o teste. O Portal de agora só acusa se tiver MENOS de 90% do pacote
+    // (sinal de exclusão em massa, que é exatamente quando o backup vai ser preciso).
     const vivo = (await db.collection('usuarios').count().get()).data().count, noPacote = linhas.filter(l => l.startsWith('{"p":"usuarios/') && l.split('"p":"')[1].split('"')[0].split('/').length === 2).length;
-    if (Math.abs(vivo - noPacote) > Math.max(5, vivo * 0.05)) problemas.push('usuarios: ' + noPacote + ' no pacote x ' + vivo + ' no Portal hoje');
+    const naHora = resumo.por_colecao && resumo.por_colecao.usuarios;
+    if (typeof naHora === 'number' && noPacote !== naHora) problemas.push('usuarios: ' + noPacote + ' no pacote, mas o backup contou ' + naHora + ' na hora');
+    if (vivo < noPacote * 0.9) problemas.push('usuarios: o Portal hoje tem ' + vivo + ', menos de 90% dos ' + noPacote + ' do pacote (houve exclusão?)');
     const contas = JSON.parse(readFileSync(TMP + '/t/contas.json'));
     if (contas.total !== (contas.usuarios || []).length) problemas.push('contas: total não confere');
     try { execFileSync('git', ['bundle', 'verify', TMP + '/t/codigo.bundle'], { stdio: 'pipe', cwd: REPO }); } catch (e) { problemas.push('código: o bundle não passou na verificação do git'); }

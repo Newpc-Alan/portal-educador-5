@@ -229,6 +229,28 @@ async function resumoBackup(db) {
   return `<p style="margin:14px 0 4px;font-weight:bold;color:#0c2338">Backup</p><table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 12px">${linhas.join('')}</table>`;
 }
 
+// Vigia do backup: todo dia às 11h23 (depois do horário em que o backup do servidor costuma terminar) confere se houve backup
+// concluído nas últimas 26 h e se o último backup ou teste falhou. Se algo estiver errado, avisa a equipe por e-mail na hora,
+// sem esperar o resumo do dia seguinte. Só lê backups_log.
+export const vigiaBackup = onSchedule(
+  { schedule: '23 11 * * *', timeZone: 'America/Campo_Grande', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
+  async () => {
+    const db = getFirestore(), agora = Date.now(), H = 3600 * 1000, ms = t => (t && t.toMillis ? t.toMillis() : 0);
+    const logs = (await db.collection('backups_log').orderBy('em', 'desc').limit(40).get()).docs.map(d => d.data()).filter(l => l.destino === 'servidor');
+    const ok = logs.find(l => l.tipo !== 'teste' && l.status === 'ok'), ultimo = logs.find(l => l.tipo !== 'teste' && l.status !== 'exportando' && l.status !== 'enviando');
+    const teste = logs.find(l => l.tipo === 'teste' && agora - ms(l.em) < 24 * H);
+    const motivos = [];
+    if (!ok || agora - ms(ok.terminado_em || ok.em) > 26 * H) motivos.push(ok ? `O último backup concluído foi há ${Math.round((agora - ms(ok.terminado_em || ok.em)) / H)} horas.` : 'Não há backup concluído nos registros.');
+    if (ultimo && ultimo.status === 'erro') motivos.push(`O último backup falhou: ${esc(String(ultimo.erro || 'sem detalhe').slice(0, 200))}`);
+    if (teste && teste.status === 'erro') motivos.push(`O teste de restauração de hoje deu alerta: ${esc(String(teste.erro || 'sem detalhe').slice(0, 200))}`);
+    if (!motivos.length) return;
+    await enviar('⚠ Backup do Portal precisa de atenção', caixa('Backup precisa de atenção', 'Portal do Educador 5.0 · vigia do backup', `
+<ul style="margin:0 0 14px;padding-left:18px">${motivos.map(m => `<li style="margin:0 0 6px">${m}</li>`).join('')}</ul>
+<p style="margin:0 0 10px">O que fazer: confira se o servidor NEWPC (cloud.portaldoeducador.com.br) está ligado e acessível e rode o backup à mão em GitHub › Actions › "Backup no servidor NEWPC" › Run workflow.</p>
+${botao('https://github.com/Newpc-Alan/portal-educador-5/actions/workflows/backup-servidor.yml', 'Abrir o backup no GitHub')}`));
+  }
+);
+
 // Resumo diário às 7h (horário de MS) com o movimento das últimas 24 horas
 export const emailResumoDiario = onSchedule(
   { schedule: '0 7 * * *', timeZone: 'America/Campo_Grande', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },

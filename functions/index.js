@@ -8,7 +8,7 @@ import { randomBytes, randomInt } from 'node:crypto';
 import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
 import { expiraAuditoria } from './auditoria.js';
 import { camposDoPortal } from './formacao-sync.js';
-export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno } from './dicas.js';
+export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno, vigiaBackup } from './dicas.js';
 export { comunicacaoProfessor, comunicacaoLembretes, comunicacaoManual } from './comunicacoes.js';
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';

@@ -410,6 +410,10 @@ textarea.csv{width:100%;min-height:150px;border:1.5px solid var(--line);border-r
     <div class="campo"><label for="iEntregue">Entregue em</label><input type="date" id="iEntregue"></div>
     <div class="campo"><label for="iGarantia">Garantia até</label><input type="date" id="iGarantia"></div>
   </div>
+  <div class="lado2" id="boxLic" hidden>
+    <div class="campo"><label for="iLic">Licença Google <small>(do aparelho)</small></label><input type="text" id="iLic" maxlength="60" list="listaLic" placeholder="Ex.: Chrome Education Upgrade"><datalist id="listaLic"><option value="Chrome Education Upgrade"><option value="Chrome Education Upgrade (perpétua)"><option value="Sem licença"></datalist></div>
+    <div class="campo"><label for="iLicAte">Licença válida até <small>(vazio = perpétua)</small></label><input type="date" id="iLicAte"></div>
+  </div>
   <div class="campo"><label for="iObs">Observações</label><input type="text" id="iObs" maxlength="300"></div>
   <label class="chave"><input type="checkbox" id="iRes"><span>Pode ser reservado pelos professores<small>Aparece na grade de reservas (carrinho, laboratório, sala de VR...).</small></span></label>
   <div class="resumo" id="loteResumo" hidden></div>
@@ -915,6 +919,7 @@ function abrirItem(id, lote){
   $("iContrato").value = it ? it.contrato_id || "" : "";
   $("iEntregue").value = it ? it.entregue_em || "" : ""; $("iGarantia").value = it ? it.garantia_ate || "" : "";
   $("iObs").value = it ? it.obs || "" : "";
+  $("iLic").value = it ? it.licenca || "" : ""; $("iLicAte").value = it ? it.licenca_ate || "" : ""; mostrarLic();
   $("iRes").checked = it ? !!it.reservavel : TIPO($("iTipo").value)[3];
   $("iQtd").value = 30; resumoLote(); $("mFicha").hidden = true; $("mItem").hidden = false;
 }
@@ -929,8 +934,12 @@ function resumoLote(){
 function dadosItem(base){
   return { ...base, tipo:$("iTipo").value, local:$("iLocal").value.trim().slice(0, 60), marca:$("iMarca").value.trim().slice(0, 40), modelo:$("iModelo").value.trim().slice(0, 60),
     origem:$("iOrigem").value, entregue_em:$("iEntregue").value || "", garantia_ate:$("iGarantia").value || "", situacao:$("iSit").value,
-    reservavel:$("iRes").checked, obs:$("iObs").value.trim().slice(0, 300), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+    reservavel:$("iRes").checked, obs:$("iObs").value.trim().slice(0, 300), ...(temLic($("iTipo").value) ? { licenca:$("iLic").value.trim().slice(0, 60), licenca_ate:$("iLicAte").value || "" } : {}),
+    atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
 }
+// licença Google (Chrome Education Upgrade): vai presa a cada Chromebook ou tablet, não à escola
+const temLic = t => t === "chromebook" || t === "tablet";
+function mostrarLic(){ $("boxLic").hidden = !temLic($("iTipo").value); }
 function movDoc(b, itemId, tipo, de, para, obs){
   b.set(doc(collection(db, "rec_itens", itemId, "mov")), { tipo, de:String(de || "").slice(0, 120), para:String(para || "").slice(0, 120), obs:String(obs || "").slice(0, 300), por:E.user.uid, por_nome:String(E.u.nome || "").slice(0, 80), em:serverTimestamp() });
 }
@@ -987,7 +996,8 @@ async function abrirFicha(id){
   const campo = (k, v) => v ? "<div><small>" + k + "</small><b>" + esc(v) + "</b></div>" : "";
   $("fDados").innerHTML = campo("Tipo", TIPO(i.tipo)[2]) + campo("Escola", nomeEscola(i.escola_id)) + campo("Onde fica", i.local) + campo("Patrimônio", i.patrimonio) + campo("Nº de série", i.serie) +
     campo("Marca e modelo", [i.marca, i.modelo].filter(Boolean).join(" ")) + campo("Origem", ORIG[i.origem]) + campo("Entregue em", dataBr(i.entregue_em)) +
-    campo("Garantia até", i.garantia_ate ? dataBr(i.garantia_ate) + (i.garantia_ate < hoje() ? " (vencida)" : "") : "") + campo("Observações", i.obs);
+    campo("Garantia até", i.garantia_ate ? dataBr(i.garantia_ate) + (i.garantia_ate < hoje() ? " (vencida)" : "") : "") +
+    (temLic(i.tipo) ? campo("Licença Google", i.licenca ? i.licenca + (i.licenca_ate ? " · até " + dataBr(i.licenca_ate) + (i.licenca_ate < hoje() ? " (vencida)" : "") : "") : "não informada") : "") + campo("Observações", i.obs);
   $("fContrato").innerHTML = ct ? '<div class="grupo-tit">Contrato</div><div class="ct" style="border:0;padding:8px 0">' + linhaContrato(ct, true) + "</div>" : "";
   $("fLink").href = URL_CHAMADO(i.qr);
   $("fTransf").hidden = !E.admin;
@@ -1068,9 +1078,9 @@ function baixarCsv(nome, linhas){
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([txt], { type:"text/csv;charset=utf-8" })); a.download = nome; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
-const CAB_ITENS = ["escola", "nome", "tipo", "patrimonio", "serie", "marca", "modelo", "local", "situacao", "origem", "contrato", "entregue_em", "garantia_ate", "reservavel", "chamado_aberto", "obs"];
+const CAB_ITENS = ["escola", "nome", "tipo", "patrimonio", "serie", "marca", "modelo", "local", "situacao", "origem", "contrato", "entregue_em", "garantia_ate", "reservavel", "chamado_aberto", "obs", "licenca_google", "licenca_ate"];
 const linhaItem = (i, cts, qrs) => [nomeEscola(i.escola_id), i.nome, TIPO(i.tipo)[2], i.patrimonio, i.serie, i.marca, i.modelo, i.local, SIT[sitDe(i)], ORIG[i.origem] || "",
-  (cts.find(c => c.id === i.contrato_id) || {}).numero || "", dataBr(i.entregue_em), dataBr(i.garantia_ate), i.reservavel ? "sim" : "não", qrs && qrs[i.qr] && qrs[i.qr].chamado_aberto ? "sim" : "", i.obs];
+  (cts.find(c => c.id === i.contrato_id) || {}).numero || "", dataBr(i.entregue_em), dataBr(i.garantia_ate), i.reservavel ? "sim" : "não", qrs && qrs[i.qr] && qrs[i.qr].chamado_aberto ? "sim" : "", i.obs, i.licenca || "", dataBr(i.licenca_ate)];
 
 /* importar planilha */
 function lerCsv(txt){
@@ -1495,9 +1505,16 @@ function nomeCurto(p, tipo){
 }
 async function lerPlanilha(arq){
   if(!window.XLSX) await new Promise((ok, erro) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload = ok; sc.onerror = erro; document.head.appendChild(sc); });
-  const wb = XLSX.read(await arq.arrayBuffer(), { type:"array" }), ws = wb.Sheets[wb.SheetNames[0]];
+  // CSV: lê como texto em UTF-8 (com ou sem BOM); se vier com caracteres quebrados, tenta Windows-1252 (CSV salvo pelo Excel)
+  let wb;
+  if(/\.(csv|txt)$/i.test(arq.name || "") || /csv|text\/plain/.test(arq.type || "")){
+    const buf = await arq.arrayBuffer(); let txt = new TextDecoder("utf-8").decode(buf);
+    if(txt.includes("\uFFFD")) txt = new TextDecoder("windows-1252").decode(buf);
+    wb = XLSX.read(txt.replace(/^\uFEFF/, ""), { type:"string" });
+  } else wb = XLSX.read(await arq.arrayBuffer(), { type:"array" });
+  const ws = wb.Sheets[wb.SheetNames[0]];
   const m = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
-  const h = m.findIndex(r => r.some(c => /s[ée]rie/i.test(c)) && r.some(c => /setor/i.test(c)));
+  const h = m.findIndex(r => r.some(c => /s.{0,2}rie/i.test(c)) && r.some(c => /setor/i.test(c)));
   if(h < 0) throw new Error("Não achei o cabeçalho (precisa das colunas Série Fabricante e Setor).");
   const cab = m[h].map(c => norm(c).replace(/[^a-z]/g, "")), col = k => cab.findIndex(c => c.startsWith(k));
   const C = { local:col("local"), pat:col("equipamento"), serie:col("serie"), status:col("status"), nome:col("nomefantasia"), cnpj:col("cnpj"), produto:col("produto"), contrato:col("contrato"), setor:col("setor") };
@@ -1666,7 +1683,7 @@ document.addEventListener("change", ev => {
   else if(t.id === "arqCsv" && t.files[0]){ const r = new FileReader(); r.onload = () => { $("txtCsv").value = r.result; conferirCsv(); }; r.readAsText(t.files[0], "utf-8"); }
   else if(t.dataset.sel){ if(t.dataset.sel === "todos"){ const l = filtrados(); if(t.checked) l.forEach(i => E.sel.add(i.id)); else l.forEach(i => E.sel.delete(i.id)); } else if(t.checked) E.sel.add(t.dataset.sel); else E.sel.delete(t.dataset.sel); desenharItens(); }
   else if(t.dataset.turno){ lerHorarios(); const id = t.dataset.turno; if(t.checked) rascunho.turnos.push({ id, n:5, horarios:[] }); else rascunho.turnos = rascunho.turnos.filter(x => x.id !== id); desenharHorarios(); }
-  else if(t.id === "iTipo" && !E.edit) $("iRes").checked = TIPO(t.value)[3];
+  else if(t.id === "iTipo"){ mostrarLic(); if(!E.edit) $("iRes").checked = TIPO(t.value)[3]; }
 });
 document.addEventListener("input", ev => {
   const id = ev.target.id;
