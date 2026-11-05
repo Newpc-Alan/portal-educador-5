@@ -255,8 +255,10 @@ async function teste() {
     // falso alarme, porque entra gente nova entre o backup e o teste. O Portal de agora só acusa se tiver MENOS de 90% do pacote
     // (sinal de exclusão em massa, que é exatamente quando o backup vai ser preciso).
     const vivo = (await db.collection('usuarios').count().get()).data().count, noPacote = linhas.filter(l => l.startsWith('{"p":"usuarios/') && l.split('"p":"')[1].split('"')[0].split('/').length === 2).length;
-    const naHora = resumo.por_colecao && resumo.por_colecao.usuarios;
-    if (typeof naHora === 'number' && noPacote !== naHora) problemas.push('usuarios: ' + noPacote + ' no pacote, mas o backup contou ' + naHora + ' na hora');
+    // cada coleção (com as subcoleções dela) tem que ter no pacote exatamente o que o backup contou na hora
+    const porRaiz = {}; for (const l of linhas) { const r = (l.split('"p":"')[1] || '').split('/')[0]; if (r) porRaiz[r] = (porRaiz[r] || 0) + 1; }
+    const difs = Object.entries(resumo.por_colecao || {}).filter(([c, n]) => (porRaiz[c] || 0) !== n).map(([c, n]) => c + ' ' + (porRaiz[c] || 0) + '/' + n);
+    if (difs.length) problemas.push('coleções com contagem diferente da hora do backup: ' + difs.slice(0, 8).join(', '));
     if (vivo < noPacote * 0.9) problemas.push('usuarios: o Portal hoje tem ' + vivo + ', menos de 90% dos ' + noPacote + ' do pacote (houve exclusão?)');
     const contas = JSON.parse(readFileSync(TMP + '/t/contas.json'));
     if (contas.total !== (contas.usuarios || []).length) problemas.push('contas: total não confere');
