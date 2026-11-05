@@ -197,6 +197,38 @@ export const emailPreCadastros = onSchedule(
   }
 );
 
+// Situação do backup para o resumo diário: último backup no servidor NEWPC, último teste de restauração, falhas em 24 h
+// e a cópia no Drive compartilhado. Só lê backups_log e backup_config/atual (nenhum dado de pessoa).
+async function resumoBackup(db) {
+  const H = 3600 * 1000, agora = Date.now(), ms = t => (t && t.toMillis ? t.toMillis() : 0);
+  const quando = t => t ? new Date(ms(t)).toLocaleString('pt-BR', { timeZone: 'America/Campo_Grande', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
+  const [ls, cfg] = await Promise.all([db.collection('backups_log').orderBy('em', 'desc').limit(40).get(), db.doc('backup_config/atual').get()]);
+  const logs = ls.docs.map(d => d.data()), c = cfg.data() || {};
+  const srv = logs.filter(l => l.destino === 'servidor' && l.tipo !== 'teste'), okSrv = srv.find(l => l.status === 'ok');
+  const teste = logs.find(l => l.destino === 'servidor' && l.tipo === 'teste' && (l.status === 'ok' || l.status === 'erro'));
+  const falhas = logs.filter(l => l.status === 'erro' && l.tipo !== 'teste' && agora - ms(l.em) < 24 * H);
+  const drive = logs.find(l => l.destino === 'drive' && l.status === 'ok');
+  const cor = { ok: '#1a6b2a', aviso: '#9a5b00', erro: '#b42318' }, item = (nivel, rotulo, txt) =>
+    `<tr><td style="padding:6px 8px;border-top:1px solid #e6edf3;white-space:nowrap;vertical-align:top"><b style="color:${cor[nivel]}">${nivel === 'ok' ? '✔' : nivel === 'aviso' ? '!' : '✖'} ${rotulo}</b></td><td style="padding:6px 8px;border-top:1px solid #e6edf3;color:#33475b">${txt}</td></tr>`;
+  const linhas = [];
+  if (!okSrv) linhas.push(item('erro', 'Backup diário', 'nenhum backup concluído no servidor NEWPC nos últimos registros.'));
+  else {
+    const idade = (agora - ms(okSrv.terminado_em || okSrv.em)) / H, mb = okSrv.bytes ? (okSrv.bytes / 1048576).toFixed(0) + ' MB · ' : '';
+    linhas.push(item(idade > 30 ? 'erro' : 'ok', 'Backup diário', `${quando(okSrv.terminado_em || okSrv.em)} · ${okSrv.documentos ?? '–'} documentos, ${okSrv.contas ?? '–'} contas, ${okSrv.arquivos ?? '–'} arquivos · ${mb}${okSrv.minutos ?? '–'} min` +
+      (idade > 30 ? ` · <b>atrasado: o último foi há ${Math.round(idade)} h</b>` : '')));
+  }
+  if (!teste) linhas.push(item('aviso', 'Teste de restauração', 'ainda não há teste registrado.'));
+  else {
+    const dias = (agora - ms(teste.terminado_em || teste.em)) / (24 * H), velho = dias > 35;
+    linhas.push(item(teste.status === 'ok' && !velho ? 'ok' : 'aviso', 'Teste de restauração', `${quando(teste.terminado_em || teste.em)} · ` +
+      (teste.status === 'ok' ? 'pacote aberto e conferido' : 'conferido com alerta: ' + esc(String(teste.erro || '').slice(0, 200))) + (velho ? ` · <b>há ${Math.round(dias)} dias, rode um novo teste</b>` : '')));
+  }
+  if (falhas.length) linhas.push(item('erro', 'Falhas em 24 h', falhas.map(f => `${quando(f.em)} (${f.destino || 'backup'}): ${esc(String(f.erro || 'sem detalhe').slice(0, 140))}`).join('<br>')));
+  if (!c.pasta_id || c.automatico === false) linhas.push(item('aviso', 'Cópia fora da empresa', 'backup semanal no Drive compartilhado desligado: hoje todas as cópias ficam só no servidor NEWPC.'));
+  else linhas.push(item(drive && agora - ms(drive.em) < 8 * 24 * H ? 'ok' : 'aviso', 'Cópia no Drive', drive ? `última em ${quando(drive.em)}${c.pasta_nome ? ' · ' + esc(c.pasta_nome) : ''}` : 'ligada, mas ainda sem cópia concluída.'));
+  return `<p style="margin:14px 0 4px;font-weight:bold;color:#0c2338">Backup</p><table style="border-collapse:collapse;width:100%;font-size:13px;margin:0 0 12px">${linhas.join('')}</table>`;
+}
+
 // Resumo diário às 7h (horário de MS) com o movimento das últimas 24 horas
 export const emailResumoDiario = onSchedule(
   { schedule: '0 7 * * *', timeZone: 'America/Campo_Grande', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
@@ -224,11 +256,13 @@ export const emailResumoDiario = onSchedule(
       conta(db.collection('dicas_alunos').where('status', '==', 'novo'))
     ]);
     const kpi = (n, t) => `<td style="padding:10px;border:1px solid #dce4ed;border-radius:10px;text-align:center;width:25%"><b style="font-size:22px;color:#0c2338">${n}</b><br><span style="font-size:11px;color:#6b7c90">${t}</span></td>`;
+    const blocoBackup = await resumoBackup(db).catch(e => { console.warn('resumoBackup', e.message); return '<p style="margin:0 0 10px;color:#b42318"><b>Backup:</b> não consegui ler a situação do backup.</p>'; });
     const dataBRhoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' });
     await enviar(`Resumo do Portal · ${dataBRhoje}`, caixa(`Resumo das últimas 24 horas`, `Portal do Educador 5.0 · ${dataBRhoje}`, `
 <table style="border-collapse:separate;border-spacing:6px;width:100%;margin:0 0 10px"><tr>${kpi(typeof acessos === 'number' && typeof alAcessos === 'number' ? acessos - alAcessos : acessos, 'professores que usaram ontem')}${kpi(novos, 'novos cadastros')}${kpi(pre, 'pré-cadastros importados')}${kpi(totalUs, 'usuários no total')}</tr>
 <tr>${kpi(relCriados, 'relatórios criados')}${kpi(relPend, 'relatórios aguardando aprovação')}${kpi(dicas, 'dicas enviadas')}${kpi(certs, 'certificados emitidos')}</tr>
 <tr>${kpi(alAcessos, 'alunos que usaram ontem')}${kpi(alNovos, 'alunos novos')}${kpi(alTotal, 'alunos no total')}${kpi(dicasAl, 'dicas de alunos')}</tr></table>
+${blocoBackup}
 ${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasAlPend}</b> dica(s) de aluno esperando revisão.</p>` : ''}
 ${typeof dicasPend === 'number' && dicasPend > 0 ? `<p style="margin:0 0 10px;color:#9a5b00"><b>${dicasPend}</b> dica(s) esperando revisão.</p>` : ''}
 ${botao('https://www.portaldoeducador.com.br/entrar/', 'Abrir o Portal')}${typeof dicasPend === 'number' && dicasPend > 0 ? botao('https://www.portaldoeducador.com.br/dicas/#recebidas', 'Revisar dicas', '#5A9420') : ''}${typeof dicasAlPend === 'number' && dicasAlPend > 0 ? botao('https://www.portaldoeducador.com.br/dicas/?aluno=1#recebidas', 'Revisar dicas de alunos', '#5A9420') : ''}`));
