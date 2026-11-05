@@ -1804,7 +1804,7 @@
         <table class="mod-tab" style="margin-top:10px"><thead><tr><th>Recursos extras</th><th class="c">Liberado</th></tr></thead>
           <tbody><tr><td>Prova online<small>em Provas e Avaliações: o professor aplica a prova no Portal do Aluno, com horário, modo protegido e correção automática</small></td>
           <td class="c"><input type="checkbox" id="planoProvaOnline" data-plano="rec" value="prova_online" aria-label="Prova online"></td></tr>
-          <tr><td>🤝 Educador em Rede<small>Compartilhamento colaborativo de materiais pedagógicos entre os professores da rede municipal (vitrine Da sua rede, Novidades no Início, resumo diário e envio por e-mail) · padrão: todos os planos</small></td>
+          <tr><td>🤝 Educador em Rede<small>Compartilhamento colaborativo de materiais pedagógicos entre os professores da mesma rede (vitrine Da sua rede, Novidades no Início, resumo diário e envio por e-mail) · padrão: todos os planos</small></td>
           <td class="c"><input type="checkbox" data-plano="rec" value="rede_colab" aria-label="Educador em Rede"></td></tr>
           <tr><td>🎒 Sala Conectada<small>Envio de conteúdos digitais (materiais, links, documentos e vídeos até 20 MB) diretamente aos alunos, com histórico de aulas no Portal do Aluno · padrão: Intermediário e Completo</small></td>
           <td class="c"><input type="checkbox" data-plano="rec" value="sala_digital" aria-label="Sala Conectada"></td></tr>
@@ -1895,6 +1895,7 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
+  import { rede, subtitulo } from "/assets/js/rede.js";
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence,
     sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, signInWithCustomToken }
@@ -1997,6 +1998,8 @@
       { id:"meucadastro", ico:"\u{1F464}", label:"Meu cadastro" },
       { id:"ajuda",       ico:"\u2753", label:"Ajuda" } ] },
   };
+  // perfil "secretaria" de rede particular ou instituição aparece como Direção / Coordenação (tipo de rede em /assets/js/rede.js)
+  const rotuloPerfilMeu = p => p === "secretaria" && usuarioAtual && usuarioAtual._muni && !rede(usuarioAtual._muni).publica ? rede(usuarioAtual._muni).papel : (LABELS_PERFIL[p] || p);
   const LABELS_PERFIL = { admin:"Administrador", secretaria:"Secretaria de Educação", gestor:"Gestor da escola", professor:"Professor", aluno:"Aluno", secretaria_escolar:"Secretaria escolar", portaria:"Portaria" };
   let usuarioAtual = null;
   let cacheMunicipios = [];
@@ -2568,7 +2571,7 @@
     const nome = usuarioAtual.nome || "Usuário";
     $("uAv").textContent = (nome[0]||"?").toUpperCase();
     $("uNome").textContent = nome;
-    $("uPerfil").textContent = LABELS_PERFIL[perfil] || perfil;
+    $("uPerfil").textContent = rotuloPerfilMeu(perfil);
     $("avisoLicenca").innerHTML = "";
     let menu = MENUS[perfil] || MENUS.professor;
     // aluno (tablet): sem menu lateral; uma barra fina no topo com o nome e o botão Sair
@@ -2610,7 +2613,7 @@
       a.addEventListener("click", () => { const sub = a.closest(".nav-sub"); if(sub && sub.hidden) sub.hidden = false; selecionar(item); });
       alvo.appendChild(a);
     });
-    $("secBadge").textContent = LABELS_PERFIL[perfil] || perfil;
+    $("secBadge").textContent = rotuloPerfilMeu(perfil);
     // link dos e-mails de créditos (/entrar/#creditos) abre direto a tela
     // link do aviso "Novidades da rede" para trabalhos (/entrar/#trabalhos-rede) abre Meus trabalhos > Da sua rede
     if(location.hash === "#trabalhos-rede"){ try{ sessionStorage.setItem("pde_tr_pasta", "rede"); }catch(e){} history.replaceState(null, "", location.pathname + location.search); }
@@ -7078,7 +7081,7 @@
       '<div class="field"><label>Etapas em que atua</label><div class="cad-etapas">'+ETAPAS.map((e,i) => '<label><input type="checkbox" name="cadEtapa" value="'+escapeAttr(e)+'"> '+escapeHtml(e)+'</label>').join("")+'</div></div>'+
       '<label class="cad-aceite"><input type="checkbox" id="cadAceite"> <span>Concordo com o uso dos meus dados para acesso ao Portal do Educador e contato sobre o serviço, inclusive pelo WhatsApp informado, conforme a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a>.</span></label>'+
       '<button class="btn btn-primary" data-action="cad-enviar" id="cadEnviar">Liberar meu teste grátis</button>'+
-      '<p class="cad-rodape">Sua escola é atendida pela prefeitura com o Portal do Educador? Preencha normalmente: a equipe vincula você à sua rede.</p>'+
+      '<p class="cad-rodape">Sua escola ou sua rede já contratou o Portal do Educador? Preencha normalmente: a equipe vincula você à sua rede.</p>'+
       '</div>';
     $("cadNome").value = usuarioAtual.nome || "";
   }
@@ -8872,7 +8875,7 @@
     const dataHoje = new Date().toLocaleDateString("pt-BR", { weekday:"long", day:"numeric", month:"long" });
     $("conteudo").innerHTML =
       '<div class="ini-ola"><div><h2>'+(admin ? "Prévia da tela inicial da Secretaria" : saudacao()+", "+escapeHtml(primeiro)+"!")+'</h2>'+
-      '<p>'+escapeHtml(dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1))+(nomeMuni ? ' · Secretaria Municipal de Educação de '+escapeHtml(nomeMuni) : '')+'<span id="secQtd"></span></p>'+
+      '<p>'+escapeHtml(dataHoje.charAt(0).toUpperCase() + dataHoje.slice(1))+(nomeMuni ? ' · '+escapeHtml(subtitulo(admin ? (munis.find(x => x.id === sec.muni) || { nome:nomeMuni }) : (muni || { nome:nomeMuni }), "") || nomeMuni) : '')+'<span id="secQtd"></span></p>'+
       (admin ? abasPrevia("secretaria") : '')+'</div>'+
       (admin && munis.length > 1 ? '<label class="dir-esc">Município <select id="secMuni">'+munis.map(x => '<option value="'+escapeAttr(x.id)+'"'+(x.id === sec.muni ? " selected" : "")+'>'+escapeHtml(x.nome || x.id)+'</option>').join("")+'</select></label>' : '')+'</div>'+
       '<section class="ini-sec" aria-labelledby="secIndTit"><h3 id="secIndTit">A rede hoje</h3><div class="dir-ind" id="secInd"><div class="hj-vazio">'+(sec.okPainel ? "Somando os números das escolas..." : "")+'</div></div></section>'+

@@ -42,7 +42,7 @@ async function quem(db, uid) {
 // o que este moderador alcança: município e (gestor) as escolas dele
 async function alcance(db, eu, munPedido) {
   const admin = eu.perfil === 'admin', mun = admin ? txt(munPedido, 80) : (eu.municipio_id || '');
-  if (!mun) throw new HttpsError('failed-precondition', admin ? 'Escolha o município.' : 'Sua conta não está ligada a uma rede municipal.');
+  if (!mun) throw new HttpsError('failed-precondition', admin ? 'Escolha o município.' : 'Sua conta não está ligada a uma rede de ensino contratante.');
   const escolas = eu.perfil === 'gestor' ? new Set((await escolasDoAlcance(db, eu)).map(e => e.id)) : null;
   return { admin, mun, escolas, pode: r => r && r.municipio_id === mun && (!escolas || escolas.has(r.escola_id || '')) };
 }
@@ -83,7 +83,7 @@ async function avisarAutor(db, r, decisao, motivo, nomeMod) {
   const u = await db.doc(`usuarios/${r.uid}`).get(), email = u.exists ? String(u.data().email || '') : '';
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return;
   const frases = {
-    aprovar: ['foi aprovado e já está na rede', 'Os colegas do município já podem ver e usar uma cópia. Obrigado por compartilhar!'],
+    aprovar: ['foi aprovado e já está na rede', 'Os colegas da rede já podem ver e usar uma cópia. Obrigado por compartilhar!'],
     ocultar: ['saiu da vitrine da rede', 'A coordenação pediu um ajuste antes de voltar para os colegas. Corrija o material e use "Atualizar na rede": ele volta para nova análise.'],
     remover: ['foi retirado da rede', 'O material continua na sua conta, só saiu da vitrine dos colegas.']
   }[decisao];

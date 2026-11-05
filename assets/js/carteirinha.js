@@ -1,6 +1,13 @@
 // Carteirinha do aluno (CR80, 85,6 x 54 mm), com QR "PDEA:<id>" lido pela portaria.
 // Dois jeitos de imprimir: folha A4 (10 por folha, para recortar) ou impressora de crachá (um cartão por página CR80, sem borda).
 // Usada pela Frequência (Carteirinhas) e pela Ficha do Aluno. Precisa de window.jspdf e window.QRCode carregados na página.
+import { rede } from "/assets/js/rede.js";
+// faixa verde do cartão: quem emite (prefeitura, governo do estado) ou, na rede particular, a mantenedora/cidade
+export function linhaCartao(muni, escola){
+  if(!muni || !muni.nome) return "";
+  const R = rede(muni); if(R.publica) return R.cartao;
+  return String(muni.nome).trim().toLowerCase() === String(escola || "").trim().toLowerCase() ? R.cidade : muni.nome;
+}
 export function qrDataUrl(texto){
   const box = document.createElement("div");
   new window.QRCode(box, { text:texto, width:256, height:256, correctLevel:window.QRCode.CorrectLevel.M });
@@ -24,7 +31,7 @@ export function cartao(pdf, x, y, al, turma, escola, muni, lg, ano, foto, cracha
   let tx = x + 3.5;
   if(lg){ pdf.setFillColor(255, 255, 255); pdf.roundedRect(x + 2.5, y + 2, 10, 10, 1.5, 1.5, "F"); const k = Math.min(8.6 / lg.w, 8.6 / lg.h); pdf.addImage(lg.url, "PNG", x + 2.5 + (10 - lg.w * k) / 2, y + 2 + (10 - lg.h * k) / 2, lg.w * k, lg.h * k); tx = x + 15; }
   pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.2); pdf.text(pdf.splitTextToSize(escola.toUpperCase(), x + W - 3 - tx)[0] || "", tx, y + 6.2);
-  pdf.setTextColor(141, 198, 63); pdf.setFontSize(5.4); pdf.text(pdf.splitTextToSize(("Prefeitura Municipal de " + muni).toUpperCase(), x + W - 3 - tx)[0] || "", tx, y + 10.2);
+  pdf.setTextColor(141, 198, 63); pdf.setFontSize(5.4); pdf.text(pdf.splitTextToSize(String(muni || "").toUpperCase(), x + W - 3 - tx)[0] || "", tx, y + 10.2);
   // com foto do cadastro: foto à esquerda e o texto ao lado; sem foto, o desenho original
   const fx = foto ? x + 26 : x + 4, larg = foto ? 27 : 50;
   if(foto){ pdf.setFillColor(230, 238, 246); pdf.roundedRect(x + 3.5, y + 16.5, 20, 20, 1.5, 1.5, "F"); pdf.addImage(foto, "JPEG", x + 4, y + 17, 19, 19); }
@@ -52,9 +59,9 @@ export async function gerarPdf({ lista, escola, muni, ano, urlFoto, progresso, f
   const pdf = cracha ? new window.jspdf.jsPDF({ unit:"mm", format:[85.6, 54], orientation:"landscape" }) : new window.jspdf.jsPDF({ unit:"mm", format:"a4" });
   for(let i = 0; i < lista.length; i++){
     const al = lista[i];
-    if(cracha){ if(i) pdf.addPage([85.6, 54], "landscape"); cartao(pdf, 0, 0, al.a, al.turma || "", escola || "", (muni && muni.nome) || "", lg, ano, fotos[al.a.id], true); }
+    if(cracha){ if(i) pdf.addPage([85.6, 54], "landscape"); cartao(pdf, 0, 0, al.a, al.turma || "", escola || "", linhaCartao(muni, escola), lg, ano, fotos[al.a.id], true); }
     else{ const k = i % 10; if(i && !k) pdf.addPage();
-      cartao(pdf, 14 + (k % 2) * (85.6 + 11), 8 + Math.floor(k / 2) * 56.5, al.a, al.turma || "", escola || "", (muni && muni.nome) || "", lg, ano, fotos[al.a.id]); }
+      cartao(pdf, 14 + (k % 2) * (85.6 + 11), 8 + Math.floor(k / 2) * 56.5, al.a, al.turma || "", escola || "", linhaCartao(muni, escola), lg, ano, fotos[al.a.id]); }
     if(progresso && i % 40 === 39){ progresso("Gerando " + (i + 1) + " de " + lista.length + "..."); await new Promise(r => setTimeout(r, 0)); }
   }
   return { pdf, comFoto:Object.keys(fotos).length, pedidas:comFoto.length };

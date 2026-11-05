@@ -9,6 +9,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { transporte, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
+import { rede } from './rede-tipo.js';
 
 const REGIAO = 'southamerica-east1';
 const SITE = 'https://www.portaldoeducador.com.br';
@@ -66,7 +67,7 @@ async function contexto(db, u) {
 export function mensagem(ev, u, ctx) {
   const ola = `<p>Olá, ${primeiro(u.nome)}!</p>`, fim = dataBR(ms(u.licenca_fim));
   const plano = u.plano_avulso || 'completo';
-  const nomeMuni = ctx.muni ? esc(ctx.muni.nome || '') + (ctx.muni.uf ? '/' + esc(ctx.muni.uf) : '') : '';
+  const nomeMuni = ctx.muni ? esc(ctx.muni.nome || '') + (ctx.muni.uf ? '/' + esc(ctx.muni.uf) : '') : '', R = rede(ctx.muni);   // prefeitura, estado ou escola particular
   const planoRede = ctx.muni ? (ctx.muni.plano_nome || 'basico') : '';
   switch (ev.momento) {
     case 'teste_inicio': return { assunto: 'Bem-vindo(a) ao Portal do Educador: seu teste grátis começou',
@@ -84,8 +85,8 @@ export function mensagem(ev, u, ctx) {
       html: moldura('Plano atualizado', `${ola}<p>Seu plano mudou de <b>${esc(NOME_PLANO[ev.de] || ev.de)}</b> para <b>${esc(NOME_PLANO[ev.para] || ev.para)}</b>.</p><p>Agora você tem ${ITENS_PLANO[ev.para] || ITENS_PLANO.completo}.</p>`, 'Ver o que mudou', ENTRAR) };
     case 'cortesia': return { assunto: 'Você ganhou acesso ao Portal do Educador',
       html: moldura('Acesso liberado', `${ola}<p>A NEWPC Tecnologia liberou para você um acesso de cortesia ao <b>Portal do Educador</b>${fim ? ', válido até <b>' + fim + '</b>' : ''}.</p>`, 'Entrar no Portal', ENTRAR) };
-    case 'rede': return { assunto: nomeMuni ? `O Portal do Educador chegou para você: Prefeitura de ${ctx.muni.nome}` : 'Seu acesso ao Portal do Educador foi liberado',
-      html: moldura(nomeMuni ? 'Um presente da sua rede de ensino' : 'Acesso liberado', `${ola}<p>${nomeMuni ? `A <b>Prefeitura Municipal de ${nomeMuni}</b>, por meio da Secretaria Municipal de Educação, oferece a você o <b>Portal do Educador</b>, em parceria com a NEWPC Tecnologia. É um investimento da sua rede no seu dia a dia em sala.` : 'Seu acesso ao <b>Portal do Educador</b> foi liberado pela sua rede de ensino.'}</p>
+    case 'rede': return { assunto: nomeMuni ? `O Portal do Educador chegou para você: ${R.tipo === 'municipal' ? 'Prefeitura de ' + ctx.muni.nome : R.orgao}` : 'Seu acesso ao Portal do Educador foi liberado',
+      html: moldura(nomeMuni ? (R.publica ? 'Um presente da sua rede de ensino' : 'Um presente da sua escola') : 'Acesso liberado', `${ola}<p>${nomeMuni ? `${R.publica ? `${R.oferta.replace(R.orgao, '<b>' + esc(R.orgao) + '</b>')}` : `<b>${esc(R.orgao)}</b>`} oferece a você o <b>Portal do Educador</b>, em parceria com a NEWPC Tecnologia. É um investimento da sua ${R.publica ? 'rede' : 'escola'} no seu dia a dia em sala.` : 'Seu acesso ao <b>Portal do Educador</b> foi liberado pela sua rede de ensino.'}</p>
 ${ctx.escola ? `<p>Você está vinculado(a) à <b>${esc(ctx.escola)}</b>.</p>` : ''}${planoRede ? `<p>O plano da sua rede inclui ${ITENS_PLANO[planoRede] || ITENS_PLANO.basico}.</p>` : ''}
 ${ev.vinhaDe === 'avulsa' || ev.vinhaDe === 'teste' ? '<p>Como a sua rede agora oferece o Portal, você passa a usar o acesso institucional, sem custo para você. Seus materiais continuam no seu cadastro.</p>' : ''}
 <p><b>Primeiro passo:</b> entre com o mesmo e-mail e confira suas turmas em <b>Minhas Turmas</b>.</p>`, 'Entrar no Portal', ENTRAR) };
@@ -154,7 +155,7 @@ export const MODELOS_WA = [
   { nome: 'pde_licenca_renovada', momento: 'renovacao', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Sua licença do Portal do Educador foi renovada e agora vale até {{2}}. Obrigado por seguir com a gente!', exemplo: ['Maria', '04/11/2027'] },
   { nome: 'pde_licenca_vencendo', momento: 'vencendo', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Sua licença do Portal do Educador vence em {{2}}. Para não perder o acesso aos seus materiais, responda esta mensagem que enviamos a renovação.', exemplo: ['Maria', '11/11/2026'] },
   { nome: 'pde_plano_alterado', momento: 'plano', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Seu plano do Portal do Educador mudou de {{2}} para {{3}}. Entre no Portal para conhecer os recursos do seu novo plano.', exemplo: ['Maria', 'Básico', 'Completo'] },
-  { nome: 'pde_boas_vindas_rede', momento: 'rede', categoria: 'UTILITY', corpo: 'Olá, {{1}}! A Prefeitura Municipal de {{2}}, por meio da Secretaria Municipal de Educação, liberou para você o Portal do Educador, em parceria com a NEWPC Tecnologia. Entre com o e-mail {{3}} e confira suas turmas em Minhas Turmas.', exemplo: ['Maria', 'São Gabriel do Oeste/MS', 'maria@gmail.com'] }
+  { nome: 'pde_boas_vindas_rede', momento: 'rede', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Sua rede de ensino ({{2}}) liberou para você o Portal do Educador, em parceria com a NEWPC Tecnologia. Entre com o e-mail {{3}} e confira suas turmas em Minhas Turmas.', exemplo: ['Maria', 'Prefeitura Municipal de São Gabriel do Oeste', 'maria@gmail.com'] }   // {{2}} = rede(muni).orgao: serve para prefeitura, estado e escola particular
 ];
 // boas-vindas universal no WhatsApp (nov/2026): todo cadastro novo com WhatsApp recebe, sem ninguém da equipe tocar
 export const MODELO_BOAS_VINDAS_WA = { nome: 'pde_boas_vindas', momento: 'cadastro', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Recebemos o seu cadastro no Portal do Educador. Entre com o e-mail que você cadastrou e conheça tudo o que preparamos para a sua aula. Qualquer dúvida, é só responder esta mensagem.', exemplo: ['Maria'] };

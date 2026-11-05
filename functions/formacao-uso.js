@@ -31,7 +31,7 @@ export const formacaoAcompanhamento = onCall({ region: 'southamerica-east1', tim
   if (!eu || eu.status !== 'ativo' || !['admin', 'secretaria', 'gestor'].includes(eu.perfil)) throw new HttpsError('permission-denied', 'Acesso restrito à gestão.');
   let mun = '', escolas = null;
   if (eu.perfil === 'admin') mun = /^[A-Za-z0-9_-]{1,64}$/.test(String((req.data || {}).municipio_id || '')) ? String(req.data.municipio_id) : '';
-  else { mun = String(eu.municipio_id || ''); if (!mun) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a um município.'); }
+  else { mun = String(eu.municipio_id || ''); if (!mun) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a uma rede de ensino.'); }
   if (eu.perfil === 'gestor') escolas = new Set((eu.escolas_ids && eu.escolas_ids.length ? eu.escolas_ids : [eu.escola_id]).filter(Boolean));
   const naEscola = x => !escolas || [x.escola_id, ...(x.escolas_ids || [])].some(id => escolas.has(id));
   // professores do escopo (cadastro do Portal) e perfis da Formação

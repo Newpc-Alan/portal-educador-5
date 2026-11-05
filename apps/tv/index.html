@@ -148,6 +148,7 @@ button{cursor:pointer}
 <div class="toast" id="toast"></div>
 
 <script type="module">
+import { rede } from "/assets/js/rede.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -524,9 +525,9 @@ async function telaAvisos(){
   const avisos = canal && Array.isArray(canal.avisos) ? [...canal.avisos].sort((a, b) => ms(b.criado_em) - ms(a.criado_em)) : [];
   const nomeMuni = E.muni ? E.muni.nome : "do município";
   $("tela").innerHTML =
-    '<div class="destaque"><div class="destaque-ico">📢</div><div class="destaque-txt"><b>Comunicados da Secretaria de Educação</b><span>Aparecem em <b>todas as TVs das escolas de ' + esc(nomeMuni) + '</b> (ou só nas escolas escolhidas), intercalados com a programação de cada escola.</span></div></div>' +
+    '<div class="destaque"><div class="destaque-ico">📢</div><div class="destaque-txt"><b>Comunicados da ' + esc(rede(E.muni).publica || !E.muni ? "Secretaria de Educação" : rede(E.muni).secretaria) + '</b><span>Aparecem em <b>todas as TVs das escolas de ' + esc(nomeMuni) + '</b> (ou só nas escolas escolhidas), intercalados com a programação de cada escola.</span></div></div>' +
     (podeComunicado() ? '<section class="card"><h2 class="h2">＋ Novo comunicado</h2><p class="sub" style="margin-bottom:12px">Aparece nas TVs dentro do período escolhido. Não coloque dados pessoais de alunos: as TVs ficam em áreas públicas.</p>' + formAviso() + "</section>"
-      : '<div class="aviso-box">Os comunicados são publicados pela Secretaria Municipal de Educação. Aqui você vê o que está passando nas TVs da sua escola.</div>') +
+      : '<div class="aviso-box">Os comunicados são publicados pela ' + esc(E.muni ? (rede(E.muni).publica ? rede(E.muni).secretaria : rede(E.muni).secretaria + " da rede") : "Secretaria de Educação") + '. Aqui você vê o que está passando nas TVs da sua escola.</div>') +
     '<section class="card"><h2 class="h2">Comunicados</h2><div class="avs">' + (avisos.length ? avisos.map(a => {
       const [c, t] = situacao(a);
       const alvo = a.escolas && a.escolas.length ? a.escolas.length + " escola(s)" : "todas as escolas";

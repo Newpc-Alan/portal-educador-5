@@ -346,6 +346,7 @@ table.grade{border-collapse:separate;border-spacing:0;min-width:100%}
 <div class="toast" id="toast"></div>
 
 <script type="module">
+import { rede, subtitulo } from "/assets/js/rede.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, collection, query, where, limit, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -833,7 +834,7 @@ async function importarPo(id){
 const podeRegra = () => E.admin || E.u.perfil === "secretaria";
 function desenharRegra(){
   const R = E.regra, pode = podeRegra();
-  $("regraQuem").textContent = pode ? "Vale para todos os professores do município. O professor só lança as notas; o cálculo segue esta regra." : "Definida pela secretaria de educação. Só a secretaria pode alterar.";
+  $("regraQuem").textContent = pode ? "Vale para todos os professores da rede. O professor só lança as notas; o cálculo segue esta regra." : "Definida pela secretaria de educação. Só a secretaria pode alterar.";
   $("selMuni").hidden = !E.admin;
   $("rPer").value = R.periodos; $("rMax").value = R.nota_max; $("rMin").value = fmt(R.media_minima, 2); $("rComp").value = R.composicao; $("rArr").value = R.arredondamento;
   $("rRecP").value = R.rec_periodo; $("rFreq").value = R.freq_minima; $("rFinal").checked = !!R.rec_final; $("rPm").value = R.peso_media; $("rPe").value = R.peso_exame; $("rMfm").value = fmt(R.media_final_minima, 2);
@@ -1130,7 +1131,7 @@ async function pdfMarca(t){
   let m = {}, escola = (t && t.escola_nome) || "";
   try{ const d = await getDoc(doc(db, "municipios", muni)); if(d.exists()) m = d.data(); }catch(e){}
   if(!escola && t && t.escola_id){ try{ const d = await getDoc(doc(db, "escolas", t.escola_id)); if(d.exists()) escola = d.data().nome || ""; }catch(e){} }
-  return (MARCAS[ch] = { municipio:m.nome || (t && t.municipio_nome) || "", uf:m.uf || "", escola, logo:await logoPng(m.logo_url) });
+  return (MARCAS[ch] = { municipio:m.nome || (t && t.municipio_nome) || "", uf:m.uf || "", sub:subtitulo(m.nome ? m : { nome:(t && t.municipio_nome) || "" }, escola), escola, logo:await logoPng(m.logo_url) });
 }
 function pdfCabecalho(pdf, titulo, linhas, mc, ano){
   const W = pdf.internal.pageSize.getWidth(), lado = 20;
@@ -1142,7 +1143,7 @@ function pdfCabecalho(pdf, titulo, linhas, mc, ano){
     pdf.addImage(mc.logo.url, "PNG", 12 + (lado - w) / 2, 3.5 + (lado - h) / 2, w, h); x = 12 + lado + 5; }
   pdf.setTextColor(255, 255, 255); pdf.setFont("helvetica", "bold"); pdf.setFontSize(14); pdf.text(pdfTx(mc.escola || "Escola").slice(0, 70), x, 12);
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(9);
-  pdf.text(pdfTx((mc.municipio ? "Secretaria Municipal de Educação de " + mc.municipio + (mc.uf ? "/" + mc.uf : "") + " · " : "") + "Ano letivo " + ano), x, 18.5);
+  pdf.text(pdfTx((mc.sub ? mc.sub + " · " : "") + "Ano letivo " + ano), x, 18.5);
   pdf.setFont("helvetica", "bold"); pdf.setFontSize(8); pdf.text("PORTAL DO EDUCADOR", W - 12, 12, { align:"right" });
   pdf.setTextColor(15, 44, 74); pdf.setFontSize(14); pdf.text(pdfTx(titulo), 12, 38);
   pdf.setFontSize(9.2); let y = 44.5;

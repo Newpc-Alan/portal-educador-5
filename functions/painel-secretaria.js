@@ -33,11 +33,11 @@ export const painelSecretaria = onCall({ region: 'southamerica-east1', timeoutSe
     if (!escolasGestor.length) throw new HttpsError('failed-precondition', 'Seu cadastro de gestor ainda não está ligado a uma escola.');
   }
   else throw new HttpsError('permission-denied', 'O painel é da Secretaria de Educação e dos gestores das escolas.');
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a um município.');
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a uma rede de ensino.');
   // o painel é um módulo do plano: o administrador libera em Municípios › Plano e módulos
   if (u.perfil !== 'admin') {
     const mu = (await db.doc(`municipios/${m}`).get()).data() || {};
-    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O painel ainda não faz parte do plano do seu município. Fale com a equipe NEWPC.');
+    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O painel ainda não faz parte do plano da sua rede. Fale com a equipe NEWPC.');
   }
   const c = cache.get(m);
   let dados;
@@ -240,7 +240,7 @@ export async function montar(db, m) {
   });
 
   return {
-    gerado_em: agora, ano, municipio: { id: m, nome: muni.nome || '', uf: muni.uf || '', logo_url: muni.logo_url || '' },
+    gerado_em: agora, ano, municipio: { id: m, nome: muni.nome || '', uf: muni.uf || '', logo_url: muni.logo_url || '', tipo_rede: muni.tipo_rede || 'municipal', cidade: muni.cidade || '' },
     totais: { escolas: escolas.length, alunos: Object.values(E).reduce((s, e) => s + e.alunos, 0) },
     uso, aprendizagem: { provas: apr.provas, respostas: apr.respostas, acerto: apr.tot ? apr.ac / apr.tot : null, habilidades: apr.habilidades.slice(0, 40), semHab: apr.semHab },
     calendario: cal, infra: inf, relatorios: rel, frequencia: frq, hoje: hj,

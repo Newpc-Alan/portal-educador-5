@@ -163,7 +163,7 @@ export const trabalhoRede = onCall({ region: 'southamerica-east1', secrets: [SMT
   if (d.acao === 'rede') {
     await exigirRecurso(db, c.eu, 'rede_colab', c.muni);
     if (!d.aceite) throw new HttpsError('failed-precondition', 'Confirme que não há nome ou foto de aluno.');
-    if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede municipal.');
+    if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede de ensino contratante.');
     const antes = await db.doc(`trabalhos_rede/${redeId}`).get(), reg = {}, status = statusAoCompartilhar(c.muni, antes);
     if (T.arquivo) {
       const fonte = T.de(uid, id, o);

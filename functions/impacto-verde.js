@@ -95,11 +95,11 @@ export const impactoVerde = onCall({ region: 'southamerica-east1', timeoutSecond
   else if (u.perfil === 'gestor') {
     m = String(u.municipio_id || ''); escolas = (Array.isArray(u.escolas_ids) && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean).slice(0, 5);
     if (!escolas.length) throw new HttpsError('failed-precondition', 'Seu cadastro de gestor ainda não está ligado a uma escola.');
-  } else throw new HttpsError('permission-denied', 'O painel é da Secretaria de Educação e dos gestores das escolas.');
-  if (!ID.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a um município.');
+  } else throw new HttpsError('permission-denied', 'O painel é da gestão da rede e dos gestores das escolas.');
+  if (!ID.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a uma rede de ensino.');
   if (u.perfil !== 'admin') {
     const mu = (await db.doc(`municipios/${m}`).get()).data() || {};
-    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O painel ainda não faz parte do plano do seu município.');
+    if (!Array.isArray(mu.modulos_secretaria) || !mu.modulos_secretaria.includes('painel')) throw new HttpsError('permission-denied', 'O painel ainda não faz parte do plano da sua rede.');
   }
   const ano = num(req.data && req.data.ano, new Date(Date.now() - 4 * 3600e3).getUTCFullYear(), 2024, 2100), chave = m + '_' + ano, c = cache.get(chave);
   let d;

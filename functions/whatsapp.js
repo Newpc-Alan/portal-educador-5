@@ -180,7 +180,7 @@ async function meuCadastro(db, quem) {
   if (m) linhas.push('• Rede: ' + (m.nome || '-') + (m.uf ? '/' + m.uf : ''));
   if (e) linhas.push('• Escola: ' + (e.nome || '-'));
   else if (u.perfil === 'professor' && tipo === 'institucional') linhas.push('• Escola: ainda sem vínculo (a gestão da escola ou a Secretaria faz o vínculo)');
-  linhas.push('• Acesso: ' + ({ institucional: 'pela rede (contrato do município)', teste: 'teste grátis', avulsa: 'licença individual', cortesia: 'cortesia' }[tipo] || tipo) + (dataBR(fim) ? ', válido até *' + dataBR(fim) + '*' : ''));
+  linhas.push('• Acesso: ' + ({ institucional: 'pela rede (contrato institucional)', teste: 'teste grátis', avulsa: 'licença individual', cortesia: 'cortesia' }[tipo] || tipo) + (dataBR(fim) ? ', válido até *' + dataBR(fim) + '*' : ''));
   linhas.push('', 'Algo errado? Digite *menu* › *Falar com atendente*.');
   return linhas.join('\n');
 }

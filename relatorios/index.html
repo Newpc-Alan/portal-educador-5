@@ -201,6 +201,7 @@ button{cursor:pointer}
 <div class="toast" id="toast"></div>
 
 <script type="module">
+import { rede } from "/assets/js/rede.js";
 /* ═══════════════════════════════════════════════════════════════
    CENTRAL DE RELATÓRIOS · Portal do Educador 5.0
    Modelos revalidados, preenchimento automático (escola, brasão,
@@ -358,6 +359,7 @@ onAuthStateChanged(auth, async (user) => {
   S.uid = user.uid; S.u = u; S.perfil = u.perfil || "professor";
   $("quem").textContent = (u.nome || user.email) + " · " + ({ admin:"Administrador", gestor:"Gestão da escola", secretaria:"Secretaria Municipal", professor:"Professor(a)" }[S.perfil] || "");
   if(u.municipio_id) S.muni = await ler("municipios", u.municipio_id);
+  if(S.perfil === "secretaria" && S.muni) $("quem").textContent = (u.nome || user.email) + " · " + rede(S.muni).papel;
   const ids = (u.escolas_ids && u.escolas_ids.length ? u.escolas_ids : [u.escola_id]).filter(Boolean).slice(0, 10);
   S.escolas = (await Promise.all(ids.map(i => ler("escolas", i)))).filter(Boolean);
   if(S.perfil === "secretaria" && u.municipio_id){
@@ -404,8 +406,8 @@ function desenharFaixa(){
   const e = S.escolas[0], logo = logoRede(e && e.id);
   $("faixa-logo").innerHTML = logo ? '<img alt="" src="'+esc(logo)+'">' : "🏫";
   if(S.perfil === "admin" && S.muni) $("faixa-t").textContent = "Prévia do administrador · " + (e ? e.nome : "sem escolas cadastradas");
-  else $("faixa-t").textContent = S.perfil === "secretaria" ? "Secretaria Municipal de Educação" + (S.muni ? " · " + S.muni.nome : "") : (e ? e.nome : (S.u.escola_texto || "Seu cadastro"));
-  $("faixa-s").textContent = S.muni ? "Secretaria Municipal de Educação de " + S.muni.nome + (S.muni.uf ? "/" + S.muni.uf : "") + " · os documentos saem com o brasão e os dados da escola" : "Os documentos saem com os dados do seu cadastro";
+  else $("faixa-t").textContent = S.perfil === "secretaria" ? (S.muni ? (rede(S.muni).publica ? rede(S.muni).secretaria + " · " + S.muni.nome : S.muni.nome) : "Gestão da rede") : (e ? e.nome : (S.u.escola_texto || "Seu cadastro"));
+  $("faixa-s").textContent = S.muni ? rede(S.muni).secretariaDe + " · os documentos saem com o brasão e os dados da escola" : "Os documentos saem com os dados do seu cadastro";
   $("faixa").hidden = false;
 }
 
@@ -556,10 +558,10 @@ function docHTML(r, mini){
   const m = modeloDe(r.modelo); if(!m) return "";
   const e = S.escolas.find(x => x.id === r.escola_id) || {};
   const logo = logoRede(r.escola_id);
-  const publica = !!S.muni;
-  const linhaRede = publica ? "Prefeitura Municipal de " + S.muni.nome + (S.muni.uf ? "/" + S.muni.uf : "") + " · Secretaria Municipal de Educação" : "";
+  const publica = !!S.muni, RD = rede(S.muni);
+  const linhaRede = publica ? (RD.publica ? RD.linhaDoc : "") : "";
   const escNome = e.nome || r.escola_nome || S.u.escola_texto || "";
-  const dadosEsc = [e.inep ? "INEP " + e.inep : "", e.cnpj ? "CNPJ " + e.cnpj : "", e.endereco ? e.endereco + (e.cep ? ", CEP " + e.cep : "") : "", (S.muni ? S.muni.nome + (S.muni.uf ? "/" + S.muni.uf : "") : ""), e.telefone, e.email].filter(Boolean).join(" · ");
+  const dadosEsc = [e.inep ? "INEP " + e.inep : "", e.cnpj ? "CNPJ " + e.cnpj : "", e.endereco ? e.endereco + (e.cep ? ", CEP " + e.cep : "") : "", (S.muni ? RD.cidade : ""), e.telefone, e.email].filter(Boolean).join(" · ");
   const meta = [];
   if(r.aluno_nome) meta.push(["Estudante", r.aluno_nome]);
   if(r.turma_nome) meta.push(["Turma", r.turma_nome]);
@@ -583,7 +585,7 @@ function docHTML(r, mini){
     corpo +
     (r.status === "aprovado" ? '<div class="d-ok">✓ Aprovado pela coordenação' + (r.revisado_nome ? " · " + esc(r.revisado_nome) : "") + '</div>' : '') +
     '<div class="d-assin">' + assin.map(a => '<div><span></span>'+esc(a)+'</div>').join("") + '</div>' +
-    '<div class="d-rod"><span>'+esc((publica ? S.muni.nome + ", " : "") + new Date().toLocaleDateString("pt-BR"))+' · Gerado no Portal do Educador</span><span>'+esc(codigo(r))+'</span></div></div>';
+    '<div class="d-rod"><span>'+esc((publica && RD.cidade ? RD.cidade + ", " : "") + new Date().toLocaleDateString("pt-BR"))+' · Gerado no Portal do Educador</span><span>'+esc(codigo(r))+'</span></div></div>';
 }
 function declaracao(r){
   const d = r.dados, tipo = (d.tipo || "Matrícula").toLowerCase();

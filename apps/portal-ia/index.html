@@ -276,6 +276,7 @@ h2{font-size:1.1rem;font-weight:800}
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script type="module">
+import { rede, subtitulo } from "/assets/js/rede.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, updateDoc, deleteDoc, collection, query, where, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -370,7 +371,7 @@ async function carregarTurmas(){
   E.ident.prof = String(E.u.nome || E.user.displayName || "").slice(0, 80);
   const escId = E.u.escola_id || ids[0] || "";
   try{ if(escId){ const s = await getDoc(doc(db, "escolas", escId)); if(s.exists()) E.ident.escola = s.data().nome || ""; } }catch(e){}
-  try{ const mid = E.u.municipio_id || ""; if(mid){ const s = await getDoc(doc(db, "municipios", mid)); if(s.exists()){ const m = s.data(); E.rec = recursosEfetivos(m); E.marca = { municipio:m.nome || "", uf:m.uf || "", logo_url:m.logo_url || "" }; } } }catch(e){}
+  try{ const mid = E.u.municipio_id || ""; if(mid){ const s = await getDoc(doc(db, "municipios", mid)); if(s.exists()){ const m = s.data(); E.rec = recursosEfetivos(m); E.marca = { municipio:m.nome || "", uf:m.uf || "", logo_url:m.logo_url || "", sub:subtitulo(m, ""), rede:rede(m).rede }; } } }catch(e){}
 }
 function definirTurma(id){
   E.turma = id;
@@ -543,7 +544,7 @@ async function carregarRede(){
 }
 const semAcento = t => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 function htmlRede(){
-  if(!E.u.municipio_id) return '<div class="caixa" style="text-align:center;color:var(--muted)">Sua conta não está ligada a uma rede municipal.</div>';
+  if(!E.u.municipio_id) return '<div class="caixa" style="text-align:center;color:var(--muted)">Sua conta não está ligada a uma rede de ensino contratante.</div>';
   if(!E.rede) return '<div class="carreg"><span class="giro"></span>Carregando os materiais da rede...</div>';
   if(E.redeErro) return '<div class="caixa" style="text-align:center;color:var(--muted)">Não consegui abrir os materiais da rede agora.</div>';
   const F = E.redeF, discs = [...new Set(E.rede.map(r => r.disciplina).filter(Boolean))].sort(), tipos = [...new Set(E.rede.map(r => r.tipo))];
@@ -586,8 +587,8 @@ function boxRede(A){
   return '<div class="caixa"><h4>Compartilhar com a rede</h4>' + (A.redeInfo
     ? (A.redeInfo.status === "pendente" ? '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo" style="background:#fff6e0;color:#7a5200">Aguardando aprovação</span> A coordenação vai analisar. Você recebe um e-mail quando aprovarem.</p>'
       : A.redeInfo.status === "oculto" ? '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo" style="background:#fdeceb;color:#8c1d18">Ajuste pedido</span> ' + esc(A.redeInfo.motivo || "A coordenação pediu um ajuste.") + ' Corrija e use Atualizar na rede.</p>'
-      : '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo">Na rede do município</span> Os colegas já podem usar este material.</p>') + '<div class="grupo"><button type="button" class="btn peq" data-action="compartilhar">Atualizar na rede</button><button type="button" class="btn peq" data-action="descompartilhar">Parar de compartilhar</button></div>'
-    : '<p class="sub" style="font-size:.84rem;margin-bottom:8px">Os professores do seu município poderão ver e usar uma cópia. Seu nome e sua escola aparecem como autoria.</p><button type="button" class="btn rede" data-action="compartilhar">Compartilhar com a rede</button>') + "</div>";
+      : '<p style="font-size:.86rem;margin-bottom:8px"><span class="selo">Na sua rede</span> Os colegas já podem usar este material.</p>') + '<div class="grupo"><button type="button" class="btn peq" data-action="compartilhar">Atualizar na rede</button><button type="button" class="btn peq" data-action="descompartilhar">Parar de compartilhar</button></div>'
+    : '<p class="sub" style="font-size:.84rem;margin-bottom:8px">Os professores da sua rede poderão ver e usar uma cópia. Seu nome e sua escola aparecem como autoria.</p><button type="button" class="btn rede" data-action="compartilhar">Compartilhar com a rede</button>') + "</div>";
 }
 /* Educador em Rede (Básico+), Sala Conectada (Intermediário+), Turma ao Vivo (Completo): mesma regra das funções */
 const RECURSOS_SALA = ["rede_colab", "sala_digital", "turma_ao_vivo"];
@@ -628,7 +629,7 @@ async function confirmarCompra(){
   catch(e){ b.disabled = false; b.textContent = "Fazer o pedido"; toast(msgErro(e), true); }
 }
 function pedirCompartilhar(){
-  modal('<h2>Compartilhar com a rede</h2><p class="sub">Os professores do seu município vão ver este material e poderão fazer uma cópia para usar. Seu nome e sua escola aparecem como autoria. Você pode tirar da rede quando quiser.</p>' +
+  modal('<h2>Compartilhar com a rede</h2><p class="sub">Os professores da sua rede vão ver este material e poderão fazer uma cópia para usar. Seu nome e sua escola aparecem como autoria. Você pode tirar da rede quando quiser.</p>' +
     '<label class="ck"><input type="checkbox" id="ck1"> <span>Este material <b>não tem nome de aluno</b>, nem dado pessoal de aluno ou família.</span></label>' +
     '<label class="ck"><input type="checkbox" id="ck2"> <span>O conteúdo foi feito por mim com o Portal IA ou é de uso livre. <b>Não copiei texto de livro</b> ou de material protegido.</span></label>' +
     '<label class="ck"><input type="checkbox" id="ck3"> <span>Revisei o material e ele está pronto para outros professores usarem.</span></label>' +
@@ -638,7 +639,7 @@ async function compartilhar(){
   if(!["ck1", "ck2", "ck3"].every(k => $(k) && $(k).checked)){ toast("Marque as três confirmações para compartilhar.", true); return; }
   const b = document.querySelector('[data-action="confirmar-compartilhar"]'); b.disabled = true; b.textContent = "Compartilhando...";
   try{ const r = (await chamar({ acao:"compartilhar", id:E.atual.id, aceite:true })).data; E.atual.redeInfo = { em:Date.now(), status:r && r.pendente ? "pendente" : "publicado" }; E.rede = null; fecharModal(); telaDoc();
-    toast(r && r.pendente ? "Enviado para aprovação da coordenação. Você recebe um e-mail quando aprovarem." : "Pronto. O material está na rede do município."); }
+    toast(r && r.pendente ? "Enviado para aprovação da coordenação. Você recebe um e-mail quando aprovarem." : "Pronto. O material está na sua rede."); }
   catch(e){ b.disabled = false; b.textContent = "Compartilhar"; toast(msgErro(e), true); }
 }
 async function descompartilhar(){
@@ -782,7 +783,7 @@ function htmlDoc(d, mostrarGab){
 function conteudoFolha(){ return E.atual.html ? limparHtml(E.atual.html) : htmlDoc(E.atual.doc, true); }
 // imagens e botões entram depois, por cima do conteúdo (o HTML guardado não leva as imagens, só o lugar delas)
 function cabHtml(){ return '<img data-onde="logo" alt=""><div><b>' + esc(E.ident.escola || "Escola") + "</b><small>" +
-    esc(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : "") + "</small></div>"; }
+    esc(E.marca && E.marca.sub ? E.marca.sub : "") + "</small></div>"; }
 function decorar(el, editor){
   el.querySelectorAll(".tira,.maisimg").forEach(x => x.remove());
   // o cabeçalho é sempre o da escola de quem está usando (material da rede vem com a escola do autor)
@@ -1137,7 +1138,7 @@ async function pdfDoc(qual, comoArquivo){
     const k = Math.min((lado - 2) / logo.w, (lado - 2) / logo.h); pdf.addImage(logo.url, "JPEG", mx + (lado - logo.w * k) / 2, 10 + (lado - logo.h * k) / 2, logo.w * k, logo.h * k); x = mx + lado + 5; }
   pdf.setFont("helvetica", "bold"); pdf.setFontSize(13); pdf.text(pdfTx(E.ident.escola || "Escola").slice(0, 70), x, 17);
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5);
-  pdf.text(pdfTx(E.marca && E.marca.municipio ? "Secretaria Municipal de Educação de " + E.marca.municipio + (E.marca.uf ? "/" + E.marca.uf : "") : ""), x, 23);
+  pdf.text(pdfTx(E.marca && E.marca.sub ? E.marca.sub : ""), x, 23);
   let y = 42; pdf.setTextColor(15, 44, 74); pdf.setFont("helvetica", "bold"); pdf.setFontSize(15);
   pdf.splitTextToSize(pdfTx(d.titulo + (gab ? " · Gabarito" : "")), aluno ? larg - 28 : larg).forEach(l => { pdf.text(l, mx, y); y += 7; });
   pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(70, 90, 110);
@@ -1383,7 +1384,7 @@ function janelaCompartilharPia(){
     : '<div class="cp-b cp-off"><span>🎒</span><b>Alunos</b><small>' + esc(A.tipo_nome || "Este material") + ' é do professor e não vai para a turma. Para os alunos, gere uma atividade, um exercício ou uma prova sobre o mesmo tema.</small></div>';
   if(!temRede && !temAlunos && !temEmail){ toast("Este material não pode ser compartilhado.", true); return; }
   modal('<h3 style="margin:0 0 4px">Compartilhar</h3><p class="sub" style="margin:0 0 14px">' + esc(A.doc && A.doc.titulo || "Material") + "</p><div class=\"cp-op\">" +
-    (temRede ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="compartilhar"><span>🤝</span><b>Rede do município</b><small>Os colegas veem e usam uma cópia</small></button>' : "") +
+    (temRede ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="compartilhar"><span>🤝</span><b>Minha rede</b><small>Os colegas veem e usam uma cópia</small></button>' : "") +
     (temAlunos ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="alunos-abrir"><span>🎒</span><b>Alunos</b><small>Materiais da turma, sem gabarito</small></button>' : "") +
     avisoAlunos +
     (temEmail ? '<button type="button" class="cp-b" data-action="cp-ir" data-arg="email-abrir"><span>✉️</span><b>E-mail</b><small>Colegas ou qualquer pessoa, em PDF</small></button>' : "") +

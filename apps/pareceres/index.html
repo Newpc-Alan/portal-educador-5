@@ -105,6 +105,7 @@ button{cursor:pointer}
 <div class="toast" id="toast" role="status"></div>
 
 <script type="module">
+import { rede, subtitulo } from "/assets/js/rede.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, collection, query, where, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -256,7 +257,7 @@ function telaPdf(){
   const ok = E.al.filter(a => a.status === "aprovado"), falta = E.al.filter(a => a.status !== "aprovado");
   $("tela").innerHTML = '<div class="card"><h2 style="font-size:1.25rem;margin-bottom:8px">PDF da turma</h2>' +
     '<p style="color:#33475b;max-width:760px">' + (falta.length ? "Faltam " + falta.length + " parecer(es) para aprovar: " + esc(falta.slice(0, 8).map(a => a.nome.split(" ")[0]).join(", ")) + (falta.length > 8 ? "..." : "") + ". O PDF sai só com os aprovados: o professor assina, não a IA." :
-      "Todos os pareceres estão aprovados. O PDF sai com um aluno por página, o brasão do município, o nome da escola e o espaço para as assinaturas.") + "</p>" +
+      "Todos os pareceres estão aprovados. O PDF sai com um aluno por página, o brasão ou logo da rede, o nome da escola e o espaço para as assinaturas.") + "</p>" +
     '<div class="acoes" style="margin-top:12px"><button type="button" class="btn btn-ok" data-action="pdf"' + (ok.length ? "" : " disabled") + ">Baixar PDF (" + ok.length + (ok.length === 1 ? " aluno)" : " alunos)") + '</button><button type="button" class="btn btn-gh" data-action="ir" data-arg="revisao">Voltar à revisão</button></div></div>';
 }
 const pdfTx = s => String(s == null ? "" : s).replace(/[^\u0000-ÿ–—•\n]/g, "").replace(/[ \t]+/g, " ").trim();
@@ -280,7 +281,7 @@ async function pdf(){
     let x = 12;
     if(logo){ pdfD.setFillColor(255, 255, 255); pdfD.roundedRect(12, 3.5, 20, 20, 2, 2, "F"); const kk = Math.min(17.2 / logo.w, 17.2 / logo.h); pdfD.addImage(logo.url, "PNG", 12 + (20 - logo.w * kk) / 2, 3.5 + (20 - logo.h * kk) / 2, logo.w * kk, logo.h * kk); x = 37; }
     pdfD.setTextColor(255, 255, 255); pdfD.setFont("helvetica", "bold"); pdfD.setFontSize(14); pdfD.text(pdfTx(escola || "Escola").slice(0, 70), x, 12);
-    pdfD.setFont("helvetica", "normal"); pdfD.setFontSize(9); pdfD.text(pdfTx((m.nome ? "Secretaria Municipal de Educação de " + m.nome + (m.uf ? "/" + m.uf : "") + " · " : "") + "Ano letivo " + ANO), x, 18.5);
+    pdfD.setFont("helvetica", "normal"); pdfD.setFontSize(9); pdfD.text(pdfTx((subtitulo(m, escola) ? subtitulo(m, escola) + " · " : "") + "Ano letivo " + ANO), x, 18.5);
     pdfD.setTextColor(15, 44, 74); pdfD.setFont("helvetica", "bold"); pdfD.setFontSize(15); pdfD.text("Parecer descritivo · " + pdfTx(E.dados.periodo.rotulo), 12, 40);
     pdfD.setFontSize(10); pdfD.setFont("helvetica", "bold"); pdfD.text("Aluno(a): ", 12, 48); pdfD.setFont("helvetica", "normal"); pdfD.text(pdfTx(a.nome), 12 + pdfD.getTextWidth("Aluno(a): "), 48);
     pdfD.setFont("helvetica", "bold"); pdfD.text("Turma: ", 12, 54); pdfD.setFont("helvetica", "normal"); pdfD.text(pdfTx(t.nome || ""), 12 + pdfD.getTextWidth("Turma: "), 54);

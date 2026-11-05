@@ -818,7 +818,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     if (!os.exists || os.data().uid !== uid) throw new HttpsError('not-found', 'Material não encontrado.');
     const o = os.data(), mun = ctx.eu.municipio_id || '';
     if (!TIPOS_REDE.includes(o.tipo)) throw new HttpsError('failed-precondition', 'Parecer e recado aos pais não são compartilhados: eles têm dados de alunos e famílias.');
-    if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede municipal.');
+    if (!mun) throw new HttpsError('failed-precondition', 'Sua conta não está ligada a uma rede de ensino contratante.');
     let escola = '';
     if (ctx.eu.escola_id) { const es = await db.doc(`escolas/${ctx.eu.escola_id}`).get(); escola = es.exists ? txt(es.data().nome, 120) : ''; }
     const redeId = os.id, bucket = getStorage().bucket();

@@ -61,7 +61,7 @@ export function acessoIA(recurso, { admin, geral, rede, user }) {
 export function mensagemAcesso(recurso, motivo) {
   const n = NOMES_IA[recurso] || 'Este recurso de IA';
   if (motivo === 'desligado') return n + ' está desligado no momento.';
-  return 'Sua licença ainda não está habilitada para ' + n + '. Fale com a Secretaria de Educação ou com a NEWPC.';
+  return 'Sua licença ainda não está habilitada para ' + n + '. Fale com a gestão da sua rede ou com a NEWPC.';
 }
 // mapa para a tela (cota): o que cada recurso permite a esta pessoa
 export function mapaAcesso(base) {

@@ -100,7 +100,7 @@ export async function situacao(db, ctx, opc = {}) {
   const pode_imagem = ((rede && rede.imagem) ? rede.restante_mes : 0) + pessoal.saldo >= cc.precos.imagem;
   let motivo = '';
   if (!pode_usar) motivo = !temRede ? (pessoal.saldo ? '' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede. Você também pode comprar créditos avulsos.')
-    : rede.saldo <= 0 ? 'Os créditos da sua rede acabaram. A Secretaria de Educação já foi avisada. Enquanto isso, você pode usar créditos avulsos.'
+    : rede.saldo <= 0 ? 'Os créditos da sua rede acabaram. A gestão da rede já foi avisada. Enquanto isso, você pode usar créditos avulsos.'
     : 'Você chegou ao limite mensal de ' + rede.teto + ' créditos da rede. Ele renova no dia 1º. Enquanto isso, você pode usar créditos avulsos.';
   return { admin: false, plano: ctx.plano, precos: cc.precos, pode_usar, pode_imagem, motivo, rede, pessoal };
 }
@@ -146,7 +146,7 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
     const demo = ctx.eu && ctx.eu.licenca_tipo === 'teste';
     if (demo && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus créditos de demonstração do teste acabaram. Para continuar usando o Portal IA, fale com a gente no WhatsApp (67) 9875-7275 ou compre créditos avulsos no Portal IA.');
     const msg = { plano: (opc.rede === false ? 'Este uso não é pago pela sua rede e você não tem créditos avulsos suficientes.' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede.') + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
-      teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A Secretaria de Educação já foi avisada.' + avulso }[r.erro];
+      teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A gestão da rede já foi avisada.' + avulso }[r.erro];
     throw new HttpsError('resource-exhausted', msg);
   }
   if (r.alerta) await db.collection('creditos_alertas').add({ conta: r.conta, municipio_id: mun, nivel: r.alerta === 'a5' ? cc.alertas[1] : cc.alertas[0], saldo: r.saldo, total: r.total, em: FieldValue.serverTimestamp() });
@@ -192,7 +192,7 @@ export const creditosPedido = onCall({ region: 'southamerica-east1', maxInstance
   let conta, municipio_id = u.municipio_id || '', nomeConta = '';
   if (rede) {
     if (u.perfil === 'admin') municipio_id = txt(d.municipio_id, 64) || municipio_id;
-    else if (u.perfil !== 'secretaria') throw new HttpsError('permission-denied', 'A recarga da rede é pedida pela Secretaria de Educação.');
+    else if (u.perfil !== 'secretaria') throw new HttpsError('permission-denied', 'A recarga da rede é pedida pela gestão da rede (Secretaria de Educação ou direção).');
     if (!municipio_id) throw new HttpsError('failed-precondition', 'Conta sem município.');
     const m = await db.doc(`municipios/${municipio_id}`).get(); if (!m.exists) throw new HttpsError('not-found', 'Município não encontrado.');
     conta = 'mun_' + municipio_id; nomeConta = (m.data().nome || '') + (m.data().uf ? '/' + m.data().uf : '');
