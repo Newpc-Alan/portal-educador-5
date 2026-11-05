@@ -223,6 +223,63 @@ async function turmasExtra() {
   aviso(`TURMAS EXTRAS: ${n} documentos. 7º Ano A (20 alunos, sem grade) e 9º Ano A (20 alunos, grade: Ciências com ${prof ? prof.data().nome || 'prof.ciencias' : 'NINGUÉM (conta prof.ciencias não encontrada)'}).`);
 }
 
+// Mais alunos para situações adversas (nov/2026): +10 no 7º e no 9º Ano A, e duas turmas novas com 10 cada:
+// 5º Ano A (grade: Língua Portuguesa, prof.portugues) e 8º Ano A (grade: Matemática, prof.matematica).
+// Cada lote de 10 traz os mesmos casos difíceis, na mesma posição:
+//   1 nome social | 2 nome muito longo | 3 apóstrofo e acentos | 4 e 5 homônimos na mesma turma (só a matrícula difere)
+//   6 família sem nenhum contato | 7 ficha incompleta | 8 fora da idade-série (2 anos mais velho) | 9 e 10 comuns
+// Não apaga nem altera nada que já existe; rodar de novo só regrava os mesmos documentos.
+const CASOS = [
+  { nome: 'Gabriel Henrique Moura', social: 'Gabriela Moura', caso: 'nome social' },
+  { nome: 'Maria Eduarda Vitória dos Santos Albuquerque de Vasconcelos Pereira', caso: 'nome muito longo' },
+  { nome: "João D'Ávila Conceição", caso: 'apóstrofo e acentos' },
+  { nome: 'Lucas Oliveira Santos', caso: 'homônimo 1' },
+  { nome: 'Lucas Oliveira Santos', caso: 'homônimo 2' },
+  { nome: 'Kevin Rodrigues Paz', caso: 'família sem contato', semContato: true },
+  { nome: 'Yasmin Prado Lopes', caso: 'ficha incompleta', incompleta: true },
+  { nome: 'Wesley Cardoso Lima', caso: 'fora da idade-série', atraso: 2 },
+  { nome: 'Lorena Bastos Reis', caso: 'comum' },
+  { nome: 'Murilo Santana Prado', caso: 'comum' }
+];
+async function maisAlunos() {
+  const agora = Timestamp.now(), docs = [], conta = async e => (await db.collection('usuarios').where('email', '==', e).limit(1).get()).docs[0];
+  const port = await conta('prof.portugues@portaldoeducador.com.br'), mat = await conta('prof.matematica@portaldoeducador.com.br');
+  const g = (u, disc, dias) => u ? [{ professor_uid: u.id, professor_nome: String(u.data().nome || disc).slice(0, 80), disciplina: disc, dias, aulas: 2 }] : [];
+  const novas = [
+    { id: 'lab-t5a', nome: '5º Ano A', cod: '5', grade: g(port, 'Língua Portuguesa', [1, 3]) },
+    { id: 'lab-t8a', nome: '8º Ano A', cod: '8', grade: g(mat, 'Matemática', [2, 4]) }
+  ];
+  for (const t of novas) docs.push([db.doc(`turmas/${t.id}`), { nome: t.nome, etapa: t.nome.replace(' A', ''), turma_letra: 'A', escola_id: ESC, escola_nome: ESC_NOME, municipio_id: MUNI,
+    municipio_nome: MUNI_NOME, ano_serie: t.cod, turno: 'Vespertino', ano_letivo: ANO, status: 'ativa', criado_por: 'lab', criado_em: agora, lab: true,
+    grade: t.grade, grade_chaves: t.grade.map(x => x.professor_uid + '|' + x.disciplina), grade_em: agora, grade_por: 'lab', grade_por_nome: 'Laboratório' }]);
+  // pref e início: os ids e matrículas continuam de onde cada turma parou
+  const lotes = [
+    { tid: 'lab-t5a', tnome: '5º Ano A', pref: 'lab-d', ini: 1, nasc: 2015, mat: 5001 },
+    { tid: 'lab-t7a', tnome: '7º Ano A', pref: 'lab-b', ini: 21, nasc: 2013, mat: 2021 },
+    { tid: 'lab-t8a', tnome: '8º Ano A', pref: 'lab-e', ini: 1, nasc: 2012, mat: 6001 },
+    { tid: 'lab-t9a', tnome: '9º Ano A', pref: 'lab-c', ini: 21, nasc: 2011, mat: 3021 }
+  ];
+  for (const l of lotes) CASOS.forEach((c, i) => {
+    const id = `${l.pref}${p2(l.ini + i)}`, sob = c.nome.split(' ').slice(-1)[0], ano = l.nasc - (c.atraso || 0);
+    const comum = { aluno_id: id, aluno_nome: c.nome, escola_id: ESC, municipio_id: MUNI, atualizado_em: agora, atualizado_por: 'lab', atualizado_por_nome: 'Laboratório' };
+    docs.push([db.doc(`alunos/${id}`), { nome: c.nome, nome_social: c.social || '', matricula: '2026' + String(l.mat + i), inep_aluno: '', email: '',
+      nascimento: ano + '-' + p2(1 + Math.floor(rnd() * 12)) + '-' + p2(1 + Math.floor(rnd() * 28)), situacao: 'cursando', turma_id: l.tid, turma_nome: l.tnome,
+      escola_id: ESC, escola_nome: ESC_NOME, municipio_id: MUNI, municipio_nome: MUNI_NOME, ano_letivo: ANO, status: 'ativo', alertas: [], ficha_pct: c.incompleta ? 30 : 90, foto: '',
+      origem: 'lab', caso_lab: c.caso, criado_em: agora, criado_por: 'lab', atualizado_em: agora, atualizado_por: 'lab' }]);
+    docs.push([db.doc(`alunos_ficha/${id}`), { ...comum, sexo: /a$/.test((c.social || c.nome).split(' ')[0]) ? 'F' : 'M', naturalidade: c.incompleta ? '' : 'Campo Grande/MS',
+      cpf: '', nis: '', sus: '', certidao: '',
+      endereco: c.incompleta ? { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '', zona: '' }
+        : { cep: '', rua: 'Rua do Laboratório', numero: String(200 + i * 3), complemento: '', bairro: um(BAIRROS), cidade: 'Campo Grande', uf: 'MS', zona: 'urbana' },
+      transporte: { usa: false, poder: '', rota: '', ponto: '' }, vida: { escola_anterior: c.incompleta ? '' : 'Escola Laboratório NEWPC', origem: 'municipal', ano_escola: 2020, ano_rede: 2020, obs: '' },
+      programas: { bolsa_familia: false, bpc: false, outros: '' }, documentos: [], obs: 'Aluno fictício do laboratório NEWPC (caso: ' + c.caso + ').', origem: 'lab', saude_revisada: false }]);
+    docs.push([db.doc(`alunos_familia/${id}`), { ...comum, turma_id: l.tid, turma_nome: l.tnome, aceita_avisos: !c.semContato, obs: '', origem: 'lab',
+      responsaveis: c.semContato ? [{ nome: um(MAES) + ' ' + sob, parentesco: 'Mãe', whatsapp: '', email: '', principal: true }]
+        : [{ nome: um(MAES) + ' ' + sob, parentesco: 'Mãe', whatsapp: '', email: FAMILIA_EMAIL, principal: true }] }]);
+  });
+  const n = await gravar(docs);
+  aviso(`MAIS ALUNOS: ${n} documentos. 5º Ano A novo (10, grade Língua Portuguesa com ${port ? port.data().nome || 'prof.portugues' : 'NINGUÉM'}), 8º Ano A novo (10, grade Matemática com ${mat ? mat.data().nome || 'prof.matematica' : 'NINGUÉM'}), +10 no 7º Ano A e +10 no 9º Ano A. Casos: ${CASOS.map(c => c.caso).join(', ')}.`);
+}
+
 async function apagar() {
   const porMuni = async c => { let t = 0; for (;;) { const s = await db.collection(c).where('municipio_id', '==', MUNI).limit(400).get(); if (s.empty) break; const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); await b.commit(); t += s.size; } return t; };
   const porPrefixo = async c => { let t = 0; for (;;) { const s = await db.collection(c).orderBy(FieldPath.documentId()).startAt('lab-').endAt('lab-').limit(400).get(); if (s.empty) break; const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); await b.commit(); t += s.size; } return t; };
@@ -247,5 +304,6 @@ else if (cmd === '--criar') await criar();
 else if (cmd === '--historico') await historico();
 else if (cmd === '--apagar') await apagar();
 else if (cmd === '--turmas-extra') await turmasExtra();
+else if (cmd === '--mais-alunos') await maisAlunos();
 else { console.log('Use --diagnostico, --criar, --historico ou --apagar'); process.exit(1); }
 
