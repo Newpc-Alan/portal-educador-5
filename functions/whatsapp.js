@@ -18,6 +18,7 @@
 //   bot_conhecimento/{id}                 trechos dos manuais (titulo, texto) que o robô usa para responder
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -25,7 +26,8 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 import { expiraAuditoria } from './auditoria.js';
-import { MODELOS_WA, MODELO_ALERTA_WA, RODAPE_WA, preencherWA, URL_ENTRAR } from './comunicacoes.js';
+const msTs = x => x && x.toMillis ? x.toMillis() : 0;
+import { MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA, RODAPE_WA, preencherWA, URL_ENTRAR } from './comunicacoes.js';
 
 const REGIAO = 'southamerica-east1';
 const TOKEN = defineSecret('WHATSAPP_TOKEN');
@@ -583,16 +585,39 @@ export const whatsappTesteModelos = onCall({ region: REGIAO, secrets: [TOKEN], m
     if (t > ult) { ult = t; waId = v; } }
   if (!waId || Date.now() - ult > 24 * 3600e3) throw new HttpsError('failed-precondition', 'Mande um "oi" deste WhatsApp para o número do Portal e toque de novo. Sem modelo aprovado, a Meta só deixa enviar até 24 h depois da sua última mensagem.');
   let n = 0;
-  for (const m of MODELOS_WA) {
+  for (const m of [MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA]) {
     await enviar(cfg, waId, { type: 'interactive', interactive: { type: 'cta_url', header: { type: 'text', text: 'Portal do Educador' },
       body: { text: txt(preencherWA(m.corpo, m.exemplo), 1000) }, footer: { text: txt('Teste: ' + m.nome, 60) },
-      action: { name: 'cta_url', parameters: { display_text: 'Entrar no Portal', url: URL_ENTRAR } } } });
+      action: { name: 'cta_url', parameters: { display_text: m.botao || 'Entrar no Portal', url: m.url || URL_ENTRAR } } } });
     n++; await new Promise(r => setTimeout(r, 700));
   }
   const ref = db.doc('wa_conversas/' + waId);
   await guardar(ref, 'equipe', '[teste dos ' + n + ' modelos de aviso automático]', { autor_uid: req.auth.uid, autor_nome: txt(String(u.nome || '').split(' ')[0], 30) });
   await auditar(db, waId, 'Teste dos modelos de aviso automático enviado por ' + txt(u.nome || '', 60) + ' (' + n + ' mensagens)');
   return { enviados: n, final: waId.slice(-4) };
+});
+// boas-vindas automáticas no WhatsApp (nov/2026): todo cadastro novo (professor, gestão, equipe) com WhatsApp recebe o modelo
+// pde_boas_vindas. Sem o modelo aprovado ainda, fica "aguardando" e a rotina tenta de novo por até 3 dias (1 vez por hora).
+async function boasVindasWA(db, cfg, uid, u, ref) {
+  const vs = variantes(u.whatsapp), para = vs.find(x => x.startsWith('55') && x.length === 13) || vs.find(x => x.startsWith('55'));
+  if (!para) { await ref.set({ status: 'sem_numero' }, { merge: true }); return; }
+  try {
+    await enviar(cfg, para, { type: 'template', template: { name: MODELO_BOAS_VINDAS_WA.nome, language: { code: 'pt_BR' },
+      components: [{ type: 'body', parameters: [{ type: 'text', text: txt(String(u.nome || 'professor(a)').trim().split(/\s+/)[0], 40) }] }] } });
+    await ref.set({ status: 'enviado', enviado_em: FieldValue.serverTimestamp() }, { merge: true });
+  } catch (e) {
+    await ref.set({ status: 'aguardando', erro: txt(e.message, 200), tentativas: FieldValue.increment(1), proxima_em: Timestamp.fromMillis(Date.now() + 3600e3) }, { merge: true });
+  }
+}
+export const whatsappBoasVindas = onDocumentWritten({ document: 'usuarios/{uid}', region: REGIAO, secrets: [TOKEN], maxInstances: 5 }, async ev => {
+  const a = ev.data.before.exists ? ev.data.before.data() : null, d = ev.data.after.exists ? ev.data.after.data() : null;
+  if (!d || !d.whatsapp || (a && a.whatsapp) || d.perfil === 'aluno' || d.municipio_id === 'lab-muni' || String(d.email || '').endsWith('@portaldoeducador.com.br')) return;
+  if (a && msTs(a.criado_em) && Date.now() - msTs(a.criado_em) > 7 * 864e5) return;   // só cadastro novo (não quem só acrescentou o número depois)
+  const db = getFirestore(), cfg = await config(db); if (!cfg.ligado || !cfg.phone_number_id) return;
+  const ref = db.doc('comunicacoes/' + ev.params.uid + '_wa_boas_vindas');
+  try { await ref.create({ uid: ev.params.uid, momento: 'cadastro', canal: 'whatsapp', status: 'enviando', em: FieldValue.serverTimestamp(), expira_em: Timestamp.fromMillis(Date.now() + 400 * 864e5) }); }
+  catch (e) { return; }   // já foi
+  await boasVindasWA(db, cfg, ev.params.uid, d, ref);
 });
 // modelos de mensagem na Meta (só administrador): lista a situação e cadastra os que faltam, com o mesmo texto do Portal
 async function wabaDe(db, cfg) {
@@ -615,7 +640,7 @@ function corpoModelo(m) {
 }
 export const whatsappModelos = onCall({ region: REGIAO, secrets: [TOKEN], maxInstances: 2, timeoutSeconds: 120 }, async req => {
   const u = await souAdmin(req), db = getFirestore(), cfg = (await db.doc('wa_config/geral').get()).data() || {};
-  const waba = await wabaDe(db, cfg), todos = [...MODELOS_WA, MODELO_ALERTA_WA];
+  const waba = await wabaDe(db, cfg), todos = [MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA];
   const lista = async () => {
     const r = await fetch(GRAPH + waba + '/message_templates?fields=name,status,category,rejected_reason&limit=200', { headers: { Authorization: 'Bearer ' + TOKEN.value() } });
     const j = await r.json().catch(() => ({}));
@@ -704,6 +729,18 @@ export const whatsappEquipe = onCall({ region: REGIAO, maxInstances: 3, timeoutS
 // Tempos em wa_config/geral (minutos): sla_min (10) sem resposta humana → passa para o próximo do setor (até 2 vezes) e avisa todos;
 // fim_humano_min (120) sem a pessoa responder depois da equipe → encerra com pesquisa; fim_robo_min (30) conversa com o robô parada → volta ao menu.
 export const whatsappRotina = onSchedule({ region: REGIAO, schedule: 'every 5 minutes', timeZone: 'America/Campo_Grande', secrets: [TOKEN, SMTP_SENHA], timeoutSeconds: 120, memory: '256MiB' }, async () => {
+  // boas-vindas que esperavam o modelo ser aprovado: nova tentativa de hora em hora, por até 3 dias
+  try {
+    const db0 = getFirestore(), cfg0 = await config(db0);
+    if (cfg0.ligado && cfg0.phone_number_id) {
+      const pend = await db0.collection('comunicacoes').where('status', '==', 'aguardando').where('proxima_em', '<=', Timestamp.now()).limit(10).get();
+      for (const doc of pend.docs) { const c = doc.data();
+        if (c.canal !== 'whatsapp' || msTs(c.em) < Date.now() - 3 * 864e5) { await doc.ref.set({ status: 'desistiu' }, { merge: true }); continue; }
+        const u = (await db0.doc('usuarios/' + c.uid).get()).data(); if (!u) { await doc.ref.set({ status: 'desistiu' }, { merge: true }); continue; }
+        await boasVindasWA(db0, cfg0, c.uid, u, doc.ref); }
+    }
+  } catch (e) { console.warn('whatsapp: boas-vindas pendentes', e.message); }
+
   const db = getFirestore(), cfg = (await db.doc('wa_config/geral').get()).data() || {};
   if (!cfg.ligado || !cfg.phone_number_id) return;
   const agora = Date.now(), ms = t => (t && t.toMillis ? t.toMillis() : 0);

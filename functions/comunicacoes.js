@@ -156,6 +156,8 @@ export const MODELOS_WA = [
   { nome: 'pde_plano_alterado', momento: 'plano', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Seu plano do Portal do Educador mudou de {{2}} para {{3}}. Entre no Portal para conhecer os recursos do seu novo plano.', exemplo: ['Maria', 'Básico', 'Completo'] },
   { nome: 'pde_boas_vindas_rede', momento: 'rede', categoria: 'UTILITY', corpo: 'Olá, {{1}}! A Prefeitura Municipal de {{2}}, por meio da Secretaria Municipal de Educação, liberou para você o Portal do Educador, em parceria com a NEWPC Tecnologia. Entre com o e-mail {{3}} e confira suas turmas em Minhas Turmas.', exemplo: ['Maria', 'São Gabriel do Oeste/MS', 'maria@gmail.com'] }
 ];
+// boas-vindas universal no WhatsApp (nov/2026): todo cadastro novo com WhatsApp recebe, sem ninguém da equipe tocar
+export const MODELO_BOAS_VINDAS_WA = { nome: 'pde_boas_vindas', momento: 'cadastro', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Recebemos o seu cadastro no Portal do Educador. Entre com o e-mail que você cadastrou e conheça tudo o que preparamos para a sua aula. Qualquer dúvida, é só responder esta mensagem.', exemplo: ['Maria'] };
 // aviso para a equipe de atendimento (Alan, Leonardo...): {{1}} quem, {{2}} a situação
 export const MODELO_ALERTA_WA = { nome: 'pde_alerta_atendimento', momento: 'equipe', categoria: 'UTILITY', corpo: '🔔 Atendimento do Portal do Educador: {{1}} {{2}}. Toque no botão para abrir a conversa.', exemplo: ['Maria (São Gabriel do Oeste/MS)', 'precisa de um atendente (Suporte)'], rodape: 'Aviso para a equipe', botao: 'Abrir o atendimento', url: SITE + '/atendimento/' };
 export const preencherWA = (corpo, vals) => corpo.replace(/\{\{(\d+)\}\}/g, (_, n) => String(vals[Number(n) - 1] ?? ''));
