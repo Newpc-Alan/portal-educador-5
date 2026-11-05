@@ -50,7 +50,7 @@ button{cursor:pointer}
 .cab{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .destaque{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:18px 22px;border-radius:16px;margin-bottom:16px;color:#fff;
   background:radial-gradient(500px 180px at 0% 0%,rgba(141,198,63,.28),transparent 60%),linear-gradient(135deg,#0c2338,#1b4a74)}
-.destaque-ico{font-size:34px}.destaque-txt{flex:1;min-width:220px}.destaque-txt b{font-size:1.06rem;display:block}.destaque-txt span{font-size:.86rem;color:rgba(255,255,255,.82)}
+.destaque-ico{font-size:34px}.destaque-txt{flex:1;min-width:220px}.destaque-txt > b{font-size:1.06rem;display:block}.destaque-txt span b{color:#fff}.destaque-txt span{font-size:.86rem;color:rgba(255,255,255,.82)}
 
 .telas{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
 .tela{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
@@ -132,6 +132,7 @@ button{cursor:pointer}
   <header class="topo">
     <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Aplicativos Úteis</small><b>Portal do Educador TV</b><span id="quem">Carregando...</span></div></div>
     <nav class="topo-acoes" aria-label="Seções">
+      <select class="sel-escola" id="selMuni" aria-label="Município" hidden></select>
       <select class="sel-escola" id="selEscola" aria-label="Escola" hidden></select>
       <button class="tb on" data-action="ir" data-arg="telas">📺 Telas</button>
       <button class="tb" data-action="ir" data-arg="playlists">🎞️ Playlists</button>
@@ -182,8 +183,25 @@ async function carregarEscolas(){
   E.escolas = lista;
   const salva = (() => { try{ return localStorage.getItem("pde_tv_escola_" + E.user.uid) || ""; }catch(e){ return ""; } })();
   E.escolaId = (lista.find(x => x.id === salva) || lista[0] || {}).id || "";
+  // mais de um município (administrador): primeiro escolhe o município, depois a escola dele
+  const munIds = [...new Set(lista.map(x => x.municipio_id || ""))];
+  E.munNomes = {};
+  if(munIds.length > 1){
+    lista.forEach(x => { if(x.municipio_id && x.municipio_nome) E.munNomes[x.municipio_id] = x.municipio_nome + (x.municipio_uf ? "/" + x.municipio_uf : ""); });
+    try{ (await getDocs(collection(db, "municipios"))).forEach(d => { const m = d.data(); if(m.nome) E.munNomes[d.id] = m.nome + (m.uf ? "/" + m.uf : ""); }); }catch(e){}
+    const nomeM = id => id ? (E.munNomes[id] || id) : "Sem município";
+    const ord = munIds.sort((a, b) => nomeM(a).localeCompare(nomeM(b), "pt-BR")), atual = (lista.find(x => x.id === E.escolaId) || {}).municipio_id || "";
+    $("selMuni").innerHTML = ord.map(id => '<option value="' + esc(id) + '"' + (id === atual ? " selected" : "") + ">" + esc(nomeM(id)) + " (" + lista.filter(x => (x.municipio_id || "") === id).length + ")</option>").join("");
+    $("selMuni").hidden = false;
+  }
+  montarSelEscola();
+}
+// lista de escolas do município escolhido (ou todas, quando só há um município)
+function montarSelEscola(){
+  const m = $("selMuni").hidden ? null : $("selMuni").value, lista = E.escolas.filter(x => m === null || (x.municipio_id || "") === m);
+  if(!lista.some(x => x.id === E.escolaId)) E.escolaId = (lista[0] || {}).id || "";
   $("selEscola").innerHTML = lista.map(x => '<option value="' + esc(x.id) + '"' + (x.id === E.escolaId ? " selected" : "") + ">" + esc(x.nome || x.id) + "</option>").join("");
-  $("selEscola").hidden = lista.length < 2;
+  $("selEscola").hidden = lista.length < 2 && $("selMuni").hidden;
 }
 async function trocarEscola(id){
   E.escolaId = id; E.escola = E.escolas.find(x => x.id === id) || null; E.telas = null; E.playlists = null; E.plSel = ""; E.canal = null; E.muni = null;
@@ -654,6 +672,7 @@ document.addEventListener("click", ev => {
 });
 document.addEventListener("change", ev => {
   if(ev.target.id === "selEscola") trocarEscola(ev.target.value);
+  else if(ev.target.id === "selMuni"){ montarSelEscola(); if(E.escolaId) trocarEscola(E.escolaId); }
   else if(ev.target.id === "fArq" || ev.target.id === "aArq"){ const f = ev.target.files[0]; if(f) $("arqNome").textContent = f.name + " · " + (f.size / 1048576).toFixed(1).replace(".", ",") + " MB";
     if(f && E.form && E.form.tipo === "video" && ev.target.id === "fArq"){ const v = document.createElement("video"); v.preload = "metadata"; v.onloadedmetadata = () => { if(isFinite(v.duration) && v.duration > 0) $("fDur").value = Math.min(600, Math.max(4, Math.round(v.duration))); URL.revokeObjectURL(v.src); }; v.src = URL.createObjectURL(f); } }
 });
