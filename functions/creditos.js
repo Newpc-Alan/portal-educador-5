@@ -11,7 +11,7 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE } from './dicas.js';
 
 export const CREDITOS_PADRAO = {
-  precos: { texto: 1, ajuste: 1, imagem: 5 },
+  precos: { texto: 1, ajuste: 1, imagem: 5, avancado: 3 },   // avancado: Aula avançada da Lousa (modelo mais forte)
   teto_padrao: 60,            // créditos da rede por professor por mês (0 = sem teto)
   demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
   // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; também é o teto por professor

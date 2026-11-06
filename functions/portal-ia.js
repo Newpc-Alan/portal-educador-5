@@ -281,7 +281,7 @@ function contarTema(db, d) {
   if (/^(ei|ef[1-9]|em[1-3])\|[A-Za-zÀ-ú ]{3,30}$/.test(chaveTema) && /^[a-z0-9-]{3,60}$/.test(idTema))
     db.doc('temas_populares/' + chaveTema.replace('|', '__').replace(/ /g, '_')).set({ [idTema]: FieldValue.increment(1) }, { merge: true }).catch(() => {});
 }
-export const TIPOS_SLIDE = ['topicos', 'conceito', 'curiosidade', 'dado', 'linha_tempo', 'passos', 'comparacao', 'mapa', 'quiz', 'atividade', 'resumo'];
+export const TIPOS_SLIDE = ['topicos', 'conceito', 'curiosidade', 'dado', 'numeros', 'tabela', 'calculo', 'linha_tempo', 'passos', 'comparacao', 'mapa', 'quiz', 'atividade', 'resumo'];
 export const ESQUEMA_AULA = {
   type: 'OBJECT',
   properties: {
@@ -296,6 +296,9 @@ export const ESQUEMA_AULA = {
         'conceito: definição precisa em "destaque", "explicacao" do porquê/como funciona, um "exemplo" do cotidiano brasileiro e, se houver, o "erro_comum" que alunos costumam cometer. ' +
         'curiosidade: um fato surpreendente e verdadeiro em "destaque" e a "explicacao" do porquê. ' +
         'dado: um número marcante e verificável em "numero" (ex.: "70%", "1,5 milhão", "1500"), o que ele significa em "legenda" e a "explicacao". Só use dado que você tem certeza. ' +
+        'numeros: 2 a 4 valores grandes lado a lado em "numeros" (valor, rotulo, detalhe), para proporções, resultados e comparações numéricas (ex.: 25% · 50% · 25%). ' +
+        'tabela: quadro em "cabecalho" (títulos das colunas) e "linhas" (cada uma com "celulas" na ordem das colunas); use para quadro de Punnett, tabela de dados, classificação, tabuada, frequência. ' +
+        'calculo: o problema em "destaque", a resolução em "calculo" (2 a 5 etapas, cada uma com a "conta" armada e o que ela faz em "explica") e a resposta final em "resultado". Use SEMPRE que a aula envolver conta. ' +
         'linha_tempo: 3 a 5 "itens" com rotulo = data ou período e texto = o que aconteceu e por que importa. ' +
         'passos: 3 a 5 etapas em "topicos", cada uma com o que fazer e por quê. ' +
         'comparacao: 2 "colunas" com titulo e 3 itens cada, comparando as mesmas características. ' +
@@ -316,6 +319,11 @@ export const ESQUEMA_AULA = {
       correta: { type: 'INTEGER', description: 'Em quiz: posição da alternativa correta (0 a 3).' },
       resposta: S('Em quiz e atividade: a resposta com a justificativa (até 220 caracteres).'),
       itens: { type: 'ARRAY', items: { type: 'OBJECT', properties: { rotulo: S('Data ou período curto'), texto: S('O que aconteceu e por que importa, até 120 caracteres') }, required: ['rotulo', 'texto'] } },
+      numeros: { type: 'ARRAY', description: 'Em numeros: 2 a 4 valores lado a lado.', items: { type: 'OBJECT', properties: { valor: S('Valor curto, até 10 caracteres (ex.: "25%", "1/4", "3:1", "R$ 1.331")'), rotulo: S('O que o valor representa, até 40 caracteres'), detalhe: S('Complemento opcional, até 60 caracteres (ex.: "1/4 = 25%")') }, required: ['valor', 'rotulo'] } },
+      cabecalho: AS('Em tabela: títulos das colunas (2 a 5), curtos. A primeira pode ficar vazia (ex.: canto do quadro de Punnett).'),
+      linhas: { type: 'ARRAY', description: 'Em tabela: 2 a 6 linhas.', items: { type: 'OBJECT', properties: { celulas: AS('Células da linha, na ordem das colunas, curtas (até 40 caracteres cada)') }, required: ['celulas'] } },
+      calculo: { type: 'ARRAY', description: 'Em calculo: 2 a 5 etapas, na ordem da resolução.', items: { type: 'OBJECT', properties: { conta: S('A conta armada desta etapa, só números e sinais (ex.: "1/2 × 1/4 = 1/8 = 12,5%" ou "1.000 × 1,1 = 1.100"). Refaça a conta antes de escrever.'), explica: S('O que esta etapa faz, numa frase curta (até 90 caracteres).') }, required: ['conta'] } },
+      resultado: S('Em calculo: a resposta final, curta (ex.: "1/8 = 12,5%").'),
       colunas: { type: 'ARRAY', items: { type: 'OBJECT', properties: { titulo: S('Título da coluna'), itens: AS('3 itens, até 90 caracteres cada') }, required: ['titulo', 'itens'] } },
       pergunta: S('Uma pergunta aberta para o professor fazer à turma, que faça pensar (até 130 caracteres). Pode ficar vazia.'),
       roteiro: S('O que o professor fala ou faz neste slide, em até 2 frases curtas.'),
@@ -345,7 +353,9 @@ export function estiloIlustracao(escolha, etapa) {
 }
 // limpa e confere a aula devolvida pela IA (cada formato precisa do seu conteúdo; senão vira lista de tópicos)
 export function paraAula(j, qtd) {
-  const c = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  // a IA às vezes devolve o nome do campo no lugar do texto ("destaque"): isso vira vazio
+  const VAZIO = /^(destaque|explica[cç][aã]o|explica|exemplo|erro[_ ]comum|t[oó]picos?|legenda|resposta|t[ií]tulo|pergunta|roteiro|n[uú]mero|texto|conta|resultado|r[oó]tulo|valor|detalhe|vazio|null|undefined|n\/a|-)$/i;
+  const c = (v, n) => { const t = String(v || '').replace(/\s+/g, ' ').trim(); return VAZIO.test(t) ? '' : t.slice(0, n); };
   const lista = (v, n, m) => (Array.isArray(v) ? v : []).map(t => c(t, m).replace(/^[-•*\d.)\s]+/, '')).filter(Boolean).slice(0, n);
   const slides = (Array.isArray(j && j.slides) ? j.slides : []).map(x => {
     x = x || {};
@@ -356,13 +366,20 @@ export function paraAula(j, qtd) {
       resposta: c(x.resposta, 260), pergunta: c(x.pergunta, 150), roteiro: c(x.roteiro, 240), aprofundamento: c(x.aprofundamento, 800),
       minutos: Number(x.minutos) > 0 ? Math.min(10, Math.max(1, Math.round(Number(x.minutos)))) : 0, ilustracao: c(x.ilustracao, 300),
       itens: (Array.isArray(x.itens) ? x.itens : []).map(i => ({ rotulo: c(i && i.rotulo, 30), texto: c(i && i.texto, 140) })).filter(i => i.rotulo && i.texto).slice(0, 5),
-      colunas: (Array.isArray(x.colunas) ? x.colunas : []).map(k => ({ titulo: c(k && k.titulo, 40), itens: lista(k && k.itens, 4, 110) })).filter(k => k.titulo && k.itens.length).slice(0, 2) };
+      colunas: (Array.isArray(x.colunas) ? x.colunas : []).map(k => ({ titulo: c(k && k.titulo, 40), itens: lista(k && k.itens, 4, 110) })).filter(k => k.titulo && k.itens.length).slice(0, 2),
+      numeros: (Array.isArray(x.numeros) ? x.numeros : []).map(n => ({ valor: c(n && n.valor, 14), rotulo: c(n && n.rotulo, 60), detalhe: c(n && n.detalhe, 90) })).filter(n => n.valor && n.rotulo).slice(0, 4),
+      cabecalho: (Array.isArray(x.cabecalho) ? x.cabecalho : []).slice(0, 5).map(t => c(t, 50)),
+      linhas: (Array.isArray(x.linhas) ? x.linhas : []).map(l => (Array.isArray(l && l.celulas) ? l.celulas : []).slice(0, 5).map(t => c(t, 60))).filter(l => l.some(Boolean)).slice(0, 7),
+      calculo: (Array.isArray(x.calculo) ? x.calculo : []).map(e => ({ conta: c(e && e.conta, 140), explica: c(e && e.explica, 130) })).filter(e => e.conta).slice(0, 5),
+      resultado: c(x.resultado, 70) };
     const ok = { topicos: sl.topicos.length, passos: sl.topicos.length >= 2, resumo: sl.topicos.length >= 2, mapa: sl.topicos.length >= 3, conceito: !!sl.destaque, curiosidade: !!sl.destaque,
       atividade: !!sl.destaque, dado: !!(sl.numero && sl.legenda), quiz: !!sl.destaque && sl.alternativas.length === 4 && sl.correta >= 0,
-      linha_tempo: sl.itens.length >= 2, comparacao: sl.colunas.length === 2 }[sl.tipo];
+      linha_tempo: sl.itens.length >= 2, comparacao: sl.colunas.length === 2, numeros: sl.numeros.length >= 2,
+      tabela: sl.linhas.length >= 1 && Math.max(sl.cabecalho.filter(Boolean).length, ...sl.linhas.map(l => l.length)) >= 2, calculo: sl.calculo.length >= 1 }[sl.tipo];
     if (!ok) {
       const t = sl.topicos.length ? sl.topicos : [sl.destaque, sl.explicacao, sl.exemplo, sl.numero && sl.legenda ? sl.numero + ': ' + sl.legenda : ''].filter(Boolean)
-        .concat(sl.itens.map(i => i.rotulo + ': ' + i.texto)).concat(sl.colunas.flatMap(k => k.itens.map(i => k.titulo + ': ' + i)));
+        .concat(sl.itens.map(i => i.rotulo + ': ' + i.texto)).concat(sl.colunas.flatMap(k => k.itens.map(i => k.titulo + ': ' + i)))
+        .concat(sl.numeros.map(n => n.valor + ': ' + n.rotulo)).concat(sl.linhas.map(l => l.filter(Boolean).join(' · '))).concat(sl.calculo.map(e => e.conta)).concat(sl.resultado ? ['Resposta: ' + sl.resultado] : []);
       sl.tipo = 'topicos'; sl.topicos = t.slice(0, 4);
     }
     return sl;
@@ -370,6 +387,34 @@ export function paraAula(j, qtd) {
   return { titulo: c(j && j.titulo, 80), subtitulo: c(j && j.subtitulo, 130), objetivo: c(j && j.objetivo, 180), bncc: lista(j && j.bncc, 2, 12).filter(b => /^E[IFM]\d{2}[A-Z]{2}\d{2,3}/.test(b)),
     capa_ilustracao: c(j && j.capa_ilustracao, 300), slides };
 }
+// conferência das contas (slides de cálculo e números): cada trecho entre "=" (ou "≈") que for só número tem que dar o mesmo valor
+export function valorConta(t) {
+  let x = String(t || '').replace(/R\$\s*/g, '').replace(/\s+/g, '').replace(/[×xX·∙*]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-');
+  x = x.replace(/(\d)\.(?=\d{3}(?!\d))/g, '$1').replace(/(\d),(\d)/g, '$1.$2').replace(/(\d+(?:\.\d+)?)%/g, '($1/100)').replace(/\^/g, '**');
+  if (!/\d/.test(x) || !/^[\d+\-*/().]+$/.test(x)) return null;
+  try { const v = Function('"use strict";return (' + x + ');')(); return Number.isFinite(v) ? v : null; } catch (e) { return null; }
+}
+export function contaErrada(t) {
+  const partes = String(t || '').split(/(=|≈|≅)/), vals = [];
+  for (let i = 0; i < partes.length; i += 2) { const v = valorConta(partes[i]); if (v !== null) vals.push({ v, aprox: partes[i - 1] && partes[i - 1] !== '=' }); }
+  for (let i = 1; i < vals.length; i++) { const a = vals[0].v, b = vals[i].v, tol = vals[i].aprox ? 0.02 : 0.006;
+    if (Math.abs(a - b) > Math.max(1e-9, tol * Math.max(Math.abs(a), Math.abs(b)))) return true; }
+  return false;
+}
+export function contasErradas(aula) {
+  const out = [];
+  (aula && aula.slides || []).forEach((sl, i) => {
+    const contas = (sl.calculo || []).map(e => e.conta).concat(sl.resultado ? [sl.resultado] : []).concat((sl.numeros || []).map(n => n.detalhe).filter(Boolean));
+    const errada = contas.find(contaErrada); if (errada) out.push({ i, conta: errada });
+  });
+  return out;
+}
+const DENSIDADE = {
+  infantil: 'Pouco texto na tela: uma ideia por slide, frases bem curtas e simples (no máximo umas 20 palavras visíveis por slide).',
+  iniciais: 'Pouco texto na tela: uma ideia por slide, frases curtas (no máximo umas 30 palavras visíveis por slide).',
+  finais: 'Texto na tela objetivo: frases completas e curtas, até umas 50 palavras visíveis por slide, com exemplos concretos.',
+  medio: 'Conteúdo completo e preciso, no nível de vestibular e ENEM: termos técnicos corretos, fórmulas, contas armadas e exemplos; até umas 70 palavras visíveis por slide, bem organizadas em tabela, cálculo ou números lado a lado em vez de parágrafo.'
+};
 export const ESQUEMA_QUESTOES = {
   type: 'OBJECT',
   properties: {
@@ -747,50 +792,79 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const opcUltra = { rede: aUltra.via === 'rede' ? true : aUltra.via === 'admin' ? undefined : false, nome: NOMES_IA.lousa_ia_ultra };
     const tema = txt(d.tema, 300), qtd = Math.min(15, Math.max(3, Math.round(Number(d.qtd) || 6)));
     if (tema.length < 3) throw new HttpsError('invalid-argument', 'Informe o tema da aula.');
-    const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 600);
-    const res = await reservarCreditos(db, ctx, 'texto', opcLousa);
+    const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 1500);
+    // Aula avançada (nov/2026): modelo mais forte do Gemini, para Ensino Médio e revisões; custa mais créditos (precos.avancado)
+    const avancado = d.avancado === true;
+    const res = await reservarCreditos(db, ctx, avancado ? 'avancado' : 'texto', opcLousa);
     const etapa = etapaDaTurma(turma);
+    const MODELOS = avancado ? [ctx.cfg.modelo_avancado || 'gemini-pro-latest', ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : [ctx.cfg.modelo_texto, ...RESERVA_TEXTO];
+    const LIMITE = avancado ? 240000 : qtd > 10 ? 170000 : 85000;
     const sistema = 'Você é um professor experiente e muito bem preparado da rede pública brasileira. Prepare uma aula rica e envolvente para projetar na lousa digital, com conteúdo de verdade, não superficial. ' +
-      'Monte exatamente ' + qtd + ' slides de conteúdo (sem contar a capa), seguindo a sequência: 1) ativação (o que a turma já sabe ou vive, com uma pergunta), 2) problematização ou curiosidade, ' +
-      '3) conceito explicado com o porquê e o como, 4) aprofundamento com exemplos do Brasil, dados reais, causas e consequências, 5) aplicação (quiz para a turma votar ou atividade), 6) síntese no resumo final. ' +
-      'Varie os formatos: conceito para definições, curiosidade ou dado para despertar interesse, linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
-      'Use pelo menos 4 formatos diferentes e inclua 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
-      'O slide é para a turma OLHAR, não para ler: uma ideia por slide, frases curtas e diretas (no máximo umas 25 palavras visíveis por slide, somando tudo), palavras-chave em vez de parágrafos. ' +
-      'O detalhe, o contexto e as explicações longas vão no aprofundamento do professor, que não aparece na tela. ' +
-      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. ' +
+      'Monte EXATAMENTE ' + qtd + ' slides de conteúdo (sem contar a capa): nem um a menos. Sequência: 1) ativação (o que a turma já sabe ou vive, com uma pergunta), 2) problematização ou curiosidade, ' +
+      '3) conceito explicado com o porquê e o como, 4) aprofundamento com exemplos do Brasil, dados reais, causas e consequências, 5) aplicação (quiz para a turma votar e atividade), 6) síntese no resumo final. ' +
+      'Varie os formatos: conceito para definições, curiosidade ou dado para despertar interesse, numeros para comparar valores lado a lado, tabela para quadros e dados organizados, calculo para toda conta (passo a passo), ' +
+      'linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
+      'Use pelo menos 4 formatos diferentes e inclua OBRIGATORIAMENTE 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
+      (DENSIDADE[etapa] || DENSIDADE.finais) + ' O que for explicação longa vai no aprofundamento do professor, que não aparece na tela. ' +
+      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Contas: refaça cada operação antes de escrever; frações e porcentagens juntas quando ajudar (ex.: 1/4 = 25%). ' +
       'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe). ' +
       'A aula se basta: não indique vídeo, filme, site, aplicativo nem material externo (nem "assista", "veja o vídeo", "pesquise no site"), nem no roteiro do professor.\n\n' + REGRAS_GERAIS;
     const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') +
-      '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
+      '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor (siga com atenção): ' + obs : '');
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, aula = null;
+    const diag = { pedidos: qtd, primeira: 0, complementos: 0, quiz_extra: false, contas_corrigidas: 0, contas_erradas: 0, avancado };
+    const soma = x => { if (x) { ent += x.entrada || 0; sai += x.saida || 0; } };
+    // pede à IA só alguns slides para esta aula (completar, acrescentar o quiz ou refazer um slide com conta errada)
+    const pedirSlides = async (instrucao, n) => {
+      const feitos = aula.slides.map((x, k) => (k + 1) + ') ' + x.tipo + ': ' + x.titulo).join('\n');
+      const rc = await geminiJson(chave, MODELOS, sistema, pedido + '\n\nA aula "' + aula.titulo + '" já tem estes slides:\n' + feitos + '\n\n' + instrucao + ' Repita o mesmo título da aula.', ESQUEMA_AULA, 0.6, LIMITE)
+        .catch(e => { console.warn('portal-ia: pedido extra da aula', e.message); return null; });
+      soma(rc);
+      return rc && rc.json ? paraAula({ ...rc.json, titulo: rc.json.titulo || aula.titulo }, n).slides : [];
+    };
+    const antesDoResumo = novos => { const iRes = aula.slides.findIndex(x => x.tipo === 'resumo');
+      if (iRes >= 0 && !novos.some(x => x.tipo === 'resumo')) aula.slides.splice(iRes, 0, ...novos);
+      else { if (iRes >= 0) aula.slides.splice(iRes, 1); aula.slides.push(...novos); } };
     try {
       for (let t = 0; t < 3; t++) {
-        const ordem = t < 2 ? [ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
-        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_AULA, 0.6, qtd > 10 ? 170000 : 85000);
-        ent += r.entrada; sai += r.saida;
+        const ordem = t < 2 ? MODELOS : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
+        r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_AULA, 0.6, LIMITE);
+        soma(r);
         aula = r.json ? paraAula(r.json, qtd) : null;
         prob = !aula ? ['resposta incompleta, ' + (r.fim || 'sem motivo')] : aula.slides.length < Math.min(3, qtd) ? ['poucos slides (' + aula.slides.length + ')'] : !aula.titulo ? ['sem título'] : [];
         if (!prob.length) break;
         console.warn('portal-ia: aula reprovada', prob.join('; '));
       }
-      // veio com menos slides do que o professor pediu: pede só os que faltam, continuando a mesma aula (até 2 vezes)
+      if (aula) diag.primeira = aula.slides.length;
+      // 1) veio com menos slides do que o professor pediu: pede só os que faltam, continuando a mesma aula (até 2 vezes)
       for (let t = 0; !prob.length && aula && aula.slides.length < qtd && t < 2; t++) {
-        const falta = qtd - aula.slides.length, feitos = aula.slides.map((x, k) => (k + 1) + ') ' + x.tipo + ': ' + x.titulo).join('\n');
-        const rc = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + '\n\nA aula "' + aula.titulo + '" já tem estes slides:\n' + feitos +
-          '\n\nCrie APENAS os ' + falta + ' slides que faltam para completar a aula, continuando a mesma sequência (sem repetir conteúdo dos slides acima). Se faltar o resumo final, ele é o último. Devolva no campo slides só esses ' + falta + ' novos; repita o mesmo título da aula.', ESQUEMA_AULA, 0.6, 85000).catch(e => { console.warn('portal-ia: complemento da aula', e.message); return null; });
-        if (!rc) break;
-        ent += rc.entrada; sai += rc.saida;
-        const extra = rc.json ? paraAula({ ...rc.json, titulo: rc.json.titulo || aula.titulo }, falta).slides : [];
+        const falta = qtd - aula.slides.length;
+        const extra = await pedirSlides('Crie APENAS os ' + falta + ' slides que faltam para completar a aula, continuando a mesma sequência (sem repetir conteúdo dos slides acima). Se faltar o resumo final, ele é o último. Devolva no campo slides só esses ' + falta + ' novos.', falta);
         if (!extra.length) continue;
-        // resumo sempre no fim: o que veio antes do resumo antigo entra antes dele
-        const iRes = aula.slides.findIndex(x => x.tipo === 'resumo'), temNovoRes = extra.some(x => x.tipo === 'resumo');
-        if (iRes >= 0 && !temNovoRes) aula.slides.splice(iRes, 0, ...extra); else { if (iRes >= 0 && temNovoRes) aula.slides.splice(iRes, 1); aula.slides.push(...extra); }
-        aula.slides = aula.slides.slice(0, qtd);
+        diag.complementos++; antesDoResumo(extra); aula.slides = aula.slides.slice(0, qtd);
+      }
+      // 2) toda aula tem quiz (é o que a turma vota e o que vai ao vivo para os aparelhos)
+      if (!prob.length && aula && !aula.slides.some(x => x.tipo === 'quiz')) {
+        const qz = (await pedirSlides('A aula ficou sem quiz. Crie APENAS 1 slide do tipo quiz sobre o conteúdo acima (pergunta, 4 alternativas plausíveis, a correta e a resposta explicada).', 1)).filter(x => x.tipo === 'quiz');
+        if (qz.length) {
+          diag.quiz_extra = true; antesDoResumo(qz.slice(0, 1));
+          if (aula.slides.length > qtd) { const k = aula.slides.map(x => x.tipo).lastIndexOf('topicos'); aula.slides.splice(k >= 0 ? k : aula.slides.length - 2, 1); }
+        }
+      }
+      // 3) conferência das contas: slide com conta errada é refeito uma vez; se continuar errado, o professor é avisado
+      if (!prob.length && aula) {
+        for (const e of contasErradas(aula).slice(0, 3)) {
+          const sl = aula.slides[e.i];
+          const novo = (await pedirSlides('O slide ' + (e.i + 1) + ' ("' + sl.titulo + '") tem conta ERRADA: "' + e.conta + '". Refaça APENAS esse slide, do mesmo tipo (' + sl.tipo + '), conferindo cada operação. Devolva no campo slides só esse slide corrigido.', 1))[0];
+          if (novo && !contasErradas({ slides: [novo] }).length) { aula.slides[e.i] = novo; diag.contas_corrigidas++; }
+        }
+        diag.contas_erradas = contasErradas(aula).length;
       }
     } catch (e) { erro = e; }
     // mesmo assim incompleta: entrega o que veio e não cobra (o professor pediu N slides e pagou por N)
     const curta = !erro && !prob.length && aula && aula.slides.length < qtd ? aula.slides.length : 0;
-    if (curta) console.warn('portal-ia: aula com', curta, 'de', qtd, 'slides; crédito devolvido');
+    diag.entregues = aula ? aula.slides.length : 0;
+    console.log('portal-ia: aula da lousa', JSON.stringify({ ...diag, modelo: r && r.modelo, etapa }));
     const falhou = !!erro || prob.length > 0;
     if (falhou || curta) await estornarCreditos(db, res);
     await registrarConsumo(db, ctx, falhou || curta ? null : { ...res, acao: 'aula_lousa' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
@@ -827,8 +901,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       const falhas = feitas.filter(f => f.erro);
       if (falhas.length) aviso = falhas.length === feitas.length ? 'As ilustrações não saíram (' + falhas[0].erro + '). A aula veio só com texto.' : falhas.length + ' ilustração(ões) não saíram; o resto da aula está completo.';
     }
-    if (curta) aviso = 'A IA montou ' + curta + ' dos ' + qtd + ' slides pedidos. Como a aula não veio completa, o crédito do texto foi devolvido.' + (aviso ? ' ' + aviso : '');
-    return { aula, imagens, aviso, cota: await cota() };
+    if (curta) aviso = 'A IA montou ' + curta + ' dos ' + qtd + ' slides pedidos. Como a aula não veio completa, os créditos do texto foram devolvidos.' + (aviso ? ' ' + aviso : '');
+    if (diag.contas_erradas) aviso = 'Confira as contas: ' + (diag.contas_erradas === 1 ? 'um slide de cálculo pode ter conta errada.' : diag.contas_erradas + ' slides de cálculo podem ter conta errada.') + (aviso ? ' ' + aviso : '');
+    return { aula, imagens, aviso, diag, cota: await cota() };
   }
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */

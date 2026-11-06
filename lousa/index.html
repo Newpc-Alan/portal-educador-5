@@ -3744,6 +3744,56 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         objs.push(ret({ left:cx + cl * 0.4, top:num.top + num.height + H * 0.008, width:cl * 0.2, height:Math.max(5, H * 0.007), fill:LIMA, rx:3, ry:3 }), num, lg);
         num.set({ pdeEt:1, pdeNum:1 }); marca([objs[objs.length - 3], lg], { pdeEt:2 });
         if(ex3){ ex3.set({ top:lg.top + lg.height + H * 0.03, pdeEt:3 }); objs.push(ex3); }
+      } else if(tipo === "numeros"){
+        // 2 a 4 valores grandes lado a lado (ex.: 25% · 50% · 25%), cada um entra num toque
+        var nn = sl.numeros.length, gN = W * 0.025, wN = (cl - gN * (nn - 1)) / nn, hN = Math.min(fim - topo, H * 0.5), yN = topo + (fim - topo - hN) / 2;
+        sl.numeros.forEach(function(nu, k){
+          var x = cx + k * (wN + gN), i0 = objs.length, cor = [COR, AZUL, "#b26a00", "#0e7c86"][k % 4];
+          var vv = caber(tb(nu.valor, { left:x + W * 0.01, top:0, width:wN - W * 0.02, fontSize:Math.round(H * (nn > 3 ? 0.1 : 0.13)), fontWeight:"bold", fill:cor, textAlign:"center" }), hN * 0.42, 20);
+          var rr2 = caber(tb(nu.rotulo, { left:x + W * 0.015, top:0, width:wN - W * 0.03, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:AZUL, textAlign:"center" }), hN * 0.22, 11);
+          var dd = nu.detalhe ? caber(tb(nu.detalhe, { left:x + W * 0.015, top:0, width:wN - W * 0.03, fontSize:Math.round(H * 0.028), fill:"#5b6b7b", textAlign:"center" }), hN * 0.2, 9) : null;
+          var hT2 = vv.height + rr2.height + (dd ? dd.height + H * 0.015 : 0) + H * 0.05, y0n = yN + Math.max(H * 0.02, (hN - hT2) / 2);
+          vv.set("top", y0n); rr2.set("top", vv.top + vv.height + H * 0.025); if(dd) dd.set("top", rr2.top + rr2.height + H * 0.012);
+          objs.push(cartao(x, yN, wN, hN, { rx:18, ry:18 }), ret({ left:x, top:yN, width:wN, height:Math.max(8, H * 0.012), fill:cor, rx:4, ry:4 }), vv, rr2); if(dd) objs.push(dd);
+          if(/^\D{0,3}\d[\d.,]*\s*%?\D{0,4}$/.test(nu.valor)) vv.set("pdeNum", 1);
+          marca(objs.slice(i0), { pdeEt:k + 1 });
+        });
+      } else if(tipo === "tabela"){
+        // quadro: cabeçalho colorido e linhas (cada linha entra num toque); a primeira coluna fica destacada quando é rótulo
+        var cab2 = sl.cabecalho.slice(), linhasT = sl.linhas, nc = Math.max(cab2.length, Math.max.apply(null, linhasT.map(function(l){ return l.length; })));
+        while(cab2.length < nc) cab2.push("");
+        var temCab = cab2.some(Boolean), nl = linhasT.length + (temCab ? 1 : 0), gT = Math.max(4, W * 0.005);
+        var hL = Math.min(H * 0.13, (fim - topo - gT * (nl - 1)) / nl), wC = (cl - gT * (nc - 1)) / nc, yT = topo + Math.max(0, (fim - topo - (hL * nl + gT * (nl - 1))) / 2);
+        var rotulo1 = linhasT.every(function(l){ return String(l[0] || "").length <= 14; }) && nc > 2;
+        var celula = function(t, x, y, w, h, fundo, cor, negrito, tam){ var c2 = caber(tb(t || "", { left:x + W * 0.008, top:0, width:w - W * 0.016, fontSize:Math.round(H * tam), fontWeight:negrito ? "bold" : "normal", fill:cor, textAlign:"center" }), h * 0.86, 9);
+          c2.set("top", y + (h - c2.height) / 2); return [ret({ left:x, top:y, width:w, height:h, fill:fundo, rx:10, ry:10, stroke:corClara(COR, 0.18), strokeWidth:1 }), c2]; };
+        var tamT = nc >= 5 ? 0.03 : 0.038;
+        if(temCab) cab2.forEach(function(t, j){ objs = objs.concat(celula(t, cx + j * (wC + gT), yT, wC, hL, t ? COR : "transparent", "#ffffff", true, tamT)); });
+        linhasT.forEach(function(l, k){
+          var y = yT + (k + (temCab ? 1 : 0)) * (hL + gT), i0 = objs.length;
+          for(var j = 0; j < nc; j++){ var lab = j === 0 && rotulo1;
+            objs = objs.concat(celula(l[j] || "", cx + j * (wC + gT), y, wC, hL, lab ? corClara(COR, 0.85) : (k % 2 ? "#f6f9fc" : "#ffffff"), lab ? "#ffffff" : TINTA, lab, tamT)); }
+          marca(objs.slice(i0), { pdeEt:k + 1 });
+        });
+      } else if(tipo === "calculo"){
+        // problema no topo; cada etapa da conta entra num toque (conta grande + o que ela faz); resposta final em destaque
+        var pq = sl.destaque ? caber(tb(sl.destaque, { left:cx + W * 0.02, top:topo + H * 0.018, width:cl - W * 0.04, fontSize:Math.round(H * 0.036), fontWeight:"bold", fill:AZUL }), (fim - topo) * 0.2, 12) : null;
+        var yC = topo;
+        if(pq){ var hP = pq.height + H * 0.036; objs.push(ret({ left:cx, top:topo, width:cl, height:hP, fill:corClara(COR, 0.1), rx:14, ry:14 }), pq); yC = topo + hP + H * 0.025; }
+        var ne = sl.calculo.length + (sl.resultado ? 1 : 0), gE = H * 0.018, hE = Math.min(H * 0.13, (fim - yC - gE * (ne - 1)) / ne);
+        sl.calculo.forEach(function(e, k){
+          var y = yC + k * (hE + gE), i0 = objs.length, r3 = Math.min(hE * 0.3, H * 0.026);
+          objs.push(cartao(cx, y, cl, hE, { rx:14, ry:14 }), circ(cx + W * 0.02 + r3, y + hE / 2, r3, COR), emojiNum(k + 1, cx + W * 0.02 + r3, y + hE / 2, r3 * 0.9));
+          var xc = cx + W * 0.04 + r3 * 2, wc2 = e.explica ? cl * 0.56 : cl - (xc - cx) - W * 0.02;
+          var ct2 = caber(tb(e.conta, { left:xc, top:0, width:wc2, fontSize:Math.round(H * 0.046), fontWeight:"bold", fill:AZUL }), hE * 0.86, 12); ct2.set("top", y + (hE - ct2.height) / 2); objs.push(ct2);
+          if(e.explica){ var ex5 = caber(tb(e.explica, { left:xc + wc2 + W * 0.015, top:0, width:cl - (xc - cx) - wc2 - W * 0.03, fontSize:Math.round(H * 0.028), fill:"#5b6b7b" }), hE * 0.86, 9); ex5.set("top", y + (hE - ex5.height) / 2); objs.push(ex5); }
+          marca(objs.slice(i0), { pdeEt:k + 1 });
+        });
+        if(sl.resultado){
+          var yR2 = yC + sl.calculo.length * (hE + gE), rs = caber(tb("✅  " + sl.resultado, { left:cx + W * 0.03, top:0, width:cl - W * 0.06, fontSize:Math.round(H * 0.05), fontWeight:"bold", fill:"#ffffff", textAlign:"center" }), hE * 0.86, 12);
+          rs.set("top", yR2 + (hE - rs.height) / 2);
+          objs.push(marca([ret({ left:cx + cl * 0.12, top:yR2, width:cl * 0.76, height:hE, fill:grad("#1a6b2a", "#2f8a3e"), rx:hE / 2, ry:hE / 2, shadow:SOMBRA }), rs], { pdeEt:sl.calculo.length + 1 })[0], rs);
+        }
       } else if(tipo === "linha_tempo"){
         var n = sl.itens.length, passo = cl / n, ly = topo + (fim - topo) * 0.5, cardH = (fim - topo) * 0.42;
         objs.push(ret({ left:cx, top:ly - 3, width:cl, height:6, fill:corClara(COR_F, 0.45), rx:3, ry:3 }));
@@ -3756,12 +3806,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             cartao(px - cwd / 2, yCard, cwd, cardH, { rx:12, ry:12 }), rr, tt, circ(px, ly, H * 0.019, COR, { stroke:"#fff", strokeWidth:4 })); marca(objs.slice(-5), { pdeEt:k + 1 });
         });
       } else if(tipo === "passos" && sl.topicos.length <= 4 && !img){
-        var np = sl.topicos.length, gP = W * 0.03, pw = (cl - gP * (np - 1)) / np, ph = fim - topo;
+        var np = sl.topicos.length, gP = W * 0.03, pw = (cl - gP * (np - 1)) / np, ph = fim - topo, rP = H * 0.045;
+        // a altura dos cartões acompanha o texto mais longo (nada de caixa enorme com duas linhas)
+        var txP = sl.topicos.map(function(t){ return caber(tb(t, { left:0, top:0, width:pw - W * 0.024, fontSize:Math.round(H * 0.04), textAlign:"center" }), ph - rP * 2 - H * 0.05, 10); });
+        var hP2 = Math.min(ph - rP, Math.max.apply(null, txP.map(function(x){ return x.height; })) + rP + H * 0.07), topoP = topo + Math.max(0, (ph - rP - hP2) / 2);
         sl.topicos.forEach(function(t, k){
-          var x = cx + k * (pw + gP), r = H * 0.045, i0 = objs.length;
-          objs.push(cartao(x, topo + r, pw, ph - r, { rx:14, ry:14 }), circ(x + pw / 2, topo + r, r, COR, { stroke:"#fff", strokeWidth:4 }), emojiNum(k + 1, x + pw / 2, topo + r, r * 0.9));
-          objs.push(caber(tb(t, { left:x + W * 0.012, top:topo + r * 2 + H * 0.02, width:pw - W * 0.024, fontSize:Math.round(H * 0.034), textAlign:"center" }), ph - r * 2 - H * 0.05, 10));
-          if(k < np - 1) objs.push(tb("➜", { left:x + pw, top:topo + ph / 2, width:gP, fontSize:Math.round(H * 0.04), fill:corClara(COR_F, 0.7), textAlign:"center" }));
+          var x = cx + k * (pw + gP), r = rP, i0 = objs.length;
+          objs.push(cartao(x, topoP + r, pw, hP2, { rx:14, ry:14 }), circ(x + pw / 2, topoP + r, r, COR, { stroke:"#fff", strokeWidth:4 }), emojiNum(k + 1, x + pw / 2, topoP + r, r * 0.9));
+          txP[k].set({ left:x + W * 0.012, top:topoP + r * 2 + H * 0.025 }); objs.push(txP[k]);
+          if(k < np - 1) objs.push(tb("➜", { left:x + pw, top:topoP + r + hP2 / 2 - H * 0.025, width:gP, fontSize:Math.round(H * 0.04), fill:corClara(COR_F, 0.7), textAlign:"center" }));
           marca(objs.slice(i0), { pdeEt:k + 1 });
         });
       } else if(tipo === "comparacao"){
@@ -4217,6 +4270,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
   function apPararVivo(){ if(AP.vivo && AP.vivo.parar) AP.vivo.parar(); AP.vivo = null; var g = document.getElementById("apGrafico"); if(g) g.remove(); }
 
+  // aviso que fica na tela até o professor fechar (créditos devolvidos, conta a conferir)
+  function alertaLousa(t){
+    var a = document.getElementById("lsAlerta");
+    if(!a){ a = document.createElement("div"); a.id = "lsAlerta"; a.setAttribute("role", "alert");
+      a.style.cssText = "position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:30;max-width:min(720px,calc(100% - 32px));background:#fff4dc;color:#5a3d00;border:1px solid #f0c36d;border-radius:12px;padding:10px 44px 10px 14px;font:600 14px 'Segoe UI',Roboto,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.18)";
+      palco.appendChild(a); a.addEventListener("click", function(e){ if(e.target.closest("[data-x]")) a.remove(); }); }
+    a.innerHTML = "⚠️ " + String(t).replace(/</g, "&lt;") + '<button data-x type="button" aria-label="Fechar aviso" style="position:absolute;right:8px;top:6px;border:0;background:none;font-size:20px;cursor:pointer;color:#5a3d00">×</button>';
+  }
   /* ================= PONTE COM A NUVEM (Portal 5.0) ================= */
   window.PDELousa = {
     pacoteImagens: function(semGuia){ return pacoteImagens(!!semGuia); },
@@ -4246,7 +4307,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     nova: function(){ novaAula(); },
     msg: function(t){ msg(t); },
     escolher: function(o){ escolher(o); },
-    apresentar: function(){ apEntrarModo(); }
+    apresentar: function(){ apEntrarModo(); },
+    alerta: function(t){ alertaLousa(t); }
   };
 
   /* ================= init ================= */
@@ -4320,6 +4382,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-d{margin:0;font-size:14px;color:#4b5b6b;line-height:1.45}
   #iaCorpo label{display:grid;gap:5px;font-size:13px;font-weight:700;color:#0f2c4a}
   #iaCorpo label small{font-weight:400;color:#62758a}
+  #iaCorpo textarea{width:100%;box-sizing:border-box;font:inherit;font-weight:400;font-size:15px;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff;resize:vertical;min-height:70px}
+  #iaCorpo .ia-obs-conta{font-weight:400;color:#7b8a99;font-size:11.5px;justify-self:end}
+  #iaCorpo label.ia-avanc{background:#f1ecff;border:1px solid #d9cdfb;border-radius:12px;padding:9px 12px}
   #iaCorpo input, #iaCorpo select{width:100%;box-sizing:border-box;min-width:0;max-width:100%;font:inherit;font-weight:400;font-size:15px;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px;color:#12202e;background:#fff;min-height:44px}
   #iaCorpo input:focus, #iaCorpo select:focus{outline:2px solid #2E9BD6;outline-offset:1px}
   #iaCorpo .ia-2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
@@ -4848,7 +4913,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label>' +
         '<label>Slides<select id="iaQtd">' + [4,5,6,7,8,10,12,15].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label></div>' +
         '<div id="iaSug" class="ia-sug" hidden><div class="ia-sug-top"><span id="iaSugTit" class="ia-rot"></span><small class="ia-sug-dica">Toque em mais de um para juntar na mesma aula.</small><button type="button" class="ia-sug-mais" data-ia="sug-mais" id="iaSugMais" hidden>Ver todos</button></div><div id="iaSugLista" class="ia-sug-lista"></div></div>' +
-        '<label>Observação <small>(opcional)</small><input id="iaObs" maxlength="300" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal"></label>' +
+        '<label>Observação <small>(opcional · o que a aula precisa ter)</small><textarea id="iaObs" maxlength="1500" rows="3" placeholder="Ex.: turma com dificuldade de leitura; use exemplos do Pantanal; inclua um quiz com conta e uma atividade em dupla"></textarea><small id="iaObsConta" class="ia-obs-conta"></small></label>' +
+        '<label class="ia-chk ia-avanc"><input type="checkbox" id="iaAvanc"> <span><b>Aula avançada</b>: IA mais forte, para Ensino Médio e revisão de vestibular e ENEM <small id="iaAvancCusto"></small></span></label>' +
         '<label class="ia-chk"><input type="checkbox" id="iaCred" checked> Incluir no final uma página de créditos com meu nome e escola</label>' +
         '</div><div class="ia-col">' +
         '<div class="ia-tema"><div><span class="ia-rot">Cor da apresentação</span><div class="ia-cores" id="iaCores" role="group" aria-label="Cor da apresentação">' +
@@ -4872,7 +4938,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         if(b.dataset.ia === "sug-mais"){ sugTodas = !sugTodas; pintarSugestoes(); }
         if(b.dataset.ia === "cor"){ temaIA.cor = b.dataset.cor; salvarTemaIA(); pintarTemaIA(); }
         if(b.dataset.ia === "fundo"){ temaIA.fundo = b.dataset.fundo; salvarTemaIA(); pintarTemaIA(); } });
-      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaDisc"].includes(e.target.id)){ sugTodas = false; pintarSugestoes(); } if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); });
+      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaDisc"].includes(e.target.id)){ sugTodas = false; pintarSugestoes(); } if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); if(e.target.id === "iaAvanc") pintarQtdImg(); });
+      bg.addEventListener("input", (e) => { if(e.target.id === "iaObs"){ const n = e.target.value.length; document.getElementById("iaObsConta").textContent = n > 1200 ? n + " / 1500" : ""; } });
       bg.addEventListener("input", (e) => { if(e.target.id === "iaTurma"){ infoEstilo(); pintarSugestoes(); }
         if(e.target.id === "iaTema" && temasSel.length && e.target.value.trim() !== juntaTemas(temasSel.map(t => t.texto))){ temasSel = []; pintarSugestoes(); } });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAulaIA(); } if(e.key === "Enter" && e.target.id === "iaTema") gerarAulaIA(); });
@@ -4981,7 +5048,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const box = document.getElementById("iaQtdImgBox"), ultra = document.getElementById("iaUltra"), btn = document.getElementById("iaGerar"); if(!box) return;
     const ligado = !document.getElementById("iaUltraBox").hidden && ultra.checked;
     box.hidden = !ligado;
-    const pi = ((cotaIA && cotaIA.precos) || {}).imagem || 5, pt = ((cotaIA && cotaIA.precos) || {}).texto || 1;
+    const av = document.getElementById("iaAvanc"), avOn = !!(av && av.checked), pr = (cotaIA && cotaIA.precos) || {};
+    const pi = pr.imagem || 5, pt = avOn ? (pr.avancado || 3) : (pr.texto || 1);
+    const avc = document.getElementById("iaAvancCusto"); if(avc) avc.textContent = "(" + (pr.avancado || 3) + " créditos em vez de " + (pr.texto || 1) + ")";
     document.querySelectorAll("#iaQtdImg .ia-qi").forEach(b => { const n = Number(b.dataset.n); b.setAttribute("aria-pressed", String(n === qtdImgIA)); b.title = n + " × " + pi + " = " + n * pi + " créditos de ilustração"; });
     const total = pt + qtdImgIA * pi;
     document.getElementById("iaCustoImg").innerHTML = "⚠️ Cada ilustração gasta <b>" + pi + " créditos</b>. Esta aula vai usar até <b>" + total + " créditos</b> (" + pt + " da aula + " + qtdImgIA + " × " + pi + "). Ilustração que não sair é devolvida.";
@@ -5003,12 +5072,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const tema = document.getElementById("iaTema").value.trim();
     if(tema.length < 3){ m.textContent = "Escreva o tema da aula."; document.getElementById("iaTema").focus(); return; }
     const ultra = !document.getElementById("iaUltraBox").hidden && document.getElementById("iaUltra").checked;
-    const dados = { acao:"aula_lousa", tema, ultra, imagens:qtdImgIA, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
+    const dados = { acao:"aula_lousa", tema, ultra, avancado:!!(document.getElementById("iaAvanc") && document.getElementById("iaAvanc").checked), imagens:qtdImgIA, estilo:document.getElementById("iaEstilo").value, disciplina:document.getElementById("iaDisc").value, turma:turmaIA(),
       qtd:Number(document.getElementById("iaQtd").value) || 6, obs:document.getElementById("iaObs").value.trim(),
       ...(temasSel.length && juntaTemas(temasSel.map(t => t.texto)) === tema ? { tema_chave:temasSel[0].chave, tema_id:temasSel[0].id } : {}) };
-    if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:ultra ? "até 1 minuto (com ilustrações)" : "uns 20 segundos",
+    if(window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", tempo:dados.avancado ? "de 1 a 3 minutos (aula avançada)" : ultra ? "até 1 minuto (com ilustrações)" : dados.qtd > 10 ? "até 1 minuto" : "uns 20 segundos",
       etapas:["Lendo o tema: " + tema, "Buscando as habilidades da BNCC", "Montando os slides"].concat(ultra ? ["Criando as ilustrações"] : [], ["Revisando a linguagem para a turma", "Arrumando tudo na Lousa"]), passoMs:ultra ? 9000 : 4500 });
-    bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
+    bg.dataset.gerando = "1"; btn.disabled = true; btn.textContent = "Montando a aula..."; m.style.color = "#4b5b6b"; m.textContent = dados.avancado ? "A aula avançada leva de 1 a 3 minutos." : ultra ? "Com ilustrações leva até 1 minuto." : "Isso leva uns 20 segundos.";
     try{
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
       // a página "Para continuar no Portal" saiu (nov/2026): o catálogo de vídeos ainda não cobre todos os temas e a aula indicava vídeo que não tinha a ver
@@ -5020,7 +5089,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       delete bg.dataset.gerando; bg.classList.remove("aberto");
       const cred = document.getElementById("iaCred").checked && perfilIA ? { autor:perfilIA.nome, escola:perfilIA.escola } : null;
       L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma, creditos:cred, imagens, continuar, cor:temaIA.cor, fundo:temaIA.fundo });
-      if(r.aviso) setTimeout(() => L().msg(r.aviso), 2500);
+      if(r.diag) console.info("aula IA:", r.diag);
+      if(r.aviso) setTimeout(() => { L().msg(r.aviso); if(window.PDELousa && PDELousa.alerta) PDELousa.alerta(r.aviso); }, 2500);
     }catch(e){
       console.warn("aula IA:", e.code, e.message);
       m.style.color = "#b3261e"; m.textContent = e.code === "functions/resource-exhausted" || e.code === "functions/failed-precondition" || e.code === "functions/permission-denied" ? (e.message || "Sem créditos para o Portal IA.") : (e.message || "A IA não respondeu agora. Tente de novo.");
