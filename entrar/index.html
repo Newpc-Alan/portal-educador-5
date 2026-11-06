@@ -9772,6 +9772,7 @@
       AV.donoAula = x.por || ""; AV.donoNome = String(x.por_nome || ""); AV.donoDisc = String(x.por_disc || "");
       if(donoAntes !== undefined && AV.donoAula !== donoAntes && AV.donoAula === usuarioAtual.uid) iniciarAulaVivoProf(tid);   // a turma passou a ser minha: religa mãos, respostas e conversa
       acompanharPedido(tid, x);
+      if(x.por === usuarioAtual.uid && AV.aulaFim > Date.now()) pedidoRecebido(tid, x);   // segunda garantia: o painel da aula também mostra quem bateu na porta
       // a turma passou para outro professor com a aula seguindo: quem saiu sai do painel (nov/2026)
       if(donoAntes === usuarioAtual.uid && AV.donoAula && AV.donoAula !== usuarioAtual.uid && AV.aulaFim > Date.now()){ delete TA.aulas[tid]; avisoTurmaPassou(x); fecharAoVivo(); return; }
       if(AV.aulaFim > Date.now() && AV.qrAte !== AV.aulaFim){ AV.qrAte = AV.aulaFim; } else if(AV.aulaFim <= Date.now() && AV.qrAte) AV.qrAte = 0;
@@ -9882,9 +9883,14 @@
     return r;
   }
   // professor: vigia as aulas que ele abriu, em qualquer tela do Portal
-  const TA = { aulas:{}, avisos:{}, relogio:null, unsub:null };
+  const TA = { aulas:{}, avisos:{}, relogio:null, unsub:null, uid:"" };
   function vigiarAulasProf(){
-    if(TA.unsub || !usuarioAtual || usuarioAtual.perfil === "aluno") return;
+    if(!usuarioAtual || usuarioAtual.perfil === "aluno") return;
+    // troca de conta sem recarregar a página (laboratório, aparelho compartilhado): o vigia seguia o professor anterior
+    // e o pedido de "bater na porta" nunca chegava a quem abriu a aula. Agora ele recomeça com a conta nova.
+    if(TA.unsub && TA.uid === usuarioAtual.uid) return;
+    if(TA.unsub){ try{ TA.unsub(); }catch(e){} clearInterval(TA.relogio); TA.aulas = {}; fecharPedidoRecebido(); }
+    TA.uid = usuarioAtual.uid;
     TA.unsub = onSnapshot(query(collection(db, "qr_aulas"), where("por", "==", usuarioAtual.uid)), sn => {
       const antes = TA.aulas; TA.aulas = {}; sn.forEach(d => { const x = d.data(), ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; if(ate > Date.now()){ TA.aulas[d.id] = { ate, nome:x.turma_nome || "turma" }; pedidoRecebido(d.id, x); } });
       if(PR.tid && !TA.aulas[PR.tid]) fecharPedidoRecebido();
@@ -9896,7 +9902,7 @@
           if(AV.tid === tid) return;
           if(x.por && x.por !== usuarioAtual.uid && msAv(x.aberta_ate) > Date.now() && x.troca && x.troca.de_uid === usuarioAtual.uid) avisoTurmaPassou(x); }).catch(() => {}); });
       atualizarCartaoAula(); conferirAulasProf();
-    }, e => console.warn("aulas abertas:", e.code));
+    }, e => { console.warn("aulas abertas:", e.code); TA.unsub = null; TA.uid = ""; clearInterval(TA.relogio); });   // caiu (ex.: saiu da conta): a próxima entrada recomeça
     TA.relogio = setInterval(() => { conferirAulasProf(); atualizarCartaoAula(); }, 15000);
   }
   /* ---------- Versão nova do Portal (nov/2026): página aberta há horas fica com o código antigo; confere a cada 3 min e avisa ---------- */
@@ -9929,9 +9935,13 @@
     }
   }
   // aluno que entrou pelo cartão: sai sozinho quando a aula acaba (aviso 2 minutos antes)
-  const FA = { ate:null, unsub:null, relogio:null, avisou:0 };
+  const FA = { ate:null, unsub:null, relogio:null, avisou:0, uid:"" };
   async function vigiarFimAula(){
-    if(FA.unsub || !auth.currentUser) return;
+    if(!auth.currentUser) return;
+    // mesmo cuidado na troca de aluno no mesmo aparelho: vigia a aula da conta que está entrando agora
+    if(FA.unsub && FA.uid === auth.currentUser.uid) return;
+    if(FA.unsub){ try{ FA.unsub(); }catch(e){} FA.unsub = null; clearInterval(FA.relogio); }
+    FA.uid = auth.currentUser.uid;
     FA.ate = null; FA.avisou = 0;
     let cl = {}; try{ cl = (await auth.currentUser.getIdTokenResult()).claims || {}; }catch(e){}
     if(!cl.via_qr || !cl.turma_id) return;
