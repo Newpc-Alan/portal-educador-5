@@ -16,6 +16,9 @@ const TIPOS = { dica: 'Dica de aula', app: 'Aplicativo ou site', material: 'Mate
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const destinos = () => DESTINO.value().split(',').map(x => x.trim()).filter(Boolean);
 const transporte = () => nodemailer.createTransport({ host: SMTP_HOST.value(), port: 465, secure: true, auth: { user: SMTP_USUARIO.value(), pass: SMTP_SENHA.value() } });
+// alerta avulso da operação (ex.: crédito da IA do Google acabou), para um destinatário escolhido
+export const emailAlerta = (para, assunto, html) => transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: para,
+  subject: String(assunto).replace(/[\r\n]/g, ' ').slice(0, 150), html });
 const tam = b => b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 
 export const emailDicaProfessor = onDocumentCreated(

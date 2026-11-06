@@ -11,7 +11,7 @@ import { getStorage } from 'firebase-admin/storage';
 import { situacao, reservarCreditos, estornarCreditos, registrarConsumo, daRede } from './creditos.js';
 import { feedRede } from './rede-feed.js';
 import { statusAoCompartilhar, avisarModeradores } from './moderacao-rede.js';
-import { SMTP_SENHA } from './dicas.js';
+import { SMTP_SENHA, emailAlerta } from './dicas.js';
 import { exigirRecurso } from './envio-comum.js';
 import { PERFIS_REDE, opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 import { CODIGOS_BNCC } from './bncc-codigos.js';
@@ -179,6 +179,36 @@ const ESQUEMA_ENTENDER = {
   required: ['tipo', 'resumo']
 };
 
+/* ------------------------------------------------------------------ crédito da IA do Google esgotado (nov/2026)
+   O saldo pré-pago do Gemini acabou em 06/11 e ninguém soube: o professor via "tente de novo".
+   Agora o professor recebe a mensagem certa (crédito dele não é descontado: quem chamou estorna no erro)
+   e o Alan recebe um e-mail na hora, no máximo um a cada 6 horas. */
+const ALERTA_CREDITO_PARA = 'alan@newpc.com.br';
+const semCreditoGoogle = (status, j) => status === 402 || /prepayment credits? (are|is) depleted|billing.*(disabled|required)/i.test(JSON.stringify(j || {}));
+async function avisarSemCredito(detalhe) {
+  try {
+    const db = getFirestore(), ref = db.doc('config/alerta_ia'), agora = Date.now();
+    const mandar = await db.runTransaction(async t => {
+      const x = await t.get(ref), ult = (x.exists && x.data().sem_credito_em) || 0;
+      if (agora - ult < 6 * 3600e3) return false;
+      t.set(ref, { sem_credito_em: agora, sem_credito_detalhe: String(detalhe).slice(0, 300) }, { merge: true }); return true;
+    });
+    if (!mandar) return;
+    const hora = new Date(agora).toLocaleString('pt-BR', { timeZone: 'America/Campo_Grande' });
+    await emailAlerta(ALERTA_CREDITO_PARA, '⚠️ IA do Portal parada: crédito do Google acabou',
+      '<div style="font-family:Segoe UI,Arial,sans-serif;max-width:560px;color:#12202e">' +
+      '<div style="background:#b3261e;color:#fff;padding:14px 18px;border-radius:10px 10px 0 0;font-weight:800;font-size:17px">IA do Portal parada: crédito do Google acabou</div>' +
+      '<div style="border:1px solid #e1e7ed;border-top:0;padding:16px 18px;border-radius:0 0 10px 10px">' +
+      '<p>Às <b>' + hora + '</b> o Google recusou a chamada da IA por <b>falta de crédito pré-pago</b>. Enquanto o saldo não for recarregado, Aula IA, Portal IA e Aulas prontas novas não funcionam para nenhum professor.</p>' +
+      '<p>Os professores estão vendo "A IA do Portal está em manutenção" e <b>não perdem créditos</b>.</p>' +
+      '<p><b>Como resolver</b><br>1. Entre em <a href="https://ai.studio/projects">ai.studio/projects</a> com a conta <b>newpc.educador@gmail.com</b>.<br>' +
+      '2. No projeto <b>Portal 5 PRODUCAO - NAO APAGAR</b>, toque em <b>Comprar créditos</b>.<br>3. Se quiser, ligue a recarga automática.</p>' +
+      '<p style="color:#5b6b7b;font-size:13px">Este aviso sai no máximo uma vez a cada 6 horas enquanto o problema continuar.</p></div></div>');
+    console.warn('portal-ia: alerta de crédito esgotado enviado');
+  } catch (e) { console.error('portal-ia: alerta de crédito não saiu', e.message); }
+}
+const ERRO_SEM_CREDITO = () => new HttpsError('failed-precondition', 'A IA do Portal está em manutenção agora. Seus créditos não foram descontados. Tente de novo mais tarde.');
+
 /* ------------------------------------------------------------------ chamadas ao Gemini */
 async function gemini(chave, modelos, corpo) {
   for (const mod of [...new Set(modelos.filter(Boolean))]) {
@@ -197,7 +227,9 @@ async function gemini(chave, modelos, corpo) {
     if (r.status === 400 && corpo.generationConfig && corpo.generationConfig.thinkingConfig && /think/i.test(JSON.stringify(j))) {
       console.warn('portal-ia: sem thinkingConfig em', mod); const c2 = JSON.parse(JSON.stringify(corpo)); delete c2.generationConfig.thinkingConfig; return gemini(chave, [mod, ...modelos.filter(m => m !== mod)], c2);
     }
-    if (!r.ok) { console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400)); throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.'); }
+    if (!r.ok) { console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400));
+      if (semCreditoGoogle(r.status, j)) { await avisarSemCredito(r.status + ' ' + JSON.stringify(j).slice(0, 200)); throw ERRO_SEM_CREDITO(); }
+      throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.'); }
     const u = j.usageMetadata || {}, cand = (j.candidates || [])[0] || {};
     const partes = (cand.content || {}).parts || [];
     return { modelo: mod, partes, fim: cand.finishReason || '', pensou: u.thoughtsTokenCount || 0, entrada: u.promptTokenCount || 0, saida: (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0) };
@@ -226,7 +258,9 @@ export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000) {
       if (r.status === 400 && corpo.generationConfig && corpo.generationConfig.thinkingConfig && /think/i.test(JSON.stringify(j))) {
         console.warn('portal-ia: sem thinkingConfig em', mod); const c2 = JSON.parse(JSON.stringify(corpo)); delete c2.generationConfig.thinkingConfig; return geminiFluxo(chave, [mod, ...modelos.filter(m => m !== mod)], c2);
       }
-      console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400)); throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
+      console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400));
+      if (semCreditoGoogle(r.status, j)) { await avisarSemCredito(r.status + ' ' + JSON.stringify(j).slice(0, 200)); throw ERRO_SEM_CREDITO(); }
+      throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     }
     let texto = '', fim = '', u = {}, buf = '', semAspas = 0, cortou = false;
     const dec = new TextDecoder();
