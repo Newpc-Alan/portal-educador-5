@@ -409,6 +409,42 @@ export function contasErradas(aula) {
   });
   return out;
 }
+// Aula em duas etapas (nov/2026): primeiro o PLANO (tipo e título de cada slide, na quantidade pedida) e depois cada slide com o
+// esquema do seu tipo, com os campos daquele formato OBRIGATÓRIOS. Num esquema único com tudo opcional, a IA pulava campos
+// (cálculo sem as contas, quiz sem alternativas) e o slide virava uma frase solta.
+export const ESQUEMA_PLANO = {
+  type: 'OBJECT',
+  properties: {
+    titulo: S('Título da aula, curto e atraente (até 60 caracteres).'),
+    subtitulo: S('Uma frase que desperta a curiosidade da turma (até 110 caracteres).'),
+    objetivo: S('Objetivo de aprendizagem, começando com verbo (até 160 caracteres).'),
+    bncc: AS('Até 2 códigos de habilidade da BNCC, SÓ se tiver certeza de que existem e são do ano certo; senão, vazio.'),
+    capa_ilustracao: S('Descrição de uma ilustração para a capa (uma frase, sem texto na imagem).'),
+    slides: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+      tipo: { type: 'STRING', enum: TIPOS_SLIDE },
+      titulo: S('Título do slide, até 55 caracteres.'),
+      foco: S('O que este slide ensina ou pede, em uma frase concreta (conteúdo, conta ou pergunta que vai aparecer).')
+    }, required: ['tipo', 'titulo', 'foco'] } }
+  },
+  required: ['titulo', 'subtitulo', 'objetivo', 'slides']
+};
+const CAMPOS_TIPO = { topicos: ['topicos'], conceito: ['destaque', 'explicacao', 'exemplo'], curiosidade: ['destaque', 'explicacao'], dado: ['numero', 'legenda', 'explicacao'],
+  numeros: ['numeros'], tabela: ['cabecalho', 'linhas'], calculo: ['destaque', 'calculo', 'resultado'], linha_tempo: ['itens'], passos: ['topicos'], comparacao: ['colunas'],
+  mapa: ['topicos'], quiz: ['destaque', 'alternativas', 'correta', 'resposta'], atividade: ['destaque', 'resposta'], resumo: ['topicos'] };
+const OPCIONAIS_TIPO = { conceito: ['erro_comum'] };
+// instrução de cada formato, tirada da descrição do campo "tipo" do esquema único (uma fonte só)
+export function descTipo(tipo) {
+  const d = ESQUEMA_AULA.properties.slides.items.properties.tipo.description || '', re = new RegExp('(?:^|\\s)(' + TIPOS_SLIDE.join('|') + '): ', 'g'), marcas = [];
+  let m; while ((m = re.exec(d))) marcas.push({ t: m[1], i: m.index + m[0].length });
+  const k = marcas.findIndex(x => x.t === tipo); if (k < 0) return '';
+  return d.slice(marcas[k].i, k + 1 < marcas.length ? marcas[k + 1].i - marcas[k + 1].t.length - 2 : d.length).trim();
+}
+export function esquemaSlide(tipo) {
+  const P = ESQUEMA_AULA.properties.slides.items.properties, campos = CAMPOS_TIPO[tipo] || ['topicos'];
+  const usa = ['titulo', 'icone', ...campos, ...(OPCIONAIS_TIPO[tipo] || []), 'pergunta', 'roteiro', 'aprofundamento', 'minutos', 'ilustracao'];
+  const props = {}; usa.forEach(k => { if (P[k]) props[k] = P[k]; });
+  return { type: 'OBJECT', properties: props, required: ['titulo', ...campos, 'roteiro', 'aprofundamento', 'minutos'] };
+}
 const DENSIDADE = {
   infantil: 'Pouco texto na tela: uma ideia por slide, frases bem curtas e simples (no máximo umas 20 palavras visíveis por slide).',
   iniciais: 'Pouco texto na tela: uma ideia por slide, frases curtas (no máximo umas 30 palavras visíveis por slide).',
@@ -825,8 +861,52 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     const antesDoResumo = novos => { const iRes = aula.slides.findIndex(x => x.tipo === 'resumo');
       if (iRes >= 0 && !novos.some(x => x.tipo === 'resumo')) aula.slides.splice(iRes, 0, ...novos);
       else { if (iRes >= 0) aula.slides.splice(iRes, 1); aula.slides.push(...novos); } };
+    // etapa 1: plano com exatamente qtd slides (quiz garantido, resumo no fim); etapa 2: cada slide com os campos do seu tipo
+    const planoAula = async () => {
+      let pl = null;
+      for (let t = 0; t < 2 && !pl; t++) {
+        const rp = await geminiJson(chave, MODELOS, sistema, pedido + '\n\nPRIMEIRO, o PLANO da aula: devolva exatamente ' + qtd + ' slides, cada um com o tipo (formato), o título e o foco (o que ele ensina). ' +
+          'Escolha o formato que mostra melhor cada conteúdo: conta vira calculo, quadro ou dados viram tabela, proporções viram numeros. Inclua 1 quiz e termine com resumo.', ESQUEMA_PLANO, 0.6, LIMITE).catch(e => { console.warn('portal-ia: plano', e.message); return null; });
+        soma(rp); if (rp) r = rp;
+        const j = rp && rp.json, sl = j && Array.isArray(j.slides) ? j.slides.filter(x => x && TIPOS_SLIDE.includes(x.tipo) && x.titulo) : [];
+        if (sl.length >= Math.min(3, qtd)) pl = { ...j, slides: sl.slice(0, qtd) };
+      }
+      if (!pl) return null;
+      // garante a quantidade, o quiz e o resumo final sem gastar outra chamada
+      while (pl.slides.length < qtd) pl.slides.splice(Math.max(0, pl.slides.length - 1), 0, { tipo: 'topicos', titulo: 'Para aprofundar', foco: 'aprofundamento do tema com exemplos do cotidiano' });
+      if (!pl.slides.some(x => x.tipo === 'quiz')) { const k = pl.slides.length - 2 >= 0 ? pl.slides.length - 2 : 0; pl.slides[k] = { tipo: 'quiz', titulo: 'Vamos testar', foco: 'pergunta de múltipla escolha que verifica o conceito principal da aula' }; }
+      if (pl.slides[pl.slides.length - 1].tipo !== 'resumo') pl.slides[pl.slides.length - 1] = { tipo: 'resumo', titulo: 'Resumo da aula', foco: 'as 4 ideias principais da aula' };
+      return pl;
+    };
+    const escreverSlide = async (pl, i, extra) => {
+      const it = pl.slides[i], roteiro = pl.slides.map((x, k) => (k + 1) + ') ' + x.tipo + ': ' + x.titulo + ' · ' + (x.foco || '')).join('\n');
+      const rs = await geminiJson(chave, MODELOS, sistema, pedido + '\n\nPlano da aula "' + pl.titulo + '":\n' + roteiro + '\n\nAgora escreva SOMENTE o slide ' + (i + 1) + ' (formato ' + it.tipo + '): "' + it.titulo + '" · ' + (it.foco || '') +
+        '. Como é o formato ' + it.tipo + ': ' + descTipo(it.tipo) + ' Preencha TODOS os campos obrigatórios do formato com conteúdo real e completo, sem repetir os outros slides.' + (extra || ''), esquemaSlide(it.tipo), 0.6, LIMITE).catch(e => { console.warn('portal-ia: slide', i + 1, e.message); return null; });
+      soma(rs);
+      if (!rs || !rs.json) return null;
+      const sl = paraAula({ titulo: pl.titulo, slides: [{ ...rs.json, tipo: it.tipo, titulo: rs.json.titulo || it.titulo }] }, 1).slides[0];
+      return sl && sl.tipo === it.tipo ? sl : null;   // formato que não fechou (virou lista) conta como falha
+    };
     try {
-      for (let t = 0; t < 3; t++) {
+      const pl = await planoAula();
+      if (pl) {
+        diag.plano = pl.slides.map(x => x.tipo).join(',');
+        const prontos = new Array(pl.slides.length).fill(null);
+        for (let t = 0; t < 2; t++) {
+          const faltam = prontos.map((x, i) => x ? -1 : i).filter(i => i >= 0);
+          for (let k = 0; k < faltam.length; k += 5) await Promise.all(faltam.slice(k, k + 5).map(async i => { prontos[i] = await escreverSlide(pl, i, t ? ' ATENÇÃO: a tentativa anterior deste slide veio incompleta; preencha todos os campos.' : ''); }));
+        }
+        diag.slides_falhos = prontos.filter(x => !x).length;
+        const ok = prontos.filter(Boolean);
+        if (ok.length >= Math.min(3, qtd)) {
+          aula = paraAula({ titulo: pl.titulo, subtitulo: pl.subtitulo, objetivo: pl.objetivo, bncc: pl.bncc, capa_ilustracao: pl.capa_ilustracao, slides: [] }, qtd);
+          aula.slides = ok; prob = []; diag.modo = 'plano';
+        }
+      }
+    } catch (e) { console.warn('portal-ia: aula em duas etapas', e.message); }
+    try {
+      for (let t = 0; t < 3 && prob.length; t++) {
+        diag.modo = 'unico';
         const ordem = t < 2 ? MODELOS : [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto];
         r = await geminiJson(chave, ordem, sistema, pedido + (t ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + prob.join('; ') + '). Corrija.' : ''), ESQUEMA_AULA, 0.6, LIMITE);
         soma(r);
