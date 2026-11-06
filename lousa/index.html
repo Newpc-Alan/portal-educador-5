@@ -4279,14 +4279,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     a.innerHTML = "⚠️ " + String(t).replace(/</g, "&lt;") + '<button data-x type="button" aria-label="Fechar aviso" style="position:absolute;right:8px;top:6px;border:0;background:none;font-size:20px;cursor:pointer;color:#5a3d00">×</button>';
   }
   /* ================= PONTE COM A NUVEM (Portal 5.0) ================= */
+  // o fabric guarda a largura de cada letra por fonte; se mediu antes da fonte chegar, a medida fica errada até limpar
+  function limparMedidas(){ try{ fabric.util.clearFabricFontCache(); }catch(e){} }
+  try{ document.fonts.addEventListener("loadingdone", function(){
+    limparMedidas();
+    canvas.getObjects().forEach(function(o){ if(o.type === "textbox"){ o.initDimensions(); o.setCoords(); } });
+    canvas.requestRenderAll();
+  }); }catch(e){}
   window.PDELousa = {
     pacoteImagens: function(semGuia){ return pacoteImagens(!!semGuia); },
     pacotePdf: function(semGuia){ return pacotePdf(!!semGuia); },
     temGuia: function(){ paginas[pagAtual] = estadoPaginaAtual(); return paginas.some(ehGuia); },
     inserirAula: function(aula, meta){
-      var feito = false, ir = function(){ if(feito) return; feito = true; inserirAulaIA(aula, meta); };
+      // mede o texto só com a fonte dos títulos já carregada (medida com a fonte reserva fazia o texto vazar da caixa)
+      var feito = false, ir = function(){ if(feito) return; feito = true; limparMedidas(); inserirAulaIA(aula, meta); };
       try{ Promise.all([document.fonts.load("800 40px Nunito"), document.fonts.load("700 40px Nunito")]).then(ir, ir); }catch(e){ ir(); }
-      setTimeout(ir, 2500);
+      setTimeout(ir, 6000);
     },
     coresDisc: CORES_DISC,
     temConteudo: function(){ return aulaTemConteudo(); },
