@@ -19,3 +19,11 @@ for (const x of recentes) {
 }
 // professores apelidados: quantas turmas cada um tem no cadastro
 for (const [uid, ap] of Object.entries(apel)) { const u = (await db.doc('usuarios/' + uid).get()).data() || {}; aviso(ap + ': perfil ' + (u.perfil || '-') + ', turmas no cadastro ' + (u.turmas_ids || []).length + ', disciplinas ' + (u.disciplinas || []).join('/')); }
+// auditoria das aulas de hoje (só o tipo do evento e o apelido de quem fez; o texto tem nomes e não sai no log)
+for (const x of recentes) {
+  const au = await db.collection('auditoria').where('doc', '==', x.id).get();
+  const ev = au.docs.map(d => d.data()).filter(a => ms(a.em) > hoje).sort((a, b) => ms(a.em) - ms(b.em));
+  aviso('auditoria ' + x.id.slice(0, 6) + ': ' + (ev.map(a => hh(ms(a.em)) + ' ' + P(a.autor_uid) + '(' + (a.perfil || '-') + ') ' + String(a.detalhe || a.acao || '').split(' ')[0]).join(' | ') || 'nada'));
+}
+// quem abriu aula hoje em qualquer turma (log de entradas pela função): perfis dos apelidos
+for (const [uid, ap] of Object.entries(apel)) { const u = (await db.doc('usuarios/' + uid).get()).data() || {}; aviso(ap + ' = ' + (u.perfil || '-')); }
