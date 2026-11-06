@@ -6743,7 +6743,9 @@
   function abrirLousa(idTrabalho, compartilhar, paraTurma){
     const f = $("lsFrame"); if(!f) return;
     // "v" muda a cada 10 min: a Lousa nunca fica presa numa versão antiga guardada pelo navegador
-    const v = "&v=" + Math.floor(Date.now() / 600000).toString(36);
+    // a Lousa fica em cache por até 10 min; quando a pessoa recarrega o Portal (F5 ou Ctrl+F5), a Lousa vem nova na hora
+    const recarregou = (() => { try{ return (performance.getEntriesByType("navigation")[0] || {}).type === "reload"; }catch(e){ return false; } })();
+    const v = "&v=" + (recarregou ? Date.now() : Math.floor(Date.now() / 600000)).toString(36);
     if(idTrabalho){ f.src = LOUSA_URL + "?abrir=" + encodeURIComponent(idTrabalho) + (compartilhar ? "&compartilhar=1" : "") + (paraTurma ? "&para=" + encodeURIComponent(paraTurma) : "") + v; lousa.carregada = true; }
     else if(!lousa.carregada){ f.src = LOUSA_URL + "?retomar=1" + v; lousa.carregada = true; }
     $("lsOverlay").classList.add("aberto");
