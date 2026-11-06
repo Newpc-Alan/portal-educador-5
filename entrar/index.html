@@ -2634,6 +2634,7 @@
     if(location.hash === "#whatsapp" && perfil === "admin"){ history.replaceState(null, "", location.pathname + location.search); const w = menu.itens.find(i => i.id === "whatsapp"); if(w) setTimeout(() => selecionar(w), 50); }
     faixaSimulacao();
     registrarAcesso();
+    iniciarSessaoAparelho();
     if(perfil === "aluno") return; // aluno: sem Lousa e sem atalho de aula
     if(perfil === "portaria" || perfil === "secretaria_escolar" || perfil === "secretaria"){ montarMiniCal(); return; } // equipe de apoio e Secretaria de Educação: sem Lousa nem aula
     atalhoAulaNoMenu();
@@ -2828,7 +2829,7 @@
     if(item.id === "whatsapp"){ renderWhatsapp(); return; }   // administrador ou membro da equipe de atendimento (as regras conferem)
     if(item.id === "ajuda"){ renderAjuda(); return; }
     if(item.id === "inicio"){ renderInicio(); return; }
-    if(item.id === "meucadastro"){ renderMeuCadastro(); return; }
+    if(item.id === "meucadastro"){ renderMeuCadastro(); pintarAparelhos(); return; }
     if(item.id === "acervo"){ renderAcervo(""); return; }
     if(item.id === "acervoRede"){ renderAcervoRede(); return; }
     if(item.id === "moderacao" && ["admin", "secretaria", "gestor"].includes(usuarioAtual.perfil)){ renderModeracao(); return; }
@@ -7189,6 +7190,8 @@
         linha("E-mail", u.email)+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-salvar" id="mcSalvar">Salvar meus dados</button>'+(inst && u.perfil === "professor" ? '<button class="btn btn-ghost" data-action="atz-abrir">Atualizar cadastro completo (CPF, nascimento, disciplinas)</button>' : '')+'</div></div>'+
       '<div>'+
+      '<div class="imp-card" id="mcAparelhos"><h3>\u{1F4BB} Aparelhos conectados</h3><p class="d" id="mcApInfo"></p><div id="mcApLista"><div class="vazio">Carregando...</div></div>'+
+        '<div class="imp-acoes"><button class="btn btn-ghost" data-action="mc-sair-outros" id="mcSairOutros">Sair de todos os outros aparelhos</button></div></div>'+
       (inst && u.perfil === "professor" ? '<div class="imp-card"><h3>Escolas onde dou aula</h3><p class="d">Município: <b>'+escapeHtml(u.municipio_nome||"-")+'</b>. Marque até 5 escolas. Você passa a ver as turmas dessas escolas.</p><div id="mcEscolas" class="chk-lista"><div class="vazio">Carregando escolas...</div></div>'+
         '<div class="imp-acoes"><button class="btn btn-primary" data-action="mc-escolas" id="mcSalvarEsc">Salvar escolas</button></div></div>' : '')+
       (inst && u.perfil !== "aluno" ? '<div class="imp-card"><h3>Minha ficha funcional</h3><p class="d">Foto para o crachá, onde você trabalha, sua formação e seus diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém precisar redigitar.</p><a class="btn btn-primary btn-add" style="margin-top:6px" href="/apps/servidores/#minha">Abrir minha ficha</a></div>' : '')+
@@ -8018,6 +8021,7 @@
       catch(e){ toast("Não deu para mudar agora. Tente de novo.", true); el.disabled = false; }
     }
     else if(acao === "alu-inicio"){ selecionar(MENUS.aluno.itens[0]); window.scrollTo({ top:0 }); }
+    else if(acao === "mc-sair-outros"){ sairOutrosAparelhos(); }
     else if(acao === "ir-meucadastro"){ const it = (MENUS.professor.itens || []).find(i => i.id === "meucadastro"); if(it) selecionar(it); }
     else if(acao === "al-busca-turma"){ mudarMinhaLista(el.dataset.id, true); }
     else if(acao === "ini-turmas"){ const it = (MENUS.professor.itens || []).find(i => i.id === "turmas"); if(it) selecionar(it); }
@@ -11042,9 +11046,65 @@
     if(d.tipo === "pronta" && MT.maestro) levarAoMaestro();
     if(d.tipo === "entrou" && !d.ja) toast(d.ok ? "💻 Este computador entrou na aula do professor." : (d.erro || "O computador não conseguiu entrar na aula."), !d.ok);
   });
-  async function sairDaConta(){ try{ await marcarSaidaAluno(); }catch(e){}
+  /* ---------- Aparelhos conectados (nov/2026): aluno em 1 aparelho, professor e equipe em até 3 (config/sessoes) ----------
+     Cada navegador guarda um número próprio; a função sessaoAparelho mantém a lista em sessoes/{uid}.
+     O aparelho que sai da lista (aluno entrou em outro; professor abriu o 4º) percebe aqui e sai da conta com aviso. */
+  const SS = { sid:"", uid:"", unsub:null, visto:false, lista:[], limite:0, mem:"" };
+  function sidAparelho(){
+    const novo = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/[^A-Za-z0-9]/g, "").slice(0, 32).padEnd(16, "0");
+    try{ let s = localStorage.getItem("pde_aparelho"); if(!s || !/^[A-Za-z0-9_-]{16,40}$/.test(s)){ s = novo(); localStorage.setItem("pde_aparelho", s); } return s; }
+    catch(e){ return SS.mem || (SS.mem = novo()); }
+  }
+  async function chamarSessao(acao){
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), "sessaoAparelho", { timeout:15000 })({ acao, sid:SS.sid })).data;
+  }
+  function pararSessaoAparelho(){ if(SS.unsub){ try{ SS.unsub(); }catch(e){} } SS.unsub = null; SS.uid = ""; SS.visto = false; }
+  async function iniciarSessaoAparelho(){
+    if(!auth.currentUser || (usuarioAtual && usuarioAtual._sim)) return;
+    const uid = auth.currentUser.uid;
+    if(SS.unsub && SS.uid === uid) return;
+    pararSessaoAparelho(); SS.sid = sidAparelho(); SS.uid = uid;
+    try{ const r = await chamarSessao("entrar"); SS.lista = r.lista || []; SS.limite = r.limite || 0; }
+    catch(e){ console.warn("aparelhos:", e.code || e); SS.uid = ""; return; }   // função fora do ar: ninguém é desconectado
+    if(!auth.currentUser || auth.currentUser.uid !== uid) return;
+    SS.unsub = onSnapshot(doc(db, "sessoes", uid), s => {
+      const x = s.data() || {}; SS.lista = x.lista || []; SS.limite = x.limite || SS.limite;
+      if(SS.lista.some(a => a.sid === SS.sid)){ SS.visto = true; pintarAparelhos(); return; }
+      if(SS.visto && auth.currentUser && auth.currentUser.uid === uid) desconectadoPorOutro();
+    }, e => { console.warn("aparelhos:", e.code); SS.unsub = null; SS.uid = ""; });
+  }
+  function desconectadoPorOutro(){
+    const aluno = usuarioAtual && usuarioAtual.perfil === "aluno", lim = SS.limite || 3;
+    pararSessaoAparelho();
+    if($("dcFundo")) return;
+    const f = document.createElement("div"); f.id = "dcFundo"; f.className = "fa-fundo";
+    f.innerHTML = '<div class="fa-caixa"><div class="fa-ic">\u{1F4F1}</div><b>' + (aluno ? "Você entrou em outro aparelho" : "Sua conta entrou em outro aparelho") + '</b><span>' +
+      (aluno ? "Cada aluno usa um aparelho por vez. Este aqui está saindo da sua conta." : "Sua conta pode ficar aberta em até " + lim + " aparelhos ao mesmo tempo. Este, que estava parado há mais tempo, está saindo. Se não foi você, troque a forma de entrar e use \u201cSair de todos os outros aparelhos\u201d em Meu cadastro.") + '</span></div>';
+    document.body.appendChild(f);
+    setTimeout(async () => { try{ await sairDaConta(true); }catch(e){} f.remove(); }, 6000);
+  }
+  function pintarAparelhos(){
+    const box = $("mcApLista"); if(!box) return;
+    const info = $("mcApInfo"), lim = SS.limite || 0, aluno = usuarioAtual && usuarioAtual.perfil === "aluno";
+    if(info) info.textContent = lim ? (aluno ? "Cada aluno usa um aparelho por vez: ao entrar em outro, este sai sozinho." : "Sua conta pode ficar aberta em até " + lim + " aparelhos ao mesmo tempo (ex.: Lousa da sala, notebook e celular). No próximo, sai o usado há mais tempo.") : "";
+    if(!SS.lista.length){ box.innerHTML = '<div class="vazio">Nenhum aparelho registrado ainda.</div>'; return; }
+    const ico = { "Celular":"\u{1F4F1}", "Tablet":"\u{1F4F1}", "Chromebook":"\u{1F4BB}", "Computador":"\u{1F5A5}\uFE0F" };
+    box.innerHTML = SS.lista.slice().sort((a, b) => (b.ultimo || 0) - (a.ultimo || 0)).map(a => '<div class="mc-l"><span>' + (ico[a.tipo] || "\u{1F4BB}") + " " + escapeHtml(a.tipo || "Aparelho") + " · " + escapeHtml(a.nav || "") +
+      (a.sid === SS.sid ? ' <b style="color:#1a6b2a">(este aparelho)</b>' : "") + '</span><b>desde ' + new Date(a.desde || a.ultimo || Date.now()).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) + '</b></div>').join("");
+    const b = $("mcSairOutros"); if(b) b.hidden = SS.lista.length < 2;
+  }
+  async function sairOutrosAparelhos(){
+    const b = $("mcSairOutros"); if(b){ b.disabled = true; b.textContent = "Saindo dos outros..."; }
+    try{ if(!SS.sid) SS.sid = sidAparelho(); const r = await chamarSessao("sair_outros"); SS.lista = r.lista || SS.lista; pintarAparelhos(); toast("Pronto: sua conta ficou aberta só neste aparelho."); }
+    catch(e){ toast("Não deu para sair dos outros aparelhos agora.", true); }
+    finally{ if(b){ b.disabled = false; b.textContent = "Sair de todos os outros aparelhos"; } }
+  }
+  async function sairDaConta(foiTirado){ try{ await marcarSaidaAluno(); }catch(e){}
     clearTimeout(MT.barraT); const pb = $("alProfBar"); if(pb) pb.remove();
     try{ window.dispatchEvent(new Event("pde-saindo")); }catch(e){}
+    if(SS.uid && foiTirado !== true){ const sid = SS.sid; pararSessaoAparelho(); SS.sid = sid; await Promise.race([chamarSessao("sair").catch(() => {}), new Promise(r => setTimeout(r, 2500))]); }
+    else pararSessaoAparelho();
     return signOut(auth); }
   async function materiaisAluno(){
     let tid = usuarioAtual.turma_id || "", chave = usuarioAtual.aluno_id || "";
