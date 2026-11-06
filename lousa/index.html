@@ -1891,7 +1891,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* conteúdo da página em JSON, SEM o fundo: o fundo (linhas, quadro, página de PDF)
      é redesenhado por desenharFundo(). Mantém histórico e salvamento leves. */
   // marcas do Modo Apresentação nas aulas do Portal IA (etapas de revelação, quiz, roteiro só do professor etc.)
-  var PDE_PROPS = ["pdeEt", "pdeAlt", "pdeAltCard", "pdeCerta", "pdeResp", "pdeCobre", "pdeProf", "pdeNum", "pdeQuiz", "pdeFundo", "pdeMin", "pdeImg", "pdePerg", "pdeNo", "pdeLiga", "pdeIA"];
+  var PDE_PROPS = ["pdeEt", "pdeAlt", "pdeAltCard", "pdeCerta", "pdeResp", "pdeCobre", "pdeProf", "pdeNum", "pdeQuiz", "pdeFundo", "pdeMin", "pdeImg", "pdePerg", "pdeNo", "pdeLiga", "pdeIA", "pdeBolha"];
   function jsonPagina(extras){
     var bg = canvas.backgroundColor, bgi = canvas.backgroundImage;
     canvas.backgroundColor = null; canvas.backgroundImage = null;
@@ -4494,13 +4494,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   // ---- Mapa IA: centro + ramos; nós são textos editáveis com fundo; as ligações acompanham quando o nó é arrastado
   var CORES_MAPA = ["#1a6b2a", "#2671AB", "#c2410c", "#7048e8", "#0e7c86", "#b3261e"];
+  // modelos de mapa (nov/2026): todos usam o mesmo pedido à IA (centro + ramos + itens); só o desenho muda, aqui na Lousa, sem custo a mais
+  var MODELOS_MAPA = [
+    ["radial", "Radial", "tema no meio, ramos em volta", '<svg viewBox="0 0 60 40"><g stroke="#2671AB" stroke-width="1.6"><line x1="30" y1="20" x2="10" y2="8"/><line x1="30" y1="20" x2="50" y2="8"/><line x1="30" y1="20" x2="10" y2="32"/><line x1="30" y1="20" x2="50" y2="32"/></g><rect x="21" y="16" width="18" height="8" rx="2" fill="#0f2c4a"/><g fill="#1a6b2a"><rect x="3" y="5" width="14" height="6" rx="2"/><rect x="43" y="5" width="14" height="6" rx="2"/><rect x="3" y="29" width="14" height="6" rx="2"/><rect x="43" y="29" width="14" height="6" rx="2"/></g></svg>'],
+    ["arvore", "Árvore", "do tema para baixo, em níveis", '<svg viewBox="0 0 60 40"><g stroke="#2671AB" stroke-width="1.6"><line x1="30" y1="8" x2="10" y2="20"/><line x1="30" y1="8" x2="30" y2="20"/><line x1="30" y1="8" x2="50" y2="20"/></g><rect x="21" y="3" width="18" height="8" rx="2" fill="#0f2c4a"/><g fill="#1a6b2a"><rect x="3" y="17" width="14" height="6" rx="2"/><rect x="23" y="17" width="14" height="6" rx="2"/><rect x="43" y="17" width="14" height="6" rx="2"/></g><g fill="#cfd8e2"><rect x="4" y="27" width="12" height="4" rx="1"/><rect x="4" y="33" width="12" height="4" rx="1"/><rect x="24" y="27" width="12" height="4" rx="1"/><rect x="44" y="27" width="12" height="4" rx="1"/><rect x="44" y="33" width="12" height="4" rx="1"/></g></svg>'],
+    ["bolhas", "Bolhas", "ideias em bolhas em volta do tema", '<svg viewBox="0 0 60 40"><g stroke="#2671AB" stroke-width="1.4"><line x1="30" y1="20" x2="11" y2="10"/><line x1="30" y1="20" x2="49" y2="10"/><line x1="30" y1="20" x2="14" y2="32"/><line x1="30" y1="20" x2="46" y2="32"/></g><ellipse cx="30" cy="20" rx="10" ry="7" fill="#0f2c4a"/><g fill="#1a6b2a"><circle cx="11" cy="10" r="6"/><circle cx="49" cy="10" r="6"/><circle cx="14" cy="32" r="6"/><circle cx="46" cy="32" r="6"/></g></svg>'],
+    ["chaves", "Chaves", "resumo esquematizado com { }", '<svg viewBox="0 0 60 40"><rect x="2" y="16" width="14" height="8" rx="2" fill="#0f2c4a"/><path d="M22 4 q-3 0 -3 4 v8 q0 4 -3 4 q3 0 3 4 v8 q0 4 3 4" fill="none" stroke="#2671AB" stroke-width="1.6"/><g fill="#1a6b2a"><rect x="25" y="5" width="12" height="6" rx="2"/><rect x="25" y="17" width="12" height="6" rx="2"/><rect x="25" y="29" width="12" height="6" rx="2"/></g><g fill="#cfd8e2"><rect x="42" y="4" width="16" height="3" rx="1"/><rect x="42" y="9" width="16" height="3" rx="1"/><rect x="42" y="18" width="16" height="3" rx="1"/><rect x="42" y="28" width="16" height="3" rx="1"/><rect x="42" y="33" width="16" height="3" rx="1"/></g></svg>']
+  ];
   function ialMapa(){
     if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); return; }
-    ialJanela("🧠 Mapa mental com IA", '<p class="ial-d">Diga o tema e a IA monta o mapa mental no quadro. Depois é só editar, arrastar ou apagar (1 crédito).</p><input id="ialTema" maxlength="160" placeholder="Ex.: Ciclo da água, Sistema digestório, Revolução Industrial" autocomplete="off"><div class="ial-bts"><button type="button" class="ial-b ial-prim" data-ial="ir" data-ial-padrao>Montar o mapa</button></div>', function(b, f){
+    var modelo = "radial"; try{ var g = localStorage.getItem("pde_mapa_modelo"); if(MODELOS_MAPA.some(function(x){ return x[0] === g; })) modelo = g; }catch(e){}
+    var cartoes = MODELOS_MAPA.map(function(x){ return '<button type="button" class="ial-mod" data-ial="m-' + x[0] + '" aria-pressed="' + (x[0] === modelo) + '">' + x[3] + '<b>' + x[1] + '</b><small>' + x[2] + '</small></button>'; }).join("");
+    ialJanela("🧠 Mapa mental com IA", '<p class="ial-d">Diga o tema e escolha o modelo. A IA monta o mapa no quadro; depois é só editar, arrastar ou apagar (1 crédito, qualquer modelo).</p><input id="ialTema" maxlength="160" placeholder="Ex.: Ciclo da água, Sistema digestório, Revolução Industrial" autocomplete="off">' +
+      '<div class="ial-mods" role="group" aria-label="Modelo do mapa">' + cartoes + '</div><div class="ial-bts"><button type="button" class="ial-b ial-prim" data-ial="ir" data-ial-padrao>Montar o mapa</button></div>', function(b, f){
+      if(b.dataset.ial.indexOf("m-") === 0){ modelo = b.dataset.ial.slice(2); f.querySelectorAll(".ial-mod").forEach(function(x){ x.setAttribute("aria-pressed", String(x === b)); }); try{ localStorage.setItem("pde_mapa_modelo", modelo); }catch(e){} return; }
       if(b.dataset.ial !== "ir") return;
       var tema = f.querySelector("#ialTema").value.trim(); if(tema.length < 3){ f.querySelector("#ialTema").focus(); return; }
       ialEspera(f, "Organizando os tópicos...");
-      ialChamar({ modo:"mapa", tema:tema }).then(function(r){ ialFechar(); ialDesenharMapa(r.mapa || {}); }, function(e){ ialErro(f, e); });
+      ialChamar({ modo:"mapa", tema:tema }).then(function(r){ ialFechar(); ialDesenharMapa(r.mapa || {}, modelo); }, function(e){ ialErro(f, e); });
     });
   }
   function ialNo(texto, x, y, cor, grande, id){
@@ -4508,28 +4519,82 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       fill:"#fff", backgroundColor:cor, fontFamily:"Nunito, Segoe UI, sans-serif", splitByGrapheme:false, pdeNo:id, pdeIA:true });
     return t;
   }
-  function ialDesenharMapa(m){
+  // bolha: o fundo do texto vira elipse (vale também depois de salvar e abrir de novo, pelo pdeBolha)
+  (function(){
+    var P = fabric.Textbox.prototype, rb = P._renderBackground, sc = P.shouldCache;
+    P._renderBackground = function(ctx){
+      if(!this.pdeBolha) return rb.call(this, ctx);
+      if(!this.backgroundColor) return;
+      var d = this._getNonTransformedDimensions();
+      ctx.fillStyle = this.backgroundColor; ctx.beginPath(); ctx.ellipse(0, 0, d.x / 2 * 1.16 + 8, d.y / 2 * 1.3 + 10, 0, 0, Math.PI * 2); ctx.fill();
+      this._removeShadow(ctx);
+    };
+    P.shouldCache = function(){ return this.pdeBolha ? false : sc.call(this); };   // a elipse passa da caixa do texto: sem cache para não cortar
+  })();
+  function ialItem(texto, x, y, cor, id, extra){
+    return new fabric.Textbox(texto, Object.assign({ left:x, top:y, width:170, originX:"center", originY:"center", textAlign:"center", fontSize:15, fill:"#12202e", backgroundColor:"#f3f6f9",
+      fontFamily:"Segoe UI, sans-serif", pdeNo:id, pdeIA:true }, extra || {}));
+  }
+  function ialLiga(a, b, ida, idb, cor, fino){
+    return new fabric.Line([a.x, a.y, b.x, b.y], { stroke:cor, strokeWidth:fino ? 2 : 4, strokeDashArray:fino ? [6, 5] : null, selectable:false, evented:false, pdeLiga:[ida, idb], pdeIA:true });
+  }
+  function ialChave(x, y, h, cor){   // chave "{" do tamanho do bloco
+    var t = new fabric.Text("{", { left:x, top:y, originX:"center", originY:"center", fontSize:100, fontWeight:"300", fontFamily:"Georgia, serif", fill:cor, pdeIA:true });
+    var e = Math.max(40, h) / t.height; t.set({ scaleY:e, scaleX:Math.min(1.4, Math.max(0.65, e * 0.28)) });   // alta, com traço proporcional
+    return t;
+  }
+  function ialDesenharMapa(m, modelo){
     var ramos = (m.ramos || []).filter(function(r){ return r && r.titulo; }); if(!ramos.length){ msg("A IA não montou o mapa desta vez. Tente de novo."); return; }
-    var c = ialCentroVisivel(), base = "m" + Date.now().toString(36), novos = [], linhas = [];
+    var c = ialCentroVisivel(), base = "m" + Date.now().toString(36), novos = [], linhas = [], n = ramos.length;
     // o mapa cabe na parte visível do quadro (zoom e tamanho de tela de cada lousa)
-    var vw = canvas.getWidth() / c.z, vh = canvas.getHeight() / c.z, Rx = Math.min(460, vw * .27), Ry = Math.min(300, vh * .27), ox = Math.min(220, vw * .13), oy = Math.min(140, vh * .12);
-    var centro = ialNo(" " + (m.centro || "Tema") + " ", c.x, c.y, "#0f2c4a", true, base + "c"); novos.push(centro);
-    ramos.forEach(function(r, i){
-      var a = -Math.PI / 2 + i * 2 * Math.PI / ramos.length, cor = CORES_MAPA[i % CORES_MAPA.length];
-      var rx = c.x + Math.cos(a) * Rx, ry = c.y + Math.sin(a) * Ry, id = base + "r" + i;
-      var no = ialNo(" " + r.titulo + " ", rx, ry, cor, false, id); novos.push(no);
-      linhas.push(new fabric.Line([c.x, c.y, rx, ry], { stroke:cor, strokeWidth:4, selectable:false, evented:false, pdeLiga:[base + "c", id], pdeIA:true }));
-      (r.itens || []).forEach(function(it, k){
-        // itens: um passo para fora do ramo e espalhados na perpendicular (não se sobrepõem nem no ramo de cima)
-        var px = -Math.sin(a), py = Math.cos(a), esp = Math.abs(px) * 190 + Math.abs(py) * 46, d0 = k - ((r.itens.length - 1) / 2);
-        var ix = rx + Math.cos(a) * ox + px * d0 * esp, iy = ry + Math.sin(a) * oy + py * d0 * esp, id2 = id + "i" + k;
-        var n = new fabric.Textbox(it, { left:ix, top:iy, width:170, originX:"center", originY:"center", textAlign:"center", fontSize:15, fill:"#12202e", backgroundColor:"#f3f6f9",
-          fontFamily:"Segoe UI, sans-serif", pdeNo:id2, pdeIA:true });
-        novos.push(n); linhas.push(new fabric.Line([rx, ry, ix, iy], { stroke:cor, strokeWidth:2, strokeDashArray:[6, 5], selectable:false, evented:false, pdeLiga:[id, id2], pdeIA:true }));
+    var vw = canvas.getWidth() / c.z, vh = canvas.getHeight() / c.z;
+    var titulo = " " + (m.centro || "Tema") + " ";
+    if(modelo === "arvore"){
+      var topo = c.y - vh * .34, linha = c.y - vh * .1, larg = Math.min(vw * .86, n * 300), passo = n > 1 ? larg / (n - 1) : 0;
+      novos.push(ialNo(titulo, c.x, topo, "#0f2c4a", true, base + "c"));
+      ramos.forEach(function(r, i){
+        var cor = CORES_MAPA[i % CORES_MAPA.length], rx = c.x - larg / 2 + i * passo, id = base + "r" + i;
+        if(n === 1) rx = c.x;
+        novos.push(ialNo(" " + r.titulo + " ", rx, linha, cor, false, id).set({ width:Math.min(180, passo ? passo - 24 : 180) }));
+        linhas.push(ialLiga({ x:c.x, y:topo }, { x:rx, y:linha }, base + "c", id, cor));
+        (r.itens || []).forEach(function(it, k){
+          var iy = linha + 74 + k * 62, id2 = id + "i" + k;
+          novos.push(ialItem(it, rx, iy, cor, id2, { width:Math.min(170, passo ? passo - 30 : 170) }));
+          linhas.push(ialLiga({ x:rx, y:k ? iy - 62 : linha }, { x:rx, y:iy }, k ? id + "i" + (k - 1) : id, id2, cor, true));
+        });
       });
-    });
+    } else if(modelo === "chaves"){
+      var x0 = c.x - vw * .34, xr = c.x - vw * .12, alto = Math.min(vh * .8, n * 150), faixa = alto / n, y0 = c.y - alto / 2;
+      novos.push(ialNo(titulo, x0, c.y, "#0f2c4a", true, base + "c").set({ width:200 }));
+      novos.push(ialChave(x0 + 135, c.y, alto, "#0f2c4a"));
+      ramos.forEach(function(r, i){
+        var cor = CORES_MAPA[i % CORES_MAPA.length], ry = y0 + faixa * (i + .5), id = base + "r" + i, its = r.itens || [];
+        novos.push(ialNo(" " + r.titulo + " ", xr, ry, cor, false, id));
+        if(its.length){
+          var passo = Math.min(36, (faixa - 16) / its.length), h = (its.length - 1) * passo + 34, xc = xr + 118;
+          novos.push(ialChave(xc, ry, h, cor));
+          its.forEach(function(it, k){ novos.push(ialItem("• " + it, xc + 22, ry - (its.length - 1) * passo / 2 + k * passo, cor, id + "i" + k, { originX:"left", width:Math.min(340, vw * .3), textAlign:"left", backgroundColor:"" })); });
+        }
+      });
+    } else {
+      var bolha = modelo === "bolhas", Rx = Math.min(460, vw * .27), Ry = Math.min(300, vh * .27), ox = Math.min(220, vw * .13), oy = Math.min(140, vh * .12);
+      novos.push(ialNo(titulo, c.x, c.y, "#0f2c4a", true, base + "c").set(bolha ? { pdeBolha:true, width:200 } : {}));
+      ramos.forEach(function(r, i){
+        var a = -Math.PI / 2 + i * 2 * Math.PI / n, cor = CORES_MAPA[i % CORES_MAPA.length];
+        var rx = c.x + Math.cos(a) * Rx, ry = c.y + Math.sin(a) * Ry, id = base + "r" + i;
+        novos.push(ialNo(" " + r.titulo + " ", rx, ry, cor, false, id).set(bolha ? { pdeBolha:true, width:140 } : {}));
+        linhas.push(ialLiga({ x:c.x, y:c.y }, { x:rx, y:ry }, base + "c", id, cor, false));
+        (r.itens || []).forEach(function(it, k){
+          // itens: um passo para fora do ramo e espalhados na perpendicular (não se sobrepõem nem no ramo de cima)
+          var px = -Math.sin(a), py = Math.cos(a), esp = Math.abs(px) * 190 + Math.abs(py) * (bolha ? 64 : 46), d0 = k - ((r.itens.length - 1) / 2);
+          var ix = rx + Math.cos(a) * ox * (bolha ? 1.15 : 1) + px * d0 * esp, iy = ry + Math.sin(a) * oy * (bolha ? 1.2 : 1) + py * d0 * esp, id2 = id + "i" + k;
+          novos.push(ialItem(it, ix, iy, cor, id2, bolha ? { pdeBolha:true, width:130, fontSize:14, backgroundColor:"#e8f0f8" } : null));
+          linhas.push(ialLiga({ x:rx, y:ry }, { x:ix, y:iy }, id, id2, cor, !bolha));
+        });
+      });
+    }
     linhas.forEach(function(l){ canvas.add(l); canvas.sendToBack(l); });
-    novos.forEach(function(n){ canvas.add(n); });
+    novos.forEach(function(o){ canvas.add(o); });
     setFerramenta("select"); canvas.requestRenderAll(); snap(); msg("Mapa pronto: toque duas vezes num tópico para editar");
   }
   // ligações do mapa seguem os nós (também depois de salvar e abrir de novo: pdeLiga/pdeNo ficam salvos)
@@ -4688,6 +4753,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ial-d{margin:0;color:#4b5b6b;font-size:13.5px}
   .ial-bts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
   .ial-opc{justify-content:flex-start}
+  .ial-mods{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 4px}
+  .ial-mod{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;border:2px solid #dbe3eb;border-radius:12px;background:#fff;cursor:pointer;font-family:"Segoe UI",sans-serif;color:#0f2c4a}
+  .ial-mod svg{width:100%;max-width:96px;height:auto}
+  .ial-mod b{font-size:14px}
+  .ial-mod small{font-size:11.5px;color:#5b6b7b;line-height:1.25;text-align:center}
+  .ial-mod[aria-pressed="true"]{border-color:#1a6b2a;background:#eef7ee;box-shadow:0 0 0 2px #1a6b2a33}
+  @media (max-width:560px){ .ial-mods{grid-template-columns:repeat(2,1fr)} }
   .ial-b{border:1px solid #cdd6df;background:#fff;border-radius:10px;padding:10px 14px;font:700 14px "Segoe UI",sans-serif;cursor:pointer;color:#0f2c4a}
   .ial-b[aria-pressed="true"]{background:#0f2c4a;color:#fff;border-color:#0f2c4a}
   .ial-prim{background:#1a6b2a;color:#fff;border-color:#1a6b2a}
