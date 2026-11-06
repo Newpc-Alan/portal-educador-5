@@ -83,6 +83,16 @@ service cloud.firestore {
     match /comunicados_pref/{uid} { allow read: if admin(); allow write: if false; }
     // ranking dos temas da Aula com IA (só identificadores do banco de temas, sem dado pessoal)
     match /temas_populares/{id} { allow read: if logado(); allow write: if false; }
+    // Aulas prontas da Lousa (acervo oficial): só a função cria; o professor licenciado lê as aprovadas e soma 1 no uso; o administrador revisa (aprova ou oculta) e apaga
+    match /acervo_aulas/{id} {
+      allow read: if admin() || (licenciado() && resource.data.status == "aprovada");
+      allow update: if (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "revisado_em", "revisado_por", "imagens", "mini"])
+          && request.resource.data.status in ["revisao", "aprovada", "oculta"])
+        || (licenciado() && resource.data.status == "aprovada" && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["usos"])
+          && request.resource.data.usos == resource.data.usos + 1);
+      allow delete: if admin();
+      allow create: if false;
+    }
     // Trabalhos compartilhados com a rede (Lousa, provas, roteiros, folhas): autor, admin e professores/gestores ativos do município. Só a função grava.
     match /trabalhos_rede/{id} {
       allow read: if logado() && (admin() || resource.data.uid == request.auth.uid

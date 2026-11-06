@@ -480,6 +480,7 @@
     <button class="ferr so-nuvem" data-action="nuvem-salvar" id="btnNuvem" hidden title="Salvar em Meus trabalhos (também salva sozinho)"><svg class="ico"><use href="#i-nuvem"/></svg><span class="lbl">Salvar</span></button>
     <button class="ferr so-nuvem" data-action="nuvem-compartilhar" hidden title="Compartilhar esta aula: rede, e-mail ou alunos"><svg class="ico"><use href="#i-compartilhar"/></svg><span class="lbl">Compartilhar</span></button>
     <button class="ferr so-nuvem" data-action="nuvem-trabalhos" hidden title="Meus trabalhos: abrir, renomear ou começar uma aula nova"><svg class="ico"><use href="#i-pasta"/></svg><span class="lbl">Trabalhos</span></button>
+    <button class="ferr so-nuvem" data-action="acervo-aulas" hidden title="Aulas prontas do Portal: temas transversais da BNCC, do 1º ao 9º ano (não gasta crédito)"><svg class="ico"><use href="#i-lousa"/></svg><span class="lbl">Prontas</span></button>
     <button class="ferr ferr-ia so-nuvem" data-action="ia-aula" hidden style="display:none" title="Montar uma aula em slides com a IA do Portal (usa 1 crédito)"><svg class="ico"><use href="#i-ia"/></svg><span class="lbl">Aula IA</span></button>
     <button class="ferr perigo" data-action="limpar" title="Limpar a página (apaga tudo o que foi desenhado)"><svg class="ico"><use href="#i-limpar"/></svg><span class="lbl">Limpar</span></button>
     <button class="ferr" data-action="png" title="Salvar em PNG (uma imagem por página)"><svg class="ico"><use href="#i-png"/></svg><span class="lbl">PNG</span></button>
@@ -2643,6 +2644,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="nuvem-compartilhar" && window.PDENuvem) window.PDENuvem.compartilhar();
       if(a==="nuvem-trabalhos" && window.PDENuvem) window.PDENuvem.abrirLista();
       if(a==="ia-aula" && window.PDENuvem && window.PDENuvem.aulaIA) window.PDENuvem.aulaIA();
+      if(a==="acervo-aulas" && window.PDENuvem && window.PDENuvem.acervo) window.PDENuvem.acervo();
     }
   }
   document.getElementById("barra").addEventListener("click", handlerBarra);
@@ -2681,7 +2683,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* Setas do teclado, passador de slides e controle remoto: avançam e voltam a página.
      Passadores mandam PageDown/PageUp (alguns mandam setas); fora de campos de texto e janelas abertas. */
   var TECLAS_AVANCA = { ArrowRight:1, ArrowDown:1, PageDown:1, MediaTrackNext:1 }, TECLAS_VOLTA = { ArrowLeft:1, ArrowUp:1, PageUp:1, MediaTrackPrevious:1 };
-  function janelaAberta(){ return !!document.querySelector("#iaFundo.aberto, #iaBloq.aberto, #nvFundo.aberto, #cpFundo.aberto, .dlg.aberto, #dlg.aberto"); }
+  function janelaAberta(){ return !!document.querySelector("#iaFundo.aberto, #acFundo.aberto, #iaBloq.aberto, #nvFundo.aberto, #cpFundo.aberto, .dlg.aberto, #dlg.aberto"); }
   function navegarPorTecla(e){
     var dir = TECLAS_AVANCA[e.key] ? 1 : TECLAS_VOLTA[e.key] ? -1 : 0;
     if(!dir || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false;
@@ -4368,6 +4370,39 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <style>
   #iaFundo{position:fixed;inset:0;z-index:9100;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #iaFundo.aberto{display:flex}
+  #acFundo{position:fixed;inset:0;z-index:9100;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
+  #acFundo.aberto{display:flex}
+  #acJanela{background:#fff;border-radius:16px;width:min(1100px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:"Segoe UI",Roboto,sans-serif;color:#12202e}
+  #acTopo{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#0f2c4a;color:#fff;border-bottom:3px solid #8DC63F}
+  #acTopo h2{margin:0;font:800 19px Nunito,"Segoe UI",sans-serif}
+  #acTopo button{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5);border-radius:8px;padding:7px 12px;font-size:14px;cursor:pointer}
+  #acCorpo{padding:14px 18px 18px;overflow:auto}
+  .ac-d{margin:0 0 10px;color:#4b5b6b;font-size:14px}
+  .ac-filtros{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+  #acBusca{font-size:15px;padding:10px 12px;border:1px solid #cdd6df;border-radius:10px;width:100%;box-sizing:border-box}
+  .ac-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .ac-chips button{border:1px solid #cdd6df;background:#f5f8fb;border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:#12202e}
+  .ac-chips button[aria-pressed="true"]{background:#0f2c4a;color:#fff;border-color:#0f2c4a}
+  .ac-adm{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px;border:1px dashed #b8c4cf;border-radius:10px;background:#fafcfe;margin-bottom:10px}
+  .ac-adm[hidden]{display:none}
+  .ac-lote{background:#1a6b2a;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+  .ac-lote:disabled{opacity:.6;cursor:default}
+  .ac-lote-msg{margin:0;font-size:13px;color:#4b5b6b;flex-basis:100%}
+  .ac-msg{margin:4px 0 8px;font-size:13px;color:#4b5b6b}
+  .ac-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .ac-card{border:1px solid #e1e7ed;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:#fff}
+  .ac-mini{aspect-ratio:16/9;background:linear-gradient(135deg,var(--ac-cor),#0f2c4a);display:flex;align-items:center;justify-content:center;font-size:42px}
+  .ac-mini img{width:100%;height:100%;object-fit:cover;display:block}
+  .ac-info{padding:10px 12px 4px;display:flex;flex-direction:column;gap:4px;flex:1}
+  .ac-info b{font:800 15px Nunito,"Segoe UI",sans-serif;line-height:1.25}
+  .ac-info small{color:#5b6b7b;font-size:12.5px}
+  .ac-selo{font-size:11.5px;font-weight:700;color:#1a6b2a}
+  .ac-aviso{color:#9a5b00 !important}
+  .ac-bts{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 12px}
+  .ac-bts button{border:1px solid #cdd6df;background:#fff;border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+  .ac-bts .ac-usar{background:#1a6b2a;color:#fff;border-color:#1a6b2a;font-weight:700;flex:1}
+  .ac-bts button:disabled{opacity:.6;cursor:default}
+  @media (max-width:600px){ #acCorpo{padding:12px} .ac-grade{grid-template-columns:1fr} }
   .ferr.ferr-ia.bloq{filter:saturate(.55) brightness(.92)}
   .ferr.ferr-ia.bloq::after{content:"🔒";background:#fff;color:inherit;font-size:10px;padding:1px 4px}
   .ia-bloq-fundo{position:fixed;inset:0;z-index:9200;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
@@ -5105,6 +5140,189 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }finally{ if(window.PDEPensando) PDEPensando.fechar(); delete bg.dataset.gerando; btn.disabled = false; pintarQtdImg(); }
   }
   window.PDENuvem.aulaIA = janelaAulaIA;
+
+  /* ---------- Aulas prontas (nov/2026): acervo oficial da NEWPC sobre os Temas Contemporâneos Transversais da BNCC ----------
+     A aula fica em acervo_aulas/{id} (o conteúdo, não o PDF): "Usar esta aula" abre editável na Lousa, com quiz, e não gasta crédito.
+     O administrador gera o lote, revisa na própria Lousa e aprova; na aprovação as ilustrações viram JPEG leve e a miniatura do cartão. */
+  const FAIXAS_AC = [["1-2", "1º e 2º ano", "1º e 2º ano do Ensino Fundamental", 6], ["3-5", "3º ao 5º ano", "3º ao 5º ano do Ensino Fundamental", 8],
+    ["6-7", "6º e 7º ano", "6º e 7º ano do Ensino Fundamental", 10], ["8-9", "8º e 9º ano", "8º e 9º ano do Ensino Fundamental", 10]];
+  const AREAS_AC = { "Economia":["💰", "#1a6b2a"], "Saúde":["🩺", "#d92b2b"], "Meio Ambiente":["🌱", "#0e7c86"], "Cidadania":["🤝", "#7048e8"], "Ciência e Tecnologia":["⚡", "#2671AB"] };
+  const TEMAS_AC = [
+    ["fin", "Educação financeira: dinheiro, poupar e consumo consciente", "Matemática", "Economia", "Para que serve o dinheiro, diferença entre necessidade e desejo, poupar para um objetivo, comparar preços. Conta simples com valores ilustrativos. Quiz e atividade com a família sobre as compras da casa."],
+    ["ene", "Conta de luz e economia de energia", "Matemática", "Economia", "Quais aparelhos gastam mais energia, como ler o consumo em kWh na conta (nos anos iniciais, só a ideia de gastar mais ou menos), bandeira tarifária a partir do 6º ano, dicas práticas de economia. Valores ilustrativos. Quiz e atividade com a conta de luz de casa."],
+    ["den", "Prevenção da dengue", "Ciências", "Saúde", "Ciclo de vida do Aedes aegypti, onde ele se cria (água parada), sinais de alerta e quando procurar o posto de saúde, como cada família elimina os criadouros. Quiz e atividade de vistoria no quintal com um adulto."],
+    ["hig", "Higiene e prevenção de doenças", "Ciências", "Saúde", "Lavar as mãos do jeito certo, micróbios que não vemos, higiene dos alimentos e da casa, doenças que a higiene previne. Quiz e atividade com a família."],
+    ["ali", "Alimentação saudável", "Ciências", "Saúde", "Grupos de alimentos, comida de verdade e ultraprocessados, leitura do rótulo (a partir do 3º ano), água e lanche saudável com alimentos da região. Sem foco em peso nem em dieta. Quiz e atividade com a família."],
+    ["vac", "Vacinação: como as vacinas protegem", "Ciências", "Saúde", "Como o corpo se defende, como a vacina ensina o corpo, a caderneta de vacinação, doenças que as vacinas controlaram no Brasil, proteção coletiva. Quiz e atividade de conferir a caderneta com a família."],
+    ["agu", "Água: do rio à torneira", "Ciências", "Meio Ambiente", "Caminho da água (captação, tratamento, distribuição e esgoto), água tratada e não tratada, consumo consciente com uma conta simples. Quiz e atividade com a família."],
+    ["lix", "Lixo, reciclagem e coleta seletiva", "Ciências", "Meio Ambiente", "Quanto lixo produzimos, reduzir, reutilizar e reciclar, cores da coleta seletiva, tempo de decomposição dos materiais, destino do lixo na cidade. Quiz e atividade de observar o lixo de casa."],
+    ["tra", "Trânsito seguro", "Interdisciplinar", "Cidadania", "Pedestre, ciclista e passageiro, faixa de pedestre e semáforo, cinto e cadeirinha, atenção ao celular, caminho seguro até a escola. Quiz e atividade de mapear o caminho de casa até a escola."],
+    ["bul", "Bullying e convivência respeitosa", "Interdisciplinar", "Cidadania", "O que é e o que não é bullying, como se sente quem sofre, o papel de quem assiste, a quem pedir ajuda na escola, combinados da turma. Sem expor casos reais. Quiz e atividade de conversa em família."],
+    ["net", "Segurança na internet", "Interdisciplinar", "Cidadania", "Dados pessoais e senhas, conversa com desconhecidos, golpes e notícias falsas, tempo de tela, pedir ajuda a um adulto. Quiz e atividade com a família sobre regras de uso."],
+    ["ele", "De onde vem a energia elétrica", "Ciências", "Ciência e Tecnologia", "Usinas hidrelétricas, solares, eólicas e térmicas, como a energia chega até a casa, a matriz elétrica do Brasil, fontes renováveis. Quiz e atividade de observar os aparelhos de casa."]
+  ];
+  const LOTE_AC = TEMAS_AC.flatMap(t => FAIXAS_AC.map(f => ({ id:t[0] + "_" + f[0], tema:t[1], disciplina:t[2], macroarea:t[3], obs:t[4], faixa:f[0], turma:f[2], qtd:f[3] })));
+  const AC = { lista:[], carregado:false, faixa:"", area:"", busca:"", aba:"aprovada", mini:{}, gerando:false, adm:false };
+  const escAc = x => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  const rotFaixa = f => (FAIXAS_AC.find(x => x[0] === f) || [, f])[1];
+  async function carregarAcervo(){
+    AC.adm = !!(eu && eu.perfil === "admin");
+    const q = AC.adm ? collection(db, "acervo_aulas") : query(collection(db, "acervo_aulas"), where("status", "==", "aprovada"));
+    const sn = await getDocs(q), l = []; sn.forEach(d => l.push({ id:d.id, ...d.data() }));
+    const ordem = TEMAS_AC.map(t => t[0]);
+    l.sort((a, b) => (ordem.indexOf(a.id.split("_")[0]) - ordem.indexOf(b.id.split("_")[0])) || String(a.faixa).localeCompare(String(b.faixa)) || String(a.titulo).localeCompare(String(b.titulo), "pt-BR"));
+    AC.lista = l; AC.carregado = true;
+  }
+  // imagem do Storage em JPEG leve (máx. px de largura): para a Lousa e para a aprovação
+  async function imagemAcervo(caminho, max){
+    const blob = await getBlob(ref(st, caminho)), bmp = await createImageBitmap(blob);
+    const e = Math.min(1, max / bmp.width), cv = document.createElement("canvas");
+    cv.width = Math.round(bmp.width * e); cv.height = Math.round(bmp.height * e);
+    cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+    const jpg = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.85));
+    return { src:cv.toDataURL("image/jpeg", 0.85), w:cv.width, h:cv.height, blob:jpg };
+  }
+  async function miniAcervo(a){
+    if(!a.mini) return "";
+    if(AC.mini[a.id]) return AC.mini[a.id];
+    try{ AC.mini[a.id] = URL.createObjectURL(await getBlob(ref(st, a.mini))); }catch(e){ AC.mini[a.id] = ""; }
+    return AC.mini[a.id];
+  }
+  function janelaAcervo(){
+    let bg = document.getElementById("acFundo");
+    if(!bg){
+      bg = document.createElement("div"); bg.id = "acFundo";
+      bg.innerHTML = '<div id="acJanela" role="dialog" aria-modal="true" aria-labelledby="acTit"><div id="acTopo"><h2 id="acTit">Aulas prontas</h2><button type="button" data-ac="fechar">Fechar</button></div>' +
+        '<div id="acCorpo"><p class="ac-d">Aulas revisadas pela NEWPC sobre os Temas Contemporâneos Transversais da BNCC, do 1º ao 9º ano. Abra, ajuste o que quiser e apresente. <b>Não gasta crédito.</b></p>' +
+        '<div class="ac-filtros"><input id="acBusca" type="search" maxlength="60" placeholder="Buscar: dengue, dinheiro, reciclagem..." aria-label="Buscar aula">' +
+        '<div class="ac-chips" id="acFaixas" role="group" aria-label="Ano">' + [["", "Todos os anos"]].concat(FAIXAS_AC.map(f => [f[0], f[1]])).map(f => '<button type="button" data-ac="faixa" data-v="' + f[0] + '">' + f[1] + '</button>').join("") + '</div>' +
+        '<div class="ac-chips" id="acAreas" role="group" aria-label="Tema">' + [["", "Todos os temas"]].concat(Object.keys(AREAS_AC).map(k => [k, AREAS_AC[k][0] + " " + k])).map(f => '<button type="button" data-ac="area" data-v="' + f[0] + '">' + f[1] + '</button>').join("") + '</div></div>' +
+        '<div id="acAdm" class="ac-adm" hidden><div class="ac-chips" id="acAbas" role="group" aria-label="Situação"></div>' +
+        '<button type="button" class="ac-lote" data-ac="lote" id="acLote">Gerar o lote oficial</button><p id="acLoteMsg" class="ac-lote-msg" role="status"></p></div>' +
+        '<p id="acMsg" class="ac-msg" role="status"></p><div id="acLista" class="ac-grade"></div></div></div>';
+      document.body.appendChild(bg);
+      bg.addEventListener("click", (e) => {
+        if(e.target === bg){ fecharAcervo(); return; }
+        const b = e.target.closest("[data-ac]"); if(!b) return;
+        const ac = b.dataset.ac, a = AC.lista.find(x => x.id === b.dataset.id);
+        if(ac === "fechar") fecharAcervo();
+        if(ac === "faixa"){ AC.faixa = b.dataset.v; pintarAcervo(); }
+        if(ac === "area"){ AC.area = b.dataset.v; pintarAcervo(); }
+        if(ac === "aba"){ AC.aba = b.dataset.v; pintarAcervo(); }
+        if(ac === "usar" && a) usarAcervo(a, b);
+        if(ac === "aprovar" && a) aprovarAcervo(a, b);
+        if(ac === "ocultar" && a) statusAcervo(a, "oculta", b);
+        if(ac === "voltar" && a) statusAcervo(a, "revisao", b);
+        if(ac === "lote") gerarLoteAcervo(b);
+      });
+      bg.addEventListener("input", (e) => { if(e.target.id === "acBusca"){ AC.busca = e.target.value; pintarAcervo(); } });
+      bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAcervo(); } });
+    }
+    bg.classList.add("aberto");
+    const msg = document.getElementById("acMsg"); msg.textContent = "Carregando as aulas...";
+    carregarAcervo().then(() => { msg.textContent = ""; pintarAcervo(); }, (e) => { console.warn("aulas prontas:", e.code || e); msg.textContent = "Não deu para carregar as aulas prontas agora. Tente de novo em instantes."; });
+    setTimeout(() => document.getElementById("acBusca").focus(), 50);
+  }
+  function fecharAcervo(){ const bg = document.getElementById("acFundo"); if(bg) bg.classList.remove("aberto"); }
+  function pintarAcervo(){
+    const box = document.getElementById("acLista"); if(!box) return;
+    document.querySelectorAll('#acFaixas [data-ac="faixa"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === AC.faixa)));
+    document.querySelectorAll('#acAreas [data-ac="area"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === AC.area)));
+    const adm = document.getElementById("acAdm"); adm.hidden = !AC.adm;
+    if(AC.adm){
+      const n = s => AC.lista.filter(x => x.status === s).length;
+      document.getElementById("acAbas").innerHTML = [["aprovada", "Publicadas"], ["revisao", "Em revisão"], ["oculta", "Ocultas"]]
+        .map(x => '<button type="button" data-ac="aba" data-v="' + x[0] + '" aria-pressed="' + (AC.aba === x[0]) + '">' + x[1] + ' (' + n(x[0]) + ')</button>').join("");
+      const falta = LOTE_AC.filter(x => !AC.lista.some(a => a.id === x.id)).length, lb = document.getElementById("acLote");
+      if(!AC.gerando){ lb.disabled = !falta; lb.textContent = falta ? "Gerar o lote oficial (" + falta + " aulas que faltam)" : "Lote oficial completo (" + LOTE_AC.length + " aulas)"; delete lb.dataset.conf; }
+    }
+    const busca = semAcentoIA(AC.busca.trim());
+    const l = AC.lista.filter(a => (AC.adm ? a.status === AC.aba : a.status === "aprovada") && (!AC.faixa || a.faixa === AC.faixa) && (!AC.area || a.macroarea === AC.area)
+      && (!busca || semAcentoIA([a.titulo, a.tema_rotulo, a.tema, a.disciplina, a.macroarea].join(" ")).includes(busca)));
+    const m = document.getElementById("acMsg");
+    if(!l.length){ box.innerHTML = ""; m.textContent = AC.lista.length ? "Nenhuma aula com esses filtros." : AC.adm ? "O acervo ainda está vazio. Gere o lote oficial acima." : "As aulas prontas estão sendo preparadas. Volte em breve."; return; }
+    m.textContent = l.length + (l.length === 1 ? " aula" : " aulas");
+    box.innerHTML = l.map(a => {
+      const ar = AREAS_AC[a.macroarea] || ["📘", "#0f2c4a"];
+      return '<article class="ac-card"><div class="ac-mini" style="--ac-cor:' + ar[1] + '" data-mini="' + escAc(a.id) + '"><span aria-hidden="true">' + ar[0] + '</span></div>' +
+        '<div class="ac-info"><b>' + escAc(a.titulo) + '</b><small>' + escAc(rotFaixa(a.faixa)) + ' · ' + escAc(a.disciplina) + ' · ' + (a.qtd || "?") + ' slides</small>' +
+        '<span class="ac-selo">✔ Oficial NEWPC · ' + escAc(a.macroarea) + '</span>' +
+        (a.usos ? '<small class="ac-usos">Usada ' + a.usos + (a.usos === 1 ? " vez" : " vezes") + '</small>' : '') +
+        (AC.adm && a.aviso ? '<small class="ac-aviso">⚠️ ' + escAc(a.aviso) + '</small>' : '') + '</div>' +
+        '<div class="ac-bts"><button type="button" class="ac-usar" data-ac="usar" data-id="' + escAc(a.id) + '">' + (a.status === "aprovada" ? "Usar esta aula" : "Abrir para revisar") + '</button>' +
+        (AC.adm ? (a.status !== "aprovada" ? '<button type="button" data-ac="aprovar" data-id="' + escAc(a.id) + '">Aprovar</button>' : '<button type="button" data-ac="voltar" data-id="' + escAc(a.id) + '">Voltar para revisão</button>') +
+          (a.status !== "oculta" ? '<button type="button" data-ac="ocultar" data-id="' + escAc(a.id) + '">Ocultar</button>' : '') : '') + '</div></article>';
+    }).join("");
+    // miniatura só das publicadas (as em revisão ainda têm a ilustração original, pesada)
+    l.filter(a => a.mini).forEach(a => miniAcervo(a).then(u => { const el = box.querySelector('[data-mini="' + CSS.escape(a.id) + '"]'); if(u && el) el.innerHTML = '<img src="' + u + '" alt="">'; }));
+  }
+  async function usarAcervo(a, b){
+    const t = b.textContent; b.disabled = true; b.textContent = "Abrindo...";
+    try{
+      const imagens = {};
+      for(const [k, im] of Object.entries(a.imagens || {})){ try{ const x = await imagemAcervo(im.caminho, 1280); imagens[k] = { src:x.src, w:x.w, h:x.h }; }catch(e){ console.warn("ilustração do acervo:", e.code || e); } }
+      fecharAcervo();
+      L().inserirAula(a.aula, { disciplina:a.disciplina, turma:rotFaixa(a.faixa), creditos:null, imagens, continuar:[], cor:temaIA.cor || (AREAS_AC[a.macroarea] || [])[1] || "", fundo:temaIA.fundo });
+      if(a.status === "aprovada" && !AC.adm){ updateDoc(doc(db, "acervo_aulas", a.id), { usos:(a.usos || 0) + 1 }).then(() => { a.usos = (a.usos || 0) + 1; }, (e) => console.warn("uso:", e.code || e)); }
+      if(a.status !== "aprovada") setTimeout(() => L().msg("Revisão: confira os slides e o Guia do professor. Depois, em Aulas prontas, aprove ou oculte esta aula."), 2500);
+    }catch(e){ console.warn("aula pronta:", e.code || e); document.getElementById("acMsg").textContent = "Não deu para abrir esta aula agora."; }
+    finally{ b.disabled = false; b.textContent = t; }
+  }
+  async function statusAcervo(a, status, b){
+    b.disabled = true;
+    try{ await updateDoc(doc(db, "acervo_aulas", a.id), { status, revisado_em:serverTimestamp(), revisado_por:uid }); a.status = status; pintarAcervo(); }
+    catch(e){ console.warn("status:", e.code || e); b.disabled = false; document.getElementById("acMsg").textContent = "Não deu para salvar agora."; }
+  }
+  // aprovação: as ilustrações viram JPEG de 1280 px e a capa vira a miniatura do cartão (o professor baixa pouco)
+  async function aprovarAcervo(a, b){
+    b.disabled = true; b.textContent = "Preparando...";
+    try{
+      const imagens = {}; let mini = "";
+      for(const [k, im] of Object.entries(a.imagens || {})){
+        if(/-v\.jpg$/.test(im.caminho)){ imagens[k] = im; continue; }
+        const x = await imagemAcervo(im.caminho, 1280), caminho = "acervo-aulas/" + a.id + "/" + k + "-v.jpg";
+        await uploadBytes(ref(st, caminho), x.blob, { contentType:"image/jpeg", cacheControl:"private, max-age=604800" });
+        imagens[k] = { caminho, mime:"image/jpeg" };
+      }
+      const capa = imagens.capa || Object.values(imagens)[0];
+      if(capa){ const x = await imagemAcervo(capa.caminho, 480); mini = "acervo-aulas/" + a.id + "/mini.jpg";
+        await uploadBytes(ref(st, mini), x.blob, { contentType:"image/jpeg", cacheControl:"private, max-age=604800" }); }
+      await updateDoc(doc(db, "acervo_aulas", a.id), { status:"aprovada", imagens, mini, revisado_em:serverTimestamp(), revisado_por:uid });
+      Object.assign(a, { status:"aprovada", imagens, mini }); pintarAcervo();
+    }catch(e){ console.warn("aprovar:", e.code || e); b.disabled = false; b.textContent = "Aprovar"; document.getElementById("acMsg").textContent = "Não deu para aprovar agora (" + (e.code || "erro") + ")."; }
+  }
+  // lote oficial: 2 aulas por vez; o que já existe é pulado, então dá para rodar de novo e completar o que falhou
+  async function gerarLoteAcervo(b){
+    if(AC.gerando) return;
+    const falta = LOTE_AC.filter(x => !AC.lista.some(a => a.id === x.id));
+    if(!falta.length) return;
+    if(!b.dataset.conf){ b.dataset.conf = "1"; b.textContent = "Confirmar: gerar " + falta.length + " aulas com 2 ilustrações cada"; return; }
+    AC.gerando = true; b.disabled = true;
+    const msg = document.getElementById("acLoteMsg"), erros = [];
+    let feitas = 0, prox = 0;
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    const fn = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:540000 });
+    const pinta = (t) => { b.textContent = "Gerando... " + feitas + " de " + falta.length; msg.textContent = t || ""; };
+    const trabalhador = async () => {
+      while(prox < falta.length){
+        const x = falta[prox++];
+        pinta("Agora: " + x.tema + " · " + rotFaixa(x.faixa));
+        try{
+          await fn({ acao:"aula_lousa", tema:x.tema, disciplina:x.disciplina, turma:x.turma, qtd:x.qtd, obs:x.obs, ultra:true, imagens:2, estilo:"auto",
+            acervo:{ id:x.id, faixa:x.faixa, macroarea:x.macroarea, tema:x.tema } });
+        }catch(e){ console.warn("lote:", x.id, e.code, e.message); erros.push(x.tema + " · " + rotFaixa(x.faixa)); }
+        feitas++; pinta();
+      }
+    };
+    try{ await Promise.all([trabalhador(), trabalhador()]); }
+    finally{
+      AC.gerando = false;
+      await carregarAcervo().catch(() => {});
+      AC.aba = "revisao"; pintarAcervo();
+      msg.textContent = (feitas - erros.length) + " aulas geradas e esperando revisão." + (erros.length ? " Não saíram: " + erros.join("; ") + ". Toque em Gerar de novo para tentar só essas." : "");
+    }
+  }
+  window.PDENuvem.acervo = janelaAcervo;
 
   /* ---------- Modo Apresentação: sorteio pela lista da turma e quiz ao vivo com a Turma ao Vivo ----------
      O quiz do slide vai para a aula aberta pelo professor (qr_aulas.por = ele), no mesmo formato do Quiz rápido do Dar aula:

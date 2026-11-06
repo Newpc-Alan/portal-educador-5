@@ -825,6 +825,10 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
   if (d.acao === 'aula_lousa') {
     // Central de IA: Lousa IA Básica (texto) e Ultra (ilustrações; inclui a Básica)
     const opcLousa = exigir('lousa_ia');
+    // Aulas prontas (nov/2026): o administrador gera o acervo oficial; a aula fica guardada para revisão e não volta pesada para a tela
+    const acervo = d.acervo && typeof d.acervo === 'object' ? d.acervo : null;
+    const acervoId = acervo ? txt(acervo.id, 80).replace(/[^a-z0-9_-]/g, '') : '';
+    if (acervo && (!ctx.admin || !acervoId)) throw new HttpsError('permission-denied', 'Só o administrador gera aulas para o acervo.');
     const aUltra = acessoIA('lousa_ia_ultra', ctx.ia), ultra = d.ultra === true && aUltra.ok;
     const opcUltra = { rede: aUltra.via === 'rede' ? true : aUltra.via === 'admin' ? undefined : false, nome: NOMES_IA.lousa_ia_ultra };
     const tema = txt(d.tema, 300), qtd = Math.min(15, Math.max(3, Math.round(Number(d.qtd) || 6)));
@@ -986,6 +990,20 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
     }
     if (curta) aviso = 'A IA montou ' + curta + ' dos ' + qtd + ' slides pedidos. Como a aula não veio completa, os créditos do texto foram devolvidos.' + (aviso ? ' ' + aviso : '');
     if (diag.contas_erradas) aviso = 'Confira as contas: ' + (diag.contas_erradas === 1 ? 'um slide de cálculo pode ter conta errada.' : diag.contas_erradas + ' slides de cálculo podem ter conta errada.') + (aviso ? ' ' + aviso : '');
+    if (acervo) {
+      // ilustrações no Storage (acervo-aulas/{id}/...) e a aula em acervo_aulas/{id}, aguardando revisão; o id fixo deixa refazer o lote sem duplicar
+      const bucket = getStorage().bucket(), imgs = {};
+      for (const [onde, im] of Object.entries(imagens)) {
+        const caminho = `acervo-aulas/${acervoId}/${onde}.${/png/.test(im.mime) ? 'png' : 'jpg'}`;
+        await bucket.file(caminho).save(Buffer.from(im.dados, 'base64'), { contentType: im.mime, resumable: false, metadata: { cacheControl: 'private, max-age=86400' } });
+        imgs[onde] = { caminho, mime: im.mime };
+      }
+      await db.doc('acervo_aulas/' + acervoId).set({
+        titulo: txt(aula.titulo, 160), tema, disciplina, turma, etapa, faixa: txt(acervo.faixa, 10), macroarea: txt(acervo.macroarea, 40), tema_rotulo: txt(acervo.tema, 120),
+        qtd: aula.slides.length, aula: JSON.parse(JSON.stringify(aula)), imagens: imgs, status: 'revisao', origem: 'oficial', usos: 0, aviso,
+        contas_erradas: diag.contas_erradas || 0, criado_por: uid, criado_em: FieldValue.serverTimestamp() });
+      return { acervo_id: acervoId, titulo: aula.titulo, qtd: aula.slides.length, imagens: Object.keys(imgs).length, aviso };
+    }
     return { aula, imagens, aviso, diag, cota: await cota() };
   }
 

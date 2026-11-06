@@ -18,6 +18,15 @@ service firebase.storage {
         && request.resource.contentType.matches('application/pdf|image/.*|audio/.*|application/vnd\\.openxmlformats-officedocument\\..*|application/msword|application/vnd\\.ms-excel|application/vnd\\.ms-powerpoint');
     }
 
+    // Aulas prontas da Lousa: ilustracoes do acervo oficial (so a funcao grava)
+    // na aprovacao, o administrador grava a versao leve (JPEG) e a miniatura do cartao
+    match /acervo-aulas/{id}/{arquivo} {
+      allow read: if licenciado();
+      allow create, update: if admin() && arquivo.matches('[a-z0-9]+-v\\.jpg|mini\\.jpg')
+        && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType == 'image/jpeg';
+      allow delete: if admin();
+    }
+
     // aulas da Lousa (JSON compactado), ate 50 MB
     match /professores/{uid}/lousa/{arquivo} {
       allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
