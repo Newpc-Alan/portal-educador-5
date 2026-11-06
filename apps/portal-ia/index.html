@@ -45,6 +45,7 @@ a{color:var(--azul)}
 h1{font-size:clamp(1.55rem,3.2vw,2.05rem);font-weight:800;letter-spacing:-.02em;line-height:1.15}
 h2{font-size:1.1rem;font-weight:800}
 .sub{color:var(--muted);font-size:.94rem}
+.guarda-ia{font-size:.82rem;margin:8px 2px 0}
 .pilha{display:flex;flex-direction:column;gap:20px}
 .btn{border:1px solid var(--line2);background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;font-size:.9rem;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--ink)}
 .btn:hover{border-color:var(--azul)}
@@ -452,7 +453,7 @@ function telaInicio(){
   '<div class="pede"><textarea id="pedido" maxlength="6000" placeholder="' + esc(at ? at.ph : "Ex.: preciso de uma atividade sobre frações para o 5º ano, com gabarito") + '">' + esc(E.texto) + "</textarea>" +
   '<div class="pe">' + (at ? '<span class="fixo">' + esc(at.t) + '<button type="button" data-action="soltar" aria-label="Tirar o tipo">×</button></span>' : "") +
   (at && QTD_PADRAO[at.k] ? '<label class="qtd-q">Questões<input id="inQtd" type="number" inputmode="numeric" min="3" max="40" value="' + esc(E.qtd || "") + '" placeholder="' + QTD_PADRAO[at.k] + '" aria-label="Quantas questões (até 40)"></label>' : "") +
-  '<span class="cota">' + esc(textoCota()) + '</span>' + (E.cota && !E.cota.admin ? '<button type="button" class="btn comprar" data-action="comprar">💳 Comprar créditos</button>' : "") + '<span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div></div>" +
+  '<span class="cota">' + esc(textoCota()) + '</span>' + (E.cota && !E.cota.admin ? '<button type="button" class="btn comprar" data-action="comprar">💳 Comprar créditos</button>' : "") + '<span class="esp"></span><button type="button" class="btn pri" data-action="enviar"' + (E.bloqueio ? " disabled" : "") + ">Preparar</button></div>" + (E.cota && !E.cota.admin ? '<p class="sub guarda-ia">💾 Cada material usa ' + (((E.cota.precos || {}).material) || 2) + ' créditos e fica salvo em <b>Meus trabalhos</b>: abrir, editar e imprimir de novo não gasta crédito.</p>' : "") + "</div>" +
   '<div id="piSug" class="sug" hidden></div>' +
   (at ? "" : '<div class="exs">' + EXEMPLOS.map(x => '<button type="button" class="ex" data-action="exemplo" data-arg="' + esc(x) + '">' + esc(x) + "</button>").join("") + "</div>") +
   "</section>" +
@@ -738,7 +739,7 @@ async function gerar(){
     aposUso(r.cota); E.texto = ""; E.tipo = "";
     E.atual = { id:r.id, tipo:r.tipo, tipo_nome:r.nome, publico:r.publico, doc:r.doc, contexto:contexto(), imagem:"", html:"" };
     E.imgs = {}; E.imgOnde = "topo"; E.imgDescPre = ""; E.recentes.unshift({ id:r.id, tipo:r.tipo, tipo_nome:r.nome, titulo:r.doc.titulo, atualizado_em:{ __ms:Date.now() } });
-    ir("doc");
+    ir("doc"); toast("Pronto. O material está salvo em Meus trabalhos: abrir de novo não gasta crédito.");
   }catch(e){ if(window.PDEPensando) PDEPensando.fechar(); E.ocupado = false; clearInterval(E._passos); c.etapa = "erro"; c.erro = msgErro(e); desenhar(); }
 }
 
@@ -858,7 +859,7 @@ function telaDoc(){
   (A.tipo !== "parecer" && temRec("rede_colab") ? '<div class="caixa"><h4>Enviar por e-mail</h4><p class="sub" style="font-size:.82rem;margin:0 0 8px">Para os colegas da turma ou qualquer pessoa, em PDF.</p><button type="button" class="btn" data-action="email-abrir">✉️ Enviar por e-mail</button></div>' : "") +
   (d.versao_whatsapp ? '<div class="caixa"><h4>Para o WhatsApp</h4><div class="wpp">' + esc(d.versao_whatsapp) + '</div><button type="button" class="btn peq" style="margin-top:8px" data-action="copiar-wpp">Copiar mensagem</button></div>' : "") +
   (d.nota_professor ? '<div class="nota"><b>Dica:</b> ' + esc(d.nota_professor) + "</div>" : "") +
-  '<div class="caixa"><h4>Ajustar com a IA</h4><div class="chips">' + AJUSTES.map(a => '<button type="button" class="chip" data-action="ajuste" data-arg="' + esc(a) + '">' + esc(a) + "</button>").join("") + "</div>" +
+  '<div class="caixa"><h4>Ajustar com a IA</h4>' + (c && !c.admin ? '<p class="sub" style="font-size:.8rem;margin:0 0 8px">Cada ajuste usa ' + (((c.precos || {}).ajuste) || 1) + ' crédito e reescreve este material. Abrir, editar e imprimir não gastam crédito.</p>' : "") + '<div class="chips">' + AJUSTES.map(a => '<button type="button" class="chip" data-action="ajuste" data-arg="' + esc(a) + '">' + esc(a) + "</button>").join("") + "</div>" +
     '<textarea id="ajusteLivre" maxlength="1000" placeholder="Ou diga o que mudar (ex.: troque a questão 3 por uma de relacionar)" style="margin-top:8px"></textarea>' +
     '<button type="button" class="btn nav peq" style="margin-top:8px" data-action="ajuste-livre">Ajustar</button></div>' +
   '<div class="caixa"><h4>Imagem para a aula</h4>' + (podeImg ?
@@ -866,7 +867,7 @@ function telaDoc(){
     '<select id="imgOnde" aria-label="Onde colocar a imagem"><option value="topo">Onde: no topo do material</option>' + Array.from({ length:Math.min(nq, 30) }, (_, i) => '<option value="q' + (i + 1) + '"' + (E.imgOnde === "q" + (i + 1) ? " selected" : "") + ">Onde: ao lado da questão " + (i + 1) + "</option>").join("") + "</select>" +
     '<select id="imgEstilo" aria-label="Estilo da imagem">' + ESTILOS.map(([k, t]) => '<option value="' + k + '">' + t + "</option>").join("") + "</select>" +
     '<button type="button" class="btn peq" style="margin-top:8px" data-action="imagem">' + (E.imgs[E.imgOnde] ? "Trocar esta imagem" : "Gerar imagem") + "</button>" +
-    (c && !c.admin ? '<div class="cota" style="margin-top:6px">1 imagem usa ' + ((c.precos || {}).imagem || 6) + " créditos</div>" : "")
+    (c && !c.admin ? '<div class="cota" style="margin-top:6px">1 imagem usa ' + ((c.precos || {}).imagem || 6) + " créditos e fica salva no material. Trocar gera outra imagem e usa os créditos de novo.</div>" : "")
     : '<p class="sub" style="font-size:.86rem;margin-bottom:8px">' + (c && c.rede && !c.rede.imagem ? "Gerar imagens pela rede faz parte do plano Completo. Com créditos avulsos você também pode gerar." : "Sem créditos para imagem agora.") + '</p><button type="button" class="btn peq" data-action="comprar">Comprar créditos avulsos</button>') + "</div>" +
   (A.publico === "aluno" && nMultCartao(d) && !A.vistaRede ? '<div class="caixa caixa-cartao"><h4>Corrigir com cartão-resposta</h4><p class="sub" style="font-size:.82rem;margin:0 0 8px">' + nMultCartao(d) + ' questão(ões) de múltipla escolha vão para o Corretor de Gabarito com o gabarito pronto. Cada aluno recebe um cartão com QR e você corrige pelo celular.' +
     (todasQuestoes(d).length > nMultCartao(d) ? " As de outro tipo ficam para lançar à mão." : "") + '</p><a class="btn pri" href="' + esc(linkCorretor(A)) + '">📷 Corrigir com cartão-resposta</a></div>' : "") +

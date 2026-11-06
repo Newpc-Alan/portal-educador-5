@@ -4542,7 +4542,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     temGuia: function(){ paginas[pagAtual] = estadoPaginaAtual(); return paginas.some(ehGuia); },
     inserirAula: function(aula, meta){
       // mede o texto só com a fonte dos títulos já carregada (medida com a fonte reserva fazia o texto vazar da caixa)
-      var feito = false, ir = function(){ if(feito) return; feito = true; limparMedidas(); inserirAulaIA(aula, meta); };
+      var feito = false, ir = function(){ if(feito) return; feito = true; limparMedidas(); inserirAulaIA(aula, meta); if(meta && typeof meta.depois === "function") setTimeout(function(){ try{ meta.depois(); }catch(e){ console.warn(e); } }, 400); };
       try{ Promise.all([document.fonts.load("800 40px Nunito"), document.fonts.load("700 40px Nunito")]).then(ir, ir); }catch(e){ ir(); }
       setTimeout(ir, 6000);
     },
@@ -4728,6 +4728,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-qi small{font-size:11px;color:#62758a;text-align:center}
   #iaCorpo .ia-qi[aria-pressed="true"]{border-color:#7b5cff;background:#f3f0ff;box-shadow:0 0 0 2px rgba(123,92,255,.2)}
   #iaCorpo .ia-qi:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
+  #iaCorpo .ia-guarda{margin:10px 0 0;padding:7px 11px;border-radius:10px;background:#eef7ee;border:1px solid #b9dcbc;color:#1a4d24;font-size:13px;line-height:1.4}
   #iaCorpo .ia-custo{margin:0;padding:7px 11px;border-radius:10px;background:#fff8e1;border:1px solid #f2d27a;color:#5a4b00;font-size:13px;line-height:1.4}
   #iaCorpo #iaEstiloBox{grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:10px}
   #iaCorpo #iaEstiloBox select{min-height:38px;padding:7px 10px}
@@ -5175,6 +5176,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   const FUNDOS_TEMA_IA = [["claro", "Claro", "sala iluminada, projetor"], ["escuro", "Escuro", "lousa digital, sala escura"], ["verde", "Quadro verde", "estilo quadro de giz"]];
   const temaIA = (() => { try{ const t = JSON.parse(localStorage.getItem("pde_aula_tema") || "{}");
     return { cor:CORES_TEMA_IA.some(c => c[0] === t.cor) ? t.cor : "", fundo:FUNDOS_TEMA_IA.some(f => f[0] === t.fundo) ? t.fundo : "claro" }; }catch(e){ return { cor:"", fundo:"claro" }; } })();
+  // Transparência (nov/2026): a aula gerada vai na hora para Meus trabalhos, com o título dela; abrir de novo não gasta crédito.
+  // Se já havia um trabalho aberto, a aula entra nele (é o mesmo quadro). Sem nuvem (fora do Portal), fica no navegador como antes.
+  async function guardarAulaIA(titulo){
+    if(!window.PDENuvem || !window.PDENuvem.ativa()) return;
+    if(!L().nuvem().id) L().definirNuvem(null, titulo);
+    try{ await salvar(false); L().msg("Aula salva em Meus trabalhos. Abrir de novo não gasta crédito."); }catch(e){ /* salvar() já avisou; a aula segue salva neste navegador */ }
+  }
   function salvarTemaIA(){ try{ localStorage.setItem("pde_aula_tema", JSON.stringify(temaIA)); }catch(e){} }
   function pintarTemaIA(){
     const disc = document.getElementById("iaDisc"), cor = temaIA.cor || ((window.PDELousa && window.PDELousa.coresDisc) || {})[disc && disc.value] || "#0f2c4a";
@@ -5255,6 +5263,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           '</div><p id="iaCustoImg" class="ia-custo" role="status"></p></div>' +
         '<label id="iaEstiloBox" hidden style="margin-top:6px">Estilo das ilustrações<select id="iaEstilo"><option value="auto">Automático (pela turma)</option><option value="realista">Realista (foto ou pintura histórica)</option><option value="didatica">Livro didático (semi-realista)</option><option value="infantil">Infantil (desenho colorido)</option></select><small id="iaEstiloInfo"></small></label></div>' +
         '</div></div>' +
+        '<p class="ia-guarda">💾 Depois de pronta, a aula fica guardada em <b>Meus trabalhos</b>: abrir, editar e apresentar de novo não gasta crédito.</p>' +
         '<div class="ia-acoes"><p id="iaMsg" class="ia-msg" role="status"></p><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA();
@@ -5416,7 +5425,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       for(const [k, im] of Object.entries(r.imagens || {})){ try{ imagens[k] = await comprimirIA(im); }catch(e){ console.warn("ilustração:", e); } }
       delete bg.dataset.gerando; bg.classList.remove("aberto");
       const cred = document.getElementById("iaCred").checked && perfilIA ? { autor:perfilIA.nome, escola:perfilIA.escola } : null;
-      L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma, creditos:cred, imagens, continuar, cor:temaIA.cor, fundo:temaIA.fundo });
+      L().inserirAula(r.aula, { disciplina:dados.disciplina, turma:dados.turma, creditos:cred, imagens, continuar, cor:temaIA.cor, fundo:temaIA.fundo,
+        depois: () => guardarAulaIA(String((r.aula && r.aula.titulo) || tema).slice(0, 80)) });
       if(r.diag) console.info("aula IA:", r.diag);
       if(r.aviso) setTimeout(() => { L().msg(r.aviso); if(window.PDELousa && PDELousa.alerta) PDELousa.alerta(r.aviso); }, 2500);
     }catch(e){
