@@ -10,6 +10,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { contexto, geminiJson, RESERVA_TEXTO, etapaDaTurma } from './portal-ia.js';
+import { SMTP_SENHA } from './dicas.js';   // alerta de crédito do Google esgotado (portal-ia.js)
 import { reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
 import { acessoIA, mensagemAcesso, NOMES_IA } from './ia-acesso.js';
 import { periodoDisciplina, PADRAO as REGRAS_NOTAS } from './notas-fechamento.js';
@@ -150,7 +151,7 @@ export function semNome(livre, nome) {
 }
 const primeiroNome = n => (String(n || '').trim().split(/\s+/)[0] || '').replace(/^./, c => c.toUpperCase());
 
-export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI], timeoutSeconds: 180, memory: '512MiB', maxInstances: 20 }, async req => {
+export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 180, memory: '512MiB', maxInstances: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {}, u = await quem(db, uid);
   const t = await turmaDoUsuario(db, u, d.turma_id), ano = +d.ano || new Date().getFullYear(), p = +d.periodo;
