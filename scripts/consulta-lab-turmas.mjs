@@ -8,10 +8,11 @@ const { getFirestore, FieldValue } = await import(pathToFileURL(req.resolve('fir
 initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
 const db = getFirestore(), aviso = t => console.log('::notice::' + String(t).slice(0, 900));
 const apel = {}; let n = 0; const P = uid => uid ? (apel[uid] = apel[uid] || 'P' + (++n)) : '-';
-const ts = (await db.collection('turmas').where('escola_id', '==', 'lab-es').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+const ts = (await db.collection('turmas').where('escola_id', '>=', 'lab-').where('escola_id', '<', 'lab.').get()).docs.map(d => ({ id: d.id, ...d.data() }));
 ts.sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR', { numeric: true }));
+aviso('escolas: ' + [...new Set(ts.map(t => t.escola_id))].join(', '));
 for (const t of ts) aviso(`${t.id}: ${t.nome} | ano ${t.ano_serie || '-'} | status ${t.status || '-'} | grade: ${(t.grade || []).map(g => (g.disciplina || '?') + '=' + P(g.professor_uid)).join(', ') || '-'} | campos: ${Object.keys(t).sort().join(',')}`);
-const us = (await db.collection('usuarios').where('escola_id', '==', 'lab-es').get()).docs.map(d => ({ id: d.id, ...d.data() }));
+const us = (await db.collection('usuarios').where('escola_id', '>=', 'lab-').where('escola_id', '<', 'lab.').get()).docs.map(d => ({ id: d.id, ...d.data() }));
 for (const u of us) aviso(`${P(u.id)} perfil ${u.perfil} status ${u.status} turmas ${(u.turmas_ids || []).join('/')} disc ${(u.disciplinas || []).join('/')}`);
-const al = await db.collection('alunos').where('escola_id', '==', 'lab-es').get();
+const al = await db.collection('alunos').where('escola_id', '>=', 'lab-').where('escola_id', '<', 'lab.').get();
 const porT = {}; al.forEach(d => { const t = d.data().turma_id; porT[t] = (porT[t] || 0) + 1; }); aviso('alunos por turma: ' + JSON.stringify(porT));
