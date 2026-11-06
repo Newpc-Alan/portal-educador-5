@@ -356,7 +356,8 @@ export function paraAula(j, qtd) {
   // a IA às vezes devolve o nome do campo no lugar do texto ("destaque"): isso vira vazio
   const VAZIO = /^(destaque|explica[cç][aã]o|explica|exemplo|erro[_ ]comum|t[oó]picos?|legenda|resposta|t[ií]tulo|pergunta|roteiro|n[uú]mero|texto|conta|resultado|r[oó]tulo|valor|detalhe|vazio|null|undefined|n\/a|-)$/i;
   const c = (v, n) => { const t = String(v || '').replace(/\s+/g, ' ').trim(); return VAZIO.test(t) ? '' : t.slice(0, n); };
-  const lista = (v, n, m) => (Array.isArray(v) ? v : []).map(t => c(t, m).replace(/^[-•*\d.)\s]+/, '')).filter(Boolean).slice(0, n);
+  // tira só o marcador de lista ("- ", "• ", "1) ", "2. "); número que faz parte do texto fica ("10 kWh", "1500 pessoas")
+  const lista = (v, n, m) => (Array.isArray(v) ? v : []).map(t => c(t, m).replace(/^\s*(?:[-•*]\s*|\d{1,2}[.)]\s+)/, '')).filter(Boolean).slice(0, n);
   const slides = (Array.isArray(j && j.slides) ? j.slides : []).map(x => {
     x = x || {};
     const alts = lista(x.alternativas, 4, 110).map(a => a.replace(/^[a-dA-D][).:-]\s*/, ''));
@@ -842,7 +843,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       'linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
       'Use pelo menos 4 formatos diferentes e inclua OBRIGATORIAMENTE 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
       (DENSIDADE[etapa] || DENSIDADE.finais) + ' O que for explicação longa vai no aprofundamento do professor, que não aparece na tela. ' +
-      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Contas: refaça cada operação antes de escrever; frações e porcentagens juntas quando ajudar (ex.: 1/4 = 25%). ' +
+      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Contas: refaça cada operação antes de escrever; frações e porcentagens juntas quando ajudar (ex.: 1/4 = 25%).Valores que mudam com o tempo (salário mínimo, tarifas, preços, população): diga o ano de referência ou use um valor redondo apresentado como exemplo. ' +
       'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe). ' +
       'A aula se basta: não indique vídeo, filme, site, aplicativo nem material externo (nem "assista", "veja o vídeo", "pesquise no site"), nem no roteiro do professor.\n\n' + REGRAS_GERAIS;
     const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') +
