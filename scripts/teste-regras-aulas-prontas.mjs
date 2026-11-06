@@ -9,6 +9,7 @@ const [host, port] = (process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080').s
 const env = await initializeTestEnvironment({ projectId: 'demo-pe5', firestore: { rules: readFileSync(process.argv[2], 'utf8'), host, port: Number(port) } });
 await env.withSecurityRulesDisabled(async (c) => {
   const db = c.firestore();
+  await setDoc(doc(db, 'municipios/m1'), { nome: 'M1' });
   await setDoc(doc(db, 'usuarios/p1'), { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', municipio_id: 'm1' });
   await setDoc(doc(db, 'usuarios/pi'), { perfil: 'professor', status: 'inativo', licenca_tipo: 'institucional', escola_id: 'e1', municipio_id: 'm1' });
   await setDoc(doc(db, 'usuarios/al1'), { perfil: 'aluno', status: 'ativo', escola_id: 'e1', municipio_id: 'm1' });
