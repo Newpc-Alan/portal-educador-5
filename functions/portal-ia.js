@@ -305,13 +305,13 @@ export const ESQUEMA_AULA = {
         'resumo: 4 ideias principais em "topicos" (use no último slide).' },
       titulo: S('Título do slide, até 55 caracteres.'),
       icone: S('Um único emoji que represente o slide.'),
-      topicos: AS('Frases completas e informativas (até 140 caracteres cada), sem marcador na frente.'),
-      destaque: S('Texto principal de conceito, curiosidade, quiz ou atividade (até 240 caracteres).'),
-      explicacao: S('Em conceito, curiosidade e dado: o porquê ou o como, em linguagem da turma (até 240 caracteres).'),
-      exemplo: S('Em conceito: um exemplo do cotidiano do aluno brasileiro (até 160 caracteres).'),
-      erro_comum: S('Em conceito: um erro ou confusão comum dos alunos sobre o assunto (até 150 caracteres). Pode ficar vazio.'),
+      topicos: AS('Frases curtas e informativas (até 90 caracteres cada), sem marcador na frente.'),
+      destaque: S('Texto principal de conceito, curiosidade, quiz ou atividade, curto e direto (até 150 caracteres).'),
+      explicacao: S('Em conceito, curiosidade e dado: o porquê ou o como, em linguagem da turma, numa frase (até 140 caracteres).'),
+      exemplo: S('Em conceito: um exemplo do cotidiano do aluno brasileiro (até 110 caracteres).'),
+      erro_comum: S('Em conceito: um erro ou confusão comum dos alunos sobre o assunto (até 110 caracteres). Pode ficar vazio.'),
       numero: S('Em dado: o número em destaque, curto (até 14 caracteres).'),
-      legenda: S('Em dado: o que o número significa (até 140 caracteres).'),
+      legenda: S('Em dado: o que o número significa (até 100 caracteres).'),
       alternativas: AS('Em quiz: exatamente 4 alternativas curtas (até 90 caracteres), sem letra na frente.'),
       correta: { type: 'INTEGER', description: 'Em quiz: posição da alternativa correta (0 a 3).' },
       resposta: S('Em quiz e atividade: a resposta com a justificativa (até 220 caracteres).'),
@@ -755,6 +755,8 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       '3) conceito explicado com o porquê e o como, 4) aprofundamento com exemplos do Brasil, dados reais, causas e consequências, 5) aplicação (quiz para a turma votar ou atividade), 6) síntese no resumo final. ' +
       'Varie os formatos: conceito para definições, curiosidade ou dado para despertar interesse, linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
       'Use pelo menos 4 formatos diferentes e inclua 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
+      'O slide é para a turma OLHAR, não para ler: uma ideia por slide, frases curtas e diretas (no máximo umas 25 palavras visíveis por slide, somando tudo), palavras-chave em vez de parágrafos. ' +
+      'O detalhe, o contexto e as explicações longas vão no aprofundamento do professor, que não aparece na tela. ' +
       'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. ' +
       'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe). ' +
       'A aula se basta: não indique vídeo, filme, site, aplicativo nem material externo (nem "assista", "veja o vídeo", "pesquise no site"), nem no roteiro do professor.\n\n' + REGRAS_GERAIS;
