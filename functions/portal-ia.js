@@ -676,7 +676,7 @@ async function tratarPortalIa(req) {
     if (resumo.length < 3) throw new HttpsError('invalid-argument', 'Pedido vazio.');
     // quantidade escolhida pelo professor (até 40); sem escolha, o padrão de cada tipo
     const qtd = Math.min(40, Math.max(0, Math.round(Number(d.qtd)) || ({ prova: 10, simulado: 15, diagnostica: 15, lista: 9, atividade: 6 }[tipo] || 0)));
-    const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'texto', exigir('portalia'));
+    const res = await reservarCreditos(db, ctx, anterior ? 'ajuste' : 'material', exigir('portalia'));
     const T = TIPOS[tipo];
     const sistema = 'Você é um professor experiente da educação básica brasileira e autor de material didático. ' + T.instrucao +
       (T.questoes ? ' Em CADA questão, preencha "habilidade" com o código da BNCC que ela avalia, do ano e do componente do contexto (o professor usa isso para ver, depois da correção, em que habilidade a turma errou). Só use código que você tem certeza de que existe; na dúvida, deixe vazio.' : '') +
@@ -871,7 +871,7 @@ async function tratarPortalIa(req) {
     const disciplina = txt(d.disciplina, 80), turma = txt(d.turma, 80), obs = txt(d.obs, 1500);
     // Aula avançada (nov/2026): modelo mais forte do Gemini, para Ensino Médio e revisões; custa mais créditos (precos.avancado)
     const avancado = d.avancado === true;
-    const res = await reservarCreditos(db, ctx, avancado ? 'avancado' : 'texto', opcLousa);
+    const res = await reservarCreditos(db, ctx, avancado ? 'avancado' : 'aula', opcLousa);
     const etapa = etapaDaTurma(turma);
     const MODELOS = avancado ? [ctx.cfg.modelo_avancado || 'gemini-pro-latest', ctx.cfg.modelo_texto, ...RESERVA_TEXTO] : [ctx.cfg.modelo_texto, ...RESERVA_TEXTO];
     const LIMITE = avancado ? 240000 : qtd > 10 ? 170000 : 85000;

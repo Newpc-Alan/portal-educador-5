@@ -2,7 +2,8 @@
 // Cada município (plano Intermediário ou Completo) tem uma carteira: creditos/mun_{municipioId}.
 // Cada professor pode ter a sua, comprada à parte: creditos/prof_{uid}.
 // A carteira guarda pacotes com validade (12 meses); o consumo tira do pacote que vence primeiro.
-// 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 créditos (config/portal_ia.creditos.precos).
+// Tabela de nov/2026 (custo real × 3, no pior caso de venda a R$ 0,36 o crédito): material 2, Aula IA 6, imagem 6, Aula avançada 24;
+// texto (questões, parecer, quiz, IA rápida da Lousa) 1 e ajuste 1. Tudo em config/portal_ia.creditos.precos.
 // A rede gasta primeiro (com teto mensal por professor); acabou ou bateu o teto, usa os créditos do próprio professor.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
@@ -11,17 +12,19 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_FIRESTORE } from './dicas.js';
 
 export const CREDITOS_PADRAO = {
-  precos: { texto: 1, ajuste: 1, imagem: 5, avancado: 3 },   // avancado: Aula avançada da Lousa (modelo mais forte)
-  teto_padrao: 60,            // créditos da rede por professor por mês (0 = sem teto)
+  precos: { texto: 1, material: 2, aula: 6, ajuste: 1, imagem: 6, avancado: 24 },   // aula: Aula IA da Lousa; avancado: Aula avançada (modelo Pro)
+  teto_padrao: 120,            // créditos da rede por professor por mês (0 = sem teto)
   demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
   // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; também é o teto por professor
-  franquia: { intermediario: 20, completo: 40, personalizado: 20 },
+  franquia: { intermediario: 60, completo: 120, personalizado: 60 },
   alertas: [20, 5],           // % do saldo para avisar a NEWPC e a Secretaria
   validade_meses: 12,
   dolar: 5.6,
   // custo real em US$ por milhão de tokens (entrada, saída) e por imagem, para o relatório de margem
   custo_modelo: { 'gemini-3.6-flash': [0.75, 3.75], 'gemini-3.1-flash-lite': [0.1, 0.4], 'gemini-flash-latest': [0.75, 3.75] },
   custo_imagem: 0.067,
+  // a fatura do Google veio ~1,6× o custo calculado pelos tokens (raciocínio do modelo e afins): o relatório de margem usa o custo ajustado
+  fator_custo: 1.6,
   // sugestões: o administrador ajusta valores e quantidades no painel
   // tabela de nov/2026: pelo menos o dobro do custo real (R$ 0,19 por crédito em out/2026)
   pacotes_rede: [
@@ -165,7 +168,7 @@ export async function estornarCreditos(db, res) {
 // registra o consumo com o custo real (para o relatório de margem da NEWPC)
 export async function registrarConsumo(db, ctx, res, info) {
   const cc = cfgCreditos(ctx.cfgRaw), preco = cc.custo_modelo[info.modelo] || cc.custo_modelo['gemini-3.6-flash'];
-  const usd = (info.entrada || 0) / 1e6 * preco[0] + (info.saida || 0) / 1e6 * preco[1] + (info.imagem ? cc.custo_imagem : 0);
+  const usd = ((info.entrada || 0) / 1e6 * preco[0] + (info.saida || 0) / 1e6 * preco[1] + (info.imagem ? cc.custo_imagem : 0)) * (Number(cc.fator_custo) || 1);
   const mes = mesAtual(), usoRef = db.doc(`portal_ia_uso/${ctx.uid}_${mes}`);
   // painel de uso: usos e custo por recurso de IA no mês (aula_lousa, gerar, imagem, questoes_prova...)
   const acao = String((res && res.acao) || info.acao || 'outro').replace(/[^a-z_]/g, '').slice(0, 30) || 'outro';
