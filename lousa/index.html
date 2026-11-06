@@ -4761,6 +4761,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     },
     coresDisc: CORES_DISC,
     temConteudo: function(){ return aulaTemConteudo(); },
+    // quadro com até 2 traços soltos e nada mais (sem texto, imagem, PDF ou 2ª página): não vira trabalho novo sozinho
+    soRabisco: function(){
+      if(paginas.length > 1) return false;
+      var pg = estadoPaginaAtual(); if(pdfsDaPagina(pg).length) return false;
+      try{ var o = (JSON.parse(pg.json).objects) || []; return o.length < 3 && o.every(function(x){ return x.type === "path"; }); }catch(e){ return false; }
+    },
+    // aula montada pela Lousa (Aula IA ou Aula pronta): tem marcas de slide (fundo do slide, etapas do Apresentar, Guia do professor)
+    temGuia: function(){ paginas[pagAtual] = estadoPaginaAtual(); return paginas.some(function(p){ return /"pde(Prof|Fundo|Et)":/.test(p.json || ""); }); },
     alterada: function(){ return nuvem.sujo; },
     nuvem: function(){ return { id:nuvem.id, titulo:nuvem.titulo }; },
     definirNuvem: function(id, titulo){ nuvem.id = id; nuvem.titulo = titulo || nuvem.titulo; salvarAgora(); },
@@ -5046,6 +5054,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #nvGrade{padding:14px 20px 20px;overflow:auto;min-height:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));grid-auto-rows:max-content;align-content:start;gap:12px}
   .nv-card{border:1px solid #d9e3ec;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;background:#fff}
   .nv-card.atual{border-color:#2E9BD6;box-shadow:0 0 0 2px rgba(46,155,214,.25)}
+  #nvFiltros{display:flex;flex-wrap:wrap;gap:8px;margin:10px 20px 0}
+  #nvFiltros button{border:1.5px solid #d9e3ec;background:#fff;border-radius:999px;padding:6px 12px;font:700 13px 'Segoe UI',Roboto,sans-serif;color:#0f2c4a;cursor:pointer}
+  #nvFiltros button[aria-pressed="true"]{background:#0f2c4a;border-color:#0f2c4a;color:#fff}
+  .nv-selo{align-self:flex-start;font-style:normal;font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;margin-bottom:3px}
+  .nv-selo.ia{background:#efe9ff;color:#5b3fc4} .nv-selo.pr{background:#fff1dc;color:#9a5a00}
   .nv-mini{cursor:pointer;aspect-ratio:16/10;background:#eef3f7 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:34px}
   .nv-info{padding:10px 12px;display:flex;flex-direction:column;gap:2px;flex:1}
   .nv-info b{font-size:14px;line-height:1.3;word-break:break-word}
@@ -5063,6 +5076,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   <div id="nvJanela">
     <div id="nvTopo"><h2 id="nvTitulo">Meus trabalhos</h2><div style="display:flex;gap:8px"><button type="button" id="nvNova" data-nv="nova">Nova aula</button><button type="button" id="nvFechar" data-nv="fechar">Fechar</button></div></div>
     <input type="search" id="nvBusca" placeholder="Buscar pelo nome da aula" aria-label="Buscar trabalho">
+    <div id="nvFiltros" role="group" aria-label="Filtrar trabalhos"><button type="button" data-nvf="" aria-pressed="true">Todas</button><button type="button" data-nvf="ia" aria-pressed="false">✨ Aulas IA</button><button type="button" data-nvf="pronta" aria-pressed="false">📚 Aulas prontas</button><button type="button" data-nvf="minhas" aria-pressed="false">✏️ Minhas</button></div>
     <div id="nvGrade"></div>
   </div>
 </div>
@@ -5080,7 +5094,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // O salvamento automático continua (nada se perde se o navegador fechar), mas antes de sobrescrever pela 1ª vez ela guarda uma cópia
   // da original ao lado ({id}.orig.json.gz). Ao encerrar, o professor escolhe: salvar com as anotações, voltar à original ou salvar as
   // anotações como cópia. A cópia da original some quando ele decide (não fica lixo no Storage).
-  let orig = null, ultimo = null, congelado = false;
+  let orig = null, ultimo = null, congelado = false, origemAtual = { id:null, tipo:"" }, filtroNv = "";
   let uid = null, licenca = false, salvando = null, lista = [], busca = "", eu = null, perfilIA = null, lousaCfg = { basica:true, ultra:false }, cotaIA = null;
 
   function licencaOk(u){
@@ -5123,6 +5137,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(salvando) return salvando;
     if(!L().temConteudo()){ if(manual) L().msg("A lousa está vazia: nada para salvar"); return; }
     let { id, titulo } = L().nuvem();
+    if(!id && !manual && L().soRabisco && L().soRabisco()) return;   // rabisco solto fica só neste navegador (não enche Meus trabalhos)
     if(!id){
       if(manual){ const nome = await pedirNome(titulo); if(nome === null) return; titulo = nome; }
       else titulo = titulo || tituloPadrao();
@@ -5140,6 +5155,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         await uploadBytes(ref(st, caminho), blob, { contentType:tipo });
         const meta = { tipo:"lousa", titulo, paginas:dados.paginas.length, tamanho:blob.size, arquivo:caminho, formato:tipo,
           miniatura:L().miniatura(), atualizado_em:serverTimestamp(), ...extraOrig };
+        // origem para os filtros: a que a Lousa sabe (Aula IA / Aula pronta) ou, nas antigas, "aula" se tem Guia do professor
+        const ant = lista.find(x => x.id === id), org = ((origemAtual.id === id || origemAtual.id === "?") && origemAtual.tipo) || (ant && ant.origem) || (L().temGuia && L().temGuia() ? "aula" : "");
+        if(org) meta.origem = org;
         ultimo = { id, blob, tipo, arquivo:caminho, mini:meta.miniatura, paginas:meta.paginas, titulo };
         if(!lista.some(t => t.id === id)) meta.criado_em = serverTimestamp();
         await setDoc(doc(db, "usuarios", uid, "trabalhos", id), meta, { merge:true });
@@ -5218,11 +5236,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const g = document.getElementById("nvGrade");
     const atual = L().nuvem().id;
     const t = busca.toLowerCase();
-    const vis = lista.filter(x => !t || (x.titulo||"").toLowerCase().includes(t));
-    g.innerHTML = !vis.length ? '<div class="nv-vazio">' + (lista.length ? "Nenhuma aula com esse nome." : "Você ainda não tem aulas salvas. Tudo o que fizer na lousa é guardado aqui automaticamente.") + '</div>' :
+    const passa = x => !filtroNv || (filtroNv === "minhas" ? !x.origem : filtroNv === "ia" ? (x.origem === "ia" || x.origem === "aula") : x.origem === filtroNv);
+    const vis = lista.filter(x => passa(x) && (!t || (x.titulo||"").toLowerCase().includes(t)));
+    const selo = x => x.origem === "pronta" ? '<i class="nv-selo pr">📚 Aula pronta</i>' : (x.origem === "ia" || x.origem === "aula") ? '<i class="nv-selo ia">✨ Aula IA</i>' : "";
+    g.innerHTML = !vis.length ? '<div class="nv-vazio">' + (lista.length ? (filtroNv ? "Nenhuma aula neste filtro." : "Nenhuma aula com esse nome.") : "Você ainda não tem aulas salvas. Tudo o que fizer na lousa é guardado aqui automaticamente.") + '</div>' :
       vis.map(x => '<article class="nv-card' + (x.id === atual ? ' atual' : '') + '" data-id="' + esc(x.id) + '">' +
         '<div class="nv-mini" data-nv="abrir" title="Abrir esta aula"' + (x.miniatura ? ' style="background-image:url(\'' + x.miniatura + '\')"' : '') + '>' + (x.miniatura ? '' : '\u{1F4DD}') + '</div>' +
-        '<div class="nv-info"><b>' + esc(x.titulo || "Sem nome") + '</b><small>' + (x.paginas||1) + ' página(s) · ' + quando(x.atualizado_em && x.atualizado_em.toMillis && x.atualizado_em.toMillis()) + (x.id === atual ? ' · aberta agora' : '') + '</small></div>' +
+        '<div class="nv-info">' + selo(x) + '<b>' + esc(x.titulo || "Sem nome") + '</b><small>' + (x.paginas||1) + ' página(s) · ' + quando(x.atualizado_em && x.atualizado_em.toMillis && x.atualizado_em.toMillis()) + (x.id === atual ? ' · aberta agora' : '') + '</small></div>' +
         '<div class="nv-acoes"><button type="button" class="abrir" data-nv="abrir">Abrir</button><button type="button" data-nv="compartilhar">Compartilhar</button><button type="button" data-nv="renomear">Renomear</button><button type="button" class="del" data-nv="excluir">Excluir</button></div></article>').join("");
   }
   async function abrirLista(){
@@ -5295,6 +5315,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     else if(a === "excluir") excluir(card, b);
   });
   document.getElementById("nvBusca").addEventListener("input", (e) => { busca = e.target.value; desenharLista(); });
+  document.getElementById("nvFiltros").addEventListener("click", (e) => { const b = e.target.closest("[data-nvf]"); if(!b) return; filtroNv = b.dataset.nvf;
+    document.querySelectorAll("#nvFiltros [data-nvf]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); desenharLista(); });
   document.addEventListener("keydown", (e) => {
     if(e.key === "Escape" && document.getElementById("nvFundo").classList.contains("aberto")){ e.stopImmediatePropagation(); fecharLista(); }
   }, true);
@@ -5482,11 +5504,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return { cor:CORES_TEMA_IA.some(c => c[0] === t.cor) ? t.cor : "", fundo:FUNDOS_TEMA_IA.some(f => f[0] === t.fundo) ? t.fundo : "claro" }; }catch(e){ return { cor:"", fundo:"claro" }; } })();
   // Transparência (nov/2026): a aula gerada vai na hora para Meus trabalhos, com o título dela; abrir de novo não gasta crédito.
   // Se já havia um trabalho aberto, a aula entra nele (é o mesmo quadro). Sem nuvem (fora do Portal), fica no navegador como antes.
-  async function guardarAulaIA(titulo){
+  async function guardarAulaIA(titulo, tipo){
     if(!window.PDENuvem || !window.PDENuvem.ativa()) return;
-    if(!L().nuvem().id) L().definirNuvem(null, titulo);
+    const nova = !L().nuvem().id;
+    if(nova) L().definirNuvem(null, titulo);
     try{
+      if(nova) origemAtual = { id:"?", tipo:tipo || "ia" };
       await salvar(false);
+      if(origemAtual.id === "?") origemAtual = { id:L().nuvem().id, tipo:tipo || "ia" };
       // a aula recém-montada é a original desta sessão (o que vier depois é anotação de aula)
       if(ultimo && ultimo.id === L().nuvem().id){ await esquecerOriginal(); orig = { ...ultimo, guardado:"" }; }
       L().msg("Aula salva em Meus trabalhos. Abrir de novo não gasta crédito.");
@@ -5899,7 +5924,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       for(const [k, im] of Object.entries(a.imagens || {})){ try{ const x = await imagemAcervo(im.caminho, 1280); imagens[k] = { src:x.src, w:x.w, h:x.h }; }catch(e){ console.warn("ilustração do acervo:", e.code || e); } }
       fecharAcervo();
       L().inserirAula(a.aula, { disciplina:a.disciplina, turma:rotFaixa(a.faixa), creditos:null, imagens, continuar:[], cor:temaIA.cor || (AREAS_AC[a.macroarea] || [])[1] || "", fundo:temaIA.fundo,
-        depois: () => guardarAulaIA(String(a.titulo || "Aula pronta").slice(0, 80)) });
+        depois: () => guardarAulaIA(String(a.titulo || "Aula pronta").slice(0, 80), "pronta") });
       if(a.status === "aprovada" && !AC.adm){ updateDoc(doc(db, "acervo_aulas", a.id), { usos:(a.usos || 0) + 1 }).then(() => { a.usos = (a.usos || 0) + 1; }, (e) => console.warn("uso:", e.code || e)); }
       if(a.status !== "aprovada") setTimeout(() => L().msg("Revisão: confira os slides e o Guia do professor. Depois, em Aulas prontas, aprove ou oculte esta aula."), 2500);
     }catch(e){ console.warn("aula pronta:", e.code || e); document.getElementById("acMsg").textContent = "Não deu para abrir esta aula agora."; }
