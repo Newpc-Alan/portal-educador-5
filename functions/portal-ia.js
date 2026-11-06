@@ -1043,6 +1043,76 @@ async function tratarPortalIa(req) {
   }
 
   /* ---------------- compartilhar com a rede municipal (fase 1) ---------------- */
+  /* ---------------------------------------------------------------- IA rápida da Lousa (nov/2026)
+     pergunta: "Pergunte à IA" (resposta curta, no quadro) · circule: o professor circula um pedaço do quadro e a IA explica, resolve ou traduz
+     mapa: "Tópicos com IA" (mapa mental editável) · pintor: o rabisco do professor vira ilustração (créditos de imagem, Lousa Ultra)
+     As legendas ao vivo não passam aqui: usam o reconhecimento de voz do próprio navegador, sem crédito. */
+  if (d.acao === 'lousa_rapida') {
+    const modo = ['pergunta', 'circule', 'mapa', 'pintor'].includes(d.modo) ? d.modo : '';
+    if (!modo) throw new HttpsError('invalid-argument', 'Ferramenta desconhecida.');
+    const turma = txt(d.turma, 80), disciplina = txt(d.disciplina, 80), etapa = etapaDaTurma(turma);
+    const publico = { infantil: 'crianças da Educação Infantil (frases curtíssimas, palavras simples)', iniciais: 'alunos dos anos iniciais do Fundamental (frases curtas, exemplos do dia a dia)',
+      finais: 'alunos dos anos finais do Fundamental', medio: 'alunos do Ensino Médio (pode usar termos técnicos, explicados)' }[etapa] || 'alunos do Ensino Fundamental';
+    // imagem do quadro (circule e pintor): JPEG ou PNG em base64, até ~1,5 MB
+    const img = d.imagem && typeof d.imagem === 'object' ? { mime: /^image\/(png|jpeg)$/.test(d.imagem.mime) ? d.imagem.mime : '', dados: typeof d.imagem.dados === 'string' ? d.imagem.dados : '' } : null;
+    if ((modo === 'circule' || modo === 'pintor') && (!img || !img.mime || img.dados.length < 200 || img.dados.length > 2_000_000 || !/^[A-Za-z0-9+/=]+$/.test(img.dados.slice(0, 400))))
+      throw new HttpsError('invalid-argument', 'Não deu para ler o pedaço do quadro. Circule de novo.');
+    const base = 'Você é um professor experiente da rede pública brasileira ajudando ao vivo, na lousa digital, diante da turma. Público: ' + publico + '.' + (disciplina ? ' Disciplina: ' + disciplina + '.' : '') +
+      ' Responda em português do Brasil, correto, curto e claro, para ser lido de longe. Sem markdown, sem asteriscos. Se for conta, confira o resultado antes de responder. Nada de conteúdo impróprio para escola.';
+    if (modo === 'pintor') {
+      const opc = exigir('lousa_ia_ultra');
+      const res = await reservarCreditos(db, ctx, 'imagem', opc);
+      const estilos = { didatica: 'ilustração didática colorida, traço limpo, fundo branco', cartoon: 'desenho animado infantil, alegre', realista: 'imagem realista e natural', colorir: 'desenho para colorir: só contornos pretos sobre fundo branco' };
+      const prompt = 'Este é um rascunho feito à mão por um professor numa lousa digital. Transforme-o numa ilustração caprichada para a aula, MANTENDO a mesma composição, posição e proporção dos elementos do rascunho. ' +
+        (txt(d.descricao, 300) ? 'O professor disse que é: ' + txt(d.descricao, 300) + '. ' : 'Interprete o que o rascunho representa. ') +
+        'Estilo: ' + (estilos[d.estilo] || estilos.didatica) + '. Adequada para crianças e adolescentes. NÃO escreva palavras, letras nem números. Nada de violência, marcas ou pessoas reais conhecidas.';
+      let r = null, erro = null;
+      try { r = await gemini(chave, [ctx.cfg.modelo_imagem, ...RESERVA_IMAGEM], { contents: [{ role: 'user', parts: [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }); }
+      catch (e) { erro = e; }
+      const parte = r && r.partes.find(p => p.inlineData && /^image\//.test(p.inlineData.mimeType || ''));
+      if (erro || !parte) await estornarCreditos(db, res);
+      await registrarConsumo(db, ctx, erro || !parte ? null : res, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida, imagem: !!parte });
+      if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora.');
+      if (!parte) throw new HttpsError('internal', 'A IA não conseguiu desenhar a partir deste rabisco. Tente escrever o que é no campo "o que é o desenho".');
+      return { mime: parte.inlineData.mimeType, dados: parte.inlineData.data, cota: await cota() };
+    }
+    const opc = exigir('lousa_ia');
+    const res = await reservarCreditos(db, ctx, 'texto', opc);
+    let esquema, sistema, partes;
+    if (modo === 'mapa') {
+      const tema = txt(d.tema, 200); if (tema.length < 3) { await estornarCreditos(db, res); throw new HttpsError('invalid-argument', 'Diga o tema do mapa.'); }
+      esquema = { type: 'OBJECT', properties: { centro: { type: 'STRING' }, ramos: { type: 'ARRAY', items: { type: 'OBJECT', properties: { titulo: { type: 'STRING' }, itens: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['titulo', 'itens'] } } }, required: ['centro', 'ramos'] };
+      sistema = base + ' Monte um mapa mental: um centro curto (até 4 palavras) e de 4 a 6 ramos; cada ramo com título de até 3 palavras e de 2 a 3 itens de até 6 palavras. Responda só no JSON pedido.';
+      partes = [{ text: 'Tema do mapa mental: ' + tema }];
+    } else {
+      esquema = { type: 'OBJECT', properties: { titulo: { type: 'STRING' }, resposta: { type: 'STRING' }, passos: { type: 'ARRAY', items: { type: 'STRING' } }, dica: { type: 'STRING' } }, required: ['titulo', 'resposta'] };
+      const ped = txt(d.pergunta, 500);
+      if (modo === 'pergunta') {
+        if (ped.length < 3) { await estornarCreditos(db, res); throw new HttpsError('invalid-argument', 'Escreva a pergunta.'); }
+        sistema = base + ' Responda à pergunta feita em sala: título de até 6 palavras, resposta de até 60 palavras, até 4 passos curtos quando ajudar, e uma dica curta para o professor continuar a conversa com a turma. Responda só no JSON pedido.';
+        partes = [{ text: 'Pergunta: ' + ped }];
+      } else {
+        const acoes = { explicar: 'Explique o que está circulado', resolver: 'Resolva o que está circulado, passo a passo, conferindo a conta', traduzir: 'Traduza o que está circulado para o português (ou do português para o inglês, se já estiver em português) e explique o sentido', livre: ped || 'Explique o que está circulado' };
+        const acao = acoes[d.pedido] || acoes.explicar;
+        sistema = base + ' A imagem é um pedaço do quadro que o professor circulou com a caneta (pode ter letra à mão, conta, figura ou texto). ' + acao + '. Título de até 6 palavras; resposta de até 70 palavras; passos curtos (até 6) quando for conta ou processo; uma dica curta para o professor. Se não der para entender a imagem, diga isso na resposta com gentileza. Responda só no JSON pedido.';
+        partes = [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: acao + (d.pedido === 'livre' && ped ? '' : '.') }];
+      }
+    }
+    let r = null, erro = null, j = null;
+    try {
+      r = await gemini(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: partes }],
+        generationConfig: { responseMimeType: 'application/json', responseSchema: esquema, maxOutputTokens: 4000 } });
+      try { j = JSON.parse(r.partes.filter(p => !p.thought).map(p => p.text || '').join('')); } catch (e) { j = null; }
+    } catch (e) { erro = e; }
+    if (erro || !j) await estornarCreditos(db, res);
+    await registrarConsumo(db, ctx, erro || !j ? null : res, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida });
+    if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora.');
+    if (!j) throw new HttpsError('internal', 'A IA não respondeu direito desta vez. Tente de novo.');
+    const limpa = (t, n) => txt(String(t || '').replace(/[*#_`]+/g, ''), n);
+    if (modo === 'mapa') return { mapa: { centro: limpa(j.centro, 60), ramos: (Array.isArray(j.ramos) ? j.ramos : []).slice(0, 6).map(x => ({ titulo: limpa(x.titulo, 40), itens: (Array.isArray(x.itens) ? x.itens : []).slice(0, 3).map(i => limpa(i, 70)).filter(Boolean) })).filter(x => x.titulo) }, cota: await cota() };
+    return { titulo: limpa(j.titulo, 80), resposta: limpa(j.resposta, 700), passos: (Array.isArray(j.passos) ? j.passos : []).slice(0, 6).map(x => limpa(x, 160)).filter(Boolean), dica: limpa(j.dica, 200), cota: await cota() };
+  }
+
   if (d.acao === 'compartilhar') {
     await exigirRecurso(db, ctx.eu, 'rede_colab', ctx.muni);
     if (!d.aceite) throw new HttpsError('failed-precondition', 'Confirme o termo de compartilhamento.');

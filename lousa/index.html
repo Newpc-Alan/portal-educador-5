@@ -464,6 +464,14 @@
     <button class="ferr" data-tool="postit" title="Post-it"><svg class="ico"><use href="#i-postit"/></svg><span class="lbl">Post-it</span></button>
     <button class="ferr" data-action="imagem" title="Inserir imagem"><svg class="ico"><use href="#i-imagem"/></svg><span class="lbl">Imagem</span></button>
     <button class="ferr" data-action="importar" title="Importar PDF: cada página vira uma página da lousa (também dá para arrastar o arquivo)"><svg class="ico"><use href="#i-importar"/></svg><span class="lbl">PDF</span></button>
+
+    <div class="sep-lat so-nuvem" hidden></div>
+    <div class="secao ial-sec">IA</div>
+    <button class="ferr ial-btn so-nuvem" data-action="ial-perguntar" hidden title="Pergunte à IA: a resposta aparece num cartão no quadro (1 crédito)"><span class="ial-emo" aria-hidden="true">💬</span><span class="lbl">Perguntar</span></button>
+    <button class="ferr ial-btn so-nuvem" data-tool="circular" hidden title="Circule e Execute: circule uma conta, palavra ou figura e a IA explica, resolve ou traduz (1 crédito)"><span class="ial-emo" aria-hidden="true">⭕</span><span class="lbl">Circular</span></button>
+    <button class="ferr ial-btn so-nuvem" data-action="ial-pintor" hidden title="Pintor com IA: selecione um rabisco e ele vira ilustração (créditos de imagem)"><span class="ial-emo" aria-hidden="true">🎨</span><span class="lbl">Pintor IA</span></button>
+    <button class="ferr ial-btn so-nuvem" data-action="ial-mapa" hidden title="Tópicos com IA: o tema vira um mapa mental editável (1 crédito)"><span class="ial-emo" aria-hidden="true">🧠</span><span class="lbl">Mapa IA</span></button>
+    <button class="ferr ial-btn" data-action="ial-legendas" title="Legendas ao vivo: a sua fala vira legenda na tela (sem crédito; nada é gravado)"><span class="ial-emo" aria-hidden="true">💬</span><span class="lbl">Legendas</span></button>
   </div>
 
   <!-- PALCO -->
@@ -1877,7 +1885,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* conteúdo da página em JSON, SEM o fundo: o fundo (linhas, quadro, página de PDF)
      é redesenhado por desenharFundo(). Mantém histórico e salvamento leves. */
   // marcas do Modo Apresentação nas aulas do Portal IA (etapas de revelação, quiz, roteiro só do professor etc.)
-  var PDE_PROPS = ["pdeEt", "pdeAlt", "pdeAltCard", "pdeCerta", "pdeResp", "pdeCobre", "pdeProf", "pdeNum", "pdeQuiz", "pdeFundo", "pdeMin", "pdeImg", "pdePerg"];
+  var PDE_PROPS = ["pdeEt", "pdeAlt", "pdeAltCard", "pdeCerta", "pdeResp", "pdeCobre", "pdeProf", "pdeNum", "pdeQuiz", "pdeFundo", "pdeMin", "pdeImg", "pdePerg", "pdeNo", "pdeLiga", "pdeIA"];
   function jsonPagina(extras){
     var bg = canvas.backgroundColor, bgi = canvas.backgroundImage;
     canvas.backgroundColor = null; canvas.backgroundImage = null;
@@ -2154,7 +2162,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     document.querySelectorAll("[data-tool]").forEach(function(b){
       b.classList.toggle("ativa", b.dataset.tool===t);
     });
-    var livre = (t==="caneta" || t==="marcatexto" || t==="laser" || t==="borracha");
+    var livre = (t==="caneta" || t==="marcatexto" || t==="laser" || t==="borracha" || t==="circular");
     canvas.isDrawingMode = livre;
     if(t==="borracha"){
       // borracha de verdade: apaga só o que o professor desenhou (o fundo e o PDF ficam)
@@ -2169,6 +2177,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         // traço grosso e translúcido, igual marca-texto de verdade
         canvas.freeDrawingBrush.color = corComAlfa(estado.cor, 0.35);
         canvas.freeDrawingBrush.width = Math.max(14, estado.espessura*4);
+      }else if(t==="circular"){
+        // Circule e Execute: traço azul tracejado; ao soltar, o pedaço circulado vai para a IA (path:created)
+        canvas.freeDrawingBrush.color = "rgba(38,113,171,.95)";
+        canvas.freeDrawingBrush.width = 4;
+        canvas.freeDrawingBrush.strokeDashArray = [12, 8];
       }else if(t==="laser"){
         // vermelho vivo; o traço some sozinho (tratado em path:created)
         canvas.freeDrawingBrush.color = "rgba(220,30,30,0.9)";
@@ -2287,6 +2300,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   canvas.on("path:created", function(ev){
     var path = ev.path;
     if(estado.ferramenta==="borracha") return;
+
+    if(estado.ferramenta==="circular"){ path.excludeFromExport = true; setTimeout(function(){ ialCirculado(path); setFerramenta("select"); }, 30); return; }
 
     // LASER: traço temporário, some depois de ~1,2s com fade
     if(estado.ferramenta==="laser"){
@@ -2669,6 +2684,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="nuvem-trabalhos" && window.PDENuvem) window.PDENuvem.abrirLista();
       if(a==="ia-aula" && window.PDENuvem && window.PDENuvem.aulaIA) window.PDENuvem.aulaIA();
       if(a==="acervo-aulas" && window.PDENuvem && window.PDENuvem.acervo) window.PDENuvem.acervo();
+      if(a==="ial-perguntar") ialPerguntar();
+      if(a==="ial-pintor")    ialPintor();
+      if(a==="ial-mapa")      ialMapa();
+      if(a==="ial-legendas")  ialLegendas();
     }
   }
   document.getElementById("barra").addEventListener("click", handlerBarra);
@@ -4305,6 +4324,192 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       palco.appendChild(a); a.addEventListener("click", function(e){ if(e.target.closest("[data-x]")) a.remove(); }); }
     a.innerHTML = "⚠️ " + String(t).replace(/</g, "&lt;") + '<button data-x type="button" aria-label="Fechar aviso" style="position:absolute;right:8px;top:6px;border:0;background:none;font-size:20px;cursor:pointer;color:#5a3d00">×</button>';
   }
+
+  /* ================= IA NA LOUSA (nov/2026) =================
+     Perguntar: resposta curta num cartão no quadro · Circular: o professor circula um pedaço do quadro e a IA explica, resolve ou traduz
+     Pintor IA: o rabisco selecionado vira ilustração · Mapa IA: o tema vira mapa mental editável · Legendas: a fala do professor vira legenda
+     Perguntar, Circular e Mapa usam 1 crédito de texto; Pintor usa créditos de imagem (Lousa Ultra); Legendas não usam crédito. */
+  var IAL = { fundo:null, regiao:null, legendas:null };
+  function ialPronta(){ return !!(window.PDENuvem && window.PDENuvem.iaRapida); }
+  function ialEsc(t){ return String(t == null ? "" : t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+  // centro da área visível, em coordenadas do quadro (respeita zoom e deslocamento)
+  function ialCentroVisivel(){
+    var v = canvas.viewportTransform, z = canvas.getZoom();
+    return { x:(canvas.getWidth() / 2 - v[4]) / z, y:(canvas.getHeight() / 2 - v[5]) / z, z:z };
+  }
+  // janelinha da IA (DOM, por cima do quadro): título, conteúdo e botões
+  function ialJanela(titulo, corpoHtml, aoClicar){
+    ialFechar();
+    var f = document.createElement("div"); f.id = "ialFundo"; f.className = "ial-fundo";
+    f.innerHTML = '<div class="ial-jan" role="dialog" aria-modal="true" aria-labelledby="ialTit"><div class="ial-topo"><b id="ialTit">' + titulo + '</b><button type="button" class="ial-x" data-ial="fechar" aria-label="Fechar">✕</button></div><div class="ial-corpo">' + corpoHtml + '</div></div>';
+    document.body.appendChild(f); IAL.fundo = f;
+    f.addEventListener("click", function(e){ if(e.target === f){ ialFechar(); return; } var b = e.target.closest("[data-ial]"); if(!b) return; if(b.dataset.ial === "fechar"){ ialFechar(); return; } aoClicar(b, f); });
+    f.addEventListener("keydown", function(e){ if(e.key === "Escape"){ e.stopPropagation(); ialFechar(); } if(e.key === "Enter" && e.target.tagName === "INPUT"){ var p = f.querySelector('[data-ial-padrao]'); if(p) p.click(); } });
+    setTimeout(function(){ var i = f.querySelector("input,textarea,button[data-ial]:not([data-ial=fechar])"); if(i) i.focus(); }, 30);
+    return f;
+  }
+  function ialFechar(){ if(IAL.fundo){ IAL.fundo.remove(); IAL.fundo = null; } }
+  function ialEspera(f, txt){ var c = f.querySelector(".ial-corpo"); if(c) c.innerHTML = '<div class="ial-esp"><span class="ial-gira" aria-hidden="true"></span>' + ialEsc(txt) + '</div>'; }
+  function ialErro(f, e){
+    var t = (e && e.message) || "A IA não respondeu agora. Tente de novo.";
+    var c = f && f.querySelector(".ial-corpo"); if(c) c.innerHTML = '<p class="ial-erro">' + ialEsc(t) + '</p><div class="ial-bts"><button type="button" class="ial-b" data-ial="fechar">Fechar</button></div>'; else msg(t);
+  }
+  // cartão de resposta no quadro: grupo (fundo + título + texto), movível e apagável como qualquer objeto
+  function ialCartao(r, x, y){
+    var z = canvas.getZoom(), L = Math.max(320, Math.min(520, 460 / z)), fs = Math.max(16, Math.round(21 / Math.max(.6, z)));
+    var corpo = r.resposta || "";
+    if(r.passos && r.passos.length) corpo += "\n\n" + r.passos.map(function(p, i){ return (i + 1) + ". " + p; }).join("\n");
+    var tit = new fabric.Textbox("✨ " + (r.titulo || "Resposta da IA"), { left:16, top:14, width:L - 32, fontSize:Math.round(fs * 1.1), fontWeight:"800", fill:"#0f2c4a", fontFamily:"Nunito, Segoe UI, sans-serif" });
+    var txt = new fabric.Textbox(corpo, { left:16, top:14 + tit.height + 10, width:L - 32, fontSize:fs, fill:"#12202e", lineHeight:1.25, fontFamily:"Segoe UI, sans-serif" });
+    var objs = [tit, txt], h = txt.top + txt.height + 14;
+    if(r.dica){ var dc = new fabric.Textbox("💡 " + r.dica, { left:16, top:h, width:L - 32, fontSize:Math.round(fs * .78), fontStyle:"italic", fill:"#5b6b7b", fontFamily:"Segoe UI, sans-serif" }); objs.push(dc); h = dc.top + dc.height + 14; }
+    var fundo = new fabric.Rect({ left:0, top:0, width:L, height:h, rx:16, ry:16, fill:"#fffdf4", stroke:"#2671AB", strokeWidth:3, shadow:"rgba(15,44,74,.22) 0 8px 22px" });
+    var g = new fabric.Group([fundo].concat(objs), { left:x, top:y, pdeIA:true });
+    canvas.add(g); canvas.setActiveObject(g); canvas.requestRenderAll(); snap();
+    return g;
+  }
+  function ialChamar(dados){ return window.PDENuvem.iaRapida(dados); }
+
+  // ---- Perguntar
+  function ialPerguntar(){
+    if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); return; }
+    ialJanela("✨ Pergunte à IA", '<p class="ial-d">Uma pergunta da turma ou sua. A resposta aparece num cartão no quadro (1 crédito).</p><input id="ialPerg" maxlength="300" placeholder="Ex.: Por que o céu é azul?" autocomplete="off"><div class="ial-bts"><button type="button" class="ial-b ial-prim" data-ial="ir" data-ial-padrao>Perguntar</button></div>', function(b, f){
+      if(b.dataset.ial !== "ir") return;
+      var p = f.querySelector("#ialPerg").value.trim(); if(p.length < 3){ f.querySelector("#ialPerg").focus(); return; }
+      ialEspera(f, "Pensando na resposta...");
+      ialChamar({ modo:"pergunta", pergunta:p }).then(function(r){ ialFechar(); var c = ialCentroVisivel(); ialCartao(r, c.x - 230 / c.z, c.y - 150 / c.z); }, function(e){ ialErro(f, e); });
+    });
+  }
+
+  // ---- Circular: traço tracejado; quando termina, recorta o pedaço do quadro e pergunta o que fazer
+  function ialCirculado(path){
+    var b = path.getBoundingRect();   // em pixels da tela do quadro
+    canvas.remove(path); canvas.requestRenderAll();
+    var m = 12, l = Math.max(0, b.left - m), t = Math.max(0, b.top - m), w = Math.min(canvas.getWidth() - l, b.width + 2 * m), h = Math.min(canvas.getHeight() - t, b.height + 2 * m);
+    if(w < 24 || h < 24){ msg("Circule um pedaço maior do quadro"); return; }
+    canvas.discardActiveObject(); canvas.renderAll();
+    var mult = Math.min(2, 1024 / Math.max(w, h)), url = canvas.toDataURL({ format:"jpeg", quality:.88, left:l, top:t, width:w, height:h, multiplier:mult });
+    var inv = fabric.util.invertTransform(canvas.viewportTransform), p2 = fabric.util.transformPoint(new fabric.Point(l + w, t), inv);
+    IAL.regiao = { dados:url.split(",")[1], x:p2.x + 16, y:p2.y };
+    ialJanela("⭕ O que fazer com o que você circulou?", '<img class="ial-prev" src="' + url + '" alt="Pedaço do quadro circulado">' +
+      '<div class="ial-bts ial-opc"><button type="button" class="ial-b ial-prim" data-ial="explicar">💡 Explicar</button><button type="button" class="ial-b ial-prim" data-ial="resolver">🧮 Resolver passo a passo</button><button type="button" class="ial-b ial-prim" data-ial="traduzir">🌎 Traduzir</button></div>' +
+      '<input id="ialLivre" maxlength="300" placeholder="Ou pergunte algo sobre isso..." autocomplete="off"><div class="ial-bts"><button type="button" class="ial-b" data-ial="livre" data-ial-padrao>Perguntar</button></div><p class="ial-d">1 crédito. A resposta aparece ao lado do que você circulou.</p>', function(bt, f){
+      var ped = bt.dataset.ial, perg = (f.querySelector("#ialLivre") || {}).value || "";
+      if(ped === "livre" && perg.trim().length < 3){ f.querySelector("#ialLivre").focus(); return; }
+      var reg = IAL.regiao; ialEspera(f, ped === "resolver" ? "Resolvendo e conferindo a conta..." : "Lendo o que você circulou...");
+      ialChamar({ modo:"circule", pedido:ped, pergunta:perg.trim(), imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y); }, function(e){ ialErro(f, e); });
+    });
+  }
+
+  // ---- Pintor IA: o rabisco selecionado vira ilustração no mesmo lugar
+  function ialPintor(){
+    if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); return; }
+    var sel = canvas.getActiveObject();
+    if(!sel){ setFerramenta("select"); msg("Selecione o rabisco (arraste em volta dele) e toque em Pintor IA de novo"); return; }
+    var br = sel.getBoundingRect(true, true), mult = Math.min(3, 768 / Math.max(br.width, br.height, 1));
+    var cv = document.createElement("canvas"), png = sel.toCanvasElement({ multiplier:mult });
+    cv.width = png.width + 40; cv.height = png.height + 40; var x = cv.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, cv.width, cv.height); x.drawImage(png, 20, 20);
+    var url = cv.toDataURL("image/jpeg", .9), estilo = "didatica";
+    ialJanela("🎨 Pintor com IA", '<img class="ial-prev" src="' + url + '" alt="Seu rabisco"><input id="ialDesc" maxlength="200" placeholder="O que é o desenho? (opcional) Ex.: uma árvore com frutas" autocomplete="off">' +
+      '<div class="ial-bts ial-opc" role="group" aria-label="Estilo"><button type="button" class="ial-b" data-ial="e-didatica" aria-pressed="true">Didática</button><button type="button" class="ial-b" data-ial="e-cartoon" aria-pressed="false">Desenho animado</button><button type="button" class="ial-b" data-ial="e-realista" aria-pressed="false">Realista</button><button type="button" class="ial-b" data-ial="e-colorir" aria-pressed="false">Para colorir</button></div>' +
+      '<div class="ial-bts"><button type="button" class="ial-b ial-prim" data-ial="ir" data-ial-padrao>Transformar em ilustração</button></div><p class="ial-d">Usa créditos de imagem (Lousa Ultra). A ilustração entra no lugar do rabisco; Desfazer traz o rabisco de volta.</p>', function(b, f){
+      if(b.dataset.ial.indexOf("e-") === 0){ estilo = b.dataset.ial.slice(2); f.querySelectorAll('[data-ial^="e-"]').forEach(function(x){ x.setAttribute("aria-pressed", String(x === b)); }); return; }
+      if(b.dataset.ial !== "ir") return;
+      var desc = f.querySelector("#ialDesc").value.trim(); ialEspera(f, "Desenhando... (leva uns 20 segundos)");
+      ialChamar({ modo:"pintor", descricao:desc, estilo:estilo, imagem:{ mime:"image/jpeg", dados:url.split(",")[1] } }).then(function(r){
+        var src = "data:" + r.mime + ";base64," + r.dados;
+        fabric.Image.fromURL(src, function(img){
+          var e = Math.min(br.width / img.width, br.height / img.height); if(!isFinite(e) || e <= 0) e = 1;
+          e = Math.max(e, 240 / Math.max(img.width, img.height));
+          img.set({ left:br.left + (br.width - img.width * e) / 2, top:br.top + (br.height - img.height * e) / 2, scaleX:e, scaleY:e, pdeIA:true });
+          var tirar = sel.type === "activeSelection" ? sel.getObjects().slice() : [sel];
+          canvas.discardActiveObject(); tirar.forEach(function(o){ canvas.remove(o); });
+          canvas.add(img); canvas.setActiveObject(img); canvas.requestRenderAll(); snap(); ialFechar(); msg("Pronto! Desfazer traz o rabisco de volta");
+        });
+      }, function(e){ ialErro(f, e); });
+    });
+  }
+
+  // ---- Mapa IA: centro + ramos; nós são textos editáveis com fundo; as ligações acompanham quando o nó é arrastado
+  var CORES_MAPA = ["#1a6b2a", "#2671AB", "#c2410c", "#7048e8", "#0e7c86", "#b3261e"];
+  function ialMapa(){
+    if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); return; }
+    ialJanela("🧠 Mapa mental com IA", '<p class="ial-d">Diga o tema e a IA monta o mapa mental no quadro. Depois é só editar, arrastar ou apagar (1 crédito).</p><input id="ialTema" maxlength="160" placeholder="Ex.: Ciclo da água, Sistema digestório, Revolução Industrial" autocomplete="off"><div class="ial-bts"><button type="button" class="ial-b ial-prim" data-ial="ir" data-ial-padrao>Montar o mapa</button></div>', function(b, f){
+      if(b.dataset.ial !== "ir") return;
+      var tema = f.querySelector("#ialTema").value.trim(); if(tema.length < 3){ f.querySelector("#ialTema").focus(); return; }
+      ialEspera(f, "Organizando os tópicos...");
+      ialChamar({ modo:"mapa", tema:tema }).then(function(r){ ialFechar(); ialDesenharMapa(r.mapa || {}); }, function(e){ ialErro(f, e); });
+    });
+  }
+  function ialNo(texto, x, y, cor, grande, id){
+    var t = new fabric.Textbox(texto, { left:x, top:y, width:grande ? 240 : 180, originX:"center", originY:"center", textAlign:"center", fontSize:grande ? 28 : 18, fontWeight:grande ? "800" : "700",
+      fill:"#fff", backgroundColor:cor, fontFamily:"Nunito, Segoe UI, sans-serif", splitByGrapheme:false, pdeNo:id, pdeIA:true });
+    return t;
+  }
+  function ialDesenharMapa(m){
+    var ramos = (m.ramos || []).filter(function(r){ return r && r.titulo; }); if(!ramos.length){ msg("A IA não montou o mapa desta vez. Tente de novo."); return; }
+    var c = ialCentroVisivel(), base = "m" + Date.now().toString(36), novos = [], linhas = [];
+    // o mapa cabe na parte visível do quadro (zoom e tamanho de tela de cada lousa)
+    var vw = canvas.getWidth() / c.z, vh = canvas.getHeight() / c.z, Rx = Math.min(460, vw * .27), Ry = Math.min(300, vh * .27), ox = Math.min(220, vw * .13), oy = Math.min(140, vh * .12);
+    var centro = ialNo(" " + (m.centro || "Tema") + " ", c.x, c.y, "#0f2c4a", true, base + "c"); novos.push(centro);
+    ramos.forEach(function(r, i){
+      var a = -Math.PI / 2 + i * 2 * Math.PI / ramos.length, cor = CORES_MAPA[i % CORES_MAPA.length];
+      var rx = c.x + Math.cos(a) * Rx, ry = c.y + Math.sin(a) * Ry, id = base + "r" + i;
+      var no = ialNo(" " + r.titulo + " ", rx, ry, cor, false, id); novos.push(no);
+      linhas.push(new fabric.Line([c.x, c.y, rx, ry], { stroke:cor, strokeWidth:4, selectable:false, evented:false, pdeLiga:[base + "c", id], pdeIA:true }));
+      (r.itens || []).forEach(function(it, k){
+        // itens: um passo para fora do ramo e espalhados na perpendicular (não se sobrepõem nem no ramo de cima)
+        var px = -Math.sin(a), py = Math.cos(a), esp = Math.abs(px) * 190 + Math.abs(py) * 46, d0 = k - ((r.itens.length - 1) / 2);
+        var ix = rx + Math.cos(a) * ox + px * d0 * esp, iy = ry + Math.sin(a) * oy + py * d0 * esp, id2 = id + "i" + k;
+        var n = new fabric.Textbox(it, { left:ix, top:iy, width:170, originX:"center", originY:"center", textAlign:"center", fontSize:15, fill:"#12202e", backgroundColor:"#f3f6f9",
+          fontFamily:"Segoe UI, sans-serif", pdeNo:id2, pdeIA:true });
+        novos.push(n); linhas.push(new fabric.Line([rx, ry, ix, iy], { stroke:cor, strokeWidth:2, strokeDashArray:[6, 5], selectable:false, evented:false, pdeLiga:[id, id2], pdeIA:true }));
+      });
+    });
+    linhas.forEach(function(l){ canvas.add(l); canvas.sendToBack(l); });
+    novos.forEach(function(n){ canvas.add(n); });
+    setFerramenta("select"); canvas.requestRenderAll(); snap(); msg("Mapa pronto: toque duas vezes num tópico para editar");
+  }
+  // ligações do mapa seguem os nós (também depois de salvar e abrir de novo: pdeLiga/pdeNo ficam salvos)
+  function ialAtualizarLigacoes(){
+    var nos = {}; canvas.getObjects().forEach(function(o){ if(o.pdeNo) nos[o.pdeNo] = o; });
+    canvas.getObjects().forEach(function(l){
+      if(!l.pdeLiga || l.type !== "line") return;
+      var a = nos[l.pdeLiga[0]], b = nos[l.pdeLiga[1]]; if(!a || !b) return;
+      var pa = a.getCenterPoint(), pb = b.getCenterPoint(); l.set({ x1:pa.x, y1:pa.y, x2:pb.x, y2:pb.y }); l.setCoords();
+    });
+  }
+  canvas.on("object:moving", function(e){ var o = e.target; if(o && (o.pdeNo || o.type === "activeSelection")) { ialAtualizarLigacoes(); } });
+  canvas.on("object:removed", function(e){ var o = e.target; if(o && o.pdeNo){ canvas.getObjects().slice().forEach(function(l){ if(l.pdeLiga && l.pdeLiga.indexOf(o.pdeNo) >= 0) canvas.remove(l); }); } });
+
+  // ---- Legendas ao vivo: reconhecimento de voz do navegador (Chrome/Edge), sem crédito; nada é gravado
+  function ialLegendas(){
+    var R = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(IAL.legendas){ ialPararLegendas(); return; }
+    if(!R){ msg("Legendas ao vivo funcionam no Chrome ou no Edge"); return; }
+    var faixa = document.createElement("div"); faixa.id = "ialLeg"; faixa.className = "ial-leg"; faixa.setAttribute("role", "status"); faixa.setAttribute("aria-live", "polite");
+    faixa.innerHTML = '<span class="ial-leg-txt" id="ialLegTxt">🎤 Pode falar: a legenda aparece aqui.</span><button type="button" class="ial-leg-x" id="ialLegX" title="Desligar as legendas">✕</button>';
+    document.getElementById("palco").appendChild(faixa);
+    faixa.querySelector("#ialLegX").addEventListener("click", ialPararLegendas);
+    var rec = new R(); rec.lang = "pt-BR"; rec.continuous = true; rec.interimResults = true;
+    var finais = [], el = faixa.querySelector("#ialLegTxt");
+    rec.onresult = function(ev){
+      var parcial = "";
+      for(var i = ev.resultIndex; i < ev.results.length; i++){ var t = ev.results[i][0].transcript; if(ev.results[i].isFinal){ finais.push(t.trim()); if(finais.length > 2) finais.shift(); } else parcial += t; }
+      var texto = (finais.join(" ") + " " + parcial).trim(); el.textContent = texto.length > 220 ? "…" + texto.slice(-220) : texto;
+    };
+    rec.onerror = function(e){ if(e.error === "not-allowed" || e.error === "service-not-allowed"){ msg("Libere o microfone para a Lousa usar as legendas"); ialPararLegendas(); } };
+    rec.onend = function(){ if(IAL.legendas === rec){ try{ rec.start(); }catch(x){} } };   // o navegador encerra sozinho de tempos em tempos: religa
+    IAL.legendas = rec; try{ rec.start(); }catch(x){}
+    var bt = document.querySelector('[data-action="ial-legendas"]'); if(bt) bt.classList.add("ativa");
+    msg("Legendas ligadas: fale normalmente");
+  }
+  function ialPararLegendas(){
+    var r = IAL.legendas; IAL.legendas = null; if(r){ try{ r.stop(); }catch(x){} }
+    var f = document.getElementById("ialLeg"); if(f) f.remove();
+    var bt = document.querySelector('[data-action="ial-legendas"]'); if(bt) bt.classList.remove("ativa");
+  }
+
   /* ================= PONTE COM A NUVEM (Portal 5.0) ================= */
   // o fabric guarda a largura de cada letra por fonte; se mediu antes da fonte chegar, a medida fica errada até limpar
   function limparMedidas(){ try{ fabric.util.clearFabricFontCache(); }catch(e){} }
@@ -4397,6 +4602,30 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <style>
   #iaFundo{position:fixed;inset:0;z-index:9100;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #iaFundo.aberto{display:flex}
+  /* IA na Lousa (nov/2026) */
+  .ial-sec{color:#c9f08f !important}
+  .ferr.ial-btn .ial-emo{font-size:20px;line-height:1}
+  .ial-fundo{position:fixed;inset:0;z-index:9150;background:rgba(7,22,33,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+  .ial-jan{background:#fff;border-radius:16px;width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:"Segoe UI",Roboto,sans-serif;color:#12202e}
+  .ial-topo{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#0f2c4a;color:#fff;border-bottom:3px solid #8DC63F}
+  .ial-topo b{font:800 17px Nunito,"Segoe UI",sans-serif}
+  .ial-x{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:15px}
+  .ial-corpo{padding:14px 16px 16px;display:flex;flex-direction:column;gap:10px}
+  .ial-corpo input{font-size:16px;padding:11px 12px;border:1px solid #cdd6df;border-radius:10px;width:100%;box-sizing:border-box}
+  .ial-d{margin:0;color:#4b5b6b;font-size:13.5px}
+  .ial-bts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+  .ial-opc{justify-content:flex-start}
+  .ial-b{border:1px solid #cdd6df;background:#fff;border-radius:10px;padding:10px 14px;font:700 14px "Segoe UI",sans-serif;cursor:pointer;color:#0f2c4a}
+  .ial-b[aria-pressed="true"]{background:#0f2c4a;color:#fff;border-color:#0f2c4a}
+  .ial-prim{background:#1a6b2a;color:#fff;border-color:#1a6b2a}
+  .ial-prev{max-width:100%;max-height:220px;object-fit:contain;border:1px dashed #b8c4cf;border-radius:10px;background:#fff;align-self:center}
+  .ial-esp{display:flex;align-items:center;gap:10px;font-weight:700;color:#0f2c4a;padding:18px 4px}
+  .ial-gira{width:22px;height:22px;border-radius:50%;border:3px solid #cfe3f5;border-top-color:#2671AB;animation:ialGira .8s linear infinite}
+  @keyframes ialGira{to{transform:rotate(360deg)}}
+  .ial-erro{margin:0;color:#b3261e;font-weight:700}
+  .ial-leg{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);width:min(92%,1100px);z-index:30;background:rgba(10,20,30,.82);color:#fff;border-radius:14px;padding:12px 48px 12px 18px;
+    font:700 clamp(18px,2.6vw,34px)/1.3 "Segoe UI",sans-serif;text-align:center;pointer-events:auto;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+  .ial-leg-x{position:absolute;top:8px;right:10px;background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:2px 8px;cursor:pointer;font-size:14px}
   #acFundo{position:fixed;inset:0;z-index:9100;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #acFundo.aberto{display:flex}
   #acJanela{background:#fff;border-radius:16px;width:min(1100px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35);font-family:"Segoe UI",Roboto,sans-serif;color:#12202e}
@@ -5351,6 +5580,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     finally{ b.disabled = false; delete b.dataset.conf; }
   }
   window.PDENuvem.acervo = janelaAcervo;
+  // IA rápida da Lousa (Perguntar, Circular, Pintor, Mapa): chama o servidor com a turma e a disciplina escolhidas na Aula IA, se houver
+  window.PDENuvem.iaRapida = async (dados) => {
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    const disc = (document.getElementById("iaDisc") || {}).value || "", sel = document.getElementById("iaTurmaSel"), inp = document.getElementById("iaTurma");
+    const turma = (inp && !inp.hidden && inp.value) || (sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text : "") || "";
+    try{
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:dados.modo === "pintor" ? 180000 : 90000 })({ acao:"lousa_rapida", disciplina:disc, turma, ...dados })).data;
+      if(r && r.cota){ cotaIA = r.cota; try{ avisarCotaIA(); }catch(e){} }
+      return r;
+    }catch(e){
+      console.warn("IA da Lousa:", e.code, e.message);
+      throw new Error(e.code === "functions/resource-exhausted" ? "Seus créditos de IA acabaram. Peça recarga ou aguarde a renovação." :
+        e.code === "functions/failed-precondition" || e.code === "functions/invalid-argument" || e.code === "functions/internal" ? e.message : "A IA não respondeu agora. Tente de novo em instantes.");
+    }
+  };
 
   /* ---------- Modo Apresentação: sorteio pela lista da turma e quiz ao vivo com a Turma ao Vivo ----------
      O quiz do slide vai para a aula aberta pelo professor (qr_aulas.por = ele), no mesmo formato do Quiz rápido do Dar aula:
