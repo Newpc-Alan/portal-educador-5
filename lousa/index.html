@@ -569,7 +569,10 @@
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-circular"><span>⭕</span><b>Circular</b><small>circule uma conta ou palavra: explica, resolve, traduz · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-pintor"><span>🎨</span><b>Pintor IA</b><small>o rabisco selecionado vira ilustração · créditos de imagem</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-mapa"><span>🧠</span><b>Mapa IA</b><small>o tema vira mapa mental editável · 1 crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi" data-action="ial-trocar-mapa"><span>🔁</span><b>Trocar o modelo do mapa</b><small>o mesmo mapa em Radial, Árvore, Bolhas ou Chaves · sem crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi" data-action="ial-legendas"><span>🗨️</span><b>Legendas ao vivo</b><small>sua fala vira legenda na tela · sem crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi" data-action="ial-ler"><span>🔊</span><b>Ler em voz alta</b><small>lê o texto selecionado ou a página · sem crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi" data-action="ial-ruido"><span>🚦</span><b>Medidor de barulho</b><small>semáforo do volume da sala; nada é gravado · sem crédito</small></button>
         <p class="ial-mi-off" id="ialMenuOff" hidden>Entre no Portal para usar Perguntar, Circular, Pintor e Mapa.</p>
       </div></span>
     <button class="ferr ap-btn" data-action="apresentar" title="Apresentar em tela cheia: cada toque revela o próximo item, quiz com revelação, sorteio e cronômetro"><svg class="ico" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" style="fill:currentColor;stroke:none"/></svg><span class="lbl-ap">Apresentar</span></button>
@@ -1891,7 +1894,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* conteúdo da página em JSON, SEM o fundo: o fundo (linhas, quadro, página de PDF)
      é redesenhado por desenharFundo(). Mantém histórico e salvamento leves. */
   // marcas do Modo Apresentação nas aulas do Portal IA (etapas de revelação, quiz, roteiro só do professor etc.)
-  var PDE_PROPS = ["pdeEt", "pdeAlt", "pdeAltCard", "pdeCerta", "pdeResp", "pdeCobre", "pdeProf", "pdeNum", "pdeQuiz", "pdeFundo", "pdeMin", "pdeImg", "pdePerg", "pdeNo", "pdeLiga", "pdeIA", "pdeBolha"];
+  var PDE_PROPS = ["pdeEt", "pdeAlt", "pdeAltCard", "pdeCerta", "pdeResp", "pdeCobre", "pdeProf", "pdeNum", "pdeQuiz", "pdeFundo", "pdeMin", "pdeImg", "pdePerg", "pdeNo", "pdeLiga", "pdeIA", "pdeBolha", "pdeMapa"];
   function jsonPagina(extras){
     var bg = canvas.backgroundColor, bgi = canvas.backgroundImage;
     canvas.backgroundColor = null; canvas.backgroundImage = null;
@@ -2697,6 +2700,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="ial-pintor")    ialPintor();
       if(a==="ial-mapa")      ialMapa();
       if(a==="ial-legendas")  ialLegendas();
+      if(a==="ial-trocar-mapa") ialTrocarMapa();
+      if(a==="ial-ler")       ialLer();
+      if(a==="ial-ruido")     ialRuido();
     }
   }
   document.getElementById("barra").addEventListener("click", handlerBarra);
@@ -4427,6 +4433,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(vai && b){ var r = b.getBoundingClientRect(); m.style.bottom = Math.round(innerHeight - r.top + 10) + "px"; m.style.right = Math.max(8, Math.round(innerWidth - r.right)) + "px"; }
     if(vai){ var on = ialPronta(); m.querySelectorAll(".so-ial").forEach(function(x){ x.disabled = !on; }); document.getElementById("ialMenuOff").hidden = on;
       var lg = m.querySelector('[data-action="ial-legendas"] b'); if(lg) lg.textContent = IAL.legendas ? "Desligar as legendas" : "Legendas ao vivo";
+      var lr = m.querySelector('[data-action="ial-ler"] b'); if(lr) lr.textContent = (window.speechSynthesis && speechSynthesis.speaking) ? "Parar a leitura" : "Ler em voz alta";
+      var rd = m.querySelector('[data-action="ial-ruido"] b'); if(rd) rd.textContent = IAL.ruido ? "Desligar o medidor" : "Medidor de barulho";
       var f = m.querySelector("button:not([disabled])"); if(f) f.focus(); }
   }
   document.addEventListener("pointerdown", function(e){ var m = document.getElementById("ialMenu"); if(m && !m.hidden && !e.target.closest(".ial-menu-wrap")) ialMenu(false); });
@@ -4543,9 +4551,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var e = Math.max(40, h) / t.height; t.set({ scaleY:e, scaleX:Math.min(1.4, Math.max(0.65, e * 0.28)) });   // alta, com traço proporcional
     return t;
   }
-  function ialDesenharMapa(m, modelo){
+  function ialDesenharMapa(m, modelo, cFixo){
     var ramos = (m.ramos || []).filter(function(r){ return r && r.titulo; }); if(!ramos.length){ msg("A IA não montou o mapa desta vez. Tente de novo."); return; }
-    var c = ialCentroVisivel(), base = "m" + Date.now().toString(36), novos = [], linhas = [], n = ramos.length;
+    var c = cFixo || ialCentroVisivel(), base = "m" + Date.now().toString(36), novos = [], linhas = [], n = ramos.length;
     // o mapa cabe na parte visível do quadro (zoom e tamanho de tela de cada lousa)
     var vw = canvas.getWidth() / c.z, vh = canvas.getHeight() / c.z;
     var titulo = " " + (m.centro || "Tema") + " ";
@@ -4593,9 +4601,105 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         });
       });
     }
+    // tudo do mapa leva a mesma marca: dá para trocar o modelo depois, sem chamar a IA de novo
+    linhas.concat(novos).forEach(function(o){ o.set({ pdeMapa:base + "|" + (modelo || "radial") }); });
     linhas.forEach(function(l){ canvas.add(l); canvas.sendToBack(l); });
     novos.forEach(function(o){ canvas.add(o); });
     setFerramenta("select"); canvas.requestRenderAll(); snap(); msg("Mapa pronto: toque duas vezes num tópico para editar");
+  }
+
+  // ---- Trocar o modelo do mapa (sem crédito): lê os tópicos como estão no quadro (com as edições do professor) e redesenha
+  function ialBaseDe(o){
+    if(!o) return "";
+    if(o.pdeMapa) return String(o.pdeMapa).split("|")[0];
+    var id = o.pdeNo || (o.pdeLiga && o.pdeLiga[0]) || "", m = /^(m[0-9a-z]+?)(c|r\d+(i\d+)?)$/.exec(id);
+    return m ? m[1] : "";
+  }
+  function ialTrocarMapa(){
+    var sel = canvas.getActiveObject(), alvo = sel && sel.type === "activeSelection" ? sel.getObjects()[0] : sel, base = ialBaseDe(alvo);
+    if(!base){
+      var bases = {}; canvas.getObjects().forEach(function(o){ var b = ialBaseDe(o); if(b) bases[b] = 1; });
+      var lb = Object.keys(bases);
+      if(!lb.length){ msg("Não há mapa nesta página. Monte um com o Mapa IA"); return; }
+      if(lb.length > 1){ setFerramenta("select"); msg("Há mais de um mapa: toque num tópico do mapa e escolha de novo"); return; }
+      base = lb[0];
+    }
+    var objs = canvas.getObjects().filter(function(o){ return ialBaseDe(o) === base; });
+    var nos = {}; objs.forEach(function(o){ if(o.pdeNo) nos[o.pdeNo] = String(o.text || "").replace(/^\s*•\s*/, "").trim(); });
+    var ramos = [];
+    for(var i = 0; i < 12; i++){
+      var t = nos[base + "r" + i]; if(!t) continue;
+      var its = []; for(var k = 0; k < 12; k++){ if(nos[base + "r" + i + "i" + k]) its.push(nos[base + "r" + i + "i" + k]); }
+      ramos.push({ titulo:t, itens:its });
+    }
+    if(!ramos.length){ msg("Este mapa não tem ramos para redesenhar"); return; }
+    var atual = ((objs.find(function(o){ return o.pdeMapa; }) || {}).pdeMapa || "").split("|")[1] || "radial";
+    var cartoes = MODELOS_MAPA.map(function(x){ return '<button type="button" class="ial-mod" data-ial="m-' + x[0] + '" aria-pressed="' + (x[0] === atual) + '">' + x[3] + '<b>' + x[1] + '</b><small>' + x[2] + '</small></button>'; }).join("");
+    ialJanela("🔁 Trocar o modelo do mapa", '<p class="ial-d">O mesmo mapa, com os tópicos como estão agora no quadro (com as suas edições). Sem crédito.</p><div class="ial-mods" role="group" aria-label="Modelo do mapa">' + cartoes + '</div>', function(b){
+      if(b.dataset.ial.indexOf("m-") !== 0) return;
+      var modelo = b.dataset.ial.slice(2), r = null;
+      objs.forEach(function(o){ var q = o.getBoundingRect(true, true); r = r ? { l:Math.min(r.l, q.left), t:Math.min(r.t, q.top), d:Math.max(r.d, q.left + q.width), b:Math.max(r.b, q.top + q.height) } : { l:q.left, t:q.top, d:q.left + q.width, b:q.top + q.height }; });
+      ialFechar(); canvas.discardActiveObject();
+      objs.forEach(function(o){ canvas.remove(o); });
+      try{ localStorage.setItem("pde_mapa_modelo", modelo); }catch(e){}
+      ialDesenharMapa({ centro:nos[base + "c"] || "Tema", ramos:ramos }, modelo, { x:(r.l + r.d) / 2, y:(r.t + r.b) / 2, z:canvas.getZoom() });
+    });
+  }
+
+  // ---- Ler em voz alta (voz do próprio navegador, sem crédito): o texto selecionado ou a página, de cima para baixo
+  function ialTextos(){
+    var sel = canvas.getActiveObject(), l = [];
+    var pega = function(o){
+      if(!o || o.pdeProf) return;
+      if(o.type === "group" || o.type === "activeSelection"){ o.getObjects().forEach(pega); return; }
+      if(typeof o.text === "string" && o.text.trim()) l.push({ t:o.text.trim(), y:o.getBoundingRect(true, true).top, x:o.getBoundingRect(true, true).left });
+    };
+    if(sel) pega(sel); else canvas.getObjects().forEach(pega);
+    l.sort(function(a, b){ return Math.abs(a.y - b.y) < 12 ? a.x - b.x : a.y - b.y; });
+    return { de:sel ? "seleção" : "página", texto:l.map(function(x){ return x.t; }).join(". ").replace(/\s+/g, " ") };
+  }
+  function ialLer(){
+    var S = window.speechSynthesis;
+    if(!S || !window.SpeechSynthesisUtterance){ msg("Este navegador não lê em voz alta. Use o Chrome ou o Edge"); return; }
+    if(S.speaking || S.pending){ S.cancel(); msg("Leitura parada"); return; }
+    var x = ialTextos(); if(!x.texto){ msg("Não há texto para ler. Selecione um texto ou escreva na página"); return; }
+    // frases curtas: o Chrome corta falas longas no meio
+    var partes = x.texto.match(/[^.!?;:]+[.!?;:]*/g) || [x.texto], vozes = S.getVoices(), voz = vozes.find(function(v){ return /pt-BR/i.test(v.lang) && /google|natural|online/i.test(v.name); }) || vozes.find(function(v){ return /pt-BR/i.test(v.lang); }) || vozes.find(function(v){ return /^pt/i.test(v.lang); });
+    partes.forEach(function(p){ p = p.trim(); if(!p) return; var u = new SpeechSynthesisUtterance(p); u.lang = "pt-BR"; u.rate = 0.95; if(voz) u.voice = voz; S.speak(u); });
+    msg("Lendo a " + x.de + " em voz alta · toque em Ler em voz alta de novo para parar");
+  }
+
+  // ---- Medidor de barulho (sem crédito): o microfone só mede o volume, na hora; nada é gravado nem enviado
+  function ialRuido(){
+    if(IAL.ruido){ IAL.ruido.parar(); return; }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ msg("Este navegador não libera o microfone"); return; }
+    navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:false } }).then(function(st){
+      var AC = window.AudioContext || window.webkitAudioContext, ctx = new AC(), an = ctx.createAnalyser(); an.fftSize = 1024;
+      ctx.createMediaStreamSource(st).connect(an);
+      var buf = new Float32Array(an.fftSize), nivel = 0, verm = 0, raf = 0, limite = 60;
+      try{ var g = Number(localStorage.getItem("pde_ruido_lim")); if(g >= 30 && g <= 90) limite = g; }catch(e){}
+      var w = document.createElement("div"); w.id = "ialRuido"; w.setAttribute("role", "status");
+      w.innerHTML = '<div class="rd-topo"><b>🚦 Barulho da sala</b><button type="button" data-rd="fechar" aria-label="Desligar o medidor">✕</button></div>' +
+        '<div class="rd-sem"><i data-l="v"></i><i data-l="a"></i><i data-l="r"></i></div><div class="rd-barra"><span></span><em></em></div>' +
+        '<label class="rd-lim">Limite <input type="range" min="30" max="90" value="' + limite + '" aria-label="Limite de barulho"></label><small>Nada é gravado: só o volume, na hora.</small>';
+      document.body.appendChild(w);
+      var luzes = w.querySelectorAll(".rd-sem i"), barra = w.querySelector(".rd-barra span"), marca = w.querySelector(".rd-barra em"), faixa = w.querySelector("input");
+      var pintarMarca = function(){ marca.style.left = limite + "%"; }; pintarMarca();
+      faixa.addEventListener("input", function(){ limite = Number(faixa.value); pintarMarca(); try{ localStorage.setItem("pde_ruido_lim", String(limite)); }catch(e){} });
+      var passo = function(){
+        an.getFloatTimeDomainData(buf); var q = 0; for(var i = 0; i < buf.length; i++) q += buf[i] * buf[i];
+        var db = 20 * Math.log10(Math.sqrt(q / buf.length) + 1e-8), v = Math.max(0, Math.min(100, (db + 60) * 1.8));   // ~ -60 dB (silêncio) a ~ -5 dB (gritaria)
+        nivel = nivel * .85 + v * .15; barra.style.width = nivel.toFixed(0) + "%";
+        verm = nivel >= limite ? Math.min(verm + 1, 60) : Math.max(verm - 1, 0);   // vermelho só depois de ~1 s acima do limite (palmas não disparam)
+        var cor = verm > 45 ? "r" : nivel >= limite * .75 ? "a" : "v";
+        luzes.forEach(function(l){ l.classList.toggle("on", l.dataset.l === cor); }); w.dataset.cor = cor;
+        raf = requestAnimationFrame(passo);
+      };
+      raf = requestAnimationFrame(passo);
+      IAL.ruido = { parar:function(){ cancelAnimationFrame(raf); st.getTracks().forEach(function(t){ t.stop(); }); ctx.close().catch(function(){}); w.remove(); IAL.ruido = null; msg("Medidor de barulho desligado"); } };
+      w.addEventListener("click", function(e){ if(e.target.closest('[data-rd="fechar"]')) IAL.ruido && IAL.ruido.parar(); });
+      msg("Medidor de barulho ligado: ajuste o limite na barrinha");
+    }, function(){ msg("Libere o microfone para usar o medidor de barulho"); });
   }
   // ligações do mapa seguem os nós (também depois de salvar e abrir de novo: pdeLiga/pdeNo ficam salvos)
   function ialAtualizarLigacoes(){
@@ -4736,7 +4840,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ferr.rod-ial{background:linear-gradient(135deg,#a78bfa 0%,#7048e8 55%,#4c2fb3 100%)!important;color:#fff!important;box-shadow:0 6px 16px -4px rgba(112,72,232,.6),inset 0 0 0 1px rgba(255,255,255,.3)}
   .ferr.rod-ial:hover{filter:brightness(1.08)}
   .ferr.rod-ial.ial-leg-on::after{content:"legenda";position:absolute;top:-8px;right:-6px;font-size:8.5px;font-weight:800;text-transform:uppercase;background:#fff;color:#7048e8;padding:1px 5px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
-  .ial-menu{position:fixed;z-index:9120;width:320px;background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.4);padding:6px;display:grid;gap:2px}
+  .ial-menu{position:fixed;z-index:9120;width:320px;max-height:calc(100vh - 110px);overflow:auto;background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.4);padding:6px;display:grid;gap:2px}
   .ial-menu[hidden]{display:none}
   .ial-mi{display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;border:0;background:transparent;border-radius:10px;padding:9px 10px;cursor:pointer;color:#12202e;font-family:"Segoe UI",sans-serif}
   .ial-mi span{grid-row:1/3;font-size:22px;text-align:center} .ial-mi b{font-size:15px;color:#0f2c4a} .ial-mi small{font-size:12px;color:#5b6b7b}
@@ -4753,6 +4857,20 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ial-d{margin:0;color:#4b5b6b;font-size:13.5px}
   .ial-bts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
   .ial-opc{justify-content:flex-start}
+  #ialRuido{position:fixed;top:14px;right:96px;z-index:60;width:230px;background:#0f2c4a;color:#fff;border-radius:16px;padding:10px 12px 12px;box-shadow:0 10px 30px rgba(0,0,0,.35);font-family:"Segoe UI",sans-serif}
+  #ialRuido .rd-topo{display:flex;justify-content:space-between;align-items:center;font-size:14px}
+  #ialRuido .rd-topo button{background:none;border:0;color:#fff;font-size:16px;cursor:pointer;padding:2px 6px}
+  #ialRuido .rd-sem{display:flex;justify-content:center;gap:12px;margin:10px 0}
+  #ialRuido .rd-sem i{width:46px;height:46px;border-radius:50%;opacity:.22;transition:opacity .2s,box-shadow .2s}
+  #ialRuido .rd-sem i[data-l="v"]{background:#2fbf4a} #ialRuido .rd-sem i[data-l="a"]{background:#f4b400} #ialRuido .rd-sem i[data-l="r"]{background:#e53935}
+  #ialRuido .rd-sem i.on{opacity:1;box-shadow:0 0 18px currentColor}
+  #ialRuido[data-cor="r"]{animation:rdPisca .8s infinite alternate}
+  @keyframes rdPisca{to{box-shadow:0 0 0 6px rgba(229,57,53,.55),0 10px 30px rgba(0,0,0,.35)}}
+  #ialRuido .rd-barra{position:relative;height:10px;border-radius:6px;background:#ffffff26;overflow:visible}
+  #ialRuido .rd-barra span{display:block;height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,#2fbf4a,#f4b400 70%,#e53935)}
+  #ialRuido .rd-barra em{position:absolute;top:-4px;width:3px;height:18px;background:#fff;border-radius:2px}
+  #ialRuido .rd-lim{display:flex;align-items:center;gap:8px;font-size:12.5px;margin-top:10px} #ialRuido .rd-lim input{flex:1}
+  #ialRuido small{display:block;font-size:11px;opacity:.75;margin-top:4px}
   .ial-mods{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0 4px}
   .ial-mod{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;border:2px solid #dbe3eb;border-radius:12px;background:#fff;cursor:pointer;font-family:"Segoe UI",sans-serif;color:#0f2c4a}
   .ial-mod svg{width:100%;max-width:96px;height:auto}
@@ -4844,6 +4962,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   #iaCorpo .ia-qi small{font-size:11px;color:#62758a;text-align:center}
   #iaCorpo .ia-qi[aria-pressed="true"]{border-color:#7b5cff;background:#f3f0ff;box-shadow:0 0 0 2px rgba(123,92,255,.2)}
   #iaCorpo .ia-qi:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
+  #iaCorpo .ia-pronta{display:flex;gap:10px;align-items:center;margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:#fff4e0;border:1px solid #f0c27a;color:#5a3d00;font-size:13px;line-height:1.35}
+  #iaCorpo .ia-pronta[hidden]{display:none}
+  #iaCorpo .ia-pronta button{flex:none;border:0;border-radius:9px;background:#d97706;color:#fff;font-weight:700;padding:8px 12px;cursor:pointer}
   #iaCorpo .ia-guarda{margin:10px 0 0;padding:7px 11px;border-radius:10px;background:#eef7ee;border:1px solid #b9dcbc;color:#1a4d24;font-size:13px;line-height:1.4}
   #iaCorpo .ia-custo{margin:0;padding:7px 11px;border-radius:10px;background:#fff8e1;border:1px solid #f2d27a;color:#5a4b00;font-size:13px;line-height:1.4}
   #iaCorpo #iaEstiloBox{grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:10px}
@@ -5433,6 +5554,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div id="iaCorpo"><p class="ia-d">Diga o tema e a IA do Portal monta a aula em slides, direto aqui na Lousa. Você revisa e ajusta tudo antes de mostrar à turma.</p>' +
         '<div class="ia-cols"><div class="ia-col">' +
         '<label>Tema da aula<input id="iaTema" maxlength="200" placeholder="Ex.: fases da Lua, frações equivalentes, Revolução Industrial"></label>' +
+        '<div id="iaPronta" class="ia-pronta" hidden></div>' +
         '<div class="ia-3"><label>Disciplina<select id="iaDisc"><option value="">Escolha...</option>' + DISC_IA.map(d => '<option>' + d + '</option>').join("") + '</select></label>' +
         '<label>Turma<select id="iaTurmaSel"><option value="">Carregando suas turmas...</option></select><input id="iaTurma" maxlength="40" placeholder="Ex.: 5º ano" hidden></label>' +
         '<label>Slides<select id="iaQtd">' + [4,5,6,7,8,10,12,15].map(n => '<option' + (n === 6 ? " selected" : "") + '>' + n + '</option>').join("") + '</select></label></div>' +
@@ -5455,6 +5577,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '<div class="ia-acoes"><p id="iaMsg" class="ia-msg" role="status"></p><button type="button" class="ia-pri" data-ia="gerar" id="iaGerar">Montar a aula</button></div></div></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { const b = e.target.closest("[data-ia]"); if(!b) return; if(b.dataset.ia === "fechar") fecharAulaIA(); if(b.dataset.ia === "gerar") gerarAulaIA();
+        if(b.dataset.ia === "pronta-usar"){ const a = AC.lista.find(x => x.id === b.dataset.id); if(a){ fecharAulaIA(); usarAcervo(a, b); } return; }
         // temas do banco: cada toque marca ou desmarca; a aula pode juntar vários
         if(b.dataset.ia === "sug"){ const tm = document.getElementById("iaTema"), k = temasSel.findIndex(t => t.id === b.dataset.id && t.chave === b.dataset.chave);
           if(k >= 0) temasSel.splice(k, 1); else { temasSel = temasSel.filter(t => t.chave === b.dataset.chave); temasSel.push({ chave:b.dataset.chave, id:b.dataset.id, texto:b.dataset.tema }); }
@@ -5463,10 +5586,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         if(b.dataset.ia === "sug-mais"){ sugTodas = !sugTodas; pintarSugestoes(); }
         if(b.dataset.ia === "cor"){ temaIA.cor = b.dataset.cor; salvarTemaIA(); pintarTemaIA(); }
         if(b.dataset.ia === "fundo"){ temaIA.fundo = b.dataset.fundo; salvarTemaIA(); pintarTemaIA(); } });
-      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel") turmaEscolhida(); if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaDisc"].includes(e.target.id)){ sugTodas = false; pintarSugestoes(); } if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); if(e.target.id === "iaAvanc") pintarQtdImg(); });
+      bg.addEventListener("change", (e) => { if(e.target.id === "iaTurmaSel"){ turmaEscolhida(); sugerirPronta(); } if(e.target.id === "iaDisc") pintarTemaIA(); if(["iaTurmaSel","iaDisc"].includes(e.target.id)){ sugTodas = false; pintarSugestoes(); } if(["iaTurmaSel","iaUltra","iaEstilo"].includes(e.target.id)) infoEstilo(); if(e.target.id === "iaAvanc") pintarQtdImg(); });
       bg.addEventListener("input", (e) => { if(e.target.id === "iaObs"){ const n = e.target.value.length; document.getElementById("iaObsConta").textContent = n > 1200 ? n + " / 1500" : ""; } });
       bg.addEventListener("input", (e) => { if(e.target.id === "iaTurma"){ infoEstilo(); pintarSugestoes(); }
-        if(e.target.id === "iaTema" && temasSel.length && e.target.value.trim() !== juntaTemas(temasSel.map(t => t.texto))){ temasSel = []; pintarSugestoes(); } });
+        if(e.target.id === "iaTema" && temasSel.length && e.target.value.trim() !== juntaTemas(temasSel.map(t => t.texto))){ temasSel = []; pintarSugestoes(); }
+        if(e.target.id === "iaTema" || e.target.id === "iaTurma"){ clearTimeout(timerPronta); timerPronta = setTimeout(sugerirPronta, 350); } });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharAulaIA(); } if(e.key === "Enter" && e.target.id === "iaTema") gerarAulaIA(); });
     }
     bg.classList.add("aberto"); document.getElementById("iaMsg").textContent = "";
@@ -5474,6 +5598,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     carregarPerfilIA().then(montarTurmasIA).then(pintarSugestoes);
     carregarTemasIA().then(pintarSugestoes);
     prepararUltra().then(infoEstilo);
+    sugerirPronta(); if(!AC.carregado) carregarAcervo().then(sugerirPronta, () => {});
     setTimeout(() => document.getElementById("iaTema").focus(), 50);
   }
   // turmas e disciplinas do professor (grade da turma) e escola, para já vir preenchido; ele pode trocar
@@ -5539,6 +5664,33 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }catch(e){ custo.textContent = ""; }
   }
   // vídeos e jogos do Portal sobre o tema, para a página "Para continuar"
+  // "Já existe aula pronta sobre isso" (nov/2026): antes de gastar crédito, a Lousa procura no acervo uma aula aprovada parecida.
+  // Só palavras que dizem o assunto contam (nada de "aula", "sobre", "para"); a faixa de ano da turma escolhida pesa a favor.
+  let timerPronta = 0;
+  const PALAVRAS_FRACAS = new Set("aula aulas sobre para como com sem dos das nos nas uma umas uns que ano anos serie turma ensino fundamental tema temas importancia introducao conceito conceitos basico basica nocoes estudo seguro segura seguranca saudavel consciente onde vem".split(" "));
+  const palavrasIA = t => semAcentoIA(t).split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !PALAVRAS_FRACAS.has(w)).map(w => w.replace(/(oes|aes|ais|eis|s)$/, ""));
+  function faixaDaTurmaIA(){
+    const m = /([1-9])\s*[ºo°]?\s*ano/i.exec(turmaIA() || ""), n = m ? Number(m[1]) : 0;
+    return !n ? "" : n <= 2 ? "1-2" : n <= 5 ? "3-5" : n <= 7 ? "6-7" : "8-9";
+  }
+  function sugerirPronta(){
+    const box = document.getElementById("iaPronta"); if(!box) return;
+    const tema = (document.getElementById("iaTema") || {}).value || "", pal = new Set(palavrasIA(tema));
+    if(!AC.carregado || pal.size === 0){ box.hidden = true; return; }
+    const fx = faixaDaTurmaIA();
+    let melhor = null, nota = 0;
+    AC.lista.filter(a => a.status === "aprovada").forEach(a => {
+      // mesma palavra ou mesmo começo de 6 letras (vacina/vacinação, recicla/reciclagem; trânsito ≠ transpiração)
+      const chave = palavrasIA([a.titulo, a.tema_rotulo, a.tema].join(" ")); let n = 0;
+      pal.forEach(w => { if(chave.some(k => k === w || (k.length >= 6 && w.length >= 6 && k.slice(0, 6) === w.slice(0, 6)))) n++; });
+      if(!n) return; const v = n * 10 + (fx && a.faixa === fx ? 5 : 0);
+      if(v > nota){ nota = v; melhor = a; }
+    });
+    if(!melhor){ box.hidden = true; return; }
+    box.innerHTML = '<span>📚 Já existe uma <b>Aula pronta</b> parecida: <b>' + escAc(melhor.titulo) + '</b> (' + escAc(rotFaixa(melhor.faixa)) + '). Revisada pela NEWPC e <b>não gasta crédito</b>.</span>' +
+      '<button type="button" data-ia="pronta-usar" data-id="' + escAc(melhor.id) + '">Usar esta aula</button>';
+    box.hidden = false;
+  }
   function semAcentoIA(t){ return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(); }
   async function continuarIA(tema, disciplina, titulo){
     const VAZIAS = new Set("para com sobre entre como mais pelo pela pelos pelas aula aulas anos turma tema ensino escola".split(" "));
