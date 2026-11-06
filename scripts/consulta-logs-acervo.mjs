@@ -8,7 +8,7 @@ const cli = await new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/log
 const desde = new Date(Date.now() - 2 * 3600e3).toISOString();
 const r = await cli.request({ url: 'https://logging.googleapis.com/v2/entries:list', method: 'POST', data: {
   resourceNames: ['projects/portal-educador-5'], orderBy: 'timestamp desc', pageSize: 30,
-  filter: 'resource.type="cloud_run_revision" AND resource.labels.service_name="acervofila" AND severity>=WARNING AND timestamp>="' + desde + '"' } }).catch(e => ({ erro: e }));
+  filter: 'resource.type="cloud_run_revision" AND resource.labels.service_name="acervofila" AND timestamp>="' + desde + '"' } }).catch(e => ({ erro: e }));
 if (r.erro) { console.log('::error::' + limpo(r.erro.message).slice(0, 500)); process.exit(1); }
 const txt = e => e.textPayload || (e.jsonPayload && (e.jsonPayload.message || JSON.stringify(e.jsonPayload))) || (e.httpRequest ? 'HTTP ' + e.httpRequest.status : '') || '';
 const ents = r.data.entries || []; if (!ents.length) console.log('::notice::nenhum aviso');
