@@ -773,10 +773,27 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
         if (!prob.length) break;
         console.warn('portal-ia: aula reprovada', prob.join('; '));
       }
+      // veio com menos slides do que o professor pediu: pede só os que faltam, continuando a mesma aula (até 2 vezes)
+      for (let t = 0; !prob.length && aula && aula.slides.length < qtd && t < 2; t++) {
+        const falta = qtd - aula.slides.length, feitos = aula.slides.map((x, k) => (k + 1) + ') ' + x.tipo + ': ' + x.titulo).join('\n');
+        const rc = await geminiJson(chave, [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido + '\n\nA aula "' + aula.titulo + '" já tem estes slides:\n' + feitos +
+          '\n\nCrie APENAS os ' + falta + ' slides que faltam para completar a aula, continuando a mesma sequência (sem repetir conteúdo dos slides acima). Se faltar o resumo final, ele é o último. Devolva no campo slides só esses ' + falta + ' novos; repita o mesmo título da aula.', ESQUEMA_AULA, 0.6, 85000).catch(e => { console.warn('portal-ia: complemento da aula', e.message); return null; });
+        if (!rc) break;
+        ent += rc.entrada; sai += rc.saida;
+        const extra = rc.json ? paraAula({ ...rc.json, titulo: rc.json.titulo || aula.titulo }, falta).slides : [];
+        if (!extra.length) continue;
+        // resumo sempre no fim: o que veio antes do resumo antigo entra antes dele
+        const iRes = aula.slides.findIndex(x => x.tipo === 'resumo'), temNovoRes = extra.some(x => x.tipo === 'resumo');
+        if (iRes >= 0 && !temNovoRes) aula.slides.splice(iRes, 0, ...extra); else { if (iRes >= 0 && temNovoRes) aula.slides.splice(iRes, 1); aula.slides.push(...extra); }
+        aula.slides = aula.slides.slice(0, qtd);
+      }
     } catch (e) { erro = e; }
+    // mesmo assim incompleta: entrega o que veio e não cobra (o professor pediu N slides e pagou por N)
+    const curta = !erro && !prob.length && aula && aula.slides.length < qtd ? aula.slides.length : 0;
+    if (curta) console.warn('portal-ia: aula com', curta, 'de', qtd, 'slides; crédito devolvido');
     const falhou = !!erro || prob.length > 0;
-    if (falhou) await estornarCreditos(db, res);
-    await registrarConsumo(db, ctx, falhou ? null : { ...res, acao: 'aula_lousa' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
+    if (falhou || curta) await estornarCreditos(db, res);
+    await registrarConsumo(db, ctx, falhou || curta ? null : { ...res, acao: 'aula_lousa' }, { modelo: r && r.modelo, entrada: ent, saida: sai });
     if (erro) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo em instantes.');
     if (prob.length) throw new HttpsError('internal', 'A IA devolveu a aula com problema (' + prob[0] + '). Tente de novo.');
     // ranking de temas da Aula com IA: conta só o tema escolhido no banco do Portal (identificador curto),
@@ -810,6 +827,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       const falhas = feitas.filter(f => f.erro);
       if (falhas.length) aviso = falhas.length === feitas.length ? 'As ilustrações não saíram (' + falhas[0].erro + '). A aula veio só com texto.' : falhas.length + ' ilustração(ões) não saíram; o resto da aula está completo.';
     }
+    if (curta) aviso = 'A IA montou ' + curta + ' dos ' + qtd + ' slides pedidos. Como a aula não veio completa, o crédito do texto foi devolvido.' + (aviso ? ' ' + aviso : '');
     return { aula, imagens, aviso, cota: await cota() };
   }
 
