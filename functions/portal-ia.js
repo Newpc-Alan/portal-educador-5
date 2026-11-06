@@ -756,7 +756,8 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       'Varie os formatos: conceito para definições, curiosidade ou dado para despertar interesse, linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
       'Use pelo menos 4 formatos diferentes e inclua 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
       'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. ' +
-      'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe).\n\n' + REGRAS_GERAIS;
+      'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe). ' +
+      'A aula se basta: não indique vídeo, filme, site, aplicativo nem material externo (nem "assista", "veja o vídeo", "pesquise no site"), nem no roteiro do professor.\n\n' + REGRAS_GERAIS;
     const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') +
       '\nTema da aula: ' + tema + '\nQuantidade: ' + qtd + ' slides' + (obs ? '\nObservações do professor: ' + obs : '');
     let r = null, prob = ['sem resposta'], ent = 0, sai = 0, erro = null, aula = null;
