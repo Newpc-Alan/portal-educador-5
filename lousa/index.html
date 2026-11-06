@@ -242,6 +242,10 @@
   #escolha h3{font-size:18px;font-weight:700;}
   #escolha p{font-size:14.5px;line-height:1.5;color:#415a72;margin:0 0 20px 56px;}
   #escBotoes{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;}
+  #escBotoes.col{flex-direction:column;align-items:stretch}
+  #escBotoes.col .esc-btn{text-align:left}
+  .esc-pdf{display:flex;gap:8px;align-items:center;margin:4px 0 12px;line-height:1.35;font-size:14px;color:#3c4b5a;cursor:pointer}
+  .esc-pdf input{width:18px;height:18px}
   .esc-btn{min-height:46px;padding:0 18px;border-radius:11px;border:none;cursor:pointer;font-size:14.5px;font-weight:700;}
   .esc-btn:focus-visible{outline:3px solid var(--cyan);outline-offset:2px;}
   .esc-btn.neutro{background:#eef2f6;color:#0f2c4a;}
@@ -2939,6 +2943,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(opc.extra) extra.appendChild(opc.extra);
     var box = document.getElementById("escBotoes");
     box.innerHTML = "";
+    box.classList.toggle("col", !!opc.coluna);
     opc.botoes.forEach(function(b, i){
       var el = document.createElement("button");
       el.type = "button";
@@ -2976,12 +2981,50 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* encerrar a aula: salvar PDF (opcional) e limpar */
   function limparAulaEEncerrar(){
     novaAula();
+    if(window.PDENuvem && window.PDENuvem.liberar) window.PDENuvem.liberar();
     if(dentroDoPortal){ try{ window.parent.postMessage({ tipo:"pde-lousa-encerrada" }, "*"); }catch(e){} }
     msg("Aula encerrada");
   }
   function pedirEncerrar(){
     if(!aulaTemConteudo()){ limparAulaEEncerrar(); return; }
     if(window.PDENuvem && window.PDENuvem.ativa()){
+      // aula que veio de Meus trabalhos, da Aula IA ou de Aulas prontas e mudou: o professor decide o que fazer com as anotações
+      window.PDENuvem.situacaoOriginal().then(function(sit){ (sit && sit.mudou) ? pedirEncerrarAnotada(sit) : pedirEncerrarSimples(); }, pedirEncerrarSimples);
+      return;
+    }
+    pedirEncerrarSemNuvem();
+  }
+  function pedirEncerrarAnotada(sit){
+    var box = document.createElement("label");
+    box.className = "esc-pdf";
+    box.innerHTML = '<input type="checkbox" id="escPdfAntes"> Baixar em PDF como está agora (com as anotações) antes de encerrar';
+    var fazer = function(modo){
+      var pdf = document.getElementById("escPdfAntes") && document.getElementById("escPdfAntes").checked;
+      var ir = function(){
+        msg(modo === "com" ? "Salvando com as anotações..." : modo === "copia" ? "Salvando a cópia anotada..." : "Voltando a aula como estava...");
+        window.PDENuvem.encerrarAula(modo).then(function(){
+          limparAulaEEncerrar();
+          msg(modo === "com" ? "Aula salva com as anotações" : modo === "copia" ? "Cópia anotada salva em Meus trabalhos; a aula ficou como estava" : "A aula ficou como estava em Meus trabalhos");
+        }, function(e){ console.warn("encerrar:", e); msg("Não consegui salvar na nuvem agora: baixe em PDF para não perder"); });
+      };
+      pdf ? exportarPDF(ir) : ir();
+    };
+    escolher({
+      titulo: "Encerrar a aula?",
+      texto: "\u201C" + sit.titulo + "\u201D mudou desde que você abriu (marca-texto, setas, anotações). O que fazer com essas mudanças? Depois de encerrar, a lousa volta em branco.",
+      icone: "i-pasta",
+      extra: box,
+      coluna: true,
+      botoes: [
+        { rotulo:"💾 Salvar com as anotações", estilo:"principal", foco:true, acao: function(){ fazer("com"); } },
+        { rotulo:"📄 Salvar as anotações como cópia (a aula fica como estava)", estilo:"neutro", acao: function(){ fazer("copia"); } },
+        { rotulo:"↩️ Sair sem salvar: manter a aula como estava", estilo:"neutro", acao: function(){ fazer("original"); } },
+        { rotulo:"Cancelar", estilo:"neutro" }
+      ]
+    });
+  }
+  function pedirEncerrarSimples(){
+    {
       var guardarEEncerrar = function(pdf){
         window.PDENuvem.salvar(false).then(function(){ pdf ? exportarPDF(limparAulaEEncerrar) : limparAulaEEncerrar(); },
           function(){ msg("Não consegui salvar na nuvem: baixe em PDF para não perder"); });
@@ -2996,8 +3039,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           { rotulo:"Encerrar", estilo:"principal", foco:true, acao: function(){ guardarEEncerrar(false); } }
         ]
       });
-      return;
     }
+  }
+  function pedirEncerrarSemNuvem(){
     escolher({
       titulo: "Encerrar a aula?",
       texto: "A lousa tem " + paginas.length + " página(s). Salve em PDF para guardar o conteúdo. Depois de encerrar, a lousa volta em branco.",
@@ -4839,6 +4883,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
   const L = () => window.PDELousa;
   const AUTO_MS = 120000;
+  // Versão original (nov/2026): ao abrir uma aula de Meus trabalhos, gerar uma Aula IA ou usar uma Aula pronta, a Lousa guarda a aula limpa.
+  // O salvamento automático continua (nada se perde se o navegador fechar), mas antes de sobrescrever pela 1ª vez ela guarda uma cópia
+  // da original ao lado ({id}.orig.json.gz). Ao encerrar, o professor escolhe: salvar com as anotações, voltar à original ou salvar as
+  // anotações como cópia. A cópia da original some quando ele decide (não fica lixo no Storage).
+  let orig = null, ultimo = null, congelado = false;
   let uid = null, licenca = false, salvando = null, lista = [], busca = "", eu = null, perfilIA = null, lousaCfg = { basica:true, ultra:false }, cotaIA = null;
 
   function licencaOk(u){
@@ -4877,7 +4926,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   async function salvar(manual){
-    if(!uid || !licenca || !L()) return;
+    if(!uid || !licenca || !L() || congelado) return;
     if(salvando) return salvando;
     if(!L().temConteudo()){ if(manual) L().msg("A lousa está vazia: nada para salvar"); return; }
     let { id, titulo } = L().nuvem();
@@ -4894,9 +4943,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         const dados = L().instantaneo();
         const { blob, tipo } = await comprimir(JSON.stringify(dados));
         const caminho = "professores/" + uid + "/lousa/" + id + (tipo === "application/gzip" ? ".json.gz" : ".json");
+        const extraOrig = await guardarOriginal(id);   // 1ª vez que a aula muda: a original vai para o lado antes de sobrescrever
         await uploadBytes(ref(st, caminho), blob, { contentType:tipo });
         const meta = { tipo:"lousa", titulo, paginas:dados.paginas.length, tamanho:blob.size, arquivo:caminho, formato:tipo,
-          miniatura:L().miniatura(), atualizado_em:serverTimestamp() };
+          miniatura:L().miniatura(), atualizado_em:serverTimestamp(), ...extraOrig };
+        ultimo = { id, blob, tipo, arquivo:caminho, mini:meta.miniatura, paginas:meta.paginas, titulo };
         if(!lista.some(t => t.id === id)) meta.criado_em = serverTimestamp();
         await setDoc(doc(db, "usuarios", uid, "trabalhos", id), meta, { merge:true });
         if(!lista.some(t => t.id === id)) lista.push({ id, ...meta });
@@ -4911,6 +4962,58 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }finally{ btn && btn.classList.remove("salvando"); salvando = null; }
     })();
     return salvando;
+  }
+
+  /* ---------- versão original ---------- */
+  const caminhoOrig = arquivo => String(arquivo).replace(/(\.json(\.gz)?)$/, ".orig$1");
+  async function guardarOriginal(id){
+    if(!orig || orig.id !== id || orig.guardado) return {};
+    const c = caminhoOrig(orig.arquivo);
+    await uploadBytes(ref(st, c), orig.blob, { contentType:orig.tipo });
+    orig.guardado = c;
+    return { original_arquivo:c, original_formato:orig.tipo, original_mini:orig.mini || "", original_paginas:orig.paginas || 1 };
+  }
+  async function esquecerOriginal(){
+    const o = orig; orig = null; if(!o || !o.guardado) return;
+    await deleteObject(ref(st, o.guardado)).catch(() => {});
+    await setDoc(doc(db, "usuarios", uid, "trabalhos", o.id), { original_arquivo:null, original_formato:null, original_mini:null, original_paginas:null }, { merge:true }).catch(() => {});
+  }
+  // depois de recarregar a página, a original volta pelo cadastro do trabalho
+  async function lerOriginalSalva(id){
+    if(orig && orig.id === id) return orig;
+    const d = await getDoc(doc(db, "usuarios", uid, "trabalhos", id)).catch(() => null), t = d && d.exists() ? d.data() : null;
+    if(!t || !t.original_arquivo) return null;
+    orig = { id, arquivo:t.arquivo, tipo:t.original_formato || t.formato, mini:t.original_mini || "", paginas:t.original_paginas || 1, titulo:t.titulo, guardado:t.original_arquivo, blob:null };
+    return orig;
+  }
+  // a aula mudou desde a original? (só aí o professor precisa escolher)
+  async function situacaoOriginal(){
+    const id = L().nuvem().id; if(!uid || !id) return null;
+    const o = await lerOriginalSalva(id); if(!o) return null;
+    return { mudou: !!o.guardado || L().alterada(), titulo: L().nuvem().titulo || o.titulo || "Aula" };
+  }
+  async function voltarOriginal(o){
+    const blob = o.blob || await getBlob(ref(st, o.guardado));
+    await uploadBytes(ref(st, o.arquivo), blob, { contentType:o.tipo });
+    await setDoc(doc(db, "usuarios", uid, "trabalhos", o.id), { arquivo:o.arquivo, formato:o.tipo, tamanho:blob.size, miniatura:o.mini || "", paginas:o.paginas || 1, atualizado_em:serverTimestamp() }, { merge:true });
+  }
+  // modo: "com" (salva as anotações na aula), "original" (volta como estava), "copia" (anotações num trabalho novo; a aula volta como estava)
+  async function encerrarAula(modo){
+    const o = orig; if(!o || o.id !== L().nuvem().id) throw new Error("sem original");
+    if(modo === "com"){ await salvar(false); await esquecerOriginal(); return; }
+    congelado = true;
+    try{
+      if(salvando) await salvando.catch(() => {});   // salvamento automático no meio do caminho: espera terminar antes de decidir
+      if(modo === "copia"){
+        const dados = L().instantaneo(), { blob, tipo } = await comprimir(JSON.stringify(dados)), id = doc(collection(db, "usuarios", uid, "trabalhos")).id;
+        const caminho = "professores/" + uid + "/lousa/" + id + (tipo === "application/gzip" ? ".json.gz" : ".json"), hoje = new Date().toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" });
+        await uploadBytes(ref(st, caminho), blob, { contentType:tipo });
+        await setDoc(doc(db, "usuarios", uid, "trabalhos", id), { tipo:"lousa", titulo:(String(L().nuvem().titulo || o.titulo || "Aula").slice(0, 60) + " · anotada " + hoje), paginas:dados.paginas.length, tamanho:blob.size,
+          arquivo:caminho, formato:tipo, miniatura:L().miniatura(), criado_em:serverTimestamp(), atualizado_em:serverTimestamp() });
+      }
+      if(o.guardado) await voltarOriginal(o);   // nunca sobrescreveu: a aula em Meus trabalhos já é a original
+      await esquecerOriginal();
+    }catch(e){ congelado = false; throw e; }
   }
 
   async function carregarLista(){
@@ -4952,6 +5055,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       const s = JSON.parse(await descomprimir(blob, t.formato));
       fecharLista();
       L().abrir(s, id, t.titulo);
+      // a original é a que está em Meus trabalhos; se ficou uma aula sem encerrar, vale a original guardada daquela vez
+      orig = t.original_arquivo ? { id, arquivo:t.arquivo, tipo:t.original_formato || t.formato, mini:t.original_mini || "", paginas:t.original_paginas || 1, titulo:t.titulo, guardado:t.original_arquivo, blob:null }
+        : { id, arquivo:t.arquivo, tipo:t.formato, mini:t.miniatura || "", paginas:t.paginas || 1, titulo:t.titulo, guardado:"", blob };
     }catch(e){ console.warn(e); L().msg("Não consegui abrir este trabalho agora"); }
   }
   async function renomear(card){
@@ -4975,7 +5081,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(btn.dataset.confirmar !== "1"){ btn.dataset.confirmar = "1"; btn.textContent = "Confirmar"; setTimeout(() => { if(btn.isConnected){ btn.dataset.confirmar = ""; btn.textContent = "Excluir"; } }, 4000); return; }
     try{
       await deleteObject(ref(st, t.arquivo)).catch(() => {});
+      if(t.original_arquivo) await deleteObject(ref(st, t.original_arquivo)).catch(() => {});
       await deleteDoc(doc(db, "usuarios", uid, "trabalhos", id));
+      if(orig && orig.id === id) orig = null;
       lista = lista.filter(x => x.id !== id);
       if(L().nuvem().id === id) L().definirNuvem(null, "");
       desenharLista(); L().msg("Trabalho excluído");
@@ -5146,6 +5254,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     ativa: () => !!(uid && licenca),
     salvar: (manual) => salvar(manual) || Promise.resolve(),
     salvarSeAlterou: () => { if(L() && L().alterada() && L().temConteudo()) salvar(false).catch(() => {}); },
+    situacaoOriginal: () => situacaoOriginal().catch(() => null),
+    encerrarAula: (modo) => encerrarAula(modo),
+    liberar: () => { congelado = false; },
     abrirLista
   };
 
@@ -5181,7 +5292,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   async function guardarAulaIA(titulo){
     if(!window.PDENuvem || !window.PDENuvem.ativa()) return;
     if(!L().nuvem().id) L().definirNuvem(null, titulo);
-    try{ await salvar(false); L().msg("Aula salva em Meus trabalhos. Abrir de novo não gasta crédito."); }catch(e){ /* salvar() já avisou; a aula segue salva neste navegador */ }
+    try{
+      await salvar(false);
+      // a aula recém-montada é a original desta sessão (o que vier depois é anotação de aula)
+      if(ultimo && ultimo.id === L().nuvem().id){ await esquecerOriginal(); orig = { ...ultimo, guardado:"" }; }
+      L().msg("Aula salva em Meus trabalhos. Abrir de novo não gasta crédito.");
+    }catch(e){ /* salvar() já avisou; a aula segue salva neste navegador */ }
   }
   function salvarTemaIA(){ try{ localStorage.setItem("pde_aula_tema", JSON.stringify(temaIA)); }catch(e){} }
   function pintarTemaIA(){
@@ -5558,7 +5674,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       const imagens = {};
       for(const [k, im] of Object.entries(a.imagens || {})){ try{ const x = await imagemAcervo(im.caminho, 1280); imagens[k] = { src:x.src, w:x.w, h:x.h }; }catch(e){ console.warn("ilustração do acervo:", e.code || e); } }
       fecharAcervo();
-      L().inserirAula(a.aula, { disciplina:a.disciplina, turma:rotFaixa(a.faixa), creditos:null, imagens, continuar:[], cor:temaIA.cor || (AREAS_AC[a.macroarea] || [])[1] || "", fundo:temaIA.fundo });
+      L().inserirAula(a.aula, { disciplina:a.disciplina, turma:rotFaixa(a.faixa), creditos:null, imagens, continuar:[], cor:temaIA.cor || (AREAS_AC[a.macroarea] || [])[1] || "", fundo:temaIA.fundo,
+        depois: () => guardarAulaIA(String(a.titulo || "Aula pronta").slice(0, 80)) });
       if(a.status === "aprovada" && !AC.adm){ updateDoc(doc(db, "acervo_aulas", a.id), { usos:(a.usos || 0) + 1 }).then(() => { a.usos = (a.usos || 0) + 1; }, (e) => console.warn("uso:", e.code || e)); }
       if(a.status !== "aprovada") setTimeout(() => L().msg("Revisão: confira os slides e o Guia do professor. Depois, em Aulas prontas, aprove ou oculte esta aula."), 2500);
     }catch(e){ console.warn("aula pronta:", e.code || e); document.getElementById("acMsg").textContent = "Não deu para abrir esta aula agora."; }

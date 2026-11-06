@@ -6813,7 +6813,7 @@
   async function lerMeusTrabalhos(){
     const uid = usuarioAtual.uid, ms = v => msDe(v) || (v && v.seconds ? v.seconds * 1000 : 0), ler = (q, f) => getDocs(q).then(sn => { const l = []; sn.forEach(d => l.push(f(d.id, d.data()))); return l; }).catch(e => { console.warn("trabalhos:", e.code); return []; });
     return Promise.all([
-      ler(collection(db,"usuarios",uid,"trabalhos"), (id, t) => ({ tipo:"lousa", id, titulo:t.titulo || "Lousa sem nome", sub:"", det:(t.paginas || 1)+" página(s)", mini:t.miniatura || "", arquivo:t.arquivo || "", em:ms(t.atualizado_em) })),
+      ler(collection(db,"usuarios",uid,"trabalhos"), (id, t) => ({ tipo:"lousa", id, titulo:t.titulo || "Lousa sem nome", sub:"", det:(t.paginas || 1)+" página(s)", mini:t.miniatura || "", arquivo:t.arquivo || "", original_arquivo:t.original_arquivo || "", em:ms(t.atualizado_em) })),
       ler(query(collection(db,"portal_ia_docs"), where("uid","==",uid)), (id, t) => ({ tipo:"portalia", id, titulo:t.titulo || t.tema || "Material sem nome", sub:t.tipo_nome || "Material", det:(t.tipo_nome || "Material")+(t.rede ? " · na rede" : ""), rede:!!t.rede, imagens:Object.keys(t.imagens || {}).length, em:ms(t.atualizado_em) })),
       ler(collection(db,"usuarios",uid,"provas"), (id, t) => ({ tipo:"prova", id, titulo:t.titulo || "Prova sem nome", sub:t.disciplina || "", det:[t.disciplina, t.turma, t.questoes ? t.questoes+" questões" : ""].filter(Boolean).join(" · ") || "Prova", em:ms(t.atualizado_em) })),
       ler(query(collection(db,"provas_online"), where("professor_uid","==",uid)), (id, t) => { const st = statusProvaOnline(t);
@@ -6989,7 +6989,7 @@
   async function excluirTrabalho(i){
     const uid = usuarioAtual.uid, st = getStorage(app);
     // o conteúdo da Lousa e da prova fica num arquivo no Storage: sai junto
-    if(i.tipo === "lousa"){ if(i.arquivo) await stDelete(stRef(st, i.arquivo)).catch(() => {}); await deleteDoc(doc(db,"usuarios",uid,"trabalhos",i.id)); }
+    if(i.tipo === "lousa"){ if(i.arquivo) await stDelete(stRef(st, i.arquivo)).catch(() => {}); if(i.original_arquivo) await stDelete(stRef(st, i.original_arquivo)).catch(() => {}); await deleteDoc(doc(db,"usuarios",uid,"trabalhos",i.id)); }
     else if(i.tipo === "prova"){ await stDelete(stRef(st, "professores/"+uid+"/provas/"+i.id+".json.gz")).catch(() => {}); await deleteDoc(doc(db,"usuarios",uid,"provas",i.id)); }
     else if(i.tipo === "portalia") await deleteDoc(doc(db,"portal_ia_docs",i.id));
     else if(i.tipo === "roteiro") await deleteDoc(doc(db,"usuarios",uid,"roteiros",i.id));
