@@ -4,7 +4,7 @@
 // e monta o PDF com a identidade da escola. Imagem só para os planos que a incluem.
 // Independente da IA do Educador (ia-educador.js), que fica guardada como está.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { onDocumentDeleted } from 'firebase-functions/v2/firestore';
+import { onDocumentDeleted, onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
@@ -591,7 +591,8 @@ function contextoTexto(cx) {
 }
 
 /* ------------------------------------------------------------------ a função */
-export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 540, memory: '512MiB', maxInstances: 20 }, async req => {
+// o corpo da função fica separado para a fila do acervo (acervoFila) usar exatamente o mesmo caminho do professor
+async function tratarPortalIa(req) {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
   const ctx = await contexto(db, uid); ctx.uid = uid;
@@ -1159,6 +1160,45 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
   }
 
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
+}
+export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 540, memory: '512MiB', maxInstances: 20 }, tratarPortalIa);
+
+/* ------------------------------------------------------------------ Aulas prontas: fila no servidor (nov/2026)
+   O administrador toca uma vez (ou o script do lote grava) e pode fechar a Lousa: acervo_lote/atual guarda a lista;
+   cada gravação nesse documento dispara esta função, que gera UMA aula pendente e grava o resultado, o que dispara a próxima.
+   Uma por vez (maxInstances 1): sem atropelo e sem estourar a cota do Gemini. */
+export const acervoFila = onDocumentWritten({ document: 'acervo_lote/{id}', region: 'southamerica-east1', secrets: [GEMINI, SMTP_SENHA], timeoutSeconds: 540, memory: '512MiB', maxInstances: 1 }, async ev => {
+  const depois = ev.data && ev.data.after;
+  if (!depois || !depois.exists) return;
+  const db = getFirestore(), ref = depois.ref;
+  // pega a próxima pendente numa transação (duas execuções seguidas não pegam a mesma)
+  const vez = await db.runTransaction(async t => {
+    const x = await t.get(ref); if (!x.exists) return null;
+    const L = x.data(), itens = Array.isArray(L.itens) ? L.itens : [];
+    // aula presa em "gerando" há mais de 12 min (a execução caiu): vira erro e a fila segue
+    itens.forEach((i, k) => { if (i.status === 'gerando' && Date.now() - (i.inicio || 0) > 12 * 60e3) itens[k] = { ...i, status: 'erro', erro: 'tempo esgotado' }; });
+    if (L.parado || itens.some(i => i.status === 'gerando')) return null;
+    const k = itens.findIndex(i => i.status === 'fila');
+    if (k < 0) { if (!L.terminado_em) t.update(ref, { terminado_em: FieldValue.serverTimestamp() }); return null; }
+    itens[k] = { ...itens[k], status: 'gerando', inicio: Date.now() };
+    t.update(ref, { itens, atualizado_em: FieldValue.serverTimestamp() });
+    return { k, item: itens[k], uid: L.uid };
+  });
+  if (!vez) return;
+  const it = vez.item;
+  let status = 'ok', erro = '', titulo = '';
+  try {
+    const r = await tratarPortalIa({ auth: { uid: vez.uid }, data: { acao: 'aula_lousa', tema: it.tema, disciplina: it.disciplina, turma: it.turma, qtd: it.qtd, obs: it.obs,
+      ultra: true, imagens: it.imagens || 2, estilo: 'auto', acervo: { id: it.id, faixa: it.faixa, macroarea: it.macroarea, tema: it.tema } } });
+    titulo = (r && r.titulo) || '';
+  } catch (e) { status = 'erro'; erro = String(e.message || e).slice(0, 200); console.warn('acervo: falhou', it.id, erro); }
+  await db.runTransaction(async t => {
+    const x = await t.get(ref); if (!x.exists) return;
+    const itens = x.data().itens || [];
+    const k = itens.findIndex(i => i.id === it.id);
+    if (k >= 0) itens[k] = { ...itens[k], status, erro, titulo, fim: Date.now() };
+    t.update(ref, { itens, atualizado_em: FieldValue.serverTimestamp() });
+  });
 });
 
 // Material excluído (pelo Portal IA ou por Meus trabalhos): as imagens dele saem do Storage junto.

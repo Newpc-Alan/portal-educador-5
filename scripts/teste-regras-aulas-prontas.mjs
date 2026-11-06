@@ -40,6 +40,10 @@ await t('admin aprova com as imagens leves', assertSucceeds(updateDoc(doc(fs('ad
 await t('admin não inventa status', assertFails(updateDoc(doc(fs('adm'), 'acervo_aulas/fin_1-2'), { status: 'publicada' })));
 await t('admin não reescreve a aula pelo navegador', assertFails(updateDoc(doc(fs('adm'), 'acervo_aulas/fin_1-2'), { aula: { slides: [1] } })));
 await t('admin não cria pelo navegador', assertFails(setDoc(doc(fs('adm'), 'acervo_aulas/novo'), { titulo: 'x', status: 'revisao', usos: 0 })));
+await t('admin começa o lote', assertSucceeds(setDoc(doc(fs('adm'), 'acervo_lote/atual'), { uid: 'adm', itens: [] })));
+await t('admin acompanha o lote', assertSucceeds(getDoc(doc(fs('adm'), 'acervo_lote/atual'))));
+await t('professor não vê o lote', assertFails(getDoc(doc(fs('p1'), 'acervo_lote/atual'))));
+await t('professor não começa lote', assertFails(setDoc(doc(fs('p1'), 'acervo_lote/outro'), { uid: 'p1', itens: [] })));
 await t('admin apaga', assertSucceeds(deleteDoc(doc(fs('adm'), 'acervo_aulas/fin_1-2'))));
 console.log((falha ? '::error::' : '::notice::') + 'Aulas prontas: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();

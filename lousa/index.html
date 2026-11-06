@@ -5188,7 +5188,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     ["ele", "De onde vem a energia elétrica", "Ciências", "Ciência e Tecnologia", "Usinas hidrelétricas, solares, eólicas e térmicas, como a energia chega até a casa, a matriz elétrica do Brasil, fontes renováveis. Quiz e atividade de observar os aparelhos de casa."]
   ];
   const LOTE_AC = TEMAS_AC.flatMap(t => FAIXAS_AC.map(f => ({ id:t[0] + "_" + f[0], tema:t[1], disciplina:t[2], macroarea:t[3], obs:t[4], faixa:f[0], turma:f[2], qtd:f[3] })));
-  const AC = { lista:[], carregado:false, faixa:"", area:"", busca:"", aba:"aprovada", mini:{}, gerando:false, adm:false };
+  const AC = { lista:[], carregado:false, faixa:"", area:"", busca:"", aba:"aprovada", mini:{}, gerando:false, adm:false, lote:null };
   const escAc = x => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
   const rotFaixa = f => (FAIXAS_AC.find(x => x[0] === f) || [, f])[1];
   async function carregarAcervo(){
@@ -5246,10 +5246,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     }
     bg.classList.add("aberto");
     const msg = document.getElementById("acMsg"); msg.textContent = "Carregando as aulas...";
-    carregarAcervo().then(() => { msg.textContent = ""; pintarAcervo(); }, (e) => { console.warn("aulas prontas:", e.code || e); msg.textContent = "Não deu para carregar as aulas prontas agora. Tente de novo em instantes."; });
+    carregarAcervo().then(() => { msg.textContent = ""; pintarAcervo(); ouvirLote(); }, (e) => { console.warn("aulas prontas:", e.code || e); msg.textContent = "Não deu para carregar as aulas prontas agora. Tente de novo em instantes."; });
     setTimeout(() => document.getElementById("acBusca").focus(), 50);
   }
-  function fecharAcervo(){ const bg = document.getElementById("acFundo"); if(bg) bg.classList.remove("aberto"); }
+  function fecharAcervo(){ const bg = document.getElementById("acFundo"); if(bg) bg.classList.remove("aberto"); if(pararLote){ pararLote(); pararLote = null; ultimoOk = -1; } }
   function pintarAcervo(){
     const box = document.getElementById("acLista"); if(!box) return;
     document.querySelectorAll('#acFaixas [data-ac="faixa"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === AC.faixa)));
@@ -5260,7 +5260,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       document.getElementById("acAbas").innerHTML = [["aprovada", "Publicadas"], ["revisao", "Em revisão"], ["oculta", "Ocultas"]]
         .map(x => '<button type="button" data-ac="aba" data-v="' + x[0] + '" aria-pressed="' + (AC.aba === x[0]) + '">' + x[1] + ' (' + n(x[0]) + ')</button>').join("");
       const falta = LOTE_AC.filter(x => !AC.lista.some(a => a.id === x.id)).length, lb = document.getElementById("acLote");
-      if(!AC.gerando){ lb.disabled = !falta; lb.textContent = falta ? "Gerar o lote oficial (" + falta + " aulas que faltam)" : "Lote oficial completo (" + LOTE_AC.length + " aulas)"; delete lb.dataset.conf; }
+      if(AC.gerando){ lb.disabled = false; lb.textContent = "Gerando no servidor... (toque se parar)"; }
+      else if(!lb.dataset.conf){ lb.disabled = !falta; lb.textContent = falta ? "Gerar o lote oficial (" + falta + " aulas que faltam)" : "Lote oficial completo (" + LOTE_AC.length + " aulas)"; }
     }
     const busca = semAcentoIA(AC.busca.trim());
     const l = AC.lista.filter(a => (AC.adm ? a.status === AC.aba : a.status === "aprovada") && (!AC.faixa || a.faixa === AC.faixa) && (!AC.area || a.macroarea === AC.area)
@@ -5317,36 +5318,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       Object.assign(a, { status:"aprovada", imagens, mini }); pintarAcervo();
     }catch(e){ console.warn("aprovar:", e.code || e); b.disabled = false; b.textContent = "Aprovar"; document.getElementById("acMsg").textContent = "Não deu para aprovar agora (" + (e.code || "erro") + ")."; }
   }
-  // lote oficial: 2 aulas por vez; o que já existe é pulado, então dá para rodar de novo e completar o que falhou
+  // lote oficial (fila no servidor): o administrador toca uma vez e pode fechar a Lousa; a função acervoFila gera uma aula por vez
+  // e grava o andamento em acervo_lote/atual (a mesma lista do script scripts/consulta-acervo-lote.mjs, em lousa/acervo-lote.json)
+  const loteRef = () => doc(db, "acervo_lote", "atual");
+  let pararLote = null, ultimoOk = -1;
+  function ouvirLote(){
+    if(pararLote || !AC.adm) return;
+    pararLote = onSnapshot(loteRef(), (x) => {
+      const L = x.exists() ? x.data() : null; AC.lote = L;
+      const it = (L && L.itens) || [], n = st => it.filter(i => i.status === st).length;
+      const ok = n("ok"), msg = document.getElementById("acLoteMsg"); if(!msg) return;
+      const agora = it.find(i => i.status === "gerando");
+      AC.gerando = !!(n("fila") || agora);
+      msg.textContent = !L ? "" : AC.gerando ? "Fila no servidor: " + ok + " prontas, " + n("erro") + " com erro, " + n("fila") + " na fila." + (agora ? " Agora: " + agora.tema + " · " + rotFaixa(agora.faixa) + "." : "") + " Pode fechar a Lousa."
+        : it.length ? "Último lote: " + ok + " de " + it.length + " geradas" + (n("erro") ? ", " + n("erro") + " com erro (toque em Gerar de novo para refazer)." : ".") : "";
+      if(ok !== ultimoOk){ ultimoOk = ok; carregarAcervo().then(pintarAcervo).catch(() => {}); } else pintarAcervo();
+    }, (e) => console.warn("lote:", e.code || e));
+  }
   async function gerarLoteAcervo(b){
-    if(AC.gerando) return;
     const falta = LOTE_AC.filter(x => !AC.lista.some(a => a.id === x.id));
+    // fila parada (a função caiu no meio): um toque cutuca o servidor e ela continua de onde parou
+    if(AC.gerando){ b.disabled = true; try{ await updateDoc(loteRef(), { atualizado_em:serverTimestamp(), parado:false }); }catch(e){ console.warn(e); } setTimeout(() => { b.disabled = false; }, 4000); return; }
     if(!falta.length) return;
-    if(!b.dataset.conf){ b.dataset.conf = "1"; b.textContent = "Confirmar: gerar " + falta.length + " aulas com 2 ilustrações cada"; return; }
-    AC.gerando = true; b.disabled = true;
-    const msg = document.getElementById("acLoteMsg"), erros = [];
-    let feitas = 0, prox = 0;
-    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-    const fn = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:540000 });
-    const pinta = (t) => { b.textContent = "Gerando... " + feitas + " de " + falta.length; msg.textContent = t || ""; };
-    const trabalhador = async () => {
-      while(prox < falta.length){
-        const x = falta[prox++];
-        pinta("Agora: " + x.tema + " · " + rotFaixa(x.faixa));
-        try{
-          await fn({ acao:"aula_lousa", tema:x.tema, disciplina:x.disciplina, turma:x.turma, qtd:x.qtd, obs:x.obs, ultra:true, imagens:2, estilo:"auto",
-            acervo:{ id:x.id, faixa:x.faixa, macroarea:x.macroarea, tema:x.tema } });
-        }catch(e){ console.warn("lote:", x.id, e.code, e.message); erros.push(x.tema + " · " + rotFaixa(x.faixa)); }
-        feitas++; pinta();
-      }
-    };
-    try{ await Promise.all([trabalhador(), trabalhador()]); }
-    finally{
-      AC.gerando = false;
-      await carregarAcervo().catch(() => {});
-      AC.aba = "revisao"; pintarAcervo();
-      msg.textContent = (feitas - erros.length) + " aulas geradas e esperando revisão." + (erros.length ? " Não saíram: " + erros.join("; ") + ". Toque em Gerar de novo para tentar só essas." : "");
-    }
+    if(!b.dataset.conf){ b.dataset.conf = "1"; b.textContent = "Confirmar: gerar " + falta.length + " aulas no servidor (2 ilustrações cada)"; return; }
+    b.disabled = true;
+    try{
+      await setDoc(loteRef(), { uid, criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), parado:false, terminado_em:null,
+        itens:falta.map(x => ({ id:x.id, tema:x.tema, disciplina:x.disciplina, macroarea:x.macroarea, obs:x.obs, faixa:x.faixa, turma:x.turma, qtd:x.qtd, imagens:2, status:"fila", erro:"", titulo:"" })) });
+      ouvirLote();
+    }catch(e){ console.warn("lote:", e.code || e); document.getElementById("acLoteMsg").textContent = "Não deu para começar o lote (" + (e.code || "erro") + ")."; }
+    finally{ b.disabled = false; delete b.dataset.conf; }
   }
   window.PDENuvem.acervo = janelaAcervo;
 

@@ -84,6 +84,11 @@ service cloud.firestore {
     // ranking dos temas da Aula com IA (só identificadores do banco de temas, sem dado pessoal)
     match /temas_populares/{id} { allow read: if logado(); allow write: if false; }
     // Aulas prontas da Lousa (acervo oficial): só a função cria; o professor licenciado lê as aprovadas e soma 1 no uso; o administrador revisa (aprova ou oculta) e apaga
+    // fila do lote oficial das Aulas prontas: só o administrador começa, acompanha e cutuca; a função acervoFila grava o andamento
+    match /acervo_lote/{id} {
+      allow read, create, update: if admin();
+      allow delete: if admin();
+    }
     match /acervo_aulas/{id} {
       allow read: if admin() || (licenciado() && resource.data.status == "aprovada");
       allow update: if (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "revisado_em", "revisado_por", "imagens", "mini"])
