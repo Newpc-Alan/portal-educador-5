@@ -175,7 +175,7 @@ export function discNaTurma(t, uid, eu, pedida) {
   const p = String(pedida || '').slice(0, 60);
   return lista.includes(p) ? p : lista.length === 1 ? lista[0] : '';
 }
-export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO, assumir = false, resposta = '', disciplina = '' }) {
+export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Date.now(), maestro = MAESTRO_LIGADO, assumir = false, resposta = '', disciplina = '', sala = '', liberarSala = false }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
   if (!ts.exists) throw new HttpsError('not-found', 'Turma não encontrada.');
@@ -260,12 +260,30 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
       return { aberta_ate: ate.getTime(), maestro_codigo: mc };
     }
     const min = minutosOk(minutos, MAX_AULA_MIN) || 60, ate = new Date(agora + min * 60e3);
+    // sala compartilhada (nov/2026): laboratório, sala de leitura... Só uma turma por vez nos aparelhos da sala.
+    // Outra turma ainda aberta na mesma sala: avisa quem está abrindo; se ele confirmar, a aula anterior fecha
+    // e os alunos dela saem dos aparelhos (a sessão do cartão acaba junto com a aula). Fica na auditoria.
+    const escolaId = String(ts.data().escola_id || ''), minhaSala = String(sala || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (minhaSala && escolaId) {
+      const outras = (await db.collection('qr_aulas').where('escola_id', '==', escolaId).where('sala', '==', minhaSala).get()).docs
+        .filter(o => o.id !== turmaId && (o.data().aberta_ate && o.data().aberta_ate.toMillis ? o.data().aberta_ate.toMillis() : 0) > agora);
+      if (outras.length && !liberarSala) return { aberta_ate: aberta ? antAte : 0, sala_ocupada: outras.map(o => ({ turma: String(o.data().turma_nome || 'outra turma'), prof: String(o.data().por_nome || 'outro professor'), ate: o.data().aberta_ate.toMillis() })) };
+      for (const o of outras) {
+        const x = o.data();
+        await o.ref.set({ aberta_ate: new Date(agora), encerrada_por: uid, pedido: FieldValue.delete(), atualizado_em: FieldValue.serverTimestamp(),
+          liberada: { por_nome: meuNome, para_turma: nome, sala: minhaSala, em: new Date(agora) } }, { merge: true });
+        await db.doc(`aula_vivo/${o.id}`).set({ pausa: false, pausa_alunos: {}, comandos: {}, atualizado_em: FieldValue.serverTimestamp(), por: uid }).catch(e => console.warn('limpar aula (sala):', e.message));
+        if (maestro && /^\d{6}$/.test(String(x.maestro_codigo || ''))) await encerrarAulaMaestro(x.maestro_codigo).catch(e => console.warn('maestro (sala):', e.message));
+        await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'qr_aulas', doc: o.id,
+          autor_uid: uid, autor_tipo: 'usuario', perfil: eu.perfil || '', detalhe: ('Encerrou a aula do ' + (x.turma_nome || 'turma') + ' (' + (x.por_nome || 'outro professor') + ') para abrir o ' + nome + ' na sala ' + minhaSala).slice(0, 300), campos: [], valores: {} }).catch(e => console.warn('auditoria sala:', e.message));
+      }
+    }
     // o mesmo professor reabrindo a própria aula: continua a mesma aula (só muda o tempo); senão é aula nova
     const continua = aberta && dono;
     const [maestro_codigo] = await Promise.all([
       maestro ? abrirAulaMaestro({ atual: continua ? ant.maestro_codigo : '', professor: meuNome, turmaId, turmaNome: nome, ate: ate.getTime() }).catch(e => { console.warn('maestro (abrir):', e.message); return ''; }) : '',
       ref.set({ aberta_ate: ate, ...(continua ? {} : { aberta_em: new Date(agora), prorrogado_min: 0, encerrada_por: '', pedido: FieldValue.delete(), troca: FieldValue.delete() }), duracao_min: min, por: uid, por_nome: meuNome,
-        por_disc: discNaTurma(ts.data(), uid, eu, disciplina) || (continua ? String(ant.por_disc || '') : ''), turma_nome: nome,
+        por_disc: discNaTurma(ts.data(), uid, eu, disciplina) || (continua ? String(ant.por_disc || '') : ''), turma_nome: nome, escola_id: escolaId, sala: minhaSala, liberada: FieldValue.delete(),
         maestro_codigo: continua ? String(ant.maestro_codigo || '') : '', atualizado_em: FieldValue.serverTimestamp() }, { merge: true }),
       continua ? null : limparControle().catch(e => console.warn('limpar aula:', e.message))
     ]);
@@ -308,7 +326,8 @@ export const entradaQrTurma = onCall({ region: REGIAO, maxInstances: 5 }, async 
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const d = req.data || {};
   return entradaTurma({ db: getFirestore(), uid: req.auth.uid, turmaId: String(d.turma_id || ''), acao: ['abrir', 'fechar', 'prorrogar', 'pedir', 'cancelar', 'responder'].includes(d.acao) ? d.acao : 'ver',
-    minutos: d.minutos, assumir: d.assumir === true, resposta: d.resposta === 'sim' ? 'sim' : 'nao', disciplina: typeof d.disciplina === 'string' ? d.disciplina.slice(0, 60) : '' });
+    minutos: d.minutos, assumir: d.assumir === true, resposta: d.resposta === 'sim' ? 'sim' : 'nao', disciplina: typeof d.disciplina === 'string' ? d.disciplina.slice(0, 60) : '',
+    sala: typeof d.sala === 'string' ? d.sala : '', liberarSala: d.liberar_sala === true });
 });
 export const vincularContaAluno = onCall({ region: REGIAO, maxInstances: 5 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');

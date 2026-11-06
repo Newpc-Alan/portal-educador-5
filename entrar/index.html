@@ -409,6 +409,10 @@
   @media (max-width:900px){ .av-acoes{ grid-template-columns:1fr 1fr } .av-ac{ font-size:14px;padding:12px 8px } }
   .ta-turmas .ta-op{ display:grid;gap:2px } .ta-op small{ font-size:11.5px;font-weight:600;opacity:.8 } .ta-ult{ border-color:#1a6b2a }
   .af-fundo{ z-index:9450 } .af-jan{ width:min(720px,100%) } .hj-aula.on{ border-left-color:#8dc63f;background:#f7fbf0 }
+  .ta-salas{ display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px;padding:10px;border:1px dashed #b8c4cf;border-radius:10px;background:#f7fafc }
+  .ta-sala-tit{ font-weight:800;color:#0f2c4a;margin-right:4px;flex-basis:100% }
+  .ta-sala{ border:1px solid #cdd6df;background:#fff;border-radius:999px;padding:7px 12px;font:600 14px inherit;cursor:pointer }
+  .ta-sala[aria-pressed="true"]{ background:#0f2c4a;color:#fff;border-color:#0f2c4a }
   .ta-fundo{ z-index:9600 } .ta-jan{ width:min(520px,100%) } .ta-ops{ display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px }
   .ta-op{ border:2px solid #cfe5b5;background:#f4faea;color:#1a5a24;border-radius:14px;padding:16px 10px;font:inherit;font-size:18px;font-weight:800;cursor:pointer } .ta-op:hover,.ta-op:focus-visible{ background:#1a6b2a;color:#fff;border-color:#1a6b2a }
   .ta-enc{ color:#b3261e !important;margin-right:auto }
@@ -1729,6 +1733,7 @@
       <div class="row2"><div class="field"><label for="escDir">Diretor(a)</label><input type="text" id="escDir"></div>
         <div class="field"><label for="escCoord">Coordenador(a) pedagógico(a)</label><input type="text" id="escCoord"></div></div>
       <div class="field"><label for="escAto">Ato de autorização / criação <small>(opcional)</small></label><input type="text" id="escAto" placeholder="Ex.: Decreto nº 123/1998"></div>
+      <div class="field"><label for="escSalas">Salas compartilhadas <small>(uma por linha · laboratório, sala de leitura... · ao abrir aula numa delas, a turma que estava lá sai dos aparelhos)</small></label><textarea id="escSalas" rows="3" maxlength="600" placeholder="Laboratório de informática&#10;Sala de leitura"></textarea></div>
       <div class="muni-perigo" id="escPerigo" hidden>
         <b>Excluir ou juntar escola</b>
         <p>Para escola cadastrada em duplicidade: os professores e pré-cadastros ligados a ela passam para a escola escolhida em "Juntar com" e esta é excluída. Escola com turmas ou alunos não sai por aqui.</p>
@@ -3357,6 +3362,7 @@
     $("escSalvar").textContent = escEditando ? "Salvar dados" : "Salvar escola";
     $("escNome").value = E0.nome || "";
     Object.entries(ESC_CAMPOS).forEach(([i, k]) => { $(i).value = E0[k] || ""; });
+    $("escSalas").value = (Array.isArray(E0.salas) ? E0.salas : []).join("\n");
     // cadastros antigos: telefone e endereço vinham num campo só
     const tel = E0.tel_numero ? "" : escDig(E0.telefone);
     $("escDdd").value = E0.tel_ddd || (tel.length >= 10 ? tel.slice(0, 2) : "");
@@ -3395,6 +3401,8 @@
     if(cep && cep.length !== 8){ toast("O CEP tem 8 dígitos.", true); $("escCep").focus(); return; }
     const extra = {}; Object.entries(ESC_CAMPOS).forEach(([i, k]) => { extra[k] = $(i).value.trim(); });
     extra.cnpj = cnpj ? cnpjFmt(cnpj) : "";
+    // salas compartilhadas: nomes limpos, sem repetir, até 12
+    extra.salas = [...new Set($("escSalas").value.split(/\n+/).map(x => x.replace(/\s+/g, " ").trim().slice(0, 40)).filter(Boolean))].slice(0, 12);
     // cidade da escola: o CEP preenche; sem CEP, a rede municipal usa o próprio município e a particular a cidade da rede
     extra.cidade_uf = extra.cidade_uf.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2);
     if(!extra.cidade){ extra.cidade = opt.dataset.tipo === "municipal" ? opt.dataset.nome || "" : opt.dataset.cidade || ""; if(extra.cidade && !extra.cidade_uf) extra.cidade_uf = opt.dataset.uf || ""; }
@@ -9792,12 +9800,15 @@
     return (await httpsCallable(getFunctions(app, "southamerica-east1"), "entradaQrTurma", { timeout:20000 })(dados)).data;
   }
   // janela de escolha (tempo de aula ou prorrogação); devolve os minutos, "fechar" ou null
-  function escolherTempo({ titulo, texto, opcoes, extra, max }){
+  function escolherTempo({ titulo, texto, opcoes, extra, max, salas, salaRef }){
     return new Promise(ok => {
       const velho = $("taFundo"); if(velho) velho.remove();
       const f = document.createElement("div"); f.id = "taFundo"; f.className = "et-fundo ta-fundo";
+      // sala compartilhada (nov/2026): onde a aula acontece; no laboratório, só uma turma por vez nos aparelhos
+      const htmlSalas = salas && salaRef ? '<div class="ta-salas" role="group" aria-label="Onde vai ser a aula"><span class="ta-sala-tit">📍 Onde vai ser a aula?</span>' +
+        [["", "Na sala da turma"]].concat(salas.map(x => [x, x])).map(([v, t]) => '<button type="button" class="ta-sala" data-sala="' + escapeAttr(v) + '" aria-pressed="' + (v === (salaRef.v || "")) + '">' + escapeHtml(t) + '</button>').join("") + '</div>' : "";
       f.innerHTML = '<div class="et-jan ta-jan" role="dialog" aria-modal="true" aria-labelledby="taTit"><div class="et-topo"><h3 id="taTit">' + escapeHtml(titulo) + '</h3></div>' +
-        '<div class="et-corpo"><p class="et-d">' + texto + '</p><div class="ta-ops">' + opcoes.map(([m, t]) => '<button type="button" class="ta-op" data-ta="' + m + '">' + t + '</button>').join("") + '</div>' +
+        '<div class="et-corpo">' + htmlSalas + '<p class="et-d">' + texto + '</p><div class="ta-ops">' + opcoes.map(([m, t]) => '<button type="button" class="ta-op" data-ta="' + m + '">' + t + '</button>').join("") + '</div>' +
         '<div class="ta-livre"><label for="taMin">Outro tempo</label><input id="taMin" type="number" min="5" max="' + (max || 360) + '" step="5" inputmode="numeric" placeholder="ex.: 45"><span>min</span>' +
         '<button type="button" class="btn btn-primary" data-ta="livre">Usar</button></div><p class="ta-erro" id="taErro" role="status"></p>' +
         '<div class="et-acoes">' + (extra || "") + '<button type="button" class="btn btn-ghost" data-ta="nada">' + (extra ? "Deixar terminar" : "Cancelar") + '</button></div></div></div>';
@@ -9805,7 +9816,9 @@
       const fim = v => { f.remove(); ok(v); };
       const livre = () => { const n = Math.round(Number($("taMin").value)), lim = max || 360;
         if(!(n >= 5 && n <= lim)){ $("taErro").textContent = "Digite de 5 a " + lim + " minutos."; $("taMin").focus(); return; } fim(n); };
-      f.addEventListener("click", e => { const b = e.target.closest("[data-ta]"); if(!b) return; const v = b.dataset.ta; if(v === "livre") return livre(); fim(v === "nada" ? null : v === "fechar" ? "fechar" : Number(v)); });
+      f.addEventListener("click", e => { const sb = e.target.closest("[data-sala]");
+        if(sb && salaRef){ salaRef.v = sb.dataset.sala; f.querySelectorAll("[data-sala]").forEach(x => x.setAttribute("aria-pressed", String(x === sb))); return; }
+        const b = e.target.closest("[data-ta]"); if(!b) return; const v = b.dataset.ta; if(v === "livre") return livre(); fim(v === "nada" ? null : v === "fechar" ? "fechar" : Number(v)); });
       f.addEventListener("keydown", e => { if(e.key === "Escape") fim(null); if(e.key === "Enter" && e.target.id === "taMin") livre(); });
       const p = f.querySelector(".ta-op"); if(p) p.focus();
     });
@@ -9820,12 +9833,43 @@
     const rel = setInterval(() => { k = Math.min(k + 1, msgs.length - 1); sp.textContent = msgs[k] + "..."; }, 1800);
     return () => { clearInterval(rel); f.remove(); };
   }
+  // salas compartilhadas da escola da turma (cadastro da escola); sem cadastro, o laboratório de informática
+  async function salasDaTurma(tid){
+    try{ const t = await getDoc(doc(db, "turmas", tid)), e = t.exists() && t.data().escola_id ? await getDoc(doc(db, "escolas", t.data().escola_id)) : null;
+      const l = e && e.exists() && Array.isArray(e.data().salas) ? e.data().salas.filter(x => typeof x === "string" && x.trim()) : [];
+      return l.length ? l.slice(0, 12) : ["Laboratório de informática"]; }catch(e){ return ["Laboratório de informática"]; }
+  }
+  function confirmarSala(oc, sala, nome){
+    return new Promise(ok => {
+      const v = $("csFundo"); if(v) v.remove();
+      const f = document.createElement("div"); f.id = "csFundo"; f.className = "et-fundo"; f.style.zIndex = "9650";
+      f.innerHTML = '<div class="et-jan" role="alertdialog" aria-modal="true" aria-labelledby="csTit"><div class="et-topo"><h3 id="csTit">📍 ' + escapeHtml(sala) + ' ocupado</h3></div><div class="et-corpo">' +
+        oc.map(o => '<p class="et-d">O <b>' + escapeHtml(o.turma) + '</b> ainda está nos aparelhos desta sala, em aula com <b>' + escapeHtml(o.prof) + '</b> até ' + horaCurta(o.ate) + '.</p>').join("") +
+        '<p class="et-d">Se continuar, essa aula é encerrada agora, os alunos dela saem dos aparelhos sozinhos e o ' + escapeHtml(nome || "seu") + ' entra no lugar. O professor recebe o aviso e fica registrado na auditoria.</p>' +
+        '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-cs="nao">Voltar</button><button type="button" class="btn ce-sim" data-cs="sim">Encerrar e começar a minha aula</button></div></div></div>';
+      document.body.appendChild(f);
+      const fim = x => { f.remove(); ok(x); };
+      f.addEventListener("click", e => { const b = e.target.closest("[data-cs]"); if(b) fim(b.dataset.cs === "sim"); });
+      f.addEventListener("keydown", e => { if(e.key === "Escape") fim(false); });
+      f.querySelector('[data-cs="nao"]').focus();
+    });
+  }
   async function abrirTempoAula(tid, nomeTurma, assumir){
-    const min = await escolherTempo({ titulo:"🔓 Abrir a entrada da aula", texto:"Quanto tempo dura a aula" + (nomeTurma ? " do <b>" + escapeHtml(nomeTurma) + "</b>" : "") + "? Os alunos entram com o cartão e saem sozinhos quando o tempo acabar. Faltando 5 minutos, você recebe um aviso para prorrogar se precisar.", opcoes:TEMPOS_AULA });
+    const salaRef = { v:"" }; try{ salaRef.v = localStorage.getItem("pde_sala_" + tid) || ""; }catch(e){}
+    const salas = await salasDaTurma(tid); if(salaRef.v && !salas.includes(salaRef.v)) salaRef.v = "";
+    const min = await escolherTempo({ titulo:"🔓 Abrir a entrada da aula", texto:"Quanto tempo dura a aula" + (nomeTurma ? " do <b>" + escapeHtml(nomeTurma) + "</b>" : "") + "? Os alunos entram com o cartão e saem sozinhos quando o tempo acabar. Faltando 5 minutos, você recebe um aviso para prorrogar se precisar.", opcoes:TEMPOS_AULA, salas, salaRef });
     if(!min) return null;
+    try{ localStorage.setItem("pde_sala_" + tid, salaRef.v); }catch(e){}
     // a abertura leva alguns segundos (servidor + aula dos aparelhos): tela de espera na hora, para ninguém clicar de novo
     const espera = telaEspera("Abrindo a aula" + (nomeTurma ? " do " + nomeTurma : ""), ["Abrindo a entrada da turma", "Preparando o controle das telas", "Avisando os aparelhos dos alunos", "Quase lá"]);
-    let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, ...(assumir ? { assumir:true } : {}) }); } finally{ espera(); }
+    let r; try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, sala:salaRef.v, ...(assumir ? { assumir:true } : {}) }); } finally{ espera(); }
+    // sala compartilhada com outra turma ainda dentro: pergunta antes de tirar a turma dos aparelhos
+    if(r && r.sala_ocupada){
+      if(!(await confirmarSala(r.sala_ocupada, salaRef.v, nomeTurma))) return null;
+      const espera3 = telaEspera("Liberando " + salaRef.v, ["Encerrando a aula anterior", "Tirando a turma dos aparelhos", "Abrindo a sua aula"]);
+      try{ r = await chamarEntradaQr({ turma_id:tid, acao:"abrir", minutos:min, sala:salaRef.v, liberar_sala:true, ...(assumir ? { assumir:true } : {}) }); } finally{ espera3(); }
+      if(r && r.sala_ocupada) return null;
+    }
     // a turma está em aula com outro professor: pergunta se assume (não abre por cima sem querer)
     if(r && r.ocupada){
       if(AV.tid === tid) AV.ocupada = r.ocupada; pedirTurma(tid, nomeTurma, min); return null;
@@ -9845,8 +9889,12 @@
       const antes = TA.aulas; TA.aulas = {}; sn.forEach(d => { const x = d.data(), ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; if(ate > Date.now()){ TA.aulas[d.id] = { ate, nome:x.turma_nome || "turma" }; pedidoRecebido(d.id, x); } });
       if(PR.tid && !TA.aulas[PR.tid]) fecharPedidoRecebido();
       // aula que saiu da minha lista antes da hora, fora do painel: confere se passou para outro professor e avisa
-      Object.entries(antes || {}).forEach(([tid, a]) => { if(TA.aulas[tid] || a.ate <= Date.now() || AV.tid === tid) return;
-        getDoc(doc(db, "qr_aulas", tid)).then(s => { const x = s.data() || {}; if(x.por && x.por !== usuarioAtual.uid && msAv(x.aberta_ate) > Date.now() && x.troca && x.troca.de_uid === usuarioAtual.uid) avisoTurmaPassou(x); }).catch(() => {}); });
+      Object.entries(antes || {}).forEach(([tid, a]) => { if(TA.aulas[tid] || a.ate <= Date.now()) return;
+        getDoc(doc(db, "qr_aulas", tid)).then(s => { const x = s.data() || {};
+          // a sala compartilhada foi liberada para outra turma: avisa o professor e fecha o painel desta aula
+          if(x.liberada && x.liberada.para_turma && x.encerrada_por !== usuarioAtual.uid){ bipe(); if(AV.tid === tid) fecharAoVivo(); avisoSalaLiberada(x); return; }
+          if(AV.tid === tid) return;
+          if(x.por && x.por !== usuarioAtual.uid && msAv(x.aberta_ate) > Date.now() && x.troca && x.troca.de_uid === usuarioAtual.uid) avisoTurmaPassou(x); }).catch(() => {}); });
       atualizarCartaoAula(); conferirAulasProf();
     }, e => console.warn("aulas abertas:", e.code));
     TA.relogio = setInterval(() => { conferirAulasProf(); atualizarCartaoAula(); }, 15000);
@@ -10108,6 +10156,17 @@
   }
   function fecharPedidoRecebido(){ clearInterval(PR.timer); PR.chave = ""; PR.tid = ""; const f = $("prFundo"); if(f) f.remove(); document.title = document.title.replace(/^🚪 Professor na porta$/, "Portal do Educador"); }
   // quem saiu: janela dizendo para quem a turma passou
+  // a sala compartilhada (laboratório) passou para outra turma: a aula deste professor foi encerrada
+  function avisoSalaLiberada(x){
+    const l = x.liberada || {}, v = $("slFundo"); if(v) v.remove();
+    const f = document.createElement("div"); f.id = "slFundo"; f.className = "et-fundo"; f.style.zIndex = "9700";
+    f.innerHTML = '<div class="et-jan tp-jan" role="alertdialog" aria-modal="true" aria-labelledby="slTit"><div class="et-corpo"><div class="tp-ico" aria-hidden="true">📍</div>' +
+      '<h3 id="slTit" class="tp-nome">Sua aula do ' + escapeHtml(x.turma_nome || "turma") + ' foi encerrada</h3>' +
+      '<p class="tp-txt"><b>' + escapeHtml(l.por_nome || "Outro professor") + '</b> abriu o <b>' + escapeHtml(l.para_turma || "") + '</b> em <b>' + escapeHtml(l.sala || "") + '</b>. Os alunos da sua turma saíram dos aparelhos; os materiais enviados continuam no histórico.</p>' +
+      '<div class="tp-bts"><button type="button" class="btn btn-primary" data-sl="ok">Entendi</button></div></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("click", e => { if(e.target.closest("[data-sl]")) f.remove(); });
+  }
   function avisoTurmaPassou(x){
     const t = x.troca || {}, nome = t.para_nome || x.por_nome || "outro professor", disc = t.para_disc || x.por_disc || "";
     if(PR.tid) fecharPedidoRecebido();
