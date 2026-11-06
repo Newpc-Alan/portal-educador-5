@@ -843,7 +843,9 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       'linha_tempo quando houver datas, passos para procedimentos, comparacao para contrastes, mapa para organizar ideias, quiz para verificar e resumo no último slide. ' +
       'Use pelo menos 4 formatos diferentes e inclua OBRIGATORIAMENTE 1 quiz. Cada texto precisa ensinar algo concreto (nome, data, causa, exemplo, número), nada de frase vaga como "é muito importante". ' +
       (DENSIDADE[etapa] || DENSIDADE.finais) + ' O que for explicação longa vai no aprofundamento do professor, que não aparece na tela. ' +
-      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Contas: refaça cada operação antes de escrever; frações e porcentagens juntas quando ajudar (ex.: 1/4 = 25%).Valores que mudam com o tempo (salário mínimo, tarifas, preços, população): diga o ano de referência ou use um valor redondo apresentado como exemplo. ' +
+      'Ajuste profundidade e vocabulário à turma' + (etapa ? ' (' + ETAPA_TXT[etapa] + ')' : '') + '. Contas: refaça cada operação antes de escrever; frações e porcentagens juntas quando ajudar (ex.: 1/4 = 25%). Valores que mudam com o tempo (salário mínimo, tarifas, preços, população): diga o ano de referência ou use um valor redondo apresentado como exemplo. ' +
+      'Quando a aula usar preços, tarifas ou valores em dinheiro de exemplo, deixe claro na tela, numa frase curta, que são valores ilustrativos e que os reais variam (por cidade, estado, empresa ou ano). ' +
+      (qtd >= 6 ? 'Antes do resumo, inclua um slide do tipo atividade que leve o conteúdo para a vida real do aluno: algo para investigar ' + (etapa === 'infantil' || etapa === 'iniciais' ? 'em casa com a família' : 'em casa, no bairro ou no trabalho') + ', dizendo o que observar ou anotar e que os resultados serão conversados na próxima aula. ' : '') +
       'Em cada slide escreva também o roteiro do professor, o tempo sugerido e o aprofundamento (só para o professor, explicando o conteúdo com mais detalhe). ' +
       'A aula se basta: não indique vídeo, filme, site, aplicativo nem material externo (nem "assista", "veja o vídeo", "pesquise no site"), nem no roteiro do professor.\n\n' + REGRAS_GERAIS;
     const pedido = 'Disciplina: ' + (disciplina || 'não informada') + '\nTurma / ano: ' + (turma || 'não informada') +
@@ -867,7 +869,7 @@ export const portalIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI,
       let pl = null;
       for (let t = 0; t < 2 && !pl; t++) {
         const rp = await geminiJson(chave, MODELOS, sistema, pedido + '\n\nPRIMEIRO, o PLANO da aula: devolva exatamente ' + qtd + ' slides, cada um com o tipo (formato), o título e o foco (o que ele ensina). ' +
-          'Escolha o formato que mostra melhor cada conteúdo: conta vira calculo, quadro ou dados viram tabela, proporções viram numeros. Inclua 1 quiz e termine com resumo.', ESQUEMA_PLANO, 0.6, LIMITE).catch(e => { console.warn('portal-ia: plano', e.message); return null; });
+          'Escolha o formato que mostra melhor cada conteúdo: conta vira calculo, quadro ou dados viram tabela, proporções viram numeros. Inclua 1 quiz' + (qtd >= 6 ? ', 1 atividade para investigar na vida real logo antes do resumo' : '') + ' e termine com resumo.', ESQUEMA_PLANO, 0.6, LIMITE).catch(e => { console.warn('portal-ia: plano', e.message); return null; });
         soma(rp); if (rp) r = rp;
         const j = rp && rp.json, sl = j && Array.isArray(j.slides) ? j.slides.filter(x => x && TIPOS_SLIDE.includes(x.tipo) && x.titulo) : [];
         if (sl.length >= Math.min(3, qtd)) pl = { ...j, slides: sl.slice(0, qtd) };
