@@ -1223,6 +1223,7 @@
   .sim-det{ margin-top:12px } .sim-det summary{ cursor:pointer;font-weight:700;font-size:15px;color:#0f2c4a;margin-bottom:8px } .sim-nota{ font-size:12px;color:var(--muted);margin:8px 0 0 }
   .sim-cards{ display:grid;grid-template-columns:repeat(3,1fr);gap:10px } .sim-card{ text-align:left;display:grid;gap:5px;align-content:start;border:1.5px solid var(--line);border-radius:14px;background:#fff;padding:12px;font:inherit;cursor:pointer;color:#0f2c4a }
   .sim-card.on{ border-color:#1a6b2a;box-shadow:0 0 0 3px #1a6b2a22 } .sim-card b{ font-size:15px } .sim-v{ font-size:24px;font-weight:800 } .sim-v small{ font-size:13px;font-weight:600 } .sim-card small{ color:var(--muted);font-size:12px }
+  .sim-rot{ display:block;font-size:12.5px;font-weight:700;color:#0f2c4a;margin:10px 0 6px }
   .sim-l{ font-size:12.5px } .sim-m{ font-size:12.5px;font-weight:700;padding:4px 8px;border-radius:8px } .sim-m.ok{ background:#eef7e3;color:#1a5a24 } .sim-m.neg{ background:#fdeceb;color:#8c1d18 }
   .sim-e{ font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:8px } .sim-e.disp{ background:#e6f1fb;color:#0f4c81 } .sim-e.preg{ background:#fff6e0;color:#7a5200 }
   .sim-tab{ overflow-x:auto } .sim-tab table{ width:100%;border-collapse:collapse;font-size:13px } .sim-tab th,.sim-tab td{ border-bottom:1px solid var(--line);padding:7px 8px;text-align:left }
@@ -5345,10 +5346,12 @@
      Tudo é hipótese editável: preço por aluno/mês, implantação, formação, IA e custos. Guarda o último cenário só neste navegador. */
   const DISPENSA_ANO = 65492.11;   // art. 75, II da Lei 14.133 em 2026 (Decreto 12.807/2025)
   const SIM_PLANOS = [["basico","Básico"],["inter","Intermediário"],["compl","Completo"]];
+  const SIM_DISP = { tablet:["Tablet", "vTablet"], chromebook:["Chromebook", "vChromebook"], notebook:["Notebook", "vNotebook"] };
   const SIM_PADRAO = { muni:"", nome:"", alunos:0, escolas:0, profs:0, prazo:12, tipo:"avulso", basico:3, inter:6, compl:10, implantacao:20000, turmas:4, valorTurma:2500,
     ia:6000, infra:0.35, suporte:1500, impostos:15, comissao:0, plano:"inter",
     // junto da locação (nov/2026): o Portal pago é cobrado por sala equipada; sala só com lousa (1º ao 3º ano) paga uma fração
-    salasKit:6, salasLousa:0, alunosSala:50, vLousa:1600, vCarrinho:450, vDisp:105, dispSala:30,
+    salasKit:6, salasLousa:0, alunosSala:50, vLousa:1600, vCarrinho:450, dispSala:30,
+    tipoDisp:"tablet", vTablet:105, vChromebook:220, vNotebook:0, vGoogle:0,
     salaInter:360, salaCompl:600, pctLousa:50, profsSala:20, iaInter:0, iaCompl:0, margemAlvo:40 };
   const SIM_PRESETS = { "est-sonora":{ nome:"Sonora/MS (estimativa)", alunos:2200, escolas:8, profs:130 } };
   let SIM = null, simMunis = null;
@@ -5370,7 +5373,10 @@
       '<div class="sim-3">' + campo("prazo", "Prazo (meses)") + '</div>' +
       (SIM.tipo === "locacao"
         ? '<h3>3. Salas e locação</h3><div class="sim-3">' + campo("salasKit", "Salas com kit completo", 1, "lousa + carrinho + dispositivos (4º ao 9º)") + campo("salasLousa", "Salas só com lousa", 1, "1º ao 3º ano") + campo("alunosSala", "Alunos por sala", 1, "somando os turnos") + '</div>' +
-          '<div class="sim-2">' + campo("vLousa", "Lousa (R$/mês)", 50) + campo("vCarrinho", "Carrinho com roteador (R$/mês)", 10) + campo("vDisp", "Tablet ou Chromebook (R$/mês)", 5) + campo("dispSala", "Dispositivos por sala", 1) + '</div>' +
+          '<div class="sim-2">' + campo("vLousa", "Lousa (R$/mês)", 50) + campo("vCarrinho", "Carrinho com roteador (R$/mês)", 10) + '</div>' +
+          '<span class="sim-rot">Equipamento do aluno</span><div class="sim-op">' + Object.entries(SIM_DISP).map(([k, d]) => '<button type="button" class="md-pill'+(SIM.tipoDisp === k ? " on" : "")+'" data-action="sim-disp" data-arg="'+k+'">'+d[0]+'</button>').join("") + '</div>' +
+          '<div class="sim-2">' + campo(SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"][1], SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"][0] + " (R$/mês cada)", 5) + campo("dispSala", "Dispositivos por sala", 1) +
+            campo("vGoogle", "Licença Google for Education (R$/mês por dispositivo)", 0.5, "Chrome Education Upgrade ou similar; 0 se não houver") + '</div>' +
           '<h3>4. Preço do Portal por sala/mês</h3><div class="sim-3">' + campo("salaInter", "Intermediário", 10) + campo("salaCompl", "Completo", 10) + campo("pctLousa", "Sala só com lousa paga (%)", 5, "do preço da sala") + '</div><p class="sim-nota">Básico: sem custo na locação.</p>'
         : '<h3>3. Preço por aluno/mês</h3><div class="sim-3">' + campo("basico", "Básico", 0.1) + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>') +
       '<h3>' + (SIM.tipo === "locacao" ? "5" : "4") + '. Itens à parte</h3><div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) +
@@ -5384,7 +5390,15 @@
     simAtualizar();
   }
   // locação: o que a prefeitura paga de equipamento por mês (para ver quanto o Portal pesa no projeto)
-  function simLocacaoMes(){ return (+SIM.salasKit || 0) * ((+SIM.vLousa || 0) + (+SIM.vCarrinho || 0) + (+SIM.vDisp || 0) * (+SIM.dispSala || 0)) + (+SIM.salasLousa || 0) * (+SIM.vLousa || 0); }
+  function simDispValor(){ const d = SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet; return +SIM[d[1]] || 0; }
+  // composição da locação por mês: [rótulo, quantidade, valor unitário]
+  function simLocacaoItens(){
+    const kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, disp = kit * (+SIM.dispSala || 0), d = SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet;
+    const it = [["Lousa", kit + lou, +SIM.vLousa || 0], ["Carrinho com roteador", kit, +SIM.vCarrinho || 0], [d[0], disp, simDispValor()]];
+    if(+SIM.vGoogle) it.push(["Licença Google for Education", disp, +SIM.vGoogle]);
+    return it.filter(i => i[1] > 0);
+  }
+  function simLocacaoMes(){ return simLocacaoItens().reduce((t, i) => t + i[1] * i[2], 0); }
   function simCalcLocacao(){
     const N = Math.max(1, +SIM.prazo || 12), anos = N / 12, kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, frac = (+SIM.pctLousa || 0) / 100;
     const salasEq = kit + lou * frac, alunos = (kit + lou) * (+SIM.alunosSala || 0), P = +SIM.profsSala || 0, locMes = simLocacaoMes();
@@ -5429,9 +5443,19 @@
               '<span class="sim-l">Contrato de '+N+' meses: <b>'+reais0(x.total)+'</b></span>' +
               '<span class="sim-m '+(x.margem >= 0 ? "ok" : "neg")+'">Margem da licença: '+reais0(x.margem)+'/mês ('+x.margemPct.toFixed(0)+'%)</span>' +
               '<span class="sim-e '+(disp ? "disp" : "preg")+'">'+(disp ? "Cabe em dispensa (art. 75, II)" : "Pregão eletrônico, de preferência com Ata de Registro de Preços")+'</span>') + '</button>'; }).join("") + '</div>' +
+      (loc ? simComposicao(sel) : '') +
       '<h3>Itens para proposta e TR · ' + sel.nome + '</h3>' + simTabela(sel, N) +
       '<div class="sim-acoes"><button type="button" class="btn btn-ghost" data-action="sim-copiar">Copiar para planilha</button><button type="button" class="btn btn-primary" data-action="sim-imprimir">Imprimir / PDF</button></div>' +
       '<p class="sim-nota">Dispensa: até ' + reais(DISPENSA_ANO) + ' somando tudo do mesmo ramo no ano (Decreto 12.807/2025). A conta usa o 1º ano deste contrato; se a prefeitura já contratou algo parecido no ano, o espaço é menor.</p>';
+  }
+  // locação: quanto custa o projeto inteiro por mês, com o plano do Portal escolhido
+  function simComposicao(x){
+    const it = simLocacaoItens(), loc = it.reduce((t, i) => t + i[1] * i[2], 0), total = loc + x.mensal;
+    return '<h3>Composição do projeto por mês · ' + x.nome + '</h3><div class="sim-tab"><table><thead><tr><th>Item</th><th>Qtd.</th><th>Valor unit.</th><th>Total/mês</th></tr></thead><tbody>' +
+      it.map(i => '<tr><td>'+escapeHtml(i[0])+'</td><td>'+i[1].toLocaleString("pt-BR")+'</td><td>'+reais(i[2])+'</td><td>'+reais(i[1] * i[2])+'</td></tr>').join("") +
+      '<tr><td><b>Locação</b></td><td></td><td></td><td><b>'+reais(loc)+'</b></td></tr>' +
+      '<tr><td>Portal do Educador · ' + x.nome + (x.gratis ? ' (incluso)' : '') + '</td><td>'+(x.gratis ? "" : x.salasEq.toLocaleString("pt-BR"))+'</td><td>'+(x.gratis ? "" : reais(x.precoSala))+'</td><td>'+reais(x.mensal)+'</td></tr>' +
+      '</tbody><tfoot><tr><td colspan="3">Projeto por mês · '+reais0(total * 12)+' por ano</td><td>'+reais(total)+'</td></tr></tfoot></table></div>';
   }
   function simItens(x, N){
     const it = [["Implantação: cadastros, importação de dados, domínio Google e configuração", "serviço", 1, +SIM.implantacao || 0]];
@@ -5477,12 +5501,15 @@
     const el = ev.target.closest("[data-action^='sim-']"); if(!el || !SIM) return;
     const a = el.dataset.action;
     if(a === "sim-tipo"){ SIM.tipo = el.dataset.arg; simGuardar(); renderSimulador(); }
+    else if(a === "sim-disp"){ SIM.tipoDisp = el.dataset.arg; simGuardar(); renderSimulador(); }
     else if(a === "sim-plano"){ SIM.plano = el.dataset.arg; simGuardar(); simAtualizar(); }
     else if(a === "sim-copiar"){ try{ await navigator.clipboard.writeText(simTexto()); toast("Copiado. Cole no Excel ou no Google Planilhas."); }catch(e){ toast("Não consegui copiar neste navegador.", true); } }
     else if(a === "sim-imprimir"){
       const r = simCalc(), x = r.find(y => y.k === SIM.plano) || r[1], N = Math.max(1, +SIM.prazo || 12), w = window.open("", "_blank"); if(!w){ toast("Libere as janelas pop-up para imprimir.", true); return; }
       w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Proposta · Portal do Educador · '+escapeHtml(SIM.nome || "")+'</title><style>body{font-family:Arial,sans-serif;color:#0f2c4a;margin:32px}h1{font-size:20px;margin:0 0 4px}p{margin:0 0 14px;color:#4a5b6c}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #cfdbe7;padding:7px 9px;text-align:left}th{background:#0f2c4a;color:#fff}td:nth-child(n+3){text-align:right}tfoot td{font-weight:bold;background:#eef7e3}.f{margin-top:18px;font-size:11px;color:#6b7c90}</style></head><body>' +
-        '<h1>Portal do Educador · plano '+x.nome+'</h1><p>'+escapeHtml(SIM.nome || "Município")+' · '+(+SIM.alunos || 0).toLocaleString("pt-BR")+' alunos · '+(+SIM.escolas || 0)+' escolas · '+(+SIM.profs || 0)+' professores · prazo de '+N+' meses</p>' + simTabela(x, N) +
+        '<h1>Portal do Educador · plano '+x.nome+'</h1><p>'+escapeHtml(SIM.nome || "Município")+' · '+(SIM.tipo === "locacao"
+          ? ((+SIM.salasKit || 0) + (+SIM.salasLousa || 0))+' salas ('+(+SIM.salasKit || 0)+' com kit completo, '+(+SIM.salasLousa || 0)+' só com lousa) · '+(SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet)[0]+' · prazo de '+N+' meses</p>' + simComposicao(x)
+          : (+SIM.alunos || 0).toLocaleString("pt-BR")+' alunos · '+(+SIM.escolas || 0)+' escolas · '+(+SIM.profs || 0)+' professores · prazo de '+N+' meses</p>') + simTabela(x, N) +
         '<p class="f">NEWPC Tecnologia · simulação gerada em '+new Date().toLocaleDateString("pt-BR")+'. Valores sujeitos a confirmação.</p><script>window.onload=function(){setTimeout(function(){window.print()},300)}<\/script></body></html>');
       w.document.close();
     }
