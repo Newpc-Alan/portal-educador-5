@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Teste do login · Portal do Educador</title>
+<script src="/assets/js/ambiente.js"></script>
+<style>
+  /* Teste do login com Google pelo domínio do Portal (nov/2026). Não muda o login dos professores:
+     só esta página usa o endereço www.portaldoeducador.com.br para o login. Entra e sai na hora. */
+  body{font-family:"Segoe UI",system-ui,sans-serif;background:#eef3f7;color:#0f2c4a;margin:0;display:grid;place-items:center;min-height:100vh;padding:16px}
+  .cx{background:#fff;border-radius:16px;padding:24px;max-width:460px;width:100%;box-shadow:0 10px 30px -12px rgba(15,44,74,.4)}
+  h1{font-size:20px;margin:0 0 8px} p{line-height:1.5;margin:0 0 12px}
+  button{border:0;border-radius:12px;background:#1a6b2a;color:#fff;font:700 16px "Segoe UI",sans-serif;padding:13px 18px;cursor:pointer;width:100%}
+  #res{margin-top:14px;padding:12px;border-radius:10px;background:#f2f6fa;font-size:14px;white-space:pre-wrap}
+  .ok{background:#eef7e3!important;color:#1a5a24} .erro{background:#fdeceb!important;color:#8c1d18}
+</style>
+</head>
+<body>
+<div class="cx">
+  <h1>Teste do login com Google</h1>
+  <p>Clique, escolha a conta e confira se a janela do Google mostra <b>"Prosseguir para www.portaldoeducador.com.br"</b>. A sessão de teste é encerrada logo depois.</p>
+  <button type="button" data-action="testar">Entrar com Google (teste)</button>
+  <div id="res" role="status">Aguardando o teste.</div>
+</div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, inMemoryPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  const cfg = Object.assign({}, window.PDE_AMBIENTE.fb, { authDomain:"www.portaldoeducador.com.br" });
+  const app = initializeApp(cfg, "teste-login"), auth = getAuth(app), res = document.getElementById("res");
+  const mostra = (t, cls) => { res.textContent = t; res.className = cls || ""; };
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-action='testar']"); if(!b) return;
+    b.disabled = true; mostra("Abrindo a janela do Google…");
+    try{
+      await setPersistence(auth, inMemoryPersistence);
+      const r = await signInWithPopup(auth, new GoogleAuthProvider());
+      const email = r.user.email || "";
+      mostra("✅ Login pelo domínio do Portal funcionou.\nConta: " + email.replace(/^(.).*(@.*)$/, "$1•••$2") + "\nSessão de teste encerrada.", "ok");
+      await signOut(auth);
+    }catch(err){ mostra("❌ Não funcionou: " + (err.code || err.message || err), "erro"); }
+    finally{ b.disabled = false; }
+  });
+</script>
+</body>
+</html>
