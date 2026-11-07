@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f2c4a">
+<title>Vídeo interativo · Portal do Educador</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<script src="/assets/js/ambiente.js"></script>
+<script src="/assets/pde-credito.js"></script>
+<style>
+  /* Vídeo interativo (nov/2026): o vídeo do YouTube pausa nos momentos marcados e a turma responde na lousa.
+     Telas: lista (?), criar por link (?novo), catálogo do administrador (?catalogo=ID), apresentar e editar (?id=ID[&editar]). */
+  :root{--azul:#0f2c4a;--azul2:#16406b;--verde:#1a6b2a;--verde2:#23883a;--lima:#8DC63F;--ceu:#2E9BD6;--fundo:#eef3f7;--linha:#d8e1ea;--muted:#5b6b7b;--erro:#c0392b;--ok:#1f9d55}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--fundo);color:var(--azul);font-family:"Segoe UI",Roboto,system-ui,sans-serif}
+  button,input,select,textarea{font:inherit}
+  [hidden]{display:none!important}
+  header.topo{position:sticky;top:0;z-index:20;background:var(--azul);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+  header.topo img{width:34px;height:34px;border-radius:50%}
+  header.topo .t{flex:1;min-width:0}
+  header.topo b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header.topo small{display:block;font-size:12px;opacity:.75}
+  .bt{border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;min-height:42px;display:inline-flex;align-items:center;gap:6px;text-decoration:none;justify-content:center}
+  .bt-verde{background:var(--verde);color:#fff}.bt-verde:hover{background:var(--verde2)}
+  .bt-azul{background:var(--ceu);color:#fff}
+  .bt-lima{background:var(--lima);color:var(--azul)}
+  .bt-claro{background:#fff;color:var(--azul);border:1px solid var(--linha)}
+  .bt-topo{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}
+  .bt:disabled{opacity:.55;cursor:wait}
+  .bt:focus-visible,button:focus-visible{outline:3px solid var(--ceu);outline-offset:2px}
+  main{max-width:1180px;margin:0 auto;padding:18px 16px 40px}
+  .card{background:#fff;border-radius:14px;box-shadow:0 6px 18px -12px rgba(15,44,74,.5);padding:18px}
+  .aviso{text-align:center;padding:30px 18px;line-height:1.5}.aviso .ico{font-size:44px}.aviso h1{font-size:20px;margin:8px 0}.aviso p{color:var(--muted);margin:0 0 14px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(30px);background:var(--azul);color:#fff;padding:12px 18px;border-radius:10px;opacity:0;transition:.25s;z-index:100;max-width:92vw;font-weight:600}
+  .toast.on{opacity:1;transform:translateX(-50%)}.toast.err{background:var(--erro)}
+
+  /* lista */
+  .lista-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .lista-topo h1{margin:0;font-size:22px}
+  .abas{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+  .abas button{border:1px solid var(--linha);background:#fff;border-radius:999px;padding:8px 14px;font-weight:700;color:var(--azul);cursor:pointer}
+  .abas button.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .vcard{background:#fff;border:0;border-radius:14px;overflow:hidden;text-align:left;cursor:pointer;box-shadow:0 6px 18px -12px rgba(15,44,74,.5);padding:0;color:inherit;text-decoration:none;display:block}
+  .vcard:hover{transform:translateY(-2px);transition:.15s}
+  .vcapa{aspect-ratio:16/9;background:#0f2c4a center/cover no-repeat;position:relative}
+  .vcapa .selo{position:absolute;left:8px;top:8px;background:var(--lima);color:var(--azul);font-weight:800;font-size:12px;padding:4px 8px;border-radius:8px}
+  .vcapa .rasc{background:#f5b041}
+  .vcorpo{padding:10px 12px 12px}.vcorpo h3{margin:0 0 4px;font-size:15px;line-height:1.3}.vcorpo p{margin:0;font-size:12.5px;color:var(--muted)}
+  .vazio{color:var(--muted);padding:18px;text-align:center}
+
+  /* criar por link */
+  .form{display:grid;gap:14px;max-width:760px;margin:0 auto}
+  .form label{display:grid;gap:6px;font-weight:700;font-size:14px}
+  .form input,.form select,.form textarea{border:1px solid #c9d5e1;border-radius:10px;padding:10px 12px;font-weight:400;background:#fff;color:var(--azul)}
+  .form .duas{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pills{display:flex;flex-wrap:wrap;gap:8px}
+  .pills label{display:flex;align-items:center;gap:6px;border:1px solid var(--linha);border-radius:999px;padding:7px 12px;font-weight:600;cursor:pointer;background:#fff}
+  .pills input{accent-color:var(--verde)}
+  .qtds{display:flex;gap:6px;flex-wrap:wrap}.qtds button{width:44px;height:40px;border-radius:10px;border:1px solid var(--linha);background:#fff;font-weight:700;cursor:pointer;color:var(--azul)}
+  .qtds button.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .previa{display:flex;gap:12px;align-items:center;background:#f6f9fc;border-radius:12px;padding:10px}
+  .previa img{width:160px;border-radius:8px;aspect-ratio:16/9;object-fit:cover}
+  .gerando{display:flex;gap:12px;align-items:center;background:#eef6f0;border:1px solid #cfe5d4;border-radius:12px;padding:14px;font-weight:600}
+  .roda{width:26px;height:26px;border-radius:50%;border:3px solid #cfe5d4;border-top-color:var(--verde);animation:gira 1s linear infinite;flex:none}
+  @keyframes gira{to{transform:rotate(360deg)}}
+  .nota-peq{font-size:12.5px;color:var(--muted);font-weight:400}
+
+  /* player */
+  .layout{display:grid;grid-template-columns:1fr;gap:16px}
+  .layout.editando{grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr)}
+  #palco{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 10px 30px -14px rgba(0,0,0,.6);width:min(100%, calc((100vh - 150px) * 16 / 9));margin:0 auto}
+  .layout.editando #palco{width:100%}
+  #palco:fullscreen{border-radius:0;aspect-ratio:auto;width:100vw;height:100vh}
+  #yt,#yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .barra{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .trilha{position:relative;flex:1;min-width:200px;height:34px;cursor:pointer}
+  .trilha .fundo{position:absolute;left:0;right:0;top:15px;height:5px;border-radius:5px;background:#c9d5e1}
+  .trilha .feito{position:absolute;left:0;top:15px;height:5px;border-radius:5px;background:var(--ceu);width:0}
+  .marca{position:absolute;top:5px;width:24px;height:24px;margin-left:-12px;border-radius:50%;border:2px solid #fff;background:var(--azul);color:#fff;font-size:11.5px;font-weight:800;cursor:pointer;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.25);padding:0}
+  .marca.ok{background:var(--ok)}.marca.sel{background:var(--lima);color:var(--azul)}
+  .tempo{font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;color:var(--muted);min-width:94px;text-align:right}
+  .placar{font-weight:700;font-size:14px;background:#fff;border:1px solid var(--linha);border-radius:999px;padding:6px 12px}
+
+  /* a pergunta, por cima do vídeo: letras grandes para ler de longe na lousa */
+  #ov{position:absolute;inset:0;z-index:5;background:rgba(10,30,52,.86);display:flex;align-items:center;justify-content:center;padding:3%}
+  .perg{background:#fff;border-radius:18px;width:min(1000px,100%);max-height:100%;overflow:auto;padding:clamp(14px,2.6vw,34px);box-shadow:0 20px 60px rgba(0,0,0,.45)}
+  .perg .rot{display:inline-block;background:var(--azul);color:#fff;font-weight:800;border-radius:999px;padding:5px 12px;font-size:clamp(12px,1.3vw,16px);margin-bottom:10px}
+  .perg h2{margin:0 0 clamp(10px,1.8vh,22px);font-size:clamp(18px,min(3vw,4.6vh),44px);line-height:1.2}
+  .ops{display:grid;gap:clamp(6px,1.2vh,14px)}
+  .ops.quatro{grid-template-columns:1fr 1fr}
+  .ops.duas{grid-template-columns:1fr 1fr}
+  .op{display:flex;align-items:center;gap:12px;text-align:left;border:2px solid var(--linha);background:#f8fbfe;border-radius:14px;padding:clamp(8px,min(1.3vw,1.8vh),18px) clamp(10px,1.4vw,18px);font-size:clamp(15px,min(2.1vw,3.3vh),30px);font-weight:600;color:var(--azul);cursor:pointer;min-height:48px}
+  .op .l{flex:none;width:clamp(32px,3vw,46px);height:clamp(32px,3vw,46px);border-radius:50%;background:var(--azul);color:#fff;display:grid;place-items:center;font-weight:800}
+  .op:hover{border-color:var(--ceu)}
+  .op.certa{border-color:var(--ok);background:#e6f6ec}.op.certa .l{background:var(--ok)}
+  .op.errada{border-color:var(--erro);background:#fdecea}.op.errada .l{background:var(--erro)}
+  .op:disabled{cursor:default}
+  .expl{margin-top:clamp(8px,1.4vh,18px);background:#f4f8ec;border-left:5px solid var(--lima);border-radius:10px;padding:10px 16px;font-size:clamp(14px,min(1.7vw,2.7vh),24px);line-height:1.35}
+  .acoes-perg{display:flex;gap:10px;justify-content:flex-end;margin-top:clamp(8px,1.6vh,20px);flex-wrap:wrap}
+  .acoes-perg .bt{font-size:clamp(15px,1.6vw,20px);min-height:50px;padding:10px 22px}
+  .fim h2{text-align:center}.fim .big{font-size:clamp(40px,6vw,80px);text-align:center;font-weight:800;color:var(--verde);margin:6px 0}
+
+  /* edição */
+  #painel{display:grid;gap:12px;align-content:start}
+  .ed-topo{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .ed-topo input[type=text]{flex:1;min-width:180px;border:1px solid #c9d5e1;border-radius:10px;padding:9px 12px;font-weight:700;color:var(--azul)}
+  .item{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:12px;display:grid;gap:8px}
+  .item.sel{border-color:var(--ceu);box-shadow:0 0 0 2px rgba(46,155,214,.25)}
+  .item-cab{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .item-cab .n{width:26px;height:26px;border-radius:50%;background:var(--azul);color:#fff;display:grid;place-items:center;font-weight:800;font-size:12px;flex:none}
+  .item input,.item select,.item textarea{border:1px solid #c9d5e1;border-radius:8px;padding:7px 9px;font-size:14px;color:var(--azul);background:#fff}
+  .item textarea{width:100%;resize:vertical;min-height:54px}
+  .item .tm{width:74px;text-align:center;font-variant-numeric:tabular-nums;font-weight:700}
+  .mini{border:1px solid var(--linha);background:#fff;border-radius:8px;padding:6px 9px;font-size:12.5px;font-weight:700;cursor:pointer;color:var(--azul)}
+  .mini.del{color:var(--erro)}
+  .opt{display:flex;gap:6px;align-items:center}.opt input[type=text]{flex:1}
+  .opt input[type=radio]{accent-color:var(--ok);width:18px;height:18px}
+  .trecho{font-size:12px;color:var(--muted);font-style:italic}
+  .salvar-barra{position:sticky;bottom:0;background:var(--fundo);padding:10px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .pub{display:flex;align-items:center;gap:8px;font-weight:700;background:#fff;border:1px solid var(--linha);border-radius:10px;padding:8px 12px}
+  .pub input{width:20px;height:20px;accent-color:var(--verde)}
+  .layout.editando > div:first-child{position:sticky;top:76px;align-self:start}
+  .item-cab select{flex:1;min-width:150px}
+  @media (max-width:900px){.layout.editando{grid-template-columns:1fr}.layout.editando > div:first-child{position:static}.ops.quatro{grid-template-columns:1fr}.form .duas{grid-template-columns:1fr}.ops.duas{grid-template-columns:1fr}.previa img{width:110px}}
+</style>
+</head>
+<body>
+<header class="topo">
+  <a href="/entrar/" class="bt bt-topo" aria-label="Voltar ao Portal">←</a>
+  <img src="/assets/pde-logo-64.png" alt="">
+  <div class="t"><b id="tit">Vídeo interativo</b><small id="sub">Portal do Educador</small></div>
+  <div id="topoAcoes" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+</header>
+<main id="area"><div class="card aviso"><div class="ico">⏳</div><h1>Abrindo…</h1></div></main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+
+const app = initializeApp(window.PDE_AMBIENTE.fb);
+const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1");
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const P = new URLSearchParams(location.search);
+const LETRAS = "ABCD";
+const NOME_TIPO = { multipla:"Múltipla escolha", vf:"Verdadeiro ou falso", aberta:"Para pensar e conversar", nota:"Você sabia?" };
+const SERIES = ["Educação Infantil (4 e 5 anos)","1º ano","2º ano","3º ano","4º ano","5º ano","6º ano","7º ano","8º ano","9º ano","1ª série do Ensino Médio","2ª série do Ensino Médio","3ª série do Ensino Médio"];
+const COMPONENTES = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Língua Inglesa","Ensino Religioso","Educação Infantil","Biologia","Física","Química","Filosofia","Sociologia","Projeto de Vida"];
+const st = { uid:"", acesso:null, v:null, id:"", editar:false, player:null, pronto:false, feito:new Set(), prev:0, acertos:0, respondidas:0, aberta:-1, sel:-1, sujo:false, timer:0, aba:"catalogo", qtd:5 };
+
+function toast(t, err){ const el = $("toast"); el.textContent = t; el.className = "toast on" + (err ? " err" : ""); clearTimeout(toast.t); toast.t = setTimeout(() => el.className = "toast", 3200); }
+const msgErro = e => String(e && e.message || "Não foi possível agora.").replace(/^.*?: /, "");
+const chamar = (dados, ms) => httpsCallable(fns, "videoIa", { timeout: ms || 30000 })(dados).then(r => r.data);
+const mmss = t => { t = Math.max(0, Math.round(t || 0)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+const lerTempo = s => { const m = /^\s*(\d{1,3})(?::([0-5]?\d))?\s*$/.exec(String(s || "")); if(!m) return NaN; return m[2] == null ? Number(m[1]) : Number(m[1]) * 60 + Number(m[2]); };
+const capa = id => "https://i.ytimg.com/vi/" + encodeURIComponent(id) + "/hqdefault.jpg";
+function idYoutube(s){
+  const t = String(s || "").trim(); if(/^[\w-]{11}$/.test(t)) return t;
+  let u; try{ u = new URL(t); }catch(e){ return ""; }
+  const h = u.hostname.replace(/^(www|m|music)\./, ""); let id = "";
+  if(h === "youtu.be") id = u.pathname.slice(1, 12);
+  else if(/^youtube(-nocookie)?\.com$/.test(h)){ if(u.pathname === "/watch") id = u.searchParams.get("v") || ""; else { const m = /^\/(embed|shorts|live|v)\/([\w-]{11})/.exec(u.pathname); if(m) id = m[2]; } }
+  return /^[\w-]{11}$/.test(id) ? id : "";
+}
+function aviso(ico, tit, txt, botao){ $("area").innerHTML = '<div class="card aviso"><div class="ico">'+ico+'</div><h1>'+esc(tit)+'</h1><p>'+esc(txt)+'</p>'+(botao || "")+'</div>'; }
+function topo(t, s, acoes){ $("tit").textContent = t; $("sub").textContent = s || "Portal do Educador"; $("topoAcoes").innerHTML = acoes || ""; document.title = t + " · Portal do Educador"; }
+
+onAuthStateChanged(auth, async user => {
+  if(!user){
+    topo("Vídeo interativo");
+    aviso("🔐", "Entre no Portal para continuar", "O vídeo interativo é um recurso do Portal do Educador.", '<a class="bt bt-verde" href="/entrar/?volta='+encodeURIComponent(location.pathname + location.search)+'">Entrar no Portal</a>');
+    return;
+  }
+  st.uid = user.uid;
+  try{ st.acesso = await chamar({ acao:"acesso" }); }
+  catch(e){ aviso("🔒", "Sem acesso", msgErro(e)); return; }
+  if(P.has("novo")) return telaNovo();
+  if(P.get("catalogo")) return telaCatalogo(P.get("catalogo").replace(/[^\w-]/g, ""));
+  if(P.get("id")) return telaVideo(P.get("id").replace(/[^\w-]/g, ""), P.has("editar"));
+  telaLista();
+});
+
+/* ---------------------------------------------------------------- lista */
+async function telaLista(){
+  topo("Vídeos interativos", "O vídeo pausa e a turma responde na lousa");
+  const A = st.acesso;
+  if(!A.usar && !A.gerar){ aviso("🔒", "Recurso não liberado", A.motivo_usar || "Sua licença ainda não inclui o vídeo interativo."); return; }
+  if(!A.usar) st.aba = "meus";
+  $("area").innerHTML = '<div class="lista-topo"><h1>🎬 Vídeos interativos</h1>'+(A.gerar ? '<a class="bt bt-verde" href="/video/?novo">➕ Criar com um link do YouTube</a>' : '')+'</div>'+
+    '<div class="abas" role="tablist">'+(A.usar ? '<button type="button" role="tab" data-action="aba" data-aba="catalogo">Do catálogo do Portal</button>' : '')+'<button type="button" role="tab" data-action="aba" data-aba="meus">Meus vídeos</button></div><div id="lista"><p class="vazio">Carregando…</p></div>';
+  desenharAba();
+}
+async function desenharAba(){
+  document.querySelectorAll("[data-aba]").forEach(b => b.classList.toggle("on", b.dataset.aba === st.aba));
+  const el = $("lista"); el.innerHTML = '<p class="vazio">Carregando…</p>';
+  try{
+    const q = st.aba === "meus" ? query(collection(db, "videos_interativos"), where("dono", "==", st.uid), limit(200))
+      : st.acesso.admin ? query(collection(db, "videos_interativos"), where("origem", "==", "catalogo"), limit(300))
+      : query(collection(db, "videos_interativos"), where("origem", "==", "catalogo"), where("publicado", "==", true), limit(300));
+    const sn = await getDocs(q);
+    const l = sn.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => String(a.titulo).localeCompare(String(b.titulo), "pt-BR"));
+    if(!l.length){ el.innerHTML = '<p class="vazio">'+(st.aba === "meus" ? (st.acesso.gerar ? 'Você ainda não criou nenhum. Toque em “Criar com um link do YouTube”.' : 'Nenhum vídeo seu ainda.') : 'Os vídeos interativos do catálogo aparecem aqui assim que a equipe do Portal publicar.')+'</p>'; return; }
+    el.innerHTML = '<div class="grade">'+l.map(v => '<a class="vcard" href="/video/?id='+encodeURIComponent(v.id)+'"><div class="vcapa" style="background-image:url(\''+capa(v.youtube_id)+'\')"><span class="selo'+(v.origem === "catalogo" && !v.publicado ? " rasc" : "")+'">'+(v.origem === "catalogo" && !v.publicado ? "Rascunho" : (v.interacoes || []).length + " pausas")+'</span></div>'+
+      '<div class="vcorpo"><h3>'+esc(v.titulo)+'</h3><p>'+esc([v.serie, v.disciplina, v.duracao_seg ? mmss(v.duracao_seg) : ""].filter(Boolean).join(" · "))+'</p></div></a>').join("")+'</div>';
+  }catch(e){ console.warn(e); el.innerHTML = '<p class="vazio">Não consegui carregar a lista agora.</p>'; }
+}
+
+/* ---------------------------------------------------------------- criar por link */
+function telaNovo(){
+  topo("Criar vídeo interativo", "A IA assiste o vídeo e monta as pausas com perguntas");
+  const A = st.acesso;
+  if(!A.gerar){ aviso("🔒", "Recurso não liberado", A.motivo_gerar || "Sua licença ainda não inclui o vídeo interativo com IA.", '<a class="bt bt-claro" href="/video/">Ver os vídeos do catálogo</a>'); return; }
+  $("area").innerHTML = '<div class="card"><div class="form" id="fNovo">'+
+    '<label>Link do vídeo do YouTube<input id="nUrl" type="url" inputmode="url" placeholder="Cole aqui o link (youtube.com ou youtu.be)" autocomplete="off"></label>'+
+    '<div id="nPrevia"></div>'+
+    '<div class="duas"><label>Série<select id="nSerie"><option value="">Escolha</option>'+SERIES.map(s => '<option>'+esc(s)+'</option>').join("")+'</select></label>'+
+    '<label>Componente<select id="nComp"><option value="">Escolha</option>'+COMPONENTES.map(s => '<option>'+esc(s)+'</option>').join("")+'</select></label></div>'+
+    '<div><b style="font-size:14px">Tipos de pausa</b><div class="pills" style="margin-top:6px">'+[["multipla","Múltipla escolha",1],["vf","Verdadeiro ou falso",1],["aberta","Resposta aberta",1],["nota","Nota (curiosidade)",0]].map(([k, n, on]) => '<label><input type="checkbox" data-tipo="'+k+'"'+(on ? " checked" : "")+'> '+n+'</label>').join("")+'</div></div>'+
+    '<div><b style="font-size:14px">Número de pausas</b><div class="qtds" style="margin-top:6px">'+[3,4,5,6,7,8].map(n => '<button type="button" data-action="qtd" data-n="'+n+'" class="'+(n === st.qtd ? "on" : "")+'">'+n+'</button>').join("")+'</div></div>'+
+    '<div id="nStatus"></div>'+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><button type="button" class="bt bt-verde" data-action="gerar" id="btGerar">✨ Gerar o vídeo interativo · '+esc(A.custo)+' créditos</button><a class="bt bt-claro" href="/video/">Cancelar</a></div>'+
+    '<p class="nota-peq">O vídeo precisa ser público no YouTube. A IA assiste o vídeo inteiro (leva até 1 minuto) e você revisa as perguntas antes de usar com a turma. Se a IA não conseguir, os créditos não são descontados.</p>'+
+    '</div></div>';
+  $("nUrl").addEventListener("input", () => {
+    const id = idYoutube($("nUrl").value);
+    $("nPrevia").innerHTML = id ? '<div class="previa"><img alt="" src="'+capa(id)+'"><div><b>Vídeo encontrado</b><br><span class="nota-peq">Confira se é o vídeo certo.</span></div></div>' : ($("nUrl").value.trim() ? '<p class="nota-peq" style="color:var(--erro)">Esse link não parece ser de um vídeo do YouTube.</p>' : "");
+  });
+}
+async function gerar(b){
+  const url = $("nUrl").value, id = idYoutube(url);
+  if(!id){ toast("Cole o link de um vídeo do YouTube.", true); $("nUrl").focus(); return; }
+  if(!$("nSerie").value){ toast("Escolha a série.", true); $("nSerie").focus(); return; }
+  const tipos = [...document.querySelectorAll("[data-tipo]:checked")].map(x => x.dataset.tipo);
+  if(!tipos.length){ toast("Marque pelo menos um tipo de pausa.", true); return; }
+  b.disabled = true;
+  $("nStatus").innerHTML = '<div class="gerando"><span class="roda"></span><span>A IA está assistindo o vídeo e montando as perguntas. Isso leva até 1 minuto…</span></div>';
+  try{
+    const r = await chamar({ acao:"gerar", url:id, serie:$("nSerie").value, disciplina:$("nComp").value, tipos, qtd:st.qtd }, 240000);
+    location.href = "/video/?id=" + encodeURIComponent(r.id) + "&editar";
+  }catch(e){
+    $("nStatus").innerHTML = ""; b.disabled = false;
+    if(window.PDECredito && PDECredito.ver(e)) return;
+    toast(msgErro(e), true);
+  }
+}
+
+/* ---------------------------------------------------------------- catálogo (administrador) */
+async function telaCatalogo(vid){
+  topo("Vídeo interativo do catálogo", "Preparação pela equipe do Portal");
+  if(!st.acesso.admin){ location.replace("/video/?id=cat_" + encodeURIComponent(vid)); return; }
+  const [vi, v] = await Promise.all([getDoc(doc(db, "videos_interativos", "cat_" + vid)).catch(() => null), getDoc(doc(db, "videos", vid)).catch(() => null)]);
+  if(vi && vi.exists()){ location.replace("/video/?id=cat_" + encodeURIComponent(vid) + "&editar"); return; }
+  if(!v || !v.exists()){ aviso("🔍", "Vídeo não encontrado", "Esse vídeo não está no catálogo."); return; }
+  const x = v.data();
+  $("area").innerHTML = '<div class="card"><div class="form"><div class="previa"><img alt="" src="'+capa(x.youtube_id)+'"><div><b>'+esc(x.titulo)+'</b><br><span class="nota-peq">'+esc([x.componente, x.duracao_seg ? mmss(x.duracao_seg) : ""].filter(Boolean).join(" · "))+'</span></div></div>'+
+    '<div><b style="font-size:14px">Tipos de pausa</b><div class="pills" style="margin-top:6px">'+[["multipla","Múltipla escolha",1],["vf","Verdadeiro ou falso",1],["aberta","Resposta aberta",1],["nota","Nota (curiosidade)",0]].map(([k, n, on]) => '<label><input type="checkbox" data-tipo="'+k+'"'+(on ? " checked" : "")+'> '+n+'</label>').join("")+'</div></div>'+
+    '<div><b style="font-size:14px">Número de pausas</b><div class="qtds" style="margin-top:6px">'+[3,4,5,6,7,8].map(n => '<button type="button" data-action="qtd" data-n="'+n+'" class="'+(n === st.qtd ? "on" : "")+'">'+n+'</button>').join("")+'</div></div>'+
+    '<div id="nStatus"></div><div><button type="button" class="bt bt-verde" data-action="gerar-cat" data-vid="'+esc(vid)+'">✨ Gerar as perguntas com IA</button></div>'+
+    '<p class="nota-peq">Depois de gerar, revise e marque “Publicado no catálogo”. A partir daí ele aparece para todas as redes que têm o recurso liberado na Central de IA, sem gastar crédito delas.</p></div></div>';
+}
+async function gerarCatalogo(b){
+  const tipos = [...document.querySelectorAll("[data-tipo]:checked")].map(x => x.dataset.tipo);
+  if(!tipos.length){ toast("Marque pelo menos um tipo de pausa.", true); return; }
+  b.disabled = true; $("nStatus").innerHTML = '<div class="gerando"><span class="roda"></span><span>A IA está assistindo o vídeo…</span></div>';
+  try{ const r = await chamar({ acao:"gerar", catalogo_id:b.dataset.vid, tipos, qtd:st.qtd }, 240000); location.href = "/video/?id=" + encodeURIComponent(r.id) + "&editar"; }
+  catch(e){ $("nStatus").innerHTML = ""; b.disabled = false; toast(msgErro(e), true); }
+}
+
+/* ---------------------------------------------------------------- apresentar e editar */
+async function telaVideo(id, editar){
+  let s; try{ s = await getDoc(doc(db, "videos_interativos", id)); }catch(e){ s = null; }
+  if(!s || !s.exists()){ topo("Vídeo interativo"); aviso("🔍", "Vídeo não encontrado", "Ele pode ter sido apagado, ou ainda não foi liberado para a sua licença.", '<a class="bt bt-claro" href="/video/">Ver os vídeos interativos</a>'); return; }
+  const v = { ...s.data() }; v.interacoes = (v.interacoes || []).slice().sort((a, b) => a.t - b.t);
+  const meu = v.origem === "link" && v.dono === st.uid, podeEditar = st.acesso.admin || meu;
+  if(v.origem === "catalogo" && !st.acesso.usar && !st.acesso.admin){ topo(v.titulo); aviso("🔒", "Recurso não liberado", st.acesso.motivo_usar); return; }
+  st.v = v; st.id = id; st.editar = editar && podeEditar;
+  topo(v.titulo, [v.serie, v.disciplina, (v.interacoes || []).length + " pausas"].filter(Boolean).join(" · "),
+    (podeEditar ? '<button type="button" class="bt bt-topo" data-action="modo">'+(st.editar ? "▶ Apresentar" : "✏️ Editar perguntas")+'</button>' : '')+
+    '<a class="bt bt-topo" href="/video/">Vídeos</a>');
+  $("area").innerHTML = '<div class="layout'+(st.editar ? " editando" : "")+'"><div><div id="palco"><div id="yt"></div><div id="ov" hidden></div></div>'+
+    '<div class="barra"><button type="button" class="bt bt-claro" data-action="tocar" id="btTocar" aria-label="Tocar ou pausar">▶</button><div class="trilha" id="trilha"><div class="fundo"></div><div class="feito" id="feito"></div></div>'+
+    '<span class="tempo" id="tempo">0:00 / '+mmss(v.duracao_seg)+'</span><span class="placar" id="placar" hidden></span><button type="button" class="bt bt-azul" data-action="tela-cheia">⛶ Tela cheia</button></div></div>'+
+    (st.editar ? '<div id="painel"></div>' : '')+'</div>';
+  marcas();
+  if(st.editar) desenharPainel();
+  carregarYT().then(() => {
+    st.player = new YT.Player("yt", { videoId:v.youtube_id, host:"https://www.youtube-nocookie.com",
+      playerVars:{ rel:0, modestbranding:1, playsinline:1, fs:0, iv_load_policy:3, cc_load_policy:0, hl:"pt-BR" },
+      events:{ onReady:() => { st.pronto = true; const d = st.player.getDuration(); if(d > 0 && !st.v.duracao_seg){ st.v.duracao_seg = Math.round(d); marcas(); } },
+        onStateChange:e => { $("btTocar").textContent = e.data === 1 ? "⏸" : "▶"; if(e.data === 0 && !st.editar) mostrarFim(); },
+        onError:() => aviso("📺", "O YouTube não deixou tocar este vídeo aqui", "O dono do vídeo pode ter bloqueado a exibição em outros sites, ou o vídeo saiu do ar.") } });
+    clearInterval(st.timer); st.timer = setInterval(tique, 200);
+  }).catch(() => toast("Não consegui carregar o player do YouTube. Confira a internet.", true));
+}
+function carregarYT(){
+  if(window.YT && window.YT.Player) return Promise.resolve();
+  return new Promise((ok, erro) => {
+    window.onYouTubeIframeAPIReady = ok;
+    const sc = document.createElement("script"); sc.src = "https://www.youtube.com/iframe_api"; sc.onerror = erro; document.head.appendChild(sc);
+    setTimeout(() => (window.YT && window.YT.Player) ? ok() : erro(), 15000);
+  });
+}
+function duracao(){ return (st.pronto && st.player.getDuration && st.player.getDuration()) || st.v.duracao_seg || 1; }
+function marcas(){
+  const tr = $("trilha"); if(!tr) return; tr.querySelectorAll(".marca").forEach(m => m.remove());
+  const d = duracao();
+  st.v.interacoes.forEach((x, i) => { const b = document.createElement("button"); b.type = "button"; b.className = "marca" + (st.feito.has(i) && !st.editar ? " ok" : "") + (st.editar && st.sel === i ? " sel" : "");
+    b.style.left = Math.min(100, x.t / d * 100) + "%"; b.textContent = i + 1; b.dataset.action = "ir-marca"; b.dataset.i = i; b.title = mmss(x.t) + " · " + (NOME_TIPO[x.tipo] || ""); b.setAttribute("aria-label", "Pausa " + (i + 1) + " em " + mmss(x.t)); tr.appendChild(b); });
+}
+function tique(){
+  if(!st.pronto || !st.player.getCurrentTime) return;
+  const t = st.player.getCurrentTime(), d = duracao();
+  $("feito").style.width = Math.min(100, t / d * 100) + "%";
+  $("tempo").textContent = mmss(t) + " / " + mmss(d);
+  if(st.editar || st.aberta >= 0){ st.prev = t; st.relogio = performance.now(); return; }
+  // voltou no vídeo: as pausas depois desse ponto valem de novo
+  if(t < st.prev - 1.5){ let mudou = false; st.v.interacoes.forEach((x, i) => { if(x.t > t && st.feito.has(i)){ st.feito.delete(i); mudou = true; } }); if(mudou) marcas(); }
+  // avanço natural (tocando) x salto (o professor adiantou): compara com o tempo de relógio desde o último tique
+  const agora = performance.now(), passou = (agora - (st.relogio || agora)) / 1000; st.relogio = agora;
+  const vel = (st.player.getPlaybackRate && st.player.getPlaybackRate()) || 1;
+  const tocando = st.player.getPlayerState() === 1;
+  if(tocando && t - st.prev <= passou * vel + 1){
+    const i = st.v.interacoes.findIndex((x, k) => !st.feito.has(k) && x.t > st.prev - 0.05 && x.t <= t + 0.05);
+    if(i >= 0){ st.player.pauseVideo(); abrirPergunta(i); }
+  }
+  st.prev = t;
+}
+
+/* a pergunta na tela */
+function abrirPergunta(i){
+  const x = st.v.interacoes[i], ov = $("ov"); st.aberta = i; st.feito.add(i); marcas();
+  const n = st.v.interacoes.length;
+  let h = '<div class="perg"><span class="rot">'+(x.tipo === "nota" ? "💡 " : "❓ ")+'Pausa '+(i + 1)+' de '+n+' · '+esc(NOME_TIPO[x.tipo] || "")+'</span><h2>'+esc(x.pergunta)+'</h2>';
+  if(x.tipo === "multipla" || x.tipo === "vf") h += '<div class="ops'+(x.tipo === "vf" ? " duas" : x.opcoes.every(o => o.length <= 38) ? " quatro" : "")+'">'+x.opcoes.map((o, k) => '<button type="button" class="op" data-action="resp" data-k="'+k+'"><span class="l">'+(x.tipo === "vf" ? (k ? "F" : "V") : LETRAS[k])+'</span><span>'+esc(o)+'</span></button>').join("")+'</div><div id="expl"></div>';
+  else if(x.tipo === "aberta") h += '<div id="expl"></div>';
+  else if(x.explicacao) h += '<div class="expl">'+esc(x.explicacao)+'</div>';
+  h += '<div class="acoes-perg">'+(x.tipo === "aberta" && x.explicacao ? '<button type="button" class="bt bt-claro" data-action="ver-esperada">👀 Ver resposta esperada</button>' : '')+
+    (x.tipo === "multipla" || x.tipo === "vf" ? '<button type="button" class="bt bt-claro" data-action="continuar">Pular</button>' : '')+
+    '<button type="button" class="bt bt-verde" data-action="continuar" id="btCont">Continuar o vídeo ▶</button></div></div>';
+  ov.innerHTML = h; ov.hidden = false;
+  const c = ov.querySelector(".op") || $("btCont"); if(c) c.focus({ preventScroll:true }); ov.querySelector(".perg").scrollTop = 0;
+}
+function responder(k){
+  const i = st.aberta, x = st.v.interacoes[i]; if(i < 0) return;
+  const ops = [...$("ov").querySelectorAll(".op")]; if(ops.some(o => o.disabled)) return;
+  ops.forEach((o, j) => { o.disabled = true; if(j === x.correta) o.classList.add("certa"); else if(j === k) o.classList.add("errada"); });
+  const certo = k === x.correta; st.respondidas++; if(certo) st.acertos++;
+  $("placar").hidden = false; $("placar").textContent = "✅ " + st.acertos + " de " + st.respondidas;
+  $("expl").innerHTML = '<div class="expl"><b>'+(certo ? "Isso mesmo! " : "Resposta certa: " + esc(x.tipo === "vf" ? x.opcoes[x.correta] : LETRAS[x.correta] + ") " + x.opcoes[x.correta]) + ". ")+'</b>'+esc(x.explicacao || "")+'</div>';
+  $("btCont").focus({ preventScroll:true });
+}
+function continuar(){ $("ov").hidden = true; $("ov").innerHTML = ""; st.aberta = -1; if(st.pronto){ st.prev = st.player.getCurrentTime(); st.player.playVideo(); } }
+function mostrarFim(){
+  const ov = $("ov"); st.aberta = 99;
+  ov.innerHTML = '<div class="perg fim"><span class="rot">🏁 Fim do vídeo</span>'+(st.respondidas ? '<h2>A turma acertou</h2><div class="big">'+st.acertos+' de '+st.respondidas+'</div>' : '<h2>Vídeo concluído</h2>')+
+    '<div class="acoes-perg" style="justify-content:center"><button type="button" class="bt bt-claro" data-action="de-novo">↺ Assistir de novo</button><a class="bt bt-verde" href="/video/">Outros vídeos</a></div></div>';
+  ov.hidden = false;
+}
+function deNovo(){ st.feito.clear(); st.acertos = 0; st.respondidas = 0; $("placar").hidden = true; $("ov").hidden = true; st.aberta = -1; st.prev = 0; marcas(); st.player.seekTo(0, true); st.player.playVideo(); }
+
+/* edição */
+function desenharPainel(){
+  const v = st.v, p = $("painel"); if(!p) return;
+  p.innerHTML = '<div class="card" style="padding:12px"><div class="ed-topo"><input type="text" id="edTitulo" maxlength="140" value="'+esc(v.titulo)+'" aria-label="Título"></div>'+
+    (v.origem === "catalogo" ? '<label class="pub" style="margin-top:8px"><input type="checkbox" id="edPub"'+(v.publicado ? " checked" : "")+'> Publicado no catálogo (aparece para as redes liberadas)</label>' : '')+
+    '<p class="nota-peq" style="margin:8px 0 0">Toque no número de uma pausa na barra para ir até ela. Para acertar o momento, pause o vídeo no ponto certo e use “⏱ usar agora”.</p></div>'+
+    '<div id="itens"></div><button type="button" class="bt bt-claro" data-action="add">➕ Nova pausa no ponto atual do vídeo</button>'+
+    '<div class="salvar-barra"><button type="button" class="bt bt-verde" data-action="salvar" id="btSalvar">💾 Salvar</button><button type="button" class="bt bt-claro" data-action="apresentar">▶ Apresentar</button>'+
+    (st.acesso.admin || v.dono === st.uid ? '<button type="button" class="bt bt-claro" data-action="excluir" style="color:var(--erro);margin-left:auto">Apagar</button>' : '')+'</div>';
+  desenharItens();
+}
+function desenharItens(){
+  const el = $("itens"); if(!el) return;
+  el.style.display = "grid"; el.style.gap = "10px";
+  el.innerHTML = st.v.interacoes.map((x, i) => {
+    const ops = x.tipo === "multipla" ? [0,1,2,3].map(k => '<div class="opt"><input type="radio" name="c'+i+'" data-ed="correta" data-i="'+i+'" value="'+k+'"'+(x.correta === k ? " checked" : "")+' aria-label="Alternativa '+LETRAS[k]+' é a certa"><b>'+LETRAS[k]+'</b><input type="text" data-ed="op" data-i="'+i+'" data-k="'+k+'" maxlength="120" value="'+esc(x.opcoes[k] || "")+'" placeholder="'+(k < 3 ? "Alternativa" : "Alternativa (opcional)")+'"></div>').join("")
+      : x.tipo === "vf" ? '<div class="opt" style="gap:14px"><label><input type="radio" name="c'+i+'" data-ed="correta" data-i="'+i+'" value="0"'+(x.correta === 0 ? " checked" : "")+'> Verdadeiro</label><label><input type="radio" name="c'+i+'" data-ed="correta" data-i="'+i+'" value="1"'+(x.correta === 1 ? " checked" : "")+'> Falso</label></div>' : '';
+    return '<div class="item'+(st.sel === i ? " sel" : "")+'" data-item="'+i+'"><div class="item-cab"><span class="n">'+(i + 1)+'</span><input class="tm" data-ed="t" data-i="'+i+'" value="'+mmss(x.t)+'" aria-label="Tempo da pausa"><button type="button" class="mini" data-action="agora" data-i="'+i+'">⏱ usar agora</button><button type="button" class="mini" data-action="ir-marca" data-i="'+i+'">▶ ver</button>'+
+      '<select data-ed="tipo" data-i="'+i+'" aria-label="Tipo">'+Object.entries({ multipla:"Múltipla escolha", vf:"Verdadeiro ou falso", aberta:"Resposta aberta", nota:"Nota" }).map(([k, n]) => '<option value="'+k+'"'+(x.tipo === k ? " selected" : "")+'>'+n+'</option>').join("")+'</select><button type="button" class="mini del" data-action="del" data-i="'+i+'" aria-label="Apagar pausa">✕</button></div>'+
+      '<textarea data-ed="pergunta" data-i="'+i+'" maxlength="220" placeholder="'+(x.tipo === "nota" ? "Texto da nota" : "Pergunta")+'">'+esc(x.pergunta)+'</textarea>'+ops+
+      '<textarea data-ed="explicacao" data-i="'+i+'" maxlength="400" placeholder="'+(x.tipo === "aberta" ? "Resposta esperada (o professor mostra se quiser)" : x.tipo === "nota" ? "Complemento (opcional)" : "Explicação da resposta (aparece depois que a turma responde)")+'">'+esc(x.explicacao || "")+'</textarea>'+
+      (x.trecho ? '<div class="trecho">No vídeo, logo antes: “'+esc(x.trecho)+'”</div>' : '')+'</div>';
+  }).join("") || '<p class="vazio">Nenhuma pausa. Use o botão abaixo para criar.</p>';
+}
+function editar(el){
+  const i = Number(el.dataset.i), x = st.v.interacoes[i]; if(!x) return; const k = el.dataset.ed; st.sujo = true;
+  if(k === "t"){ const t = lerTempo(el.value); if(!isNaN(t)){ x.t = t; } return; }
+  if(k === "tipo"){ x.tipo = el.value; if(x.tipo === "vf"){ x.opcoes = ["Verdadeiro","Falso"]; if(x.correta !== 0 && x.correta !== 1) x.correta = 0; } else if(x.tipo === "multipla"){ if(x.opcoes.length < 3 || x.opcoes[0] === "Verdadeiro") x.opcoes = ["","",""]; if(x.correta < 0) x.correta = 0; } else { x.opcoes = []; x.correta = -1; } desenharItens(); return; }
+  if(k === "correta"){ x.correta = Number(el.value); return; }
+  if(k === "op"){ const o = x.opcoes.slice(); o[Number(el.dataset.k)] = el.value; x.opcoes = o; return; }
+  x[k] = el.value;
+}
+function ordenar(){ const selX = st.v.interacoes[st.sel]; st.v.interacoes.sort((a, b) => a.t - b.t); st.sel = selX ? st.v.interacoes.indexOf(selX) : -1; desenharItens(); marcas(); }
+async function salvar(b){
+  ordenar();
+  const lista = st.v.interacoes.map(x => ({ ...x, opcoes:(x.opcoes || []).map(o => String(o || "").trim()).filter((o, k) => x.tipo !== "multipla" || o || k < 3) }));
+  for(const [i, x] of lista.entries()){
+    if(!String(x.pergunta || "").trim()){ toast("A pausa " + (i + 1) + " está sem texto.", true); return; }
+    if(x.tipo === "multipla" && (x.opcoes.filter(Boolean).length < 3 || !x.opcoes[x.correta])){ toast("Na pausa " + (i + 1) + ", preencha pelo menos 3 alternativas e marque a certa.", true); return; }
+    if(x.t < 5 || x.t > duracao() - 1){ toast("A pausa " + (i + 1) + " está fora do vídeo.", true); return; }
+  }
+  b.disabled = true;
+  try{
+    const pub = $("edPub");
+    const r = await chamar({ acao:"salvar", id:st.id, titulo:$("edTitulo").value, interacoes:lista.map(x => ({ ...x, opcoes:x.opcoes.filter(Boolean) })), ...(pub ? { publicado:pub.checked } : {}) });
+    st.sujo = false; if(pub) st.v.publicado = pub.checked; st.v.titulo = $("edTitulo").value || st.v.titulo; $("tit").textContent = st.v.titulo;
+    toast("Salvo · " + r.pausas + " pausas" + (pub ? (pub.checked ? " · publicado no catálogo" : " · fora do catálogo") : ""));
+  }catch(e){ toast(msgErro(e), true); }
+  b.disabled = false;
+}
+
+/* cliques (sem onclick no HTML) */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-action]"); if(!b) return;
+  const a = b.dataset.action;
+  if(a === "aba"){ st.aba = b.dataset.aba; desenharAba(); }
+  else if(a === "qtd"){ st.qtd = Number(b.dataset.n); document.querySelectorAll("[data-action=qtd]").forEach(x => x.classList.toggle("on", x === b)); }
+  else if(a === "gerar") gerar(b);
+  else if(a === "gerar-cat") gerarCatalogo(b);
+  else if(a === "tocar"){ if(!st.pronto) return; if(st.aberta >= 0 && st.aberta !== 99) return; st.player.getPlayerState() === 1 ? st.player.pauseVideo() : st.player.playVideo(); }
+  else if(a === "tela-cheia"){ const p = $("palco"); if(document.fullscreenElement) document.exitFullscreen(); else if(p.requestFullscreen) p.requestFullscreen().catch(() => {}); }
+  else if(a === "ir-marca"){ const i = Number(b.dataset.i), x = st.v.interacoes[i]; if(!x || !st.pronto) return;
+    if(st.editar){ st.sel = i; st.player.seekTo(Math.max(0, x.t - 4), true); st.player.playVideo(); desenharItens(); marcas(); const it = document.querySelector('[data-item="'+i+'"]'); if(it) it.scrollIntoView({ block:"nearest", behavior:"smooth" }); }
+    else { if(st.aberta >= 0) continuar(); st.feito.delete(i); st.player.seekTo(Math.max(0, x.t - 4), true); st.prev = Math.max(0, x.t - 4); st.player.playVideo(); } }
+  else if(a === "resp") responder(Number(b.dataset.k));
+  else if(a === "continuar") continuar();
+  else if(a === "ver-esperada"){ const x = st.v.interacoes[st.aberta]; $("expl").innerHTML = '<div class="expl"><b>Resposta esperada: </b>'+esc(x.explicacao)+'</div>'; b.remove(); }
+  else if(a === "de-novo") deNovo();
+  else if(a === "modo" || a === "apresentar"){ if(st.sujo && !confirm("Há mudanças não salvas. Sair da edição mesmo assim?")) return; location.href = "/video/?id=" + encodeURIComponent(st.id) + (a === "modo" && !st.editar ? "&editar" : ""); }
+  else if(a === "agora"){ if(!st.pronto) return; const i = Number(b.dataset.i); st.v.interacoes[i].t = Math.round(st.player.getCurrentTime()); st.sujo = true; st.sel = i; ordenar(); toast("Pausa ajustada para " + mmss(st.v.interacoes[st.sel].t)); }
+  else if(a === "del"){ const i = Number(b.dataset.i); st.v.interacoes.splice(i, 1); st.sel = -1; st.sujo = true; desenharItens(); marcas(); }
+  else if(a === "add"){ if(!st.pronto) return; const t = Math.round(st.player.getCurrentTime()); st.player.pauseVideo(); st.v.interacoes.push({ t:Math.max(5, t), tipo:"multipla", pergunta:"", opcoes:["","",""], correta:0, explicacao:"", trecho:"" }); st.sujo = true; st.sel = st.v.interacoes.length - 1; ordenar(); const it = document.querySelector('[data-item="'+st.sel+'"] textarea'); if(it) it.focus(); }
+  else if(a === "salvar") salvar(b);
+  else if(a === "excluir"){ if(!confirm("Apagar este vídeo interativo? As perguntas se perdem; o vídeo continua no YouTube.")) return;
+    chamar({ acao:"excluir", id:st.id }).then(() => { st.sujo = false; location.href = "/video/"; }).catch(e => toast(msgErro(e), true)); }
+});
+document.addEventListener("input", e => { const el = e.target.closest("[data-ed]"); if(el) editar(el); });
+document.addEventListener("change", e => { const el = e.target.closest("[data-ed]"); if(el){ editar(el); if(el.dataset.ed === "t"){ const t = lerTempo(el.value); if(isNaN(t)) toast("Tempo no formato minuto:segundo, ex.: 1:25", true); else ordenar(); } } });
+// teclado na lousa ou no controle: espaço/enter continua; 1-4 ou A-D responde
+document.addEventListener("keydown", e => {
+  if(st.aberta < 0 || st.aberta === 99 || /input|textarea|select/i.test((e.target.tagName || ""))) return;
+  const x = st.v.interacoes[st.aberta]; const m = /^[1-4a-d]$/i.exec(e.key);
+  if(m && (x.tipo === "multipla" || x.tipo === "vf")){ const k = /\d/.test(e.key) ? Number(e.key) - 1 : "abcd".indexOf(e.key.toLowerCase()); if(k < x.opcoes.length){ e.preventDefault(); responder(k); } }
+});
+window.addEventListener("beforeunload", e => { if(st.sujo){ e.preventDefault(); e.returnValue = ""; } });
+document.addEventListener("click", e => { const t = e.target.closest("#trilha"); if(!t || e.target.closest(".marca") || !st.pronto) return; const r = t.getBoundingClientRect(); const s = (e.clientX - r.left) / r.width * duracao(); st.player.seekTo(Math.max(0, s), true); if(!st.editar) st.prev = s; });
+</script>
+</body>
+</html>
