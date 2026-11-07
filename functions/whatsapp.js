@@ -50,6 +50,8 @@ const MENU = [
 // sem \b: em JS o \b não entende letra acentuada ("olá" falhava)
 // pedido comercial (botões do site e do Portal chegam com texto pronto): vai para um consultor, não para o manual
 const COMERCIAL = /(quero (conhecer|saber mais|ver (uma )?demonstra|assinar|renovar|levar)|proposta|consultor|demonstra[cç][aã]o|contratar|or[cç]amento)/i;
+// quem já chega pedindo uma pessoa (ex.: link "Falar com o atendimento" do site) vai direto para a equipe
+const PEDE_PESSOA = /(falar com (o |a |um |uma )?(atendimento|atendente|pessoa|humano|algu[eé]m|equipe|suporte))/i;
 const SAUDACAO = /^(oi+|ola|olá|oie|bom dia|boa tarde|boa noite|menu|inicio|início|ajuda|opcoes|opções|voltar|0)(?=$|[\s!.,?]|$)/i;
 
 // ---------- Meta ----------
@@ -71,8 +73,9 @@ async function enviar(cfg, para, corpo) {
 const texto = t => ({ type: 'text', text: { preview_url: false, body: txt(t, 4000) } });
 const botoes = (t, lista) => ({ type: 'interactive', interactive: { type: 'button', body: { text: txt(t, 1000) }, action: { buttons: lista.slice(0, 3).map(b => ({ type: 'reply', reply: { id: b.id, title: txt(b.title, 20) } })) } } });
 const menu = nome => ({ type: 'interactive', interactive: { type: 'list',
-  header: { type: 'text', text: 'Portal do Educador' },
-  body: { text: (nome ? 'Olá, ' + nome + '! ' : 'Olá! ') + 'Sou o assistente do Portal do Educador. Em que posso ajudar?' },
+  header: { type: 'text', text: 'Lara · Portal do Educador' },
+  // Lara (nov/2026): a mesma assistente virtual do site; deixa claro que é virtual e como falar com uma pessoa
+  body: { text: (nome ? 'Olá, ' + nome + '! ' : 'Olá! ') + 'Sou a Lara, assistente virtual do Portal do Educador. Em que posso ajudar hoje?\n\nSe preferir falar com uma pessoa da equipe, é só escolher *Falar com atendente*.' },
   footer: { text: 'Digite "menu" a qualquer momento' },
   action: { button: 'Ver opções', sections: [{ title: 'Atendimento', rows: MENU.map(m => ({ id: m.id, title: txt(m.title, 24), description: txt(m.description, 72) })) }] } } });
 
@@ -219,7 +222,7 @@ async function responderDuvida(db, pergunta, quem) {
 }
 async function responderComTrechos(trechos, pergunta, quem) {
   const contexto = trechos.map((t, i) => '[' + (i + 1) + '] ' + t.titulo + '\n' + t.texto.slice(0, 2500)).join('\n\n');
-  const instrucao = 'Você é o assistente de suporte do Portal do Educador (plataforma para professores de escolas públicas). ' +
+  const instrucao = 'Você é a Lara, assistente virtual de suporte do Portal do Educador (plataforma para professores de escolas públicas). Fale no feminino, com simpatia e objetividade. ' +
     'Responda em português do Brasil, de forma curta e prática, em passos numerados quando for um procedimento, no máximo 12 linhas, sem markdown (use *negrito* só para nomes de botões). ' +
     'Use SOMENTE as informações dos trechos do manual abaixo. Se a resposta não estiver nos trechos, responda exatamente: NAO_SEI. Não invente botões, telas nem prazos.' +
     (quem && quem.perfil ? ' Quem pergunta é ' + quem.perfil + '.' : '');
@@ -366,7 +369,7 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   await Promise.all([cabecalho, gravando, digitando, primeiroDoDia]);
   const estado = async e => ref.set({ estado: e, estado_em: FieldValue.serverTimestamp() }, { merge: true });
 
-  if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Por enquanto eu entendo só mensagens de texto. Escreva sua dúvida ou digite *menu*.')); return; }
+  if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Ainda não consigo ouvir áudio nem ver imagens por aqui. Pode escrever sua dúvida numa mensagem? Ou digite *menu* para ver as opções.')); return; }
 
   // em atendimento humano: o robô só volta se a pessoa pedir o menu
   if (/^nota_[123]$/.test(entrada)) {
@@ -412,6 +415,9 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     await responder(texto('Obrigado! Passei para um consultor do Portal do Educador, que responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
     await encaminhar(db, cfg, ref, waId, 'comercial', 'Novo contato comercial: ' + (nome || 'contato') + '.', 'Pedido: ' + (conv.pedido || '-') + ' · Dados: ' + entrada);
     return;
+  }
+  if (msg.type === 'text' && conv.estado !== 'atendente' && PEDE_PESSOA.test(entrada)) {
+    await tratar(db, cfg, { ...msg, id: msg.id + '_p', type: 'interactive', interactive: { list_reply: { id: 'atendente' } } }, contato, true); return;
   }
   if (SAUDACAO.test(entrada) || (!conv.estado && msg.type !== 'interactive')) { await estado('menu'); await responder(menu(nome)); return; }
 
