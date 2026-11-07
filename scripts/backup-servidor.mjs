@@ -11,6 +11,13 @@
 // Tudo é cifrado com AES-256 (openssl enc -aes-256-cbc -pbkdf2 -iter 200000) com a senha do segredo BACKUP_SENHA do GitHub.
 // Abrir à mão:  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_SENHA -in AAAA-MM-DD.tar.enc | tar -x
 // Restaurar: scripts/restaurar-backup.mjs (POP de restauração). As fotos da portaria (apagadas em 15 dias) NÃO entram no espelho.
+//
+// COFRE FORA DA NEWPC (nov/2026): os MESMOS pacotes cifrados vão também para um bucket do Google Cloud em outra região,
+// num projeto separado, com trava de retenção (Bucket Lock): nada pode ser apagado nem trocado antes do prazo, nem pelo administrador.
+// O robô do cofre (segredo COFRE_CHAVE) só cria e lê: não apaga nem sobrescreve. Bucket no segredo COFRE_BUCKET.
+//   diario/AAAA-MM-DD.tar.enc · mensal/AAAA-MM.tar.enc · arquivos/xx/<hash>.enc · arquivos/_manifesto-AAAA-MM-DD.json.enc
+// A limpeza (diário 35 dias, mensal 400 dias, manifestos 35 dias) é regra de ciclo de vida do próprio bucket.
+// Sem os segredos do cofre o backup segue normal no servidor e só avisa; erro no cofre não derruba o backup do servidor.
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { spawn, execFileSync } from 'node:child_process';
@@ -47,6 +54,35 @@ const AUT = 'Basic ' + Buffer.from(USUARIO + ':' + NC_SENHA).toString('base64');
 const DAV = NC_URL + '/remote.php/dav/files/' + encodeURIComponent(USUARIO);
 const enc = p => p.split('/').map(encodeURIComponent).join('/');
 const hojeMT = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+
+// ---------- cofre fora da NEWPC (Google Cloud Storage com trava) ----------
+const COFRE = await (async () => {
+  const chave = process.env.COFRE_CHAVE || '', nome = (process.env.COFRE_BUCKET || '').trim();
+  if (!chave || !nome) { console.log('::warning::Cofre fora da NEWPC ainda não configurado (segredos COFRE_CHAVE e COFRE_BUCKET).'); return null; }
+  try {
+    const cred = JSON.parse(chave), { Storage } = await imp('@google-cloud/storage');
+    return new Storage({ credentials: cred, projectId: cred.project_id }).bucket(nome);
+  } catch (e) { console.log('::warning::Cofre: chave inválida (' + e.message + ').'); return null; }
+})();
+const cofreStatus = { ok: 0, ja: 0, erros: 0, ultimoErro: '' };
+// grava só se ainda não existe (ifGenerationMatch 0): o cofre nunca sobrescreve; "já existe" conta como ok
+async function cofrePut(nome, buf) {
+  if (!COFRE) return false;
+  try {
+    await COFRE.file(nome).save(buf, { resumable: buf.length > 8 * 1048576, contentType: 'application/octet-stream', preconditionOpts: { ifGenerationMatch: 0 }, validation: 'md5' });
+    cofreStatus.ok++; return true;
+  } catch (e) {
+    if (e.code === 412) { cofreStatus.ja++; return true; }
+    cofreStatus.erros++; cofreStatus.ultimoErro = String(e.message || e).slice(0, 200);
+    if (cofreStatus.erros <= 3) console.log('::warning::Cofre: ' + nome + ': ' + cofreStatus.ultimoErro);
+    return false;
+  }
+}
+async function cofreNomes(prefixo) {
+  if (!COFRE) return new Set();
+  try { const [fs] = await COFRE.getFiles({ prefix: prefixo }); return new Set(fs.map(f => f.name)); }
+  catch (e) { console.log('::warning::Cofre: não consegui listar ' + prefixo + ' (' + e.message + ')'); return null; }
+}
 rmSync(TMP, { recursive: true, force: true }); mkdirSync(TMP, { recursive: true });
 
 // ---------- WebDAV ----------
@@ -168,6 +204,10 @@ async function backup() {
     const cifrado = await cifrar(readFileSync(TMP + '/pacote.tar'));
     await pasta('diario'); await enviar('diario/' + dia + '.tar.enc', cifrado);
     log('pacote do dia: diario/' + dia + '.tar.enc · ' + (cifrado.length / 1048576).toFixed(1) + ' MB (cifrado)');
+    if (COFRE) {
+      const a = await cofrePut('diario/' + dia + '.tar.enc', cifrado), b = await cofrePut('mensal/' + dia.slice(0, 7) + '.tar.enc', cifrado);
+      log('cofre fora da NEWPC: pacote do dia ' + (a ? 'guardado' : 'FALHOU') + (b ? '' : ' · cópia mensal falhou'));
+    }
     // cópia do mês: a primeira de cada mês fica 12 meses
     await pasta('mensal');
     const mes = dia.slice(0, 7), mensais = await listar('mensal');
@@ -180,7 +220,10 @@ async function backup() {
     const ms = (await listar('mensal')).filter(n => /^\d{4}-\d{2}\.tar\.enc$/.test(n)).sort();
     for (const n of ms.slice(0, Math.max(0, ms.length - MESES_MENSAL))) { const r = await dav('DELETE', 'mensal/' + n); await r.arrayBuffer().catch(() => {}); log('apagado (mais de 12 meses): mensal/' + n); }
     const min = ((Date.now() - t0) / 60000).toFixed(1);
-    await logRef.update({ status: 'ok', bytes: cifrado.length + arq.bytesNovos, documentos: banco.docs, contas, arquivos: arq.total, arquivos_novos: arq.novos, minutos: Number(min), terminado_em: FieldValue.serverTimestamp() });
+    const cofre = !COFRE ? 'nao_configurado' : cofreStatus.erros ? 'erro' : 'ok';
+    if (COFRE) log('cofre fora da NEWPC: ' + cofreStatus.ok + ' gravado(s), ' + cofreStatus.ja + ' já estava(m) lá, ' + cofreStatus.erros + ' erro(s)' + (cofreStatus.ultimoErro ? ' · ' + cofreStatus.ultimoErro : ''));
+    await db.doc('stats/backup_servidor').set({ cofre, cofre_em: FieldValue.serverTimestamp(), cofre_erro: cofreStatus.ultimoErro || '' }, { merge: true }).catch(() => {});
+    await logRef.update({ cofre, status: 'ok', bytes: cifrado.length + arq.bytesNovos, documentos: banco.docs, contas, arquivos: arq.total, arquivos_novos: arq.novos, minutos: Number(min), terminado_em: FieldValue.serverTimestamp() });
     await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: Timestamp.fromMillis(Date.now() + 183 * 864e5), acao: 'criou', origem: 'robo', colecao: 'backup_servidor',
       doc: 'diario/' + dia, autor_uid: '', autor_tipo: 'sistema', municipio_id: '', escola_id: '', campos: ['documentos', 'contas', 'arquivos'], valores: { documentos: { de: null, para: String(banco.docs) }, contas: { de: null, para: String(contas) }, arquivos: { de: null, para: String(arq.total) } } });
     log('backup concluído em ' + min + ' min');
@@ -192,12 +235,13 @@ async function espelharArquivos() {
   const manBuf = await baixar('arquivos/_manifesto.json.enc');
   const man = manBuf ? JSON.parse((await decifrar(manBuf)).toString()) : { arquivos: {} };
   const agora = Date.now(); let novos = 0, bytesNovos = 0, total = 0, erros = 0, apagados = 0; const vivos = new Set();
-  const fila = [];
+  const fila = [], arqs = {};
+  const noCofre = COFRE ? await cofreNomes('arquivos/') : null;
   for (const b of BUCKETS) {
     const [fs] = await getStorage().bucket(b).getFiles();
     for (const f of fs) {
       if (f.name.endsWith('/')) continue;
-      const h = hashDe(b, f.name); vivos.add(h); total++;
+      const h = hashDe(b, f.name); vivos.add(h); total++; arqs[h] = { f, b };
       const m = man.arquivos[h], md5 = f.metadata.md5Hash || '', tam = Number(f.metadata.size || 0);
       if (m && m.md5 === md5 && m.tam === tam) { if (m.sumiu_em) delete m.sumiu_em; continue; }
       fila.push({ f, b, h, md5, tam });
@@ -211,12 +255,27 @@ async function espelharArquivos() {
       try {
         const [buf] = await x.f.download(); const c = await cifrar(buf);
         await pasta('arquivos/' + x.h.slice(0, 2)); await enviar('arquivos/' + x.h.slice(0, 2) + '/' + x.h + '.enc', c);
+        if (COFRE) { await cofrePut('arquivos/' + x.h.slice(0, 2) + '/' + x.h + '.enc', c); noCofre && noCofre.add('arquivos/' + x.h.slice(0, 2) + '/' + x.h + '.enc'); }
         man.arquivos[x.h] = { b: x.b, c: x.f.name, md5: x.md5, tam: x.tam, tipo: x.f.metadata.contentType || '', em: new Date().toISOString() };
         novos++; bytesNovos += c.length;
         if (novos % 200 === 0) { console.log('… ' + novos + '/' + fila.length); await gravarManifesto(man); }
       } catch (e) { erros++; if (erros <= 5) console.log('::warning::' + x.f.name + ': ' + e.message); }
     }
   }));
+  // cofre: o que está no Portal e ainda não está no cofre (a 1ª vez leva tudo; depois, só o que faltar)
+  if (COFRE && noCofre) {
+    const faltam = [...vivos].filter(h => !noCofre.has('arquivos/' + h.slice(0, 2) + '/' + h + '.enc'));
+    if (faltam.length) log('cofre: ' + faltam.length + ' arquivo(s) para completar');
+    let j = 0;
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      while (j < faltam.length) {
+        const h = faltam[j++], x = arqs[h];
+        try { const [buf] = await x.f.download(); await cofrePut('arquivos/' + h.slice(0, 2) + '/' + h + '.enc', await cifrar(buf)); }
+        catch (e) { cofreStatus.erros++; cofreStatus.ultimoErro = String(e.message || e).slice(0, 200); }
+        if (j % 300 === 0) console.log('… cofre ' + j + '/' + faltam.length);
+      }
+    }));
+  }
   // sumiram do Portal: marca; depois de 30 dias, apaga do espelho (mesmo prazo das cópias diárias)
   for (const [h, m] of Object.entries(man.arquivos)) {
     if (vivos.has(h)) continue;
@@ -226,14 +285,17 @@ async function espelharArquivos() {
       delete man.arquivos[h]; apagados++;
     }
   }
-  await gravarManifesto(man);
+  await gravarManifesto(man, true);
   log('espelho de arquivos: ' + novos + ' novos ou alterados (' + (bytesNovos / 1048576).toFixed(1) + ' MB) · ' + erros + ' erro(s) · ' + apagados + ' removido(s) após 30 dias fora do Portal');
   if (erros && !novos && fila.length) throw new Error('nenhum arquivo foi copiado (' + erros + ' erros)');
   return { total, novos, bytesNovos };
 }
-async function gravarManifesto(man) {
+async function gravarManifesto(man, final) {
   man.atualizado_em = new Date().toISOString();
-  await pasta('arquivos'); await enviar('arquivos/_manifesto.json.enc', await cifrar(Buffer.from(JSON.stringify(man))));
+  const c = await cifrar(Buffer.from(JSON.stringify(man)));
+  await pasta('arquivos'); await enviar('arquivos/_manifesto.json.enc', c);
+  // no cofre o manifesto não pode ser trocado: um por dia, com a data no nome (vale o último)
+  if (final && COFRE) await cofrePut('arquivos/_manifesto-' + hojeMT() + '.json.enc', c);
 }
 
 // ---------- etapa: teste de restauração ----------
@@ -272,7 +334,21 @@ async function teste() {
       const b = await decifrar(c), md5 = createHash('md5').update(b).digest('base64');
       if (md5 === man.arquivos[h].md5 || !man.arquivos[h].md5) okArq++; else problemas.push('arquivo diferente do original: ' + man.arquivos[h].c);
     }
-    const res = 'pacote ' + ultimo + ': ' + validas + ' documentos, ' + contas.total + ' contas, código ok' + (problemas.some(p => p.startsWith('código')) ? ' (não)' : '') + ', ' + okArq + '/' + hs.length + ' arquivos conferidos';
+    // cofre: o último pacote do cofre também abre com a senha e tem o resumo
+    let resCofre = '';
+    if (COFRE) {
+      try {
+        const nomes = [...((await cofreNomes('diario/')) || [])].filter(n => /\.tar\.enc$/.test(n)).sort();
+        if (!nomes.length) problemas.push('cofre: nenhum pacote diário');
+        else {
+          const [b] = await COFRE.file(nomes[nomes.length - 1]).download(), t = await decifrar(b); writeFileSync(TMP + '/c.tar', t);
+          const lista = execFileSync('tar', ['-tf', TMP + '/c.tar']).toString();
+          if (!/resumo\.json/.test(lista)) problemas.push('cofre: o pacote ' + nomes[nomes.length - 1] + ' não tem o resumo');
+          else resCofre = ', cofre ok (' + nomes[nomes.length - 1].replace('diario/', '') + ')';
+        }
+      } catch (e) { problemas.push('cofre: ' + String(e.message || e).slice(0, 120)); }
+    }
+    const res = 'pacote ' + ultimo + ': ' + validas + ' documentos, ' + contas.total + ' contas, código ok' + (problemas.some(p => p.startsWith('código')) ? ' (não)' : '') + ', ' + okArq + '/' + hs.length + ' arquivos conferidos' + resCofre;
     log(res); problemas.forEach(p => console.log('::warning::' + p));
     await logRef.update({ status: problemas.length ? 'erro' : 'ok', documentos: validas, contas: contas.total, arquivos: okArq, resultado: res.slice(0, 300), erro: problemas.join(' | ').slice(0, 300), terminado_em: FieldValue.serverTimestamp() });
     await db.doc('stats/backup_servidor').set({ ultimo_teste: FieldValue.serverTimestamp(), ultimo_teste_ok: !problemas.length, ultimo_teste_resultado: res.slice(0, 300) }, { merge: true });
