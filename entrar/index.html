@@ -1220,6 +1220,15 @@
   .sim-bloco{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:8px;align-content:start }
   .sim-bloco h3{ font-size:15px;margin:0 0 2px } .sim-res > h2{ font-size:18px;margin:0 0 10px }
   .sim-pills{ display:flex;gap:6px;flex-wrap:wrap }
+  .sim-loc{ display:grid;gap:12px;max-width:1080px } .sim-topo{ grid-template-columns:auto 1fr 160px;align-items:end;gap:14px }
+  .sim-bloco h3 small{ font-weight:400;color:var(--muted);font-size:12.5px;margin-left:6px }
+  .sim-in{ font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;width:100%;box-sizing:border-box }
+  .sim-in.num{ text-align:right } .sim-itens td{ padding:5px 6px } .sim-itens td:nth-child(1){ width:44% } .sim-itens td:nth-child(2){ width:12% } .sim-itens td:nth-child(3){ width:18% }
+  .sim-itens td.num{ text-align:right;white-space:nowrap;font-weight:700 } .sim-x{ border:0;background:#fdeceb;color:#8c1d18;border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:700 }
+  .sim-add{ max-width:320px } .sim-resumo{ width:100%;border-collapse:collapse;font-size:15px } .sim-resumo td{ padding:9px 4px;border-bottom:1px solid var(--line) }
+  .sim-resumo td:last-child{ text-align:right;white-space:nowrap;font-weight:700 } .sim-resumo small{ display:block;font-size:12px;color:var(--muted) }
+  .sim-resumo tr.tot td{ font-size:20px;font-weight:800;color:#1a6b2a;background:#eef7e3 } .sim-chips{ display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;margin:12px 0 0 }
+  @media (max-width:700px){ .sim-topo{ grid-template-columns:1fr } }
   .sim-box{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px } .sim-box h3{ font-size:15px;margin:14px 0 8px } .sim-box h3:first-child{ margin-top:0 }
   .sim-res{ position:static } .sim-c{ display:grid;gap:4px;font-size:12.5px;font-weight:700;color:#0f2c4a } .sim-c small{ font-weight:400;color:var(--muted) }
   .sim-c input,.sim-c select{ font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;width:100%;box-sizing:border-box;font-weight:400 }
@@ -5351,6 +5360,21 @@
   const DISPENSA_ANO = 65492.11;   // art. 75, II da Lei 14.133 em 2026 (Decreto 12.807/2025)
   const SIM_PLANOS = [["basico","Básico"],["inter","Intermediário"],["compl","Completo"]];
   const SIM_DISP = { tablet:["Tablet", "vTablet"], chromebook:["Chromebook", "vChromebook"], notebook:["Notebook", "vNotebook"] };
+  // locação montada como lista de itens (nov/2026): o administrador adiciona linha por linha; o valor digitado fica lembrado por item
+  const SIM_CATALOGO = [["Lousa", 1600], ["Carrinho com roteador", 450], ["Tablet", 105], ["Chromebook", 220], ["Notebook", 0],
+    ["Licença Google for Education", 0], ["Óculos VR", 0], ["Carrinho de recarga VR", 0], ["Roteador avulso", 0], ["Outro item", 0]];
+  function simItensIniciais(){
+    const d = SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet, kit = +SIM.salasKit || 6, lou = +SIM.salasLousa || 0;
+    return [{ nome:"Lousa", qtd:kit + lou, valor:+SIM.vLousa || 1600 }, { nome:"Carrinho com roteador", qtd:kit, valor:+SIM.vCarrinho || 450 },
+      { nome:d[0], qtd:kit * (+SIM.dispSala || 30), valor:+SIM[d[1]] || 105 }];
+  }
+  // salas: as lousas dizem quantas salas há; os carrinhos dizem quantas têm dispositivos. O resto é sala só com lousa.
+  function simSincSalas(){
+    if(!Array.isArray(SIM.itens)) return;
+    const q = re => SIM.itens.filter(i => re.test(i.nome || "")).reduce((t, i) => t + (+i.qtd || 0), 0);
+    const lousas = q(/^lousa/i), carrinhos = q(/^carrinho com roteador/i);
+    SIM.salasKit = Math.min(lousas, carrinhos); SIM.salasLousa = Math.max(0, lousas - carrinhos);
+  }
   const SIM_PADRAO = { muni:"", nome:"", alunos:0, escolas:0, profs:0, prazo:12, tipo:"avulso", basico:3, inter:6, compl:10, implantacao:20000, turmas:4, valorTurma:2500,
     ia:6000, infra:0.35, suporte:1500, impostos:15, comissao:0, plano:"inter",
     // junto da locação (nov/2026): o Portal pago é cobrado por sala equipada; sala só com lousa (1º ao 3º ano) paga uma fração
@@ -5366,6 +5390,7 @@
     if(!SIM){ SIM = { ...SIM_PADRAO }; try{ Object.assign(SIM, JSON.parse(localStorage.getItem("pde_simulador") || "{}")); }catch(e){} }
     if(!simMunis){ try{ const sn = await getDocs(query(collection(db,"municipios"), orderBy("nome"))); simMunis = []; sn.forEach(d => { if(d.data().status !== "arquivado") simMunis.push({ id:d.id, nome:(d.data().nome || d.id) + (d.data().uf ? "/" + d.data().uf : "") }); }); }catch(e){ simMunis = []; } }
     const campo = (k, rot, passo, dica) => '<label class="sim-c"><span>'+rot+'</span><input type="number" min="0" step="'+(passo || 1)+'" data-sim="'+k+'" value="'+escapeAttr(String(SIM[k]))+'">'+(dica ? '<small>'+dica+'</small>' : '')+'</label>';
+    if(SIM.tipo === "locacao") return renderSimLocacao(campo);
     const loc = SIM.tipo === "locacao", d = SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"];
     const pill = (acao, arg, txt, on) => '<button type="button" class="md-pill'+(on ? " on" : "")+'" data-action="'+acao+'" data-arg="'+arg+'">'+txt+'</button>';
     const bloco = (tit, corpo) => '<div class="sim-bloco"><h3>'+tit+'</h3>'+corpo+'</div>';
@@ -5403,10 +5428,65 @@
       '</div><section class="sim-box sim-res"><h2>Resultado</h2><div id="simRes"></div></section></div>';
     simAtualizar();
   }
+  function renderSimLocacao(campo){
+    if(!Array.isArray(SIM.itens)) SIM.itens = simItensIniciais();
+    if(!SIM.precos) SIM.precos = {};
+    const pill = (acao, arg, txt, on) => '<button type="button" class="md-pill'+(on ? " on" : "")+'" data-action="'+acao+'" data-arg="'+arg+'">'+txt+'</button>';
+    const linhas = SIM.itens.map((i, n) => '<tr><td><input class="sim-in" data-simit="'+n+':nome" value="'+escapeAttr(i.nome || "")+'" aria-label="Item"></td>' +
+      '<td><input class="sim-in num" type="number" min="0" step="1" data-simit="'+n+':qtd" value="'+escapeAttr(String(i.qtd || 0))+'" aria-label="Quantidade"></td>' +
+      '<td><input class="sim-in num" type="number" min="0" step="0.01" data-simit="'+n+':valor" value="'+escapeAttr(String(i.valor || 0))+'" aria-label="Valor por mês"></td>' +
+      '<td class="num" data-simtot="'+n+'">'+reais((+i.qtd || 0) * (+i.valor || 0))+'</td>' +
+      '<td><button type="button" class="sim-x" data-action="sim-item-del" data-arg="'+n+'" title="Remover">✕</button></td></tr>').join("");
+    $("conteudo").innerHTML = '<div class="sim-loc">' +
+      '<div class="sim-bloco sim-topo"><div class="sim-pills">' + pill("sim-tipo", "avulso", "Portal avulso", false) + pill("sim-tipo", "locacao", "Junto da locação NEWPC", true) + '</div>' +
+        '<label class="sim-c"><span>Município</span><input id="simNome" class="sim-in" value="'+escapeAttr(SIM.nome || "")+'" placeholder="Ex.: Itaporã/MS"></label>' + campo("prazo", "Prazo (meses)") + '</div>' +
+      '<div class="sim-bloco"><h3>1. Monte o projeto <small>valores por mês</small></h3>' +
+        '<div class="sim-tab"><table class="sim-itens"><thead><tr><th>Item</th><th>Qtd.</th><th>Valor/mês</th><th>Total/mês</th><th></th></tr></thead><tbody>' + linhas + '</tbody></table></div>' +
+        '<label class="sim-c sim-add"><span>+ Adicionar item</span><select id="simAdd"><option value="">Escolha...</option>' + SIM_CATALOGO.map(c => '<option>'+escapeHtml(c[0])+'</option>').join("") + '</select></label>' +
+        '<p class="sim-nota">As salas saem da lista: cada lousa é uma sala; as que têm carrinho são salas com dispositivos, as outras são só com lousa (1º ao 3º ano).</p></div>' +
+      '<div class="sim-bloco"><h3>2. Portal do Educador</h3><div class="sim-3">' + campo("salaInter", "Intermediário (R$/sala)", 10) + campo("salaCompl", "Completo (R$/sala)", 10) +
+        campo("pctLousa", "Sala só com lousa paga (%)", 5) + campo("alunosSala", "Alunos por sala", 1, "somando os turnos") + '</div><p class="sim-nota">Básico: sem custo na locação.</p></div>' +
+      '<section class="sim-box sim-res"><h2>Resultado</h2><div id="simRes"></div></section>' +
+      '<details class="sim-bloco sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>Itens à parte e custos da NEWPC</summary>' +
+        '<div class="sim-3">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA extras (por ano)", 500) + campo("turmas", "Formação: turmas de 4h") + campo("valorTurma", "Valor por turma", 100) + '</div>' +
+        '<div class="sim-3">' + campo("infra", "Infra por aluno/mês (R$)", 0.05) + campo("suporte", "Suporte (R$/mês)", 100) + campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) +
+        campo("margemAlvo", "Margem desejada (%)", 1) + campo("profsSala", "Professores usando", 1) + campo("iaInter", "IA/professor/mês · Interm.", 0.5) + campo("iaCompl", "IA/professor/mês · Completo", 0.5) + '</div></details>' +
+      '</div>';
+    simAtualizar();
+  }
+  function simAtualizarLocacao(){
+    const box = $("simRes"); if(!box) return;
+    const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], N = Math.max(1, +SIM.prazo || 12), loc = r[0].locMes;
+    (SIM.itens || []).forEach((i, n) => { const c = document.querySelector('[data-simtot="'+n+'"]'); if(c) c.textContent = reais((+i.qtd || 0) * (+i.valor || 0)); });
+    if(!loc){ box.innerHTML = '<div class="empty">Adicione os itens da locação para ver o resultado.</div>'; return; }
+    const kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, total = loc + sel.mensal, extras = (+SIM.implantacao || 0) + sel.formacao + (+SIM.ia || 0);
+    const disp = sel.ano1 + loc * Math.min(12, N) <= DISPENSA_ANO, dispPortal = sel.ano1 <= DISPENSA_ANO;
+    const pill = (k, txt) => '<button type="button" class="md-pill'+(sel.k === k ? " on" : "")+'" data-action="sim-plano" data-arg="'+k+'">'+txt+'</button>';
+    const salasTxt = sel.gratis ? "incluso na locação" : (kit ? kit + " × " + reais(sel.precoSala) : "") + (lou ? (kit ? " + " : "") + lou + " só lousa × " + reais(sel.precoSala * (+SIM.pctLousa || 0) / 100) : "");
+    box.innerHTML =
+      '<p class="sim-nota" style="margin:0 0 8px">' + escapeHtml(SIM.nome || "Município") + ' · ' + (kit + lou) + (kit + lou === 1 ? " sala" : " salas") + ' (' + kit + ' com dispositivos, ' + lou + ' só com lousa)</p>' +
+      '<div class="sim-pills" style="margin-bottom:10px">' + pill("basico", "Básico (incluso)") + pill("inter", "Intermediário") + pill("compl", "Completo") + '</div>' +
+      '<table class="sim-resumo"><tbody>' +
+        '<tr><td>Locação dos equipamentos</td><td>' + reais(loc) + '</td></tr>' +
+        '<tr><td>Portal do Educador · ' + sel.nome + '<small>' + salasTxt + '</small></td><td>' + reais(sel.mensal) + '</td></tr>' +
+        '<tr class="tot"><td>Total do projeto por mês</td><td>' + reais(total) + '</td></tr>' +
+        '<tr><td>Por ano</td><td>' + reais(total * 12) + '</td></tr>' +
+        (extras ? '<tr><td>Itens à parte no 1º ano<small>implantação, formação e IA extra</small></td><td>' + reais(extras) + '</td></tr>' : '') +
+      '</tbody></table>' +
+      (sel.gratis ? '<p class="sim-chips"><span class="sim-m ok">Portal sem custo para a prefeitura</span><span class="sim-l">Custo absorvido pela NEWPC: ' + reais0(sel.custoMes) + '/mês</span></p>'
+        : '<p class="sim-chips"><span class="sim-l"><b>' + sel.pctLoc.toFixed(1).replace(".", ",") + '%</b> sobre a locação' + (sel.pctLoc > 15 ? " (acima do teto de 15%)" : "") + '</span>' +
+          '<span class="sim-l"><b>' + reais(sel.porAluno) + '</b> por aluno/mês</span>' +
+          '<span class="sim-m ' + (sel.margem >= 0 ? "ok" : "neg") + '">Margem do Portal: ' + reais0(sel.margem) + '/mês (' + sel.margemPct.toFixed(0) + '%)</span>' +
+          '<span class="sim-l">Para ' + (+SIM.margemAlvo || 0) + '% de margem: <b>' + reais0(sel.sugerido) + '</b> por sala</span>' +
+          '<span class="sim-e ' + (dispPortal ? "disp" : "preg") + '">' + (dispPortal ? "Upgrade do Portal cabe em dispensa (art. 75, II)" : "Portal acima da dispensa: pregão") + '</span></p>') +
+      '<details class="sim-det"><summary>Itens para proposta e TR</summary>' + simComposicao(sel) + simTabela(sel, N) +
+        '<div class="sim-acoes"><button type="button" class="btn btn-ghost" data-action="sim-copiar">Copiar para planilha</button><button type="button" class="btn btn-primary" data-action="sim-imprimir">Imprimir / PDF</button></div></details>';
+  }
   // locação: o que a prefeitura paga de equipamento por mês (para ver quanto o Portal pesa no projeto)
   function simDispValor(){ const d = SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet; return +SIM[d[1]] || 0; }
   // composição da locação por mês: [rótulo, quantidade, valor unitário]
   function simLocacaoItens(){
+    if(Array.isArray(SIM.itens)) return SIM.itens.map(i => [i.nome || "Item", +i.qtd || 0, +i.valor || 0]).filter(i => i[1] > 0);
     const kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, disp = kit * (+SIM.dispSala || 0), d = SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet;
     const it = [["Lousa", kit + lou, +SIM.vLousa || 0], ["Carrinho com roteador", kit, +SIM.vCarrinho || 0], [d[0], disp, simDispValor()]];
     if(+SIM.vGoogle) it.push(["Licença Google for Education", disp, +SIM.vGoogle]);
@@ -5415,6 +5495,7 @@
   }
   function simLocacaoMes(){ return simLocacaoItens().reduce((t, i) => t + i[1] * i[2], 0); }
   function simCalcLocacao(){
+    simSincSalas();
     const N = Math.max(1, +SIM.prazo || 12), anos = N / 12, kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, frac = (+SIM.pctLousa || 0) / 100;
     const salasEq = kit + lou * frac, alunos = (kit + lou) * (+SIM.alunosSala || 0), P = +SIM.profsSala || 0, locMes = simLocacaoMes();
     const formacao = (+SIM.turmas || 0) * (+SIM.valorTurma || 0), divisor = 1 - ((+SIM.impostos || 0) + (+SIM.comissao || 0) + (+SIM.margemAlvo || 0)) / 100;
@@ -5442,6 +5523,7 @@
     });
   }
   function simAtualizar(){
+    if(SIM && SIM.tipo === "locacao") return simAtualizarLocacao();
     const box = $("simRes"); if(!box) return;
     const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12), loc = SIM.tipo === "locacao";
     const salas = (+SIM.salasKit || 0) + (+SIM.salasLousa || 0);
@@ -5507,16 +5589,34 @@
     return [["Item","Unidade","Qtd.","Valor unit.","Total"].join("\t"), ...simItens(x, N).map((i, n) => [(n + 1) + ". " + i[0], i[1], String(i[2]).replace(".", ","), i[3].toFixed(2).replace(".", ","), (i[2] * i[3]).toFixed(2).replace(".", ",")].join("\t"))].join("\n");
   }
   document.addEventListener("input", ev => {
-    const k = ev.target && ev.target.dataset ? ev.target.dataset.sim : ""; if(!k || !SIM) return;
+    const t = ev.target; if(!t || !SIM) return;
+    if(t.id === "simNome"){ SIM.nome = t.value; simGuardar(); simAtualizar(); return; }
+    if(t.dataset && t.dataset.simit){
+      const [n, campo] = t.dataset.simit.split(":"), it = SIM.itens && SIM.itens[+n]; if(!it) return;
+      it[campo] = campo === "nome" ? t.value : (t.value === "" ? 0 : Number(t.value));
+      if(campo === "valor" && it.nome){ SIM.precos = SIM.precos || {}; SIM.precos[it.nome] = it.valor; }
+      simGuardar(); simAtualizar(); return;
+    }
+    const k = t.dataset ? t.dataset.sim : ""; if(!k) return;
     SIM[k] = ev.target.value === "" ? 0 : Number(ev.target.value); simGuardar(); simAtualizar();
   });
-  document.addEventListener("change", ev => { if(ev.target && ev.target.id === "simMuni") simEscolherMuni(ev.target.value); });
+  document.addEventListener("change", ev => {
+    if(ev.target && ev.target.id === "simMuni") simEscolherMuni(ev.target.value);
+    if(ev.target && ev.target.id === "simAdd" && ev.target.value && SIM){
+      const nome = ev.target.value, cat = SIM_CATALOGO.find(c => c[0] === nome), lembrado = SIM.precos && SIM.precos[nome];
+      const salas = (+SIM.salasKit || 0) + (+SIM.salasLousa || 0), porSala = /^(tablet|chromebook|notebook)$/i.test(nome) ? 30 * (+SIM.salasKit || 1) : salas || 1;
+      SIM.itens = SIM.itens || []; SIM.itens.push({ nome:nome === "Outro item" ? "" : nome, qtd:/licença google/i.test(nome) ? simDispositivos() : porSala, valor:lembrado != null ? lembrado : (cat ? cat[1] : 0) });
+      simGuardar(); renderSimulador();
+    }
+  });
+  function simDispositivos(){ return (SIM.itens || []).filter(i => /^(tablet|chromebook|notebook)/i.test(i.nome || "")).reduce((t, i) => t + (+i.qtd || 0), 0); }
   document.addEventListener("toggle", ev => { if(ev.target && ev.target.classList && ev.target.classList.contains("sim-det") && SIM){ SIM.abrirCustos = ev.target.open; simGuardar(); } }, true);
   document.addEventListener("click", async ev => {
     const el = ev.target.closest("[data-action^='sim-']"); if(!el || !SIM) return;
     const a = el.dataset.action;
     if(a === "sim-tipo"){ SIM.tipo = el.dataset.arg; simGuardar(); renderSimulador(); }
     else if(a === "sim-disp"){ SIM.tipoDisp = el.dataset.arg; simGuardar(); renderSimulador(); }
+    else if(a === "sim-item-del"){ (SIM.itens || []).splice(+el.dataset.arg, 1); simGuardar(); renderSimulador(); }
     else if(a === "sim-plano"){ SIM.plano = el.dataset.arg; simGuardar(); simAtualizar(); }
     else if(a === "sim-copiar"){ try{ await navigator.clipboard.writeText(simTexto()); toast("Copiado. Cole no Excel ou no Google Planilhas."); }catch(e){ toast("Não consegui copiar neste navegador.", true); } }
     else if(a === "sim-imprimir"){
