@@ -5351,7 +5351,7 @@
     ia:6000, infra:0.35, suporte:1500, impostos:15, comissao:0, plano:"inter",
     // junto da locação (nov/2026): o Portal pago é cobrado por sala equipada; sala só com lousa (1º ao 3º ano) paga uma fração
     salasKit:6, salasLousa:0, alunosSala:50, vLousa:1600, vCarrinho:450, dispSala:30,
-    tipoDisp:"tablet", vTablet:105, vChromebook:220, vNotebook:0, vGoogle:0,
+    tipoDisp:"tablet", vTablet:105, vChromebook:220, vNotebook:0, vGoogle:0, qVr:0, vVr:0, qCarVr:0, vCarVr:0,
     salaInter:360, salaCompl:600, pctLousa:50, profsSala:20, iaInter:0, iaCompl:0, margemAlvo:40 };
   const SIM_PRESETS = { "est-sonora":{ nome:"Sonora/MS (estimativa)", alunos:2200, escolas:8, profs:130 } };
   let SIM = null, simMunis = null;
@@ -5377,6 +5377,8 @@
           '<span class="sim-rot">Equipamento do aluno</span><div class="sim-op">' + Object.entries(SIM_DISP).map(([k, d]) => '<button type="button" class="md-pill'+(SIM.tipoDisp === k ? " on" : "")+'" data-action="sim-disp" data-arg="'+k+'">'+d[0]+'</button>').join("") + '</div>' +
           '<div class="sim-2">' + campo(SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"][1], SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"][0] + " (R$/mês cada)", 5) + campo("dispSala", "Dispositivos por sala", 1) +
             campo("vGoogle", "Licença Google for Education (R$/mês por dispositivo)", 0.5, "Chrome Education Upgrade ou similar; 0 se não houver") + '</div>' +
+          '<span class="sim-rot">Realidade virtual (opcional)</span><div class="sim-2">' + campo("qVr", "Óculos VR (quantidade no projeto)", 1) + campo("vVr", "Óculos VR (R$/mês cada)", 5) +
+            campo("qCarVr", "Carrinho de recarga VR (quantidade)", 1) + campo("vCarVr", "Carrinho de recarga VR (R$/mês cada)", 10) + '</div>' +
           '<h3>4. Preço do Portal por sala/mês</h3><div class="sim-3">' + campo("salaInter", "Intermediário", 10) + campo("salaCompl", "Completo", 10) + campo("pctLousa", "Sala só com lousa paga (%)", 5, "do preço da sala") + '</div><p class="sim-nota">Básico: sem custo na locação.</p>'
         : '<h3>3. Preço por aluno/mês</h3><div class="sim-3">' + campo("basico", "Básico", 0.1) + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>') +
       '<h3>' + (SIM.tipo === "locacao" ? "5" : "4") + '. Itens à parte</h3><div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) +
@@ -5396,6 +5398,7 @@
     const kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, disp = kit * (+SIM.dispSala || 0), d = SIM_DISP[SIM.tipoDisp] || SIM_DISP.tablet;
     const it = [["Lousa", kit + lou, +SIM.vLousa || 0], ["Carrinho com roteador", kit, +SIM.vCarrinho || 0], [d[0], disp, simDispValor()]];
     if(+SIM.vGoogle) it.push(["Licença Google for Education", disp, +SIM.vGoogle]);
+    it.push(["Óculos VR", +SIM.qVr || 0, +SIM.vVr || 0], ["Carrinho de recarga VR", +SIM.qCarVr || 0, +SIM.vCarVr || 0]);
     return it.filter(i => i[1] > 0);
   }
   function simLocacaoMes(){ return simLocacaoItens().reduce((t, i) => t + i[1] * i[2], 0); }
