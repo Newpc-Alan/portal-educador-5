@@ -1225,7 +1225,7 @@
   .sim-in{ font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;width:100%;box-sizing:border-box }
   .sim-in.num{ text-align:right } .sim-itens td{ padding:5px 6px } .sim-itens td:nth-child(1){ width:44% } .sim-itens td:nth-child(2){ width:12% } .sim-itens td:nth-child(3){ width:18% }
   .sim-itens td.num{ text-align:right;white-space:nowrap;font-weight:700 } .sim-x{ border:0;background:#fdeceb;color:#8c1d18;border-radius:8px;width:30px;height:30px;cursor:pointer;font-weight:700 }
-  .sim-add{ max-width:320px } .sim-resumo{ width:100%;border-collapse:collapse;font-size:15px } .sim-resumo td{ padding:9px 4px;border-bottom:1px solid var(--line) }
+  .sim-add{ max-width:320px } .sim-fixo{ display:block;text-align:right;padding:7px 9px;color:var(--muted) } .sim-resumo{ width:100%;border-collapse:collapse;font-size:15px } .sim-resumo td{ padding:9px 4px;border-bottom:1px solid var(--line) }
   .sim-resumo td:last-child{ text-align:right;white-space:nowrap;font-weight:700 } .sim-resumo small{ display:block;font-size:12px;color:var(--muted) }
   .sim-resumo tr.tot td{ font-size:20px;font-weight:800;color:#1a6b2a;background:#eef7e3 } .sim-chips{ display:flex;gap:8px 14px;flex-wrap:wrap;align-items:center;margin:12px 0 0 }
   @media (max-width:700px){ .sim-topo{ grid-template-columns:1fr } }
@@ -5391,6 +5391,7 @@
     if(!simMunis){ try{ const sn = await getDocs(query(collection(db,"municipios"), orderBy("nome"))); simMunis = []; sn.forEach(d => { if(d.data().status !== "arquivado") simMunis.push({ id:d.id, nome:(d.data().nome || d.id) + (d.data().uf ? "/" + d.data().uf : "") }); }); }catch(e){ simMunis = []; } }
     const campo = (k, rot, passo, dica) => '<label class="sim-c"><span>'+rot+'</span><input type="number" min="0" step="'+(passo || 1)+'" data-sim="'+k+'" value="'+escapeAttr(String(SIM[k]))+'">'+(dica ? '<small>'+dica+'</small>' : '')+'</label>';
     if(SIM.tipo === "locacao") return renderSimLocacao(campo);
+    return renderSimAvulso(campo);
     const loc = SIM.tipo === "locacao", d = SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"];
     const pill = (acao, arg, txt, on) => '<button type="button" class="md-pill'+(on ? " on" : "")+'" data-action="'+acao+'" data-arg="'+arg+'">'+txt+'</button>';
     const bloco = (tit, corpo) => '<div class="sim-bloco"><h3>'+tit+'</h3>'+corpo+'</div>';
@@ -5454,6 +5455,54 @@
       '</div>';
     simAtualizar();
   }
+  function renderSimAvulso(campo){
+    const pill = (acao, arg, txt, on) => '<button type="button" class="md-pill'+(on ? " on" : "")+'" data-action="'+acao+'" data-arg="'+arg+'">'+txt+'</button>';
+    const inp = (k, passo) => '<input class="sim-in num" type="number" min="0" step="'+(passo || 1)+'" data-sim="'+k+'" value="'+escapeAttr(String(SIM[k]))+'">';
+    const serv = (rot, kq, kv, fixo) => '<tr><td>'+rot+'</td><td>'+(fixo ? '<span class="sim-fixo">'+fixo+'</span>' : inp(kq))+'</td><td>'+inp(kv, 100)+'</td><td class="num" data-simsv="'+kv+'"></td></tr>';
+    $("conteudo").innerHTML = '<div class="sim-loc">' +
+      '<div class="sim-bloco sim-topo"><div class="sim-pills">' + pill("sim-tipo", "avulso", "Portal avulso", true) + pill("sim-tipo", "locacao", "Junto da locação NEWPC", false) + '</div>' +
+        '<label class="sim-c"><span>Município</span><select id="simMuni"><option value="">Digitar os números</option>' +
+        Object.entries(SIM_PRESETS).map(([k, p]) => '<option value="'+k+'"'+(SIM.muni === k ? " selected" : "")+'>'+escapeHtml(p.nome)+'</option>').join("") +
+        '<optgroup label="Cadastrados no Portal">' + simMunis.map(m => '<option value="'+escapeAttr(m.id)+'"'+(SIM.muni === m.id ? " selected" : "")+'>'+escapeHtml(m.nome)+'</option>').join("") + '</optgroup></select></label>' +
+        campo("prazo", "Prazo (meses)") + '</div>' +
+      '<div class="sim-bloco"><h3>1. A rede</h3><div class="sim-3">' + campo("alunos", "Alunos") + campo("escolas", "Escolas") + campo("profs", "Professores") + '</div><p id="simFonte" class="sim-nota"></p></div>' +
+      '<div class="sim-bloco"><h3>2. Preço do Portal <small>por aluno/mês</small></h3><div class="sim-3">' + campo("basico", "Básico", 0.1) + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div></div>' +
+      '<div class="sim-bloco"><h3>3. Serviços à parte <small>valor total no contrato</small></h3>' +
+        '<div class="sim-tab"><table class="sim-itens"><thead><tr><th>Serviço</th><th>Qtd.</th><th>Valor unit.</th><th>Total</th></tr></thead><tbody>' +
+        serv("Implantação: cadastros, importação e configuração", "", "implantacao", "1") + serv("Formação docente (turma de 4h)", "turmas", "valorTurma") + serv("Créditos de IA extras (pacote por ano)", "", "ia", "1/ano") +
+        '</tbody></table></div><p class="sim-nota">Deixe o valor em 0 para tirar o serviço da proposta.</p></div>' +
+      '<section class="sim-box sim-res"><h2>Resultado</h2><div id="simRes"></div></section>' +
+      '<details class="sim-bloco sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>Custos da NEWPC (para a margem)</summary><div class="sim-3">' +
+        campo("infra", "Infra por aluno/mês (R$)", 0.05) + campo("suporte", "Suporte (R$/mês)", 100) + campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) +
+        campo("margemAlvo", "Margem desejada (%)", 1) + campo("iaInter", "IA/professor/mês · Interm.", 0.5) + campo("iaCompl", "IA/professor/mês · Completo", 0.5) + '</div></details>' +
+      '</div>';
+    simAtualizar();
+  }
+  function simAtualizarAvulso(){
+    const box = $("simRes"); if(!box) return;
+    const sv = { implantacao:+SIM.implantacao || 0, valorTurma:(+SIM.turmas || 0) * (+SIM.valorTurma || 0), ia:+SIM.ia || 0 };
+    Object.entries(sv).forEach(([k, v]) => { const c = document.querySelector('[data-simsv="'+k+'"]'); if(c) c.textContent = reais(v); });
+    const A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12);
+    if(!A){ box.innerHTML = '<div class="empty">Escolha um município ou digite o número de alunos.</div>'; return; }
+    const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], extras = sv.implantacao + sv.valorTurma + sv.ia, disp = sel.ano1 <= DISPENSA_ANO;
+    const pill = (k, txt) => '<button type="button" class="md-pill'+(sel.k === k ? " on" : "")+'" data-action="sim-plano" data-arg="'+k+'">'+txt+'</button>';
+    box.innerHTML =
+      '<p class="sim-nota" style="margin:0 0 8px">' + escapeHtml(SIM.nome || "Município") + ' · ' + A.toLocaleString("pt-BR") + ' alunos · ' + (+SIM.escolas || 0) + ' escolas · ' + (+SIM.profs || 0) + ' professores</p>' +
+      '<div class="sim-pills" style="margin-bottom:10px">' + pill("basico", "Básico") + pill("inter", "Intermediário") + pill("compl", "Completo") + '</div>' +
+      '<table class="sim-resumo"><tbody>' +
+        '<tr><td>Licença · ' + sel.nome + '<small>' + A.toLocaleString("pt-BR") + ' alunos × ' + reais(sel.preco) + '</small></td><td>' + reais(sel.mensal) + '/mês</td></tr>' +
+        '<tr><td>Licença por ano</td><td>' + reais(sel.anual) + '</td></tr>' +
+        (extras ? '<tr><td>Serviços à parte<small>implantação, formação e IA extra</small></td><td>' + reais(extras) + '</td></tr>' : '') +
+        '<tr class="tot"><td>Total do 1º ano</td><td>' + reais(sel.ano1) + '</td></tr>' +
+        (N !== 12 ? '<tr><td>Contrato de ' + N + ' meses</td><td>' + reais(sel.total) + '</td></tr>' : '') +
+      '</tbody></table>' +
+      '<p class="sim-chips"><span class="sim-l"><b>' + reais(sel.porProf) + '</b> por professor/mês</span>' +
+        '<span class="sim-m ' + (sel.margem >= 0 ? "ok" : "neg") + '">Margem da licença: ' + reais0(sel.margem) + '/mês (' + sel.margemPct.toFixed(0) + '%)</span>' +
+        '<span class="sim-l">Para ' + (+SIM.margemAlvo || 0) + '% de margem: <b>' + reais(sel.sugerido) + '</b> por aluno/mês</span>' +
+        '<span class="sim-e ' + (disp ? "disp" : "preg") + '">' + (disp ? "Cabe em dispensa (art. 75, II)" : "Pregão eletrônico, de preferência com Ata de Registro de Preços") + '</span></p>' +
+      '<details class="sim-det"><summary>Itens para proposta e TR</summary>' + simTabela(sel, N) +
+        '<div class="sim-acoes"><button type="button" class="btn btn-ghost" data-action="sim-copiar">Copiar para planilha</button><button type="button" class="btn btn-primary" data-action="sim-imprimir">Imprimir / PDF</button></div></details>';
+  }
   function simAtualizarLocacao(){
     const box = $("simRes"); if(!box) return;
     const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], N = Math.max(1, +SIM.prazo || 12), loc = r[0].locMes;
@@ -5513,17 +5562,20 @@
   function simCalc(){
     if(SIM.tipo === "locacao") return simCalcLocacao();
     const A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12), anos = N / 12, P = +SIM.profs || 0;
-    const formacao = (+SIM.turmas || 0) * (+SIM.valorTurma || 0), custoMes = A * (+SIM.infra || 0) + (+SIM.suporte || 0);
+    const formacao = (+SIM.turmas || 0) * (+SIM.valorTurma || 0), base = A * (+SIM.infra || 0) + (+SIM.suporte || 0);
+    const divisor = 1 - ((+SIM.impostos || 0) + (+SIM.comissao || 0) + (+SIM.margemAlvo || 0)) / 100;
     return SIM_PLANOS.map(([k, nome]) => {
+      const custoMes = base + (k === "basico" ? 0 : P * (+SIM[k === "inter" ? "iaInter" : "iaCompl"] || 0)), sugerido = divisor > 0 && A ? custoMes / divisor / A : 0;
       const gratis = SIM.tipo === "locacao" && k === "basico", preco = gratis ? 0 : (+SIM[k] || 0), mensal = A * preco;
       const ano1 = mensal * Math.min(12, N) + (+SIM.implantacao || 0) + formacao + (+SIM.ia || 0);
       const total = mensal * N + (+SIM.implantacao || 0) + formacao + (+SIM.ia || 0) * anos;
       const liquido = mensal * (1 - ((+SIM.impostos || 0) + (+SIM.comissao || 0)) / 100), margem = liquido - custoMes;
-      return { k, nome, gratis, preco, mensal, anual:mensal * 12, ano1, total, porProf:P ? mensal / P : 0, custoMes, margem, margemPct:mensal ? margem / mensal * 100 : 0, formacao };
+      return { k, nome, gratis, preco, mensal, anual:mensal * 12, ano1, total, porProf:P ? mensal / P : 0, custoMes, margem, margemPct:mensal ? margem / mensal * 100 : 0, formacao, sugerido };
     });
   }
   function simAtualizar(){
     if(SIM && SIM.tipo === "locacao") return simAtualizarLocacao();
+    if(SIM && $("simRes") && document.querySelector("[data-simsv]")) return simAtualizarAvulso();
     const box = $("simRes"); if(!box) return;
     const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12), loc = SIM.tipo === "locacao";
     const salas = (+SIM.salasKit || 0) + (+SIM.salasLousa || 0);
