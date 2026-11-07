@@ -10,11 +10,12 @@ const { getFirestore } = await import(pathToFileURL(req.resolve('firebase-admin/
 const { getStorage } = await import(pathToFileURL(req.resolve('firebase-admin/storage')).href);
 initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5', storageBucket: 'portal-educador-5.firebasestorage.app' });
 const db = getFirestore(), bucket = getStorage().bucket();
-const sn = await db.collectionGroup('trabalhos').where('tipo', '==', 'lousa').get();
+const sn = await db.collectionGroup('trabalhos').get();   // sem filtro no banco (não há índice de grupo); filtra aqui
 let total = 0, ja = 0, marcadas = 0, minhas = 0, falhas = 0;
 for (const d of sn.docs) {
-  total++;
   const t = d.data();
+  if (t.tipo !== 'lousa') continue;
+  total++;
   if (t.origem) { ja++; continue; }
   if (!t.arquivo) { minhas++; continue; }
   try {
