@@ -1129,6 +1129,14 @@ service cloud.firestore {
       allow write: if admin();
     }
 
+    // vídeo interativo (nov/2026): só a função videoIa grava. Lê: o dono (os que ele criou por link) e, no catálogo publicado, quem tem licença
+    // (a liberação por plano, recurso video_interativo da Central de IA, é conferida na tela e na função)
+    match /videos_interativos/{id} {
+      allow read: if admin() || (logado() && resource.data.dono == request.auth.uid)
+        || (licenciado() && resource.data.origem == "catalogo" && resource.data.publicado == true);
+      allow write: if false;
+    }
+
     // reação ao vídeo: um voto por pessoa e vídeo ({video}_{uid}); a contagem vai para videos/{id}.reacoes pela função contarReacaoVideo
     match /videos_reacoes/{id} {
       allow read: if admin() || (logado() && resource.data.uid == request.auth.uid);

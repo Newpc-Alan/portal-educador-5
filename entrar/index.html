@@ -13378,7 +13378,7 @@
   // ================= CRÉDITOS DE IA (pré-pago do Portal IA) =================
   // Carteiras: creditos/mun_{municipio} e creditos/prof_{uid}. Só a função creditosAdmin grava; aqui o administrador
   // lança créditos (depois do empenho ou do pagamento), define o teto por professor, atende os pedidos e ajusta preços e pacotes.
-  const CR_PADRAO = { precos:{ texto:1, material:2, aula:6, ajuste:1, imagem:6, avancado:24 }, teto_padrao:120, demo_teste:10, alertas:[20,5], validade_meses:12, dolar:5.6,
+  const CR_PADRAO = { precos:{ texto:1, material:2, aula:6, ajuste:1, imagem:6, avancado:24, video:3 }, teto_padrao:120, demo_teste:10, alertas:[20,5], validade_meses:12, dolar:5.6,
     franquia:{ intermediario:60, completo:120, personalizado:60 },
     pacotes_rede:[{ id:"rede-1000", nome:"1.000 créditos", creditos:1000, valor:400 }, { id:"rede-5000", nome:"5.000 créditos", creditos:5000, valor:1900 }, { id:"rede-20000", nome:"20.000 créditos", creditos:20000, valor:7200 }],
     pacotes_professor:[{ id:"prof-100", nome:"100 créditos", creditos:100, valor:49.9 }, { id:"prof-300", nome:"300 créditos", creditos:300, valor:129.9 }] };
@@ -13499,7 +13499,7 @@
       crTabelaProfs(carteira, mes)+
       desenharCentralIA(cfg, carteira)+
       '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
-        '<div class="cr-form"><label>Material do Portal IA<input id="crPMat" type="number" min="1" value="'+(cfg.precos.material ?? 2)+'"></label><label>Aula IA (Lousa)<input id="crPAula" type="number" min="1" value="'+(cfg.precos.aula ?? 6)+'"></label><label>Questões, parecer e IA rápida<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label><label>Aula avançada (Lousa)<input id="crPAvanc" type="number" min="1" value="'+(cfg.precos.avancado ?? 24)+'"></label>'+
+        '<div class="cr-form"><label>Material do Portal IA<input id="crPMat" type="number" min="1" value="'+(cfg.precos.material ?? 2)+'"></label><label>Aula IA (Lousa)<input id="crPAula" type="number" min="1" value="'+(cfg.precos.aula ?? 6)+'"></label><label>Questões, parecer e IA rápida<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label><label>Aula avançada (Lousa)<input id="crPAvanc" type="number" min="1" value="'+(cfg.precos.avancado ?? 24)+'"></label><label>Vídeo interativo<input id="crPVideo" type="number" min="1" value="'+(cfg.precos.video ?? 3)+'"></label>'+
         '<label>Teto padrão por professor/mês<input id="crTetoPad" type="number" min="0" value="'+cfg.teto_padrao+'"></label><label>Alerta 1 (%)<input id="crAl1" type="number" min="1" max="90" value="'+cfg.alertas[0]+'"></label><label>Alerta 2 (%)<input id="crAl2" type="number" min="1" max="90" value="'+cfg.alertas[1]+'"></label>'+
         '<label>Validade (meses)<input id="crVal" type="number" min="1" max="36" value="'+cfg.validade_meses+'"></label><label>Dólar (R$)<input id="crDol" type="number" min="1" step="0.01" value="'+dol+'"></label>'+
         '<label>Demonstração no teste de 7 dias (créditos)<input id="crDemo" type="number" min="0" max="500" value="'+(cfg.demo_teste ?? 10)+'"></label></div>'+
@@ -13511,7 +13511,7 @@
   }
   function crLerCfg(){
     const c = crA.cfg, n = (id, min) => Math.max(min, Math.round(Number(($(id) || {}).value) || 0));
-    c.precos = { texto:n("crPTexto", 1), material:n("crPMat", 1), aula:n("crPAula", 1), ajuste:n("crPAjuste", 0), imagem:n("crPImagem", 1), avancado:n("crPAvanc", 1) };
+    c.precos = { texto:n("crPTexto", 1), material:n("crPMat", 1), aula:n("crPAula", 1), ajuste:n("crPAjuste", 0), imagem:n("crPImagem", 1), avancado:n("crPAvanc", 1), video:n("crPVideo", 1) };
     c.teto_padrao = n("crTetoPad", 0); c.alertas = [n("crAl1", 1), n("crAl2", 1)].sort((a,b) => b-a); c.validade_meses = Math.min(36, n("crVal", 1));
     c.dolar = Math.max(1, Number(($("crDol") || {}).value) || 5.6);
     c.demo_teste = Math.min(500, n("crDemo", 0));
@@ -13520,9 +13520,9 @@
       p[el.dataset.k] = el.dataset.k === "nome" ? el.value.trim().slice(0, 60) : Math.max(0, Number(el.value) || 0); });
   }
   // ================= CENTRAL DE IA: quem pode usar cada recurso (mesma regra de functions/ia-acesso.js) =================
-  const IA_REC = [["portalia","Portal IA","materiais"],["portalia_imagem","Imagens","no Portal IA"],["provas_ia","Provas","com IA"],["lousa_ia","Lousa IA","Básica"],["lousa_ia_ultra","Lousa IA","Ultra"]];
-  const IA_INTER = ["portalia","provas_ia","lousa_ia"];
-  const IA_GERAL_PADRAO = { portalia:{ ligado:true, avulso:true }, portalia_imagem:{ ligado:true, avulso:true }, provas_ia:{ ligado:true, avulso:true }, lousa_ia:{ ligado:true, avulso:false }, lousa_ia_ultra:{ ligado:false, avulso:false } };
+  const IA_REC = [["portalia","Portal IA","materiais"],["portalia_imagem","Imagens","no Portal IA"],["provas_ia","Provas","com IA"],["lousa_ia","Lousa IA","Básica"],["lousa_ia_ultra","Lousa IA","Ultra"],["video_ia","Vídeo interativo","gerar por link"],["video_interativo","Vídeos interativos","do catálogo"]];
+  const IA_INTER = ["portalia","provas_ia","lousa_ia","video_ia","video_interativo"];
+  const IA_GERAL_PADRAO = { portalia:{ ligado:true, avulso:true }, portalia_imagem:{ ligado:true, avulso:true }, provas_ia:{ ligado:true, avulso:true }, lousa_ia:{ ligado:true, avulso:false }, lousa_ia_ultra:{ ligado:false, avulso:false }, video_ia:{ ligado:true, avulso:true }, video_interativo:{ ligado:true, avulso:false } };
   const iaDoPlanoC = p => p === "completo" ? IA_REC.map(r => r[0]) : (p === "intermediario" || p === "personalizado") ? IA_INTER.slice() : [];
   const iaNorm = l => { const x = new Set((l || []).filter(r => IA_REC.some(q => q[0] === r))); if(x.has("lousa_ia_ultra")) x.add("lousa_ia"); return x; };
   function iaGeralC(c){ const g = {}, ir = (c && c.ia_recursos) || {}, l = c && c.lousa;
@@ -13534,7 +13534,7 @@
   const iaProfC = u => Array.isArray(u.ia_extra) ? iaNorm(u.ia_extra) : iaNorm((u.municipio_id ? [] : iaDoPlanoC(u.plano_avulso)).concat((u.recursos_extra || []).filter(r => r === "lousa_ia" || r === "lousa_ia_ultra")));
   const NOME_PLANO_IA = { basico:"Básico", intermediario:"Intermediário", completo:"Completo", personalizado:"Personalizado" };
   function desenharCentralIA(cfg, carteira){
-    const g = crA.geral, custo = { portalia:cfg.precos.material ?? 2, portalia_imagem:cfg.precos.imagem, provas_ia:cfg.precos.texto, lousa_ia:cfg.precos.aula ?? 6, lousa_ia_ultra:(cfg.precos.aula ?? 6) + 3 * cfg.precos.imagem };
+    const g = crA.geral, custo = { portalia:cfg.precos.material ?? 2, portalia_imagem:cfg.precos.imagem, provas_ia:cfg.precos.texto, lousa_ia:cfg.precos.aula ?? 6, lousa_ia_ultra:(cfg.precos.aula ?? 6) + 3 * cfg.precos.imagem, video_ia:cfg.precos.video ?? 3, video_interativo:0 };
     const cab = '<th>'+IA_REC.map(([r, a, b]) => '<span style="display:block;text-align:center;line-height:1.15">'+a+'<br><small style="font-weight:600;color:var(--muted)">'+b+'</small></span>').join('</th><th>')+'</th>';
     const caixa = (tipo, id, r, on) => '<td style="text-align:center"><input type="checkbox" data-ia-'+tipo+'="'+escapeAttr(id)+'" data-r="'+r+'"'+(on ? " checked" : "")+' aria-label="'+escapeAttr(r)+'"></td>';
     const linhaRede = m => { const set = iaRedeC(m), k = carteira("mun_"+m.id), sd = crSaldo(k).saldo;

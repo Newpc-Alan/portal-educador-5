@@ -57,6 +57,7 @@ export function sistemaVideo() {
     '- Preencha "trecho" com o que foi dito ou mostrado logo antes da pausa.\n' +
     'REGRAS DO CONTEÚDO:\n' +
     '- Português do Brasil, linguagem da série informada. Enunciados curtos, que se leem de longe na lousa.\n' +
+    '- IGNORE abertura, vinheta, propaganda, pedido de inscrição e encerramento do canal ou da plataforma: nenhuma pausa e nenhuma pergunta sobre isso, mesmo que apareça no fim do vídeo.\n' +
     '- Pergunte só o que o vídeo ensina. Não invente fatos que não estão no vídeo e não cobre detalhe irrelevante (cor de roupa, nome do canal).\n' +
     '- Múltipla escolha: 3 ou 4 alternativas plausíveis, uma só certa, sem "todas as anteriores". Verdadeiro ou falso: afirmação clara.\n' +
     '- Resposta aberta: pergunta para a turma discutir ou relacionar com o dia a dia. Nota: curiosidade ou destaque curto, sem pergunta.\n' +
@@ -76,7 +77,8 @@ const semMarca = t => String(t ?? '').replace(/^\s*([A-Ea-e][).]|\d+[).])\s*/, '
 // limpa e confere o que a IA devolveu; devolve { interacoes, problemas }
 export function conferirVideo(j, { duracao, qtd, tipos }) {
   const problemas = [];
-  const dur = Number(duracao) > 0 ? Number(duracao) : Number(j && j.duracao_seg) || 0;
+  // a duração do catálogo às vezes está errada: vale a maior entre a cadastrada e a que a IA percebeu
+  const dur = Math.max(Number(duracao) || 0, Number(j && j.duracao_seg) || 0);
   const permitidos = new Set((Array.isArray(tipos) && tipos.length ? tipos : TIPOS_INTERACAO).filter(t => TIPOS_INTERACAO.includes(t)));
   let lista = (j && Array.isArray(j.interacoes) ? j.interacoes : []).map(x => {
     const tipo = TIPOS_INTERACAO.includes(x.tipo) ? x.tipo : 'aberta';

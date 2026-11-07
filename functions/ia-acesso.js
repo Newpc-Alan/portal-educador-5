@@ -3,16 +3,18 @@
 //   chave geral  config/portal_ia.ia_recursos.{recurso} = { ligado, avulso }   (avulso: quem tem créditos próprios usa sem liberação)
 //   rede         municipios.ia = [recursos]       (sem o campo: vale o plano da rede, como era antes)
 //   professor    usuarios.ia_extra = [recursos]   (exceção individual; sem o campo: plano da licença avulsa)
-export const RECURSOS_IA = ['portalia', 'portalia_imagem', 'provas_ia', 'lousa_ia', 'lousa_ia_ultra'];
+// nov/2026: vídeo interativo. video_ia = gerar com IA a partir de um link (gasta crédito); video_interativo = usar os vídeos interativos do catálogo (sem crédito)
+export const RECURSOS_IA = ['portalia', 'portalia_imagem', 'provas_ia', 'lousa_ia', 'lousa_ia_ultra', 'video_ia', 'video_interativo'];
 export const NOMES_IA = {
   portalia: 'Portal IA (materiais)', portalia_imagem: 'Imagens no Portal IA', provas_ia: 'Provas com IA',
-  lousa_ia: 'Lousa IA Básica', lousa_ia_ultra: 'Lousa IA Ultra'
+  lousa_ia: 'Lousa IA Básica', lousa_ia_ultra: 'Lousa IA Ultra', video_ia: 'Vídeo interativo com IA', video_interativo: 'Vídeos interativos do catálogo'
 };
 // pacotes: Intermediário = recursos de texto; Completo = tudo
-export const IA_INTERMEDIARIO = ['portalia', 'provas_ia', 'lousa_ia'];
+export const IA_INTERMEDIARIO = ['portalia', 'provas_ia', 'lousa_ia', 'video_ia', 'video_interativo'];
 export const GERAL_PADRAO = {
   portalia: { ligado: true, avulso: true }, portalia_imagem: { ligado: true, avulso: true }, provas_ia: { ligado: true, avulso: true },
-  lousa_ia: { ligado: true, avulso: false }, lousa_ia_ultra: { ligado: false, avulso: false }
+  lousa_ia: { ligado: true, avulso: false }, lousa_ia_ultra: { ligado: false, avulso: false },
+  video_ia: { ligado: true, avulso: true }, video_interativo: { ligado: true, avulso: false }
 };
 
 export function iaDoPlano(plano) {
