@@ -1,0 +1,80 @@
+# Gera o app Android "Atendimento PDE" (pasta atendimento-app) e publica o .apk numa Release do GitHub,
+# com um link direto para abrir no celular da equipe. Roda só quando alguém clica em "Run workflow".
+# Usa a MESMA chave do app do Maestro (segredos MAESTRO_KEYSTORE_B64 e MAESTRO_SENHA); a impressão digital
+# pública dessa chave está em /.well-known/assetlinks.json. Se a chave mudar, o assetlinks precisa mudar junto.
+name: App Atendimento PDE
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão visível (ex.: 1.0.0)"
+        required: true
+        default: "1.0.0"
+      codigo:
+        description: "Número da versão (sempre maior que o do app instalado)"
+        required: true
+        default: "1"
+      so_testar:
+        description: "Só testar a compilação, com uma chave descartável (não publica)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Chave de assinatura
+        env:
+          B64: ${{ secrets.MAESTRO_KEYSTORE_B64 }}
+          SENHA: ${{ secrets.MAESTRO_SENHA }}
+        run: |
+          if [ "${{ inputs.so_testar }}" = "true" ]; then
+            SENHA="teste-$RANDOM-$RANDOM"; keytool -genkeypair -keystore "$RUNNER_TEMP/maestro.keystore" -alias maestro -keyalg RSA -keysize 2048 -validity 2 \
+              -storepass "$SENHA" -keypass "$SENHA" -dname "CN=teste" >/dev/null 2>&1
+            echo "::add-mask::$SENHA"; echo "MAESTRO_SENHA=$SENHA" >> "$GITHUB_ENV"; echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"; exit 0
+          fi
+          if [ -z "$B64" ] || [ -z "$SENHA" ]; then echo "::error::Faltam os segredos MAESTRO_KEYSTORE_B64 e MAESTRO_SENHA (veja maestro-app/LEIAME.md)."; exit 1; fi
+          printf '%s' "$B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/maestro.keystore"
+          LIMPA="$(printf '%s' "$SENHA" | tr -d ' \r\n')"; echo "::add-mask::$LIMPA"
+          echo "MAESTRO_SENHA=$LIMPA" >> "$GITHUB_ENV"
+          echo "MAESTRO_KEYSTORE=$RUNNER_TEMP/maestro.keystore" >> "$GITHUB_ENV"
+      - name: Compilar e assinar
+        env:
+          MAESTRO_SENHA: ${{ env.MAESTRO_SENHA }}
+          APP_VERSAO: ${{ inputs.versao }}
+          APP_CODIGO: ${{ inputs.codigo }}
+        run: |
+          set -o pipefail
+          gradle -p atendimento-app --no-daemon -q assembleRelease 2>&1 | tee "$RUNNER_TEMP/build.log" || { grep -iE "error|erro|failed|could not" "$RUNNER_TEMP/build.log" | tail -8 | sed 's/^/::error::/'; exit 1; }
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)"
+          "${BT}apksigner" verify atendimento-app/app/build/outputs/apk/release/app-release.apk
+          # confere se a chave bate com o assetlinks.json publicado (sem isso o app mostra a barra de endereço)
+          DIG="$("${BT}apksigner" verify --print-certs atendimento-app/app/build/outputs/apk/release/app-release.apk | grep -m1 'SHA-256' | awk '{print toupper($NF)}' | sed 's/../&:/g;s/:$//')"
+          if grep -q "$DIG" .well-known/assetlinks.json; then echo "::notice::Chave confere com o assetlinks.json."; else echo "::warning::A chave deste .apk ($DIG) não está no assetlinks.json: o app vai abrir com barra de endereço."; fi
+          cp atendimento-app/app/build/outputs/apk/release/app-release.apk "atendimento-pde-${{ inputs.versao }}.apk"
+      - name: Publicar o .apk (Release)
+        if: ${{ !inputs.so_testar }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="atendimento-${{ inputs.versao }}"
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" "atendimento-pde-${{ inputs.versao }}.apk" --title "Atendimento PDE ${{ inputs.versao }}" \
+            --notes "App da equipe de atendimento do Portal do Educador, versão ${{ inputs.versao }} (${{ inputs.codigo }}). No celular, abra o link do arquivo .apk e toque em Instalar. Precisa do Google Chrome instalado e atualizado."
+          echo "::notice::Link para o celular: https://github.com/${{ github.repository }}/releases/download/$TAG/atendimento-pde-${{ inputs.versao }}.apk"
+      - name: Apagar a chave do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/maestro.keystore"
