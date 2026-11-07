@@ -117,6 +117,27 @@
 
   /* ===== Palco ===== */
   #palco{flex:1;position:relative;overflow:hidden;min-width:0;}
+  /* livro: folha virando entre páginas do PDF importado para folhear */
+  .livro-cena{position:absolute;z-index:30;perspective:2400px;pointer-events:none;overflow:hidden}
+  .livro-baixo{position:absolute;inset:0}
+  .livro-baixo canvas,.livro-folha canvas{display:block}
+  .livro-folha{position:absolute;transform-origin:left center;backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
+  .livro-folha.vai{animation:livroVai .95s cubic-bezier(.45,0,.4,1) forwards;box-shadow:12px 0 30px rgba(0,0,0,.25)}
+  .livro-folha.volta{transform:rotateY(-180deg);animation:livroVolta .95s cubic-bezier(.45,0,.4,1) forwards;box-shadow:-12px 0 30px rgba(0,0,0,.25)}
+  @keyframes livroVai{0%{transform:rotateY(0)}100%{transform:rotateY(-180deg)}}
+  @keyframes livroVolta{0%{transform:rotateY(-180deg)}100%{transform:rotateY(0)}}
+  .livro-luz{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.18),rgba(255,255,255,.18) 55%,rgba(0,0,0,.28));opacity:0;animation:livroLuz .95s ease forwards}
+  .livro-folha.volta .livro-luz{animation-direction:reverse}
+  @keyframes livroLuz{0%{opacity:0}45%{opacity:1}100%{opacity:.9}}
+  .livro-sombra{position:absolute;background:linear-gradient(90deg,rgba(0,0,0,.35),rgba(0,0,0,0) 30%);opacity:0;animation:livroSombra .95s ease forwards}
+  @keyframes livroSombra{0%{opacity:.9}100%{opacity:0}}
+  #livroAbas[hidden]{display:none}
+  .livro-aba{position:absolute;top:50%;transform:translateY(-50%);z-index:25;width:46px;height:132px;border:0;cursor:pointer;
+    font:300 52px/1 Georgia,serif;color:#0f2c4a;background:rgba(255,255,255,.82);box-shadow:0 6px 18px rgba(15,44,74,.25);display:flex;align-items:center;justify-content:center}
+  .livro-aba.esq{left:10px;border-radius:12px 22px 22px 12px} .livro-aba.dir{right:10px;border-radius:22px 12px 12px 22px}
+  .livro-aba:hover{background:#fff} .livro-aba[hidden]{display:none}
+  .livro-num{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:25;background:rgba(15,44,74,.85);color:#fff;font:700 13px "Segoe UI",sans-serif;padding:5px 12px;border-radius:999px;pointer-events:none}
+  body.apresentando #livroAbas{display:none}
   #tela{position:absolute;inset:0;}
 
   /* ===== Barra inferior ===== */
@@ -1951,7 +1972,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return {
       json: jsonPagina(),
       fundo: selFundo.value,
-      pdfs: (function(){ var l = pdfsDaPagina(paginas[pagAtual]); return l.length ? l : null; })()
+      pdfs: (function(){ var l = pdfsDaPagina(paginas[pagAtual]); return l.length ? l : null; })(),
+      livro: (paginas[pagAtual] && paginas[pagAtual].livro) || null
     };
   }
 
@@ -1963,8 +1985,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   function irParaPagina(idx){
     if(idx < 0 || idx >= paginas.length) return;
+    // livro (PDF importado para folhear): entre páginas vizinhas do mesmo livro, a página vira como papel
+    var de = paginas[pagAtual], para = paginas[idx], virar = null;
+    if(!window.__pdeApresentando && Math.abs(idx - pagAtual) === 1 && de && para && de.livro && para.livro && de.livro.id === para.livro.id) virar = livroCongelar(idx > pagAtual);
     // salva a página que estamos saindo
     paginas[pagAtual] = estadoPaginaAtual();
+    var frente = idx > pagAtual;
     pagAtual = idx;
     var p = paginas[pagAtual];
     selFundo.value = p.fundo || "branco";
@@ -1978,9 +2004,103 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       redo = [];
       attHistBotoes();
       setFerramenta(estado.ferramenta);
+      if(virar) imgsProntas(paginas[pagAtual]).then(function(){ desenharFundo(); canvas.renderAll(); requestAnimationFrame(function(){ livroVirar(virar); }); });
+      livroUi();
     });
     attPagInfo();
   }
+
+  /* ===== LIVRO: folhear o PDF como um livro (nov/2026) =====
+     Cada página do PDF é uma página da lousa (o professor escreve em cada uma e tudo é salvo),
+     marcada com livro = { id, n, total, nome }. Entre páginas vizinhas do mesmo livro a troca é uma folha virando
+     (foto da página atual, girando sobre a lombada, com sombra e um som baixinho de papel). Abas laterais e as setas
+     do teclado viram a página; com zoom, o virar continua funcionando sobre o que está na tela. */
+  function livroFoto(){
+    try{
+      var src = canvas.lowerCanvasEl, c = document.createElement("canvas");
+      c.width = src.width; c.height = src.height; c.getContext("2d").drawImage(src, 0, 0);
+      var up = canvas.upperCanvasEl; if(up) c.getContext("2d").drawImage(up, 0, 0);
+      return c;
+    }catch(e){ return null; }
+  }
+  var livroSomCtx = null;
+  function livroSom(){
+    try{
+      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      livroSomCtx = livroSomCtx || new AC(); var ctx = livroSomCtx, dur = 0.32, n = Math.floor(ctx.sampleRate * dur);
+      var b = ctx.createBuffer(1, n, ctx.sampleRate), d = b.getChannelData(0);
+      for(var i = 0; i < n; i++){ var t = i / n; d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2) * (0.6 + 0.4 * Math.sin(t * 40)); }
+      var fonte = ctx.createBufferSource(), filtro = ctx.createBiquadFilter(), vol = ctx.createGain();
+      filtro.type = "bandpass"; filtro.frequency.value = 2400; filtro.Q.value = 0.7; vol.gain.value = 0.07;
+      fonte.buffer = b; fonte.connect(filtro); filtro.connect(vol); vol.connect(ctx.destination); fonte.start();
+    }catch(e){}
+  }
+  // retângulo da página do PDF na tela (px do canvas), para a folha girar sobre a lombada da página e não sobre a tela toda
+  function livroRet(){
+    var L = layoutDoc(paginas[pagAtual]); if(!L || !L.blocos.length) return null;
+    var b = L.blocos[0], v = canvas.viewportTransform;
+    return { x:b.x * v[0] + v[4], y:b.y * v[3] + v[5], w:b.w * v[0], h:b.h * v[3] };
+  }
+  function recorte(foto, r, k){
+    var c = document.createElement("canvas"); c.width = Math.max(1, Math.round(r.w * k)); c.height = Math.max(1, Math.round(r.h * k));
+    c.getContext("2d").drawImage(foto, Math.round(r.x * k), Math.round(r.y * k), c.width, c.height, 0, 0, c.width, c.height); return c;
+  }
+  // congela a tela na página atual (a troca acontece por baixo) e devolve o que a animação precisa
+  function livroCongelar(frente){
+    var foto = livroFoto(), r = livroRet(); if(!foto || !r) return null;
+    var wrap = canvas.wrapperEl, wr = wrap.getBoundingClientRect(), pr = document.getElementById("palco").getBoundingClientRect();
+    var cena = document.createElement("div"); cena.className = "livro-cena";
+    cena.style.cssText = "left:" + (wr.left - pr.left) + "px;top:" + (wr.top - pr.top) + "px;width:" + wr.width + "px;height:" + wr.height + "px";
+    foto.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
+    cena.appendChild(foto);
+    document.getElementById("palco").appendChild(cena);
+    return { cena:cena, foto:foto, r:r, frente:frente, k:foto.width / (canvas.getWidth() || foto.width) };
+  }
+  function livroVirar(v){
+    var cena = v.cena, fim = function(){ if(cena.parentNode) cena.remove(); };
+    var nova = livroFoto(), rN = livroRet() || v.r; if(!nova){ fim(); return; }
+    var k = v.k, r = v.frente ? v.r : rN;
+    // embaixo: a página que fica (frente: a nova; voltar: a velha); a folha que gira: frente = a velha, voltar = a anterior chegando
+    var baixo = v.frente ? nova : v.foto;
+    var folha = recorte(v.frente ? v.foto : nova, r, k);
+    cena.innerHTML = "";
+    baixo.style.cssText = "position:absolute;inset:0;width:100%;height:100%"; cena.appendChild(baixo);
+    var sombra = document.createElement("i"); sombra.className = "livro-sombra";
+    sombra.style.cssText = "left:" + rN.x + "px;top:" + rN.y + "px;width:" + rN.w + "px;height:" + rN.h + "px"; cena.appendChild(sombra);
+    var f = document.createElement("div"); f.className = "livro-folha " + (v.frente ? "vai" : "volta");
+    f.style.cssText = "left:" + r.x + "px;top:" + r.y + "px;width:" + r.w + "px;height:" + r.h + "px";
+    folha.style.cssText = "width:100%;height:100%"; f.appendChild(folha);
+    var luz = document.createElement("i"); luz.className = "livro-luz"; f.appendChild(luz);
+    cena.appendChild(f);
+    livroSom();
+    f.addEventListener("animationend", fim, { once:true }); setTimeout(fim, 1500);
+  }
+  function livroUi(){
+    var p = paginas[pagAtual], lv = p && p.livro, abas = document.getElementById("livroAbas");
+    if(!lv){ if(abas) abas.hidden = true; return; }
+    if(!abas){
+      abas = document.createElement("div"); abas.id = "livroAbas";
+      abas.innerHTML = '<button type="button" class="livro-aba esq" data-livro="ant" aria-label="Voltar a página do livro">‹</button>' +
+        '<button type="button" class="livro-aba dir" data-livro="prox" aria-label="Virar a página do livro">›</button><span class="livro-num" aria-live="polite"></span>';
+      abas.addEventListener("click", function(e){ var b = e.target.closest("[data-livro]"); if(!b) return; irParaPagina(pagAtual + (b.dataset.livro === "prox" ? 1 : -1)); });
+      document.getElementById("palco").appendChild(abas);
+    }
+    abas.hidden = false;
+    var ant = paginas[pagAtual - 1], prox = paginas[pagAtual + 1];
+    abas.querySelector(".esq").hidden = !(ant && ant.livro && ant.livro.id === lv.id);
+    abas.querySelector(".dir").hidden = !(prox && prox.livro && prox.livro.id === lv.id);
+    abas.querySelector(".livro-num").textContent = "📖 " + lv.n + " de " + lv.total;
+  }
+  // setas do teclado viram a página do livro (quando não há texto sendo editado nem objeto selecionado)
+  document.addEventListener("keydown", function(e){
+    var p = paginas[pagAtual]; if(!p || !p.livro || window.__pdeApresentando) return;
+    if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    var ao = canvas.getActiveObject(); if(ao && (ao.isEditing || ao.type)) return;
+    var dir = (e.key === "ArrowRight" || e.key === "PageDown") ? 1 : (e.key === "ArrowLeft" || e.key === "PageUp") ? -1 : 0;
+    if(!dir) return;
+    var alvo = paginas[pagAtual + dir]; if(!alvo || !alvo.livro || alvo.livro.id !== p.livro.id) return;
+    e.preventDefault(); irParaPagina(pagAtual + dir);
+  });
 
   function novaPagina(){
     paginas[pagAtual] = estadoPaginaAtual();
@@ -2905,7 +3025,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       desenharFundo(); canvas.renderAll(); trancado = false;
       pilha = [jsonPagina()];
       redo = []; attHistBotoes(); setFerramenta(estado.ferramenta);
-      attPagInfo();
+      attPagInfo(); livroUi();
       if(cb) cb();
     });
   }
@@ -3559,7 +3679,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           '<b>Tudo numa página da lousa</b><span>O PDF fica inteiro, como um documento: role para passar as páginas.</span></label>' +
         '<label class="esc-modo"><input type="radio" name="impModo" value="separado">' +
           '<b>Uma página da lousa por página do PDF</b><span>Cada página do PDF vira uma página da lousa (botões ◀ ▶).</span></label>' +
+        '<label class="esc-modo"><input type="radio" name="impModo" value="livro">' +
+          '<b>📖 Folhear como um livro</b><span>Uma página por vez, virando como papel de verdade. Você escreve em cada página e tudo fica salvo.</span></label>' +
       '</div>';
+    try{ var mGuard = localStorage.getItem("pde_pdf_modo"); if(mGuard){ var rr = box.querySelector('input[value="' + mGuard + '"]'); if(rr) rr.checked = true; } }catch(e){}
     escolher({
       titulo: "Importar PDF",
       texto: "“" + nome + "” tem " + n + " páginas. Escolha quais importar e como colocar na lousa. Você escreve por cima do PDF.",
@@ -3573,6 +3696,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             de = Math.max(1, Math.min(n, de)); at = Math.max(de, Math.min(n, at));
             if(at - de + 1 > MAX_PAG_PDF){ at = de + MAX_PAG_PDF - 1; msg("Importando só " + MAX_PAG_PDF + " páginas (limite por vez)"); }
             var modo = (document.querySelector('input[name="impModo"]:checked') || {}).value || "junto";
+            try{ localStorage.setItem("pde_pdf_modo", modo); }catch(e){}
+            try{ localStorage.setItem("pde_pdf_modo", modo); }catch(e){}
             renderizarPaginas(doc, de, at, nome, modo);
         } }
       ]
@@ -3619,8 +3744,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var fundo = atual.fundo || "branco";
     function nova(lista){ return { json: JSON.stringify({version:"5.3.0",objects:[]}), fundo: fundo, pdfs: lista }; }
     var alvo;
-    if(modo === "separado"){
-      var novas = imagens.map(function(it){ return nova([it]); });
+    if(modo === "separado" || modo === "livro"){
+      var idLivro = modo === "livro" ? "lv" + Date.now().toString(36) : "", nomeLivro = String(nome || "Livro").replace(/\.pdf$/i, "").slice(0, 80);
+      var novas = imagens.map(function(it, i){ var pg = nova([it]); if(idLivro) pg.livro = { id:idLivro, n:i + 1, total:imagens.length, nome:nomeLivro }; return pg; });
       alvo = vazia ? pagAtual : pagAtual + 1;
       Array.prototype.splice.apply(paginas, [alvo, vazia ? 1 : 0].concat(novas));
     }else if(vazia){
@@ -3633,7 +3759,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(!decidido) decidido = true;
     carregarPaginaDireto(alvo, function(){
       setFerramenta("caneta");
-      var extra = (modo !== "separado" && imagens.length > 1) ? " Role ou use ▲ ▼ para passar as páginas." : "";
+      var extra = modo === "livro" ? " Vire as páginas pelas abas ‹ › nas laterais ou pelas setas do teclado." : (modo !== "separado" && imagens.length > 1) ? " Role ou use ▲ ▼ para passar as páginas." : "";
       msg("PDF importado: " + imagens.length + " página(s)." + extra);
       salvarAgora();
     });
