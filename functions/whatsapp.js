@@ -244,6 +244,41 @@ async function responderComTrechos(trechos, pergunta, quem) {
   return null;
 }
 
+// ---------- áudio (nov/2026) ----------
+// A Lara entende áudio: baixa o arquivo da Meta, a IA transcreve e a conversa segue como se a pessoa tivesse escrito.
+// O áudio não é guardado em lugar nenhum; só a transcrição entra no histórico. Limite: 3 minutos / 8 MB.
+const AUDIO_MAX = 8 * 1048576;
+async function baixarMidia(id) {
+  const r = await fetch(GRAPH + encodeURIComponent(id), { headers: { Authorization: 'Bearer ' + TOKEN.value() }, signal: AbortSignal.timeout(8000) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.url) throw new Error('mídia ' + r.status);
+  if (j.file_size && j.file_size > AUDIO_MAX) throw new Error('grande');
+  const a = await fetch(j.url, { headers: { Authorization: 'Bearer ' + TOKEN.value() }, signal: AbortSignal.timeout(15000) });
+  if (!a.ok) throw new Error('download ' + a.status);
+  const buf = Buffer.from(await a.arrayBuffer()); if (buf.length > AUDIO_MAX) throw new Error('grande');
+  return { buf, mime: String(j.mime_type || 'audio/ogg').split(';')[0] };
+}
+async function transcrever(audio) {
+  const instrucao = 'Transcreva fielmente o áudio em português do Brasil, com pontuação. Devolva só o texto falado, sem comentários. ' +
+    'Se não houver fala compreensível, devolva exatamente: SEM_FALA.';
+  for (const modelo of MODELOS) {
+    try {
+      const corpo = { systemInstruction: { parts: [{ text: instrucao }] },
+        contents: [{ role: 'user', parts: [{ inlineData: { mimeType: audio.mime, data: audio.buf.toString('base64') } }, { text: 'Transcreva este áudio.' }] }],
+        generationConfig: { maxOutputTokens: 900, thinkingConfig: { thinkingLevel: 'low' } } };
+      const chamar = c => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() }, body: JSON.stringify(c), signal: AbortSignal.timeout(25000) });
+      let r = await chamar(corpo);
+      if (r.status === 400) { delete corpo.generationConfig.thinkingConfig; r = await chamar(corpo); }
+      if (!r.ok) continue;
+      const j = await r.json(), out = txt(((j.candidates || [])[0] || {}).content?.parts?.map(p => p.text || '').join('') || '', 1500);
+      if (!out) continue;
+      return /SEM_FALA/.test(out) ? '' : out;
+    } catch (e) { /* tenta o próximo modelo */ }
+  }
+  throw new Error('transcrição indisponível');
+}
+
 // ---------- registro ----------
 async function guardar(ref, de, conteudo, extra) {
   await ref.collection('mensagens').add({ de, texto: txt(conteudo, 2000), em: FieldValue.serverTimestamp(), ...(extra || {}) });
@@ -349,6 +384,21 @@ const AVISO_HORARIO = 'Nosso horário de atendimento é de segunda a sexta, das 
 // interno: o próprio agente reaproveita um fluxo do menu (sem registrar de novo a mensagem nem mandar "digitando")
 async function tratar(db, cfg, msg, contato, interno = false) {
   const waId = String(msg.from || ''); if (!/^\d{8,15}$/.test(waId)) return;
+  // áudio: vira texto e segue o fluxo normal (o histórico guarda "🎤 transcrição")
+  if (!interno && msg.type === 'audio' && msg.audio && msg.audio.id && !(msg.audio.voice === false && /video/.test(msg.audio.mime_type || ''))) {
+    let falado = null, motivo = '';
+    fetch(GRAPH + cfg.phone_number_id + '/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: msg.id, typing_indicator: { type: 'text' } }) }).catch(() => {});
+    try { falado = await transcrever(await baixarMidia(msg.audio.id)); } catch (e) { motivo = e.message; console.warn('whatsapp: áudio', e.message); }
+    await metricas(db, { audios: FieldValue.increment(1), ...(falado ? { audios_ok: FieldValue.increment(1) } : {}) });
+    if (falado) return tratar(db, cfg, { ...msg, type: 'text', text: { body: falado }, audio_transcrito: true }, contato, false);
+    const ref = db.doc('wa_conversas/' + waId);
+    const aviso = motivo === 'grande' ? 'Esse áudio ficou longo demais para mim. Pode mandar um áudio mais curto (até uns 2 minutos) ou escrever?'
+      : falado === '' ? 'Não consegui entender a fala nesse áudio. Pode repetir num lugar mais silencioso ou escrever sua dúvida?'
+      : 'Não consegui ouvir esse áudio agora. Pode escrever sua dúvida numa mensagem? Ou digite *menu* para ver as opções.';
+    await Promise.all([guardar(ref, 'pessoa', '[áudio não transcrito]', { tipo: 'audio', wamid: txt(msg.id, 120) }), enviar(cfg, waId, texto(aviso)), guardar(ref, 'robo', aviso)]);
+    return;
+  }
   const ref = db.doc('wa_conversas/' + waId);
   // "lida" + "digitando..." na hora: a pessoa vê que o atendimento começou enquanto o robô prepara a resposta
   const digitando = interno ? null : fetch(GRAPH + cfg.phone_number_id + '/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' },
@@ -361,7 +411,7 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   const cabecalho = interno ? null : ref.set({ wa_id: waId, nome_whatsapp: txt(contato && contato.profile && contato.profile.name, 80), uid: quem ? quem.uid : '', nome: quem ? quem.nome : '', email: quem ? quem.email : '',
     perfil: quem ? quem.perfil : '', municipio_nome: quem ? (quem.municipio_nome || '') : '', ultima_pessoa_em: FieldValue.serverTimestamp(),
     ultima: txt(entrada || '[' + msg.type + ']', 200), ultima_em: FieldValue.serverTimestamp() }, { merge: true });
-  const gravando = interno ? null : guardar(ref, 'pessoa', entrada || '[' + msg.type + ']', { tipo: msg.type, wamid: txt(msg.id, 120) });
+  const gravando = interno ? null : guardar(ref, 'pessoa', (msg.audio_transcrito ? '🎤 ' : '') + (entrada || '[' + msg.type + ']'), { tipo: msg.audio_transcrito ? 'audio' : msg.type, wamid: txt(msg.id, 120) });
   const responder = async corpo => { await Promise.all([enviar(cfg, waId, corpo), guardar(ref, 'robo', corpo.text ? corpo.text.body : (corpo.interactive.body || {}).text || '[menu]')]); };
   // primeiro contato do dia desta pessoa: a equipe fica sabendo, mesmo com o robô atendendo
   const primeiroDoDia = !interno && diaCG(conv.ultima_pessoa_em && conv.ultima_pessoa_em.toMillis ? conv.ultima_pessoa_em.toMillis() : 0) !== diaCG()
@@ -369,7 +419,7 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   await Promise.all([cabecalho, gravando, digitando, primeiroDoDia]);
   const estado = async e => ref.set({ estado: e, estado_em: FieldValue.serverTimestamp() }, { merge: true });
 
-  if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Ainda não consigo ouvir áudio nem ver imagens por aqui. Pode escrever sua dúvida numa mensagem? Ou digite *menu* para ver as opções.')); return; }
+  if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Ainda não consigo ver imagens, vídeos ou arquivos por aqui. Pode escrever sua dúvida ou mandar um áudio? Ou digite *menu* para ver as opções.')); return; }
 
   // em atendimento humano: o robô só volta se a pessoa pedir o menu
   if (/^nota_[123]$/.test(entrada)) {
