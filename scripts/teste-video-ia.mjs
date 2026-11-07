@@ -14,12 +14,13 @@ const db = getFirestore();
 const q = await db.collection('usuarios').where('email', '==', 'prof.ciencias@portaldoeducador.com.br').limit(1).get();
 const ct = await getAuth().createCustomToken(q.docs[0].id);
 const j1 = await (await fetch('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: ct, returnSecureToken: true }) })).json();
+if (!j1.idToken) { console.log('::error::login falhou'); process.exit(1); }
 let falhas = 0;
 async function v(dados, rot) {
   const t0 = Date.now();
   const r = await fetch('https://southamerica-east1-portal-educador-5.cloudfunctions.net/videoIa', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + j1.idToken }, body: JSON.stringify({ data: dados }) });
-  const j = await r.json().catch(() => ({})); const s = ((Date.now() - t0) / 1000).toFixed(1);
-  if (!j.result) { falhas++; console.log('::error::' + rot + ' falhou em ' + s + 's · ' + limpo((j.error || {}).status || '') + ' · ' + limpo((j.error || {}).message || '')); return null; }
+  const bruto = await r.text(); let j = {}; try { j = JSON.parse(bruto); } catch (e) { j = {}; } const s = ((Date.now() - t0) / 1000).toFixed(1);
+  if (!j.result) { falhas++; console.log('::error::' + rot + ' falhou em ' + s + 's · HTTP ' + r.status + ' · ' + limpo(bruto).slice(0, 300) + ' · ' + limpo((j.error || {}).status || '') + ' · ' + limpo((j.error || {}).message || '')); return null; }
   aviso(rot + ' em ' + s + 's · ' + JSON.stringify(j.result)); return j.result;
 }
 await v({ acao: 'acesso' }, 'acesso');
