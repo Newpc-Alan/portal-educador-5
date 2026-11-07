@@ -1215,9 +1215,13 @@
   .md-ok{ background:#1a6b2a !important;color:#fff !important;border-color:#1a6b2a !important }
   .md-jan{ width:min(760px,100%) } .md-texto{ white-space:pre-wrap;max-height:46vh;overflow:auto;background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5 }
   .md-mini{ max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);justify-self:start } .md-den{ background:#fdeceb;border-radius:10px;padding:10px 12px;font-size:13.5px } .md-den p{ margin:6px 0 0 }
-  .sim-grade{ display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:16px;align-items:start }
+  .sim-grade{ display:grid;grid-template-columns:1fr;gap:16px;align-items:start }
+  .sim-form{ display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;align-items:start }
+  .sim-bloco{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:8px;align-content:start }
+  .sim-bloco h3{ font-size:15px;margin:0 0 2px } .sim-res > h2{ font-size:18px;margin:0 0 10px }
+  .sim-pills{ display:flex;gap:6px;flex-wrap:wrap }
   .sim-box{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px } .sim-box h3{ font-size:15px;margin:14px 0 8px } .sim-box h3:first-child{ margin-top:0 }
-  .sim-res{ position:sticky;top:12px } .sim-c{ display:grid;gap:4px;font-size:12.5px;font-weight:700;color:#0f2c4a } .sim-c small{ font-weight:400;color:var(--muted) }
+  .sim-res{ position:static } .sim-c{ display:grid;gap:4px;font-size:12.5px;font-weight:700;color:#0f2c4a } .sim-c small{ font-weight:400;color:var(--muted) }
   .sim-c input,.sim-c select{ font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;width:100%;box-sizing:border-box;font-weight:400 }
   .sim-3{ display:grid;grid-template-columns:repeat(3,1fr);gap:8px } .sim-2{ display:grid;grid-template-columns:1fr 1fr;gap:8px } .sim-op{ display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px }
   .sim-det{ margin-top:12px } .sim-det summary{ cursor:pointer;font-weight:700;font-size:15px;color:#0f2c4a;margin-bottom:8px } .sim-nota{ font-size:12px;color:var(--muted);margin:8px 0 0 }
@@ -1227,7 +1231,7 @@
   .sim-l{ font-size:12.5px } .sim-m{ font-size:12.5px;font-weight:700;padding:4px 8px;border-radius:8px } .sim-m.ok{ background:#eef7e3;color:#1a5a24 } .sim-m.neg{ background:#fdeceb;color:#8c1d18 }
   .sim-e{ font-size:11.5px;font-weight:700;padding:4px 8px;border-radius:8px } .sim-e.disp{ background:#e6f1fb;color:#0f4c81 } .sim-e.preg{ background:#fff6e0;color:#7a5200 }
   .sim-tab{ overflow-x:auto } .sim-tab table{ width:100%;border-collapse:collapse;font-size:13px } .sim-tab th,.sim-tab td{ border-bottom:1px solid var(--line);padding:7px 8px;text-align:left }
-  .sim-tab th{ background:#f4f7fb } .sim-tab td:nth-child(n+3){ text-align:right;white-space:nowrap } .sim-tab tfoot td{ font-weight:800;background:#eef7e3 } .sim-acoes{ display:flex;gap:8px;justify-content:flex-end;margin-top:10px }
+  .sim-tab th{ background:#f4f7fb } .sim-tab th:nth-child(n+3){ text-align:right } .sim-tab td:nth-child(n+3){ text-align:right;white-space:nowrap } .sim-tab tfoot td{ font-weight:800;background:#eef7e3 } .sim-acoes{ display:flex;gap:8px;justify-content:flex-end;margin-top:10px }
   @media (max-width:900px){ .sim-grade{ grid-template-columns:1fr } .sim-res{ position:static } .sim-cards{ grid-template-columns:1fr } }
   .md-acoes{ flex-wrap:wrap }
   .ur-topo{ display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px } .ur-topo label{ display:flex;gap:6px;align-items:center;font-weight:700;font-size:14px } .ur-topo select{ font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line) }
@@ -5362,33 +5366,41 @@
     if(!SIM){ SIM = { ...SIM_PADRAO }; try{ Object.assign(SIM, JSON.parse(localStorage.getItem("pde_simulador") || "{}")); }catch(e){} }
     if(!simMunis){ try{ const sn = await getDocs(query(collection(db,"municipios"), orderBy("nome"))); simMunis = []; sn.forEach(d => { if(d.data().status !== "arquivado") simMunis.push({ id:d.id, nome:(d.data().nome || d.id) + (d.data().uf ? "/" + d.data().uf : "") }); }); }catch(e){ simMunis = []; } }
     const campo = (k, rot, passo, dica) => '<label class="sim-c"><span>'+rot+'</span><input type="number" min="0" step="'+(passo || 1)+'" data-sim="'+k+'" value="'+escapeAttr(String(SIM[k]))+'">'+(dica ? '<small>'+dica+'</small>' : '')+'</label>';
+    const loc = SIM.tipo === "locacao", d = SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"];
+    const pill = (acao, arg, txt, on) => '<button type="button" class="md-pill'+(on ? " on" : "")+'" data-action="'+acao+'" data-arg="'+arg+'">'+txt+'</button>';
+    const bloco = (tit, corpo) => '<div class="sim-bloco"><h3>'+tit+'</h3>'+corpo+'</div>';
     $("conteudo").innerHTML =
-      '<div class="sim-grade"><section class="sim-box">' +
-      '<h3>1. Município</h3><label class="sim-c"><span>Escolha</span><select id="simMuni"><option value="">Digitar os números</option>' +
+      '<div class="sim-grade"><div class="sim-form">' +
+      bloco("1. Município e contrato",
+        '<label class="sim-c"><span>Município</span><select id="simMuni"><option value="">Digitar os números</option>' +
         Object.entries(SIM_PRESETS).map(([k, p]) => '<option value="'+k+'"'+(SIM.muni === k ? " selected" : "")+'>'+escapeHtml(p.nome)+'</option>').join("") +
         '<optgroup label="Cadastrados no Portal">' + simMunis.map(m => '<option value="'+escapeAttr(m.id)+'"'+(SIM.muni === m.id ? " selected" : "")+'>'+escapeHtml(m.nome)+'</option>').join("") + '</optgroup></select></label>' +
-      '<p id="simFonte" class="sim-nota"></p><div class="sim-3">' + campo("alunos", "Alunos") + campo("escolas", "Escolas") + campo("profs", "Professores") + '</div>' +
-      '<h3>2. Contrato</h3><div class="sim-op"><button type="button" class="md-pill'+(SIM.tipo === "avulso" ? " on" : "")+'" data-action="sim-tipo" data-arg="avulso">Portal avulso</button>' +
-        '<button type="button" class="md-pill'+(SIM.tipo === "locacao" ? " on" : "")+'" data-action="sim-tipo" data-arg="locacao">Junto da locação NEWPC</button></div>' +
-      '<div class="sim-3">' + campo("prazo", "Prazo (meses)") + '</div>' +
-      (SIM.tipo === "locacao"
-        ? '<h3>3. Salas e locação</h3><div class="sim-3">' + campo("salasKit", "Salas com kit completo", 1, "lousa + carrinho + dispositivos (4º ao 9º)") + campo("salasLousa", "Salas só com lousa", 1, "1º ao 3º ano") + campo("alunosSala", "Alunos por sala", 1, "somando os turnos") + '</div>' +
-          '<div class="sim-2">' + campo("vLousa", "Lousa (R$/mês)", 50) + campo("vCarrinho", "Carrinho com roteador (R$/mês)", 10) + '</div>' +
-          '<span class="sim-rot">Equipamento do aluno</span><div class="sim-op">' + Object.entries(SIM_DISP).map(([k, d]) => '<button type="button" class="md-pill'+(SIM.tipoDisp === k ? " on" : "")+'" data-action="sim-disp" data-arg="'+k+'">'+d[0]+'</button>').join("") + '</div>' +
-          '<div class="sim-2">' + campo(SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"][1], SIM_DISP[SIM.tipoDisp in SIM_DISP ? SIM.tipoDisp : "tablet"][0] + " (R$/mês cada)", 5) + campo("dispSala", "Dispositivos por sala", 1) +
-            campo("vGoogle", "Licença Google for Education (R$/mês por dispositivo)", 0.5, "Chrome Education Upgrade ou similar; 0 se não houver") + '</div>' +
-          '<span class="sim-rot">Realidade virtual (opcional)</span><div class="sim-2">' + campo("qVr", "Óculos VR (quantidade no projeto)", 1) + campo("vVr", "Óculos VR (R$/mês cada)", 5) +
-            campo("qCarVr", "Carrinho de recarga VR (quantidade)", 1) + campo("vCarVr", "Carrinho de recarga VR (R$/mês cada)", 10) + '</div>' +
-          '<h3>4. Preço do Portal por sala/mês</h3><div class="sim-3">' + campo("salaInter", "Intermediário", 10) + campo("salaCompl", "Completo", 10) + campo("pctLousa", "Sala só com lousa paga (%)", 5, "do preço da sala") + '</div><p class="sim-nota">Básico: sem custo na locação.</p>'
-        : '<h3>3. Preço por aluno/mês</h3><div class="sim-3">' + campo("basico", "Básico", 0.1) + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>') +
-      '<h3>' + (SIM.tipo === "locacao" ? "5" : "4") + '. Itens à parte</h3><div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) +
-        campo("turmas", "Formação: turmas de 4h") + campo("valorTurma", "Valor por turma", 100) + '</div>' +
-      '<details class="sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>' + (SIM.tipo === "locacao" ? "6" : "5") + '. Custos da NEWPC (para a margem)</summary><div class="sim-2">' +
-        campo("infra", "Infra por aluno/mês (R$)", 0.05, "Firebase, arquivos, e-mail") + campo("suporte", "Suporte e acompanhamento (R$/mês)", 100) +
-        campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) + campo("margemAlvo", "Margem desejada (%)", 1, "preço sugerido = custo ÷ (1 − impostos − comissão − margem)") +
-        campo("profsSala", "Professores usando as salas", 1, "a franquia de IA é por professor") + campo("iaInter", "IA por professor/mês · Intermediário (R$)", 0.5, "preencher com a medição de custos") + campo("iaCompl", "IA por professor/mês · Completo (R$)", 0.5) + '</div></details>' +
-      '<p class="sim-nota">Valores de partida são hipóteses para discussão. Antes de propor, confira a faixa de preços em contratos parecidos no PNCP (a prefeitura vai fazer essa pesquisa).</p>' +
-      '</section><section class="sim-box sim-res"><div id="simRes"></div></section></div>';
+        '<p id="simFonte" class="sim-nota"></p>' +
+        '<div class="sim-pills">' + pill("sim-tipo", "avulso", "Portal avulso", !loc) + pill("sim-tipo", "locacao", "Junto da locação NEWPC", loc) + '</div>' +
+        '<div class="sim-3">' + campo("prazo", "Prazo (meses)") + (loc ? '' : campo("alunos", "Alunos") + campo("escolas", "Escolas")) + '</div>' +
+        (loc ? '' : '<div class="sim-3">' + campo("profs", "Professores") + '</div>')) +
+      (loc
+        ? bloco("2. Salas",
+            '<div class="sim-3">' + campo("salasKit", "Com kit completo", 1, "4º ao 9º ano") + campo("salasLousa", "Só com lousa", 1, "1º ao 3º ano") + campo("alunosSala", "Alunos por sala", 1, "somando os turnos") + '</div>') +
+          bloco("3. Equipamentos (R$/mês)",
+            '<div class="sim-2">' + campo("vLousa", "Lousa", 50) + campo("vCarrinho", "Carrinho com roteador", 10) + '</div>' +
+            '<span class="sim-rot">Equipamento do aluno</span><div class="sim-pills">' + Object.entries(SIM_DISP).map(([k, x]) => pill("sim-disp", k, x[0], SIM.tipoDisp === k)).join("") + '</div>' +
+            '<div class="sim-2">' + campo(d[1], d[0] + " (cada)", 5) + campo("dispSala", "Dispositivos por sala", 1) + '</div>' +
+            '<div class="sim-2">' + campo("vGoogle", "Licença Google for Education (por dispositivo)", 0.5, "0 se não houver") + '</div>' +
+            '<span class="sim-rot">Realidade virtual (opcional)</span><div class="sim-2">' + campo("qVr", "Óculos VR (qtd.)", 1) + campo("vVr", "Óculos VR (cada)", 5) +
+              campo("qCarVr", "Carrinho de recarga VR (qtd.)", 1) + campo("vCarVr", "Carrinho VR (cada)", 10) + '</div>') +
+          bloco("4. Preço do Portal por sala/mês",
+            '<div class="sim-3">' + campo("salaInter", "Intermediário", 10) + campo("salaCompl", "Completo", 10) + campo("pctLousa", "Sala só lousa (%)", 5, "do preço da sala") + '</div><p class="sim-nota">Básico: sem custo na locação.</p>')
+        : bloco("2. Preço por aluno/mês", '<div class="sim-3">' + campo("basico", "Básico", 0.1) + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>')) +
+      bloco((loc ? "5" : "3") + ". Itens à parte",
+        '<div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) + campo("turmas", "Formação: turmas de 4h") + campo("valorTurma", "Valor por turma", 100) + '</div>') +
+      bloco((loc ? "6" : "4") + ". Custos da NEWPC (margem)",
+        '<details class="sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>Mostrar custos</summary><div class="sim-2">' +
+        campo("infra", "Infra por aluno/mês (R$)", 0.05, "Firebase, arquivos, e-mail") + campo("suporte", "Suporte (R$/mês)", 100) +
+        campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) + campo("margemAlvo", "Margem desejada (%)", 1) +
+        campo("profsSala", "Professores usando", 1, "a franquia de IA é por professor") + campo("iaInter", "IA/professor/mês · Interm. (R$)", 0.5, "da medição de custos") + campo("iaCompl", "IA/professor/mês · Completo (R$)", 0.5) + '</div></details>' +
+        '<p class="sim-nota">Valores de partida são hipóteses. Antes de propor, confira contratos parecidos no PNCP.</p>') +
+      '</div><section class="sim-box sim-res"><h2>Resultado</h2><div id="simRes"></div></section></div>';
     simAtualizar();
   }
   // locação: o que a prefeitura paga de equipamento por mês (para ver quanto o Portal pesa no projeto)
