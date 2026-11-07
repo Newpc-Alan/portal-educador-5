@@ -2426,7 +2426,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /*
     Estratégia (geometria, não IA):
     - extrai os pontos do traço livre criado pela caneta
-    - fechado (início ~ fim) -> conta cantos: 0=círculo, 3=triângulo, 4=retângulo
+    - fechado (início ~ fim) -> retângulo, círculo/elipse, triângulo ou losango (ver reconhecer)
     - aberto e quase reto -> linha
     - se não reconhece com confiança, mantém o traço livre original
   */
@@ -2469,7 +2469,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var forma = reconhecer(pts);
     if(!forma) return; // não reconheceu: deixa o traço livre
 
-    forma.set({stroke:estado.cor, strokeWidth:estado.espessura, fill:"transparent"});
+    forma.set({stroke:estado.cor, strokeWidth:estado.espessura, fill:"transparent", strokeLineJoin:"round", strokeLineCap:"round"});
     canvas.remove(path);
     canvas.add(forma);
     canvas.setActiveObject(forma);
@@ -2504,69 +2504,67 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var t=0; for(var i=1;i<pts.length;i++) t+=dist(pts[i-1],pts[i]); return t;
   }
 
+  /* Reconhecimento por geometria (nov/2026, refeito): antes contava "cantos" com 24 amostras e um limiar fixo, e um
+     retângulo à mão quase nunca dava exatamente 4 (o canto arredondado vira 0, 2 ou 6). Agora combina três medidas:
+     - quanto o traço preenche a própria caixa (retângulo ~0,9; círculo ~0,78; triângulo e losango ~0,5);
+     - o quanto os pontos ficam colados nas bordas da caixa (retângulo) ou a uma distância parecida do centro (círculo);
+     - os cantos de verdade: picos de curvatura com janela larga e sem contar o mesmo canto duas vezes.
+     Fechado = o fim volta perto do começo (até 35% da diagonal). Se a dúvida for grande, o traço fica como foi desenhado. */
   function reconhecer(pts){
     var ini = pts[0], fim = pts[pts.length-1];
     var b = bbox(pts);
     var diag = Math.hypot(b.w,b.h);
-    if(diag < 20) return null; // muito pequeno
+    if(diag < 24) return null; // muito pequeno
 
-    var fechado = dist(ini,fim) < diag*0.25;
     var perim = comprimento(pts);
+    var fechado = dist(ini,fim) < diag*0.35 && perim > diag * 1.6;
 
-    // ---- ABERTO: testa linha reta ----
+    // ---- ABERTO: linha reta ----
     if(!fechado){
       var distDireta = dist(ini,fim);
-      // se o caminho real é quase igual à reta direta, é uma linha
-      if(distDireta > 0 && perim/distDireta < 1.15){
+      if(distDireta > 0 && perim/distDireta < 1.12){
         var ln = new fabric.Line([ini.x,ini.y,fim.x,fim.y]);
         ln._rotulo = "linha"; return ln;
       }
       return null;
     }
 
-    // ---- FECHADO: conta cantos ----
-    var cantos = contarCantos(pts);
-
-    // círculo: forma fechada com poucos/nenhum canto e proporção equilibrada
+    var am = reamostrar(pts.concat([ini]), 64);
+    var area = Math.abs(areaPoligono(am)), caixa = Math.max(1, b.w * b.h), ench = area / caixa;
     var razao = b.w / (b.h||1);
-    if(cantos <= 1 && razao > 0.5 && razao < 2.0){
-      var raioMedio = (b.w + b.h)/4;
-      var circ = new fabric.Circle({
-        left:b.minX, top:b.minY, radius:raioMedio,
-        scaleX: b.w/(raioMedio*2), scaleY: b.h/(raioMedio*2)
-      });
-      circ._rotulo = "círculo"; return circ;
-    }
+    var cantos = picosDeCanto(am);
 
-    if(cantos === 3){
-      var tri = new fabric.Triangle({left:b.minX, top:b.minY, width:b.w, height:b.h});
-      tri._rotulo = "triângulo"; return tri;
-    }
+    // círculo / elipse: distância ao centro quase constante (relativa à elipse da caixa)
+    var cx = b.minX + b.w/2, cy = b.minY + b.h/2, rs = am.map(function(p){ var dx = (p.x-cx)/(b.w/2||1), dy = (p.y-cy)/(b.h/2||1); return Math.hypot(dx, dy); });
+    var media = rs.reduce(function(a,c){ return a+c; },0)/rs.length, desv = Math.sqrt(rs.reduce(function(a,c){ return a+(c-media)*(c-media); },0)/rs.length);
+    // retângulo: pontos colados nas bordas da caixa
+    var colado = am.filter(function(p){ var d = Math.min(p.x-b.minX, b.maxX-p.x, p.y-b.minY, b.maxY-p.y); return d < Math.min(b.w, b.h) * 0.12 + 4; }).length / am.length;
 
-    if(cantos === 4 || cantos === 5){
+    if(ench > 0.84 && colado > 0.8){
       var rect = new fabric.Rect({left:b.minX, top:b.minY, width:b.w, height:b.h});
       rect._rotulo = "retângulo"; return rect;
     }
-
+    if(ench > 0.66 && ench <= 0.9 && desv / (media||1) < 0.12 && cantos <= 2){
+      var raio = (b.w + b.h)/4;
+      var circ = new fabric.Ellipse({ left:b.minX, top:b.minY, rx:b.w/2, ry:b.h/2 });
+      circ._rotulo = (razao > 0.85 && razao < 1.18) ? "círculo" : "elipse"; return circ;
+    }
+    if(ench > 0.78 && colado > 0.7 && cantos >= 3){
+      var r2 = new fabric.Rect({left:b.minX, top:b.minY, width:b.w, height:b.h});
+      r2._rotulo = "retângulo"; return r2;
+    }
+    if(ench > 0.33 && ench < 0.66){
+      if(cantos >= 4){
+        // losango: um vértice no meio de cada lado da caixa
+        var los = new fabric.Polygon([{x:cx,y:b.minY},{x:b.maxX,y:cy},{x:cx,y:b.maxY},{x:b.minX,y:cy}]);
+        los._rotulo = "losango"; return los;
+      }
+      var v = verticesTriangulo(am);
+      if(v){ var tri = new fabric.Polygon(v); tri._rotulo = "triângulo"; return tri; }
+    }
     return null; // indeciso: mantém o traço livre
   }
-
-  function contarCantos(pts){
-    // reamostra e mede mudança de ângulo entre segmentos; pico = canto
-    var amostra = reamostrar(pts, 24);
-    var cantos = 0;
-    var limiar = Math.PI/4; // 45 graus
-    for(var i=1;i<amostra.length-1;i++){
-      var a = amostra[i-1], c = amostra[i], d = amostra[i+1];
-      var ang1 = Math.atan2(c.y-a.y, c.x-a.x);
-      var ang2 = Math.atan2(d.y-c.y, d.x-c.x);
-      var dif = Math.abs(ang2-ang1);
-      if(dif > Math.PI) dif = 2*Math.PI - dif;
-      if(dif > limiar) cantos++;
-    }
-    return cantos;
-  }
-
+  // reamostra o traço em n pontos igualmente espaçados ao longo do caminho
   function reamostrar(pts, n){
     var total = comprimento(pts);
     if(total === 0) return pts.slice();
@@ -2582,6 +2580,33 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }else{ acum += d; atual = pts[i]; i++; }
     }
     return saida;
+  }
+  function areaPoligono(p){ var a = 0; for(var i=0;i<p.length;i++){ var q = p[(i+1)%p.length]; a += p[i].x*q.y - q.x*p[i].y; } return a/2; }
+  // cantos = picos de virada (janela de 4 amostras), separados entre si; o mesmo canto não conta duas vezes
+  function picosDeCanto(am){
+    var n = am.length, k = 4, vir = [];
+    for(var i=0;i<n;i++){
+      var a = am[(i-k+n)%n], c = am[i], d = am[(i+k)%n];
+      var a1 = Math.atan2(c.y-a.y, c.x-a.x), a2 = Math.atan2(d.y-c.y, d.x-c.x), dif = Math.abs(a2-a1);
+      if(dif > Math.PI) dif = 2*Math.PI - dif;
+      vir.push(dif);
+    }
+    var cantos = 0, ultimo = -99, sep = Math.max(4, Math.floor(n/10));
+    for(var j=0;j<n;j++){
+      var e = vir[(j-1+n)%n], dd = vir[(j+1)%n];
+      if(vir[j] > Math.PI/4 && vir[j] >= e && vir[j] >= dd && j - ultimo >= sep){ cantos++; ultimo = j; }
+    }
+    return cantos;
+  }
+  // triângulo com os vértices de verdade: os dois pontos mais distantes e o mais longe da reta entre eles
+  function verticesTriangulo(am){
+    var A = null, B = null, md = 0;
+    for(var i=0;i<am.length;i+=2) for(var j=i+1;j<am.length;j+=2){ var d = dist(am[i], am[j]); if(d > md){ md = d; A = am[i]; B = am[j]; } }
+    if(!A) return null;
+    var C = null, mh = 0;
+    am.forEach(function(p){ var h = Math.abs((B.x-A.x)*(A.y-p.y) - (A.x-p.x)*(B.y-A.y)) / (md||1); if(h > mh){ mh = h; C = p; } });
+    if(!C || mh < md * 0.2) return null;
+    return [{x:A.x,y:A.y},{x:B.x,y:B.y},{x:C.x,y:C.y}];
   }
 
   /* ================= AÇÕES ================= */
