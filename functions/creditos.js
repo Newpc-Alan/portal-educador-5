@@ -147,10 +147,12 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
   if (r.erro) {
     const avulso = ' Você pode comprar créditos avulsos no Portal IA.';
     const demo = ctx.eu && ctx.eu.licenca_tipo === 'teste';
-    if (demo && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus créditos de demonstração do teste acabaram. Para continuar usando o Portal IA, fale com a gente no WhatsApp (67) 9875-7275 ou compre créditos avulsos no Portal IA.');
+    // details.semCredito: o navegador mostra a janela "Seus créditos de IA acabaram" com o botão de abastecer (regra única, nov/2026)
+    const det = { semCredito: true, motivo: r.erro, comprar: '/apps/portal-ia/#comprar' };
+    if (demo && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus créditos de demonstração do teste acabaram. Para continuar usando o Portal IA, fale com a gente no WhatsApp (67) 9875-7275 ou compre créditos avulsos no Portal IA.', det);
     const msg = { plano: (opc.rede === false ? 'Este uso não é pago pela sua rede e você não tem créditos avulsos suficientes.' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede.') + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
       teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A gestão da rede já foi avisada.' + avulso }[r.erro];
-    throw new HttpsError('resource-exhausted', msg);
+    throw new HttpsError('resource-exhausted', msg, det);
   }
   if (r.alerta) await db.collection('creditos_alertas').add({ conta: r.conta, municipio_id: mun, nivel: r.alerta === 'a5' ? cc.alertas[1] : cc.alertas[0], saldo: r.saldo, total: r.total, em: FieldValue.serverTimestamp() });
   return { ...r, custo, campo, usoRef, acao };

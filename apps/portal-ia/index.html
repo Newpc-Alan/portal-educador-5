@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
 <script src="/assets/pde-pensando.js?v=4" defer></script>
 <script src="/assets/pde-ditado.js?v=1" defer></script>
+<script src="/assets/pde-credito.js?v=1" defer></script>
 <meta name="theme-color" content="#071621">
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -285,7 +286,10 @@ import { getFirestore, doc, getDoc, getDocs, updateDoc, deleteDoc, collection, q
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 const app = initializeApp(window.PDE_AMBIENTE.fb);
 const auth = getAuth(app), db = getFirestore(app);
-const chamar = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:540000 });
+const chamarIA = httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:540000 });
+// acabou o crédito em qualquer chamada da IA: janela única com o botão de abastecer (assets/pde-credito.js), que aqui abre a compra na hora
+const chamar = d => chamarIA(d).catch(e => { if(window.PDECredito) PDECredito.ver(e); throw e; });
+if(window.PDECredito) PDECredito.aoAbastecer = () => abrirCompra();
 const chamarPedido = httpsCallable(getFunctions(app, "southamerica-east1"), "creditosPedido");
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
