@@ -6193,6 +6193,8 @@
     return out.slice(0, 8000);
   }
   // ---------- Atendimento WhatsApp (robô do Portal, nov/2026) ----------
+  // link fixo do app Android da equipe (Release do GitHub; trocar quando sair versão nova)
+  const WA_APP_APK = "https://github.com/Newpc-Alan/portal-educador-5/releases/download/atendimento-1.0.0/atendimento-pde-1.0.0.apk";
   // O robô atende primeiro. Quando ele não sabe, ou a pessoa pede, a conversa vai por rodízio para alguém do setor
   // (Suporte, Técnico, Comercial) cadastrado na Equipe de atendimento. Quem recebe pode responder, transferir ou encerrar.
   // O WhatsApp só deixa responder até 24 h depois da última mensagem da pessoa.
@@ -6226,7 +6228,10 @@
       '<div class="imp-card" id="waTela"><h3>\u{1F4AC} Atendimento WhatsApp</h3>'+
         '<p class="d">Robô '+(cfg.ligado ? '<b style="color:var(--verde,#1a6b2a)">ligado</b>' : '<b style="color:#c0392b">desligado</b>')+
         ' no (67) 9875-7275. Ele responde pelo Manual do Usuário; quando não sabe, ou a pessoa pede, a conversa vai por <b>rodízio</b> para alguém do setor (Suporte, Técnico ou Comercial). Quem recebe responde, <b>transfere</b> ou encerra. Pelas regras do WhatsApp, só dá para responder até 24 h depois da última mensagem da pessoa.</p>'+
-        '<p class="d" style="background:#eef6f0;border-radius:10px;padding:8px 12px">\u{1F4F1} Atenda pelo celular sem abrir o Portal: instale o app <a href="/atendimento/" target="_blank" rel="noopener"><b>Atendimento PDE</b></a> (abra no celular e use "Adicionar à tela inicial") e ative as notificações. Para transferir arrastando, use o <a href="/atendimento/#quadro" target="_blank" rel="noopener"><b>Quadro da equipe</b></a>: uma coluna por pessoa, arraste o cartão para quem vai atender.</p>'+
+        '<div class="wa-app"><div class="wa-app-txt"><b>\u{1F4F1} App Atendimento PDE</b><span>Atenda pelo celular sem abrir o Portal e receba aviso quando um cliente chamar. Android, precisa do Chrome.</span>'+
+          '<div class="wa-app-bts"><a class="btn btn-primary" href="'+WA_APP_APK+'" rel="noopener">\u{1F4E5} Baixar o app (Android)</a><button type="button" class="btn btn-ghost" data-action="wa-app-qr">\u{1F4F7} QR para o celular</button></div>'+
+          '<small>iPhone: abra <a href="/atendimento/" target="_blank" rel="noopener">/atendimento</a> no Safari e use "Adicionar à Tela de Início". Para transferir arrastando, use o <a href="/atendimento/#quadro" target="_blank" rel="noopener"><b>Quadro da equipe</b></a>.</small></div>'+
+          '<div class="wa-app-qr" id="waAppQr" hidden></div></div>'+
         '<div class="wa-topo"><div class="wa-filtros" role="tablist">'+
           [["minhas","Minhas"],["fila","Fila sem dono"],["todas","Todas"]].map(([k, v]) => '<button type="button" role="tab" data-action="wa-filtro" data-f="'+k+'" class="'+(wa.filtro === k ? "on" : "")+'">'+v+' <em id="waCnt_'+k+'"></em></button>').join("")+
         '</div><label class="wa-disp" id="waDispBox" hidden><input type="checkbox" id="waDisp" data-action="wa-disp"> Disponível para receber conversas</label></div>'+
@@ -6243,6 +6248,7 @@
           '<div class="wa-eq-form"><input type="password" id="waTvPin" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="PIN de 4 a 6 números" style="font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px;width:200px"><button class="btn btn-ghost btn-add" data-action="wa-tv-pin">Definir PIN</button></div></div>' : '')+
       '</div>'+
       '<style>.wa-grade{display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:14px;margin-top:12px}.wa-lista{border:1px solid #dfe6ee;border-radius:12px;max-height:560px;overflow:auto}'+
+      '.wa-app{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#eef6f0;border:1px solid #cfe5d4;border-radius:12px;padding:12px 14px;margin:6px 0 4px}.wa-app-txt{flex:1;min-width:240px;display:grid;gap:6px}.wa-app-txt b{color:#1a6b2a;font-size:15px}.wa-app-txt span,.wa-app-txt small{color:#41505f;font-size:13px}.wa-app-bts{display:flex;gap:8px;flex-wrap:wrap}.wa-app-bts .btn{text-decoration:none}.wa-app-qr{text-align:center;font-size:12px;color:#41505f}.wa-app-qr[hidden]{display:none}.wa-app-qr img{width:150px;height:150px;display:block;margin:0 auto 4px;background:#fff;padding:6px;border-radius:8px}'+
       '.wa-topo{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:8px}.wa-filtros{display:flex;gap:6px;flex-wrap:wrap}'+
       '.wa-filtros button{border:1px solid #cfd8e3;background:#fff;border-radius:999px;padding:6px 12px;font:inherit;cursor:pointer}.wa-filtros button.on{background:#0f2c4a;color:#fff;border-color:#0f2c4a}.wa-filtros em{font-style:normal;opacity:.75}'+
       '.wa-disp{display:flex;gap:6px;align-items:center;font-size:.92em}'+
@@ -6368,6 +6374,14 @@
     if(whatsapp_aviso && !/^\d{10,13}$/.test(whatsapp_aviso)){ toast("WhatsApp para avisos: DDD + número.", true); return; }
     try{ const r = await waFn("whatsappEquipe", { acao:"salvar", email, setores, whatsapp_aviso }); toast(r.nome+" está na equipe de atendimento."+(whatsapp_aviso ? " Avisos no WhatsApp ligados." : "")); $("waEqEmail").value = ""; if($("waEqWhats")) $("waEqWhats").value = ""; }catch(e){ waErro(e); }
   }
+  async function waAppQr(){
+    const box = $("waAppQr"); if(!box) return;
+    if(!box.hidden){ box.hidden = true; return; }
+    try{ await carregarQrLib(); }catch(e){ toast("Não foi possível carregar o gerador de QR.", true); return; }
+    const { qrDataUrl } = await import("/assets/js/carteirinha.js");
+    box.innerHTML = '<img alt="QR code para baixar o app Atendimento PDE" src="'+qrDataUrl(WA_APP_APK)+'">Aponte a câmera do celular';
+    box.hidden = false;
+  }
   document.addEventListener("click", ev => {
     const el = ev.target.closest("[data-action^='wa-']"); if(!el || !$("waTela")) return;
     const a = el.dataset.action;
@@ -6377,6 +6391,7 @@
     else if(a === "wa-encerrar") waResponder(true);
     else if(a === "wa-assumir") waFn("whatsappTransferir", { wa_id:wa.sel, para_uid:auth.currentUser.uid }).then(() => toast("A conversa agora está com você.")).catch(waErro);
     else if(a === "wa-transf-abrir") waAbrirTransf();
+    else if(a === "wa-app-qr") waAppQr();
     else if(a === "wa-transf-fechar"){ const b = $("waTransf"); if(b) b.hidden = true; }
     else if(a === "wa-transferir") waTransferir();
     else if(a === "wa-eq-salvar") waEqSalvar();
