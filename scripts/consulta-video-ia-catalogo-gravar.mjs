@@ -11,7 +11,9 @@ const N = await import(pathToFileURL(process.cwd() + '/video-ia-nucleo.js').href
 initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
 const limpo = t => String(t).replace(/[{}"]/g, ' ').replace(/\r?\n/g, ' | ');
 const aviso = t => console.log('::notice::' + limpo(t).slice(0, 2000));
-const QTD = Math.min(20, Number(process.env.QTD) || 8);
+const QTD = Math.min(100, Number(process.env.QTD) || 8);
+// PUBLICAR=1: já publica (aparece o botão Interativo no catálogo) e publica também os rascunhos que existirem
+const PUBLICAR = process.env.PUBLICAR === '1';
 
 const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
 const tk = await (await auth.getClient()).getAccessToken();
@@ -34,7 +36,12 @@ for (const v of todos) { if (escolha.length >= QTD) break; if (comp.has(v.compon
 for (const v of todos) { if (escolha.length >= QTD) break; if (!escolha.includes(v)) escolha.push(v); }
 aviso('catálogo: ' + todos.length + ' vídeos sem versão interativa; gerando ' + escolha.length);
 let ok = 0;
-for (const v of escolha) {
+if (PUBLICAR) {
+  const rasc = await db.collection('videos_interativos').where('origem', '==', 'catalogo').where('publicado', '==', false).get();
+  for (const d of rasc.docs) { await d.ref.set({ publicado: true, atualizado_em: FieldValue.serverTimestamp() }, { merge: true }); await db.doc('videos/' + d.data().catalogo_id).set({ interativo: true }, { merge: true }); }
+  aviso('rascunhos publicados: ' + rasc.size);
+}
+async function um(v) {
   const serie = serieDe(v.faixa_de), qtd = v.duracao_seg > 300 ? 6 : v.duracao_seg > 150 ? 5 : 4;
   let c = null, mod = '', o = null, ent = 0, sai = 0;
   for (let t = 0; t < 2 && !(c && !c.problemas.length); t++) {
@@ -51,11 +58,14 @@ for (const v of escolha) {
     if (o.adequado === false) { aviso('PULADO ' + v.titulo + ': ' + o.motivo); break; }
     c = N.conferirVideo(o, { duracao: v.duracao_seg, qtd });
   }
-  if (!c || !c.interacoes.length || (o && o.adequado === false)) { aviso('SEM RESULTADO ' + v.titulo); continue; }
+  if (!c || !c.interacoes.length || (o && o.adequado === false)) { aviso('SEM RESULTADO ' + v.titulo); return; }
   await db.doc('videos_interativos/cat_' + v.id).set({ origem: 'catalogo', catalogo_id: v.id, youtube_id: v.youtube_id, titulo: v.titulo || o.titulo, resumo: String(o.resumo || '').slice(0, 400), canal: v.canal || '',
-    serie, disciplina: v.componente || '', duracao_seg: c.duracao || v.duracao_seg, interacoes: c.interacoes, dono: '', dono_nome: '', municipio_id: '', escola_id: '', publicado: false, modelo: mod,
+    serie, disciplina: v.componente || '', duracao_seg: c.duracao || v.duracao_seg, interacoes: c.interacoes, dono: '', dono_nome: '', municipio_id: '', escola_id: '', publicado: PUBLICAR, modelo: mod,
     gerado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(), criado_em: FieldValue.serverTimestamp() });
   await db.doc('stats/ia_uso').set({ [new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace('-', '')]: { video_catalogo: { usos: FieldValue.increment(1), custo_usd: FieldValue.increment((ent * 0.75 + sai * 3.75) / 1e6 * 1.6) } } }, { merge: true });
-  ok++; aviso('RASCUNHO ' + v.titulo + ' (' + (v.componente || '') + ', ' + serie + ') · ' + c.interacoes.length + ' pausas' + (c.problemas.length ? ' · avisos: ' + c.problemas.join('; ') : ''));
+  if (PUBLICAR) await db.doc('videos/' + v.id).set({ interativo: true }, { merge: true });
+  ok++; aviso((PUBLICAR ? 'PUBLICADO ' : 'RASCUNHO ') + v.titulo + ' (' + (v.componente || '') + ', ' + serie + ') · ' + c.interacoes.length + ' pausas' + (c.problemas.length ? ' · avisos: ' + c.problemas.join('; ') : ''));
 }
-aviso('pronto: ' + ok + ' rascunhos. Revise e publique em www.portaldoeducador.com.br/video/ (aba Do catálogo do Portal).');
+// 4 de cada vez (cabe no tempo da rotina)
+for (let i = 0; i < escolha.length; i += 4) await Promise.all(escolha.slice(i, i + 4).map(v => um(v).catch(e => aviso('ERRO ' + v.titulo + ' ' + e.message))));
+aviso('pronto: ' + ok + (PUBLICAR ? ' publicados.' : ' rascunhos.') + ' Revise e publique em www.portaldoeducador.com.br/video/ (aba Do catálogo do Portal).');
