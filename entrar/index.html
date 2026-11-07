@@ -885,6 +885,7 @@
   .vd-edit{ background:#fff;border-radius:16px;max-width:980px;width:100%;padding:20px 24px 24px;box-shadow:0 24px 60px rgba(7,22,33,.35) }
   .vd-edit-top{ display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px }
   .vd-edit-top h3{ margin:0;color:var(--pde-azul-escuro,#0f2c4a) }
+  .vd-int{position:absolute;left:8px;bottom:8px;background:#8DC63F;color:#0f2c4a;font-weight:800;font-size:11px;padding:3px 7px;border-radius:6px;letter-spacing:.3px}.vd-inter{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#0f2c4a,#16406b);color:#fff;border-radius:14px;padding:14px 16px;margin:6px 0 12px}.vd-inter>div:first-child{flex:1;min-width:240px;display:grid;gap:4px}.vd-inter b{font-size:16px}.vd-inter span{font-size:13.5px;opacity:.85}.vd-inter-bts{display:flex;gap:8px;flex-wrap:wrap}.vd-inter-bts .btn{text-decoration:none}.vd-inter-bts .btn-ghost{background:#fff;color:#0f2c4a}
   .vd-novo{ position:absolute;left:8px;top:8px;background:#8DC63F;color:#0f2c4a;font-size:11px;font-weight:900;letter-spacing:.04em;padding:3px 8px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25) }
   .vd-dur{ position:absolute;right:8px;bottom:8px;background:rgba(7,22,33,.85);color:#fff;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px }
   .vd-corpo{ padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px }
@@ -9767,7 +9768,9 @@
         '<input type="search" id="vdBusca" class="usr-busca" placeholder="Buscar por título, tema ou habilidade (ex: EF05CI11)" aria-label="Buscar vídeos">'+
         '<select id="vdSerie" aria-label="Ano ou faixa etária">'+opcoesFaixa("", "Todas as séries e idades")+'</select>'+
         '<select id="vdComp" aria-label="Componente"><option value="">Todos os componentes</option>'+DISCIPLINAS.map(d => '<option>'+d+'</option>').join("")+'</select>'+
-      '</div><div id="vdDestaque"></div><div class="vd-atalhos" id="vdAtalhos"></div><div id="vdLista"><div class="empty">Carregando os vídeos...</div></div>';
+      '</div>'+(usuarioAtual.perfil === "aluno" ? '' : '<div class="vd-inter"><div><b>\u{1F3AC} Vídeo interativo</b><span>O vídeo pausa nos momentos certos e a turma responde na lousa. Use os do catálogo ou transforme qualquer vídeo do YouTube com a IA.</span></div>'+
+        '<div class="vd-inter-bts"><a class="btn btn-primary" href="/video/">Ver vídeos interativos</a><a class="btn btn-ghost" href="/video/?novo">\u2795 Criar com um link</a></div></div>')+
+      '<div id="vdDestaque"></div><div class="vd-atalhos" id="vdAtalhos"></div><div id="vdLista"><div class="empty">Carregando os vídeos...</div></div>';
     // atalhos com os anos das turmas do professor
     if(!cacheTurmas.length && (usuarioAtual.turmas_ids || []).length && ehProfessor()){ try{ await carregarCacheTurmas(); }catch(e){ console.warn("turmas:", e.code); } }
     if(!$("vdAtalhos")) return;
@@ -9800,7 +9803,7 @@
     }
     $("vdLista").innerHTML = '<p class="acv-cont">'+lista.length+' vídeo(s)</p><div class="vd-grade">'+lista.map(v =>
       '<button type="button" class="vd-card" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">'+
-        '<div class="vd-capa" style="background-image:url(\''+capaVideo(v.youtube_id)+'\')">'+(videoNovo(v) ? '<span class="vd-novo">NOVO NO PORTAL</span>' : '')+(v.duracao_seg ? '<span class="vd-dur">'+mostrarDuracao(v.duracao_seg)+'</span>' : '')+'</div>'+
+        '<div class="vd-capa" style="background-image:url(\''+capaVideo(v.youtube_id)+'\')">'+(videoNovo(v) ? '<span class="vd-novo">NOVO NO PORTAL</span>' : '')+(v.interativo && usuarioAtual.perfil !== "aluno" ? '<span class="vd-int">\u{1F3AC} INTERATIVO</span>' : '')+(v.duracao_seg ? '<span class="vd-dur">'+mostrarDuracao(v.duracao_seg)+'</span>' : '')+'</div>'+
         '<div class="vd-corpo"><h4>'+escapeHtml(v.titulo || "")+'</h4>'+selosVideo(v, false)+'</div></button>').join("")+'</div>';
   }
   function montarModalVideo(){
@@ -9810,7 +9813,7 @@
     bg.innerHTML = '<div class="modal vd" role="dialog" aria-modal="true" aria-labelledby="vdTit">'+
       '<div class="vd-player" id="vdPlayer"></div>'+
       '<div class="vd-info"><h3 id="vdTit"></h3><div id="vdSelos"></div><p id="vdDesc"></p><div class="vd-reacao" id="vdReacao"></div>'+
-      '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="vd-tela">Tela cheia (lousa)</button>'+
+      '<div class="imp-acoes"><a class="btn btn-primary" id="vdInter" href="#" hidden>\u{1F3AC} Versão interativa</a><button type="button" class="btn btn-primary" data-action="vd-tela">Tela cheia (lousa)</button>'+
       '<button type="button" class="btn btn-ghost" data-action="vd-fechar">Fechar</button></div></div></div>';
     bg.addEventListener("click", (e) => { if(e.target === bg) fecharVideo(); });
     document.body.appendChild(bg);
@@ -9827,6 +9830,11 @@
     $("vdTit").textContent = v.titulo || "";
     $("vdSelos").innerHTML = selosVideo(v, true);
     $("vdDesc").textContent = [v.descricao, v.canal ? "Canal: "+v.canal : ""].filter(Boolean).join(" · ");
+    // vídeo interativo (nov/2026): professor abre a versão publicada; o administrador prepara ou revisa
+    const vi = $("vdInter"), admV = (usuarioReal || usuarioAtual).perfil === "admin";
+    if(vi){ vi.hidden = !(admV || (v.interativo && usuarioAtual.perfil !== "aluno"));
+      vi.href = admV ? "/video/?catalogo="+encodeURIComponent(v.id) : "/video/?id=cat_"+encodeURIComponent(v.id);
+      vi.textContent = admV && !v.interativo ? "\u2728 Preparar versão interativa" : "\u{1F3AC} Versão interativa"; }
     $("modalVideo").classList.add("show");
     vdReac.v = v; vdReac.minha = ""; desenharReacao();
     if(usuarioAtual.perfil !== "admin") registrarVideo(v.id);
