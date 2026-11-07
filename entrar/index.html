@@ -5346,7 +5346,10 @@
   const DISPENSA_ANO = 65492.11;   // art. 75, II da Lei 14.133 em 2026 (Decreto 12.807/2025)
   const SIM_PLANOS = [["basico","Básico"],["inter","Intermediário"],["compl","Completo"]];
   const SIM_PADRAO = { muni:"", nome:"", alunos:0, escolas:0, profs:0, prazo:12, tipo:"avulso", basico:3, inter:6, compl:10, implantacao:20000, turmas:4, valorTurma:2500,
-    ia:6000, infra:0.35, suporte:1500, impostos:15, comissao:0, plano:"inter" };
+    ia:6000, infra:0.35, suporte:1500, impostos:15, comissao:0, plano:"inter",
+    // junto da locação (nov/2026): o Portal pago é cobrado por sala equipada; sala só com lousa (1º ao 3º ano) paga uma fração
+    salasKit:6, salasLousa:0, alunosSala:50, vLousa:1600, vCarrinho:450, vDisp:105, dispSala:30,
+    salaInter:360, salaCompl:600, pctLousa:50, profsSala:20, iaInter:0, iaCompl:0, margemAlvo:40 };
   const SIM_PRESETS = { "est-sonora":{ nome:"Sonora/MS (estimativa)", alunos:2200, escolas:8, profs:130 } };
   let SIM = null, simMunis = null;
   const reais = v => (Number(v) || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL", maximumFractionDigits:2 });
@@ -5365,17 +5368,40 @@
       '<h3>2. Contrato</h3><div class="sim-op"><button type="button" class="md-pill'+(SIM.tipo === "avulso" ? " on" : "")+'" data-action="sim-tipo" data-arg="avulso">Portal avulso</button>' +
         '<button type="button" class="md-pill'+(SIM.tipo === "locacao" ? " on" : "")+'" data-action="sim-tipo" data-arg="locacao">Junto da locação NEWPC</button></div>' +
       '<div class="sim-3">' + campo("prazo", "Prazo (meses)") + '</div>' +
-      '<h3>3. Preço por aluno/mês</h3><div class="sim-3">' + campo("basico", "Básico", 0.1, SIM.tipo === "locacao" ? "sem custo na locação" : "") + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>' +
-      '<h3>4. Itens à parte</h3><div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) +
+      (SIM.tipo === "locacao"
+        ? '<h3>3. Salas e locação</h3><div class="sim-3">' + campo("salasKit", "Salas com kit completo", 1, "lousa + carrinho + dispositivos (4º ao 9º)") + campo("salasLousa", "Salas só com lousa", 1, "1º ao 3º ano") + campo("alunosSala", "Alunos por sala", 1, "somando os turnos") + '</div>' +
+          '<div class="sim-2">' + campo("vLousa", "Lousa (R$/mês)", 50) + campo("vCarrinho", "Carrinho com roteador (R$/mês)", 10) + campo("vDisp", "Tablet ou Chromebook (R$/mês)", 5) + campo("dispSala", "Dispositivos por sala", 1) + '</div>' +
+          '<h3>4. Preço do Portal por sala/mês</h3><div class="sim-3">' + campo("salaInter", "Intermediário", 10) + campo("salaCompl", "Completo", 10) + campo("pctLousa", "Sala só com lousa paga (%)", 5, "do preço da sala") + '</div><p class="sim-nota">Básico: sem custo na locação.</p>'
+        : '<h3>3. Preço por aluno/mês</h3><div class="sim-3">' + campo("basico", "Básico", 0.1) + campo("inter", "Intermediário", 0.1) + campo("compl", "Completo", 0.1) + '</div>') +
+      '<h3>' + (SIM.tipo === "locacao" ? "5" : "4") + '. Itens à parte</h3><div class="sim-2">' + campo("implantacao", "Implantação (única)", 500) + campo("ia", "Créditos de IA (por ano)", 500) +
         campo("turmas", "Formação: turmas de 4h") + campo("valorTurma", "Valor por turma", 100) + '</div>' +
-      '<details class="sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>5. Custos da NEWPC (para a margem)</summary><div class="sim-2">' +
+      '<details class="sim-det"'+(SIM.abrirCustos ? " open" : "")+'><summary>' + (SIM.tipo === "locacao" ? "6" : "5") + '. Custos da NEWPC (para a margem)</summary><div class="sim-2">' +
         campo("infra", "Infra por aluno/mês (R$)", 0.05, "Firebase, arquivos, e-mail") + campo("suporte", "Suporte e acompanhamento (R$/mês)", 100) +
-        campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) + '</div></details>' +
+        campo("impostos", "Impostos (%)", 0.5) + campo("comissao", "Comissão (%)", 0.5) + campo("margemAlvo", "Margem desejada (%)", 1, "preço sugerido = custo ÷ (1 − impostos − comissão − margem)") +
+        campo("profsSala", "Professores usando as salas", 1, "a franquia de IA é por professor") + campo("iaInter", "IA por professor/mês · Intermediário (R$)", 0.5, "preencher com a medição de custos") + campo("iaCompl", "IA por professor/mês · Completo (R$)", 0.5) + '</div></details>' +
       '<p class="sim-nota">Valores de partida são hipóteses para discussão. Antes de propor, confira a faixa de preços em contratos parecidos no PNCP (a prefeitura vai fazer essa pesquisa).</p>' +
       '</section><section class="sim-box sim-res"><div id="simRes"></div></section></div>';
     simAtualizar();
   }
+  // locação: o que a prefeitura paga de equipamento por mês (para ver quanto o Portal pesa no projeto)
+  function simLocacaoMes(){ return (+SIM.salasKit || 0) * ((+SIM.vLousa || 0) + (+SIM.vCarrinho || 0) + (+SIM.vDisp || 0) * (+SIM.dispSala || 0)) + (+SIM.salasLousa || 0) * (+SIM.vLousa || 0); }
+  function simCalcLocacao(){
+    const N = Math.max(1, +SIM.prazo || 12), anos = N / 12, kit = +SIM.salasKit || 0, lou = +SIM.salasLousa || 0, frac = (+SIM.pctLousa || 0) / 100;
+    const salasEq = kit + lou * frac, alunos = (kit + lou) * (+SIM.alunosSala || 0), P = +SIM.profsSala || 0, locMes = simLocacaoMes();
+    const formacao = (+SIM.turmas || 0) * (+SIM.valorTurma || 0), divisor = 1 - ((+SIM.impostos || 0) + (+SIM.comissao || 0) + (+SIM.margemAlvo || 0)) / 100;
+    return SIM_PLANOS.map(([k, nome]) => {
+      const gratis = k === "basico", precoSala = gratis ? 0 : (+SIM[k === "inter" ? "salaInter" : "salaCompl"] || 0), mensal = salasEq * precoSala;
+      const custoMes = alunos * (+SIM.infra || 0) + (+SIM.suporte || 0) + (gratis ? 0 : P * (+SIM[k === "inter" ? "iaInter" : "iaCompl"] || 0));
+      const ano1 = mensal * Math.min(12, N) + (+SIM.implantacao || 0) + formacao + (+SIM.ia || 0);
+      const total = mensal * N + (+SIM.implantacao || 0) + formacao + (+SIM.ia || 0) * anos;
+      const liquido = mensal * (1 - ((+SIM.impostos || 0) + (+SIM.comissao || 0)) / 100), margem = liquido - custoMes;
+      const sugerido = divisor > 0 && salasEq ? custoMes / divisor / salasEq : 0;
+      return { k, nome, gratis, preco:precoSala, precoSala, salasEq, alunos, mensal, anual:mensal * 12, ano1, total, porProf:P ? mensal / P : 0, porAluno:alunos ? mensal / alunos : 0,
+        custoMes, margem, margemPct:mensal ? margem / mensal * 100 : 0, formacao, locMes, pctLoc:locMes ? mensal / locMes * 100 : 0, sugerido, locacao:true };
+    });
+  }
   function simCalc(){
+    if(SIM.tipo === "locacao") return simCalcLocacao();
     const A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12), anos = N / 12, P = +SIM.profs || 0;
     const formacao = (+SIM.turmas || 0) * (+SIM.valorTurma || 0), custoMes = A * (+SIM.infra || 0) + (+SIM.suporte || 0);
     return SIM_PLANOS.map(([k, nome]) => {
@@ -5388,14 +5414,17 @@
   }
   function simAtualizar(){
     const box = $("simRes"); if(!box) return;
-    const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12);
-    if(!A){ box.innerHTML = '<div class="empty">Escolha um município ou digite o número de alunos.</div>'; return; }
-    box.innerHTML = '<h3>' + escapeHtml(SIM.nome || "Município") + ' · ' + A.toLocaleString("pt-BR") + ' alunos</h3>' +
+    const r = simCalc(), sel = r.find(x => x.k === SIM.plano) || r[1], A = +SIM.alunos || 0, N = Math.max(1, +SIM.prazo || 12), loc = SIM.tipo === "locacao";
+    const salas = (+SIM.salasKit || 0) + (+SIM.salasLousa || 0);
+    if(loc ? !salas : !A){ box.innerHTML = '<div class="empty">' + (loc ? "Digite quantas salas a locação vai equipar." : "Escolha um município ou digite o número de alunos.") + '</div>'; return; }
+    box.innerHTML = '<h3>' + escapeHtml(SIM.nome || "Município") + ' · ' + (loc ? salas + (salas === 1 ? " sala" : " salas") + ' · locação ' + reais0(r[0].locMes) + '/mês' : A.toLocaleString("pt-BR") + ' alunos') + '</h3>' +
       '<div class="sim-cards">' + r.map(x => {
         const disp = x.ano1 <= DISPENSA_ANO;
         return '<button type="button" class="sim-card'+(x.k === sel.k ? " on" : "")+'" data-action="sim-plano" data-arg="'+x.k+'"><b>'+x.nome+'</b>' +
           (x.gratis ? '<span class="sim-v">Sem custo</span><small>incluso na locação</small><span class="sim-l">Custo absorvido: '+reais0(x.custoMes)+'/mês</span>'
-            : '<span class="sim-v">'+reais0(x.mensal)+'<small>/mês</small></span><small>'+reais0(x.anual)+' por ano · '+reais(x.porProf)+' por professor/mês</small>' +
+            : '<span class="sim-v">'+reais0(x.mensal)+'<small>/mês</small></span><small>'+reais0(x.anual)+' por ano · '+(x.locacao ? reais(x.porAluno)+' por aluno/mês' : reais(x.porProf)+' por professor/mês')+'</small>' +
+              (x.locacao ? '<span class="sim-l"><b>'+x.pctLoc.toFixed(1).replace(".", ",")+'%</b> sobre a locação'+(x.pctLoc > 15 ? ' · acima do teto de 15%' : '')+'</span>' +
+                '<span class="sim-l">Para '+(+SIM.margemAlvo || 0)+'% de margem: <b>'+reais0(x.sugerido)+'</b> por sala</span>' : '') +
               '<span class="sim-l">1º ano com itens à parte: <b>'+reais0(x.ano1)+'</b></span>' +
               '<span class="sim-l">Contrato de '+N+' meses: <b>'+reais0(x.total)+'</b></span>' +
               '<span class="sim-m '+(x.margem >= 0 ? "ok" : "neg")+'">Margem da licença: '+reais0(x.margem)+'/mês ('+x.margemPct.toFixed(0)+'%)</span>' +
@@ -5406,7 +5435,11 @@
   }
   function simItens(x, N){
     const it = [["Implantação: cadastros, importação de dados, domínio Google e configuração", "serviço", 1, +SIM.implantacao || 0]];
-    if(!x.gratis) it.push(["Licença do Portal do Educador · plano " + x.nome, "aluno/mês", (+SIM.alunos || 0) * N, x.preco]);
+    if(!x.gratis && x.locacao){
+      if(+SIM.salasKit) it.push(["Plataforma pedagógica com IA · plano " + x.nome + " · sala com kit completo", "sala/mês", (+SIM.salasKit || 0) * N, x.precoSala]);
+      if(+SIM.salasLousa) it.push(["Plataforma pedagógica com IA · plano " + x.nome + " · sala só com lousa", "sala/mês", (+SIM.salasLousa || 0) * N, Math.round(x.precoSala * (+SIM.pctLousa || 0)) / 100]);
+    }
+    else if(!x.gratis) it.push(["Licença do Portal do Educador · plano " + x.nome, "aluno/mês", (+SIM.alunos || 0) * N, x.preco]);
     if(+SIM.turmas) it.push(["Formação docente (turma de 4h)", "turma", +SIM.turmas, +SIM.valorTurma || 0]);
     if(+SIM.ia) it.push(["Créditos de IA do Portal (pacote anual)", "pacote", +(N / 12).toFixed(2), +SIM.ia]);
     return it;
