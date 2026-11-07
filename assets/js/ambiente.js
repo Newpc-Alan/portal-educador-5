@@ -7,7 +7,9 @@
 (function(){
   var OFICIAL = {
     apiKey: "AIzaSyCKk_t9bvP9kDhI5aUpSxNV3icR6j70tk0",
-    authDomain: "portal-educador-5.firebaseapp.com",
+    // login com Google pelo domínio do Portal (nov/2026): a tela do Google mostra "Prosseguir para portaldoeducador.com.br".
+    // Os arquivos /__/auth/ são copiados do Firebase pela rotina "Sincronizar arquivos do login". Para voltar: "portal-educador-5.firebaseapp.com"
+    authDomain: "www.portaldoeducador.com.br",
     projectId: "portal-educador-5",
     storageBucket: "portal-educador-5.firebasestorage.app",
     messagingSenderId: "725103866385",
