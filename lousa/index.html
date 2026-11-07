@@ -4333,13 +4333,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     apIr(1);
   }
   function apAnt(){
+    apFim(false);
     if(AP.revelado){ apCarregar(pagAtual, function(){ AP.passo = AP.max; apMostrar(AP.max, false); apHud(); }); return; }
     if(AP.passo > 1){ AP.passo--; apMostrar(AP.passo, false); apHud(); return; }
     apIr(-1, true);
   }
   function apIr(d, cheio){
     var l = apLista(), alvo = l[l.indexOf(pagAtual) + d];
-    if(alvo === undefined){ if(d > 0) apAviso("Fim da aula · Esc para sair"); return; }
+    if(alvo === undefined){ if(d > 0) apFim(true); return; }
+    apFim(false);
     palco.classList.add("ap-trans");
     setTimeout(function(){ apCarregar(alvo, function(){ if(cheio){ AP.passo = AP.max; apMostrar(AP.max, false); } palco.classList.remove("ap-trans"); apHud(); }); }, 200);
   }
@@ -4360,6 +4362,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     el.textContent = (neg ? "+" : "") + Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2) + (AP.rel.rodando ? "" : " ⏸");
     el.classList.toggle("ap-estourou", alvo > 0 && neg); el.title = alvo ? "Tempo sugerido para este slide: " + AP.min + " min (toque para pausar)" : "Tempo neste slide (toque para pausar)";
   }
+  // fim da aula (nov/2026): em painel de toque não há tecla Esc, então o fim mostra botões grandes para sair ou recomeçar
+  function apFim(mostrar){
+    var f = document.getElementById("apFim"); if(!f) return;
+    f.hidden = !mostrar; if(mostrar){ var b = f.querySelector("[data-ap='sair']"); if(b) setTimeout(function(){ b.focus(); }, 30); }
+  }
+  function apToque(){ try{ return navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches; }catch(e){ return false; } }
   function apAviso(t){ var a = document.getElementById("apAviso"); if(!a) return; a.textContent = t; a.classList.add("on"); clearTimeout(a._t); a._t = setTimeout(function(){ a.classList.remove("on"); }, 2600); }
   function apHud(){
     var h = document.getElementById("apHud"); if(!h) return;
@@ -4386,6 +4394,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       "#apPag{min-width:64px;text-align:center}#apTempo{font-variant-numeric:tabular-nums;min-width:74px}#apTempo.ap-estourou{background:#c62828!important}" +
       "#apAviso{position:fixed;left:50%;top:22px;transform:translateX(-50%);z-index:9003;background:rgba(12,24,38,.92);color:#fff;padding:10px 18px;border-radius:12px;font:600 16px 'Segoe UI',sans-serif;opacity:0;transition:opacity .25s;pointer-events:none}#apAviso.on{opacity:1}" +
       ".ap-confete{position:fixed;inset:0;z-index:9004;pointer-events:none}" +
+      "#apSairCanto{position:fixed;top:12px;right:12px;z-index:9006;display:none;align-items:center;gap:6px;border:0;border-radius:999px;background:rgba(12,24,38,.55);color:#fff;font:700 15px 'Segoe UI',sans-serif;padding:10px 16px;min-height:48px;cursor:pointer;opacity:.7}" +
+      "#apSairCanto:hover,#apSairCanto:focus-visible{opacity:1;background:rgba(12,24,38,.9)}body.apresentando #apSairCanto{display:flex}" +
+      "#apFim{position:fixed;inset:0;z-index:9007;display:flex;align-items:center;justify-content:center;background:rgba(6,14,24,.55)}#apFim[hidden]{display:none}" +
+      "#apFim .ap-cx{text-align:center}#apFim .ap-cx p{margin:0 0 18px;font:600 17px 'Segoe UI',sans-serif;color:#3c4b5a}#apFim .ap-bts{justify-content:center}#apFim button{min-height:52px;font-size:17px}" +
       "#apSorteio,#apGrafico{position:fixed;inset:0;z-index:9005;display:flex;align-items:center;justify-content:center;background:rgba(6,14,24,.72)}" +
       ".ap-cx{background:#fff;color:#0c2338;border-radius:22px;padding:26px 30px;width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);overflow:auto;font-family:'Segoe UI',Roboto,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.4)}" +
       ".ap-cx h3{margin:0 0 12px;font:800 22px Nunito,'Segoe UI',sans-serif}.ap-cx select,.ap-cx input{font:inherit;font-size:17px;padding:10px;border:1.5px solid #c9d6e2;border-radius:10px;width:100%;box-sizing:border-box;margin:4px 0 12px}" +
@@ -4402,16 +4414,25 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       '<span class="ap-sep"></span><button data-ap="tempo" id="apTempo"></button>' +
       '<button data-ap="revelar" id="apRevelar" hidden></button><button data-ap="vivo" id="apVivo" class="ap-vivo" hidden></button>' +
       '<button data-ap="sortear" title="Sortear um aluno para responder">🎲 Sortear</button>' +
-      '<span class="ap-sep"></span><button data-ap="sair" title="Sair da apresentação (Esc)">✕ Sair</button></div>';
+      '<span class="ap-sep"></span><button data-ap="sair" title="Sair da apresentação (Esc)">✕ Sair</button></div>' +
+      '<button type="button" id="apSairCanto" data-ap="sair" title="Sair da apresentação">✕ Sair</button>' +
+      '<div id="apFim" hidden role="dialog" aria-modal="true" aria-labelledby="apFimTit"><div class="ap-cx"><h3 id="apFimTit">🏁 Fim da aula</h3><p>Você chegou ao último slide.</p>' +
+        '<div class="ap-bts"><button type="button" data-ap="ultimo">◀ Voltar ao último slide</button><button type="button" data-ap="inicio">↺ Recomeçar</button>' +
+        '<button type="button" data-ap="sair" class="ap-dest">✕ Sair da apresentação</button></div></div></div>';
     while(d.firstChild) document.body.appendChild(d.firstChild);
-    document.getElementById("apHud").addEventListener("click", function(e){
+    var cliqueAp = function(e){
       var b = e.target.closest("[data-ap]"); if(!b) return; e.stopPropagation();
       var a = b.dataset.ap;
+      if(a === "ultimo"){ apFim(false); apMostrarHud(); return; }
+      if(a === "inicio"){ apFim(false); var l0 = apLista(); apCarregar(l0[0], function(){ apHud(); }); return; }
       if(a === "prox") apProx(); else if(a === "ant") apAnt(); else if(a === "sair") apSair();
       else if(a === "revelar") apRevelar(); else if(a === "sortear") apSortear(); else if(a === "vivo") apVivoBotao();
       else if(a === "tempo"){ AP.rel.rodando = !AP.rel.rodando; apPintarRelogio(); }
-      apMostrarHud();
-    });
+      if(AP.on) apMostrarHud();
+    };
+    ["apHud", "apSairCanto", "apFim"].forEach(function(id){ var el = document.getElementById(id); if(el) el.addEventListener("click", cliqueAp); });
+    // painel de toque não tem "mousemove": qualquer toque mostra os controles
+    document.addEventListener("touchstart", function(){ if(AP.on) apMostrarHud(); }, { passive:true });
     document.addEventListener("mousemove", function(){ if(AP.on) apMostrarHud(); });
     document.addEventListener("fullscreenchange", function(){ if(AP.on && !document.fullscreenElement && AP.fs) apSair(); else if(AP.on) setTimeout(function(){ ajustarTamanho(); apEnquadrar(); canvas.requestRenderAll(); }, 120); });
   }
@@ -4446,13 +4467,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     canvas.discardActiveObject(); setFerramenta("select"); canvas.isDrawingMode = false; canvas.selection = false; canvas.defaultCursor = "pointer";
     document.body.classList.add("apresentando");
     var alvo = l.indexOf(pagAtual) >= 0 ? pagAtual : l[0];
-    var ir = function(){ ajustarTamanho(); apCarregar(alvo, function(){ apAviso("→ ou toque para avançar · ← volta · Esc sai"); }); };
+    var ir = function(){ ajustarTamanho(); apCarregar(alvo, function(){ apAviso(apToque() ? "Toque para avançar · lado esquerdo volta · ✕ Sair no canto" : "→ ou toque para avançar · ← volta · Esc sai"); }); };
     AP.fs = false;
     try{ var el = document.documentElement; if(el.requestFullscreen && !document.fullscreenElement) el.requestFullscreen().then(function(){ AP.fs = true; setTimeout(ir, 150); }, function(){ ir(); }); else ir(); }catch(e){ ir(); }
   }
   function apSair(){
     if(!AP.on) return;
-    apFecharCaixas(); apPararVivo(); clearInterval(AP.rel.t);
+    apFecharCaixas(); apPararVivo(); clearInterval(AP.rel.t); apFim(false);
     AP.on = false; window.__pdeApresentando = false;
     document.body.classList.remove("apresentando", "ap-oculto");
     var h = document.getElementById("apHud"); if(h) h.classList.remove("on");
