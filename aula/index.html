@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f2c4a">
+<title>Aula da Lousa · Portal do Educador</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<script src="/assets/js/ambiente.js"></script>
+<style>
+  /* Aula compartilhada por QR code (nov/2026): o aluno abre as páginas que o professor projetou, sem login.
+     Esta página não coleta nenhum dado do aluno: só lê os arquivos da aula enquanto o link vale. */
+  :root{--azul:#0f2c4a;--verde:#1a6b2a;--lima:#8DC63F;--fundo:#eef3f7}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--fundo);color:var(--azul);font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--azul);color:#fff;padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  header img{width:34px;height:34px;border-radius:50%;flex:none}
+  header .t{flex:1;min-width:0} header b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  header small{display:block;font-size:12px;opacity:.75}
+  #baixar{flex:none;background:var(--lima);color:var(--azul);border:0;border-radius:10px;padding:10px 14px;font:800 14px "Segoe UI",system-ui,sans-serif;cursor:pointer;min-height:44px}
+  #baixar[hidden]{display:none}
+  main{max-width:900px;margin:0 auto;padding:14px 12px 30px;display:grid;gap:14px}
+  figure{margin:0;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px -10px rgba(15,44,74,.45)}
+  figure img{display:block;width:100%;height:auto;background:#fff;min-height:120px}
+  figcaption{font-size:12px;color:#5b6b7b;padding:6px 10px;border-top:1px solid #eef2f6}
+  .aviso{background:#fff;border-radius:14px;padding:22px 18px;text-align:center;line-height:1.5;box-shadow:0 6px 18px -10px rgba(15,44,74,.45)}
+  .aviso .ico{font-size:44px} .aviso h1{font-size:19px;margin:6px 0} .aviso p{margin:0;color:#4b5b6b;font-size:15px}
+  footer{text-align:center;font-size:12px;color:#5b6b7b;padding:0 16px calc(env(safe-area-inset-bottom) + 18px)}
+  #baixar:focus-visible{outline:3px solid #2E9BD6;outline-offset:2px}
+</style>
+</head>
+<body>
+<header>
+  <img src="/assets/pde-logo-64.png" alt="">
+  <div class="t"><b id="tit">Aula da Lousa</b><small id="sub">Portal do Educador</small></div>
+  <button type="button" id="baixar" data-action="baixar" hidden>📥 PDF</button>
+</header>
+<main id="area" aria-live="polite"><div class="aviso"><div class="ico">⏳</div><h1>Abrindo a aula…</h1></div></main>
+<footer>Material compartilhado pelo seu professor no Portal do Educador.</footer>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var cod = (new URLSearchParams(location.search).get("c") || "").toLowerCase();
+  var fb = (window.PDE_AMBIENTE && window.PDE_AMBIENTE.fb) || {};
+  var bucket = fb.storageBucket || "portal-educador-5.firebasestorage.app";
+  var info = null;
+  function url(arq) { return "https://firebasestorage.googleapis.com/v0/b/" + bucket + "/o/" + encodeURIComponent("compartilhadas/" + cod + "/" + arq) + "?alt=media"; }
+  function esc(t) { return String(t == null ? "" : t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function aviso(ico, tit, txt) { $("area").innerHTML = '<div class="aviso"><div class="ico">' + ico + '</div><h1>' + esc(tit) + '</h1><p>' + esc(txt) + '</p></div>'; }
+  function expirou() { aviso("⌛", "Esta aula não está mais disponível", "O link vale só até o fim do dia em que o professor compartilhou. Peça ao professor um novo QR code."); }
+
+  if (!/^[a-z0-9]{24}$/.test(cod)) { aviso("🔍", "Link incompleto", "Escaneie de novo o QR code mostrado pelo professor."); return; }
+
+  fetch(url("info.json"), { cache: "no-store" }).then(function (r) {
+    if (r.status === 403 || r.status === 404) { throw { fim: true }; }
+    if (!r.ok) { throw new Error("http " + r.status); }
+    return r.json();
+  }).then(function (d) {
+    info = d || {};
+    if (info.expira && info.expira < Date.now()) { expirou(); return; }
+    var n = Math.max(0, Math.min(60, parseInt(info.paginas, 10) || 0));
+    var titulo = String(info.titulo || "Aula da Lousa").slice(0, 120);
+    document.title = titulo + " · Portal do Educador";
+    $("tit").textContent = titulo;
+    var hora = info.expira ? new Date(info.expira).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+    $("sub").textContent = n + (n === 1 ? " página" : " páginas") + (hora ? " · disponível até " + hora : "");
+    if (info.pdf) { $("baixar").hidden = false; }
+    var h = "";
+    for (var i = 1; i <= n; i++) {
+      var nome = "p" + (i < 10 ? "0" : "") + i + ".jpg";
+      h += '<figure><img src="' + url(nome) + '" alt="Página ' + i + ' da aula" loading="' + (i <= 2 ? "eager" : "lazy") + '" decoding="async"><figcaption>Página ' + i + ' de ' + n + '</figcaption></figure>';
+    }
+    $("area").innerHTML = h || "";
+    if (!n) { aviso("📄", "A aula está vazia", "Peça ao professor para compartilhar de novo."); }
+  }).catch(function (e) {
+    if (e && e.fim) { expirou(); return; }
+    aviso("📶", "Não consegui abrir a aula", "Confira a internet do celular e tente de novo.");
+  });
+
+  function baixar(b) {
+    var t0 = b.textContent; b.disabled = true; b.textContent = "Baixando…";
+    var nome = (String((info && info.titulo) || "aula").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9 _-]+/g, " ").trim().replace(/\s+/g, "-").slice(0, 80) || "aula") + ".pdf";
+    fetch(url("aula.pdf")).then(function (r) { if (!r.ok) { throw { fim: r.status === 403 || r.status === 404 }; } return r.blob(); }).then(function (blob) {
+      var a = document.createElement("a"), u = URL.createObjectURL(blob);
+      a.href = u; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+    }).catch(function (e) {
+      if (e && e.fim) { expirou(); return; }
+      location.href = url("aula.pdf");
+    }).then(function () { b.disabled = false; b.textContent = t0; });
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-action]"); if (!b) { return; }
+    if (b.dataset.action === "baixar") { baixar(b); }
+  });
+})();
+</script>
+</body>
+</html>

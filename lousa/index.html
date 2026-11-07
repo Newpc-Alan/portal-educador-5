@@ -4998,6 +4998,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }); }catch(e){}
   window.PDELousa = {
     pacoteImagens: function(semGuia){ return pacoteImagens(!!semGuia); },
+    pacoteQr: function(){ return capturarFolhas(true, 1400, 0.78); },
     pacotePdf: function(semGuia){ return pacotePdf(!!semGuia); },
     temGuia: function(){ paginas[pagAtual] = estadoPaginaAtual(); return paginas.some(ehGuia); },
     inserirAula: function(aula, meta){
@@ -5305,6 +5306,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .cp-pri{background:#1a6b2a;color:#fff;border:0;border-radius:12px;padding:11px 18px;font:inherit;font-weight:700;cursor:pointer;min-height:44px} .cp-pri:disabled{opacity:.6;cursor:wait}
   .cp-sec{background:#fff;color:#b3261e;border:1px solid #f0c6c3;border-radius:12px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}
   .cp-msg{margin:0;padding:4px 18px 16px;min-height:18px;font-size:13.5px}
+  .cp-qr{display:grid;justify-items:center;gap:8px;padding:6px 0} .cp-qr .qrq{background:#fff;padding:10px;border-radius:12px;border:1px solid #d5dfe9}
+  .cp-qr .qrq img,.cp-qr .qrq canvas{display:block;width:220px;height:220px}
+  .cp-qr code{font-size:12.5px;background:#f2f6fa;padding:4px 8px;border-radius:8px;word-break:break-all;text-align:center}
+  .cp-qr .cp-acoes{justify-content:center;flex-wrap:wrap}
+  .cp-sec2{background:#fff;color:#0f2c4a;border:1px solid #cfdbe7;border-radius:12px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer;min-height:44px}
+  #qrGrande{position:fixed;inset:0;z-index:9300;background:#0f2c4a;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;text-align:center;font-family:"Segoe UI",system-ui,sans-serif}
+  #qrGrande .qrq{background:#fff;padding:18px;border-radius:18px} #qrGrande .qrq img,#qrGrande .qrq canvas{display:block;width:min(62vmin,520px);height:min(62vmin,520px)}
+  #qrGrande h2{margin:0;font-size:clamp(20px,3.4vmin,34px)} #qrGrande p{margin:0;font-size:clamp(14px,2.2vmin,20px);opacity:.85}
+  #qrGrande button{background:#8DC63F;color:#0f2c4a;border:0;border-radius:12px;padding:12px 22px;font:800 16px "Segoe UI",system-ui,sans-serif;cursor:pointer}
   .cp-abas button:focus-visible,.cp-pri:focus-visible,.cp-sec:focus-visible{outline:2px solid #2E9BD6;outline-offset:2px}
   #nvFundo{position:fixed;inset:0;z-index:9000;background:rgba(7,22,33,.6);display:none;align-items:center;justify-content:center;padding:16px}
   #nvFundo.aberto{display:flex}
@@ -5648,31 +5658,39 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(!bg){
       bg = document.createElement("div"); bg.id = "cpFundo";
       bg.innerHTML = '<div id="cpJanela" role="dialog" aria-modal="true" aria-labelledby="cpTit"><div id="cpTopo"><h2 id="cpTit">Compartilhar a aula</h2><button type="button" data-cp="fechar">Fechar</button></div>' +
-        '<div class="cp-abas" role="tablist"><button type="button" role="tab" data-cp="aba" data-arg="rede">🤝 Rede</button><button type="button" role="tab" data-cp="aba" data-arg="email">✉️ E-mail</button><button type="button" role="tab" data-cp="aba" data-arg="alunos">🎒 Alunos</button><button type="button" role="tab" data-cp="aba" data-arg="link">🔗 Link</button></div>' +
+        '<div class="cp-abas" role="tablist"><button type="button" role="tab" data-cp="aba" data-arg="qr">📲 QR code</button><button type="button" role="tab" data-cp="aba" data-arg="rede">🤝 Rede</button><button type="button" role="tab" data-cp="aba" data-arg="email">✉️ E-mail</button><button type="button" role="tab" data-cp="aba" data-arg="alunos">🎒 Alunos</button><button type="button" role="tab" data-cp="aba" data-arg="link">🔗 Link</button></div>' +
         '<div id="cpCorpo"></div><p id="cpMsg" class="cp-msg" role="status"></p></div>';
       document.body.appendChild(bg);
       bg.addEventListener("click", (e) => { if(e.target.id === "cpFundo"){ fecharCp(); return; } const b = e.target.closest("[data-cp]"); if(!b) return;
-        const a = b.dataset.cp; if(a === "fechar") fecharCp(); else if(a === "aba") abaCp(b.dataset.arg); else if(a === "rede") acaoRedeCp(b); else if(a === "tirar") tirarRedeCp(b); else if(a === "email") emailCp(b); else if(a === "alunos") alunosCp(b); else if(a === "link") linkCp(b); });
+        const a = b.dataset.cp; if(a === "fechar") fecharCp(); else if(a === "aba") abaCp(b.dataset.arg); else if(a === "rede") acaoRedeCp(b); else if(a === "tirar") tirarRedeCp(b); else if(a === "email") emailCp(b); else if(a === "alunos") alunosCp(b); else if(a === "link") linkCp(b); else if(a === "qr") qrCp(b); else if(a === "qrcopiar") qrCopiar(); else if(a === "qrgrande") qrGrande(); else if(a === "qrnovo"){ QR_CP = null; abaCp("qr"); } });
       bg.addEventListener("keydown", (e) => { if(e.key === "Escape"){ e.stopPropagation(); fecharCp(); } });
     }
     bg.classList.add("aberto"); document.getElementById("cpMsg").textContent = "";
     await carregarPerfilIA().catch(() => {});
-    abaCp(abaInicial || bg.dataset.aba || "rede");
+    abaCp(abaInicial || bg.dataset.aba || "qr");
   }
   function fecharCp(){ const bg = document.getElementById("cpFundo"); if(bg && !bg.dataset.ocupado) bg.classList.remove("aberto"); }
   const msgCp = (t, erro) => { const m = document.getElementById("cpMsg"); m.textContent = t || ""; m.style.color = erro ? "#b3261e" : "#1a6b2a"; };
   const temSala = r => !lousaCfg.sala || lousaCfg.sala.has(r);
-  const RECURSO_ABA = { rede:"rede_colab", email:"rede_colab", alunos:"sala_digital", link:"sala_digital" };
+  const RECURSO_ABA = { qr:"", rede:"rede_colab", email:"rede_colab", alunos:"sala_digital", link:"sala_digital" };
   async function abaCp(aba){
     const bg = document.getElementById("cpFundo"), c = document.getElementById("cpCorpo"); bg.dataset.aba = aba; msgCp("");
-    bg.querySelectorAll(".cp-abas [data-cp]").forEach(b => { b.setAttribute("aria-selected", String(b.dataset.arg === aba)); b.classList.toggle("trava", !temSala(RECURSO_ABA[b.dataset.arg])); });
-    if(!temSala(RECURSO_ABA[aba])){
+    bg.querySelectorAll(".cp-abas [data-cp]").forEach(b => { b.setAttribute("aria-selected", String(b.dataset.arg === aba)); b.classList.toggle("trava", !!RECURSO_ABA[b.dataset.arg] && !temSala(RECURSO_ABA[b.dataset.arg])); });
+    if(RECURSO_ABA[aba] && !temSala(RECURSO_ABA[aba])){
       const rec = RECURSO_ABA[aba];
       c.innerHTML = '<div class="cp-trava">🔒 <b>' + (rec === "rede_colab" ? "Educador em Rede" : "Sala Conectada") + '</b><p>' + (rec === "rede_colab" ? "Compartilhar com a rede e por e-mail não está liberado para a sua rede."
         : "Enviar a aula e links para os alunos faz parte da Sala Conectada, disponível nos planos Intermediário e Completo.") + ' Fale com a coordenação ou com a NEWPC.</p></div>';
       return;
     }
     const titulo = L().nuvem().titulo || "esta aula", turmas = (perfilIA && perfilIA.turmas) || [];
+    if(aba === "qr"){
+      if(QR_CP && QR_CP.expira > Date.now()){ pintarQrCp(); return; }
+      c.innerHTML = '<p class="cp-d">Gera um <b>QR code</b> com as páginas de <b>' + escCp(titulo) + '</b> como estão no quadro, <b>sem o Guia do professor</b>. O aluno aponta a câmera do celular e recebe a aula, com opção de baixar em PDF. Não precisa de login.</p>' +
+        '<p class="cp-d">O link vale <b>até o fim do dia</b> e depois some sozinho. A aula continua em Meus trabalhos: se precisar de novo, abra e gere outro QR.</p>' +
+        '<label class="cp-ck"><input type="checkbox" id="cpQrAceite"> Conferi: não há nome, foto ou dado de aluno no quadro.</label>' +
+        '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="qr">📲 Gerar QR code</button></div>';
+      return;
+    }
     if(aba === "rede"){
       c.innerHTML = '<p class="cp-d">Os professores da sua rede veem <b>' + escCp(titulo) + '</b> em "Da sua rede" e podem abrir uma cópia na Lousa deles. Eles também recebem o aviso no Início e no resumo do dia.</p><div id="cpSit" class="cp-d">Conferindo...</div>';
       let sit = null; try{ const id = L().nuvem().id; if(id) sit = (await fnRede({ acao:"situacao", tipo:"lousa", id })).rede; }catch(e){}
@@ -5762,6 +5780,61 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       const r = await fnRede({ acao:"enviar_link", url, titulo, orientacao:String(document.getElementById("cpLinkOri").value || "").trim(), turmas });
       msgCp("Enviado para " + r.turmas + (r.turmas === 1 ? " turma: " : " turmas: ") + r.nomes.join(", ") + ".");
       document.getElementById("cpUrl").value = ""; document.getElementById("cpLinkTit").value = ""; document.getElementById("cpLinkOri").value = ""; });
+  }
+  /* ---------- Compartilhar por QR code (nov/2026): material da hora, sem login para o aluno ----------
+     As páginas (JPEG) e o PDF sobem para compartilhadas/{codigo}/ com dono e validade nos metadados.
+     A regra do Storage só entrega o arquivo até a validade (fim do dia) e o bucket apaga a pasta depois de 2 dias.
+     O código tem 24 letras/números aleatórios: ninguém adivinha o endereço de outra aula. Nenhum dado do aluno é coletado. */
+  let QR_CP = null;
+  function codigoQr(){ const a = "abcdefghijklmnopqrstuvwxyz0123456789", r = crypto.getRandomValues(new Uint8Array(24)); return Array.from(r, x => a[x % 36]).join(""); }
+  function fimDoDiaQr(){ const d = new Date(); d.setHours(23, 59, 59, 0); return Math.max(d.getTime(), Date.now() + 3 * 3600 * 1000); }
+  function qrCp(b){
+    const ac = document.getElementById("cpQrAceite"); if(!ac || !ac.checked){ msgCp("Marque a confirmação de que não há dado de aluno no quadro.", true); return; }
+    if(!L().temConteudo()){ msgCp("A lousa está vazia.", true); return; }
+    ocupadoCp(b, "Preparando as páginas...", async () => {
+      const folhas = await L().pacoteQr(); if(!folhas.length) throw new Error("A aula não tem páginas para os alunos.");
+      if(folhas.length > 60) throw new Error("A aula tem " + folhas.length + " páginas. Para o QR code, o limite é 60.");
+      const cod = codigoQr(), expira = fimDoDiaQr(), meta = { dono:uid, expira:String(expira) }, pasta = "compartilhadas/" + cod + "/";
+      const sobe = (nome, blob, tipo) => uploadBytes(ref(st, pasta + nome), blob, { contentType:tipo, cacheControl:"public, max-age=3600", customMetadata:meta });
+      const JsPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : null; let pdf = null;
+      for(let i = 0; i < folhas.length; i++){
+        const x = folhas[i]; b.textContent = "Enviando página " + (i + 1) + " de " + folhas.length + "...";
+        await sobe("p" + String(i + 1).padStart(2, "0") + ".jpg", await (await fetch(x.img)).blob(), "image/jpeg");
+        if(JsPDF){ const o = x.w >= x.h ? "landscape" : "portrait"; if(!pdf) pdf = new JsPDF({ orientation:o, unit:"px", format:[x.w, x.h] }); else pdf.addPage([x.w, x.h], o); pdf.addImage(x.img, "JPEG", 0, 0, x.w, x.h); }
+      }
+      if(pdf){ b.textContent = "Enviando o PDF..."; await sobe("aula.pdf", pdf.output("blob"), "application/pdf"); }
+      const titulo = String(L().nuvem().titulo || "Aula da Lousa").slice(0, 120);
+      await sobe("info.json", new Blob([JSON.stringify({ v:1, titulo, paginas:folhas.length, pdf:!!pdf, expira })], { type:"application/json" }), "application/json");
+      const base = /^lousa\./.test(location.hostname) ? "https://www.portaldoeducador.com.br" : location.origin;
+      QR_CP = { link:base + "/aula/?c=" + cod, expira, titulo };
+      await carregarQrLousa(); pintarQrCp(); qrGrande();
+    });
+  }
+  function desenharQr(alvo, tam){ alvo.innerHTML = ""; if(window.QRCode){ try{ new QRCode(alvo, { text:QR_CP.link, width:tam, height:tam, correctLevel:QRCode.CorrectLevel.M }); return; }catch(e){} } alvo.textContent = "QR indisponível: use o link abaixo."; }
+  function horaQr(ms){ return new Date(ms).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }); }
+  function pintarQrCp(){
+    const c = document.getElementById("cpCorpo"); if(!c || !QR_CP) return;
+    c.innerHTML = '<div class="cp-qr"><div class="qrq" id="cpQrBox"></div><code>' + escCp(QR_CP.link.replace(/^https:\/\//, "")) + '</code>' +
+      '<p class="cp-d" style="text-align:center">Vale até <b>' + horaQr(QR_CP.expira) + '</b> de hoje. Para mandar no grupo da turma, copie o link.</p>' +
+      '<div class="cp-acoes"><button type="button" class="cp-pri" data-cp="qrgrande">🔍 Mostrar grande para a turma</button><button type="button" class="cp-sec2" data-cp="qrcopiar">🔗 Copiar link</button><button type="button" class="cp-sec2" data-cp="qrnovo">↻ Gerar outro</button></div></div>';
+    desenharQr(document.getElementById("cpQrBox"), 440);
+  }
+  function qrCopiar(){
+    if(!QR_CP) return;
+    const ok = () => msgCp("Link copiado. Cole no grupo da turma.");
+    (navigator.clipboard ? navigator.clipboard.writeText(QR_CP.link) : Promise.reject()).then(ok).catch(() => {
+      const t = document.createElement("textarea"); t.value = QR_CP.link; document.body.appendChild(t); t.select(); try{ document.execCommand("copy"); ok(); }catch(e){ msgCp("Não consegui copiar. Selecione o link e copie.", true); } t.remove(); });
+  }
+  function qrGrande(){
+    if(!QR_CP) return;
+    let g = document.getElementById("qrGrande"); if(g) g.remove();
+    g = document.createElement("div"); g.id = "qrGrande"; g.setAttribute("role", "dialog"); g.setAttribute("aria-modal", "true"); g.setAttribute("aria-label", "QR code da aula");
+    g.innerHTML = '<h2>📲 ' + escCp(QR_CP.titulo) + '</h2><div class="qrq" id="qrGrandeBox"></div><p>Aponte a câmera do celular · vale até ' + horaQr(QR_CP.expira) + ' de hoje</p><p style="font-size:14px">' + escCp(QR_CP.link.replace(/^https:\/\//, "")) + '</p><button type="button" data-qrg="fechar">Fechar</button>';
+    const fechar = () => g.remove();
+    g.addEventListener("click", e => { if(e.target.closest("[data-qrg]")) fechar(); });
+    g.addEventListener("keydown", e => { if(e.key === "Escape"){ e.stopPropagation(); fechar(); } });
+    document.body.appendChild(g); desenharQr(document.getElementById("qrGrandeBox"), 520);
+    setTimeout(() => { const bt = g.querySelector("button"); if(bt) bt.focus(); }, 30);
   }
   window.PDENuvem = {
     compartilhar: () => janelaCompartilhar(),

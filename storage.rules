@@ -27,6 +27,21 @@ service firebase.storage {
       allow delete: if admin();
     }
 
+    // Compartilhar por QR code (nov/2026): material da hora, o aluno abre sem login pelo link com codigo aleatorio de 24 caracteres.
+    // So "get" (ninguem lista a pasta). Vale ate a validade gravada pelo professor (no maximo 26 h); o bucket apaga a pasta em 2 dias.
+    match /compartilhadas/{cod}/{arquivo} {
+      allow get: if int(resource.metadata.expira) > request.time.toMillis();
+      allow create: if request.auth != null && licenciado()
+        && cod.matches('[a-z0-9]{24}') && arquivo.matches('p[0-9]{2}\\.jpg|aula\\.pdf|info\\.json')
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('image/jpeg|application/pdf|application/json')
+        && request.resource.metadata.dono == request.auth.uid
+        && request.resource.metadata.expira.matches('[0-9]{13}')
+        && int(request.resource.metadata.expira) > request.time.toMillis()
+        && int(request.resource.metadata.expira) < request.time.toMillis() + 26 * 3600 * 1000;
+      allow delete: if request.auth != null && resource.metadata.dono == request.auth.uid;
+    }
+
     // aulas da Lousa (JSON compactado), ate 50 MB
     match /professores/{uid}/lousa/{arquivo} {
       allow read: if (request.auth != null && request.auth.uid == uid && licenciado()) || admin();
