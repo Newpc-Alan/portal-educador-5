@@ -885,6 +885,15 @@
   .vd-edit{ background:#fff;border-radius:16px;max-width:980px;width:100%;padding:20px 24px 24px;box-shadow:0 24px 60px rgba(7,22,33,.35) }
   .vd-edit-top{ display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px }
   .vd-edit-top h3{ margin:0;color:var(--pde-azul-escuro,#0f2c4a) }
+  .vd-card-w{ position:relative;display:flex }
+  .vd-card-w > .vd-card{ flex:1 }
+  .vd-int-bt{ position:absolute;right:10px;bottom:10px;border:0;border-radius:999px;background:#1a6b2a;color:#fff;font:800 12.5px "Segoe UI",system-ui,sans-serif;padding:7px 12px;cursor:pointer;box-shadow:0 3px 10px rgba(26,107,42,.35);z-index:2 }
+  .vd-int-bt:hover{ background:#23883a;transform:translateY(-1px) }
+  .vd-int-bt:focus-visible{ outline:3px solid #2E9BD6;outline-offset:2px }
+  .vd-card-w .vd-corpo{ padding-bottom:44px }
+  .vdi-bg .vdi-caixa{ position:relative;width:min(96vw,1500px);height:min(92vh,900px);background:#eef3f7;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.5) }
+  .vdi-quadro,.vdi-quadro iframe{ width:100%;height:100%;border:0;display:block }
+  .vdi-x{ position:absolute;top:8px;right:8px;z-index:3;width:40px;height:40px;border-radius:50%;border:0;background:#0f2c4a;color:#fff;font-size:18px;cursor:pointer }
   .vd-int{position:absolute;left:8px;bottom:8px;background:#8DC63F;color:#0f2c4a;font-weight:800;font-size:11px;padding:3px 7px;border-radius:6px;letter-spacing:.3px}.vd-inter{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,#0f2c4a,#16406b);color:#fff;border-radius:14px;padding:14px 16px;margin:6px 0 12px}.vd-inter>div:first-child{flex:1;min-width:240px;display:grid;gap:4px}.vd-inter b{font-size:16px}.vd-inter span{font-size:13.5px;opacity:.85}.vd-inter-bts{display:flex;gap:8px;flex-wrap:wrap}.vd-inter-bts .btn{text-decoration:none}.vd-inter-bts .btn-ghost{background:#fff;color:#0f2c4a}
   .vd-novo{ position:absolute;left:8px;top:8px;background:#8DC63F;color:#0f2c4a;font-size:11px;font-weight:900;letter-spacing:.04em;padding:3px 8px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.25) }
   .vd-dur{ position:absolute;right:8px;bottom:8px;background:rgba(7,22,33,.85);color:#fff;font-size:11.5px;font-weight:700;padding:2px 7px;border-radius:6px }
@@ -8224,6 +8233,9 @@
     else if(acao === "acv-baixar"){ baixarArquivo(el.dataset.id, el); }
     else if(acao === "ini-videos"){ registrarModulo(el.dataset.mod); renderVideos(); }
     else if(acao === "vd-ver"){ abrirVideo(el.dataset.id); }
+    else if(acao === "vd-interativo"){ abrirVideoInterativo(el.dataset.id); }
+    else if(acao === "vdi-fechar"){ fecharVideoInterativo(); }
+    else if(acao === "vd-int-modal"){ if(el.dataset.ir) location.href = el.dataset.ir; else abrirVideoInterativo(el.dataset.id); }
     else if(acao === "vd-reagir"){ reagirVideo(el.dataset.arg); }
     else if(acao === "nt-abrir"){ abrirNoticia(el.dataset.id); }
     else if(acao === "nt-todas"){ renderNoticias(); }
@@ -9802,9 +9814,11 @@
       return;
     }
     $("vdLista").innerHTML = '<p class="acv-cont">'+lista.length+' vídeo(s)</p><div class="vd-grade">'+lista.map(v =>
-      '<button type="button" class="vd-card" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">'+
+      '<div class="vd-card-w"><button type="button" class="vd-card" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">'+
         '<div class="vd-capa" style="background-image:url(\''+capaVideo(v.youtube_id)+'\')">'+(videoNovo(v) ? '<span class="vd-novo">NOVO NO PORTAL</span>' : '')+(v.interativo && usuarioAtual.perfil !== "aluno" ? '<span class="vd-int">\u{1F3AC} INTERATIVO</span>' : '')+(v.duracao_seg ? '<span class="vd-dur">'+mostrarDuracao(v.duracao_seg)+'</span>' : '')+'</div>'+
-        '<div class="vd-corpo"><h4>'+escapeHtml(v.titulo || "")+'</h4>'+selosVideo(v, false)+'</div></button>').join("")+'</div>';
+        '<div class="vd-corpo"><h4>'+escapeHtml(v.titulo || "")+'</h4>'+selosVideo(v, false)+'</div></button>'+
+        // vídeo interativo publicado: botão direto no card, abre a janela e já começa a tocar com as perguntas
+        (v.interativo && usuarioAtual.perfil !== "aluno" ? '<button type="button" class="vd-int-bt" data-action="vd-interativo" data-id="'+escapeAttr(v.id)+'" title="Tocar com as perguntas para a turma">\u25B6 Interativo</button>' : '')+'</div>').join("")+'</div>';
   }
   function montarModalVideo(){
     if($("modalVideo")) return;
@@ -9813,7 +9827,7 @@
     bg.innerHTML = '<div class="modal vd" role="dialog" aria-modal="true" aria-labelledby="vdTit">'+
       '<div class="vd-player" id="vdPlayer"></div>'+
       '<div class="vd-info"><h3 id="vdTit"></h3><div id="vdSelos"></div><p id="vdDesc"></p><div class="vd-reacao" id="vdReacao"></div>'+
-      '<div class="imp-acoes"><a class="btn btn-primary" id="vdInter" href="#" hidden>\u{1F3AC} Versão interativa</a><button type="button" class="btn btn-primary" data-action="vd-tela">Tela cheia (lousa)</button>'+
+      '<div class="imp-acoes"><button type="button" class="btn btn-primary" id="vdInter" data-action="vd-int-modal" hidden>\u{1F3AC} Versão interativa</button><button type="button" class="btn btn-primary" data-action="vd-tela">Tela cheia (lousa)</button>'+
       '<button type="button" class="btn btn-ghost" data-action="vd-fechar">Fechar</button></div></div></div>';
     bg.addEventListener("click", (e) => { if(e.target === bg) fecharVideo(); });
     document.body.appendChild(bg);
@@ -9833,7 +9847,7 @@
     // vídeo interativo (nov/2026): professor abre a versão publicada; o administrador prepara ou revisa
     const vi = $("vdInter"), admV = (usuarioReal || usuarioAtual).perfil === "admin";
     if(vi){ vi.hidden = !(admV || (v.interativo && usuarioAtual.perfil !== "aluno"));
-      vi.href = admV ? "/video/?catalogo="+encodeURIComponent(v.id) : "/video/?id=cat_"+encodeURIComponent(v.id);
+      vi.dataset.id = v.id; vi.dataset.ir = admV && !v.interativo ? "/video/?catalogo="+encodeURIComponent(v.id) : "";
       vi.textContent = admV && !v.interativo ? "\u2728 Preparar versão interativa" : "\u{1F3AC} Versão interativa"; }
     $("modalVideo").classList.add("show");
     vdReac.v = v; vdReac.minha = ""; desenharReacao();
@@ -12819,6 +12833,21 @@
     $("vdPlayer").innerHTML = "";          // para o video
     m.classList.remove("show");
   }
+  // vídeo interativo dentro do Portal: janela com a página /video/ (mesmo login), que já começa a tocar
+  function abrirVideoInterativo(id){
+    if(!id) return; fecharVideo();
+    let m = $("modalVidInt");
+    if(!m){ m = document.createElement("div"); m.className = "modal-bg vdi-bg"; m.id = "modalVidInt";
+      m.innerHTML = '<div class="vdi-caixa" role="dialog" aria-modal="true" aria-label="Vídeo interativo"><button type="button" class="vdi-x" data-action="vdi-fechar" aria-label="Fechar">\u2715</button><div id="vdiQuadro" class="vdi-quadro"></div></div>';
+      m.addEventListener("click", e => { if(e.target === m) fecharVideoInterativo(); }); document.body.appendChild(m); }
+    const fr = document.createElement("iframe");
+    fr.src = "/video/?id=cat_" + encodeURIComponent(id) + "&embed&auto"; fr.title = "Vídeo interativo";
+    fr.allow = "autoplay; encrypted-media; fullscreen"; fr.allowFullscreen = true;
+    $("vdiQuadro").innerHTML = ""; $("vdiQuadro").appendChild(fr); m.classList.add("show");
+    if(usuarioAtual.perfil !== "admin") registrarVideo(id);
+  }
+  function fecharVideoInterativo(){ const m = $("modalVidInt"); if(!m) return; $("vdiQuadro").innerHTML = ""; m.classList.remove("show"); }
+  document.addEventListener("keydown", e => { if(e.key === "Escape" && $("modalVidInt") && $("modalVidInt").classList.contains("show")) fecharVideoInterativo(); });
   function telaCheiaVideo(){
     const p = $("vdPlayer"); if(!p) return;
     const f = p.requestFullscreen || p.webkitRequestFullscreen;

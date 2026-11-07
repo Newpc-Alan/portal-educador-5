@@ -73,6 +73,10 @@
   .layout.editando{grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr)}
   #palco{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:16/9;box-shadow:0 10px 30px -14px rgba(0,0,0,.6);width:min(100%, calc((100vh - 150px) * 16 / 9));margin:0 auto}
   .layout.editando #palco{width:100%}
+  /* dentro da janela do Portal (?embed): sem cabeçalho, o vídeo ocupa a janela */
+  body.embed header.topo{display:none}
+  body.embed main{padding:10px 12px 8px;max-width:none}
+  body.embed #palco{width:min(100%, calc((100vh - 70px) * 16 / 9))}
   #palco:fullscreen{border-radius:0;aspect-ratio:auto;width:100vw;height:100vh}
   #yt,#yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   .barra{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
@@ -148,6 +152,8 @@ const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "sout
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const P = new URLSearchParams(location.search);
+const EMBED = P.has("embed") && window.top !== window;
+if(EMBED) document.body.classList.add("embed");
 const LETRAS = "ABCD";
 const NOME_TIPO = { multipla:"Múltipla escolha", vf:"Verdadeiro ou falso", aberta:"Para pensar e conversar", nota:"Você sabia?" };
 const SERIES = ["Educação Infantil (4 e 5 anos)","1º ano","2º ano","3º ano","4º ano","5º ano","6º ano","7º ano","8º ano","9º ano","1ª série do Ensino Médio","2ª série do Ensino Médio","3ª série do Ensino Médio"];
@@ -182,7 +188,7 @@ onAuthStateChanged(auth, async user => {
   catch(e){ aviso("🔒", "Sem acesso", msgErro(e)); return; }
   if(P.has("novo")) return telaNovo();
   if(P.get("catalogo")) return telaCatalogo(P.get("catalogo").replace(/[^\w-]/g, ""));
-  if(P.get("id")) return telaVideo(P.get("id").replace(/[^\w-]/g, ""), P.has("editar"));
+  if(P.get("id")) return telaVideo(P.get("id").replace(/[^\w-]/g, ""), P.has("editar") && !EMBED);
   telaLista();
 });
 
@@ -292,7 +298,7 @@ async function telaVideo(id, editar){
   carregarYT().then(() => {
     st.player = new YT.Player("yt", { videoId:v.youtube_id, host:"https://www.youtube-nocookie.com",
       playerVars:{ rel:0, modestbranding:1, playsinline:1, fs:0, iv_load_policy:3, cc_load_policy:0, hl:"pt-BR" },
-      events:{ onReady:() => { st.pronto = true; const d = st.player.getDuration(); if(d > 0 && !st.v.duracao_seg){ st.v.duracao_seg = Math.round(d); marcas(); } },
+      events:{ onReady:() => { st.pronto = true; const d = st.player.getDuration(); if(d > 0 && !st.v.duracao_seg){ st.v.duracao_seg = Math.round(d); marcas(); } if(P.has("auto") && !st.editar) st.player.playVideo(); },
         onStateChange:e => { $("btTocar").textContent = e.data === 1 ? "⏸" : "▶"; if(e.data === 0 && !st.editar) mostrarFim(); },
         onError:() => aviso("📺", "O YouTube não deixou tocar este vídeo aqui", "O dono do vídeo pode ter bloqueado a exibição em outros sites, ou o vídeo saiu do ar.") } });
     clearInterval(st.timer); st.timer = setInterval(tique, 200);
@@ -359,7 +365,7 @@ function continuar(){ $("ov").hidden = true; $("ov").innerHTML = ""; st.aberta =
 function mostrarFim(){
   const ov = $("ov"); st.aberta = 99;
   ov.innerHTML = '<div class="perg fim"><span class="rot">🏁 Fim do vídeo</span>'+(st.respondidas ? '<h2>A turma acertou</h2><div class="big">'+st.acertos+' de '+st.respondidas+'</div>' : '<h2>Vídeo concluído</h2>')+
-    '<div class="acoes-perg" style="justify-content:center"><button type="button" class="bt bt-claro" data-action="de-novo">↺ Assistir de novo</button><a class="bt bt-verde" href="/video/">Outros vídeos</a></div></div>';
+    '<div class="acoes-perg" style="justify-content:center"><button type="button" class="bt bt-claro" data-action="de-novo">↺ Assistir de novo</button><a class="bt bt-verde" href="/video/"'+(EMBED ? ' target="_top"' : '')+'>Outros vídeos</a></div></div>';
   ov.hidden = false;
 }
 function deNovo(){ st.feito.clear(); st.acertos = 0; st.respondidas = 0; $("placar").hidden = true; $("ov").hidden = true; st.aberta = -1; st.prev = 0; marcas(); st.player.seekTo(0, true); st.player.playVideo(); }
