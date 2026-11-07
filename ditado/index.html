@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f2c4a">
+<title>Ditar para a Lousa · Portal do Educador</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<script src="/assets/js/ambiente.js"></script>
+<script src="/assets/pde-ditado.js?v=1"></script>
+<style>
+  /* Ditar para a Lousa (nov/2026): o celular do professor vira o microfone da Lousa.
+     A voz vira texto no navegador do celular; só o texto vai para a Lousa. O Portal não grava áudio. */
+  :root{--azul:#0f2c4a;--verde:#1a6b2a;--lima:#8DC63F;--verm:#d92b2b;--fundo:#0b1d2e}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--fundo);color:#fff;font-family:"Segoe UI",system-ui,-apple-system,sans-serif}
+  body{display:flex;flex-direction:column;min-height:100dvh;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+  header{display:flex;align-items:center;gap:10px;padding:16px 0 10px}
+  header img{width:36px;height:36px;border-radius:50%}
+  header b{font-size:17px} header small{display:block;font-size:12px;opacity:.7;font-weight:400}
+  .est{margin:6px 0 0;padding:10px 12px;border-radius:12px;background:#ffffff14;font-size:14px;line-height:1.35}
+  .est.ok{background:#1a6b2a55} .est.erro{background:#d92b2b44}
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:18px 0}
+  #mic{width:170px;height:170px;border-radius:50%;border:0;background:var(--verde);color:#fff;font-size:64px;cursor:pointer;box-shadow:0 12px 40px rgba(0,0,0,.45);touch-action:manipulation}
+  #mic:disabled{background:#33485c;color:#8aa0b5;box-shadow:none}
+  #mic.ouvindo{background:var(--verm);animation:pulsa 1.2s infinite}
+  @keyframes pulsa{0%{box-shadow:0 0 0 0 rgba(217,43,43,.6)}100%{box-shadow:0 0 0 26px rgba(217,43,43,0)}}
+  #dica{font-size:15px;text-align:center;opacity:.9;max-width:320px;line-height:1.4}
+  #ao{width:100%;max-width:520px;min-height:92px;border-radius:14px;background:#ffffff10;padding:12px 14px;font-size:17px;line-height:1.4}
+  #ao .p{opacity:.6;font-style:italic}
+  .cmd{font-size:12.5px;opacity:.65;text-align:center;line-height:1.5;max-width:420px}
+  footer{padding:10px 0 16px;font-size:12px;opacity:.6;text-align:center}
+  a.bt,button.bt{display:inline-block;padding:13px 20px;border-radius:12px;border:0;background:var(--lima);color:var(--azul);font-weight:800;font-size:16px;text-decoration:none;cursor:pointer}
+</style>
+</head>
+<body>
+<header><img src="/assets/pde-logo-64.png" alt=""><div><b>Ditar para a Lousa</b><small>Portal do Educador</small></div></header>
+<div id="est" class="est" role="status">Conferindo a sua conta…</div>
+<main>
+  <button type="button" id="mic" data-action="mic" disabled aria-label="Tocar para falar">🎤</button>
+  <div id="dica">Abra o Ditado pelo celular na Lousa e toque no microfone.</div>
+  <div id="ao" aria-live="polite"></div>
+  <div class="cmd">Diga “vírgula”, “ponto”, “nova linha”, “apagar a última frase”, “pausar ditado” ou “parar ditado”.</div>
+</main>
+<footer>A voz vira texto no seu celular. O Portal não grava áudio: só o texto vai para a Lousa.</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, doc, setDoc, addDoc, collection, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const app = initializeApp(window.PDE_AMBIENTE.fb), auth = getAuth(app), db = getFirestore(app);
+  const $ = id => document.getElementById(id);
+  const E = { uid:null, sessao:"", ativo:false, escuta:null, n:0, finais:[], ultimoParcial:0, timerParcial:0, wake:null };
+
+  function estado(t, cls){ const e = $("est"); e.className = "est" + (cls ? " " + cls : ""); e.innerHTML = t; }
+  function pintarAo(parcial){
+    const ult = E.finais.slice(-3).map(t => t.replace(/[&<>]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[c]))).join(" ");
+    $("ao").innerHTML = ult + (parcial ? ' <span class="p">' + parcial.replace(/[&<>]/g, "") + '</span>' : "");
+  }
+  // a tela não apaga enquanto o professor dita (se o celular deixar)
+  async function manterAceso(on){
+    try{ if(on && "wakeLock" in navigator){ E.wake = await navigator.wakeLock.request("screen"); } else if(!on && E.wake){ await E.wake.release(); E.wake = null; } }catch(e){}
+  }
+  function mandarParcial(p){
+    clearTimeout(E.timerParcial);
+    const ir = () => { E.ultimoParcial = Date.now(); setDoc(doc(db, "ditado_remoto", E.uid), { parcial:String(p || "").slice(0, 600) }, { merge:true }).catch(() => {}); };
+    Date.now() - E.ultimoParcial > 450 ? ir() : (E.timerParcial = setTimeout(ir, 450));
+  }
+  function parar(msg){
+    if(E.escuta){ E.escuta.parar(); E.escuta = null; }
+    $("mic").classList.remove("ouvindo"); $("mic").setAttribute("aria-label", "Tocar para falar");
+    $("dica").textContent = msg || (E.ativo ? "Pausado. Toque no microfone para continuar." : "Abra o Ditado pelo celular na Lousa.");
+    if(E.uid && E.ativo) mandarParcial("");
+    manterAceso(false);
+  }
+  function ouvir(){
+    if(!window.PDEVoz || !PDEVoz.suportado){ estado("Este navegador não reconhece voz. Use o Chrome no Android ou o Safari atualizado no iPhone.", "erro"); return; }
+    $("mic").classList.add("ouvindo"); $("mic").setAttribute("aria-label", "Pausar"); $("dica").textContent = "Ouvindo… pode andar pela sala falando. Toque para pausar.";
+    manterAceso(true);
+    const sessao = E.sessao;
+    E.escuta = PDEVoz.ouvir({
+      aoParcial: p => { pintarAo(p); mandarParcial(p); },
+      aoFinal: f => {
+        const fn = f.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+        if(/^pausar (o )?ditado$/.test(fn)){ parar("Pausado. Toque no microfone para continuar."); return; }
+        if(!f.trim() || !E.ativo || E.sessao !== sessao) return;
+        E.finais.push(f.trim()); pintarAo("");
+        addDoc(collection(db, "ditado_remoto", E.uid, "trechos"), { sessao, n:E.n++, texto:f.trim().slice(0, 1000), em:serverTimestamp() })
+          .catch(e => estado("Não consegui mandar para a Lousa (" + (e.code || "erro") + "). Confira a internet.", "erro"));
+        if(/^(parar|terminar|encerrar) (o )?ditado$/.test(fn)) parar("Ditado encerrado.");
+      },
+      aoErro: e => { parar(); estado(e === "bloqueado" ? "Libere o microfone para este site e toque de novo." : e === "sem-microfone" ? "Não encontrei o microfone do celular." : "Este navegador não reconhece voz.", "erro"); }
+    });
+  }
+  document.addEventListener("click", e => { const b = e.target.closest("[data-action]"); if(!b) return; if(b.dataset.action === "mic"){ E.escuta ? parar() : ouvir(); } });
+
+  onAuthStateChanged(auth, user => {
+    if(!user){
+      estado('Entre com a <b>mesma conta</b> que está aberta na Lousa.<br><br><a class="bt" href="/entrar/?volta=/ditado/">Entrar no Portal</a>');
+      $("mic").disabled = true; return;
+    }
+    E.uid = user.uid;
+    estado("Procurando a Lousa…");
+    onSnapshot(doc(db, "ditado_remoto", user.uid), sn => {
+      const d = sn.data() || {}, aberta = !!d.ativo && !!d.sessao;
+      if(aberta && d.sessao !== E.sessao){
+        E.sessao = d.sessao; E.ativo = true; E.n = 0; E.finais = []; pintarAo("");
+        setDoc(doc(db, "ditado_remoto", user.uid), { celular_em:serverTimestamp() }, { merge:true }).catch(() => {});
+      }
+      E.ativo = aberta;
+      $("mic").disabled = !aberta;
+      if(aberta){ estado("✅ Conectado à Lousa. Toque no microfone e fale.", "ok"); if(!E.escuta) $("dica").textContent = "Toque no microfone e fale. O texto aparece no quadro."; }
+      else { if(E.escuta) parar("A Lousa encerrou o ditado."); estado("Na Lousa, abra <b>Ferramentas IA › Ditar pelo celular</b>. Esta tela conecta sozinha."); }
+    }, e => estado("Sem permissão para ditar (" + (e.code || "erro") + "). Confira se a sua licença está ativa.", "erro"));
+  });
+</script>
+</body>
+</html>

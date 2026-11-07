@@ -282,6 +282,25 @@ service cloud.firestore {
       allow delete: if admin();
     }
 
+    // Ditar pelo celular (nov/2026): o celular do professor manda o texto ditado para a Lousa aberta na mesma conta.
+    // Só o dono lê e grava; só texto (nada de audio); a Lousa apaga cada trecho assim que coloca no quadro.
+    match /ditado_remoto/{uid} {
+      allow read, delete: if logado() && request.auth.uid == uid;
+      allow create, update: if logado() && request.auth.uid == uid && licenciado()
+        && novo().keys().hasOnly(["ativo", "sessao", "lousa_em", "parcial", "celular_em"])
+        && novo().get("ativo", false) is bool
+        && novo().get("sessao", "") is string && novo().get("sessao", "").size() <= 40
+        && novo().get("parcial", "") is string && novo().get("parcial", "").size() <= 600;
+      match /trechos/{t} {
+        allow read, delete: if logado() && request.auth.uid == uid;
+        allow create: if logado() && request.auth.uid == uid && licenciado()
+          && novo().keys().hasOnly(["sessao", "n", "texto", "em"])
+          && novo().sessao is string && novo().sessao.size() <= 40
+          && novo().n is int && novo().texto is string && novo().texto.size() <= 1000 && novo().em == request.time;
+        allow update: if false;
+      }
+    }
+
     // trabalhos do professor (ex.: aulas da Lousa); o conteudo fica no Storage
     match /usuarios/{uid}/trabalhos/{id} {
       allow read, delete: if logado() && (request.auth.uid == uid || admin());

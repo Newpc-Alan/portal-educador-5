@@ -388,6 +388,7 @@
   @media (max-width:1366px){ #marca .nome{display:none} .rod-sep{display:none} }
 </style>
 <script src="/assets/pde-pensando.js?v=4" defer></script>
+<script src="/assets/pde-ditado.js?v=1" defer></script>
 </head>
 <body>
 
@@ -571,6 +572,8 @@
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-mapa"><span>🧠</span><b>Mapa IA</b><small>o tema vira mapa mental editável · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi" data-action="ial-trocar-mapa"><span>🔁</span><b>Trocar o modelo do mapa</b><small>o mesmo mapa em Radial, Árvore, Bolhas ou Chaves · sem crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi" data-action="ial-legendas"><span>🗨️</span><b>Legendas ao vivo</b><small>sua fala vira legenda na tela · sem crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi" data-action="ial-ditado"><span>🎙️</span><b>Ditado no quadro</b><small>o que você fala vira texto no quadro · sem crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-ditado-cel"><span>📱</span><b>Ditar pelo celular</b><small>ande pela sala falando no celular; o texto aparece aqui · sem crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi" data-action="ial-ler"><span>🔊</span><b>Ler em voz alta</b><small>lê o texto selecionado ou a página · sem crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi" data-action="ial-ruido"><span>🚦</span><b>Medidor de barulho</b><small>semáforo do volume da sala; nada é gravado · sem crédito</small></button>
         <p class="ial-mi-off" id="ialMenuOff" hidden>Entre no Portal para usar Perguntar, Circular, Pintor e Mapa.</p>
@@ -2702,6 +2705,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="ial-legendas")  ialLegendas();
       if(a==="ial-trocar-mapa") ialTrocarMapa();
       if(a==="ial-ler")       ialLer();
+      if(a==="ial-ditado")    ditadoLigar("local");
+      if(a==="ial-ditado-cel") ditadoLigar("celular");
       if(a==="ial-ruido")     ialRuido();
     }
   }
@@ -4423,7 +4428,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     canvas.add(g); canvas.setActiveObject(g); canvas.requestRenderAll(); snap();
     return g;
   }
-  function ialChamar(dados){ return window.PDENuvem.iaRapida(dados); }
+  // enquanto a IA trabalha: a mesma tela "Estou pensando" da Aula IA, com as etapas e os recados de uso responsável
+  // (as frases ficam no próprio Portal, em assets/pde-pensando.js: não chamam a IA nem gastam token)
+  var IAL_ETAPAS = {
+    pergunta:{ et:["Lendo a pergunta", "Pensando na resposta", "Escrevendo de um jeito que a turma entenda", "Conferindo"], tempo:"uns 5 a 10 segundos", passo:2500 },
+    circule:{ et:["Olhando o que você circulou", "Entendendo o pedido", "Montando a resposta passo a passo", "Conferindo as contas"], tempo:"uns 10 segundos", passo:2800 },
+    mapa:{ et:["Lendo o tema", "Separando os tópicos principais", "Organizando os ramos", "Arrumando o mapa no quadro"], tempo:"uns 10 segundos", passo:2800 },
+    pintor:{ et:["Olhando o seu rabisco", "Entendendo o desenho", "Pintando a ilustração", "Dando os últimos retoques"], tempo:"uns 20 segundos", passo:5000 }
+  };
+  function ialChamar(dados){
+    var e = IAL_ETAPAS[dados.modo], fim = function(){ if(window.PDEPensando) PDEPensando.fechar(); };
+    if(e && window.PDEPensando) PDEPensando.abrir({ titulo:"Estou pensando", etapas:e.et, tempo:e.tempo, passoMs:e.passo });
+    var pr = window.PDENuvem.iaRapida(dados);
+    pr.then(fim, fim);
+    return pr;
+  }
   // menu "Ferramentas IA" da barra de baixo (abre para cima; fecha ao escolher, ao tocar fora ou com Esc)
   function ialMenu(abrir){
     var m = document.getElementById("ialMenu"), b = document.querySelector('[data-action="ial-menu"]'); if(!m) return;
@@ -4433,6 +4452,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(vai && b){ var r = b.getBoundingClientRect(); m.style.bottom = Math.round(innerHeight - r.top + 10) + "px"; m.style.right = Math.max(8, Math.round(innerWidth - r.right)) + "px"; }
     if(vai){ var on = ialPronta(); m.querySelectorAll(".so-ial").forEach(function(x){ x.disabled = !on; }); document.getElementById("ialMenuOff").hidden = on;
       var lg = m.querySelector('[data-action="ial-legendas"] b'); if(lg) lg.textContent = IAL.legendas ? "Desligar as legendas" : "Legendas ao vivo";
+      var dl = m.querySelector('[data-action="ial-ditado"] b'); if(dl) dl.textContent = DIT.modo === "local" ? "Parar o ditado" : "Ditado no quadro";
+      var dc = m.querySelector('[data-action="ial-ditado-cel"] b'); if(dc) dc.textContent = DIT.modo === "celular" ? "Parar o ditado pelo celular" : "Ditar pelo celular";
       var lr = m.querySelector('[data-action="ial-ler"] b'); if(lr) lr.textContent = (window.speechSynthesis && speechSynthesis.speaking) ? "Parar a leitura" : "Ler em voz alta";
       var rd = m.querySelector('[data-action="ial-ruido"] b'); if(rd) rd.textContent = IAL.ruido ? "Desligar o medidor" : "Medidor de barulho";
       var f = m.querySelector("button:not([disabled])"); if(f) f.focus(); }
@@ -4718,6 +4739,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var R = window.SpeechRecognition || window.webkitSpeechRecognition;
     if(IAL.legendas){ ialPararLegendas(); return; }
     if(!R){ msg("Legendas ao vivo funcionam no Chrome ou no Edge"); return; }
+    if(DIT.modo) ditadoParar();   // um microfone de cada vez
     var faixa = document.createElement("div"); faixa.id = "ialLeg"; faixa.className = "ial-leg"; faixa.setAttribute("role", "status"); faixa.setAttribute("aria-live", "polite");
     faixa.innerHTML = '<span class="ial-leg-txt" id="ialLegTxt">🎤 Pode falar: a legenda aparece aqui.</span><button type="button" class="ial-leg-x" id="ialLegX" title="Desligar as legendas">✕</button>';
     document.getElementById("palco").appendChild(faixa);
@@ -4739,6 +4761,76 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var r = IAL.legendas; IAL.legendas = null; if(r){ try{ r.stop(); }catch(x){} }
     var f = document.getElementById("ialLeg"); if(f) f.remove();
     var bt = document.querySelector('[data-action="ial-menu"]'); if(bt) bt.classList.remove("ial-leg-on");
+  }
+
+  /* ---- Ditado no quadro (sem crédito): a fala vira um bloco de texto editável no quadro.
+     "local": microfone da própria lousa · "celular": o professor fala no celular (página /ditado/) e o texto chega aqui pela nuvem.
+     Comandos: vírgula, ponto, ponto de interrogação, nova linha, novo parágrafo, apagar a última frase, pausar ditado, parar ditado. */
+  var DIT = { tb:null, escuta:null, pausado:false, modo:"", barra:null, remoto:null };
+  function ditCaixa(){
+    if(DIT.tb && canvas.getObjects().indexOf(DIT.tb) >= 0) return DIT.tb;
+    var sel = canvas.getActiveObject();
+    if(sel && sel.type === "textbox" && !sel.pdeNo){ DIT.tb = sel; return sel; }   // texto selecionado: o ditado continua nele
+    var c = ialCentroVisivel(), vw = canvas.getWidth() / c.z, vh = canvas.getHeight() / c.z;
+    var t = new fabric.Textbox("", { left:c.x - vw * .4, top:c.y - vh * .38, width:vw * .8, fontSize:Math.round(30 / Math.max(.6, c.z)), lineHeight:1.3,
+      fill:"#12202e", fontFamily:"Segoe UI, Roboto, sans-serif", backgroundColor:"rgba(255,255,255,.0)" });
+    canvas.add(t); canvas.setActiveObject(t); canvas.requestRenderAll(); DIT.tb = t; return t;
+  }
+  function ditAcrescentar(frase){
+    if(!DIT.modo || DIT.pausado) return;
+    var tb = ditCaixa(), r = window.PDEVoz.aplicar(tb.text, frase);
+    if(r.comando === "parar"){ ditadoParar(); return; }
+    if(r.comando === "pausar"){ ditPausar(true); return; }
+    tb.set("text", r.texto); tb.initDimensions(); tb.setCoords(); canvas.requestRenderAll();
+    canvas.fire("object:modified", { target:tb }); snap();
+    ditParcial("");
+  }
+  function ditParcial(p){ var el = DIT.barra && DIT.barra.querySelector(".dit-parc"); if(el) el.textContent = p ? "… " + (p.length > 140 ? "…" + p.slice(-140) : p) : (DIT.pausado ? "Pausado" : DIT.modo === "celular" ? "" : "Pode falar"); }
+  function ditEstado(t){ var el = DIT.barra && DIT.barra.querySelector(".dit-est"); if(el) el.innerHTML = t; }
+  function ditPausar(pausar){
+    if(DIT.modo !== "local") return;
+    DIT.pausado = pausar;
+    if(pausar){ if(DIT.escuta){ DIT.escuta.parar(); DIT.escuta = null; } }
+    else ditOuvirLocal();
+    var b = DIT.barra && DIT.barra.querySelector('[data-dit="pausa"]'); if(b) b.textContent = pausar ? "▶ Retomar" : "⏸ Pausar";
+    if(DIT.barra) DIT.barra.classList.toggle("pausado", pausar);
+    ditParcial("");
+  }
+  function ditOuvirLocal(){
+    DIT.escuta = window.PDEVoz.ouvir({ aoParcial:ditParcial, aoFinal:ditAcrescentar,
+      aoErro:function(e){ msg(e === "bloqueado" ? "Libere o microfone para a Lousa usar o ditado" : e === "sem-microfone" ? "Não encontrei microfone nesta lousa. Use Ditar pelo celular" : "Este navegador não reconhece voz"); ditadoParar(); } });
+  }
+  function ditadoLigar(modo){
+    if(DIT.modo){ var era = DIT.modo; ditadoParar(); if(era === modo) return; }
+    if(modo === "local" && !(window.PDEVoz && window.PDEVoz.suportado)){ msg("O ditado funciona no Chrome ou no Edge. Use Ditar pelo celular"); return; }
+    if(modo === "celular" && !(window.PDENuvem && window.PDENuvem.ditadoCelular)){ msg("Entre no Portal para ditar pelo celular"); return; }
+    if(IAL.legendas) ialPararLegendas();   // um microfone de cada vez
+    DIT.modo = modo; DIT.pausado = false; DIT.tb = null; ditCaixa();
+    var b = document.createElement("div"); b.id = "ialDit"; b.className = "ial-dit" + (modo === "celular" ? " cel" : ""); b.setAttribute("role", "status");
+    b.innerHTML = '<div class="dit-lin"><span class="dit-rec">●</span><span class="dit-est">' + (modo === "celular" ? "Preparando o celular…" : "Ditado ligado · o Portal não grava áudio") + '</span>' +
+      (modo === "local" ? '<button type="button" data-dit="pausa">⏸ Pausar</button>' : '') + '<button type="button" data-dit="parar">■ Parar</button></div>' +
+      (modo === "celular" ? '<div class="dit-cel"><div class="dit-qr" id="ditQr"></div><div class="dit-cel-tx"><b>No celular, abra:</b><span class="dit-link" id="ditLink">…</span><small>Entre com a mesma conta da Lousa e toque no microfone. O texto aparece no quadro enquanto você anda pela sala.</small></div></div>' : '') +
+      '<div class="dit-parc">' + (modo === "celular" ? "" : "Pode falar") + '</div><small class="dit-cmd">Diga “vírgula”, “ponto”, “nova linha”, “apagar a última frase” ou “parar ditado”.</small>';
+    document.getElementById("palco").appendChild(b); DIT.barra = b;
+    b.addEventListener("click", function(e){ var x = e.target.closest("[data-dit]"); if(!x) return; if(x.dataset.dit === "parar") ditadoParar(); if(x.dataset.dit === "pausa") ditPausar(!DIT.pausado); });
+    var bt = document.querySelector('[data-action="ial-menu"]'); if(bt) bt.classList.add("ial-dit-on");
+    if(modo === "local"){ ditOuvirLocal(); msg("Ditado ligado: fale normalmente"); return; }
+    window.PDENuvem.ditadoCelular({ aoFinal:ditAcrescentar, aoParcial:ditParcial,
+      aoEstado:function(est, link){
+        if(link){ var l = document.getElementById("ditLink"); if(l) l.textContent = link.replace(/^https?:\/\//, ""); var q = document.getElementById("ditQr"); if(q && window.QRCode && !q.firstChild){ try{ new QRCode(q, { text:link, width:116, height:116, correctLevel:QRCode.CorrectLevel.M }); }catch(x){} } }
+        if(est === "esperando") ditEstado("📱 Esperando o celular · o Portal não grava áudio");
+        if(est === "conectado"){ ditEstado("📱 Celular conectado: pode falar"); if(DIT.barra) DIT.barra.classList.add("ligado"); }
+        if(est === "erro"){ msg("Não consegui ligar o celular agora. Verifique a internet"); ditadoParar(); }
+      } }).then(function(c){ if(DIT.modo === "celular") DIT.remoto = c; else if(c) c.parar(); });
+  }
+  function ditadoParar(){
+    if(DIT.escuta){ DIT.escuta.parar(); DIT.escuta = null; }
+    if(DIT.remoto){ DIT.remoto.parar(); DIT.remoto = null; }
+    if(DIT.barra){ DIT.barra.remove(); DIT.barra = null; }
+    var tb = DIT.tb; DIT.modo = ""; DIT.tb = null; DIT.pausado = false;
+    if(tb && !String(tb.text || "").trim()) canvas.remove(tb);   // ninguém falou: não deixa caixa vazia
+    var bt = document.querySelector('[data-action="ial-menu"]'); if(bt) bt.classList.remove("ial-dit-on");
+    canvas.requestRenderAll(); msg("Ditado encerrado");
   }
 
   /* ================= PONTE COM A NUVEM (Portal 5.0) ================= */
@@ -4847,6 +4939,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ial-menu-wrap{position:relative;display:inline-flex}
   .ferr.rod-ial{background:linear-gradient(135deg,#a78bfa 0%,#7048e8 55%,#4c2fb3 100%)!important;color:#fff!important;box-shadow:0 6px 16px -4px rgba(112,72,232,.6),inset 0 0 0 1px rgba(255,255,255,.3)}
   .ferr.rod-ial:hover{filter:brightness(1.08)}
+  .ferr.rod-ial.ial-dit-on::after{content:"ditado";position:absolute;top:-8px;right:-6px;font-size:8.5px;font-weight:800;text-transform:uppercase;background:#fff;color:#d92b2b;padding:1px 5px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
   .ferr.rod-ial.ial-leg-on::after{content:"legenda";position:absolute;top:-8px;right:-6px;font-size:8.5px;font-weight:800;text-transform:uppercase;background:#fff;color:#7048e8;padding:1px 5px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
   .ial-menu{position:fixed;z-index:9120;width:320px;max-height:calc(100vh - 110px);overflow:auto;background:#fff;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.4);padding:6px;display:grid;gap:2px}
   .ial-menu[hidden]{display:none}
@@ -4865,6 +4958,22 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ial-d{margin:0;color:#4b5b6b;font-size:13.5px}
   .ial-bts{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
   .ial-opc{justify-content:flex-start}
+  .ial-dit{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;width:min(680px,calc(100% - 32px));background:#0f2c4a;color:#fff;border-radius:16px;padding:10px 14px 10px;box-shadow:0 12px 30px rgba(0,0,0,.35);font-family:"Segoe UI",sans-serif}
+  .ial-dit .dit-lin{display:flex;align-items:center;gap:10px}
+  .ial-dit .dit-rec{color:#ff5a5f;font-size:16px;animation:ditPisca 1.2s infinite}
+  .ial-dit.pausado .dit-rec{color:#f4b400;animation:none}
+  .ial-dit.cel:not(.ligado) .dit-rec{color:#9fb3c8;animation:none}
+  @keyframes ditPisca{50%{opacity:.25}}
+  .ial-dit .dit-est{flex:1;font-weight:700;font-size:14px}
+  .ial-dit button{border:0;border-radius:9px;padding:7px 12px;font:700 13px "Segoe UI",sans-serif;cursor:pointer;background:#ffffff1f;color:#fff}
+  .ial-dit button[data-dit="parar"]{background:#d92b2b}
+  .ial-dit .dit-parc{margin-top:6px;font-size:15px;color:#dbe8f5;min-height:20px;font-style:italic}
+  .ial-dit .dit-cmd{display:block;margin-top:4px;font-size:11.5px;opacity:.7}
+  .ial-dit .dit-cel{display:flex;gap:14px;align-items:center;margin-top:10px;padding:10px;border-radius:12px;background:#ffffff12}
+  .ial-dit.cel.ligado .dit-cel{display:none}
+  .ial-dit .dit-qr{background:#fff;padding:6px;border-radius:8px;min-width:128px;min-height:128px;display:grid;place-items:center}
+  .ial-dit .dit-cel-tx{display:grid;gap:4px;font-size:13.5px} .ial-dit .dit-link{font:800 18px "Segoe UI",sans-serif;color:#8DC63F;word-break:break-all}
+  .ial-dit .dit-cel-tx small{opacity:.8;font-size:12px}
   #ialRuido{position:fixed;top:14px;right:96px;z-index:60;width:230px;background:#0f2c4a;color:#fff;border-radius:16px;padding:10px 12px 12px;box-shadow:0 10px 30px rgba(0,0,0,.35);font-family:"Segoe UI",sans-serif}
   #ialRuido .rd-topo{display:flex;justify-content:space-between;align-items:center;font-size:14px}
   #ialRuido .rd-topo button{background:none;border:0;color:#fff;font-size:16px;cursor:pointer;padding:2px 6px}
@@ -5175,6 +5284,41 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     return salvando;
   }
 
+  /* ---------- Ditar pelo celular (nov/2026): o celular do professor vira o microfone da Lousa ----------
+     ditado_remoto/{uid}: { ativo, sessao, lousa_em, parcial, celular_em } · ditado_remoto/{uid}/trechos/{id}: { sessao, n, texto, em }
+     A Lousa abre a sessão e mostra o QR de /ditado/; o celular (mesma conta) reconhece a voz no próprio navegador e manda cada frase.
+     A Lousa aplica a frase no quadro e apaga o trecho na hora. Nada de áudio passa pela nuvem do Portal: só o texto. */
+  function carregarQrLousa(){ return window.QRCode ? Promise.resolve() : new Promise((ok) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = ok; sc.onerror = ok; document.head.appendChild(sc); }); }
+  async function ditadoCelular(h){
+    if(!uid || !licenca){ h.aoEstado && h.aoEstado("erro"); return null; }
+    const sessao = Math.random().toString(36).slice(2, 12) + Date.now().toString(36), ref = doc(db, "ditado_remoto", uid);
+    const base = /^lousa\./.test(location.hostname) ? "https://www.portaldoeducador.com.br" : location.origin, link = base + "/ditado/";
+    let pararDoc = null, pararTre = null, vivo = true, ultimoN = -1;
+    try{
+      await setDoc(ref, { ativo:true, sessao, lousa_em:serverTimestamp(), parcial:"", celular_em:null });
+      await carregarQrLousa();
+      h.aoEstado && h.aoEstado("esperando", link);
+      pararDoc = onSnapshot(ref, (sn) => {
+        const d = sn.data() || {}; if(!vivo || d.sessao !== sessao) return;
+        if(d.celular_em) h.aoEstado && h.aoEstado("conectado");
+        h.aoParcial && h.aoParcial(d.parcial || "");
+      }, () => {});
+      pararTre = onSnapshot(query(collection(db, "ditado_remoto", uid, "trechos"), where("sessao", "==", sessao)), (sn) => {
+        const novos = []; sn.docChanges().forEach(c => { if(c.type === "added") novos.push({ id:c.doc.id, ...c.doc.data() }); });
+        novos.sort((a, b) => (a.n || 0) - (b.n || 0)).forEach(t => {
+          if(t.n > ultimoN){ ultimoN = t.n; h.aoFinal && h.aoFinal(String(t.texto || "")); }
+          deleteDoc(doc(db, "ditado_remoto", uid, "trechos", t.id)).catch(() => {});
+        });
+      }, () => {});
+    }catch(e){ console.warn("ditado celular:", e.code || e); h.aoEstado && h.aoEstado("erro"); return null; }
+    return { parar: async () => {
+      vivo = false; if(pararDoc) pararDoc(); if(pararTre) pararTre();
+      await setDoc(ref, { ativo:false, sessao, lousa_em:serverTimestamp(), parcial:"", celular_em:null }).catch(() => {});
+      const resto = await getDocs(query(collection(db, "ditado_remoto", uid, "trechos"), where("sessao", "==", sessao))).catch(() => null);
+      if(resto) resto.forEach(d => deleteDoc(d.ref).catch(() => {}));
+    } };
+  }
+
   /* ---------- versão original ---------- */
   const caminhoOrig = arquivo => String(arquivo).replace(/(\.json(\.gz)?)$/, ".orig$1");
   async function guardarOriginal(id){
@@ -5470,6 +5614,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     salvar: (manual) => salvar(manual) || Promise.resolve(),
     salvarSeAlterou: () => { if(L() && L().alterada() && L().temConteudo()) salvar(false).catch(() => {}); },
     situacaoOriginal: () => situacaoOriginal().catch(() => null),
+    ditadoCelular,
     encerrarAula: (modo) => encerrarAula(modo),
     liberar: () => { congelado = false; },
     abrirLista
