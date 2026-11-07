@@ -28,21 +28,20 @@ jobs:
         run: |
           set -e
           B=https://portal-educador-5.firebaseapp.com/__/auth
-          mkdir -p __/auth/handler __/auth/iframe
-          curl -fsSL "$B/handler" -o __/auth/handler/index.html
-          curl -fsSL "$B/iframe" -o __/auth/iframe/index.html
-          for f in handler.js experiments.js iframe.js; do
-            curl -fsSL "$B/$f" -o "__/auth/$f"
-            # cópia também dentro das pastas, caso a página aponte para o arquivo pelo caminho relativo
-            cp "__/auth/$f" "__/auth/handler/$f"; cp "__/auth/$f" "__/auth/iframe/$f"
-          done
-          ls -la __/auth __/auth/handler __/auth/iframe
-          grep -o 'src="[^"]*"' __/auth/handler/index.html __/auth/iframe/index.html || true
+          # handler.html e iframe.html: o GitHub Pages serve /__/auth/handler sem barra no final e sem redirecionar
+          # (com pasta + index.html ele redireciona para /handler/ e o Google recusa: redirect_uri_mismatch)
+          rm -rf __/auth/handler __/auth/iframe
+          mkdir -p __/auth
+          curl -fsSL "$B/handler" -o __/auth/handler.html
+          curl -fsSL "$B/iframe" -o __/auth/iframe.html
+          for f in handler.js experiments.js iframe.js; do curl -fsSL "$B/$f" -o "__/auth/$f"; done
+          ls -la __/auth
+          grep -o 'src="[^"]*"' __/auth/handler.html __/auth/iframe.html || true
       - name: Gravar se mudou
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add __/auth
+          git add -A __/auth
           if git diff --cached --quiet; then echo "::notice::Nada mudou nos arquivos do login."; exit 0; fi
           git commit -m "Login: arquivos auxiliares do Firebase Auth atualizados"
           git push
