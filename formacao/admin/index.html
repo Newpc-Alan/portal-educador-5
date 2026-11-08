@@ -826,6 +826,8 @@ const ApiDemo = {
   async salvarCurso(id, dados){ DEMO.cursos[id] = { ...(DEMO.cursos[id]||{ modulos:{}, aulas:{}, questoes:{}, gabarito:{} }), ...dados }; },
   async excluirCurso(id){ delete DEMO.cursos[id]; },
   async publicarCurso(id,status){ DEMO.cursos[id].status=status; },
+  async definirRedesCurso(id, redes){ DEMO.cursos[id].redes=redes; DEMO.cursos[id].exclusivo=redes.length>0; },
+  async listarRedesFormacao(){ return { redes:[{id:"lab-muni",nome:"Rede de demonstração",uf:"MS"}] }; },
   async gerarCursoIA(){ throw new Error("No modo demonstração a IA não gera cursos. Entre com a conta da equipe."); },
   async revisarCursoIA(id){ DEMO.cursos[id].ia = { ...(DEMO.cursos[id].ia||{}), revisado:true, revisado_nome:"Modo demonstração" }; },
   async duplicarCurso(id){const novo=id+"-v"+Date.now();DEMO.cursos[novo]={...clonar(DEMO.cursos[id]),status:"rascunho",publicadoEm:undefined,historicoPublicado:false};return {id:novo};},
@@ -929,6 +931,8 @@ const ApiFirebase = {
   async excluirCurso(id){ return this.chamar("excluirCurso",{cursoId:id}); },
   async publicarCurso(id,status){ return this.chamar("publicarCurso",{cursoId:id,status}); },
   async duplicarCurso(id){ return this.chamar("duplicarCurso",{cursoId:id}); },
+  async definirRedesCurso(id, redes){ return this.chamar("definirRedesCurso",{cursoId:id,redes}); },
+  async listarRedesFormacao(){ return this.chamar("listarRedesFormacao",{}); },
   // a geração leva de 2 a 5 minutos: o padrão do SDK (70 s) cortaria antes
   async gerarCursoIA(d){ return fb.fn.httpsCallable(fb.funcs, "gerarCursoIA", { timeout:540000 })(d).then(r=>r.data); },
   async revisarCursoIA(id){ return this.chamar("revisarCursoIA",{cursoId:id}); },
@@ -1466,6 +1470,15 @@ T.curso_publicar = async id => {
   <div class="cartao"><h2>Nova versão do curso</h2><p>Crie uma cópia editável. A versão atual, o progresso dos alunos e os certificados permanecem vinculados ao curso original.</p><button class="btn b-primario" id="duplicarCurso">Criar nova versão</button></div>
   <div id="msg"></div>
 
+  ${podePublicar() ? `<div class="cartao" id="cartaoRedes">
+    <h2>Quem pode ver este curso</h2>
+    <p style="color:var(--suave);font-size:.9rem;margin-top:0">Curso exclusivo aparece só para os professores das redes escolhidas, com o selo "Formação da sua rede", e o certificado diz que a formação foi promovida pela Secretaria de Educação da rede. As outras redes não veem o curso.</p>
+    <label style="display:flex;gap:8px;align-items:center;margin:.4rem 0"><input type="radio" name="vis" value="todas" ${c.exclusivo?"":"checked"}> Todas as redes</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:.4rem 0"><input type="radio" name="vis" value="redes" ${c.exclusivo?"checked":""}> Só as redes escolhidas</label>
+    <div id="listaRedes" ${c.exclusivo?"":"hidden"} style="max-height:240px;overflow:auto;border:1px solid var(--linha);border-radius:10px;padding:8px 12px;margin:.4rem 0"><span style="color:var(--suave)">Carregando redes…</span></div>
+    <button class="btn b-primario" id="salvarRedes">Salvar quem pode ver</button>
+  </div>` : ""}
+
   <div class="cartao">
     <h2>Situação atual</h2>
     <p><span class="selo s-${c.status}">${STATUS[c.status]||c.status}</span></p>
@@ -1727,7 +1740,7 @@ function ligarListaCursos(){
     if (S.cursos.some(c=>c.id===id)) return avisar("Já existe um curso com esse título.","erro");
     await Api.salvarCurso(id, {
       titulo, resumo:"", descricao:"", nivel:"iniciante", horas:1,
-      ordem:S.cursos.length+1, status:"rascunho", trilhas:[], totalAulas:0,
+      ordem:S.cursos.length+1, status:"rascunho", exclusivo:false, trilhas:[], totalAulas:0,
       quizAtivo:false, quizNotaCorte:70, quizTentativasMax:3
     });
     cursoAberto = null;
@@ -2070,6 +2083,25 @@ async function ligarAvaliacao(id){
 
 /* ---------- PUBLICAÇÃO ---------- */
 function ligarPublicar(id){
+  // quem pode ver (curso exclusivo de rede): a gravação é pela função definirRedesCurso, nunca direto no banco
+  (async ()=>{
+    const box=$("#listaRedes"); if(!box) return;
+    const c=cursoAberto||{}, marcadas=new Set(c.redes||[]);
+    try{
+      const r=await Api.listarRedesFormacao();
+      box.innerHTML=r.redes.map(x=>`<label style="display:flex;gap:8px;align-items:center;padding:3px 0"><input type="checkbox" value="${esc(x.id)}" ${marcadas.has(x.id)?"checked":""}> ${esc(x.nome)}${x.uf?"/"+esc(x.uf):""}</label>`).join("")||'<span style="color:var(--suave)">Nenhuma rede cadastrada.</span>';
+    }catch(e){ box.innerHTML='<span style="color:var(--erro)">Não foi possível carregar as redes.</span>'; }
+    document.querySelectorAll('input[name="vis"]').forEach(r=>r.addEventListener("change",()=>{ box.hidden = document.querySelector('input[name="vis"]:checked').value!=="redes"; }));
+    $("#salvarRedes")?.addEventListener("click", async e=>{
+      const so=document.querySelector('input[name="vis"]:checked').value==="redes";
+      const redes=so?[...box.querySelectorAll("input:checked")].map(i=>i.value):[];
+      if(so && !redes.length) return avisar("Marque pelo menos uma rede.","erro");
+      const b=e.currentTarget; b.disabled=true;
+      try{ await Api.definirRedesCurso(id, redes); cursoAberto=null; avisar(redes.length?`Curso exclusivo de ${redes.length} rede(s).`:"Curso aberto a todas as redes.","ok"); }
+      catch(err){ avisar(err.message||"Não foi possível salvar.","erro"); }
+      finally{ b.disabled=false; }
+    });
+  })();
   $("#duplicarCurso")?.addEventListener("click",async e=>{
     e.target.disabled=true;
     try{const r=await Api.duplicarCurso(id);cursoAberto=null;location.hash="#/curso/"+r.id+"/dados";}

@@ -629,6 +629,8 @@ footer.rodape a:hover{text-decoration:underline}
 .cert-nome{font-size:clamp(1.35rem,3.4vw,2rem);font-weight:700;color:var(--azul);margin:0 0 .15rem;letter-spacing:-.01em}
 .cert-cpf{font-size:.86rem;color:var(--tinta-suave);margin:0 0 1.3rem;font-family:ui-monospace,Consolas,monospace}
 .cert-corpo{max-width:60ch;margin:0 auto 1.7rem;color:var(--tinta);line-height:1.75}
+.cert-promotor{max-width:62ch;margin:-1rem auto 1.5rem;font-size:.92rem;font-weight:700;color:var(--azul)}
+.et-rede{background:#0f2c4a;color:#fff;border-color:#0f2c4a}
 
 .cert-dados{width:100%;border-collapse:collapse;margin:0 0 1.9rem;font-size:.84rem}
 .cert-dados td{border:1px solid var(--linha);padding:.55rem .8rem;text-align:left;vertical-align:top}
@@ -1308,6 +1310,7 @@ const DadosFirebase = {
           const msg = (e && e.code === "functions/failed-precondition" && e.message) ? e.message : "Não foi possível liberar a Formação Continuada para sua conta.";
           E.bloqueio = msg; E.pronto = true; resolve(); renderizar(); return;
         }
+        await this.carregarCursosDaRede();
         if (u) await this.carregarUsuario(u.uid);
         else { E.perfil = {}; E.progresso = {}; E.tentativas = {}; E.certificados = []; }
         E.pronto = true;
@@ -1323,11 +1326,23 @@ const DadosFirebase = {
   async carregarCatalogo(){
     const { collection, getDocs, query, where, orderBy } = fb.fs;
     const [cs, ts] = await Promise.all([
-      getDocs(query(collection(fb.db,"cursos"),  where("status","==","publicado"), orderBy("ordem"))),
+      // só os cursos abertos a todas as redes; os exclusivos da rede do professor vêm por cursosDaRede, depois do login
+      getDocs(query(collection(fb.db,"cursos"),  where("status","==","publicado"), where("exclusivo","==",false), orderBy("ordem"))),
       getDocs(query(collection(fb.db,"trilhas"), where("status","==","publicado"), orderBy("ordem")))
     ]);
     E.cursos  = cs.docs.map(d=>({ id:d.id, ...d.data() }));
     E.trilhas = ts.docs.map(d=>({ id:d.id, ...d.data() }));
+  },
+
+  async carregarCursosDaRede(){
+    try{
+      const r = await this.chamar("cursosDaRede", {});
+      E.redeNome = r.rede || "";
+      if (r.cursos && r.cursos.length){
+        const ids = new Set(E.cursos.map(c=>c.id));
+        E.cursos = [...E.cursos, ...r.cursos.filter(c=>!ids.has(c.id))].sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+      }
+    }catch(e){ console.warn("cursos da rede:", e && e.message); }
   },
 
   async lerCurso(id){
@@ -1745,6 +1760,7 @@ function cartaoCurso(c){
       <span class="etiqueta et-${c.nivel}">${NIVEIS[c.nivel]||c.nivel}</span>
       <span class="etiqueta et-horas">${c.horas}h</span>
       ${c.quizAtivo ? '<span class="etiqueta et-horas">com avaliação</span>' : ''}
+      ${c.exclusivo ? '<span class="etiqueta et-rede">Formação da sua rede</span>' : ''}
       ${p.concluido ? '<span class="etiqueta et-ok">Concluído</span>' : ''}
     </div>
     <h3>${esc(c.titulo)}</h3>
@@ -2408,6 +2424,7 @@ T.certificado = async codigo => {
           com carga horária de <b>${ct.cargaHoraria} horas</b>${totalAulas?`, composto por ${totalAulas} aulas distribuídas em ${programa.length} módulos`:""}.
           ${ct.notaFinal!=null?`<br>Aproveitamento na avaliação final: <b>${ct.notaFinal}%</b>.`:""}
         </p>
+        ${ct.promotor?`<p class="cert-promotor">${esc(ct.promotor)}</p>`:""}
 
         <table class="cert-dados">
           <tr>
