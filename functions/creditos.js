@@ -15,7 +15,7 @@ export const CREDITOS_PADRAO = {
   precos: { texto: 1, material: 2, aula: 6, ajuste: 1, imagem: 6, avancado: 24, video: 3 },   // aula: Aula IA da Lousa; avancado: Aula avançada (modelo Pro); video: Vídeo interativo (~R$ 0,30 de custo real em nov/2026)
   teto_padrao: 120,            // créditos da rede por professor por mês (0 = sem teto)
   demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
-  // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; também é o teto por professor.
+  // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; o teto mensal por professor é o dobro.
   // Regras de acúmulo (08/11/2026): rede acumula até o fim do contrato; assinante avulso: a sobra passa 1 mês (no máximo 2 franquias juntas),
   // a programar junto com o pagamento automático; pacotes comprados valem 12 meses.
   acumulo_assinante_meses: 1,
@@ -58,7 +58,8 @@ export function cfgCreditos(c) {
     franquia: { ...CREDITOS_PADRAO.franquia, ...(x.franquia || {}) } };
 }
 // teto mensal por professor na carteira da rede: o que o administrador gravou na rede; sem isso, a franquia do plano; sem franquia, o padrão
-export const tetoRede = (c, cc, plano) => (c && c.teto_professor != null) ? c.teto_professor : (Number((cc.franquia || {})[plano]) > 0 ? Number(cc.franquia[plano]) : cc.teto_padrao);
+// com a franquia acumulando no contrato (08/11/2026), o teto padrão é o DOBRO da franquia: sem isso o saldo guardado nas férias nunca poderia ser usado
+export const tetoRede = (c, cc, plano) => (c && c.teto_professor != null) ? c.teto_professor : (Number((cc.franquia || {})[plano]) > 0 ? 2 * Number(cc.franquia[plano]) : cc.teto_padrao);
 
 /* ---------------------------------------------------------------- contas da carteira (funções puras, testáveis) */
 export function saldoDe(carteira, agora = Date.now()) {
