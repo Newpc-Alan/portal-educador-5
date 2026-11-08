@@ -28,7 +28,8 @@ const FX = { bebes: 'Bebês (Educação Infantil)', cbp: 'Crianças bem pequenas
 const serieDe = f => FX[f] || (/^em\d$/.test(f || '') ? f.slice(2) + 'ª série do Ensino Médio' : f ? f + 'º ano do Ensino Fundamental' : '');
 const ja = new Set((await db.collection('videos_interativos').where('origem', '==', 'catalogo').get()).docs.map(d => d.id.replace(/^cat_/, '')));
 const todos = (await db.collection('videos').where('publicado', '==', true).get()).docs.map(d => ({ id: d.id, ...d.data() }))
-  .filter(v => v.youtube_id && !ja.has(v.id) && v.duracao_seg >= 90 && v.duracao_seg <= 600 && v.para_professores !== false && !/^(bebes|cbp)$/.test(v.faixa_de || ''));
+  // TODOS=1: também os longos (até ~1h, o limite do Gemini), os sem duração cadastrada e os de crianças bem pequenas; só fica de fora o que tem menos de 1 minuto
+  .filter(v => v.youtube_id && !ja.has(v.id) && v.para_professores !== false && (process.env.TODOS === '1' ? !(v.duracao_seg > 0 && v.duracao_seg < 60) && v.faixa_de !== 'bebes' : v.duracao_seg >= 90 && v.duracao_seg <= 600 && !/^(bebes|cbp)$/.test(v.faixa_de || '')));
 // um de cada componente primeiro, os mais bem colocados (prioridade 1) antes
 todos.sort((a, b) => ((a.prioridade || 2) - (b.prioridade || 2)) || String(a.titulo).localeCompare(String(b.titulo)));
 const escolha = [], comp = new Set();
@@ -42,12 +43,14 @@ if (PUBLICAR) {
   aviso('rascunhos publicados: ' + rasc.size);
 }
 async function um(v) {
-  const serie = serieDe(v.faixa_de), qtd = v.duracao_seg > 300 ? 6 : v.duracao_seg > 150 ? 5 : 4;
+  // duração cadastrada errada ou ausente em alguns (ex.: 1257 min): acima de 2 h, trata como desconhecida
+  const dc = v.duracao_seg > 0 && v.duracao_seg < 7200 ? v.duracao_seg : 0;
+  const serie = serieDe(v.faixa_de), qtd = dc > 1800 ? 10 : dc > 600 ? 8 : dc > 300 || !dc ? 6 : dc > 150 ? 5 : dc >= 90 ? 4 : 2;
   let c = null, mod = '', o = null, ent = 0, sai = 0;
   for (let t = 0; t < 2 && !(c && !c.problemas.length); t++) {
     for (const m of MODELOS) {
       const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': CHAVE },
-        body: JSON.stringify(N.corpoVideo(v.youtube_id, N.sistemaVideo(), N.pedidoVideo({ serie, disciplina: v.componente, qtd, duracao: v.duracao_seg }) + (c ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + c.problemas.join('; ') + '). Corrija.' : ''))), signal: AbortSignal.timeout(170000) }).catch(() => null);
+        body: JSON.stringify(N.corpoVideo(v.youtube_id, N.sistemaVideo(), N.pedidoVideo({ serie, disciplina: v.componente, qtd, duracao: dc }) + (c ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + c.problemas.join('; ') + '). Corrija.' : ''))), signal: AbortSignal.timeout(dc > 900 || !dc ? 420000 : 170000) }).catch(() => null);
       if (!r || r.status === 404) continue;
       const j = await r.json().catch(() => ({})); if (!r.ok) { aviso('ERRO ' + v.titulo + ' HTTP ' + r.status); break; }
       const u = j.usageMetadata || {}; ent += u.promptTokenCount || 0; sai += (u.candidatesTokenCount || 0) + (u.thoughtsTokenCount || 0);
@@ -56,16 +59,16 @@ async function um(v) {
     }
     if (!o) continue;
     if (o.adequado === false) { aviso('PULADO ' + v.titulo + ': ' + o.motivo); break; }
-    c = N.conferirVideo(o, { duracao: v.duracao_seg, qtd });
+    c = N.conferirVideo(o, { duracao: dc, qtd });
   }
   if (!c || !c.interacoes.length || (o && o.adequado === false)) { aviso('SEM RESULTADO ' + v.titulo); return; }
   await db.doc('videos_interativos/cat_' + v.id).set({ origem: 'catalogo', catalogo_id: v.id, youtube_id: v.youtube_id, titulo: v.titulo || o.titulo, resumo: String(o.resumo || '').slice(0, 400), canal: v.canal || '',
-    serie, disciplina: v.componente || '', duracao_seg: c.duracao || v.duracao_seg, interacoes: c.interacoes, dono: '', dono_nome: '', municipio_id: '', escola_id: '', publicado: PUBLICAR, modelo: mod,
+    serie, disciplina: v.componente || '', duracao_seg: c.duracao || dc, interacoes: c.interacoes, dono: '', dono_nome: '', municipio_id: '', escola_id: '', publicado: PUBLICAR, modelo: mod,
     gerado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(), criado_em: FieldValue.serverTimestamp() });
   await db.doc('stats/ia_uso').set({ [new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace('-', '')]: { video_catalogo: { usos: FieldValue.increment(1), custo_usd: FieldValue.increment((ent * 0.75 + sai * 3.75) / 1e6 * 1.6) } } }, { merge: true });
   if (PUBLICAR) await db.doc('videos/' + v.id).set({ interativo: true }, { merge: true });
   ok++; aviso((PUBLICAR ? 'PUBLICADO ' : 'RASCUNHO ') + v.titulo + ' (' + (v.componente || '') + ', ' + serie + ') · ' + c.interacoes.length + ' pausas' + (c.problemas.length ? ' · avisos: ' + c.problemas.join('; ') : ''));
 }
 // 4 de cada vez (cabe no tempo da rotina)
-for (let i = 0; i < escolha.length; i += 4) await Promise.all(escolha.slice(i, i + 4).map(v => um(v).catch(e => aviso('ERRO ' + v.titulo + ' ' + e.message))));
+for (let i = 0; i < escolha.length; i += 6) await Promise.all(escolha.slice(i, i + 6).map(v => um(v).catch(e => aviso('ERRO ' + v.titulo + ' ' + e.message))));
 aviso('pronto: ' + ok + (PUBLICAR ? ' publicados.' : ' rascunhos.') + ' Revise e publique em www.portaldoeducador.com.br/video/ (aba Do catálogo do Portal).');
