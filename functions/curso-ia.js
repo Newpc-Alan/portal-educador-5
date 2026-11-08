@@ -67,30 +67,44 @@ Regras do plano:
   return { sistema, pedido };
 }
 
-export function pedidoAulas({ plano, modulo, indice, tema, publico }) {
+// uma aula por pedido: saídas curtas degeneram menos (o modelo entra em "repetição sem sentido" em textos longos)
+export function pedidoAula({ plano, modulo, indice, alvo, tema, publico }) {
   const sistema = `Você escreve aulas de cursos de formação continuada a distância para professores.
 ${REGRAS_COMUNS}
-Cada aula é lida na tela do computador ou do celular: parágrafos curtos (até 4 frases), subtítulos que ajudam a escanear, exemplos concretos de sala de aula.`;
-  const lista = modulo.aulas.map((a, i) => `${i + 1}. ${a.titulo} (${a.duracaoMin} min). Objetivo: ${a.objetivo}`).join('\n');
+Cada aula é lida na tela do computador ou do celular: parágrafos curtos, subtítulos que ajudam a escanear, exemplos concretos de sala de aula.
+Escreva frases completas e diretas, de até 25 palavras. Cada parágrafo tem de 2 a 4 frases (no máximo 80 palavras). Nunca encadeie adjetivos ou expressões soltas.`;
+  const a = modulo.aulas[alvo];
+  const outras = modulo.aulas.filter((_, i) => i !== alvo).map(x => '- ' + x.titulo).join('\n');
   const pedido = `Curso: ${plano.titulo}
 Tema: ${tema}
 Público: ${publico || 'professores da educação básica da rede pública'}
-Módulo ${indice + 1}: ${modulo.titulo}
-Objetivo do módulo: ${modulo.objetivo}
-${modulo.base_material ? 'O que o material base diz sobre este módulo (use como fonte, sem contradizer):\n' + modulo.base_material : ''}
+Módulo ${indice + 1}: ${modulo.titulo} (objetivo: ${modulo.objetivo})
+${modulo.base_material ? 'O que o material base diz sobre este módulo (use como fonte, sem contradizer):\n' + modulo.base_material + '\n' : ''}${outras ? 'Outras aulas deste módulo (não repita o conteúdo delas):\n' + outras + '\n' : ''}
+Escreva SOMENTE esta aula, devolvendo "aulas" com um único item:
+Título: ${a.titulo}
+Objetivo: ${a.objetivo}
+Duração: ${a.duracaoMin} minutos (leitura mais atividade prática)
 
-Escreva o conteúdo de TODAS as aulas abaixo, na mesma ordem e com os mesmos títulos:
-${lista}
-
-Para cada aula, monte "blocos" nesta lógica:
+Monte "blocos" nesta lógica:
 - 1 parágrafo de abertura que conecta o tema a uma situação real de sala de aula;
-- 2 a 4 subtítulos, cada um seguido de parágrafos, lista ou passos (tipo "passos" para procedimentos numerados);
+- 3 ou 4 subtítulos, cada um seguido de 1 ou 2 parágrafos, uma lista ou passos (tipo "passos" para procedimentos numerados);
 - 1 bloco "dica" com um cuidado prático ou erro comum a evitar;
 - 1 bloco "atividade" no final: uma atividade prática que o professor aplica ou prepara para a própria turma, com o que entregar ou registrar.
-Tamanho: o professor lê e depois faz a atividade prática, então o texto ocupa cerca de metade do tempo da aula: escreva cerca de 22 palavras por minuto de duração, com no mínimo 500 e no máximo 1400 palavras por aula. Aprofunde com exemplos de sala de aula, não com repetição. Use **negrito** só para termos-chave.
-Em "lista" e "passos" preencha "itens" (frases completas) e deixe "texto" como uma frase de introdução opcional.
+Tamanho total: de 600 a 1000 palavras. Aprofunde com exemplos de sala de aula, não com repetição. Use **negrito** só para termos-chave.
+Em "lista" e "passos" preencha "itens" (frases completas, até 30 palavras cada) e deixe "texto" como uma frase de introdução opcional.
 Instruções ao professor (passos, atividade, dica) sempre no imperativo, falando com ele: "Defina", "Apresente", "Peça", nunca "Define" ou "O professor define".`;
   return { sistema, pedido };
+}
+
+// texto degenerado: trecho longo sem pontuação, ou a mesma sequência de 4 palavras repetida muitas vezes
+export function textoDegenerado(aula) {
+  const partes = (aula?.blocos || []).flatMap(b => [String(b?.texto || ''), ...(b?.itens || []).map(String)]);
+  for (const t of partes) {
+    if (t.split(/[.!?:;]/).some(f => f.split(/\s+/).filter(Boolean).length > 70)) return true;
+    const w = t.toLowerCase().split(/\s+/).filter(Boolean), vistos = new Map();
+    for (let i = 0; i + 4 <= w.length; i++) { const k = w.slice(i, i + 4).join(' '); vistos.set(k, (vistos.get(k) || 0) + 1); if (vistos.get(k) >= 4) return true; }
+  }
+  return false;
 }
 
 // segunda passada: revisão de língua e coerência, sem cortar conteúdo
@@ -104,6 +118,7 @@ const contaPalavras = aulas => (aulas || []).reduce((s, a) => s + (a?.blocos || 
 export function aceitarRevisao(original, revisada) {
   if (!Array.isArray(revisada) || revisada.length !== original.length) return false;
   if (revisada.some((a, i) => !Array.isArray(a?.blocos) || a.blocos.length < original[i].blocos.length * 0.8)) return false;
+  if (revisada.some(textoDegenerado)) return false;
   return contaPalavras(revisada) >= contaPalavras(original) * 0.9;
 }
 

@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { geminiFluxo, RESERVA_TEXTO, PADRAO } from './portal-ia.js';
 import { registrarConsumo } from './creditos.js';
 import { expiraAuditoria } from './auditoria.js';
-import { NIVEIS, ESQUEMA_PLANO, ESQUEMA_AULAS, pedidoPlano, pedidoAulas, pedidoRevisao, aceitarRevisao, limparPlano, montarCurso, slugCurso } from './curso-ia.js';
+import { NIVEIS, ESQUEMA_PLANO, ESQUEMA_AULAS, pedidoPlano, pedidoAula, pedidoRevisao, aceitarRevisao, textoDegenerado, limparPlano, montarCurso, slugCurso } from './curso-ia.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
 const LIMITE_DIA = 10, PDF_MAX = 7 * 1024 * 1024, TEXTO_MAX = 60000;
@@ -68,29 +68,29 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
     }
     if (!plano) throw new HttpsError('unavailable', 'A IA não conseguiu montar o plano do curso (' + prob.join('; ') + '). Tente de novo ou detalhe melhor o tema.');
 
-    // 2) aulas, um pedido por módulo, em paralelo
+    // 2) aulas: um pedido por aula, todas em paralelo; até 3 tentativas com modelos diferentes; depois revisão de língua
     let revisados = 0;
-    const aulasPorModulo = await Promise.all(plano.modulos.map(async (m, i) => {
-      const q = pedidoAulas({ plano, modulo: m, indice: i, tema, publico });
-      for (let t = 0; t < 2; t++) {
-        const ordem = t === 0 ? [cfg.modelo_texto, ...RESERVA_TEXTO] : ['gemini-flash-latest', cfg.modelo_rapido];
+    const escrever = async (m, i, k) => {
+      const q = pedidoAula({ plano, modulo: m, indice: i, alvo: k, tema, publico });
+      const ordens = [[cfg.modelo_texto, ...RESERVA_TEXTO], ['gemini-flash-latest', cfg.modelo_texto], [cfg.modelo_texto, cfg.modelo_rapido]];
+      for (const ordem of ordens) {
         try {
-          const r = await pedirJson(chave, ordem, q.sistema, [{ text: q.pedido }], ESQUEMA_AULAS, 200000); conta(r);
-          if (Array.isArray(r.json?.aulas) && r.json.aulas.length >= Math.ceil(m.aulas.length / 2)) {
-            const escritas = r.json.aulas.filter(a => Array.isArray(a?.blocos));
-            // 2b) revisão de língua e coerência com o modelo rápido; se falhar ou encurtar, fica o texto original
-            try {
-              const v = pedidoRevisao(escritas);
-              const rv = await pedirJson(chave, [cfg.modelo_rapido, cfg.modelo_texto], v.sistema, [{ text: v.pedido }], ESQUEMA_AULAS, 120000); conta(rv);
-              if (aceitarRevisao(escritas, rv.json?.aulas)) { revisados++; return rv.json.aulas; }
-              console.warn('formacao-ia: revisão recusada no módulo', i + 1);
-            } catch (e) { console.warn('formacao-ia: revisão', i + 1, e.message); }
-            return escritas;
-          }
-        } catch (e) { console.warn('formacao-ia: módulo', i + 1, e.message); }
+          const r = await pedirJson(chave, ordem, q.sistema, [{ text: q.pedido }], ESQUEMA_AULAS, 120000); conta(r);
+          const a = Array.isArray(r.json?.aulas) ? r.json.aulas[0] : null;
+          if (!a || !Array.isArray(a.blocos) || a.blocos.length < 4) continue;
+          if (textoDegenerado(a)) { console.warn('formacao-ia: texto degenerado', i + 1, k + 1, r.modelo); continue; }
+          try {
+            const v = pedidoRevisao([a]);
+            const rv = await pedirJson(chave, [cfg.modelo_rapido, cfg.modelo_texto], v.sistema, [{ text: v.pedido }], ESQUEMA_AULAS, 90000); conta(rv);
+            if (aceitarRevisao([a], rv.json?.aulas)) { revisados++; return rv.json.aulas[0]; }
+            console.warn('formacao-ia: revisão recusada', i + 1, k + 1);
+          } catch (e) { console.warn('formacao-ia: revisão', i + 1, k + 1, e.message); }
+          return a;
+        } catch (e) { console.warn('formacao-ia: aula', i + 1, k + 1, e.message); }
       }
-      return [];
-    }));
+      return null;
+    };
+    const aulasPorModulo = await Promise.all(plano.modulos.map((m, i) => Promise.all(m.aulas.map((_, k) => escrever(m, i, k)))));
     const { modulos, aulas, questoes, pendencias } = montarCurso(plano, aulasPorModulo);
 
     // 3) grava como rascunho
@@ -101,7 +101,7 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
     const b = db.batch(), ref = db.doc(`cursos/${cursoId}`);
     b.create(ref, { titulo: plano.titulo, resumo: plano.resumo, descricao, nivel: plano.nivel, horas, ordem: qtd + 1, status: 'rascunho', trilhas: [], totalAulas: aulas.length,
       quizAtivo: questoes.length >= 5, quizNotaCorte: 70, quizTentativasMax: 3, quizPorProva: Math.min(10, questoes.length),
-      ia: { gerado: true, revisado: false, por: uid, em: FieldValue.serverTimestamp(), modelo: gasto.modelo, tema, publico, base: pdf ? 'pdf' : material ? 'texto' : 'nenhuma', pendencias, modulos_revisados_ia: revisados },
+      ia: { gerado: true, revisado: false, por: uid, em: FieldValue.serverTimestamp(), modelo: gasto.modelo, tema, publico, base: pdf ? 'pdf' : material ? 'texto' : 'nenhuma', pendencias, aulas_revisadas_ia: revisados },
       criadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp() });
     modulos.forEach(({ id, ...m }) => b.set(ref.collection('modulos').doc(id), m));
     aulas.forEach(({ id, ...a }) => b.set(ref.collection('aulas').doc(id), a));
