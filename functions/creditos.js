@@ -15,7 +15,10 @@ export const CREDITOS_PADRAO = {
   precos: { texto: 1, material: 2, aula: 6, ajuste: 1, imagem: 6, avancado: 24, video: 3 },   // aula: Aula IA da Lousa; avancado: Aula avançada (modelo Pro); video: Vídeo interativo (~R$ 0,30 de custo real em nov/2026)
   teto_padrao: 120,            // créditos da rede por professor por mês (0 = sem teto)
   demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
-  // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; também é o teto por professor
+  // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; também é o teto por professor.
+  // Regras de acúmulo (08/11/2026): rede acumula até o fim do contrato; assinante avulso: a sobra passa 1 mês (no máximo 2 franquias juntas),
+  // a programar junto com o pagamento automático; pacotes comprados valem 12 meses.
+  acumulo_assinante_meses: 1,
   franquia: { intermediario: 60, completo: 120, personalizado: 60 },
   alertas: [20, 5],           // % do saldo para avisar a NEWPC e a Secretaria
   validade_meses: 12,
@@ -309,9 +312,11 @@ export async function darDemo(db, uid, u) {
   });
 }
 
-/* ---------------------------------------------------------------- franquia mensal da rede */
-// Todo dia às 3h15: cada rede ativa com plano de IA recebe o pacote do mês "franquia-AAAAMM" = educadores de rede ativos × franquia do plano,
-// válido até o último dia do mês. Quem entra no meio do mês soma no dia seguinte (o pacote cresce; nunca diminui nem duplica).
+/* ---------------------------------------------------------------- franquia da rede */
+// Todo dia às 3h15: cada rede ativa com plano de IA recebe o pacote do mês "franquia-AAAAMM" = educadores de rede ativos × franquia do plano.
+// Desde 08/11/2026 (decisão do Alan) a franquia ACUMULA durante a vigência do contrato: cada pacote mensal vale até vigencia_fim_ts da rede
+// (férias guardam, fevereiro usa) e vence no fim do contrato, sem passar para o próximo. O teto mensal por professor (tetoRede) continua.
+// Rede sem data de fim de contrato: vale até o fim do mês, como antes. Quem entra no meio do mês soma no dia seguinte (o pacote cresce; nunca diminui nem duplica).
 // Só conta licença institucional (avulso, cortesia e teste nunca usam a carteira da rede). franquia_professor no município troca o valor do plano.
 const EDU_REDE = ['professor', 'gestor', 'secretaria'];
 export async function aplicarFranquia(db, simular = false) {
@@ -324,15 +329,16 @@ export async function aplicarFranquia(db, simular = false) {
     const f = inteiro(md.franquia_professor ?? cc.franquia[plano], 0, 1000); if (!f) continue;
     const n = (await db.collection('usuarios').where('municipio_id', '==', m.id).where('perfil', 'in', EDU_REDE).where('status', '==', 'ativo').where('licenca_tipo', '==', 'institucional').count().get()).data().count;
     const alvo = n * f, ref = db.doc('creditos/mun_' + m.id);
+    const fimContrato = ms(md.vigencia_fim_ts), validade = fimContrato > fimMes ? fimContrato : fimMes;
     const add = await db.runTransaction(async t => {
       const c = await t.get(ref), atual = c.exists ? c.data() : {}, pac = [...(atual.pacotes || [])], i = pac.findIndex(p => p.id === id);
       const antes = i >= 0 ? (pac[i].creditos || 0) : 0; if (alvo <= antes) return 0;
       const mais = alvo - antes, obs = 'Franquia do plano · ' + n + ' educador(es) × ' + f;
       if (i >= 0) pac[i] = { ...pac[i], creditos: alvo, restante: (pac[i].restante || 0) + mais, obs };
-      else pac.push({ id, creditos: alvo, restante: alvo, validade: Timestamp.fromMillis(fimMes), origem: 'franquia', obs, criado_em: Timestamp.now(), por: 'sistema' });
+      else pac.push({ id, creditos: alvo, restante: alvo, validade: Timestamp.fromMillis(validade), origem: 'franquia', obs, criado_em: Timestamp.now(), por: 'sistema' });
       if (simular) return mais;
       t.set(ref, { tipo: 'municipio', ref_id: m.id, nome: txt(md.nome || m.id, 120), pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, atualizado_em: FieldValue.serverTimestamp(), ...(c.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) }, { merge: true });
-      t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos: mais, validade: Timestamp.fromMillis(fimMes), obs: obs + ' (' + id.slice(9) + ')', por: 'sistema', em: FieldValue.serverTimestamp() });
+      t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos: mais, validade: Timestamp.fromMillis(validade), obs: obs + ' (' + id.slice(9) + ')', por: 'sistema', em: FieldValue.serverTimestamp() });
       return mais;
     });
     out.push({ rede: md.nome || m.id, plano, educadores: n, franquia: f, mes: alvo, somou: add });
