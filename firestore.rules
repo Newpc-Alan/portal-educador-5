@@ -171,6 +171,16 @@ service cloud.firestore {
         && request.resource.data.emitida_por == finEmail() && request.resource.data.emitida_em == request.time;
       allow create, delete: if false;
     }
+    // comissões da equipe: o financeiro lê para pagar; só o dono define equipe e percentuais
+    match /fin_config/{id} {
+      allow read: if finMembro();
+      allow write: if finDono() && id == "comissoes"
+        && request.resource.data.keys().hasOnly(["imposto_pct", "descontar_taxas", "outros_custos", "equipe", "atualizado_por", "atualizado_em"])
+        && request.resource.data.imposto_pct is number && request.resource.data.imposto_pct >= 0 && request.resource.data.imposto_pct <= 50
+        && request.resource.data.descontar_taxas is bool && request.resource.data.outros_custos is number && request.resource.data.outros_custos >= 0
+        && request.resource.data.equipe is list && request.resource.data.equipe.size() <= 20
+        && request.resource.data.atualizado_por == finEmail() && request.resource.data.atualizado_em == request.time;
+    }
     // trilha de auditoria: só cria, nunca altera nem apaga
     match /fin_auditoria/{id} {
       allow read: if finMembro();

@@ -43,6 +43,13 @@ await t('financeiro concilia repasse', assertSucceeds(updateDoc(doc(fin, 'fin_re
 await t('não muda o líquido do repasse', assertFails(updateDoc(doc(fin, 'fin_repasses/r1'), { liquido: 1 })));
 await t('fora da lista não concilia', assertFails(updateDoc(doc(outro, 'fin_repasses/r1'), { status: 'conciliado', conciliado_por: 'outro@newpc.com.br', conciliado_em: serverTimestamp() })));
 
+const com = { imposto_pct: 11, descontar_taxas: true, outros_custos: 500, equipe: [{ nome: 'Fulano', funcao: 'Comercial', pct: 5 }] };
+await t('dono salva comissões', assertSucceeds(setDoc(doc(dono, 'fin_config/comissoes'), { ...com, atualizado_por: 'alan@newpc.com.br', atualizado_em: serverTimestamp() })));
+await t('financeiro lê comissões', assertSucceeds(getDoc(doc(fin, 'fin_config/comissoes'))));
+await t('financeiro não altera comissões', assertFails(setDoc(doc(fin, 'fin_config/comissoes'), { ...com, atualizado_por: 'fin@newpc.com.br', atualizado_em: serverTimestamp() })));
+await t('fora da lista não vê comissões', assertFails(getDoc(doc(outro, 'fin_config/comissoes'))));
+await t('imposto acima de 50% recusado', assertFails(setDoc(doc(dono, 'fin_config/comissoes'), { ...com, imposto_pct: 80, atualizado_por: 'alan@newpc.com.br', atualizado_em: serverTimestamp() })));
+
 let reg;
 await t('financeiro registra na auditoria', (async () => { reg = await assertSucceeds(addDoc(collection(fin, 'fin_auditoria'), { acao: 'entrada', detalhe: 'Entrou', autor: 'fin@newpc.com.br', em: serverTimestamp() })); })());
 await t('não registra em nome de outro', assertFails(addDoc(collection(fin, 'fin_auditoria'), { acao: 'entrada', detalhe: 'x', autor: 'alan@newpc.com.br', em: serverTimestamp() })));
