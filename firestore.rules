@@ -1449,7 +1449,11 @@ service cloud.firestore {
     function fAdmin() { return fPapel() == 'admin' || admin(); }
     function fEditor() { return fPapel() in ['admin', 'editor'] || admin(); }
     function fCurso(cid) { return get(/databases/$(database)/documents/cursos/$(cid)).data; }
-    function fPublicado(cid) { return fCurso(cid).status == 'publicado'; }
+    // curso exclusivo de rede (redes + exclusivo, gravados só pela função definirRedesCurso): só quem é da rede no cadastro do Portal
+    function fDaRede(d) { return logado() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+      && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('municipio_id', '') in d.get('redes', []); }
+    function fVisivel(d) { return d.status == 'publicado' && (d.get('exclusivo', false) == false || fDaRede(d)); }
+    function fPublicado(cid) { return fVisivel(fCurso(cid)); }
     function fEditavel(d) { return d.status != 'publicado' && !d.get('historicoPublicado', false) && !('publicadoEm' in d); }
     function fEditarConteudo(cid) { return fEditor() && fEditavel(fCurso(cid)); }
     match /equipe/{uid} { allow read: if fEditor(); allow write: if false; }
@@ -1474,12 +1478,13 @@ service cloud.firestore {
     // chave do painel da TV: só as funções leem e gravam (o administrador pega o link pela função painelTvChave)
     match /painel_tv/{id} { allow read, write: if false; }
     match /cursos/{cid} {
-      allow read: if resource.data.status == 'publicado' || fEditor();
+      allow read: if fVisivel(resource.data) || fEditor();
       allow create: if fEditor() && request.resource.data.status == 'rascunho'
+        && request.resource.data.get('exclusivo', false) == false && !('redes' in request.resource.data)
         && !('historicoPublicado' in request.resource.data) && !('publicadoEm' in request.resource.data) && !('ia' in request.resource.data);
       // Publicação e congelamento apenas via publicarCurso (função no servidor). O campo ia (curso gerado por IA e sua revisão) só a função grava.
       allow update: if fEditor() && fEditavel(resource.data)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'historicoPublicado', 'publicadoEm', 'ia']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'historicoPublicado', 'publicadoEm', 'ia', 'redes', 'exclusivo']);
       allow delete: if false;
       match /modulos/{id} { allow read: if fPublicado(cid) || fEditor(); allow write: if fEditarConteudo(cid); }
       match /aulas/{id} { allow read: if fPublicado(cid) || fEditor(); allow write: if fEditarConteudo(cid); }

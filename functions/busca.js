@@ -54,7 +54,8 @@ export async function montarIndiceBusca(db) {
   for (const c of COLECOES.concat(['cursos'])) {
     // cursos da Formação usam status 'publicado' (os demais catálogos, publicado: true)
     const sn = c === 'cursos' ? await db.collection(c).where('status', '==', 'publicado').get() : await db.collection(c).where('publicado', '==', true).get();
-    let n = 0; sn.forEach(d => { const l = linha(c, d.id, d.data()); if (l) { todas.push(l); n++; } });
+    // curso exclusivo de uma rede não entra na busca de todos
+    let n = 0; sn.forEach(d => { if (c === 'cursos' && d.data().exclusivo === true) return; const l = linha(c, d.id, d.data()); if (l) { todas.push(l); n++; } });
     por[c] = n;
   }
   // divide em partes de até ~700 KB

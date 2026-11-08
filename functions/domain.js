@@ -36,7 +36,7 @@ export function projecaoPublica(c) {
   // notaFinal entra: é o dado que o RH confere na progressão. Município e
   // escola ficam de fora de propósito, são dado de perfil e não do documento.
   return Object.fromEntries(['nome','cpfMascarado','cursoTitulo','cargaHoraria','emitidoEmISO','ativo',
-    'periodoInicioISO','periodoFimISO','programa','totalAulas','notaFinal'].filter(k=>c[k] !== undefined).map(k=>[k,c[k]]));
+    'periodoInicioISO','periodoFimISO','programa','totalAulas','notaFinal','promotor'].filter(k=>c[k] !== undefined).map(k=>[k,c[k]]));
 }
 export function pendenciasPublicacao(c, modulos, aulas, questoes, gabarito) {
   const erros = [];

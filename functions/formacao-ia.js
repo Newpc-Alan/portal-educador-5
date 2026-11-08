@@ -115,7 +115,7 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
     const descricao = plano.descricao.split(/\n+/).filter(Boolean).map(t => `<p>${t.replace(/[<>&]/g, '')}</p>`).join('') + competencias;
     const b = db.batch(), ref = db.doc(`cursos/${cursoId}`);
     b.create(ref, { titulo: plano.titulo, resumo: plano.resumo, descricao, nivel: plano.nivel, horas, ordem: qtd + 1, status: 'rascunho', trilhas: [], totalAulas: aulas.length,
-      quizAtivo: questoes.length >= 5, quizNotaCorte: 70, quizTentativasMax: 3, quizPorProva: Math.min(10, questoes.length),
+      exclusivo: false, quizAtivo: questoes.length >= 5, quizNotaCorte: 70, quizTentativasMax: 3, quizPorProva: Math.min(10, questoes.length),
       ia: { gerado: true, revisado: false, por: uid, em: FieldValue.serverTimestamp(), modelo: gasto.modelo, tema, publico, base: pdf ? 'pdf' : material ? 'texto' : 'nenhuma', pendencias, aulas_revisadas_ia: revisados },
       criadoEm: FieldValue.serverTimestamp(), atualizadoEm: FieldValue.serverTimestamp() });
     modulos.forEach(({ id, ...m }) => b.set(ref.collection('modulos').doc(id), m));

@@ -60,10 +60,19 @@ const ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const codigoCurto = () => Array.from({length:6},()=>ABC[randomInt(ABC.length)]).join('');
 const CPF = v => String(v || '').replace(/\D/g,'');
 function cpfValido(v) { const c=CPF(v); if(c.length!==11 || /^(\d)\1{10}$/.test(c))return false; const dv=n=>{let s=0;for(let i=0;i<n;i++)s+=Number(c[i])*(n+1-i);const r=(s*10)%11;return r===10?0:r;};return dv(9)===Number(c[9])&&dv(10)===Number(c[10]); }
+// Curso exclusivo de rede (campo redes): só professor daquela rede (cadastro do Portal) faz; administrador passa.
+async function exigirRede(tx, uid, curso){
+  const redes=Array.isArray(curso.redes)?curso.redes:[];
+  if(!curso.exclusivo || !redes.length) return;
+  const u=(await tx.get(db.doc(`usuarios/${uid}`))).data()||{};
+  if(u.perfil==='admin' || redes.includes(u.municipio_id)) return;
+  fail('Este curso é exclusivo de outra rede de ensino.');
+}
 async function contexto(tx, uid, cursoId) {
   const ref=db.doc(`cursos/${cursoId}`), progRef=db.doc(`users/${uid}/progresso/${cursoId}`);
   const [c,p,a,m]=await Promise.all([tx.get(ref),tx.get(progRef),tx.get(ref.collection('aulas')),tx.get(ref.collection('modulos'))]);
   if(!c.exists || c.data().status!=='publicado') fail('Este curso não está disponível.');
+  await exigirRede(tx, uid, c.data());
   return {ref,progRef,curso:c.data(),prog:p.data() || {},aulas:arr(a),modulos:arr(m)};
 }
 function exigirConclusao(x) {
@@ -109,6 +118,7 @@ export const acompanharAula = onCall(async req => {
     const [snap,progSnap,cursoSnap]=await Promise.all([tx.get(ref),tx.get(progRef),tx.get(db.doc(`cursos/${cursoId}`))]);
     const s=snap.data();
     if(!cursoSnap.exists || cursoSnap.data().status!=='publicado')fail('Este curso não está disponível.');
+    await exigirRede(tx, uid, cursoSnap.data());
     // Conteúdo publicado é imutável. Reutilizar o contexto da sessão reduz leituras.
     const aula={videos:s?.videosAula||[]};
     const x={progRef,prog:progSnap.data()||{},aulas:(s?.idsAulas||[]).map(id=>({id}))};
@@ -244,12 +254,17 @@ export const emitirCertificado = onCall(async req=>{
     if(cpfDono && cpfDono.uid!==uid)
       fail('Este CPF já está vinculado a outra conta da Academia. Se o CPF é seu, escreva para suporte@portaldoeducador.com.br.');
     const ref=db.doc(`certificados/${codigo}`);if((await tx.get(ref)).exists)throw new HttpsError('aborted','Tente emitir novamente.');
+    // curso exclusivo de rede: o certificado diz quem promoveu a formação
+    let promotor='';
+    if(x.curso.exclusivo){ const mid=perfil.municipio_id || ((await tx.get(db.doc(`usuarios/${uid}`))).data()||{}).municipio_id || '';
+      const mu=mid ? (await tx.get(db.doc(`municipios/${mid}`))).data()||{} : {};
+      if(mu.nome) promotor=`Formação promovida pela Secretaria Municipal de Educação de ${mu.nome}${mu.uf?'/'+mu.uf:''}, em parceria com o Portal do Educador`; }
     const programa=x.modulos.sort((a,b)=>(a.ordem||0)-(b.ordem||0)).map(m=>({modulo:m.titulo||'',aulas:x.aulas.filter(a=>a.moduloId===m.id).sort((a,b)=>(a.ordem||0)-(b.ordem||0)).map(a=>a.titulo||'')}));
     const c={uid,nome,cpf,cpfMascarado:`***.${cpf.slice(3,6)}.${cpf.slice(6,9)}-**`,email:req.auth.token.email||'',cursoId,
       cursoTitulo:x.curso.titulo,cargaHoraria:Number(x.curso.horas||0),municipio:perfil.municipio||'',escola:perfil.escola||'',municipio_id:perfil.municipio_id||'',escola_id:perfil.escola_id||'',
       notaFinal:x.curso.quizAtivo?t.melhorNota:null,periodoInicioISO:x.prog.iniciadoServidorISO||x.prog.iniciadoEmISO,
       periodoFimISO:x.prog.concluidoEmISO,programa,totalAulas:x.aulas.length,emitidoEmISO:new Date().toISOString(),ativo:true,
-      versaoCurso:Number(x.curso.versao||1)};
+      versaoCurso:Number(x.curso.versao||1),...(promotor?{promotor}:{})};
     tx.create(ref,{...c,emitidoEm:carimbo()});tx.create(lock,{codigo});if(!cpfDono)tx.create(cpfRef,{uid,em:carimbo()});audit(tx,uid,'emitirCertificado',{codigo,cursoId});
     return {codigo,...c,reaproveitado:false};
   });
@@ -313,6 +328,34 @@ export const duplicarCurso = onCall(async req=>{
     for(const [n,s] of subs)for(const d of s.docs)tx.create(novo.collection(n).doc(d.id),d.data());
     audit(tx,uid,'duplicarCurso',{cursoId,novoId:novo.id});return {id:novo.id};
   });
+});
+// Quem pode ver o curso: todas as redes (padrão) ou só as redes escolhidas. Só administrador; vale também para curso publicado.
+export const definirRedesCurso = onCall(async req=>{
+  const uid=admin(req),cursoId=id(req.data?.cursoId);
+  const redes=[...new Set((Array.isArray(req.data?.redes)?req.data.redes:[]).map(String))].slice(0,30);
+  if(redes.some(r=>!idValido(r)))throw new HttpsError('invalid-argument','Rede inválida.');
+  const existem=await Promise.all(redes.map(r=>db.doc(`municipios/${r}`).get()));
+  if(existem.some(d=>!d.exists))throw new HttpsError('not-found','Rede não encontrada.');
+  return db.runTransaction(async tx=>{
+    const ref=db.doc(`cursos/${cursoId}`),s=await tx.get(ref);if(!s.exists)fail('Curso não encontrado.');
+    tx.update(ref,{redes,exclusivo:redes.length>0,atualizadoEm:carimbo()});
+    audit(tx,uid,'definirRedesCurso',{cursoId,redes});return {ok:true,redes,exclusivo:redes.length>0};
+  });
+});
+// lista de redes para a escolha no painel da Formação (só a equipe)
+export const listarRedesFormacao = onCall(async req=>{
+  equipe(req);const snap=await db.collection('municipios').get();
+  return {redes:snap.docs.map(d=>({id:d.id,nome:String(d.data().nome||d.id),uf:String(d.data().uf||'')})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'))};
+});
+// cursos exclusivos publicados da rede de quem pede (o catálogo público só lista os abertos a todas as redes)
+export const cursosDaRede = onCall(async req=>{
+  const uid=login(req),u=(await db.doc(`usuarios/${uid}`).get()).data()||{};
+  if(!u.municipio_id || u.status!=='ativo')return {cursos:[]};
+  const snap=await db.collection('cursos').where('redes','array-contains',u.municipio_id).get();
+  const mu=(await db.doc(`municipios/${u.municipio_id}`).get()).data()||{};
+  return {rede:[mu.nome,mu.uf].filter(Boolean).join('/'),cursos:snap.docs.filter(d=>d.data().status==='publicado'&&d.data().exclusivo===true).map(d=>{const c=d.data();
+    return {id:d.id,titulo:c.titulo,resumo:c.resumo,descricao:c.descricao,nivel:c.nivel,horas:c.horas,ordem:c.ordem,capaURL:c.capaURL||'',quizAtivo:!!c.quizAtivo,
+      quizNotaCorte:c.quizNotaCorte,quizTentativasMax:c.quizTentativasMax,quizPorProva:c.quizPorProva,totalAulas:c.totalAulas,trilhas:c.trilhas||[],exclusivo:true,redes:[u.municipio_id]};})};
 });
 export const excluirCurso = onCall(async req=>{
   const uid=admin(req),cursoId=id(req.data?.cursoId);
