@@ -885,6 +885,7 @@
   .vd-edit{ background:#fff;border-radius:16px;max-width:980px;width:100%;padding:20px 24px 24px;box-shadow:0 24px 60px rgba(7,22,33,.35) }
   .vd-edit-top{ display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px }
   .vd-edit-top h3{ margin:0;color:var(--pde-azul-escuro,#0f2c4a) }
+  .vd-propria{ position:absolute;left:14px;bottom:12px;width:30px;height:30px;border-radius:50%;box-shadow:0 2px 6px rgba(15,44,74,.25);background:#fff;z-index:2;pointer-events:none }
   .vd-card-w{ position:relative;display:flex }
   .vd-card-w > .vd-card{ flex:1 }
   .ini-video-w{ position:relative }
@@ -9830,6 +9831,8 @@
       '<div class="vd-card-w"><button type="button" class="vd-card" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">'+
         '<div class="vd-capa" style="background-image:url(\''+capaVideo(v.youtube_id)+'\')">'+(videoNovo(v) ? '<span class="vd-novo">NOVO NO PORTAL</span>' : '')+(v.duracao_seg ? '<span class="vd-dur">'+mostrarDuracao(v.duracao_seg)+'</span>' : '')+'</div>'+
         '<div class="vd-corpo"><h4>'+escapeHtml(v.titulo || "")+'</h4>'+selosVideo(v, false)+'</div></button>'+
+        // produção própria: logo do Portal no canto de baixo do card
+        (v.producao_propria === true ? '<img class="vd-propria" src="/assets/pde-logo-64.png" alt="Produção própria do Portal do Educador" title="Produção própria do Portal do Educador">' : '')+
         // vídeo interativo publicado: botão direto no card, abre a janela e já começa a tocar com as perguntas
         (v.interativo && usuarioAtual.perfil !== "aluno" ? '<button type="button" class="vd-int-bt" data-action="vd-interativo" data-id="'+escapeAttr(v.id)+'" title="Tocar com as perguntas para a turma (grátis, não gasta créditos)">\u25B6 Interativo</button>' : '')+'</div>').join("")+'</div>';
   }
@@ -12934,6 +12937,8 @@
         '<div class="field"><label>Quem pode ver</label><div class="vd-checks">'+
           '<label class="vd-check"><input type="checkbox" id="vdParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
           '<label class="vd-check"><input type="checkbox" id="vdParaAluno"'+(x.para_alunos ? " checked" : "")+'> Alunos</label></div></div>'+
+        '<label class="vd-check" style="margin-bottom:6px"><input type="checkbox" id="vdPropria"'+(x.producao_propria === true ? " checked" : "")+'> <img src="/assets/pde-logo-64.png" alt="" style="width:20px;height:20px;border-radius:50%;vertical-align:-5px"> Produção própria do Portal do Educador</label>'+
+        '<small class="acv-status" style="display:block;margin:0 0 12px">Marcado: o card do vídeo mostra o logo do Portal.</small>'+
         '<label class="vd-check" style="margin-bottom:6px"><input type="checkbox" id="vdInt"'+(x.interativo_desligado === true ? "" : " checked")+'> \u{1F3AC} Vídeo interativo</label>'+
         '<small class="acv-status" style="display:block;margin:0 0 12px">Ligado: ao publicar, a IA assiste o vídeo, monta as perguntas e publica sozinha (aparece o botão <b>\u25B6 Interativo</b>). Desligue em clipe musical, vídeo para bebês e afins.</small>'+
         '<label class="vd-check" style="margin-bottom:16px"><input type="checkbox" id="vdPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label>'+
@@ -13002,7 +13007,7 @@
     const faixa = FAIXAS.slice(i, j+1);
     const dados = { youtube_id:id, titulo, faixa_de:de, faixa_ate:ate, series:faixa.map(f => f.c), etapas:[...new Set(faixa.map(f => f.etapa))],
       componente:$("vdComp2").value, tema:$("vdTema").value.trim(), canal:$("vdCanal").value.trim(), bncc, duracao_seg:dur,
-      descricao:$("vdDesc2").value.trim(), para_professores:paraProf, para_alunos:paraAluno, publicado:$("vdPub").checked, interativo_desligado:!$("vdInt").checked, prioridade:Number($("vdPrio").value) || 2, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      descricao:$("vdDesc2").value.trim(), para_professores:paraProf, para_alunos:paraAluno, publicado:$("vdPub").checked, interativo_desligado:!$("vdInt").checked, producao_propria:$("vdPropria").checked, prioridade:Number($("vdPrio").value) || 2, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     // data da publicação: marca o lançamento (selo Novo no Portal); só na primeira vez que sai do rascunho
     const antes = vdAdm.editando ? vdAdm.itens.find(v => v.id === vdAdm.editando) : null;
     if(dados.publicado && !(antes && antes.publicado_em)) dados.publicado_em = (antes && antes.publicado && antes.criado_em) || serverTimestamp();
