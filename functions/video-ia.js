@@ -4,6 +4,7 @@
 // Quem pode usar é decidido na Central de IA (ia-acesso.js): video_ia (gerar por link) e video_interativo (usar os do catálogo).
 // Os vídeos ficam em videos_interativos/{id}; o navegador só lê (regras), quem grava é esta função.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { contexto, RESERVA_TEXTO } from './portal-ia.js';
@@ -16,12 +17,12 @@ const txt = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const FAIXA_SERIE = { bebes: 'Bebês (Educação Infantil)', cbp: 'Crianças bem pequenas (Educação Infantil)', cp: 'Crianças pequenas, 4 e 5 anos (Educação Infantil)' };
 const serieDaFaixa = f => FAIXA_SERIE[f] || (/^em\d$/.test(f || '') ? f.slice(2) + 'ª série do Ensino Médio' : f ? f + 'º ano do Ensino Fundamental' : '');
 
-async function chamarGemini(chave, modelos, corpo) {
+async function chamarGemini(chave, modelos, corpo, limiteMs) {
   for (const mod of [...new Set(modelos.filter(Boolean))]) {
     let r;
     try {
       r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(mod) + ':generateContent', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(150000) });
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(limiteMs || 150000) });
     } catch (e) { console.warn('video-ia: tempo esgotado', mod, e.name); continue; }
     if (r.status === 404) { console.warn('video-ia: modelo fora do ar', mod); continue; }
     const j = await r.json().catch(() => ({}));
@@ -45,13 +46,35 @@ function limparEdicao(lista, duracao) {
   return conferirVideo(j, { duracao, qtd: 0, tipos: TIPOS_INTERACAO }).interacoes;
 }
 
+// a geração em si (professor, catálogo manual e catálogo automático usam a mesma): até 2 tentativas, conferência das pausas
+const MSG_SEM_CUSTO = ' Seus créditos não foram descontados.';
+async function gerarPausas(chave, modelos, { youtube, serie, disciplina, tipos, qtd, duracao }) {
+  const sistema = sistemaVideo(), base = pedidoVideo({ serie, disciplina, tipos, qtd, duracao });
+  // vídeo longo (ou sem duração conhecida): a IA leva mais tempo para assistir
+  const limite = !duracao || duracao > 900 ? 420000 : 150000;
+  let r = null, c = null, ent = 0, sai = 0;
+  const falha = (cod, msg) => { const e = new HttpsError(cod, msg + MSG_SEM_CUSTO); e.gasto = r ? { modelo: r.modelo, entrada: ent, saida: sai } : null; return e; };
+  for (let t = 0; t < 2; t++) {
+    const pedido = base + (t && c ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + c.problemas.join('; ') + '). Corrija.' : '');
+    r = await chamarGemini(chave, modelos, corpoVideo(youtube, sistema, pedido), limite);
+    if (r.erroVideo) throw falha('failed-precondition', 'Não consegui assistir este vídeo. Ele precisa ser público no YouTube, sem restrição de idade e com até 1 hora.');
+    ent += r.entrada; sai += r.saida;
+    if (!r.json) { c = { interacoes: [], problemas: ['resposta incompleta'] }; continue; }
+    if (r.json.adequado === false) throw falha('failed-precondition', 'A IA achou que este vídeo não serve para virar aula interativa' + (r.json.motivo ? ': ' + txt(r.json.motivo, 200) : '.'));
+    c = conferirVideo(r.json, { duracao, qtd, tipos });
+    if (!c.problemas.length || c.interacoes.length >= Math.ceil(qtd * 0.6)) break;
+  }
+  if (!c || !c.interacoes.length) throw falha('unavailable', 'A IA não conseguiu montar as perguntas deste vídeo. Tente de novo.');
+  return { r, c, ent, sai };
+}
+
 function exigirAcesso(ctx, recurso) {
   const a = acessoIA(recurso, ctx.ia);
   if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso(recurso, a.motivo));
   return { rede: a.via === 'rede' ? true : a.via === 'admin' ? undefined : false, nome: NOMES_IA[recurso] };
 }
 
-export const videoIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 300, memory: '512MiB', maxInstances: 20 }, async req => {
+export const videoIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 540, memory: '512MiB', maxInstances: 20 }, async req => {
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta para continuar.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
   const ctx = await contexto(db, uid); ctx.uid = uid;
@@ -78,21 +101,10 @@ export const videoIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI],
     const qtd = Math.min(10, Math.max(2, Math.round(Number(d.qtd)) || 5));
     const pago = catalogoId ? { rede: undefined } : exigirAcesso(ctx, 'video_ia');
     const res = await reservarCreditos(db, ctx, 'video', pago);
-    let r = null, c = null, ent = 0, sai = 0;
-    try {
-      const sistema = sistemaVideo(), base = pedidoVideo({ serie, disciplina, tipos, qtd, duracao });
-      for (let t = 0; t < 2; t++) {
-        const pedido = base + (t && c ? '\n\nATENÇÃO: a tentativa anterior veio com problema (' + c.problemas.join('; ') + '). Corrija.' : '');
-        r = await chamarGemini(GEMINI.value(), [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], corpoVideo(youtube, sistema, pedido));
-        if (r.erroVideo) throw new HttpsError('failed-precondition', 'Não consegui assistir este vídeo. Ele precisa ser público no YouTube, sem restrição de idade e com até 1 hora. Seus créditos não foram descontados.');
-        ent += r.entrada; sai += r.saida;
-        if (!r.json) { c = { interacoes: [], problemas: ['resposta incompleta'] }; continue; }
-        if (r.json.adequado === false) throw new HttpsError('failed-precondition', 'A IA achou que este vídeo não serve para virar aula interativa' + (r.json.motivo ? ': ' + txt(r.json.motivo, 200) : '.') + ' Seus créditos não foram descontados.');
-        c = conferirVideo(r.json, { duracao, qtd, tipos });
-        if (!c.problemas.length || c.interacoes.length >= Math.ceil(qtd * 0.6)) break;
-      }
-      if (!c || !c.interacoes.length) throw new HttpsError('unavailable', 'A IA não conseguiu montar as perguntas deste vídeo. Tente de novo. Seus créditos não foram descontados.');
-    } catch (e) { await estornarCreditos(db, res); if (r) await registrarConsumo(db, ctx, null, { modelo: r.modelo, entrada: ent, saida: sai }); throw e; }
+    let g = null;
+    try { g = await gerarPausas(GEMINI.value(), [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], { youtube, serie, disciplina, tipos, qtd, duracao }); }
+    catch (e) { await estornarCreditos(db, res); if (e.gasto && e.gasto.modelo) await registrarConsumo(db, ctx, null, e.gasto); throw e; }
+    const { r, c, ent, sai } = g;
     const ref = catalogoId ? db.doc(`videos_interativos/cat_${catalogoId}`) : db.collection('videos_interativos').doc();
     const anterior = catalogoId ? await ref.get() : null;
     const doc = {
@@ -130,4 +142,55 @@ export const videoIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI],
     return { ok: true, pausas: interacoes.length };
   }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
+});
+
+// Catálogo automático (nov/2026): vídeo publicado no catálogo ganha a versão interativa sozinho, já publicada (o botão ▶ Interativo aparece).
+// Interruptor no cadastro: videos.interativo_desligado = true tira do ar (as perguntas ficam guardadas). "Refazer" no painel: muda videos.interativo_refazer.
+// Situação para o painel em videos.interativo_status: gerando | ok | erro | desligado (+ interativo_erro).
+// Só reage a youtube_id, publicado, interativo_desligado e interativo_refazer: as gravações desta função (interativo, status) e as reações não disparam nada.
+const qtdPorDuracao = d => d > 1800 ? 10 : d > 600 ? 8 : d > 300 || !d ? 6 : d > 150 ? 5 : d >= 90 ? 4 : 2;
+export const videoInterativoAuto = onDocumentWritten({ document: 'videos/{id}', region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 540, memory: '512MiB', maxInstances: 3 }, async ev => {
+  const db = getFirestore(), id = ev.params.id;
+  const antes = ev.data.before.exists ? ev.data.before.data() : null, depois = ev.data.after.exists ? ev.data.after.data() : null;
+  const refInt = db.doc(`videos_interativos/cat_${id}`), refVid = db.doc(`videos/${id}`);
+  if (!depois) { await refInt.delete().catch(() => {}); return; }
+  const mudou = k => k === 'interativo_desligado' ? !!(antes && antes[k]) !== !!depois[k] : JSON.stringify(antes ? antes[k] ?? null : null) !== JSON.stringify(depois[k] ?? null);
+  if (depois.interativo_desligado === true) {
+    if (mudou('interativo_desligado')) {
+      const s = await refInt.get(); if (s.exists) await refInt.set({ publicado: false, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+      await refVid.set({ interativo: false, interativo_status: 'desligado' }, { merge: true });
+    }
+    return;
+  }
+  const pronto = depois.publicado === true && !!depois.youtube_id && depois.para_professores !== false;
+  if (!pronto) return;
+  const gatilho = !antes || mudou('youtube_id') || mudou('interativo_refazer') || (mudou('publicado') && depois.publicado) || mudou('interativo_desligado');
+  if (!gatilho) return;
+  const atual = await refInt.get();
+  // já existe para este mesmo vídeo e ninguém pediu para refazer: só republica
+  if (atual.exists && atual.data().youtube_id === depois.youtube_id && !mudou('interativo_refazer')) {
+    await refInt.set({ publicado: true, atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    await refVid.set({ interativo: true, interativo_status: 'ok', interativo_erro: FieldValue.delete() }, { merge: true });
+    return;
+  }
+  const dc = depois.duracao_seg > 0 && depois.duracao_seg < 7200 ? depois.duracao_seg : 0;
+  if (dc && dc < 60) { await refVid.set({ interativo: false, interativo_status: 'erro', interativo_erro: 'Vídeo curto demais para ter pausas com pergunta.' }, { merge: true }); return; }
+  await refVid.set({ interativo_status: 'gerando', interativo_erro: FieldValue.delete() }, { merge: true });
+  const cs = await db.doc('config/portal_ia').get(); const cfg = cs.exists ? cs.data() : {};
+  const serie = serieDaFaixa(depois.faixa_de), disciplina = txt(depois.componente, 60), qtd = qtdPorDuracao(dc);
+  try {
+    const { r, c, ent, sai } = await gerarPausas(GEMINI.value(), [cfg.modelo_texto || 'gemini-3.6-flash', ...RESERVA_TEXTO], { youtube: depois.youtube_id, serie, disciplina, tipos: [], qtd, duracao: dc });
+    await refInt.set({ origem: 'catalogo', catalogo_id: id, youtube_id: depois.youtube_id, titulo: txt(depois.titulo, 140) || txt(r.json.titulo, 140), resumo: txt(r.json.resumo, 400), canal: txt(depois.canal, 80),
+      serie, disciplina, duracao_seg: c.duracao || dc, interacoes: c.interacoes, dono: '', dono_nome: '', municipio_id: '', escola_id: '', publicado: true, modelo: r.modelo, automatico: true,
+      gerado_em: FieldValue.serverTimestamp(), atualizado_em: FieldValue.serverTimestamp(), criado_em: FieldValue.serverTimestamp() });
+    // duração cadastrada vazia ou absurda: fica a que a IA mediu
+    const durOk = c.duracao > 0 && (!dc || Math.abs(c.duracao - dc) > 120) ? { duracao_seg: c.duracao } : {};
+    await refVid.set({ interativo: true, interativo_status: 'ok', interativo_erro: FieldValue.delete(), ...durOk }, { merge: true });
+    const cc = cfgCreditos(cfg), pr = cc.custo_modelo[r.modelo] || cc.custo_modelo['gemini-3.6-flash'];
+    const mes = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7).replace('-', '');
+    await db.doc('stats/ia_uso').set({ [mes]: { video_catalogo: { usos: FieldValue.increment(1), custo_usd: FieldValue.increment((ent / 1e6 * pr[0] + sai / 1e6 * pr[1]) * (Number(cc.fator_custo) || 1)) } } }, { merge: true });
+  } catch (e) {
+    console.warn('video-ia auto', id, e.message);
+    await refVid.set({ interativo: atual.exists && atual.data().publicado === true, interativo_status: 'erro', interativo_erro: String(e.message || 'falhou').replace(MSG_SEM_CUSTO, '').slice(0, 240) }, { merge: true });
+  }
 });

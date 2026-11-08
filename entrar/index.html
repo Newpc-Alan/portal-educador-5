@@ -8393,6 +8393,7 @@
     else if(acao === "vdadm-limpar"){ formVideo(null); }
     else if(acao === "vdadm-dest"){ alternarDestaque(el.dataset.id); }
     else if(acao === "vdadm-editar"){ formVideo(vdAdm.itens.find(v => v.id === el.dataset.id)); }
+    else if(acao === "vdadm-refazer"){ refazerInterativo(el.dataset.id); }
     else if(acao === "vdadm-pub"){ alternarVideoPublicado(el.dataset.id); }
     else if(acao === "vdadm-del"){ excluirVideo(el.dataset.id, el); }
     else if(acao === "esc-dados"){ abrirModalEscola(null, cacheEscolas.find(x => x.id === el.dataset.id)); }
@@ -12927,6 +12928,8 @@
         '<div class="field"><label>Quem pode ver</label><div class="vd-checks">'+
           '<label class="vd-check"><input type="checkbox" id="vdParaProf"'+(x.para_professores !== false ? " checked" : "")+'> Professores</label>'+
           '<label class="vd-check"><input type="checkbox" id="vdParaAluno"'+(x.para_alunos ? " checked" : "")+'> Alunos</label></div></div>'+
+        '<label class="vd-check" style="margin-bottom:6px"><input type="checkbox" id="vdInt"'+(x.interativo_desligado === true ? "" : " checked")+'> \u{1F3AC} Vídeo interativo</label>'+
+        '<small class="acv-status" style="display:block;margin:0 0 12px">Ligado: ao publicar, a IA assiste o vídeo, monta as perguntas e publica sozinha (aparece o botão <b>\u25B6 Interativo</b>). Desligue em clipe musical, vídeo para bebês e afins.</small>'+
         '<label class="vd-check" style="margin-bottom:16px"><input type="checkbox" id="vdPub"'+(x.publicado ? " checked" : "")+'> Publicar (sai do rascunho)</label>'+
         '<div class="imp-acoes"><button type="button" class="btn btn-primary" data-action="vdadm-salvar" id="vdSalvar">'+(v ? "Salvar alterações" : "Salvar vídeo")+'</button>'+
           '<button type="button" class="btn btn-ghost" data-action="vdadm-limpar">'+(v ? "Cancelar edição" : "Limpar")+'</button></div>'+
@@ -12993,7 +12996,7 @@
     const faixa = FAIXAS.slice(i, j+1);
     const dados = { youtube_id:id, titulo, faixa_de:de, faixa_ate:ate, series:faixa.map(f => f.c), etapas:[...new Set(faixa.map(f => f.etapa))],
       componente:$("vdComp2").value, tema:$("vdTema").value.trim(), canal:$("vdCanal").value.trim(), bncc, duracao_seg:dur,
-      descricao:$("vdDesc2").value.trim(), para_professores:paraProf, para_alunos:paraAluno, publicado:$("vdPub").checked, prioridade:Number($("vdPrio").value) || 2, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
+      descricao:$("vdDesc2").value.trim(), para_professores:paraProf, para_alunos:paraAluno, publicado:$("vdPub").checked, interativo_desligado:!$("vdInt").checked, prioridade:Number($("vdPrio").value) || 2, atualizado_em:serverTimestamp(), atualizado_por:usuarioAtual.uid };
     // data da publicação: marca o lançamento (selo Novo no Portal); só na primeira vez que sai do rascunho
     const antes = vdAdm.editando ? vdAdm.itens.find(v => v.id === vdAdm.editando) : null;
     if(dados.publicado && !(antes && antes.publicado_em)) dados.publicado_em = (antes && antes.publicado && antes.criado_em) || serverTimestamp();
@@ -13031,12 +13034,29 @@
         '<td class="usr-vinc">'+escapeHtml(v.componente || "-")+'</td>'+
         '<td class="usr-vinc">'+escapeHtml([v.para_professores !== false ? "Professores" : "", v.para_alunos ? "Alunos" : ""].filter(Boolean).join(" e "))+'</td>'+
         '<td>'+reacoesMini(v)+'</td>'+
-        '<td><span class="pill '+(v.publicado ? "ativo" : "pendente")+'">'+(v.publicado ? "Publicado" : "Rascunho")+'</span>'+(v.destaque === true ? ' <span class="pill teste">\u{1F3AC} Em cartaz</span>' : '')+(videoNovo(v) ? ' <span class="pill ativo">Novo</span>' : '')+(prioVideo(v) !== 2 ? ' <span class="pill pendente">Posição '+prioVideo(v)+'</span>' : '')+'</td>'+
+        '<td><span class="pill '+(v.publicado ? "ativo" : "pendente")+'">'+(v.publicado ? "Publicado" : "Rascunho")+'</span>'+(v.destaque === true ? ' <span class="pill teste">\u{1F3AC} Em cartaz</span>' : '')+(videoNovo(v) ? ' <span class="pill ativo">Novo</span>' : '')+(prioVideo(v) !== 2 ? ' <span class="pill pendente">Posição '+prioVideo(v)+'</span>' : '')+pillInterativo(v)+'</td>'+
         '<td><div class="usr-acoes"><button class="btn-mini btn-gerenciar" data-action="vd-ver" data-id="'+escapeAttr(v.id)+'">Ver</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="vdadm-editar" data-id="'+escapeAttr(v.id)+'">Editar</button>'+
+        (v.interativo ? '<a class="btn-mini btn-gerenciar" href="/video/?id=cat_'+encodeURIComponent(v.id)+'&editar">Perguntas</a>' : '')+
+        (v.publicado && v.interativo_desligado !== true ? '<button class="btn-mini btn-gerenciar" data-action="vdadm-refazer" data-id="'+escapeAttr(v.id)+'" title="A IA assiste de novo e refaz as perguntas">'+(v.interativo ? "Refazer IA" : "Gerar interativo")+'</button>' : '')+
         '<button class="btn-mini btn-gerenciar" data-action="vdadm-dest" data-id="'+escapeAttr(v.id)+'">'+(v.destaque === true ? "Tirar de cartaz" : "\u{1F3AC} Em cartaz")+'</button>'+
         '<button class="btn-mini btn-gerenciar" data-action="vdadm-pub" data-id="'+escapeAttr(v.id)+'">'+(v.publicado ? "Ocultar" : "Publicar")+'</button>'+
         '<button class="btn-mini btn-recusar" data-action="vdadm-del" data-id="'+escapeAttr(v.id)+'">Excluir</button></div></td></tr>').join("")+'</tbody></table></div>';
+  }
+  // vídeo interativo do catálogo: situação na lista do painel (o servidor grava interativo_status)
+  function pillInterativo(v){
+    if(v.interativo_desligado === true) return ' <span class="pill inativo" title="Desligado no cadastro">\u26D4 Sem interativo</span>';
+    if(v.interativo_status === "gerando") return ' <span class="pill teste">\u23F3 Gerando interativo</span>';
+    if(v.interativo) return ' <span class="pill ativo">\u{1F3AC} Interativo</span>';
+    if(v.interativo_status === "erro") return ' <span class="pill expirado" title="'+escapeAttr(v.interativo_erro || "")+'">\u26A0\uFE0F IA não conseguiu</span>';
+    return v.publicado ? ' <span class="pill pendente">Sem interativo</span>' : '';
+  }
+  async function refazerInterativo(id){
+    const v = vdAdm.itens.find(x => x.id === id); if(!v) return;
+    if(v.interativo && !confirm("Refazer as perguntas com a IA? As perguntas atuais (e o que você editou nelas) serão substituídas.")) return;
+    try{ await updateDoc(doc(db,"videos",id), { interativo_refazer:serverTimestamp() }); v.interativo_status = "gerando"; desenharVideosAdmin();
+      toast("A IA está assistindo o vídeo. Em 1 ou 2 minutos o botão Interativo aparece."); setTimeout(() => { if($("vdAdmLista")) listarVideosAdmin(); }, 90000); }
+    catch(e){ toast("Não foi possível agora.", true); }
   }
   // destaque: fica no topo da página Vídeos até o administrador tirar
   async function alternarDestaque(id){
