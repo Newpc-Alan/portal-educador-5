@@ -241,7 +241,8 @@ async function gemini(chave, modelos, corpo) {
 // se um campo de texto passar do tamanho de qualquer conteúdo de aula (sinal de que o modelo entrou em repetição),
 // corta na hora em vez de esperar ela gastar 12 mil tokens. Quem chamou tenta de novo.
 const LIMITE_CAMPO = 3500;
-export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000) {
+// limiteCampo: corte de repetição para JSON (texto aberto há tempo demais dentro de aspas); em texto livre, passe Infinity
+export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000, limiteCampo = LIMITE_CAMPO) {
   for (const mod of [...new Set(modelos.filter(Boolean))]) {
     const ctl = new AbortController(), relogio = setTimeout(() => ctl.abort(), limiteMs);
     let r;
@@ -257,7 +258,7 @@ export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000) {
     if (!r.ok) {
       clearTimeout(relogio); const j = await r.json().catch(() => ({}));
       if (r.status === 400 && corpo.generationConfig && corpo.generationConfig.thinkingConfig && /think/i.test(JSON.stringify(j))) {
-        console.warn('portal-ia: sem thinkingConfig em', mod); const c2 = JSON.parse(JSON.stringify(corpo)); delete c2.generationConfig.thinkingConfig; return geminiFluxo(chave, [mod, ...modelos.filter(m => m !== mod)], c2);
+        console.warn('portal-ia: sem thinkingConfig em', mod); const c2 = JSON.parse(JSON.stringify(corpo)); delete c2.generationConfig.thinkingConfig; return geminiFluxo(chave, [mod, ...modelos.filter(m => m !== mod)], c2, limiteMs, limiteCampo);
       }
       console.error('portal-ia gemini', mod, r.status, JSON.stringify(j).slice(0, 400));
       if (semCreditoGoogle(r.status, j)) { await avisarSemCredito(r.status + ' ' + JSON.stringify(j).slice(0, 200)); throw ERRO_SEM_CREDITO(); }
@@ -282,7 +283,7 @@ export async function geminiFluxo(chave, modelos, corpo, limiteMs = 85000) {
             // conta quantos caracteres vieram desde a última aspa: um campo de texto aberto há tempo demais
             const k = p.text.lastIndexOf('"'); semAspas = k >= 0 ? p.text.length - k - 1 : semAspas + p.text.length;
           }
-          if (semAspas > LIMITE_CAMPO) { cortou = true; break; }
+          if (semAspas > limiteCampo) { cortou = true; break; }
         }
         if (cortou) break;
       }

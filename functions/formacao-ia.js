@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { geminiFluxo, RESERVA_TEXTO, PADRAO } from './portal-ia.js';
 import { registrarConsumo } from './creditos.js';
 import { expiraAuditoria } from './auditoria.js';
-import { NIVEIS, ESQUEMA_PLANO, ESQUEMA_AULAS, pedidoPlano, pedidoAula, pedidoRevisao, aceitarRevisao, textoDegenerado, limparPlano, montarCurso, slugCurso } from './curso-ia.js';
+import { NIVEIS, ESQUEMA_PLANO, pedidoPlano, pedidoAula, pedidoRevisao, aceitarRevisao, textoDegenerado, limparMd, mdParaHtml, limparPlano, montarCurso, slugCurso } from './curso-ia.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
 const LIMITE_DIA = 10, PDF_MAX = 7 * 1024 * 1024, TEXTO_MAX = 60000;
@@ -26,6 +26,13 @@ async function pedirJson(chave, modelos, sistema, partes, esquema, limiteMs) {
   const bruto = r.partes.filter(p => !p.thought).map(p => p.text || '').join('');
   let json = null; try { json = JSON.parse(bruto); } catch { json = null; console.warn('formacao-ia: JSON inválido', r.modelo, r.fim, bruto.length); }
   return { ...r, json };
+}
+
+// texto livre (sem JSON): textos longos dentro de JSON degeneram com mais frequência
+async function pedirTexto(chave, modelos, sistema, texto, limiteMs) {
+  const r = await geminiFluxo(chave, modelos, { systemInstruction: { parts: [{ text: sistema }] }, contents: [{ role: 'user', parts: [{ text: texto }] }],
+    generationConfig: { maxOutputTokens: 8000 } }, limiteMs, Infinity);
+  return { ...r, texto: r.partes.filter(p => !p.thought).map(p => p.text || '').join('') };
 }
 
 export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 540, memory: '1GiB', maxInstances: 5 }, async req => {
@@ -71,27 +78,28 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
     // 2) aulas: um pedido por aula, todas em paralelo; até 3 tentativas com modelos diferentes; depois revisão de língua
     let revisados = 0;
     const escrever = async (m, i, k) => {
-      const q = pedidoAula({ plano, modulo: m, indice: i, alvo: k, tema, publico });
+      const q = pedidoAula({ plano, modulo: m, indice: i, alvo: k, tema, publico }), titulo = m.aulas[k].titulo;
       const ordens = [[cfg.modelo_texto, ...RESERVA_TEXTO], ['gemini-flash-latest', cfg.modelo_texto], [cfg.modelo_texto, cfg.modelo_rapido]];
       let reserva = null;
       for (const ordem of ordens) {
         try {
-          const r = await pedirJson(chave, ordem, q.sistema, [{ text: q.pedido }], ESQUEMA_AULAS, 120000); conta(r);
-          const a = Array.isArray(r.json?.aulas) ? r.json.aulas[0] : null;
-          if (!a || !Array.isArray(a.blocos) || a.blocos.length < 4) continue;
+          const r = await pedirTexto(chave, ordem, q.sistema, q.pedido, 120000); conta(r);
+          const md = limparMd(r.texto, titulo);
+          if (md.split(/\s+/).length < 250 || !/^##\s/m.test(md)) { console.warn('formacao-ia: aula curta', i + 1, k + 1, r.modelo, r.fim); continue; }
           // a revisão também conserta frase degenerada; só tenta de novo se, depois dela, o texto ainda estiver ruim
           try {
-            const v = pedidoRevisao([a]);
-            const rv = await pedirJson(chave, [cfg.modelo_rapido, cfg.modelo_texto], v.sistema, [{ text: v.pedido }], ESQUEMA_AULAS, 90000); conta(rv);
-            if (aceitarRevisao([a], rv.json?.aulas)) { revisados++; return rv.json.aulas[0]; }
+            const v = pedidoRevisao(md);
+            const rv = await pedirTexto(chave, [cfg.modelo_rapido, cfg.modelo_texto], v.sistema, v.pedido, 90000); conta(rv);
+            const mdR = limparMd(rv.texto, titulo);
+            if (aceitarRevisao(md, mdR)) { revisados++; return { html: mdParaHtml(mdR) }; }
+            console.warn('formacao-ia: revisão recusada', i + 1, k + 1);
           } catch (e) { console.warn('formacao-ia: revisão', i + 1, k + 1, e.message); }
-          if (!textoDegenerado(a)) return a;
+          if (!textoDegenerado(md)) return { html: mdParaHtml(md) };
           console.warn('formacao-ia: texto degenerado', i + 1, k + 1, r.modelo);
-          reserva = reserva || a;
+          reserva = reserva || md;
         } catch (e) { console.warn('formacao-ia: aula', i + 1, k + 1, e.message); }
       }
-      if (reserva) return { ...reserva, suspeito: true };
-      return null;
+      return reserva ? { html: mdParaHtml(reserva), suspeito: true } : null;
     };
     const aulasPorModulo = await Promise.all(plano.modulos.map((m, i) => Promise.all(m.aulas.map((_, k) => escrever(m, i, k)))));
     const { modulos, aulas, questoes, pendencias } = montarCurso(plano, aulasPorModulo);

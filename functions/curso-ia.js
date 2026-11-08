@@ -80,25 +80,24 @@ Tema: ${tema}
 Público: ${publico || 'professores da educação básica da rede pública'}
 Módulo ${indice + 1}: ${modulo.titulo} (objetivo: ${modulo.objetivo})
 ${modulo.base_material ? 'O que o material base diz sobre este módulo (use como fonte, sem contradizer):\n' + modulo.base_material + '\n' : ''}${outras ? 'Outras aulas deste módulo (não repita o conteúdo delas):\n' + outras + '\n' : ''}
-Escreva SOMENTE esta aula, devolvendo "aulas" com um único item:
+Escreva SOMENTE esta aula, em texto Markdown simples (não use JSON, não use bloco de código):
 Título: ${a.titulo}
 Objetivo: ${a.objetivo}
 Duração: ${a.duracaoMin} minutos (leitura mais atividade prática)
 
-Monte "blocos" nesta lógica:
-- 1 parágrafo de abertura que conecta o tema a uma situação real de sala de aula;
-- 3 ou 4 subtítulos, cada um seguido de 1 ou 2 parágrafos, uma lista ou passos (tipo "passos" para procedimentos numerados);
-- 1 bloco "dica" com um cuidado prático ou erro comum a evitar;
-- 1 bloco "atividade" no final: uma atividade prática que o professor aplica ou prepara para a própria turma, com o que entregar ou registrar.
+Formato:
+- Não repita o título no início. Comece com 1 parágrafo de abertura que conecta o tema a uma situação real de sala de aula.
+- Depois, 3 ou 4 seções, cada uma com "## Subtítulo" seguido de 1 ou 2 parágrafos, uma lista com "- " ou passos numerados com "1. ".
+- Uma linha começando com "Dica: " com um cuidado prático ou erro comum a evitar.
+- Por último, a seção "## Atividade prática": uma atividade que o professor aplica ou prepara para a própria turma, com o que entregar ou registrar.
 Tamanho total: de 600 a 1000 palavras. Aprofunde com exemplos de sala de aula, não com repetição. Use **negrito** só para termos-chave.
-Em "lista" e "passos" preencha "itens" (frases completas, até 30 palavras cada) e deixe "texto" como uma frase de introdução opcional.
 Instruções ao professor (passos, atividade, dica) sempre no imperativo, falando com ele: "Defina", "Apresente", "Peça", nunca "Define" ou "O professor define".`;
   return { sistema, pedido };
 }
 
 // texto degenerado: trecho longo sem pontuação, ou a mesma sequência de 4 palavras repetida muitas vezes
 export function textoDegenerado(aula) {
-  const partes = (aula?.blocos || []).flatMap(b => [String(b?.texto || ''), ...(b?.itens || []).map(String)]);
+  const partes = typeof aula === 'string' ? aula.split(/\n+/) : (aula?.blocos || []).flatMap(b => [String(b?.texto || ''), ...(b?.itens || []).map(String)]);
   for (const t of partes) {
     if (t.split(/[.!?:;]/).some(f => f.split(/\s+/).filter(Boolean).length > 40)) return true;
     const w = t.toLowerCase().split(/\s+/).filter(Boolean), vistos = new Map();
@@ -108,18 +107,46 @@ export function textoDegenerado(aula) {
 }
 
 // segunda passada: revisão de língua e coerência, sem cortar conteúdo
-export function pedidoRevisao(aulas) {
-  const sistema = `Você é revisor de textos didáticos em português do Brasil. Corrija ortografia, concordância, palavras sem sentido ou fora de contexto (troque pela palavra certa ou reescreva a frase), frases truncadas e incoerências. Passe instruções ao professor para o imperativo ("Defina", "Apresente"). Toda frase com mais de 30 palavras deve ser reescrita em frases curtas; elimine encadeamentos de palavras soltas sem sentido (por exemplo "na unidade de ensino municipal ou estadual de atendimento básico diário regular"), mantendo só a ideia útil. Não resuma, não corte trechos, não acrescente informação nova, não mude títulos nem a ordem e a quantidade de aulas e blocos. Não use travessão longo (—).`;
-  const pedido = 'Revise estas aulas e devolva no mesmo formato JSON:\n' + JSON.stringify({ aulas });
-  return { sistema, pedido };
+export function pedidoRevisao(md) {
+  const sistema = `Você é revisor de textos didáticos em português do Brasil. Corrija ortografia, concordância, palavras sem sentido ou fora de contexto (troque pela palavra certa ou reescreva a frase), frases truncadas e incoerências. Passe instruções ao professor para o imperativo ("Defina", "Apresente"). Toda frase com mais de 30 palavras deve ser reescrita em frases curtas; elimine encadeamentos de palavras soltas sem sentido (por exemplo "na unidade de ensino municipal ou estadual de atendimento básico diário regular"), mantendo só a ideia útil. Não resuma, não corte seções, não acrescente informação nova, mantenha os subtítulos e a marcação Markdown. Não use travessão longo (—). Devolva só o texto revisado, sem comentários.`;
+  return { sistema, pedido: 'Revise esta aula:\n\n' + md };
 }
-const contaPalavras = aulas => (aulas || []).reduce((s, a) => s + (a?.blocos || []).reduce((t, b) => t + String(b?.texto || '').split(/\s+/).filter(Boolean).length + (b?.itens || []).join(' ').split(/\s+/).filter(Boolean).length, 0), 0);
-// aceita a revisão só se manteve as aulas e quase todo o texto (o revisor não pode encurtar o curso)
+const contaPalavras = t => String(t || '').split(/\s+/).filter(Boolean).length;
+// aceita a revisão só se manteve quase todo o texto e as seções (o revisor não pode encurtar o curso)
 export function aceitarRevisao(original, revisada) {
-  if (!Array.isArray(revisada) || revisada.length !== original.length) return false;
-  if (revisada.some((a, i) => !Array.isArray(a?.blocos) || a.blocos.length < original[i].blocos.length * 0.8)) return false;
-  if (revisada.some(textoDegenerado)) return false;
+  if (typeof revisada !== 'string' || !revisada.trim()) return false;
+  const secoes = t => (t.match(/^##\s/gm) || []).length;
+  if (secoes(revisada) < secoes(original)) return false;
+  if (textoDegenerado(revisada)) return false;
   return contaPalavras(revisada) >= contaPalavras(original) * 0.75;
+}
+
+// tira cerca de código, título repetido e espaços; devolve Markdown limpo da aula
+export function limparMd(t, titulo) {
+  let md = String(t || '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').replace(/\r/g, '').trim();
+  const l = md.split('\n');
+  if (l.length && /^#{1,2}\s/.test(l[0]) && titulo && l[0].replace(/^#+\s*/, '').trim().toLowerCase() === titulo.trim().toLowerCase()) l.shift();
+  return l.join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 16000);
+}
+
+// Markdown simples da aula para o HTML que o editor da Formação aceita (p, h3, ul, ol, li, strong, em)
+export function mdParaHtml(md) {
+  const out = []; let lista = null;
+  const fecha = () => { if (lista) { out.push(`<${lista.t}>${lista.i.map(x => `<li>${linha(x)}</li>`).join('')}</${lista.t}>`); lista = null; } };
+  for (const bruta of String(md || '').split('\n')) {
+    const ln = bruta.trim();
+    if (!ln) { fecha(); continue; }
+    let m;
+    if ((m = ln.match(/^#{1,4}\s+(.*)$/))) { fecha(); out.push(`<h3>${linha(m[1].replace(/\*\*/g, ''))}</h3>`); continue; }
+    if ((m = ln.match(/^[-*•]\s+(.*)$/))) { if (!lista || lista.t !== 'ul') { fecha(); lista = { t: 'ul', i: [] }; } lista.i.push(m[1]); continue; }
+    if ((m = ln.match(/^\d+[.)]\s+(.*)$/))) { if (!lista || lista.t !== 'ol') { fecha(); lista = { t: 'ol', i: [] }; } lista.i.push(m[1]); continue; }
+    fecha();
+    const t = ln.replace(/^>\s*/, '');
+    if ((m = t.match(/^\**dica:?\**:?\s*(.*)$/i))) { out.push(`<p><strong>Dica:</strong> ${linha(m[1])}</p>`); continue; }
+    out.push(`<p>${linha(t)}</p>`);
+  }
+  fecha();
+  return out.join('');
 }
 
 // ---------- conferência do que a IA devolveu ----------
@@ -190,7 +217,7 @@ export function montarCurso(plano, aulasPorModulo) {
     const escritas = Array.isArray(aulasPorModulo[i]) ? aulasPorModulo[i] : [];
     m.aulas.forEach((a, k) => {
       const e = escritas[k] || escritas.find(x => corta(x?.titulo, 120).toLowerCase() === a.titulo.toLowerCase());
-      let texto = e ? blocosParaHtml(e.blocos) : '';
+      let texto = !e ? '' : typeof e.html === 'string' ? e.html : blocosParaHtml(e.blocos);
       if (e && e.suspeito) pendencias.push(`Aula "${a.titulo}" tem frase longa ou repetitiva demais: revise o texto.`);
       if (palavras(texto) < 60) {
         pendencias.push(`Aula "${a.titulo}" veio sem texto suficiente: complete antes de publicar.`);
