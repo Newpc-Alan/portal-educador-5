@@ -141,7 +141,7 @@ table.tab{width:100%;border-collapse:collapse}
 
     <div class="secao blocoForm" id="formacao">Formação Continuada</div>
     <div class="grid2 blocoForm">
-      <div class="card"><div class="h2">🎓 Professores na Formação por escola</div><div class="sub" id="frmSub"></div><div id="gFrm" style="margin-top:10px"></div><button type="button" class="tb" style="margin-top:12px;background:#eef5fb;color:#0f2c4a;border:1px solid #cfe0ef" data-action="fm-lista">Ver os professores (quem começou, parou ou concluiu)</button></div>
+      <div class="card"><div class="h2">🎓 Professores na Formação por escola</div><div class="sub" id="frmSub"></div><div id="gFrm" style="margin-top:10px"></div><button type="button" class="tb" style="margin-top:12px;background:#eef5fb;color:#0f2c4a;border:1px solid #cfe0ef" data-action="fm-lista">Ver os professores (quem começou, parou ou concluiu)</button> <button type="button" class="tb" style="margin-top:12px;background:#1a6b2a;color:#fff;border:1px solid #1a6b2a" data-action="fm-relatorio">🧠 Relatório da formação (IA)</button></div>
       <div class="card"><div class="h2">📜 Certificados e horas</div><div class="sub">Cursos com certificado emitido pelos professores da rede</div><div id="gFrmC" style="margin-top:10px"></div></div>
     </div>
 
@@ -440,7 +440,80 @@ function desenharVerde(r){
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b) return;
   if(b.dataset.action === "atualizar") carregar(true); else if(b.dataset.action === "pdf") relatorio();
   else if(b.dataset.action === "fm-lista") listaFormacao(b); else if(b.dataset.action === "fm-fechar"){ const m = $("mFm"); if(m) m.remove(); }
-  else if(b.dataset.action === "fm-csv") csvFormacao(); });
+  else if(b.dataset.action === "fm-csv") csvFormacao();
+  else if(b.dataset.action === "fm-relatorio") relatorioFormacao(b); else if(b.dataset.action === "fm-rel-pdf") pdfRelatorioFormacao(); });
+/* ---------- Formação Continuada: relatório com leitura da IA (a IA recebe só números por escola e curso, sem nomes) ---------- */
+let FR = null;
+async function relatorioFormacao(b){
+  const rot = b.textContent; b.disabled = true; b.textContent = "Montando o relatório (até 1 minuto)...";
+  try{
+    const fn = httpsCallable(getFunctions(fb, "southamerica-east1"), "relatorioFormacaoIA", { timeout:180000 });
+    FR = (await fn({ municipio_id:(S.sim && S.sim.muni) || $("selMuni").value || undefined })).data;
+  }catch(e){ toast(e.message || "Não foi possível montar o relatório.", true); b.disabled = false; b.textContent = rot; return; }
+  b.disabled = false; b.textContent = rot;
+  const d = FR.dados, t = d.totais, ia = FR.ia, li = a => (a || []).map(x => "<li>" + esc(x) + "</li>").join("");
+  const kp = (r, v, s) => '<div style="border:1px solid #dce4ed;border-radius:12px;padding:10px 12px;background:#f6f9fc"><div style="font-size:.7rem;font-weight:800;color:#6b7c90;text-transform:uppercase">' + r + '</div><div style="font-size:1.4rem;font-weight:800;color:#0f2c4a">' + v + '</div><div style="font-size:.78rem;color:#3c4b5f">' + s + "</div></div>";
+  const m = document.createElement("div"); m.className = "mfundo"; m.id = "mFm";
+  m.innerHTML = '<div class="mcx" style="max-width:920px" role="dialog" aria-modal="true"><div class="h2">🧠 Relatório da Formação Continuada' + (d.rede ? " · " + esc(d.rede) : "") + "</div>" +
+    '<p class="sub">Gerado em ' + new Date(FR.gerado_em).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + ". A leitura e as recomendações são escritas por IA a partir dos números abaixo; confira antes de divulgar.</p>" +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0">' +
+      kp("Engajamento", t.engajamento_pct + "%", n(t.pessoas - t.nao_comecou) + " de " + n(t.pessoas) + " começaram") + kp("Concluíram", n(t.concluiu), t.conclusao_pct + "% da equipe") +
+      kp("Pararam no meio", n(t.parado), "sem avançar há " + d.parado_dias + " dias") + kp("Horas certificadas", n(t.horas), n(t.certificados) + " certificados") + "</div>" +
+    (ia ? '<div class="h2" style="font-size:1rem">Resumo</div><p>' + esc(ia.resumo) + "</p>" +
+      '<div class="grid2"><div><div class="h2" style="font-size:.95rem;color:#1a6b2a">Destaques</div><ul>' + li(ia.destaques) + '</ul></div><div><div class="h2" style="font-size:.95rem;color:#C2362C">Pontos de atenção</div><ul>' + li(ia.atencao) + "</ul></div></div>" +
+      '<div class="h2" style="font-size:.95rem">Recomendações</div><ol>' + ia.recomendacoes.map(r => "<li><b>" + esc(r.acao) + "</b><br><span class=\"sub\">" + esc(r.porque) + "</span></li>").join("") + "</ol>" +
+      '<p style="background:#eef7ea;border-radius:10px;padding:10px 12px"><b>Próximo passo (30 dias):</b> ' + esc(ia.proximo_passo) + "</p>"
+      : '<p style="background:#fff4e5;border-radius:10px;padding:10px 12px">A leitura da IA não respondeu agora. Os números abaixo estão corretos; tente gerar de novo em instantes para ter o texto.</p>') +
+    '<div class="h2" style="font-size:.95rem;margin-top:10px">Escola por escola</div><div class="tabela-wrap"><table class="tab"><thead><tr><th>Escola</th><th>Equipe</th><th>Engajamento</th><th>Concluíram</th><th>Pararam</th><th>Não começaram</th><th>Horas</th></tr></thead><tbody>' +
+      d.escolas.map(e => "<tr><td><b>" + esc(e.escola) + '</b></td><td class="n">' + n(e.pessoas) + '</td><td class="n">' + e.engajamento_pct + '%</td><td class="n">' + n(e.concluiu) + '</td><td class="n">' + n(e.parado) + '</td><td class="n">' + n(e.nao_comecou) + '</td><td class="n">' + n(e.horas) + "</td></tr>").join("") + "</tbody></table></div>" +
+    (d.cursos.length ? '<div class="h2" style="font-size:.95rem;margin-top:10px">Cursos</div><div class="tabela-wrap"><table class="tab"><thead><tr><th>Curso</th><th>Carga</th><th>Iniciaram</th><th>Concluíram</th></tr></thead><tbody>' +
+      d.cursos.map(c => "<tr><td>" + esc(c.titulo) + '</td><td class="n">' + n(c.horas) + ' h</td><td class="n">' + n(c.iniciaram) + '</td><td class="n">' + n(c.concluiram) + " (" + c.conclusao_pct + "%)</td></tr>").join("") + "</tbody></table></div>" : "") +
+    (d.competencias.length ? '<div class="h2" style="font-size:.95rem;margin-top:10px">Competências trabalhadas (BNC-Formação)</div><ul>' + li(d.competencias) + "</ul>" : "") +
+    '<div class="acs"><button type="button" data-action="fm-rel-pdf">📄 Baixar PDF</button><button type="button" class="pri" data-action="fm-fechar">Fechar</button></div></div>';
+  document.body.appendChild(m);
+}
+async function pdfRelatorioFormacao(){
+  if(!FR) return; if(!window.jspdf){ toast("Carregando o gerador de PDF. Tente de novo em instantes.", true); return; }
+  const d = FR.dados, t = d.totais, ia = FR.ia, muni = (S.d && S.d.municipio) || {};
+  const lg = await logoPng(muni.logo_url);
+  const pdf = new window.jspdf.jsPDF({ unit:"mm", format:"a4" });
+  const cab = () => { pdf.setFillColor(15, 44, 74); pdf.rect(0, 0, 210, 30, "F"); const tx = 14 + logoNoPdf(pdf, lg, 14, 4, 22);
+    pdf.setTextColor(141, 198, 63); pdf.setFont("helvetica", "bold"); pdf.setFontSize(8.5);
+    pdf.text(pdf.splitTextToSize((muni.nome ? "PREFEITURA MUNICIPAL DE " + muni.nome + (muni.uf ? " · " + muni.uf : "") + " · SECRETARIA MUNICIPAL DE EDUCAÇÃO" : (d.rede || "REDE DE ENSINO")).toUpperCase(), 196 - tx)[0], tx, 11);
+    pdf.setTextColor(255, 255, 255); pdf.setFontSize(16); pdf.text("Relatório da Formação Continuada", tx, 21);
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(8.5); pdf.text("Gerado em " + new Date(FR.gerado_em).toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" }) + " pelo Portal do Educador", tx, 26.5); };
+  cab();
+  let y = 36;
+  const novaSePreciso = h => { if(y + h > 282){ pdf.addPage(); cab(); y = 36; } };
+  const kpis = [["Engajamento", t.engajamento_pct + "%", n(t.pessoas - t.nao_comecou) + " de " + n(t.pessoas) + " começaram"], ["Concluíram", n(t.concluiu), t.conclusao_pct + "% da equipe"],
+    ["Pararam no meio", n(t.parado), "sem avançar há " + d.parado_dias + " dias"], ["Horas certificadas", n(t.horas), n(t.certificados) + " certificados"]];
+  kpis.forEach((k, i) => { const x = 14 + i * 46; pdf.setDrawColor(220, 228, 237); pdf.setFillColor(246, 249, 252); pdf.roundedRect(x, y, 43, 21, 2, 2, "FD");
+    pdf.setTextColor(107, 124, 144); pdf.setFont("helvetica", "bold"); pdf.setFontSize(7); pdf.text(k[0].toUpperCase(), x + 3, y + 5.5);
+    pdf.setTextColor(15, 44, 74); pdf.setFontSize(15); pdf.text(String(k[1]), x + 3, y + 13.5); pdf.setFont("helvetica", "normal"); pdf.setFontSize(7); pdf.setTextColor(60, 75, 95); pdf.text(String(k[2]), x + 3, y + 18.5); });
+  y += 29;
+  const titulo = (s, cor) => { novaSePreciso(10); pdf.setFont("helvetica", "bold"); pdf.setFontSize(11); pdf.setTextColor(...(cor || [15, 44, 74])); pdf.text(s, 14, y); y += 5.5; };
+  const par = (s, rec) => { pdf.setFont("helvetica", "normal"); pdf.setFontSize(9); pdf.setTextColor(40, 50, 65); pdf.splitTextToSize(s, 182 - (rec || 0)).forEach(l => { novaSePreciso(5); pdf.text(l, 14 + (rec || 0), y); y += 4.4; }); y += 1.5; };
+  const itens = (a, marca) => (a || []).forEach((x, i) => { novaSePreciso(5); pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(26, 107, 42); pdf.text(marca === "n" ? (i + 1) + "." : "•", 15, y); par(x, 5); });
+  if(ia){
+    titulo("Resumo"); par(ia.resumo);
+    titulo("Destaques", [26, 107, 42]); itens(ia.destaques);
+    titulo("Pontos de atenção", [194, 54, 44]); itens(ia.atencao);
+    titulo("Recomendações"); ia.recomendacoes.forEach((r, i) => { novaSePreciso(10); pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(15, 44, 74);
+      pdf.splitTextToSize((i + 1) + ". " + r.acao, 182).forEach(l => { novaSePreciso(5); pdf.text(l, 14, y); y += 4.4; }); par(r.porque, 5); });
+    titulo("Próximo passo (30 dias)", [26, 107, 42]); par(ia.proximo_passo);
+  }
+  titulo("Escola por escola");
+  const cols = [["Escola", 14], ["Equipe", 104], ["Engaj.", 120], ["Concl.", 138], ["Pararam", 154], ["Não começ.", 170], ["Horas", 188]];
+  const cabTab = () => { pdf.setFillColor(238, 242, 246); pdf.rect(14, y - 3.6, 182, 5.6, "F"); pdf.setFont("helvetica", "bold"); pdf.setFontSize(7.5); pdf.setTextColor(107, 124, 144); cols.forEach(([c, x]) => pdf.text(c, x + 1, y)); y += 5.5; };
+  cabTab();
+  d.escolas.forEach(e => { if(y > 280){ pdf.addPage(); cab(); y = 40; cabTab(); }
+    pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(15, 44, 74); pdf.text(pdf.splitTextToSize(e.escola, 88)[0], 15, y);
+    [n(e.pessoas), e.engajamento_pct + "%", n(e.concluiu), n(e.parado), n(e.nao_comecou), n(e.horas)].forEach((v, i) => pdf.text(String(v), cols[i + 1][1] + 1, y)); y += 5; });
+  if(d.competencias.length){ y += 3; titulo("Competências trabalhadas (BNC-Formação)"); itens(d.competencias); }
+  novaSePreciso(10); y += 2; pdf.setFont("helvetica", "italic"); pdf.setFontSize(7.5); pdf.setTextColor(107, 124, 144);
+  pdf.text(pdf.splitTextToSize("Números do Portal do Educador. Leitura e recomendações escritas por IA a partir desses números; nenhum nome de professor é enviado à IA. Confira antes de divulgar.", 182), 14, y);
+  pdf.save("relatorio-formacao-" + new Date().toISOString().slice(0, 10) + ".pdf");
+}
 /* ---------- Formação Continuada: lista da equipe (nomes só da equipe de quem consulta; sem CPF nem e-mail) ---------- */
 const FM_SIT = { nao_comecou:["Ainda não começou","#9aa8b6"], em_andamento:["Em andamento","#2671AB"], parado:["Parou no meio","#C2362C"], concluiu:["Concluiu","#5A9420"] };
 let FM = null;

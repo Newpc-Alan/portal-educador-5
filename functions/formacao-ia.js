@@ -8,6 +8,8 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { randomBytes } from 'node:crypto';
 import { geminiFluxo, RESERVA_TEXTO, PADRAO } from './portal-ia.js';
 import { registrarConsumo } from './creditos.js';
+import { montarAcompanhamento } from './formacao-uso.js';
+import { agregarFormacao, ESQUEMA_RELATORIO, pedidoRelatorio, limparRelatorio } from './relatorio-formacao.js';
 import { expiraAuditoria } from './auditoria.js';
 import { NIVEIS, ESQUEMA_PLANO, pedidoPlano, pedidoAula, pedidoRevisao, aceitarRevisao, textoDegenerado, limparMd, mdParaHtml, limparPlano, montarCurso, slugCurso } from './curso-ia.js';
 
@@ -141,4 +143,29 @@ export const revisarCursoIA = onCall({ region: 'southamerica-east1' }, async req
     tx.create(db.collection('auditoria').doc(), { uid, acao: 'revisarCursoIA', cursoId, em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria() });
     return { ok: true };
   });
+});
+
+// Relatório da Formação para a Secretaria (ou para a direção): números do acompanhamento + leitura e recomendações da IA.
+// Quem pode: os mesmos do acompanhamento (admin, secretaria, gestor). A IA recebe só números por escola e curso, sem nomes.
+export const relatorioFormacaoIA = onCall({ region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 180, memory: '512MiB', maxInstances: 10 }, async req => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
+  const db = getFirestore(), uid = req.auth.uid;
+  const a = await montarAcompanhamento(db, uid, req.data || {}, true);
+  const ag = agregarFormacao(a);
+  const limRef = db.doc(`formacao_ia_uso/rel_${uid}_${diaBR()}`);
+  await db.runTransaction(async tx => {
+    const n = ((await tx.get(limRef)).data()?.n || 0);
+    if (n >= 10) throw new HttpsError('resource-exhausted', 'Limite de 10 relatórios por dia atingido. Tente amanhã.');
+    tx.set(limRef, { uid, n: n + 1, em: FieldValue.serverTimestamp() }, { merge: true });
+  });
+  const cs = await db.doc('config/portal_ia').get(), cfgRaw = cs.exists ? cs.data() : {};
+  const cfg = { ...PADRAO, ...cfgRaw }, p = pedidoRelatorio(ag);
+  let ia = null, r = null;
+  for (const ordem of [[cfg.modelo_texto, ...RESERVA_TEXTO], ['gemini-flash-latest', cfg.modelo_rapido]]) {
+    try { r = await pedirJson(GEMINI.value(), ordem, p.sistema, [{ text: p.pedido }], ESQUEMA_RELATORIO, 90000); ia = limparRelatorio(r.json); if (ia) break; }
+    catch (e) { console.warn('formacao-ia: relatório', e.message); }
+  }
+  if (r) await registrarConsumo(db, { uid, cfgRaw, eu: {} }, { acao: 'formacao_relatorio', conta: 'admin' }, { modelo: r.modelo, entrada: r.entrada, saida: r.saida });
+  if (!ia) await limRef.set({ n: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+  return { gerado_em: Date.now(), dados: ag, ia };   // ia nulo: o painel mostra os números e avisa que a leitura da IA falhou
 });
