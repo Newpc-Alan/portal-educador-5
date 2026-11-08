@@ -42,6 +42,7 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
   const tema = String(d.tema || '').trim().slice(0, 300), publico = String(d.publico || '').trim().slice(0, 300), foco = String(d.foco || '').trim().slice(0, 3000);
   const horas = Math.round(Number(d.horas)), nivel = NIVEIS.includes(d.nivel) ? d.nivel : 'iniciante';
   const material = String(d.material || '').trim().slice(0, TEXTO_MAX);
+  const tituloFixo = String(d.titulo || '').replace(/\s+/g, ' ').trim().slice(0, 90);
   const pdf = typeof d.pdf === 'string' && d.pdf ? d.pdf.replace(/^data:[^,]*,/, '') : '';
   if (tema.length < 5) throw new HttpsError('invalid-argument', 'Descreva o tema do curso (pelo menos uma frase curta).');
   if (!(horas >= 1 && horas <= 40)) throw new HttpsError('invalid-argument', 'Carga horária de 1 a 40 horas.');
@@ -76,6 +77,7 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
       if (!prob.length) plano = x.plano;
     }
     if (!plano) throw new HttpsError('unavailable', 'A IA não conseguiu montar o plano do curso (' + prob.join('; ') + '). Tente de novo ou detalhe melhor o tema.');
+    if (tituloFixo.length >= 5) plano.titulo = tituloFixo;   // título definido pela equipe (ex.: casar com o cartão "Em breve")
 
     // 2) aulas: um pedido por aula, todas em paralelo; até 3 tentativas com modelos diferentes; depois revisão de língua
     let revisados = 0;
