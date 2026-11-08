@@ -19,6 +19,7 @@ Formato: .webp, 800 x 600 px (4:3), até ~80 KB. O assunto deve ficar no centro,
 | lousa.webp | Abrir a lousa | vídeos (produzir: lousa digital na sala) |
 | portal-ia.webp | Portal IA (no lugar de Atividades prontas, que foi para Mais recursos) | professora com o tablet EduDock |
 | atividades.webp | (Atividades prontas, hoje em Mais recursos, sem foto grande) | atividades |
+| pareceres.webp | Pareceres da turma | professora escrevendo o parecer, com fotos dos alunos (gerada no Portal IA, nov/2026) |
 | turma-ao-vivo.webp | Cartão Turma ao vivo (ao lado de Pronto para a aula) | close do tablet do aluno com vídeo de ciências (gerada no Portal IA) |
 
 O navegador guarda as fotos em cache. Depois de trocar, pode levar alguns minutos para aparecer (ou use Ctrl+F5).
