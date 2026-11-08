@@ -235,6 +235,12 @@ section.bloco{padding:clamp(2.2rem,5vw,3.6rem) 0}
 .et-avancado{background:#f4e9f6;color:#6b2478;border-color:#e0c6e6}
 .et-horas{background:#f1f5f9;color:var(--tinta-suave);border-color:var(--linha)}
 .et-ok{background:var(--verde);color:#fff;border-color:var(--verde)}
+/* cursos em breve: mesmo cartão, sem link, com selo e foto apagada */
+.cartao.em-breve .capa{position:relative;cursor:default}
+.cartao.em-breve .capa img{filter:grayscale(.55) brightness(.92)}
+.cartao.em-breve .capa::after{content:"EM BREVE";position:absolute;top:12px;left:12px;background:#0f2c4a;color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.08em;padding:5px 10px;border-radius:99px}
+.et-breve{background:#fff4e5;color:#8a5a00;border-color:#f3d9a8}
+.btn-breve{background:#eef2f6;color:#6b7c90;border:1px solid var(--linha);cursor:default}
 
 /* Barra de progresso */
 .barra{height:7px;background:#e6edf5;border-radius:99px;overflow:hidden}
@@ -1685,6 +1691,50 @@ function capaPadrao(c){
   let h = 0; for (const ch of String(c.id||"")) h = (h*31 + ch.charCodeAt(0)) >>> 0;
   return "/assets/formacao/" + gerais[h % gerais.length] + ".webp";
 }
+/* Catálogo "em breve": cursos sobre os recursos do Portal do Educador em produção (nov/2026).
+   Some sozinho quando um curso publicado tiver o título com a mesma chave. */
+const EM_BREVE = [
+  { id:"lousa", chave:"lousa digital na pratica", titulo:"Lousa Digital na Prática", resumo:"Da aula expositiva à participação dos alunos com a Lousa Interativa do Portal.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-lousa" },
+  { id:"portal-zero", chave:"portal do educador do zero", titulo:"Portal do Educador do zero", resumo:"Primeiro acesso, turmas e rotina: o caminho mais curto para usar o Portal todo dia.", horas:4, nivel:"iniciante", publico:"Professores", capa:"fc-estudo" },
+  { id:"portal-ia", chave:"portal ia na pratica", titulo:"Portal IA na prática", resumo:"Planeje e crie materiais, questões e imagens com a IA do Portal, com controle de créditos.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-oficina" },
+  { id:"provas", chave:"provas e avaliacoes", titulo:"Provas e Avaliações", resumo:"Crie, aplique online, corrija e faça a recuperação sem papel e sem planilha.", horas:8, nivel:"intermediario", publico:"Professores", capa:"fc-certificado" },
+  { id:"ao-vivo", chave:"turma ao vivo e termometro", titulo:"Turma ao Vivo e Termômetro", resumo:"Participação e avaliação em tempo real: saiba na hora quem entendeu a aula.", horas:4, nivel:"intermediario", publico:"Professores", capa:"fc-google" },
+  { id:"minhas-turmas", chave:"minhas turmas", titulo:"Minhas Turmas no dia a dia", resumo:"Envio de materiais, frequência, notas e pareceres num lugar só.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-estudo" },
+  { id:"conteudo-pronto", chave:"conteudo pronto na aula", titulo:"Conteúdo pronto na aula", resumo:"Vídeos, jogos, histórias, atividades, datas comemorativas e museus virtuais do Portal.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-oficina" },
+  { id:"vr-3d", chave:"portal 360", titulo:"Portal 360º VR e aplicativos 3D", resumo:"Experiências imersivas e simulações 3D para levar a turma aonde o livro não alcança.", horas:4, nivel:"iniciante", publico:"Professores", capa:"fc-google" },
+  { id:"lousa-ia", chave:"lousa com ia", titulo:"Lousa com IA", resumo:"Perguntar, Mapa IA, Passar a limpo, legendas e ditado direto no quadro.", horas:4, nivel:"intermediario", publico:"Professores", capa:"fc-lousa" },
+  { id:"inclusao", chave:"inclusao com os recursos do portal", titulo:"Inclusão com os recursos do Portal", resumo:"Legendas ao vivo, leitura em voz alta e ditado para que todos acompanhem a aula.", horas:4, nivel:"iniciante", publico:"Professores e AEE", capa:"fc-certificado" },
+  { id:"painel-escola", chave:"painel da escola", titulo:"Painel da Escola: gestão com dados", resumo:"Uso do Portal, aprendizagem, frequência e formação da equipe em uma tela.", horas:4, nivel:"iniciante", publico:"Direção e coordenação", capa:"fc-estudo" },
+  { id:"gestao-escolar", chave:"gestao escolar no portal", titulo:"Gestão Escolar no Portal", resumo:"Calendário letivo, comunicados às famílias, portaria e relatórios.", horas:4, nivel:"iniciante", publico:"Direção e secretaria escolar", capa:"fc-oficina" },
+  { id:"acervo", chave:"acervo da rede", titulo:"Acervo da rede", resumo:"Compartilhe o que funciona: materiais da rede organizados para todos os professores.", horas:2, nivel:"iniciante", publico:"Professores e coordenação", capa:"fc-certificado" },
+  { id:"htpc", chave:"formacao em servico", titulo:"Formação em serviço no HTPC", resumo:"Conduza o HTPC com a Formação Continuada e acompanhe a equipe pelo relatório.", horas:2, nivel:"iniciante", publico:"Coordenação pedagógica", capa:"fc-google" }
+];
+const semAcento = t => String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+function emBreve(){
+  const publicados = E.cursos.map(c => semAcento(c.titulo));
+  return EM_BREVE.filter(b => !publicados.some(t => t.includes(b.chave)));
+}
+function cartaoEmBreve(b){
+  return `
+  <article class="cartao com-capa em-breve" aria-label="${esc(b.titulo)}, em breve">
+    <div class="capa" aria-hidden="true"><img src="/assets/formacao/${b.capa}.webp" alt="" loading="lazy" decoding="async"></div>
+    <div class="etiquetas">
+      <span class="etiqueta et-${b.nivel}">${NIVEIS[b.nivel]||b.nivel}</span>
+      <span class="etiqueta et-horas">${b.horas}h</span>
+      <span class="etiqueta et-breve">Em breve</span>
+    </div>
+    <h3>${esc(b.titulo)}</h3>
+    <p class="desc">${esc(b.resumo)}</p>
+    <p style="margin:.2rem 0 0;font-size:.82rem;color:var(--tinta-suave)">Para: ${esc(b.publico)}</p>
+    <div class="cartao-rodape"><span class="btn btn-breve" aria-disabled="true">Em breve</span></div>
+  </article>`;
+}
+const secaoEmBreve = (titulo, sub) => { const l = emBreve(); return l.length ? `
+  <section class="bloco" style="padding-top:0"><div class="container">
+    <div class="cabec-secao"><div><h2>${titulo}</h2><p>${sub}</p></div></div>
+    <div class="grade grade-3">${l.map(cartaoEmBreve).join("")}</div>
+  </div></section>` : ""; };
+
 function cartaoCurso(c){
   const p = progressoDe(c.id), capa = c.capaURL || capaPadrao(c);
   return `
@@ -1765,6 +1815,8 @@ T.inicio = async () => {
     </div>
   </section>
 
+  ${secaoEmBreve("Em breve: cursos do Portal do Educador", "Um curso para cada recurso do Portal, do primeiro acesso à gestão com dados.")}
+
   <section class="bloco" style="background:var(--papel);border-block:1px solid var(--linha)">
     <div class="container">
       <div class="cabec-secao"><div><h2>Trilhas formativas</h2><p>Três cursos na ordem certa, para quem prefere não escolher um por um.</p></div></div>
@@ -1813,7 +1865,8 @@ T.cursos = async () => `
     </div>
     <div class="grade grade-3" id="listaCursos">${E.cursos.map(cartaoCurso).join("")}</div>
     <div class="vazio oculto" id="semResultado"><p>Nenhum curso encontrado com esses filtros.</p></div>
-  </div></section>`;
+  </div></section>
+  ${secaoEmBreve("Em breve", "Cursos sobre os recursos do Portal do Educador que estão em produção.")}`;
 
 T.trilhas = async () => `
   <section class="bloco"><div class="container">
