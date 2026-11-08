@@ -17,6 +17,9 @@ const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#
   .al-cont-topo a{ color:#cfe3f5;font-weight:700 } .al-cont-topo button{ font:inherit;font-weight:800;border:0;border-radius:10px;padding:9px 14px;background:#8DC63F;color:#0f2c4a;cursor:pointer }
   .al-folha{ position:fixed;left:0;right:0;bottom:0;z-index:2147482650;background:#fff;color:#0c2338;border-radius:22px 22px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.3);padding:18px;display:grid;gap:12px;font-size:18px }
   .al-pq{ display:grid;grid-template-columns:repeat(3,1fr);gap:10px } .al-pq button{ font:inherit;font-weight:800;font-size:16px;border:0;border-radius:14px;padding:14px;cursor:pointer }
+  .al-pq-txt{ font:inherit;font-size:17px;border:2px solid #c9d5e1;border-radius:14px;padding:12px;resize:vertical;min-height:90px;color:#0c2338 } .al-pq-txt:focus{ outline:none;border-color:#2E9BD6 }
+  .al-pq-rodape{ display:flex;align-items:center;justify-content:space-between;gap:10px } .al-pq-rodape small{ color:#5b6b7b }
+  .al-pq-env{ font:inherit;font-weight:800;font-size:16px;border:0;border-radius:14px;padding:12px 20px;background:#1a6b2a;color:#fff;cursor:pointer } .al-pq-env:disabled{ opacity:.6 }
   .al-pq button:nth-child(1){ background:#bfe5a1 } .al-pq button:nth-child(2){ background:#ffe58a } .al-pq button:nth-child(3){ background:#ffb4b4 }
   .al-botoes{ position:fixed;left:14px;bottom:14px;z-index:2147481000;display:flex;gap:8px;flex-wrap:wrap }
   .al-botoes button{ font:inherit;font-weight:800;font-size:15px;border:0;border-radius:40px;padding:11px 16px;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.25) }
@@ -147,6 +150,14 @@ function pesquisa(p){
   if(atual && atual.dataset.id === p.id) return;
   if(atual) atual.remove();
   const f = document.createElement("div"); f.id = "alPesq"; f.className = "al-folha"; f.dataset.id = p.id;
+  // termômetro da turma: pergunta aberta, o aluno escreve com as palavras dele
+  if(p.tipo === "aberta"){
+    f.innerHTML = '<b>🌡️ ' + esc(String(p.pergunta || "").slice(0, 140)) + '</b><textarea id="alPqTxt" class="al-pq-txt" maxlength="300" rows="3" placeholder="Escreva com as suas palavras…"></textarea>' +
+      '<div class="al-pq-rodape"><small id="alPqN">0/300</small><button type="button" class="al-pq-env" data-al="pq-txt">Enviar resposta</button></div>';
+    document.body.appendChild(f); document.body.classList.add("al-com-folha"); vibrar(120);
+    const t = $("alPqTxt"); t.addEventListener("input", () => { $("alPqN").textContent = t.value.length + "/300"; }); setTimeout(() => t.focus(), 300);
+    return;
+  }
   f.innerHTML = '<b>📊 ' + esc(String(p.pergunta || "Entenderam?").slice(0, 140)) + '</b><div class="al-pq"><button type="button" data-al="pq" data-v="verde">🟢 Entendi</button><button type="button" data-al="pq" data-v="amarelo">🟡 Mais ou menos</button><button type="button" data-al="pq" data-v="vermelho">🔴 Não entendi</button></div>';
   document.body.appendChild(f); document.body.classList.add("al-com-folha"); vibrar(120);
 }
@@ -260,6 +271,10 @@ function clique(ev){
   else if(k === "qz-ok" && S.qz){ S.qzFechado = S.qz.id; try{ sessionStorage.setItem("pde_qz_fechado", S.qz.id); }catch(e){} quiz(); }
   else if(k === "pq"){ const f = $("alPesq"); if(!f) return; const id = f.dataset.id;
     meu({ pesquisa:{ id, valor:b.dataset.v } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1300); }).catch(() => aviso("Sem conexão. Tente de novo.")); }
+  else if(k === "pq-txt"){ const f = $("alPesq"), t = $("alPqTxt"); if(!f || !t) return; const id = f.dataset.id, texto = t.value.trim().slice(0, 300);
+    if(texto.length < 2){ aviso("Escreva a sua resposta antes de enviar."); t.focus(); return; }
+    b.disabled = true;
+    meu({ pesquisa:{ id, texto } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada. Obrigado!</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1500); }).catch(() => { b.disabled = false; aviso("Sem conexão. Tente de novo."); }); }
   else if(k === "mao"){ meu({ mao:S.mao ? null : serverTimestamp() }).catch(() => aviso("Sem conexão. Tente de novo.")); }
   else if(k === "chat"){ chat(!$("alChatBox")); }
   else if(k === "enviar"){ enviar(); }

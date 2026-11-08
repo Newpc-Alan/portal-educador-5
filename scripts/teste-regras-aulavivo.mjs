@@ -31,6 +31,9 @@ await t('aluno levanta a mão', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_
 await t('aluno responde a pesquisa', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', pesquisa: { id: 'p', valor: 'verde' }, em: serverTimestamp() }, { merge: true })));
 await t('aluno não mexe no colega', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a2'), { nome: 'X', em: serverTimestamp() }, { merge: true })));
 await t('professor baixa a mão', assertSucceeds(updateDoc(doc(fs('p1'), 'aula_vivo/t1/alunos/a1'), { mao: null })));
+await t('aluno escreve a resposta aberta (termômetro)', assertSucceeds(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', pesquisa: { id: 'p2', texto: 'A planta faz o próprio alimento com a luz do sol' }, em: serverTimestamp() }, { merge: true })));
+await t('resposta aberta longa demais é recusada', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', pesquisa: { id: 'p2', texto: 'x'.repeat(301) }, em: serverTimestamp() }, { merge: true })));
+await t('campo estranho na resposta é recusado', assertFails(setDoc(doc(al('u1', 'a1'), 'aula_vivo/t1/alunos/a1'), { nome: 'Ana', pesquisa: { id: 'p2', texto: 'oi', nota: 10 }, em: serverTimestamp() }, { merge: true })));
 await t('professor não muda a resposta', assertFails(updateDoc(doc(fs('p1'), 'aula_vivo/t1/alunos/a1'), { pesquisa: { id: 'p', valor: 'vermelho' } })));
 await t('aluno escreve ao professor', assertSucceeds(addDoc(collection(al('u1', 'a1'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'aluno', texto: 'dúvida', nome: 'Ana', em: serverTimestamp() })));
 await t('aluno não finge ser o professor', assertFails(addDoc(collection(al('u1', 'a1'), 'aula_vivo/t1/chat'), { aluno_id: 'a1', de: 'prof', texto: 'x', nome: 'Ana', em: serverTimestamp() })));

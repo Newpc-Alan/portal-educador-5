@@ -430,6 +430,7 @@ export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } fro
 export { portalIa, portalIaLimpar, acervoFila } from './portal-ia.js';
 export { videoIa, videoInterativoAuto } from './video-ia.js';
 export { registrarErro, monitorResumoDiario } from './monitor.js';
+export { aulaIa } from './aula-ia.js';
 export { sessaoAparelho } from './sessoes.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos, creditosDemoTeste, creditosFranquia } from './creditos.js';
 export { leadEscola } from './leads.js';

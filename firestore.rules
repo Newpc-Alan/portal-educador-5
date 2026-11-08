@@ -155,6 +155,8 @@ service cloud.firestore {
         allow create, update: if alunoDaTurma(tid) && souChave(k) && novo().keys().hasOnly(["nome", "mao", "pesquisa", "quiz", "bateria", "em"])
           && novo().nome is string && novo().nome.size() <= 80 && (novo().get("mao", null) == null || novo().mao == request.time || (resource != null && novo().mao == resource.data.get("mao", null)))
           && novo().get("pesquisa", {}) is map && novo().em == request.time
+          // termômetro da turma (nov/2026): a resposta da pergunta aberta é um texto curto
+          && (!("pesquisa" in novo()) || (novo().pesquisa.keys().hasOnly(["id", "valor", "texto"]) && novo().pesquisa.get("texto", "") is string && novo().pesquisa.get("texto", "").size() <= 300))
           && (!("quiz" in novo()) || (novo().quiz is map && novo().quiz.keys().hasOnly(["id", "r", "fim"]) && novo().quiz.id is string && novo().quiz.r is list && novo().quiz.r.size() <= 30 && novo().quiz.fim is bool))
           && (!("bateria" in novo()) || (novo().bateria is map && novo().bateria.keys().hasOnly(["n", "c"]) && novo().bateria.n is int && novo().bateria.n >= 0 && novo().bateria.n <= 100 && novo().bateria.c is bool));
         allow update: if conduzAula(tid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["mao"]) && novo().mao == null;

@@ -503,6 +503,12 @@
   button.ca-pausa.pausar{ background:#c62828 !important;color:#fff !important } button.ca-pausa.liberar{ background:#8DC63F !important;color:#0f2c4a !important;animation:caPulsa 1.6s ease-in-out infinite }
   @keyframes caPulsa{ 50%{ box-shadow:0 0 0 6px rgba(141,198,63,.45) } }
   .ca-pq{ display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:#fff;color:#0f2c4a;border-radius:12px;padding:10px 14px } .ca-pq span{ font-weight:800 }
+  .av-term-ler{ border:0;border-radius:999px;padding:8px 14px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#00c6ff,#2E9BD6 55%,#1f6fd1);box-shadow:0 3px 10px rgba(0,170,255,.4) } .av-term-ler:disabled{ opacity:.55;cursor:default }
+  .term-jan{ max-width:720px } .term-perg{ font-weight:700;margin:0 0 10px;color:#16406b }
+  .term-barra{ display:flex;height:14px;border-radius:999px;overflow:hidden;margin:0 0 12px;gap:2px }
+  .term-g{ border-left:5px solid;border-radius:10px;padding:10px 12px;margin:0 0 8px } .term-g p{ margin:4px 0;font-size:14px } .term-g summary{ cursor:pointer;font-size:13px;font-weight:700;color:#16406b }
+  .term-g-cab{ display:flex;justify-content:space-between;gap:10px;align-items:center } .term-g-cab span{ font-weight:800;font-size:14px;white-space:nowrap }
+  .term-ex{ font-style:italic;color:#41505f } .term-sug{ background:#eef6fd;border:1px solid #cfe3f5;border-radius:10px;padding:10px 12px;margin-top:4px } .term-sug p{ margin:4px 0 6px }
   .av-det button.av-pausar{ background:#f4faea;color:#1a6b2a;border-color:#1a6b2a } .av-det button.av-liberar{ background:#c62828;color:#fff;border-color:#c62828 }
   .ch-jan{ max-width:520px;width:100% } .ch-lista{ display:grid;gap:8px;max-height:46vh;overflow:auto;padding:4px } .ch-msg{ max-width:80%;display:grid;gap:2px;padding:8px 12px;border-radius:14px;background:#eef3f8;justify-self:start }
   .ch-msg.prof{ justify-self:end;background:#0f2c4a;color:#fff } .ch-msg small{ opacity:.7;font-size:11px } .ch-envio{ display:flex;gap:8px;margin-top:10px } .ch-envio input{ flex:1;font:inherit;padding:10px 12px;border:1px solid #cfdbe7;border-radius:10px }
@@ -8337,6 +8343,11 @@
       abrirNosAparelhos(h.url, h.titulo, h.aluno_id || "").then(() => toast("📲 Abrindo “" + String(h.titulo).slice(0, 40) + "” de novo.")).catch(() => toast("Não deu agora.", true)); }
     else if(acao === "av-qz-fim"){ encerrarQuiz(el); }
     else if(acao === "av-qz-parcial"){ parcialQuiz(); }
+    else if(acao === "av-term"){ janelaTermometro(); }
+    else if(acao === "av-term-ler"){ lerTermometro(el); }
+    else if(acao === "av-mae-af-fim" && pesquisaAtiva() && pesquisaAtiva().tipo === "aberta"){ const pq = pesquisaAtiva();
+      resultadoHist("pq_" + pq.id, { respostas:listaAv().filter(x => respostaDoAluno(x.id) === "texto").length, ...(AVV.termRes && AVV.termRes.pid === pq.id ? { grupos:AVV.termRes.grupos.map(g => ({ tipo:g.tipo, titulo:g.titulo, n:g.alunos.length })), sugestao:AVV.termRes.sugestao } : {}) });
+      avvSet({ pesquisa:{ ...pq, ativa:false } }).then(() => toast("Termômetro encerrado.")).catch(() => toast("Não deu agora.", true)); }
     else if(acao === "av-mae-af-fim"){ const pq = pesquisaAtiva(); if(pq){ const c = { verde:0, amarelo:0, vermelho:0 }; listaAv().forEach(x => { const v = respostaDoAluno(x.id); if(c[v] !== undefined) c[v]++; }); resultadoHist("pq_" + pq.id, c); }
       if(pq) avvSet({ pesquisa:{ ...pq, ativa:false } }).then(() => toast("Pesquisa encerrada.")).catch(() => toast("Não deu agora.", true));
       if(MAV.mc) fbMae("aulas/" + MAV.mc + "/controle/afinacao/ativa", "PUT", false).catch(() => {}); }
@@ -10012,7 +10023,7 @@
   /* Turma ao vivo (professor): quem está na sala agora, o que foi enviado, quem já abriu e a busca no que já foi enviado. Independe do Maestro. */
   const AV = { tid:"", alunos:[], pres:{}, mats:[], vistos:{}, subs:[], relogio:null, q:"", per:"", aberto:"" };
   // comandos da aula: só quem conduz (com a turma em aula com outro professor, a tela fica só de leitura; o banco também barra)
-  const AV_CONDUZ = ["av-mais", "av-mae-pausa", "av-mae-um", "av-mae-mao", "av-mae-link", "av-mae-af", "av-mae-af-fim", "av-qz", "av-qz-fim", "av-qz-parcial", "av-acervo", "av-chat", "av-um-link", "av-hist-abrir"];
+  const AV_CONDUZ = ["av-mais", "av-term", "av-term-ler", "av-mae-pausa", "av-mae-um", "av-mae-mao", "av-mae-link", "av-mae-af", "av-mae-af-fim", "av-qz", "av-qz-fim", "av-qz-parcial", "av-acervo", "av-chat", "av-um-link", "av-hist-abrir"];
   const ON_MS = 50000;   // o aluno manda sinal a cada 20 s; sem sinal há 50 s = fora
   function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; (AVV.subs || []).forEach(u => { try{ u(); }catch(e){} }); AVV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
   function fecharAoVivo(){ pararAoVivo(); const f = $("avFundo"); if(f) f.remove(); atualizarCartaoAula(); }
@@ -10710,7 +10721,7 @@
         tipo: chromebook ? "Chromebook" : /App do tablet/.test(String(x.email || "")) ? "Tablet (app)" : /Navegador/.test(String(x.email || "")) ? "Computador (navegador)" : "Celular", versao: x.versao || "" };
     });
   }
-  const COR_AF = { verde:"🟢", amarelo:"🟡", vermelho:"🔴" };
+  const COR_AF = { verde:"🟢", amarelo:"🟡", vermelho:"🔴", texto:"📝" };
   function afAtiva(){ const a = MAV.controle.afinacao; return a && a.ativa && a.id ? a : null; }
   function respostaAfAluno(alunoId){ const a = afAtiva(); if(!a) return ""; const r = ((MAV.respostas || {}).afinacao || {})[a.id] || {};
     const v = aparelhosDoAluno(alunoId).map(x => r[x.dev]).filter(Boolean).sort((p, q) => (q.ts || 0) - (p.ts || 0))[0]; return v ? v.valor : ""; }
@@ -10738,6 +10749,8 @@
   }
   function iniciarAulaVivoProf2(tid){
     Object.assign(AVV, { tid, doc:{}, alunos:{}, chat:[], conversa:"" });
+    // IA na aula (Central de IA): o botão do termômetro só aparece para quem o plano libera
+    if(!AVV.term) chamarAulaIa({ acao:"acesso" }).then(r => { AVV.term = r || { termometro:false }; desenharBarraMae(); }).catch(() => { AVV.term = { termometro:false }; });
     try{ AVV.lidos = JSON.parse(localStorage.getItem("pde_av_lidos_" + tid) || "{}"); }catch(e){ AVV.lidos = {}; }
     AV.subs.push(onSnapshot(doc(db, "aula_vivo", tid), s => { AVV.doc = s.data() || {}; desenharAoVivo(); }, e => console.warn("aula ao vivo:", e.code)));
     AV.subs.push(onSnapshot(collection(db, "aula_vivo", tid, "alunos"), sn => { AVV.alunos = {}; sn.forEach(d => { AVV.alunos[d.id] = d.data(); }); desenharAoVivo(); }, e => console.warn("aula ao vivo (alunos):", e.code)));
@@ -10755,7 +10768,7 @@
   function maoDoAluno(id){ const a = AVV.alunos[id]; return !!(a && a.mao && desdeAula(a.mao)) || aparelhosDoAluno(id).some(x => x.mao); }
   function pesquisaAtiva(){ const p = AVV.doc.pesquisa; return p && p.ativa && p.id ? p : null; }
   function respostaDoAluno(id){
-    const p = pesquisaAtiva(); if(p){ const a = AVV.alunos[id]; if(a && a.pesquisa && a.pesquisa.id === p.id) return a.pesquisa.valor; }
+    const p = pesquisaAtiva(); if(p){ const a = AVV.alunos[id]; if(a && a.pesquisa && a.pesquisa.id === p.id) return p.tipo === "aberta" ? (a.pesquisa.texto ? "texto" : "") : a.pesquisa.valor; }
     return respostaAfAluno(id);
   }
   function pausadoAluno(id){ const pa = AVV.doc.pausa_alunos || {}; return typeof pa[id] === "boolean" ? pa[id] : !!AVV.doc.pausa; }
@@ -10785,7 +10798,10 @@
     const maos = lista.filter(x => maoDoAluno(x.id)), msgs = lista.reduce((n, x) => n + naoLidas(x.id), 0);
     const geral = !!AVV.doc.pausa, pq = pesquisaAtiva(), devs = MAV.mc ? Object.values(MAV.alunos).filter(x => x && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).length : 0;
     let pqTxt = "";
-    if(pq){ const c = { verde:0, amarelo:0, vermelho:0 }; lista.forEach(x => { const v = respostaDoAluno(x.id); if(c[v] !== undefined) c[v]++; });
+    if(pq && pq.tipo === "aberta"){ const n = lista.filter(x => respostaDoAluno(x.id) === "texto").length;
+      pqTxt = '<div class="ca-pq"><b>🌡️ “' + escapeHtml(String(pq.pergunta || "").slice(0, 60)) + '”</b><span>📝 ' + n + ' de ' + naSala + ' responderam</span>' +
+        '<button type="button" class="av-term-ler" data-action="av-term-ler"' + (n < 2 ? ' disabled title="Espere pelo menos 2 respostas"' : '') + '>🤖 Ler a turma com IA</button></div>'; }
+    else if(pq){ const c = { verde:0, amarelo:0, vermelho:0 }; lista.forEach(x => { const v = respostaDoAluno(x.id); if(c[v] !== undefined) c[v]++; });
       const tot = c.verde + c.amarelo + c.vermelho;
       pqTxt = '<div class="ca-pq"><b>📊 “' + escapeHtml(String(pq.pergunta || "").slice(0, 50)) + '”</b><span>🟢 ' + c.verde + '</span><span>🟡 ' + c.amarelo + '</span><span>🔴 ' + c.vermelho + '</span><span>' + Math.max(0, naSala - tot) + ' sem resposta</span></div>'; }
     const html = '<div class="ca-linha"><b class="ca-tit">🎛️ Controle da aula</b>' +
@@ -10795,6 +10811,7 @@
       '<div class="ca-bts">' +
       '<button type="button" class="av-ac cad ' + (geral ? "cad-fechado" : "cad-aberto") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '" aria-pressed="' + geral + '">' + cadeado(geral) + '<div>' + (geral ? "Telas pausadas<i>toque para liberar</i>" : "Telas liberadas<i>toque para pausar</i>") + '</div></button>' +
       '<button type="button" class="av-ac" data-action="' + (pq ? "av-mae-af-fim" : "av-mae-af") + '"><span>📊</span>' + (pq ? "Encerrar pesquisa" : "Pesquisa rápida") + '</button>' +
+      (AVV.term && AVV.term.termometro && !pq ? '<button type="button" class="av-ac av-term" data-action="av-term"><span>🌡️</span>Termômetro da turma</button>' : '') +
       '<button type="button" class="av-ac" data-action="av-mae-link"><span>📲</span>Abrir conteúdo para a turma</button>' +
       '<button type="button" class="av-ac" data-action="av-acervo"><span>📚</span>Acervo do município</button>' +
       '<button type="button" class="av-ac' + (quizAtivo() ? " verde" : "") + '" data-action="' + (quizAtivo() ? "av-qz-fim" : "av-qz") + '"><span>🧠</span>' + (quizAtivo() ? "Encerrar o quiz" : "Quiz rápido") + '</button></div>' + pqTxt + htmlQuizBarra();
@@ -10965,6 +10982,52 @@
         try{ localStorage.setItem("pde_pq_ult_" + usuarioAtual.uid, JSON.stringify([p, ...ultimasPq().filter(x => x !== p)].slice(0, 6))); }catch(e){}
         toast("📊 Pesquisa enviada para a turma."); });
     f.addEventListener("click", e => { const c = e.target.closest("[data-mj-pq]"); if(!c) return; $("mjPerg").value = c.dataset.mjPq; f.querySelectorAll(".pq-chip").forEach(x => x.classList.toggle("on", x === c)); });
+  }
+  /* ---------- Termômetro da turma (nov/2026): pergunta aberta, cada aluno escreve no tablet e a IA agrupa a turma ----------
+     A resposta vai em aula_vivo/{turma}/alunos/{k}.pesquisa.texto (mesmo canal da pesquisa rápida); a função aulaIa lê só os textos, sem nomes. */
+  async function chamarAulaIa(dados, ms){
+    const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+    return (await httpsCallable(getFunctions(app, "southamerica-east1"), "aulaIa", { timeout:ms || 30000 })(dados)).data;
+  }
+  const ACERVO_TERM = ["Com as suas palavras, o que você aprendeu hoje?", "Explique para um colega o que acabamos de ver.", "Por que isso acontece?", "Dê um exemplo do seu dia a dia sobre o que estudamos.", "O que ainda ficou difícil para você?"];
+  function janelaTermometro(){
+    const chip = t => '<button type="button" class="pq-chip" data-mj-pq="' + escapeAttr(t) + '">' + escapeHtml(t) + "</button>";
+    const f = janelaMae("🌡️ Termômetro da turma", '<p class="et-d">Faça uma pergunta aberta. Cada aluno escreve a resposta no tablet e, com um toque, a IA lê a turma inteira e mostra quem entendeu, quem entendeu em parte e quem confundiu, com uma sugestão do que retomar agora. A IA lê só as respostas, nunca os nomes. Cada leitura usa ' + escapeHtml(String((AVV.term && AVV.term.custo) || 1)) + ' crédito.</p>' +
+      '<label>Pergunta aberta<input id="mjPerg" maxlength="140" value="Com as suas palavras, o que você aprendeu hoje?"></label><div class="pq-acervo"><div class="pq-grupo"><small>Sugestões</small>' + ACERVO_TERM.map(chip).join("") + "</div></div>", "Perguntar à turma", async () => {
+        const p = ($("mjPerg").value.trim()).slice(0, 140); if(p.length < 5) return "Escreva a pergunta.";
+        const id = idMae(); AVV.termRes = null;
+        await avvSet({ pesquisa:{ id, pergunta:p, ativa:true, em:Date.now(), tipo:"aberta" } });
+        registrarHist({ tipo:"pesquisa", titulo:"🌡️ " + p, ref:id }, "pq_" + id);
+        toast("🌡️ Pergunta enviada. As respostas vão chegando no Controle da aula."); });
+    f.addEventListener("click", e => { const c = e.target.closest("[data-mj-pq]"); if(!c) return; $("mjPerg").value = c.dataset.mjPq; f.querySelectorAll(".pq-chip").forEach(x => x.classList.toggle("on", x === c)); });
+  }
+  const COR_TERM = { entendeu:["#e6f6ec","#1f9d55","✅"], parcial:["#fff6dc","#b7791f","🟡"], confundiu:["#fdecea","#c0392b","❗"], fora:["#eef2f6","#5b6b7b","➖"] };
+  async function lerTermometro(b){
+    const pq = pesquisaAtiva(); if(!pq || pq.tipo !== "aberta") return;
+    const t0 = b ? b.textContent : ""; if(b){ b.disabled = true; b.textContent = "🤖 Lendo as respostas…"; }
+    try{
+      const r = await chamarAulaIa({ acao:"termometro", tid:AVV.tid, pid:pq.id, serie:anoDoNome(nomeTurmaAv()) }, 70000);
+      AVV.termRes = { pid:pq.id, ...r }; mostrarTermometro(pq, r);
+    }catch(e){ toast(String((e && e.message) || "Não deu agora.").replace(/^.*?: /, ""), true); }
+    if(b){ b.disabled = false; b.textContent = t0; }
+  }
+  function mostrarTermometro(pq, r){
+    const nomes = {}; listaAv().forEach(a => nomes[a.id] = a.nome);
+    const nome = k => escapeHtml(String(nomes[k] || "Aluno").split(" ").slice(0, 2).join(" "));
+    const tot = r.total || 1;
+    const velho = $("termFundo"); if(velho) velho.remove();
+    const f = document.createElement("div"); f.id = "termFundo"; f.className = "et-fundo";
+    f.innerHTML = '<div class="et-jan term-jan" role="dialog" aria-modal="true" aria-labelledby="termTit"><div class="et-topo"><h3 id="termTit">🌡️ Termômetro da turma</h3><button type="button" data-term="x">Fechar</button></div>' +
+      '<p class="term-perg">“' + escapeHtml(pq.pergunta) + '” · ' + r.total + ' respostas</p>' +
+      '<div class="term-barra">' + r.grupos.map(g => '<span style="flex:' + g.alunos.length + ';background:' + COR_TERM[g.tipo][1] + '" title="' + escapeAttr(g.titulo) + '"></span>').join("") + '</div>' +
+      r.grupos.map(g => { const c = COR_TERM[g.tipo]; return '<div class="term-g" style="background:' + c[0] + ';border-color:' + c[1] + '"><div class="term-g-cab"><b style="color:' + c[1] + '">' + c[2] + ' ' + escapeHtml(g.titulo) + '</b><span>' + g.alunos.length + ' · ' + Math.round(100 * g.alunos.length / tot) + '%</span></div>' +
+        '<p>' + escapeHtml(g.explicacao) + '</p>' + (g.exemplo ? '<p class="term-ex">“' + escapeHtml(g.exemplo) + '”</p>' : '') + '<details><summary>Ver alunos</summary><p>' + g.alunos.map(nome).join(", ") + '</p></details></div>'; }).join("") +
+      '<div class="term-sug"><b>💡 O que fazer agora</b><p>' + escapeHtml(r.sugestao) + '</p>' + (r.resposta_modelo ? '<small><b>Resposta esperada:</b> ' + escapeHtml(r.resposta_modelo) + '</small>' : '') + '</div>' +
+      '<p class="et-d" style="margin-top:8px">A IA leu só os textos das respostas, sem os nomes. Ela pode errar: confira os casos que surpreenderem.</p>' +
+      '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-term="de-novo">↺ Ler de novo (com as novas respostas)</button><button type="button" class="btn btn-primary" data-term="x">Fechar</button></div></div>';
+    document.body.appendChild(f);
+    f.addEventListener("click", e => { const b = e.target.closest("[data-term]"); if(e.target === f || (b && b.dataset.term === "x")) f.remove(); else if(b && b.dataset.term === "de-novo"){ f.remove(); lerTermometro(null); } });
+    f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });
   }
   /* ---------- Quiz rápido (nov/2026): perguntas de múltipla escolha para ver se a turma absorveu o conteúdo ----------
      aula_vivo/{turma}.quiz          { id, titulo, perguntas:[{p, ops}], ativa, em }  (sem gabarito enquanto está ativo; ao encerrar vai o gab para a correção na tela do aluno)
@@ -13601,9 +13664,9 @@
       p[el.dataset.k] = el.dataset.k === "nome" ? el.value.trim().slice(0, 60) : Math.max(0, Number(el.value) || 0); });
   }
   // ================= CENTRAL DE IA: quem pode usar cada recurso (mesma regra de functions/ia-acesso.js) =================
-  const IA_REC = [["portalia","Portal IA","materiais"],["portalia_imagem","Imagens","no Portal IA"],["provas_ia","Provas","com IA"],["lousa_ia","Lousa IA","Básica"],["lousa_ia_ultra","Lousa IA","Ultra"],["video_ia","Vídeo interativo","gerar por link"],["video_interativo","Vídeos interativos","do catálogo"]];
-  const IA_INTER = ["portalia","provas_ia","lousa_ia","video_ia","video_interativo"];
-  const IA_GERAL_PADRAO = { portalia:{ ligado:true, avulso:true }, portalia_imagem:{ ligado:true, avulso:true }, provas_ia:{ ligado:true, avulso:true }, lousa_ia:{ ligado:true, avulso:false }, lousa_ia_ultra:{ ligado:false, avulso:false }, video_ia:{ ligado:true, avulso:true }, video_interativo:{ ligado:true, avulso:false } };
+  const IA_REC = [["portalia","Portal IA","materiais"],["portalia_imagem","Imagens","no Portal IA"],["provas_ia","Provas","com IA"],["lousa_ia","Lousa IA","Básica"],["lousa_ia_ultra","Lousa IA","Ultra"],["video_ia","Vídeo interativo","gerar por link"],["video_interativo","Vídeos interativos","do catálogo"],["aula_termometro","Aula ao vivo","Termômetro da turma"]];
+  const IA_INTER = ["portalia","provas_ia","lousa_ia","video_ia","video_interativo","aula_termometro"];
+  const IA_GERAL_PADRAO = { portalia:{ ligado:true, avulso:true }, portalia_imagem:{ ligado:true, avulso:true }, provas_ia:{ ligado:true, avulso:true }, lousa_ia:{ ligado:true, avulso:false }, lousa_ia_ultra:{ ligado:false, avulso:false }, video_ia:{ ligado:true, avulso:true }, video_interativo:{ ligado:true, avulso:false }, aula_termometro:{ ligado:true, avulso:true } };
   const iaDoPlanoC = p => p === "completo" ? IA_REC.map(r => r[0]) : (p === "intermediario" || p === "personalizado") ? IA_INTER.slice() : [];
   const iaNorm = l => { const x = new Set((l || []).filter(r => IA_REC.some(q => q[0] === r))); if(x.has("lousa_ia_ultra")) x.add("lousa_ia"); return x; };
   function iaGeralC(c){ const g = {}, ir = (c && c.ia_recursos) || {}, l = c && c.lousa;
@@ -13615,7 +13678,7 @@
   const iaProfC = u => Array.isArray(u.ia_extra) ? iaNorm(u.ia_extra) : iaNorm((u.municipio_id ? [] : iaDoPlanoC(u.plano_avulso)).concat((u.recursos_extra || []).filter(r => r === "lousa_ia" || r === "lousa_ia_ultra")));
   const NOME_PLANO_IA = { basico:"Básico", intermediario:"Intermediário", completo:"Completo", personalizado:"Personalizado" };
   function desenharCentralIA(cfg, carteira){
-    const g = crA.geral, custo = { portalia:cfg.precos.material ?? 2, portalia_imagem:cfg.precos.imagem, provas_ia:cfg.precos.texto, lousa_ia:cfg.precos.aula ?? 6, lousa_ia_ultra:(cfg.precos.aula ?? 6) + 3 * cfg.precos.imagem, video_ia:cfg.precos.video ?? 3, video_interativo:0 };
+    const g = crA.geral, custo = { portalia:cfg.precos.material ?? 2, portalia_imagem:cfg.precos.imagem, provas_ia:cfg.precos.texto, lousa_ia:cfg.precos.aula ?? 6, lousa_ia_ultra:(cfg.precos.aula ?? 6) + 3 * cfg.precos.imagem, video_ia:cfg.precos.video ?? 3, video_interativo:0, aula_termometro:cfg.precos.texto ?? 1 };
     const cab = '<th>'+IA_REC.map(([r, a, b]) => '<span style="display:block;text-align:center;line-height:1.15">'+a+'<br><small style="font-weight:600;color:var(--muted)">'+b+'</small></span>').join('</th><th>')+'</th>';
     const caixa = (tipo, id, r, on) => '<td style="text-align:center"><input type="checkbox" data-ia-'+tipo+'="'+escapeAttr(id)+'" data-r="'+r+'"'+(on ? " checked" : "")+' aria-label="'+escapeAttr(r)+'"></td>';
     const linhaRede = m => { const set = iaRedeC(m), k = carteira("mun_"+m.id), sd = crSaldo(k).saldo;
