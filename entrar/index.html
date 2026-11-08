@@ -10616,7 +10616,11 @@
     const tipo = h.tipo === "quiz" ? "Quiz rápido" + (h.n ? " · " + h.n + " perguntas" : "") : h.tipo === "pesquisa" ? "Pesquisa rápida" : (jogo ? "Jogo" : yt ? "Vídeo" : "Conteúdo") + (h.aluno_nome ? " · só para " + h.aluno_nome.split(" ")[0] : " · na tela da turma");
     const r = h.resultado || null, outro = h.por && h.por !== usuarioAtual.uid ? " · " + String(h.por_nome || "outro professor").split(" ")[0] : "";
     const res = h.tipo === "quiz" ? (r ? '<span class="av-hres">📈 ' + r.media + "%</span>" : '<span class="av-hres">em andamento</span>')
-      : h.tipo === "pesquisa" ? (r ? '<span class="av-hres">🟢' + r.verde + " 🟡" + r.amarelo + " 🔴" + r.vermelho + "</span>" : "") : "";
+      : h.tipo === "pesquisa" ? (!r ? "" : r.respostas !== undefined
+        // termômetro da turma (pergunta aberta): quantos responderam e como a IA agrupou
+        ? '<span class="av-hres" title="' + escapeAttr((r.grupos || []).map(g => g.titulo + ": " + g.n).join(" · ") + (r.sugestao ? " | Sugestão: " + r.sugestao : "")) + '">🌡️ ' + r.respostas + " resp." +
+          (r.grupos || []).map(g => " " + ({ entendeu:"✅", parcial:"🟡", confundiu:"❗", fora:"➖" }[g.tipo] || "•") + g.n).join("") + (r.grupos ? "" : " · sem leitura da IA") + "</span>"
+        : '<span class="av-hres">🟢' + (r.verde || 0) + " 🟡" + (r.amarelo || 0) + " 🔴" + (r.vermelho || 0) + "</span>") : "";
     const acao = h.tipo === "quiz" && h.ref && h.por === usuarioAtual.uid ? '<button type="button" class="av-vb" data-action="av-hist-quiz" data-arg="' + escapeAttr(h.ref) + '" title="Ver o relatório">📈</button>'
       : h.url ? '<button type="button" class="av-vb" data-action="av-hist-abrir" data-arg="' + escapeAttr(h.id) + '" title="Abrir de novo na tela da turma">↻</button>' : "";
     return '<div class="av-mat av-hist"><span class="av-mi" aria-hidden="true">' + ico + '</span><div class="av-mt"><b>' + escapeHtml(h.titulo || "Envio") + "</b><small>" + escapeHtml(tipo + " · " + quando(h._t) + outro) + "</small>" + res + "</div>" + acao + "</div>";
