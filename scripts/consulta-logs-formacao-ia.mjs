@@ -8,7 +8,7 @@ const cli = await auth.getClient();
 const desde = new Date(Date.now() - 6 * 3600e3).toISOString();
 const r = await cli.request({ url: 'https://logging.googleapis.com/v2/entries:list', method: 'POST', data: {
   resourceNames: ['projects/portal-educador-5'], orderBy: 'timestamp desc', pageSize: 60,
-  filter: 'resource.type="cloud_run_revision" AND resource.labels.service_name="gerarcursoia" AND severity>=WARNING AND timestamp>="' + desde + '"' } }).catch(e => ({ erro: e }));
+  filter: 'resource.type="cloud_run_revision" AND resource.labels.service_name:"gerarcurso" AND (severity>=WARNING OR textPayload:"formacao-ia" OR textPayload:"portal-ia") AND timestamp>="' + desde + '"' } }).catch(e => ({ erro: e }));
 if (r.erro) { console.log('::error::' + String(r.erro.message).slice(0, 400)); process.exit(1); }
 const ents = r.data.entries || [];
 if (!ents.length) console.log('::notice::nenhum aviso nas últimas 6 horas');
