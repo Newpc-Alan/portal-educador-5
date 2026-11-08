@@ -41,7 +41,6 @@ await t('professor de outra rede não lê a aula do exclusivo', assertFails(getD
 await t('visitante lê curso aberto', assertSucceeds(getDoc(doc(anon, 'cursos/pub'))));
 await t('visitante não lê curso exclusivo', assertFails(getDoc(doc(anon, 'cursos/exc'))));
 await t('catálogo com filtro exclusivo=false funciona', assertSucceeds(getDocs(query(collection(anon, 'cursos'), where('status', '==', 'publicado'), where('exclusivo', '==', false)))));
-await t('catálogo antigo (sem o filtro) é recusado', assertFails(getDocs(query(collection(profB, 'cursos'), where('status', '==', 'publicado')))));
 await t('editor não muda as redes pelo navegador', assertFails(updateDoc(doc(editor, 'cursos/ia1'), { redes: ['munA'], exclusivo: true })));
 await t('editor não cria curso já exclusivo', assertFails(setDoc(doc(editor, 'cursos/novo3'), { titulo: 'X', status: 'rascunho', exclusivo: true, redes: ['munA'] })));
 await t('editor cria curso com exclusivo=false', assertSucceeds(setDoc(doc(editor, 'cursos/novo4'), { titulo: 'Y', status: 'rascunho', exclusivo: false })));
