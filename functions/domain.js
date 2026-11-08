@@ -75,3 +75,23 @@ export function pendenciasPublicacao(c, modulos, aulas, questoes, gabarito) {
   }
   return erros;
 }
+
+// Nova versão de curso: leva o progresso de quem estava no meio da versão anterior.
+// Aula conta como feita na nova versão se existe com o mesmo identificador e os mesmos vídeos
+// (texto corrigido não obriga a refazer; vídeo novo ou trocado, sim). Concluído não migra: já tem certificado.
+export function migrarProgresso(prog, aulasAntigas, aulasNovas, agoraISO) {
+  if (!prog || prog.concluido === true) return null;
+  const vids = a => (a.videos || []).map(v => v.youtubeId).filter(Boolean).sort().join(',');
+  const antigas = Object.fromEntries(aulasAntigas.map(a => [a.id, vids(a)]));
+  const iguais = new Set(aulasNovas.filter(a => a.id in antigas && antigas[a.id] === vids(a)).map(a => a.id));
+  const verificadas = [...new Set(prog.aulasVerificadas || [])].filter(id => iguais.has(id));
+  const aulas = [...new Set(prog.aulas || [])].filter(id => iguais.has(id));
+  if (!verificadas.length && !prog.ultimaAula) return null;
+  const total = aulasNovas.length || 1;
+  return { aulas, aulasVerificadas: verificadas, percentual: Math.round(verificadas.length / total * 100), concluido: false, progressoVersao: 2,
+    ...(aulasNovas.some(a => a.id === prog.ultimaAula) ? { ultimaAula: prog.ultimaAula } : {}),
+    ...(prog.iniciadoServidorISO ? { iniciadoServidorISO: prog.iniciadoServidorISO } : {}),
+    ...(prog.iniciadoEmISO ? { iniciadoEmISO: prog.iniciadoEmISO } : {}),
+    ultimoAcessoISO: prog.ultimoAcessoISO || agoraISO, concluidoEmISO: null,
+    migradoDe: { aulasMantidas: verificadas.length, aulasAntes: (prog.aulasVerificadas || []).length, em: agoraISO } };
+}

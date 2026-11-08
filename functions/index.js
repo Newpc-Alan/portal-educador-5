@@ -5,7 +5,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue, FieldPath } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 import { randomBytes, randomInt } from 'node:crypto';
-import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao } from './domain.js';
+import { idValido, minimoAula, videoAtualizado, projecaoPublica, pendenciasPublicacao, migrarProgresso } from './domain.js';
 import { expiraAuditoria } from './auditoria.js';
 import { camposDoPortal } from './formacao-sync.js';
 export { emailDicaProfessor, emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailPreCadastros, emailResumoDiario, emailDicaAluno, vigiaBackup } from './dicas.js';
@@ -297,7 +297,27 @@ export const definirPapel = onCall(async req=>{
   batch.create(db.collection('auditoria').doc(),{uid:autor,acao:'definirPapel',alvo:u.uid,papel,em:carimbo(),expira_em:expiraAuditoria()});await batch.commit();
   return {ok:true,uid:u.uid,papel};
 });
-export const publicarCurso = onCall(async req=>{
+// leva o progresso dos professores da versão de origem para a nova (idempotente: não sobrescreve quem já tem progresso na nova)
+async function migrarProgressoVersao(uid, novoId){
+  const c=(await db.doc(`cursos/${novoId}`).get()).data()||{}, origem=c.origemId;
+  if(!origem || !idValido(origem)) return {migrados:0};
+  const [aAnt,aNova,progs]=await Promise.all([db.collection(`cursos/${origem}/aulas`).get(),db.collection(`cursos/${novoId}/aulas`).get(),db.collectionGroup('progresso').get()]);
+  const antigas=arr(aAnt), novas=arr(aNova), agora=new Date().toISOString();
+  let migrados=0, aulasMantidas=0, w=db.batch(), n=0;
+  for(const d of progs.docs){
+    if(d.id!==origem) continue; const u=d.ref.parent.parent; if(!u || u.parent.id!=='users') continue;
+    const destino=db.doc(`users/${u.id}/progresso/${novoId}`);
+    if((await destino.get()).exists) continue;
+    const p=migrarProgresso(d.data(),antigas,novas,agora); if(!p) continue;
+    w.set(destino,{...p,migradoDe:{...p.migradoDe,cursoId:origem},atualizadoEm:carimbo()}); migrados++; aulasMantidas+=p.aulasVerificadas.length;
+    if(++n>=400){ await w.commit(); w=db.batch(); n=0; }
+  }
+  if(n) await w.commit();
+  if(migrados) await db.collection('auditoria').add({uid,acao:'migrarProgresso',cursoId:novoId,origemId:origem,migrados,aulasMantidas,em:carimbo(),expira_em:expiraAuditoria()});
+  return {migrados,aulasMantidas};
+}
+export const migrarProgressoCurso = onCall({timeoutSeconds:300},async req=>{ const uid=admin(req); return migrarProgressoVersao(uid,id(req.data?.cursoId)); });
+export const publicarCurso = onCall({timeoutSeconds:300},async req=>{
   const uid=equipe(req),cursoId=id(req.data?.cursoId),status=req.data?.status;
   if(!['rascunho','revisao','publicado','arquivado'].includes(status))throw new HttpsError('invalid-argument','Situação inválida.');
   if(status!=='revisao')admin(req);
@@ -314,6 +334,9 @@ export const publicarCurso = onCall(async req=>{
     tx.update(ref,{status,totalAulas,atualizadoEm:carimbo(),...((c.status==='publicado'||c.publicadoEm||status==='publicado')?{historicoPublicado:true}:{}),
       ...(status==='publicado'?{publicadoEm:c.publicadoEm||new Date().toISOString()}: {})});
     audit(tx,uid,'situacaoCurso',{cursoId,status});return {ok:true};
+  }).then(async r=>{
+    if(status!=='publicado') return r;
+    try{ return {...r,...(await migrarProgressoVersao(uid,cursoId))}; }catch(e){ console.error('migrarProgresso',e); return {...r,migracaoFalhou:true}; }
   });
 });
 export const duplicarCurso = onCall(async req=>{
