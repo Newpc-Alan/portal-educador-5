@@ -100,7 +100,7 @@ Instruções ao professor (passos, atividade, dica) sempre no imperativo, faland
 export function textoDegenerado(aula) {
   const partes = (aula?.blocos || []).flatMap(b => [String(b?.texto || ''), ...(b?.itens || []).map(String)]);
   for (const t of partes) {
-    if (t.split(/[.!?:;]/).some(f => f.split(/\s+/).filter(Boolean).length > 70)) return true;
+    if (t.split(/[.!?:;]/).some(f => f.split(/\s+/).filter(Boolean).length > 40)) return true;
     const w = t.toLowerCase().split(/\s+/).filter(Boolean), vistos = new Map();
     for (let i = 0; i + 4 <= w.length; i++) { const k = w.slice(i, i + 4).join(' '); vistos.set(k, (vistos.get(k) || 0) + 1); if (vistos.get(k) >= 4) return true; }
   }
@@ -109,7 +109,7 @@ export function textoDegenerado(aula) {
 
 // segunda passada: revisão de língua e coerência, sem cortar conteúdo
 export function pedidoRevisao(aulas) {
-  const sistema = `Você é revisor de textos didáticos em português do Brasil. Corrija ortografia, concordância, palavras sem sentido ou fora de contexto (troque pela palavra certa ou reescreva a frase), frases truncadas e incoerências. Passe instruções ao professor para o imperativo ("Defina", "Apresente"). Não resuma, não corte trechos, não acrescente informação nova, não mude títulos nem a ordem e a quantidade de aulas e blocos. Não use travessão longo (—).`;
+  const sistema = `Você é revisor de textos didáticos em português do Brasil. Corrija ortografia, concordância, palavras sem sentido ou fora de contexto (troque pela palavra certa ou reescreva a frase), frases truncadas e incoerências. Passe instruções ao professor para o imperativo ("Defina", "Apresente"). Toda frase com mais de 30 palavras deve ser reescrita em frases curtas; elimine encadeamentos de palavras soltas sem sentido (por exemplo "na unidade de ensino municipal ou estadual de atendimento básico diário regular"), mantendo só a ideia útil. Não resuma, não corte trechos, não acrescente informação nova, não mude títulos nem a ordem e a quantidade de aulas e blocos. Não use travessão longo (—).`;
   const pedido = 'Revise estas aulas e devolva no mesmo formato JSON:\n' + JSON.stringify({ aulas });
   return { sistema, pedido };
 }
@@ -119,7 +119,7 @@ export function aceitarRevisao(original, revisada) {
   if (!Array.isArray(revisada) || revisada.length !== original.length) return false;
   if (revisada.some((a, i) => !Array.isArray(a?.blocos) || a.blocos.length < original[i].blocos.length * 0.8)) return false;
   if (revisada.some(textoDegenerado)) return false;
-  return contaPalavras(revisada) >= contaPalavras(original) * 0.9;
+  return contaPalavras(revisada) >= contaPalavras(original) * 0.75;
 }
 
 // ---------- conferência do que a IA devolveu ----------
@@ -191,6 +191,7 @@ export function montarCurso(plano, aulasPorModulo) {
     m.aulas.forEach((a, k) => {
       const e = escritas[k] || escritas.find(x => corta(x?.titulo, 120).toLowerCase() === a.titulo.toLowerCase());
       let texto = e ? blocosParaHtml(e.blocos) : '';
+      if (e && e.suspeito) pendencias.push(`Aula "${a.titulo}" tem frase longa ou repetitiva demais: revise o texto.`);
       if (palavras(texto) < 60) {
         pendencias.push(`Aula "${a.titulo}" veio sem texto suficiente: complete antes de publicar.`);
         texto = `<p><strong>Objetivo:</strong> ${linha(a.objetivo)}</p><p>[Conteúdo a completar pela equipe]</p>`;

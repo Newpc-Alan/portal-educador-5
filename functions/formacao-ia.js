@@ -73,21 +73,24 @@ export const gerarCursoIA = onCall({ region: 'southamerica-east1', secrets: [GEM
     const escrever = async (m, i, k) => {
       const q = pedidoAula({ plano, modulo: m, indice: i, alvo: k, tema, publico });
       const ordens = [[cfg.modelo_texto, ...RESERVA_TEXTO], ['gemini-flash-latest', cfg.modelo_texto], [cfg.modelo_texto, cfg.modelo_rapido]];
+      let reserva = null;
       for (const ordem of ordens) {
         try {
           const r = await pedirJson(chave, ordem, q.sistema, [{ text: q.pedido }], ESQUEMA_AULAS, 120000); conta(r);
           const a = Array.isArray(r.json?.aulas) ? r.json.aulas[0] : null;
           if (!a || !Array.isArray(a.blocos) || a.blocos.length < 4) continue;
-          if (textoDegenerado(a)) { console.warn('formacao-ia: texto degenerado', i + 1, k + 1, r.modelo); continue; }
+          // a revisão também conserta frase degenerada; só tenta de novo se, depois dela, o texto ainda estiver ruim
           try {
             const v = pedidoRevisao([a]);
             const rv = await pedirJson(chave, [cfg.modelo_rapido, cfg.modelo_texto], v.sistema, [{ text: v.pedido }], ESQUEMA_AULAS, 90000); conta(rv);
             if (aceitarRevisao([a], rv.json?.aulas)) { revisados++; return rv.json.aulas[0]; }
-            console.warn('formacao-ia: revisão recusada', i + 1, k + 1);
           } catch (e) { console.warn('formacao-ia: revisão', i + 1, k + 1, e.message); }
-          return a;
+          if (!textoDegenerado(a)) return a;
+          console.warn('formacao-ia: texto degenerado', i + 1, k + 1, r.modelo);
+          reserva = reserva || a;
         } catch (e) { console.warn('formacao-ia: aula', i + 1, k + 1, e.message); }
       }
+      if (reserva) return { ...reserva, suspeito: true };
       return null;
     };
     const aulasPorModulo = await Promise.all(plano.modulos.map((m, i) => Promise.all(m.aulas.map((_, k) => escrever(m, i, k)))));
