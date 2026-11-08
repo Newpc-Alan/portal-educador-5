@@ -14,7 +14,10 @@ export function competenciasDoCurso(c) {
 export function agregarFormacao(a) {
   const t = a.totais || {}, linhas = a.linhas || [], cursosDoc = a._cursos || {};
   const esc = {};
-  for (const l of linhas) {
+  // escola sem nome no cadastro (vem "-" ou o próprio código interno): agrupa como "Sem escola identificada", nunca mostra código
+  const nomeEscola = v => { const x = String(v || '').trim(); return !x || x === '-' || /^[A-Za-z0-9_-]{15,}$/.test(x) ? 'Sem escola identificada' : x; };
+  for (const l0 of linhas) {
+    const l = { ...l0, escola: nomeEscola(l0.escola) };
     const e = esc[l.escola] = esc[l.escola] || { escola: l.escola, pessoas: 0, concluiu: 0, em_andamento: 0, parado: 0, nao_comecou: 0, horas: 0, certificados: 0 };
     e.pessoas++; e[l.situacao] = (e[l.situacao] || 0) + 1; e.horas += l.horas || 0; e.certificados += l.certificados || 0;
   }
