@@ -40,7 +40,7 @@ ${aula ? `<p style="margin:0 0 16px">Você parou em: <b>${esc(aula)}</b>.</p>` :
 </div></div>`;
 }
 
-async function rodada(db, { simular = false, so } = {}) {
+export async function rodada(db, { simular = false, so } = {}) {
   const agora = Date.now(), cursos = {}, enviados = [], pulados = { optout: 0, sem_email: 0, curso_fora: 0, inativo: 0 };
   const progs = await db.collectionGroup('progresso').get();
   const candidatos = [];
