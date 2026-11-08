@@ -48,6 +48,7 @@ await t('dono salva comissões', assertSucceeds(setDoc(doc(dono, 'fin_config/com
 await t('financeiro lê comissões', assertSucceeds(getDoc(doc(fin, 'fin_config/comissoes'))));
 await t('financeiro não altera comissões', assertFails(setDoc(doc(fin, 'fin_config/comissoes'), { ...com, atualizado_por: 'fin@newpc.com.br', atualizado_em: serverTimestamp() })));
 await t('fora da lista não vê comissões', assertFails(getDoc(doc(outro, 'fin_config/comissoes'))));
+await t('dono salva comissão por projeto', assertSucceeds(setDoc(doc(dono, 'fin_config/comissoes'), { ...com, equipe: [{ nome: 'Vendedor', funcao: 'Comercial', pct: 10, base: 'pj1' }], projetos: [{ id: 'pj1', nome: 'Rede X', cliente: 'Contrato 1', recebido: 10000, custos: 1000 }], atualizado_por: 'alan@newpc.com.br', atualizado_em: serverTimestamp() })));
 await t('imposto acima de 50% recusado', assertFails(setDoc(doc(dono, 'fin_config/comissoes'), { ...com, imposto_pct: 80, atualizado_por: 'alan@newpc.com.br', atualizado_em: serverTimestamp() })));
 
 let reg;

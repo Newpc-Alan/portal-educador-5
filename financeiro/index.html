@@ -124,18 +124,29 @@ td{padding:10px;border-top:1px solid var(--line)}
 
   <section data-sec="comissao" class="card" hidden>
     <h2>Comissões da equipe</h2>
-    <p style="font-size:14px;color:var(--muted)">A comissão é calculada sobre o <b>lucro do mês</b>: receita confirmada menos impostos, menos as taxas do meio de pagamento e menos os outros custos do mês. Só você define a equipe e os percentuais; o financeiro vê o cálculo para pagar.</p>
+    <p style="font-size:14px;color:var(--muted)">Dois tipos de comissão: sobre o <b>lucro total do mês</b> (receita confirmada menos impostos, taxas do meio de pagamento e outros custos) ou sobre o <b>lucro de um projeto</b> (o que aquele cliente pagou no mês, menos impostos e os custos do projeto). Comissão só sobre dinheiro recebido. Só você define a equipe e os percentuais; o financeiro vê o cálculo para pagar.</p>
     <div class="kpis" id="comKpis"></div>
     <div class="form" id="comParam">
       <label>Impostos sobre a receita (%)<input type="number" id="comImposto" min="0" max="50" step="0.01" inputmode="decimal"></label>
       <label>Outros custos do mês (R$)<input type="number" id="comOutros" min="0" step="0.01" inputmode="decimal" placeholder="IA, servidores, atendimento..."></label>
       <label style="flex:0 1 auto;flex-direction:row;align-items:center;gap:8px;min-height:44px"><input type="checkbox" id="comTaxas" style="width:20px;height:20px;min-height:0"> Descontar as taxas do Asaas</label>
     </div>
+    <h3 style="font-size:17px;margin-top:6px">Projetos com comissão própria</h3>
+    <div class="tab"><table id="projT"></table></div>
+    <form class="form" id="formProj">
+      <label>Projeto<input id="projNome" maxlength="60" required autocomplete="off" placeholder="Ex.: Portal na Rede de Bonito"></label>
+      <label>Cliente ou contrato<input id="projCliente" maxlength="80" autocomplete="off" placeholder="Ex.: Contrato 012/2026"></label>
+      <label style="flex:0 1 190px">Recebido no mês (R$)<input type="number" id="projRec" min="0" step="0.01" inputmode="decimal"></label>
+      <label style="flex:0 1 190px">Custos do projeto (R$)<input type="number" id="projCus" min="0" step="0.01" inputmode="decimal"></label>
+      <button type="submit" class="bt sec">Adicionar projeto</button>
+    </form>
+    <h3 style="font-size:17px;margin-top:6px">Equipe</h3>
     <div class="tab"><table id="comT"></table></div>
     <form class="form" id="formCom">
       <label>Nome<input id="comNome" maxlength="60" required autocomplete="off"></label>
       <label>Função<input id="comFuncao" maxlength="40" autocomplete="off" placeholder="Comercial, suporte..."></label>
-      <label style="flex:0 1 160px">% do lucro<input type="number" id="comPct" min="0.1" max="100" step="0.1" required inputmode="decimal"></label>
+      <label style="flex:0 1 220px">Ganha sobre<select id="comBase" style="padding:10px 12px;border:1px solid #CFDBE7;border-radius:10px;min-height:44px;font-weight:400"><option value="lucro">Lucro total do mês</option></select></label>
+      <label style="flex:0 1 140px">%<input type="number" id="comPct" min="0.1" max="100" step="0.1" required inputmode="decimal"></label>
       <button type="submit" class="bt">Adicionar à equipe</button>
     </form>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="bt" data-action="com-salvar">Salvar comissões</button><span id="comMsg" style="font-size:14px;color:var(--muted);align-self:center"></span></div>
@@ -168,7 +179,7 @@ const dataBR = t => { const m = t && t.toMillis ? t.toMillis() : (typeof t === "
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 let EU = { email:"", dono:false }, LISTA = [];
 // comissões: fin_config/comissoes { imposto_pct, descontar_taxas, outros_custos, equipe:[{nome, funcao, pct}] }; só o dono grava
-let COM = { imposto_pct:11, descontar_taxas:true, outros_custos:0, equipe:[] }, MES = { receita:0, taxas:0 };
+let COM = { imposto_pct:11, descontar_taxas:true, outros_custos:0, equipe:[], projetos:[] }, MES = { receita:0, taxas:0 };
 
 function toast(t){ const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2800); }
 function vazio(t){ return '<p class="vazio">' + esc(t) + '</p>'; }
@@ -214,7 +225,7 @@ async function carregar(){
   // auditoria
   $("auditL").innerHTML = aud.length ? aud.slice(0, 200).map(a => '<div class="linha"><span style="font-size:13px;color:#5b6b7b;min-width:110px">' + esc(dataBR(a.em)) + '</span><span class="pill info">' + esc(a.autor || "sistema") + '</span><span style="flex:1 1 420px;min-width:0">' + esc(a.detalhe || a.acao) + '</span></div>').join("") : vazio("Nada registrado ainda.");
   if(EU.dono) desenharAcesso();
-  try{ const c = await getDoc(doc(db, "fin_config", "comissoes")); if(c.exists()) COM = { ...COM, ...c.data(), equipe:Array.isArray(c.data().equipe) ? c.data().equipe : [] }; }catch(e){}
+  try{ const c = await getDoc(doc(db, "fin_config", "comissoes")); if(c.exists()) COM = { ...COM, ...c.data(), equipe:Array.isArray(c.data().equipe) ? c.data().equipe : [], projetos:Array.isArray(c.data().projetos) ? c.data().projetos : [] }; }catch(e){}
   $("comImposto").value = COM.imposto_pct; $("comOutros").value = COM.outros_custos || ""; $("comTaxas").checked = !!COM.descontar_taxas;
   desenharComissoes();
 }
@@ -224,18 +235,29 @@ function lerParam(){
   COM.outros_custos = Math.max(0, Number($("comOutros").value) || 0);
   COM.descontar_taxas = $("comTaxas").checked;
 }
+// lucro de um projeto no mês: o que o cliente pagou, menos impostos e os custos do projeto
+const lucroProj = p => Math.max(0, (Number(p.recebido) || 0) * (1 - COM.imposto_pct / 100) - (Number(p.custos) || 0));
+const baseDe = (m, lucro) => { if(m.base && m.base !== "lucro"){ const p = COM.projetos.find(x => x.id === m.base); return p ? lucroProj(p) : 0; } return lucro; };
 function desenharComissoes(){
   const imposto = MES.receita * COM.imposto_pct / 100, taxas = COM.descontar_taxas ? MES.taxas : 0;
   const lucro = Math.max(0, MES.receita - imposto - taxas - (COM.outros_custos || 0));
-  const totPct = COM.equipe.reduce((s, m) => s + (Number(m.pct) || 0), 0), totCom = lucro * totPct / 100;
+  const doLucro = COM.equipe.filter(m => !m.base || m.base === "lucro"), totPct = doLucro.reduce((s, m) => s + (Number(m.pct) || 0), 0), totCom = lucro * totPct / 100;
+  const sel = $("comBase"), atual = sel.value;
+  sel.innerHTML = '<option value="lucro">Lucro total do mês</option>' + COM.projetos.map(p => '<option value="' + esc(p.id) + '">Projeto: ' + esc(p.nome) + '</option>').join(""); sel.value = [...sel.options].some(o => o.value === atual) ? atual : "lucro";
+  $("projT").innerHTML = '<tr><th>Projeto</th><th>Cliente ou contrato</th><th class="num">Recebido no mês</th><th class="num">Impostos</th><th class="num">Custos</th><th class="num">Lucro do projeto</th>' + (EU.dono ? '<th></th>' : '') + '</tr>' +
+    (COM.projetos.length ? COM.projetos.map((p, i) => '<tr><td>' + esc(p.nome) + '</td><td>' + esc(p.cliente || "") + '</td><td class="num">' + brl(p.recebido) + '</td><td class="num">− ' + brl((Number(p.recebido) || 0) * COM.imposto_pct / 100) + '</td><td class="num">− ' + brl(p.custos) + '</td><td class="num"><b>' + brl(lucroProj(p)) + '</b></td>' +
+      (EU.dono ? '<td><button type="button" class="bt sec" data-action="proj-rec" data-i="' + i + '">Lançar recebido</button> <button type="button" class="bt perigo" data-action="proj-tirar" data-i="' + i + '">Tirar</button></td>' : '') + '</tr>').join("")
+      : '<tr><td colspan="7" style="color:var(--muted)">Nenhum projeto. Cadastre um quando um vendedor ganhar sobre um contrato ou cliente específico.</td></tr>');
   $("comKpis").innerHTML = [["Receita do mês", brl(MES.receita)], ["Impostos (" + String(COM.imposto_pct).replace(".", ",") + "%)", "− " + brl(imposto)],
-    ["Taxas e outros custos", "− " + brl(taxas + (COM.outros_custos || 0))], ["Lucro do mês", brl(lucro)], ["Total de comissões (" + String(totPct).replace(".", ",") + "%)", brl(totCom)], ["Fica para a NEWPC", brl(lucro - totCom)]]
+    ["Taxas e outros custos", "− " + brl(taxas + (COM.outros_custos || 0))], ["Lucro do mês", brl(lucro)], ["Comissões sobre o lucro (" + String(totPct).replace(".", ",") + "%)", brl(totCom)], ["Fica para a NEWPC", brl(lucro - totCom)],
+    ["Comissões de projetos", brl(COM.equipe.filter(m => m.base && m.base !== "lucro").reduce((t, m) => t + baseDe(m, 0) * (Number(m.pct) || 0) / 100, 0))]]
     .map(([a, b]) => '<div class="kpi"><span>' + esc(a) + '</span><b>' + esc(b) + '</b></div>').join("");
-  $("comT").innerHTML = '<tr><th>Nome</th><th>Função</th><th class="num">% do lucro</th><th class="num">Comissão do mês</th>' + (EU.dono ? '<th></th>' : '') + '</tr>' +
-    (COM.equipe.length ? COM.equipe.map((m, i) => '<tr><td>' + esc(m.nome) + '</td><td>' + esc(m.funcao || "") + '</td><td class="num">' + esc(String(m.pct).replace(".", ",")) + '%</td><td class="num"><b>' + brl(lucro * (Number(m.pct) || 0) / 100) + '</b></td>' +
+  const nomeBase = m => { if(!m.base || m.base === "lucro") return "Lucro total"; const p = COM.projetos.find(x => x.id === m.base); return p ? "Projeto: " + p.nome : "Projeto removido"; };
+  $("comT").innerHTML = '<tr><th>Nome</th><th>Função</th><th>Ganha sobre</th><th class="num">%</th><th class="num">Comissão do mês</th>' + (EU.dono ? '<th></th>' : '') + '</tr>' +
+    (COM.equipe.length ? COM.equipe.map((m, i) => '<tr><td>' + esc(m.nome) + '</td><td>' + esc(m.funcao || "") + '</td><td>' + esc(nomeBase(m)) + '</td><td class="num">' + esc(String(m.pct).replace(".", ",")) + '%</td><td class="num"><b>' + brl(baseDe(m, lucro) * (Number(m.pct) || 0) / 100) + '</b></td>' +
       (EU.dono ? '<td><button type="button" class="bt perigo" data-action="com-tirar" data-i="' + i + '">Tirar</button></td>' : '') + '</tr>').join("")
-      : '<tr><td colspan="5" style="color:var(--muted)">Ninguém na equipe de comissão ainda.</td></tr>');
-  if(totPct > 100) $("comMsg").textContent = "Atenção: a soma passa de 100% do lucro.";
+      : '<tr><td colspan="6" style="color:var(--muted)">Ninguém na equipe de comissão ainda.</td></tr>');
+  if(totPct > 100) $("comMsg").textContent = "Atenção: a soma das comissões sobre o lucro total passa de 100%.";
 }
 
 function desenharAcesso(){
@@ -254,12 +276,27 @@ document.addEventListener("click", async e => {
   const ac = b.dataset.action;
   if(ac === "atualizar"){ await carregar(); toast("Atualizado"); }
   else if(ac === "com-tirar"){ COM.equipe.splice(Number(b.dataset.i), 1); desenharComissoes(); $("comMsg").textContent = "Alterado. Clique em Salvar comissões."; }
+  else if(ac === "proj-tirar"){
+    const p = COM.projetos[Number(b.dataset.i)]; if(!p) return;
+    if(COM.equipe.some(m => m.base === p.id)){ toast("Tire antes quem ganha sobre este projeto"); return; }
+    COM.projetos.splice(Number(b.dataset.i), 1); desenharComissoes(); $("comMsg").textContent = "Alterado. Clique em Salvar comissões.";
+  }
+  else if(ac === "proj-rec"){
+    const p = COM.projetos[Number(b.dataset.i)]; if(!p) return;
+    const linha = b.closest("tr"); if(linha.querySelector("input")) return;
+    const cel = linha.children[2]; cel.innerHTML = '<input type="number" min="0" step="0.01" value="' + (Number(p.recebido) || 0) + '" aria-label="Recebido no mês" style="width:120px;padding:8px;border:1px solid #CFDBE7;border-radius:8px">';
+    const inp = cel.querySelector("input"); inp.focus();
+    inp.addEventListener("change", () => { p.recebido = Math.max(0, Number(inp.value) || 0); desenharComissoes(); $("comMsg").textContent = "Recebido lançado. Clique em Salvar comissões."; });
+  }
   else if(ac === "com-salvar"){
     lerParam();
-    const tot = COM.equipe.reduce((s, m) => s + (Number(m.pct) || 0), 0); if(tot > 100){ toast("A soma dos percentuais passa de 100%"); return; }
+    const tot = COM.equipe.filter(m => !m.base || m.base === "lucro").reduce((s, m) => s + (Number(m.pct) || 0), 0); if(tot > 100){ toast("A soma sobre o lucro total passa de 100%"); return; }
+    for(const p of COM.projetos){ const t = COM.equipe.filter(m => m.base === p.id).reduce((s, m) => s + (Number(m.pct) || 0), 0); if(t > 100){ toast("A soma no projeto " + p.nome + " passa de 100%"); return; } }
     try{ await setDoc(doc(db, "fin_config", "comissoes"), { imposto_pct:COM.imposto_pct, descontar_taxas:COM.descontar_taxas, outros_custos:COM.outros_custos,
-        equipe:COM.equipe.map(m => ({ nome:String(m.nome).slice(0, 60), funcao:String(m.funcao || "").slice(0, 40), pct:Number(m.pct) })), atualizado_por:EU.email, atualizado_em:serverTimestamp() });
-      await auditar("comissao", "Comissões salvas: impostos " + COM.imposto_pct + "%, " + COM.equipe.map(m => m.nome + " " + m.pct + "%").join(", "));
+        equipe:COM.equipe.map(m => ({ nome:String(m.nome).slice(0, 60), funcao:String(m.funcao || "").slice(0, 40), pct:Number(m.pct), base:String(m.base || "lucro").slice(0, 40) })),
+        projetos:COM.projetos.map(p => ({ id:String(p.id).slice(0, 40), nome:String(p.nome).slice(0, 60), cliente:String(p.cliente || "").slice(0, 80), recebido:Number(p.recebido) || 0, custos:Number(p.custos) || 0 })),
+        atualizado_por:EU.email, atualizado_em:serverTimestamp() });
+      await auditar("comissao", "Comissões salvas: impostos " + COM.imposto_pct + "%; " + COM.equipe.map(m => m.nome + " " + m.pct + "% (" + (m.base && m.base !== "lucro" ? ((COM.projetos.find(p => p.id === m.base) || {}).nome || "projeto") : "lucro total") + ")").join(", "));
       $("comMsg").textContent = "Salvo."; toast("Comissões salvas"); desenharComissoes(); }
     catch(err){ toast("Não deu para salvar (" + (err.code || "erro") + ")"); }
   }
@@ -286,7 +323,14 @@ $("formCom").addEventListener("submit", e => {
   const nome = $("comNome").value.trim(), pct = Math.round((Number($("comPct").value) || 0) * 10) / 10;
   if(!nome || pct <= 0 || pct > 100){ toast("Preencha nome e percentual"); return; }
   if(COM.equipe.length >= 20){ toast("Limite de 20 pessoas"); return; }
-  COM.equipe.push({ nome, funcao:$("comFuncao").value.trim(), pct }); $("formCom").reset(); desenharComissoes(); $("comMsg").textContent = "Adicionado. Clique em Salvar comissões.";
+  COM.equipe.push({ nome, funcao:$("comFuncao").value.trim(), pct, base:$("comBase").value || "lucro" }); $("formCom").reset(); desenharComissoes(); $("comMsg").textContent = "Adicionado. Clique em Salvar comissões.";
+});
+$("formProj").addEventListener("submit", e => {
+  e.preventDefault();
+  const nome = $("projNome").value.trim(); if(!nome){ toast("Dê um nome ao projeto"); return; }
+  if(COM.projetos.length >= 50){ toast("Limite de 50 projetos"); return; }
+  COM.projetos.push({ id:"pj" + Date.now().toString(36), nome, cliente:$("projCliente").value.trim(), recebido:Math.max(0, Number($("projRec").value) || 0), custos:Math.max(0, Number($("projCus").value) || 0) });
+  $("formProj").reset(); desenharComissoes(); $("comMsg").textContent = "Projeto adicionado. Agora escolha-o em \"Ganha sobre\" ao cadastrar o vendedor e clique em Salvar comissões.";
 });
 ["comImposto", "comOutros", "comTaxas"].forEach(id => $(id).addEventListener("input", () => { lerParam(); desenharComissoes(); }));
 
@@ -310,7 +354,7 @@ onAuthStateChanged(auth, async user => {
   catch(e){ ok = EU.dono; }
   if(!ok){ $("trava").hidden = false; $("travaMsg").textContent = "A conta " + email + " não tem acesso ao Financeiro. Peça a liberação ao Alan."; return; }
   $("app").hidden = false; $("abaAcesso").hidden = !EU.dono;
-  if(!EU.dono){ $("formCom").hidden = true; document.querySelector('[data-action="com-salvar"]').hidden = true; $("comParam").querySelectorAll("input").forEach(i => i.disabled = true); }
+  if(!EU.dono){ $("formProj").hidden = true; $("formCom").hidden = true; document.querySelector('[data-action="com-salvar"]').hidden = true; $("comParam").querySelectorAll("input").forEach(i => i.disabled = true); }
   if(!LISTA.length && EU.dono){ try{ await setDoc(doc(db, "fin_acesso", "lista"), { emails:[], atualizado_por:email, atualizado_em:serverTimestamp() }); }catch(e){} }
   await auditar("entrada", "Entrou no Financeiro");
   await carregar();
