@@ -45,6 +45,11 @@ export async function montarAcompanhamento(db, uid, dados, comCursos = false) {
   const cert = {};
   for (let i = 0; i < uids.length; i += 30) (await db.collection('certificados').where('uid', 'in', uids.slice(i, i + 30)).get()).forEach(d => {
     const c = d.data(); if (c.ativo === false) return; const x = cert[c.uid] = cert[c.uid] || { n: 0, horas: 0 }; x.n++; x.horas += Number(c.cargaHoraria || 0); });
+  // atividades práticas registradas (só para o relatório): quantos relatos e se relatou ter aplicado com a turma
+  const prat = {};
+  if (comCursos) for (let i = 0; i < uids.length; i += 20) await Promise.all(uids.slice(i, i + 20).map(async u => {
+    const sn = await db.collection(`users/${u}/praticas`).get(); if (sn.empty) return;
+    prat[u] = { n: sn.size, aplicou: sn.docs.some(d => d.data().situacao === 'aplicou') }; }));
   const cursos = {}, cursosDoc = {}; (await db.collection('cursos').get()).forEach(d => { cursos[d.id] = String(d.data().titulo || 'Curso').slice(0, 80); if (comCursos) cursosDoc[d.id] = d.data(); });
   const escNome = {}, munNome = {};
   const escIds = new Set(), munIds = new Set();
@@ -59,7 +64,7 @@ export async function montarAcompanhamento(db, uid, dados, comCursos = false) {
       escola: escNome[x.escola_id] || (o.f && o.f.escola) || '-', municipio: munNome[x.municipio_id] || (o.f && o.f.municipio) || '-',
       situacao, iniciados: s ? s.iniciados : 0, concluidos: s ? s.concluidos : 0, certificados: c.n, horas: c.horas, ultimo: s && s.ultimo ? s.ultimo : 0,
       andamento: s ? s.andamento.sort((a, b) => b.ult - a.ult).slice(0, 3).map(a => ({ titulo: cursos[a.c] || 'Curso', pct: a.pct })) : [],
-      ...(comCursos ? { _andamentoIds: s ? s.andamento.map(a => a.c) : [], _concluidosIds: s ? s.concl : [] } : {}) };
+      ...(comCursos ? { _andamentoIds: s ? s.andamento.map(a => a.c) : [], _concluidosIds: s ? s.concl : [], _praticas: prat[uid] ? prat[uid].n : 0, _aplicou: !!(prat[uid] && prat[uid].aplicou) } : {}) };
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).slice(0, 3000);
   const cont = k => linhas.filter(l => l.situacao === k).length;
   return { ...(comCursos ? { _cursos: cursosDoc, _munNome: mun ? munNome[mun] || '' : '' } : {}), gerado_em: Date.now(), escopo: eu.perfil === 'gestor' ? 'escola' : mun ? 'municipio' : 'todas', parado_dias: PARADO_DIAS,

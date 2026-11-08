@@ -16,6 +16,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'cursos/exc/aulas/a1'), { titulo: 'Aula', moduloId: 'm1' });
   await setDoc(doc(db, 'usuarios/profA'), { perfil: 'professor', status: 'ativo', municipio_id: 'munA' });
   await setDoc(doc(db, 'usuarios/profB'), { perfil: 'professor', status: 'ativo', municipio_id: 'munB' });
+  await setDoc(doc(db, 'users/profA/praticas/pub__a1'), { texto: 'Apliquei com a turma', situacao: 'aplicou' });
 });
 let ok = 0, falha = 0;
 const t = async (nome, p) => { try { await p; ok++; } catch (e) { falha++; console.log('::error::FALHA: ' + nome + ' | ' + String(e.message).split('\n')[0]); } };
@@ -44,6 +45,9 @@ await t('catálogo com filtro exclusivo=false funciona', assertSucceeds(getDocs(
 await t('editor não muda as redes pelo navegador', assertFails(updateDoc(doc(editor, 'cursos/ia1'), { redes: ['munA'], exclusivo: true })));
 await t('editor não cria curso já exclusivo', assertFails(setDoc(doc(editor, 'cursos/novo3'), { titulo: 'X', status: 'rascunho', exclusivo: true, redes: ['munA'] })));
 await t('editor cria curso com exclusivo=false', assertSucceeds(setDoc(doc(editor, 'cursos/novo4'), { titulo: 'Y', status: 'rascunho', exclusivo: false })));
+await t('professor lê o próprio relato de prática', assertSucceeds(getDoc(doc(profA, 'users/profA/praticas/pub__a1'))));
+await t('outro professor não lê o relato', assertFails(getDoc(doc(profB, 'users/profA/praticas/pub__a1'))));
+await t('professor não grava relato pelo navegador (só a função)', assertFails(setDoc(doc(profA, 'users/profA/praticas/pub__a2'), { texto: 'x', situacao: 'aplicou' })));
 
 console.log((falha ? '::error::' : '::notice::') + 'CURSOS IA: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();

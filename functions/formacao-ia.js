@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import { geminiFluxo, RESERVA_TEXTO, PADRAO } from './portal-ia.js';
 import { registrarConsumo } from './creditos.js';
 import { montarAcompanhamento } from './formacao-uso.js';
-import { agregarFormacao, ESQUEMA_RELATORIO, pedidoRelatorio, limparRelatorio } from './relatorio-formacao.js';
+import { agregarFormacao, ESQUEMA_RELATORIO, pedidoRelatorio, limparRelatorio, ESQUEMA_PRATICA, atividadeDaAula, pedidoPratica, limparPratica } from './relatorio-formacao.js';
 import { expiraAuditoria } from './auditoria.js';
 import { NIVEIS, ESQUEMA_PLANO, pedidoPlano, pedidoAula, pedidoRevisao, aceitarRevisao, textoDegenerado, limparMd, mdParaHtml, limparPlano, montarCurso, slugCurso } from './curso-ia.js';
 
@@ -170,4 +170,41 @@ export const relatorioFormacaoIA = onCall({ region: 'southamerica-east1', secret
   if (r) await registrarConsumo(db, { uid, cfgRaw, eu: {} }, { acao: 'formacao_relatorio', conta: 'admin' }, { modelo: r.modelo, entrada: r.entrada, saida: r.saida });
   if (!ia) await limRef.set({ n: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
   return { gerado_em: Date.now(), dados: ag, ia };   // ia nulo: o painel mostra os números e avisa que a leitura da IA falhou
+});
+
+// Atividade prática: o professor registra o que aplicou; a IA comenta (só texto, sem nomes de alunos). Fica em users/{uid}/praticas.
+export const praticaFormacao = onCall({ region: 'southamerica-east1', secrets: [GEMINI], timeoutSeconds: 90, memory: '512MiB', maxInstances: 20 }, async req => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
+  const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
+  const cursoId = String(d.cursoId || ''), aulaId = String(d.aulaId || ''), texto = String(d.texto || '').replace(/\r/g, '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cursoId) || !/^[A-Za-z0-9_-]{1,64}$/.test(aulaId)) throw new HttpsError('invalid-argument', 'Aula inválida.');
+  if (texto.length < 80) throw new HttpsError('invalid-argument', 'Conte um pouco mais (pelo menos umas três frases): o que fez, com qual turma e como os alunos reagiram.');
+  if (texto.length > 3000) throw new HttpsError('invalid-argument', 'Relato longo demais: até 3.000 caracteres.');
+  const [us, cs, as] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`cursos/${cursoId}`).get(), db.doc(`cursos/${cursoId}/aulas/${aulaId}`).get()]);
+  const u = us.data() || {}, c = cs.data();
+  if (u.status !== 'ativo') throw new HttpsError('permission-denied', 'Seu acesso ao Portal do Educador não está ativo.');
+  if (!c || c.status !== 'publicado' || !as.exists) throw new HttpsError('failed-precondition', 'Esta aula não está disponível.');
+  if (c.exclusivo && u.perfil !== 'admin' && !(c.redes || []).includes(u.municipio_id)) throw new HttpsError('permission-denied', 'Este curso é exclusivo de outra rede de ensino.');
+  const ref = db.doc(`users/${uid}/praticas/${cursoId}__${aulaId}`), dia = diaBR(), limRef = db.doc(`formacao_ia_uso/prat_${uid}_${dia}`);
+  const antes = (await ref.get()).data() || {};
+  if ((antes.envios || 0) >= 3) throw new HttpsError('resource-exhausted', 'Você já enviou 3 versões desta atividade. A última ficou registrada.');
+  await db.runTransaction(async tx => {
+    const n = ((await tx.get(limRef)).data()?.n || 0);
+    if (n >= 20) throw new HttpsError('resource-exhausted', 'Limite de 20 relatos por dia. Continue amanhã.');
+    tx.set(limRef, { uid, n: n + 1, em: FieldValue.serverTimestamp() }, { merge: true });
+  });
+  const cfgRaw = (await db.doc('config/portal_ia').get()).data() || {}, cfg = { ...PADRAO, ...cfgRaw };
+  const p = pedidoPratica({ curso: c.titulo, aula: as.data().titulo, atividade: atividadeDaAula(as.data().texto), texto });
+  let r = null, fb = null;
+  for (const ordem of [[cfg.modelo_texto, ...RESERVA_TEXTO], [cfg.modelo_rapido, 'gemini-flash-latest']]) {
+    try { r = await pedirJson(GEMINI.value(), ordem, p.sistema, [{ text: p.pedido }], ESQUEMA_PRATICA, 60000); fb = limparPratica(r.json); if (fb) break; }
+    catch (e) { console.warn('formacao-ia: prática', e.message); }
+  }
+  if (r) await registrarConsumo(db, { uid, cfgRaw, eu: {} }, { acao: 'formacao_pratica', conta: 'admin' }, { modelo: r.modelo, entrada: r.entrada, saida: r.saida });
+  // o relato fica salvo mesmo se a IA falhar; o retorno pode ser pedido de novo reenviando
+  await ref.set({ cursoId, aulaId, cursoTitulo: String(c.titulo || '').slice(0, 120), aulaTitulo: String(as.data().titulo || '').slice(0, 120), texto,
+    retorno: fb || null, situacao: fb ? fb.situacao : (antes.situacao || null), envios: (antes.envios || 0) + 1,
+    municipio_id: u.municipio_id || '', escola_id: u.escola_id || '', em: FieldValue.serverTimestamp() }, { merge: true });
+  if (!fb) await limRef.set({ n: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+  return { ok: true, retorno: fb, envios: (antes.envios || 0) + 1, restam: Math.max(0, 2 - (antes.envios || 0)) };
 });

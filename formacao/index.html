@@ -714,6 +714,12 @@ body{background:#f4f7fa}
 .notas-aula summary,.modulos-mobile>summary{font-weight:700;cursor:pointer;color:#0f2c4a;padding:12px 0}
 .modulos-mobile>summary{padding:16px}
 .notas-aula label{display:block;margin:16px 0 8px;font-size:.9rem}
+.pratica-aula{border-left:4px solid var(--verde)}
+.pratica-aula h3{margin:0 0 .3rem;font-size:1.05rem;color:#0f2c4a}
+.pratica-aula textarea{display:block;box-sizing:border-box;width:100%;font:inherit;line-height:1.6;padding:14px;border:1px solid #bbcdd9;border-radius:10px;margin:10px 0;resize:vertical;background:white;color:#172c3f}
+.pratica-retorno{background:#f3f8f4;border:1px solid #cfe3d5;border-radius:12px;padding:12px 14px;margin-top:12px}
+.pratica-retorno ul{margin:.4rem 0 .4rem 1.1rem;padding:0}
+.pratica-selo{display:inline-block;font-size:.74rem;font-weight:800;border-radius:99px;padding:3px 10px;margin-bottom:6px}
 .notas-aula textarea{display:block;box-sizing:border-box;width:100%;font:inherit;line-height:1.6;padding:14px;border:1px solid #bbcdd9;border-radius:10px;margin-bottom:12px;resize:vertical;background:white;color:#172c3f}
 .notas-aula p{font-size:.85rem;color:#466070}
 .conclusao{padding:22px;border-radius:14px}
@@ -1401,6 +1407,11 @@ const DadosFirebase = {
   async salvarAnotacao(chave,texto){
     await fb.fs.setDoc(fb.fs.doc(fb.db,"users",E.usuario.uid,"anotacoes",chave),{texto,atualizadoEm:fb.fs.serverTimestamp()});
   },
+  async lerPratica(cursoId,aulaId){
+    const d=await fb.fs.getDoc(fb.fs.doc(fb.db,"users",E.usuario.uid,"praticas",cursoId+"__"+aulaId));
+    return d.exists()?d.data():null;
+  },
+  enviarPratica(cursoId,aulaId,texto){ return fb.fn.httpsCallable(fb.funcs,"praticaFormacao",{timeout:95000})({cursoId,aulaId,texto}).then(r=>r.data); },
 
   async salvarPerfil(p){
     if (!E.usuario) throw new Error("Entre na sua conta para salvar seus dados.");
@@ -2178,6 +2189,15 @@ T.aula = async (cursoId, aulaId) => {
           <button class="btn btn-secundario" id="salvarAnotacao" type="button" disabled>Salvar anotações</button>
           <p id="estadoAnotacao" role="status" aria-live="polite">Carregando…</p></details>
         </div>
+        ${a.texto ? `<div class="painel pratica-aula" id="praticaAula">
+          <h3>Atividade prática: conte como foi</h3>
+          <p style="margin:0;font-size:.9rem;color:var(--tinta-suave)">Aplicou a atividade desta aula com a sua turma? Conte o que fez, com qual turma e como os alunos reagiram. Você recebe um comentário de formador e o registro conta como evidência de aplicação no relatório da sua rede. <b>Não escreva nomes de alunos.</b></p>
+          <label class="sr-only" for="praticaTexto">Relato da atividade prática</label>
+          <textarea id="praticaTexto" rows="5" maxlength="3000" placeholder="Ex.: Apliquei com o 5º ano B. Comecei com a pergunta... Os alunos... O que funcionou foi... Tive dificuldade em..." disabled></textarea>
+          <button class="btn btn-primario" type="button" data-action="enviar-pratica" disabled>Enviar relato</button>
+          <span id="estadoPratica" role="status" aria-live="polite" style="margin-left:10px;font-size:.88rem;color:var(--tinta-suave)"></span>
+          <div id="retornoPratica"></div>
+        </div>` : ''}
         <p id="estadoProgresso" class="estado-salvo" role="status" aria-live="polite">${MODO_DEMO?'Demonstração: progresso local.':'Conectando ao acompanhamento da aula…'}</p>
         <div class="conclusao ${feita?'feita':''}" id="blocoConclusao"
              data-destino="${destino}" data-seguir="${esc(rotuloSeguir)}">
@@ -2747,6 +2767,7 @@ function comApiYoutube(entao){
 }
 
 function ligarAula(cursoId, aulaId){
+  ligarPratica(cursoId, aulaId);
   if(!MODO_DEMO) return ligarAulaSegura(cursoId,aulaId);
   ligarNotas(cursoId,aulaId);
   const bloco   = $("#blocoConclusao");
@@ -3143,6 +3164,37 @@ function ligarNotas(cursoId,aulaId){
   botao.addEventListener('click',async()=>{botao.disabled=true;dizer('Salvando…');const texto=campo.value;
     try{if(!MODO_DEMO)await Dados.salvarAnotacao(chave,texto);if(campo.value===texto){try{localStorage.removeItem(local);}catch{}dizer(MODO_DEMO?'Demonstração: anotação apenas nesta tela.':'Anotações salvas na sua conta.');}}
     catch{dizer('Não foi possível sincronizar. O rascunho permanece neste navegador; tente salvar novamente.');}finally{botao.disabled=false;}
+  });
+}
+/* ---------- atividade prática: relato do professor + retorno da IA (função praticaFormacao) ---------- */
+const PRAT_SIT = { aplicou:["✅ Aplicou com a turma","#1a6b2a","#e3f2e6"], planejou:["📝 Planejou a atividade","#2671AB","#e7f0f9"], incompleto:["✏️ Relato incompleto","#8a5a00","#fff4e5"] };
+function desenharRetornoPratica(p){
+  const box=$("#retornoPratica"); if(!box) return;
+  const r=p && p.retorno; if(!r){ box.innerHTML = p && p.texto ? '<p class="pratica-retorno">Seu relato está registrado. O comentário do formador não veio agora; envie de novo para receber.</p>' : ""; return; }
+  const s=PRAT_SIT[r.situacao]||PRAT_SIT.incompleto;
+  box.innerHTML='<div class="pratica-retorno"><span class="pratica-selo" style="color:'+s[1]+';background:'+s[2]+'">'+s[0]+'</span>'+
+    (r.pontos_fortes&&r.pontos_fortes.length?'<b>O que funcionou</b><ul>'+r.pontos_fortes.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>':"")+
+    '<b>Para a próxima vez</b><p style="margin:.3rem 0">'+esc(r.sugestao)+'</p>'+
+    (r.pergunta?'<p style="margin:.4rem 0 0;font-style:italic">Para pensar: '+esc(r.pergunta)+'</p>':"")+
+    '<p style="margin:.6rem 0 0;font-size:.78rem;color:var(--tinta-suave)">Comentário escrito por IA a partir do seu relato.'+(p.envios?' Envios: '+p.envios+' de 3.':'')+'</p></div>';
+}
+async function ligarPratica(cursoId, aulaId){
+  const campo=$("#praticaTexto"), botao=document.querySelector('[data-action="enviar-pratica"]'), st=$("#estadoPratica");
+  if(!campo) return;
+  if(MODO_DEMO){ st.textContent="Disponível com a conta do Portal."; return; }
+  if(!E.usuario){ st.textContent="Entre na sua conta para registrar."; return; }
+  try{ const p=await Dados.lerPratica(cursoId,aulaId); if(!campo.isConnected) return; if(p){ campo.value=p.texto||""; desenharRetornoPratica(p); if((p.envios||0)>=3){ campo.disabled=true; botao.disabled=true; st.textContent="Relato registrado (3 de 3 envios)."; return; } } }
+  catch(e){ console.warn("prática:", e && e.message); }
+  campo.disabled=false; botao.disabled=false;
+  botao.addEventListener("click", async ()=>{
+    const texto=campo.value.trim();
+    if(texto.length<80){ st.textContent="Conte um pouco mais: o que fez, com qual turma e como os alunos reagiram."; return; }
+    botao.disabled=true; st.textContent="Enviando e preparando o comentário…";
+    try{ const r=await Dados.enviarPratica(cursoId,aulaId,texto); desenharRetornoPratica({texto,retorno:r.retorno,envios:r.envios});
+      st.textContent = r.retorno ? "Relato registrado." : "Relato registrado; o comentário não veio agora.";
+      if(r.envios>=3){ campo.disabled=true; return; } }
+    catch(e){ st.textContent=(e && e.message) || "Não foi possível enviar agora."; }
+    botao.disabled=false;
   });
 }
 async function ligarAulaSegura(cursoId,aulaId){

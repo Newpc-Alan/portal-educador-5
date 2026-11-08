@@ -465,7 +465,7 @@ export { criarUsuarioManual, contasSemCadastro } from './usuario-manual.js';
 export { indiceBusca, registrarBusca, atualizarIndiceBusca } from './busca.js';
 export { comunicadoEmail, enviarComunicados, descadastroEmail } from './comunicados.js';
 export { formacaoAcompanhamento } from './formacao-uso.js';
-export { gerarCursoIA, revisarCursoIA, relatorioFormacaoIA } from './formacao-ia.js';
+export { gerarCursoIA, revisarCursoIA, relatorioFormacaoIA, praticaFormacao } from './formacao-ia.js';
 export { backupInfo, backupConfigurar, backupAgora, backupSemanal, backupLink } from './backup.js';
 export { avisosFamiliaManha, avisosFamiliaTarde, avisosFamiliaNoite, avisoChegada, comunicadoFamilias } from './avisos.js';
 export { contarReacaoVideo, contarReacaoLivro, contarReacaoNoticia, contarRespostaPesquisa, contarReacaoAtividade } from './videos.js';

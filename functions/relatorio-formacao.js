@@ -18,8 +18,9 @@ export function agregarFormacao(a) {
   const nomeEscola = v => { const x = String(v || '').trim(); return !x || x === '-' || /^[A-Za-z0-9_-]{15,}$/.test(x) ? 'Sem escola identificada' : x; };
   for (const l0 of linhas) {
     const l = { ...l0, escola: nomeEscola(l0.escola) };
-    const e = esc[l.escola] = esc[l.escola] || { escola: l.escola, pessoas: 0, concluiu: 0, em_andamento: 0, parado: 0, nao_comecou: 0, horas: 0, certificados: 0 };
+    const e = esc[l.escola] = esc[l.escola] || { escola: l.escola, pessoas: 0, concluiu: 0, em_andamento: 0, parado: 0, nao_comecou: 0, horas: 0, certificados: 0, praticas: 0, aplicaram_em_sala: 0 };
     e.pessoas++; e[l.situacao] = (e[l.situacao] || 0) + 1; e.horas += l.horas || 0; e.certificados += l.certificados || 0;
+    e.praticas = (e.praticas || 0) + (l._praticas || 0); if (l._aplicou) e.aplicaram_em_sala = (e.aplicaram_em_sala || 0) + 1;
   }
   const escolas = Object.values(esc).map(e => ({ ...e, engajamento_pct: pct(e.pessoas - e.nao_comecou, e.pessoas), conclusao_pct: pct(e.concluiu, e.pessoas) }))
     .sort((x, y) => y.pessoas - x.pessoas).slice(0, 80);
@@ -34,7 +35,8 @@ export function agregarFormacao(a) {
   const competencias = [...new Set(cursos.filter(c => c.concluiram > 0).flatMap(c => c.competencias))].slice(0, 15);
   return {
     escopo: a.escopo, rede: a._munNome || '', parado_dias: a.parado_dias,
-    totais: { ...t, engajamento_pct: pct((t.pessoas || 0) - (t.nao_comecou || 0), t.pessoas), conclusao_pct: pct(t.concluiu, t.pessoas) },
+    totais: { ...t, engajamento_pct: pct((t.pessoas || 0) - (t.nao_comecou || 0), t.pessoas), conclusao_pct: pct(t.concluiu, t.pessoas),
+      praticas_registradas: linhas.reduce((n, l) => n + (l._praticas || 0), 0), professores_que_aplicaram_em_sala: linhas.filter(l => l._aplicou).length },
     escolas, cursos, competencias
   };
 }
@@ -55,6 +57,7 @@ export function pedidoRelatorio(ag) {
   const quem = ag.escopo === 'escola' ? 'a direção da escola' : 'a Secretaria Municipal de Educação';
   const sistema = `Você é analista de formação continuada de professores e escreve para ${quem}, em português do Brasil, com linguagem clara, objetiva e institucional.
 Use APENAS os números fornecidos. Não invente dados, percentuais, metas, leis ou pesquisas. Não cite nomes de pessoas. Pode citar escolas e cursos pelo nome.
+"Práticas registradas" são relatos dos professores sobre a atividade prática das aulas; "aplicaram em sala" conta quem relatou ter feito a atividade com a turma. Isso é evidência de aplicação, destaque quando houver.
 "Parado" significa quem começou um curso e não avança há ${ag.parado_dias || 14} dias. "Engajamento" é a parte da equipe que já começou ao menos um curso.
 Recomendações práticas e de baixo custo para a realidade da rede pública (horário de planejamento, HTPC, coordenação pedagógica, mensagens às escolas). Frases de até 25 palavras. Não use travessão longo (—).`;
   const pedido = `Dados da Formação Continuada (Portal do Educador)${ag.rede ? ' · ' + ag.rede : ''}:
@@ -80,4 +83,52 @@ export function limparRelatorio(j) {
       .filter(r => r.acao).slice(0, 6),
     proximo_passo: String(j.proximo_passo || '').replace(/—/g, ',').trim().slice(0, 300)
   };
+}
+
+/* ---------------- Atividade prática da aula (nov/2026) ----------------
+   O professor conta o que aplicou com a turma; a IA devolve um retorno curto de colega formador.
+   Só texto nesta versão: foto de sala pode ter rosto de aluno (menor de idade), então fica para depois. */
+export const SITUACOES_PRATICA = ['aplicou', 'planejou', 'incompleto'];
+export const ESQUEMA_PRATICA = {
+  type: 'OBJECT',
+  properties: {
+    situacao: { type: 'STRING', enum: SITUACOES_PRATICA },
+    pontos_fortes: { type: 'ARRAY', items: { type: 'STRING' } },
+    sugestao: { type: 'STRING' },
+    pergunta: { type: 'STRING' }
+  },
+  required: ['situacao', 'pontos_fortes', 'sugestao', 'pergunta']
+};
+
+// trecho "Atividade prática" do texto da aula (HTML da Fábrica ou texto livre); sem ele, o fim da aula
+export function atividadeDaAula(html) {
+  const t = String(html || '').replace(/<\/(p|li|h\d)>/gi, '\n').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/[ \t]+/g, ' ');
+  const i = t.search(/atividade pr[aá]tica/i);
+  return (i >= 0 ? t.slice(i) : t.slice(-900)).replace(/\n\s*\n+/g, '\n').trim().slice(0, 1500);
+}
+
+export function pedidoPratica({ curso, aula, atividade, texto }) {
+  const sistema = `Você é formador de professores e comenta, como um colega experiente, o relato de um professor da rede pública sobre a atividade prática de uma aula de formação continuada.
+Português do Brasil, tom acolhedor e direto, sem elogio vazio e sem jargão. Frases de até 25 palavras. Não use travessão longo (—).
+Comente SÓ o que está no relato. Não invente o que o professor não disse. Nunca escreva nomes de alunos, mesmo que apareçam no relato.
+"situacao": "aplicou" se ele relata que fez com a turma; "planejou" se relata só o planejamento ou a preparação; "incompleto" se o relato é vago demais ou fora do tema da atividade.
+"pontos_fortes": 1 ou 2 frases sobre o que funcionou ou foi bem pensado, citando o relato.
+"sugestao": uma sugestão prática e específica para a próxima vez (até 2 frases).
+"pergunta": uma pergunta curta de reflexão sobre a aprendizagem dos alunos.`;
+  const pedido = `Curso: ${String(curso || '').slice(0, 120)}
+Aula: ${String(aula || '').slice(0, 120)}
+Atividade proposta na aula:
+${atividade}
+
+Relato do professor:
+${texto}`;
+  return { sistema, pedido };
+}
+
+export function limparPratica(j) {
+  if (!j || !SITUACOES_PRATICA.includes(j.situacao)) return null;
+  const s = v => String(v || '').replace(/\s*—\s*/g, ', ').replace(/\s+/g, ' ').trim();
+  const r = { situacao: j.situacao, pontos_fortes: (Array.isArray(j.pontos_fortes) ? j.pontos_fortes : []).map(x => s(x).slice(0, 300)).filter(Boolean).slice(0, 2),
+    sugestao: s(j.sugestao).slice(0, 400), pergunta: s(j.pergunta).slice(0, 240) };
+  return r.sugestao ? r : null;
 }
