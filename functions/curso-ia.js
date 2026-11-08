@@ -87,9 +87,24 @@ Para cada aula, monte "blocos" nesta lógica:
 - 2 a 4 subtítulos, cada um seguido de parágrafos, lista ou passos (tipo "passos" para procedimentos numerados);
 - 1 bloco "dica" com um cuidado prático ou erro comum a evitar;
 - 1 bloco "atividade" no final: uma atividade prática que o professor aplica ou prepara para a própria turma, com o que entregar ou registrar.
-Tamanho: proporcional à duração (cerca de 18 palavras por minuto de aula, no máximo 1100 palavras por aula). Use **negrito** só para termos-chave.
-Em "lista" e "passos" preencha "itens" (frases completas) e deixe "texto" como uma frase de introdução opcional.`;
+Tamanho: o professor lê e depois faz a atividade prática, então o texto ocupa cerca de metade do tempo da aula: escreva cerca de 22 palavras por minuto de duração, com no mínimo 500 e no máximo 1400 palavras por aula. Aprofunde com exemplos de sala de aula, não com repetição. Use **negrito** só para termos-chave.
+Em "lista" e "passos" preencha "itens" (frases completas) e deixe "texto" como uma frase de introdução opcional.
+Instruções ao professor (passos, atividade, dica) sempre no imperativo, falando com ele: "Defina", "Apresente", "Peça", nunca "Define" ou "O professor define".`;
   return { sistema, pedido };
+}
+
+// segunda passada: revisão de língua e coerência, sem cortar conteúdo
+export function pedidoRevisao(aulas) {
+  const sistema = `Você é revisor de textos didáticos em português do Brasil. Corrija ortografia, concordância, palavras sem sentido ou fora de contexto (troque pela palavra certa ou reescreva a frase), frases truncadas e incoerências. Passe instruções ao professor para o imperativo ("Defina", "Apresente"). Não resuma, não corte trechos, não acrescente informação nova, não mude títulos nem a ordem e a quantidade de aulas e blocos. Não use travessão longo (—).`;
+  const pedido = 'Revise estas aulas e devolva no mesmo formato JSON:\n' + JSON.stringify({ aulas });
+  return { sistema, pedido };
+}
+const contaPalavras = aulas => (aulas || []).reduce((s, a) => s + (a?.blocos || []).reduce((t, b) => t + String(b?.texto || '').split(/\s+/).filter(Boolean).length + (b?.itens || []).join(' ').split(/\s+/).filter(Boolean).length, 0), 0);
+// aceita a revisão só se manteve as aulas e quase todo o texto (o revisor não pode encurtar o curso)
+export function aceitarRevisao(original, revisada) {
+  if (!Array.isArray(revisada) || revisada.length !== original.length) return false;
+  if (revisada.some((a, i) => !Array.isArray(a?.blocos) || a.blocos.length < original[i].blocos.length * 0.8)) return false;
+  return contaPalavras(revisada) >= contaPalavras(original) * 0.9;
 }
 
 // ---------- conferência do que a IA devolveu ----------
