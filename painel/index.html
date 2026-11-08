@@ -469,6 +469,8 @@ async function relatorioFormacao(b){
       d.escolas.map(e => "<tr><td><b>" + esc(e.escola) + '</b></td><td class="n">' + n(e.pessoas) + '</td><td class="n">' + e.engajamento_pct + '%</td><td class="n">' + n(e.concluiu) + '</td><td class="n">' + n(e.parado) + '</td><td class="n">' + n(e.nao_comecou) + '</td><td class="n">' + n(e.horas) + "</td></tr>").join("") + "</tbody></table></div>" +
     (d.cursos.length ? '<div class="h2" style="font-size:.95rem;margin-top:10px">Cursos</div><div class="tabela-wrap"><table class="tab"><thead><tr><th>Curso</th><th>Carga</th><th>Iniciaram</th><th>Concluíram</th></tr></thead><tbody>' +
       d.cursos.map(c => "<tr><td>" + esc(c.titulo) + '</td><td class="n">' + n(c.horas) + ' h</td><td class="n">' + n(c.iniciaram) + '</td><td class="n">' + n(c.concluiram) + " (" + c.conclusao_pct + "%)</td></tr>").join("") + "</tbody></table></div>" : "") +
+    ((d.abandono || []).length ? '<div class="h2" style="font-size:.95rem;margin-top:10px">Onde os professores pararam</div><p class="sub">Aula em que está quem não avança há ' + d.parado_dias + ' dias. Muita gente parada na mesma aula indica que ela precisa de revisão.</p><div class="tabela-wrap"><table class="tab"><thead><tr><th>Curso</th><th>Aula</th><th>Pararam</th></tr></thead><tbody>' +
+      d.abandono.map(x => "<tr><td>" + esc(x.curso) + "</td><td>" + esc(x.aula) + '</td><td class="n">' + n(x.pararam) + "</td></tr>").join("") + "</tbody></table></div>" : "") +
     (d.competencias.length ? '<div class="h2" style="font-size:.95rem;margin-top:10px">Competências trabalhadas (BNC-Formação)</div><ul>' + li(d.competencias) + "</ul>" : "") +
     '<div class="acs"><button type="button" data-action="fm-rel-pdf">📄 Baixar PDF</button><button type="button" class="pri" data-action="fm-fechar">Fechar</button></div></div>';
   document.body.appendChild(m);
@@ -511,6 +513,7 @@ async function pdfRelatorioFormacao(){
   d.escolas.forEach(e => { if(y > 280){ pdf.addPage(); cab(); y = 40; cabTab(); }
     pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(15, 44, 74); pdf.text(pdf.splitTextToSize(e.escola, 88)[0], 15, y);
     [n(e.pessoas), e.engajamento_pct + "%", n(e.concluiu), n(e.parado), n(e.nao_comecou), n(e.horas)].forEach((v, i) => pdf.text(String(v), cols[i + 1][1] + 1, y)); y += 5; });
+  if((d.abandono || []).length){ y += 3; titulo("Onde os professores pararam"); itens(d.abandono.map(x => x.curso + " · " + x.aula + ": " + x.pararam + " pessoa(s)")); }
   if(d.competencias.length){ y += 3; titulo("Competências trabalhadas (BNC-Formação)"); itens(d.competencias); }
   novaSePreciso(10); y += 2; pdf.setFont("helvetica", "italic"); pdf.setFontSize(7.5); pdf.setTextColor(107, 124, 144);
   pdf.text(pdf.splitTextToSize("Números do Portal do Educador. Leitura e recomendações escritas por IA a partir desses números; nenhum nome de professor é enviado à IA. Confira antes de divulgar.", 182), 14, y);

@@ -16,6 +16,7 @@ await env.withSecurityRulesDisabled(async (c) => {
   await setDoc(doc(db, 'cursos/exc/aulas/a1'), { titulo: 'Aula', moduloId: 'm1' });
   await setDoc(doc(db, 'usuarios/profA'), { perfil: 'professor', status: 'ativo', municipio_id: 'munA' });
   await setDoc(doc(db, 'usuarios/profB'), { perfil: 'professor', status: 'ativo', municipio_id: 'munB' });
+  await setDoc(doc(db, 'users/profA'), { nome: 'Prof A', email: 'a@x.com' });
   await setDoc(doc(db, 'users/profA/praticas/pub__a1'), { texto: 'Apliquei com a turma', situacao: 'aplicou' });
 });
 let ok = 0, falha = 0;
@@ -48,6 +49,8 @@ await t('editor cria curso com exclusivo=false', assertSucceeds(setDoc(doc(edito
 await t('professor lê o próprio relato de prática', assertSucceeds(getDoc(doc(profA, 'users/profA/praticas/pub__a1'))));
 await t('outro professor não lê o relato', assertFails(getDoc(doc(profB, 'users/profA/praticas/pub__a1'))));
 await t('professor não grava relato pelo navegador (só a função)', assertFails(setDoc(doc(profA, 'users/profA/praticas/pub__a2'), { texto: 'x', situacao: 'aplicou' })));
+await t('professor desliga os lembretes por e-mail', assertSucceeds(updateDoc(doc(profA, 'users/profA'), { lembretes: false })));
+await t('lembretes só aceita sim ou não', assertFails(updateDoc(doc(profA, 'users/profA'), { lembretes: 'talvez' })));
 
 console.log((falha ? '::error::' : '::notice::') + 'CURSOS IA: ' + ok + ' ok, ' + falha + ' falha(s)');
 await env.cleanup();

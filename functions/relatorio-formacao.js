@@ -32,12 +32,18 @@ export function agregarFormacao(a) {
   const cursos = Object.entries(cur).map(([id, c]) => ({ titulo: String((cursosDoc[id] && cursosDoc[id].titulo) || 'Curso').slice(0, 90), horas: Number((cursosDoc[id] && cursosDoc[id].horas) || 0),
     iniciaram: c.iniciaram, concluiram: c.concluiram, conclusao_pct: pct(c.concluiram, c.iniciaram), competencias: competenciasDoCurso(cursosDoc[id]) }))
     .sort((x, y) => y.iniciaram - x.iniciaram).slice(0, 30);
+  // onde as pessoas pararam: curso + aula da última atividade de quem está parado (os títulos das aulas entram depois, na função)
+  const ab = {};
+  for (const l of linhas) for (const [c, a] of (l._paradosEm || [])) { const k = c + '|' + (a || ''); ab[k] = (ab[k] || 0) + 1; }
+  const abandono = Object.entries(ab).map(([k, n]) => { const [cursoId, aulaId] = k.split('|');
+    return { cursoId, aulaId, curso: String((cursosDoc[cursoId] && cursosDoc[cursoId].titulo) || 'Curso').slice(0, 90), aula: '', pararam: n }; })
+    .sort((x, y) => y.pararam - x.pararam).slice(0, 8);
   const competencias = [...new Set(cursos.filter(c => c.concluiram > 0).flatMap(c => c.competencias))].slice(0, 15);
   return {
     escopo: a.escopo, rede: a._munNome || '', parado_dias: a.parado_dias,
     totais: { ...t, engajamento_pct: pct((t.pessoas || 0) - (t.nao_comecou || 0), t.pessoas), conclusao_pct: pct(t.concluiu, t.pessoas),
       praticas_registradas: linhas.reduce((n, l) => n + (l._praticas || 0), 0), professores_que_aplicaram_em_sala: linhas.filter(l => l._aplicou).length },
-    escolas, cursos, competencias
+    escolas, cursos, competencias, abandono
   };
 }
 
@@ -58,10 +64,11 @@ export function pedidoRelatorio(ag) {
   const sistema = `Você é analista de formação continuada de professores e escreve para ${quem}, em português do Brasil, com linguagem clara, objetiva e institucional.
 Use APENAS os números fornecidos. Não invente dados, percentuais, metas, leis ou pesquisas. Não cite nomes de pessoas. Pode citar escolas e cursos pelo nome.
 "Práticas registradas" são relatos dos professores sobre a atividade prática das aulas; "aplicaram em sala" conta quem relatou ter feito a atividade com a turma. Isso é evidência de aplicação, destaque quando houver.
+"onde_pararam" mostra em qual aula está quem parou; se várias pessoas param na mesma aula, aponte a aula para revisão.
 "Parado" significa quem começou um curso e não avança há ${ag.parado_dias || 14} dias. "Engajamento" é a parte da equipe que já começou ao menos um curso.
 Recomendações práticas e de baixo custo para a realidade da rede pública (horário de planejamento, HTPC, coordenação pedagógica, mensagens às escolas). Frases de até 25 palavras. Não use travessão longo (—).`;
   const pedido = `Dados da Formação Continuada (Portal do Educador)${ag.rede ? ' · ' + ag.rede : ''}:
-${JSON.stringify({ totais: ag.totais, escolas: ag.escolas, cursos: ag.cursos.map(({ competencias, ...c }) => c), competencias_dos_cursos_concluidos: ag.competencias })}
+${JSON.stringify({ totais: ag.totais, escolas: ag.escolas, cursos: ag.cursos.map(({ competencias, ...c }) => c), competencias_dos_cursos_concluidos: ag.competencias, onde_pararam: (ag.abandono || []).map(({ cursoId, aulaId, ...x }) => x) })}
 
 Escreva:
 - "resumo": 3 ou 4 frases com a situação geral e os números principais.

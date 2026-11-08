@@ -16,7 +16,7 @@ export async function situacoesFormacao(db, uids) {
     const x = out[uid] = out[uid] || { iniciados: 0, concluidos: 0, andamento: [], concl: [], ultimo: 0 };
     const p = d.data(), ult = Math.max(msISO(p.ultimoAcessoISO), msTs(p.atualizadoEm));
     x.iniciados++; x.ultimo = Math.max(x.ultimo, ult);
-    if (p.concluido === true) { x.concluidos++; x.concl.push(d.id); } else x.andamento.push({ c: d.id, pct: Number(p.percentual || 0), ult });
+    if (p.concluido === true) { x.concluidos++; x.concl.push(d.id); } else x.andamento.push({ c: d.id, pct: Number(p.percentual || 0), ult, aula: String(p.ultimaAula || '') });
   };
   if (uids === null) (await db.collectionGroup('progresso').get()).forEach(d => { const u = d.ref.parent.parent; if (u && u.parent.id === 'users') marcar(u.id, d); });
   else for (let i = 0; i < uids.length; i += 20) await Promise.all(uids.slice(i, i + 20).map(async uid => (await db.collection(`users/${uid}/progresso`).get()).forEach(d => marcar(uid, d))));
@@ -64,7 +64,7 @@ export async function montarAcompanhamento(db, uid, dados, comCursos = false) {
       escola: escNome[x.escola_id] || (o.f && o.f.escola) || '-', municipio: munNome[x.municipio_id] || (o.f && o.f.municipio) || '-',
       situacao, iniciados: s ? s.iniciados : 0, concluidos: s ? s.concluidos : 0, certificados: c.n, horas: c.horas, ultimo: s && s.ultimo ? s.ultimo : 0,
       andamento: s ? s.andamento.sort((a, b) => b.ult - a.ult).slice(0, 3).map(a => ({ titulo: cursos[a.c] || 'Curso', pct: a.pct })) : [],
-      ...(comCursos ? { _andamentoIds: s ? s.andamento.map(a => a.c) : [], _concluidosIds: s ? s.concl : [], _praticas: prat[uid] ? prat[uid].n : 0, _aplicou: !!(prat[uid] && prat[uid].aplicou) } : {}) };
+      ...(comCursos ? { _andamentoIds: s ? s.andamento.map(a => a.c) : [], _concluidosIds: s ? s.concl : [], _praticas: prat[uid] ? prat[uid].n : 0, _paradosEm: s ? s.andamento.filter(a => Date.now() - a.ult > PARADO_DIAS * 864e5).map(a => [a.c, a.aula]) : [], _aplicou: !!(prat[uid] && prat[uid].aplicou) } : {}) };
   }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).slice(0, 3000);
   const cont = k => linhas.filter(l => l.situacao === k).length;
   return { ...(comCursos ? { _cursos: cursosDoc, _munNome: mun ? munNome[mun] || '' : '' } : {}), gerado_em: Date.now(), escopo: eu.perfil === 'gestor' ? 'escola' : mun ? 'municipio' : 'todas', parado_dias: PARADO_DIAS,

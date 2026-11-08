@@ -154,6 +154,10 @@ export const relatorioFormacaoIA = onCall({ region: 'southamerica-east1', secret
   const db = getFirestore(), uid = req.auth.uid;
   const a = await montarAcompanhamento(db, uid, req.data || {}, true);
   const ag = agregarFormacao(a);
+  // título da aula onde pararam (só das aulas que aparecem na lista)
+  await Promise.all((ag.abandono || []).map(async x => { if (!x.aulaId) { x.aula = '(abriu o curso, não entrou em aula)'; return; }
+    const s = await db.doc(`cursos/${x.cursoId}/aulas/${x.aulaId}`).get(); x.aula = s.exists ? String(s.data().titulo || x.aulaId).slice(0, 100) : 'aula removida'; }));
+  (ag.abandono || []).forEach(x => { delete x.cursoId; delete x.aulaId; });
   const limRef = db.doc(`formacao_ia_uso/rel_${uid}_${diaBR()}`);
   await db.runTransaction(async tx => {
     const n = ((await tx.get(limRef)).data()?.n || 0);
