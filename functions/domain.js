@@ -43,11 +43,14 @@ export function pendenciasPublicacao(c, modulos, aulas, questoes, gabarito) {
   const texto = v => String(v || '').replace(/<[^>]*>/g,'').trim();
   if (!texto(c.titulo) || !texto(c.resumo)) erros.push('Preencha título e resumo.');
   if (!(Number(c.horas)>0)) erros.push('Defina a carga horária.');
+  // curso gerado pela Fábrica de cursos com IA: alguém da equipe precisa ler e confirmar a revisão antes de chegar ao professor
+  if (c.ia && c.ia.gerado && c.ia.revisado !== true) erros.push('Curso gerado por IA: confirme a revisão pedagógica (botão "Revisei este curso") antes de publicar.');
   if (!modulos.length || !aulas.length) erros.push('Cadastre pelo menos um módulo e uma aula.');
   for (const a of aulas) {
     if (!modulos.some(m=>m.id===a.moduloId)) erros.push(`Aula ${a.titulo || a.id}: módulo inexistente.`);
     if (!texto(a.titulo) || (!a.videos?.length && !texto(a.texto))) erros.push(`Aula ${a.id}: título ou conteúdo ausente.`);
     if (!(Number(a.duracaoMin)>0)) erros.push(`Aula ${a.titulo || a.id}: informe a duração em minutos.`);
+    if (/\[Conteúdo a completar/.test(String(a.texto || ''))) erros.push(`Aula ${a.titulo || a.id}: complete o conteúdo marcado como "a completar".`);
     if ((a.videos || []).some(v=>!/^[-\w]{11}$/.test(v.youtubeId || ''))) erros.push(`Aula ${a.titulo || a.id}: vídeo inválido.`);
   }
   // A carga horária vai impressa no certificado e é o número que a prefeitura

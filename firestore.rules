@@ -1476,10 +1476,10 @@ service cloud.firestore {
     match /cursos/{cid} {
       allow read: if resource.data.status == 'publicado' || fEditor();
       allow create: if fEditor() && request.resource.data.status == 'rascunho'
-        && !('historicoPublicado' in request.resource.data) && !('publicadoEm' in request.resource.data);
-      // Publicação e congelamento apenas via publicarCurso (função no servidor).
+        && !('historicoPublicado' in request.resource.data) && !('publicadoEm' in request.resource.data) && !('ia' in request.resource.data);
+      // Publicação e congelamento apenas via publicarCurso (função no servidor). O campo ia (curso gerado por IA e sua revisão) só a função grava.
       allow update: if fEditor() && fEditavel(resource.data)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'historicoPublicado', 'publicadoEm']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'historicoPublicado', 'publicadoEm', 'ia']);
       allow delete: if false;
       match /modulos/{id} { allow read: if fPublicado(cid) || fEditor(); allow write: if fEditarConteudo(cid); }
       match /aulas/{id} { allow read: if fPublicado(cid) || fEditor(); allow write: if fEditarConteudo(cid); }

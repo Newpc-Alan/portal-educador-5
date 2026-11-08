@@ -826,6 +826,8 @@ const ApiDemo = {
   async salvarCurso(id, dados){ DEMO.cursos[id] = { ...(DEMO.cursos[id]||{ modulos:{}, aulas:{}, questoes:{}, gabarito:{} }), ...dados }; },
   async excluirCurso(id){ delete DEMO.cursos[id]; },
   async publicarCurso(id,status){ DEMO.cursos[id].status=status; },
+  async gerarCursoIA(){ throw new Error("No modo demonstração a IA não gera cursos. Entre com a conta da equipe."); },
+  async revisarCursoIA(id){ DEMO.cursos[id].ia = { ...(DEMO.cursos[id].ia||{}), revisado:true, revisado_nome:"Modo demonstração" }; },
   async duplicarCurso(id){const novo=id+"-v"+Date.now();DEMO.cursos[novo]={...clonar(DEMO.cursos[id]),status:"rascunho",publicadoEm:undefined,historicoPublicado:false};return {id:novo};},
   async salvarModulo(cid, mid, d){ DEMO.cursos[cid].modulos[mid] = d; },
   async excluirModulo(cid, mid){
@@ -927,6 +929,9 @@ const ApiFirebase = {
   async excluirCurso(id){ return this.chamar("excluirCurso",{cursoId:id}); },
   async publicarCurso(id,status){ return this.chamar("publicarCurso",{cursoId:id,status}); },
   async duplicarCurso(id){ return this.chamar("duplicarCurso",{cursoId:id}); },
+  // a geração leva de 1 a 4 minutos: o padrão do SDK (70 s) cortaria antes
+  async gerarCursoIA(d){ return fb.fn.httpsCallable(fb.funcs, "gerarCursoIA", { timeout:540000 })(d).then(r=>r.data); },
+  async revisarCursoIA(id){ return this.chamar("revisarCursoIA",{cursoId:id}); },
   async salvarModulo(cid, mid, d){ const {doc,setDoc}=fb.fs; await setDoc(doc(fb.db,"cursos",cid,"modulos",mid), d, {merge:true}); },
   async excluirModulo(cid, mid){
     const { doc, deleteDoc, collection, getDocs, query, where } = fb.fs;
@@ -1050,10 +1055,12 @@ T.cursos = async () => {
         <option value="arquivados" ${filtroCursos==="arquivados"?"selected":""}>Arquivados</option>
         <option value="todos" ${filtroCursos==="todos"?"selected":""}>Todos</option>
       </select>
+      <button class="btn b-neutro" id="abrirFabrica" ${podeEditar()?"":"disabled"}>\u2728 Gerar com IA</button>
       <button class="btn b-primario" id="novoCurso" ${podeEditar()?"":"disabled"}>+ Novo curso</button>
     </div>
   </div>
   <div id="msg"></div>
+  ${podeEditar() ? painelFabrica() : ""}
   <div class="cartao" style="padding:0;overflow:hidden">
     ${visiveis.length ? `<table>
       <thead><tr><th>Curso</th><th>Nível</th><th>Carga</th><th>Aulas</th><th>Avaliação</th><th>Situação</th></tr></thead>
@@ -1064,12 +1071,89 @@ T.cursos = async () => {
 
 /* ---------- ABAS DO CURSO ---------- */
 const abasCurso = (id, ativa) => `
+  ${cursoAberto && cursoAberto.id===id ? avisoIA(cursoAberto) : ""}
   <div class="abas">
     ${[["dados","Dados do curso"],["conteudo","Conteúdo"],["avaliacao","Avaliação"],["publicar","Publicação"]]
       .map(([k,r])=>`<a href="#/curso/${id}/${k}" ${k===ativa?'aria-current="page"':''}>${r}</a>`).join("")}
   </div>`;
 
 let cursoAberto = null;
+
+/* ---------- FÁBRICA DE CURSOS COM IA ---------- */
+function painelFabrica(){
+  return `<div class="cartao" id="fabrica" hidden style="margin-bottom:18px">
+    <h2 style="margin-top:0">\u2728 Fábrica de cursos com IA</h2>
+    <p style="color:var(--suave);margin-top:0">A IA monta módulos, aulas com texto e atividade prática, e um banco de questões com gabarito. O curso nasce como <b>rascunho</b> e só pode ser publicado depois que alguém da equipe ler e confirmar a revisão.</p>
+    <div class="grade2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px">
+      <div><label class="rot" for="fiTema">Tema do curso</label><input class="campo" id="fiTema" maxlength="300" placeholder="Ex.: Lousa digital na prática: da aula expositiva à participação dos alunos"></div>
+      <div><label class="rot" for="fiPublico">Público</label><input class="campo" id="fiPublico" maxlength="300" placeholder="Ex.: professores dos anos iniciais do ensino fundamental"></div>
+      <div><label class="rot" for="fiHoras">Carga horária (horas)</label><input class="campo" id="fiHoras" type="number" min="1" max="40" value="8"></div>
+      <div><label class="rot" for="fiNivel">Nível</label><select class="campo" id="fiNivel"><option value="iniciante">Iniciante</option><option value="intermediario">Intermediário</option><option value="avancado">Avançado</option></select></div>
+    </div>
+    <label class="rot" for="fiFoco" style="margin-top:12px">Orientações para a IA (opcional)</label>
+    <textarea class="campo" id="fiFoco" rows="3" maxlength="3000" placeholder="Ex.: usar exemplos com Chromebook e lousa da rede; incluir uma aula sobre avaliação; evitar aplicativos pagos"></textarea>
+    <label class="rot" for="fiMaterial" style="margin-top:12px">Material base (opcional): cole o texto da apostila, slides ou roteiro do treinamento presencial</label>
+    <textarea class="campo" id="fiMaterial" rows="5" maxlength="60000" placeholder="Com material base, a IA segue o seu conteúdo em vez de criar do zero."></textarea>
+    <label class="rot" for="fiPdf" style="margin-top:12px">ou envie um PDF (até 7 MB)</label>
+    <input id="fiPdf" type="file" accept="application/pdf">
+    <div class="l-auto" style="margin-top:16px;gap:10px">
+      <button class="btn b-primario" id="fiGerar">Gerar curso</button>
+      <button class="btn b-neutro" id="fiFechar">Cancelar</button>
+      <span id="fiStatus" style="color:var(--suave);font-size:.9rem"></span>
+    </div>
+  </div>`;
+}
+
+function avisoIA(c){
+  if (!c.ia || !c.ia.gerado) return "";
+  const pend = Array.isArray(c.ia.pendencias) ? c.ia.pendencias : [];
+  if (c.ia.revisado) return `<div class="cartao" style="margin-bottom:14px;padding:10px 14px;font-size:.9rem;color:var(--suave)">\u2728 Gerado com IA · revisão pedagógica confirmada por ${esc(c.ia.revisado_nome||"equipe")}.</div>`;
+  return `<div class="cartao" style="margin-bottom:14px;border-left:4px solid #d9a400">
+    <p style="margin:0 0 6px"><b>\u2728 Curso gerado com IA, aguardando revisão.</b> Leia todas as aulas e questões, corrija o que for preciso e acrescente vídeos e materiais da rede. A publicação fica bloqueada até alguém da equipe confirmar.</p>
+    ${pend.length ? `<ul style="margin:6px 0">${pend.map(p=>`<li>${esc(p)}</li>`).join("")}</ul>` : ""}
+    <p style="margin:6px 0 0;font-size:.86rem;color:var(--suave)">Confira em especial: informações sobre leis e números (a IA foi instruída a não inventar, mas a conferência é sua), o gabarito de cada questão e se as atividades cabem na realidade das escolas.</p>
+    ${podeEditar() ? `<button class="btn b-primario" data-action="revisar-ia" data-curso="${esc(c.id)}" style="margin-top:10px">Revisei este curso</button>` : ""}
+  </div>`;
+}
+
+const lerPdfBase64 = f => new Promise((ok, erro) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1] || ""); r.onerror = () => erro(new Error("Não foi possível ler o PDF.")); r.readAsDataURL(f); });
+
+function ligarFabrica(){
+  const painel = $("#fabrica"); if (!painel) return;
+  $("#abrirFabrica")?.addEventListener("click", ()=>{ painel.hidden = !painel.hidden; if (!painel.hidden) $("#fiTema").focus(); });
+  $("#fiFechar")?.addEventListener("click", ()=>{ painel.hidden = true; });
+  $("#fiGerar")?.addEventListener("click", async e=>{
+    const b = e.currentTarget, st = $("#fiStatus");
+    const tema = $("#fiTema").value.trim(), horas = Number($("#fiHoras").value);
+    if (tema.length < 5) return avisar("Descreva o tema do curso.","erro");
+    if (!(horas >= 1 && horas <= 40)) return avisar("Carga horária de 1 a 40 horas.","erro");
+    const arq = $("#fiPdf").files[0];
+    if (arq && arq.size > 7*1024*1024) return avisar("O PDF passa de 7 MB. Envie um arquivo menor ou cole o texto.","erro");
+    b.disabled = true; b.innerHTML = '<span class="girando"></span> Gerando…';
+    const inicio = Date.now(), relogio = setInterval(()=>{ const s = Math.round((Date.now()-inicio)/1000);
+      st.textContent = s < 60 ? `Montando o plano do curso… ${s}s` : `Escrevendo as aulas… ${Math.floor(s/60)}min ${s%60}s (leva de 1 a 4 minutos, pode continuar nesta tela)`; }, 1000);
+    try {
+      const r = await Api.gerarCursoIA({ tema, horas, publico:$("#fiPublico").value.trim(), nivel:$("#fiNivel").value,
+        foco:$("#fiFoco").value.trim(), material:$("#fiMaterial").value.trim(), pdf: arq ? await lerPdfBase64(arq) : "" });
+      clearInterval(relogio);
+      S.cursos = await Api.listarCursos(); cursoAberto = null;
+      avisar(`Curso gerado: ${r.modulos} módulos, ${r.aulas} aulas e ${r.questoes} questões. Revise antes de publicar.`,"ok");
+      location.hash = `#/curso/${r.cursoId}/conteudo`;
+    } catch(err){
+      clearInterval(relogio); st.textContent = "";
+      avisar(err.message || "Não foi possível gerar o curso.","erro");
+    } finally { b.disabled = false; b.textContent = "Gerar curso"; }
+  });
+}
+
+// ação do aviso de IA (delegação: o aviso aparece em várias abas do curso)
+document.addEventListener("click", async e=>{
+  const b = e.target.closest('[data-action="revisar-ia"]'); if (!b) return;
+  if (!confirm("Confirma que leu todas as aulas e questões deste curso e que o conteúdo está correto para os professores da rede?")) return;
+  b.disabled = true;
+  try { await Api.revisarCursoIA(b.dataset.curso); cursoAberto = null; await renderizar(); avisar("Revisão registrada. O curso já pode seguir para publicação.","ok"); }
+  catch(err){ b.disabled = false; avisar(err.message || "Não foi possível registrar a revisão.","erro"); }
+});
 
 async function carregarCurso(id){
   if (!cursoAberto || cursoAberto.id !== id) cursoAberto = await Api.lerCurso(id);
@@ -1633,6 +1717,7 @@ async function renderizar(){
 function ligarListaCursos(){
   $$("[data-ir]").forEach(tr => tr.addEventListener("click", ()=> location.hash = tr.dataset.ir));
   $("#filtroSituacao")?.addEventListener("change", async e=>{ filtroCursos = e.target.value; await renderizar(); });
+  ligarFabrica();
   $("#novoCurso")?.addEventListener("click", async ()=>{
     const titulo = prompt("Título do novo curso:");
     if (!titulo) return;
