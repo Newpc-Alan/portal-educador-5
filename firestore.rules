@@ -143,6 +143,44 @@ service cloud.firestore {
     }
     // Aula ao vivo dentro do Portal (nov/2026), sem depender do Maestro: o professor comanda (pausa, abrir conteúdo para todos ou para um aluno,
     // pesquisa rápida), o aluno responde (mão levantada, pesquisa) e os dois conversam (bate-papo individual).
+    // ---------- Financeiro (nov/2026): só e-mails autorizados; dono alan@newpc.com.br, que cuida da lista ----------
+    function finEmail() { return request.auth != null && request.auth.token.email_verified == true ? request.auth.token.email.lower() : ""; }
+    function finDono() { return finEmail() == "alan@newpc.com.br"; }
+    function finMembro() {
+      return finDono() || (finEmail() != "" && exists(/databases/$(database)/documents/fin_acesso/lista)
+        && finEmail() in get(/databases/$(database)/documents/fin_acesso/lista).data.emails);
+    }
+    match /fin_acesso/{id} {
+      allow read: if finMembro();
+      allow write: if finDono() && id == "lista" && request.resource.data.keys().hasOnly(["emails", "atualizado_por", "atualizado_em"])
+        && request.resource.data.emails is list && request.resource.data.emails.size() <= 30
+        && request.resource.data.atualizado_por == finEmail() && request.resource.data.atualizado_em == request.time;
+    }
+    // pagamentos e repasses: gravados pela função do Asaas; o financeiro só marca conciliação e nota emitida
+    match /fin_pagamentos/{id} { allow read: if finMembro(); allow write: if false; }
+    match /fin_repasses/{id} {
+      allow read: if finMembro();
+      allow update: if finMembro() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "conciliado_por", "conciliado_em"])
+        && request.resource.data.status == "conciliado" && request.resource.data.conciliado_por == finEmail() && request.resource.data.conciliado_em == request.time;
+      allow create, delete: if false;
+    }
+    match /fin_notas/{id} {
+      allow read: if finMembro();
+      allow update: if finMembro() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "numero", "emitida_por", "emitida_em"])
+        && request.resource.data.status == "emitida" && request.resource.data.numero is string && request.resource.data.numero.size() > 0 && request.resource.data.numero.size() <= 30
+        && request.resource.data.emitida_por == finEmail() && request.resource.data.emitida_em == request.time;
+      allow create, delete: if false;
+    }
+    // trilha de auditoria: só cria, nunca altera nem apaga
+    match /fin_auditoria/{id} {
+      allow read: if finMembro();
+      allow create: if finMembro() && request.resource.data.keys().hasOnly(["acao", "detalhe", "autor", "em"])
+        && request.resource.data.autor == finEmail() && request.resource.data.em == request.time
+        && request.resource.data.acao is string && request.resource.data.acao.size() <= 30
+        && request.resource.data.detalhe is string && request.resource.data.detalhe.size() <= 400;
+      allow update, delete: if false;
+    }
+
     // termômetro da turma (nov/2026): registro agregado de cada leitura da IA (contagens e rótulos, sem texto de aluno); só o servidor grava, o Painel lê pela função
     match /termometro_registros/{id} {
       allow read: if admin();

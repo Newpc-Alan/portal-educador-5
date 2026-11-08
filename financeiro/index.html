@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<script src="/assets/js/ambiente.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Financeiro · Portal do Educador</title>
+<meta name="theme-color" content="#0f2c4a">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Financeiro do Portal (nov/2026): acesso só por e-mail autorizado (fin_acesso/lista), dono alan@newpc.com.br.
+   Nesta fase a cobrança automática ainda não está ligada: a tela já mostra a estrutura e lê fin_pagamentos, fin_repasses e fin_notas
+   quando a função do Asaas começar a gravar. Toda ação fica em fin_auditoria (só cria, nunca apaga). */
+:root{ --azul:#0f2c4a; --azul2:#123a5e; --verde:#1a6b2a; --lima:#8DC63F; --bg:#EEF2F6; --ink:#0f2c4a; --muted:#4A5568; --line:#E3E9EF; --laranja:#9a3412; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font-family:'Nunito Sans','Segoe UI',system-ui,sans-serif;color:var(--ink);font-size:15px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+h1,h2{font-family:'Rubik','Segoe UI',sans-serif}
+.topo{background:var(--azul);color:#F4F7F2;padding:16px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.marca{display:flex;align-items:center;gap:12px}
+.marca img{width:44px;height:44px}
+.marca small{display:block;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--lima)}
+.marca b{display:block;font-family:'Rubik',sans-serif;font-size:24px}
+.quem{font-size:14px;color:#CFDCE8}
+.tb{border:1px solid #3c5a78;background:var(--azul2);color:#F4F7F2;border-radius:10px;padding:8px 14px;font-weight:700;text-decoration:none;min-height:40px;display:inline-flex;align-items:center}
+.tb.lima{background:var(--lima);color:var(--azul);border-color:var(--lima)}
+.app{max-width:1360px;margin:0 auto;padding:20px 24px 48px;display:flex;flex-direction:column;gap:18px}
+.abas{display:flex;flex-wrap:wrap;gap:8px}
+.aba{border:1px solid #CFDBE7;background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;min-height:44px}
+.aba[aria-pressed="true"]{background:var(--azul);color:#F4F7F2;border-color:var(--azul)}
+.aviso{background:#FFF8DB;border:1px solid #F0D98A;border-radius:12px;padding:12px 16px;font-size:14px}
+.card{background:#fff;border-radius:16px;padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 1px 2px rgba(15,44,74,.08)}
+.card h2{font-size:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.kpi{background:#fff;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 2px rgba(15,44,74,.08)}
+.kpi span{font-size:14px;font-weight:700;color:var(--muted)}
+.kpi b{font-family:'Rubik',sans-serif;font-size:28px;font-weight:800}
+.kpi small{font-size:13px;color:#5b6b7b}
+.tab{overflow-x:auto}
+table{width:100%;min-width:820px;border-collapse:collapse;font-size:14px}
+th{background:#F1F5F1;text-align:left;padding:10px}
+td{padding:10px;border-top:1px solid var(--line)}
+.num{text-align:right}
+.vazio{color:var(--muted);font-size:15px;padding:18px;border:1px dashed #CFDBE7;border-radius:12px;text-align:center}
+.pill{display:inline-block;font-size:12px;font-weight:800;padding:4px 10px;border-radius:999px}
+.ok{background:#E3F1E3;color:var(--verde)} .pend{background:#FBE3D6;color:var(--laranja)} .info{background:#E6EEF6;color:#1f5a8a}
+.form{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:700;flex:1 1 300px}
+.form input{padding:10px 12px;border:1px solid #CFDBE7;border-radius:10px;font-weight:400;min-height:44px}
+.bt{border:0;border-radius:10px;padding:10px 16px;font-weight:800;min-height:44px;background:var(--verde);color:#fff}
+.bt.sec{background:#fff;color:var(--azul);border:1px solid #CFDBE7}
+.bt.perigo{background:#fff;color:var(--laranja);border:1px solid #F3C6B0}
+.lista{display:flex;flex-direction:column;gap:8px}
+.linha{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.trava{max-width:560px;margin:80px auto;text-align:center}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--azul);color:#fff;padding:12px 18px;border-radius:12px;font-weight:700;z-index:99}
+@media (max-width:600px){ .app{padding:16px} .topo{padding:14px 16px} }
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Portal do Educador · Admin</small><b>Financeiro</b><span class="quem" id="quem">Carregando...</span></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button type="button" class="tb" data-action="atualizar">↻ Atualizar</button>
+    <a class="tb lima" href="/entrar/">Portal →</a>
+  </div>
+</header>
+
+<div id="trava" class="card trava" hidden>
+  <h2>Acesso restrito</h2>
+  <p id="travaMsg">Esta área é só da equipe financeira autorizada.</p>
+  <a class="bt sec" href="/entrar/" style="text-decoration:none;align-self:center">Voltar ao Portal</a>
+</div>
+
+<main class="app" id="app" hidden>
+  <p class="aviso" id="avisoFase">A cobrança automática ainda não está ligada. Esta tela já está pronta e começa a se preencher sozinha quando os pagamentos passarem pelo Asaas.</p>
+  <nav class="abas" aria-label="Seções do financeiro" id="abas">
+    <button type="button" class="aba" data-aba="geral" aria-pressed="true">Visão geral</button>
+    <button type="button" class="aba" data-aba="receb" aria-pressed="false">Recebimentos</button>
+    <button type="button" class="aba" data-aba="conc" aria-pressed="false">Conciliação</button>
+    <button type="button" class="aba" data-aba="notas" aria-pressed="false">Notas fiscais</button>
+    <button type="button" class="aba" data-aba="inad" aria-pressed="false">Inadimplência</button>
+    <button type="button" class="aba" data-aba="audit" aria-pressed="false">Auditoria</button>
+    <button type="button" class="aba" data-aba="acesso" aria-pressed="false" id="abaAcesso" hidden>Quem tem acesso</button>
+  </nav>
+
+  <section data-sec="geral">
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section data-sec="receb" class="card" hidden>
+    <h2>Recebimentos</h2>
+    <div class="tab" id="recebT"></div>
+  </section>
+
+  <section data-sec="conc" class="card" hidden>
+    <h2>Conciliação: Asaas × conta bancária da NEWPC</h2>
+    <div class="tab" id="concT"></div>
+  </section>
+
+  <section data-sec="notas" class="card" hidden>
+    <h2>Notas fiscais a emitir</h2>
+    <p style="font-size:14px;color:var(--muted)">NFS-e · item 1.05 (cessão de direito de uso) · ISS Campo Grande. Nunca escrever "venda".</p>
+    <div class="lista" id="notasL"></div>
+  </section>
+
+  <section data-sec="inad" class="card" hidden>
+    <h2>Em atraso</h2>
+    <div class="tab" id="inadT"></div>
+  </section>
+
+  <section data-sec="audit" class="card" hidden>
+    <h2>Trilha de auditoria</h2>
+    <p style="font-size:14px;color:var(--muted)">Tudo o que acontece no financeiro fica registrado aqui e não pode ser apagado.</p>
+    <div class="lista" id="auditL"></div>
+  </section>
+
+  <section data-sec="acesso" class="card" hidden>
+    <h2>Quem tem acesso ao Financeiro</h2>
+    <p style="font-size:14px;color:var(--muted)">Só você adiciona ou tira pessoas. A pessoa entra no Portal com a conta Google do e-mail cadastrado aqui e abre portaldoeducador.com.br/financeiro/.</p>
+    <form class="form" id="formAcesso">
+      <label>E-mail da pessoa<input type="email" id="novoEmail" required autocomplete="off" placeholder="nome@newpc.com.br"></label>
+      <button type="submit" class="bt">Dar acesso</button>
+    </form>
+    <div class="lista" id="acessoL"></div>
+  </section>
+</main>
+
+<script src="/assets/js/erros.js" defer></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, updateDoc, getDocs, collection, query, orderBy, limit, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const DONO = "alan@newpc.com.br";
+const fb = initializeApp(window.PDE_AMBIENTE.fb);
+const auth = getAuth(fb), db = getFirestore(fb);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const brl = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+const dataBR = t => { const m = t && t.toMillis ? t.toMillis() : (typeof t === "number" ? t : 0); return m ? new Date(m).toLocaleString("pt-BR", { timeZone:"America/Campo_Grande", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : ""; };
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
+let EU = { email:"", dono:false }, LISTA = [];
+
+function toast(t){ const d = document.createElement("div"); d.className = "toast"; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2800); }
+function vazio(t){ return '<p class="vazio">' + esc(t) + '</p>'; }
+async function auditar(acao, detalhe){
+  try{ await addDoc(collection(db, "fin_auditoria"), { acao, detalhe:String(detalhe).slice(0, 400), autor:EU.email, em:serverTimestamp() }); }catch(e){ console.warn("auditoria:", e.code || e); }
+}
+async function ler(col, campo){
+  try{ const s = await getDocs(query(collection(db, col), orderBy(campo, "desc"), limit(300))); return s.docs.map(d => ({ id:d.id, ...d.data() })); }
+  catch(e){ console.warn(col, e.code || e); return []; }
+}
+
+async function carregar(){
+  const [pag, rep, notas, aud] = await Promise.all([ler("fin_pagamentos", "em"), ler("fin_repasses", "data"), ler("fin_notas", "em"), ler("fin_auditoria", "em")]);
+  $("avisoFase").hidden = pag.length > 0;
+  // visão geral (mês corrente, horário de MS)
+  const mes = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7);
+  const doMes = pag.filter(p => String(p.mes || "") === mes);
+  const conf = doMes.filter(p => p.status === "confirmado"), atras = pag.filter(p => p.status === "atrasado");
+  const receita = conf.reduce((s, p) => s + (p.bruto || 0), 0), liquido = conf.reduce((s, p) => s + (p.liquido || 0), 0);
+  const nfPend = notas.filter(n => n.status !== "emitida").length;
+  const k = [["Receita do mês", brl(receita), conf.length + " pagamento(s) confirmados"], ["Líquido do mês", brl(liquido), "depois das taxas do Asaas"],
+    ["Em atraso", brl(atras.reduce((s, p) => s + (p.bruto || 0), 0)), atras.length + " cobrança(s)"], ["Notas a emitir", String(nfPend), nfPend ? "aguardando o financeiro" : "nada pendente"],
+    ["Repasses a conciliar", String(rep.filter(r => r.status !== "conciliado").length), "Asaas × extrato"]];
+  $("kpis").innerHTML = k.map(([a, b, c]) => '<div class="kpi"><span>' + esc(a) + '</span><b>' + esc(b) + '</b><small>' + esc(c) + '</small></div>').join("");
+  // recebimentos
+  $("recebT").innerHTML = pag.length ? '<table><tr><th>Data</th><th>Cliente</th><th>Item</th><th>Forma</th><th class="num">Bruto</th><th class="num">Taxa</th><th class="num">Líquido</th><th>Status</th><th>Nota</th></tr>' +
+    pag.map(p => '<tr><td>' + esc(dataBR(p.em)) + '</td><td>' + esc(p.cliente) + '</td><td>' + esc(p.item) + '</td><td>' + esc(p.forma) + '</td><td class="num">' + brl(p.bruto) + '</td><td class="num">' + brl(p.taxa) + '</td><td class="num"><b>' + brl(p.liquido) + '</b></td><td><span class="pill ' + (p.status === "confirmado" ? "ok" : p.status === "atrasado" ? "pend" : "info") + '">' + esc(p.status || "") + '</span></td><td>' + esc(p.nf || "") + '</td></tr>').join("") + '</table>'
+    : vazio("Nenhum pagamento ainda. Cada pagamento confirmado pelo Asaas aparece aqui na hora.");
+  // conciliação
+  $("concT").innerHTML = rep.length ? '<table><tr><th>Repasse</th><th>Cobranças</th><th class="num">Líquido Asaas</th><th class="num">No extrato</th><th>Situação</th><th></th></tr>' +
+    rep.map(r => '<tr><td>' + esc(r.data_txt || dataBR(r.data)) + '</td><td>' + esc(r.qtd || 0) + '</td><td class="num">' + brl(r.liquido) + '</td><td class="num">' + (r.extrato != null ? brl(r.extrato) : "–") + '</td><td><span class="pill ' + (r.status === "conciliado" ? "ok" : "pend") + '">' + esc(r.status || "a conferir") + '</span></td><td>' +
+      (r.status === "conciliado" ? "" : '<button type="button" class="bt sec" data-action="conciliar" data-id="' + esc(r.id) + '">Marcar conciliado</button>') + '</td></tr>').join("") + '</table>'
+    : vazio("Nenhum repasse ainda. Os repasses do Asaas para a conta da NEWPC aparecem aqui para conferir com o extrato.");
+  // notas
+  const np = notas.filter(n => n.status !== "emitida");
+  $("notasL").innerHTML = np.length ? np.map(n => '<div class="linha"><div style="flex:1 1 520px;min-width:0"><b>' + esc(n.cliente) + ' · ' + esc(n.documento_mascarado || "") + ' · ' + brl(n.valor) + '</b><div style="font-size:14px">' + esc(n.descricao) + '</div></div>' +
+    '<label style="display:flex;gap:8px;align-items:center;font-size:14px;font-weight:700">Nº da NFS-e <input data-nf="' + esc(n.id) + '" maxlength="30" style="width:130px;padding:10px;border:1px solid #CFDBE7;border-radius:10px;min-height:44px"></label>' +
+    '<button type="button" class="bt" data-action="nota" data-id="' + esc(n.id) + '">Marcar como emitida</button></div>').join("") : vazio("Nenhuma nota a emitir.");
+  // inadimplência
+  $("inadT").innerHTML = atras.length ? '<table><tr><th>Cliente</th><th>Item</th><th class="num">Valor</th><th>Venceu</th></tr>' +
+    atras.map(p => '<tr><td>' + esc(p.cliente) + '</td><td>' + esc(p.item) + '</td><td class="num">' + brl(p.bruto) + '</td><td>' + esc(p.vencimento_txt || "") + '</td></tr>').join("") + '</table>' : vazio("Ninguém em atraso.");
+  // auditoria
+  $("auditL").innerHTML = aud.length ? aud.slice(0, 200).map(a => '<div class="linha"><span style="font-size:13px;color:#5b6b7b;min-width:110px">' + esc(dataBR(a.em)) + '</span><span class="pill info">' + esc(a.autor || "sistema") + '</span><span style="flex:1 1 420px;min-width:0">' + esc(a.detalhe || a.acao) + '</span></div>').join("") : vazio("Nada registrado ainda.");
+  if(EU.dono) desenharAcesso();
+}
+
+function desenharAcesso(){
+  $("acessoL").innerHTML = '<div class="linha"><span><b>' + esc(DONO) + '</b> · dono (não pode ser removido)</span></div>' +
+    LISTA.filter(e => e !== DONO).map(e => '<div class="linha"><span>' + esc(e) + '</span><button type="button" class="bt perigo" data-action="tirar" data-email="' + esc(e) + '">Tirar acesso</button></div>').join("");
+}
+async function salvarLista(nova, detalhe){
+  await setDoc(doc(db, "fin_acesso", "lista"), { emails:nova, atualizado_por:EU.email, atualizado_em:serverTimestamp() });
+  LISTA = nova; desenharAcesso(); await auditar("acesso", detalhe);
+}
+
+document.addEventListener("click", async e => {
+  const a = e.target.closest("[data-aba]");
+  if(a){ document.querySelectorAll("[data-aba]").forEach(b => b.setAttribute("aria-pressed", String(b === a))); document.querySelectorAll("[data-sec]").forEach(s => s.hidden = s.dataset.sec !== a.dataset.aba); return; }
+  const b = e.target.closest("[data-action]"); if(!b) return;
+  const ac = b.dataset.action;
+  if(ac === "atualizar"){ await carregar(); toast("Atualizado"); }
+  else if(ac === "tirar"){
+    const em = b.dataset.email; if(b.dataset.conf !== "1"){ b.dataset.conf = "1"; b.textContent = "Confirmar"; return; }
+    try{ await salvarLista(LISTA.filter(x => x !== em), "Acesso removido: " + em); toast("Acesso removido"); }catch(err){ toast("Não deu para salvar (" + (err.code || "erro") + ")"); }
+  }
+  else if(ac === "nota"){
+    const campo = document.querySelector('[data-nf="' + CSS.escape(b.dataset.id) + '"]'), numero = campo ? campo.value.trim().slice(0, 30) : "";
+    if(!numero){ toast("Digite o número da nota"); if(campo) campo.focus(); return; }
+    try{ await updateDoc(doc(db, "fin_notas", b.dataset.id), { status:"emitida", numero, emitida_por:EU.email, emitida_em:serverTimestamp() });
+      await auditar("nota", "NFS-e nº " + numero + " registrada (" + b.dataset.id + ")"); toast("Nota registrada"); await carregar(); }
+    catch(err){ toast("Não deu para salvar (" + (err.code || "erro") + ")"); }
+  }
+  else if(ac === "conciliar"){
+    if(b.dataset.conf !== "1"){ b.dataset.conf = "1"; b.textContent = "Confirmar: bateu com o extrato"; return; }
+    try{ await updateDoc(doc(db, "fin_repasses", b.dataset.id), { status:"conciliado", conciliado_por:EU.email, conciliado_em:serverTimestamp() });
+      await auditar("conciliar", "Repasse conciliado com o extrato (" + b.dataset.id + ")"); toast("Conciliado"); await carregar(); }
+    catch(err){ toast("Não deu para salvar (" + (err.code || "erro") + ")"); }
+  }
+});
+$("formAcesso").addEventListener("submit", async e => {
+  e.preventDefault();
+  const em = $("novoEmail").value.trim().toLowerCase();
+  if(!EMAIL_OK.test(em)){ toast("E-mail inválido"); return; }
+  if(em === DONO || LISTA.includes(em)){ toast("Esse e-mail já tem acesso"); return; }
+  if(LISTA.length >= 30){ toast("Limite de 30 pessoas"); return; }
+  try{ await salvarLista([...LISTA, em], "Acesso concedido: " + em); $("novoEmail").value = ""; toast("Acesso liberado para " + em); }
+  catch(err){ toast("Não deu para salvar (" + (err.code || "erro") + ")"); }
+});
+
+onAuthStateChanged(auth, async user => {
+  if(!user){ location.replace("/entrar/?volta=/financeiro/"); return; }
+  const email = String(user.email || "").toLowerCase();
+  EU = { email, dono: email === DONO && user.emailVerified };
+  $("quem").textContent = email;
+  let ok = EU.dono;
+  try{ const s = await getDoc(doc(db, "fin_acesso", "lista")); LISTA = (s.exists() && Array.isArray(s.data().emails)) ? s.data().emails : []; ok = ok || (user.emailVerified && LISTA.includes(email)); }
+  catch(e){ ok = EU.dono; }
+  if(!ok){ $("trava").hidden = false; $("travaMsg").textContent = "A conta " + email + " não tem acesso ao Financeiro. Peça a liberação ao Alan."; return; }
+  $("app").hidden = false; $("abaAcesso").hidden = !EU.dono;
+  if(!LISTA.length && EU.dono){ try{ await setDoc(doc(db, "fin_acesso", "lista"), { emails:[], atualizado_por:email, atualizado_em:serverTimestamp() }); }catch(e){} }
+  await auditar("entrada", "Entrou no Financeiro");
+  await carregar();
+});
+</script>
+</body>
+</html>
