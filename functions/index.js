@@ -429,6 +429,7 @@ export { professoresDaEscola } from './grade-turmas.js';
 export { fecharPeriodo, reabrirPeriodo, historicoPlanilha, historicoEscola } from './notas-fechamento.js';
 export { portalIa, portalIaLimpar, acervoFila } from './portal-ia.js';
 export { videoIa, videoInterativoAuto } from './video-ia.js';
+export { registrarErro, monitorResumoDiario } from './monitor.js';
 export { sessaoAparelho } from './sessoes.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos, creditosDemoTeste, creditosFranquia } from './creditos.js';
 export { leadEscola } from './leads.js';

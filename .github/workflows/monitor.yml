@@ -1,0 +1,46 @@
+# Monitoramento de disponibilidade do Portal (nov/2026): a cada 15 minutos, de fora do Google.
+# Se algo cair, este fluxo falha e o GitHub manda e-mail para o dono do repositório. O placar do mês fica em stats/disponibilidade_AAAAMM
+# e vai no resumo diário (função monitorResumoDiario). Pode rodar na mão em Actions › Monitor › Run workflow.
+name: Monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitor
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/monitor-disponibilidade.mjs
+            functions/package.json
+            functions/package-lock.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - name: Dependências (só o firebase-admin)
+        run: cd functions && npm i --no-save --no-audit --no-fund firebase-admin@$(node -p "require('./package.json').dependencies['firebase-admin']") >/dev/null 2>&1
+      - name: Credencial
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Verificar
+        run: cd functions && node ../scripts/monitor-disponibilidade.mjs
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/conta.json"
