@@ -8,7 +8,7 @@ initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5'
 const db = getFirestore(), h = ms => new Date(ms - 4 * 3600e3).toISOString().slice(11, 19);
 for (const d of (await db.collection('aula_vivo').get()).docs) {
   const x = d.data(); if (!x.pesquisa || !x.atualizado_em || Date.now() - x.atualizado_em.toMillis() > 3 * 3600e3) continue;
-  console.log('::notice::turma ' + d.id + ' · pesquisa ' + JSON.stringify(x.pesquisa).replace(/[{}"]/g, ' '));
+  console.log('::notice::turma ' + d.id + ' · pesquisa ' + JSON.stringify(x.pesquisa).replace(/[{}"]/g, ' ') + ' · pausa ' + !!x.pausa + ' · pausa_alunos ' + JSON.stringify(x.pausa_alunos || {}));
   for (const a of (await d.ref.collection('alunos').get()).docs) { const y = a.data();
     console.log('::notice::  aluno ' + a.id + ' ' + (y.nome || '') + ' · em ' + (y.em ? h(y.em.toMillis()) : '-') + ' · pesquisa ' + JSON.stringify(y.pesquisa || null).replace(/[{}"]/g, ' ').slice(0, 200)); }
   for (const p of (await db.collection('turma_presenca').doc(d.id).collection('alunos').get()).docs) { const y = p.data(); if (y.em && Date.now() - y.em.toMillis() < 3600e3) console.log('::notice::  presença ' + p.id + ' ' + y.nome + ' ' + h(y.em.toMillis()) + ' fora ' + !!y.fora); }
