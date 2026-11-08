@@ -63,11 +63,13 @@ export function daEscola(d, ids) {
     calendario: { ...d.calendario, escolasAbaixo: abaixo },
     infra: { abertos: soma('chamadosAbertos'), atrasados48h: soma('chamadosAtrasados'), resolvidos30: null, horasMedia: null, equipamentos: soma('equipamentos'), tvs: soma('tvs'), tvsOnline: soma('tvsOnline'), problemas: [] },
     relatorios: null, escolas,
+    termometro: d.termometro ? { leituras: soma('termLeituras'), respostas: soma('termResp'), entendeu: soma('termEntendeu'), parcial: soma('termParcial'), confundiu: soma('termConfundiu'), fora: soma('termFora'),
+      turmas: null, confusoes: d.termometro.confusoes.filter(c => set.has(c.escola_id)).slice(0, 12) } : null,
     formacao: d.formacao ? { professores: soma('professores'), cursistas: soma('formCursistas'), concluiram: soma('formConcluiram'), certificados: soma('formCert'), horas: soma('formHoras'), cursos: [] } : null,
     hoje: { dia: (d.hoje || {}).dia || '', turmas: soma('hojeTurmas'), turmasCom: soma('hojeTurmasCom'), alunos: soma('hojeAlunos'), presentes: soma('hojePresentes'),
       escolasAtivas: escolas.filter(e => e.hojeTurmas).length, escolasCom: escolas.filter(e => e.hojeTurmasCom).length },
     frequencia: (() => { const a = soma('freqAulas'), f = soma('freqFaltas'); return { turmas: soma('freqTurmas'), turmas7: soma('freqTurmas7'), alunos: soma('freqAlunos'), freq: a ? (a - f) / a : null, risco: soma('freqRisco'), atencao: soma('freqAtencao'), casosAbertos: soma('casosAbertos'), casosEncaminhados: soma('casosEncaminhados'), casosResolvidos: null }; })(),
-    rede: { acerto: d.aprendizagem.acerto, ativos30: (d.uso.professores + d.uso.gestores) ? d.uso.ativos30 / (d.uso.professores + d.uso.gestores) : null, escolas: d.totais.escolas, baseDias: d.calendario.baseDias, freq: d.frequencia ? d.frequencia.freq : null }
+    rede: { acerto: d.aprendizagem.acerto, ativos30: (d.uso.professores + d.uso.gestores) ? d.uso.ativos30 / (d.uso.professores + d.uso.gestores) : null, escolas: d.totais.escolas, baseDias: d.calendario.baseDias, freq: d.frequencia ? d.frequencia.freq : null, termEntendeu: d.termometro && d.termometro.respostas ? d.termometro.entendeu / d.termometro.respostas : null }
   };
 }
 
@@ -80,7 +82,8 @@ export async function montar(db, m) {
   const E = {}; escolas.forEach(e => { E[e.id] = { id: e.id, nome: e.nome, professores: 0, ativos30: 0, alunos: 0, provas: 0, respostas: 0, ac: 0, tot: 0,
     dias: null, horas: null, metaDias: 200, metaHoras: 800, chamadosAbertos: 0, chamadosAtrasados: 0, equipamentos: 0, tvs: 0, tvsOnline: 0,
     freq: null, freqAlunos: 0, freqRisco: 0, freqAtencao: 0, freqTurmas: 0, freqTurmas7: 0, freqAulas: 0, freqFaltas: 0, freqAlerta: 0, casosAbertos: 0, casosEncaminhados: 0,
-    chamadosParados: 0, hojeTurmas: 0, hojeTurmasCom: 0, hojeAlunos: 0, hojePresentes: 0, formCursistas: 0, formConcluiram: 0, formCert: 0, formHoras: 0 }; });
+    chamadosParados: 0, hojeTurmas: 0, hojeTurmasCom: 0, hojeAlunos: 0, hojePresentes: 0, formCursistas: 0, formConcluiram: 0, formCert: 0, formHoras: 0,
+    termLeituras: 0, termResp: 0, termEntendeu: 0, termParcial: 0, termConfundiu: 0, termFora: 0 }; });
   const erros = [];
   const tenta = async (nome, f) => { try { return await f(); } catch (e) { erros.push(nome); console.error('painelSecretaria', m, nome, e.message); return null; } };
 
@@ -233,6 +236,20 @@ export async function montar(db, m) {
   });
 
   // ---------- relatórios pedagógicos (Central de Relatórios) ----------
+  // ---------- termômetro da turma (IA lendo as respostas abertas): só contagens e rótulos, 30 dias ----------
+  const term = { leituras: 0, respostas: 0, entendeu: 0, parcial: 0, confundiu: 0, fora: 0, turmas: 0, confusoes: [] };
+  await tenta('termometro', async () => {
+    const s = await db.collection('termometro_registros').where('municipio_id', '==', m).get();
+    const ts = new Set(), conf = [];
+    s.forEach(d => { const x = d.data(); if (String(x.dia || '') < d30) return;
+      term.leituras++; ts.add(x.turma_id); ['respostas', 'entendeu', 'parcial', 'confundiu', 'fora'].forEach(k => { term[k] += x[k] || 0; });
+      const e = E[x.escola_id]; if (e) { e.termLeituras++; e.termResp += x.respostas || 0; e.termEntendeu += x.entendeu || 0; e.termParcial += x.parcial || 0; e.termConfundiu += x.confundiu || 0; e.termFora += x.fora || 0; }
+      (x.grupos || []).filter(g => g.tipo === 'confundiu' && g.n).forEach(g => conf.push({ titulo: g.titulo, n: g.n, pergunta: x.pergunta || '', disciplina: x.disciplina || '',
+        escola_id: x.escola_id, escola: e ? e.nome : '', turma: x.turma_nome || '', dia: x.dia })); });
+    term.turmas = ts.size;
+    term.confusoes = conf.sort((a, b) => b.dia.localeCompare(a.dia) || b.n - a.n).slice(0, 40);
+  });
+
   const rel = { enviados: 0, aprovados: 0, devolvidos: 0, rascunhos: 0 };
   await tenta('relatorios', async () => {
     const s = await db.collection('relatorios').where('municipio_id', '==', m).get();
@@ -243,7 +260,7 @@ export async function montar(db, m) {
     gerado_em: agora, ano, municipio: { id: m, nome: muni.nome || '', uf: muni.uf || '', logo_url: muni.logo_url || '', tipo_rede: muni.tipo_rede || 'municipal', cidade: muni.cidade || '' },
     totais: { escolas: escolas.length, alunos: Object.values(E).reduce((s, e) => s + e.alunos, 0) },
     uso, aprendizagem: { provas: apr.provas, respostas: apr.respostas, acerto: apr.tot ? apr.ac / apr.tot : null, habilidades: apr.habilidades.slice(0, 40), semHab: apr.semHab },
-    calendario: cal, infra: inf, relatorios: rel, frequencia: frq, hoje: hj,
+    calendario: cal, infra: inf, relatorios: rel, frequencia: frq, hoje: hj, termometro: term,
     formacao: { ...form, cursos: Object.entries(form.cursos).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t, n]) => ({ t, n })) },
     escolas: Object.values(E).map(e => ({ ...e, acerto: e.tot ? e.ac / e.tot : null, qtot: e.tot, ac: undefined, tot: undefined })),
     erros

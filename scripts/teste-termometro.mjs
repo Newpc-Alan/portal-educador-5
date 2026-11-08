@@ -29,6 +29,7 @@ const RESP = [
 ];
 const pid = 'pteste' + Date.now();
 await db.doc('qr_aulas/' + TID).set({ por: prof.id, teste: true });
+await db.doc('turmas/' + TID).set({ nome: 'Turma de teste', escola_id: 'zz-teste-esc', municipio_id: 'zz-teste', teste: true });
 await db.doc('aula_vivo/' + TID).set({ pesquisa: { id: pid, pergunta: 'Com as suas palavras, o que é fotossíntese?', ativa: true, em: Date.now(), tipo: 'aberta' } });
 await Promise.all(RESP.map((t, i) => db.doc(`aula_vivo/${TID}/alunos/aluno${i + 1}`).set({ nome: 'Aluno ' + (i + 1), pesquisa: { id: pid, texto: t } })));
 let falhou = false;
@@ -40,12 +41,18 @@ try {
     aviso('termômetro em ' + s + 's · ' + r.result.total + ' respostas · custo ' + r.result.custo + ' · sugestão: ' + r.result.sugestao);
     r.result.grupos.forEach(g => aviso(g.tipo.toUpperCase() + ' (' + g.alunos.length + '): ' + g.titulo + ' · ' + g.explicacao + ' · ex.: ' + g.exemplo + ' · ' + g.alunos.join(',')));
   }
+  // registro agregado para o Painel: contagens e rótulos, sem texto e sem nome de aluno
+  const rg = (await db.doc(`termometro_registros/${TID}_${pid}`).get()).data();
+  if (!rg) { falhou = true; console.log('::error::registro do painel não foi gravado'); }
+  else { const js = JSON.stringify(rg), vaz = RESP.some(t => t.length > 15 && js.includes(t.slice(0, 15))) || /aluno\d/.test(js);
+    aviso('registro do painel: escola ' + rg.escola_id + ' · ' + rg.respostas + ' resp · entendeu ' + rg.entendeu + ' parcial ' + rg.parcial + ' confundiu ' + rg.confundiu + ' fora ' + rg.fora + (vaz ? ' · VAZOU TEXTO/ALUNO (erro!)' : ' · sem texto de aluno'));
+    if (vaz || rg.entendeu + rg.parcial + rg.confundiu + rg.fora !== rg.respostas) falhou = true; }
   // outro professor (não conduz a aula) não pode ler
   const qa = await db.doc('qr_aulas/' + TID).get(); await qa.ref.set({ por: 'outro' });
   const neg = await chamar({ acao: 'termometro', tid: TID, pid });
   aviso('professor que não conduz: ' + (neg.error ? 'recusado (' + neg.error.status + ')' : 'ACEITO (erro!)')); if (!neg.error) falhou = true;
 } finally {
   const al = await db.collection(`aula_vivo/${TID}/alunos`).get(); await Promise.all(al.docs.map(d => d.ref.delete()));
-  await db.doc('aula_vivo/' + TID).delete(); await db.doc('qr_aulas/' + TID).delete(); aviso('dados do teste apagados');
+  await db.doc('aula_vivo/' + TID).delete(); await db.doc('qr_aulas/' + TID).delete(); await db.doc('turmas/' + TID).delete(); await db.doc(`termometro_registros/${TID}_${pid}`).delete(); aviso('dados do teste apagados');
 }
 if (falhou) process.exit(1);

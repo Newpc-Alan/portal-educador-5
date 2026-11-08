@@ -427,6 +427,12 @@
   .av-qr{ border:0;border-radius:12px;padding:11px 16px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;min-height:42px;background:#e6edf3;color:#0f2c4a }
   .av-qr.fechado{ background:#fff3d6;color:#7a5200;box-shadow:inset 0 0 0 2px #f2c14e } .av-qr.aberto{ background:#1a6b2a;color:#fff } .av-qr:disabled{ opacity:.7;cursor:default }
   .av-env{ background:#8DC63F;color:#0f2c4a;border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:15px;font-weight:800;cursor:pointer }
+  .av-cred{ display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;border:1px solid rgba(141,198,63,.55);background:rgba(141,198,63,.12);border-radius:12px;padding:8px 12px;font-size:13.5px;white-space:nowrap }
+  .av-cred b{ font-size:15px } .av-cred:hover{ background:rgba(141,198,63,.22) }
+  .av-cred-bar{ display:inline-block;width:46px;height:5px;border-radius:5px;background:rgba(255,255,255,.18);overflow:hidden } .av-cred-bar i{ display:block;height:100%;background:#8DC63F }
+  .av-cred.baixo{ border-color:rgba(255,152,0,.7);background:rgba(255,152,0,.14) } .av-cred.baixo .av-cred-bar i{ background:#ff9800 }
+  .av-cred.zero{ border-color:rgba(229,57,53,.75);background:rgba(229,57,53,.18) } .av-cred.zero .av-cred-bar i{ background:#e53935 }
+  @media (max-width:760px){ .av-cred-bar{ display:none } }
   .av-x{ background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 16px;font:inherit;cursor:pointer }
   .av-kpis{ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:16px 20px 0 }
   .av-kpi{ background:#fff;border-radius:16px;padding:14px 18px;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;box-shadow:0 4px 16px -8px rgba(15,44,74,.25);border-top:5px solid #0f2c4a }
@@ -2699,18 +2705,38 @@
 
   // ---------- créditos do Portal IA no menu: o que o professor pode usar, não o saldo da rede ----------
   // A conta vem do servidor (a mesma que libera ou bloqueia o uso), guardada 5 min na aba; o Portal IA limpa ao gastar.
+  // conta de créditos do servidor, guardada 5 min na aba (forcar = depois de gastar)
+  async function cotaIA(forcar){
+    const u = usuarioAtual || {};
+    if(!forcar){ try{ const g = JSON.parse(sessionStorage.getItem("pde_ia_saldo") || "null"); if(g && g.uid === u.uid && Date.now() - g.em < 300000) return g.c; }catch(e){} }
+    try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const c = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data;
+      try{ sessionStorage.setItem("pde_ia_saldo", JSON.stringify({ uid:u.uid, em:Date.now(), c })); }catch(e){}
+      return c;
+    }catch(e){ console.warn("saldo IA:", e.code || e.message); return null; }
+  }
+  // medidor de créditos no topo da Turma ao Vivo (ao lado de "Sair do painel"): o professor vê o que a IA da aula vai gastar
+  async function pintarCredAv(forcar){
+    const el = $("avCred"); if(!el) return;
+    const c = await cotaIA(forcar); if(!$("avCred")) return;
+    if(!c){ el.hidden = true; return; }
+    const nf = n => Number(n || 0).toLocaleString("pt-BR");
+    if(c.admin){ el.className = "av-cred"; el.innerHTML = "✨ IA <b>admin</b>"; el.title = "Conta de administrador: a IA da aula não desconta créditos."; el.hidden = false; return; }
+    const rede = c.rede, pessoal = (c.pessoal && c.pessoal.saldo) || 0;
+    if(!rede && !pessoal){ el.hidden = true; return; }
+    const disp = (rede ? rede.restante_mes : 0) + pessoal, ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1), pct = Math.round(disp / ref * 100);
+    const est = !c.pode_usar ? "zero" : pct <= 20 ? "baixo" : "";
+    const custo = AVV.term && AVV.term.custo ? AVV.term.custo : 1;
+    el.className = "av-cred" + (est ? " " + est : "");
+    el.innerHTML = '✨ <b>' + nf(disp) + '</b> ' + (disp === 1 ? "crédito" : "créditos") + '<span class="av-cred-bar"><i style="width:' + Math.min(100, pct) + '%"></i></span>';
+    el.title = (est === "zero" ? (c.motivo || "Os créditos acabaram.") + " " : "") + "Créditos de IA disponíveis para você" + (rede ? (rede.teto > 0 ? " (limite da rede: " + nf(rede.teto) + "/mês)" : "") : "") + ". Cada leitura do Termômetro usa " + custo + " crédito" + (custo === 1 ? "" : "s") + ".";
+    el.hidden = false;
+  }
   async function montarSaldoIA(){
     const el = $("iaSaldo"); el.hidden = true; el.innerHTML = "";
     const u = usuarioAtual || {};
     if(!["professor","gestor"].includes(u.perfil) || (usuarioReal && usuarioReal.uid !== u.uid)) return;
-    let c = null;
-    try{ const g = JSON.parse(sessionStorage.getItem("pde_ia_saldo") || "null"); if(g && g.uid === u.uid && Date.now() - g.em < 300000) c = g.c; }catch(e){}
-    if(!c){
-      try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
-        c = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data;
-        try{ sessionStorage.setItem("pde_ia_saldo", JSON.stringify({ uid:u.uid, em:Date.now(), c })); }catch(e){}
-      }catch(e){ console.warn("saldo IA:", e.code || e.message); return; }
-    }
+    const c = await cotaIA();
     if(!c || c.admin) return;
     const rede = c.rede, pessoal = (c.pessoal && c.pessoal.saldo) || 0;
     if(!rede && !pessoal) return;            // plano sem Portal IA e sem créditos próprios: nada a mostrar
@@ -10037,7 +10063,7 @@
       '<div class="av-topo"><h3 id="avTit">📡 Turma ao Vivo</h3><select id="avTurma" aria-label="Turma">' + ts.map(t => '<option value="' + escapeAttr(t.id) + '">' + escapeHtml(t.nome || "Turma") + "</option>").join("") + '</select>' +
         '<span class="av-dono" id="avDono" hidden></span><span class="av-status" id="avStatus"></span><button type="button" class="av-mais" id="avMais" data-action="av-mais" hidden>+10 min</button>' +
         '<button type="button" class="av-qr" id="avQr" data-action="av-qr" disabled>Verificando a aula...</button>' +
-        '<span class="av-esp"></span><button type="button" class="av-x" data-action="av-fechar" title="A aula continua aberta: volte pelo Início">Sair do painel</button></div>' +
+        '<span class="av-esp"></span><a class="av-cred" id="avCred" href="/apps/portal-ia/#comprar" target="_blank" rel="noopener" hidden></a><button type="button" class="av-x" data-action="av-fechar" title="A aula continua aberta: volte pelo Início">Sair do painel</button></div>' +
       '<div class="av-kpis"><div class="av-kpi verde"><span>👥</span><b id="avKOn">0</b><small id="avKOnT">na sala agora</small></div>' +
         '<div class="av-kpi"><span>📤</span><b id="avKEnv">0</b><small>materiais enviados</small></div>' +
         '<div class="av-kpi azul"><span>👁️</span><b id="avKUlt">–</b><small id="avKUltT">abriram o último</small></div></div>' +
@@ -10050,7 +10076,7 @@
         '<section class="av-env-sec"><div class="av-busca"><h4>🕘 Histórico de envios</h4><input id="avQ" type="search" placeholder="Buscar pelo tema" aria-label="Buscar nos conteúdos enviados">' +
           '<select id="avPer" aria-label="Período"><option value="">Tudo</option><option value="hoje">Hoje</option><option value="7">7 dias</option><option value="30">30 dias</option></select></div>' +
           '<div id="avMats" class="av-mats">Carregando...</div></section></div></div>';
-    document.body.appendChild(f);
+    document.body.appendChild(f); pintarCredAv();
     f.addEventListener("keydown", e => { if(e.key === "Escape") fecharAoVivo(); });
     $("avTurma").addEventListener("change", e => turmaAoVivo(e.target.value));
     $("avQ").addEventListener("input", e => { AV.q = e.target.value; desenharMatsAoVivo(); });
@@ -11012,6 +11038,7 @@
     try{
       const r = await chamarAulaIa({ acao:"termometro", tid:AVV.tid, pid:pq.id, serie:anoDoNome(nomeTurmaAv()) }, 70000);
       AVV.termRes = { pid:pq.id, ...r }; mostrarTermometro(pq, r);
+      pintarCredAv(true); montarSaldoIA();
     }catch(e){ toast(String((e && e.message) || "Não deu agora.").replace(/^.*?: /, ""), true); }
     if(b){ b.disabled = false; b.textContent = t0; }
   }

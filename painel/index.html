@@ -127,6 +127,12 @@ table.tab{width:100%;border-collapse:collapse}
       <div class="card"><div class="h2">📉 Habilidades BNCC que pedem reforço</div><div class="sub">Menor acerto da rede no ano</div><div id="gHab"></div></div>
     </div>
 
+    <div class="secao blocoTerm" id="termometro">Termômetro das aulas</div>
+    <div class="grid2 blocoTerm">
+      <div class="card"><div class="h2">🌡️ Quanto a turma entendeu</div><div class="sub" id="trmSub"></div><div id="gTrm" style="margin-top:10px"></div></div>
+      <div class="card"><div class="h2">❗ Onde as turmas se confundiram</div><div class="sub">O que a IA apontou nas respostas dos alunos · últimos 30 dias · sem nomes</div><div id="gTrmC" style="margin-top:10px"></div></div>
+    </div>
+
     <div class="secao blocoFreq" id="frequencia">Frequência</div>
     <div class="grid2 blocoFreq">
       <div class="card"><div class="h2">🙋 Frequência por escola</div><div class="sub" id="frqSub"></div><div id="gFrq" style="margin-top:10px"></div></div>
@@ -250,6 +256,27 @@ function desenhar(){
     (ehEscola ? '<a class="atalhos" href="/apps/frequencia/#busca" style="text-decoration:none"><span class="pill alerta">Abrir a lista da busca ativa →</span></a>'
       : (() => { const l = d.escolas.filter(e => e.freqRisco || e.freqAtencao).sort((x, y) => (y.freqRisco + y.freqAtencao) - (x.freqRisco + x.freqAtencao)).slice(0, 8), mx = Math.max(1, ...l.map(e => e.freqRisco + e.freqAtencao));
         return l.map(e => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + ((e.freqRisco + e.freqAtencao) / mx * 100) + '%;background:#C2362C"></i></span><span class="v">' + (e.freqRisco + e.freqAtencao) + "</span></div>").join(""); })());
+  // termômetro das aulas (nov/2026): o professor faz uma pergunta aberta na aula ao vivo e a IA agrupa as respostas
+  const tm = d.termometro; document.querySelectorAll(".blocoTerm").forEach(el => el.hidden = !tm);
+  if(tm){
+    const pE = tm.respostas ? tm.entendeu / tm.respostas : null, corT = v => v === null ? "#c3ced9" : v >= 0.6 ? "#5A9420" : v >= 0.4 ? "#F9A825" : "#C2362C";
+    $("trmSub").textContent = tm.leituras ? n(tm.leituras) + " leitura(s) da IA" + (tm.turmas ? " em " + n(tm.turmas) + " turma(s)" : "") + " · " + n(tm.respostas) + " respostas de alunos · últimos 30 dias"
+      : "Quando os professores usarem o Termômetro da turma na aula ao vivo, o entendimento de cada escola aparece aqui.";
+    const fatia = (v, cor, rot) => v ? '<i style="width:' + (v / tm.respostas * 100) + "%;background:" + cor + '" title="' + rot + ": " + n(v) + '"></i>' : "";
+    const comT = d.escolas.filter(e => e.termResp).map(e => ({ e, p:e.termEntendeu / e.termResp })).sort((x, y) => x.p - y.p);
+    $("gTrm").innerHTML = !tm.leituras ? "" :
+      '<div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-bottom:10px">' +
+        kpi("Entenderam", pc(pE), n(tm.entendeu) + " resposta(s)" + vsRede(R0.termEntendeu), pE === null ? "" : pE >= 0.6 ? "ok" : pE >= 0.4 ? "alerta" : "ruim") +
+        kpi("Em parte", pc(tm.respostas ? tm.parcial / tm.respostas : null), n(tm.parcial) + " resposta(s)") +
+        kpi("Confundiram", pc(tm.respostas ? tm.confundiu / tm.respostas : null), n(tm.confundiu) + " resposta(s)", tm.confundiu ? "ruim" : "") + "</div>" +
+      '<div class="trilho" style="display:flex;height:14px;border-radius:8px;overflow:hidden;background:#eef2f6;margin-bottom:12px">' +
+        fatia(tm.entendeu, "#5A9420", "Entenderam") + fatia(tm.parcial, "#F9A825", "Em parte") + fatia(tm.confundiu, "#C2362C", "Confundiram") + fatia(tm.fora, "#9aa8b6", "Fora do tema") + "</div>" +
+      (ehEscola || !comT.length ? "" : '<div class="sub" style="margin-bottom:4px">Entenderam, por escola</div>' + comT.map(({ e, p }) => '<div class="hbar"><span class="t">' + esc(e.nome) + '</span><span class="trilho"><i style="width:' + Math.round(p * 100) + "%;background:" + corT(p) + '"></i></span><span class="v" style="color:' + corT(p) + '" title="' + n(e.termLeituras) + ' leitura(s)">' + pc(p) + "</span></div>").join(""));
+    const cf = (tm.confusoes || []).slice(0, ehEscola ? 12 : 10);
+    $("gTrmC").innerHTML = cf.length ? '<div class="prio">' + cf.map(c => "<div><b>" + esc(c.titulo) + " · " + n(c.n) + " aluno(s)</b>" + esc(c.pergunta ? "Pergunta: " + c.pergunta : "") +
+        '<div class="sub">' + esc([c.disciplina, ehEscola ? c.turma : c.escola + (c.turma ? " · " + c.turma : ""), c.dia ? c.dia.slice(8, 10) + "/" + c.dia.slice(5, 7) : ""].filter(Boolean).join(" · ")) + "</div></div>").join("") + "</div>"
+      : '<div class="sub">' + (tm.leituras ? "Nenhuma confusão apontada pela IA nos últimos 30 dias." : "Sem leituras ainda.") + "</div>";
+  }
   // formação continuada (perfil do cursista ligado ao município desde nov/2026)
   const fm = d.formacao; document.querySelectorAll(".blocoForm").forEach(el => el.hidden = !fm);
   if(fm){
@@ -359,6 +386,7 @@ async function relatorio(){
   if(prio.length) linhas.push("Habilidades BNCC com menor acerto: " + prio.map(h => h.c + " (" + pc(h.p) + ")").join(", ") + ".");
   if(c.publicado && c.escolasAbaixo) linhas.push(c.escolasAbaixo + " escola(s) abaixo do mínimo de " + c.metaDias + " dias letivos: prever reposição.");
   if(!c.publicado) linhas.push("Publicar o calendário letivo de " + d.ano + " no Portal para acompanhar os dias letivos por escola.");
+  if(d.termometro && d.termometro.respostas >= 10 && d.termometro.confundiu / d.termometro.respostas >= 0.25) linhas.push("Termômetro das aulas: " + pc(d.termometro.confundiu / d.termometro.respostas) + " das respostas mostraram confusão de conteúdo; vale planejar retomada com a coordenação pedagógica.");
   if(d.frequencia && d.frequencia.risco) linhas.push(d.frequencia.risco + " aluno(s) abaixo da frequência mínima e " + d.frequencia.atencao + " faltando dias seguidos: acionar a busca ativa nas escolas.");
   else if(d.frequencia && d.frequencia.atencao) linhas.push(d.frequencia.atencao + " aluno(s) faltando dias seguidos: acionar a busca ativa nas escolas.");
   if(f.atrasados48h) linhas.push(f.atrasados48h + " chamado(s) técnico(s) aberto(s) há mais de 48 horas.");

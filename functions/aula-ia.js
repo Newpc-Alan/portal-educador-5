@@ -5,7 +5,7 @@
 // Liberação pela Central de IA (recurso aula_termometro), 1 crédito de texto por leitura.
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { contexto, RESERVA_TEXTO, geminiJson } from './portal-ia.js';
 import { reservarCreditos, estornarCreditos, registrarConsumo, cfgCreditos } from './creditos.js';
 import { acessoIA, mensagemAcesso } from './ia-acesso.js';
@@ -77,6 +77,20 @@ export const aulaIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], 
     const ordem = t => GRUPOS.indexOf(t);
     grupos.sort((x, y) => ordem(x.tipo) - ordem(y.tipo));
     await registrarConsumo(db, ctx, { ...res, acao: 'termometro' }, { modelo: r.modelo, entrada: r.entrada, saida: r.saida });
+    // registro para o Painel da Escola e da Rede: só contagens e os rótulos da IA, nunca o texto nem o nome do aluno.
+    // id fixo por pergunta: "Ler de novo" substitui a leitura anterior.
+    try {
+      const t = (await db.doc(`turmas/${tid}`).get()).data() || {};
+      if (t.municipio_id || t.escola_id) {
+        const n = tp => grupos.filter(g => g.tipo === tp).reduce((s, g) => s + g.alunos.length, 0);
+        await db.doc(`termometro_registros/${tid}_${pid}`).set({
+          municipio_id: String(t.municipio_id || ''), escola_id: String(t.escola_id || ''), turma_id: tid, turma_nome: txt(t.nome, 80),
+          por: uid, pergunta: txt(pq.pergunta, 200), disciplina: disc, dia: new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10),
+          respostas: resp.length, entendeu: n('entendeu'), parcial: n('parcial'), confundiu: n('confundiu'), fora: n('fora'),
+          grupos: grupos.map(g => ({ tipo: g.tipo, titulo: g.titulo, n: g.alunos.length })), em: FieldValue.serverTimestamp()
+        });
+      }
+    } catch (e) { console.warn('termometro_registros', e.message); }
     return { grupos, sugestao: txt(r.json.sugestao, 400), resposta_modelo: txt(r.json.resposta_modelo, 300), total: resp.length, custo: res.custo || 0 };
   }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');

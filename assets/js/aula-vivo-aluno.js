@@ -3,7 +3,7 @@
 // ou só para este aluno), pesquisa rápida, mão levantada e bate-papo. Carregado pelo /assets/pde-entrada.js, só para aluno
 // (token com aluno_id e turma_id). Não depende do Maestro; no Chromebook com a extensão do Maestro, pausa e conteúdo ficam com ela.
 // Banco: qr_aulas/{turma} (aula aberta), aula_vivo/{turma} (ordens), aula_vivo/{turma}/alunos/{matrícula} (mão, resposta), aula_vivo/{turma}/chat.
-import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, setDoc, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, collection, query, where, onSnapshot, setDoc, addDoc, serverTimestamp, deleteField } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const CSS = `  .al-pausa{ position:fixed;inset:0;z-index:2147483000;background:#071621;display:grid;place-items:center;color:#fff;text-align:center;padding:20px }
   .al-pausa{ background:radial-gradient(circle at 50% 40%,#1a6b2a,#071621 65%) } .al-pausa div{ display:grid;gap:14px;justify-items:center;max-width:620px }
@@ -270,11 +270,11 @@ function clique(ev){
   else if(k === "qz-voltar" && S.qz){ clearTimeout(S.qzVolta); S.qzVoltou = S.qz.id; quiz(); }
   else if(k === "qz-ok" && S.qz){ S.qzFechado = S.qz.id; try{ sessionStorage.setItem("pde_qz_fechado", S.qz.id); }catch(e){} quiz(); }
   else if(k === "pq"){ const f = $("alPesq"); if(!f) return; const id = f.dataset.id;
-    meu({ pesquisa:{ id, valor:b.dataset.v } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1300); }).catch(() => aviso("Sem conexão. Tente de novo.")); }
+    meu({ pesquisa:{ id, valor:b.dataset.v, texto:deleteField() } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1300); }).catch(() => aviso("Sem conexão. Tente de novo.")); }
   else if(k === "pq-txt"){ const f = $("alPesq"), t = $("alPqTxt"); if(!f || !t) return; const id = f.dataset.id, texto = t.value.trim().slice(0, 300);
     if(texto.length < 2){ aviso("Escreva a sua resposta antes de enviar."); t.focus(); return; }
     b.disabled = true;
-    meu({ pesquisa:{ id, texto } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada. Obrigado!</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1500); }).catch(() => { b.disabled = false; aviso("Sem conexão. Tente de novo."); }); }
+    meu({ pesquisa:{ id, texto, valor:deleteField() } }).then(() => { S.pqResp = id; f.innerHTML = "<b>✅ Resposta enviada. Obrigado!</b>"; setTimeout(() => { f.remove(); document.body.classList.remove("al-com-folha"); }, 1500); }).catch(() => { b.disabled = false; aviso("Sem conexão. Tente de novo."); }); }
   else if(k === "mao"){ meu({ mao:S.mao ? null : serverTimestamp() }).catch(() => aviso("Sem conexão. Tente de novo.")); }
   else if(k === "chat"){ chat(!$("alChatBox")); }
   else if(k === "enviar"){ enviar(); }
