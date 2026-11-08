@@ -597,10 +597,11 @@
     <button class="ferr rod-btn rod-trab so-nuvem" data-action="nuvem-trabalhos" hidden title="Meus trabalhos: abrir, renomear ou começar uma aula nova"><svg class="ico"><use href="#i-pasta"/></svg><span class="lbl-ap">Meus trabalhos</span></button>
     <button class="ferr rod-btn ferr-prontas so-nuvem" data-action="acervo-aulas" hidden title="Aulas prontas do Portal: temas transversais da BNCC, do 1º ao 9º ano (não gasta crédito)"><svg class="ico"><use href="#i-lousa"/></svg><span class="lbl-ap">Aulas prontas</span></button>
     <button class="ferr rod-btn ferr-ia so-nuvem" data-action="ia-aula" hidden style="display:none" title="Montar uma aula em slides com a IA do Portal (usa créditos de IA)"><svg class="ico"><use href="#i-ia"/></svg><span class="lbl-ap">Aula IA</span></button>
-    <span class="ial-menu-wrap"><button class="ferr rod-btn rod-ial" data-action="ial-menu" aria-haspopup="true" aria-expanded="false" title="Ferramentas de IA da Lousa: Perguntar, Circular, Pintor, Mapa mental e Legendas"><span class="ial-emo" aria-hidden="true">🪄</span><span class="lbl-ap">Ferramentas IA</span></button>
+    <span class="ial-menu-wrap"><button class="ferr rod-btn rod-ial" data-action="ial-menu" aria-haspopup="true" aria-expanded="false" title="Ferramentas de IA da Lousa: Perguntar, Circular, Passar a limpo, Pintor, Mapa mental e Legendas"><span class="ial-emo" aria-hidden="true">🪄</span><span class="lbl-ap">Ferramentas IA</span></button>
       <div class="ial-menu" id="ialMenu" role="menu" hidden>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-perguntar"><span>💬</span><b>Perguntar</b><small>resposta num cartão no quadro · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-circular"><span>⭕</span><b>Circular</b><small>circule uma conta ou palavra: explica, resolve, traduz · 1 crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-limpo"><span>✍️</span><b>Passar a limpo</b><small>selecione o que escreveu à mão: vira texto digitado e organizado · grátis</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-pintor"><span>🎨</span><b>Pintor IA</b><small>o rabisco selecionado vira ilustração · créditos de imagem</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-mapa"><span>🧠</span><b>Mapa IA</b><small>o tema vira mapa mental editável · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi" data-action="ial-trocar-mapa"><span>🔁</span><b>Trocar o modelo do mapa</b><small>o mesmo mapa em Radial, Árvore, Bolhas ou Chaves · sem crédito</small></button>
@@ -2861,6 +2862,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="ial-circular"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { setFerramenta("circular"); msg("Circule com o dedo ou a caneta o que a IA deve olhar"); } }
       if(a==="ial-perguntar") ialPerguntar();
       if(a==="ial-pintor")    ialPintor();
+      if(a==="ial-limpo")     ialLimpo();
       if(a==="ial-mapa")      ialMapa();
       if(a==="ial-legendas")  ialLegendas();
       if(a==="ial-trocar-mapa") ialTrocarMapa();
@@ -4621,6 +4623,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     pergunta:{ et:["Lendo a pergunta", "Pensando na resposta", "Escrevendo de um jeito que a turma entenda", "Conferindo"], tempo:"uns 5 a 10 segundos", passo:2500 },
     circule:{ et:["Olhando o que você circulou", "Entendendo o pedido", "Montando a resposta passo a passo", "Conferindo as contas"], tempo:"uns 10 segundos", passo:2800 },
     mapa:{ et:["Lendo o tema", "Separando os tópicos principais", "Organizando os ramos", "Arrumando o mapa no quadro"], tempo:"uns 10 segundos", passo:2800 },
+    limpo:{ et:["Lendo a sua letra", "Separando título, tópicos e contas", "Passando a limpo"], tempo:"uns 3 a 5 segundos", passo:1500 },
     pintor:{ et:["Olhando o seu rabisco", "Entendendo o desenho", "Pintando a ilustração", "Dando os últimos retoques"], tempo:"uns 20 segundos", passo:5000 }
   };
   function ialChamar(dados){
@@ -4676,6 +4679,45 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(ped === "livre" && perg.trim().length < 3){ f.querySelector("#ialLivre").focus(); return; }
       var reg = IAL.regiao; ialEspera(f, ped === "resolver" ? "Resolvendo e conferindo a conta..." : "Lendo o que você circulou...");
       ialChamar({ modo:"circule", pedido:ped, pergunta:perg.trim(), imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y); }, function(e){ ialErro(f, e); });
+    });
+  }
+
+  // ---- Passar a limpo (nov/2026): a letra à mão selecionada vira texto digitado e organizado, no mesmo lugar e na mesma cor.
+  // Grátis para o professor (modelo leve, limite diário no servidor). Desfazer traz a letra à mão de volta.
+  function ialLimpo(){
+    if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); return; }
+    var sel = canvas.getActiveObject();
+    if(!sel){ setFerramenta("select"); msg("Selecione o que você escreveu (arraste em volta) e toque em Passar a limpo de novo"); return; }
+    var objs = sel.type === "activeSelection" ? sel.getObjects().slice() : [sel];
+    var tela = sel.getBoundingRect(), quadro = sel.getBoundingRect(true, true), m = 14;
+    var l = Math.max(0, tela.left - m), t = Math.max(0, tela.top - m), w = Math.min(canvas.getWidth() - l, tela.width + 2 * m), h = Math.min(canvas.getHeight() - t, tela.height + 2 * m);
+    if(w < 30 || h < 20){ msg("Selecione um pedaço maior da escrita"); return; }
+    // a foto é do que aparece na tela (fundo claro, escuro ou verde, como o professor vê)
+    canvas.discardActiveObject(); canvas.renderAll();
+    var mult = Math.min(2, 1400 / Math.max(w, h)), url = canvas.toDataURL({ format:"jpeg", quality:.9, left:l, top:t, width:w, height:h, multiplier:mult });
+    var cor = "#12202e"; objs.some(function(o){ var c = o.type === "path" ? o.stroke : o.fill; if(typeof c === "string" && c){ cor = c; return true; } return false; });
+    ialChamar({ modo:"limpo", imagem:{ mime:"image/jpeg", dados:url.split(",")[1] } }).then(function(r){
+      var bl = r.blocos || [], linhas = bl.reduce(function(n, b){ return n + Math.max(1, Math.ceil(b.texto.length / 42)); }, 0);
+      // tamanho da letra parecido com o escrito: altura da seleção dividida pelas linhas
+      var fs = Math.round(Math.max(18, Math.min(64, quadro.height / Math.max(1, linhas) / 1.5)));
+      var larg = Math.max(quadro.width, fs * 14), y = quadro.top, num = 0, novos = [];
+      bl.forEach(function(b){
+        num = b.tipo === "numerado" ? num + 1 : 0;
+        var pre = b.tipo === "item" ? "•  " : b.tipo === "numerado" ? num + ".  " : "";
+        var o = { left:quadro.left + (b.tipo === "item" || b.tipo === "numerado" ? fs * .4 : 0), top:y, width:larg, fontSize:b.tipo === "titulo" ? Math.round(fs * 1.25) : fs,
+          fontWeight:b.tipo === "titulo" ? "800" : "400", fill:cor, lineHeight:1.2, pdeIA:true,
+          fontFamily:b.tipo === "formula" ? "Cambria Math, Cambria, Times New Roman, serif" : "Segoe UI, Nunito, sans-serif" };
+        var tb = new fabric.Textbox(pre + b.texto, o); novos.push(tb); y += tb.height + fs * (b.tipo === "titulo" ? .55 : .3);
+      });
+      if(!novos.length){ msg("Não encontrei escrita para passar a limpo"); return; }
+      objs.forEach(function(o){ canvas.remove(o); });
+      novos.forEach(function(o){ canvas.add(o); });
+      canvas.setActiveObject(novos.length > 1 ? new fabric.ActiveSelection(novos, { canvas:canvas }) : novos[0]);
+      canvas.requestRenderAll(); snap();
+      msg("Pronto! Toque duas vezes num texto para corrigir. Desfazer traz a letra à mão de volta" + (r.limite && r.usados > r.limite * .8 ? " · " + r.usados + " de " + r.limite + " hoje" : ""));
+    }, function(e){
+      canvas.setActiveObject(objs.length > 1 ? new fabric.ActiveSelection(objs, { canvas:canvas }) : objs[0]); canvas.requestRenderAll();
+      msg((e && e.message) || "A IA não respondeu agora. Tente de novo.");
     });
   }
 
@@ -6396,12 +6438,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const disc = (document.getElementById("iaDisc") || {}).value || "", sel = document.getElementById("iaTurmaSel"), inp = document.getElementById("iaTurma");
     const turma = (inp && !inp.hidden && inp.value) || (sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text : "") || "";
     try{
-      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:dados.modo === "pintor" ? 180000 : 90000 })({ acao:"lousa_rapida", disciplina:disc, turma, ...dados }).catch(e => { if(window.PDECredito) PDECredito.ver(e); throw e; })).data;
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:dados.modo === "pintor" ? 180000 : 90000 })({ acao:"lousa_rapida", disciplina:disc, turma, ...dados }).catch(e => { if(window.PDECredito && dados.modo !== "limpo") PDECredito.ver(e); throw e; })).data;
       if(r && r.cota){ cotaIA = r.cota; try{ avisarCotaIA(); }catch(e){} }
       return r;
     }catch(e){
       console.warn("IA da Lousa:", e.code, e.message);
-      throw new Error(e.code === "functions/resource-exhausted" ? "Seus créditos de IA acabaram. Peça recarga ou aguarde a renovação." :
+      throw new Error(e.code === "functions/resource-exhausted" && dados.modo === "limpo" ? e.message : e.code === "functions/resource-exhausted" ? "Seus créditos de IA acabaram. Peça recarga ou aguarde a renovação." :
         e.code === "functions/failed-precondition" || e.code === "functions/invalid-argument" || e.code === "functions/internal" ? e.message : "A IA não respondeu agora. Tente de novo em instantes.");
     }
   };

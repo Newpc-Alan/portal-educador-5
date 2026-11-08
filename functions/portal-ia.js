@@ -15,6 +15,7 @@ import { SMTP_SENHA, emailAlerta } from './dicas.js';
 import { exigirRecurso } from './envio-comum.js';
 import { PERFIS_REDE, opcoesEnvio, destinatarios, contarEnvioDia, lerAnexos, mandarMaterial, htmlSeguro, turmasParaAlunos, linkPublico, publicarNaTurma } from './envio-comum.js';
 import { CODIGOS_BNCC } from './bncc-codigos.js';
+import { SISTEMA_LIMPO, ESQUEMA_LIMPO, limparBlocos } from './lousa-limpo.js';
 import { geralIA, iaDaRede, iaDoUsuario, acessoIA, mensagemAcesso, mapaAcesso, NOMES_IA } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
@@ -1048,15 +1049,39 @@ async function tratarPortalIa(req) {
      mapa: "Tópicos com IA" (mapa mental editável) · pintor: o rabisco do professor vira ilustração (créditos de imagem, Lousa Ultra)
      As legendas ao vivo não passam aqui: usam o reconhecimento de voz do próprio navegador, sem crédito. */
   if (d.acao === 'lousa_rapida') {
-    const modo = ['pergunta', 'circule', 'mapa', 'pintor'].includes(d.modo) ? d.modo : '';
+    const modo = ['pergunta', 'circule', 'mapa', 'pintor', 'limpo'].includes(d.modo) ? d.modo : '';
     if (!modo) throw new HttpsError('invalid-argument', 'Ferramenta desconhecida.');
     const turma = txt(d.turma, 80), disciplina = txt(d.disciplina, 80), etapa = etapaDaTurma(turma);
     const publico = { infantil: 'crianças da Educação Infantil (frases curtíssimas, palavras simples)', iniciais: 'alunos dos anos iniciais do Fundamental (frases curtas, exemplos do dia a dia)',
       finais: 'alunos dos anos finais do Fundamental', medio: 'alunos do Ensino Médio (pode usar termos técnicos, explicados)' }[etapa] || 'alunos do Ensino Fundamental';
     // imagem do quadro (circule e pintor): JPEG ou PNG em base64, até ~1,5 MB
     const img = d.imagem && typeof d.imagem === 'object' ? { mime: /^image\/(png|jpeg)$/.test(d.imagem.mime) ? d.imagem.mime : '', dados: typeof d.imagem.dados === 'string' ? d.imagem.dados : '' } : null;
-    if ((modo === 'circule' || modo === 'pintor') && (!img || !img.mime || img.dados.length < 200 || img.dados.length > 2_000_000 || !/^[A-Za-z0-9+/=]+$/.test(img.dados.slice(0, 400))))
-      throw new HttpsError('invalid-argument', 'Não deu para ler o pedaço do quadro. Circule de novo.');
+    if ((modo === 'circule' || modo === 'pintor' || modo === 'limpo') && (!img || !img.mime || img.dados.length < 200 || img.dados.length > 2_000_000 || !/^[A-Za-z0-9+/=]+$/.test(img.dados.slice(0, 400))))
+      throw new HttpsError('invalid-argument', modo === 'limpo' ? 'Não deu para ler o que foi selecionado. Selecione de novo.' : 'Não deu para ler o pedaço do quadro. Circule de novo.');
+    // Passar a limpo (nov/2026): a letra à mão selecionada vira texto digitado e organizado. Modelo leve, SEM crédito (a NEWPC absorve,
+    // ~R$ 0,002 por uso), com limite diário por professor; o uso e o custo aparecem no painel de IA como "lousa_limpo".
+    if (modo === 'limpo') {
+      const a = acessoIA('lousa_limpo', ctx.ia);
+      if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso('lousa_limpo', a.motivo));
+      const lim = Math.max(1, Number(ctx.cfgRaw && ctx.cfgRaw.limpo_dia) || 100), dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+      const limRef = db.doc(`ia_limite_diario/${uid}_${dia}`);
+      const n = await db.runTransaction(async t => { const x = await t.get(limRef), v = (x.exists ? x.data().limpo || 0 : 0) + 1;
+        if (v > lim && !ctx.admin) return -1; t.set(limRef, { uid, dia, limpo: v, em: FieldValue.serverTimestamp() }, { merge: true }); return v; });
+      if (n < 0) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de ' + lim + ' "Passar a limpo" de hoje. Amanhã libera de novo.');
+      let r = null, erro = null, j = null;
+      try {
+        r = await gemini(chave, [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto], { systemInstruction: { parts: [{ text: SISTEMA_LIMPO }] },
+          contents: [{ role: 'user', parts: [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: 'Transcreva e organize.' }] }],
+          generationConfig: { responseMimeType: 'application/json', responseSchema: ESQUEMA_LIMPO, maxOutputTokens: 3000 } });
+        try { j = JSON.parse(r.partes.filter(p => !p.thought).map(p => p.text || '').join('')); } catch (e) { j = null; }
+      } catch (e) { erro = e; }
+      await registrarConsumo(db, ctx, erro || !j ? null : { acao: 'lousa_limpo' }, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida });
+      if (erro || !j) { await limRef.set({ limpo: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+        throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo.'); }
+      const blocos = limparBlocos(j);
+      if (!j.legivel || !blocos.length) throw new HttpsError('failed-precondition', 'Não encontrei escrita legível no que foi selecionado. Selecione só o texto escrito à mão.');
+      return { blocos, usados: n, limite: lim };
+    }
     const base = 'Você é um professor experiente da rede pública brasileira ajudando ao vivo, na lousa digital, diante da turma. Público: ' + publico + '.' + (disciplina ? ' Disciplina: ' + disciplina + '.' : '') +
       ' Responda em português do Brasil, correto, curto e claro, para ser lido de longe. Sem markdown, sem asteriscos. Se for conta, confira o resultado antes de responder. Nada de conteúdo impróprio para escola.';
     if (modo === 'pintor') {
