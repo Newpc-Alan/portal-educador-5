@@ -141,6 +141,35 @@ export const videoIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI],
     if (x.catalogo_id && typeof d.publicado === 'boolean') await db.doc(`videos/${x.catalogo_id}`).set({ interativo: d.publicado }, { merge: true });
     return { ok: true, pausas: interacoes.length };
   }
+  // professor avisa problema numa pergunta do catálogo; o administrador vê os avisos no painel e na edição do vídeo
+  if (d.acao === 'avisar') {
+    const id = txt(d.id, 64).replace(/[^\w-]/g, ''), i = Math.round(Number(d.pausa));
+    const s = await db.doc(`videos_interativos/${id}`).get();
+    if (!s.exists || s.data().origem !== 'catalogo') throw new HttpsError('not-found', 'Vídeo não encontrado.');
+    const x = s.data(), p = (x.interacoes || [])[i]; if (!p) throw new HttpsError('invalid-argument', 'Pausa não encontrada.');
+    const MOTIVOS = { errada: 'Resposta marcada como certa está errada', confusa: 'Pergunta confusa ou mal escrita', tempo: 'Pausa no momento errado', serie: 'Não serve para a série', outro: 'Outro' };
+    const motivo = MOTIVOS[d.motivo] ? d.motivo : 'outro';
+    // um aviso por pessoa, vídeo e pausa (tocar de novo só atualiza)
+    const ref = db.doc(`videos_avisos/${id}_${i}_${uid}`), ja = await ref.get();
+    await ref.set({ video_id: id, catalogo_id: x.catalogo_id || '', titulo: txt(x.titulo, 140), pausa: i, t: p.t, pergunta: txt(p.pergunta, 220), motivo, motivo_txt: MOTIVOS[motivo], texto: txt(d.texto, 500),
+      uid, nome: txt(ctx.eu.nome, 80), municipio_id: ctx.eu.municipio_id || '', resolvido: false, em: FieldValue.serverTimestamp() }, { merge: true });
+    if (!(ja.exists && ja.data().resolvido === false) && x.catalogo_id) await db.doc(`videos/${x.catalogo_id}`).set({ avisos_abertos: FieldValue.increment(1) }, { merge: true });
+    return { ok: true };
+  }
+  if (d.acao === 'avisos' || d.acao === 'resolver') {
+    if (!ctx.admin) throw new HttpsError('permission-denied', 'Só a equipe do Portal vê os avisos.');
+    const id = txt(d.id, 64).replace(/[^\w-]/g, '');
+    if (d.acao === 'resolver') {
+      const ref = db.doc(`videos_avisos/${txt(d.aviso, 160).replace(/[^\w-]/g, '')}`), a = await ref.get();
+      if (a.exists && a.data().resolvido === false) {
+        await ref.set({ resolvido: true, resolvido_em: FieldValue.serverTimestamp(), resolvido_por: uid }, { merge: true });
+        if (a.data().catalogo_id) await db.doc(`videos/${a.data().catalogo_id}`).set({ avisos_abertos: FieldValue.increment(-1) }, { merge: true });
+      }
+      return { ok: true };
+    }
+    const q = await db.collection('videos_avisos').where('video_id', '==', id).where('resolvido', '==', false).limit(100).get();
+    return { avisos: q.docs.map(a => { const x = a.data(); return { id: a.id, pausa: x.pausa, t: x.t, pergunta: x.pergunta, motivo: x.motivo_txt, texto: x.texto, nome: x.nome, em: x.em ? x.em.toMillis() : 0 }; }).sort((a, b) => a.pausa - b.pausa) };
+  }
   throw new HttpsError('invalid-argument', 'Ação desconhecida.');
 });
 

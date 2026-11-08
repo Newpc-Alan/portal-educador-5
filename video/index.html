@@ -108,6 +108,17 @@
   .acoes-perg{display:flex;gap:10px;justify-content:flex-end;margin-top:clamp(8px,1.6vh,20px);flex-wrap:wrap}
   .acoes-perg .bt{font-size:clamp(15px,1.6vw,20px);min-height:50px;padding:10px 22px}
   .fim h2{text-align:center}
+  /* avisar problema numa pergunta */
+  .aviso-bt{margin-right:auto;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;padding:6px 4px;text-decoration:underline}
+  .aviso-form{background:#fff8ec;border:1px solid #f3dcb0;border-radius:12px;padding:12px 14px;margin-top:10px;display:grid;gap:8px;font-size:15px}
+  .aviso-mot{display:flex;flex-wrap:wrap;gap:6px}.aviso-mot button{border:1px solid #e5d3ad;background:#fff;border-radius:999px;padding:6px 10px;font-weight:600;cursor:pointer;color:var(--azul);font-size:13px}
+  .aviso-mot button.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+  .aviso-form textarea{border:1px solid #e5d3ad;border-radius:8px;padding:8px;font-size:14px}
+  .aviso-acoes{display:flex;gap:8px;justify-content:flex-end}.aviso-acoes .bt{min-height:38px;font-size:14px}
+  .aviso-ok{margin:10px 0 0;font-weight:700;color:var(--ok)}
+  .avisos-card{padding:12px;border:1px solid #f3dcb0;background:#fff8ec;display:grid;gap:8px}
+  .aviso-item{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;background:#fff;border-radius:10px;padding:8px 10px;font-size:13.5px}
+  .aviso-bts{display:flex;gap:6px;flex:none}
   /* tempo para pensar */
   .pensar{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--muted);background:#fff;border:1px solid var(--linha);border-radius:999px;padding:4px 6px 4px 12px}
   .pensar select{border:0;background:transparent;font-weight:700;color:var(--azul)}
@@ -361,7 +372,7 @@ function abrirPergunta(i){
   if(x.tipo === "multipla" || x.tipo === "vf") h += '<div class="ops'+(x.tipo === "vf" ? " duas" : x.opcoes.every(o => o.length <= 38) ? " quatro" : "")+'">'+x.opcoes.map((o, k) => '<button type="button" class="op" data-action="resp" data-k="'+k+'"><span class="l">'+(x.tipo === "vf" ? (k ? "F" : "V") : LETRAS[k])+'</span><span>'+esc(o)+'</span></button>').join("")+'</div><div id="expl"></div>';
   else if(x.tipo === "aberta") h += '<div id="expl"></div>';
   else if(x.explicacao) h += '<div class="expl">'+esc(x.explicacao)+'</div>';
-  h += '<div class="acoes-perg">'+(x.tipo === "aberta" && x.explicacao ? '<button type="button" class="bt bt-claro" data-action="ver-esperada">👀 Ver resposta esperada</button>' : '')+
+  h += '<div id="avisoBox"></div><div class="acoes-perg">'+(st.v.origem === "catalogo" ? '<button type="button" class="aviso-bt" data-action="avisar-abrir" title="A pergunta tem algum problema? Avise a equipe do Portal">⚑ Avisar problema</button>' : '')+(x.tipo === "aberta" && x.explicacao ? '<button type="button" class="bt bt-claro" data-action="ver-esperada">👀 Ver resposta esperada</button>' : '')+
     (x.tipo === "multipla" || x.tipo === "vf" ? '<button type="button" class="bt bt-claro" data-action="continuar">Pular</button>' : '')+
     '<button type="button" class="bt bt-verde" data-action="continuar" id="btCont">Continuar o vídeo ▶</button></div></div>';
   ov.innerHTML = h; ov.hidden = false;
@@ -397,6 +408,32 @@ function responder(k){
   $("expl").innerHTML = '<div class="expl"><b>'+(certo ? "Isso mesmo! " : "Resposta certa: " + esc(x.tipo === "vf" ? x.opcoes[x.correta] : LETRAS[x.correta] + ") " + x.opcoes[x.correta]) + ". ")+'</b>'+esc(x.explicacao || "")+'</div>';
   $("btCont").focus({ preventScroll:true });
 }
+// professor avisa problema numa pergunta do catálogo (a equipe do Portal revisa)
+const MOTIVOS_AVISO = [["errada","A resposta certa está errada"],["confusa","Pergunta confusa"],["tempo","Pausa no momento errado"],["serie","Não serve para a série"],["outro","Outro"]];
+function abrirAviso(){
+  const bx = $("avisoBox"); if(!bx) return;
+  bx.innerHTML = '<div class="aviso-form"><b>O que há de errado nesta pergunta?</b><div class="aviso-mot">'+MOTIVOS_AVISO.map(([k, t], i) => '<button type="button" class="'+(i ? "" : "on")+'" data-action="avisar-motivo" data-m="'+k+'">'+t+'</button>').join("")+'</div>'+
+    '<textarea id="avisoTxt" maxlength="500" rows="2" placeholder="Se quiser, explique (opcional)"></textarea><div class="aviso-acoes"><button type="button" class="bt bt-claro" data-action="avisar-fechar">Cancelar</button><button type="button" class="bt bt-azul" data-action="avisar-enviar">Enviar aviso</button></div></div>';
+  const t = $("avisoTxt"); if(t) t.focus({ preventScroll:true });
+}
+async function enviarAviso(b){
+  const m = document.querySelector("[data-action=avisar-motivo].on"); b.disabled = true;
+  try{ await chamar({ acao:"avisar", id:st.id, pausa:st.aberta, motivo:m ? m.dataset.m : "outro", texto:($("avisoTxt") || {}).value || "" }); $("avisoBox").innerHTML = '<p class="aviso-ok">✅ Obrigado! A equipe do Portal vai revisar esta pergunta.</p>'; }
+  catch(e){ b.disabled = false; toast(msgErro(e), true); }
+}
+async function carregarAvisos(){
+  const el = $("avisos"); if(!el || !st.acesso.admin || st.v.origem !== "catalogo") return;
+  try{
+    const r = await chamar({ acao:"avisos", id:st.id }); const l = r.avisos || [];
+    el.innerHTML = !l.length ? '' : '<div class="card avisos-card"><b>⚑ Avisos dos professores ('+l.length+')</b>'+l.map(a => '<div class="aviso-item"><div><b>Pausa '+(a.pausa + 1)+' · '+mmss(a.t)+'</b> · '+esc(a.motivo)+(a.texto ? '<br><i>“'+esc(a.texto)+'”</i>' : '')+'<br><small>'+esc(a.nome || "")+(a.em ? ' · '+new Date(a.em).toLocaleDateString("pt-BR") : '')+'</small></div>'+
+      '<div class="aviso-bts"><button type="button" class="mini" data-action="ir-marca" data-i="'+a.pausa+'">▶ ver</button><button type="button" class="mini" data-action="aviso-resolver" data-aviso="'+esc(a.id)+'">✓ resolvido</button></div></div>').join("")+'</div>';
+  }catch(e){ console.warn("avisos", e); }
+}
+async function resolverAviso(b){
+  b.disabled = true;
+  try{ await chamar({ acao:"resolver", aviso:b.dataset.aviso }); const it = b.closest(".aviso-item"); if(it) it.remove(); toast("Aviso marcado como resolvido."); }
+  catch(e){ b.disabled = false; toast(msgErro(e), true); }
+}
 function continuar(){ clearInterval(st.conta); st.conta = 0; $("ov").hidden = true; $("ov").innerHTML = ""; st.aberta = -1; if(st.pronto){ st.prev = st.player.getCurrentTime(); st.player.playVideo(); } }
 function mostrarFim(){
   const ov = $("ov"); st.aberta = 99;
@@ -412,10 +449,10 @@ function desenharPainel(){
   p.innerHTML = '<div class="card" style="padding:12px"><div class="ed-topo"><input type="text" id="edTitulo" maxlength="140" value="'+esc(v.titulo)+'" aria-label="Título"></div>'+
     (v.origem === "catalogo" ? '<label class="pub" style="margin-top:8px"><input type="checkbox" id="edPub"'+(v.publicado ? " checked" : "")+'> Publicado no catálogo (aparece para as redes liberadas)</label>' : '')+
     '<p class="nota-peq" style="margin:8px 0 0">Toque no número de uma pausa na barra para ir até ela. Para acertar o momento, pause o vídeo no ponto certo e use “⏱ usar agora”.</p></div>'+
-    '<div id="itens"></div><button type="button" class="bt bt-claro" data-action="add">➕ Nova pausa no ponto atual do vídeo</button>'+
+    '<div id="avisos"></div><div id="itens"></div><button type="button" class="bt bt-claro" data-action="add">➕ Nova pausa no ponto atual do vídeo</button>'+
     '<div class="salvar-barra"><button type="button" class="bt bt-verde" data-action="salvar" id="btSalvar">💾 Salvar</button><button type="button" class="bt bt-claro" data-action="apresentar">▶ Apresentar</button>'+
     (st.acesso.admin || v.dono === st.uid ? '<button type="button" class="bt bt-claro" data-action="excluir" style="color:var(--erro);margin-left:auto">Apagar</button>' : '')+'</div>';
-  desenharItens();
+  desenharItens(); carregarAvisos();
 }
 function desenharItens(){
   const el = $("itens"); if(!el) return;
@@ -473,6 +510,11 @@ document.addEventListener("click", e => {
   else if(a === "resp") responder(Number(b.dataset.k));
   else if(a === "continuar") continuar();
   else if(a === "liberar") liberar();
+  else if(a === "avisar-abrir") abrirAviso();
+  else if(a === "avisar-motivo"){ document.querySelectorAll("[data-action=avisar-motivo]").forEach(m => m.classList.toggle("on", m === b)); }
+  else if(a === "avisar-enviar") enviarAviso(b);
+  else if(a === "avisar-fechar"){ const bx = $("avisoBox"); if(bx) bx.innerHTML = ""; }
+  else if(a === "aviso-resolver") resolverAviso(b);
   else if(a === "ver-esperada"){ const x = st.v.interacoes[st.aberta]; $("expl").innerHTML = '<div class="expl"><b>Resposta esperada: </b>'+esc(x.explicacao)+'</div>'; b.remove(); }
   else if(a === "de-novo") deNovo();
   else if(a === "modo" || a === "apresentar"){ if(st.sujo && !confirm("Há mudanças não salvas. Sair da edição mesmo assim?")) return; location.href = "/video/?id=" + encodeURIComponent(st.id) + (a === "modo" && !st.editar ? "&editar" : ""); }
