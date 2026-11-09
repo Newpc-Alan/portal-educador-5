@@ -66,7 +66,7 @@ export function saldoDe(carteira, agora = Date.now()) {
   const ativos = ((carteira && carteira.pacotes) || []).filter(p => ms(p.validade) > agora && (p.restante || 0) > 0);
   const vivos = ((carteira && carteira.pacotes) || []).filter(p => ms(p.validade) > agora);
   const saldo = ativos.reduce((a, p) => a + (p.restante || 0), 0);
-  const total = vivos.reduce((a, p) => a + (p.creditos || 0), 0);
+  const total = vivos.reduce((a, p) => a + Math.max(0, (p.creditos || 0) - (p.retirado || 0)), 0);   // pacote retirado não conta no total
   const prox = ativos.map(p => ms(p.validade)).sort((a, b) => a - b)[0] || 0;
   return { saldo, total, validade: prox };
 }
@@ -238,11 +238,14 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
     let nome = '';
     if (tipo === 'municipio') { const m = await db.doc(`municipios/${refId}`).get(); if (!m.exists) throw new HttpsError('not-found', 'Município não encontrado.'); nome = (m.data().nome || '') + (m.data().uf ? '/' + m.data().uf : ''); }
     else { const p = await db.doc(`usuarios/${refId}`).get(); if (!p.exists) throw new HttpsError('not-found', 'Professor não encontrado.'); nome = p.data().nome || p.data().email || ''; }
+    // cortesia da diretoria (nov/2026): crédito dado sem venda; vai para o relatório de cortesias com o consumo e o custo real
+    const cortesia = d.cortesia === true && !pedido;
+    const obsLanc = cortesia ? txt(['Cortesia da diretoria', txt(d.obs, 260)].filter(Boolean).join(' · '), 300) : txt(d.obs, 300);
     await db.runTransaction(async t => {
       const s = await t.get(ref), c = s.exists ? s.data() : {};
-      const pac = [...(c.pacotes || []).filter(p => ms(p.validade) > Date.now() - 400 * 864e5), { id: pacId, creditos, restante: creditos, validade: Timestamp.fromDate(validade), origem: pedido ? 'pedido' : 'manual', obs: txt(d.obs, 300), pedido_id: pedido ? pedido.id : '', criado_em: Timestamp.now(), por: uid }];
+      const pac = [...(c.pacotes || []).filter(p => ms(p.validade) > Date.now() - 400 * 864e5), { id: pacId, creditos, restante: creditos, validade: Timestamp.fromDate(validade), origem: pedido ? 'pedido' : cortesia ? 'cortesia' : 'manual', obs: obsLanc, pedido_id: pedido ? pedido.id : '', criado_em: Timestamp.now(), por: uid }];
       t.set(ref, { tipo, ref_id: refId, nome: txt(nome, 120), pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, alerta20: false, alerta5: false, atualizado_em: FieldValue.serverTimestamp(), ...(s.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) }, { merge: true });
-      t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos, validade: Timestamp.fromDate(validade), obs: txt(d.obs, 300), pedido_id: pedido ? pedido.id : '', por: uid, em: FieldValue.serverTimestamp() });
+      t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos, validade: Timestamp.fromDate(validade), obs: obsLanc, cortesia, pedido_id: pedido ? pedido.id : '', por: uid, em: FieldValue.serverTimestamp() });
       if (pedido) t.update(pedido.ref, { status: 'aprovado', aprovado_em: FieldValue.serverTimestamp(), aprovado_por: uid, creditos_liberados: creditos });
     });
     // avisa quem pediu
@@ -270,7 +273,8 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
     await db.runTransaction(async t => {
       const s = await t.get(ref); if (!s.exists) throw new HttpsError('not-found', 'Carteira não encontrada.');
       const p = (s.data().pacotes || []).find(x => x.id === d.pacote_id); if (!p) throw new HttpsError('not-found', 'Pacote não encontrado.');
-      const pac = s.data().pacotes.filter(x => x.id !== d.pacote_id);
+      // o pacote fica na carteira zerado (retirado), para o histórico e o relatório de cortesias saberem quanto foi usado
+      const pac = s.data().pacotes.map(x => x.id !== d.pacote_id ? x : { ...x, restante: 0, retirado: (x.retirado || 0) + (x.restante || 0), retirado_em: Timestamp.now() });
       t.update(ref, { pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, atualizado_em: FieldValue.serverTimestamp() });
       t.set(ref.collection('movimentos').doc(), { tipo: 'retirada', creditos: -(p.restante || 0), obs: txt(d.motivo, 300), por: uid, em: FieldValue.serverTimestamp() });
     });

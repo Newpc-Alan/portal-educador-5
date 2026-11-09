@@ -13574,7 +13574,7 @@
   const crMes = () => { const d = new Date(Date.now() - 4*3600e3); return d.toISOString().slice(0,7).replace("-",""); };
   function crSaldo(c){ const agora = Date.now(), pac = (c && c.pacotes) || [];
     const vivos = pac.filter(p => crMs(p.validade) > agora), ativos = vivos.filter(p => (p.restante || 0) > 0);
-    return { saldo:ativos.reduce((a,p) => a + (p.restante || 0), 0), total:vivos.reduce((a,p) => a + (p.creditos || 0), 0), validade:ativos.map(p => crMs(p.validade)).sort((a,b) => a-b)[0] || 0 }; }
+    return { saldo:ativos.reduce((a,p) => a + (p.restante || 0), 0), total:vivos.reduce((a,p) => a + Math.max(0, (p.creditos || 0) - (p.retirado || 0)), 0), validade:ativos.map(p => crMs(p.validade)).sort((a,b) => a-b)[0] || 0 }; }
   async function crChamar(dados){ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
     return (await httpsCallable(getFunctions(app, "southamerica-east1"), "creditosAdmin", { timeout:60000 })(dados)).data; }
   async function renderCreditosAdmin(){
@@ -13611,15 +13611,15 @@
     desenharCreditosAdmin();
   }
   // botões da linha: lançar, ver pacotes (para retirar)
-  function crBotoes(conta, k){ const n = ((k && k.pacotes) || []).filter(p => crMs(p.validade) > Date.now()).length;
+  function crBotoes(conta, k){ const n = ((k && k.pacotes) || []).filter(p => crMs(p.validade) > Date.now() && (p.restante || 0) > 0).length;
     return '<button class="btn-mini btn-gerenciar" data-action="cr-lancar" data-conta="'+escapeAttr(conta)+'">+ Créditos</button>'+
       (n ? ' <button class="btn-mini btn-recusar" data-action="cr-pacotes" data-conta="'+escapeAttr(conta)+'">'+(crA.aberto === conta ? "Fechar" : "Pacotes ("+n+")")+'</button>' : ''); }
   function crPacotes(conta, k, cols){
     if(crA.aberto !== conta || !k) return "";
-    const pac = (k.pacotes || []).filter(p => crMs(p.validade) > Date.now()).sort((a,b) => crMs(b.criado_em) - crMs(a.criado_em));
+    const pac = (k.pacotes || []).filter(p => crMs(p.validade) > Date.now() && (p.restante || 0) > 0).sort((a,b) => crMs(b.criado_em) - crMs(a.criado_em));
     return '<tr class="cr-pacs"><td colspan="'+cols+'"><b>Pacotes de '+escapeHtml(k.nome || conta)+'</b> · retirar tira o que <u>resta</u> do pacote (o que já foi usado fica no histórico).'+
       '<table class="cr-tab" style="margin-top:6px"><thead><tr><th>Lançado em</th><th>Créditos</th><th>Restam</th><th>Vence</th><th>Origem / obs.</th><th></th></tr></thead><tbody>'+
-      pac.map(p => '<tr><td>'+crData(crMs(p.criado_em))+'</td><td class="n">'+crNum(p.creditos)+'</td><td class="n"><b>'+crNum(p.restante)+'</b></td><td>'+crData(crMs(p.validade))+'</td><td>'+escapeHtml((p.origem === "pedido" ? "Pedido" : "Manual")+(p.obs ? " · "+p.obs : ""))+'</td>'+
+      pac.map(p => '<tr><td>'+crData(crMs(p.criado_em))+'</td><td class="n">'+crNum(p.creditos)+'</td><td class="n"><b>'+crNum(p.restante)+'</b></td><td>'+crData(crMs(p.validade))+'</td><td>'+escapeHtml((p.origem === "pedido" ? "Pedido" : p.origem === "cortesia" ? "Cortesia" : "Manual")+(p.obs ? " · "+p.obs : ""))+'</td>'+
         '<td><button class="btn-mini btn-recusar" data-action="cr-retirar" data-conta="'+escapeAttr(conta)+'" data-pac="'+escapeAttr(p.id)+'">Retirar '+crNum(p.restante)+'</button></td></tr>').join("")+'</tbody></table></td></tr>';
   }
   // professores fora de rede (avulso, cortesia, teste) e quem já tem carteira própria, todos com saldo e uso
@@ -13635,6 +13635,28 @@
       lista.map(x => { const k = carteira(x.conta), s = crSaldo(k), cm = ((k && k.consumo) || {})[mes] || {}, venc = x.fim && x.fim < Date.now();
         return '<tr><td><b>'+escapeHtml(x.nome)+'</b>'+(x.email ? '<br><small>'+escapeHtml(x.email)+'</small>' : '')+'</td><td>'+escapeHtml(x.tipo)+(x.fim ? '<br><small style="color:'+(venc ? "#b3261e" : "var(--muted)")+'">'+(venc ? "venceu " : "até ")+crData(x.fim)+'</small>' : '')+'</td>'+
           '<td class="n"><b>'+crNum(s.saldo)+'</b><br><small>de '+crNum(s.total)+'</small></td><td>'+crData(s.validade)+'</td><td class="n">'+crNum(cm.creditos)+'<br><small>'+crNum(cm.usos)+' usos</small></td><td>'+crBotoes(x.conta, k)+'</td></tr>'+crPacotes(x.conta, k, 6); }).join("")+'</tbody></table></div></div>';
+  }
+  // Cortesias da diretoria: o que foi dado sem venda, quanto já foi usado e o custo real estimado (custo médio por crédito da própria conta)
+  function crCortesias(carteira, dol){
+    const ehCort = p => p.origem === "cortesia" || (p.origem === "manual" && /cortesia/i.test(p.obs || ""));
+    const ref = (lista) => { const v = (lista || []).filter(p => p.creditos > 0 && p.valor > 0).map(p => p.valor / p.creditos); return v.length ? v.reduce((a,b) => a+b, 0) / v.length : 0; };
+    const refRede = ref(crA.cfg.pacotes_rede), refProf = ref(crA.cfg.pacotes_professor);
+    const L = [];
+    crA.cart.forEach(k => { if(k.id === "admin") return;
+      const cons = Object.values(k.consumo || {}), cr = cons.reduce((a,m) => a + (m.creditos || 0), 0), us = cons.reduce((a,m) => a + (m.custo_usd || 0), 0), custoCred = cr ? us * dol / cr : 0;
+      (k.pacotes || []).filter(ehCort).forEach(p => { const usados = Math.max(0, (p.creditos || 0) - (p.restante || 0) - (p.retirado || 0));
+        L.push({ nome:k.nome || k.id, em:crMs(p.criado_em), creditos:p.creditos || 0, usados, restante:p.restante || 0, retirado:p.retirado || 0, validade:crMs(p.validade), obs:p.obs || "",
+          custo:usados * custoCred, venda:(p.creditos || 0) * (String(k.id).startsWith("mun_") ? refRede : refProf) }); }); });
+    L.sort((a,b) => b.em - a.em);
+    const tot = L.reduce((a,x) => ({ creditos:a.creditos + x.creditos, usados:a.usados + x.usados, restante:a.restante + x.restante, custo:a.custo + x.custo, venda:a.venda + x.venda }), { creditos:0, usados:0, restante:0, custo:0, venda:0 });
+    return '<div class="cr-bloco"><h3>Cortesias da diretoria ('+L.length+')</h3><p class="sub">Créditos dados sem venda. "Usados" é o que já foi consumido do pacote; o custo real é estimado pelo custo médio por crédito da própria conta (Google Gemini, dólar a '+crBrl(dol)+'). "Valor de tabela" é quanto esses créditos valeriam pelos pacotes de venda.</p>'+
+      (L.length ? '<div class="cr-kpis" style="margin:8px 0 12px"><div class="cr-kpi"><small>Créditos dados em cortesia</small><b>'+crNum(tot.creditos)+'</b><span>'+crNum(tot.restante)+' ainda disponíveis</span></div>'+
+        '<div class="cr-kpi"><small>Já usados</small><b>'+crNum(tot.usados)+'</b><span>'+(tot.creditos ? Math.round(tot.usados / tot.creditos * 100) : 0)+'% do que foi dado</span></div>'+
+        '<div class="cr-kpi"><small>Custo real estimado</small><b>'+crBrl(tot.custo)+'</b><span>gasto de IA com as cortesias</span></div>'+
+        '<div class="cr-kpi"><small>Valor de tabela</small><b>'+crBrl(tot.venda)+'</b><span>investimento comercial</span></div></div>'+
+        '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Conta</th><th>Lançado em</th><th>Créditos</th><th>Usados</th><th>Restam</th><th>Vence</th><th>Custo real</th><th>Valor de tabela</th><th>Observação</th></tr></thead><tbody>'+
+        L.map(x => '<tr><td><b>'+escapeHtml(x.nome)+'</b></td><td>'+crData(x.em)+'</td><td class="n">'+crNum(x.creditos)+'</td><td class="n"><b>'+crNum(x.usados)+'</b></td><td class="n">'+crNum(x.restante)+(x.retirado ? '<br><small>'+crNum(x.retirado)+' retirados</small>' : '')+'</td><td>'+crData(x.validade)+'</td><td class="n">'+crBrl(x.custo)+'</td><td class="n">'+crBrl(x.venda)+'</td><td><small>'+escapeHtml(x.obs)+'</small></td></tr>').join("")+
+        '</tbody></table></div>' : '<p class="usr-aviso">Nenhuma cortesia lançada ainda. No "Lançar créditos", escolha o tipo "Cortesia da diretoria".</p>')+'</div>';
   }
   function desenharCreditosAdmin(){
     const cfg = crA.cfg, mes = crMes(), dol = Number(cfg.dolar) || 5.6;
@@ -13675,11 +13697,13 @@
         '<label id="crEmailBox"'+(f.conta === "email" ? "" : " hidden")+'>E-mail do professor<input id="crEmail" type="email" placeholder="professor@..."></label>'+
         '<label>Créditos<input id="crQtd" type="number" min="1" step="1" value="'+escapeAttr(f.creditos || "")+'"></label>'+
         '<label>Validade (meses)<input id="crMeses" type="number" min="1" max="36" value="'+(f.meses || cfg.validade_meses || 12)+'"></label>'+
-        '<label style="grid-column:span 2">Observação (nº do empenho, NF, Pix)<input id="crObs" maxlength="300" value="'+escapeAttr(f.obs || "")+'"></label>'+
+        (f.pedido_id ? '' : '<label>Tipo<select id="crTipo"><option value="venda"'+(f.tipo === "cortesia" ? "" : " selected")+'>Venda (empenho, NF, Pix)</option><option value="cortesia"'+(f.tipo === "cortesia" ? " selected" : "")+'>Cortesia da diretoria</option></select></label>')+
+        '<label style="grid-column:span 2">Observação (nº do empenho, NF, Pix ou motivo da cortesia)<input id="crObs" maxlength="300" value="'+escapeAttr(f.obs || "")+'"></label>'+
         '<button class="btn btn-primary" data-action="cr-salvar-lanc" id="crSalvarLanc">Lançar créditos</button></div>'+(f.pedido_id ? '<p class="usr-aviso">Liberando o pedido de <b>'+escapeHtml(f.nome || "")+'</b>. Ao lançar, o pedido fica como aprovado e quem pediu recebe um e-mail.</p>' : "")+'</div>'+
       '<div class="cr-bloco"><h3>Redes com Portal IA</h3><p class="sub"><b>Como distribuir:</b> só conta quem é da rede (licença institucional); avulsos, cortesia e teste nunca usam a carteira da rede, mesmo tendo escolhido a cidade no cadastro. "Educadores" soma quem já entrou e os importados que ainda não fizeram o 1º acesso. "Créditos por educador" é o saldo dividido por eles; a sugestão é 15 por educador. Para tirar créditos, use <b>Pacotes</b> e retire o pacote lançado. A franquia do mês entra sozinha todo dia (educadores de rede ativos × franquia do plano). <button class="btn-mini btn-gerenciar" data-action="cr-franquia">Conferir a franquia do mês</button> Intermediário: só texto. Completo: texto e imagem. O teto é o máximo de créditos da rede que cada professor usa por mês (0 = sem teto). Alertas automáticos para a NEWPC e a Secretaria com '+cfg.alertas.join("% e ")+'% do saldo.</p>'+
         (comIA.length ? '<div style="overflow:auto"><table class="cr-tab"><thead><tr><th>Rede</th><th>Educadores</th><th>Créditos por educador</th><th>Saldo</th><th>Situação</th><th>Vence</th><th>Uso no mês</th><th>Custo real no mês</th><th>Teto por professor/mês</th><th></th></tr></thead><tbody>'+comIA.map(linhaMun).join("")+'</tbody></table></div>' : '<p class="usr-aviso">Nenhum município está no plano Intermediário ou Completo.</p>')+'</div>'+
       crTabelaProfs(carteira, mes)+
+      crCortesias(carteira, dol)+
       desenharCentralIA(cfg, carteira)+
       '<div class="cr-bloco"><h3>Preços e pacotes</h3><p class="sub">Quanto cada uso gasta e os pacotes que a Secretaria e o professor veem ao pedir recarga. O custo real por crédito no mês aparece no topo para conferir a margem.</p>'+
         '<div class="cr-form"><label>Material do Portal IA<input id="crPMat" type="number" min="1" value="'+(cfg.precos.material ?? 2)+'"></label><label>Aula IA (Lousa)<input id="crPAula" type="number" min="1" value="'+(cfg.precos.aula ?? 6)+'"></label><label>Questões, parecer e IA rápida<input id="crPTexto" type="number" min="1" value="'+cfg.precos.texto+'"></label><label>Ajuste com a IA<input id="crPAjuste" type="number" min="0" value="'+cfg.precos.ajuste+'"></label><label>Imagem<input id="crPImagem" type="number" min="1" value="'+cfg.precos.imagem+'"></label><label>Aula avançada (Lousa)<input id="crPAvanc" type="number" min="1" value="'+(cfg.precos.avancado ?? 24)+'"></label><label>Vídeo interativo<input id="crPVideo" type="number" min="1" value="'+(cfg.precos.video ?? 3)+'"></label>'+
@@ -13823,7 +13847,8 @@
     if(!conta){ toast("Escolha a conta.", true); return; }
     if(creditos < 1){ toast("Informe a quantidade de créditos.", true); return; }
     const b = $("crSalvarLanc"); b.disabled = true; b.textContent = "Lançando...";
-    try{ await crChamar({ acao:"recarregar", conta, creditos, meses, obs, pedido_id:crA.form.pedido_id || "" }); crA.form = {}; toast(crNum(creditos)+" créditos lançados."); renderCreditosAdmin(); }
+    const cortesia = !crA.form.pedido_id && (($("crTipo") || {}).value === "cortesia");
+    try{ await crChamar({ acao:"recarregar", conta, creditos, meses, obs, cortesia, pedido_id:crA.form.pedido_id || "" }); crA.form = {}; toast(crNum(creditos)+" créditos lançados"+(cortesia ? " como cortesia da diretoria." : ".")); renderCreditosAdmin(); }
     catch(e){ toast(e.message || "Não lançou.", true); b.disabled = false; b.textContent = "Lançar créditos"; }
   }
   document.addEventListener("click", async ev => {
