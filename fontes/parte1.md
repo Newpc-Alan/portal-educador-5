@@ -46,7 +46,7 @@ Se a conta Google também estiver ligada, ela continua funcionando normalmente.
 | A rede já importou o seu e-mail | Você entra com a conta da escola já ligado ao município e à escola e, antes de começar, aparece **Complete seu cadastro para começar** |
 | Você não foi cadastrado pela rede | Aparece **Complete seu cadastro**, com 7 dias de teste grátis |
 
-**Atualização cadastral (professor da rede).** No primeiro acesso e no começo de cada ano letivo (a partir de 1º de fevereiro), o Portal pede para conferir os dados antes de abrir. Os campos já vêm preenchidos com o que a rede enviou. São obrigatórios: nome completo, WhatsApp (com DDD), CPF, data de nascimento, função, as escolas onde você dá aula (até 5), os anos, as etapas e as disciplinas que leciona, e o aceite da Política de Privacidade. A tela só libera com tudo certo; o campo com problema fica vermelho e diz o que corrigir. A foto para o crachá é opcional, em **Meu cadastro › Minha ficha funcional**. Para mudar depois: **Meu cadastro › Atualizar cadastro completo**.
+**Atualização cadastral (professor da rede).** As contas de teste do Laboratório NEWPC não passam por ela. No primeiro acesso e no começo de cada ano letivo (a partir de 1º de fevereiro), o Portal pede para conferir os dados antes de abrir. Os campos já vêm preenchidos com o que a rede enviou. São obrigatórios: nome completo, WhatsApp (com DDD), CPF, data de nascimento, função, as escolas onde você dá aula (até 5), os anos em que dá aula (organizados por etapa: a etapa entra sozinha), as disciplinas que leciona e o aceite da Política de Privacidade. Na Educação Infantil a disciplina também entra sozinha; quem atende AEE ou sala de recursos marca **Também atendo Educação Especial**. A tela só libera com tudo certo; o campo com problema fica vermelho e diz o que corrigir. A foto para o crachá é opcional, em **Meu cadastro › Minha ficha funcional**. Para mudar depois: **Meu cadastro › Atualizar cadastro completo**.
 
 O WhatsApp certo é importante: é por ele que o atendimento do Portal no WhatsApp reconhece você e mostra a sua licença, a sua escola e os seus chamados.
 
@@ -66,6 +66,7 @@ Quem se cadastra sozinho ganha 7 dias para conhecer o Portal. No topo do Início
 
 - Os 10 créditos valem até o fim do teste e são dados uma vez por e-mail. Quando acabam, o Portal IA avisa e mostra como continuar.
 - Nos 2 últimos dias aparece o aviso **Faltam X dias** com o caminho para continuar sem perder o que você criou.
+- **Assinar sem esperar a equipe** (quando o pagamento online está ligado): os botões **Assinar** e **Renovar** abrem a janela **Pagamento seguro pelo Asaas**. Escolha a licença (Intermediário ou Completo, 1 mês) ou um pacote de créditos, informe o CPF de quem paga (só na primeira compra) e toque em **Ir para o pagamento**. A página do Asaas abre em outra aba com Pix, boleto ou cartão. Quando o pagamento é confirmado, o Portal libera sozinho e manda um e-mail. Se fechar a aba sem pagar, a cobrança fica em **Aguardando pagamento**, com o botão **Pagar**.
 
 **Quero isso na minha escola.** Os recursos com cadeado são contratados pela Secretaria de Educação para a rede. Na vitrine de cada um, preencha a escola e o município, marque **Autorizo a NEWPC a entrar em contato comigo e com a minha escola** e toque em **Enviar pedido**. A equipe comercial recebe o pedido na hora; depois do envio, o botão **Falar agora no WhatsApp** abre a conversa com a mensagem pronta.
 
@@ -313,17 +314,25 @@ No Início, o cartão **📢 Novidades da sua rede** mostra o que os colegas com
 
 ### Créditos de IA
 
-O Portal IA, a Aula com IA da Lousa e o Gerar com IA das Provas usam créditos. É pré-pago: quando o saldo acaba, a IA para, sem cobrança além do contratado.
+O Portal IA, a Lousa, as Provas, o Quiz rápido e o Vídeo interativo usam créditos. É pré-pago: quando o saldo acaba, a IA para, sem cobrança além do contratado, e abre a janela com **Abastecer créditos** (em qualquer tela do Portal).
 
 | Uso | Gasto padrão |
 |---|---|
-| 1 material (ou 1 aula da Lousa) | 1 crédito |
-| 1 imagem ou ilustração | 5 créditos |
+| 1 material do Portal IA | 2 créditos |
+| Ajuste de um material já pronto | 1 crédito |
+| 1 Aula com IA da Lousa | 6 créditos |
+| Aula avançada (modelo mais forte, para Ensino Médio e revisões) | 24 créditos |
+| 1 imagem, ilustração ou Pintor com IA | 6 créditos |
+| Questões das Provas, Quiz rápido, Perguntar, Circular e Mapa mental da Lousa | 1 crédito |
+| Vídeo interativo a partir de um link do YouTube | 3 créditos |
+| **Grátis** (com limite diário de uso justo): Termômetro da turma, Pareceres da turma, Passar a limpo, Legendas ao vivo e os vídeos interativos do catálogo do Portal | 0 |
 
-- **Créditos da rede**: a Secretaria compra para o município. Pode haver um limite por professor por mês, que renova no dia 1º.
-- **Seus créditos**: em **💳 Comprar créditos**, escolha um pacote e toque em **Fazer o pedido**. A NEWPC envia os dados de pagamento (Pix ou boleto) para o seu e-mail; os créditos entram quando o pagamento é confirmado e valem 12 meses. Créditos próprios servem para tudo, inclusive imagens.
-- O saldo aparece no topo do Portal IA, no menu lateral, nas Provas e na Lousa.
-- Imagem que não sai é devolvida.
+Os valores podem mudar por decisão da NEWPC; o botão de cada recurso sempre mostra o custo antes de gerar.
+
+- **Franquia da rede**: no plano Intermediário ou Completo, cada professor da rede recebe uma franquia mensal de créditos. A sobra **acumula até o fim do contrato** (não vence no fim do mês). O limite de uso por professor no mês é o dobro da franquia, para o saldo acumulado ser aproveitado.
+- **Seus créditos**: em **💳 Comprar créditos**, escolha um pacote (100 por R$ 49,90 ou 300 por R$ 129,90). Com o pagamento online ligado, você paga na hora por Pix, boleto ou cartão e os créditos entram sozinhos; sem ele, toque em **Fazer o pedido** e a NEWPC envia os dados de pagamento por e-mail. Créditos próprios valem 12 meses e servem para tudo, inclusive imagens.
+- O saldo aparece no topo do Portal IA, no menu lateral, na Lousa, na Turma ao Vivo e ao lado do título das Provas.
+- Tudo o que você gera com IA fica salvo em **Meus trabalhos**: abrir de novo não gasta crédito. Se a IA falhar ou a imagem não sair, o crédito volta.
 
 ### Buscador da BNCC
 
@@ -345,7 +354,19 @@ Em `www.portaldoeducador.com.br/bncc/` (aberto, sem login) ou pelo atalho **🔎
 3. Toque no vídeo: ele abre num player sem anúncios de recomendação, com a descrição e a sugestão de uso. Os botões **Tela cheia** e **Fechar** ficam sempre à vista no rodapé.
 4. Deixe sua opinião em **O que achou do vídeo?**.
 
-Vídeo recém-publicado aparece com o selo **NOVO NO PORTAL** por 15 dias.
+Vídeo recém-publicado aparece com o selo **Novo** por 5 dias. Os vídeos do canal do Portal do Educador trazem a marca **Produção própria**, com o logo do Portal no card.
+
+### Vídeo interativo {: .nova }
+
+O vídeo pausa sozinho nos momentos marcados, mostra uma pergunta na tela e a turma responde antes de continuar.
+
+1. Nos **Vídeos Educativos**, toque no botão azul **Interativo** do card (também nos vídeos **Em cartaz**). O vídeo já abre tocando com as perguntas. Os vídeos interativos do catálogo do Portal são **grátis**.
+2. Para usar um vídeo seu do YouTube, abra **🎬 Vídeos interativos** (pela faixa da página de vídeos ou pelo botão **Versão interativa**), cole o link e toque em **✨ Gerar as perguntas com IA**. O botão mostra o custo em créditos antes de gerar. O vídeo fica em **Meus vídeos**.
+3. Revise antes de usar: edite a pergunta, as alternativas e o momento da pausa; **➕ Nova pausa no ponto atual do vídeo** cria outra. Toque em **💾 Salvar**.
+4. Em sala, toque em **▶ Apresentar**. Em cada pausa, a turma tem um **tempo para pensar** (contagem antes de liberar as respostas). Depois, **👀 Ver resposta esperada** e **Continuar o vídeo ▶**. O passador de slides também avança.
+5. Achou uma pergunta errada num vídeo do catálogo? Toque em **⚑ Avisar problema**: a equipe NEWPC revisa.
+
+<!-- captura: vídeo interativo pausado na lousa com a pergunta de múltipla escolha -->
 
 ![Vídeos Educativos com destaque](videos-destaque.png){85}
 
@@ -414,14 +435,17 @@ Visitas em 360º a museus brasileiros, cada uma com sugestão pedagógica, disci
 
 ### Formação Continuada
 
-Cursos com certificado para o professor, com o mesmo visual do Portal: cursos e trilhas com fotos, **← Voltar ao Portal** no topo e o mesmo login.
+Cursos com certificado para o professor, com o mesmo visual do Portal: cursos e trilhas com fotos, **← Voltar ao Portal** no topo e o mesmo login. A página reconhece você pelo cadastro do Portal e mostra **Olá, (seu nome)**.
 
-1. Em **Meus dados**, informe nome completo e CPF (obrigatórios para o certificado). Município e escola vêm do seu cadastro no Portal e se atualizam sozinhos a cada entrada (para mudar, fale com a secretaria da escola). Professor avulso, sem rede, preenche os dois.
-2. Escolha o curso. Os módulos são liberados em ordem.
-3. A aula só conta quando você cumpre o tempo mínimo e assiste pelo menos 90% de cada vídeo.
-4. Depois de todas as aulas, faça a **Avaliação final** (padrão: nota mínima de 70% e 3 tentativas).
-5. Os cursos também aparecem na **Busca do Portal**, no Início.
-6. Toque em **Emitir meu certificado**. Ele sai em nome da NEWPC TECNOLOGIA LTDA (CNPJ 20.892.343/0001-15), com o seu nome, CPF, curso, carga horária e, no verso, o conteúdo programático. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `www.portaldoeducador.com.br/validar/`.
+1. Escolha o curso e toque para começar. Se faltar nome e sobrenome, município ou escola no seu cadastro, abre a **atualização cadastral** antes da primeira aula; ao salvar, você segue direto para a aula. Município e escola de quem é de uma rede vêm do Portal (para mudar, fale com a secretaria da escola). O CPF só é pedido na hora do certificado.
+2. Os módulos são liberados em ordem. Cursos marcados **Em breve** ainda estão em produção.
+3. **Atividade prática**: no fim de cada aula há uma atividade para fazer com a turma. Conte como foi no campo do relato (sem nomes de alunos) e receba na hora o retorno da IA, como de um formador: o que funcionou, uma sugestão para a próxima vez e uma pergunta para refletir. Dá para enviar até 3 relatos por aula.
+4. **Formação da sua rede**: cursos exclusivos produzidos para a sua rede aparecem com esse selo e só para os professores dela. O certificado traz a Secretaria como promotora.
+5. **Lembretes**: se você parar um curso por 7 dias, chega um e-mail com a aula onde parou e o botão **Continuar de onde parei** (no máximo 3 por curso). Para não receber, desmarque **Lembretes por e-mail** no seu perfil da Formação.
+6. A aula só conta quando você cumpre o tempo mínimo e assiste pelo menos 90% de cada vídeo. Quando o curso ganha uma versão nova, o seu progresso vai junto.
+7. Depois de todas as aulas, faça a **Avaliação final** (padrão: nota mínima de 70% e 3 tentativas).
+8. Os cursos também aparecem na **Busca do Portal**, no Início.
+9. Toque em **Emitir meu certificado** (informe o CPF, se ainda não informou). Ele sai em nome da NEWPC TECNOLOGIA LTDA (CNPJ 20.892.343/0001-15), com o seu nome, CPF, curso, carga horária e, no verso, o conteúdo programático. O código (ex.: AE-2026-XXXXXX) pode ser conferido por qualquer pessoa em `www.portaldoeducador.com.br/validar/`.
 
 ![Formação Continuada](s49-formacao.png){85}
 
@@ -454,6 +478,23 @@ O botão flutuante **Lousa** abre um quadro digital por cima do Portal: caneta, 
 - A aula é salva sozinha a cada 2 minutos e ao sair.
 - **Voltar ao Portal (Esc)** salva e minimiza. Enquanto houver aula aberta, o botão Lousa fica verde e piscando.
 - Todas as aulas ficam em **Meus trabalhos › Aulas da Lousa**, disponíveis em qualquer computador.
+- **Encerrar a aula**: escolha entre salvar com as anotações, salvar como cópia (a original fica limpa) ou sair sem salvar. A Lousa guarda a versão original da aula.
+
+A barra de baixo da Lousa traz, cada um com a sua cor: **Apresentar**, **📚 Aulas prontas**, **Aula IA**, **Meus trabalhos**, **Ferramentas IA** e **Compartilhar**. A barra se ajusta a telas menores.
+
+| Recurso | Como funciona |
+|---|---|
+| **Apresentar** | Tela cheia em que cada toque revela o próximo item. O quiz tem revelação da resposta certa e confete, e há **🎲 Sortear** aluno e cronômetro. O botão **✕ Sair da apresentação** fica sempre à vista (também Esc); no fim, a janela de fim da aula é pensada para o painel de toque |
+| **Quiz ao vivo** | O quiz dos slides vai para os aparelhos da turma; ao **Encerrar e mostrar a certa**, a Lousa mostra o resultado |
+| **📚 Aulas prontas** | Acervo oficial do Portal com temas transversais da BNCC, do 1º ao 9º ano, revisado pela NEWPC. **Não gasta crédito**: escolha e toque em **Usar esta aula**. Antes de gerar uma Aula IA, a Lousa sugere uma aula pronta parecida |
+| **Ferramentas IA** | Menu com **Perguntar** (a IA responde à pergunta da turma, com **💡 Explicar**, **🧮 Resolver passo a passo** e **🌎 Traduzir**), **Circular** (circule um trecho do quadro e a IA explica), **Passar a limpo**, **Pintor** (o desenho vira ilustração), **Mapa mental** e **Legendas ao vivo** |
+| **Passar a limpo** | Selecione o que escreveu à mão e a letra vira texto digitado e organizado. **Grátis**, com limite diário |
+| **Mapa mental** | A IA monta o mapa do tema nos modelos Radial, Árvore, Bolhas ou Chaves; trocar de modelo não gasta crédito a mais |
+| **Legendas ao vivo** | A sua fala aparece escrita na tela. O áudio não é enviado ao Portal nem gravado |
+| **Ler em voz alta e medidor de barulho** | A Lousa lê o texto selecionado e mostra o nível de barulho da sala, com limite ajustável |
+| **Livro em PDF** | Importe um PDF e folheie como livro: a folha vira sobre a lombada, com abas laterais, setas do teclado e som de papel |
+| **Forma perfeita** | Desenhe solto e o traço vira retângulo, círculo, elipse, triângulo, losango ou linha. Vem desligada; a Lousa lembra se você ligar |
+| **Voz vira texto** | Microfone nos campos de texto da Lousa, do Portal IA, dos Pareceres e do Portal, o **Ditado** no quadro e **Ditar pelo celular** (QR code). O reconhecimento é feito pelo navegador: o Portal não recebe nem grava áudio |
 
 ### Aula com IA (Lousa)
 
@@ -469,14 +510,15 @@ O botão **Aula IA**, na barra da Lousa, monta uma aula em slides com a IA do Po
 3. Escolha a **Cor da apresentação** (cor da disciplina ou uma da paleta) e o **Fundo dos slides**: **Claro**, **Escuro** ou **Quadro verde**. O Portal lembra a última escolha.
 4. Toque em **Montar a aula**. A tela **Estou pensando** acompanha a preparação.
 
-A aula vem com sequência pedagógica: capa, conceitos, exemplos, erro comum, curiosidade, quiz, mapa mental, resumo, um **📝 Roteiro** do professor em post-it em cada slide (com o tempo sugerido) e a página **Para continuar no Portal** (dois cliques num item abrem o link).
+A aula vem com sequência pedagógica: capa, conceitos, exemplos (com tabela, cálculo passo a passo e números lado a lado quando o tema pede), erro comum, curiosidade, quiz, mapa mental, uma atividade para investigar na vida real, resumo e um **📝 Roteiro** do professor em post-it em cada slide (com o tempo sugerido). A densidade do texto acompanha a série. A IA confere as contas, indica o ano de referência de valores que mudam com o tempo e avisa quando valores em dinheiro são ilustrativos. A aula não indica vídeo nem material de fora do Portal.
 
 | Versão | O que inclui | Créditos |
 |---|---|---|
-| **Básica** | A aula completa em slides | 1 |
-| **Lousa Ultra** | A aula e de 1 a 4 ilustrações geradas pela IA (só a capa, ou capa + até 3 slides), no estilo automático pela turma ou escolhido (realista, livro didático, infantil) | 1 + 5 por ilustração |
+| **Básica** | A aula completa em slides | 6 |
+| **Lousa Ultra** | A aula e de 1 a 4 ilustrações geradas pela IA (só a capa, ou capa + até 3 slides), no estilo automático pela turma ou escolhido (realista, livro didático, infantil) | 6 + 6 por ilustração |
+| **Aula avançada** | A aula com o modelo mais forte da IA, para Ensino Médio e revisões | 24 |
 
-O botão **Montar a aula** mostra o total antes de gerar (ex.: "até 21 créditos").
+O botão **Montar a aula** mostra o total antes de gerar. Se algum slide vier incompleto, a Lousa completa sozinha; se ainda faltar, o crédito volta. A aula é salva na hora em **Meus trabalhos**.
 
 <!-- captura: janela Aula com IA da Lousa, com temas sugeridos, cor, fundo e Lousa Ultra -->
 
@@ -494,6 +536,7 @@ O botão **Compartilhar** da Lousa (ou o mesmo botão em Meus trabalhos) abre a 
 | ✉️ **E-mail** | Envia a aula em PDF a colegas da turma ou outros e-mails, com ou sem o Guia do professor |
 | 🎒 **Alunos** | A aula vai para "Materiais da turma", página por página, **sem o Guia do professor** |
 | 🔗 **Link** | Manda um site ou vídeo para a turma durante a aula, sem sair da Lousa |
+| 📲 **QR code** | **📲 Gerar QR code** mostra um código na tela: o aluno aponta o celular e vê o material da hora, sem login. Use **🔍 Mostrar grande para a turma** e **🔗 Copiar link** |
 
 ### Meus trabalhos
 
@@ -512,6 +555,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 
 - A busca no topo procura em todas as pastas.
 - Em cada item: abrir, **Compartilhar**, **Renomear** e **Excluir**.
+- Na Lousa, **Meus trabalhos** tem os filtros **✨ Aulas IA**, **📚 Aulas prontas** e **✏️ Minhas**, com selo em cada cartão. Rabisco solto não vira trabalho sozinho; tocar na miniatura também abre a aula.
 
 <!-- captura: Meus trabalhos na raiz, com as pastas e a pasta Da sua rede -->
 
@@ -521,7 +565,7 @@ No menu, **Meus trabalhos** guarda tudo o que você cria, organizado em pastas:
 |---|---|
 | **Turma na Lousa** | Sortear alunos, formar grupos, cronômetro, semáforo do barulho (o som não é gravado), mapa da sala e placar |
 | **Folha Mágica** | 14 modelos de folha (pauta musical, caligrafia, milimetrado, plano cartesiano, Cornell...), com cabeçalho da escola e opção "uma por aluno" |
-| **Teleprompter** | Roteiro rolando na tela, com controle pelo celular via QR code |
+| **Teleprompter** | Roteiro rolando na tela, com controle pelo celular via QR code. Escreva o texto em blocos: **Bloco 1**, toque em **+ Novo bloco**, **Bloco 2** e assim por diante (Ctrl+Enter cria o próximo; o **×** apaga um bloco). Em **Apresentar**, a tela mostra só o texto: os controles e o cursor somem em poucos segundos e voltam ao mexer o mouse ou tocar (Esc sai) |
 | **Enviar para a TV da escola** | Colocar fotos, vídeos e avisos na programação da TV da escola. Professor avulso, de cortesia ou em teste tem **Minhas TVs**: conecta as TVs dele, monta as playlists e só aparece o que ele publica (sem escola, sem comunicados da Secretaria) |
 | **App do Maestro (tablet do aluno)** | Baixar o app Android do aluno do Portal Maestro, sempre na versão mais nova |
 
@@ -643,6 +687,20 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 | 🕘 Histórico de envios | Tudo o que foi para a turma, do mais novo para o mais antigo, com busca por tema e período (hoje, 7 ou 30 dias): materiais enviados (com **👁️** quantos abriram e quem **ainda não abriu**), jogos, vídeos e links abertos nas telas (para a turma ou **só para** um aluno, com **↻** para abrir de novo), **🧠 quizzes** (com o aproveitamento e **📈** para o relatório) e **📊 pesquisas** (com o resultado 🟢🟡🔴). Envios de outro professor da turma mostram o nome dele |
 
 <!-- captura: painel Turma ao Vivo com indicadores, alunos em avatares e lista de enviados -->
+
+**Quem conduz a aula.** O nome e a matéria do professor que está com a turma aparecem grandes no alto do painel e na tela do aluno. O painel também mostra o medidor de créditos de IA.
+
+**Onde vai ser a aula.** Ao abrir a aula, o Portal pergunta **📍 Onde vai ser a aula?** (na sala da turma, no laboratório ou em outra sala compartilhada). Se outra turma estiver com aula aberta na mesma sala, ela é encerrada depois da sua confirmação e os aparelhos daquela turma saem da conta.
+
+**Troca de professor (bater na porta).** Quando outro professor da mesma turma abre a aula com ela em andamento, ele envia um pedido com nome e matéria. O professor da sala vê o pedido na hora, em qualquer tela do Portal ou da Lousa (a tela cheia sai sozinha, o título pisca e bipa), e só ele libera; não há prazo automático. Ao aprovar, quem chega entra direto no painel e quem saiu deixa o painel. Direção e coordenação também batem na porta e, na espera, têm a opção **Assumir sem esperar**.
+
+### Termômetro da turma {: .nova }
+
+No Controle da aula, toque em **🌡️ Termômetro da turma**. Escolha uma pergunta aberta (há sugestões como "Com as suas palavras, o que você aprendeu hoje?") ou escreva a sua e toque em **Perguntar à turma**. Cada aluno responde no próprio aparelho, com as palavras dele.
+
+A IA agrupa as respostas em **entenderam**, **entenderam em parte** e **confundiram**, e aponta a confusão que mais apareceu, para você retomar na hora. A IA lê só as respostas, nunca os nomes. O Termômetro é **gratuito**, com limite diário de uso justo, e o resultado fica no **Histórico de envios** da turma e nos painéis da Escola e da Rede.
+
+<!-- captura: cartão Quanto a turma entendeu com os grupos da IA -->
 
 :::nota
 A presença na sala vale para quem entrou pelo **cartão com QR** e, com a **aula aberta**, também para quem entrou com **código e PIN** ou **conta Google**: o aparelho avisa a cada 20 segundos que o aluno está ali e avisa na hora quando ele sai do Portal. Aluno no app do Maestro conta pela presença do Maestro. Sair do painel não encerra a aula: volte pelo Início.
@@ -891,10 +949,12 @@ Na maioria das redes, as turmas e os professores de cada disciplina vêm da **Gr
 
 ### Frequência (chamada)
 
-1. Escolha **Turma** (com o turno), **Disciplina**, **Dia** e número de **Aulas**. O Portal lembra a última turma e disciplina de cada professor, mesmo em computador compartilhado. Não achou a disciplina? Use **Outra disciplina**.
+1. Escolha **Turma** (com o turno), **Disciplina**, **Dia** e número de **Aulas**. O Portal lembra a última turma e disciplina de cada professor, mesmo em computador compartilhado. A lista de disciplinas mostra só as suas: as da **Grade das turmas** (montada pela direção) ou, sem grade, as que você marcou na atualização cadastral (com **Polivalente** para quem dá aula na Educação Infantil e nos Anos Iniciais). Com uma disciplina só, ela já vem escolhida. Faltou alguma? Corrija em **Meu cadastro** ou peça à direção para ajustar a grade.
 2. Todos começam presentes: marque só quem faltou (**F**). No celular, cada aluno fica numa linha com **P** e **F** ao lado do nome. Use **Justificada** para atestado ou motivo informado pela família.
 3. Opcional: **📝 Registro da aula**, como no diário de classe.
 4. Toque em **💾 Salvar chamada**.
+
+**Portaria na chamada (dupla confirmação)**: se a escola usa a carteirinha na entrada, embaixo do nome de cada aluno aparece **🚪 entrou às 07:12** ou **🚪 não passou a carteirinha**. Na chamada de hoje, quando a turma tem entradas no dia, ela **já vem marcada pela portaria**: quem passou está presente, quem não passou está com falta. Confira na sala. Se você marcar presente quem não passou (esqueceu a carteirinha, entrou por outro portão, chegou depois) ou falta para quem passou (saiu da escola, está em outro lugar, carteirinha usada por outra pessoa), o Portal pede o **motivo**, e ele fica na Auditoria da portaria para a coordenação. Sem o motivo, a chamada não salva. Com vários presentes sem portaria, use **Mesmo motivo para todos**. Se a portaria não registrou ninguém da turma no dia, a chamada começa com todos presentes, como sempre. A frequência oficial continua sendo a sua.
 
 O Portal avisa se o dia não é letivo pelo calendário da rede. Em **🗂️ Histórico** você vê a frequência de cada aluno e corrige chamadas antigas; em **🔎 Busca ativa**, quem está abaixo do mínimo ou faltando seguido.
 
@@ -951,7 +1011,27 @@ São 21 modelos: plano de aula, diário de classe, parecer bimestral (inclusive 
 ![Modelos da Central de Relatórios](s43-rel-inicio.png){85}
 
 :::dica
-O **parecer da turma em lote** marca, aluno por aluno, os eixos Leitura, Escrita, Matemática, Participação, Convivência e Autonomia (C, D ou A). O botão **🤖 Escrever com a IA** transforma as marcações em texto, que você confere antes de salvar.
+Para o parecer com os dados reais do bimestre, use **Pareceres da turma** (acima). O **parecer da turma em lote** continua disponível: ele marca, aluno por aluno, os eixos Leitura, Escrita, Matemática, Participação, Convivência e Autonomia (C, D ou A). O texto sai das marcações e você confere antes de salvar. Para usar a IA, vá em **✨ Pareceres com o Portal IA**: ela trabalha com os dados reais e sem receber o nome do aluno.
+:::
+
+### Pareceres da turma com o Portal IA {: .nova }
+
+No Início, no grupo **Minha turma**, toque em **Pareceres da turma** (ou, na Central de Relatórios, em **Abrir Pareceres da turma**). Nas duas últimas semanas do bimestre, o **Para hoje** lembra: "Pareceres do 4º bimestre · termina em 18/12", com o botão **Fazer pareceres**. É o jeito mais rápido de fazer o parecer descritivo do bimestre da turma inteira.
+
+1. **Escolha a turma e o período.** O Portal junta, de cada aluno: a frequência do período, as médias lançadas em Notas e Médias, as habilidades da BNCC das provas online (consolidadas ou em desenvolvimento) e se ele tem plano individual ou apoio.
+2. **Dados e observações:** toque nas observações que combinam com cada aluno (por exemplo, "participa das aulas com interesse", "precisa de incentivo na leitura"). Há também um comentário opcional. Marque quem vai receber o parecer e toque em **Gerar pareceres**. Gerar o parecer com a IA é **gratuito** (com limite diário por professor, que dá para a turma inteira com folga).
+3. **Revisar e aprovar:** confira e edite o texto de cada aluno. **Aprovar parecer** (ou **Salvar rascunho**), **Gerar de novo** e **Próximo aluno**.
+4. **PDF da turma:** um aluno por página, com o brasão do município, o nome da escola e os campos de assinatura. Só entram os pareceres aprovados.
+
+| Situação | O que o Portal faz |
+|---|---|
+| Aluno sem nota e sem prova no período | O parecer avisa que a avaliação não foi registrada e fala só da frequência e das suas observações, sem inventar desempenho |
+| Frequência abaixo do mínimo da rede | O parecer fala da importância da presença |
+| Aluno com plano individual (PEI) | O parecer fala das adaptações e do progresso dentro delas, sem citar diagnóstico |
+| Parecer aprovado | Vai para a Central de Relatórios como **Parecer / Relatório Bimestral**, já enviado para a coordenação conferir |
+
+:::regra
+A IA não recebe o nome, o CPF nem dado de saúde do aluno: recebe "o aluno" com os números, as habilidades e as suas observações. O nome entra só no texto que volta para a sua tela. No comentário opcional, não escreva saúde, laudo ou documento. Nenhum parecer sai no PDF sem a sua aprovação.
 :::
 
 ### Recursos da Escola
@@ -970,6 +1050,8 @@ Em **📌 Minha agenda**, crie lembretes (escola ou pessoal), com repetição e 
 ### Meu cadastro
 
 Em **Meu cadastro** você atualiza seus dados, marca as escolas onde dá aula e os **Anos em que dou aula** (o Portal mostra abaixo as turmas que já vêm da Grade), confere a licença, vê **🎓 Meus certificados da Formação** (com **Ver** e **Validar**) e abre a **Minha ficha funcional** (**Abrir minha ficha**): foto para o crachá, lotação, formação e diplomas. A direção confere, e os dados vão para o Censo Escolar sem ninguém redigitar.
+
+**💻 Aparelhos conectados.** O aluno fica conectado em 1 aparelho por vez; professor e equipe, em até 3. Ao entrar num aparelho a mais, o mais antigo sai da conta com aviso. Em **Meu cadastro** você vê a lista dos aparelhos e pode tocar em **Sair de todos os outros aparelhos**.
 
 ## Aluno
 
@@ -1151,7 +1233,7 @@ O modo de moderação (aprovação antes ou depois) é escolhido pela Secretaria
 1. Na TV, abra `www.portaldoeducador.com.br/tv/`. Aparece um código de 6 caracteres.
 2. No painel, toque em **＋ Conectar TV**, digite o código, dê um nome, escolha o formato (horizontal ou vertical/totem) e a playlist.
 3. Monte as **Playlists** com fotos, vídeos (até 50 MB), YouTube, páginas e textos.
-4. Para o **totem da portaria**, ligue a opção na configuração da TV (com foto na entrada, se desejar).
+4. Para o **totem da portaria**, ligue a opção na configuração da TV. A **Foto na entrada** é opcional; ligada, escolha a **Câmera da foto**: frontal (a da tela, virada para quem passa) ou traseira. Com a foto ligada, o totem mostra no canto a imagem ao vivo com a moldura do rosto; ao ler a carteirinha, a moldura acende ("Olhe para a câmera") e a foto sai meio segundo depois, já recortada no rosto. Para conferir, digite CAMERA no leitor do totem e aperte Enter: a tela mostra a imagem ao vivo e qual câmera está em uso.
 
 ![Código para conectar a TV](s107-tv-codigo.png){75}
 
@@ -1197,6 +1279,10 @@ Mostra, em uma tela, a rede inteira só com números agregados, sem dados pessoa
 - Dias letivos cumpridos, chamados técnicos e TVs online.
 - **🎓 Formação Continuada** (com **Ver os professores**, lista de quem começou, parou ou concluiu, e planilha): adesão dos professores por escola, quantos concluíram, certificados, horas certificadas, quem ainda não começou e os cursos mais concluídos.
 - **✨ Créditos de IA da rede**: saldo, barra, validade, uso no mês e limite por professor, com o botão **Solicitar recarga**. A NEWPC recebe o pedido e envia a proposta; os créditos entram depois do empenho e valem 12 meses.
+
+- **🌡️ Termômetro da turma**: quantas leituras foram feitas e as confusões que mais aparecem, por escola.
+- **🎓 Relatório da formação (IA)**: leitura da Formação Continuada com destaques, pontos de atenção e recomendações, quantos professores **aplicaram em sala** e **onde os professores pararam** (curso e aula). A IA recebe só números por escola e curso, nunca nomes. Sai também em PDF.
+- **🌱 Selo Rede Verde · Painel de Impacto Ambiental**: papel e toner que a rede deixou de imprimir com o uso do Portal, crescendo conforme o uso.
 
 O botão **📄 Relatório executivo** gera um PDF com o brasão, os indicadores, a tabela escola por escola e as prioridades.
 

@@ -16,7 +16,7 @@ Colocar uma rede municipal em funcionamento no Portal com cadastros corretos, pl
 
 ### Procedimento
 1. **Reunião de partida** com a Secretaria: confirmar escopo, cronograma, responsável local, forma de acesso dos alunos (conta Google da escola, link de acesso por e-mail ou cartão com QR e PIN) e o modo de moderação dos materiais da rede (POP-PDE-21).
-2. **Cadastrar o município** em **Municípios** › **Cadastro** (ou **+ Novo Município**), preenchendo as abas **Identificação** (IBGE, CNPJs, endereço), **Pessoas**, **Contrato** e **Rede e IDEB**. Nº do contrato e vigência da aba Contrato são os mesmos do Plano e módulos.
+2. **Cadastrar o município** em **Redes contratantes** › **Cadastro** (ou **+ Nova rede contratante**), preenchendo as abas **Identificação** (IBGE, CNPJs, endereço), **Pessoas**, **Contrato** e **Rede e IDEB**. Nº do contrato e vigência da aba Contrato são os mesmos do Plano e módulos.
 3. **Conferir as planilhas** recebidas: e-mails válidos, uma escola por linha, INEP com 8 dígitos, turmas no padrão do Portal (etapa e letra, ex.: "5º Ano A").
 4. **Importar as escolas** (POP-PDE-02). Conferir em Municípios se não nasceu município duplicado.
 5. **Configurar o plano** (POP-PDE-03), enviar o logo da prefeitura e liberar a IA na **Central de IA** quando contratada (POP-PDE-20).
@@ -416,7 +416,7 @@ O painel guarda situação, saídas, trocas, liberações (com o nome do profess
 1. Na TV, abra `www.portaldoeducador.com.br/tv/teste/`. Se o veredito indicar versão leve ou TV box, siga a orientação da tela.
 2. Abra `www.portaldoeducador.com.br/tv/` e anote o código de 6 caracteres.
 3. No painel (**Portal do Educador TV › Telas**), toque em **＋ Conectar TV**, informe o código, o nome do local (ex.: "Pátio · Entrada"), o formato e a playlist.
-4. Para totem da portaria: ligue **Totem da portaria** e, se a escola decidir, **Foto na entrada**.
+4. Para totem da portaria (só com a **Confirmação de entrada na escola** ligada no plano da rede: Só QR ou QR + câmera): ligue **Totem da portaria** e, se a escola decidir e a rede tiver QR + câmera, **Foto na entrada**, escolhendo a **Câmera da foto** (frontal ou traseira, no aparelho com duas câmeras). Sem a foto, o totem não liga a câmera. Teste digitando CAMERA no leitor e apertando Enter.
 5. Configure a TV para abrir o Portal sozinha ao ligar (modo quiosque, conforme a orientação **Tela cheia e quiosque**).
 6. Confira no painel o status **No ar**.
 7. Teste o totem lendo uma carteirinha e conferindo a entrada no mural.
@@ -440,13 +440,13 @@ Manter a frequência em dia e agir cedo com os alunos em risco de abandono.
 ### Procedimento
 **Diário (professor)**
 
-1. Lançar a chamada de cada aula no mesmo dia, com faltas justificadas quando houver atestado ou motivo informado. Professor substituto nomeado pela Direção faz a chamada no lugar da titular.
+1. Lançar a chamada de cada aula no mesmo dia, com faltas justificadas quando houver atestado ou motivo informado. Professor substituto nomeado pela Direção faz a chamada no lugar da titular. Na escola com portaria, a chamada de hoje já vem marcada pela entrada: conferir na sala e escolher o motivo de quem for marcado diferente da portaria; aluno que entrou e está com falta: avisar a coordenação na hora.
 2. Preencher o registro da aula, quando a rede exigir diário.
 
 **Diário (gestão)**
 
 3. Conferir no **📺 Mural de chegada** quem faltou e as turmas ainda sem chamada.
-4. Conferir na **🧾 Auditoria da portaria** (aba da Frequência) os alunos que entraram na escola mas estão com falta.
+4. Conferir na **🧾 Auditoria da portaria** (aba da Frequência) os alunos que entraram na escola mas estão com falta, com o motivo que o professor registrou.
 
 **Semanal (gestão, segunda-feira)**
 
@@ -683,9 +683,9 @@ Liberar a IA só para quem tem direito, com créditos pré-pagos, validade contr
 
 ### Como funciona
 - Cada rede tem uma carteira e cada professor pode ter a sua (créditos avulsos). Cada lançamento vira um pacote com validade própria (padrão: 12 meses); o consumo tira primeiro do pacote que vence antes.
-- Preços padrão: 1 material = 1 crédito, 1 ajuste com a IA = 1 crédito, 1 imagem = 5 créditos.
-- A rede paga primeiro, até o **teto por professor** no mês (sem teto gravado na rede, vale a franquia do plano). Bateu o teto ou acabou o saldo, o Portal usa os créditos próprios do professor, se ele tiver.
-- **Franquia mensal**: todo dia às 3h15 a rede recebe o pacote do mês = educadores de rede ativos × franquia (20 no Intermediário e no Personalizado, 40 no Completo), válido até o fim do mês.
+- Preços padrão (nov/2026): material do Portal IA = 2, ajuste = 1, Aula IA da Lousa = 6, Aula avançada = 24, imagem = 6, texto (questões, quiz, Perguntar, Circular, Mapa) = 1, vídeo interativo por link = 3. Grátis com uso justo: Termômetro, Pareceres, Passar a limpo, Aulas prontas e vídeos interativos do catálogo.
+- A rede paga primeiro, até o **teto por professor** no mês (o dobro da franquia do plano). Bateu o teto ou acabou o saldo, o Portal usa os créditos próprios do professor, se ele tiver.
+- **Franquia**: todo dia às 3h15 a rede recebe educadores de rede ativos × franquia (60 no Intermediário e no Personalizado, 120 no Completo). A franquia **acumula até o fim do contrato**.
 - Só a licença institucional usa a carteira da rede. Avulso, cortesia e teste usam sempre a carteira própria, mesmo com o município no cadastro. O teste de 7 dias ganha 10 créditos de demonstração.
 - Alertas automáticos por e-mail para a NEWPC e para a Secretaria quando o saldo da rede chega a 20% e a 5%.
 
@@ -696,7 +696,7 @@ Liberar a IA só para quem tem direito, com créditos pré-pagos, validade contr
 2. Em **2 · Redes**, aplique o pacote com **Intermediário** ou **Completo** (ou **Nenhum**) e ajuste caixa por caixa: Portal IA, Imagens, Provas com IA, Lousa IA Básica e Ultra. Clique em **Salvar Central de IA**.
 3. Em **Redes com Portal IA**, ajuste o **Teto por professor** se o contrato definir outro valor e clique em **Salvar** na linha.
 4. Toque em **Conferir a franquia do mês**: a lista mostra quanto cada rede recebe agora e já aplica. Rede com zero educadores ainda não teve primeiro acesso; a franquia entra sozinha conforme eles entram.
-5. Crédito extra de implantação ou cortesia: dimensione pela coluna **Créditos por educador** (sugestão: 15 por educador já cadastrado ou importado) e não por um número igual para todas as redes. Lançou errado? **Pacotes** › **Retirar** na linha.
+5. Crédito extra de implantação ou cortesia: dimensione pela coluna **Créditos por educador** (sugestão: 15 por educador já cadastrado ou importado) e não por um número igual para todas as redes. Lance com o **Tipo** **Cortesia da diretoria** (POP-PDE-39). Lançou errado? **Pacotes** › **Retirar** na linha.
 
 **Vender ou recarregar créditos da rede**
 
@@ -1284,7 +1284,7 @@ Manter a TV touch da recepção mostrando os números reais do Portal para visit
 3. Na TV, toque na tela para entrar em tela cheia. Confira a vitrine girando e o menu ao tocar.
 4. Imagem cortada nas bordas: ajuste a TV para **Ajustar à tela** ou **Original**.
 5. Saiu alguém da equipe ou o PIN vazou: **Definir PIN** de novo. Link vazou: **Trocar a chave** (desliga o link antigo e apaga o PIN), abra o novo link na TV e defina o PIN de novo.
-6. Rede nova não aparece na vitrine: cadastre o Censo ou o IDEB em **Municípios** › **Rede e IDEB**.
+6. Rede nova não aparece na vitrine: cadastre o Censo ou o IDEB em **Redes contratantes** › **Rede e IDEB**.
 
 ### Pontos de controle
 - ☐ Selo do topo verde (atualizando). Vermelho com "sem atualização desde": confira a internet da TV.
@@ -1319,3 +1319,142 @@ Levar os pré-cadastrados ao primeiro acesso, com o cadastro completo, sem estou
 
 ### Registros
 Comunicado em **Enviados e agendados**, Auditoria e a ficha de execução da implantação.
+
+## POP-PDE-37 · Pagamento online pelo Asaas {: .nova }
+
+@@ POP-PDE-37 | Financeiro | Administrador do Portal (NEWPC) | Ligar a venda online, trocar a chave do Asaas, conferir vendas e tratar estornos
+
+### Objetivo
+Vender a licença avulsa e os créditos do professor sem intervenção da equipe, com cada venda liberada uma única vez, registrada no Financeiro e com a nota a emitir.
+
+### Pré-requisitos
+- Conta do Asaas aprovada (documentos em "Aprovado") e **chave Pix aleatória** cadastrada na conta.
+- Acesso de administrador ao repositório no GitHub (segredos) e ao Portal.
+
+### Procedimento
+**Ligar a venda real (trocar a chave de teste pela de produção)**
+
+1. Na conta oficial do Asaas: ícone de pessoa › **Integrações** › **Gerar chave de API**, sem data de expiração e com **saque desmarcado**. A chave começa com `$aact_prod_`.
+2. No GitHub do Portal: **Settings** › **Secrets and variables** › **Actions** › `ASAAS_CHAVE` › **Update**: cole a chave de produção. Nunca mande a chave por chat ou e-mail.
+3. Em **Actions**, rode **Pagamentos Asaas** com `segredos` e depois com `webhook` (gera o token e cadastra o aviso de pagamento na conta oficial).
+4. Republique as funções `pagamentos`, `asaasWebhook` e `asaasAdmin` (Publicar no Firebase).
+5. Rode **Pagamentos Asaas** › `situacao`: deve mostrar ambiente **produção** e o nome da conta oficial.
+6. Faça uma compra real pequena (100 créditos por Pix) com uma conta da equipe e confira o passo "Conferir uma venda". Estorne pelo painel do Asaas se quiser.
+
+**Conferir uma venda**
+
+1. Consulta `pagamentos` (GitHub) ou o **Financeiro** › **Recebimentos**: o pedido aparece como pago, com forma, bruto, taxa e líquido.
+2. Confira a liberação: créditos no saldo do professor ou licença com a nova data de fim.
+3. Em **Notas fiscais**, emita a nota e toque em **Marcar como emitida**.
+
+**Estorno ou contestação**
+
+1. O Alan recebe o e-mail "Atenção: estorno". O pedido fica como estornado e a venda some do líquido.
+2. Decida com o cliente: retirar os créditos (**Central de IA** › **Pacotes** › **Retirar**) ou ajustar a licença em **Gerenciar usuário**.
+3. Anote a decisão na auditoria do Financeiro.
+
+### Pontos de controle
+- ☐ Chave de API sem permissão de saque.
+- ☐ Situação mostra "produção" antes de anunciar a venda online.
+- ☐ Primeira venda real conferida de ponta a ponta.
+- ☐ Notas emitidas toda semana.
+
+### Registros
+`fin_pedidos`, `fin_pagamentos`, `fin_notas` e `fin_auditoria`; e-mails de venda; painel do Asaas.
+
+### Erros comuns
+- **Compra direta não aparece para o professor**: chave ainda é a de teste (só administrador e testadores veem) ou o professor é de rede (licença institucional não compra licença).
+- **Pago no Asaas e nada liberado**: o aviso não chegou. Confira em Integrações › Webhooks › logs do Asaas e rode `webhook` de novo; depois de trocar o token, republique as três funções.
+- **QR do Pix não lê no teste**: normal no sandbox; simule em Cobranças › **Confirmar recebimento**.
+
+## POP-PDE-38 · Fábrica de cursos e publicação de curso {: .nova }
+
+@@ POP-PDE-38 | Formação | Equipe pedagógica NEWPC | Criar um curso novo da Formação Continuada com a IA ou publicar nova versão
+
+### Objetivo
+Publicar cursos fiéis ao que o Portal faz, revisados por gente, sem perder o progresso de quem já está fazendo.
+
+### Procedimento
+1. No painel da Formação, abra **✨ Fábrica de cursos com IA**. Preencha tema, público, carga horária, nível e as orientações. Para curso sobre recurso do Portal, cole no **Material base** o trecho do Manual do Usuário: sem material base, a IA pode descrever funções que não existem.
+2. Aguarde o rascunho. Leia aula por aula: passos que o professor aplica, atividade prática no fim de cada aula, nada de leis, números ou pesquisas sem fonte, nenhum botão que não exista.
+3. Resolva as pendências apontadas pela IA (trechos "[Conteúdo a completar") editando as aulas. Quando terminar a leitura, toque em **Revisei este curso**: sem essa confirmação o curso não publica.
+4. Defina **Quem pode ver este curso**: aberto a todos ou exclusivo de rede.
+5. Publique. Na nova versão de um curso, confira a mensagem de quantos progressos foram migrados.
+6. Peça a capa própria do curso e os vídeos (roteiros) quando houver.
+
+### Pontos de controle
+- ☐ Curso revisado por uma pessoa da equipe pedagógica antes de publicar.
+- ☐ Atividade prática presente em todas as aulas.
+- ☐ Curso exclusivo com as redes certas marcadas.
+
+### Registros
+Curso com `ia.revisado`, histórico de versões e Auditoria.
+
+## POP-PDE-39 · Cortesia de créditos da diretoria {: .nova }
+
+@@ POP-PDE-39 | Contratos | Administrador do Portal | Dar créditos de IA sem venda (implantação, demonstração, relacionamento)
+
+### Objetivo
+Registrar toda cortesia de forma que a diretoria veja quanto foi dado, quanto foi usado e quanto custou.
+
+### Procedimento
+1. **Central de IA** › **Lançar créditos**: escolha a conta, a quantidade e a validade.
+2. Em **Tipo**, escolha **Cortesia da diretoria** e escreva o motivo na observação (ex.: "Implantação Ribas").
+3. Lance. Confira no bloco **Cortesias da diretoria**: créditos dados, usados, custo real estimado e valor de tabela.
+4. Lançou demais? **Pacotes** › **Retirar**: o pacote fica guardado como retirado e o relatório mostra o que foi usado.
+5. Uma vez por mês, leve o bloco **Cortesias da diretoria** para a reunião da diretoria.
+
+### Pontos de controle
+- ☐ Toda cortesia com motivo na observação.
+- ☐ Quantidade proporcional aos educadores da rede (coluna **Créditos por educador**).
+
+### Registros
+Pacote com origem **Cortesia**, movimento na carteira e Auditoria.
+
+## POP-PDE-40 · Revisão de conteúdo gerado por IA (Aulas prontas e vídeos interativos) {: .nova }
+
+@@ POP-PDE-40 | Conteúdo | Equipe pedagógica NEWPC | Lote novo de Aulas prontas, vídeo novo no catálogo ou aviso de problema de um professor
+
+### Objetivo
+Garantir que o que o Portal oferece de graça como "pronto" está correto antes de chegar à turma.
+
+### Procedimento
+**Aulas prontas da Lousa**
+
+1. O administrador gera o lote na Lousa (**Gerar o lote oficial**); a fila roda no servidor, uma aula por vez.
+2. Abra cada aula: contas conferidas, dados com ano de referência, linguagem da série, Guia do professor coerente.
+3. **Aprovar**, **Voltar para revisão** ou **Tirar da rede**.
+
+**Vídeos interativos do catálogo**
+
+1. Vídeo novo publicado ganha a versão interativa sozinho. Abra pelo botão **Interativo** e confira cada pausa: pergunta clara, uma resposta certa, momento certo do vídeo.
+2. Pergunta ruim: edite ou use **Refazer IA** no painel do vídeo; se o vídeo não servir, desligue a versão interativa no cadastro.
+3. Avisos **⚑ Avisar problema** dos professores: trate em até 2 dias úteis e marque **✓ resolvido**.
+
+### Pontos de controle
+- ☐ Nenhuma aula pronta publicada sem aprovação.
+- ☐ Avisos de problema zerados toda semana.
+
+### Registros
+Situação de cada aula do acervo, avisos dos vídeos e Auditoria.
+
+## POP-PDE-41 · Rede de demonstração em eventos {: .nova }
+
+@@ POP-PDE-41 | Comercial | Administrador do Portal | Feiras e eventos (ex.: SENACOP) em que o Portal é mostrado com dados
+
+### Objetivo
+Mostrar o Portal funcionando com dados, sem nunca apresentar dado fictício como real e sem misturar com as redes de verdade.
+
+### Procedimento
+1. Antes do evento, rode a consulta `demo-criar-gravar`. Ela cria a **Rede Municipal de Demonstração** com dados marcados como demonstração.
+2. Confira no Painel da Rede a faixa **Ambiente de demonstração**.
+3. Na apresentação, diga que é uma rede de demonstração. Números reais só de redes que autorizaram.
+4. Depois do evento, rode `demo-apagar` (só conta e confere que nada fora da demonstração está na lista) e, se estiver certo, `demo-apagar-gravar`.
+
+### Pontos de controle
+- ☐ Faixa de demonstração visível em toda tela usada.
+- ☐ Nenhum e-mail ou WhatsApp disparado para a rede de demonstração.
+- ☐ Rede apagada depois do evento, com a contagem conferida.
+
+### Registros
+Resultado das consultas no GitHub Actions e Auditoria.

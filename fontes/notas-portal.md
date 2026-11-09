@@ -556,3 +556,412 @@ Observação: alguns rótulos do código estão **sem acento** (herança antiga)
 | 34 | Vídeos admin / Jogos admin / Dicas de IA admin / Acervo admin | menus respectivos | admin |
 | 35 | Painel da Escola / Painel da Rede (cartão de entrada) | menu Painel da Escola / Painel da Rede | gestor / secretaria |
 | 36 | Início da Portaria e da Secretaria escolar | menu Início | portaria / secretaria escolar |
+
+### Redes contratantes (nov/2026)
+- No menu do administrador, "Municípios" passou a se chamar **Redes contratantes** (seção Redes e cadastros).
+- Cada cadastro tem **Tipo de rede**: Municipal (prefeitura), Estadual, Particular (escola ou grupo) ou Instituição (fundação, ONG, instituto). Os cadastros antigos ficam como Municipal.
+- Rede particular e instituição pedem a **Cidade**. Assim, uma prefeitura e escolas particulares da mesma cidade são clientes separados: cada um com contrato, gestores, escolas, alunos, painel e cobrança próprios, sem ver os dados do outro.
+- Os rótulos mudam com o tipo: "CNPJ da escola ou mantenedora" na particular, "CNPJ da instituição" na instituição, e o segundo CNPJ vira "Outro CNPJ pagador".
+- Na tabela, ao lado do nome aparece o tipo (e a cidade, quando não é municipal).
+
+## Resumo diário da equipe (e-mail das 7h): bloco Backup (05/11/2026)
+- Último backup diário no servidor NEWPC: data, documentos, contas, arquivos, tamanho e duração. Fica vermelho se passar de 30 h sem backup.
+- Último teste de restauração: data e resultado; amarelo se tiver alerta ou passar de 35 dias.
+- Falhas de backup nas últimas 24 h, com o motivo.
+- Cópia fora da empresa: mostra se o backup semanal no Drive compartilhado está ligado e quando foi a última cópia.
+
+## Redes contratantes: cadastro conforme o tipo de rede (05/11/2026)
+- Municipal: Prefeito(a), Secretário(a) de Educação, gestor e fiscal do contrato (Lei 14.133), IBGE e IDEB da rede municipal.
+- Estadual: Governador(a), Secretário(a) de Estado de Educação, TI da Secretaria, gestor e fiscal (Lei 14.133), IDEB da rede estadual.
+- Particular: Diretor(a) ou mantenedor(a) (sem mandato), Coordenação pedagógica, Responsável de TI, Responsável pelo contrato e Financeiro; sem IBGE e sem IDEB; contrato com "Proposta ou pedido" e "Pedido de compra".
+- Instituição: Presidente ou diretor(a) com gestão, Coordenação de projetos, Responsável pelo contrato ou convênio, Financeiro (prestação de contas).
+- Modalidades novas no contrato: Contrato particular e Convênio / termo de parceria. Os dados já gravados não mudam, só os rótulos.
+
+## Rede particular, estadual e instituição em todo o Portal (05/11/2026)
+- Regra única de nomes por tipo de rede (assets/js/rede.js nas páginas e functions/rede-tipo.js no servidor).
+- Documentos em PDF (boletim, pareceres, frequência, relatórios, provas, Portal IA, colorir): rede municipal sai "Secretaria Municipal de Educação de X/UF"; estadual "Secretaria de Estado de Educação"; particular sai a mantenedora (se o nome for diferente do da escola) e a cidade.
+- Carteirinhas de aluno e de servidor: "Prefeitura Municipal de X", "Governo do Estado de ..." ou, na particular, a mantenedora/cidade.
+- Painel da Rede, Portal TV, Central de Relatórios e tela inicial: o papel "Secretaria de Educação" aparece como "Direção / Mantenedora" (particular) ou "Coordenação" (instituição).
+- E-mail de boas-vindas do professor de rede particular: "Colégio X oferece a você o Portal do Educador" (nunca "Prefeitura Municipal de Colégio X").
+- Mensagens do sistema trocaram "rede municipal / seu município / Secretaria de Educação" por "sua rede / gestão da rede".
+- Política de Privacidade: parágrafo próprio para escola particular e instituição (a escola ou mantenedora é a controladora; a NEWPC é operadora).
+
+## Escolas: cidade própria (05/11/2026)
+- Cadastro da escola ganhou Cidade e UF; o CEP preenche. O campo "Município" virou "Rede contratante" (mostra o tipo da rede).
+- Sem CEP: escola de rede municipal fica com a cidade do município; de rede particular ou instituição, com a cidade da rede.
+- O aviso "CEP de outro município" só aparece em rede municipal (rede estadual e grupos particulares têm escolas em várias cidades).
+- Relatórios e declarações usam a cidade da escola no endereço e na data.
+
+## Backup, importador, contratos e licença Google (05/11/2026, fim do dia)
+- Teste de restauração: confere os usuários do pacote com a contagem feita na hora do backup (acabou o falso alarme). Só acusa o Portal de agora se ele tiver menos de 90% do pacote (sinal de exclusão em massa).
+- Vigia do backup: todo dia às 11h23 confere se houve backup nas últimas 26 h e se o último backup ou teste falhou; se sim, e-mail imediato para a equipe com o que fazer.
+- Importador de inventário: lê CSV em UTF-8 e, se vier do Excel com acento quebrado, em Windows-1252.
+- Redes contratantes: nº do contrato preenchido nas redes que estavam "sem nº", a partir dos contratos da planilha de equipamentos.
+- Recursos da Escola: Chromebook e tablet têm "Licença Google" e "Licença válida até" na ficha e na planilha exportada.
+
+## Aula IA na lousa (06/11)
+- Alternativas do quiz que começam com número ("10 kWh", "1500 pessoas") agora aparecem inteiras.
+- Valores que mudam com o tempo (salário mínimo, tarifa, preço) vêm com o ano de referência ou como exemplo redondo.
+- Aula com preços ou tarifas avisa na tela que os valores são ilustrativos.
+- Aulas de 6 slides ou mais trazem, antes do resumo, uma atividade para investigar na vida real (em casa, no bairro, no trabalho; nos anos iniciais e na Infantil, com a família), para conversar na aula seguinte.
+- Texto em negrito (títulos de coluna, problema do cálculo, itens da síntese) não vaza mais da caixa: a Lousa remede o texto quando a fonte dos títulos termina de carregar.
+
+## Aulas prontas na Lousa (06/11)
+- Botão "Prontas" na barra lateral da Lousa (professor licenciado): acervo oficial NEWPC com os Temas Contemporâneos Transversais da BNCC, do 1º ao 9º ano.
+- Filtros por ano (1º e 2º, 3º ao 5º, 6º e 7º, 8º e 9º), por tema (Economia, Saúde, Meio Ambiente, Cidadania, Ciência e Tecnologia) e busca.
+- "Usar esta aula" abre a aula editável na Lousa, com quiz, Modo Apresentação e Guia do professor. Não gasta crédito. Conta o uso no cartão.
+- Administrador: abas Publicadas, Em revisão e Ocultas; "Gerar o lote oficial" (12 temas × 4 faixas = 48 aulas, 2 ilustrações cada, 2 por vez; pode rodar de novo para completar o que falhou); "Abrir para revisar", "Aprovar" (gera as imagens leves e a miniatura) e "Ocultar".
+- POP de revisão: abrir a aula, conferir contas, dados oficiais e linguagem, olhar o Guia do professor; aprovar ou ocultar.
+- Barra de baixo da Lousa (06/11): Meus trabalhos (azul), Aulas prontas (âmbar, selo grátis) e Aula IA ao lado do Apresentar; saíram da lateral direita. Em telas menores ficam só os ícones coloridos.
+- Lousa no Portal (06/11): logo da NEWPC na barra de cima (no lugar do texto Lousa Interativa); embaixo só quando a Lousa abre sozinha.
+- Alerta de crédito da IA (06/11): se o saldo pré-pago do Gemini acabar, o professor vê 'A IA do Portal está em manutenção, seus créditos não foram descontados' e alan@newpc.com.br recebe e-mail (máx. 1 a cada 6 h) com o passo a passo da recarga (ai.studio/projects, conta newpc.educador@gmail.com, projeto Portal 5 PRODUCAO - NAO APAGAR).
+
+## Sala compartilhada e bater na porta (06/11)
+- Ao começar a aula, além do tempo, o professor diz onde ela acontece: "Na sala da turma" (padrão) ou uma sala compartilhada da escola (ex.: Laboratório de informática). O Portal lembra a última escolha por turma.
+- Salas compartilhadas: cadastro da escola (admin), campo "Salas compartilhadas", uma por linha. Sem cadastro, aparece "Laboratório de informática".
+- Se outra turma ainda está aberta na mesma sala, aparece "Laboratório ocupado" com a turma, o professor e o horário. Confirmando, a aula anterior é encerrada, os alunos dela que entraram pelo cartão saem dos aparelhos sozinhos, o professor dela recebe o aviso "Sua aula foi encerrada" e tudo fica na auditoria.
+- Turmas diferentes em salas diferentes nunca interferem. O pedido para assumir ("bater na porta") só existe dentro da mesma turma.
+- Bater na porta: o professor que está com a turma sai da tela cheia (Lousa, Apresentar, material) para ver o pedido com bipe.
+- POP laboratório: cadastrar as salas compartilhadas de cada escola antes da capacitação.
+- Bater na porta (06/11, correção): ao trocar de conta no mesmo navegador sem recarregar (laboratório), o Portal seguia vigiando as aulas do professor anterior; agora recomeça com a conta nova, e o painel da aula também mostra o pedido. Mesmo cuidado no fim da aula do aluno em aparelho compartilhado.
+
+## Aparelhos conectados (06/11)
+- Aluno: 1 aparelho por vez. Entrou em outro, o anterior mostra "Você entrou em outro aparelho" e sai da conta sozinho.
+- Professor, gestor e equipe: até 3 aparelhos ao mesmo tempo (ex.: Lousa da sala, notebook com o painel, celular). No 4º, sai o parado há mais tempo, com aviso. Administrador: até 5.
+- Limites em config/sessoes ({ aluno, professor, padrao, admin }), sem mexer no código.
+- Meu cadastro > "Aparelhos conectados": lista (tipo, navegador, desde quando, "este aparelho") e o botão "Sair de todos os outros aparelhos" (ex.: esqueceu a conta aberta no laboratório).
+- Abas do mesmo navegador contam como um aparelho só. Tudo que tira alguém da conta fica na auditoria.
+- Turma ao Vivo em tela baixa (06/11): lousa digital com zoom do Windows ou notebook pequeno, o painel rola inteiro e a área Na sala mantém a altura.
+
+## IA na Lousa (06/11)
+Botão roxo "Ferramentas IA" na barra de baixo da Lousa (ao lado de Aula IA e Apresentar), com o menu:
+- Perguntar (💬): pergunta da turma ou do professor; a resposta aparece num cartão no quadro (título, resposta curta, passos, dica). 1 crédito.
+- Circular (⭕): o professor circula com a caneta uma conta, palavra ou figura; escolhe Explicar, Resolver passo a passo, Traduzir ou faz uma pergunta; o cartão aparece ao lado do que foi circulado. 1 crédito.
+- Pintor IA (🎨): selecione um rabisco (ferramenta Selecionar) e toque em Pintor IA; diga o que é (opcional) e o estilo (Didática, Desenho animado, Realista, Para colorir); a ilustração entra no lugar do rabisco (Desfazer traz o rabisco de volta). Créditos de imagem (Lousa Ultra).
+- Mapa IA (🧠): diga o tema e o mapa mental aparece no quadro; tópicos editáveis com toque duplo; as ligações acompanham quando o tópico é arrastado. 1 crédito.
+- Legendas (💬): a fala do professor vira legenda grande na parte de baixo do quadro (Chrome/Edge; libere o microfone). Sem crédito, nada é gravado. Toque de novo para desligar.
+- A linguagem da resposta segue a turma e a disciplina escolhidas por último na Aula IA.
+- Precisam de internet. Funcionam dentro da Lousa (não em outros programas da tela).
+
+## Tabela de créditos com 200% de margem (nov/2026)
+- Regra: créditos de cada ferramenta = custo real ajustado × 3, no pior caso de venda (rede no pacote de 20 mil, R$ 0,36 o crédito).
+- Preços por ação: Material do Portal IA 2 · Aula IA (Lousa) 6 · Imagem, Ilustração e Pintor 6 · Aula avançada 24 · Questões, parecer, quiz e IA rápida da Lousa (Perguntar, Circular, Mapa) 1 · Ajuste 1 · Aulas prontas e Legendas grátis.
+- Aula IA com 3 ilustrações: 6 + 18 = 24 créditos.
+- Franquia mensal da rede por educador: Intermediário 60 · Completo 120 · Personalizado 60. Teto padrão por professor: 120.
+- Relatório de margem: o custo calculado pelos tokens é multiplicado por 1,6 (fator_custo), para bater com a fatura do Google.
+- POP: o administrador muda os números em Créditos > Preços e pacotes (campos novos: Material do Portal IA e Aula IA). Aula avançada e IA rápida são estimativas: rever após 30 dias de uso medido.
+
+## Transparência: o que a IA gera fica no acervo do professor (nov/2026)
+- Regra para o professor: o crédito paga a criação. Depois de pronto, o conteúdo fica em Meus trabalhos (ou no aluno, no caso do parecer); abrir, editar, imprimir e apresentar de novo não gasta crédito.
+- Aula IA da Lousa: é salva em Meus trabalhos assim que entra no quadro, com o título da aula (antes dependia do salvamento automático de 2 minutos). Se já havia um trabalho aberto, a aula entra nele.
+- Avisos nas telas: janela da Aula IA (faixa verde), Portal IA (abaixo do Preparar e no aviso de pronto), Ajustar com a IA (cada ajuste reescreve o material e usa crédito), imagem (trocar gera outra e cobra de novo) e Pareceres (só "Gerar de novo" usa outro crédito).
+- O que gasta de novo: Gerar de novo, Ajustar com a IA, imagem nova ou trocada.
+- Discurso comercial: "você paga uma vez para criar; a aula vira acervo seu". Não prometer "para sempre": fica enquanto o professor não excluir e a licença estiver ativa.
+
+## Lousa: anotações de aula e versão original (nov/2026)
+- Ao abrir uma aula de Meus trabalhos, gerar uma Aula IA ou usar uma Aula pronta, a Lousa guarda a versão original (limpa).
+- O salvamento automático continua (nada se perde se o navegador fechar); na 1ª vez que a aula muda, a original vai para uma cópia ao lado ({id}.orig.json.gz) antes de ser sobrescrita.
+- Ao encerrar uma aula que mudou, o professor escolhe: Salvar com as anotações · Salvar as anotações como cópia ("Título · anotada dd/mm", a aula volta como estava) · Sair sem salvar (a aula volta como estava). Opcional: baixar PDF como está antes.
+- A cópia da original é apagada quando ele decide; excluir o trabalho (na Lousa ou no Portal) apaga a cópia junto.
+- Se a aula ficou aberta sem encerrar (fechou o navegador), na próxima vez a original continua sendo a daquela abertura.
+- Atenção no POP: "Sair sem salvar" desfaz tudo desde que a aula foi aberta, inclusive correções de texto; para guardar a correção e descartar só os rabiscos, salvar como cópia e depois excluir a cópia, ou corrigir e salvar antes de dar a aula.
+- Aula sem origem salva (feita do zero, sem Meus trabalhos) continua com o encerrar de antes.
+
+## Mapa IA: modelos de mapa (nov/2026)
+- Na janela do Mapa IA o professor escolhe o modelo em cartões com miniatura: Radial (tema no meio), Árvore (do tema para baixo, em níveis), Bolhas (ideias em bolhas em volta do tema) e Chaves (resumo esquematizado com { }). A Lousa lembra o último escolhido.
+- Custo igual em todos: 1 crédito. A IA devolve sempre o mesmo conteúdo (centro, 4 a 6 ramos, 2 a 3 itens); o desenho é feito pela própria Lousa, sem custo a mais.
+- Fluxo, espinha de peixe, comparação e mapa conceitual ficaram de fora por exigirem outro formato de resposta da IA (pequeno aumento de tokens).
+- Tudo continua editável: toque duplo no tópico para editar; arrastar move o tópico e as linhas acompanham (no modelo Chaves as chaves não acompanham, são desenhos soltos).
+
+## Lousa: recursos sem custo de IA (nov/2026)
+- Trocar o modelo do mapa (Ferramentas IA): redesenha o mapa da página (ou o do tópico selecionado) em Radial, Árvore, Bolhas ou Chaves, com os textos como estão no quadro (vale a edição do professor). Sem crédito. Com dois mapas na página, tocar num tópico antes.
+- Ler em voz alta: lê o texto selecionado ou a página inteira (de cima para baixo) com a voz pt-BR do navegador. Tocar de novo para parar. Não lê o Guia do professor. Melhor no Chrome/Edge.
+- Medidor de barulho: semáforo verde/amarelo/vermelho com o volume da sala pelo microfone da lousa; limite ajustável (fica lembrado). Vermelho só depois de ~1 s acima do limite. Nada é gravado nem enviado.
+- "Já existe aula pronta": na janela da Aula IA, ao digitar o tema, a Lousa procura uma Aula pronta aprovada sobre o mesmo assunto (prefere a faixa de ano da turma) e oferece "Usar esta aula", sem crédito.
+- Discurso: "sem custo de IA" (não "custo zero": banco e armazenamento custam centavos).
+
+## Meus trabalhos da Lousa: menos lixo e filtros (nov/2026)
+- O salvamento automático não cria trabalho novo para quadro com até 2 traços soltos e nada mais (sem texto, imagem, PDF ou 2ª página). Fica só no navegador; o botão Salvar continua salvando qualquer coisa.
+- Filtros na janela: Todas · Aulas IA · Aulas prontas · Minhas. Cada cartão mostra o selo "Aula IA" ou "Aula pronta".
+- Aulas antigas ganham o selo quando forem abertas e salvas de novo (a Lousa reconhece os slides da IA); até lá aparecem em "Minhas".
+- Com muitos trabalhos a grade agora rola e cada cartão mostra nome e botões; tocar na miniatura abre a aula.
+
+## Voz que vira texto e "Estou pensando" nas ferramentas de IA (nov/2026)
+- Perguntar, Circular, Mapa e Pintor mostram a tela "Estou pensando" com etapas e os recados de IA responsável (frases fixas do Portal, sem token).
+- 🎤 nos campos: ao tocar num campo de texto (Lousa, Portal IA, Pareceres e Portal), aparece um microfone dentro do campo; fala e o texto entra. Não aparece em senha, e-mail, número, data, telefone, CPF, código nem em campos pequenos. Comandos: vírgula, ponto (no fim da fala), ponto final, ponto de interrogação, nova linha (só em caixa de texto), apagar a última frase, parar ditado.
+- Ditado no quadro (Ferramentas IA): a fala vira um bloco de texto editável no quadro; Pausar/Retomar e Parar na barra; se um texto estiver selecionado, o ditado continua nele. Selo "ditado" no botão roxo enquanto ligado. Legendas e ditado não ligam juntos (um microfone de cada vez).
+- Ditar pelo celular (Ferramentas IA, precisa estar no Portal): a Lousa mostra um QR e o endereço /ditado/; no celular, entrar com a mesma conta e tocar no microfone. O texto aparece no quadro em tempo real; "parar ditado" falado no celular encerra na Lousa. A tela do celular fica acesa enquanto dita.
+- Privacidade (LGPD): o Portal não grava áudio. No Chrome a voz vai para o serviço de voz do Google só para virar texto; o microfone só liga quando o professor toca no botão e fica um aviso visível. Pelo celular, só o texto passa pela nuvem do Portal e cada trecho é apagado assim que entra no quadro. Sugerido incluir no Termo de Uso.
+- Dica de implantação: o microfone da lousa capta mal a 3-4 m; para andar pela sala, usar o celular (sem custo) ou microfone de lapela sem fio.
+- Funciona no Chrome, Edge e Chromebook; no Firefox o 🎤 não aparece.
+
+## Regra única: acabou o crédito de IA, o Portal leva para abastecer (nov/2026)
+- Em qualquer recurso de IA (Lousa: Aula IA, Perguntar, Circular, Mapa, Pintor; Portal IA; Provas com IA; Pareceres; Quiz rápido), se o crédito do professor acabou, aparece a janela "Seus créditos de IA acabaram" com o motivo (limite mensal da rede, créditos da rede acabaram, plano sem IA ou sem imagem, demonstração do teste) e o botão "💳 Abastecer créditos".
+- O botão leva para a compra de créditos avulsos do Portal IA (/apps/portal-ia/#comprar). Na Lousa dentro do Portal, abre na janela inteira (a aula já está salva); no próprio Portal IA, abre a compra na hora.
+- Não aparece quando o problema é outro: IA em manutenção (crédito do Google), recurso fora da licença, internet.
+- Técnico: o servidor marca o erro com details.semCredito; o navegador usa assets/pde-credito.js (PDECredito.ver).
+
+## Backup: cofre fora da NEWPC (nov/2026)
+- Além do servidor da NEWPC (Nextcloud), o robô do backup manda os MESMOS pacotes cifrados (AES-256, senha BACKUP_SENHA) para um bucket do Google Cloud num projeto separado, com trava de retenção (Bucket Lock): nada é apagado nem trocado antes de 30 dias, nem pelo administrador.
+- O robô do cofre (segredo COFRE_CHAVE) só cria e lê: não apaga nem sobrescreve. Nome do bucket no segredo COFRE_BUCKET.
+- Conteúdo: diario/AAAA-MM-DD.tar.enc, mensal/AAAA-MM.tar.enc, arquivos/xx/<hash>.enc (espelho dos arquivos), arquivos/_manifesto-AAAA-MM-DD.json.enc. A 1ª execução leva todos os arquivos; depois só o que for novo.
+- Limpeza pelo próprio bucket (ciclo de vida): diário 35 dias, mensal 400 dias, manifestos 35 dias. Arquivos do espelho ficam.
+- Erro no cofre não derruba o backup do servidor; aparece no log (status cofre) e em stats/backup_servidor. O teste mensal de restauração também abre o último pacote do cofre.
+- Restaurar a partir do cofre: baixar o pacote no console do Google Cloud e abrir com: openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_SENHA -in AAAA-MM-DD.tar.enc | tar -x
+- POP crítico: a senha BACKUP_SENHA guardada em papel em dois lugares físicos diferentes. Sem ela nenhum backup abre.
+
+## Lousa: PDF para folhear como um livro (nov/2026)
+- Ao importar um PDF com mais de uma página, há uma terceira opção: "📖 Folhear como um livro". Cada página do PDF vira uma página da lousa (o professor escreve em cada uma e tudo é salvo), e a troca entre elas é uma folha virando sobre a lombada, com sombra e um som baixinho de papel.
+- Para virar: abas ‹ › nas laterais da tela, setas ← → (ou Page Up/Down) do teclado quando nada está selecionado, ou os botões de página de baixo. No alto aparece "📖 3 de 12".
+- A Lousa lembra a última forma de importação escolhida.
+- No Modo Apresentação as abas somem e a troca de página segue a do Apresentar.
+
+## Lousa: Forma perfeita refeita (nov/2026)
+- Com "Forma perfeita" ligada (Formas > chave verde), o traço solto da caneta vira: retângulo, círculo ou elipse, triângulo (com os vértices onde o professor desenhou), losango ou linha reta.
+- O reconhecimento olha quanto o traço preenche a própria caixa, se os pontos ficam colados nas bordas (retângulo) ou à mesma distância do centro (círculo), e os cantos de verdade. Antes ele contava cantos de um jeito frágil e o retângulo à mão quase nunca era reconhecido.
+- O traço pode fechar com folga (até 35% da diagonal). Se a forma for duvidosa, o traço fica como foi desenhado.
+
+## Forma perfeita sempre ligada (07/11/2026)
+- Recurso sem custo de IA (reconhecimento roda no navegador). Agora abre ligado para todo professor.
+- Se o professor desligar, a Lousa lembra a escolha naquele navegador (pde_autoforma = "0").
+- Traços pequenos (letras, números, escrita à mão) não viram forma: abaixo de 80 px na tela ficam como desenho livre.
+- Reconhece retângulo, círculo/elipse, triângulo, losango e linha reta.
+
+## Compartilhar por QR code (07/11/2026)
+- Lousa > Compartilhar > aba "📲 QR code" (primeira aba). Sem custo de IA, liberado para todo professor licenciado.
+- Gera as páginas como estão no quadro, sem o Guia do professor, e o PDF. Sobe para compartilhadas/{código de 24 caracteres}/.
+- QR grande na tela para a turma, botão "Copiar link" (grupo da turma) e "Gerar outro".
+- Aluno abre /aula/?c=código no celular, sem login, vê as páginas e baixa o PDF. Nenhum dado do aluno é coletado.
+- Vale até 23:59 do dia (mínimo 3 h). Depois a regra do Storage bloqueia e o bucket apaga a pasta em 2 dias (regra de ciclo de vida).
+- Aviso obrigatório: professor confirma que não há nome, foto ou dado de aluno no quadro.
+- Se precisar de novo: abrir a aula em Meus trabalhos e gerar outro QR.
+- Botão Compartilhar da Lousa em destaque (azul do Portal, selo "QR"). Teste ao vivo do QR pelo celular no 4G aprovado pelo Alan em 07/11.
+
+## Simulador de preços: Portal junto da locação, por sala (07/11/2026)
+- Modo "Junto da locação NEWPC": Portal pago cobrado por sala equipada (Intermediário R$ 360, Completo R$ 600 de partida).
+- Sala só com lousa (1º ao 3º ano) paga uma fração do preço da sala (50% de partida).
+- Mostra a mensalidade da locação, o peso do Portal sobre ela (alerta acima de 15%), preço por aluno e o preço sugerido para a margem desejada (40%).
+- Regra do preço sugerido: custo ÷ (1 − impostos − comissão − margem). Custo = infraestrutura por aluno + suporte + IA por professor (preencher com a medição).
+- Avulso continua por aluno/mês.
+- Simulador (locação): escolha do equipamento do aluno (Tablet, Chromebook ou Notebook, cada um com seu valor), licença Google for Education por dispositivo/mês e quadro "Composição do projeto por mês" (lousa, carrinho, dispositivos, licença, Portal e total). A impressão/PDF também traz a composição.
+- Simulador (locação): óculos VR e carrinho de recarga VR opcionais, quantidade e valor digitados (começam zerados).
+- Simulador (locação) refeito como lista de itens: adiciona linha por linha (item, qtd, valor/mês), remove com ✕, valor digitado fica lembrado por item. Salas calculadas pelas linhas de Lousa e Carrinho com roteador. Resultado com plano em botões, total do projeto em destaque e itens para proposta recolhidos.
+- Simulador (avulso) no mesmo formato da locação: rede, preço por aluno, serviços à parte em lista, resultado com total do 1º ano em destaque e preço por aluno para a margem desejada.
+
+## Apresentação da Lousa em painel de toque (07/11/2026)
+- Botão fixo "✕ Sair" no canto superior direito durante toda a apresentação (painel de toque não tem tecla Esc).
+- No último slide aparece a janela "Fim da aula" com Voltar ao último slide, Recomeçar e Sair da apresentação.
+- Qualquer toque mostra a barra de controles; o aviso inicial muda para toque quando o equipamento é de toque.
+- 07/11 (tarde): Forma perfeita voltou a vir DESLIGADA por padrão, a pedido do Alan após uso prático (atrapalha a escrita à mão livre). Quem ligar, a Lousa lembra naquele navegador.
+
+## Login com Google pelo domínio do Portal (07/11/2026)
+- A janela do Google agora mostra "Prosseguir para portaldoeducador.com.br" (antes: portal-educador-5.firebaseapp.com).
+- authDomain oficial = www.portaldoeducador.com.br; arquivos auxiliares em /__/auth/ (handler.html, iframe.html e js), copiados do Firebase toda segunda pela rotina "Sincronizar arquivos do login" (grava no vitrine-ia).
+- Google Cloud (cliente OAuth Web): URI de redirecionamento www.../__/auth/handler e origem https://www.portaldoeducador.com.br. O endereço antigo do Firebase continua cadastrado (volta rápida).
+- Página de teste isolada: /login-teste/.
+
+## 07/11 · pendências do dia 06
+- Privacidade: parágrafo do ditado por voz (navegador; no Chrome, serviço de voz do Google; o Portal não recebe nem grava áudio).
+- 7 rabiscos soltos antigos apagados de Meus trabalhos (registro + arquivo), com aprovação do Alan.
+
+## Lara, assistente virtual na página inicial (07/11/2026)
+- No lugar do ícone do WhatsApp: foto da Lara em círculo com selo verde do WhatsApp; balão "Olá, sou a Lara! Como posso te ajudar hoje?" com "Assistente virtual · atendimento pelo WhatsApp".
+- Computador: balão aparece após 2,5 s. Celular: aparece quando a pessoa rola a página e some em 7 s (não cobre os botões de entrar). Fechado no ✕, não volta na mesma visita.
+- Corrigido estouro de largura da página no celular (overflow-x: clip).
+
+## Lara no WhatsApp (07/11/2026)
+- O robô se apresenta como Lara, assistente virtual (menu e respostas de dúvidas no feminino), e diz como falar com uma pessoa.
+- Mensagem pedindo pessoa/atendimento vai direto para a equipe, sem menu.
+- Áudio/imagem: resposta gentil pedindo texto (próximo passo: transcrever áudio).
+
+- 07/11: Lara entende áudio no WhatsApp (transcrição pelo Gemini, áudio não guardado; histórico mostra 🎤 + texto; métricas audios/audios_ok). Privacidade atualizada. Tela Atendimento: faixa de transferir só aparece ao clicar em Transferir.
+
+## App Atendimento PDE (Android) · 07/11/2026
+- APK para o celular da equipe de atendimento do WhatsApp. Abre /atendimento/ em tela cheia, com ícone próprio.
+- Tecnologia TWA (motor do Chrome): login Google e notificações de cliente esperando funcionam. Precisa do Chrome no celular.
+- Assinado com a mesma chave do app do Maestro. Sem barra de endereço graças ao /.well-known/assetlinks.json.
+- Gerar versão: GitHub › Actions › "App Atendimento PDE" › Run workflow. O link do .apk aparece no fim.
+- Pendente (segunda 09/11): Alan instala e testa o app no tablet de atendimento. Mensagem para o grupo "WhatsApp Portal 5.0" ficou digitada no WhatsApp Web, sem envio. Card de download na tela Atendimento WhatsApp aguarda "pode publicar" (commit 3b70a3f em vitrine-ia).
+
+## Vídeo interativo · 07/11/2026
+- O vídeo do YouTube pausa nos momentos certos e a turma responde na lousa (múltipla escolha, V ou F, resposta aberta, nota). Placar da turma no fim.
+- Página: www.portaldoeducador.com.br/video/ (lista, criar com link, apresentar, editar). Nos Vídeos Educativos: faixa "Vídeo interativo", selo INTERATIVO e botão "Versão interativa".
+- Catálogo: o admin prepara ("✨ Preparar versão interativa"), revisa e marca "Publicado no catálogo". Vale para todas as redes liberadas, sem gastar crédito delas.
+- Professor: "Criar com um link" custa 3 créditos (editável no painel de créditos); se a IA falhar, o crédito volta.
+- Liberação: Central de IA, recursos "Vídeo interativo · gerar por link" e "Vídeos interativos · do catálogo". Padrão: Intermediário e Completo.
+- Custo real medido: ~R$ 0,30 por vídeo, 13 a 25 s para gerar. 8 rascunhos do catálogo gerados para revisar antes da SENACOP.
+- Fase 2 (depois de fevereiro): resposta de cada aluno no tablet e relatório.
+- (07/11, noite) Botão verde "▶ Interativo" no card de cada vídeo dos Vídeos Educativos: abre uma janela no Portal e o vídeo já começa a tocar com as perguntas. 45 vídeos do catálogo publicados como interativos (gerados por IA, revisão depois pela edição em /video/). Ficaram de fora vídeos com menos de 1min30, com mais de 10 min, sem duração cadastrada e os de bebês e crianças bem pequenas.
+- (07/11, noite) Incluídos os vídeos longos (contos de ~50 min, até 10 pausas), os sem duração e os de crianças pequenas: 71 de 74 vídeos com botão Interativo. Fora: O mosquito Vilão (13 s), João e Maria (a IA não conseguiu gerar em 2 tentativas) e Educação Financeira (a IA disse que o vídeo fala de preservação ambiental e amizade, não de educação financeira: conferir o cadastro).
+- (07/11) Mensagem nas telas: os vídeos interativos do catálogo do Portal são GRÁTIS (não gastam créditos); criar a partir de outro vídeo do YouTube usa 3 créditos. Argumento comercial: valor incluído na licença.
+- (07/11, noite) Interativo AUTOMÁTICO no catálogo: no cadastro do vídeo, interruptor "🎬 Vídeo interativo" (ligado por padrão). Ao publicar, a IA monta as perguntas e publica sozinha (cerca de 30 s a 2 min). Desligado: o botão some (as perguntas ficam guardadas). Lista do painel mostra a situação (🎬 Interativo, ⏳ Gerando, ⚠️ IA não conseguiu, ⛔ Sem interativo) e os botões "Perguntas" (editar) e "Refazer IA". Testado: Refazer IA no vídeo do Andy ficou pronto em 30 s.
+- Durações: Os Mistérios do Petróleo corrigido para 12:57 pela medida da IA (conferir no YouTube). Higiene bucal continua sem duração: preencher no cadastro.
+- (07/11, noite) Player: "⏳ Pensar" (10 s por padrão; sem, 10, 15, 20 ou 30 s) antes de liberar as alternativas, com botão "Liberar agora". Passador de slides: avançar libera a contagem e depois continua o vídeo; fora da pergunta toca/pausa; voltar recua 10 s.
+- TR (doc G6fec36pTSYj3m6B7MwE3v): licença por estudante em dois níveis (1-A Intermediário, 1-B Completo), franquia 10 e 20 UPIA por professor; medição, estimativa, atestado, SLA e Anexo II ajustados. Vídeo interativo como requisito 4.2.5 (acervo, sem UPIA) e 4.2.6 (por link, 1/2 UPIA), e item 21 na prova de conceito.
+- (07/11) Produção própria: marcação no cadastro do vídeo; card mostra o logo do Portal no canto de baixo. 32 vídeos do canal Portal do Educador marcados.
+- (07/11) Botão '⚑ Avisar problema' na pergunta (vídeos do catálogo): professor escolhe o motivo e envia. Admin vê '⚑ N avisos' na lista de vídeos do painel e os avisos no topo da edição do vídeo, com 'ver' e 'resolvido'.
+
+## Monitoramento · 07/11/2026
+- Erros no navegador: páginas do Portal (entrar, vídeo, aula, atendimento, lousa) mandam os erros de JavaScript para a função registrarErro. Resumo por dia em erros_resumo; detalhe em erros_navegador (30 dias).
+- Disponibilidade: GitHub Actions "Monitor" a cada 15 min (site, vídeo, funções, banco), placar em stats/disponibilidade_AAAAMM. Se cair, o GitHub manda e-mail.
+- Resumo diário às 7h por e-mail para alan@newpc.com.br (só quando houver erro ou queda): erros, disponibilidade do mês e alerta se ficar abaixo de 99,5%.
+- Testado no ar: 4 de 4 verificações ok; erro de teste capturado na página /video/.
+- (08/11) Alan validou 3 vídeos interativos para a demo da SENACOP (tudo ok). O mosquito Vilão: duração corrigida (3:35) e interativo gerado sozinho pelo cadastro.
+- Proposta registrada, aguardando o OK do Alan: "modo aluno" (fase 2, depois da SENACOP): aluno responde sozinho no tablet (Maestro), aberta escrita com a esperada só depois de enviar, sem pular e sem adiantar o vídeo, resultado por aluno para o professor; correção da aberta pelo professor (IA opcional depois).
+
+## Termômetro da turma · 08/11/2026
+- No Controle da aula: botão "🌡️ Termômetro da turma". O professor faz uma pergunta aberta (com sugestões prontas); cada aluno escreve no tablet; a barra mostra quantos responderam e o botão "🤖 Ler a turma com IA".
+- A IA agrupa a turma (entendeu, entendeu em parte, confundiu, fora do tema), com explicação, exemplo de resposta, alunos de cada grupo, sugestão do que fazer agora e resposta esperada. A IA recebe só os textos, sem nomes.
+- Central de IA: recurso "Aula ao vivo · Termômetro da turma", padrão Intermediário e Completo; 1 crédito por leitura.
+- Testado no ar com turma simulada de 5º ano (fotossíntese): 12 respostas em 13 s, grupos corretos (confusão com respiração e "planta come terra" identificadas); professor que não conduz a aula é recusado.
+- Próximos (a partir de quinta 12/11): diário de classe automático, envio adaptado e dúvidas repetidas.
+
+## 08/11 · Termômetro no Painel da Escola e da Rede (opção B) + medidor de créditos na Turma ao Vivo
+- aulaIa (termometro): a cada leitura grava termometro_registros/{turma}_{pergunta} com município, escola, turma, pergunta, contagens (entendeu, parcial, confundiu, fora) e rótulos dos grupos. Sem texto e sem nome de aluno. "Ler de novo" substitui.
+- Regras: termometro_registros só leitura do admin; escrita só pelo servidor.
+- painelSecretaria: bloco termometro (30 dias) na rede e por escola; o gestor vê só a escola dele e a comparação "rede x%".
+- /painel/: seção "Termômetro das aulas" (KPIs entenderam / em parte / confundiram, barra de composição, ranking por escola na rede, lista "Onde as turmas se confundiram"); frase no relatório executivo quando 25% ou mais das respostas mostram confusão.
+- Turma ao Vivo: medidor "✨ N créditos" ao lado de "Sair do painel" (verde, laranja abaixo de 20%, vermelho zerado; atualiza depois de cada leitura; admin vê "IA admin").
+- Histórico da turma: linha do Termômetro mostra "🌡️ n resp. ✅ 🟡 ❗ ➖" (antes aparecia undefined).
+- Aluno: resposta nova da pesquisa apaga a sobra da anterior (texto x cor).
+- Teste e2e teste-termometro confere o registro do painel e que não vaza texto de aluno.
+- Fora de escopo, de propósito: evolução por aluno (opção C) por LGPD.
+- 08/11: Controle da aula com botões compactos numa linha (quebra em 3 colunas abaixo de 1100 px).
+
+## 08/11 · Lousa: Passar a limpo (IA lite, grátis para o professor)
+- Menu IA da Lousa: "✍️ Passar a limpo". Seleciona a letra à mão, a IA (gemini-3.1-flash-lite) lê a foto e devolve blocos (título, parágrafo, item, numerado, fórmula); entram textos editáveis no lugar, na mesma cor; Desfazer volta a letra.
+- Sem crédito; limite diário por professor em ia_limite_diario/{uid}_{dia} (config/portal_ia.limpo_dia, padrão 100); falha devolve o uso. Custo no painel de IA como lousa_limpo.
+- Central de IA: recurso lousa_limpo (Intermediário e Completo; geral ligado, avulso desligado). Redes com lista própria na Central precisam marcar.
+- Núcleo functions/lousa-limpo.js; teste consulta limpo-teste com 3 amostras cursivas: 100% certo, 1,4 a 1,8 s, ~R$ 0,001 por uso.
+- 08/11: Passar a limpo publicado (portalIa + site); e2e limpo-e2e ok em 2,2 s; regressão do Portal IA ok.
+
+## 08/11 · Créditos: regra de acúmulo (decisão do Alan)
+- Rede: a franquia acumula até o fim do contrato (pacote mensal vale até vigencia_fim_ts; sem data, fim do mês como antes) e vence com ele. Teto mensal por professor padrão = 2× franquia (servidor tetoRede e tela crTeto). Texto do admin atualizado.
+- Assinante avulso: sobra passa 1 mês, no máximo 2 franquias juntas (acumulo_assinante_meses: 1 na config; programar junto com o pagamento automático).
+- Pacotes comprados: 12 meses (sem mudança).
+- TR item 3.4: franquia cumulativa na vigência, limite mensal de até 2× por professor, saldo se extingue no fim da vigência.
+- Tabela de preços e as duas apresentações atualizadas. Falta publicar as funções que usam creditos.js e o site.
+- 08/11: publicado (7 funções + site). Regressão do Portal IA ok; teto do laboratório já aparece 240 (dobro do Completo).
+
+## 08/11 · Financeiro (/financeiro/)
+- Página própria, acesso só por e-mail verificado: dono alan@newpc.com.br (fixo nas regras) + lista fin_acesso/lista (até 30), que só o dono edita na aba "Quem tem acesso".
+- Abas: Visão geral, Recebimentos, Conciliação, Notas fiscais, Inadimplência, Auditoria. Lê fin_pagamentos, fin_repasses, fin_notas, fin_auditoria (vazias até a cobrança automática).
+- Financeiro só marca nota emitida (com número) e repasse conciliado; auditoria só cria. Admin do Portal fora da lista não entra.
+- Testes: scripts/teste-regras-financeiro.mjs (rodam no deploy das regras).
+- 08/11: Financeiro ganhou a aba Comissões (fin_config/comissoes; só o dono grava; financeiro lê). Lucro = receita − impostos (%) − taxas Asaas (opcional) − outros custos do mês.
+- 08/11: Financeiro publicado (regras com 29 testes ok + site).
+- 08/11: Comissões por projeto (fin_config/comissoes.projetos: nome, cliente, recebido no mês, custos; equipe.base = 'lucro' ou id do projeto). Lucro do projeto = recebido × (1 − imposto%) − custos.
+- 08/11: comissão por projeto publicada (30 testes ok).
+
+## 08/11/2026 · Fábrica de cursos com IA (Formação Continuada)
+- Admin da Formação > Cursos > "✨ Gerar com IA": tema, público, carga horária (1 a 40 h), nível, orientações e material base opcional (texto colado até 60 mil caracteres ou PDF até 7 MB).
+- Gera em duas etapas: plano (módulos, aulas, 8 a 12 questões com gabarito, competências BNC-Formação) e depois o texto das aulas, um módulo por pedido em paralelo. Leva de 1 a 4 minutos.
+- A soma da duração das aulas fecha com a carga horária do certificado. Cada aula termina com atividade prática.
+- Nasce como RASCUNHO com campo ia {gerado, revisado:false, pendencias}. Publicação bloqueada até alguém clicar "Revisei este curso" (função revisarCursoIA). Aula que a IA devolveu vazia vem marcada "[Conteúdo a completar]" e também bloqueia.
+- Regras: o campo ia só a função grava (teste scripts/teste-regras-cursos-ia.mjs, 8 casos).
+- Limite: 10 cursos por pessoa por dia (formacao_ia_uso). Custo registrado em creditos/admin e stats/ia_uso (acao formacao_curso).
+- IA proibida de inventar número de lei, pesquisa, estatística ou citação fora do material base.
+- Arquivos: functions/curso-ia.js (puro), functions/formacao-ia.js (gerarCursoIA, revisarCursoIA), domain.js (trava), formacao/admin/index.html.
+- Commit eddb2af em vitrine-ia. Publicação pendente de aprovação.
+- 08/11 15h: PUBLICADO (site main/migracao-www; funções gerarCursoIA, revisarCursoIA, publicarCurso; regras; CURSOS IA 8 ok, FINANCEIRO 30 ok).
+- Curso de teste gerado: "Lousa Digital na Prática: da Aula Expositiva à Participação dos Alunos" (id lousa-digital-na-pratica-da-aula-expositiva-a-part-abc86b), 8 h, 4 módulos, 11 aulas (480 min), 9 questões, ~3 min. Em rascunho aguardando revisão.
+- Achados da leitura: palavra sem sentido no meio de um texto ("Aguilera", aula m3a1), passos escritos na 3ª pessoa ("Define", "Apresenta") em vez de imperativo, aulas um pouco curtas para a duração (~440 palavras em 45 min, contando a atividade prática).
+- 08/11 16h30: ajustes publicados (só gerarCursoIA). Achado: o Gemini degenerava ("frase-salada", ex.: "Aguilera", "unidade de ensino municipal ou estadual de atendimento básico diário regular...") em textos longos dentro de JSON; um módulo inteiro chegou a vir vazio.
+  Correção: uma aula por pedido, escrita em texto livre (Markdown) e convertida para HTML no servidor; detector de texto degenerado (frase >40 palavras ou 4 palavras repetidas 4x); revisão de língua por aula com o modelo rápido (aceita só se não encurtar >25%); até 3 tentativas; sobra vira pendência. Passos no imperativo. geminiFluxo ganhou parâmetro limiteCampo (padrão inalterado).
+  Teste final (Formulários Google, 4 h): 5 aulas de 550 a 620 palavras, maior frase 18 palavras, zero pendências, ~2 min.
+- Rascunhos de teste no admin da Formação: lousa-digital-...-abc86b (o bom, para revisar), chromebook-...-c622c6 (módulo vazio), chromebook-...-b1ce0f (uma frase-salada), avaliacao-formativa-...-9ff70e (2 pendências), avaliacao-formativa-...-7a40d0 (versão final, boa). Perguntar ao Alan se exclui os 3 ruins.
+- 08/11 16h40: excluídos os 3 rascunhos de teste com defeito (c622c6, b1ce0f, 9ff70e). Ficam: Lousa Digital na Prática (abc86b, revisar) e Avaliação Formativa com Google Formulários no Chromebook (7a40d0).
+- Doc "Roteiros de gravação · Lousa Digital na Prática" (Claude Docs 601ab84e-fe6e-4105-83ba-20adb14c4921): 11 roteiros + tabela de correções da aula 1.1 (frase-salada) e 1.2 (cortina/refletor/lupa não existem na Lousa).
+
+## 08/11/2026 · Relatório da Formação para a Secretaria (IA)
+- Painel da Escola/Rede > Formação Continuada > botão "🧠 Relatório da formação (IA)": KPIs (engajamento, concluíram, pararam, horas certificadas), resumo, destaques, pontos de atenção, recomendações com o dado que justifica, próximo passo de 30 dias, tabela por escola, cursos e competências BNC-Formação (lidas da descrição dos cursos da Fábrica). Botão Baixar PDF (jsPDF, cabeçalho da prefeitura).
+- Função relatorioFormacaoIA (formacao-ia.js) reaproveita montarAcompanhamento (formacao-uso.js refatorado; formacaoAcompanhamento continua igual). A IA recebe só números por escola e curso, nunca nome (teste confirmou). Limite 10 por pessoa por dia; custo na conta admin (acao formacao_relatorio). Se a IA falhar, mostra os números e avisa.
+- Commit ce7287e em vitrine-ia. Publicação pendente de aprovação (funções relatorioFormacaoIA + formacaoAcompanhamento, site painel).
+- 08/11 17h: PUBLICADO (relatorioFormacaoIA, formacaoAcompanhamento, painel). Teste real em Campo Grande: funcionou em ~20 s, texto coerente com os números, franco sobre poucos dados.
+  Ajuste publicado: escola sem nome aparecia como código interno ("YJ7S53...") ou "-"; agora "Sem escola identificada".
+  Atenção: o card do Painel mostra "Adesão 20% / 4 sem começar" e o relatório "17% / 5 de 6": bases diferentes (o card conta professores do Portal; o relatório e a lista contam também perfis da Formação). Alinhar a definição antes de demonstrar.
+
+## 08/11/2026 · Catálogo "Em breve" na Formação (publicado)
+- formacao/index.html: lista EM_BREVE com 14 cursos dos recursos do Portal (Lousa Digital na Prática, Portal do Educador do zero, Portal IA na prática, Provas e Avaliações, Turma ao Vivo e Termômetro, Minhas Turmas no dia a dia, Conteúdo pronto na aula, Portal 360º VR e apps 3D, Lousa com IA, Inclusão, Painel da Escola, Gestão Escolar no Portal, Acervo da rede, Formação em serviço no HTPC). ~76 h.
+- Aparecem na página inicial (abaixo dos destaques) e no catálogo, com selo EM BREVE, sem link. Somem sozinhos quando um curso publicado tiver no título a "chave" do item (ex.: "portal ia na pratica"). Ao gerar o curso, manter o título com a chave.
+- Capas: reaproveitam as 5 fotos dos personagens NEWPC (fc-*.webp); há repetição. Pendente: capas próprias.
+- Próximo: gerar os cursos com material base tirado do código (prioridade: Portal do zero, Portal IA, Provas, Turma ao Vivo).
+
+## 08/11/2026 · 4 cursos do Portal gerados com material base (rascunho, aguardando revisão)
+- Fábrica: campo "Título (opcional)" (gerarCursoIA aceita titulo e sobrepõe o da IA), para casar com a chave do cartão Em breve.
+- Material base = trechos do Manual do Usuário (/tmp/claude-0/manual2/parte1.md, v2.40) + notas do Termômetro; publicados no ramo formacao-material (zero.md, ia.md, provas.md, aovivo.md) e lidos pela página do admin. Foco obrigatório: só recursos/botões do material, nomes em negrito.
+- Cursos (ids): portal-do-educador-do-zero-primeiro-acesso-turmas--32b365 (4 h, 5 aulas), portal-ia-na-pratica-planejar-e-criar-materiais-co-e7d99f (8 h, 5 aulas), provas-e-avaliacoes-criar-aplicar-online-corrigir--b3f90c (8 h, 11 aulas), turma-ao-vivo-e-termometro-participacao-e-avaliaca-6fcb0d (4 h, 5 aulas). Zero pendências; aulas de 466 a 676 palavras.
+- Conferência automática: termos em negrito comparados com o material; os que não estavam no trecho foram conferidos no manual inteiro e no código (embaralhamento, cronômetro do servidor, Mapa de notas, Boletins, bateria, mão levantada: existem). Nenhum recurso inventado encontrado.
+- Ponto de revisão: Portal IA tem 8 h em 5 aulas (~1h36 cada); avaliar baixar para 4 h ou regenerar com mais aulas.
+
+## 08/11/2026 · Revisão dos 2 cursos publicados (novas versões em rascunho)
+- Publicados: "Curso de Iniciação - Word 365" (n0tLYU9GqzhGrc48EsSv, 6,3 h, 10 aulas, 10 questões) e "Lousa Digital - NEWPC TECNOLOGIA" (GFOqsabKxm2OpaurvgVY, 4 h, 18 aulas, 10 questões). Curso publicado é protegido; correção via "Criar nova versão".
+- Novas versões: Word rfXrroFW3NCorxaO8jyQ; Lousa kjrueIydtDYl0ESCBsZk (títulos sem "(versão 2)").
+- Word: tirado o prefixo "Módulo N - Aula N –" dos 10 títulos; removido o cabeçalho repetido no topo de 7 aulas; 1 subtítulo em caixa alta normalizado. Durações mantidas (380 min = 6,3 h; vídeos longos). Gabarito das 10 questões conferido.
+- Lousa: removidos títulos repetidos e a faixa "Lousa Digital | NEWPC TECNOLOGIA" no topo das aulas; subtítulos em caixa alta normalizados; durações que eram menores que o tempo de leitura subiram (ex.: Acessibilidade 3→12 min, Aplicações pedagógicas 5→17, Introdução 15→25, Conectividade 10→23): soma 322 min, carga horária 4 h → 5 h. Checklist de publicação todo verde.
+- Pendente decisão do Alan: publicar as novas versões e arquivar as antigas (progresso e certificados ficam no curso original).
+- 08/11 17h40: PUBLICADAS as versões corrigidas e ARQUIVADAS as antigas (Alan: ninguém concluiu). Na validação do catálogo, os módulos do Word ainda traziam "Módulo N –" no nome (duplicado com o selo MÓDULO N): feita a versão 3 do Word com os 4 módulos renomeados, publicada, e a versão 2 arquivada. No ar: Word 365 (6,3 h) e Lousa Digital NEWPC (5 h), mais os 14 cartões Em breve.
+
+## 08/11/2026 · Formação: curso exclusivo de rede (publicado e testado)
+- Admin > curso > Publicação > "Quem pode ver este curso": Todas as redes ou Só as redes escolhidas (lista das 14 redes). Grava pela função definirRedesCurso (só admin; vale para curso publicado). Campos redes[] e exclusivo.
+- Professor: catálogo público filtra exclusivo==false (índice status+exclusivo+ordem); os exclusivos da rede dele vêm pela função cursosDaRede após o login, com selo "Formação da sua rede".
+- Trava: regras (fVisivel: publicado e aberto, ou municipio_id do cadastro do Portal está em redes; vale para curso, módulos e aulas) e funções (exigirRede em iniciarAula, acompanharAula, sortearProva, emitirCertificado). Busca do Portal não indexa exclusivo.
+- Certificado de curso exclusivo: linha "Formação promovida pela Secretaria Municipal de Educação de X/UF, em parceria com o Portal do Educador" (campo promotor, também na consulta pública).
+- Preparação: os 30 cursos receberam exclusivo=false (consulta cursos-exclusivo-gravar). Ordem do deploy sem queda: preparo, índice e funções, site, regras.
+- Testes: CURSOS IA 18 ok (inclui rede A lê, rede B não lê curso nem aula, visitante não lê exclusivo). Teste no ar: Lousa NEWPC exclusiva de Campo Grande apareceu com o selo para o Alan; leitura sem login deu 403; depois voltou para todas as redes.
+- Modelo comercial proposto (opção A): NEWPC produz o curso da rede com o material da Secretaria (Leonardo + Fábrica), cobrado por curso ou pacote anual. Opção B (Secretaria como editora) fica para depois.
+
+## 08/11/2026 · Atividade prática com retorno da IA (publicado e testado)
+- Aula (formacao/index.html): painel "Atividade prática: conte como foi" abaixo das anotações (aulas com texto). Relato de 80 a 3.000 caracteres, aviso "Não escreva nomes de alunos", até 3 envios por aula (fica o último).
+- Função praticaFormacao (formacao-ia.js): confere cadastro ativo, curso publicado e rede (exclusivo); pega o trecho "Atividade prática" da aula; IA devolve situação (aplicou / planejou / incompleto), o que funcionou, sugestão e pergunta de reflexão. Grava users/{uid}/praticas/{curso}__{aula} (regras: só o dono lê, só a função grava). Limite 20 por dia; custo na conta admin (acao formacao_pratica). Só texto: foto de sala pode ter rosto de aluno, fica para depois com moderação.
+- Relatório da Secretaria: KPI "Aplicaram em sala" (professores que relataram ter aplicado) e práticas relatadas por escola; a IA destaca como evidência de aplicação. PDF com 5 indicadores.
+- Testes: CURSOS IA 21 ok. Teste no ar (Alan, Lousa NEWPC, aula Introdução): retorno em ~10 s, "Aplicou com a turma", comentário específico ao relato.
+
+## 08/11/2026 · Lembrete para quem parou + "Onde os professores pararam"
+- Função agendada lembretesFormacao (formacao-lembretes.js): dias úteis 9h10 (Campo Grande). Curso começado, não concluído, sem acesso há 7+ dias: e-mail "Seu curso está esperando por você" com % feito, aulas que faltam, aula onde parou e botão "Continuar de onde parei" (link direto para a aula). Máx. 3 por curso, 14 dias entre eles, até 150 por rodada; pula quem desmarcou, inativo, sem e-mail ou e-mail técnico de aluno. Controle em formacao_lembretes/{uid}__{curso}; resumo diário em stats/formacao_lembretes.
+- Perfil da Formação: caixa "Lembretes por e-mail" (users.lembretes, regra aceita só sim/não). lembretesFormacaoTeste (admin): simula quantos receberiam ou manda um exemplo para o próprio admin.
+- Relatório da Secretaria: tabela "Onde os professores pararam" (curso, aula, quantos), na tela e no PDF; a IA aponta aula com muita gente parada para revisão.
+- Publicado (CURSOS IA 23 ok). Simulação no ar (consulta lembretes-simular): 2 cursos em andamento na base, nenhum parado há 7+ dias, então a rodada de amanhã não envia nada. Prévia do e-mail: scratchpad/exemplo-lembrete-formacao.png.
+
+## 08/11/2026 · Migração de progresso entre versões (publicado)
+- publicarCurso (status publicado) chama migrarProgressoVersao: para curso com origemId, copia o progresso de quem estava no meio da versão anterior para users/{uid}/progresso/{novo}. Aula conta como feita se tem o mesmo id e os mesmos vídeos (texto corrigido não obriga refazer; vídeo trocado, sim). Mantém última aula e data de início; concluídos não migram (já têm certificado); não sobrescreve quem já tem progresso na nova; marca migradoDe; auditoria migrarProgresso. Avaliação não migra (prova pode ter mudado).
+- Admin vê no aviso: "O progresso de N professor(es) da versão anterior foi levado para esta versão."
+- migrarProgressoCurso (admin) refaz a migração; idempotente. Consulta migracao-simular (só leitura).
+- Rodado agora na Lousa NEWPC: 1 professor migrado (estava no início, 0 aulas concluídas, última aula mantida); segunda rodada: 0 (idempotente). Word: ninguém em andamento.
+
+## 08/11/2026 19h30 · 5 cursos do Portal PUBLICADOS (ordem do Alan: "Pode publicar")
+- Antes de publicar, corrigido na Lousa Digital na Prática: aula 1.2 reescrita com os recursos reais da Lousa (fundos reais, Ponteiro laser, Post-it no lugar de "cortina", Marca-texto, Zoom, Salvar em PDF/PNG, Meus trabalhos); aula 1.1 sem a frase-salada; aula 3.2 sem "cronômetro na lousa" (não existe; virou celular ou relógio da sala). Varredura das outras aulas: nada mais.
+- Revisão IA confirmada (conta do Alan, por ordem dele) e publicados: Lousa Digital na Prática (8 h), Portal do Educador do zero (4 h), Portal IA na prática (8 h, 11 aulas), Provas e Avaliações (8 h), Turma ao Vivo e Termômetro (4 h).
+- Catálogo: 7 cursos publicados (+ Word 365 e Lousa NEWPC), 9 "Em breve" (os 5 sumiram sozinhos). Ficou de fora: "Avaliação Formativa com Google Formulários" (teste, fora da linha só-Portal), em rascunho.
+- Cursos publicados ainda SEM vídeo: Leonardo grava depois; para incluir vídeo, usar Criar nova versão (o progresso migra; aula com vídeo novo precisa ser refeita).
+
+## 08/11/2026 21h45 · Formação abrindo mais rápido (publicado)
+- Medição antes (login do Alan): cartões só em ~15 s. Causa: tudo em fila (token, vincularContaFormacao ~4 s com servidor frio, depois cursosDaRede ~3,3 s, depois leituras do usuário); registrarEntrada ocupando em paralelo.
+- Correção: vincularContaFormacao já devolve os cursos exclusivos da rede (cursosDaRedeDe; cursosDaRede mantida); o cliente lê progresso, provas e certificados EM PARALELO com a liberação e só lê o perfil depois dela (criar o perfil antes apagaria os dados da rede); certificado antigo ligado na liberação força nova leitura.
+- Depois: 4,0 s na primeira abertura, 1,7 s na seguinte (15 cursos na tela).
+- Opção não feita: deixar vincularContaFormacao com 1 instância sempre ligada (tira o ~3 s de servidor frio; custo mensal pequeno, a confirmar).
+
+## 08/11/2026 22h · Rede Municipal de Demonstração (SENACOP) criada e conferida
+- Rede demo-rede ("Rede Municipal de Demonstração/MS"), tudo com demo:true e ids "demo-": 4 escolas (Cecília Meireles, Paulo Freire, Anísio Teixeira, Monteiro Lobato), 36 professores + 4 gestores SEM e-mail, 16 turmas, 379 estudantes genéricos, frequência (alerta=false), 32 provas BNCC com 674 respostas, 68 equipamentos, 14 chamados, 4 TVs, 5 busca ativa, 18 relatórios, 22 Termômetros, 304 acessos em 30 dias; Formação com cursos reais: 62 cursos em andamento/concluídos, 19 certificados DEMO-... (não passam na validação: formato AE-), 32 práticas.
+- Faixa no Painel: "Ambiente de demonstração · dados simulados... Nenhuma pessoa, escola ou número desta rede é real."
+- Travas antes de semear: gatilhos sem e-mail/crédito/auditoria para demo (emailNovoCadastro, emailCertificadoEmitido, emailRelatorioEnviado, emailChamadoTecnico, emailTvConectada, creditosDemoTeste, comunicacaoProfessor, auditarBanco/Sub); uso real e resumo diário descontam demo; lembretes não alcançam (sem e-mail, lembretes=false).
+- Consultas: demo-criar-gravar (idempotente), demo-apagar (só conta; checagem de segurança: nada fora da demo), demo-apagar-gravar (remove e confere). Contagem atual: 1.653 documentos + 94 em subcoleções.
+- Conferido no ar: Painel da Rede cheio (90% professores ativos, 64% acerto, 94% frequência, Termômetro com confusões, Formação 72% adesão, 112,6 h); relatório da Formação com IA coerente ("Concluíram curso" agora = ao menos 1 curso, igual ao painel).
+- Não semeado: calendário letivo (aparece "não publicado") e chamadas do dia.
+
+## 08/11/2026 · Página principal (index.html) atualizada (branch vitrine-ia, aguardando aprovação para main)
+- Nova seção "IA embarcada" (#ia): vídeo interativo, Termômetro da turma, Lousa com IA, Portal IA. Prints reais em assets/home/.
+- Nova seção "Formação Continuada" (#formacao): estude, aplique com a turma (retorno da IA), a gestão acompanha; faixa de formação exclusiva da instituição.
+- Recursos: "Vídeos Interativos" e "Formação Continuada" com texto novo e selo "novo". FAQ (HTML e JSON-LD) com 2 perguntas novas.
+- Menu: entram "IA na aula" e "Formação"; saem "Notícias" e "Sua instituição". Corrigido estouro do cabeçalho (botão Teste grátis cortado em 1366 px, problema anterior).
+- Legenda nas duas seções: telas com dados da rede de demonstração.
+- 09/11: texto reescrito com gatilhos honestos (dor, alívio, controle, prova visual, risco zero, visualização). Novo bloco "Antes/Durante/Depois da aula" e "Nosso compromisso com a IA na educação". Sem escassez falsa nem depoimento inventado. Botão "Teste grátis" do topo não quebra mais linha.
+- 09/11 03:10: PUBLICADO (main e migracao-www, commit 6270107). Conferido no ar: seções IA com propósito, compromisso com a IA e Formação.
+- 09/11: Formação com capas próprias (assets/formacao/fc-*.webp, 960x540): portal-zero, portal-ia, provas, minhas-turmas, conteudo-pronto, vr-3d, lousa-ia, inclusao, painel-escola, gestao-escolar, acervo, htpc; gerais novas fc-parceria e fc-foco. Mapa por título em capaPadrao (capaURL do curso continua tendo prioridade). Turma ao Vivo segue com fc-google até ter capa própria. PUBLICADO.
+- 09/11 05:40: PUBLICADO site (303da61) e função vincularContaFormacao. Perfil sem nome puxa o nome do Portal; "Começar o curso" com cadastro incompleto (nome+sobrenome, município, escola) abre a atualização cadastral e segue para a aula; CPF continua só no certificado. Home: fotos home-lousa-ia e home-portal-ia na seção de IA.
+- 09/11 05:55: CORRIGIDO regressão minha (commit c2840c9, abertura em paralelo): um "else" antigo zerava E.perfil, E.progresso, E.tentativas e E.certificados na tela a cada abertura. Banco intacto (progresso só a função grava). Publicado 698e762.
+- 09/11 07:30: Créditos · tipo "Cortesia da diretoria" no Lançar créditos (origem 'cortesia', obs prefixada) e bloco "Cortesias da diretoria" (dados, usados, restam, custo real estimado pelo custo médio da conta, valor de tabela). Lançamentos manuais antigos com "cortesia" na observação também entram. Retirar pacote agora zera e guarda "retirado" (não apaga). Publicado site c749748 + creditosAdmin. Pendente: no próximo deploy geral de functions, as que debitam (portal-ia, aula-ia...) pegam o saldoDe novo (total sem retirados, afeta só o % do alerta).
+- 09/11 09:30: Termômetro da turma e parecer da turma GRÁTIS (sem crédito), com uso justo diário por professor (usoJustoDiario em creditos.js; ia_limite_diario/{uid}_{dia}; padrões termometro 60/dia, parecer 150/dia, ajustáveis em config/portal_ia termometro_dia/parecer_dia). Custo continua no stats/ia_uso. Telas sem menção a crédito. Publicado adf2cde + aulaIa e pareceres. Passar a limpo já era grátis (100/dia).
+- 09/11 12:15: PAGAMENTOS ASAAS no ar em modo TESTE (sandbox, conta PF do Alan). functions/asaas.js: pagamentos (opcoes/criar), asaasWebhook (token no cofre, gerado pela integração), asaasAdmin. fin_pedidos, fin_clientes (CPF só mascarado), fin_pagamentos, fin_notas, fin_auditoria. Licenças à venda: intermediario-mensal 59,90 e completo-mensal 99,90 (LICENCAS em asaas.js); créditos = pacotes_professor. Com chave de teste, compra direta só para admin e config/pagamentos.testadores. Workflow pagamentos-asaas (situacao/segredos/webhook). Assets: pde-pagar.js (Portal IA "Comprar créditos" e botões Assinar/Renovar com data-lic-cta). Pendente: teste de ponta a ponta; ao trocar para a chave oficial (CNPJ), rodar segredos + webhook e republicar as 3 funções.
+- 09/11 12:35: TESTE E2E OK (sandbox): prof.ciencias comprou 100 créditos R$ 49,90 → pago (boleto, taxa 0,99, líquido 48,91) → 100 créditos liberados, fin_pagamentos e auditoria gravados. Falta: teste da licença (conta de professor em teste) e ir para produção (CNPJ/conta oficial + chave Pix).
+- 09/11 16:00: Teleprompter: editor por blocos (Bloco N, "+ Novo bloco" após cada um, × apaga com confirmação e versão guardada, Ctrl+Enter cria o próximo); texto continua salvo como blocos separados por linha em branco (compatível com roteiros antigos e controle pelo celular). Botão "Foco" virou "Apresentar": só o texto; controles somem em ~3 s mesmo pausado e voltam ao mexer o mouse/tocar. Publicado.

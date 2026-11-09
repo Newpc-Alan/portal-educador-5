@@ -103,3 +103,15 @@ Atualização de 4 de novembro de 2026:
 | **Teste grátis de 7 dias** com tudo à vista: recursos da escola com cadeado e **Quero isso na minha escola**, 5 provas grátis, Formação liberada e 10 créditos de IA de demonstração | Início do professor em teste |
 | **Minhas TVs**: o professor avulso ou em teste monta a própria TV, sem misturar com a da escola | Portal TV |
 
+Atualização de 9 de novembro de 2026:
+
+| Novidade | Onde aparece |
+|---|---|
+| **Lousa** com Apresentar (revelação item a item, quiz com confete, sorteio e cronômetro), **Aulas prontas** grátis, **Ferramentas IA** (Perguntar, Circular, Passar a limpo, Pintor, Mapa mental, Legendas), livro em PDF, Forma perfeita e **QR code** para o aluno | Lousa |
+| **Vídeo interativo**: o vídeo pausa e a turma responde; grátis nos vídeos do catálogo | Vídeos Educativos |
+| **Termômetro da turma**: pergunta aberta, a IA agrupa as respostas da turma (grátis) | Controle da aula e Turma ao Vivo |
+| **Troca de professor** com a aula em andamento (bater na porta) e **Onde vai ser a aula** | Turma ao Vivo |
+| **Voz vira texto**: microfone nos campos, Ditado no quadro e Ditar pelo celular | Lousa, Portal IA, Pareceres |
+| **Formação Continuada**: atividade prática com retorno da IA, cursos da sua rede, lembretes e atualização cadastral ao começar | Formação Continuada |
+| **Créditos**: tabela nova, franquia que acumula até o fim do contrato, Termômetro e Pareceres grátis e compra direta (Pix, boleto ou cartão) quando o pagamento online estiver ligado | Portal IA e Meu cadastro |
+| **Aparelhos conectados** (aluno em 1, professor em até 3) e **Teleprompter** por blocos com apresentação só com o texto | Meu cadastro e Aplicativos Úteis |

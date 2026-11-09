@@ -13,7 +13,7 @@ O menu fica dividido em cinco grupos. Cada grupo abre e fecha com um toque no t�
 | | Painel da Rede (secretarias) | Abre o painel que a Secretaria de Educação vê |
 | | Início (prévia) | Mostra o Início como o professor ou o aluno vê |
 | | Simulador de preços | Monta o preço do Portal para um município (planos, itens e enquadramento) |
-| Redes e cadastros | Municípios | Cadastro completo das redes, plano, módulos, recursos e domínios de aluno |
+| Redes e cadastros | Redes contratantes | Cadastro completo das redes (municipal, estadual, particular, instituição ou cidade), plano, módulos, recursos, domínios de aluno e equipamentos |
 | | Escolas, Turmas, Alunos | Cadastros de apoio |
 | | Servidores da rede | Fichas dos servidores (abre `/apps/servidores/`) |
 | | Usuários | Aprovação, licenças, vínculos, recursos exclusivos e senha provisória |
@@ -31,6 +31,7 @@ O menu fica dividido em cinco grupos. Cada grupo abre e fecha com um toque no t�
 | | Documentação | Manuais, POPs e arquivos internos, com versões |
 | | Auditoria | Trilha de tudo o que foi criado, alterado ou excluído, entradas com IP e acessos ao acervo |
 | | Entrar como... | Ver o Portal exatamente como outro perfil vê |
+| | Financeiro | Abre `/financeiro/` (só aparece para quem tem acesso; o dono é alan@newpc.com.br) |
 
 <!-- captura: menu lateral do administrador com os cinco grupos abertos (Visão geral, Redes e cadastros, Gestão das escolas, Conteúdo do Portal, Sistema) -->
 
@@ -66,7 +67,7 @@ Este é o roteiro completo de implantação. Siga na ordem: cada passo depende d
 
 ### Passo 1 · Cadastrar o município
 
-Menu **Municípios** › **+ Novo Município**. Veja a seção [Cadastro completo do município](#cadastro-completo-do-município). Só o nome e a UF são obrigatórios, mas preencha tudo o que já tiver: os números da rede alimentam os painéis, as cotas de IA e o Simulador de preços.
+Menu **Redes contratantes** › **+ Nova rede contratante**. Veja a seção [Cadastro completo do município](#cadastro-completo-do-município). Só o nome e a UF são obrigatórios, mas preencha tudo o que já tiver: os números da rede alimentam os painéis, as cotas de IA e o Simulador de preços.
 
 Se preferir, o município também nasce sozinho na importação de escolas (passo 2). Nos dois casos ele começa com situação **Piloto**, **plano Básico** e moderação da rede em **Aprovação antes**.
 
@@ -92,7 +93,7 @@ Em **Escolas** › **Dados da escola**, complete INEP, CNPJ (o botão **Buscar**
 
 ### Passo 3 · Configurar o plano do município
 
-Menu **Municípios** › botão **Plano e módulos** na linha da rede.
+Menu **Redes contratantes** › botão **Plano e módulos** na linha da rede.
 
 | Campo | O que preencher |
 |---|---|
@@ -103,6 +104,8 @@ Menu **Municípios** › botão **Plano e módulos** na linha da rede.
 | O que fica liberado | Caixas por módulo, uma coluna para Professor e outra para Aluno |
 | Secretaria de Educação | Painel da Rede |
 | Recursos extras | Prova online, Educador em Rede, Sala Conectada e Turma ao Vivo |
+| Confirmação de entrada na escola | **Desligada** (some a Portaria, a auditoria e a portaria na chamada; as carteirinhas continuam, porque também servem para entrar no Portal), **Só QR** (carteirinha, sem foto: o totem não liga a câmera) ou **QR + câmera** (o totem pode tirar a foto, se a escola ligar em cada totem). **Reconhecimento facial** aparece como em breve. Sem escolha gravada, vale QR + câmera |
+| Chamada com dupla confirmação | Ligada (padrão): no dia em que a turma tem entradas na portaria, a chamada do professor já vem marcada e o que ele mudar contra a portaria pede motivo, que vai para a Auditoria. Desligada: a chamada só mostra quem passou |
 
 Atalhos: **Plano básico**, **Plano intermediário**, **Plano completo**, **Limpar** e **Aluno igual ao professor**. O contador no alto mostra o nome do plano reconhecido (Básico, Intermediário, Completo ou Personalizado). Finalize com **Salvar plano**.
 
@@ -185,7 +188,7 @@ A **Prova online** e a **Turma ao Vivo** trabalham com a matrícula da turma. Se
 
 ## Cadastro completo do município
 
-Menu **Municípios** › **+ Novo Município** ou botão **Cadastro** na linha da rede. A janela tem quatro abas:
+Menu **Redes contratantes** › **+ Nova rede contratante** ou botão **Cadastro** na linha da rede. Na mesma cidade podem existir clientes separados (a rede municipal, a rede estadual e um colégio particular), por isso o cadastro começa pelo **tipo de rede**: **Municipal**, **Estadual**, **Particular**, **Instituição** ou cidade. O tipo muda os rótulos (endereço da Secretaria, da mantenedora ou da instituição), os documentos, as carteirinhas, os painéis, os e-mails e os textos de LGPD em todo o Portal. O botão **Equipamentos** da linha abre o inventário da rede. A janela tem quatro abas:
 
 | Aba | Campos | Quem vê |
 |---|---|---|
@@ -292,9 +295,11 @@ Menu **Central de IA**. Aqui se decide **quem pode usar** cada recurso de IA e *
 
 - Cada rede tem uma **carteira** (a bolsa da rede). Cada professor pode ter a sua, comprada à parte.
 - Cada lançamento vira um **pacote com validade** (padrão: 12 meses). O consumo tira primeiro do pacote que vence antes.
-- Preços padrão: **1 material = 1 crédito**, **1 ajuste com a IA = 1 crédito**, **1 imagem = 5 créditos**. A Lousa Ultra soma a aula e as ilustrações escolhidas; o professor vê o custo antes de gerar.
-- A rede paga primeiro, até o **teto por professor** no mês. Sem teto gravado na rede, o teto é a **franquia do plano** (20 ou 40); sem franquia, o teto padrão (60). Bateu o teto ou acabou o saldo da rede, o Portal usa os créditos próprios do professor, se ele tiver.
-- **Franquia mensal incluída na licença**: todo dia às 3h15 o Portal soma na carteira de cada rede ativa com plano de IA o pacote do mês (**educadores de rede ativos × franquia**: 20 no Intermediário e no Personalizado, 40 no Completo), válido até o último dia do mês. Quem entra no meio do mês soma no dia seguinte; o pacote cresce e nunca duplica. Os valores ficam em **Preços e pacotes**; o botão **Conferir a franquia do mês** (em Redes com Portal IA) mostra quanto cada rede vai receber e aplica na hora.
+- Preços padrão (nov/2026, margem de 200% sobre o custo real): **material do Portal IA = 2**, **ajuste = 1**, **Aula IA da Lousa = 6**, **Aula avançada = 24**, **imagem (inclusive Pintor e ilustração da Lousa Ultra) = 6**, **texto (questões, quiz, Perguntar, Circular, Mapa) = 1**, **vídeo interativo por link = 3**. Todos editáveis em **Preços e pacotes** (a Aula avançada tem mínimo 1). O professor sempre vê o custo antes de gerar.
+- **Grátis com uso justo** (a NEWPC absorve o custo, centavos por uso): Termômetro da turma (60 por professor por dia), Pareceres da turma (150 por dia), Passar a limpo (100 por dia), Legendas, Aulas prontas e vídeos interativos do catálogo. Os limites ficam em `config/portal_ia` (`termometro_dia`, `parecer_dia`, `limpo_dia`); o custo continua medido no ranking de IA.
+- A rede paga primeiro, até o **teto por professor** no mês, que é o **dobro da franquia** do plano. Bateu o teto ou acabou o saldo da rede, o Portal usa os créditos próprios do professor, se ele tiver.
+- **Franquia incluída na licença**: todo dia às 3h15 o Portal soma na carteira de cada rede ativa com plano de IA a franquia (**educadores de rede ativos × franquia**: 60 no Intermediário e no Personalizado, 120 no Completo). Desde 08/11/2026 a franquia **acumula até o fim do contrato** (vence na vigência, não mais no fim do mês). O botão **Conferir a franquia do mês** (em Redes com Portal IA) mostra quanto cada rede vai receber e aplica na hora.
+- Quando o crédito do Google (a conta da IA) se esgota, o professor vê uma mensagem honesta, sem desconto de crédito, e o Alan recebe um e-mail de alerta (no máximo 1 a cada 6 horas).
 - Só a **licença institucional** usa a carteira da rede. Professor avulso, de cortesia ou em teste usa sempre a própria carteira, mesmo com o município no cadastro.
 - **Demonstração no teste**: quem se cadastra sozinho (teste de 7 dias) ganha **10 créditos** na carteira própria, válidos até o fim do teste, uma vez por e-mail. Ajuste ou desligue (0) em **Preços e pacotes**.
 - **Alertas automáticos** por e-mail para a NEWPC e para a Secretaria quando o saldo da rede chega a 20% e a 5%.
@@ -306,9 +311,10 @@ Menu **Central de IA**. Aqui se decide **quem pode usar** cada recurso de IA e *
 |---|---|
 | Indicadores | Créditos ativos nas carteiras, consumo do mês, custo real de IA no mês (Google Gemini, em reais), custo real por crédito e pedidos aguardando |
 | Pedidos de recarga | Data, quem pediu, pacote, valor, com **Liberar** e **Cancelar** |
-| Lançar créditos | Conta (rede ou professor, ou "Outro professor (pelo e-mail)..."), créditos, validade em meses e observação (nº do empenho, NF, Pix) |
+| Lançar créditos | Conta (rede ou professor, ou "Outro professor (pelo e-mail)..."), créditos, validade em meses, **Tipo** (**Venda (empenho, NF, Pix)** ou **Cortesia da diretoria**) e observação (nº do empenho, NF, Pix ou motivo da cortesia) |
 | Redes com Portal IA | **Educadores** (quantos já entraram e quantos importados aguardam o 1º acesso, só licença institucional), **Créditos por educador** (saldo ÷ educadores, com a sugestão de 15 por educador), saldo, situação (barra e %), vencimento, uso e custo no mês, **Teto por professor/mês** com **Salvar**, **+ Créditos** e **Pacotes** |
-| Pacotes (botão da linha) | Cada pacote ativo: data, créditos, quanto resta, vencimento e origem. **Retirar** (dois toques) tira o que resta do pacote; o que já foi usado fica no histórico |
+| Pacotes (botão da linha) | Cada pacote ativo: data, créditos, quanto resta, vencimento e origem (Pedido, Manual, Cortesia ou Compra). **Retirar** (dois toques) zera o que resta do pacote; o pacote fica guardado como retirado, para o histórico e o relatório de cortesias saberem quanto foi usado |
+| Cortesias da diretoria | Créditos dados sem venda: créditos dados, já usados (e %), **custo real estimado** (custo médio por crédito da própria conta, em reais) e **valor de tabela** (quanto valeriam pelos pacotes de venda). Tabela com conta, data, créditos, usados, restam, vencimento, custo, valor e observação. Lançamentos manuais antigos com "cortesia" na observação também entram |
 | Professores fora de rede | Todos os professores avulsos, de cortesia e em teste (e quem tem carteira própria): licença e vencimento, saldo, uso no mês, **+ Créditos** e **Pacotes**. O botão **Dar a demonstração a quem já está em teste** lança os 10 créditos para quem está em teste ativo e ainda não recebeu |
 | ✨ Central de IA | Quem pode usar cada recurso (abaixo) |
 | Preços e pacotes | Créditos por material, ajuste e imagem; teto padrão; alertas 1 e 2 (%); validade; dólar; demonstração do teste; **franquia mensal** por plano; pacotes da rede e do professor |
@@ -342,14 +348,44 @@ A Ultra inclui a Básica: marcar a Lousa IA Ultra marca a Básica; desmarcar a B
 3. Clique em **Liberar**: o formulário **Lançar créditos** já vem preenchido. Complete a observação (nº do empenho ou do pagamento) e clique em **Lançar créditos**.
 4. O pedido fica como aprovado e quem pediu recebe um e-mail. Pedido que não vai seguir: **Cancelar** (pede confirmação).
 
-Para crédito de cortesia ou de implantação, use **Lançar créditos** direto, sem pedido, e registre o motivo na observação. Para desfazer um lançamento, use **Pacotes** › **Retirar** na linha da rede ou do professor.
+Para crédito de cortesia ou de implantação, use **Lançar créditos** direto, sem pedido, com o **Tipo** **Cortesia da diretoria** e o motivo na observação: o lançamento entra no relatório **Cortesias da diretoria**. Para desfazer um lançamento, use **Pacotes** › **Retirar** na linha da rede ou do professor.
+
+### Pagamento online pelo Asaas {: .nova }
+
+O professor avulso compra a licença e os créditos sozinho, sem pedido à equipe.
+
+| Etapa | O que acontece |
+|---|---|
+| Compra | O professor toca em **Comprar créditos** (Portal IA) ou em **Assinar** / **Renovar** (aviso de licença) e escolhe o item na janela **Pagamento seguro pelo Asaas**. Na primeira compra informa o CPF de quem paga |
+| Cobrança | A função `pagamentos` cria o cliente e a cobrança no Asaas (vencimento em 3 dias) e abre a página de pagamento: Pix, boleto ou cartão |
+| Confirmação | O Asaas avisa a função `asaasWebhook`. O Portal libera sozinho a licença (Intermediário R$ 59,90 ou Completo R$ 99,90 por 1 mês, somando ao que ainda resta) ou os créditos (12 meses), lança a venda no **Financeiro** (bruto, taxa e líquido) e a nota a emitir, e manda e-mail ao professor e ao Alan |
+| Estorno ou contestação | O Portal marca o pedido, registra na auditoria do Financeiro e avisa o Alan por e-mail. A liberação **não** é desfeita sozinha: confira e retire à mão se for o caso |
+
+- Professor de rede (licença institucional) não vê a compra de licença, só a de créditos.
+- Cada professor pode ter até 5 cobranças aguardando pagamento.
+- O CPF vai só para o Asaas; o Portal guarda apenas o CPF mascarado (`fin_clientes`).
+- Com a **chave de teste** (sandbox), a compra direta só aparece para o administrador e para os e-mails em `config/pagamentos.testadores`; os demais seguem no pedido manual. Com a chave oficial, aparece para todos.
+- A troca de chave e o cadastro do aviso de pagamento ficam no POP-PDE-37.
+
+## Formação Continuada: Fábrica de cursos e cursos de rede {: .nova }
+
+No painel editorial da Formação (menu **Formação Continuada**):
+
+- **✨ Fábrica de cursos com IA**: informe o tema, o público, a carga horária (1 a 40 h), o nível, as orientações para a IA e, de preferência, o **material base** (texto da apostila ou PDF de até 7 MB) e, se quiser, o título. A IA monta o plano e escreve uma aula por vez, com passos no imperativo, atividade prática e questões, e faz uma segunda passada de revisão. O curso nasce como **rascunho**, com o aviso de revisão pendente: só publica depois que a equipe revisa (e sem trechos "[Conteúdo a completar"). Limite de 10 cursos por dia.
+- **Quem pode ver este curso**: aberto a todos ou exclusivo de uma ou mais redes. O curso exclusivo aparece só para os professores daquelas redes, com o selo **Formação da sua rede**, e o certificado traz a Secretaria como promotora. Ele não entra na busca geral.
+- **Nova versão**: ao publicar a versão nova de um curso, o progresso de quem estava no meio vai junto (aulas com os mesmos vídeos contam como feitas).
+- **Em breve**: os cursos dos recursos do Portal ainda não publicados aparecem como **Em breve** na página da Formação e somem sozinhos quando o curso é publicado.
+- **Lembretes**: dias úteis às 9h10, e-mail para quem parou um curso há 7 dias ou mais (no máximo 3 por curso, 14 dias entre eles).
+- Cada curso do Portal tem capa própria; curso novo sem capa recebe uma das capas gerais pelo tema.
 
 ## Simulador de preços
 
 Menu **Simulador de preços**. Serve para preparar a proposta comercial e o Termo de Referência de um município.
 
+Os campos ficam em blocos no topo e o resultado embaixo.
+
 1. **Município**: escolha um município cadastrado (o Portal conta alunos, escolas e professores já cadastrados), uma estimativa pronta ou digite os números.
-2. **Contrato**: **Portal avulso** ou **Junto da locação NEWPC** (na locação, o plano Básico sai sem custo) e o prazo em meses.
+2. **Contrato**: **Portal avulso** ou **Junto da locação NEWPC** (na locação, o plano Básico sai sem custo) e o prazo em meses. Na locação, o projeto é montado como **lista de itens**: Portal cobrado por sala, sala só com lousa, equipamento do aluno (tablet, Chromebook ou notebook), licença Google for Education, óculos VR e carrinho de recarga VR opcionais, com o resumo do projeto, o peso do Portal sobre a locação e o **preço para a margem desejada**. O modo avulso segue o mesmo formato (rede, preço, serviços em lista e resultado).
 3. **Preço por aluno/mês** de cada plano. Padrão de nov/2026: Básico R$ 3, Intermediário R$ 6 e Completo R$ 10 (R$ 36, R$ 72 e R$ 120 por aluno/ano). Referências públicas encontradas em nov/2026: só gestão escolar entre ~R$ 30 e R$ 110 por aluno/ano; plataforma pedagógica com conteúdo e formação entre ~R$ 240 e R$ 660.
 4. **Itens à parte**: implantação (única), créditos de IA (por ano), turmas de formação de 4 h e valor por turma.
 5. **Custos da NEWPC** (para a margem): infra por aluno/mês, suporte e acompanhamento, impostos e comissão.
@@ -426,7 +462,13 @@ A senha provisória aparece uma vez só, vale 24 horas e a pessoa troca no prime
 
 ### Venda avulsa
 
-O professor que se cadastra sozinho ganha 7 dias de teste. O aviso de fim do teste e a tela de licença vencida levam a um botão de WhatsApp da NEWPC com mensagem pronta. Depois do pagamento (por link), o administrador abre o cadastro, muda a licença para **Avulsa**, escolhe o plano e o pacote e salva. O professor toca em **Já paguei, verificar** e o acesso volta. Créditos de IA do avulso são vendidos à parte (Central de IA).
+O professor que se cadastra sozinho ganha 7 dias de teste. Com o **pagamento online** ligado (Asaas), os botões **Assinar** e **Renovar** do aviso de fim do teste e da tela de licença vencida abrem a compra direta: a licença é liberada sozinha quando o pagamento é confirmado (veja "Pagamento online pelo Asaas" na Central de IA). Sem ele, os botões levam ao WhatsApp do Portal com mensagem pronta; depois do pagamento, o administrador abre o cadastro, muda a licença para **Avulsa**, escolhe o plano e o pacote e salva, e o professor toca em **Já paguei, verificar**.
+
+O Portal manda e-mails automáticos ao professor: início do teste e 2 dias antes do fim, compra, renovação, licença vencendo e mudança de plano. Em **Gerenciar usuário**, o botão **E-mail de boas-vindas** (só administrador) reenvia o e-mail que cabe na situação do professor, no máximo 1 por dia.
+
+### Aparelhos conectados
+
+O aluno fica conectado em 1 aparelho por vez; professor e equipe, em até 3 (valores em `config/sessoes`). Quem passa do limite tem o aparelho mais antigo desconectado com aviso. A pessoa vê a lista em **Meu cadastro** e pode usar **Sair de todos os outros aparelhos**.
 
 ## Módulos do Portal
 
@@ -515,7 +557,11 @@ Dentro de cada atividade, o administrador corrige título, anos, tipo e BNCC, pu
 
 **Posição na tela** tem três níveis: **1 · Aparece primeiro**, **2 · Normal** e **3 · Vai para o fim**. A posição manda; dentro da mesma posição, os novos vêm primeiro.
 
-**Selo Novo.** Vídeo ou jogo recém-publicado ganha o selo **Novo no Portal** por 15 dias, contados da primeira publicação, e vai para o começo da sua posição. As abas **Novos** da lista mostram quais estão com o selo.
+**Selo Novo.** Vídeo ou jogo recém-publicado ganha o selo **Novo** por 5 dias, contados da primeira publicação, e vai para o começo da sua posição. As abas **Novos** da lista mostram quais estão com o selo. Vídeos do canal do Portal do Educador recebem a marca **Produção própria**.
+
+**Vídeo interativo do catálogo.** Todo vídeo publicado ganha, por padrão, a versão interativa gerada pela IA (perguntas nas pausas), grátis para o professor. No cadastro do vídeo há o interruptor para desligar a versão interativa; no painel, a situação de cada vídeo e o botão **Refazer IA**. Os avisos **⚑ Avisar problema** dos professores chegam para a equipe revisar a pergunta.
+
+**Aulas prontas da Lousa.** O acervo oficial (temas transversais da BNCC, 1º ao 9º ano) é gerado em lote pelo administrador na própria Lousa (**Gerar o lote oficial**), uma aula por vez no servidor. Cada aula passa por revisão: **Aprovar**, **Voltar para revisão** ou **Tirar da rede**. Só as aprovadas aparecem para os professores, e o uso não gasta crédito.
 
 Todos funcionam com rascunho: salve, confira e publique. **Editar** abre o formulário numa janela no meio da tela; **Fechar** ou Esc volta para a lista.
 
@@ -686,6 +732,8 @@ Na aba **💾 Backup**:
 
 Também é possível fazer **backup agora** (só o banco ou completo, com arquivos) e **baixar no computador** (link válido por 7 dias). A restauração é feita pelo suporte técnico.
 
+Além do servidor da NEWPC, os mesmos pacotes cifrados vão para um **cofre fora da NEWPC no Google Cloud**, com trava contra apagamento (o robô só cria e lê). O teste mensal confere também o cofre, e o teste de restauração compara todas as coleções com a contagem feita na hora do backup. Um vigia diário manda e-mail se o backup não rodou, e o resumo diário da equipe traz a situação do backup.
+
 No topo da aba fica o card **🖥️ Servidor NEWPC**: a cópia da **aplicação inteira** (banco, contas de login, código e todos os arquivos) que um robô faz toda madrugada no servidor da NEWPC, cifrada, com 30 cópias diárias e 12 mensais e **teste de restauração** todo dia 2. O card mostra o último backup e o resultado do último teste; o botão **Fazer agora pelo GitHub** roda o robô na hora. Procedimento completo no POP-PDE-29.
 
 ![Configuração do backup](backup.png){85}
@@ -694,9 +742,13 @@ No topo da aba fica o card **🖥️ Servidor NEWPC**: a cópia da **aplicação
 O pacote de backup contém dados pessoais (LGPD). Guarde só em Drive compartilhado da NEWPC, com acesso restrito.
 :::
 
+## Monitoramento
+
+O Portal registra os erros que acontecem no navegador dos usuários, confere a cada 15 minutos se o site e as funções estão no ar e manda um resumo diário por e-mail para a equipe.
+
 ## Atendimento WhatsApp {: .nova }
 
-Menu **Sistema** › **Atendimento WhatsApp**. É a central do robô do Portal no WhatsApp, número **(67) 9875-7275** (API oficial da Meta, número exclusivo do Portal). O botão verde **Fale conosco** do site, os botões comerciais do site e a Ajuda do Portal levam para ele.
+Menu **Sistema** › **Atendimento WhatsApp**. É a central do robô do Portal no WhatsApp, que se apresenta como **Lara, assistente virtual** (a mesma Lara que fica no canto da página principal no lugar do ícone do WhatsApp). A Lara entende áudio (a IA transcreve; o áudio não é guardado) e oferece um atalho direto para falar com atendente. número **(67) 9875-7275** (API oficial da Meta, número exclusivo do Portal). O botão verde **Fale conosco** do site, os botões comerciais do site e a Ajuda do Portal levam para ele.
 
 O que o robô faz sozinho:
 
@@ -721,7 +773,9 @@ O robô como agente: antes de procurar no manual, ele entende o pedido e respond
 
 Número que não é de nenhum cadastro não recebe dado algum.
 
-**App Atendimento PDE** (www.portaldoeducador.com.br/atendimento/): a equipe atende pelo celular sem abrir o Portal. Abra o link no celular, use **Adicionar à tela inicial** (no iPhone: Compartilhar › Adicionar à Tela de Início), entre com a conta do Portal (fica conectada) e toque em **Ativar** nas notificações. O celular avisa quando chega conversa para você, quando o professor responde e quando alguém transfere uma conversa. No app: Minhas, Fila, Todas, responder, Assumir, Transferir, Encerrar e Disponível.
+**Avisos no celular da equipe.** Cada membro pode cadastrar um WhatsApp de avisos: ele recebe mensagem quando uma conversa precisa de atendente, quando alguém espera resposta e no primeiro contato do dia com a Lara. Todo cadastro novo com WhatsApp recebe a boas-vindas universal automática (modelo aprovado pela Meta, com nova tentativa de hora em hora se falhar). A tela mostra a situação de cada modelo de mensagem enviado à Meta e o botão **Enviar teste ao meu WhatsApp** (só administrador).
+
+**App Atendimento PDE** (www.portaldoeducador.com.br/atendimento/, também em app Android, com o card para baixar por botão ou QR): a equipe atende pelo celular sem abrir o Portal. Abra o link no celular, use **Adicionar à tela inicial** (no iPhone: Compartilhar › Adicionar à Tela de Início), entre com a conta do Portal (fica conectada) e toque em **Ativar** nas notificações. O celular avisa quando chega conversa para você, quando o professor responde e quando alguém transfere uma conversa. No app: Minhas, Fila, Todas, responder, Assumir, Transferir, Encerrar e Disponível.
 
 Rodízio e transferência:
 
@@ -733,7 +787,7 @@ Rodízio e transferência:
 - **Quadro da equipe** (app Atendimento PDE › **▦ Quadro**, ou www.portaldoeducador.com.br/atendimento/#quadro): uma coluna por pessoa da equipe, mais **Fila sem dono** e **Encerrar**. Arraste o cartão da conversa para a coluna de quem vai atender (no celular, segure o cartão meio segundo e arraste). Soltar na Fila devolve sem dono; soltar em Encerrar encerra e manda a pesquisa. O cartão mostra o setor, mensagens novas e há quanto tempo espera (laranja; vermelho a partir de 10 minutos). Toque no cartão para abrir a conversa.
 - **Assumir** traz a conversa para você. **Transferir** manda para o próximo do setor (rodízio) ou para uma pessoa da equipe, com recado opcional; quem recebe ganha um e-mail.
 - Quem responde uma conversa da fila fica com ela. A pessoa do outro lado sempre vê **Equipe Portal do Educador**, nunca o nome de quem atendeu.
-- Fora do horário (segunda a sexta, 8h às 18h), o robô avisa que a resposta vem no próximo horário.
+- Fora do horário (segunda a sexta, das 7h às 17h, horário de MS), o robô passa a conversa para a equipe e avisa que em breve entraremos em contato.
 - **Ninguém fica no vácuo:** enquanto a equipe não responde, o robô tenta ajudar pelo manual com a nova mensagem ou confirma que ela chegou (no máximo a cada 10 min). Se a pessoa disser *resolvido*, a conversa se encerra.
 - **10 minutos sem resposta da equipe** (no horário de atendimento): a conversa passa para o próximo do setor, até 2 vezes; depois, todos do setor são avisados.
 - **2 horas sem retorno da pessoa** depois da última resposta da equipe: o robô encerra sozinho e manda a pesquisa.
@@ -751,6 +805,36 @@ Pelas regras da Meta, a equipe só pode responder até **24 horas** depois da ú
 
 O robô reconhece o professor pelo WhatsApp do cadastro (com ou sem o 9). Dados de alunos não passam pelo robô nem pela IA. Tudo o que importa (chamado aberto, link enviado, conversa passada ou encerrada) fica na **Auditoria**.
 
+## Financeiro {: .nova }
+
+Em `www.portaldoeducador.com.br/financeiro/` (atalho **Financeiro** no menu, só para quem tem acesso). O dono (alan@newpc.com.br) libera e retira o acesso por e-mail na aba **Quem tem acesso**.
+
+| Aba | O que tem |
+|---|---|
+| **Visão geral** | Recebido no mês, a receber, taxas e inadimplência |
+| **Recebimentos** | Cada venda (Asaas ou lançada à mão em **Lançar recebido**): cliente, item, forma, bruto, taxa e líquido |
+| **Conciliação** | Conferir o que entrou no banco e **Marcar conciliado** |
+| **Notas fiscais** | Notas a emitir de cada venda; depois de emitir, **Marcar como emitida** |
+| **Inadimplência** | Cobranças vencidas |
+| **Auditoria** | Tudo o que aconteceu no Financeiro (cobrança criada, pagamento confirmado, estorno, quem marcou o quê) |
+| **Comissões** | Equipe e percentual sobre o **lucro do mês** (depois de impostos, taxas e outros custos), não por venda; também comissão **por projeto** (um vendedor ganha sobre o lucro de um contrato ou cliente) |
+
+:::regra
+Só o servidor grava os lançamentos do Asaas. Estorno nunca é desfeito sozinho: confira e ajuste a licença ou os créditos à mão.
+:::
+
+## Recursos da Escola: inventário de equipamentos {: .nova }
+
+Em **Recursos da Escola** (administrador escolhe primeiro a rede contratante e depois a escola):
+
+- **Importar inventário por planilha**: a rede é reconhecida pelo CNPJ e a escola pelo setor. A prévia é ajustável antes de gravar; equipamentos novos entram e mudanças de escola viram transferência, com histórico.
+- **Visão geral** do inventário por tipo (inclusive suporte e nobreak) e por rede, e a **licença Google for Education por Chromebook**.
+- O número do contrato da rede aparece no inventário.
+
+## Rede de demonstração (eventos)
+
+Para eventos como o SENACOP, a equipe pode criar a **Rede Municipal de Demonstração**, com dados fictícios marcados como demonstração. O painel mostra a faixa **Ambiente de demonstração**, nenhum gatilho manda e-mail ou WhatsApp para essa rede e os relatórios de uso real a ignoram. Os scripts `demo-criar-gravar`, `demo-apagar` (só conta) e `demo-apagar-gravar` (apaga) ficam na consulta do GitHub. Nunca apresente esses números como reais.
+
 ## Painel da TV {: .nova }
 
 Painel ao vivo para a **TV touch da recepção**, em **www.portaldoeducador.com.br/tv/painel/**. Atualiza a cada minuto e cabe inteiro em qualquer TV (HD, Full HD ou 4K, na horizontal ou em pé): o próprio painel mede a tela e diminui a letra até nada ficar cortado, inclusive em navegador de Smart TV antigo. Tocar na tela entra em tela cheia; a tela não apaga sozinha.
@@ -764,7 +848,7 @@ Painel ao vivo para a **TV touch da recepção**, em **www.portaldoeducador.com.
 **Os números da vitrine:**
 
 - **Redes municipais atendidas**: só redes ativas com dado oficial cadastrado (Censo ou IDEB). Rede interna sem dado oficial (Campo Grande da NEWPC, Laboratório) não aparece para o visitante.
-- **Escolas e alunos nas redes atendidas**: do Censo cadastrado em **Municípios** › **Rede e IDEB** (sem Censo, as escolas do Portal).
+- **Escolas e alunos nas redes atendidas**: do Censo cadastrado em **Redes contratantes** › **Rede e IDEB** (sem Censo, as escolas do Portal).
 - **Educadores com acesso ao Portal**: quem já entrou + importados que ainda não entraram (sem contar duas vezes quem já entrou).
 - Se a TV perder a internet, o selo do topo fica vermelho com "sem atualização desde HH:MM".
 

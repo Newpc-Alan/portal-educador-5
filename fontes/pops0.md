@@ -75,6 +75,11 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-34 | Pedido "Quero isso na minha escola" | Comercial |
 | POP-PDE-35 | Painel da TV na recepção | Atendimento |
 | POP-PDE-36 | Convite de primeiro acesso para a rede importada | Implantação |
+| POP-PDE-37 | Pagamento online pelo Asaas | Financeiro |
+| POP-PDE-38 | Fábrica de cursos e publicação de curso | Formação |
+| POP-PDE-39 | Cortesia de créditos da diretoria | Contratos |
+| POP-PDE-40 | Revisão de conteúdo gerado por IA (Aulas prontas e vídeos interativos) | Conteúdo |
+| POP-PDE-41 | Rede de demonstração em eventos | Comercial |
 
 ## Controle de revisões
 
@@ -107,3 +112,4 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.25 | 03/11/2026 | POP-PDE-33: rodízio por setor, Disponível, Assumir e Transferir | NEWPC Tecnologia | |
 | 2.26 | 03/11/2026 | POP-PDE-33: app Atendimento PDE no celular e robô agente | NEWPC Tecnologia | |
 | 2.27 | 04/11/2026 | POP-PDE-20 (franquia mensal, créditos por educador, retirar pacote, fora de rede e demonstração do teste); POP-PDE-30 (máximo por dia e Reenviar falhas); novos POP-PDE-34 (pedido "Quero isso na minha escola"), 35 (Painel da TV na recepção) e 36 (convite de primeiro acesso) | NEWPC Tecnologia | |
+| 2.28 | 09/11/2026 | POP-PDE-20 (preços novos, franquia que acumula, grátis com uso justo, cortesia); novos POP-PDE-37 (pagamento online pelo Asaas), 38 (Fábrica de cursos), 39 (cortesia da diretoria), 40 (revisão de conteúdo gerado por IA) e 41 (rede de demonstração) | NEWPC Tecnologia | |

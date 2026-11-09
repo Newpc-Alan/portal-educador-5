@@ -324,8 +324,10 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | Auditoria | Ninguém grava pelo navegador (`write: if false`). Lê só o administrador do Portal (`admin()`); o papel admin da Formação não lê |
 | Portal IA | `portal_ia_docs` não aceita criação pelo navegador; a edição só mexe em texto, título, favorito e HTML (até 300 KB) |
 | Créditos | Leitura por dono da carteira; nenhuma escrita pelo navegador |
+| Entradas da portaria (`freq_entradas`) | Grava só a gestão e a portaria da escola. Desde nov/2026 o professor vinculado à escola também lê (só leitura), para a chamada mostrar quem passou a carteirinha |
 | TV própria (`tvPessoal(esc)`) | `esc == "u_" + uid`, conta ativa, perfil professor, licença avulsa, cortesia ou teste e `licenca_fim` no futuro. Não põe município nem canal da Secretaria; professor de rede não usa |
 | `leads_portal`, `creditos_demo` | Leitura só do admin (leads); nenhuma escrita pelo navegador |
+| `pareceres` | Só a função `pareceres` grava e lê (o professor acessa pela função, que confere a escola da turma) |
 | Notícias públicas | `noticias_publicas` tem leitura aberta (sem login) e guarda só título, texto, foto e mídia |
 | Materiais da turma | O aluno lê pela turma do claim `turma_id` ou do cadastro; a equipe da escola também |
 
@@ -391,7 +393,7 @@ Qualquer outro caminho é negado. Fotos de cadastro de aluno saem 1 ano depois d
 
 ## Funções do servidor (Cloud Functions)
 
-São 91 funções exportadas por `functions/index.js`, todas em `southamerica-east1`. A conferência de CPF na Receita (`conferirCpfServidor`, em `cpf-receita.js`) está pronta, mas não é exportada até o contrato com o Serpro.
+São cerca de 140 funções exportadas por `functions/index.js`, todas em `southamerica-east1`. A conferência de CPF na Receita (`conferirCpfServidor`, em `cpf-receita.js`) está pronta, mas não é exportada até o contrato com o Serpro.
 
 ### Parâmetros e segredos (só os nomes)
 
@@ -416,6 +418,7 @@ Segredo nunca entra no código, no chat ou em arquivo do repositório. Fica só 
 | `portalIa` | callable | Porta única da IA. Ações: `cota`, `entender`, `gerar`, `ajustar`, `imagem`, `remover_imagem`, `questoes_prova` (Gerar com IA das Provas), `aula_lousa` (Aula com IA), `converter_atividade` e `foto_ref` (só admin), `compartilhar`, `descompartilhar`, `usar`, `denunciar`, `enviar_email`, `opcoes_envio`, `enviar_turma`, `pref_resumo_rede` |
 | `portalIaLimpar` | gatilho ao excluir `portal_ia_docs` | Apaga as imagens do material excluído |
 | `creditosPedido`, `creditosAdmin` | callables | Pedido de recarga (professor ou secretaria) e gestão das carteiras e da Central de IA pelo admin. Ações novas de nov/2026: `retirar` (pacote), `demo_testes`, `franquia` (com `simular`) |
+| `pareceres` | callable | Pareceres da turma (`pareceres.js`): `dados` (frequência do período por `freq_resumo` e `cal_rede`, médias por `notas_planilhas`/`notas_escola` com `periodoDisciplina`, habilidades da BNCC dos `po_resultados` das provas online do período, alertas pedagógicos `pei`/`apoio` e o parecer salvo), `gerar` (1 crédito; a IA recebe `{NOME}` no lugar do nome, sem CPF nem saúde; o texto da BNCC vem de `bncc-textos.json`) e `salvar` (aprovado vira `relatorios/par_...` modelo RBA, status enviado, para a coordenação). Grava `pareceres/{turma}_{ano}_{periodo}_{aluno}`, que só a função lê e grava |
 | `creditosFranquia` | 03:15 diário | `aplicarFranquia`: franquia do mês por educador ativo de rede |
 | `creditosDemoTeste` | gatilho ao criar `usuarios` | Professor com licença teste ganha `config/portal_ia.creditos.demo_teste` (padrão 10) em `prof_{uid}`, válidos até o fim do teste; marca em `creditos_demo/{email}` |
 | `painelTv` | HTTP público (GET e POST) | Painel da TV da recepção, com a chave de `painel_tv/config`. Devolve `publico` (totais, redes com dado oficial de `municipios.rede` e `municipios.ideb`, recursos) e, só num POST com o PIN certo (`pin_hash` = sha256 de `chave:pin`), `gestao`. Cinco PINs errados travam 5 min. Pré-cadastros sem conta em cache de 15 min |
@@ -731,6 +734,63 @@ Logs das funções: `firebase functions:log --project portal-educador-5`, o Clou
 - **Idempotência**: funções que podem rodar duas vezes usam ID único.
 - **Testes**: dados de teste só no `lab-muni`; projeto do emulador sempre com prefixo `demo-`.
 - Textos, comentários e mensagens de erro em português, dizendo o que a pessoa deve fazer.
+
+## Novidades técnicas de 5 a 9 de novembro de 2026 {: .nova }
+
+### Coleções e documentos novos
+
+| Caminho | Leitura | Escrita | Para que |
+|---|---|---|---|
+| `fin_pedidos` | Só servidor | Função `pagamentos` e webhook | Cobranças do Asaas: item, valor, situação (aguardando, pago, vencido, cancelado, estornado), link e id do Asaas |
+| `fin_clientes/{uid}` | Só servidor | Função `pagamentos` | Id do cliente no Asaas e CPF mascarado (o CPF completo fica só no Asaas) |
+| `fin_pagamentos`, `fin_notas`, `fin_auditoria` | Quem tem acesso ao Financeiro | Servidor (webhook) e a tela `/financeiro/` | Recebimentos (bruto, taxa, líquido), notas a emitir e trilha do Financeiro |
+| `config/pagamentos` | Admin | Admin | `testadores` (e-mails que veem a compra direta com a chave de teste) e `ligado` |
+| `ia_limite_diario/{uid}_{dia}` | Só servidor | Funções de IA | Contadores do uso justo diário (`termometro`, `parecer`, `limpo`) |
+| `config/sessoes` | Servidor | Admin | Limite de aparelhos por perfil (aluno 1, professor e equipe 3) |
+| `cursos` (campos novos) | Conforme a rede | Funções da Formação | `ia` (gerado, revisado, pendências), `exclusivo` e `redes[]` (curso exclusivo de rede), `origemId` (versões) |
+| `users/{uid}/praticas` | O próprio professor | Só a função `praticaFormacao` | Relatos da atividade prática e o retorno da IA |
+| `formacao_lembretes` | Só servidor | `lembretesFormacao` | Quantos lembretes cada pessoa recebeu por curso |
+| `acervo_lote` | Admin | Admin e `acervoFila` | Fila do lote de Aulas prontas da Lousa |
+| `creditos/*.pacotes[]` (campos novos) | Como antes | Servidor | `origem` `cortesia` ou `compra`; `retirado` e `retirado_em` (pacote retirado fica zerado, não some) |
+
+### Funções novas
+
+| Função | Arquivo | Tipo | O que faz |
+|---|---|---|---|
+| `pagamentos` | `asaas.js` | callable | `opcoes` (itens, pedidos, se a compra direta está ligada para a conta) e `criar` (cliente e cobrança no Asaas) |
+| `asaasWebhook` | `asaas.js` | HTTP | Aviso do Asaas (confere o cabeçalho `asaas-access-token`); libera licença ou créditos uma vez só (transação), grava no Financeiro e manda e-mails; trata vencido, cancelado e estorno |
+| `asaasAdmin` | `asaas.js` | callable (admin) | Situação da conta e cadastro do webhook |
+| `gerarCursoIA`, `revisarCursoIA` | `formacao-ia.js` | callable | Fábrica de cursos com IA (uma aula por pedido, texto em Markdown, detector de texto degenerado, revisão) |
+| `relatorioFormacaoIA`, `praticaFormacao` | `formacao-ia.js` | callable | Relatório da formação para a Secretaria e retorno da atividade prática |
+| `lembretesFormacao` | `formacao-lembretes.js` | agendada (dias úteis 9h10) | Lembrete por e-mail para quem parou um curso |
+| `definirRedesCurso`, `listarRedesFormacao`, `migrarProgressoCurso` | `index.js` | callable | Curso exclusivo de rede e migração do progresso ao publicar nova versão |
+| `videoIa`, `videoInterativoAuto` | `video-ia.js` | callable e gatilho | Vídeo interativo (perguntas da IA) e geração automática para o catálogo |
+| `acervoFila` | `portal-ia.js` | gatilho | Gera as Aulas prontas do lote, uma por vez |
+| `impactoVerde` | `impacto-verde.js` | callable | Selo Rede Verde (impacto ambiental no Painel da Rede) |
+| `sessaoAparelho` | `sessoes.js` | callable | Controle de aparelhos conectados |
+| `registrarErro`, `monitorResumoDiario` | `monitor.js` | HTTP e agendada | Erros do navegador e resumo diário por e-mail |
+| `portalIa` (ações novas) | `portal-ia.js` | callable | `lousa_rapida` com os modos `pergunta`, `circule`, `mapa`, `pintor` e `limpo` (Passar a limpo, sem crédito) |
+
+### Segredos novos (só os nomes)
+
+| Onde | Nome | Para que |
+|---|---|---|
+| Secret Manager | `ASAAS_CHAVE` | Chave da API do Asaas (`$aact_hmlg_` = teste/sandbox, `$aact_prod_` = produção) |
+| Secret Manager | `ASAAS_WEBHOOK_TOKEN` | Token que o Asaas manda no aviso de pagamento (gerado pela própria integração quando não está no GitHub) |
+
+### Workflows e consultas novos
+
+| Workflow ou consulta | O que faz |
+|---|---|
+| Pagamentos Asaas (`pagamentos-asaas.yml`) | `situacao` (ambiente e conta), `segredos` (copia os segredos do GitHub para o cofre do Google), `webhook` (gera o token se preciso e cadastra o aviso no Asaas) |
+| Consulta `pagamentos` | Últimos pedidos, lançamentos do Financeiro e auditoria, sem e-mail nem CPF |
+| Consulta `pagamentos-testador-gravar` | Inclui um e-mail em `config/pagamentos.testadores` (grava) |
+| Consulta `ia-ranking` | Ranking dos recursos de IA pelo custo real (de `stats/ia_uso` e dos movimentos de consumo) |
+| Consultas `demo-*` | Criar, contar e apagar a Rede de demonstração |
+
+:::regra
+Ao trocar a chave do Asaas (teste para produção): salvar a nova `ASAAS_CHAVE` no GitHub, rodar Pagamentos Asaas › `segredos` e depois `webhook`, e republicar as funções `pagamentos`, `asaasWebhook` e `asaasAdmin`. Detalhes no POP-PDE-37.
+:::
 
 ## Pontos de atenção e melhorias
 
