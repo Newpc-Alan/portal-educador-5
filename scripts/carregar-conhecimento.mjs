@@ -1,6 +1,7 @@
 // Carrega a base que o robô do WhatsApp usa para responder dúvidas: o Manual do Usuário (fontes .md do ramo "manuais").
 // Corta por seção (## e ###), guarda "Parte › Seção › Subseção" como título e o texto limpo (sem imagens nem marcação).
-// Só o Manual do Usuário entra: os POPs e as partes técnicas são da equipe, não do professor.
+// Público: --publico todos (padrão, professor e equipe) ou --publico equipe (POPs e Manual da equipe: só a equipe NEWPC recebe;
+// o filtro é feito na função do robô, no servidor, pelo cadastro de quem escreve).
 // Uso: node scripts/carregar-conhecimento.mjs --origem manual-usuario manuais/fontes/parte0u.md manuais/fontes/parte1.md [--gravar]
 // Sem --gravar só mostra quantos trechos sairiam. Com --gravar troca os trechos daquela origem (os de outras origens ficam).
 import { readFileSync } from 'node:fs';
@@ -9,7 +10,9 @@ import { pathToFileURL } from 'node:url';
 
 const args = process.argv.slice(2), gravar = args.includes('--gravar');
 const iOrigem = args.indexOf('--origem'), origem = iOrigem >= 0 ? args[iOrigem + 1] : 'manual-usuario';
-const arquivos = args.filter((a, i) => !a.startsWith('--') && i !== iOrigem + 1);
+const iPub = args.indexOf('--publico'), publico = iPub >= 0 ? args[iPub + 1] : 'todos';
+if (!['todos', 'equipe'].includes(publico)) { console.error('::error::--publico todos ou equipe'); process.exit(1); }
+const arquivos = args.filter((a, i) => !a.startsWith('--') && i !== iOrigem + 1 && i !== iPub + 1);
 if (!/^[a-z0-9-]{3,40}$/.test(origem) || !arquivos.length) { console.error('::error::informe --origem e os arquivos .md'); process.exit(1); }
 
 const LIMITE = 1800;
@@ -49,7 +52,7 @@ for (const arq of arquivos) {
   }
   fechar();
 }
-console.log('::notice::' + trechos.length + ' trechos de ' + arquivos.length + ' arquivo(s), origem ' + origem);
+console.log('::notice::' + trechos.length + ' trechos de ' + arquivos.length + ' arquivo(s), origem ' + origem + ', público ' + publico);
 if (!gravar) { console.log('::notice::simulação: nada gravado'); process.exit(0); }
 
 const req = createRequire(process.cwd() + '/');
@@ -64,7 +67,7 @@ const comprometer = async () => { if (n) { await lote.commit(); lote = db.batch(
 for (const d of velhos.docs) { lote.delete(d.ref); if (++n >= 400) await comprometer(); }
 await comprometer();
 for (const [i, t] of trechos.entries()) {
-  lote.set(db.doc('bot_conhecimento/' + origem + '-' + String(i).padStart(4, '0')), { ...t, origem, ordem: i, em: FieldValue.serverTimestamp() });
+  lote.set(db.doc('bot_conhecimento/' + origem + '-' + String(i).padStart(4, '0')), { ...t, origem, publico, ordem: i, em: FieldValue.serverTimestamp() });
   if (++n >= 400) await comprometer();
 }
 await comprometer();

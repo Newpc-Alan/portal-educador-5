@@ -3,7 +3,7 @@
 #   segredos      copia WHATSAPP_TOKEN, WHATSAPP_APP_SECRET e WHATSAPP_VERIFY (segredos do GitHub) para o cofre do Google
 #                 (Secret Manager), onde a função do robô lê. Nada é impresso no log.
 #   configurar    grava wa_config/geral: phone_number_id (copiado do painel da Meta) e ligado (liga/desliga o robô)
-#   conhecimento  recarrega a base de dúvidas a partir do Manual do Usuário (ramo manuais, pasta fontes)
+#   conhecimento  recarrega a base de dúvidas: Manual do Usuário (todos) + POPs e Manual da equipe (só equipe), do ramo manuais
 #   meta          confere o número e os apps inscritos na conta do WhatsApp; com assinar, inscreve o app
 #   logs          últimas chamadas e erros do robô (sem número nem texto de mensagem)
 #   situacao      mostra a configuração e quantas conversas/chamados existem (sem nome nem número de ninguém)
@@ -95,7 +95,12 @@ jobs:
 
       - name: Base de conhecimento
         if: inputs.acao == 'conhecimento'
-        run: cd functions && node ../scripts/carregar-conhecimento.mjs --origem manual-usuario ../manuais/fontes/parte0u.md ../manuais/fontes/parte1.md --gravar
+        run: |
+          cd functions
+          node ../scripts/carregar-conhecimento.mjs --origem manual-usuario ../manuais/fontes/parte0u.md ../manuais/fontes/parte1.md --gravar
+          # só a equipe NEWPC recebe respostas destes (filtro no servidor, pelo cadastro de quem escreve)
+          node ../scripts/carregar-conhecimento.mjs --origem pops --publico equipe ../manuais/fontes/pops1.md --gravar
+          node ../scripts/carregar-conhecimento.mjs --origem manual-equipe --publico equipe ../manuais/fontes/parte2.md --gravar
 
       - name: Ligação com a Meta
         if: inputs.acao == 'meta'

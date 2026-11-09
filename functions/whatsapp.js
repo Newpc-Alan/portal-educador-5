@@ -100,7 +100,7 @@ let CONHECIMENTO = null, CONHECIMENTO_EM = 0;
 async function conhecimento(db) {
   if (CONHECIMENTO && Date.now() - CONHECIMENTO_EM < 10 * 60e3) return CONHECIMENTO;
   const sn = await db.collection('bot_conhecimento').get(); const l = [];
-  sn.forEach(d => { const x = d.data(); l.push({ titulo: x.titulo || '', texto: x.texto || '', chave: sa((x.titulo || '') + ' ' + (x.texto || '')) }); });
+  sn.forEach(d => { const x = d.data(); l.push({ titulo: x.titulo || '', texto: x.texto || '', equipe: x.publico === 'equipe', chave: sa((x.titulo || '') + ' ' + (x.texto || '')) }); });
   CONHECIMENTO = l; CONHECIMENTO_EM = Date.now(); return l;
 }
 const VAZIAS = new Set('a o e de da do das dos em no na nos nas um uma para por com como que se eu meu minha ao os as é ou mais'.split(' '));
@@ -124,7 +124,7 @@ function buscar(lista, pergunta, n = 6) {
 }
 // segunda chance: a IA escolhe, pelos títulos do manual, onde está a resposta (quando a busca por palavra errou)
 async function escolherSecoes(lista, pergunta) {
-  const titulos = [...new Set(lista.map(x => x.titulo))].slice(0, 400);
+  const titulos = [...new Set(lista.map(x => x.titulo))].slice(0, 700);
   const corpo = { systemInstruction: { parts: [{ text: 'Escolha até 3 títulos do manual que respondem à pergunta. Responda só o JSON com os números.' }] },
     contents: [{ role: 'user', parts: [{ text: 'TÍTULOS:\n' + titulos.map((t, i) => i + ': ' + t).join('\n') + '\n\nPERGUNTA: ' + txt(pergunta, 400) }] }],
     generationConfig: { maxOutputTokens: 60, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' }, responseSchema: { type: 'OBJECT', properties: { secoes: { type: 'ARRAY', items: { type: 'INTEGER' } } }, required: ['secoes'] } } };
@@ -209,17 +209,18 @@ async function escolaNaRede(db, quem, nomeEscola) {
   return 'Não encontrei "' + txt(nomeEscola, 60) + '" entre as escolas da sua rede no Portal. Vou passar para a equipe conferir com a Secretaria.';
 }
 
-async function responderDuvida(db, pergunta, quem, hist) {
-  const lista = await conhecimento(db);
+async function responderDuvida(db, pergunta, quem, hist, equipe = false) {
+  // POPs e Manual da equipe só para a equipe NEWPC: o filtro é aqui, no servidor, antes de a IA ver qualquer trecho
+  const lista = (await conhecimento(db)).filter(x => equipe || !x.equipe);
   // pergunta curta de continuação ("e no celular?"): a busca usa também a pergunta anterior da pessoa
   const anterior = hist && pergunta.length < 60 ? ((hist.match(/^Pessoa: (.*)$/gm) || []).pop() || '').replace(/^Pessoa: /, '') : '';
   const busca = anterior ? anterior + ' ' + pergunta : pergunta;
   let trechos = buscar(lista, busca);
-  let resp = trechos.length ? await responderComTrechos(trechos, pergunta, quem, hist) : null;
+  let resp = trechos.length ? await responderComTrechos(trechos, pergunta, quem, hist, equipe) : null;
   if (!resp) {   // a busca por palavra não achou: a IA aponta a seção pelos títulos e tentamos de novo
     const outros = await escolherSecoes(lista, busca);
     const novos = outros.filter(x => !trechos.includes(x));
-    if (novos.length) resp = await responderComTrechos(novos, pergunta, quem, hist);
+    if (novos.length) resp = await responderComTrechos(novos, pergunta, quem, hist, equipe);
   }
   return resp;
 }
@@ -241,12 +242,13 @@ async function semResposta(db, waId, quem, pergunta, tipo) {
       status: 'aberta', em: FieldValue.serverTimestamp() }),
     metricas(db, { [tipo === 'nao_resolveu' ? 'nao_resolveu' : 'nao_sei']: FieldValue.increment(1) })]).catch(e => console.warn('whatsapp: sem resposta', e.message));
 }
-async function responderComTrechos(trechos, pergunta, quem, hist) {
+async function responderComTrechos(trechos, pergunta, quem, hist, equipe = false) {
   const contexto = trechos.map((t, i) => '[' + (i + 1) + '] ' + t.titulo + '\n' + t.texto.slice(0, 2500)).join('\n\n');
   const instrucao = 'Você é a Lara, assistente virtual de suporte do Portal do Educador (plataforma para professores de escolas públicas). Fale no feminino, com simpatia e objetividade. ' +
     'Responda em português do Brasil, de forma curta e prática, em passos numerados quando for um procedimento, no máximo 12 linhas, sem markdown (use *negrito* só para nomes de botões). ' +
     'Use SOMENTE as informações dos trechos do manual abaixo. Se a resposta não estiver nos trechos, responda exatamente: NAO_SEI. Não invente botões, telas nem prazos.' +
-    (quem && quem.perfil ? ' Quem pergunta é ' + quem.perfil + '.' : '');
+    (equipe ? ' Quem pergunta é da equipe NEWPC: os trechos podem vir dos POPs e do Manual da equipe. Quando a resposta vier de um POP, cite o código (ex.: POP-PDE-39) no fim.'
+      : quem && quem.perfil ? ' Quem pergunta é ' + quem.perfil + '.' : '');
   for (const modelo of MODELOS) {
     try {
       const corpo = { systemInstruction: { parts: [{ text: instrucao }] }, contents: [{ role: 'user', parts: [{ text: 'TRECHOS DO MANUAL:\n' + contexto + (hist ? '\n\nCONVERSA RECENTE (use só para entender a pergunta; a resposta vem dos trechos):\n' + hist : '') + '\n\nPERGUNTA: ' + txt(pergunta, 600) }] }],
@@ -298,6 +300,39 @@ async function transcrever(audio) {
     } catch (e) { /* tenta o próximo modelo */ }
   }
   throw new Error('transcrição indisponível');
+}
+
+// ---------- imagem (nov/2026) ----------
+// A Lara olha print de tela e foto de equipamento. A imagem NÃO é guardada em lugar nenhum: a IA descreve o que viu
+// (sem nome de pessoa, de aluno, nota ou documento) e só essa descrição entra no histórico e no chamado.
+async function verImagem(img, legenda) {
+  const instrucao = 'Você é a Lara, do suporte do Portal do Educador (plataforma de escolas públicas). Descreva a imagem enviada ao suporte. Responda só o JSON. ' +
+    'tipo: tela (print ou foto de uma tela de computador, celular, tablet ou do Portal), equipamento (foto de aparelho, cabo, lousa, Chromebook, rede com defeito) ou outro. ' +
+    'descricao: até 400 caracteres em português, dizendo qual tela ou aparelho aparece, o problema visível e o texto EXATO de mensagens de erro. ' +
+    'pergunta: a dúvida provável de quem mandou, em primeira pessoa e curta (vazio se não der para saber). ' +
+    'Proteção de dados: NUNCA escreva nomes de pessoas ou alunos, notas, CPF, e-mails, telefones nem descreva rostos; diga só "lista de alunos", "pessoa" etc.';
+  for (const modelo of MODELOS) {
+    try {
+      const corpo = { systemInstruction: { parts: [{ text: instrucao }] },
+        contents: [{ role: 'user', parts: [{ inlineData: { mimeType: img.mime, data: img.buf.toString('base64') } }, { text: legenda ? 'Texto que veio junto: ' + txt(legenda, 500) : 'Sem texto junto.' }] }],
+        generationConfig: { maxOutputTokens: 400, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' },
+          responseSchema: { type: 'OBJECT', properties: { tipo: { type: 'STRING', enum: ['tela', 'equipamento', 'outro'] }, descricao: { type: 'STRING' }, pergunta: { type: 'STRING' } }, required: ['tipo', 'descricao'] } } };
+      const chamar = c => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() }, body: JSON.stringify(c), signal: AbortSignal.timeout(20000) });
+      let r = await chamar(corpo);
+      if (r.status === 400) { delete corpo.generationConfig.thinkingConfig; r = await chamar(corpo); }
+      if (!r.ok) continue;
+      const j = await r.json(), o = JSON.parse(((j.candidates || [])[0] || {}).content?.parts?.map(p => p.text || '').join('') || '{}');
+      if (o.descricao) return { tipo: ['tela', 'equipamento'].includes(o.tipo) ? o.tipo : 'outro', descricao: txt(o.descricao, 500), pergunta: txt(o.pergunta, 200) };
+    } catch (e) { /* tenta o próximo modelo */ }
+  }
+  throw new Error('leitura indisponível');
+}
+// equipe NEWPC: administrador do Portal ou membro ativo do atendimento (wa_equipe). Só esses recebem POPs e o Manual da equipe.
+async function ehEquipe(db, quem) {
+  if (!quem) return false;
+  if (quem.perfil === 'admin') return true;
+  try { const e = await db.doc('wa_equipe/' + quem.uid).get(); return e.exists && e.data().ativo === true; } catch (e) { return false; }
 }
 
 // ---------- registro ----------
@@ -420,6 +455,21 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     await Promise.all([guardar(ref, 'pessoa', '[áudio não transcrito]', { tipo: 'audio', wamid: txt(msg.id, 120) }), enviar(cfg, waId, texto(aviso)), guardar(ref, 'robo', aviso)]);
     return;
   }
+  // imagem: a IA descreve e a conversa segue como texto (o histórico guarda "🖼️ descrição"; a imagem não fica guardada)
+  if (!interno && msg.type === 'image' && msg.image && msg.image.id) {
+    const refI = db.doc('wa_conversas/' + waId), legenda = txt(msg.image.caption, 500);
+    let visto = null, motivo = '';
+    try { visto = await verImagem(await baixarMidia(msg.image.id), legenda); } catch (e) { motivo = e.message; console.warn('whatsapp: imagem', e.message); }
+    await metricas(db, { imagens: FieldValue.increment(1), ...(visto ? { imagens_ok: FieldValue.increment(1) } : {}) });
+    if (visto) {
+      const corpo = (legenda ? legenda + '\n' : '') + 'Imagem: ' + visto.descricao + (!legenda && visto.pergunta ? '\nDúvida provável: ' + visto.pergunta : '');
+      return tratar(db, cfg, { ...msg, type: 'text', text: { body: corpo }, imagem_vista: visto }, contato, false);
+    }
+    const aviso = motivo === 'grande' ? 'Essa imagem ficou grande demais para mim. Pode mandar um print menor ou escrever a dúvida?'
+      : 'Não consegui ver essa imagem agora. Pode escrever sua dúvida numa mensagem? Ou digite *menu* para ver as opções.';
+    await Promise.all([guardar(refI, 'pessoa', '[imagem não lida]', { tipo: 'image', wamid: txt(msg.id, 120) }), enviar(cfg, waId, texto(aviso)), guardar(refI, 'robo', aviso)]);
+    return;
+  }
   const ref = db.doc('wa_conversas/' + waId);
   // "lida" + "digitando..." na hora: a pessoa vê que o atendimento começou enquanto o robô prepara a resposta
   const digitando = interno ? null : fetch(GRAPH + cfg.phone_number_id + '/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN.value(), 'Content-Type': 'application/json' },
@@ -432,15 +482,15 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   const cabecalho = interno ? null : ref.set({ wa_id: waId, nome_whatsapp: txt(contato && contato.profile && contato.profile.name, 80), uid: quem ? quem.uid : '', nome: quem ? quem.nome : '', email: quem ? quem.email : '',
     perfil: quem ? quem.perfil : '', municipio_nome: quem ? (quem.municipio_nome || '') : '', ultima_pessoa_em: FieldValue.serverTimestamp(),
     ultima: txt(entrada || '[' + msg.type + ']', 200), ultima_em: FieldValue.serverTimestamp() }, { merge: true });
-  const gravando = interno ? null : guardar(ref, 'pessoa', (msg.audio_transcrito ? '🎤 ' : '') + (entrada || '[' + msg.type + ']'), { tipo: msg.audio_transcrito ? 'audio' : msg.type, wamid: txt(msg.id, 120) });
+  const gravando = interno ? null : guardar(ref, 'pessoa', (msg.audio_transcrito ? '🎤 ' : msg.imagem_vista ? '🖼️ ' : '') + (entrada || '[' + msg.type + ']'), { tipo: msg.audio_transcrito ? 'audio' : msg.imagem_vista ? 'image' : msg.type, wamid: txt(msg.id, 120) });
   const responder = async corpo => { await Promise.all([enviar(cfg, waId, corpo), guardar(ref, 'robo', corpo.text ? corpo.text.body : (corpo.interactive.body || {}).text || '[menu]')]); };
   // primeiro contato do dia desta pessoa: a equipe fica sabendo, mesmo com o robô atendendo
   const primeiroDoDia = !interno && diaCG(conv.ultima_pessoa_em && conv.ultima_pessoa_em.toMillis ? conv.ultima_pessoa_em.toMillis() : 0) !== diaCG()
     ? alertaWhats(db, cfg, waId, (quem ? quem.nome : nome) + (quem && quem.municipio_nome ? ' (' + quem.municipio_nome + ')' : ''), 'começou a conversar com o robô').catch(e => console.warn('whatsapp: alerta', e.message)) : null;
-  await Promise.all([cabecalho, gravando, digitando, primeiroDoDia]);
+  const [, , , , equipe] = await Promise.all([cabecalho, gravando, digitando, primeiroDoDia, ehEquipe(db, quem)]);
   const estado = async e => ref.set({ estado: e, estado_em: FieldValue.serverTimestamp() }, { merge: true });
 
-  if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Ainda não consigo ver imagens, vídeos ou arquivos por aqui. Pode escrever sua dúvida ou mandar um áudio? Ou digite *menu* para ver as opções.')); return; }
+  if (msg.type !== 'text' && msg.type !== 'interactive') { await responder(texto('Ainda não consigo ver vídeos, figurinhas ou arquivos por aqui. Pode mandar um print, um áudio ou escrever sua dúvida? Ou digite *menu* para ver as opções.')); return; }
 
   // em atendimento humano: o robô só volta se a pessoa pedir o menu
   if (/^nota_[123]$/.test(entrada)) {
@@ -476,7 +526,13 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     return;
   }
 
-  if (entrada === 'comercial' || (msg.type === 'text' && conv.estado !== 'comercial' && COMERCIAL.test(entrada))) {
+  // foto de equipamento fora de um chamado: a Lara oferece abrir o chamado já com a descrição da foto
+  if (msg.imagem_vista && msg.imagem_vista.tipo === 'equipamento' && conv.estado !== 'chamado' && !equipe) {
+    await ref.set({ foto_desc: msg.imagem_vista.descricao, foto_em: FieldValue.serverTimestamp() }, { merge: true });
+    await responder(botoes('Pela foto, parece um problema no equipamento: ' + msg.imagem_vista.descricao + '\n\nQuer que eu abra um chamado técnico?', [{ id: 'chamado', title: 'Abrir chamado' }, { id: 'menu', title: 'Agora não' }]));
+    return;
+  }
+  if (entrada === 'comercial' || (msg.type === 'text' && !equipe && conv.estado !== 'comercial' && COMERCIAL.test(entrada))) {
     await estado('comercial'); await ref.set({ assunto: 'comercial', pedido: txt(entrada, 300) }, { merge: true });
     await responder(texto('Que bom! Um consultor da NEWPC vai falar com você por aqui. Para agilizar, conte numa mensagem só: *seu nome*, *cargo*, *instituição ou rede* e *município*.'));
     return;
@@ -490,7 +546,11 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   if (msg.type === 'text' && conv.estado !== 'atendente' && PEDE_PESSOA.test(entrada)) {
     await tratar(db, cfg, { ...msg, id: msg.id + '_p', type: 'interactive', interactive: { list_reply: { id: 'atendente' } } }, contato, true); return;
   }
-  if (SAUDACAO.test(entrada) || (!conv.estado && msg.type !== 'interactive')) { await estado('menu'); await responder(menu(nome)); return; }
+  if (SAUDACAO.test(entrada) || (!conv.estado && msg.type !== 'interactive' && !msg.imagem_vista)) {
+    await estado('menu'); await responder(menu(nome));
+    if (equipe && SAUDACAO.test(entrada)) await responder(texto('Modo equipe NEWPC: além do Manual do Usuário, eu respondo pelos *POPs* e pelo *Manual da equipe*. Pergunte direto, por texto, áudio ou print. Ex.: "como lanço cortesia de créditos?"'));
+    return;
+  }
 
   if (entrada === 'duvida') { await estado('duvida'); await responder(texto('Escreva sua dúvida numa mensagem só. Ex.: "Como faço um quiz com a turma?"')); return; }
   if (entrada === 'chamado') { await estado('chamado'); await responder(texto('Conte numa mensagem só: a *escola*, o *equipamento* (ex.: Chromebook 12, lousa da sala 3) e *o que está acontecendo*.')); return; }
@@ -522,8 +582,10 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   }
 
   if (conv.estado === 'chamado') {
+    const fotoRecente = conv.foto_desc && conv.foto_em && conv.foto_em.toMillis && conv.foto_em.toMillis() > Date.now() - 2 * 3600e3;
     const c = await db.collection('wa_chamados').add({ wa_id: waId, uid: quem ? quem.uid : '', nome: quem ? quem.nome : nome || '', municipio_nome: quem ? (quem.municipio_nome || '') : '',
-      descricao: entrada, status: 'aberto', criado_em: FieldValue.serverTimestamp() });
+      descricao: txt(entrada + (fotoRecente && !/Imagem: /.test(entrada) ? '\n[Foto enviada] ' + conv.foto_desc : ''), 2000), status: 'aberto', criado_em: FieldValue.serverTimestamp() });
+    if (conv.foto_desc) await ref.update({ foto_desc: FieldValue.delete(), foto_em: FieldValue.delete() });
     const prot = c.id.slice(0, 6).toUpperCase();
     const tec = await proximoDoSetor(db, 'tecnico').catch(() => null);
     await c.update({ protocolo: prot, atribuido_uid: tec ? tec.uid : '', atribuido_nome: tec ? tec.nome : '' });
@@ -536,7 +598,8 @@ async function tratar(db, cfg, msg, contato, interno = false) {
 
   // qualquer outro texto: o agente entende o pedido; se for dúvida de uso, vai para o manual
   const hist = msg.type === 'text' ? await conversaRecente(ref) : '';
-  const pedido = msg.type === 'text' ? await classificar(entrada, hist) : { acao: 'manual' };
+  // equipe NEWPC: vai direto para POPs e manuais (sem roteamento comercial nem de cadastro)
+  const pedido = msg.type === 'text' && !equipe ? await classificar(entrada, hist) : { acao: 'manual' };
   await metricas(db, { ['agente_' + pedido.acao]: FieldValue.increment(1) });
   if (pedido.acao === 'acesso') { await tratar(db, cfg, { ...msg, id: msg.id + '_a', type: 'interactive', interactive: { list_reply: { id: 'acesso' } } }, contato, true); return; }
   if (pedido.acao === 'comercial') { await tratar(db, cfg, { ...msg, id: msg.id + '_c', type: 'interactive', interactive: { list_reply: { id: 'comercial' } } }, contato, true); return; }
@@ -550,12 +613,16 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     if (/Vou passar para a equipe/.test(r)) { await ref.set({ assunto: 'suporte' }, { merge: true }); await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': escola não encontrada na rede.', 'Escola informada: ' + (pedido.escola || entrada)); return; }
     await estado('menu'); return;
   }
-  const resp = await responderDuvida(db, entrada, quem, hist);
+  const resp = await responderDuvida(db, entrada, quem, hist, equipe);
   if (resp) {
     await metricas(db, { respondidas_manual: FieldValue.increment(1) });
     await ref.set({ ultima_duvida: txt(entrada, 600) }, { merge: true });
     await responder(texto(resp));
     await responder(botoes('Isso resolveu?', [{ id: 'menu', title: 'Sim, obrigado' }, { id: 'nao_resolveu', title: 'Falar com atendente' }]));
+  } else if (equipe) {
+    await semResposta(db, waId, { ...quem, perfil: 'equipe NEWPC' }, entrada, 'nao_sei');
+    await responder(texto('Não encontrei isso nos POPs nem nos manuais. Registrei na lista do que a Lara não soube, para alguém completar o POP ou o manual. Se for urgente, fale com o Alan.'));
+    return;
   } else {
     // o robô não sabe: passa direto para uma pessoa da equipe (rodízio do suporte)
     await ref.set({ assunto: 'suporte' }, { merge: true });
