@@ -805,6 +805,27 @@ Pelas regras da Meta, a equipe só pode responder até **24 horas** depois da ú
 
 O robô reconhece o professor pelo WhatsApp do cadastro (com ou sem o 9). Dados de alunos não passam pelo robô nem pela IA. Tudo o que importa (chamado aberto, link enviado, conversa passada ou encerrada) fica na **Auditoria**.
 
+
+### Memória curta, print e foto {: .nova }
+
+- A Lara considera as mensagens das últimas 2 horas da conversa para entender continuações ("e no celular?").
+- **Print de tela:** a IA lê a imagem, identifica a tela e o texto do erro e responde pelo manual como se a pessoa tivesse escrito. No histórico aparece "🖼️ Imagem: descrição".
+- **Foto de equipamento:** a Lara descreve o defeito e oferece **Abrir chamado**; o chamado já sai com "[Foto enviada] descrição".
+- A imagem **não é guardada** em lugar nenhum. A descrição não traz nomes, notas, documentos nem rostos (proteção de dados de alunos, que são menores). Por isso a equipe não vê a foto na tela de atendimento: se o técnico precisar dela, combina com a pessoa na visita.
+
+### Lara da equipe (POPs) {: .nova }
+
+Quem é **administrador** do Portal ou está **ativo na Equipe de atendimento** fala com a Lara em modo equipe: ela responde também pelos **POPs** e pela **Parte 2 deste manual** e cita o código do POP (ex.: POP-PDE-39). O WhatsApp de avisos da pessoa precisa ser o mesmo do cadastro no Portal. Para professor e público, POPs e manual da equipe nunca entram: o filtro é feito no servidor, antes da IA ver qualquer trecho. No modo equipe não há roteamento comercial nem passagem para atendente: se ela não souber, a pergunta vai para a lista do que a Lara não soube.
+
+### A Lara em números e o que ela não soube {: .nova }
+
+No topo da tela (só administrador): mensagens entendidas, dúvidas respondidas pelo manual, % resolvidas sem a equipe, perguntas sem resposta, respostas marcadas como "não resolveu", áudios e imagens entendidos e satisfação, nos últimos 30 dias com movimento. Embaixo, a lista **O que a Lara não soube**: cada pergunta sem resposta no manual ou resposta que não resolveu, com perfil e município (sem nome nem telefone). Rotina semanal:
+
+1. Leia a lista e complete o Manual do Usuário (ou o POP, se a pergunta for da equipe).
+2. Republique o manual na Documentação.
+3. Em GitHub › Actions › **Robô do WhatsApp**, rode **conhecimento** (recarrega Manual do Usuário, POPs e manual da equipe).
+4. Marque cada pergunta como **Resolvida**, ou **Ignorar** quando não é dúvida do Portal.
+
 ## Financeiro {: .nova }
 
 Em `www.portaldoeducador.com.br/financeiro/` (atalho **Financeiro** no menu, só para quem tem acesso). O dono (alan@newpc.com.br) libera e retira o acesso por e-mail na aba **Quem tem acesso**.

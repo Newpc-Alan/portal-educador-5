@@ -126,8 +126,10 @@ Atualização de 9 de novembro de 2026:
 | **Formação Continuada**: atividade prática com retorno da IA, cursos da sua rede, lembretes e atualização cadastral ao começar | Formação Continuada |
 | **Créditos**: tabela nova, franquia que acumula até o fim do contrato, Termômetro e Pareceres grátis e compra direta (Pix, boleto ou cartão) quando o pagamento online estiver ligado | Portal IA e Meu cadastro |
 | **Aparelhos conectados** (aluno em 1, professor em até 3) e **Teleprompter** por blocos com apresentação só com o texto | Meu cadastro e Aplicativos Úteis |
+| **Lara no WhatsApp** entende print de tela e foto de equipamento (abre chamado com a descrição) e lembra da conversa das últimas 2 horas | Suporte pelo WhatsApp |
 | **Redes contratantes** (municipal, estadual, particular, instituição), **inventário de equipamentos** por planilha e licença Google por Chromebook | Administrador |
 | **Financeiro** (recebimentos, notas a emitir, comissões), **pagamento online pelo Asaas** e **cortesia da diretoria** nos créditos | Administrador |
 | **Fábrica de cursos com IA**, cursos exclusivos de rede e **Relatório da formação** para a Secretaria | Formação (admin) e Painel da Rede |
 | **Selo Rede Verde**, monitoramento com resumo diário e cofre de backup fora da NEWPC | Painel da Rede e Sistema |
+| **Lara da equipe** (responde pelos POPs no WhatsApp), **A Lara em números** e lista **O que a Lara não soube** | Atendimento WhatsApp |
 
