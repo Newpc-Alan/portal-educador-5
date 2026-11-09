@@ -60,6 +60,22 @@ html,body{margin:0;background:#0b1728}
 #pe-app .editor-wrap{display:flex;flex-direction:column;flex:1;min-height:170px;border:1px solid var(--border);border-radius:10px;background:var(--bg);overflow:hidden}
 #pe-app .editor-head{padding:10px 12px 0;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase}
 #pe-app .editor-head button{font-size:10px;min-height:30px;letter-spacing:0;text-transform:none}
+/* editor por blocos (nov/2026): Bloco 1, +, Bloco 2... O texto continua guardado como antes (blocos separados por linha em branco) */
+#pe-app #editor{display:none!important}
+#pe-app .blocos{flex:1;overflow:auto;padding:10px 10px 4px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin}
+#pe-app .bloco{border:1px solid var(--border);border-radius:10px;background:var(--panel,transparent);padding:8px 10px 10px}
+#pe-app .bloco:focus-within{border-color:var(--cyan)}
+#pe-app .bloco-cab{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#8aa0b6);margin-bottom:6px}
+#pe-app .bloco-cab button{border:0;background:transparent;color:inherit;cursor:pointer;padding:2px 6px;border-radius:6px;font-size:16px;line-height:1}
+#pe-app .bloco-cab button:hover{background:#ff5a5a22;color:#ff7a7a}
+#pe-app .bloco textarea{border:0!important;box-shadow:none!important;padding:2px 2px;min-height:64px;resize:none;overflow:hidden;line-height:1.7;font-size:13px;background:transparent}
+#pe-app .bloco-mais{align-self:center;display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--border);background:transparent;color:var(--cyan);border-radius:999px;padding:4px 14px;font-size:12px;font-weight:800;cursor:pointer;min-height:30px}
+#pe-app .bloco-mais:hover{background:#37b1da18}
+#pe-app .bloco-mais:disabled{opacity:.4;cursor:not-allowed}
+/* apresentação: só o texto na tela; os controles aparecem ao mexer o mouse ou tocar e somem sozinhos */
+#pe-app.focus-mode .stage-top,#pe-app.focus-mode .stage-bottom,#pe-app.focus-mode .transport{transition:opacity .35s}
+#pe-app.focus-mode.controls-hidden .stage-top,#pe-app.focus-mode.controls-hidden .stage-bottom{opacity:0;pointer-events:none}
+#pe-app.focus-mode.controls-hidden{cursor:none}
 #pe-app #editor{border:0;border-radius:0;flex:1;min-height:110px;width:100%;resize:none;line-height:1.85;font-size:13px;padding:12px 14px;scrollbar-width:thin;box-shadow:none}
 #pe-app #editor[readonly]{opacity:.7}
 #pe-app .editor-foot{display:flex;justify-content:space-between;gap:6px;padding:10px 12px;font-size:10px;color:var(--muted);border-top:1px solid var(--border)}
@@ -237,9 +253,9 @@ html,body{margin:0;background:#0b1728}
   <div class="tabs" role="tablist" aria-label="Controles do teleprompter"><button class="tab" id="tab-script" role="tab" aria-selected="true" aria-controls="panel-script" tabindex="0">Roteiro</button><button class="tab" id="tab-settings" role="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">Ajustes</button><button class="tab" id="tab-markers" role="tab" aria-selected="false" aria-controls="panel-markers" tabindex="-1">Marcadores</button></div>
   <section class="tab-panel" id="panel-script" role="tabpanel" aria-labelledby="tab-script">
    <div><label class="field-label" for="titleInput">Nome do roteiro</label><input id="titleInput" type="text" maxlength="100" value="" autocomplete="off"></div>
-   <div class="editor-wrap"><div class="editor-head"><label for="editor">Texto da apresentação</label><button class="btn btn-ghost small-btn" id="lockBtn" aria-pressed="false" title="Evitar alterações acidentais"><svg class="icon" style="width:12px;height:12px"><use href="#i-lock"></use></svg><span id="lockText">Travar</span></button></div><textarea id="editor" spellcheck="true" placeholder="Cole ou digite seu roteiro aqui. Separe os trechos com uma linha em branco."></textarea><div class="editor-foot"><span id="wordCount">0 palavras</span><span id="estimate"></span></div></div>
+   <div class="editor-wrap"><div class="editor-head"><label for="editor">Texto da apresentação</label><button class="btn btn-ghost small-btn" id="lockBtn" aria-pressed="false" title="Evitar alterações acidentais"><svg class="icon" style="width:12px;height:12px"><use href="#i-lock"></use></svg><span id="lockText">Travar</span></button></div><textarea id="editor" spellcheck="true" aria-hidden="true" tabindex="-1"></textarea><div class="blocos" id="blocos" aria-label="Blocos do roteiro"></div><div class="editor-foot"><span id="wordCount">0 palavras</span><span id="estimate"></span></div></div>
    <div class="file-row"><button class="btn" id="importBtn"><svg class="icon"><use href="#i-upload"></use></svg>Importar .txt</button><button class="btn" id="exportBtn"><svg class="icon"><use href="#i-download"></use></svg>Baixar .txt</button></div>
-   <p class="hint editor-hint">O roteiro fica salvo na sua conta: abra em qualquer computador, na lousa ou no celular. Uma linha em branco cria um novo bloco.</p>
+   <p class="hint editor-hint">O roteiro fica salvo na sua conta: abra em qualquer computador, na lousa ou no celular. Escreva cada trecho num bloco e use o + para criar o próximo. Na apresentação, só o texto aparece na tela.</p>
    <div class="backup-row"><button class="btn btn-ghost" id="saveSnapshotBtn" title="Guardar uma versão para recuperar depois">Guardar versão</button><button class="btn btn-ghost" id="restoreBtn" disabled>Restaurar</button><button class="btn btn-ghost" id="clearBtn">Limpar</button></div>
    <input type="file" id="fileInput" accept=".txt,text/plain" hidden>
   </section>
@@ -258,7 +274,7 @@ html,body{margin:0;background:#0b1728}
  </aside>
  <main class="stage-shell" aria-label="Apresentação do roteiro">
   <div class="stage" id="stage">
-   <div class="stage-top"><div class="grow stage-title"><div class="eyebrow">Prévia de leitura</div><span id="stageTitle"></span></div><span class="block-count" id="blockCount"></span><button class="btn small-btn" id="focusBtn" title="Ocultar painel (P)"><svg class="icon"><use href="#i-focus"></use></svg><span class="desktop-label">Foco</span></button><button class="btn small-btn focus-exit" id="exitFocusBtn" title="Voltar aos controles (Esc)"><svg class="icon"><use href="#i-close"></use></svg>Sair</button><button class="btn icon-btn small-btn" id="fullscreenBtn" aria-label="Entrar em tela cheia" title="Tela cheia (F)"><svg class="icon"><use href="#i-expand"></use></svg></button></div>
+   <div class="stage-top"><div class="grow stage-title"><div class="eyebrow">Prévia de leitura</div><span id="stageTitle"></span></div><span class="block-count" id="blockCount"></span><button class="btn small-btn" id="focusBtn" title="Apresentar: só o texto na tela (P)"><svg class="icon"><use href="#i-focus"></use></svg><span class="desktop-label">Apresentar</span></button><button class="btn small-btn focus-exit" id="exitFocusBtn" title="Voltar aos controles (Esc)"><svg class="icon"><use href="#i-close"></use></svg>Sair</button><button class="btn icon-btn small-btn" id="fullscreenBtn" aria-label="Entrar em tela cheia" title="Tela cheia (F)"><svg class="icon"><use href="#i-expand"></use></svg></button></div>
    <div class="reader-mirror" id="readerMirror"><div class="viewport" id="viewport" tabindex="0" aria-label="Texto para leitura. Use Espaço para iniciar ou pausar."><div class="script" id="script"></div></div><div class="guide" id="guide" aria-hidden="true"><div class="guide-line" id="guideLine"></div></div><div class="fade-top"></div><div class="fade-bottom"></div></div>
    <div class="empty-stage" id="emptyStage" hidden><svg class="icon"><use href="#i-edit"></use></svg><h2>Dê voz à sua próxima ideia.</h2><p>Digite seu roteiro ou importe um arquivo de texto para começar.</p><button class="btn btn-primary" id="emptyEditBtn">Escrever meu roteiro</button></div>
    <div class="countdown" id="countdownOverlay" hidden role="status"><span>Prepare-se</span><strong id="countdownNumber">3</strong><button class="btn" id="cancelCountdownBtn">Cancelar</button></div>
@@ -492,7 +508,7 @@ function applySettings(reflow=true) {
  if(reflow) measure();updateUI();
 }
 function updateLock() {
- $('editor').readOnly=state.locked;$('titleInput').readOnly=state.locked;
+ $('editor').readOnly=state.locked;document.querySelectorAll('#blocos textarea').forEach(t=>t.readOnly=state.locked);document.querySelectorAll('#blocos button').forEach(b=>b.disabled=state.locked);$('titleInput').readOnly=state.locked;
  $('lockBtn').setAttribute('aria-pressed',String(state.locked));$('lockText').textContent=state.locked?'Destravar':'Travar';
  $('importBtn').disabled=state.locked;$('clearBtn').disabled=state.locked;
 }
@@ -599,14 +615,39 @@ function applyEditor() {
  relocateMarkers(state.text,text);state.text=text;state.cursor=0;state.elapsed=0;state.finished=false;
  parseText();renderScript();renderMarkers();scheduleSave();
 }
+/* ---------- blocos do roteiro ---------- */
+let blocosTexto=null;
+const juntarBlocos=()=>[...document.querySelectorAll('#blocos textarea')].map(t=>t.value.replace(/\r\n?/g,'\n').replace(/\n[ \t]*\n+/g,'\n').trim()).join('\n\n');
+function ajustarAltura(t){t.style.height='auto';t.style.height=Math.max(64,t.scrollHeight+4)+'px';}
+function renderBlocos(texto){
+ const box=$('blocos');if(!box) return;
+ if(texto===blocosTexto) return;   // a mudança veio dos próprios blocos: não redesenha (preserva cursor e blocos vazios)
+ const partes=String(texto||'').replace(/\r\n?/g,'\n').split(/\n[ \t]*\n+/).map(x=>x.trim()).filter(Boolean);
+ if(!partes.length) partes.push('');
+ box.innerHTML='';
+ partes.forEach((t,i)=>box.appendChild(novoBloco(t)));
+ numerarBlocos();blocosTexto=juntarBlocos();
+}
+function novoBloco(texto){
+ const frag=document.createDocumentFragment(),d=document.createElement('div');d.className='bloco';
+ d.innerHTML='<div class="bloco-cab"><span class="bloco-n"></span><button type="button" data-bloco="remover" title="Apagar este bloco" aria-label="Apagar este bloco">×</button></div><textarea spellcheck="true" rows="2" placeholder="Escreva aqui o trecho que você vai falar."></textarea>';
+ const t=d.querySelector('textarea');t.value=texto||'';t.readOnly=state.locked;
+ const mais=document.createElement('button');mais.type='button';mais.className='bloco-mais';mais.dataset.bloco='mais';mais.textContent='+ Novo bloco';mais.disabled=state.locked;
+ frag.appendChild(d);frag.appendChild(mais);
+ requestAnimationFrame(()=>ajustarAltura(t));
+ return frag;
+}
+function numerarBlocos(){document.querySelectorAll('#blocos .bloco').forEach((b,i,l)=>{b.querySelector('.bloco-n').textContent='Bloco '+(i+1);b.querySelector('[data-bloco="remover"]').hidden=l.length<2;});}
+function blocosParaEditor(){blocosTexto=juntarBlocos();$('editor').value=blocosTexto;$('editor').dispatchEvent(new Event('input'));}
+function focarBloco(i){const l=document.querySelectorAll('#blocos textarea');const t=l[Math.min(Math.max(i,0),l.length-1)];if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}}
 function flushEditor() {if(editTimer || $('editor').value!==state.text) applyEditor();}
-function syncEditor() {$('editor').value=state.text;$('titleInput').value=state.title;$('stageTitle').textContent=state.title||'Roteiro sem título';updateLock();}
+function syncEditor() {$('editor').value=state.text;renderBlocos(state.text);$('titleInput').value=state.title;$('stageTitle').textContent=state.title||'Roteiro sem título';updateLock();}
 async function clearText() {
  if(state.locked) return;flushEditor();if(!state.text.trim()) return;
  const confirmed=await ask({title:'Apagar o texto deste roteiro?',message:'O texto e os marcadores serão removidos. A versão anterior ficará disponível em Restaurar enquanto esta página estiver aberta.',confirm:'Limpar roteiro'});
  if(!confirmed) return;
  saveSnapshot();state.text='';state.markers=[];state.cursor=0;state.elapsed=0;state.finished=false;
- syncEditor();parseText();renderScript();renderMarkers();scheduleSave();$('editor').focus();
+ syncEditor();parseText();renderScript();renderMarkers();scheduleSave();focarBloco(0);
 }
 async function restoreSnapshot() {
  if(state.locked){toast('Destrave a edição para restaurar uma versão.');return;}
@@ -689,9 +730,9 @@ async function exitFocus() {
 }
 function showControls() {
  root.classList.remove('controls-hidden');clearTimeout(hideTimer);
- if(state.focus && state.playing) hideTimer=setTimeout(()=>{
-  if(state.focus && state.playing && !$('transport').matches(':hover') && !$('transport').contains(document.activeElement)) root.classList.add('controls-hidden');
- },3000);
+ if(state.focus) hideTimer=setTimeout(()=>{
+  if(state.focus && !$('transport').matches(':hover') && !$('transport').contains(document.activeElement) && !document.querySelector('#pe-app .stage-top button:hover')) root.classList.add('controls-hidden');
+ },state.playing?2500:3500);
 }
 function typingTarget(el) {return el?.closest('textarea,input,select,[contenteditable="true"]');}
 function algumDialogo() { return ['actionDialog','helpDialog','listDialog','remoteDialog'].some(id=>$(id).open); }
@@ -768,7 +809,7 @@ function novoRoteiro(silencioso) {
  abrirDocumento({text:'',title:'Novo roteiro',settings:state.settings,markers:[]},null);
  statusSalvo('Novo roteiro: salvo ao digitar');
  selectTab('script'); if(matchMedia('(max-width:760px)').matches) openPanel();
- if(!silencioso) $('editor').focus();
+ if(!silencioso) focarBloco(0);
 }
 
 /* ---------- controle pelo celular ----------
@@ -845,6 +886,24 @@ async function abrirRemoto() {
 $('editor').addEventListener('input',()=>{pause();clearTimeout(editTimer);editTimer=setTimeout(applyEditor,170);});
 $('titleInput').addEventListener('input',()=>{state.title=$('titleInput').value;$('stageTitle').textContent=state.title||'Roteiro sem título';scheduleSave();publicarSessao();});
 $('editor').addEventListener('blur',flushEditor);
+$('blocos').addEventListener('input',e=>{if(e.target.tagName==='TEXTAREA'){ajustarAltura(e.target);blocosParaEditor();}});
+$('blocos').addEventListener('focusout',e=>{if(e.target.tagName==='TEXTAREA')flushEditor();});
+$('blocos').addEventListener('click',async e=>{
+ const b=e.target.closest('[data-bloco]');if(!b||state.locked)return;
+ if(b.dataset.bloco==='mais'){
+  const novo=novoBloco('');b.after(novo);numerarBlocos();
+  const l=[...document.querySelectorAll('#blocos .bloco-mais')],i=l.indexOf(b);focarBloco(i+1);blocosParaEditor();
+ } else if(b.dataset.bloco==='remover'){
+  const bl=b.closest('.bloco'),t=bl.querySelector('textarea');
+  if(t.value.trim() && !(await ask({title:'Apagar este bloco?',message:'O texto deste bloco sai do roteiro. Use Restaurar se mudar de ideia.',confirm:'Apagar bloco'}))) return;
+  saveSnapshot();
+  const mais=bl.nextElementSibling;bl.remove();if(mais&&mais.classList.contains('bloco-mais'))mais.remove();numerarBlocos();blocosParaEditor();
+ }
+});
+renderBlocos(state.text||'');
+$('blocos').addEventListener('keydown',e=>{ // Ctrl+Enter cria o próximo bloco
+ if(e.target.tagName==='TEXTAREA' && e.key==='Enter' && (e.ctrlKey||e.metaKey)){e.preventDefault();const mais=e.target.closest('.bloco').nextElementSibling;if(mais)mais.click();}
+});
 $('playBtn').addEventListener('click',togglePlay);$('restartBtn').addEventListener('click',restart);
 $('prevBtn').addEventListener('click',()=>stepBlock(-1));$('nextBtn').addEventListener('click',()=>stepBlock(1));
 $('cancelCountdownBtn').addEventListener('click',pause);
@@ -877,7 +936,7 @@ all('.tab').forEach((tab,i)=>{
  tab.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){e.preventDefault();e.stopPropagation();const n=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;selectTab(['script','settings','markers'][n],true);}});
 });
 $('openPanelBtn').addEventListener('click',openPanel);$('closePanelBtn').addEventListener('click',()=>closePanel());
-$('emptyEditBtn').addEventListener('click',()=>{if(state.focus)setFocus(false);selectTab('script');if(matchMedia('(max-width:760px)').matches)openPanel();$('editor').focus();});
+$('emptyEditBtn').addEventListener('click',()=>{if(state.focus)setFocus(false);selectTab('script');if(matchMedia('(max-width:760px)').matches)openPanel();focarBloco(0);});
 $('focusBtn').addEventListener('click',()=>setFocus(true));$('exitFocusBtn').addEventListener('click',exitFocus);$('fullscreenBtn').addEventListener('click',fullscreen);
 document.addEventListener('fullscreenchange',()=>{const active=document.fullscreenElement===root;$('fullscreenBtn').setAttribute('aria-label',active?'Sair da tela cheia':'Entrar em tela cheia');if(!active && state.focus){pause();setFocus(false);}requestAnimationFrame(measure);});
 document.addEventListener('keydown',e=>{if(root.contains(e.target) || e.target===document.body)handleKey(e);});root.addEventListener('pointermove',showControls,{passive:true});root.addEventListener('pointerdown',showControls,{passive:true});
