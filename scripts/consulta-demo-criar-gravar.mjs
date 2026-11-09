@@ -44,11 +44,11 @@ for (let i = 1; i <= 4; i++) await grava(db.doc(`usuarios/demo-gestor-${i}`), { 
   municipio_id: M, escola_id: ESC[i - 1][0], escolas_ids: [ESC[i - 1][0]], ultimo_acesso: ts(agora - ent(0, 3) * DIA), criado_em: ts(agora - 90 * DIA) });
 
 // ---------- acessos dos últimos 30 dias (quem entrou e em quais módulos) ----------
-const MODS = ['portal-ia', 'lousa', 'provas', 'turma-ao-vivo', 'formacao', 'atividades', 'videos', 'jogos'];
+const MODS = ['portalia', 'provas', 'formacao', 'atividades', 'videos', 'jogos', 'portal360', 'biblioteca'];
 for (let d = 0; d < 30; d++) {
   const ms = agora - d * DIA, dia = iso(ms), semana = new Date(ms - 4 * 36e5).getUTCDay(); if (semana === 0 || semana === 6) continue;
   for (const p of profs) { if (!(p.ativo ? rnd() < 0.62 : (agora - p.ult > d * DIA ? false : rnd() < 0.25))) continue;
-    const mods = [...new Set([um(MODS), um(MODS), rnd() < 0.5 ? 'portal-ia' : um(MODS)])];
+    const mods = [...new Set([um(MODS), um(MODS), rnd() < 0.5 ? 'portalia' : um(MODS)])];
     await grava(db.doc(`acessos_dia/demo-${dia}-${p.uid}`), { ...D, uid: p.uid, municipio: NOME, dia, modulos: mods }); }
 }
 
