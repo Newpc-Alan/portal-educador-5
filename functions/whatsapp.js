@@ -147,13 +147,13 @@ async function escolherSecoes(lista, pergunta) {
 //   escola (se a escola já está cadastrada na rede), comercial e humano. O resto vai para o manual.
 // Só fala de dados da PRÓPRIA pessoa, reconhecida pelo WhatsApp do cadastro. Número desconhecido não recebe dado nenhum.
 const ACOES_AGENTE = ['cadastro', 'acesso', 'chamado', 'escola', 'comercial', 'humano', 'manual'];
-async function classificar(pergunta) {
+async function classificar(pergunta, hist) {
   const corpo = { systemInstruction: { parts: [{ text: 'Classifique a mensagem de um professor ao suporte do Portal do Educador. Responda só o JSON. acao: ' +
       'cadastro (quer saber do próprio cadastro, situação, licença, plano, validade, a que rede ou escola está ligado), ' +
       'acesso (não consegue entrar, esqueceu a senha, link de acesso, login), chamado (pergunta sobre um chamado/protocolo já aberto), ' +
       'escola (quer saber se uma escola já está cadastrada ou pede para vincular/adicionar escola), comercial (contratar, preço, proposta, renovar, assinar), ' +
       'humano (pede uma pessoa, reclamação, assunto delicado) ou manual (dúvida de como usar o Portal). protocolo: código de 6 letras/números se houver. escola: nome da escola se houver.' }] },
-    contents: [{ role: 'user', parts: [{ text: txt(pergunta, 600) }] }],
+    contents: [{ role: 'user', parts: [{ text: (hist ? 'CONVERSA RECENTE (só para entender a mensagem):\n' + hist + '\n\n' : '') + 'MENSAGEM: ' + txt(pergunta, 600) }] }],
     generationConfig: { maxOutputTokens: 120, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'low' },
       responseSchema: { type: 'OBJECT', properties: { acao: { type: 'STRING', enum: ACOES_AGENTE }, protocolo: { type: 'STRING' }, escola: { type: 'STRING' } }, required: ['acao'] } } };
   for (const modelo of MODELOS) {
@@ -209,18 +209,39 @@ async function escolaNaRede(db, quem, nomeEscola) {
   return 'Não encontrei "' + txt(nomeEscola, 60) + '" entre as escolas da sua rede no Portal. Vou passar para a equipe conferir com a Secretaria.';
 }
 
-async function responderDuvida(db, pergunta, quem) {
+async function responderDuvida(db, pergunta, quem, hist) {
   const lista = await conhecimento(db);
-  let trechos = buscar(lista, pergunta);
-  let resp = trechos.length ? await responderComTrechos(trechos, pergunta, quem) : null;
+  // pergunta curta de continuação ("e no celular?"): a busca usa também a pergunta anterior da pessoa
+  const anterior = hist && pergunta.length < 60 ? ((hist.match(/^Pessoa: (.*)$/gm) || []).pop() || '').replace(/^Pessoa: /, '') : '';
+  const busca = anterior ? anterior + ' ' + pergunta : pergunta;
+  let trechos = buscar(lista, busca);
+  let resp = trechos.length ? await responderComTrechos(trechos, pergunta, quem, hist) : null;
   if (!resp) {   // a busca por palavra não achou: a IA aponta a seção pelos títulos e tentamos de novo
-    const outros = await escolherSecoes(lista, pergunta);
+    const outros = await escolherSecoes(lista, busca);
     const novos = outros.filter(x => !trechos.includes(x));
-    if (novos.length) resp = await responderComTrechos(novos, pergunta, quem);
+    if (novos.length) resp = await responderComTrechos(novos, pergunta, quem, hist);
   }
   return resp;
 }
-async function responderComTrechos(trechos, pergunta, quem) {
+// memória curta: as últimas mensagens das 2 últimas horas (sem a mensagem atual), só para entender continuações
+async function conversaRecente(ref) {
+  try {
+    const sn = await ref.collection('mensagens').orderBy('em', 'desc').limit(9).get();
+    const limite = Date.now() - 2 * 3600e3;
+    const l = sn.docs.map(d => d.data()).filter(m => m.em && m.em.toMillis && m.em.toMillis() >= limite && m.texto && !/^\[/.test(m.texto));
+    if (l.length && l[0].de === 'pessoa') l.shift();   // a mensagem que acabou de chegar
+    return l.slice(0, 6).reverse().map(m => (m.de === 'pessoa' ? 'Pessoa: ' : m.de === 'robo' ? 'Lara: ' : 'Equipe: ') + txt(String(m.texto).replace(/^🎤 /, '').replace(/\s+/g, ' '), 300)).join('\n');
+  } catch (e) { return ''; }
+}
+// o que a Lara não soube responder (ou a resposta não resolveu): vira lista para completar o manual
+async function semResposta(db, waId, quem, pergunta, tipo) {
+  if (!pergunta || pergunta.length < 4) return;
+  await Promise.all([
+    db.collection('wa_sem_resposta').add({ pergunta: txt(pergunta, 600), tipo, wa_id: waId, perfil: quem ? (quem.perfil || '') : '', municipio_nome: quem ? (quem.municipio_nome || '') : '',
+      status: 'aberta', em: FieldValue.serverTimestamp() }),
+    metricas(db, { [tipo === 'nao_resolveu' ? 'nao_resolveu' : 'nao_sei']: FieldValue.increment(1) })]).catch(e => console.warn('whatsapp: sem resposta', e.message));
+}
+async function responderComTrechos(trechos, pergunta, quem, hist) {
   const contexto = trechos.map((t, i) => '[' + (i + 1) + '] ' + t.titulo + '\n' + t.texto.slice(0, 2500)).join('\n\n');
   const instrucao = 'Você é a Lara, assistente virtual de suporte do Portal do Educador (plataforma para professores de escolas públicas). Fale no feminino, com simpatia e objetividade. ' +
     'Responda em português do Brasil, de forma curta e prática, em passos numerados quando for um procedimento, no máximo 12 linhas, sem markdown (use *negrito* só para nomes de botões). ' +
@@ -228,7 +249,7 @@ async function responderComTrechos(trechos, pergunta, quem) {
     (quem && quem.perfil ? ' Quem pergunta é ' + quem.perfil + '.' : '');
   for (const modelo of MODELOS) {
     try {
-      const corpo = { systemInstruction: { parts: [{ text: instrucao }] }, contents: [{ role: 'user', parts: [{ text: 'TRECHOS DO MANUAL:\n' + contexto + '\n\nPERGUNTA: ' + txt(pergunta, 600) }] }],
+      const corpo = { systemInstruction: { parts: [{ text: instrucao }] }, contents: [{ role: 'user', parts: [{ text: 'TRECHOS DO MANUAL:\n' + contexto + (hist ? '\n\nCONVERSA RECENTE (use só para entender a pergunta; a resposta vem dos trechos):\n' + hist : '') + '\n\nPERGUNTA: ' + txt(pergunta, 600) }] }],
         generationConfig: { maxOutputTokens: 700, thinkingConfig: { thinkingLevel: 'low' } } };
       const chamar = c => fetch('https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(modelo) + ':generateContent', {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI.value() }, body: JSON.stringify(c), signal: AbortSignal.timeout(12000) });
@@ -493,6 +514,7 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     await estado('menu'); return;
   }
   if (entrada === 'nao_resolveu') {
+    await semResposta(db, waId, quem, conv.ultima_duvida || '', 'nao_resolveu');
     await ref.set({ assunto: 'suporte' }, { merge: true });
     await responder(texto('Tudo bem! Passei a sua conversa para uma pessoa da equipe, que continua por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
     await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': a resposta do robô não resolveu.', 'Última pergunta: ' + (conv.ultima || '-'));
@@ -513,7 +535,8 @@ async function tratar(db, cfg, msg, contato, interno = false) {
   }
 
   // qualquer outro texto: o agente entende o pedido; se for dúvida de uso, vai para o manual
-  const pedido = msg.type === 'text' ? await classificar(entrada) : { acao: 'manual' };
+  const hist = msg.type === 'text' ? await conversaRecente(ref) : '';
+  const pedido = msg.type === 'text' ? await classificar(entrada, hist) : { acao: 'manual' };
   await metricas(db, { ['agente_' + pedido.acao]: FieldValue.increment(1) });
   if (pedido.acao === 'acesso') { await tratar(db, cfg, { ...msg, id: msg.id + '_a', type: 'interactive', interactive: { list_reply: { id: 'acesso' } } }, contato, true); return; }
   if (pedido.acao === 'comercial') { await tratar(db, cfg, { ...msg, id: msg.id + '_c', type: 'interactive', interactive: { list_reply: { id: 'comercial' } } }, contato, true); return; }
@@ -527,14 +550,17 @@ async function tratar(db, cfg, msg, contato, interno = false) {
     if (/Vou passar para a equipe/.test(r)) { await ref.set({ assunto: 'suporte' }, { merge: true }); await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': escola não encontrada na rede.', 'Escola informada: ' + (pedido.escola || entrada)); return; }
     await estado('menu'); return;
   }
-  const resp = await responderDuvida(db, entrada, quem);
+  const resp = await responderDuvida(db, entrada, quem, hist);
   if (resp) {
+    await metricas(db, { respondidas_manual: FieldValue.increment(1) });
+    await ref.set({ ultima_duvida: txt(entrada, 600) }, { merge: true });
     await responder(texto(resp));
     await responder(botoes('Isso resolveu?', [{ id: 'menu', title: 'Sim, obrigado' }, { id: 'nao_resolveu', title: 'Falar com atendente' }]));
   } else {
     // o robô não sabe: passa direto para uma pessoa da equipe (rodízio do suporte)
     await ref.set({ assunto: 'suporte' }, { merge: true });
     await responder(texto('Essa eu não encontrei no manual do Portal. Passei sua pergunta para uma pessoa da equipe, que responde por aqui.' + (dentroHorario() ? '' : ' ' + AVISO_HORARIO)));
+    await semResposta(db, waId, quem, entrada, 'nao_sei');
     await encaminhar(db, cfg, ref, waId, 'suporte', quemTxt + ': o robô não encontrou resposta.', 'Pergunta: ' + entrada);
     return;
   }

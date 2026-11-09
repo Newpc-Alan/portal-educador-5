@@ -6302,7 +6302,8 @@
         '</div><label class="wa-disp" id="waDispBox" hidden><input type="checkbox" id="waDisp" data-action="wa-disp"> Disponível para receber conversas</label></div>'+
         '<div id="waChamados"></div>'+
         '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d" style="padding:12px">Escolha uma conversa.</p></div></div>'+
-        (wa.admin ? '<div id="waEquipe" class="wa-equipe"></div>'+
+        (wa.admin ? '<div id="waLara" class="wa-equipe"><p class="d">Carregando os números da Lara…</p></div>'+
+          '<div id="waEquipe" class="wa-equipe"></div>'+
           '<div class="wa-equipe"><h4 style="margin:0 0 4px">Modelos de mensagem na Meta</h4><p class="d">As boas-vindas automáticas no WhatsApp (todo cadastro novo) e o aviso para a equipe só saem depois que a Meta aprova cada modelo. O Portal envia os modelos com o texto certo; a aprovação leva de minutos a 24 h.</p>'+
           '<div class="wa-eq-form"><button class="btn btn-ghost" data-action="wa-modelos" data-acao="listar">Ver situação</button><button class="btn btn-primary btn-add" data-action="wa-modelos" data-acao="cadastrar">Enviar os que faltam para aprovação</button></div><div id="waModelosRes" role="status" class="d"></div></div>'+
           '<div class="wa-equipe"><h4 style="margin:0 0 4px">Teste dos avisos automáticos</h4><p class="d">Manda para o seu WhatsApp a mensagem de boas-vindas e o aviso para a equipe, com dados de exemplo. Antes, mande um "oi" do seu celular para o número do Portal: sem modelo aprovado, a Meta só deixa enviar até 24 h depois da sua última mensagem.</p>'+
@@ -6342,6 +6343,7 @@
       wa.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); waDesenharLista();
       if(wa.sel) waCabecalho();
     }, e => { const l = $("waLista"); if(l) l.innerHTML = '<p class="d" style="padding:12px">Não consegui abrir as conversas ('+escapeHtml(e.code || "erro")+').</p>'; }));
+    if(wa.admin) waLara();
     wa.unsub.push(onSnapshot(query(collection(db, "wa_chamados"), where("status", "==", "aberto"), limit(100)), sn => {
       if(!$("waTela")){ waParar(); return; }
       wa.chamados = sn.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => ((b.criado_em && b.criado_em.toMillis()) || 0) - ((a.criado_em && a.criado_em.toMillis()) || 0));
@@ -6351,6 +6353,36 @@
         (c.atribuido_nome ? ' <span class="wa-selo vd">'+escapeHtml(c.atribuido_nome)+'</span>' : ' <span class="wa-selo">sem técnico</span>')+'<br>'+escapeHtml(c.descricao || "")+'</div>'+
         '<button class="btn btn-ghost btn-add" data-action="wa-resolver" data-id="'+escapeAttr(c.id)+'">Marcar resolvido</button></div>').join("") : "";
     }, () => {}));
+  }
+  // Lara em números (últimos 30 dias, de wa_metricas) e a lista do que ela não soube responder (wa_sem_resposta)
+  async function waLara(){
+    const el = $("waLara"); if(!el) return;
+    const n = v => Number(v || 0);
+    let m = { dias:0, conversas:0, respondidas:0, nao_sei:0, nao_resolveu:0, transferidas:0, audios:0, audios_ok:0, avaliacoes:0, nota_3:0 };
+    let lista = [];
+    try{
+      const [sm, sl] = await Promise.all([
+        getDocs(query(collection(db, "wa_metricas"), orderBy("atualizado_em", "desc"), limit(30))),
+        getDocs(query(collection(db, "wa_sem_resposta"), where("status", "==", "aberta"), limit(100)))]);
+      sm.forEach(d => { const x = d.data(); m.dias++; m.respondidas += n(x.respondidas_manual); m.nao_sei += n(x.nao_sei); m.nao_resolveu += n(x.nao_resolveu);
+        m.transferidas += n(x.transferidas); m.audios += n(x.audios); m.audios_ok += n(x.audios_ok); m.avaliacoes += n(x.avaliacoes); m.nota_3 += n(x.nota_3);
+        m.conversas += Object.keys(x).filter(k => /^agente_/.test(k)).reduce((s, k) => s + n(x[k]), 0); });
+      lista = sl.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => ((b.em && b.em.toMillis()) || 0) - ((a.em && a.em.toMillis()) || 0));
+    }catch(e){ el.innerHTML = '<p class="d">Não consegui carregar os números da Lara ('+escapeHtml(e.code || "erro")+').</p>'; return; }
+    const tent = m.respondidas + m.nao_sei, pct = tent ? Math.round(100 * (m.respondidas - m.nao_resolveu) / tent) : null;
+    const kpi = (v, t) => '<div class="wa-kpi"><b>'+v+'</b><span>'+t+'</span></div>';
+    el.innerHTML = '<h4 style="margin:0 0 4px">\u{1F916} A Lara em números <small class="d">(últimos 30 dias com movimento)</small></h4>'+
+      '<div class="wa-kpis">'+kpi(m.conversas, "mensagens entendidas")+kpi(m.respondidas, "dúvidas respondidas pelo manual")+kpi(pct === null ? "–" : pct+"%", "resolvidas sem a equipe")+
+        kpi(m.nao_sei, "não soube responder")+kpi(m.nao_resolveu, "responderam \"não resolveu\"")+kpi(m.audios_ok+"/"+m.audios, "áudios entendidos")+
+        kpi(m.avaliacoes ? Math.round(100 * m.nota_3 / m.avaliacoes)+"%" : "–", "satisfação")+'</div>'+
+      '<h4 style="margin:16px 0 4px">O que a Lara não soube ('+lista.length+')</h4>'+
+      '<p class="d">Cada linha é uma pergunta sem resposta no manual, ou uma resposta que não resolveu. Completou o Manual do Usuário? Republique o manual, recarregue a base do robô e marque como resolvida.</p>'+
+      (lista.length ? '<table class="wa-eq-tab"><tr><th>Pergunta</th><th>Quem</th><th>Quando</th><th></th></tr>'+lista.map(q =>
+        '<tr><td>'+escapeHtml(q.pergunta || "")+(q.tipo === "nao_resolveu" ? ' <span class="wa-selo">não resolveu</span>' : '')+'</td><td><small>'+escapeHtml(q.perfil || "sem cadastro")+(q.municipio_nome ? ' · '+escapeHtml(q.municipio_nome) : '')+'</small></td>'+
+        '<td><small>'+waQuando(q.em)+'</small></td><td style="white-space:nowrap"><button class="btn btn-ghost btn-add" data-action="wa-sr" data-st="resolvida" data-id="'+escapeAttr(q.id)+'">Resolvida</button> '+
+        '<button class="btn btn-ghost btn-add" data-action="wa-sr" data-st="ignorada" data-id="'+escapeAttr(q.id)+'" title="Não é dúvida do Portal">Ignorar</button></td></tr>').join("")+'</table>'
+        : '<p class="d">Nenhuma pendente. 👏</p>')+
+      '<style>.wa-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0}.wa-kpi{background:#f3f7fb;border:1px solid #e3e9ef;border-radius:10px;padding:10px}.wa-kpi b{display:block;font-size:1.4em;color:#0f2c4a}.wa-kpi span{font-size:.82em;color:#41505f}</style>';
   }
   const waMinha = c => c.atribuido_uid && auth.currentUser && c.atribuido_uid === auth.currentUser.uid;
   function waFiltradas(f){
@@ -6460,6 +6492,8 @@
     else if(a === "wa-transf-fechar"){ const b = $("waTransf"); if(b) b.hidden = true; }
     else if(a === "wa-transferir") waTransferir();
     else if(a === "wa-eq-salvar") waEqSalvar();
+    else if(a === "wa-sr") updateDoc(doc(db, "wa_sem_resposta", el.dataset.id), { status:el.dataset.st, resolvido_em:serverTimestamp(), resolvido_por:auth.currentUser.uid })
+      .then(() => { toast(el.dataset.st === "resolvida" ? "Marcada como resolvida." : "Ignorada."); waLara(); }).catch(waErro);
     else if(a === "wa-tv-link" || a === "wa-tv-trocar") waFn("painelTvChave", { trocar:a === "wa-tv-trocar" }).then(r => {
       const el = $("waTvLink"); if(!el) return;
       el.innerHTML = '<div class="wa-eq-form"><input type="text" id="waTvUrl" readonly value="'+escapeAttr(r.link)+'" style="flex:1;min-width:260px;font:inherit;padding:8px;border:1px solid #cfd8e3;border-radius:8px">'+
