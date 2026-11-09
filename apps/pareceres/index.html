@@ -185,8 +185,8 @@ const stHtml = a => a.status === "aprovado" ? '<span class="st ok">Aprovado</spa
 function telaDados(){
   const O = E.dados.obs, marc = E.al.filter(a => a.marcado).length;
   $("tela").innerHTML =
-    '<div class="card"><div class="topo-dados"><p>Toque nas observações que combinam com cada aluno: é o seu olhar que deixa o parecer verdadeiro. A IA escreve o rascunho a partir dos dados e das suas observações e <b>não recebe o nome do aluno</b>. Cada parecer gerado usa 1 crédito do Portal IA e fica salvo no aluno: abrir, editar e aprovar não gastam crédito. Só "Gerar de novo" usa outro crédito.</p>' +
-    '<button type="button" class="btn btn-ok" data-action="gerar" id="btGerar"' + (marc ? "" : " disabled") + ">Gerar " + marc + (marc === 1 ? " parecer" : " pareceres") + " (" + marc + (marc === 1 ? " crédito)" : " créditos)") + "</button></div>" +
+    '<div class="card"><div class="topo-dados"><p>Toque nas observações que combinam com cada aluno: é o seu olhar que deixa o parecer verdadeiro. A IA escreve o rascunho a partir dos dados e das suas observações e <b>não recebe o nome do aluno</b>. Gerar o parecer com a IA é gratuito, e ele fica salvo no aluno para você abrir, editar e aprovar.</p>' +
+    '<button type="button" class="btn btn-ok" data-action="gerar" id="btGerar"' + (marc ? "" : " disabled") + ">Gerar " + marc + (marc === 1 ? " parecer" : " pareceres") + "</button></div>" +
     '<div class="acoes" style="margin-top:10px"><button type="button" class="btn btn-cl" data-action="marcar-todos" data-arg="1">Marcar todos</button><button type="button" class="btn btn-cl" data-action="marcar-todos" data-arg="sem">Só os sem parecer</button><button type="button" class="btn btn-cl" data-action="marcar-todos" data-arg="0">Desmarcar</button></div>' +
     '<div id="progBox" hidden><div class="prog"><i id="progBar"></i></div><div class="acoes"><span class="sub" id="progTxt"></span><button type="button" class="btn btn-gh" data-action="parar">Parar</button></div></div></div>' +
     E.al.map((a, i) => '<article class="al"><div class="al-cab"><span class="al-ini" aria-hidden="true">' + esc(iniciais(a.nome)) + '</span><span class="al-nome">' + esc(a.nome) + "</span>" + stHtml(a) +
@@ -215,7 +215,7 @@ async function gerar(){
     $("progBar").style.width = Math.round((k + 1) / fila.length * 100) + "%";
   }
   E.gerando = false;
-  toast(ok + (ok === 1 ? " parecer escrito" : " pareceres escritos") + (falha ? " · " + falha + " não deu (o crédito voltou; tente de novo)" : "") + ". Agora revise e aprove.", !!falha && !ok);
+  toast(ok + (ok === 1 ? " parecer escrito" : " pareceres escritos") + (falha ? " · " + falha + " não deu (tente de novo)" : "") + ". Agora revise e aprove.", !!falha && !ok);
   if(ok){ E.sel = Math.max(0, E.al.findIndex(a => a.status === "rascunho")); ir("revisao"); } else telaDados();
 }
 
@@ -232,7 +232,7 @@ function telaRevisao(){
     (!a.medias.length && !a.habilidades.length ? '<div class="aviso amarelo">Sem nota e sem prova no período: o rascunho fala só da frequência e das suas observações, sem inventar desempenho.</div>' : "") +
     '<label for="txtPar" class="sub" style="font-weight:700">Texto do parecer (edite à vontade)</label><textarea id="txtPar" class="txt">' + esc(a.texto) + "</textarea>" +
     '<div class="acoes"><button type="button" class="btn btn-ok" data-action="aprovar">' + (a.status === "aprovado" ? "Aprovado · salvar mudanças" : "Aprovar parecer") + '</button><button type="button" class="btn btn-gh" data-action="salvar-rasc">Salvar rascunho</button>' +
-    '<button type="button" class="btn btn-gh" data-action="regerar">Gerar de novo (1 crédito)</button><button type="button" class="btn btn-cl" data-action="proximo">Próximo aluno</button></div>' +
+    '<button type="button" class="btn btn-gh" data-action="regerar">Gerar de novo</button><button type="button" class="btn btn-cl" data-action="proximo">Próximo aluno</button></div>' +
     '<p class="sub">A IA recebeu só "o aluno" com números, habilidades e as suas observações: nenhum nome, CPF ou dado de saúde. Aprovado, o parecer vai para a Central de Relatórios, onde a coordenação confere.</p></article></div>';
 }
 async function salvar(aprovar){
@@ -247,10 +247,10 @@ async function salvar(aprovar){
 }
 async function regerar(){
   const a = E.al[E.sel];
-  if(!confirm("Gerar de novo o parecer de " + a.nome.split(" ")[0] + "? O texto atual é substituído (usa 1 crédito).")) return;
+  if(!confirm("Gerar de novo o parecer de " + a.nome.split(" ")[0] + "? O texto atual é substituído.")) return;
   const b = document.querySelector('[data-action="regerar"]'); b.disabled = true; b.textContent = "Escrevendo...";
   try{ const r = (await fn({ acao:"gerar", turma_id:E.turma.id, ano:ANO, periodo:E.per, aluno_id:a.id, obs:a.obs, livre:a.livre })).data; a.texto = r.texto; a.status = "rascunho"; toast("Novo rascunho pronto."); }
-  catch(e){ toast(e.message || "Não deu certo; o crédito voltou.", true); }
+  catch(e){ toast(e.message || "Não deu certo; tente de novo.", true); }
   telaRevisao();
 }
 
@@ -321,7 +321,7 @@ document.addEventListener("click", ev => {
 document.addEventListener("change", ev => {
   const t = ev.target;
   if(t.id === "selTurma" || t.id === "selPer") abrir();
-  else if(t.dataset && t.dataset.marca !== undefined){ E.al[+t.dataset.marca].marcado = t.checked; const n = E.al.filter(x => x.marcado).length, b = $("btGerar"); if(b){ b.disabled = !n; b.textContent = "Gerar " + n + (n === 1 ? " parecer" : " pareceres") + " (" + n + (n === 1 ? " crédito)" : " créditos)"); } }
+  else if(t.dataset && t.dataset.marca !== undefined){ E.al[+t.dataset.marca].marcado = t.checked; const n = E.al.filter(x => x.marcado).length, b = $("btGerar"); if(b){ b.disabled = !n; b.textContent = "Gerar " + n + (n === 1 ? " parecer" : " pareceres"); } }
 });
 document.addEventListener("input", ev => {
   const t = ev.target;

@@ -11,7 +11,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { contexto, geminiJson, RESERVA_TEXTO, etapaDaTurma } from './portal-ia.js';
 import { SMTP_SENHA } from './dicas.js';   // alerta de crédito do Google esgotado (portal-ia.js)
-import { reservarCreditos, estornarCreditos, registrarConsumo } from './creditos.js';
+import { reservarCreditos, estornarCreditos, registrarConsumo, usoJustoDiario } from './creditos.js';
 import { acessoIA, mensagemAcesso, NOMES_IA } from './ia-acesso.js';
 import { periodoDisciplina, PADRAO as REGRAS_NOTAS } from './notas-fechamento.js';
 import { decodificar } from './frequencia-nucleo.js';
@@ -182,7 +182,10 @@ export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA],
     const a = acessoIA('portalia', ctx.ia); if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso('portalia', a.motivo));
     const obs = (Array.isArray(d.obs) ? d.obs : []).map(String).filter(k => OBS[k]).slice(0, 8), livreOrig = txt(d.livre, 400), livre = semNome(livreOrig, al.nome);
     const dados = (await dadosTurma(db, t, ano, per, p, [aid]))[aid];
-    const res = await reservarCreditos(db, ctx, 'texto', { rede: a.via === 'rede' ? true : a.via === 'admin' ? undefined : false, nome: NOMES_IA.portalia });
+    // grátis (nov/2026): sem crédito, com limite diário por professor (dá para a turma inteira e mais um pouco)
+    const uj = await usoJustoDiario(db, ctx, 'parecer', 150);
+    if (!uj.ok) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de ' + uj.limite + ' pareceres gerados hoje. Amanhã libera de novo.');
+    const res = { acao: 'parecer_turma' };
     let r = null, erro = null, texto = '';
     try {
       for (let k = 0; k < 3 && !texto; k++) {
@@ -191,9 +194,9 @@ export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA],
         if (bruto.split(/\s+/).length >= 60) texto = bruto;
       }
     } catch (e) { erro = e; }
-    if (!texto) await estornarCreditos(db, res);
+    if (!texto) await uj.desfazer();
     await registrarConsumo(db, ctx, texto ? { ...res, acao: 'parecer_turma' } : null, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida });
-    if (!texto) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. O crédito voltou; tente de novo.');
+    if (!texto) throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo.');
     const nome = primeiroNome(al.nome);
     texto = texto.replace(/\{\s*NOME\s*\}/g, nome).replace(/\n{3,}/g, '\n\n');
     await ref.set({ ...base, texto, status: 'rascunho', obs, livre: livreOrig, editado: false, gerado_por: uid, gerado_por_nome: txt(u.nome, 80), gerado_em: FieldValue.serverTimestamp(),

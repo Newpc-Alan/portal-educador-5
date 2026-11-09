@@ -172,6 +172,18 @@ export async function estornarCreditos(db, res) {
   });
 }
 // registra o consumo com o custo real (para o relatório de margem da NEWPC)
+/* ---------------------------------------------------------------- recursos gratuitos com uso justo (nov/2026)
+   Termômetro da turma e parecer: sem crédito (a NEWPC absorve, centavos por uso), com limite diário por professor contra abuso.
+   Devolve uma função para desfazer a contagem se a IA falhar. O administrador não tem limite. */
+export async function usoJustoDiario(db, ctx, chave, padrao) {
+  const lim = Math.max(1, Number(ctx.cfgRaw && ctx.cfgRaw[chave + '_dia']) || padrao);
+  const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10), ref = db.doc(`ia_limite_diario/${ctx.uid}_${dia}`);
+  const n = await db.runTransaction(async t => { const x = await t.get(ref), v = (x.exists ? x.data()[chave] || 0 : 0) + 1;
+    if (v > lim && !ctx.admin) return -1; t.set(ref, { uid: ctx.uid, dia, [chave]: v, em: FieldValue.serverTimestamp() }, { merge: true }); return v; });
+  if (n < 0) return { ok: false, limite: lim, desfazer: async () => {} };
+  return { ok: true, limite: lim, desfazer: () => ref.set({ [chave]: FieldValue.increment(-1) }, { merge: true }).catch(() => {}) };
+}
+
 export async function registrarConsumo(db, ctx, res, info) {
   const cc = cfgCreditos(ctx.cfgRaw), preco = cc.custo_modelo[info.modelo] || cc.custo_modelo['gemini-3.6-flash'];
   const usd = ((info.entrada || 0) / 1e6 * preco[0] + (info.saida || 0) / 1e6 * preco[1] + (info.imagem ? cc.custo_imagem : 0)) * (Number(cc.fator_custo) || 1);

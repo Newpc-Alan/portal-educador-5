@@ -7,7 +7,7 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { contexto, RESERVA_TEXTO, geminiJson } from './portal-ia.js';
-import { reservarCreditos, estornarCreditos, registrarConsumo, cfgCreditos } from './creditos.js';
+import { reservarCreditos, estornarCreditos, registrarConsumo, cfgCreditos, usoJustoDiario } from './creditos.js';
 import { acessoIA, mensagemAcesso } from './ia-acesso.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
@@ -38,7 +38,7 @@ export const aulaIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], 
   // a tela pergunta o que pode mostrar (os botões só aparecem para quem o plano libera)
   if (d.acao === 'acesso') {
     const a = acessoIA('aula_termometro', ctx.ia);
-    return { termometro: a.ok, motivo: a.ok ? '' : mensagemAcesso('aula_termometro', a.motivo), custo: cfgCreditos(ctx.cfgRaw).precos.texto || 1 };
+    return { termometro: a.ok, motivo: a.ok ? '' : mensagemAcesso('aula_termometro', a.motivo), custo: 0 };   // grátis desde nov/2026 (uso justo diário)
   }
 
   if (d.acao === 'termometro') {
@@ -54,7 +54,10 @@ export const aulaIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], 
     if (resp.length < 2) throw new HttpsError('failed-precondition', 'Espere pelo menos 2 respostas para a IA ler a turma.');
     const a = acessoIA('aula_termometro', ctx.ia);
     if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso('aula_termometro', a.motivo));
-    const res = await reservarCreditos(db, ctx, 'texto', { rede: a.via === 'rede' ? true : a.via === 'admin' ? undefined : false });
+    // grátis (nov/2026): sem crédito, com limite diário por professor
+    const uj = await usoJustoDiario(db, ctx, 'termometro', 60);
+    if (!uj.ok) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de ' + uj.limite + ' leituras do Termômetro hoje. Amanhã libera de novo.');
+    const res = { acao: 'termometro' };
     const serie = txt(d.serie, 60), disc = txt(d.disciplina, 60);
     const sistema = 'Você é um professor experiente da educação básica brasileira ajudando um colega DURANTE a aula. Ele fez uma pergunta aberta e a turma respondeu no tablet. ' +
       'Leia todas as respostas e agrupe a turma por nível de entendimento, com olhar pedagógico e gentil. Regras: cada resposta entra em exatamente um grupo; ' +
@@ -64,8 +67,8 @@ export const aulaIa = onCall({ region: 'southamerica-east1', secrets: [GEMINI], 
       '\n\nRespostas da turma (' + resp.length + '):\n' + resp.map((x, i) => (i + 1) + '. ' + x.t).join('\n');
     let r;
     try { r = await geminiJson(GEMINI.value(), [ctx.cfg.modelo_texto, ...RESERVA_TEXTO], sistema, pedido, ESQUEMA, undefined, 60000); }
-    catch (e) { await estornarCreditos(db, res); throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo. Seus créditos não foram descontados.'); }
-    if (!r.json || !Array.isArray(r.json.grupos)) { await estornarCreditos(db, res); await registrarConsumo(db, ctx, null, { modelo: r.modelo, entrada: r.entrada, saida: r.saida }); throw new HttpsError('unavailable', 'A IA não conseguiu ler as respostas. Tente de novo. Seus créditos não foram descontados.'); }
+    catch (e) { await uj.desfazer(); throw new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo.'); }
+    if (!r.json || !Array.isArray(r.json.grupos)) { await uj.desfazer(); await registrarConsumo(db, ctx, null, { modelo: r.modelo, entrada: r.entrada, saida: r.saida }); throw new HttpsError('unavailable', 'A IA não conseguiu ler as respostas. Tente de novo.'); }
     // número da resposta -> chave do aluno (a tela troca pela foto e nome); resposta sem grupo vai para "fora"
     const usados = new Set();
     const grupos = r.json.grupos.filter(g => GRUPOS.includes(g.tipo)).map(g => {
