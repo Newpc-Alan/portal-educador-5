@@ -27,8 +27,8 @@ export async function calcularUsoReal(db, agora = Date.now()) {
   const sem0 = semanaDe(agora), desde = sem0.ini - (SEMANAS - 1) * 7 * 864e5, tsDesde = Timestamp.fromMillis(desde);
   const semanas = []; for (let i = 0; i < SEMANAS; i++) semanas.push(semanaDe(desde + i * 7 * 864e5 + 3600e3));
   // professores ativos cadastrados (base de cálculo)
-  const us = await db.collection('usuarios').where('perfil', '==', 'professor').select('status', 'municipio_id', 'escola_id', 'nome').get();
-  const profs = {}; us.forEach(d => { const u = d.data(); if (u.status === 'ativo') profs[d.id] = { mun: u.municipio_id || 'sem', esc: u.escola_id || '' }; });
+  const us = await db.collection('usuarios').where('perfil', '==', 'professor').select('status', 'municipio_id', 'escola_id', 'nome', 'demo').get();
+  const profs = {}; us.forEach(d => { const u = d.data(); if (u.status === 'ativo' && u.demo !== true) profs[d.id] = { mun: u.municipio_id || 'sem', esc: u.escola_id || '' }; });
   // ações por professor e semana
   const reg = {};   // reg[semana][uid] = {acao: n}
   const conta = (uid, t, acao, n = 1) => { if (!profs[uid] || !t || t < desde) return; const s = semanaDe(t).id; ((reg[s] = reg[s] || {})[uid] = reg[s][uid] || {}); reg[s][uid][acao] = (reg[s][uid][acao] || 0) + n; };

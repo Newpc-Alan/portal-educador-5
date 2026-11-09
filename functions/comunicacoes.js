@@ -109,6 +109,7 @@ async function enviar(db, uid, u, ev) {
 
 export const comunicacaoProfessor = onDocumentWritten({ document: 'usuarios/{uid}', region: REGIAO, secrets: [SMTP_SENHA], maxInstances: 5 }, async ev => {
   const a = ev.data.before.exists ? ev.data.before.data() : null, d = ev.data.after.exists ? ev.data.after.data() : null;
+  if ((d && d.demo === true) || (a && a.demo === true)) return;   // rede de demonstração: nenhuma mensagem
   const m = momentoDe(a, d); if (!m) return;
   await enviar(getFirestore(), ev.params.uid, d, m);
 });

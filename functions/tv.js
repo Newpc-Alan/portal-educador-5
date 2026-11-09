@@ -15,7 +15,7 @@ async function nomeMunicipio(id) { if (!id) return ''; const m = (await getFires
 export const emailTvConectada = onDocumentCreated(
   { document: 'tv_telas/{chave}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA], timeoutSeconds: 60 },
   async (event) => {
-    const t = event.data && event.data.data(); if (!t) return;
+    const t = event.data && event.data.data(); if (!t || t.demo === true) return;
     try {
       const muni = await nomeMunicipio(t.municipio_id);
       const corpo = `<p style="font-size:18px;margin:0 0 12px"><b>${esc(t.nome)}</b></p><table style="font-size:13px;border-collapse:collapse;margin:0 0 16px">

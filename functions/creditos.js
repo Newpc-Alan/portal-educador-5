@@ -292,6 +292,7 @@ export const creditosAdmin = onCall({ region: 'southamerica-east1', secrets: [SM
 // Quem se cadastra sozinho (licença de teste) ganha um pacote de demonstração na carteira própria, válido até o fim do teste.
 // Uma vez por conta e por e-mail (creditos_demo/{e-mail}): apagar e recriar a conta não dá créditos de novo.
 export const creditosDemoTeste = onDocumentCreated({ document: 'usuarios/{uid}', region: REGIAO_FIRESTORE, maxInstances: 5 }, async ev => {
+  if ((ev.data && ev.data.data() || {}).demo === true) return;   // rede de demonstração (SENACOP)
   const u = ev.data && ev.data.data(); if (!u || u.licenca_tipo !== 'teste' || u.perfil !== 'professor') return;   // o município escolhido no autocadastro não importa: teste é teste
   await darDemo(getFirestore(), ev.params.uid, u);
 });

@@ -76,7 +76,7 @@ export const emailNovoCadastro = onDocumentCreated(
   { document: 'usuarios/{uid}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
   async (event) => {
     const snap = event.data; if (!snap) return;
-    const u = snap.data(), uid = event.params.uid;
+    const u = snap.data(), uid = event.params.uid; if (u && u.demo === true) return;   // rede de demonstração: sem e-mail
     // aluno nao gera e-mail individual (podem ser milhares no inicio do ano): entra no resumo diario
     if (u.perfil === 'aluno') return;
     // usuarios da rede de demonstracao (scripts/demo-rede.mjs) nao geram aviso
@@ -128,7 +128,7 @@ const enviar = (assunto, html, extra) => transporte().sendMail({ from: `"Portal 
 export const emailCertificadoEmitido = onDocumentCreated(
   { document: 'certificados/{codigo}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA] },
   async (event) => {
-    const c = event.data && event.data.data(); if (!c) return;
+    const c = event.data && event.data.data(); if (!c || c.demo === true) return;
     const codigo = event.params.codigo;
     try {
       await enviar(`Certificado emitido: ${c.nome || ''} · ${c.cursoTitulo || ''}`, caixa('Certificado emitido na Formação Continuada', '', `
@@ -149,7 +149,7 @@ export const emailRelatorioEnviado = onDocumentWritten(
   async (event) => {
     const antes = event.data.before.exists ? event.data.before.data() : null;
     const r = event.data.after.exists ? event.data.after.data() : null;
-    if (!r || r.status !== 'enviado' || (antes && antes.status === 'enviado')) return;
+    if (!r || r.demo === true || r.status !== 'enviado' || (antes && antes.status === 'enviado')) return;
     try {
       let muni = '';
       if (r.municipio_id) { const m = (await getFirestore().doc(`municipios/${r.municipio_id}`).get()).data() || {}; muni = [m.nome, m.uf].filter(Boolean).join('/'); }
@@ -269,8 +269,9 @@ export const emailResumoDiario = onSchedule(
       conta(db.collection('relatorios').where('criado_em', '>=', desde)),
       conta(db.collection('relatorios').where('status', '==', 'enviado')),
       conta(db.collection('certificados').where('emitidoEm', '>=', desde)),
-      conta(db.collection('acessos_dia').where('dia', '==', ontem)),
-      conta(db.collection('usuarios'))
+      // a rede de demonstração (SENACOP) não entra no resumo
+      Promise.all([conta(db.collection('acessos_dia').where('dia', '==', ontem)), conta(db.collection('acessos_dia').where('dia', '==', ontem).where('demo', '==', true))]).then(([a, b]) => typeof a === 'number' ? a - (typeof b === 'number' ? b : 0) : a),
+      Promise.all([conta(db.collection('usuarios')), conta(db.collection('usuarios').where('demo', '==', true))]).then(([a, b]) => typeof a === 'number' ? a - (typeof b === 'number' ? b : 0) : a)
     ]);
     const dicasPend = await conta(db.collection('dicas_envios').where('status', '==', 'novo'));
     const [alNovos, alTotal, alAcessos, dicasAl, dicasAlPend] = await Promise.all([

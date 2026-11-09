@@ -71,6 +71,7 @@ export function montarRegistro({ caminho, antes, depois, authType, authId }) {
 async function registrar(event) {
   const antes = event.data && event.data.before && event.data.before.exists ? event.data.before.data() : null;
   const depois = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
+  if ((depois && depois.demo === true) || (antes && antes.demo === true)) return;   // rede de demonstração (SENACOP) não entra na auditoria
   const caminho = event.document || (event.data && (event.data.after || event.data.before).ref.path) || '';
   const r = montarRegistro({ caminho, antes, depois, authType: event.authType, authId: event.authId });
   if (r) await getFirestore().collection('auditoria').add(r);

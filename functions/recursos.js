@@ -19,7 +19,7 @@ async function gestoresDaEscola(escolaId) {
 export const emailChamadoTecnico = onDocumentCreated(
   { document: 'rec_chamados/{id}', region: REGIAO_FIRESTORE, secrets: [SMTP_SENHA], timeoutSeconds: 60 },
   async (event) => {
-    const c = event.data && event.data.data(); if (!c) return;
+    const c = event.data && event.data.data(); if (!c || c.demo === true) return;
     try {
       const db = getFirestore();
       const e = c.escola_id ? (await db.doc(`escolas/${c.escola_id}`).get()).data() || {} : { nome: 'Estoque (ainda não entregue)' };
