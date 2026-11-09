@@ -6,6 +6,7 @@
 <script src="/assets/js/erros.js" defer></script>
 <script src="/assets/pde-ditado.js?v=1" defer></script>
 <script src="/assets/pde-credito.js?v=1" defer></script>
+<script src="/assets/pde-pagar.js?v=1" defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Portal do Educador</title>
 <link rel="icon" type="image/png" href="/assets/pde-logo-64.png">
@@ -2661,6 +2662,7 @@
       const lic = licencaDe(usuarioAtual, usuarioAtual._muni);
       // a secretaria responde pelo município inteiro: basta o município; os demais precisam da escola
       if(lic.tipo === "institucional" && (perfil === "secretaria" ? !usuarioAtual.municipio_id : !usuarioAtual.escola_id)){ mostrarEspera(); return; }
+      if(lic.tipo !== "institucional") ligarPagamentoOnline();
       if(lic.vencida){ mostrarExpirada(lic); return; }
       if(lic.tipo !== "institucional"){ menu = MENUS.avulso; usuarioAtual._avulso = true; }
       avisoDeLicenca(lic);
@@ -7362,6 +7364,20 @@
   function somarMesesDias(iso, dias){ const [y,m,d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m-1, d + dias)).toISOString().slice(0,10); }
   const MESES_PLANO = { mensal:1, semestral:6, anual:12, pacote:12, teste:0 };
   function linkWhats(texto){ return "https://wa.me/"+WHATS_NEWPC+"?text="+encodeURIComponent(texto); }
+  // pagamento online pelo Asaas (nov/2026): com o pagamento ligado para a conta, "Assinar" e "Renovar" abrem a compra direta
+  // (assets/pde-pagar.js escuta data-pagar); sem ele, seguem para o WhatsApp da equipe como antes
+  let PAG_ONLINE = null;
+  async function ligarPagamentoOnline(){
+    if(PAG_ONLINE !== null) return;
+    try{
+      const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      const fn = httpsCallable(getFunctions(app, "southamerica-east1"), "pagamentos", { timeout:60000 });
+      const r = (await fn({ acao:"opcoes" })).data;
+      PAG_ONLINE = !!(r && r.ativo);
+      if(PAG_ONLINE && window.PDEPagar) PDEPagar.configurar(fn);
+    }catch(e){ PAG_ONLINE = false; }
+  }
+  document.addEventListener("click", ev => { const a = ev.target.closest("[data-lic-cta]"); if(!a || !PAG_ONLINE || !window.PDEPagar) return; ev.preventDefault(); PDEPagar.abrir("licenca"); });
   function avisoDeLicenca(lic){
     const el = $("avisoLicenca"); el.innerHTML = "";
     if(lic.semFim || lic.dias === null) return;
@@ -7370,7 +7386,7 @@
         ? "Seu teste grátis termina em "+lic.dias+" dia(s), em "+dataDeMs(lic.fim)+"."
         : (lic.tipo === "institucional" ? "O contrato do seu município vence em "+lic.dias+" dia(s)." : "Sua licença vence em "+lic.dias+" dia(s), em "+dataDeMs(lic.fim)+".");
       const cta = lic.tipo === "institucional" ? "" :
-        '<a class="lic-cta" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(usuarioAtual.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar agora" : "Renovar")+'</a>';
+        '<a class="lic-cta" data-lic-cta target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(usuarioAtual.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar agora" : "Renovar")+'</a>';
       el.innerHTML = '<div class="lic-aviso'+(lic.dias<=3?" urgente":"")+'"><span>\u23F3 '+escapeHtml(txt)+'</span>'+cta+'</div>';
     }
   }
@@ -7387,7 +7403,7 @@
         : '<h3>'+(lic.tipo==="teste" ? "Seu teste grátis terminou" : "Sua licença venceu")+'</h3><p>'+(lic.fim ? "Venceu em "+dataDeMs(lic.fim)+". " : "")+'Seu cadastro e seu histórico continuam guardados. Assine ou renove para continuar usando os recursos do Portal.</p>'+
           '<div class="planos-mini"><span>Mensal</span><span>Semestral</span><span>Anual</span><span>Pacote para escola</span></div>')+
       '<div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">'+
-        (inst ? '' : '<a class="btn btn-primary btn-add" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(usuarioAtual.email||"")))+'">Falar com a equipe e assinar</a>')+
+        (inst ? '' : '<a class="btn btn-primary btn-add" data-lic-cta target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(usuarioAtual.email||"")))+'">Falar com a equipe e assinar</a>')+
         '<button class="btn btn-ghost btn-add" data-action="espera-verificar">Já paguei, verificar</button></div></div>';
   }
 
@@ -7513,7 +7529,7 @@
         linha("Tipo", ROTULO_TIPO[lic.tipo] || lic.tipo)+linha("Plano", ROTULO_PLANO[lic.plano] || "")+
         linha("Válida até", lic.semFim ? "Conforme contrato do município" : dataDeMs(lic.fim))+
         (lic.dias !== null && !lic.semFim ? linha("Dias restantes", Math.max(0, lic.dias)) : "")+
-        (inst ? "" : '<a class="btn btn-primary btn-add" style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
+        (inst ? "" : '<a class="btn btn-primary btn-add" data-lic-cta style="margin-top:14px" target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(u.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar" : "Renovar ou mudar de plano")+'</a>')+
       '</div></div></div>';
     if(inst && u.perfil === "professor"){ carregarEscolasCadastro();
       carregarCacheTurmas().then(() => { const g = (cacheTurmas || []).filter(t => t.status !== "inativa" && ehDaGrade(t)), el = $("mcGrade"); if(!el) return;

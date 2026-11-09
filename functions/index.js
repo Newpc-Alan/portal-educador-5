@@ -510,6 +510,7 @@ export { sessaoAparelho } from './sessoes.js';
 export { creditosPedido, creditosAdmin, emailPedidoRecarga, emailAlertaCreditos, creditosDemoTeste, creditosFranquia } from './creditos.js';
 export { leadEscola } from './leads.js';
 export { pareceres } from './pareceres.js';
+export { pagamentos, asaasWebhook, asaasAdmin } from './asaas.js';
 export { coerenciaLicenca } from './licencas.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
 export { whatsappWebhook, whatsappResponder, whatsappTesteModelos, whatsappModelos, whatsappBoasVindas, whatsappTransferir, whatsappEquipe, whatsappRotina } from './whatsapp.js';

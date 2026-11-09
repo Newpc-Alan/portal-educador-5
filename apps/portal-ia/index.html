@@ -9,6 +9,7 @@
 <script src="/assets/pde-pensando.js?v=4" defer></script>
 <script src="/assets/pde-ditado.js?v=1" defer></script>
 <script src="/assets/pde-credito.js?v=1" defer></script>
+<script src="/assets/pde-pagar.js?v=1" defer></script>
 <meta name="theme-color" content="#071621">
 <link rel="icon" href="/assets/pde-logo-64.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -291,6 +292,7 @@ const chamarIA = httpsCallable(getFunctions(app, "southamerica-east1"), "portalI
 const chamar = d => chamarIA(d).catch(e => { if(window.PDECredito) PDECredito.ver(e); throw e; });
 if(window.PDECredito) PDECredito.aoAbastecer = () => abrirCompra();
 const chamarPedido = httpsCallable(getFunctions(app, "southamerica-east1"), "creditosPedido");
+const chamarPagamentos = httpsCallable(getFunctions(app, "southamerica-east1"), "pagamentos", { timeout:60000 });
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 const slug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -617,6 +619,8 @@ function fecharModal(){ const m = $("modal"); if(m) m.remove(); }
 const PACOTES_PADRAO = [{ id:"prof-100", nome:"100 créditos", creditos:100, valor:49.9 }, { id:"prof-300", nome:"300 créditos", creditos:300, valor:129.9 }];
 const brl = v => Number(v || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
 async function abrirCompra(){
+  // pagamento online pelo Asaas (nov/2026): quando estiver ligado para esta conta, a compra é direta; senão segue o pedido à NEWPC
+  try{ const r = (await chamarPagamentos({ acao:"opcoes" })).data; if(r && r.ativo && window.PDEPagar){ PDEPagar.configurar(chamarPagamentos); return PDEPagar.abrir("credito"); } }catch(e){ console.warn("pagamentos:", e.code || e.message); }
   let pac = PACOTES_PADRAO, precos = (E.cota && E.cota.precos) || { texto:1, material:2, imagem:6 };
   try{ const s = await getDoc(doc(db, "config", "portal_ia")); const c = s.exists() ? (s.data().creditos || {}) : {}; if(Array.isArray(c.pacotes_professor) && c.pacotes_professor.length) pac = c.pacotes_professor; }catch(e){ console.warn("pacotes:", e.code); }
   let meus = [];

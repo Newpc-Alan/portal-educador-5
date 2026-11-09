@@ -1,0 +1,63 @@
+# Pagamentos pelo Asaas (nov/2026).
+# acao:
+#   segredos   copia ASAAS_CHAVE e ASAAS_WEBHOOK_TOKEN (segredos do GitHub) para o cofre do Google (Secret Manager). Nada é impresso.
+#   situacao   confere a chave: ambiente (teste ou produção) e o nome da conta no Asaas
+#   webhook    cadastra (ou atualiza) no Asaas o aviso de pagamento apontando para a função asaasWebhook, com o token combinado
+name: Pagamentos Asaas
+
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: "O que fazer"
+        type: choice
+        options: [situacao, segredos, webhook]
+        default: situacao
+
+permissions:
+  contents: read
+
+jobs:
+  asaas:
+    runs-on: ubuntu-latest
+    env:
+      PROJETO: portal-educador-5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependências
+        run: |
+          cd functions && npm ci --silent
+          if [ "${{ inputs.acao }}" = "segredos" ]; then npm i -g firebase-tools@13 --silent; fi
+      - name: Credencial
+        if: inputs.acao == 'segredos'
+        env:
+          CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$CHAVE" ]; then echo "::error::Falta a conta de serviço (FIREBASE_SERVICE_ACCOUNT)."; exit 1; fi
+          printf '%s' "$CHAVE" > "$RUNNER_TEMP/conta.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/conta.json" >> "$GITHUB_ENV"
+      - name: Segredos para o cofre do Google
+        if: inputs.acao == 'segredos'
+        env:
+          ASAAS_CHAVE: ${{ secrets.ASAAS_CHAVE }}
+          ASAAS_WEBHOOK_TOKEN: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
+        run: |
+          umask 077
+          for nome in ASAAS_CHAVE ASAAS_WEBHOOK_TOKEN; do
+            valor="${!nome}"
+            if [ -z "$valor" ]; then echo "::error::$nome não está nos segredos do GitHub."; exit 1; fi
+            printf '%s' "$valor" > "$RUNNER_TEMP/s"
+            firebase functions:secrets:set "$nome" --data-file "$RUNNER_TEMP/s" --project "$PROJETO" --non-interactive --force > /dev/null 2>&1 \
+              && echo "::notice::$nome gravado no cofre" || { echo "::error::não consegui gravar $nome"; rm -f "$RUNNER_TEMP/s"; exit 1; }
+            rm -f "$RUNNER_TEMP/s"
+          done
+          echo "::notice::Depois de trocar um segredo, publique de novo as funções pagamentos, asaasWebhook e asaasAdmin."
+      - name: Situação ou webhook
+        if: inputs.acao != 'segredos'
+        env:
+          ASAAS_CHAVE: ${{ secrets.ASAAS_CHAVE }}
+          ASAAS_WEBHOOK_TOKEN: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
+        run: cd functions && node ../scripts/asaas-situacao.mjs ${{ inputs.acao == 'webhook' && '--webhook' || '' }}
