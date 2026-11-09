@@ -1313,13 +1313,19 @@ const DadosFirebase = {
         try {
         if (!u){ location.replace("/entrar/"); return; }
         E.usuario = u;
-        try { await this.chamar("vincularContaFormacao", {}); }
+        // em paralelo: a liberação da conta (que já traz os cursos da rede) e a leitura do progresso, provas e certificados
+        const atividade = this.carregarAtividade(u.uid).catch(e=>e);
+        let v;
+        try { v = await this.chamar("vincularContaFormacao", {}); }
         catch(e){
           const msg = (e && e.code === "functions/failed-precondition" && e.message) ? e.message : "Não foi possível liberar a Formação Continuada para sua conta.";
           E.bloqueio = msg; E.pronto = true; resolve(); renderizar(); return;
         }
-        await this.carregarCursosDaRede();
-        if (u) await this.carregarUsuario(u.uid);
+        this.juntarCursosDaRede(v);
+        let [, erroAtv] = await Promise.all([this.carregarPerfil(u.uid), atividade]);
+        // certificado antigo que a liberação acabou de ligar a esta conta: lê de novo
+        if (v && v.certificados) erroAtv = await this.carregarAtividade(u.uid).catch(e=>e);
+        if (erroAtv instanceof Error) throw erroAtv;
         else { E.perfil = {}; E.progresso = {}; E.tentativas = {}; E.certificados = []; }
         E.pronto = true;
         resolve();
@@ -1342,15 +1348,14 @@ const DadosFirebase = {
     E.trilhas = ts.docs.map(d=>({ id:d.id, ...d.data() }));
   },
 
-  async carregarCursosDaRede(){
-    try{
-      const r = await this.chamar("cursosDaRede", {});
-      E.redeNome = r.rede || "";
-      if (r.cursos && r.cursos.length){
-        const ids = new Set(E.cursos.map(c=>c.id));
-        E.cursos = [...E.cursos, ...r.cursos.filter(c=>!ids.has(c.id))].sort((a,b)=>(a.ordem||0)-(b.ordem||0));
-      }
-    }catch(e){ console.warn("cursos da rede:", e && e.message); }
+  juntarCursosDaRede(r){
+    if (!r) return;
+    E.redeNome = r.rede || "";
+    const lista = r.cursosRede || r.cursos || [];
+    if (lista.length){
+      const ids = new Set(E.cursos.map(c=>c.id));
+      E.cursos = [...E.cursos, ...lista.filter(c=>!ids.has(c.id))].sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+    }
   },
 
   async lerCurso(id){
@@ -1373,8 +1378,10 @@ const DadosFirebase = {
 
   sortearProva(cursoId){ return this.chamar("sortearProva", { cursoId }); },
 
-  async carregarUsuario(uid){
-    const { doc, getDoc, setDoc, collection, getDocs, query, where, serverTimestamp } = fb.fs;
+  async carregarUsuario(uid){ await this.carregarPerfil(uid); await this.carregarAtividade(uid); },
+  // perfil depois da liberação (a função cria o perfil no primeiro acesso; criar aqui antes dela apagaria os dados da rede)
+  async carregarPerfil(uid){
+    const { doc, getDoc, setDoc, serverTimestamp } = fb.fs;
     const ref = doc(fb.db,"users",uid);
     const s = await getDoc(ref);
     const u = E.usuario || {};
@@ -1387,7 +1394,9 @@ const DadosFirebase = {
                    criadoEm:serverTimestamp(), ultimoAcesso:serverTimestamp() };
       await setDoc(ref, E.perfil);
     }
-
+  },
+  async carregarAtividade(uid){
+    const { collection, getDocs, query, where } = fb.fs;
     const [prog, tent, certs] = await Promise.all([
       getDocs(collection(fb.db,"users",uid,"progresso")),
       getDocs(collection(fb.db,"users",uid,"tentativas")),

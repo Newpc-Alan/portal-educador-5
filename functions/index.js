@@ -371,15 +371,15 @@ export const listarRedesFormacao = onCall(async req=>{
   return {redes:snap.docs.map(d=>({id:d.id,nome:String(d.data().nome||d.id),uf:String(d.data().uf||'')})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'))};
 });
 // cursos exclusivos publicados da rede de quem pede (o catálogo público só lista os abertos a todas as redes)
-export const cursosDaRede = onCall(async req=>{
-  const uid=login(req),u=(await db.doc(`usuarios/${uid}`).get()).data()||{};
-  if(!u.municipio_id || u.status!=='ativo')return {cursos:[]};
+async function cursosDaRedeDe(u){
+  if(!u || !u.municipio_id || u.status!=='ativo')return {cursos:[]};
   const snap=await db.collection('cursos').where('redes','array-contains',u.municipio_id).get();
   const mu=(await db.doc(`municipios/${u.municipio_id}`).get()).data()||{};
   return {rede:[mu.nome,mu.uf].filter(Boolean).join('/'),cursos:snap.docs.filter(d=>d.data().status==='publicado'&&d.data().exclusivo===true).map(d=>{const c=d.data();
     return {id:d.id,titulo:c.titulo,resumo:c.resumo,descricao:c.descricao,nivel:c.nivel,horas:c.horas,ordem:c.ordem,capaURL:c.capaURL||'',quizAtivo:!!c.quizAtivo,
       quizNotaCorte:c.quizNotaCorte,quizTentativasMax:c.quizTentativasMax,quizPorProva:c.quizPorProva,totalAulas:c.totalAulas,trilhas:c.trilhas||[],exclusivo:true,redes:[u.municipio_id]};})};
-});
+}
+export const cursosDaRede = onCall(async req=>{ const uid=login(req); return cursosDaRedeDe((await db.doc(`usuarios/${uid}`).get()).data()); });
 export const excluirCurso = onCall(async req=>{
   const uid=admin(req),cursoId=id(req.data?.cursoId);
   // O que impede apagar é uso real, não histórico. Versão de teste que foi
@@ -445,6 +445,8 @@ export const papelFormacaoPortal = onDocumentWritten('usuarios/{uid}', async ev=
 export const vincularContaFormacao = onCall(async req=>{
   const uid=login(req);
   const u=await exigirLicenca(uid);
+  // os cursos exclusivos da rede vêm junto (uma chamada a menos na abertura da página)
+  const redeP=cursosDaRedeDe(u).catch(()=>({cursos:[]}));
   const perfilRef=db.doc(`users/${uid}`), perfil=(await perfilRef.get()).data();
   // perfil do cursista sempre igual ao cadastro do Portal (município e escola pelos ids); criado no primeiro acesso
   const sinc=await camposDoPortal(db,u);
@@ -469,7 +471,8 @@ export const vincularContaFormacao = onCall(async req=>{
       await b.commit(); movidos++;
     }
   }
-  return { ok:true, certificados:movidos, perfilCriado:!perfil, papelAtualizado };
+  const rede=await redeP;
+  return { ok:true, certificados:movidos, perfilCriado:!perfil, papelAtualizado, rede:rede.rede||'', cursosRede:rede.cursos||[] };
 });
 export { painelUso } from './painel.js';
 export { emailTvConectada, emailComunicadoTv } from './tv.js';
