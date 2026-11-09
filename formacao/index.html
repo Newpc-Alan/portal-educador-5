@@ -2623,6 +2623,14 @@ T.erro404 = msg => `
 --------------------------------------------------------------------------- */
 let limparTela = () => {};
 let renderId = 0;
+// cadastro mínimo para começar um curso (o CPF só é pedido no certificado)
+let aulaPendente = null;
+function faltaCadastro(){
+  const p = E.perfil || {};
+  if (!Object.keys(p).length) return false;   // perfil ainda carregando: não trava
+  const nome = String(p.nome||"").trim();
+  return nome.length < 5 || !nome.includes(" ") || !String(p.municipio||"").trim() || !String(p.escola||"").trim();
+}
 async function renderizar(){
   const atual = ++renderId;
   limparTela(); limparTela = () => {};
@@ -2631,6 +2639,14 @@ async function renderizar(){
   const main = $("#main");
   if (E.bloqueio){
     main.innerHTML = '<section class="bloco"><div class="container" style="max-width:640px"><h2>Acesso indisponível</h2><p>'+esc(E.bloqueio)+'</p><p><a class="btn btn-primario" href="/entrar/">Voltar ao Portal</a></p></div></section>';
+    return;
+  }
+
+  if (r === "aula" && p1 && p2 && E.usuario && !MODO_DEMO && faltaCadastro()){
+    aulaPendente = location.hash;
+    history.replaceState(null, "", "#/curso/" + p1);
+    await renderizar();
+    abrirPerfil("Antes de começar, confirme seu cadastro. Seu nome vai no certificado e a escola entra no acompanhamento da formação.");
     return;
   }
 
@@ -3145,9 +3161,16 @@ $("#btnSalvarPerfil").addEventListener("click", async ()=>{
     nome, cpf, cargo:$("#pfCargo").value, lembretes:$("#pfLembretes").checked,
     ...(E.perfil?.municipio_id ? {} : { municipio:$("#pfMunicipio").value.trim(), escola:$("#pfEscola").value.trim() })
   });
-  alerta("Dados salvos.", "ok", "#msgPerfil");
   atualizarBotaoConta();
-  setTimeout(fecharPerfil, 900);
+  if (aulaPendente && !faltaCadastro()){
+    const ir = aulaPendente; aulaPendente = null;
+    alerta("Cadastro completo. Vamos para a aula.", "ok", "#msgPerfil");
+    setTimeout(()=>{ fecharPerfil(); location.hash = ir; }, 700);
+  } else {
+    if (aulaPendente && faltaCadastro()) return alerta("Falta preencher município e escola para começar o curso.", "atencao", "#msgPerfil");
+    alerta("Dados salvos.", "ok", "#msgPerfil");
+    setTimeout(fecharPerfil, 900);
+  }
   }catch(e){alerta(e.message||"Não foi possível salvar seus dados.","erro","#msgPerfil");}
   finally{botaoPerfil.disabled=false;}
 });
