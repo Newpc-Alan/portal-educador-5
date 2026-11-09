@@ -2,7 +2,8 @@
 # acao:
 #   segredos   copia ASAAS_CHAVE e ASAAS_WEBHOOK_TOKEN (segredos do GitHub) para o cofre do Google (Secret Manager). Nada é impresso.
 #   situacao   confere a chave: ambiente (teste ou produção) e o nome da conta no Asaas
-#   webhook    cadastra (ou atualiza) no Asaas o aviso de pagamento apontando para a função asaasWebhook, com o token combinado
+#   webhook    cadastra (ou atualiza) no Asaas o aviso de pagamento apontando para a função asaasWebhook, com o token combinado.
+#              Sem ASAAS_WEBHOOK_TOKEN no GitHub, gera um token aleatório, grava no cofre do Google e usa no Asaas (ninguém precisa saber).
 name: Pagamentos Asaas
 
 on:
@@ -30,9 +31,9 @@ jobs:
       - name: Dependências
         run: |
           cd functions && npm ci --silent
-          if [ "${{ inputs.acao }}" = "segredos" ]; then npm i -g firebase-tools@13 --silent; fi
+          if [ "${{ inputs.acao }}" != "situacao" ]; then npm i -g firebase-tools@13 --silent; fi
       - name: Credencial
-        if: inputs.acao == 'segredos'
+        if: inputs.acao != 'situacao'
         env:
           CHAVE: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: |
@@ -48,16 +49,28 @@ jobs:
           umask 077
           for nome in ASAAS_CHAVE ASAAS_WEBHOOK_TOKEN; do
             valor="${!nome}"
-            if [ -z "$valor" ]; then echo "::error::$nome não está nos segredos do GitHub."; exit 1; fi
+            if [ -z "$valor" ]; then echo "::warning::$nome não está nos segredos do GitHub: pulado"; continue; fi
             printf '%s' "$valor" > "$RUNNER_TEMP/s"
             firebase functions:secrets:set "$nome" --data-file "$RUNNER_TEMP/s" --project "$PROJETO" --non-interactive --force > /dev/null 2>&1 \
               && echo "::notice::$nome gravado no cofre" || { echo "::error::não consegui gravar $nome"; rm -f "$RUNNER_TEMP/s"; exit 1; }
             rm -f "$RUNNER_TEMP/s"
           done
           echo "::notice::Depois de trocar um segredo, publique de novo as funções pagamentos, asaasWebhook e asaasAdmin."
+      - name: Token do webhook
+        if: inputs.acao == 'webhook'
+        env:
+          TOKEN_GH: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
+        run: |
+          umask 077
+          if [ -n "$TOKEN_GH" ]; then T="$TOKEN_GH"; else T="$(openssl rand -hex 24)"; echo "::notice::Token do webhook gerado automaticamente (não aparece em lugar nenhum)"; fi
+          printf '%s' "$T" > "$RUNNER_TEMP/t"
+          firebase functions:secrets:set ASAAS_WEBHOOK_TOKEN --data-file "$RUNNER_TEMP/t" --project "$PROJETO" --non-interactive --force > /dev/null 2>&1 \
+            && echo "::notice::ASAAS_WEBHOOK_TOKEN gravado no cofre" || { echo "::error::não consegui gravar o token no cofre"; exit 1; }
+          echo "::add-mask::$T"
+          echo "ASAAS_WEBHOOK_TOKEN=$T" >> "$GITHUB_ENV"
+          rm -f "$RUNNER_TEMP/t"
       - name: Situação ou webhook
         if: inputs.acao != 'segredos'
         env:
           ASAAS_CHAVE: ${{ secrets.ASAAS_CHAVE }}
-          ASAAS_WEBHOOK_TOKEN: ${{ secrets.ASAAS_WEBHOOK_TOKEN }}
         run: cd functions && node ../scripts/asaas-situacao.mjs ${{ inputs.acao == 'webhook' && '--webhook' || '' }}
