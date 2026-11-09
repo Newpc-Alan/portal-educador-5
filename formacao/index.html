@@ -1722,9 +1722,15 @@ function podeEmitir(c){
 // capa padrão (fotos com os personagens NEWPC) para curso sem capa própria: pelo tema, ou uma das gerais
 function capaPadrao(c){
   const t = String((c.titulo||"")+" "+(c.resumo||"")).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const ti = String(c.titulo||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  // capa própria por curso (nov/2026): o título manda; sem correspondência, segue a regra por tema
+  const PROPRIAS = [[/lousa com ia/,"fc-lousa-ia"],[/portal do educador do zero/,"fc-portal-zero"],[/portal ia/,"fc-portal-ia"],[/provas e avaliac/,"fc-provas"],
+    [/minhas turmas/,"fc-minhas-turmas"],[/conteudo pronto/,"fc-conteudo-pronto"],[/portal 360|realidade virtual/,"fc-vr-3d"],[/inclusao/,"fc-inclusao"],
+    [/painel da escola/,"fc-painel-escola"],[/gestao escolar/,"fc-gestao-escolar"],[/acervo/,"fc-acervo"],[/htpc|formacao em servico/,"fc-htpc"],[/turma ao vivo|termometro/,"fc-google"]];
+  for (const [re, f] of PROPRIAS) if (re.test(ti)) return "/assets/formacao/" + f + ".webp";
   if (/google|chromebook|classroom|sala de aula on/.test(t)) return "/assets/formacao/fc-google.webp";
   if (/lousa|quadro digital|tela interativa/.test(t)) return "/assets/formacao/fc-lousa.webp";
-  const gerais = ["fc-estudo","fc-oficina","fc-certificado"];
+  const gerais = ["fc-estudo","fc-oficina","fc-certificado","fc-parceria","fc-foco"];
   let h = 0; for (const ch of String(c.id||"")) h = (h*31 + ch.charCodeAt(0)) >>> 0;
   return "/assets/formacao/" + gerais[h % gerais.length] + ".webp";
 }
@@ -1732,19 +1738,19 @@ function capaPadrao(c){
    Some sozinho quando um curso publicado tiver o título com a mesma chave. */
 const EM_BREVE = [
   { id:"lousa", chave:"lousa digital na pratica", titulo:"Lousa Digital na Prática", resumo:"Da aula expositiva à participação dos alunos com a Lousa Interativa do Portal.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-lousa" },
-  { id:"portal-zero", chave:"portal do educador do zero", titulo:"Portal do Educador do zero", resumo:"Primeiro acesso, turmas e rotina: o caminho mais curto para usar o Portal todo dia.", horas:4, nivel:"iniciante", publico:"Professores", capa:"fc-estudo" },
-  { id:"portal-ia", chave:"portal ia na pratica", titulo:"Portal IA na prática", resumo:"Planeje e crie materiais, questões e imagens com a IA do Portal, com controle de créditos.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-oficina" },
-  { id:"provas", chave:"provas e avaliacoes", titulo:"Provas e Avaliações", resumo:"Crie, aplique online, corrija e faça a recuperação sem papel e sem planilha.", horas:8, nivel:"intermediario", publico:"Professores", capa:"fc-certificado" },
+  { id:"portal-zero", chave:"portal do educador do zero", titulo:"Portal do Educador do zero", resumo:"Primeiro acesso, turmas e rotina: o caminho mais curto para usar o Portal todo dia.", horas:4, nivel:"iniciante", publico:"Professores", capa:"fc-portal-zero" },
+  { id:"portal-ia", chave:"portal ia na pratica", titulo:"Portal IA na prática", resumo:"Planeje e crie materiais, questões e imagens com a IA do Portal, com controle de créditos.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-portal-ia" },
+  { id:"provas", chave:"provas e avaliacoes", titulo:"Provas e Avaliações", resumo:"Crie, aplique online, corrija e faça a recuperação sem papel e sem planilha.", horas:8, nivel:"intermediario", publico:"Professores", capa:"fc-provas" },
   { id:"ao-vivo", chave:"turma ao vivo e termometro", titulo:"Turma ao Vivo e Termômetro", resumo:"Participação e avaliação em tempo real: saiba na hora quem entendeu a aula.", horas:4, nivel:"intermediario", publico:"Professores", capa:"fc-google" },
-  { id:"minhas-turmas", chave:"minhas turmas", titulo:"Minhas Turmas no dia a dia", resumo:"Envio de materiais, frequência, notas e pareceres num lugar só.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-estudo" },
-  { id:"conteudo-pronto", chave:"conteudo pronto na aula", titulo:"Conteúdo pronto na aula", resumo:"Vídeos, jogos, histórias, atividades, datas comemorativas e museus virtuais do Portal.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-oficina" },
-  { id:"vr-3d", chave:"portal 360", titulo:"Portal 360º VR e aplicativos 3D", resumo:"Experiências imersivas e simulações 3D para levar a turma aonde o livro não alcança.", horas:4, nivel:"iniciante", publico:"Professores", capa:"fc-google" },
-  { id:"lousa-ia", chave:"lousa com ia", titulo:"Lousa com IA", resumo:"Perguntar, Mapa IA, Passar a limpo, legendas e ditado direto no quadro.", horas:4, nivel:"intermediario", publico:"Professores", capa:"fc-lousa" },
-  { id:"inclusao", chave:"inclusao com os recursos do portal", titulo:"Inclusão com os recursos do Portal", resumo:"Legendas ao vivo, leitura em voz alta e ditado para que todos acompanhem a aula.", horas:4, nivel:"iniciante", publico:"Professores e AEE", capa:"fc-certificado" },
-  { id:"painel-escola", chave:"painel da escola", titulo:"Painel da Escola: gestão com dados", resumo:"Uso do Portal, aprendizagem, frequência e formação da equipe em uma tela.", horas:4, nivel:"iniciante", publico:"Direção e coordenação", capa:"fc-estudo" },
-  { id:"gestao-escolar", chave:"gestao escolar no portal", titulo:"Gestão Escolar no Portal", resumo:"Calendário letivo, comunicados às famílias, portaria e relatórios.", horas:4, nivel:"iniciante", publico:"Direção e secretaria escolar", capa:"fc-oficina" },
-  { id:"acervo", chave:"acervo da rede", titulo:"Acervo da rede", resumo:"Compartilhe o que funciona: materiais da rede organizados para todos os professores.", horas:2, nivel:"iniciante", publico:"Professores e coordenação", capa:"fc-certificado" },
-  { id:"htpc", chave:"formacao em servico", titulo:"Formação em serviço no HTPC", resumo:"Conduza o HTPC com a Formação Continuada e acompanhe a equipe pelo relatório.", horas:2, nivel:"iniciante", publico:"Coordenação pedagógica", capa:"fc-google" }
+  { id:"minhas-turmas", chave:"minhas turmas", titulo:"Minhas Turmas no dia a dia", resumo:"Envio de materiais, frequência, notas e pareceres num lugar só.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-minhas-turmas" },
+  { id:"conteudo-pronto", chave:"conteudo pronto na aula", titulo:"Conteúdo pronto na aula", resumo:"Vídeos, jogos, histórias, atividades, datas comemorativas e museus virtuais do Portal.", horas:8, nivel:"iniciante", publico:"Professores", capa:"fc-conteudo-pronto" },
+  { id:"vr-3d", chave:"portal 360", titulo:"Portal 360º VR e aplicativos 3D", resumo:"Experiências imersivas e simulações 3D para levar a turma aonde o livro não alcança.", horas:4, nivel:"iniciante", publico:"Professores", capa:"fc-vr-3d" },
+  { id:"lousa-ia", chave:"lousa com ia", titulo:"Lousa com IA", resumo:"Perguntar, Mapa IA, Passar a limpo, legendas e ditado direto no quadro.", horas:4, nivel:"intermediario", publico:"Professores", capa:"fc-lousa-ia" },
+  { id:"inclusao", chave:"inclusao com os recursos do portal", titulo:"Inclusão com os recursos do Portal", resumo:"Legendas ao vivo, leitura em voz alta e ditado para que todos acompanhem a aula.", horas:4, nivel:"iniciante", publico:"Professores e AEE", capa:"fc-inclusao" },
+  { id:"painel-escola", chave:"painel da escola", titulo:"Painel da Escola: gestão com dados", resumo:"Uso do Portal, aprendizagem, frequência e formação da equipe em uma tela.", horas:4, nivel:"iniciante", publico:"Direção e coordenação", capa:"fc-painel-escola" },
+  { id:"gestao-escolar", chave:"gestao escolar no portal", titulo:"Gestão Escolar no Portal", resumo:"Calendário letivo, comunicados às famílias, portaria e relatórios.", horas:4, nivel:"iniciante", publico:"Direção e secretaria escolar", capa:"fc-gestao-escolar" },
+  { id:"acervo", chave:"acervo da rede", titulo:"Acervo da rede", resumo:"Compartilhe o que funciona: materiais da rede organizados para todos os professores.", horas:2, nivel:"iniciante", publico:"Professores e coordenação", capa:"fc-acervo" },
+  { id:"htpc", chave:"formacao em servico", titulo:"Formação em serviço no HTPC", resumo:"Conduza o HTPC com a Formação Continuada e acompanhe a equipe pelo relatório.", horas:2, nivel:"iniciante", publico:"Coordenação pedagógica", capa:"fc-htpc" }
 ];
 const semAcento = t => String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
 function emBreve(){
