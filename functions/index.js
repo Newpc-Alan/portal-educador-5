@@ -454,7 +454,11 @@ export const vincularContaFormacao = onCall(async req=>{
     await perfilRef.set({ nome:String(u.nome||req.auth.token.name||'').slice(0,160), email:req.auth.token.email||'',
       municipio:(sinc.municipio||u.municipio_cad||'').slice(0,160), escola:(sinc.escola||u.escola_texto||'').slice(0,240),
       cargo:u.funcao||'Professor(a)', cpf:'', aceiteTermos:'1.0', criadoEm:carimbo(), ...sinc });
-  } else await perfilRef.set(sinc,{merge:true});
+  } else {
+    // perfil antigo sem nome (criado antes do cadastro completo): o nome vem do cadastro do Portal
+    const nomePortal=String(u.nome||req.auth.token.name||'').slice(0,160);
+    await perfilRef.set({ ...sinc, ...(!String(perfil.nome||'').trim() && nomePortal ? { nome:nomePortal } : {}) },{merge:true});
+  }
   // administrador do Portal é administrador da Formação (papel no token, sincronizado aqui e pelo gatilho papelFormacaoPortal)
   const papelAtualizado=await garantirPapelPortal(uid,u);
   let movidos=0;

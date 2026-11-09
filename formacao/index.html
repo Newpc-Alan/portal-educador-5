@@ -1387,7 +1387,10 @@ const DadosFirebase = {
     const u = E.usuario || {};
     if (s.exists()){
       E.perfil = s.data();
-      await setDoc(ref, { email:u.email||"", ultimoAcesso:serverTimestamp() }, { merge:true });
+      // sem nome no perfil: usa o da conta (Google) para não cair em "Olá, professor" e "Minha conta"
+      const semNome = !String(E.perfil.nome||"").trim() && u.displayName ? String(u.displayName).slice(0,160) : "";
+      if (semNome) E.perfil.nome = semNome;
+      await setDoc(ref, { email:u.email||"", ultimoAcesso:serverTimestamp(), ...(semNome ? { nome:semNome } : {}) }, { merge:true });
     } else {
       E.perfil = { nome:u.displayName||"", email:u.email||"", fotoURL:u.photoURL||"",
                    municipio:"", escola:"", cargo:"", aceiteTermos:VERSAO_TERMOS,
