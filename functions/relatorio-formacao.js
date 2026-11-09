@@ -42,7 +42,8 @@ export function agregarFormacao(a) {
   return {
     escopo: a.escopo, rede: a._munNome || '', parado_dias: a.parado_dias,
     totais: { ...t, engajamento_pct: pct((t.pessoas || 0) - (t.nao_comecou || 0), t.pessoas), conclusao_pct: pct(t.concluiu, t.pessoas),
-      praticas_registradas: linhas.reduce((n, l) => n + (l._praticas || 0), 0), professores_que_aplicaram_em_sala: linhas.filter(l => l._aplicou).length },
+      praticas_registradas: linhas.reduce((n, l) => n + (l._praticas || 0), 0),
+      concluiram_ao_menos_um_curso: linhas.filter(l => (l._concluidosIds || []).length || (l.certificados || 0) > 0).length, professores_que_aplicaram_em_sala: linhas.filter(l => l._aplicou).length },
     escolas, cursos, competencias, abandono
   };
 }
@@ -65,7 +66,7 @@ export function pedidoRelatorio(ag) {
 Use APENAS os números fornecidos. Não invente dados, percentuais, metas, leis ou pesquisas. Não cite nomes de pessoas. Pode citar escolas e cursos pelo nome.
 "Práticas registradas" são relatos dos professores sobre a atividade prática das aulas; "aplicaram em sala" conta quem relatou ter feito a atividade com a turma. Isso é evidência de aplicação, destaque quando houver.
 "onde_pararam" mostra em qual aula está quem parou; se várias pessoas param na mesma aula, aponte a aula para revisão.
-"Parado" significa quem começou um curso e não avança há ${ag.parado_dias || 14} dias. "Engajamento" é a parte da equipe que já começou ao menos um curso.
+"Parado" significa quem começou um curso e não avança há ${ag.parado_dias || 14} dias. "Engajamento" é a parte da equipe que já começou ao menos um curso. "concluiram_ao_menos_um_curso" conta quem terminou pelo menos um curso; "concluiu" (em totais e escolas) é só quem terminou tudo o que começou. Use concluiram_ao_menos_um_curso ao falar de conclusão.
 Recomendações práticas e de baixo custo para a realidade da rede pública (horário de planejamento, HTPC, coordenação pedagógica, mensagens às escolas). Frases de até 25 palavras. Não use travessão longo (—).`;
   const pedido = `Dados da Formação Continuada (Portal do Educador)${ag.rede ? ' · ' + ag.rede : ''}:
 ${JSON.stringify({ totais: ag.totais, escolas: ag.escolas, cursos: ag.cursos.map(({ competencias, ...c }) => c), competencias_dos_cursos_concluidos: ag.competencias, onde_pararam: (ag.abandono || []).map(({ cursoId, aulaId, ...x }) => x) })}
