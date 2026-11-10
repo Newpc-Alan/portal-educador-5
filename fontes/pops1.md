@@ -1465,8 +1465,9 @@ Mostrar o Portal funcionando com dados, sem nunca apresentar dado fictício como
 ### Procedimento
 1. Antes do evento, rode a consulta `demo-criar-gravar`. Ela cria a **Rede Municipal de Demonstração** com dados marcados como demonstração.
 2. Confira no Painel da Rede a faixa **Ambiente de demonstração**.
-3. Na apresentação, diga que é uma rede de demonstração. Números reais só de redes que autorizaram.
-4. Depois do evento, rode `demo-apagar` (só conta e confere que nada fora da demonstração está na lista) e, se estiver certo, `demo-apagar-gravar`.
+3. Na TV do estande, abra o link do Painel da TV com **&demo=1** no fim. A vitrine intercala os números reais com 4 telas do **Painel da Secretaria** da rede de demonstração (frequência e busca ativa, aprendizagem por habilidade da BNCC, professores e formação, Termômetro e escolas conectadas), todas com a faixa laranja **Ambiente de demonstração · dados simulados**. No menu, **Painel da Secretaria** vai direto para elas.
+4. Na apresentação, diga que é uma rede de demonstração. Números reais só de redes que autorizaram.
+5. Depois do evento, rode `demo-apagar` (só conta e confere que nada fora da demonstração está na lista) e, se estiver certo, `demo-apagar-gravar`.
 
 ### Pontos de controle
 - ☐ Faixa de demonstração visível em toda tela usada.

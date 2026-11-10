@@ -971,3 +971,4 @@ Botão roxo "Ferramentas IA" na barra de baixo da Lousa (ao lado de Aula IA e Ap
 - 10/11/2026: POPs v2.29 publicados (POP-PDE-32 com quadro Quem pode). Achado: secretaria_escolar abre aula (podeGerar) mas não conduz (equipeTurma nas regras só tem gestor e secretaria); secretaria municipal conduz pelas regras mas não abre. Aguardando decisão do Alan.
 - 10/11/2026: fechado: só professor da turma, gestor e admin abrem/conduzem aula (podeAbrirAula, conduzAula sem secretaria). POPs v2.30.
 - 10/11/2026: POPs v2.31 com logotipo NEWPC no cabeçalho e Portal no rodapé (build.py: MARCAS=1, CAB_TXT; imagens em fontes/marcas).
+- 10/11/2026: Painel da TV com ?demo=1 (telas da Rede de Demonstração; números reais sem os 40 usuários demo). POPs v2.33, Completo v2.58.

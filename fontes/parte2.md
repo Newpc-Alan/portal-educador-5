@@ -864,6 +864,7 @@ Painel ao vivo para a **TV touch da recepção**, em **www.portaldoeducador.com.
 |---|---|---|
 | **Vitrine** (em repouso) | Qualquer visitante | Apresentação automática em 4 telas, trocando a cada 12 s: números ao vivo, redes atendidas (escolas, alunos e IDEB do cadastro de Municípios), o que o professor encontra e o QR do WhatsApp. Embaixo, **Toque na tela para conhecer** |
 | **Menu** (ao tocar) | Qualquer visitante | **Números ao vivo**, **Nossas redes** (toque numa rede para o detalhe), **O que o Portal faz** (toque em cada recurso) e **Fale com a gente**. Sem toque por 60 s, volta para a vitrine |
+| **Demonstração** (link com **&demo=1**) | Qualquer visitante, em eventos | A vitrine intercala 4 telas do Painel da Secretaria da Rede de Demonstração, com a faixa **Ambiente de demonstração · dados simulados** (ver POP-PDE-41). Os números reais nunca somam os usuários da demonstração |
 | **Gestão da equipe** | Só com o **PIN** | Fila e conversas do WhatsApp, equipe, novos cadastros, vencimentos, convites por e-mail saindo, uso de hoje e redes (quem já entrou + convidados). Sem toque por 3 min, volta para a vitrine e pede o PIN de novo |
 
 **Os números da vitrine:**
