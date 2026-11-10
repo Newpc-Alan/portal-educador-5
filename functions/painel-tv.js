@@ -21,7 +21,8 @@ const ts = ms => Timestamp.fromMillis(ms);
 const n = async q => { try { return (await q.count().get()).data().count; } catch (e) { console.warn('painel-tv:', e.message); return null; } };
 const primeiro = s => String(s || '').trim().split(/\s+/)[0] || '';
 
-let CACHE = null, CACHE_EM = 0;
+let CACHE = null, CACHE_EM = 0, CDEMO = null, CDEMO_EM = 0;
+const DEMO = 'demo-rede';
 // convidados que ainda não entraram: pré-cadastro (professor ou equipe, não aluno) cujo e-mail ainda não tem conta.
 // O pré-cadastro continua existindo depois do 1º login, por isso compara os e-mails. Pesado: recalcula a cada 15 min.
 const EDU = ['professor', 'gestor', 'secretaria'];
@@ -50,6 +51,13 @@ async function montar(db) {
     db.collection('comunicados_email').where('status', '==', 'enviando').select('total', 'enviados', 'falhas').get().catch(() => null)
   ]);
   const met = metSn.data() || {};
+  // a Rede de Demonstração (POP-PDE-41, dados simulados) nunca entra nos números reais
+  const dem = { prof: 0, gest: 0, ativos: 0, alunos: 0 };
+  try {
+    (await U.where('municipio_id', '==', DEMO).select('perfil', 'status').get()).forEach(d => { const u = d.data(); if (u.status !== 'ativo') return; dem.ativos++;
+      if (u.perfil === 'professor') dem.prof++; else if (['gestor', 'secretaria'].includes(u.perfil)) dem.gest++; });
+    dem.alunos = (await n(db.collection('alunos').where('municipio_id', '==', DEMO))) || 0;
+  } catch (e) { console.warn('painel-tv demo:', e.message); }
   const conv = await convidadosPendentes(db).catch(e => { console.warn('painel-tv convidados:', e.message); return null; });
   const preTotal = conv ? conv.total : null;
   const [convHoje, chamados, comerciais, cadastrados, pendentes, novosHoje, novosSemana, ativos7, iaHoje, aulasAgora, professores, gestores, novos7,
@@ -81,6 +89,8 @@ async function montar(db) {
     n(db.collection('videos')),
     n(db.collection('provas_online'))
   ]);
+  const menos = (v, k) => v == null ? v : Math.max(0, v - k);
+  const professoresR = menos(professores, dem.prof), gestoresR = menos(gestores, dem.gest), cadastradosR = menos(cadastrados, dem.ativos), alunosR = menos(alunosTot, dem.alunos);
   const comCada = {}; let fila = 0;
   emAt.forEach(d => { const u = d.data().atribuido_uid; if (u) comCada[u] = (comCada[u] || 0) + 1; else fila++; });
   const atendidas = met.atendidas_por || {};
@@ -89,7 +99,7 @@ async function montar(db) {
   // redes ativas (o laboratório fica de fora): escolas, quem já entrou e quem foi convidado e ainda não entrou
   let redes = [];
   if (munSn) {
-    const ms = munSn.docs.filter(d => d.id !== 'lab-muni').slice(0, 40);
+    const ms = munSn.docs.filter(d => d.id !== 'lab-muni' && d.id !== DEMO).slice(0, 40);
     const num = v => (v == null || v === '' || isNaN(Number(v))) ? null : Number(v);
     redes = await Promise.all(ms.map(async d => ({ nome: d.data().nome || '', uf: d.data().uf || '',
       // dados oficiais da rede (Censo/INEP), cadastrados em Municípios
@@ -115,8 +125,8 @@ async function montar(db) {
       alunos_rede: soma(comEscola.map(r => r.censo.alunos)),                                            // alunos das redes atendidas (Censo)
       professores_rede: soma(comEscola.map(r => r.censo.professores)),
       escolas_portal: soma(comEscola.map(r => r.escolas)),
-      educadores: soma([professores, gestores, preTotal]), professores_ativos: professores, convidados: preTotal,
-      alunos: alunosTot, ia_total: iaTotal, recursos: soma([acervoTot, atividadesTot, jogosTot, videosTot]), provas: provasTot,
+      educadores: soma([professoresR, gestoresR, preTotal]), professores_ativos: professoresR, convidados: preTotal,
+      alunos: alunosR, ia_total: iaTotal, recursos: soma([acervoTot, atividadesTot, jogosTot, videosTot]), provas: provasTot,
       redes_lista: comEscola.map(r => ({ nome: r.nome, uf: r.uf, escolas: escRede(r), escolas_portal: r.escolas, alunos: r.censo.alunos, censo_ano: r.censo.ano,
         ideb_ai: r.ideb.ai, ideb_af: r.ideb.af, ideb_ano: r.ideb.ano, educadores: soma([r.professores, r.convidados]) }))
         .sort((a, b) => (b.alunos || 0) - (a.alunos || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
@@ -130,7 +140,7 @@ async function montar(db) {
         chamados_abertos: chamados, comerciais_semana: comerciais,
         satisfacao_pct: met.avaliacoes ? Math.round(100 * (met.nota_3 || 0) / met.avaliacoes) : null, avaliacoes_hoje: met.avaliacoes || 0 },
       equipe,
-      usuarios: { cadastrados, professores, convidados: preTotal, pendentes, novos_hoje: novosHoje, novos_semana: novosSemana, novos_7d: novos7, ativos_7d: ativos7 },
+      usuarios: { cadastrados: cadastradosR, professores: professoresR, convidados: preTotal, pendentes, novos_hoje: novosHoje, novos_semana: novosSemana, novos_7d: novos7, ativos_7d: ativos7 },
       vencimentos: { licencas_amanha: licAmanha, licencas_7d: lic7, contratos_amanha: ctrAmanha, contratos_30d: ctr30 },
       uso: { acessos_hoje: acessosHoje, ia_hoje: iaHoje, aulas_agora: aulasAgora },
       convites,
@@ -138,6 +148,66 @@ async function montar(db) {
     }
   };
 }
+// ---------- Rede de Demonstração (SENACOP, nov/2026): o "painel da Secretaria" com dados SIMULADOS ----------
+// Só vai quando a TV pede ?demo=1 e só existe se a rede demo-rede foi criada (consulta demo-criar-gravar).
+// Nada de nome de pessoa: só totais, escolas fictícias e habilidades BNCC. A TV mostra a faixa "dados simulados".
+// As janelas de tempo contam a partir da data de referência da própria rede (criada como "hoje" na consulta), para não envelhecer.
+const AREA = { MA: 'Matemática', LP: 'Língua Portuguesa', CI: 'Ciências', GE: 'Geografia', HI: 'História' };
+async function montarDemo(db) {
+  const munD = await db.doc('municipios/' + DEMO).get();
+  if (!munD.exists) return null;
+  const mun = munD.data(), DIA = 864e5, ref = mun.criado_em && mun.criado_em.toMillis ? mun.criado_em.toMillis() + 120 * DIA : Date.now();
+  const q = c => db.collection(c).where('municipio_id', '==', DEMO).get();
+  const [escS, frS, avS, rsS, usS, itS, chS, tvS, baS, relS, tmS, uS, ceS, acS] = await Promise.all([q('escolas'), q('freq_resumo'), q('avaliacoes'), q('respostas'),
+    db.collection('usuarios').where('municipio_id', '==', DEMO).get(), q('rec_itens'), q('rec_chamados'), q('tv_telas'), q('busca_ativa'), q('relatorios'),
+    q('termometro_registros'), q('users'), db.collection('certificados').where('demo', '==', true).get(), db.collection('acessos_dia').where('municipio', '==', mun.nome || '').get()]);
+  const escNome = {}; escS.forEach(d => { escNome[d.id] = d.data().nome || ''; });
+  const pct = (a, b) => b ? Math.round(1000 * a / b) / 10 : null;
+  // frequência
+  let aulas = 0, faltas = 0, alunos = 0, risco = 0, atencao = 0; const fe = {};
+  frS.forEach(d => { const x = d.data(), e = fe[x.escola_id] = fe[x.escola_id] || { a: 0, f: 0, al: 0, r: 0 };
+    Object.values(x.alunos || {}).forEach(v => { aulas += v.a || 0; faltas += v.f || 0; alunos++; e.a += v.a || 0; e.f += v.f || 0; e.al++; if (v.r) { risco++; e.r++; } else if (v.at) atencao++; }); });
+  const ba = { aberto: 0, encaminhado: 0, resolvido: 0 }; baS.forEach(d => { const s = d.data().status; if (s in ba) ba[s]++; });
+  // aprendizagem: acerto por habilidade BNCC e por escola (provas corrigidas)
+  const gab = {}; avS.forEach(d => { const m = {}; (d.data().questoes || []).forEach(qq => { const c = (qq.alternativas || []).find(a => a.correta); m[qq.numero] = { bncc: qq.bncc || '', c: c ? c.letra : '' }; }); gab[d.id] = m; });
+  const hab = {}, ae = {}; let ok = 0, tot = 0;
+  rsS.forEach(d => { const r = d.data(), g = gab[r.avaliacao_id]; if (!g) return; const e = ae[r.escola_id] = ae[r.escola_id] || { ok: 0, t: 0 };
+    (r.respostas || []).forEach(x => { const qq = g[x.numero]; if (!qq) return; const h = hab[qq.bncc] = hab[qq.bncc] || { ok: 0, t: 0 }; const certo = x.escolhida === qq.c ? 1 : 0;
+      h.ok += certo; h.t++; e.ok += certo; e.t++; ok += certo; tot++; }); });
+  // professores: uso nos últimos 30 dias e quem entrou na semana
+  const profs = usS.docs.map(d => d.data()).filter(u => u.perfil === 'professor' && u.status === 'ativo');
+  const ativos7 = profs.filter(u => u.ultimo_acesso && u.ultimo_acesso.toMillis() >= ref - 7 * DIA).length;
+  const porDia = {}, mods = {}; acS.forEach(d => { const x = d.data(); porDia[x.dia] = (porDia[x.dia] || 0) + 1; (x.modulos || []).forEach(m => { mods[m] = (mods[m] || 0) + 1; }); });
+  const dias = Object.keys(porDia).sort().slice(-22).map(dia => ({ dia, n: porDia[dia] }));
+  // formação continuada
+  let iniciados = 0, concluidos = 0, praticas = 0;
+  await Promise.all(uS.docs.map(async d => { const [pg, pr] = await Promise.all([d.ref.collection('progresso').get(), d.ref.collection('praticas').get()]);
+    pg.forEach(x => { iniciados++; if (x.data().concluido) concluidos++; }); praticas += pr.size; }));
+  let certificados = 0, horas = 0; ceS.forEach(d => { if (String(d.data().uid || '').startsWith('demo-')) { certificados++; horas += Number(d.data().cargaHoraria || 0); } });
+  // termômetro da turma (só contagens e rótulos)
+  let tmResp = 0, tmEnt = 0, tmPar = 0, tmConf = 0; const conf = {};
+  tmS.forEach(d => { const x = d.data(); tmResp += x.respostas || 0; tmEnt += x.entendeu || 0; tmPar += x.parcial || 0; tmConf += x.confundiu || 0;
+    (x.grupos || []).filter(g => g.tipo === 'confundiu').forEach(g => { const k = (x.disciplina || '') + '|' + (g.titulo || ''); conf[k] = (conf[k] || 0) + (g.n || 0); }); });
+  // escolas conectadas
+  const tipos = {}; itS.forEach(d => { const t = d.data().tipo || 'Outro'; tipos[t] = (tipos[t] || 0) + 1; });
+  let abertos = 0, resolvidos = 0, horasSol = 0; chS.forEach(d => { const x = d.data(); if (x.status === 'resolvido') { resolvidos++; if (x.resolvido_em && x.criado_em) horasSol += (x.resolvido_em.toMillis() - x.criado_em.toMillis()) / 36e5; } else abertos++; });
+  const rel = {}; relS.forEach(d => { const s = d.data().status || ''; rel[s] = (rel[s] || 0) + 1; });
+  return {
+    rede: mun.nome || 'Rede Municipal de Demonstração', escolas: escS.size, turmas: frS.size,
+    frequencia: { alunos, presenca: aulas ? pct(aulas - faltas, aulas) : null, risco, atencao, busca_ativa: ba,
+      escolas: Object.keys(fe).map(id => ({ nome: escNome[id] || id, presenca: fe[id].a ? pct(fe[id].a - fe[id].f, fe[id].a) : null, alunos: fe[id].al, risco: fe[id].r })).sort((a, b) => (b.presenca || 0) - (a.presenca || 0)) },
+    aprendizagem: { provas: avS.size, avaliados: rsS.size, acerto: pct(ok, tot),
+      habilidades: Object.keys(hab).map(k => ({ codigo: k, area: AREA[k.slice(4, 6)] || '', acerto: pct(hab[k].ok, hab[k].t) })).sort((a, b) => a.acerto - b.acerto),
+      escolas: Object.keys(ae).map(id => ({ nome: escNome[id] || id, acerto: pct(ae[id].ok, ae[id].t) })).sort((a, b) => b.acerto - a.acerto) },
+    professores: { total: profs.length, ativos7, acessos30: acS.size, dias, modulos: Object.keys(mods).map(k => ({ id: k, n: mods[k] })).sort((a, b) => b.n - a.n).slice(0, 5) },
+    formacao: { iniciados, concluidos, certificados, horas, praticas },
+    termometro: { leituras: tmS.size, respostas: tmResp, entendeu: pct(tmEnt, tmResp), parcial: pct(tmPar, tmResp), confundiu: pct(tmConf, tmResp),
+      confusoes: Object.keys(conf).map(k => ({ disciplina: k.split('|')[0], titulo: k.split('|')[1], n: conf[k] })).sort((a, b) => b.n - a.n).slice(0, 3) },
+    infra: { equipamentos: itS.size, tipos, tvs: tvS.size, chamados_abertos: abertos, chamados_resolvidos: resolvidos, horas_media: resolvidos ? Math.round(horasSol / resolvidos) : null,
+      relatorios: relS.size, relatorios_aprovados: rel.aprovado || 0 }
+  };
+}
+
 const hashPin = (chave, pin) => createHash('sha256').update(chave + ':' + pin).digest('hex');
 const igual = (a, b) => { const x = Buffer.from(String(a)), y = Buffer.from(String(b)); return x.length === y.length && timingSafeEqual(x, y); };
 
@@ -165,6 +235,10 @@ export const painelTv = onRequest({ region: REGIAO, maxInstances: 3, timeoutSeco
   try {
     if (!CACHE || Date.now() - CACHE_EM > 60e3) { CACHE = await montar(db); CACHE_EM = Date.now(); }
     const out = { gerado_em: CACHE.gerado_em, publico: CACHE.publico, tem_pin: !!cfg.pin_hash };
+    if (req.query.demo === '1') {
+      if (!CDEMO_EM || Date.now() - CDEMO_EM > 5 * 60e3) { CDEMO = await montarDemo(db).catch(e => { console.warn('painel-tv demo:', e.message); return null; }); CDEMO_EM = Date.now(); }
+      if (CDEMO) out.demo = CDEMO;
+    }
     if (gestao) out.gestao = CACHE.gestao;
     if (pinErro) out.pin_erro = pinErro;
     res.json(out);
