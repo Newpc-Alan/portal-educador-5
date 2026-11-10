@@ -7,10 +7,10 @@ const { initializeApp, applicationDefault } = await import(pathToFileURL(req.res
 const { getFirestore } = await import(pathToFileURL(req.resolve('firebase-admin/firestore')).href);
 initializeApp({ credential: applicationDefault(), projectId: 'portal-educador-5' });
 const db = getFirestore();
-const sn = await db.collection('municipios').where('status', '==', 'ativo').get();
+const sn = await db.collection('municipios').get();
 for (const d of sn.docs) {
   const m = d.data(), r = m.rede || {}, i = m.ideb || {};
   const esc = (await db.collection('escolas').where('municipio_id', '==', d.id).count().get()).data().count;
   const alu = (await db.collection('alunos').where('municipio_id', '==', d.id).count().get()).data().count;
-  console.log(`::notice::${d.id} | ${m.nome} | ${m.uf || ''} | tipo=${m.tipo_rede || '-'} | censo esc=${r.escolas ?? '-'} alu=${r.alunos ?? '-'} | ideb=${i.ai ?? '-'}/${i.af ?? '-'} | portal esc=${esc} alu=${alu} | demo=${!!m.demo}`);
+  console.log(`::notice::${d.id} | status=${m.status} | ${m.nome} | ${m.uf || ''} | tipo=${m.tipo_rede || '-'} | censo esc=${r.escolas ?? '-'} alu=${r.alunos ?? '-'} | ideb=${i.ai ?? '-'}/${i.af ?? '-'} | portal esc=${esc} alu=${alu} | demo=${!!m.demo}`);
 }
