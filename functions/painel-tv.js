@@ -47,7 +47,7 @@ async function montar(db) {
     db.collection('wa_equipe').get(),
     C.where('estado', '==', 'atendente').select('atribuido_uid', 'setor').get(),
     db.doc('wa_metricas/' + diaCG(agora)).get(),
-    M.where('status', '==', 'ativo').select('nome', 'uf', 'rede', 'ideb').get().catch(() => null),
+    M.where('status', 'in', ['ativo', 'piloto']).select('nome', 'uf', 'rede', 'ideb', 'tipo_rede', 'status').get().catch(() => null),
     db.collection('comunicados_email').where('status', '==', 'enviando').select('total', 'enviados', 'falhas').get().catch(() => null)
   ]);
   const met = metSn.data() || {};
@@ -101,7 +101,7 @@ async function montar(db) {
   if (munSn) {
     const ms = munSn.docs.filter(d => d.id !== 'lab-muni' && d.id !== DEMO).slice(0, 40);
     const num = v => (v == null || v === '' || isNaN(Number(v))) ? null : Number(v);
-    redes = await Promise.all(ms.map(async d => ({ nome: d.data().nome || '', uf: d.data().uf || '',
+    redes = await Promise.all(ms.map(async d => ({ nome: d.data().nome || '', uf: d.data().uf || '', tipo: d.data().tipo_rede || 'municipal', piloto: d.data().status === 'piloto',
       // dados oficiais da rede (Censo/INEP), cadastrados em Municípios
       censo: { escolas: num((d.data().rede || {}).escolas), alunos: num((d.data().rede || {}).alunos), professores: num((d.data().rede || {}).professores), ano: num((d.data().rede || {}).censo) },
       ideb: { ai: num((d.data().ideb || {}).ai), af: num((d.data().ideb || {}).af), ano: num((d.data().ideb || {}).ano) },
@@ -111,7 +111,8 @@ async function montar(db) {
     redes = redes.sort((a, b) => ((b.professores || 0) + (b.convidados || 0)) - ((a.professores || 0) + (a.convidados || 0)) || (b.escolas || 0) - (a.escolas || 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
   }
   // vitrine: redes com dados oficiais cadastrados (Censo ou IDEB); conta interna sem dado oficial não aparece para o público
-  const comEscola = redes.filter(r => r.censo.escolas || r.censo.alunos || r.ideb.ai || r.ideb.af);
+  // instituições particulares (e estaduais) não têm Censo da rede cadastrado: entram pelas escolas que já estão no Portal
+  const comEscola = redes.filter(r => r.censo.escolas || r.censo.alunos || r.ideb.ai || r.ideb.af || (r.tipo !== 'municipal' && r.escolas));
   const escRede = r => r.censo.escolas || r.escolas || 0;
   const soma = l => l.some(v => v != null) ? l.reduce((a, v) => a + (v || 0), 0) : null;
   const transf = met.transferidas || 0, convites = { total: 0, enviados: 0, falhas: 0 };
@@ -120,14 +121,14 @@ async function montar(db) {
     gerado_em: agora,
     // VITRINE: só totais institucionais (vão para qualquer pessoa que olhar a TV)
     publico: {
-      redes: comEscola.length,
+      redes: comEscola.length, redes_publicas: comEscola.filter(r => r.tipo === 'municipal' || r.tipo === 'estadual').length, particulares: comEscola.filter(r => r.tipo !== 'municipal' && r.tipo !== 'estadual').length,
       escolas: comEscola.length ? comEscola.reduce((a, r) => a + escRede(r), 0) : null,                 // escolas das redes atendidas (Censo; sem Censo, as do Portal)
       alunos_rede: soma(comEscola.map(r => r.censo.alunos)),                                            // alunos das redes atendidas (Censo)
       professores_rede: soma(comEscola.map(r => r.censo.professores)),
       escolas_portal: soma(comEscola.map(r => r.escolas)),
       educadores: soma([professoresR, gestoresR, preTotal]), professores_ativos: professoresR, convidados: preTotal,
       alunos: alunosR, ia_total: iaTotal, recursos: soma([acervoTot, atividadesTot, jogosTot, videosTot]), provas: provasTot,
-      redes_lista: comEscola.map(r => ({ nome: r.nome, uf: r.uf, escolas: escRede(r), escolas_portal: r.escolas, alunos: r.censo.alunos, censo_ano: r.censo.ano,
+      redes_lista: comEscola.map(r => ({ nome: r.nome, uf: r.uf, tipo: r.tipo, escolas: escRede(r), escolas_portal: r.escolas, alunos: r.censo.alunos, censo_ano: r.censo.ano,
         ideb_ai: r.ideb.ai, ideb_af: r.ideb.af, ideb_ano: r.ideb.ano, educadores: soma([r.professores, r.convidados]) }))
         .sort((a, b) => (b.alunos || 0) - (a.alunos || 0) || a.nome.localeCompare(b.nome, 'pt-BR'))
     },

@@ -257,8 +257,8 @@
           <div class="dm" id="d7"></div>
         </div>
         <div class="slide" data-s="1">
-          <h2>Redes que já usam o <em>Portal</em></h2>
-          <p class="sub">Escolas, alunos e IDEB de cada rede (dados oficiais) e educadores com acesso ao Portal</p>
+          <h2>Instituições que já usam o <em>Portal</em></h2>
+          <p class="sub">Redes públicas e escolas particulares: escolas, alunos e IDEB (dados oficiais) e educadores com acesso ao Portal</p>
           <div class="redes-v" id="vRedes"></div>
         </div>
         <div class="slide" data-s="2">
@@ -287,7 +287,7 @@
       <h2>O que você quer <em>ver?</em></h2>
       <div class="menu">
         <button type="button" class="tile grande" data-action="ir" data-pg="pgNumeros" style="background-image:url(/assets/inicio/painel-rede.webp)"><i>📊</i><b>Números ao vivo</b><span>Redes, escolas, educadores e uso da plataforma</span></button>
-        <button type="button" class="tile" data-action="ir" data-pg="pgRedes" style="background-image:url(/assets/inicio/painel-escola.webp)"><i>🏛️</i><b>Nossas redes</b><span>Toque em uma rede para ver os números</span></button>
+        <button type="button" class="tile" data-action="ir" data-pg="pgRedes" style="background-image:url(/assets/inicio/painel-escola.webp)"><i>🏛️</i><b>Instituições atendidas</b><span>Redes públicas e escolas particulares</span></button>
         <button type="button" class="tile" data-action="ir" data-pg="pgRecursos" style="background-image:url(/assets/inicio/portal-ia.webp)"><i>✨</i><b>O que o Portal faz</b><span>Toque em cada recurso</span></button>
         <button type="button" class="tile" data-action="demo-ver" id="tDemo" hidden style="background-image:url(/assets/inicio/painel-rede.webp)"><i>🏫</i><b>Painel da Secretaria</b><span>Rede de demonstração · dados simulados</span></button>
         <button type="button" class="tile" data-action="ir" data-pg="pgContato" style="background-image:url(/assets/inicio/comunicado.webp)"><i>💬</i><b>Fale com a gente</b><span>WhatsApp pelo QR Code</span></button>
@@ -302,8 +302,8 @@
     </section>
 
     <section class="pag" id="pgRedes">
-      <h2>Nossas <em>redes</em></h2>
-      <p class="sub">Toque em uma rede</p>
+      <h2>Instituições <em>atendidas</em></h2>
+      <p class="sub">Toque em uma instituição</p>
       <div class="redes-v" id="iRedes"></div>
     </section>
 
@@ -431,9 +431,9 @@
   // ---------- números da vitrine (só os que existem; nada de zero de vitrine) ----------
   function cartoes(p){
     var l = [
-      [p.redes, "redes municipais atendidas", "verde"],
-      [p.escolas, "escolas nas redes atendidas", "", p.escolas_portal ? fmt(p.escolas_portal) + " já cadastradas no Portal" : ""],
-      [p.alunos_rede, "alunos nas redes atendidas", "verde", "Censo Escolar, informado por cada rede"],
+      [p.redes, "instituições de ensino atendidas", "verde", (p.redes_publicas != null && p.particulares) ? fmt(p.redes_publicas) + " redes públicas · " + fmt(p.particulares) + " escola" + (p.particulares > 1 ? "s" : "") + " particular" + (p.particulares > 1 ? "es" : "") : ""],
+      [p.escolas, "escolas atendidas", "", p.escolas_portal ? fmt(p.escolas_portal) + " já cadastradas no Portal" : ""],
+      [p.alunos_rede, "alunos nas redes públicas atendidas", "verde", "Censo Escolar, informado por cada rede"],
       [p.educadores, "educadores com acesso ao Portal", "", (p.professores_ativos != null && p.convidados != null) ? fmt(p.professores_ativos) + " professores já entraram · " + fmt(p.convidados) + " convidados chegando" : ""],
       [p.ia_total, "materiais criados com o Portal IA", ""],
       [p.recursos, "aulas, atividades, jogos e vídeos no acervo", ""],
@@ -457,7 +457,8 @@
     return lista.slice(0, 12).map(function(r, i){
       var tag = interativo ? 'button type="button" data-action="rede" data-i="' + i + '"' : 'div';
       var l1 = [r.escolas ? '<b>' + fmt(r.escolas) + '</b> escola' + (r.escolas === 1 ? '' : 's') : '', r.alunos ? '<b>' + fmt(r.alunos) + '</b> alunos' : ''].filter(Boolean).join(' · ');
-      return '<' + tag + ' class="rv"><h3>' + esc(r.nome) + '<small>' + esc(r.uf) + '</small></h3>' +
+      var tipo = r.tipo && r.tipo !== "municipal" ? (r.tipo === "estadual" ? "Rede estadual" : "Escola particular") : "";
+      return '<' + tag + ' class="rv"><h3>' + esc(r.nome) + '<small>' + esc(r.uf) + '</small></h3>' + (tipo ? '<p class="id">' + tipo + '</p>' : '') +
         (l1 ? '<p>' + l1 + '</p>' : '') + (ideb(r) ? '<p class="id">' + esc(ideb(r)) + '</p>' : '') +
         (r.educadores ? '<p class="ed">' + fmt(r.educadores) + ' educadores com acesso ao Portal</p>' : '') + '</' + (interativo ? 'button' : 'div') + '>';
     }).join("");
@@ -628,9 +629,9 @@
   function abrirRede(i){
     var r = ((D && D.publico && D.publico.redes_lista) || [])[i]; if(!r) return;
     abrirModal('<h3>' + esc(r.nome) + ' <small style="color:var(--lima);font-size:.45em">' + esc(r.uf) + '</small></h3>' +
-      '<div class="lin"><div><b>' + fmt(r.escolas) + '</b><span>escolas na rede</span></div><div><b>' + fmt(r.alunos) + '</b><span>alunos' + (r.censo_ano ? ' (Censo ' + r.censo_ano + ')' : '') + '</span></div><div>' + (r.educadores ? '<b>' + fmt(r.educadores) + '</b><span>educadores com acesso</span>' : '<b style="font-size:2em;color:var(--lima)">Em implantação</b><span>acesso dos educadores</span>') + '</div></div>' +
+      '<div class="lin"><div><b>' + fmt(r.escolas) + '</b><span>' + (r.tipo && r.tipo !== "municipal" && r.tipo !== "estadual" ? (r.escolas > 1 ? "unidades" : "unidade") : "escolas na rede") + '</span></div>' + (r.alunos ? '<div><b>' + fmt(r.alunos) + '</b><span>alunos' + (r.censo_ano ? ' (Censo ' + r.censo_ano + ')' : '') + '</span></div>' : '') + '<div>' + (r.educadores ? '<b>' + fmt(r.educadores) + '</b><span>educadores com acesso</span>' : '<b style="font-size:2em;color:var(--lima)">Em implantação</b><span>acesso dos educadores</span>') + '</div></div>' +
       (ideb(r) ? '<p><b>' + esc(ideb(r)) + '</b> <small style="color:var(--suave)">(AI: anos iniciais · AF: anos finais)</small></p>' : '') +
-      '<p>Professores e gestão entram com a conta Google da rede e encontram planejamento com IA, aulas para a lousa, provas com correção pelo celular e a gestão da Secretaria num só lugar.</p>');
+      '<p>Professores e gestão entram com a conta Google da ' + (r.tipo && r.tipo !== "municipal" && r.tipo !== "estadual" ? 'escola' : 'rede') + ' e encontram planejamento com IA, aulas para a lousa, provas com correção pelo celular e a gestão da Secretaria num só lugar.</p>');
   }
   function abrirRecurso(i){
     var r = RECURSOS[i]; if(!r) return;
