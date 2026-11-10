@@ -11757,18 +11757,30 @@
       const l = []; s.forEach(d => l.push({ id:d.id, ...d.data() }));
       const novas = PV.vistas ? l.filter(p => !PV.vistas.has(p.id) && p.status === "agendada") : [];
       PV.vistas = new Set(l.map(p => p.id)); PV.lista = l;
-      desenharProvasAluno();
+      desenharProvasAluno(); situacaoProvasAluno();
       if(novas.length) toast("\u{1F4DD} Nova prova: " + (novas[0].titulo || "prova online"));
     }, e => console.warn("provas online:", e.code));
     // a prova "abre em 10 segundos": o card troca sozinho para "Fazer a prova" na hora certa
     clearInterval(PV.relogio); PV.relogio = setInterval(() => { if(!$("iniProvas")){ clearInterval(PV.relogio); if(PV.unsub){ PV.unsub(); PV.unsub = null; } return; } desenharProvasAluno(); }, 5000);
   }
+  // situação do próprio aluno em cada prova (já entregou? está fazendo?): o card não pode oferecer "Fazer a prova" a quem já entregou
+  async function situacaoProvasAluno(){
+    PV.tent = PV.tent || {};
+    const chave = usuarioAtual.aluno_id ? "m-" + usuarioAtual.aluno_id : usuarioAtual.uid, agora = Date.now();
+    const pend = (PV.lista || []).filter(p => p.status === "agendada" && (p.aguardando || msDe(p.fecha_em) >= agora) && PV.tent[p.id] !== "entregue");
+    const res = await Promise.all(pend.map(p => getDoc(doc(db, "provas_online", p.id, "po_tentativas", chave)).then(d => [p.id, d.exists() ? d.data().status || "" : ""]).catch(() => [p.id, PV.tent[p.id] || ""])));
+    let mudou = false; res.forEach(([id, st]) => { if(PV.tent[id] !== st){ PV.tent[id] = st; mudou = true; } });
+    if(mudou) desenharProvasAluno();
+  }
   function desenharProvasAluno(){
     const el = $("iniProvas"); if(!el) return;
+    PV.tent = PV.tent || {};
     const agora = Date.now();
     // na tela inicial só a prova que vai ser feita (aberta, na sala de espera ou marcada); as antigas ficam no Histórico
     const atual = p => p.status === "agendada" && (p.aguardando || msDe(p.fecha_em) >= agora);
-    const l = PV.lista.filter(atual).sort((a, b) => (b.aguardando || msDe(b.abre_em) <= agora) - (a.aguardando || msDe(a.abre_em) <= agora) || msDe(a.abre_em) - msDe(b.abre_em));
+    const feita = p => PV.tent[p.id] === "entregue" || PV.tent[p.id] === "bloqueada";
+    // a que ainda falta fazer vem primeiro; a já entregue fica embaixo, só como aviso
+    const l = PV.lista.filter(atual).sort((a, b) => feita(a) - feita(b) || (b.aguardando || msDe(b.abre_em) <= agora) - (a.aguardando || msDe(a.abre_em) <= agora) || msDe(a.abre_em) - msDe(b.abre_em));
     const antigas = PV.lista.filter(p => p.status === "encerrada" || (p.status === "agendada" && !p.aguardando && msDe(p.fecha_em) < agora)).length;
     PV.antigas = antigas; desenharHistoricos();
     const hist = '';
@@ -11776,15 +11788,16 @@
     const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" }), dd = m => new Date(m).toLocaleDateString("pt-BR", { weekday:"short", day:"2-digit", month:"2-digit" });
     // a primeira prova vira o destaque do tablet (foto, texto grande, botão grande); as demais ficam embaixo, menores
     const linha = (p, destaque) => {
-      const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), espera = !!p.aguardando, aberta = !espera && agora >= ab && agora <= fe, logo = !espera && agora < ab && ab - agora < 120000;
-      const txt = espera ? "O professor vai iniciar: entre e toque em \u201CEstou pronto\u201D" : aberta ? "Aberta até "+hm(fe) : logo ? "Abre em instantes: entre agora" : "Abre "+dd(ab)+" às "+hm(ab);
-      const btn = aberta ? "Fazer a prova" : espera || logo ? "Entrar" : "";
+      const ab = msDe(p.abre_em), fe = msDe(p.fecha_em), st = PV.tent[p.id] || "", entregue = st === "entregue", bloq = st === "bloqueada", fazendo = st === "em_andamento";
+      const espera = !!p.aguardando && !entregue, aberta = !espera && !entregue && agora >= ab && agora <= fe, logo = !espera && !entregue && agora < ab && ab - agora < 120000;
+      const txt = entregue ? "Você já entregou. A nota aparece depois das "+hm(fe) : bloq ? "Prova bloqueada: chame o professor" : espera ? "O professor vai iniciar: entre e toque em \u201CEstou pronto\u201D" : fazendo ? "Você começou: continue até "+hm(fe) : aberta ? "Aberta até "+hm(fe) : logo ? "Abre em instantes: entre agora" : "Abre "+dd(ab)+" às "+hm(ab);
+      const btn = entregue ? "" : bloq ? "Abrir" : fazendo ? "Continuar a prova" : aberta ? "Fazer a prova" : espera || logo ? "Entrar" : "";
       const href = '/prova/?id='+encodeURIComponent(p.id), viva = aberta || espera || logo;
       if(destaque) return '<a class="pv-card pv-hero'+(viva ? " aberta" : "")+'" href="'+href+'"><span class="pv-hero-foto" aria-hidden="true"></span>'+
-        '<span class="pv-hero-tx"><small>'+(espera ? "Sala de espera" : aberta ? "Prova aberta agora" : "Prova de hoje")+'</small><b>'+escapeHtml(p.titulo)+'</b>'+
+        '<span class="pv-hero-tx"><small>'+(entregue ? "\u2705 Prova entregue" : espera ? "Sala de espera" : aberta ? "Prova aberta agora" : "Prova de hoje")+'</small><b>'+escapeHtml(p.titulo)+'</b>'+
         '<em>'+escapeHtml([p.disciplina, p.turma_nome].filter(Boolean).join(" · "))+'</em><span>'+escapeHtml(txt)+'</span></span>'+
-        (btn ? '<span class="pv-hero-btn">'+btn+'</span>' : '<span class="pv-hero-btn pv-trava">\u{1F512} Ainda fechada</span>')+'</a>';
-      return '<a class="pv-card'+(viva ? " aberta" : "")+'" href="'+href+'"><span class="pv-ico">'+(aberta ? "\u{270F}\u{FE0F}" : espera || logo ? "\u{23F3}" : "\u{1F512}")+'</span>'+
+        (btn ? '<span class="pv-hero-btn">'+btn+'</span>' : entregue ? '<span class="pv-hero-btn pv-trava">\u{2705} Entregue</span>' : '<span class="pv-hero-btn pv-trava">\u{1F512} Ainda fechada</span>')+'</a>';
+      return '<a class="pv-card'+(viva ? " aberta" : "")+'" href="'+href+'"><span class="pv-ico">'+(entregue ? "\u{2705}" : aberta ? "\u{270F}\u{FE0F}" : espera || logo ? "\u{23F3}" : "\u{1F512}")+'</span>'+
         '<span class="pv-t"><b>'+escapeHtml(p.titulo)+'</b><small>'+escapeHtml(p.disciplina || "")+' · '+txt+'</small></span>'+(btn ? '<span class="pv-btn">'+btn+'</span>' : '')+'</a>';
     };
     const html = '<div class="pv-faixa">'+linha(l[0], true)+(l.length > 1 ? '<div class="pv-lista">'+l.slice(1).map(p => linha(p, false)).join("")+'</div>' : '')+
