@@ -35,7 +35,10 @@ body:has(#lsFab) .pl-lara{bottom:100px}   /* o botão da Lousa fica no canto: a 
     const nome = String(o.nome || "").trim().split(/\s+/)[0] || "";
     const cargo = String(o.cargo || ROTULO[o.perfil] || "").trim(), escola = String(o.escola || "").trim();
     const msg = "Olá, Lara! Sou " + (o.nome || "do Portal") + (cargo ? " (" + cargo + (escola ? ", " + escola : "") + ")" : "") + ". Estou no Portal do Educador e tenho uma dúvida.";
-    if (!el) { el = document.createElement("div"); el.className = "pl-lara"; el.id = "plLara"; document.body.appendChild(el); el.addEventListener("click", clique); }
+    // dentro: tela que cobre a página inteira (ex.: painel do Gerador de Provas); a Lara fica dentro dela, abaixo das janelas dela
+    const casa = o.dentro || document.body;
+    if (!el) { el = document.createElement("div"); el.className = "pl-lara"; el.id = "plLara"; el.addEventListener("click", clique); }
+    if (el.parentNode !== casa) casa.appendChild(el);
     el.innerHTML = '<div class="pl-balao" id="plBalao" role="status" hidden><button type="button" class="pl-x" data-lara="fechar" aria-label="Fechar mensagem da Lara">✕</button>' +
       '<a href="' + esc(link(msg)) + '" target="_blank" rel="noopener"><b>Olá' + (nome ? ", " + esc(nome) : "") + '! 👋</b>' +
       (cargo ? '<span class="pl-cargo">' + esc(cargo) + (escola ? " · " + esc(escola) : "") + '</span>' : "") +
