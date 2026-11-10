@@ -118,6 +118,8 @@ button{cursor:pointer}
 table.res{width:100%;border-collapse:collapse}
 .res th,.res td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:.88rem}
 .res th{background:#f6f9fc;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.conf{margin:10px 0 0;background:#fff7e6;border:1.5px solid #f3d79b;color:#5a3d00;border-radius:12px;padding:10px 12px;font-size:.9rem;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.conf.ok{background:#eaf6ec;border-color:#b9dcc1;color:#1a5a24}
 .pill{border-radius:99px;padding:2px 10px;font-size:.74rem;font-weight:800;white-space:nowrap;display:inline-block}
 .pill.ok{background:#e9f5dc;color:#3d6b0c}.pill.cinza{background:#eef2f6;color:var(--muted)}.pill.az{background:#e3f1fb;color:#1f5f91}
 
@@ -910,7 +912,23 @@ function desenharResultados(){
     E.alunos.map(a => { const r = E.resp[a.id]; if(!r) return "<tr><td>" + esc(a.nome) + '</td><td>–</td><td>–</td><td><span class="pill cinza">Sem cartão</span></td></tr>';
       const ac = (r.respostas || []).filter(x => { const q = (E.aval.questoes || []).find(qq => qq.numero === x.numero), c = q && (q.alternativas || []).find(al => al.correta); return c && x.escolhida === c.letra; }).length;
       return "<tr><td>" + esc(a.nome) + "</td><td>" + ac + "/" + E.lay.nQ + "</td><td><b>" + fmt(r.nota_objetivas || 0) + "</b></td><td>" + (r.origem === "cartao" ? '<span class="pill ok">Cartão lido</span>' : '<span class="pill az">Respondeu no Portal</span>') + "</td></tr>"; }).join("") +
-    "</tbody></table></div><p class=\"sub\" style=\"margin:8px 0 14px\">As notas já valem no Portal: o Notas e Médias puxa pela opção \"Puxar notas do Corretor\" e o Painel da Rede usa no acerto por habilidade BNCC.</p>" + analiseDaProva(feitos);
+    "</tbody></table></div>" + blocoConferencia(feitos.length) + "<p class=\"sub\" style=\"margin:8px 0 14px\">Depois de conferidas, as notas entram no Notas e Médias pela opção \"Puxar notas do Corretor\" e o Painel da Rede usa no acerto por habilidade BNCC.</p>" + analiseDaProva(feitos);
+}
+/* Conferência do professor (Diretrizes CNE/MEC, nov/2026): a leitura do cartão é automática; a nota só vale depois que o professor
+   confere a tabela e confirma. Fica gravado na prova (quem, quando, quantos cartões) e a Auditoria registra a alteração. */
+function blocoConferencia(n){
+  const c = E.aval.correcao_conferida;
+  if(!n) return "";
+  const novos = c ? n - (c.cartoes || 0) : 0;
+  if(c && novos <= 0) return '<div class="conf ok">✅ Notas conferidas por <b>' + esc(c.por_nome || "professor") + "</b>" + (c.em && c.em.toDate ? " em " + c.em.toDate().toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" }) : "") + " (" + c.cartoes + " cartões).</div>";
+  return '<div class="conf">' + (c ? "⚠️ Há " + novos + " cartão(ões) novo(s) desde a última conferência. " : "") + "<b>Confira as notas acima.</b> A leitura do cartão é automática, a partir do gabarito que você cadastrou; a nota só vale depois da sua conferência. " +
+    '<button class="btn btn-pri btn-sm" data-action="conferir-notas">✅ Conferi as notas</button></div>';
+}
+async function conferirNotas(btn){
+  const n = E.alunos.filter(a => E.resp[a.id]).length; btn.disabled = true;
+  const c = { por:E.user.uid, por_nome:String(E.u.nome || "").slice(0, 80), em:serverTimestamp(), cartoes:n };
+  try{ await updateDoc(doc(db, "avaliacoes", E.aval.id), { correcao_conferida:c }); E.aval.correcao_conferida = { ...c, em:{ toDate:() => new Date() } }; toast("Notas conferidas. Agora elas podem ir para o Notas e Médias."); desenharResultados(); }
+  catch(e){ toast("Não foi possível registrar (" + (e.code || "erro") + ").", true); btn.disabled = false; }
 }
 // por questão (com a alternativa errada mais marcada) e por habilidade (com quem ficou abaixo de 50%)
 function analiseDaProva(feitos){
@@ -1240,7 +1258,7 @@ const ACOES = {
   "camera": () => { E.modoCamera = true; abrirCamera(); }, "parar": () => pararCamera(), "manual": () => digitar(),
   "trocar": a => trocar(a), "salvar": () => salvar(), "descartar": () => { $("confBox").hidden = true; if(E.loteItem){ E.loteItem = null; $("corrigirInicio").hidden = false; ir("lote"); return; } if(E.modoCamera) abrirCamera(); else $("corrigirInicio").hidden = false; },
   "lote-parar": () => { LOTE.parar = true; }, "lote-conferir": a => conferirLote(+a), "lote-substituir": () => substituirLote(), "lote-limpar": () => { LOTE.itens = []; LOTE.paginas = []; desenharLote(); },
-  "exportar": () => exportar(), "analisar": () => analisar(), "exportar-an": () => exportarAnalise(), "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
+  "conferir-notas": (a, b) => conferirNotas(b), "exportar": () => exportar(), "analisar": () => analisar(), "exportar-an": () => exportarAnalise(), "fechar": () => document.querySelectorAll(".modal").forEach(m => m.hidden = true)
 };
 document.addEventListener("click", ev => { const b = ev.target.closest("[data-action]"); if(!b || b.disabled) return; const f = ACOES[b.dataset.action]; if(f) f(b.dataset.arg, b); });
 document.addEventListener("change", ev => {

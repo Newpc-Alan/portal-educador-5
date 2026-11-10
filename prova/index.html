@@ -155,6 +155,17 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .corr-reav textarea{width:100%;margin-top:6px;border:1px solid #e5c47a;border-radius:8px;padding:6px 8px;font:inherit}
 .corr-hist{margin-top:8px;border-top:1px dashed #cfdbe7;padding-top:6px;font-size:.84rem;color:#2c3e55}
 .corr-hist p{margin:3px 0 0}
+.rev-box{text-align:left;margin-top:16px;border-top:1px dashed #cfdbe7;padding-top:12px}
+.rev-box h3{margin:0 0 6px}
+.rev-in{display:block;width:100%;margin:4px 0 10px;border:1px solid #cfd8e3;border-radius:8px;padding:8px;font:inherit}
+.rev-resp{background:#f5f8fb;border-radius:10px;padding:8px 12px;margin:8px 0}
+.rev-resp p{margin:4px 0 0}
+.rev-pn{border:2px solid #f3d79b;background:#fffaf0}
+.rev-pn h3{margin:0 0 8px;color:#7a5200}
+.rev-it{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:flex-start;border-top:1px solid #f0e1b8;padding:8px 0}
+.rev-it p{margin:4px 0 0;color:#33475b}
+.rev-form{flex-basis:100%;display:grid;gap:6px;background:#fff;border-radius:10px;padding:8px 10px}
+.rev-form textarea{width:100%;border:1px solid #cfd8e3;border-radius:8px;padding:6px 8px;font:inherit}
 .corr-par{background:#fff7e6;border:1px solid #f3d79b;color:#7a5200;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:.88rem}
 .corr-chip.par::before{content:"🔎 "}
 /* foto de confirmação */
@@ -576,7 +587,49 @@ function telaEntregue(){
     const obs = qs.map((q, i) => { const x = (r.por_questao || {})[q.id] || {}; return x.comentario || x.lingua ? '<div class="obs"><b>Questão '+(i+1)+'</b>'+(x.manual ? ' · '+String(x.pontos).replace(".", ",")+' de '+q.valor+' pt' : '')+
       (x.comentario ? '<p>💬 '+esc(x.comentario)+'</p>' : '')+(x.lingua ? '<p>✍️ Português: '+esc(x.lingua)+'</p>' : '')+'</div>' : ''; }).join("");
     if(obs) $("nota").insertAdjacentHTML("beforeend", '<div style="text-align:left;margin-top:14px"><h3 style="margin:0 0 6px">Comentários do professor</h3>'+obs+'</div>');
+    if(!r.pendentes){ $("nota").insertAdjacentHTML("beforeend", '<div id="revBox" class="rev-box"></div>'); revisaoAluno(); }
   }).catch(() => {});
+}
+
+/* ---------- pedido de revisão da nota (Diretrizes CNE/MEC: o aluno pode contestar o resultado) ---------- */
+const DEC = { mantida:"Nota mantida", revista:"Nota revista" };
+async function revisaoAluno(){
+  const box = $("revBox"); if(!box) return;
+  let v = null; try{ const s = await getDoc(doc(db, "provas_online", E.prova.id, "po_revisoes", E.chave)); v = s.exists() ? s.data() : null; }catch(e){}
+  const hist = v ? (v.historico || []).concat(v.status === "respondida" ? [v] : []) : [];
+  const resp = hist.filter(x => x.decisao).map(x => '<div class="rev-resp"><b>'+(DEC[x.decisao] || "Respondido")+'</b>'+(x.respondido_por_nome ? ' · '+esc(x.respondido_por_nome) : '')+'<p>'+esc(x.resposta || "")+'</p></div>').join("");
+  if(v && v.status === "aberta"){ box.innerHTML = '<h3>📨 Pedido de revisão enviado</h3><p class="sub">O professor recebeu o seu pedido e vai responder aqui.</p>'+resp; return; }
+  const pode = !v || (v.n || 0) < 2;
+  box.innerHTML = '<h3>Discorda da nota?</h3>'+resp+(pode ? '<p class="sub">Você pode pedir que o professor revise a correção. Explique o motivo.</p>'+
+    '<button class="btn btn-gh" data-action="rev-abrir">📨 Pedir revisão da nota</button><div id="revForm" hidden>'+
+    '<label class="sub" for="revQ">Qual questão (opcional)</label><select id="revQ" class="rev-in"><option value="">A prova toda</option>'+E.prova.questoes.map((q, i) => '<option value="'+q.id+'">Questão '+(i+1)+'</option>').join("")+'</select>'+
+    '<label class="sub" for="revM">Motivo</label><textarea id="revM" class="rev-in" rows="3" maxlength="600" placeholder="Ex.: na questão 3 eu respondi com outras palavras, mas a ideia está certa."></textarea>'+
+    '<button class="btn btn-ok" data-action="rev-enviar">Enviar pedido ao professor</button></div>' : '<p class="sub">Você já fez os 2 pedidos possíveis nesta prova. Converse com o professor ou com a coordenação.</p>');
+}
+async function revisaoEnviar(btn){
+  const m = ($("revM").value || "").trim(); if(m.length < 15){ toast("Explique o motivo com pelo menos 15 letras.", true); $("revM").focus(); return; }
+  btn.disabled = true; btn.textContent = "Enviando...";
+  try{ await chamar("revisaoNotaProva", { id:E.prova.id, acao:"pedir", qid:$("revQ").value, motivo:m }); toast("Pedido enviado ao professor."); revisaoAluno(); }
+  catch(e){ toast(e.message || "Não foi possível enviar.", true); btn.disabled = false; btn.textContent = "Enviar pedido ao professor"; }
+}
+// professor: pedidos abertos no topo do painel
+function blocoRevisoes(){
+  const ab = Object.values(PN.rev || {}).filter(v => v.status === "aberta"); if(!ab.length) return "";
+  const qn = qid => { const i = E.prova.questoes.findIndex(q => q.id === qid); return i >= 0 ? "Questão " + (i + 1) : "A prova toda"; };
+  return '<div class="card rev-pn"><h3>📨 Pedidos de revisão da nota ('+ab.length+')</h3>'+ab.map(v => { const q = E.prova.questoes.find(x => x.id === v.qid), aberta = q && !objetiva(q);
+    return '<div class="rev-it"><div><b>'+esc(v.nome || "Aluno")+'</b> · '+qn(v.qid)+' · nota '+(v.nota ?? "-")+'<p>“'+esc(v.motivo || "")+'”</p></div><div class="acoes">'+
+      (aberta ? '<button class="btn btn-gh btn-sm" data-action="pn-rev-corr" data-arg="'+esc(v.uid)+'" data-q="'+esc(v.qid)+'">✍️ Abrir a correção</button>' : '')+
+      '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+esc(v.uid)+'">📄 Prova do aluno</button><button class="btn btn-ok btn-sm" data-action="pn-rev-resp" data-arg="'+esc(v.uid)+'">Responder</button></div>'+
+      (PN.revResp === v.uid ? '<div class="rev-form"><label><input type="radio" name="revDec" value="mantida" checked> Nota mantida</label><label><input type="radio" name="revDec" value="revista"> Nota revista (faça antes a reavaliação na correção)</label>'+
+        '<textarea id="revTxt" rows="2" maxlength="600" placeholder="Resposta ao aluno (fica registrada)">'+esc(PN.revTxt || "")+'</textarea><button class="btn btn-ok btn-sm" data-action="pn-rev-enviar" data-arg="'+esc(v.uid)+'">Enviar resposta</button></div>' : '')+'</div>'; }).join("")+
+    '<p class="sub">Cada pedido e cada resposta ficam registrados na Auditoria.</p></div>';
+}
+async function revisaoResponder(btn){
+  const t = ($("revTxt").value || "").trim(), dec = (document.querySelector('input[name="revDec"]:checked') || {}).value;
+  if(t.length < 10){ toast("Escreva a resposta ao aluno (pelo menos 10 letras).", true); $("revTxt").focus(); return; }
+  btn.disabled = true;
+  try{ await chamar("revisaoNotaProva", { id:E.prova.id, acao:"responder", uid:btn.dataset.arg, decisao:dec, resposta:t }); PN.revResp = ""; toast("Resposta enviada ao aluno."); }
+  catch(e){ toast(e.message || "Não foi possível responder.", true); btn.disabled = false; }
 }
 
 /* ---------- proteção: avisos e bloqueio ---------- */
@@ -635,6 +688,7 @@ async function painel(id){
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_resultados"), s => { PN.res = {}; s.forEach(d => PN.res[d.id] = d.data()); desenharPainel(); }));
   // sala de espera: quem já entrou e quem tocou em "Estou pronto"
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_sala"), s => { PN.sala = {}; s.forEach(d => PN.sala[d.id] = d.data()); desenharPainel(); }, () => {}));
+  E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_revisoes"), s => { PN.rev = {}; s.forEach(d => PN.rev[d.id] = d.data()); desenharPainel(); }, () => {}));
   clearInterval(PN.timer); PN.timer = setInterval(() => document.querySelectorAll("[data-prazo]").forEach(el => { el.textContent = mmss((+el.dataset.prazo - agora()) / 1000); }), 1000);
 }
 function situacaoAluno(uid){
@@ -683,9 +737,14 @@ function desenharPainel(){
     '</tbody></table>')+'<p class="sub" style="margin-top:12px">Link para os alunos: os alunos da turma veem a prova no Início do Portal. As notas aparecem para eles '+(p.aguardando ? 'quando a prova terminar' : 'depois das '+hora(ms(p.fecha_em)))+'.'+
     ' <button class="btn btn-gh btn-sm" data-action="pn-copiar" style="margin-left:6px">🔗 Copiar link da prova (para o Portal Maestro)</button></p>'+
     '<div class="acoes" style="margin-top:10px"><button class="btn btn-gh btn-sm" data-action="pn-rel-turma">🖨️ Relatórios da turma (todos que fizeram)</button><button class="btn btn-gh btn-sm" data-action="pn-auditoria">⬇️ Auditoria (planilha CSV)</button>'+(p.fotos ? '<button class="btn btn-gh btn-sm" data-action="pn-fotos">📸 Fotos de confirmação</button>' : '')+'</div>';
+  const rv = blocoRevisoes(), barra = $("tela").querySelector(".pn-barra"); if(rv && barra) barra.insertAdjacentHTML("beforebegin", rv);
   const pendTotal = Object.values(PN.res).reduce((t, r) => t + (r.pendentes || 0), 0), temAbertas = p.questoes.some(q => !["multipla", "vf"].includes(q.tipo));
   // a função de correção ainda não foi publicada no servidor: mostra o aviso no lugar do botão (troca para true na publicação)
   if(temAbertas && Object.keys(PN.res).length && !CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<span class="btn btn-gh btn-sm" aria-disabled="true" style="cursor:default;opacity:.75">✍️ Correção das questões abertas: em ativação</span>');
+  // só objetivas (Diretrizes CNE/MEC): a correção é automática pelo gabarito, mas a nota só vai para o Notas e Médias depois da conferência do professor
+  if(!temAbertas && Object.keys(PN.res).length && provaTerminou()) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", E.prova.correcao_finalizada
+    ? '<span class="chip c-ent">✅ Notas conferidas'+(E.prova.correcao_finalizada_por ? ' por '+esc(E.prova.correcao_finalizada_por) : '')+'</span>'
+    : '<button class="btn btn-ok btn-sm" data-action="pn-conferir-obj">✅ Conferi as notas e finalizo</button>');
   if(temAbertas && Object.keys(PN.res).length && CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">'+(E.prova.correcao_finalizada ? "🔒 Correção finalizada · rever" : "✍️ Corrigir questões abertas"+(pendTotal ? " ("+pendTotal+" para corrigir)" : ""))+'</button>');
 }
 // ordem de atenção: bloqueados primeiro, depois quem saiu da tela, quem está fazendo (menos avançado antes), sala, não entrou, entregou
@@ -876,6 +935,12 @@ async function salvarCorrecao(btn){
     }, 900);
   }catch(e){ toast(e.message || "Não foi possível salvar.", true); btn.disabled = false; btn.textContent = rot; }
 }
+async function conferirObjetivas(btn){
+  if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = "Conferiu a tabela de notas? Toque de novo para finalizar"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "✅ Conferi as notas e finalizo"; } }, 5000); return; }
+  btn.disabled = true;
+  try{ await chamar("corrigirProvaOnline", { id:E.prova.id, finalizar:true }); toast("Notas conferidas e finalizadas. Agora podem ir para o Notas e Médias."); }
+  catch(e){ toast(e.message || "Não foi possível finalizar.", true); btn.disabled = false; delete btn.dataset.confirma; btn.textContent = "✅ Conferi as notas e finalizo"; }
+}
 async function finalizarCorrecao(btn){
   if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = "Finalizar? Depois, mudar nota exige justificativa. Toque de novo"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "🔒 Finalizar correção"; } }, 5000); return; }
   btn.disabled = true; btn.textContent = "Finalizando...";
@@ -988,6 +1053,7 @@ async function acao(dados, btn){
   finally{ if(btn) btn.disabled = false; }
 }
 
+document.addEventListener("input", e => { if(e.target && e.target.id === "revTxt") PN.revTxt = e.target.value; });
 /* =================== AÇÕES =================== */
 document.addEventListener("click", e => {
   const el = e.target.closest("[data-action]"); if(!el) return;
@@ -1000,6 +1066,12 @@ document.addEventListener("click", e => {
   else if(a === "pn-corrigir"){ if(CORRECAO_NO_AR) abrirCorrecao(); }
   else if(a === "corr-q"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; CO.uid = ""; abrirCorrecao(arg); }
   else if(a === "corr-pt") marcarPontos(arg);
+  else if(a === "rev-abrir"){ const f = $("revForm"); if(f){ f.hidden = false; el.hidden = true; $("revM").focus(); } }
+  else if(a === "rev-enviar") revisaoEnviar(el);
+  else if(a === "pn-conferir-obj") conferirObjetivas(el);
+  else if(a === "pn-rev-corr"){ CO.uid = ""; abrirCorrecao(el.dataset.q, arg); }
+  else if(a === "pn-rev-resp"){ PN.revResp = PN.revResp === arg ? "" : arg; PN.revTxt = ""; desenharPainel(); const t = $("revTxt"); if(t) t.focus(); }
+  else if(a === "pn-rev-enviar") revisaoResponder(el);
   else if(a === "corr-salvar") salvarCorrecao(el);
   else if(a === "corr-reavaliar") liberarReavaliacao(el);
   else if(a === "corr-finalizar") finalizarCorrecao(el);

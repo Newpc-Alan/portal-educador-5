@@ -751,12 +751,14 @@ async function abrirImportar(){
   const fim = x => x.status === "encerrada" || (x.fecha_em && x.fecha_em.toMillis && x.fecha_em.toMillis() < Date.now());
   const htmlPo = po.map(x => { const rec = !!x.recuperacao_de, feito = ja.has("po:" + x.id) || jaRec.has(x.id), semOrig = rec && !ja.has("po:" + x.recuperacao_de), naoVale = x.vale_nota === false;
     // já puxada: pode puxar de novo para atualizar (o professor corrigiu as questões abertas depois)
-    return '<button data-action="importar-po" data-arg="' + esc(x.id) + '"' + (semOrig || naoVale ? " disabled" : "") + "><b>" + (feito && !naoVale ? "🔄 " : "📡 ") + esc(x.titulo) + "</b>" + seloClassif(x) + "<small>" +
-      esc([rec ? "recuperação: atualiza a coluna da prova original (vale a maior)" : x.finalidade === "recuperacao" ? "entra na coluna de recuperação do período" : "prova online", "vale " + fmt(x.total_pontos, 2) + " pontos", fim(x) ? "" : "ainda aberta", feito ? "já puxada: toque para atualizar as notas" : semOrig ? "puxe antes a prova original" : ""].filter(Boolean).join(" · ")) + "</small></button>"; }).join("");
+    // Diretrizes CNE/MEC (nov/2026): nota de correção automática só entra depois de o professor conferir e finalizar a correção
+    const semConf = !x.correcao_finalizada;
+    return '<button data-action="importar-po" data-arg="' + esc(x.id) + '"' + (semOrig || naoVale || semConf ? " disabled" : "") + "><b>" + (feito && !naoVale ? "🔄 " : "📡 ") + esc(x.titulo) + "</b>" + seloClassif(x) + "<small>" +
+      esc([rec ? "recuperação: atualiza a coluna da prova original (vale a maior)" : x.finalidade === "recuperacao" ? "entra na coluna de recuperação do período" : "prova online", "vale " + fmt(x.total_pontos, 2) + " pontos", fim(x) ? "" : "ainda aberta", semConf ? "finalize a correção no painel da prova para puxar as notas" : feito ? "já puxada: toque para atualizar as notas" : semOrig ? "puxe antes a prova original" : ""].filter(Boolean).join(" · ")) + "</small></button>"; }).join("");
   l.sort((a, b) => (a.bimestre || 0) - (b.bimestre || 0) || String(a.titulo).localeCompare(String(b.titulo), "pt-BR"));
   l.forEach(a => { a.periodo = a.periodo || a.bimestre; });
-  $("listaImp").innerHTML = (htmlPo ? '<p class="sub" style="margin:4px 0">Provas online</p>' + htmlPo + '<p class="sub" style="margin:10px 0 4px">Corretor de Gabarito</p>' : "") + (l.length ? l.map(a => '<button data-action="importar-av" data-arg="' + esc(a.id) + '"' + (ja.has(a.id) || jaRec.has(a.id) || a.vale_nota === false ? " disabled" : "") + "><b>" + esc(a.titulo) + "</b>" + seloClassif(a) + "<small>" +
-    esc([a.disciplina, "vale " + fmt(a.total_pontos, 2) + " pontos", ja.has(a.id) ? "já puxada" : ""].filter(Boolean).join(" · ")) + "</small></button>").join("")
+  $("listaImp").innerHTML = (htmlPo ? '<p class="sub" style="margin:4px 0">Provas online</p>' + htmlPo + '<p class="sub" style="margin:10px 0 4px">Corretor de Gabarito</p>' : "") + (l.length ? l.map(a => '<button data-action="importar-av" data-arg="' + esc(a.id) + '"' + (ja.has(a.id) || jaRec.has(a.id) || a.vale_nota === false || !a.correcao_conferida ? " disabled" : "") + "><b>" + esc(a.titulo) + "</b>" + seloClassif(a) + "<small>" +
+    esc([a.disciplina, "vale " + fmt(a.total_pontos, 2) + " pontos", ja.has(a.id) ? "já puxada" : !a.correcao_conferida ? "confira as notas no Corretor (Resultados) para puxar" : ""].filter(Boolean).join(" · ")) + "</small></button>").join("")
     : '<p class="sub">Nenhuma prova desta turma corrigida no Corretor de Gabarito ainda.</p>');
   E.impLista = l;
 }

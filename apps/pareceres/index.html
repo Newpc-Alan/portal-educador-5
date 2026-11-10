@@ -77,8 +77,11 @@ button{cursor:pointer}
 .vazio b{display:block;color:var(--ink);font-size:1.05rem;margin-bottom:4px}
 .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);opacity:0;z-index:99;background:var(--escuro-2);color:#fff;padding:11px 18px;border-radius:12px;font-size:.88rem;font-weight:600;transition:.2s;pointer-events:none;max-width:92vw;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%)}.toast.err{background:var(--red)}
+.revi{display:flex;gap:10px;align-items:flex-start;background:#eef6ff;border:1.5px solid #b9d4ee;border-radius:12px;padding:10px 12px;margin:10px 0 0;font-size:.92rem;color:#0f2c4a;cursor:pointer}
+.revi input{width:20px;height:20px;margin-top:2px;flex:0 0 auto}
 @media (max-width:640px){ .txt{min-height:360px} }
 </style>
+<script src="/assets/pde-ia-errou.js" defer></script>
 </head>
 <body>
 <div class="app">
@@ -156,7 +159,7 @@ async function abrir(){
     const r = (await fn({ acao:"dados", turma_id:tid, ano:ANO, periodo:p })).data;
     if(r.periodos && r.periodos !== $("selPer").options.length){ periodos(r.periodos, Math.min(p, r.periodos)); }
     E.dados = r;
-    E.al = r.alunos.map(a => ({ ...a, obs:a.salvo ? [...(a.salvo.obs || [])] : [], livre:a.salvo ? a.salvo.livre || "" : "", texto:a.salvo ? a.salvo.texto : "", status:a.salvo ? a.salvo.status : "", marcado:!a.salvo, sujo:false }));
+    E.al = r.alunos.map(a => ({ ...a, obs:a.salvo ? [...(a.salvo.obs || [])] : [], livre:a.salvo ? a.salvo.livre || "" : "", texto:a.salvo ? a.salvo.texto : "", status:a.salvo ? a.salvo.status : "", com_ia:!!(a.salvo && a.salvo.com_ia), aprovado_por_nome:a.salvo ? a.salvo.aprovado_por_nome || "" : "", aprovado_em:a.salvo ? a.salvo.aprovado_em || 0 : 0, marcado:!a.salvo, sujo:false }));
     $("infoPer").textContent = r.periodo.rotulo + ": " + dataBR(r.periodo.inicio) + " a " + dataBR(r.periodo.fim) + (r.periodo.do_calendario ? " (calendário da rede)" : " (sem calendário da rede cadastrado: datas de costume)") + " · " + r.alunos.length + " alunos";
     $("passos").hidden = !E.al.length; E.sel = 0;
     ir(E.al.some(a => a.texto) && E.etapa !== "dados" ? E.etapa : "dados");
@@ -209,7 +212,7 @@ async function gerar(){
     $("progTxt").textContent = "Escrevendo o parecer de " + x.a.nome.split(" ")[0] + " (" + (k + 1) + " de " + fila.length + ")...";
     try{
       const r = (await fn({ acao:"gerar", turma_id:E.turma.id, ano:ANO, periodo:E.per, aluno_id:x.a.id, obs:x.a.obs, livre:x.a.livre })).data;
-      Object.assign(x.a, { texto:r.texto, status:"rascunho", marcado:false, sujo:false }); ok++;
+      Object.assign(x.a, { texto:r.texto, status:"rascunho", com_ia:true, marcado:false, sujo:false }); ok++;
     }catch(e){ falha++; console.warn("gerar:", e.code, e.message);
       if(e.code === "functions/resource-exhausted" || e.code === "functions/failed-precondition"){ toast(e.message, true); break; } }
     $("progBar").style.width = Math.round((k + 1) / fila.length * 100) + "%";
@@ -231,15 +234,19 @@ function telaRevisao(){
     '<div class="chips">' + chipsDados(a) + (a.obs.length ? '<span class="dado d-cinza">' + esc(a.obs.map(k => E.dados.obs[k]).join(", ")) + "</span>" : "") + "</div>" +
     (!a.medias.length && !a.habilidades.length ? '<div class="aviso amarelo">Sem nota e sem prova no período: o rascunho fala só da frequência e das suas observações, sem inventar desempenho.</div>' : "") +
     '<label for="txtPar" class="sub" style="font-weight:700">Texto do parecer (edite à vontade)</label><textarea id="txtPar" class="txt">' + esc(a.texto) + "</textarea>" +
+    (a.com_ia ? '<label class="revi"><input type="checkbox" id="revisei"' + (a.status === "aprovado" ? " checked" : "") + '> <span><b>Li e revisei este parecer.</b> O texto foi elaborado com apoio de IA e só vale com a minha aprovação (Diretrizes CNE/MEC).</span></label>' : "") +
     '<div class="acoes"><button type="button" class="btn btn-ok" data-action="aprovar">' + (a.status === "aprovado" ? "Aprovado · salvar mudanças" : "Aprovar parecer") + '</button><button type="button" class="btn btn-gh" data-action="salvar-rasc">Salvar rascunho</button>' +
     '<button type="button" class="btn btn-gh" data-action="regerar">Gerar de novo</button><button type="button" class="btn btn-cl" data-action="proximo">Próximo aluno</button></div>' +
-    '<p class="sub">A IA recebeu só "o aluno" com números, habilidades e as suas observações: nenhum nome, CPF ou dado de saúde. Aprovado, o parecer vai para a Central de Relatórios, onde a coordenação confere.</p></article></div>';
+    '<p class="sub">A IA recebeu só "o aluno" com números, habilidades e as suas observações: nenhum nome, CPF ou dado de saúde. Aprovado, o parecer vai para a Central de Relatórios, onde a coordenação confere.</p>' +
+    (a.com_ia && window.PDEIaErrou ? '<div style="margin-top:6px">' + PDEIaErrou.botao("parecer", E.turma.id + ":" + E.per) + "</div>" : "") + "</article></div>";
 }
 async function salvar(aprovar){
   const a = E.al[E.sel], texto = $("txtPar").value.trim();
   if(texto.length < 40){ toast("O parecer está curto demais.", true); return; }
-  try{ const r = (await fn({ acao:"salvar", turma_id:E.turma.id, ano:ANO, periodo:E.per, aluno_id:a.id, texto, aprovar, obs:a.obs, livre:a.livre })).data;
-    a.texto = texto; a.status = r.status; a.sujo = false;
+  const revisado = !!($("revisei") && $("revisei").checked);
+  if(aprovar && a.com_ia && !revisado){ toast('Leia o parecer e marque "Li e revisei este parecer" antes de aprovar.', true); $("revisei").focus(); return; }
+  try{ const r = (await fn({ acao:"salvar", turma_id:E.turma.id, ano:ANO, periodo:E.per, aluno_id:a.id, texto, aprovar, revisado, obs:a.obs, livre:a.livre })).data;
+    a.texto = texto; a.status = r.status; a.sujo = false; if(aprovar){ a.aprovado_por_nome = (E.u && E.u.nome) || a.aprovado_por_nome; a.aprovado_em = Date.now(); }
     toast(aprovar ? "Parecer de " + a.nome.split(" ")[0] + " aprovado." : "Rascunho salvo.");
     if(aprovar){ const prox = E.al.findIndex((x, i) => i > E.sel && x.texto && x.status !== "aprovado"); if(prox >= 0) E.sel = prox; }
     telaRevisao();
@@ -249,7 +256,7 @@ async function regerar(){
   const a = E.al[E.sel];
   if(!confirm("Gerar de novo o parecer de " + a.nome.split(" ")[0] + "? O texto atual é substituído.")) return;
   const b = document.querySelector('[data-action="regerar"]'); b.disabled = true; b.textContent = "Escrevendo...";
-  try{ const r = (await fn({ acao:"gerar", turma_id:E.turma.id, ano:ANO, periodo:E.per, aluno_id:a.id, obs:a.obs, livre:a.livre })).data; a.texto = r.texto; a.status = "rascunho"; toast("Novo rascunho pronto."); }
+  try{ const r = (await fn({ acao:"gerar", turma_id:E.turma.id, ano:ANO, periodo:E.per, aluno_id:a.id, obs:a.obs, livre:a.livre })).data; a.texto = r.texto; a.status = "rascunho"; a.com_ia = true; toast("Novo rascunho pronto."); }
   catch(e){ toast(e.message || "Não deu certo; tente de novo.", true); }
   telaRevisao();
 }
@@ -295,6 +302,9 @@ async function pdf(){
     pdfD.setDrawColor(90, 110, 130); pdfD.setFontSize(9); pdfD.setTextColor(60, 80, 100);
     [["Professor(a)", 12], ["Coordenação pedagógica", 111]].forEach(([n, xx]) => { pdfD.line(xx, y, xx + 87, y); pdfD.text(n, xx + 43.5, y + 5, { align:"center" }); });
     pdfD.setFontSize(9.5); pdfD.text("Responsável: _______________________________________   Data: ____/____/______", 12, y + 18);
+    // Diretrizes CNE/MEC: transparência sobre o apoio da IA e sobre quem validou
+    pdfD.setFontSize(8); pdfD.setTextColor(90, 105, 120);
+    pdfD.text(pdfTx((a.com_ia ? "Elaborado com apoio de inteligência artificial, revisado e aprovado" : "Escrito e aprovado") + " pelo(a) professor(a)" + (a.aprovado_por_nome ? " " + a.aprovado_por_nome : "") + (a.aprovado_em ? " em " + new Date(a.aprovado_em).toLocaleDateString("pt-BR") : "") + "."), 12, y + 26);
   });
   const n = pdfD.getNumberOfPages(), quando = new Date().toLocaleDateString("pt-BR");
   for(let i = 1; i <= n; i++){ pdfD.setPage(i); pdfD.setFont("helvetica", "normal"); pdfD.setFontSize(7.5); pdfD.setTextColor(110, 130, 150);

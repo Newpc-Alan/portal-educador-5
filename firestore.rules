@@ -1116,6 +1116,11 @@ service cloud.firestore {
           || (souTentativa(uid) && ((provaOnline(id).fecha_em < request.time && provaOnline(id).get("notas", "fim") != "reter") || provaOnline(id).get("nota_liberada", false) == true))));
         allow write: if false;
       }
+      // pedido de revisão da nota: o aluno lê o próprio pedido e a resposta; o professor da prova lê todos; só a função grava
+      match /po_revisoes/{uid} {
+        allow read: if admin() || (logado() && (souTentativa(uid) || provaOnline(id).professor_uid == request.auth.uid));
+        allow write: if false;
+      }
       // sala de espera ("aplicar agora"): o aluno avisa que entrou e está pronto; o professor vê quem já está na sala antes de iniciar
       match /po_sala/{uid} {
         allow read: if admin() || (logado() && (souTentativa(uid) || provaOnline(id).professor_uid == request.auth.uid));
@@ -1478,6 +1483,8 @@ service cloud.firestore {
     // perguntas que a Lara não soube responder: a equipe vê; o administrador marca como resolvida (completou o manual)
     // relatórios de execução contratual emitidos (números + parecer): só o administrador lê; quem grava é a função
     match /relatorios_execucao/{id} { allow read: if admin(); allow write: if false; }
+    // "A IA errou aqui" (Diretrizes CNE/MEC: acompanhar erros e vieses): grava só a função iaFeedback; o administrador lê e marca como tratado
+    match /ia_feedback/{id} { allow read: if admin(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "tratado_em", "tratado_por"]) && request.resource.data.status in ["novo", "tratado", "ignorado"]; allow create, delete: if false; }
     match /wa_sem_resposta/{id} { allow read: if admin() || waEquipe(); allow update: if admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "resolvido_em", "resolvido_por"]) && request.resource.data.status in ["aberta", "resolvida", "ignorada"]; allow create, delete: if false; }
     // chave do painel da TV: só as funções leem e gravam (o administrador pega o link pela função painelTvChave)
     match /painel_tv/{id} { allow read, write: if false; }

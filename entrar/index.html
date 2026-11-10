@@ -1556,6 +1556,7 @@
 </style>
 <script src="/assets/vendor/jsQR-1.4.0.min.js" defer></script>
 <script src="/assets/js/padrao-cadastro.js"></script>
+<script src="/assets/pde-ia-errou.js" defer></script>
 </head>
 <body>
 
@@ -6337,6 +6338,7 @@
         '<div id="waChamados"></div>'+
         '<div class="wa-grade"><div class="wa-lista" id="waLista"><p class="d">Carregando…</p></div><div class="wa-conv" id="waConv"><p class="d" style="padding:12px">Escolha uma conversa.</p></div></div>'+
         (wa.admin ? '<div id="waLara" class="wa-equipe"><p class="d">Carregando os números da Lara…</p></div>'+
+          '<div id="iaErrou" class="wa-equipe"><p class="d">Carregando os avisos de erro da IA…</p></div>'+
           '<div id="waEquipe" class="wa-equipe"></div>'+
           '<div class="wa-equipe"><h4 style="margin:0 0 4px">Modelos de mensagem na Meta</h4><p class="d">As boas-vindas automáticas no WhatsApp (todo cadastro novo) e o aviso para a equipe só saem depois que a Meta aprova cada modelo. O Portal envia os modelos com o texto certo; a aprovação leva de minutos a 24 h.</p>'+
           '<div class="wa-eq-form"><button class="btn btn-ghost" data-action="wa-modelos" data-acao="listar">Ver situação</button><button class="btn btn-primary btn-add" data-action="wa-modelos" data-acao="cadastrar">Enviar os que faltam para aprovação</button></div><div id="waModelosRes" role="status" class="d"></div></div>'+
@@ -6377,7 +6379,7 @@
       wa.conversas = sn.docs.map(d => ({ id:d.id, ...d.data() })); waDesenharLista();
       if(wa.sel) waCabecalho();
     }, e => { const l = $("waLista"); if(l) l.innerHTML = '<p class="d" style="padding:12px">Não consegui abrir as conversas ('+escapeHtml(e.code || "erro")+').</p>'; }));
-    if(wa.admin) waLara();
+    if(wa.admin){ waLara(); iaErrouAdmin(); }
     wa.unsub.push(onSnapshot(query(collection(db, "wa_chamados"), where("status", "==", "aberto"), limit(100)), sn => {
       if(!$("waTela")){ waParar(); return; }
       wa.chamados = sn.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => ((b.criado_em && b.criado_em.toMillis()) || 0) - ((a.criado_em && a.criado_em.toMillis()) || 0));
@@ -6389,6 +6391,26 @@
     }, () => {}));
   }
   // Lara em números (últimos 30 dias, de wa_metricas) e a lista do que ela não soube responder (wa_sem_resposta)
+  // "A IA errou aqui" (Diretrizes CNE/MEC: acompanhar erros e vieses da IA): avisos dos professores por recurso e tipo
+  const IAFB_REC = { portal_ia:"Portal IA", termometro:"Termômetro", parecer:"Pareceres", lousa:"Lousa", video:"Vídeo interativo", formacao:"Formação", lara:"Lara", outro:"Outro" };
+  const IAFB_TIPO = { conteudo:"Conteúdo errado", turma:"Não serve para a turma", vies:"Viés", outro:"Outro" };
+  async function iaErrouAdmin(){
+    const el = $("iaErrou"); if(!el) return;
+    let l = [];
+    try{ const s = await getDocs(query(collection(db, "ia_feedback"), orderBy("em", "desc"), limit(200))); l = s.docs.map(d => ({ id:d.id, ...d.data() })); }
+    catch(e){ el.innerHTML = '<p class="d">Não consegui carregar os avisos de erro da IA ('+escapeHtml(e.code || "erro")+').</p>'; return; }
+    const desde = Date.now() - 30 * 864e5, mes = l.filter(x => x.em && x.em.toMillis() >= desde), novos = l.filter(x => x.status === "novo");
+    const porRec = {}; mes.forEach(x => { porRec[x.recurso] = (porRec[x.recurso] || 0) + 1; });
+    const vies = mes.filter(x => x.tipo === "vies").length;
+    el.innerHTML = '<h4 style="margin:0 0 4px">⚠️ IA: erros apontados pelos professores <small class="d">(últimos 30 dias: '+mes.length+(vies ? ' · '+vies+' de viés' : '')+')</small></h4>'+
+      '<p class="d">Acompanhamento de erros e vieses pedido pelas Diretrizes CNE/MEC. Viés tem prioridade: confira o recurso e ajuste o pedido à IA.</p>'+
+      (Object.keys(porRec).length ? '<div class="wa-kpis">'+Object.entries(porRec).sort((a, b) => b[1] - a[1]).map(([k, n]) => '<div class="wa-kpi"><b>'+n+'</b><span>'+escapeHtml(IAFB_REC[k] || k)+'</span></div>').join("")+'</div>' : '')+
+      (novos.length ? '<table class="wa-eq-tab"><tr><th>Recurso</th><th>Problema</th><th>Quem</th><th>Quando</th><th></th></tr>'+novos.slice(0, 50).map(x =>
+        '<tr><td>'+escapeHtml(IAFB_REC[x.recurso] || x.recurso)+(x.ref ? '<br><small class="d">'+escapeHtml(x.ref)+'</small>' : '')+'</td><td>'+(x.tipo === "vies" ? '<span class="wa-selo">viés</span> ' : '<b>'+escapeHtml(IAFB_TIPO[x.tipo] || x.tipo)+'</b> ')+escapeHtml(x.texto || "")+'</td>'+
+        '<td><small>'+escapeHtml(x.nome || "")+' · '+escapeHtml(x.perfil || "")+'</small></td><td><small>'+waQuando(x.em)+'</small></td>'+
+        '<td style="white-space:nowrap"><button class="btn btn-ghost btn-add" data-action="ia-fb" data-st="tratado" data-id="'+escapeAttr(x.id)+'">Tratado</button> <button class="btn btn-ghost btn-add" data-action="ia-fb" data-st="ignorado" data-id="'+escapeAttr(x.id)+'">Ignorar</button></td></tr>').join("")+'</table>'
+        : '<p class="d">Nenhum aviso pendente. 👏</p>');
+  }
   async function waLara(){
     const el = $("waLara"); if(!el) return;
     const n = v => Number(v || 0);
@@ -6526,6 +6548,8 @@
     else if(a === "wa-transf-fechar"){ const b = $("waTransf"); if(b) b.hidden = true; }
     else if(a === "wa-transferir") waTransferir();
     else if(a === "wa-eq-salvar") waEqSalvar();
+    else if(a === "ia-fb") updateDoc(doc(db, "ia_feedback", el.dataset.id), { status:el.dataset.st, tratado_em:serverTimestamp(), tratado_por:auth.currentUser.uid })
+      .then(() => { toast("Aviso marcado como " + el.dataset.st + "."); iaErrouAdmin(); }).catch(waErro);
     else if(a === "wa-sr") updateDoc(doc(db, "wa_sem_resposta", el.dataset.id), { status:el.dataset.st, resolvido_em:serverTimestamp(), resolvido_por:auth.currentUser.uid })
       .then(() => { toast(el.dataset.st === "resolvida" ? "Marcada como resolvida." : "Ignorada."); waLara(); }).catch(waErro);
     else if(a === "wa-tv-link" || a === "wa-tv-trocar") waFn("painelTvChave", { trocar:a === "wa-tv-trocar" }).then(r => {
@@ -11253,8 +11277,8 @@
       r.grupos.map(g => { const c = COR_TERM[g.tipo]; return '<div class="term-g" style="background:' + c[0] + ';border-color:' + c[1] + '"><div class="term-g-cab"><b style="color:' + c[1] + '">' + c[2] + ' ' + escapeHtml(g.titulo) + '</b><span>' + g.alunos.length + ' · ' + Math.round(100 * g.alunos.length / tot) + '%</span></div>' +
         '<p>' + escapeHtml(g.explicacao) + '</p>' + (g.exemplo ? '<p class="term-ex">“' + escapeHtml(g.exemplo) + '”</p>' : '') + '<details><summary>Ver alunos</summary><p>' + g.alunos.map(nome).join(", ") + '</p></details></div>'; }).join("") +
       '<div class="term-sug"><b>💡 O que fazer agora</b><p>' + escapeHtml(r.sugestao) + '</p>' + (r.resposta_modelo ? '<small><b>Resposta esperada:</b> ' + escapeHtml(r.resposta_modelo) + '</small>' : '') + '</div>' +
-      '<p class="et-d" style="margin-top:8px">A IA leu só os textos das respostas, sem os nomes. Ela pode errar: confira os casos que surpreenderem.</p>' +
-      '<div class="et-acoes"><button type="button" class="btn btn-ghost" data-term="de-novo">↺ Ler de novo (com as novas respostas)</button><button type="button" class="btn btn-primary" data-term="x">Fechar</button></div></div>';
+      '<p class="et-d" style="margin-top:8px">A IA leu só os textos das respostas, sem os nomes. É um retorno formativo, sem nota. Ela pode errar: confira os casos que surpreenderem.</p>' +
+      '<div class="et-acoes">' + (window.PDEIaErrou ? PDEIaErrou.botao("termometro", pq.id || "") : '') + '<button type="button" class="btn btn-ghost" data-term="de-novo">↺ Ler de novo (com as novas respostas)</button><button type="button" class="btn btn-primary" data-term="x">Fechar</button></div></div>';
     document.body.appendChild(f);
     f.addEventListener("click", e => { const b = e.target.closest("[data-term]"); if(e.target === f || (b && b.dataset.term === "x")) f.remove(); else if(b && b.dataset.term === "de-novo"){ f.remove(); lerTermometro(null); } });
     f.addEventListener("keydown", e => { if(e.key === "Escape") f.remove(); });

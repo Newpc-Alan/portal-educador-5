@@ -15,6 +15,7 @@ import { reservarCreditos, estornarCreditos, registrarConsumo, usoJustoDiario } 
 import { acessoIA, mensagemAcesso, NOMES_IA } from './ia-acesso.js';
 import { periodoDisciplina, PADRAO as REGRAS_NOTAS } from './notas-fechamento.js';
 import { decodificar } from './frequencia-nucleo.js';
+import { expiraAuditoria } from './auditoria.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
 const REGIAO = 'southamerica-east1', ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -165,7 +166,8 @@ export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA],
     if (!alunos.length) return { alunos: [], periodo, periodos: per.n, obs: OBS, turma };
     const ids = alunos.map(a => a.id).slice(0, 80), dados = await dadosTurma(db, t, ano, per, p, ids);
     const salvos = await db.getAll(...ids.map(id => db.doc(chaveParecer(t, ano, p, id))));
-    const sv = {}; salvos.forEach((s, i) => { if (s.exists) { const x = s.data(); sv[ids[i]] = { texto: x.texto || '', status: x.status || 'rascunho', obs: x.obs || [], livre: x.livre || '', aprovado_por_nome: x.aprovado_por_nome || '', editado: !!x.editado }; } });
+    const sv = {}; salvos.forEach((s, i) => { if (s.exists) { const x = s.data(); sv[ids[i]] = { texto: x.texto || '', status: x.status || 'rascunho', obs: x.obs || [], livre: x.livre || '', aprovado_por_nome: x.aprovado_por_nome || '', editado: !!x.editado,
+      com_ia: !!x.gerado_em, aprovado_em: ms(x.aprovado_em) }; } });
     return { periodo, periodos: per.n, obs: OBS, turma,
       alunos: alunos.slice(0, 80).map(a => ({ id: a.id, nome: a.nome, apoio: a.apoio, ...dados[a.id], salvo: sv[a.id] || null })) };
   }
@@ -207,10 +209,18 @@ export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA],
   if (d.acao === 'salvar') {
     const texto = String(d.texto ?? '').replace(/\r/g, '').trim().slice(0, 4000), aprovar = d.aprovar === true;
     if (texto.length < 40) throw new HttpsError('invalid-argument', 'O parecer está curto demais.');
-    const atual = (await ref.get()).data() || {};
-    await ref.set({ ...base, texto, status: aprovar ? 'aprovado' : 'rascunho', editado: atual.texto ? atual.texto !== texto || !!atual.editado : true,
+    const atual = (await ref.get()).data() || {}, comIA = !!atual.gerado_em;
+    // Diretrizes CNE/MEC (nov/2026): parecer é documento de avaliação (risco alto); com rascunho da IA, a aprovação exige
+    // a confirmação explícita de que o professor leu e revisou, e fica registrada (quem, quando, se editou) na Auditoria
+    if (aprovar && comIA && d.revisado !== true) throw new HttpsError('failed-precondition', 'Marque "Li e revisei este parecer" antes de aprovar.');
+    const editado = atual.texto ? atual.texto !== texto || !!atual.editado : true;
+    await ref.set({ ...base, texto, status: aprovar ? 'aprovado' : 'rascunho', editado, com_ia: comIA,
       obs: Array.isArray(d.obs) ? d.obs.map(String).filter(k => OBS[k]).slice(0, 8) : (atual.obs || []), livre: d.livre !== undefined ? txt(d.livre, 400) : (atual.livre || ''),
-      aprovado_por: aprovar ? uid : '', aprovado_por_nome: aprovar ? txt(u.nome, 80) : '', ...(aprovar ? { aprovado_em: FieldValue.serverTimestamp() } : {}), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+      aprovado_por: aprovar ? uid : '', aprovado_por_nome: aprovar ? txt(u.nome, 80) : '', ...(aprovar ? { aprovado_em: FieldValue.serverTimestamp(), revisado_confirmado: comIA } : {}), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+    if (aprovar) await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'pareceres', doc: ref.id,
+      autor_uid: uid, autor_tipo: 'usuario', autor_email: txt(u.email, 120), perfil: txt(u.perfil, 30), municipio_id: txt(t.municipio_id, 64), escola_id: txt(t.escola_id, 64),
+      detalhe: 'Aprovou o parecer de ' + txt(al.nome, 80) + ' (' + txt(t.nome, 60) + ', ' + per.rotulo + ')' + (comIA ? ', elaborado com apoio de IA; o professor confirmou que leu e revisou; ' + (editado ? 'texto editado pelo professor' : 'texto da IA mantido sem edição') : ', escrito pelo professor'),
+      campos: ['status'], valores: { status: { de: atual.status || 'rascunho', para: 'aprovado' } } });
     // aprovado pelo professor: entra na Central de Relatórios (modelo Parecer / Relatório Bimestral) e vai para a coordenação conferir
     if (aprovar) {
       const rref = db.doc(`relatorios/par_${t.id}_${ano}_${p}_${aid}`), rel = (await rref.get()).data();
@@ -218,7 +228,7 @@ export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA],
       const mudou = !rel || ((rel.dados || {}).parecer || '') !== texto;
       if (mudou) await rref.set({ modelo: 'RBA', titulo: 'Parecer / Relatório Bimestral · ' + al.nome, escola_id: t.escola_id || '', escola_nome: txt(esc.nome || t.escola_nome || '', 120),
         municipio_id: t.municipio_id || '', turma_id: t.id, turma_nome: txt(t.nome, 80), aluno_id: aid, aluno_nome: al.nome, periodo: ano + ' · ' + per.rotulo,
-        dados: { ...((rel && rel.dados) || {}), parecer: texto, origem: 'pareceres_turma' }, status: 'enviado', autor_uid: rel ? rel.autor_uid : uid, autor_nome: rel ? rel.autor_nome : txt(u.nome, 80),
+        dados: { ...((rel && rel.dados) || {}), parecer: texto, origem: 'pareceres_turma', apoio_ia: comIA, aprovado_por_nome: txt(u.nome, 80) }, status: 'enviado', autor_uid: rel ? rel.autor_uid : uid, autor_nome: rel ? rel.autor_nome : txt(u.nome, 80),
         ...(rel ? {} : { criado_em: FieldValue.serverTimestamp(), comentario: '' }), atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
     }
     return { status: aprovar ? 'aprovado' : 'rascunho' };

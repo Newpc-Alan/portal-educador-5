@@ -460,3 +460,52 @@ export const fecharProvasOnline = onSchedule({ region: REGIAO, schedule: 'every 
     await p.ref.update({ status: 'encerrada', encerrada_em: FieldValue.serverTimestamp() });
   }
 });
+
+/* Pedido de revisão da nota (nov/2026, Diretrizes CNE/MEC: direito de contestar o resultado da avaliação).
+   O aluno pede, com o motivo (e a questão, se quiser); o professor responde (nota mantida ou revista) e tudo fica na Auditoria.
+   provas_online/{id}/po_revisoes/{chave}: o pedido atual e o histórico. Até 2 pedidos por aluno em cada prova. */
+export const revisaoNotaProva = onCall({ region: REGIAO }, async (req) => {
+  const u = await quem(req), d = req.data || {}, db = getFirestore(), id = String(d.id || '');
+  if (!/^[A-Za-z0-9_-]{6,64}$/.test(id)) throw new HttpsError('invalid-argument', 'Prova inválida.');
+  const pref = db.doc(`provas_online/${id}`), p = (await pref.get()).data();
+  if (!p) throw new HttpsError('not-found', 'Prova não encontrada.');
+  const audit = (detalhe, docId) => db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'po_revisoes', doc: id + '/' + docId,
+    autor_uid: u.uid, autor_tipo: 'usuario', autor_email: txt(u.email, 120), perfil: txt(u.perfil, 30), municipio_id: txt(p.municipio_id, 64), escola_id: txt(p.escola_id, 64), detalhe, campos: ['status'] });
+  if (d.acao === 'pedir') {
+    const chave = chaveAluno(req.auth), rref = pref.collection('po_resultados').doc(chave), r = (await rref.get()).data();
+    if (!r) throw new HttpsError('failed-precondition', 'Você ainda não tem resultado nesta prova.');
+    const visivel = p.nota_liberada === true || (ms(p.fecha_em) < Date.now() && p.notas !== 'reter') || p.status === 'encerrada' && p.notas !== 'reter';
+    if (!visivel) throw new HttpsError('failed-precondition', 'A nota ainda não foi divulgada.');
+    if (r.pendentes) throw new HttpsError('failed-precondition', 'O professor ainda está corrigindo. Espere a nota final para pedir revisão.');
+    const motivo = String(d.motivo || '').trim(), qid = String(d.qid || '');
+    if (motivo.length < 15) throw new HttpsError('invalid-argument', 'Explique o motivo com pelo menos 15 letras.');
+    if (qid && !(p.questoes || []).some(q => q.id === qid)) throw new HttpsError('invalid-argument', 'Questão inválida.');
+    const vref = pref.collection('po_revisoes').doc(chave);
+    await db.runTransaction(async tx => {
+      const v = (await tx.get(vref)).data() || {};
+      if (v.status === 'aberta') throw new HttpsError('failed-precondition', 'Você já tem um pedido aguardando a resposta do professor.');
+      if ((v.n || 0) >= 2) throw new HttpsError('failed-precondition', 'Você já fez 2 pedidos nesta prova. Converse com o professor ou com a coordenação.');
+      const hist = Array.isArray(v.historico) ? v.historico.slice(-4) : [];
+      if (v.status) hist.push({ qid: v.qid || '', motivo: v.motivo || '', pedido_em: ms(v.pedido_em), decisao: v.decisao || '', resposta: v.resposta || '', respondido_por_nome: v.respondido_por_nome || '', respondido_em: ms(v.respondido_em) });
+      tx.set(vref, { uid: chave, nome: txt(r.nome, 80), status: 'aberta', qid, motivo: txt(motivo, 600), nota: r.nota ?? null, pedido_em: FieldValue.serverTimestamp(), n: (v.n || 0) + 1,
+        decisao: '', resposta: '', respondido_por_nome: '', historico: hist });
+    });
+    const qn = qid ? (p.questoes || []).findIndex(q => q.id === qid) + 1 : 0;
+    await audit(txt(r.nome, 80) + ' pediu revisão da nota' + (qn ? ' da questão ' + qn : '') + ' na prova "' + txt(p.titulo, 120) + '". Motivo: ' + txt(motivo, 300), chave);
+    return { ok: true };
+  }
+  if (d.acao === 'responder') {
+    if (p.professor_uid !== u.uid && u.perfil !== 'admin') throw new HttpsError('permission-denied', 'Somente o professor da prova responde.');
+    const chave = String(d.uid || ''), decisao = String(d.decisao || ''), resposta = String(d.resposta || '').trim();
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(chave)) throw new HttpsError('invalid-argument', 'Aluno inválido.');
+    if (!['mantida', 'revista'].includes(decisao)) throw new HttpsError('invalid-argument', 'Escolha se a nota foi mantida ou revista.');
+    if (resposta.length < 10) throw new HttpsError('invalid-argument', 'Escreva a resposta ao aluno (pelo menos 10 letras).');
+    const vref = pref.collection('po_revisoes').doc(chave), v = (await vref.get()).data();
+    if (!v || v.status !== 'aberta') throw new HttpsError('failed-precondition', 'Este pedido já foi respondido.');
+    const r = (await pref.collection('po_resultados').doc(chave).get()).data() || {};
+    await vref.update({ status: 'respondida', decisao, resposta: txt(resposta, 600), respondido_por: u.uid, respondido_por_nome: txt(u.nome, 80), respondido_em: FieldValue.serverTimestamp(), nota_final: r.nota ?? null });
+    await audit('Respondeu o pedido de revisão de ' + txt(v.nome, 80) + ' na prova "' + txt(p.titulo, 120) + '": nota ' + (decisao === 'revista' ? 'revista' : 'mantida') + ' (' + (v.nota ?? '-') + ' → ' + (r.nota ?? '-') + '). Resposta: ' + txt(resposta, 300), chave);
+    return { ok: true };
+  }
+  throw new HttpsError('invalid-argument', 'Ação inválida.');
+});
