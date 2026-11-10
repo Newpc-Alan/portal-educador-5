@@ -1,4 +1,5 @@
-/* Portal do Educador · Correção das questões abertas com IA e auditoria da própria IA (nov/2026)
+/* DESLIGADA em 10/11/2026 (Diretrizes CNE/MEC de IA na educação: IA não corrige nem sugere nota em dissertativa).
+   Portal do Educador · Correção das questões abertas com IA e auditoria da própria IA (nov/2026)
    O professor pede "Corrigir com IA" numa questão aberta da Prova online. A IA sugere a nota, a justificativa e diz o quanto confia.
    Em cima disso, regras fixas (que não dependem da IA) dão o selo de auditoria de cada sugestão:
      verde    Confiável            alta confiança, existe resposta esperada, nota acima de zero, sem sinal de cópia
@@ -16,6 +17,7 @@ import { usoJustoDiario } from './creditos.js';
 import { geminiJson } from './portal-ia.js';
 
 const GEMINI = defineSecret('GEMINI_API_KEY');
+const DESLIGADA = true;
 const MODELOS = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
 const txt = (s, n) => String(s == null ? '' : s).slice(0, n);
 const ABERTAS = ['dissertativa', 'curta'];
@@ -44,6 +46,9 @@ function selo(s, valor, temEsperada) {
 }
 
 export const sugerirCorrecaoIA = onCall({ region: 'southamerica-east1', timeoutSeconds: 120, memory: '512MiB', secrets: [GEMINI], maxInstances: 10 }, async req => {
+  // DESLIGADA em 10/11/2026: as Diretrizes CNE/MEC de uso de IA na educação (homologadas pelo MEC nesta data) vedam a IA corrigir,
+  // avaliar ou sugerir nota em questões dissertativas. A função fica bloqueada no servidor; o código abaixo não roda.
+  if (DESLIGADA) throw new HttpsError('failed-precondition', 'A correção de questões abertas com IA foi desligada para seguir as diretrizes do CNE/MEC sobre IA na educação. A nota é sempre do professor.');
   if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
   const db = getFirestore(), uid = req.auth.uid, d = req.data || {};
   const id = txt(d.id, 64), qid = txt(d.qid, 20);

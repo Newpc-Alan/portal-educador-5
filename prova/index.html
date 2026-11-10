@@ -155,22 +155,8 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .corr-reav textarea{width:100%;margin-top:6px;border:1px solid #e5c47a;border-radius:8px;padding:6px 8px;font:inherit}
 .corr-hist{margin-top:8px;border-top:1px dashed #cfdbe7;padding-top:6px;font-size:.84rem;color:#2c3e55}
 .corr-hist p{margin:3px 0 0}
-.corr-ia{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:linear-gradient(90deg,#eef6ff,#f3fbf0);border:1px solid #cfe0f0;border-radius:12px;padding:8px 12px;margin-bottom:8px;font-size:.86rem;color:#2c3e55}
-.corr-ia span{flex:1 1 260px}
-.corr-ia.lida span.corr-ia-conta{display:flex;gap:6px;flex-wrap:wrap}
-.btn-ia{background:#2671AB;color:#fff;border:0;border-radius:999px;padding:8px 16px;font-weight:800;cursor:pointer}
-.btn-ia:disabled{opacity:.6;cursor:wait}
-.sl{display:inline-block;border-radius:999px;padding:2px 9px;font-size:.76rem;font-weight:800;flex:0 0 auto}
-.sl-verde{background:#e3f4e6;color:#1a5a24}.sl-amarelo{background:#fff3d6;color:#7a5200}.sl-vermelho{background:#fde7e7;color:#9b1c1c}
-.corr-sug{border-radius:10px;padding:8px 10px;margin-top:8px;font-size:.88rem;border:1.5px solid}
-.corr-sug.sg-verde{border-color:#b9dcc1;background:#f4fbf5}.corr-sug.sg-amarelo{border-color:#f3d79b;background:#fffaf0}.corr-sug.sg-vermelho{border-color:#f1b5b5;background:#fff6f6}
-.corr-sug-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.corr-sug-top .btn{margin-left:auto}
-.corr-sug p{margin:5px 0 0}
-.corr-sug-mot{color:#7a3b00;font-weight:600}
-.corr-sug-lin{color:#5b4a1e}
-.corr-sug-reg{margin-top:8px;font-size:.82rem;color:#2c3e55;background:#f5f8fb;border-radius:8px;padding:5px 9px}
-.corr-chip.ia-verde::before{content:"🟢 "}.corr-chip.ia-amarelo::before{content:"🟡 "}.corr-chip.ia-vermelho::before{content:"🔴 "}
+.corr-par{background:#fff7e6;border:1px solid #f3d79b;color:#7a5200;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:.88rem}
+.corr-chip.par::before{content:"🔎 "}
 /* foto de confirmação */
 .foto-box{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border:1.5px solid #cfe0d3;background:#f6fbf7;border-radius:14px;padding:12px;margin:12px 0}
 .foto-box .cam{width:160px;height:120px;border-radius:10px;background:#0f2c4a;overflow:hidden;display:grid;place-items:center;color:#fff;font-size:2rem;flex-shrink:0}
@@ -763,10 +749,21 @@ function modalLiberar(uid){
 const CORRECAO_NO_AR = true;    // vira true quando corrigirProvaOnline estiver publicada (GitHub Actions ou Cloud Shell)
 // por questão: todas as respostas da turma, uma embaixo da outra, com a resposta esperada no topo
 const CRIT = { conteudo:"Avaliar só o conteúdo: erros de português não tiram ponto", apontar:"Apontar erros de português sem descontar (o aluno vê a observação)", descontar:"Erros de português contam na nota" };
-const CO = { qid:"", uid:"", lista:[], gab:null, sujo:{}, reavaliando:false, ia:{} };
-// correção com IA: selos da auditoria da própria IA (verde confiável, amarelo conferir, vermelho revisão obrigatória)
-const SELO = { verde:{ e:"🟢", t:"Confiável" }, amarelo:{ e:"🟡", t:"Conferir" }, vermelho:{ e:"🔴", t:"Revisão obrigatória" } };
-const ptBR = v => String(Math.round(Number(v) * 100) / 100).replace(".", ",");
+const CO = { qid:"", uid:"", lista:[], gab:null, sujo:{}, reavaliando:false };
+/* Respostas parecidas (nov/2026): conta feita aqui no navegador, sem IA, comparando trechos de 3 palavras entre as respostas.
+   Diretrizes CNE/MEC de IA na educação (homologadas em 10/11/2026): a IA não corrige, não avalia e não sugere nota em dissertativa;
+   e indício automático não serve, sozinho, para punir. Por isso isto é só um aviso para o professor apurar. */
+const normTx = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+function trechos3(t){ const w = normTx(t).split(" ").filter(Boolean), o = new Set(); for(let i = 0; i + 2 < w.length; i++) o.add(w[i] + " " + w[i+1] + " " + w[i+2]); return o; }
+function parecidas(q, uids){
+  const T = uids.map(u => { const r = ((PN.tent[u] || {}).respostas || {})[q.id]; return trechos3(typeof r === "string" ? r : r && r.texto); }), out = {};
+  for(let i = 0; i < uids.length; i++) for(let j = i + 1; j < uids.length; j++){
+    const a = T[i], b = T[j]; if(a.size < 6 || b.size < 6) continue;
+    let c = 0; for(const x of a) if(b.has(x)) c++;
+    if(c / Math.min(a.size, b.size) >= 0.8){ (out[uids[i]] = out[uids[i]] || []).push(uids[j]); (out[uids[j]] = out[uids[j]] || []).push(uids[i]); }
+  }
+  return out;
+}
 const corrigivel = (q, x) => !["multipla", "vf"].includes(q.tipo) || (x && x.manual);
 // objetiva = corrigida sozinha: múltipla e V/F sempre; várias respostas e grade quando o professor marcou o gabarito
 const objetiva = q => ["multipla", "vf"].includes(q.tipo) || (["checkbox", "grade_radio", "grade_check"].includes(q.tipo) && !!(CO.gab && CO.gab[q.id] && CO.gab[q.id].gab));
@@ -792,14 +789,9 @@ async function abrirCorrecao(qid, uidAlvo){
   let bg = $("corrBg"); if(!bg){ bg = document.createElement("div"); bg.id = "corrBg"; bg.className = "fotos-bg"; document.body.appendChild(bg); }
   const i = CO.lista.indexOf(CO.uid), a = lista[i];
   const meio = Math.round(q.valor / 2 * 100) / 100;
-  const IA = CO.ia[q.id] || null, sug = uid => IA && IA.sugestoes[uid] || null;
-  const pendVerdes = IA ? lista.filter(al => pq(al.uid, q).pendente && (sug(al.uid) || {}).selo === "verde") : [];
-  const nPend = pend(q), iaPode = !fin && (q.tipo === "dissertativa" || q.tipo === "curta");
-  const barraIA = !iaPode ? "" : !IA ? (nPend ? '<div class="corr-ia"><button class="btn btn-ia" data-action="corr-ia" id="corrIaBtn">✨ Corrigir com IA</button><span>A IA sugere a nota das ' + nPend + ' resposta(s) desta questão e se autoaudita: diz onde confia e onde você precisa conferir. Nada vira nota sem você salvar.</span></div>' : "")
-    : '<div class="corr-ia lida"><span class="corr-ia-conta">' + ["verde", "amarelo", "vermelho"].map(k => '<span class="sl sl-' + k + '">' + SELO[k].e + " " + (IA.conta[k] || 0) + " " + SELO[k].t + "</span>").join("") + "</span>" +
-      (pendVerdes.length ? '<button class="btn btn-ok btn-sm" data-action="corr-ia-aceitar" id="corrIaAceitar">Aceitar as confiáveis (' + pendVerdes.length + ")</button>" : "") +
-      '<button class="btn btn-gh btn-sm" data-action="corr-ia" id="corrIaBtn" title="Lê de novo as respostas que chegaram depois">↻</button></div>';
-  CO.pendVerdes = pendVerdes.map(al => al.uid);
+  const PAR = (q.tipo === "dissertativa" || q.tipo === "curta") ? parecidas(q, lista.map(al => al.uid)) : {}, nPar = Object.keys(PAR).length;
+  const nomeCurto = uid => ((lista.find(al => al.uid === uid) || {}).nome || "aluno").split(" ").slice(0, 2).join(" ");
+  const barraPar = nPar ? '<div class="corr-par">🔎 <b>' + nPar + ' resposta(s) muito parecida(s)</b> nesta questão (marcadas com 🔎). É só um indício para você apurar: sozinho, não serve para punir ninguém.</div>' : "";
   const estado = x => x.pendente ? '<span class="chip c-age">para corrigir</span>' : x.aproximada ? '<span class="chip c-age">aceita com erro de digitação: confira</span>' : x.manual ? '<span class="chip c-ent">corrigida</span>' : x.branco ? '<span class="chip c-nao">em branco</span>' : '<span class="chip c-ent">corrigida sozinha</span>';
   const topo = fin ? '<div class="corr-fin">🔒 Correção finalizada' + (p.correcao_finalizada_por ? " por " + esc(p.correcao_finalizada_por) : "") + (p.correcao_finalizada_em ? " em " + dataHora(ms(p.correcao_finalizada_em)) : "") + '. Para mudar uma nota, abra o aluno e use <b>Reavaliar</b>, com justificativa.</div>'
     : pendTot ? '<div class="corr-faltam">Faltam <b>' + pendTot + '</b> correção(ões) nesta prova.</div>'
@@ -811,10 +803,7 @@ async function abrirCorrecao(qid, uidAlvo){
     corpo = '<div class="corr-al' + (trava ? " travado" : "") + '" data-uid="' + esc(a.uid) + '">' +
       '<div class="corr-quem"><span class="corr-av">' + esc(a.nome.split(/\s+/).slice(0, 2).map(s => s[0]).join("").toUpperCase()) + '</span><div><small>Corrigindo a resposta de</small><b>' + esc(a.nome) + '</b></div>' + estado(x) + '</div>' +
       '<div class="corr-resp"><small>Resposta do aluno</small>' + respostaHtml(q, resp, { ...g, exp:"" }, null) + '</div>' +
-      (x.pendente && sug(a.uid) ? (s => '<div class="corr-sug sg-' + s.selo + '"><div class="corr-sug-top"><b>' + SELO[s.selo].e + " IA sugere " + ptBR(s.pontos) + " de " + ptBR(q.valor) + ' pt</b><span class="sl sl-' + s.selo + '">' + SELO[s.selo].t + "</span>" +
-        (trava ? "" : '<button class="btn btn-sm btn-gh" data-action="corr-ia-usar">Usar sugestão</button>') + "</div>" +
-        "<p>" + esc(s.justificativa) + "</p>" + (s.selo !== "verde" && s.motivo ? '<p class="corr-sug-mot">⚠ ' + esc(s.motivo) + "</p>" : "") + (s.lingua ? '<p class="corr-sug-lin">✍️ ' + esc(s.lingua) + "</p>" : "") + "</div>")(sug(a.uid))
-      : x.ia ? '<div class="corr-sug-reg">🤖 IA sugeriu ' + ptBR(x.ia.pontos) + " pt (" + (SELO[x.ia.selo] || { t:"-" }).t + ") · " + (x.ia.aceita ? "confirmada pelo professor" : "alterada pelo professor") + "</div>" : "") +
+      (PAR[a.uid] ? '<div class="corr-par">🔎 Resposta muito parecida com a de <b>' + PAR[a.uid].map(u => esc(nomeCurto(u))).join(", ") + '</b>. Compare as duas antes de dar a nota. Indício para apurar, não prova de cópia.</div>' : "") +
       '<div class="corr-pts"><span>Nota:</span>' + [0, meio, q.valor].map(v => '<button class="btn btn-sm btn-gh' + (!x.pendente && Number(x.pontos) === v ? " on" : "") + '" data-action="corr-pt" data-arg="' + v + '"' + (trava ? " disabled" : "") + '>' + String(v).replace(".", ",") + "</button>").join("") +
         '<input type="number" min="0" max="' + q.valor + '" step="0.25" class="corr-n" id="corrN" value="' + (x.pendente ? "" : (x.pontos ?? "")) + '" aria-label="Pontos de ' + esc(a.nome) + '"' + (trava ? " disabled" : "") + '> <small>de ' + q.valor + "</small></div>" +
       '<textarea class="corr-c" id="corrC" rows="2" maxlength="600" placeholder="Comentário para o aluno (opcional)"' + (trava ? " disabled" : "") + '>' + esc(x.comentario || "") + "</textarea>" +
@@ -826,11 +815,11 @@ async function abrirCorrecao(qid, uidAlvo){
   bg.innerHTML = '<div class="card corr"><div class="corr-top"><h2 style="margin:0">✍️ Correção das questões abertas</h2><button class="btn btn-gh btn-sm" data-action="corr-fechar">Fechar</button></div>' + topo +
     '<div class="corr-qs">' + abertas.map(x => { const n = pend(x); return '<button class="btn btn-sm ' + (x.id === q.id ? "btn-ok" : "btn-gh") + '" data-action="corr-q" data-arg="' + x.id + '">Questão ' + (p.questoes.indexOf(x) + 1) + (n ? ' <span class="chip c-age">' + n + '</span>' : ' ✓') + "</button>"; }).join("") + "</div>" +
     '<label class="corr-crit">Português nesta prova: <select id="corrCrit"' + (fin ? " disabled" : "") + '>' + Object.entries(CRIT).map(([k, v]) => '<option value="' + k + '"' + (k === crit ? " selected" : "") + ">" + esc(v) + "</option>").join("") + "</select></label>" +
-    barraIA + '<div class="corr-q"><p><b>' + (qi + 1) + ".</b> " + esc(q.enun).replace(/\n/g, "<br>") + ' <small>(vale ' + q.valor + " pt)</small></p>" +
+    barraPar + '<div class="corr-q"><p><b>' + (qi + 1) + ".</b> " + esc(q.enun).replace(/\n/g, "<br>") + ' <small>(vale ' + q.valor + " pt)</small></p>" +
       (g.exp ? '<p class="exp">Resposta esperada: <b>' + esc(g.exp) + "</b></p>" : '<p class="sub">Sem resposta esperada cadastrada.</p>') + "</div>" +
     (lista.length ? '<div class="corr-nav"><button class="btn btn-gh btn-sm" data-action="corr-ir" data-arg="-1"' + (i <= 0 ? " disabled" : "") + '>← Anterior</button><b>Aluno ' + (i + 1) + " de " + lista.length + '</b><button class="btn btn-gh btn-sm" data-action="corr-ir" data-arg="1"' + (i >= lista.length - 1 ? " disabled" : "") + '>Próximo →</button></div>' +
       '<div class="corr-alunos" role="tablist" aria-label="Alunos">' + lista.map((al, k) => { const x = pq(al.uid, q);
-        return '<button class="corr-chip' + (k === i ? " on" : "") + (x.pendente ? " pend" : " ok") + (x.revisoes && x.revisoes.length ? " rev" : "") + (x.pendente && sug(al.uid) ? " ia-" + sug(al.uid).selo : "") + '" data-action="corr-aluno" data-arg="' + esc(al.uid) + '" title="' + esc(al.nome) + (x.pendente ? " · para corrigir" + (sug(al.uid) ? " · IA: " + SELO[sug(al.uid).selo].t : "") : " · corrigida") + '">' + esc(al.nome.split(" ")[0]) + "</button>"; }).join("") + "</div>" : "") +
+        return '<button class="corr-chip' + (k === i ? " on" : "") + (x.pendente ? " pend" : " ok") + (x.revisoes && x.revisoes.length ? " rev" : "") + (PAR[al.uid] ? " par" : "") + '" data-action="corr-aluno" data-arg="' + esc(al.uid) + '" title="' + esc(al.nome) + (x.pendente ? " · para corrigir" : " · corrigida") + (PAR[al.uid] ? " · resposta parecida com a de " + PAR[al.uid].map(nomeCurto).join(", ") : "") + '">' + esc(al.nome.split(" ")[0]) + "</button>"; }).join("") + "</div>" : "") +
     '<div class="corr-lista">' + corpo + "</div>" +
     '<div class="corr-rod"><span class="sub" id="corrMsg"></span><span class="corr-bts">' +
       (!fin && !pendTot && !aberta ? '<button class="btn btn-gh" data-action="corr-finalizar">🔒 Finalizar correção</button>' : "") +
@@ -867,7 +856,6 @@ async function salvarCorrecao(btn){
   if(!n || !CO.uid) return;
   if(n.value === ""){ toast("Dê a nota antes de salvar (pode ser 0).", true); n.focus(); return; }
   const it = { uid:CO.uid, qid:CO.qid, pontos:n.value, comentario:c ? c.value : "", lingua:l ? l.value : "" };
-  if(((CO.ia[CO.qid] || {}).sugestoes || {})[CO.uid]) it.ia = true;
   const dados = { id:E.prova.id, itens:[it] };
   if(CO.reavaliando){ const t = (j && j.value || "").trim(); if(t.length < 15){ toast("Escreva a justificativa da reavaliação (pelo menos 15 letras).", true); if(j) j.focus(); return; } dados.justificativa = t; }
   const rot = btn.textContent; btn.disabled = true; btn.textContent = "Salvando...";
@@ -887,33 +875,6 @@ async function salvarCorrecao(btn){
       abrirCorrecao(CO.qid, CO.lista[Math.min(k + 1, CO.lista.length - 1)]);
     }, 900);
   }catch(e){ toast(e.message || "Não foi possível salvar.", true); btn.disabled = false; btn.textContent = rot; }
-}
-async function corrigirComIA(btn){
-  const rot = btn.textContent; btn.disabled = true; btn.textContent = "A IA está lendo as respostas...";
-  try{
-    const r = await chamar("sugerirCorrecaoIA", { id:E.prova.id, qid:CO.qid });
-    CO.ia[CO.qid] = { sugestoes:r.sugestoes || {}, conta:r.conta || {} };
-    const c = r.conta || {};
-    toast("IA: " + (c.verde || 0) + " confiável(is), " + (c.amarelo || 0) + " para conferir, " + (c.vermelho || 0) + " com revisão obrigatória.");
-    abrirCorrecao(CO.qid, CO.uid);
-  }catch(e){ toast(e.message || "A IA não respondeu agora.", true); btn.disabled = false; btn.textContent = rot; }
-}
-function usarSugestao(){
-  const s = ((CO.ia[CO.qid] || {}).sugestoes || {})[CO.uid]; if(!s) return;
-  marcarPontos(String(s.pontos));
-  const l = $("corrL"); if(l && s.lingua && !l.value.trim()) l.value = s.lingua;
-}
-async function aceitarConfiaveis(btn){
-  const uids = (CO.pendVerdes || []).slice(0, 80), S = (CO.ia[CO.qid] || {}).sugestoes || {};
-  if(!uids.length) return;
-  if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = "Lançar " + uids.length + " nota(s) sugeridas pela IA? Toque de novo"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "Aceitar as confiáveis (" + uids.length + ")"; } }, 5000); return; }
-  btn.disabled = true; btn.textContent = "Lançando...";
-  try{
-    await chamar("corrigirProvaOnline", { id:E.prova.id, itens:uids.map(u => ({ uid:u, qid:CO.qid, pontos:S[u].pontos, comentario:"", lingua:S[u].lingua || "", ia:true })) });
-    toast(uids.length + " nota(s) lançada(s). Confira as amarelas e as vermelhas, uma a uma.");
-    CO.sujo = {};
-    setTimeout(() => { const prox = CO.lista.find(u => (((PN.res[u] || {}).por_questao || {})[CO.qid] || {}).pendente); abrirCorrecao(CO.qid, prox || CO.uid); }, 1200);
-  }catch(e){ toast(e.message || "Não foi possível lançar.", true); btn.disabled = false; delete btn.dataset.confirma; btn.textContent = "Aceitar as confiáveis (" + uids.length + ")"; }
 }
 async function finalizarCorrecao(btn){
   if(btn.dataset.confirma !== "1"){ btn.dataset.confirma = "1"; btn.textContent = "Finalizar? Depois, mudar nota exige justificativa. Toque de novo"; setTimeout(() => { if(btn.isConnected){ delete btn.dataset.confirma; btn.textContent = "🔒 Finalizar correção"; } }, 5000); return; }
@@ -1042,9 +1003,6 @@ document.addEventListener("click", e => {
   else if(a === "corr-salvar") salvarCorrecao(el);
   else if(a === "corr-reavaliar") liberarReavaliacao(el);
   else if(a === "corr-finalizar") finalizarCorrecao(el);
-  else if(a === "corr-ia") corrigirComIA(el);
-  else if(a === "corr-ia-usar") usarSugestao();
-  else if(a === "corr-ia-aceitar") aceitarConfiaveis(el);
   else if(a === "corr-ir"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; irAluno(Number(arg)); }
   else if(a === "corr-aluno"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; abrirCorrecao(CO.qid, arg); }
   else if(a === "corr-fechar"){ if(Object.keys(CO.sujo).length && !confirmarSaida()) return; const b = $("corrBg"); if(b) b.remove(); }
