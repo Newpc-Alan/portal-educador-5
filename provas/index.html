@@ -4383,7 +4383,8 @@ function olAbrir(){
     '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Enviar para a sala de espera</button></div>';
   $("ol-bg").classList.add("show");
   ["ol-turma", "ol-fin", "ol-per"].forEach(i => { const el = $(i); if(el) el.addEventListener("change", olClassif); });
-  OL.serieOk = null; const tSel = $("ol-turma"); if(tSel) tSel.addEventListener("change", () => { OL.serieOk = null; olModo(); });
+  OL.serieOk = null; const tSel = $("ol-turma"); if(tSel) tSel.addEventListener("change", () => { OL.serieOk = null; olModo(); olFaixaAula(); });
+  olAulaViva().then(() => { if(OL.aula && tSel && !tSel.value && [...tSel.options].some(o => o.value === OL.aula.turma_id)){ tSel.value = OL.aula.turma_id; olClassif(); } olFaixaAula(); });
   olClassif();
 }
 // resumo da classificação na janela "Aplicar online"
@@ -4401,11 +4402,35 @@ function olModo(){ const m = (document.querySelector('input[name="ol-modo"]:chec
   $("ol-ok").textContent = m === "agora" ? "Enviar para a sala de espera" : "Agendar para a turma"; }
 // ano/série escrito no texto ("6º Ano A", "6º ano", "3ª série") → número; null quando não dá para saber
 function olSerie(t){ const m = String(t || "").match(/(\d{1,2})\s*[ºo°ªa]?\s*(?:ano|s[ée]rie)/i); return m ? parseInt(m[1], 10) : null; }
+// a turma que o professor está conduzindo agora no Maestro (Turma ao Vivo): qr_aulas com "por" = ele e aula ainda aberta
+// faixa no topo da janela: com qual turma o professor está no Maestro e se bate com a turma escolhida
+function olFaixaAula(){
+  const corpo = $("ol-corpo"); if(!corpo) return; let f = $("ol-aula-viva");
+  if(!OL.aula){ if(f) f.remove(); return; }
+  if(!f){ f = document.createElement("div"); f.id = "ol-aula-viva"; corpo.prepend(f); }
+  const sel = $("ol-turma"), igual = sel && sel.value === OL.aula.turma_id;
+  f.style.cssText = "border-radius:10px;padding:9px 12px;margin:0 0 10px;font-weight:700;" + (igual || !sel || !sel.value ? "background:#eaf6e4;border:1px solid #8DC63F;color:#1a4d10" : "background:#fff3e0;border:1px solid #f0a33a;color:#7a4300");
+  f.innerHTML = "🔴 Ao vivo no Maestro: <b>" + escH(OL.aula.turma_nome) + "</b>" + (sel && sel.value && !igual ? " · a turma escolhida abaixo é outra" : "");
+}
+async function olAulaViva(){
+  OL.aula = null;
+  try{ const uid = auth.currentUser && auth.currentUser.uid; if(!uid) return null;
+    const sn = await getDocs(query(collection(db, "qr_aulas"), where("por", "==", uid), limit(10)));
+    sn.forEach(d => { const x = d.data(), ate = x.aberta_ate && x.aberta_ate.toMillis ? x.aberta_ate.toMillis() : 0; if(ate > Date.now() && (!OL.aula || ate > OL.aula.ate)) OL.aula = { turma_id:d.id, turma_nome:x.turma_nome || "", ate }; });
+  }catch(e){ /* sem aula aberta ou sem permissão: segue sem o aviso */ }
+  return OL.aula;
+}
 function olConflitoSerie(dados){
   const sel = $("ol-turma"); if(!sel || !sel.value) return null;
-  const nomeTurma = (sel.options[sel.selectedIndex] || {}).text || "", sT = olSerie(nomeTurma); if(sT == null) return null;
+  const nomeTurma = ((sel.options[sel.selectedIndex] || {}).text || "").split(" · ")[0], sT = olSerie(nomeTurma);
   const titulo = (atual() && atual().titulo) || "", cab = (dados.header && dados.header.turma) || "";
-  for(const txt of [titulo, cab]){ const sP = olSerie(txt); if(sP != null && sP !== sT) return { prova: (txt.match(/\d{1,2}\s*[ºo°ªa]?\s*(?:ano|s[ée]rie)/i) || [txt])[0], turma: nomeTurma.split(" · ")[0] }; }
+  const doTexto = t => (String(t).match(/\d{1,2}\s*[ºo°ªa]?\s*(?:ano|s[ée]rie)(?:\s*[A-Z]{1,3}\b)?/i) || [""])[0];
+  const provaTxt = [titulo, cab].map(doTexto).find(Boolean) || "", sP = olSerie(provaTxt);
+  const av = OL.aula, sAula = av ? olSerie(av.turma_nome) : null;
+  // 1) conectado no Maestro com uma turma e aplicando em outra
+  if(av && av.turma_id !== sel.value) return { msg: "Você está com a turma <b>" + escH(av.turma_nome) + "</b> no Maestro e vai aplicar esta avaliação para <b>" + escH(nomeTurma) + "</b>.", turma: nomeTurma };
+  // 2) a avaliação é de um ano e a turma (a do Maestro ou a escolhida) é de outro
+  if(sP != null && sT != null && sP !== sT) return { msg: (av ? "Você está com a turma <b>" + escH(av.turma_nome) + "</b> no Maestro" : "A turma escolhida é <b>" + escH(nomeTurma) + "</b>") + " e esta avaliação é do <b>" + escH(provaTxt) + "</b>.", turma: nomeTurma };
   return null;
 }
 async function olAplicar(){
@@ -4428,8 +4453,9 @@ async function olAplicar(){
   const conflito = olConflitoSerie(dados);
   if(conflito && OL.serieOk !== $("ol-turma").value){
     OL.serieOk = $("ol-turma").value; $("ol-ok").textContent = "Aplicar mesmo assim no " + conflito.turma;
-    const box = $("ol-class-res"); if(box){ box.insertAdjacentHTML("afterbegin", '<div class="ol-serie-alerta" role="alert" style="background:#fdecea;border:2px solid #c0392b;color:#7b1e14;border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:700">⚠️ Atenção: esta prova parece ser do <b>' + escH(conflito.prova) + '</b>, mas a turma escolhida é <b>' + escH(conflito.turma) + '</b>. Confira a turma. Se estiver certo, toque de novo para aplicar.</div>'); box.scrollIntoView({ block:"center" }); }
-    G().toast("A prova é do " + conflito.prova + " e a turma escolhida é " + conflito.turma + ". Confira antes de aplicar.", "warn");
+    const box = $("ol-class-res"); if(box){ const v = box.querySelector(".ol-serie-alerta"); if(v) v.remove();
+      box.insertAdjacentHTML("afterbegin", '<div class="ol-serie-alerta" role="alert" style="background:#fdecea;border:2px solid #c0392b;color:#7b1e14;border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:700">⚠️ Atenção: ' + conflito.msg + ' Confira a turma. Se estiver certo, toque de novo para aplicar.</div>'); box.scrollIntoView({ block:"center" }); }
+    G().toast(conflito.msg.replace(/<[^>]+>/g, "") + " Confira antes de aplicar.", "warn");
     return;
   }
   if(!$("ol-turma").value || !F || (F.nota && !per)){ olClassif(); G().toast("Confira a turma, para que serve a prova e o " + G().NOME_PER[dados.header.periodos] + ".", "warn"); $("ol-class-res").scrollIntoView({ block:"center" }); return; }
