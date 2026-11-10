@@ -378,6 +378,9 @@ export function aplicarCorrecao(r, q, it, porQuem) {
     comentario: txt(String(it.comentario || '').trim(), 600), lingua: txt(String(it.lingua || '').trim(), 600), corrigido_por: porQuem, corrigido_em: Date.now(),
     ...(revisoes.length ? { revisoes } : {}) };
   delete por[q.id].aproximada;
+  // correção com IA: guarda o que a IA sugeriu e se o professor confirmou ou mudou (vale para o relatório e a auditoria)
+  if (it.ia) por[q.id].ia = { pontos: it.ia.pontos, selo: it.ia.selo, aceita: Math.abs(it.ia.pontos - pontos) < 0.001 };
+  else delete por[q.id].ia;
   const nota = Math.round(Object.values(por).reduce((t, x) => t + (Number(x.pontos) || 0), 0) * 100) / 100;
   const pendentes = Object.values(por).filter(x => x.pendente).length;
   return { por_questao: por, nota, pendentes, situacao: pendentes ? 'aguardando_correcao' : 'corrigida' };
@@ -405,11 +408,17 @@ export const corrigirProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 60 }
   }
   const itens = Array.isArray(d.itens) ? d.itens.slice(0, 80) : [];
   const justificativa = String(d.justificativa || '').trim();
-  const qs = Object.fromEntries((p.questoes || []).map(q => [q.id, q])), feitos = [];
+  const qs = Object.fromEntries((p.questoes || []).map(q => [q.id, q])), feitos = [], iaCache = {};
   for (const it0 of itens) {
     let it = it0;
     const q = qs[String(it.qid || '')], chave = String(it.uid || '');
     if (!q || !/^[A-Za-z0-9_-]{1,80}$/.test(chave)) throw new HttpsError('invalid-argument', 'Questão ou aluno inválido.');
+    // marca de IA: o selo e a nota sugerida vêm do que o servidor guardou, nunca do navegador
+    if (it0.ia) {
+      if (!(q.id in iaCache)) iaCache[q.id] = ((await pref.collection('po_ia').doc(q.id).get()).data() || {}).sugestoes || {};
+      const s = iaCache[q.id][chave];
+      it = { ...it0, ia: s ? { pontos: Number(s.pontos) || 0, selo: String(s.selo || '') } : null };
+    }
     const rref = pref.collection('po_resultados').doc(chave);
     await db.runTransaction(async tx => {
       const r = (await tx.get(rref)).data();
@@ -417,12 +426,18 @@ export const corrigirProvaOnline = onCall({ region: REGIAO, timeoutSeconds: 60 }
       // finalizada: mudar o que já estava corrigido exige justificativa; o que ainda estava pendente (entrega tardia) corrige normal
       const revisao = p.correcao_finalizada && !((r.por_questao || {})[q.id] || {}).pendente;
       if (revisao && justificativa.length < 15) throw new HttpsError('failed-precondition', 'A correção desta prova já foi finalizada. Para mudar a nota, escreva a justificativa (pelo menos 15 letras).');
-      if (revisao) it = { ...it0, justificativa };
+      if (revisao) it = { ...it, justificativa };
       const novo = aplicarCorrecao(r, q, it, txt(u.nome, 60));
       tx.update(rref, { ...novo, corrigido_em: FieldValue.serverTimestamp(), ...(revisao ? { reavaliada: true } : {}) });
-      feitos.push({ uid: chave, nome: r.nome || '', qn: (p.questoes || []).indexOf(q) + 1, de: r.nota, nota: novo.nota, pendentes: novo.pendentes, revisao });
+      feitos.push({ uid: chave, nome: r.nome || '', qn: (p.questoes || []).indexOf(q) + 1, de: r.nota, nota: novo.nota, pendentes: novo.pendentes, revisao, ia: it.ia ? (Math.abs(it.ia.pontos - novo.por_questao[q.id].pontos) < 0.001 ? 'aceita' : 'alterada') : '' });
     });
   }
+  // correção com IA: um registro por salvamento (quantas sugestões o professor aceitou e quantas mudou), sem nome de aluno
+  const comIA = feitos.filter(x => x.ia);
+  if (comIA.length) await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao', colecao: 'provas_online', doc: id,
+    autor_uid: u.uid, autor_tipo: 'usuario', autor_email: txt(u.email, 120), perfil: txt(u.perfil, 30), municipio_id: txt(u.municipio_id, 64), escola_id: txt(p.escola_id, 64),
+    detalhe: 'Correção com IA na prova "' + txt(p.titulo, 120) + '": ' + comIA.filter(x => x.ia === 'aceita').length + ' sugestão(ões) aceita(s) e ' + comIA.filter(x => x.ia === 'alterada').length + ' alterada(s) pelo professor',
+    campos: ['por_questao'] });
   // reavaliação depois de finalizada: registro nominal na auditoria (quem, aluno, questão, nota antes e depois e o motivo)
   for (const f of feitos.filter(x => x.revisao)) await db.collection('auditoria').add({ em: FieldValue.serverTimestamp(), expira_em: expiraAuditoria(), acao: 'alterou', origem: 'funcao',
     colecao: 'po_resultados', doc: id + '/' + f.uid, autor_uid: u.uid, autor_tipo: 'usuario', autor_email: txt(u.email, 120), perfil: txt(u.perfil, 30), municipio_id: txt(u.municipio_id, 64), escola_id: txt(p.escola_id, 64),

@@ -13,6 +13,7 @@ export { comunicacaoProfessor, comunicacaoLembretes, comunicacaoManual } from '.
 export { importarBiblioteca } from './biblioteca.js';
 export { sincronizarAtividades } from './atividades.js';
 export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao, corrigirProvaOnline } from './provas-online.js';
+export { sugerirCorrecaoIA } from './correcao-ia.js';
 export { limparFotosProvas } from './fotos-provas.js';
 // Liga quando o secret NC_ENTREGA_CHAVE existir no Google (sem ele, o deploy de QUALQUER função falha):
 export { linkArquivoNc } from './arquivos-nc.js';
