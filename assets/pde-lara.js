@@ -27,11 +27,13 @@ body:has(#lsFab) .pl-lara{bottom:100px}   /* o botão da Lousa fica no canto: a 
 @media (prefers-reduced-motion:reduce){.pl-bt,.pl-balao{transition:none;animation:none}}`;
   let el = null;
   function link(msg) { return "https://wa.me/" + NUMERO + "?text=" + encodeURIComponent(msg); }
+  const ROTULO = { admin: "Administrador", secretaria: "Secretaria de Educação", gestor: "Gestão da escola", professor: "Professor(a)", secretaria_escolar: "Secretaria escolar", portaria: "Portaria" };
   function mostrar(o) {
     o = o || {};
+    if (o.perfil === "aluno") return esconder();
     if (!document.getElementById("plCss")) { const s = document.createElement("style"); s.id = "plCss"; s.textContent = css; document.head.appendChild(s); }
     const nome = String(o.nome || "").trim().split(/\s+/)[0] || "";
-    const cargo = String(o.cargo || "").trim(), escola = String(o.escola || "").trim();
+    const cargo = String(o.cargo || ROTULO[o.perfil] || "").trim(), escola = String(o.escola || "").trim();
     const msg = "Olá, Lara! Sou " + (o.nome || "do Portal") + (cargo ? " (" + cargo + (escola ? ", " + escola : "") + ")" : "") + ". Estou no Portal do Educador e tenho uma dúvida.";
     if (!el) { el = document.createElement("div"); el.className = "pl-lara"; el.id = "plLara"; document.body.appendChild(el); el.addEventListener("click", clique); }
     el.innerHTML = '<div class="pl-balao" id="plBalao" role="status" hidden><button type="button" class="pl-x" data-lara="fechar" aria-label="Fechar mensagem da Lara">✕</button>' +
