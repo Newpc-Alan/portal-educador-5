@@ -79,14 +79,28 @@ def montar(paginas=None):
     tpl = (D / os.environ.get('TEMPLATE', 'template.html')).read_text()
     return tpl.replace('{{TOC}}', '\n'.join(linhas)).replace('{{CORPO}}', '\n'.join(corpo)).replace('{{LOGO}}', (REPO / 'assets/pde-logo-256.png').as_uri()), toc
 
+# MARCAS=1: logotipo NEWPC no cabeçalho e Portal do Educador no rodapé (imagens embutidas: o cabeçalho do Chromium não carrega arquivos)
+import base64
+def _img(nome): return 'data:image/png;base64,' + base64.b64encode((D / 'marcas' / nome).read_bytes()).decode()
+def cabecalho():
+    if os.environ.get('MARCAS') != '1': return '<div></div>'
+    return ('<div style="width:100%;padding:0 16mm;margin-top:5mm;display:flex;justify-content:space-between;align-items:center;font-family:Inter;font-size:7px;color:#62758a">'
+            '<img src="' + _img('newpc-cabecalho.png') + '" style="height:5.2mm"><span>' + os.environ.get('CAB_TXT', '') + '</span></div>')
+def rodape():
+    txt = os.environ.get('RODAPE', 'Manual do Portal do Educador 5.0 · NEWPC Tecnologia')
+    if os.environ.get('MARCAS') != '1':
+        return '<div style="width:100%;font-family:Inter;font-size:7.5px;color:#62758a;padding:0 16mm;display:flex;justify-content:space-between"><span>' + txt + '</span><span class="pageNumber"></span></div>'
+    return ('<div style="width:100%;font-family:Inter;font-size:7.5px;color:#62758a;padding:0 16mm;display:flex;justify-content:space-between;align-items:center">'
+            '<span style="display:flex;align-items:center;gap:2mm"><img src="' + _img('pde-rodape.png') + '" style="height:5mm;width:5mm;border-radius:50%">'
+            '<b style="color:#0f2c4a;font-size:8px">Portal do Educador</b><span>&nbsp;·&nbsp;' + txt + '</span></span><span class="pageNumber"></span></div>')
+
 def pdf(html, saida):
     (D / 'manual.html').write_text(html)
     with sync_playwright() as p:
         b = p.chromium.launch(); pg = b.new_page()
         pg.goto((D / 'manual.html').as_uri()); pg.wait_for_load_state('networkidle'); pg.wait_for_timeout(500)
         pg.pdf(path=str(saida), format='A4', print_background=True, display_header_footer=True,
-               header_template='<div></div>',
-               footer_template='<div style="width:100%;font-family:Inter;font-size:7.5px;color:#62758a;padding:0 16mm;display:flex;justify-content:space-between"><span>' + os.environ.get('RODAPE', 'Manual do Portal do Educador 5.0 · NEWPC Tecnologia') + '</span><span class="pageNumber"></span></div>', prefer_css_page_size=True)
+               header_template=cabecalho(), footer_template=rodape(), prefer_css_page_size=True)
         b.close()
 
 def achar_paginas(arq, toc):

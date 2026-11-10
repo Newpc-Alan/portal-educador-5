@@ -970,3 +970,4 @@ Botão roxo "Ferramentas IA" na barra de baixo da Lousa (ao lado de Aula IA e Ap
 - 09/11/2026: Lara lê imagem (verImagem: tipo tela/equipamento/outro, descrição sem dados pessoais; imagem não guardada), foto de equipamento oferece chamado (foto_desc, 2 h), modo equipe (admin ou wa_equipe ativo) com bases pops (183) e manual-equipe (89) publico=equipe, filtro no servidor. Manuais Usuário v2.42, Completo v2.57 publicados.
 - 10/11/2026: POPs v2.29 publicados (POP-PDE-32 com quadro Quem pode). Achado: secretaria_escolar abre aula (podeGerar) mas não conduz (equipeTurma nas regras só tem gestor e secretaria); secretaria municipal conduz pelas regras mas não abre. Aguardando decisão do Alan.
 - 10/11/2026: fechado: só professor da turma, gestor e admin abrem/conduzem aula (podeAbrirAula, conduzAula sem secretaria). POPs v2.30.
+- 10/11/2026: POPs v2.31 com logotipo NEWPC no cabeçalho e Portal no rodapé (build.py: MARCAS=1, CAB_TXT; imagens em fontes/marcas).
