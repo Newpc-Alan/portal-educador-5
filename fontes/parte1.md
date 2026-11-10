@@ -199,7 +199,7 @@ O Portal IA prepara materiais de aula com a inteligência artificial embarcada n
 Abra pelo cartão **Portal IA** no Início.
 
 :::atencao
-A IA prepara, você ensina. Revise conteúdo, gabarito, adequação à turma e acessibilidade antes de aplicar.
+A IA prepara, você ensina. Revise conteúdo, gabarito, adequação à turma e acessibilidade antes de aplicar. Achou erro, informação inventada ou preconceito? Toque em **⚠️ A IA errou aqui**, ao lado do material: a equipe NEWPC acompanha esses avisos.
 :::
 
 :::regra
@@ -718,7 +718,7 @@ O aviso na tela vale para o que acontece com o Maestro aberto. O que aconteceu a
 
 No Controle da aula, toque em **🌡️ Termômetro da turma**. Escolha uma pergunta aberta (há sugestões como "Com as suas palavras, o que você aprendeu hoje?") ou escreva a sua e toque em **Perguntar à turma**. Cada aluno responde no próprio aparelho, com as palavras dele.
 
-A IA agrupa as respostas em **entenderam**, **entenderam em parte** e **confundiram**, e aponta a confusão que mais apareceu, para você retomar na hora. A IA lê só as respostas, nunca os nomes. O Termômetro é **gratuito**, com limite diário de uso justo, e o resultado fica no **Histórico de envios** da turma e nos painéis da Escola e da Rede.
+A IA agrupa as respostas em **entenderam**, **entenderam em parte** e **confundiram**, e aponta a confusão que mais apareceu, para você retomar na hora. É um retorno formativo, sem nota. Se a IA errar, toque em **⚠️ A IA errou aqui**. A IA lê só as respostas, nunca os nomes. O Termômetro é **gratuito**, com limite diário de uso justo, e o resultado fica no **Histórico de envios** da turma e nos painéis da Escola e da Rede.
 
 <!-- captura: cartão Quanto a turma entendeu com os grupos da IA -->
 
@@ -848,6 +848,7 @@ No modo **Horário marcado**, o painel tem **▶️ Abrir agora (contagem de 10 
 ### O que o aluno vê
 
 1. No Início, a prova do dia aparece em destaque, com foto e o botão **Fazer a prova**. Provas aplicadas agora aparecem sozinhas. Depois de entregue, o cartão mostra **✅ Prova entregue**; se a prova estiver em andamento, **Continuar a prova**; se estiver bloqueada, o aviso para chamar o professor.
+6. Com a nota final na tela, o aluno que discordar toca em **📨 Pedir revisão da nota**, escolhe a questão (ou a prova toda) e explica o motivo. A resposta do professor aparece na mesma tela. São até 2 pedidos por prova.
 2. Antes de começar, o aluno lê as regras.
 3. A prova abre em tela cheia, com cronômetro do servidor, paleta das questões (verde = respondida), **A−** e **A+** para mudar o tamanho da letra e **Entregar**.
 4. Cada resposta é salva na hora. Se a internet cair, ele entra de novo e continua de onde parou.
@@ -912,6 +913,7 @@ O painel tem dois modos: **▦ Sala** (a turma em cartões, com os bloqueados pr
 - Resposta curta é corrigida sozinha quando você informa as respostas aceitas; o que não bate fica pendente.
 - Dissertativas ficam pendentes: use **✍️ Corrigir questões abertas** (o botão mostra quantas faltam).
 - Com a prova encerrada, o painel mostra só os cartões de quem fez a prova (pendentes de correção primeiro). Quem não fez fica numa linha só: **Não fizeram a prova (N)**.
+- Prova só com questões objetivas: terminada a prova, confira a tabela e toque em **✅ Conferi as notas e finalizo** (toque de novo para confirmar). Sem isso, a nota não vai para o Notas e Médias.
 - A correção das questões abertas é sempre do professor. A IA não corrige, não avalia e não sugere nota em dissertativas, conforme as Diretrizes do CNE para o uso de IA na educação, homologadas pelo MEC em 10/11/2026.
 
 #### Corrigir as questões abertas
@@ -932,6 +934,16 @@ Depois de finalizada, as notas ficam travadas. Para mudar a nota de um aluno:
 1. Abra a questão e o aluno e toque em **Reavaliar a nota de...**.
 2. Escreva a **justificativa** (obrigatória) e a nova nota, e toque em **Salvar reavaliação**.
 3. A mudança fica no **Histórico de reavaliações** do aluno (data, quem, nota antes e depois e o motivo) e na **Auditoria**. O aluno vê que a nota foi revista e o motivo.
+
+#### Pedidos de revisão da nota
+
+Quando um aluno pede revisão, o painel da prova mostra o quadro **📨 Pedidos de revisão da nota**, com o aluno, a questão e o motivo.
+
+1. Toque em **✍️ Abrir a correção** (questão aberta) ou **📄 Prova do aluno** para rever.
+2. Se a nota mudar, faça antes a reavaliação (com justificativa).
+3. Toque em **Responder**, escolha **Nota mantida** ou **Nota revista**, escreva a resposta ao aluno e toque em **Enviar resposta**.
+
+O pedido e a resposta ficam registrados na Auditoria. É o direito de contestar o resultado previsto nas Diretrizes CNE/MEC de IA na educação.
 
 :::regra
 Finalizar a correção é o fechamento oficial da prova. Reavaliar sem justificativa não é possível, e toda reavaliação fica registrada com o nome de quem fez.
@@ -1000,6 +1012,7 @@ Se a direção nomeou você como **substituto** de um colega, a turma dele apare
 2. Informe as **Aulas dadas** e crie as colunas: **＋ Avaliação** (nome, peso, valor, com anexos como foto, PDF, Word ou link de vídeo) e **＋ Recuperação**.
 3. Lançamento manual: toque na célula e digite a nota (vírgula ou ponto). Enter desce para o próximo aluno. Tudo é salvo sozinho.
 4. **Trazer notas de**: **📡 Prova online** ou **📷 Corretor de Gabarito**. A nota entra numa coluna nova do período, convertida para a escala da rede. Pode puxar de novo para atualizar.
+   - A prova só aparece liberada depois que você **conferiu e finalizou a correção** (no painel da Prova online ou nos Resultados do Corretor). É a validação do professor que as Diretrizes CNE/MEC pedem para a correção automática.
 5. **Usar os números da Frequência** traz aulas e faltas.
 6. Em **📊 Resultado da turma**, veja médias, situação e quanto falta para cada aluno.
 
@@ -1025,7 +1038,8 @@ Para provas impressas, o Corretor lê cartões-resposta com a câmera.
 3. **📄 Gerar cartões em PDF** e imprima em tamanho real.
 4. **📷 Abrir a câmera** e leia os cartões. Marcações fracas, duplas ou em branco ficam destacadas e podem ser corrigidas com um toque. Sem cartão legível? **⌨️ Digitar as respostas**.
 5. Para muitas provas, use **Lote do scanner** com um PDF de várias páginas.
-6. Veja os **Resultados** e o mapa de **Habilidades BNCC**. A nota vai para Notas e Médias.
+6. Veja os **Resultados** e o mapa de **Habilidades BNCC**.
+7. Confira a tabela de notas e toque em **✅ Conferi as notas**. Fica registrado quem conferiu, quando e quantos cartões. Só depois disso a nota vai para Notas e Médias. Se entrarem cartões novos, o Corretor pede uma nova conferência.
 
 ### Central de Relatórios
 
@@ -1047,8 +1061,8 @@ No Início, no grupo **Minha turma**, toque em **Pareceres da turma** (ou, na Ce
 
 1. **Escolha a turma e o período.** O Portal junta, de cada aluno: a frequência do período, as médias lançadas em Notas e Médias, as habilidades da BNCC das provas online (consolidadas ou em desenvolvimento) e se ele tem plano individual ou apoio.
 2. **Dados e observações:** toque nas observações que combinam com cada aluno (por exemplo, "participa das aulas com interesse", "precisa de incentivo na leitura"). Há também um comentário opcional. Marque quem vai receber o parecer e toque em **Gerar pareceres**. Gerar o parecer com a IA é **gratuito** (com limite diário por professor, que dá para a turma inteira com folga).
-3. **Revisar e aprovar:** confira e edite o texto de cada aluno. **Aprovar parecer** (ou **Salvar rascunho**), **Gerar de novo** e **Próximo aluno**.
-4. **PDF da turma:** um aluno por página, com o brasão do município, o nome da escola e os campos de assinatura. Só entram os pareceres aprovados.
+3. **Revisar e aprovar:** confira e edite o texto de cada aluno. Para aprovar um parecer feito com a IA, marque **Li e revisei este parecer** e toque em **Aprovar parecer** (ou **Salvar rascunho**). Também há **Gerar de novo**, **Próximo aluno** e **⚠️ A IA errou aqui**. A aprovação é um aluno por vez e fica na Auditoria: quem aprovou, quando e se editou o texto da IA.
+4. **PDF da turma:** um aluno por página, com o brasão do município, o nome da escola e os campos de assinatura. Só entram os pareceres aprovados. Cada página traz "Elaborado com apoio de inteligência artificial, revisado e aprovado pelo(a) professor(a)", com o nome e a data.
 
 | Situação | O que o Portal faz |
 |---|---|

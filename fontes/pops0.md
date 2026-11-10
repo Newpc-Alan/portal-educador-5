@@ -80,6 +80,7 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | POP-PDE-39 | Cortesia de créditos da diretoria | Contratos |
 | POP-PDE-40 | Revisão de conteúdo gerado por IA (Aulas prontas e vídeos interativos) | Conteúdo |
 | POP-PDE-41 | Rede de demonstração em eventos | Comercial |
+| POP-PDE-42 | Uso de IA conforme as Diretrizes CNE/MEC | NEWPC |
 
 ## Controle de revisões
 
@@ -114,6 +115,7 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.27 | 04/11/2026 | POP-PDE-20 (franquia mensal, créditos por educador, retirar pacote, fora de rede e demonstração do teste); POP-PDE-30 (máximo por dia e Reenviar falhas); novos POP-PDE-34 (pedido "Quero isso na minha escola"), 35 (Painel da TV na recepção) e 36 (convite de primeiro acesso) | NEWPC Tecnologia | |
 | 2.28 | 09/11/2026 | POP-PDE-20 (preços novos, franquia que acumula, grátis com uso justo, cortesia); novos POP-PDE-37 (pagamento online pelo Asaas), 38 (Fábrica de cursos), 39 (cortesia da diretoria), 40 (revisão de conteúdo gerado por IA) e 41 (rede de demonstração) | NEWPC Tecnologia | |
 | 2.29 | 10/11/2026 | POP-PDE-32: quadro **Quem pode** (professor, gestor, administrador, aluno e perfis sem acesso; secretária escolar e Secretaria de Educação não abrem nem conduzem aula) e troca de professor por pedido e aprovação | NEWPC Tecnologia | |
+| 2.35 | 10/11/2026 | POP-PDE-42 novo (uso de IA conforme as Diretrizes CNE/MEC); POP-PDE-12 com conferência das notas e pedidos de revisão da nota | NEWPC Tecnologia | |
 | 2.34 | 10/11/2026 | POP-PDE-12: Aplicar online em duas etapas com trava de ano e turma, Maestro com prova (amarelo/vermelho e Alertas de segurança), correção sempre do professor (Diretrizes CNE/MEC de IA) e aviso de respostas parecidas só como indício | NEWPC Tecnologia | |
 | 2.33 | 10/11/2026 | POP-PDE-41: Painel da TV com as telas da rede de demonstração (&demo=1) | NEWPC Tecnologia | |
 | 2.32 | 10/11/2026 | Cabeçalho e rodapé alinhados às margens do texto | NEWPC Tecnologia | |

@@ -393,9 +393,11 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 
 15. Ao fim do tempo, confira se todos entregaram (a entrega é automática quando o tempo acaba; **Encerrar agora** fecha antes).
 16. Corrija as questões abertas com **✍️ Corrigir questões abertas**, um aluno por vez (**Salvar e ir para o próximo**); a fila tem só quem entregou. A correção é do professor: a IA não corrige nem sugere nota em dissertativas (Diretrizes CNE/MEC). O aviso **🔎 respostas parecidas** é só indício para apurar e não serve, sozinho, para punir. Com tudo corrigido e a prova encerrada, toque em **🔒 Finalizar correção**. Depois, mudar nota só por **Reavaliar**, com justificativa (fica no histórico e na Auditoria). Libere as notas (**Liberar notas aos alunos** ou **Mostrar notas já**), conforme o combinado.
-17. Baixo aproveitamento: **🔁 Recuperação** reaplica a prova aos alunos escolhidos; vale a maior nota e a original fica preservada.
-18. Em Notas e Médias, puxe as notas da prova online para a planilha da turma.
-19. Registre as ocorrências (bloqueios, trocas de aparelho, novas chances).
+17. Prova só com objetivas: confira a tabela e toque em **✅ Conferi as notas e finalizo**. Sem a conferência (ou o **🔒 Finalizar correção**, quando há questões abertas), a nota não vai para o Notas e Médias.
+18. **Pedidos de revisão da nota**: responda pelo quadro **📨 Pedidos de revisão** do painel em até 5 dias úteis. Se a nota mudar, faça antes a reavaliação com justificativa; depois responda **Nota mantida** ou **Nota revista**, explicando ao aluno.
+19. Baixo aproveitamento: **🔁 Recuperação** reaplica a prova aos alunos escolhidos; vale a maior nota e a original fica preservada.
+20. Em Notas e Médias, puxe as notas da prova online para a planilha da turma.
+21. Registre as ocorrências (bloqueios, trocas de aparelho, novas chances).
 
 ### Pontos de controle
 - ☐ Correção das questões abertas finalizada em até 7 dias depois do fim da prova (o Painel do administrador mostra as atrasadas).
@@ -403,6 +405,7 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 - ☐ Mesmo critério de nova chance para toda a turma.
 - ☐ Ocorrências registradas.
 - ☐ Nenhuma punição baseada só no aviso de respostas parecidas ou só nos alertas automáticos: o professor apura e registra.
+- ☐ Pedidos de revisão da nota respondidos em até 5 dias úteis.
 
 ### Registros
 O painel guarda situação, saídas, trocas, liberações (com o nome do professor) e horários pelo relógio do servidor. Gere **📄 Relatório** do aluno, **🖨️ Relatórios da turma** e **⬇️ Auditoria (planilha CSV)** quando a escola ou a família pedir. Fotos de confirmação só para professor e direção; são apagadas no fim do ano letivo.
@@ -1477,3 +1480,44 @@ Mostrar o Portal funcionando com dados, sem nunca apresentar dado fictício como
 
 ### Registros
 Resultado das consultas no GitHub Actions e Auditoria.
+
+## POP-PDE-42 · Uso de IA conforme as Diretrizes CNE/MEC {: .nova }
+
+@@ POP-PDE-42 | NEWPC | Administrador do Portal, com apoio do comercial | Todo recurso do Portal que usa inteligência artificial
+
+### Objetivo
+Manter o Portal alinhado às Diretrizes do CNE para o uso de IA na educação, homologadas pelo MEC em 10/11/2026: a decisão sobre o aluno é sempre humana, aluno não usa IA sozinho, dados mínimos e acompanhamento de erros e vieses.
+
+### Regras que não mudam
+- A IA **não corrige, não avalia e não sugere nota** em redações e questões dissertativas.
+- Correção automática de objetivas (Prova online e Corretor) só vale depois da **conferência registrada do professor**.
+- Parecer com rascunho da IA só é aprovado com **Li e revisei este parecer**, um aluno por vez, e o PDF informa o apoio da IA.
+- Aluno **não tem acesso** às ferramentas de IA. Nada de reconhecimento facial, de emoções ou pontuação de comportamento.
+- Para a IA não vão nome, CPF nem dado de saúde do aluno. Dados educacionais não são usados para publicidade.
+- Aviso automático (respostas parecidas, saídas da prova) é indício: **sozinho, não serve para punir**.
+
+### Procedimento
+**Toda semana**
+
+1. Em **Atendimento WhatsApp**, bloco **⚠️ IA: erros apontados pelos professores**, leia os avisos novos. Viés tem prioridade.
+2. Reproduza o caso, ajuste o recurso ou o pedido à IA quando for o caso, e marque **Tratado** (ou **Ignorar**, se não for erro da IA).
+
+**Antes de lançar um recurso novo com IA**
+
+3. Classifique o risco (baixo: planejamento e materiais; moderado: apoio pedagógico com interação; alto: interfere em avaliação ou decisão sobre o aluno). Se o recurso decidir sozinho sobre nota, aprovação ou punição, **não lance**.
+4. Confirme: quem usa (nunca aluno sozinho), que dados vão para a IA (sem nome, CPF e saúde), onde o professor revisa e onde fica o registro.
+5. Inclua o recurso na página pública `www.portaldoeducador.com.br/ia/` (tabela de recursos) e nos manuais.
+
+**Pedidos de rede ou de família**
+
+6. Pedido de revisão de nota ou de parecer: oriente a procurar o professor ou a escola. O professor responde pelo Portal (POP-PDE-12).
+7. Pedido sobre os dados: siga o POP-PDE-19.
+
+### Pontos de controle
+- ☐ Avisos "A IA errou aqui" sem pendência há mais de 7 dias.
+- ☐ Página `/ia/` atualizada a cada recurso que entra, muda ou sai.
+- ☐ Revisão geral deste POP a cada 2 anos ou quando o CNE revisar as diretrizes.
+
+### Registros
+ia_feedback (avisos e tratamento), Auditoria (aprovações de parecer, conferências de nota, pedidos de revisão e respostas) e o histórico da página `/ia/`.
+

@@ -303,7 +303,7 @@ Preço padrão: 1 material = 1 crédito, 1 ajuste = 1 crédito, 1 imagem = 5 cr�
 | `*_reacoes`, `pesquisa_respostas` | Votos de cada pessoa; os totais são somados por funções |
 | `biblioteca_triagem`, `atividades_ignoradas` | Controle das importações |
 | `dicas_envios`, `dicas_alunos`, `dicas_alunos_pub` | Dicas do Professor e do Aluno com moderação |
-| `provas_online` (+ `po_tentativas`, `po_resultados`, `po_sala`), `provas_online_gab` | Prova online. Só funções criam e corrigem; o gabarito fica em coleção separada |
+| `provas_online` (+ `po_tentativas`, `po_resultados`, `po_sala`, `po_revisoes`), `provas_online_gab` | Prova online. Só funções criam e corrigem; o gabarito fica em coleção separada |
 | `avaliacoes`, `respostas` | Provas do Corretor de Gabarito (inclusive as trazidas de Provas e Avaliações e do Portal IA) e notas lançadas |
 | `cursos`, `trilhas`, `users`, `certificados`, `cpfs`, `equipe` | Formação Continuada. Desde nov/2026 o perfil `users/{uid}` traz `municipio_id`, `escola_id`, `escolas_ids`, `perfil_portal` e `licenca_portal`, copiados do cadastro do Portal a cada entrada (`formacao-sync.js`); o cursista não muda esses campos e, ligado a uma rede, nem os textos de município e escola (regra). O certificado guarda `municipio_id` e `escola_id` |
 | `auditoria` | Trilha de auditoria do Portal (ver **Auditoria**) |
@@ -504,6 +504,8 @@ No navegador, a busca lê `busca_indice/_meta` (1 leitura) e só baixa as partes
 | `acaoProvaOnline` | callable | Nova chance, mais tempo, encerrar, liberar notas, cancelar |
 | `corrigirProvaOnline` | callable | Correção das questões abertas pelo professor. `finalizar: true` trava a correção (só com prova encerrada e nenhum `pendentes > 0`; grava `correcao_finalizada`, `_em`, `_por` e um registro na Auditoria). Depois disso, mudar questão já corrigida exige `justificativa` (15+ letras): entra em `por_questao[q].revisoes` (até 20: em, por, de, para, motivo), marca `reavaliada` e grava na Auditoria com nota antes e depois. Entrega tardia ainda pendente corrige sem justificativa |
 | `aplicarRecuperacao` | callable | Reaplica a prova como recuperação |
+| `revisaoNotaProva` | callable | Pedido de revisão da nota (Diretrizes CNE/MEC). `acao:'pedir'` (aluno, pela chave da tentativa): nota visível, sem pendências, motivo ≥ 15 letras, até 2 pedidos; `acao:'responder'` (professor ou admin): `decisao` mantida/revista e resposta ≥ 10 letras. Grava `provas_online/{id}/po_revisoes/{chave}` (pedido atual + `historico`) e Auditoria nos dois passos |
+| `iaFeedback` (`ia-feedback.js`) | callable | "A IA errou aqui": recurso, tipo (conteudo, turma, vies, outro), texto ≤ 500 sem CPF; uso justo de 30 por dia. Grava `ia_feedback` (admin lê e marca tratado/ignorado) |
 | `sugerirCorrecaoIA` (`correcao-ia.js`) | callable | **Desligada** (constante `DESLIGADA = true`) desde 10/11/2026: as Diretrizes CNE/MEC vedam IA corrigir ou sugerir nota em dissertativa. Responde `failed-precondition`. O aviso de respostas parecidas da correção é calculado no navegador (`parecidas()` em `prova/index.html`, trechos de 3 palavras, parecença ≥ 0,8), sem IA |
 | `fecharProvasOnline` | a cada 5 min | Entrega tentativas vencidas e encerra provas cuja janela terminou |
 | `limparFotosProvas` | 03:15 diário | Apaga fotos de confirmação de anos anteriores |
@@ -819,3 +821,14 @@ Os itens abaixo estão ordenados do mais sério para o menos sério.
 | 14 | Aluno ligado à turma por texto | **Melhorou**: a matrícula (código + PIN, QR, Google da escola) liga por ID. O aluno que entra só pelo domínio do e-mail ainda nasce sem escola | Levar todos para a matrícula |
 | 15 | `avaliacoes` pública com gabarito e `respostas` sem dono | **Resolvido em 26/10/2026** | |
 | 16 | Documentação e comentários desatualizados | Retrabalho de quem chega ao código | Usar esta parte como base de um `docs/` no repositório |
+
+### Conformidade com as Diretrizes CNE/MEC de IA (10/11/2026)
+
+| Onde | O que garante |
+|---|---|
+| `pareceres` `acao:'salvar'` | Com rascunho da IA (`gerado_em`), aprovar exige `revisado: true`; grava `com_ia`, `revisado_confirmado`, `editado`, `aprovado_por`, `aprovado_em` e um registro na Auditoria. O PDF traz a menção ao apoio da IA |
+| `avaliacoes.correcao_conferida` | Corretor: `{por, por_nome, em, cartoes}` gravado pelo professor em Resultados; Notas e Médias só puxa avaliação conferida |
+| `provas_online.correcao_finalizada` | Notas e Médias só puxa prova online finalizada; prova só com objetivas ganhou **Conferi as notas e finalizo** (usa `corrigirProvaOnline` com `finalizar`) |
+| `sugerirCorrecaoIA` | Desligada (IA não sugere nota em dissertativa) |
+| Regras | `po_revisoes`: leitura pelo aluno da tentativa e pelo professor; `ia_feedback`: leitura e update de status só admin; escrita só por funções |
+

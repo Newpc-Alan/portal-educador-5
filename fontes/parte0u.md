@@ -126,3 +126,7 @@ Atualização de 10 de novembro de 2026:
 | **Aplicar online em duas etapas**, com trava quando o ano da prova ou a turma do Maestro não confere; no Aplicar agora, o Portal abre o Maestro sozinho | Provas e Avaliações |
 | **＋ Nova prova** na barra de cima e aviso de **🔎 respostas parecidas** na correção | Provas e Avaliações |
 | Cartão do aluno com **✅ Prova entregue** e painel da prova encerrada só com quem fez | Portal do Aluno e painel da prova |
+| **Pedir revisão da nota** na Prova online (aluno pede, professor responde, tudo na Auditoria) | Portal do Aluno e painel da prova |
+| **Conferência das notas** antes de ir para o Notas e Médias (Corretor e prova só com objetivas) | Corretor de Gabarito, painel da prova e Notas e Médias |
+| Pareceres com **Li e revisei este parecer**, registro da aprovação e menção à IA no PDF | Pareceres da turma |
+| **⚠️ A IA errou aqui** no Portal IA, no Termômetro e nos Pareceres | Recursos com IA |
