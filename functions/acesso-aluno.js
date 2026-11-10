@@ -40,6 +40,10 @@ export function podeGerar(u, uid, turma, turmaId) {
   return false;
 }
 
+// abrir e conduzir aula (nov/2026): só professor da turma, direção (gestor) e administrador. A secretária escolar gera cartões e acessos
+// dos alunos (podeGerar), mas não abre aula; a Secretaria de Educação acompanha pelos relatórios.
+export function podeAbrirAula(u, uid, turma, turmaId) { return !!u && u.perfil !== 'secretaria_escolar' && podeGerar(u, uid, turma, turmaId); }
+
 export async function gerarAcesso({ db, auth, uid, turmaId, alunoId = '', novoPin = false }) {
   if (!ID.test(String(turmaId || ''))) throw new HttpsError('invalid-argument', 'Turma inválida.');
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
@@ -180,11 +184,11 @@ export async function entradaTurma({ db, uid, turmaId, acao, minutos, agora = Da
   const [us, ts] = await Promise.all([db.doc(`usuarios/${uid}`).get(), db.doc(`turmas/${turmaId}`).get()]);
   if (!ts.exists) throw new HttpsError('not-found', 'Turma não encontrada.');
   const eu = us.data() || {};
-  if (!podeGerar(eu, uid, ts.data(), turmaId)) throw new HttpsError('permission-denied', 'Você não pode abrir a entrada desta turma.');
+  if (!podeAbrirAula(eu, uid, ts.data(), turmaId)) throw new HttpsError('permission-denied', 'Você não pode abrir aula nesta turma. Abrir e conduzir aula é do professor da turma e da direção da escola.');
   const ref = db.doc(`qr_aulas/${turmaId}`), nome = String(ts.data().nome || '').slice(0, 80), meuNome = String(eu.nome || 'Professor').slice(0, 80);
   // a aula tem dono (nov/2026): quem abriu conduz; outro professor da turma vê "em aula com Fulano" e só entra se encerrar a aula do colega (fica na auditoria)
   const ant = (await ref.get()).data() || {}, antAte = ant.aberta_ate && ant.aberta_ate.toMillis ? ant.aberta_ate.toMillis() : 0, aberta = antAte > agora;
-  const dono = !aberta || ant.por === uid, chefe = ['admin', 'gestor', 'secretaria_escolar'].includes(eu.perfil);
+  const dono = !aberta || ant.por === uid, chefe = ['admin', 'gestor'].includes(eu.perfil);
   const pend = aberta && ant.pedido && ant.pedido.status === 'pendente' && ant.pedido.uid && ant.pedido.em && ant.pedido.em.toMillis && agora - ant.pedido.em.toMillis() < PEDIDO_VALE_MS ? ant.pedido : null;
   const pendMs = pend ? pend.em.toMillis() : 0, meuPedido = !!pend && pend.uid === uid;
   const infoPedido = () => meuPedido ? { pedido: { em: pendMs, espera: ESPERA_PEDIDO_MS } } : (pend ? { pedido: { de_outro: String(pend.nome || 'outro professor').slice(0, 80) } } : {});
