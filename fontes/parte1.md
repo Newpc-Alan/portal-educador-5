@@ -44,7 +44,7 @@ Se a conta Google também estiver ligada, ela continua funcionando normalmente.
 | Situação | O que acontece |
 |---|---|
 | A rede já importou o seu e-mail | Você entra com a conta da escola já ligado ao município e à escola e, antes de começar, aparece **Complete seu cadastro para começar** |
-| Você não foi cadastrado pela rede | Aparece **Complete seu cadastro**, com 7 dias de teste grátis |
+| Você não foi cadastrado pela rede | Aparece **Complete seu cadastro**, com 7 dias com tudo liberado e, depois, o plano Gratuito |
 
 **Atualização cadastral (professor da rede).** As contas de teste do Laboratório NEWPC não passam por ela. No primeiro acesso e no começo de cada ano letivo (a partir de 1º de fevereiro), o Portal pede para conferir os dados antes de abrir. Os campos já vêm preenchidos com o que a rede enviou. São obrigatórios: nome completo, WhatsApp (com DDD), CPF, data de nascimento, função, as escolas onde você dá aula (até 5), os anos em que dá aula (organizados por etapa: a etapa entra sozinha), as disciplinas que leciona e o aceite da Política de Privacidade. Na Educação Infantil a disciplina também entra sozinha; quem atende AEE ou sala de recursos marca **Também atendo Educação Especial**. A tela só libera com tudo certo; o campo com problema fica vermelho e diz o que corrigir. A foto para o crachá é opcional, em **Meu cadastro › Minha ficha funcional**. Para mudar depois: **Meu cadastro › Atualizar cadastro completo**.
 
@@ -67,6 +67,21 @@ Quem se cadastra sozinho ganha 7 dias para conhecer o Portal. No topo do Início
 - Os 10 créditos valem até o fim do teste e são dados uma vez por e-mail. Quando acabam, o Portal IA avisa e mostra como continuar.
 - Nos 2 últimos dias aparece o aviso **Faltam X dias** com o caminho para continuar sem perder o que você criou.
 - **Assinar sem esperar a equipe** (quando o pagamento online está ligado): os botões **Assinar** e **Renovar** abrem a janela **Pagamento seguro pelo Asaas**. Escolha a licença (Intermediário ou Completo, 1 mês) ou um pacote de créditos, informe o CPF de quem paga (só na primeira compra) e toque em **Ir para o pagamento**. A página do Asaas abre em outra aba com Pix, boleto ou cartão. Quando o pagamento é confirmado, o Portal libera sozinho e manda um e-mail. Se fechar a aba sem pagar, a cobrança fica em **Aguardando pagamento**, com o botão **Pagar**.
+
+### Plano Gratuito {: .nova }
+
+Quando o teste de 7 dias (ou uma licença avulsa) termina, **você não perde o acesso**: a conta passa sozinha para o **plano Gratuito**, que não expira, não tem cobrança e nunca pede cartão. Seus materiais continuam guardados.
+
+| No Gratuito | O que você tem |
+|---|---|
+| Liberado | Atividades, vídeos, jogos, datas comemorativas, colorir, histórias, biblioteca, museus, dicas, aplicativos e a Lousa |
+| Portal IA | **10 créditos por mês**, renovados todo dia 1º (não acumulam de um mês para o outro) |
+| Provas e Avaliações | Prova **impressa**, até **5 provas** guardadas em Minhas provas |
+| Com cadeado 🔒 | Prova online, Corretor, Notas e Médias, Formação Continuada, Portal Maestro, Turma ao Vivo, Gestão e painéis |
+
+- No Início aparece a faixa verde **Você está no plano Gratuito**, com o botão **Conhecer o completo**.
+- Quando os 10 créditos do mês acabam, o Portal IA avisa que eles renovam no dia 1º e mostra como comprar créditos avulsos.
+- Professor de rede que contratou o Portal **não usa o Gratuito**: ele tem o plano da rede, sem custo para ele.
 
 **Quero isso na minha escola.** Os recursos com cadeado são contratados pela Secretaria de Educação para a rede. Na vitrine de cada um, preencha a escola e o município, marque **Autorizo a NEWPC a entrar em contato comigo e com a minha escola** e toque em **Enviar pedido**. A equipe comercial recebe o pedido na hora; depois do envio, o botão **Falar agora no WhatsApp** abre a conversa com a mensagem pronta.
 

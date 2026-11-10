@@ -141,6 +141,8 @@ Atualização de 10 de novembro de 2026:
 | **Conferência das notas** antes de ir para o Notas e Médias (Corretor e prova só com objetivas) | Corretor de Gabarito, painel da prova e Notas e Médias |
 | Pareceres com **Li e revisei este parecer**, registro da aprovação e menção à IA no PDF | Pareceres da turma |
 | **⚠️ A IA errou aqui** no Portal IA, no Termômetro e nos Pareceres | Recursos com IA |
+| **Plano Gratuito** permanente: o teste ou a licença que vence vira Gratuito (conteúdos, Lousa, provas impressas e 10 créditos de IA por mês) | Início do professor |
+| Página inicial e convite da rede sem "teste": quem é da rede vê que o acesso é sem custo para ele | Página inicial e e-mail de convite |
 | **Redes contratantes** (municipal, estadual, particular, instituição), **inventário de equipamentos** por planilha e licença Google por Chromebook | Administrador |
 | **Financeiro** (recebimentos, notas a emitir, comissões), **pagamento online pelo Asaas** e **cortesia da diretoria** nos créditos | Administrador |
 | **Fábrica de cursos com IA**, cursos exclusivos de rede e **Relatório da formação** para a Secretaria | Formação (admin) e Painel da Rede |

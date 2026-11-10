@@ -690,7 +690,7 @@ Liberar a IA só para quem tem direito, com créditos pré-pagos, validade contr
 - Preços padrão (nov/2026): material do Portal IA = 2, ajuste = 1, Aula IA da Lousa = 6, Aula avançada = 24, imagem = 6, texto (questões, quiz, Perguntar, Circular, Mapa) = 1, vídeo interativo por link = 3. Grátis com uso justo: Termômetro, Pareceres, Passar a limpo, Aulas prontas e vídeos interativos do catálogo.
 - A rede paga primeiro, até o **teto por professor** no mês (o dobro da franquia do plano). Bateu o teto ou acabou o saldo, o Portal usa os créditos próprios do professor, se ele tiver.
 - **Franquia**: todo dia às 3h15 a rede recebe educadores de rede ativos × franquia (60 no Intermediário e no Personalizado, 120 no Completo). A franquia **acumula até o fim do contrato**.
-- Só a licença institucional usa a carteira da rede. Avulso, cortesia e teste usam sempre a carteira própria, mesmo com o município no cadastro. O teste de 7 dias ganha 10 créditos de demonstração.
+- Só a licença institucional usa a carteira da rede. Avulso, cortesia e teste usam sempre a carteira própria, mesmo com o município no cadastro. O plano Gratuito ganha 10 créditos por mês, renovados no dia 1º. O teste de 7 dias ganha 10 créditos de demonstração.
 - Alertas automáticos por e-mail para a NEWPC e para a Secretaria quando o saldo da rede chega a 20% e a 5%.
 
 ### Procedimento

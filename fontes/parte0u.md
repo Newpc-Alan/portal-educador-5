@@ -130,3 +130,5 @@ Atualização de 10 de novembro de 2026:
 | **Conferência das notas** antes de ir para o Notas e Médias (Corretor e prova só com objetivas) | Corretor de Gabarito, painel da prova e Notas e Médias |
 | Pareceres com **Li e revisei este parecer**, registro da aprovação e menção à IA no PDF | Pareceres da turma |
 | **⚠️ A IA errou aqui** no Portal IA, no Termômetro e nos Pareceres | Recursos com IA |
+| **Plano Gratuito** permanente: o teste ou a licença que vence vira Gratuito (conteúdos, Lousa, provas impressas e 10 créditos de IA por mês) | Início do professor |
+| Página inicial e convite da rede sem "teste": quem é da rede vê que o acesso é sem custo para ele | Página inicial e e-mail de convite |
