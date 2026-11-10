@@ -15,5 +15,9 @@ for (const d of sn.docs) {
   const det = ts.docs.map(x => { const t = x.data(); return `${x.id.slice(0, 6)}… ${t.status} ini=${h(t.inicio)} ent=${h(t.entregue_em)} motivo=${t.motivo_entrega || '-'} resp=${Object.keys(t.respostas || {}).length}`; });
   console.log(`::notice::prova ${d.id} | "${p.titulo}" | turma=${p.turma_nome} | status=${p.status} aguardando=${!!p.aguardando} | abre=${h(p.abre_em)} fecha=${h(p.fecha_em)} | criada=${h(p.criado_em)} | alunos=${(p.alunos || []).length} | tentativas=${JSON.stringify(st)} sala=${sala.size} resultados=${res.size}`);
   det.forEach(l => console.log('::notice::   ' + l));
+  ts.docs.forEach(x => { const t = x.data();
+    console.log(`::notice::   ${x.id.slice(0, 6)}… aparelho=${t.aparelho || '-'} trocas=${t.trocas || 0} desvios=${t.desvios || 0} prazo=${h(t.prazo)} conta=${String(t.conta_uid || '').slice(0, 6)}…`);
+    (t.eventos || []).forEach(e => console.log(`::notice::      evento ${new Date(e.t).toLocaleTimeString('pt-BR', { timeZone: 'America/Campo_Grande' })} ${e.e}${e.m ? ' · ' + String(e.m).slice(0, 80) : ''}`)); });
+  sala.docs.forEach(x => { const s0 = x.data(); const o = {}; Object.keys(s0).filter(k => !/nome/i.test(k)).forEach(k => { const v = s0[k]; o[k] = v && v.toDate ? h(v) : v; }); console.log(`::notice::   sala ${x.id.slice(0, 6)}… ${JSON.stringify(o).slice(0, 300)}`); });
 }
 console.log(`::notice::${sn.size} prova(s) na janela`);
