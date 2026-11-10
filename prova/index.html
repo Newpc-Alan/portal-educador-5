@@ -101,6 +101,8 @@ h1{font-size:1.5rem;line-height:1.25;margin-bottom:6px} h2{font-size:1.1rem;marg
 .btn-maestro{display:flex;flex-direction:column;align-items:flex-start;gap:2px;margin:12px 0 4px;padding:14px 18px;border-radius:14px;background:linear-gradient(135deg,#1a6b2a,#2f8f3a);color:#fff;font-weight:800;font-size:1.15rem;text-decoration:none;box-shadow:0 10px 22px -12px rgba(26,107,42,.8)}
 .btn-maestro small{font-weight:600;font-size:.85rem;opacity:.9}
 .btn-maestro:hover{filter:brightness(1.06)}
+.pn-semfazer{margin:12px 0 0;padding:10px 14px;border-radius:12px;background:#f3f6f9;color:#5b6b7b;font-size:.9rem;line-height:1.5}
+.pn-semfazer b{color:#0f2c4a}
 /* sala de espera e contagem */
 .espera{text-align:center;border:2px dashed #b9dcc1;background:#f6fbf7;border-radius:16px;padding:18px;margin-top:6px}
 .espera .pulso{font-size:2.6rem;animation:pulso 1.6s ease-in-out infinite}
@@ -685,8 +687,11 @@ function desenharPainel(){
   if(temAbertas && Object.keys(PN.res).length && CORRECAO_NO_AR) $("tela").querySelector(".acoes").insertAdjacentHTML("beforeend", '<button class="btn '+(pendTotal ? "btn-ok" : "btn-gh")+' btn-sm" data-action="pn-corrigir">'+(E.prova.correcao_finalizada ? "🔒 Correção finalizada · rever" : "✍️ Corrigir questões abertas"+(pendTotal ? " ("+pendTotal+" para corrigir)" : ""))+'</button>');
 }
 // ordem de atenção: bloqueados primeiro, depois quem saiu da tela, quem está fazendo (menos avançado antes), sala, não entrou, entregou
+const provaTerminou = () => { const p = E.prova; return !!p && (p.status === "encerrada" || (!p.aguardando && ms(p.fecha_em) < agora())); };
 function prioridade(a, nq){
   const t = PN.tent[a.uid], sl = PN.sala[a.uid];
+  // prova terminada: quem fez vem primeiro (para corrigir e conferir); quem não fez fica no fim
+  if(provaTerminou()) return t ? (PN.res[a.uid] && PN.res[a.uid].pendentes ? 0 : 1) : 9;
   if(t && t.status === "bloqueada") return 0;
   if(t && t.status === "em_andamento") return (t.desvios ? 1 : 2);
   if(!t) return sl ? 3 : 4;
@@ -699,8 +704,11 @@ function alunosFiltrados(alunos){
 }
 // modo Sala: um cartão por aluno, a turma inteira numa tela (sem rolar), cor pela situação
 function gradePainel(alunos, nq, respondidas){
-  const lista = alunosFiltrados(alunos);
-  if(!lista.length) return '<div class="card vazio">Nenhum aluno nesta situação.</div>';
+  let lista = alunosFiltrados(alunos), semFazer = [];
+  // prova terminada: os cartões são só de quem fez; quem não fez vira uma linha resumida (não precisa passar por eles)
+  if(provaTerminou() && !PN.filtro){ semFazer = lista.filter(a => !PN.tent[a.uid]); lista = lista.filter(a => PN.tent[a.uid]); }
+  const rodapeSem = semFazer.length ? '<p class="pn-semfazer"><b>Não fizeram a prova ('+semFazer.length+'):</b> '+semFazer.map(a => esc(String(a.nome).split(" ").slice(0, 2).join(" "))).join(", ")+'</p>' : '';
+  if(!lista.length) return '<div class="card vazio">'+(semFazer.length ? 'Ninguém fez esta prova.' : 'Nenhum aluno nesta situação.')+'</div>'+rodapeSem;
   return '<div class="pn-grade">'+lista.map(a => {
     const t = PN.tent[a.uid], r = PN.res[a.uid], s = situacaoAluno(a.uid), cls = s[1].slice(2), resp = t ? respondidas(t) : 0, pct = nq ? Math.round(100 * resp / nq) : 0;
     const ult = t ? (t.eventos || []).filter(x => x.e === "desvio").slice(-1)[0] : null;
@@ -714,7 +722,7 @@ function gradePainel(alunos, nq, respondidas){
       '<div class="pn-acts">'+(t && t.status === "bloqueada" ? '<button class="btn btn-ok btn-sm" data-action="pn-liberar" data-arg="'+a.uid+'">🔓 Nova chance</button>' : '')+
         (t && t.status === "em_andamento" ? '<button class="btn btn-gh btn-sm" data-action="pn-tempo" data-arg="'+a.uid+'" title="Mais 10 minutos">+10</button>' : '')+
         (t ? '<button class="btn btn-gh btn-sm" data-action="pn-rel" data-arg="'+a.uid+'" title="Relatório do aluno">📄</button>' : '')+'</div></div>';
-  }).join("")+'</div>';
+  }).join("")+'</div>'+rodapeSem;
 }
 // quem acabou de ser bloqueado: alerta no topo, cartão piscando e um bipe curto (só depois da primeira carga)
 function vigiarBloqueios(){
