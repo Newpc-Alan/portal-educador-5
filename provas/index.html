@@ -1344,7 +1344,7 @@ html, body { background: #f4f7fa !important; }
 
   <!-- Modal: aplicar online (Portal do Aluno, modo protegido) -->
   <div class="pde-modal-bg" id="ol-bg" data-close-on-bg="olFechar">
-    <div class="pde-modal" style="max-width:560px">
+    <div class="pde-modal" style="max-width:620px">
       <div class="pde-modal-head"><h3>📡 Aplicar online</h3><button class="pde-modal-close" data-action="olFechar">×</button></div>
       <div class="pde-modal-body" id="ol-corpo" style="display:grid;gap:12px"></div>
     </div>
@@ -4355,8 +4355,14 @@ function olAbrir(){
   const H = dados.header, FIN = G().FINALIDADES, nomePer = G().NOME_PER[H.periodos] || "bimestre";
   const sugerida = turmas.find(t => t.id === H.turma_id);
   const h0 = new Date(Date.now() + 60 * 60000);
-  corpo.innerHTML = '<p style="margin:0;color:#62758a">Os alunos da turma veem a prova no Início do Portal do Aluno. Ela abre em tela cheia: se o aluno sair, recebe 1 aviso e, na segunda saída, a prova é bloqueada até você liberar. As objetivas são corrigidas sozinhas; a nota aparece para o aluno quando o horário terminar.</p>'+
-    (turmas.length ? '<div class="ol-class"><div class="ol-class-t">🏷️ Confira antes de aplicar <small>é assim que a nota chega em Notas e Médias</small></div>'+
+  const passos = n => '<div class="ol-passos" aria-label="Etapas"><span class="'+(n === 1 ? "on" : "ok")+'"><b>1</b> Para quem</span><i></i><span class="'+(n === 2 ? "on" : "")+'"><b>2</b> Como aplicar</span></div>';
+  const resumo = '<div class="ol-resumo">📋 '+qs.length+' questões · ⭐ '+dados.totalPontos+' pontos'+(manuais ? ' · ✍️ '+manuais+' para você corrigir depois' : '')+(semGab ? '<br><b style="color:#C2362C">⚠ '+semGab+' questão(ões) objetiva(s) sem gabarito marcado: elas ficam para correção manual.</b>' : '')+'</div>';
+  corpo.innerHTML = '<style>.ol-passos{display:flex;align-items:center;gap:10px;font-weight:800;font-size:.92rem;color:#8a99a8}.ol-passos span{display:flex;align-items:center;gap:6px}.ol-passos b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#e3e9ef;color:#62758a}'+
+      '.ol-passos .on{color:#0f2c4a}.ol-passos .on b{background:#1a6b2a;color:#fff}.ol-passos .ok b{background:#8DC63F;color:#10240a}.ol-passos i{flex:1;height:2px;background:#e3e9ef}'+
+      '.ol-etapa{display:grid;gap:12px}.ol-etapa[hidden]{display:none}.ol-resumo{background:#f5f8fb;border-radius:12px;padding:10px 12px;font-size:.9rem}.ol-como{font-size:.86rem;color:#62758a;background:#f5f8fb;border-radius:10px;padding:8px 12px}.ol-como summary{cursor:pointer;font-weight:700;color:#0f2c4a}'+
+      '.ol-rodape{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap;border-top:1px solid #e3e9ef;padding-top:12px}</style>'+
+    '<div class="ol-etapa" id="ol-e1">'+passos(1)+
+    (turmas.length ? '<div class="ol-class"><div class="ol-class-t">🏷️ Para qual turma e para quê <small>é assim que a nota chega em Notas e Médias</small></div>'+
       '<label class="pde-label" for="ol-turma">Turma <span class="pde-obg">*</span></label><select id="ol-turma" class="pde-select"><option value="">Escolha a turma...</option>'+turmas.map(t => '<option value="'+escH(t.id)+'"'+(sugerida && t.id === sugerida.id ? " selected" : "")+'>'+escH(t.nome)+(P.escolas.length > 1 && t.escola ? " · "+escH(t.escola) : "")+'</option>').join("")+'</select>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px"><div><label class="pde-label" for="ol-fin">Para que serve <span class="pde-obg">*</span></label><select id="ol-fin" class="pde-select"><option value="">Escolha...</option>'+
         '<optgroup label="✅ Vale nota">'+["avaliacao","trabalho","recuperacao"].map(k => '<option value="'+k+'"'+(H.finalidade === k ? " selected" : "")+'>'+escH(FIN[k].l)+'</option>').join("")+'</optgroup>'+
@@ -4365,6 +4371,11 @@ function olAbrir(){
         Array.from({ length:H.periodos || 4 }, (_, k) => '<option value="'+(k + 1)+'"'+(H.periodo === k + 1 ? " selected" : "")+'>'+(k + 1)+'º '+nomePer+'</option>').join("")+'</select></div></div>'+
       '<div id="ol-class-res" class="ol-class-res"></div></div>'
       : '<p style="color:#C2362C;margin:0">Você ainda não tem turmas no Portal. Cadastre a turma em Minhas Turmas para aplicar online.</p>')+
+    resumo+
+    '<div class="ol-rodape"><a href="/prova/" target="_blank" rel="noopener" style="font-weight:700">Ver provas online já aplicadas ↗</a>'+
+      '<button class="pde-btn pde-btn-primary" data-action="olEtapa2" id="ol-seguir"'+(turmas.length ? "" : " disabled")+'>Continuar →</button></div></div>'+
+    // etapa 2: como aplicar
+    '<div class="ol-etapa" id="ol-e2" hidden>'+passos(2)+'<div id="ol-quem" class="ol-resumo"></div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" role="radiogroup" aria-label="Quando abrir">'+
       '<label class="ol-modo on" data-modo="agora"><input type="radio" name="ol-modo" value="agora" checked><div class="t">▶️ Aplicar agora</div><div class="d">A prova vai para a sala de espera dos alunos. Quando todos estiverem prontos, você clica em Iniciar: contagem de 10 s e a prova abre junto para todos.</div></label>'+
       '<label class="ol-modo" data-modo="horario"><input type="radio" name="ol-modo" value="horario"><div class="t">🗓️ Horário marcado</div><div class="d">Abre e fecha sozinha no dia e horário escolhidos.</div></label></div>'+
@@ -4378,15 +4389,34 @@ function olAbrir(){
     '<div><label class="pde-label" for="ol-notas">Nota para o aluno</label><select id="ol-notas" class="pde-select"><option value="fim">Mostrar quando a prova terminar</option><option value="reter">Guardar até o fechamento do '+nomePer+' (eu libero depois)</option></select></div>'+
     '<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="ol-emb" checked> Embaralhar questões e alternativas</label>'+
     '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:600"><input type="checkbox" id="ol-fotos" checked style="margin-top:3px"><span>📸 Foto de confirmação do aluno no começo e na entrega<small style="display:block;font-weight:500;color:#62758a">Fica no painel e no relatório de auditoria, ao lado da foto da matrícula. Só você e a direção veem; apagada no fim do ano letivo.</small></span></label>'+
-    '<div style="background:#f5f8fb;border-radius:12px;padding:10px 12px;font-size:.88rem">📋 '+qs.length+' questões · ⭐ '+dados.totalPontos+' pontos'+(manuais ? ' · ✍️ '+manuais+' para você corrigir depois' : '')+(semGab ? '<br><b style="color:#C2362C">⚠ '+semGab+' questão(ões) objetiva(s) sem gabarito marcado: elas ficam para correção manual.</b>' : '')+'</div>'+
-    '<div style="display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap"><a href="/prova/" target="_blank" rel="noopener" style="font-weight:700">Ver provas online já aplicadas ↗</a>'+
-    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Enviar para a sala de espera</button></div>';
+    '<details class="ol-como"><summary>Como funciona para o aluno</summary>Os alunos da turma veem a prova no Início do Portal do Aluno. Ela abre em tela cheia: se o aluno sair, recebe 1 aviso e, na segunda saída, a prova é bloqueada até você liberar. As objetivas são corrigidas sozinhas; a nota aparece para o aluno quando o horário terminar.</details>'+
+    '<div class="ol-rodape"><button class="pde-btn pde-btn-ghost" data-action="olEtapa1">← Voltar</button>'+
+    '<button class="pde-btn pde-btn-primary" data-action="olAplicar" id="ol-ok"'+(turmas.length ? "" : " disabled")+'>Enviar para a sala de espera</button></div></div>';
   $("ol-bg").classList.add("show");
   ["ol-turma", "ol-fin", "ol-per"].forEach(i => { const el = $(i); if(el) el.addEventListener("change", olClassif); });
-  OL.serieOk = null; const tSel = $("ol-turma"); if(tSel) tSel.addEventListener("change", () => { OL.serieOk = null; olModo(); olFaixaAula(); });
+  OL.serieOk = null; const tSel = $("ol-turma"); if(tSel) tSel.addEventListener("change", () => { OL.serieOk = null; const sg = $("ol-seguir"); if(sg) sg.textContent = "Continuar →"; olFaixaAula(); });
   olAulaViva().then(() => { if(OL.aula && tSel && !tSel.value && [...tSel.options].some(o => o.value === OL.aula.turma_id)){ tSel.value = OL.aula.turma_id; olClassif(); } olFaixaAula(); });
   olClassif();
 }
+// etapa 1 → 2: confere turma, finalidade e período; a trava de turma/ano (Maestro) roda aqui, antes de escolher como aplicar
+function olEtapa2(){
+  const dados = G().collectData(), fin = $("ol-fin").value, F = G().FINALIDADES[fin], per = parseInt($("ol-per").value) || null;
+  if(!$("ol-turma").value || !F || (F.nota && !per)){ olClassif(); G().toast("Confira a turma, para que serve a prova e o " + G().NOME_PER[dados.header.periodos] + ".", "warn"); return; }
+  const conflito = olConflitoSerie(dados);
+  if(conflito && OL.serieOk !== $("ol-turma").value){
+    OL.serieOk = $("ol-turma").value; $("ol-seguir").textContent = "Continuar mesmo assim →";
+    const box = $("ol-class-res"); if(box){ const v = box.querySelector(".ol-serie-alerta"); if(v) v.remove();
+      box.insertAdjacentHTML("afterbegin", '<div class="ol-serie-alerta" role="alert" style="background:#fdecea;border:2px solid #c0392b;color:#7b1e14;border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:700">⚠️ Atenção: ' + conflito.msg + ' Confira a turma. Se estiver certo, toque de novo em Continuar.</div>'); }
+    G().toast(conflito.msg.replace(/<[^>]+>/g, "") + " Confira antes de continuar.", "warn");
+    return;
+  }
+  const sel = $("ol-turma"), turma = ((sel.options[sel.selectedIndex] || {}).text || "").split(" · ")[0];
+  $("ol-quem").innerHTML = "👥 <b>" + escH(turma) + "</b> · " + escH(F.l) + (per ? " · " + escH(G().periodoTxt(per, dados.header.periodos)) : "") + (F.nota ? " · <b>vale nota</b>" : " · não vale nota") +
+    (OL.aula && OL.aula.turma_id === sel.value ? " · 🔴 ao vivo no Maestro" : "");
+  $("ol-e1").hidden = true; $("ol-e2").hidden = false; olModo();
+  const c = $("ol-corpo"); if(c) c.scrollTop = 0;
+}
+function olEtapa1(){ $("ol-e2").hidden = true; $("ol-e1").hidden = false; }
 // resumo da classificação na janela "Aplicar online"
 function olClassif(){
   const el = $("ol-class-res"); if(!el) return;
@@ -4407,7 +4437,7 @@ function olSerie(t){ const m = String(t || "").match(/(\d{1,2})\s*[ºo°ªa]?\s*
 function olFaixaAula(){
   const corpo = $("ol-corpo"); if(!corpo) return; let f = $("ol-aula-viva");
   if(!OL.aula){ if(f) f.remove(); return; }
-  if(!f){ f = document.createElement("div"); f.id = "ol-aula-viva"; corpo.prepend(f); }
+  if(!f){ f = document.createElement("div"); f.id = "ol-aula-viva"; const e1 = $("ol-e1"), ps = e1 && e1.querySelector(".ol-passos"); if(ps) ps.after(f); else corpo.prepend(f); }
   const sel = $("ol-turma"), igual = sel && sel.value === OL.aula.turma_id;
   f.style.cssText = "border-radius:10px;padding:9px 12px;margin:0 0 10px;font-weight:700;" + (igual || !sel || !sel.value ? "background:#eaf6e4;border:1px solid #8DC63F;color:#1a4d10" : "background:#fff3e0;border:1px solid #f0a33a;color:#7a4300");
   f.innerHTML = "🔴 Ao vivo no Maestro: <b>" + escH(OL.aula.turma_nome) + "</b>" + (sel && sel.value && !igual ? " · a turma escolhida abaixo é outra" : "");
@@ -4574,7 +4604,7 @@ function registrar(){
   Object.assign(A, {
     mpAbrir, mpSalvar, mpNovaProva, mpNovaPasta, mpRenomearPasta, mpExcluirPasta,
     mpFechar: () => $("mp-bg").classList.remove("show"),
-    olAbrir, olAplicar, olModo, olFechar: () => $("ol-bg").classList.remove("show"),
+    olAbrir, olAplicar, olModo, olEtapa2, olEtapa1, olFechar: () => $("ol-bg").classList.remove("show"),
     crGerar, crDesembaralhar: () => { const e = $("pd-embaralhar"); e.value = "nao"; e.dispatchEvent(new Event("change", { bubbles:true })); crAtualizar(); },
     crIrCabecalho: () => { $("cr-bg").classList.remove("show"); G().irParaClassif(); }, crIrQuestoes: () => { $("cr-bg").classList.remove("show"); G().goStep("questoes"); },
     crAbrir: () => { $("cr-bg").classList.add("show"); crAtualizar(); }, crFechar: () => $("cr-bg").classList.remove("show"),
