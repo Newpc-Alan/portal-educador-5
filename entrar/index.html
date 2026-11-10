@@ -473,6 +473,13 @@
   .avp-acoes button, .avp-acoes a{ font:inherit;font-weight:800;border:0;border-radius:10px;padding:9px 14px;min-height:40px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px }
   .avp-bt{ background:#fff;color:#0f2c4a } .avp-bt.ok{ background:#8DC63F;color:#10240a } .avp-bt.red{ background:#e05a4f;color:#fff } .avp-bt:disabled{ opacity:.6;cursor:wait }
   .avp-lnk{ background:transparent;color:#cfe0ef;border:1px solid rgba(255,255,255,.3) !important }
+  .av-al.prova{ opacity:1;background:#fff8e1 } .av-al.prova .av-av{ background:#f5b301;color:#2b1a00;border-color:#ffe08a;box-shadow:0 0 0 4px rgba(245,179,1,.25) } .av-al.prova .av-nm{ font-weight:700;color:#7a5200 }
+  .av-pv.alerta{ background:#f5b301;color:#2b1a00 }
+  .avp-seg{ display:grid;gap:5px;background:rgba(245,179,1,.14);border:1px solid rgba(245,179,1,.55);border-radius:12px;padding:8px 10px;font-size:13px }
+  .avp-seg.ok{ background:rgba(141,198,63,.14);border-color:rgba(141,198,63,.5);display:block }
+  .avp-seg-t{ font-weight:800;font-size:13px }
+  .avp-seg div{ display:flex;flex-wrap:wrap;align-items:center;gap:8px } .avp-seg div b{ margin-right:auto } .avp-seg div.blo b{ color:#ffb4ab }
+  .avp-seg span{ background:rgba(255,255,255,.14);border-radius:999px;padding:1px 8px;font-weight:700 } .avp-seg small{ opacity:.8;flex-basis:100% }
   .avp-pre{ display:grid;gap:6px;background:rgba(224,90,79,.18);border:1px solid rgba(224,90,79,.5);border-radius:12px;padding:8px 10px }
   .avp-pre div{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px } .avp-pre div b{ margin-right:auto }
   .avp-pre button{ font:inherit;font-size:13px;font-weight:800;border:0;border-radius:8px;padding:6px 10px;cursor:pointer;background:#fff;color:#0f2c4a }
@@ -10696,15 +10703,19 @@
   // sem cor = saiu da conta ou não entrou. Sinal com mais de 3 h é de outra aula: sem cor.
   const FORA_MS = 3 * 3600e3;
   // aula encerrada ou sinal de antes da aula atual começar: sem cor (não fica "preso" no vermelho de uma aula anterior)
-  const estadoAv = id => { const m = estadoMaeAluno(id); if(m) return m;
+  // prova online em andamento (nov/2026): fazendo a prova = amarelo (está na página da prova, não é "saiu da aula");
+  // vermelho só quando sai da prova (bloqueado). Entregou: volta ao estado normal da aula.
+  const estadoProvaAv = id => { if(!AVP.id) return ""; const k = "m-" + id, t = AVP.tent[k];
+    if(t && t.status === "bloqueada") return "fora"; if(t && t.status === "em_andamento") return "prova"; if(!t && AVP.sala[k]) return "prova"; return ""; };
+  const estadoAv = id => { const pv = estadoProvaAv(id); if(pv) return pv; const m = estadoMaeAluno(id); if(m) return m;
     const p = AV.pres[id]; if(!p || p.saiu) return ""; if(onlineAv(id)) return "on";
     const em = msAv(p.em);
     if(AV.aulaIni && em < AV.aulaIni) return "";
     if(AV.aulaFim && AV.aulaFim <= Date.now()) return "";
     return Date.now() - em < FORA_MS ? "fora" : ""; };
-  const ORD_AV = { on:0, fora:1, "":2 };
+  const ORD_AV = { fora:0, prova:1, on:2, "":3 };
   const listaAv = () => AV.alunos.length ? AV.alunos : Object.entries(AV.pres).map(([id, p]) => ({ id, nome:p.nome || "Aluno" }));
-  const onlineAvTotal = id => onlineAv(id) || estadoMaeAluno(id) === "on";
+  const onlineAvTotal = id => onlineAv(id) || estadoMaeAluno(id) === "on" || estadoProvaAv(id) === "prova";
   function desenharAoVivo(){
     const box = $("avAlunos"); if(!box){ pararAoVivo(); return; }
     const lista = listaAv(), n = lista.filter(a => onlineAvTotal(a.id)).length, tot = lista.length;
@@ -10717,7 +10728,7 @@
     const html = !tot ? '<p class="av-leg">Nenhum aluno cadastrado nesta turma.</p>' :
       lista.slice().sort((a, b) => (ORD_AV[estadoAv(a.id)] - ORD_AV[estadoAv(b.id)]) || a.nome.localeCompare(b.nome, "pt-BR")).map(a => { const st = estadoAv(a.id);
         const ap = aparelhosDoAluno(a.id), on = ap.filter(x => x.on), pausa = aulaAberta() && (pausadoAluno(a.id) || on.some(x => x.pausado)), mao = aulaAberta() && maoDoAluno(a.id), nl = aulaAberta() ? naoLidas(a.id) : 0;
-        const tit = escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") +
+        const tit = escapeAttr(a.nome) + (st === "prova" ? " · fazendo a prova" : st === "fora" ? (estadoProvaAv(a.id) === "fora" ? " · SAIU DA PROVA (bloqueado)" : " · saiu da página (continua com a conta aberta)") : st === "on" ? " · na aula" : " · fora do Portal") +
           (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
         const af = aulaAberta() ? respostaDoAluno(a.id) : "";
         const pv = provaDoAlunoAv(a.id);
@@ -10743,7 +10754,17 @@
       if((p ? p.id : "") !== AVP.id){
         AVP.subs.forEach(u => { try{ u(); }catch(e){} }); AVP.subs = []; AVP.tent = {}; AVP.sala = {}; AVP.enc = false; AVP.id = p ? p.id : "";
         if(p){
-          AVP.subs.push(onSnapshot(collection(db, "provas_online", p.id, "po_tentativas"), s2 => { AVP.tent = {}; s2.forEach(d => AVP.tent[d.id] = d.data()); desenharAoVivo(); }, e => console.warn("prova (tentativas):", e.code)));
+          let base = false;
+          AVP.subs.push(onSnapshot(collection(db, "provas_online", p.id, "po_tentativas"), s2 => {
+            const antes = AVP.tent; AVP.tent = {}; s2.forEach(d => AVP.tent[d.id] = d.data());
+            // alerta de segurança na hora: tentou sair, foi bloqueado ou trocou de aparelho (na primeira leitura só guarda o estado)
+            if(base) Object.entries(AVP.tent).forEach(([k, t]) => { const a = antes[k] || {}, nm = String(t.nome || "Aluno").split(" ").slice(0, 2).join(" ");
+              if(t.status === "bloqueada" && a.status !== "bloqueada") alertaProvaAv("🔒 " + nm + " saiu da prova e foi bloqueado. Libere no painel azul.");
+              else if((t.desvios || 0) > (a.desvios || 0)) alertaProvaAv("⚠️ " + nm + " tentou sair da prova (aviso " + t.desvios + " de " + (t.avisos_max ?? 1) + ").");
+              if((t.trocas || 0) > (a.trocas || 0)) alertaProvaAv("📱 " + nm + " trocou de aparelho durante a prova.");
+            });
+            base = true; desenharAoVivo();
+          }, e => console.warn("prova (tentativas):", e.code)));
           AVP.subs.push(onSnapshot(collection(db, "provas_online", p.id, "po_sala"), s2 => { AVP.sala = {}; s2.forEach(d => AVP.sala[d.id] = d.data()); desenharAoVivo(); }, () => {}));
         }
       }
@@ -10756,9 +10777,15 @@
     const k = "m-" + alunoId, t = AVP.tent[k], nq = (p.questoes || []).length;
     if(t && t.status === "entregue") return { c:"ent", s:"✅", t:"entregou" };
     if(t && t.status === "bloqueada") return { c:"blo", s:"🔒", t:"bloqueada: saiu da prova" };
-    if(t && t.status === "em_andamento"){ const r = Object.keys(t.respostas || {}).length; return { c:"", s:"📝 " + r + "/" + nq, t:"fazendo: " + r + " de " + nq + " respondidas" }; }
+    if(t && t.status === "em_andamento"){ const r = Object.keys(t.respostas || {}).length, d = t.desvios || 0, tr = t.trocas || 0;
+      return { c:d || tr ? "alerta" : "", s:"📝 " + r + "/" + nq + (d ? " 🚪" + d : "") + (tr ? " 📱" + tr : ""), t:"fazendo: " + r + " de " + nq + " respondidas" + (d ? " · tentou sair da prova " + d + " vez(es)" : "") + (tr ? " · trocou de aparelho " + tr + " vez(es)" : "") }; }
     if(AVP.sala[k]) return { c:"sala", s:AVP.sala[k].pronto ? "🟢" : "🚪", t:AVP.sala[k].pronto ? "pronto na sala de espera" : "entrou na sala de espera" };
     return null;
+  }
+  function alertaProvaAv(msg){
+    toast(msg, true);
+    AVP.alertas = [{ em:Date.now(), m:msg }].concat(AVP.alertas || []).slice(0, 30);
+    try{ navigator.vibrate && navigator.vibrate(200); }catch(e){}
   }
   function desenharProvaAv(){
     const el = $("avProva"); if(!el) return;
@@ -10781,9 +10808,24 @@
         '<div><b>' + fazendo + '</b><span>fazendo agora</span></div><div class="blo"><b>' + bloq.length + '</b><span>bloqueados</span></div><div class="ent"><b>' + ent + '</b><span>entregaram</span></div></div>' +
       (bloq.length ? '<div class="avp-pre"><span style="font-weight:800;font-size:13px">🔒 Precisam de você</span>' + bloq.map(x => '<div><b>' + escapeHtml(String(x.nome || nomeDe(x.uid)).split(" ").slice(0, 2).join(" ")) + '</b>' +
         '<button type="button" data-action="avp-liberar" data-arg="' + escapeAttr(x.uid) + '">🔓 Liberar (continua de onde parou)</button><button type="button" data-action="avp-tempo" data-arg="' + escapeAttr(x.uid) + '">+10 min</button></div>').join("") + '</div>' : '') +
+      alertasProvaAv(nomeDe) +
       '<div class="avp-acoes">' + acoes + '</div>';
     if(el.hidden) el.hidden = false;
     if(el.innerHTML !== html) el.innerHTML = html;
+  }
+  // alertas de segurança da prova: quem tentou sair (quantas vezes, último horário e motivo), quem trocou de aparelho e quem está bloqueado
+  function alertasProvaAv(nomeDe){
+    const hm = m => m ? new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit", second:"2-digit" }) : "";
+    const L = Object.entries(AVP.tent).map(([k, t]) => ({ k, t, d:t.desvios || 0, tr:t.trocas || 0 })).filter(x => x.d || x.tr || x.t.status === "bloqueada")
+      .sort((a, b) => (b.t.status === "bloqueada") - (a.t.status === "bloqueada") || b.d - a.d);
+    if(!L.length) return '<div class="avp-seg ok">🛡️ Segurança da prova: nenhum alerta até agora.</div>';
+    return '<div class="avp-seg"><span class="avp-seg-t">🛡️ Alertas de segurança (' + L.length + ')</span>' + L.map(x => {
+      const ev = (x.t.eventos || []).filter(e => e.e === "desvio" || e.e === "troca"), ult = ev[ev.length - 1];
+      const nm = String(x.t.nome || nomeDe(x.t.uid)).split(" ").slice(0, 2).join(" ");
+      return '<div class="' + (x.t.status === "bloqueada" ? "blo" : "") + '"><b>' + escapeHtml(nm) + '</b>' +
+        (x.t.status === "bloqueada" ? '<span>🔒 bloqueado</span>' : x.t.status === "entregue" ? '<span>✅ entregou</span>' : '') +
+        (x.d ? '<span>🚪 saiu ' + x.d + 'x</span>' : '') + (x.tr ? '<span>📱 trocou de aparelho ' + x.tr + 'x</span>' : '') +
+        (ult ? '<small>último: ' + escapeHtml(hm(ult.t) + (ult.m ? " · " + ult.m : "")) + '</small>' : '') + '</div>'; }).join("") + '</div>';
   }
   async function acaoProvaAv(dados, btn){
     if(btn) btn.disabled = true;
