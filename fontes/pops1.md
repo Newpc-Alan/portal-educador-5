@@ -374,17 +374,17 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 1. Monte a prova em **Provas e Avaliações**, marque o gabarito de todas as objetivas (múltipla escolha, V ou F, caixas e grades) e confira o resumo de questões corrigidas sozinhas.
 2. Confirme que todos os alunos da turma entram no Portal do Aluno. Imprima a **📋 Lista com PIN (professor)** para quem esquecer o cartão.
 3. Teste os aparelhos: carga da bateria, internet e navegador atualizado.
-4. Clique em **Aplicar online** e preencha: **Turma**, **Para que serve** (vale nota: avaliação, trabalho, recuperação; não vale nota: diagnóstica, exercício, simulado) e o **bimestre**. É essa classificação que leva a nota para Notas e Médias.
-5. Escolha o modo: **▶️ Aplicar agora** (tempo de prova e tolerância para entrar) ou **🗓️ Horário marcado** (dia, abre às, fecha às e tempo de prova).
+4. Clique em **Aplicar online** e preencha, na etapa **1 · Para quem**: **Turma**, **Para que serve** (vale nota: avaliação, trabalho, recuperação; não vale nota: diagnóstica, exercício, simulado) e o **bimestre**. É essa classificação que leva a nota para Notas e Médias. Se aparecer o alerta vermelho de **ano da prova diferente da turma** ou **turma diferente da aberta no Maestro**, pare e confira: só confirme se estiver certo.
+5. Em **2 · Como aplicar**, escolha o modo: **▶️ Aplicar agora** (tempo de prova e tolerância para entrar) ou **🗓️ Horário marcado** (dia, abre às, fecha às e tempo de prova).
 6. Defina **Nota para o aluno** (mostrar quando a prova terminar ou guardar até o fechamento do bimestre), deixe **Embaralhar questões e alternativas** marcado e decida sobre a **📸 Foto de confirmação** (começo e entrega).
-7. Clique em **Enviar para a sala de espera** ou **Agendar para a turma**.
+7. Clique em **Enviar para a sala de espera** ou **Agendar para a turma**. No **Aplicar agora**, o Portal abre o **Maestro** da turma sozinho em 3 segundos.
 
 **No dia**
 
-8. Abra o painel da prova (**Provas online**) antes do horário.
+8. Acompanhe pelo **Maestro** (Turma ao Vivo da turma, faixa azul da prova) ou abra o painel da prova (**Provas online**) antes do horário.
 9. Explique as regras: tela cheia, um aparelho só, 1 aviso e bloqueio na segunda saída. Mostre os botões **A−** e **A+** para quem precisa de letra maior.
 10. **Aplicar agora**: espere os alunos tocarem em "Estou pronto" e clique em **▶️ Iniciar a prova agora** (contagem de 10 segundos e a prova abre junto para todos). **Horário marcado**: a prova abre sozinha; **▶️ Abrir agora (contagem de 10 s)** antecipa.
-11. Acompanhe pelo modo **▦ Sala** (cartões da turma, bloqueados primeiro, alerta e bipe a cada bloqueio) ou **☰ Lista**. Os números do topo funcionam como filtro.
+11. Acompanhe no Maestro: 🟡 amarelo = fazendo a prova, 🔴 vermelho = saiu da prova e foi bloqueado; avisos na tela e a lista **🛡️ Alertas de segurança** mostram quem tentou sair, quantas vezes e quem trocou de aparelho. No painel da prova, use o modo **▦ Sala** (bloqueados primeiro, alerta e bipe a cada bloqueio) ou **☰ Lista**.
 12. Bloqueio: ouça o aluno e decida **Dar nova chance** (Continuar de onde parou ou Recomeçar do zero) com critério igual para todos.
 13. Problema técnico de um aluno: use **+10 min** para compensar.
 14. Para enviar a prova pelo Portal Maestro, use **🔗 Copiar link da prova (para o Portal Maestro)**.
@@ -392,7 +392,7 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 **Depois**
 
 15. Ao fim do tempo, confira se todos entregaram (a entrega é automática quando o tempo acaba; **Encerrar agora** fecha antes).
-16. Corrija as questões abertas com **✍️ Corrigir questões abertas**, um aluno por vez (**Salvar e ir para o próximo**). Com tudo corrigido e a prova encerrada, toque em **🔒 Finalizar correção**. Depois, mudar nota só por **Reavaliar**, com justificativa (fica no histórico e na Auditoria). Libere as notas (**Liberar notas aos alunos** ou **Mostrar notas já**), conforme o combinado.
+16. Corrija as questões abertas com **✍️ Corrigir questões abertas**, um aluno por vez (**Salvar e ir para o próximo**); a fila tem só quem entregou. A correção é do professor: a IA não corrige nem sugere nota em dissertativas (Diretrizes CNE/MEC). O aviso **🔎 respostas parecidas** é só indício para apurar e não serve, sozinho, para punir. Com tudo corrigido e a prova encerrada, toque em **🔒 Finalizar correção**. Depois, mudar nota só por **Reavaliar**, com justificativa (fica no histórico e na Auditoria). Libere as notas (**Liberar notas aos alunos** ou **Mostrar notas já**), conforme o combinado.
 17. Baixo aproveitamento: **🔁 Recuperação** reaplica a prova aos alunos escolhidos; vale a maior nota e a original fica preservada.
 18. Em Notas e Médias, puxe as notas da prova online para a planilha da turma.
 19. Registre as ocorrências (bloqueios, trocas de aparelho, novas chances).
@@ -402,6 +402,7 @@ Aplicar a prova com segurança, sem perda de respostas e com regras iguais para 
 - ☐ Gabarito e classificação conferidos antes de aplicar.
 - ☐ Mesmo critério de nova chance para toda a turma.
 - ☐ Ocorrências registradas.
+- ☐ Nenhuma punição baseada só no aviso de respostas parecidas ou só nos alertas automáticos: o professor apura e registra.
 
 ### Registros
 O painel guarda situação, saídas, trocas, liberações (com o nome do professor) e horários pelo relógio do servidor. Gere **📄 Relatório** do aluno, **🖨️ Relatórios da turma** e **⬇️ Auditoria (planilha CSV)** quando a escola ou a família pedir. Fotos de confirmação só para professor e direção; são apagadas no fim do ano letivo.
@@ -1465,7 +1466,7 @@ Mostrar o Portal funcionando com dados, sem nunca apresentar dado fictício como
 ### Procedimento
 1. Antes do evento, rode a consulta `demo-criar-gravar`. Ela cria a **Rede Municipal de Demonstração** com dados marcados como demonstração.
 2. Confira no Painel da Rede a faixa **Ambiente de demonstração**.
-3. Na TV do estande, abra o link do Painel da TV com **&demo=1** no fim. A vitrine intercala os números reais com 4 telas do **Painel da Secretaria** da rede de demonstração (frequência e busca ativa, aprendizagem por habilidade da BNCC, professores e formação, Termômetro e escolas conectadas), todas com a faixa laranja **Ambiente de demonstração · dados simulados**. No menu, **Painel da Secretaria** vai direto para elas.
+3. Na TV do estande, abra o link do Painel da TV com **&demo=1** no fim. A vitrine intercala os números reais com 4 telas do **Painel da Secretaria** da rede de demonstração (frequência e busca ativa, aprendizagem por habilidade da BNCC, professores e formação, Termômetro e escolas conectadas), todas com a faixa laranja **Ambiente de demonstração · dados simulados**. No menu, **Painel da Secretaria** vai direto para elas. A tela **IA que apoia o professor. A decisão é humana.** (alinhamento às Diretrizes CNE/MEC de IA) aparece em todas as versões da vitrine, com ou sem demonstração.
 4. Na apresentação, diga que é uma rede de demonstração. Números reais só de redes que autorizaram.
 5. Depois do evento, rode `demo-apagar` (só conta e confere que nada fora da demonstração está na lista) e, se estiver certo, `demo-apagar-gravar`.
 

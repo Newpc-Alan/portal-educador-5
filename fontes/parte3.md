@@ -504,6 +504,7 @@ No navegador, a busca lê `busca_indice/_meta` (1 leitura) e só baixa as partes
 | `acaoProvaOnline` | callable | Nova chance, mais tempo, encerrar, liberar notas, cancelar |
 | `corrigirProvaOnline` | callable | Correção das questões abertas pelo professor. `finalizar: true` trava a correção (só com prova encerrada e nenhum `pendentes > 0`; grava `correcao_finalizada`, `_em`, `_por` e um registro na Auditoria). Depois disso, mudar questão já corrigida exige `justificativa` (15+ letras): entra em `por_questao[q].revisoes` (até 20: em, por, de, para, motivo), marca `reavaliada` e grava na Auditoria com nota antes e depois. Entrega tardia ainda pendente corrige sem justificativa |
 | `aplicarRecuperacao` | callable | Reaplica a prova como recuperação |
+| `sugerirCorrecaoIA` (`correcao-ia.js`) | callable | **Desligada** (constante `DESLIGADA = true`) desde 10/11/2026: as Diretrizes CNE/MEC vedam IA corrigir ou sugerir nota em dissertativa. Responde `failed-precondition`. O aviso de respostas parecidas da correção é calculado no navegador (`parecidas()` em `prova/index.html`, trechos de 3 palavras, parecença ≥ 0,8), sem IA |
 | `fecharProvasOnline` | a cada 5 min | Entrega tentativas vencidas e encerra provas cuja janela terminou |
 | `limparFotosProvas` | 03:15 diário | Apaga fotos de confirmação de anos anteriores |
 

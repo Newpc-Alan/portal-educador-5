@@ -972,3 +972,29 @@ Botão roxo "Ferramentas IA" na barra de baixo da Lousa (ao lado de Aula IA e Ap
 - 10/11/2026: fechado: só professor da turma, gestor e admin abrem/conduzem aula (podeAbrirAula, conduzAula sem secretaria). POPs v2.30.
 - 10/11/2026: POPs v2.31 com logotipo NEWPC no cabeçalho e Portal no rodapé (build.py: MARCAS=1, CAB_TXT; imagens em fontes/marcas).
 - 10/11/2026: Painel da TV com ?demo=1 (telas da Rede de Demonstração; números reais sem os 40 usuários demo). POPs v2.33, Completo v2.58.
+- 10/11/2026: Painel da TV conta instituições de ensino (status ativo ou piloto; particulares entram pelas escolas no Portal): 12 = 10 redes públicas + 2 particulares (Liceu Unidade II, Status 2). Consulta 'instituicoes' (só leitura) criada.
+- 10/11/2026: Painel da TV com tela final 'Fale com a Lara' (arte do estande, assets/inicio/lara-estande.webp) e tela de IA simulada na demo (ia_demo no doc da rede). GitHub Pages falhou 3x (syncing_files timeout), publicou às 07:30.
+- 10/11/2026: aviso de cookies p/ Webnode (assets/cookies-webnode.html): pixel 1081512231516752 só após Aceitar, escolha 12 meses (localStorage pde_cookies), link data-pde-cookies, PDE_PIXEL_EVENTOS por página. Política de privacidade atualizada. Alan precisa colar no Webnode e apagar o pixel antigo.
+- 10/11/2026: incidente prova online: prova salva como '6º Ano A' aplicada na turma 5º Ano A (cabeçalho com turma do 5º). Aluna Lab entrou 11:10:09 (Tablet Android) e entregou 11:10:25 pelo botão, 0 respostas; diagnóstica, sem nota. Correções: trava olConflitoSerie no Aplicar online; painel agendarViradas. Consulta provas-hoje criada.
+- 10/11/2026: Relatório de execução contratual: função relatorioExecucao (admin), página /relatorio-execucao/?rede=ID, botão 'Execução' em Redes contratantes, histórico relatorios_execucao/{rede}_{mes}. Seções por contrato. Achado: redes com equipamentos fortes (19-447 itens) mas quase nenhum professor ativado no Portal (0-3; ~1.018 convites pendentes).
+- 10/11/2026: Aplicar online lê qr_aulas (por==uid, aberta_ate>agora) e mostra 'Ao vivo no Maestro: turma'; alerta se turma escolhida ≠ turma do Maestro ou ano da avaliação ≠ ano da turma; pré-seleciona a turma do Maestro.
+- 10/11/2026: Início do aluno lê po_tentativas/{chave} por prova (situacaoProvasAluno): entregue → '✅ Prova entregue', em andamento → 'Continuar a prova', bloqueada → 'chame o professor'.
+- 10/11/2026: Aplicar online em 2 etapas (ol-e1 Para quem: faixa Maestro, turma, finalidade, período, resumo, trava no Continuar; ol-e2 Como aplicar: modo, tempos, nota, embaralhar, fotos, 'Como funciona' recolhido).
+- 10/11/2026: Modo prova no Maestro (entrar, Turma ao Vivo): AVP vigia provas_online (professor_uid==eu, turma_id==tid), prova ativa = agendada e (aguardando ou janela até 30 min antes); selo por aluno (m-alunoId); botões Iniciar, Encerrar (2 opções de nota), Liberar e +10 dos bloqueados, link painel completo.
+- 10/11/2026: Aplicar online: CSS das etapas com #pde-painel e !important (o reset do Gerador forçava display). Painel da prova: botão verde 'Acompanhar no Maestro' → /entrar/#aovivo=TURMA (rota nova abre a Turma ao Vivo na turma).
+- 10/11/2026: painel da prova terminada: cartões só de quem fez (pendentes primeiro), 'Não fizeram a prova (N)' em linha.
+
+## Correção com IA na Prova online (10/11/2026)
+- No "Corrigir" das questões abertas (dissertativa e curta): botão "✨ Corrigir com IA". A IA sugere nota, justificativa e grau de confiança para cada resposta pendente.
+- Auditoria da própria IA, por regras fixas: 🟢 Confiável (alta confiança, com resposta esperada, nota acima de zero); 🟡 Conferir (dúvida, nota zero ou questão sem resposta esperada); 🔴 Revisão obrigatória (baixa confiança, respostas muito parecidas entre alunos, resposta que tenta orientar a correção, resposta só em foto).
+- "Aceitar as confiáveis (N)" lança as 🟢 de uma vez, com confirmação. 🟡 e 🔴 ficam pendentes até o professor salvar, então "Finalizar correção" continua travado.
+- Nada vira nota sem o professor salvar. A nota guarda "IA sugeriu X · confirmada/alterada pelo professor"; a Auditoria registra quantas sugestões foram aceitas e quantas alteradas.
+- LGPD: para a IA vão só códigos (A1, A2...), enunciado, resposta esperada e texto da resposta. Nunca o nome do aluno.
+- Grátis, limite de 40 questões por professor por dia (config/portal_ia.correcao_ia_dia). Reabrir a mesma questão não gasta limite (cache em po_ia).
+
+## Conformidade com as Diretrizes CNE/MEC de IA na educação (10/11/2026)
+- O MEC homologou em 10/11/2026 as diretrizes do CNE. A IA não pode corrigir, avaliar nem sugerir nota em redações e dissertativas; decisões de avaliação são do professor.
+- DESLIGADA a "Correção com IA" das questões abertas (lançada no mesmo dia): botão retirado e função sugerirCorrecaoIA bloqueada no servidor. Também saiu o "Aceitar as confiáveis".
+- Mantido, sem IA: aviso de "respostas muito parecidas" (🔎) na correção, calculado no navegador. É só indício para o professor apurar; sozinho não serve para punir.
+- Pendentes (prioridade 1): registro de aprovação nos Pareceres e menção "elaborado com apoio de IA"; validação documentada no Corretor de gabarito; botão "Pedir revisão da nota" para aluno/família; página "Uso de IA no Portal" e Política de Privacidade; botão "a IA errou aqui".
+- Pendentes (prioridade 2): Anexo de Conformidade IA nos contratos; cláusula nos TRs; confirmação com o fornecedor de IA (dados não treinam o modelo).

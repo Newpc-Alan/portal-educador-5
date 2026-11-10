@@ -202,6 +202,10 @@ Abra pelo cartão **Portal IA** no Início.
 A IA prepara, você ensina. Revise conteúdo, gabarito, adequação à turma e acessibilidade antes de aplicar.
 :::
 
+:::regra
+**IA com supervisão humana (Diretrizes CNE/MEC, homologadas em 10/11/2026).** No Portal, a IA apoia o professor a planejar e preparar. Ela não corrige, não avalia e não sugere nota em redações e dissertativas; aluno não usa as ferramentas de IA; o que vai para a IA segue sem nome, CPF ou dado de saúde do aluno. A lista de recursos com IA, os dados enviados e o nível de risco de cada um estão em `www.portaldoeducador.com.br/ia/`.
+:::
+
 ### Do pedido ao material
 
 1. Confira **Turma**, **Disciplina** e **Série** no topo. O Portal já abre na sua turma cadastrada, mas você pode escolher qualquer série ou etapa.
@@ -683,7 +687,7 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 | Topo | Turma, situação da aula (**🟢 Aula até 10:40 · faltam 25 min**), **+10 min**, **⏹ Encerrar aula** (ou **▶ Abrir a aula**) e **Sair do painel**. Você encerra quando quiser, antes do tempo: confirme em **⏹ Encerrar agora**. Se houver quiz aberto, ele é encerrado e o relatório fica salvo; telas pausadas são liberadas. Fora do painel, o cartão **Aula em andamento** do Início também tem **⏹ Encerrar** |
 | Indicadores | 👥 quantos estão na sala agora (e quantos saíram da página) · 📤 materiais enviados · 👁️ quantos abriram o último |
 | Ações | **🔗 Enviar link ou arquivo** · **📁 Enviar algo que já fiz** (aulas da Lousa e materiais do Portal IA) · **🖼️ Abrir a Lousa** · **📝 Aplicar prova online** |
-| Na sala | Os alunos em avatares, em três cores: 🟢 **verde** = na aula, com o Portal aberto na tela; 🔴 **vermelho** = saiu da página (trocou de aba, fechou o Portal ou o tablet apagou) sem sair da conta; ⚪ **sem cor** = saiu da conta ou ainda não entrou. O vermelho vale só para a aula atual: ao encerrar a aula ou abrir uma nova, quem estava vermelho volta a ficar sem cor |
+| Na sala | Os alunos em avatares, em três cores: 🟢 **verde** = na aula, com o Portal aberto na tela; 🔴 **vermelho** = saiu da página (trocou de aba, fechou o Portal ou o tablet apagou) sem sair da conta; ⚪ **sem cor** = saiu da conta ou ainda não entrou. O vermelho vale só para a aula atual: ao encerrar a aula ou abrir uma nova, quem estava vermelho volta a ficar sem cor. **Durante uma prova online** as cores mudam: 🟡 **amarelo** = fazendo a prova (ou na sala de espera); 🔴 **vermelho** = saiu da prova e foi bloqueado; quem entregou volta ao verde |
 | 🕘 Histórico de envios | Tudo o que foi para a turma, do mais novo para o mais antigo, com busca por tema e período (hoje, 7 ou 30 dias): materiais enviados (com **👁️** quantos abriram e quem **ainda não abriu**), jogos, vídeos e links abertos nas telas (para a turma ou **só para** um aluno, com **↻** para abrir de novo), **🧠 quizzes** (com o aproveitamento e **📈** para o relatório) e **📊 pesquisas** (com o resultado 🟢🟡🔴). Envios de outro professor da turma mostram o nome dele |
 
 <!-- captura: painel Turma ao Vivo com indicadores, alunos em avatares e lista de enviados -->
@@ -693,6 +697,22 @@ O painel **📡 Turma ao Vivo** mostra, em tempo real:
 **Onde vai ser a aula.** Ao abrir a aula, o Portal pergunta **📍 Onde vai ser a aula?** (na sala da turma, no laboratório ou em outra sala compartilhada). Se outra turma estiver com aula aberta na mesma sala, ela é encerrada depois da sua confirmação e os aparelhos daquela turma saem da conta.
 
 **Troca de professor (bater na porta).** Quando outro professor da mesma turma abre a aula com ela em andamento, ele envia um pedido com nome e matéria. O professor da sala vê o pedido na hora, em qualquer tela do Portal ou da Lousa (a tela cheia sai sozinha, o título pisca e bipa), e só ele libera; não há prazo automático. Ao aprovar, quem chega entra direto no painel e quem saiu deixa o painel. Direção e coordenação também batem na porta e, na espera, têm a opção **Assumir sem esperar**.
+
+### Prova online no Maestro {: .nova }
+
+Quando há prova online da turma (na sala de espera ou começando em até 30 minutos), a **faixa azul da prova** aparece no painel da Turma ao Vivo. Por ela você comanda e acompanha a prova sem sair da aula:
+
+- **Situação e números**: na sala de espera, fazendo agora, bloqueados e entregaram.
+- **▶️ Iniciar a prova (contagem de 10 s)** e **⏹️ Encerrar a prova** (escolha mostrar a nota agora ou guardar as notas).
+- **🔒 Precisam de você**: alunos bloqueados, com **🔓 Liberar (continua de onde parou)** e **+10 min**.
+- **🛡️ Alertas de segurança**: cada aluno que tentou sair da prova (quantas vezes, horário e motivo da última saída), que trocou de aparelho ou que está bloqueado. Sem ocorrências, aparece "nenhum alerta até agora".
+- **📊 Painel completo e auditoria ↗**: abre o painel da prova, para correção e relatórios.
+
+No cartão de cada aluno aparece o selo da prova: **📝 3/5** (respondidas), **🚪** e o número de saídas, **📱** e o número de trocas de aparelho, **🔒** bloqueado e **✅** entregou. No momento em que alguém tenta sair, é bloqueado ou troca de aparelho, um aviso aparece na tela do professor.
+
+:::nota
+O aviso na tela vale para o que acontece com o Maestro aberto. O que aconteceu antes aparece na lista de Alertas de segurança.
+:::
 
 ### Termômetro da turma {: .nova }
 
@@ -726,6 +746,8 @@ Quando a gestão da escola libera (Famílias › Avisos › **Professores podem 
 ## Provas e Avaliações
 
 O antigo Gerador de Provas agora se chama **Provas e Avaliações**: a mesma prova pode ser **🖨️ Impressa** ou **📡 Online**. Abra pelo cartão **Criar prova** no Início.
+
+A tela abre com a última prova em que você trabalhou. Para começar outra, toque em **＋ Nova prova** na barra de cima: se a prova da tela já está em **📁 Minhas provas**, ela é salva antes; se ainda não está, o Portal pergunta antes de apagar.
 
 ### Etapa 1 · Dados da prova
 
@@ -797,13 +819,15 @@ A Prova online é um **recurso extra** contratado por município. Sem ele, o bot
 
 1. Monte a prova em Provas e Avaliações e marque o gabarito das questões objetivas.
 2. Toque em **📡 Aplicar online**.
-3. Em **🏷️ Confira antes de aplicar**, escolha a **Turma**, **Para que serve** e o **Bimestre**. O resumo verde confirma se a prova vale nota e em qual período.
+3. A janela tem duas etapas. Na **1 · Para quem**, escolha a **Turma**, **Para que serve** e o **Bimestre**. O resumo verde confirma se a prova vale nota e em qual período. Se você estiver com uma aula aberta no Maestro, a turma dela já vem escolhida e aparece a faixa **Ao vivo no Maestro**.
+   - **Trava de segurança**: se a prova é de um ano (ex.: 6º Ano) e a turma escolhida é de outro (ex.: 5º Ano A), ou se a turma escolhida é diferente da turma aberta no Maestro, o Portal avisa em vermelho e só segue se você confirmar de novo. Toque em **Continuar** para ir à etapa **2 · Como aplicar**.
 4. Escolha como abrir:
    - **▶️ Aplicar agora**: a prova vai para a **sala de espera** dos alunos. Informe o **Tempo de prova** (5 a 300 minutos) e a **Tolerância para entrar**.
    - **🗓️ Horário marcado**: informe **Dia**, **Abre às**, **Fecha às** e o **Tempo de prova**. A prova abre e fecha sozinha.
 5. Escolha a **Nota para o aluno**: **Mostrar quando a prova terminar** ou **Guardar até o fechamento do bimestre (eu libero depois)**.
 6. Deixe marcado **Embaralhar questões e alternativas** e, se quiser, **📸 Foto de confirmação do aluno no começo e na entrega**.
-7. Toque em **Enviar para a sala de espera** (ou **Agendar para a turma**) e depois em **Abrir o painel ao vivo ↗**.
+7. Toque em **Enviar para a sala de espera** (ou **Agendar para a turma**).
+8. No **Aplicar agora**, o Portal abre sozinho o **Maestro** da turma em 3 segundos, já com a faixa azul da prova (veja Prova online no Maestro). Na confirmação também ficam **🎼 Acompanhar no Maestro** e **Painel da prova ↗**.
 
 ![Aplicar online](ol-agora.png){65}
 
@@ -823,7 +847,7 @@ No modo **Horário marcado**, o painel tem **▶️ Abrir agora (contagem de 10 
 
 ### O que o aluno vê
 
-1. No Início, a prova do dia aparece em destaque, com foto e o botão **Fazer a prova**. Provas aplicadas agora aparecem sozinhas.
+1. No Início, a prova do dia aparece em destaque, com foto e o botão **Fazer a prova**. Provas aplicadas agora aparecem sozinhas. Depois de entregue, o cartão mostra **✅ Prova entregue**; se a prova estiver em andamento, **Continuar a prova**; se estiver bloqueada, o aviso para chamar o professor.
 2. Antes de começar, o aluno lê as regras.
 3. A prova abre em tela cheia, com cronômetro do servidor, paleta das questões (verde = respondida), **A−** e **A+** para mudar o tamanho da letra e **Entregar**.
 4. Cada resposta é salva na hora. Se a internet cair, ele entra de novo e continua de onde parou.
@@ -887,6 +911,8 @@ O painel tem dois modos: **▦ Sala** (a turma em cartões, com os bloqueados pr
 - Múltipla escolha, verdadeiro ou falso, várias respostas e grades são corrigidas sozinhas.
 - Resposta curta é corrigida sozinha quando você informa as respostas aceitas; o que não bate fica pendente.
 - Dissertativas ficam pendentes: use **✍️ Corrigir questões abertas** (o botão mostra quantas faltam).
+- Com a prova encerrada, o painel mostra só os cartões de quem fez a prova (pendentes de correção primeiro). Quem não fez fica numa linha só: **Não fizeram a prova (N)**.
+- A correção das questões abertas é sempre do professor. A IA não corrige, não avalia e não sugere nota em dissertativas, conforme as Diretrizes do CNE para o uso de IA na educação, homologadas pelo MEC em 10/11/2026.
 
 #### Corrigir as questões abertas
 
@@ -897,7 +923,8 @@ A correção mostra **um aluno por vez**, para não haver dúvida de quem é a r
 1. Escolha a questão no topo (**Questão 2**, **Questão 3**...). O número em amarelo é quantas faltam.
 2. A faixa azul mostra **Corrigindo a resposta de** e o nome do aluno, com **Aluno 3 de 9**. Abaixo, a resposta dele e a resposta esperada.
 3. Dê a nota (0, metade, inteira ou digite), escreva o comentário se quiser e toque em **Salvar e ir para o próximo**. Terminada a questão, o Portal passa para a próxima com pendência.
-4. Para ir a um aluno, use **← Anterior**, **Próximo →** ou toque no nome na fila (amarelo = para corrigir, verde = corrigida, ↺ = reavaliada).
+4. Para ir a um aluno, use **← Anterior**, **Próximo →** ou toque no nome na fila (amarelo = para corrigir, verde = corrigida, ↺ = reavaliada). A fila tem só quem entregou a prova.
+   - **🔎 Respostas parecidas**: quando duas respostas são muito parecidas, os alunos aparecem com 🔎 e o aviso "Resposta muito parecida com a de...". É uma comparação simples de texto, sem IA, e serve só como indício para você apurar: sozinho, não serve para punir.
 5. Com tudo corrigido e a prova encerrada, toque em **🔒 Finalizar correção** (toque de novo para confirmar).
 
 Depois de finalizada, as notas ficam travadas. Para mudar a nota de um aluno:

@@ -127,6 +127,16 @@ Atualização de 9 de novembro de 2026:
 | **Créditos**: tabela nova, franquia que acumula até o fim do contrato, Termômetro e Pareceres grátis e compra direta (Pix, boleto ou cartão) quando o pagamento online estiver ligado | Portal IA e Meu cadastro |
 | **Aparelhos conectados** (aluno em 1, professor em até 3) e **Teleprompter** por blocos com apresentação só com o texto | Meu cadastro e Aplicativos Úteis |
 | **Lara no WhatsApp** entende print de tela e foto de equipamento (abre chamado com a descrição) e lembra da conversa das últimas 2 horas | Suporte pelo WhatsApp |
+
+Atualização de 10 de novembro de 2026:
+
+| Novidade | Onde aparece |
+|---|---|
+| **IA alinhada às Diretrizes do CNE/MEC**: a IA não corrige nem sugere nota em dissertativas; aluno não usa IA sozinho; página pública **Uso de IA no Portal do Educador** | Provas e `www.portaldoeducador.com.br/ia/` |
+| **Prova online no Maestro**: faixa azul com Iniciar, Encerrar, Liberar, +10 min e **Alertas de segurança**; aluno fazendo a prova fica amarelo e quem sai fica vermelho | Turma ao Vivo |
+| **Aplicar online em duas etapas**, com trava quando o ano da prova ou a turma do Maestro não confere; no Aplicar agora, o Portal abre o Maestro sozinho | Provas e Avaliações |
+| **＋ Nova prova** na barra de cima e aviso de **🔎 respostas parecidas** na correção | Provas e Avaliações |
+| Cartão do aluno com **✅ Prova entregue** e painel da prova encerrada só com quem fez | Portal do Aluno e painel da prova |
 | **Redes contratantes** (municipal, estadual, particular, instituição), **inventário de equipamentos** por planilha e licença Google por Chromebook | Administrador |
 | **Financeiro** (recebimentos, notas a emitir, comissões), **pagamento online pelo Asaas** e **cortesia da diretoria** nos créditos | Administrador |
 | **Fábrica de cursos com IA**, cursos exclusivos de rede e **Relatório da formação** para a Secretaria | Formação (admin) e Painel da Rede |
