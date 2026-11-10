@@ -178,7 +178,10 @@ async function montarDemo(db) {
   // professores: uso nos últimos 30 dias e quem entrou na semana
   const profs = usS.docs.map(d => d.data()).filter(u => u.perfil === 'professor' && u.status === 'ativo');
   const ativos7 = profs.filter(u => u.ultimo_acesso && u.ultimo_acesso.toMillis() >= ref - 7 * DIA).length;
-  const porDia = {}, mods = {}; acS.forEach(d => { const x = d.data(); porDia[x.dia] = (porDia[x.dia] || 0) + 1; (x.modulos || []).forEach(m => { mods[m] = (mods[m] || 0) + 1; }); });
+  // só os 30 dias até a data de referência (recriar a rede deixa dias antigos para trás)
+  const desde = new Date(ref - 30 * DIA - 4 * 36e5).toISOString().slice(0, 10), ate = new Date(ref - 4 * 36e5 + DIA).toISOString().slice(0, 10);
+  const porDia = {}, mods = {}; let acessos30 = 0;
+  acS.forEach(d => { const x = d.data(); if (!(x.dia >= desde && x.dia <= ate)) return; acessos30++; porDia[x.dia] = (porDia[x.dia] || 0) + 1; (x.modulos || []).forEach(m => { mods[m] = (mods[m] || 0) + 1; }); });
   const dias = Object.keys(porDia).sort().slice(-22).map(dia => ({ dia, n: porDia[dia] }));
   // formação continuada
   let iniciados = 0, concluidos = 0, praticas = 0;
@@ -195,12 +198,13 @@ async function montarDemo(db) {
   const rel = {}; relS.forEach(d => { const s = d.data().status || ''; rel[s] = (rel[s] || 0) + 1; });
   return {
     rede: mun.nome || 'Rede Municipal de Demonstração', escolas: escS.size, turmas: frS.size,
+    ia: mun.ia_demo || null,
     frequencia: { alunos, presenca: aulas ? pct(aulas - faltas, aulas) : null, risco, atencao, busca_ativa: ba,
       escolas: Object.keys(fe).map(id => ({ nome: escNome[id] || id, presenca: fe[id].a ? pct(fe[id].a - fe[id].f, fe[id].a) : null, alunos: fe[id].al, risco: fe[id].r })).sort((a, b) => (b.presenca || 0) - (a.presenca || 0)) },
     aprendizagem: { provas: avS.size, avaliados: rsS.size, acerto: pct(ok, tot),
       habilidades: Object.keys(hab).map(k => ({ codigo: k, area: AREA[k.slice(4, 6)] || '', acerto: pct(hab[k].ok, hab[k].t) })).sort((a, b) => a.acerto - b.acerto),
       escolas: Object.keys(ae).map(id => ({ nome: escNome[id] || id, acerto: pct(ae[id].ok, ae[id].t) })).sort((a, b) => b.acerto - a.acerto) },
-    professores: { total: profs.length, ativos7, acessos30: acS.size, dias, modulos: Object.keys(mods).map(k => ({ id: k, n: mods[k] })).sort((a, b) => b.n - a.n).slice(0, 5) },
+    professores: { total: profs.length, ativos7, acessos30, dias, modulos: Object.keys(mods).map(k => ({ id: k, n: mods[k] })).sort((a, b) => b.n - a.n).slice(0, 5) },
     formacao: { iniciados, concluidos, certificados, horas, praticas },
     termometro: { leituras: tmS.size, respostas: tmResp, entendeu: pct(tmEnt, tmResp), parcial: pct(tmPar, tmResp), confundiu: pct(tmConf, tmResp),
       confusoes: Object.keys(conf).map(k => ({ disciplina: k.split('|')[0], titulo: k.split('|')[1], n: conf[k] })).sort((a, b) => b.n - a.n).slice(0, 3) },

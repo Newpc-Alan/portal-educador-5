@@ -244,6 +244,12 @@
           <p class="sub">Provas corrigidas pelo Portal, com acerto por habilidade da BNCC</p>
           <div class="dm" id="d5"></div>
         </div>
+        <div class="slide" data-s="8" data-demo>
+          <span class="demo-faixa"><i>⚠️</i> Ambiente de demonstração · dados simulados</span>
+          <h2>IA a serviço do <em>professor</em></h2>
+          <p class="sub" id="d8Sub">O que os professores da rede criaram com a IA do Portal no ano letivo</p>
+          <div class="dm" id="d8"></div>
+        </div>
         <div class="slide" data-s="6" data-demo>
           <span class="demo-faixa"><i>⚠️</i> Ambiente de demonstração · dados simulados</span>
           <h2>Professores usando e <em>se formando</em></h2>
@@ -434,7 +440,7 @@
       [p.redes, "instituições de ensino atendidas", "verde", (p.redes_publicas != null && p.particulares) ? fmt(p.redes_publicas) + " redes públicas · " + fmt(p.particulares) + " escola" + (p.particulares > 1 ? "s" : "") + " particular" + (p.particulares > 1 ? "es" : "") : ""],
       [p.escolas, "escolas atendidas", "", p.escolas_portal ? fmt(p.escolas_portal) + " já cadastradas no Portal" : ""],
       [p.alunos_rede, "alunos nas redes públicas atendidas", "verde", "Censo Escolar, informado por cada rede"],
-      [p.educadores, "educadores com acesso ao Portal", "", (p.professores_ativos != null && p.convidados != null) ? fmt(p.professores_ativos) + " professores já entraram · " + fmt(p.convidados) + " convidados chegando" : ""],
+      [p.educadores, "professores e gestores com acesso ao Portal", "", (p.professores_ativos != null && p.convidados != null) ? fmt(p.professores_ativos) + " professores já entraram · " + fmt(p.convidados) + " convidados chegando" : ""],
       [p.ia_total, "materiais criados com o Portal IA", ""],
       [p.recursos, "aulas, atividades, jogos e vídeos no acervo", ""],
       [p.provas, "provas online criadas", ""]
@@ -474,7 +480,7 @@
     $("vNumeros").innerHTML = cartoes(p); $("iNumeros").innerHTML = cartoes(p);
     $("vRedes").innerHTML = redesHtml(p.redes_lista, false); $("iRedes").innerHTML = redesHtml(p.redes_lista, true);
     $("nSub").textContent = "Direto da plataforma · atualizado às " + hhmm(D.gerado_em);
-    var tinhaDemo = SEQ.length > 4; desenharDemo(); montarSeq(); if(!tinhaDemo && SEQ.length > 4) slide(slideAt);
+    var tinhaDemo = SEQ.length > 4; desenharIA(); desenharDemo(); montarSeq(); if(!tinhaDemo && SEQ.length > 4) slide(slideAt);
     if(SEQ[slideAt] === 0 && pagina === "pgVitrine") contar($("vNumeros"));
     ajustarDepois();
   }
@@ -513,6 +519,21 @@
       kpi(fmt(inf.chamados_abertos), "chamados em atendimento agora", fmt(inf.tvs) + " TVs de aviso nas escolas", inf.chamados_abertos ? "alerta-n" : "") + '</div>' +
       '<div class="dm-bloco"><h3>O que os alunos não entenderam</h3><div class="dm-lista">' + (t.confusoes || []).map(function(c){ return '<div class="dm-conf"><small>' + esc(c.disciplina) + ' · ' + fmt(c.n) + ' alunos</small>' + esc(c.titulo) + '</div>'; }).join("") +
       '</div><p class="dm-nota">A IA agrupa as respostas da turma em segundos. O professor retoma o ponto certo na mesma aula, sem gastar crédito de IA.</p></div>';
+  }
+
+  function desenharIA(){
+    var ia = D && D.demo && D.demo.ia; if(!ia) return;
+    var L = [["Planos de aula", ia.planos], ["Atividades e listas", ia.atividades], ["Pareceres de alunos", ia.pareceres], ["Provas com gabarito", ia.provas], ["Aulas para a lousa", ia.aulas_lousa], ["Imagens para aula", ia.imagens]]
+      .filter(function(x){ return x[1]; }).sort(function(a, b){ return b[1] - a[1]; });
+    var mx = L.length ? L[0][1] : 1;
+    $("d8Sub").textContent = "O que " + fmt(ia.professores) + " professores da rede criaram com a IA do Portal em " + fmt(ia.meses) + " meses de ano letivo";
+    $("d8").innerHTML = '<div class="dm-kpis">' + kpi(fmt(ia.total), "materiais criados com IA", "revisados pelo professor antes de usar", "verde") +
+      kpi(fmt(ia.horas), "horas de planejamento devolvidas", "estimativa pelo tempo de cada material feito à mão") +
+      kpi(fmt(Math.round(ia.total / Math.max(1, ia.professores))), "materiais por professor", "") +
+      kpi(fmt(Math.round(ia.horas / Math.max(1, ia.professores))) + " h", "a mais para cada professor", "para a turma, não para a papelada") + '</div>' +
+      '<div class="dm-bloco"><h3>O que a IA ajudou a fazer</h3><div class="dm-lista">' + L.map(function(x){
+        return '<div class="dm-l"><span class="n">' + esc(x[0]) + '</span><span class="dm-bar"><i style="width:' + Math.max(3, 100 * x[1] / mx) + '%"></i></span><span class="v">' + fmt(x[1]) + '</span></div>'; }).join("") +
+      '</div><p class="dm-nota">A IA prepara, o professor decide. Tudo alinhado à BNCC, com créditos controlados pela Secretaria.</p></div>';
   }
 
   // ---------- gestão ----------
@@ -589,7 +610,7 @@
   // ordem da vitrine: com a demonstração, o painel da Secretaria entra intercalado com os números reais
   function montarSeq(){
     var temDemo = !!(DEMO && D && D.demo);
-    var nova = temDemo ? [0, 4, 5, 1, 6, 7, 2, 3] : [0, 1, 2, 3];
+    var nova = temDemo ? (D.demo.ia ? [0, 4, 5, 1, 8, 6, 7, 2, 3] : [0, 4, 5, 1, 6, 7, 2, 3]) : [0, 1, 2, 3];
     if(nova.join() !== SEQ.join()){ SEQ = nova; $("pontos").innerHTML = SEQ.map(function(){ return "<i></i>"; }).join(""); if(slideAt >= SEQ.length) slideAt = 0; }
     $("tDemo").hidden = !temDemo;
     if(!$("pontos").children.length) $("pontos").innerHTML = SEQ.map(function(){ return "<i></i>"; }).join("");

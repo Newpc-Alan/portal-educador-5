@@ -135,5 +135,12 @@ for (const p of profs) {
         envios: 1, municipio_id: M, escola_id: p.esc, em: ts(agora - ent(1, 20) * DIA) }); nPrat++; }
   }
 }
+// ---------- uso de IA no ano letivo (SIMULADO: o que uma rede de 36 professores produz de fevereiro a novembro) ----------
+// Fica no próprio documento da rede (apagado junto). Horas: estimativa de tempo que o professor deixaria de gastar em cada material.
+const IA = { planos: 1380, atividades: 1950, provas: 610, aulas_lousa: 420, pareceres: 1480, imagens: 260 };
+const HORAS = { planos: 0.75, atividades: 0.5, provas: 1.5, aulas_lousa: 1, pareceres: 0.33, imagens: 0.1 };
+await grava(db.doc(`municipios/${M}`), { ...D, nome: NOME, uf: 'MS', cidade: 'Demonstração', tipo_rede: 'municipal', status: 'ativo',
+  vigencia_fim_ts: ts(Date.UTC(ano + 1, 11, 31)), criado_em: ts(agora - 120 * DIA),
+  ia_demo: { ...IA, total: Object.values(IA).reduce((a, v) => a + v, 0), horas: Math.round(Object.keys(IA).reduce((a, k) => a + IA[k] * HORAS[k], 0)), professores: profs.length, meses: 9 } });
 await fecha();
 console.log(`::notice::Rede de demonstração criada: ${total} documentos · 4 escolas · ${profs.length} professores · ${turmas.length} turmas · ${Object.values(alunos).flat().length} estudantes · ${np} provas · ${nProg} cursos em andamento/concluídos · ${nCert} certificados demo · ${nPrat} práticas`);
