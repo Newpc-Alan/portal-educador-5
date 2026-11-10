@@ -1167,6 +1167,21 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 - Alunos cadastrados na turma (Ficha do Aluno) e com acesso: cartão QR, código e PIN ou conta Google da escola.
 - Tablets com o **app do tablet 1.2 ou mais novo** (Aplicativos Úteis) ou Chromebooks com o Portal aberto. A extensão do Maestro deve ser **retirada** do Google Admin onde estiver instalada.
 
+### Quem pode {: .nova }
+
+| Perfil | Abrir a aula | Conduzir (pausar telas, enviar conteúdo, ver mãos, conversar, quiz) | Turma ocupada por outro professor |
+|---|---|---|---|
+| **Professor da rede** (licença institucional ativa, ligado à escola) | Só nas turmas dele (as que foram atribuídas a ele ou que ele criou) | Só a aula que ele mesmo abriu | Não encerra a aula do colega: toca em **🔁 Assumir a turma**, o pedido vai para o colega, que **aprova ou recusa**. Fica na Auditoria |
+| **Gestor** (direção ou coordenação) | Em qualquer turma das escolas dele | Qualquer aula das escolas dele | **Assume direto**, sem esperar resposta, e pode encerrar a aula de qualquer professor. Fica na Auditoria |
+| **Administrador NEWPC** | Qualquer turma | Qualquer aula | Assume e encerra direto (uso só em suporte, com pedido da escola) |
+| **Aluno** | Não | Não: só entra na aula aberta da própria turma e segue o professor | |
+| **Professor em teste, avulso ou cortesia** | Não: a Sala de aula gerenciada é da licença institucional da rede | | |
+| **Portaria, Secretaria de Educação** | Não abrem a aula | | |
+
+:::regra
+Quem libera o acesso é a configuração do cadastro, não o professor: perfil, escola e turmas vêm da importação da rede ou do Cadastro (administrador). Professor que não vê a turma: conferir em **Cadastro** se a turma está atribuída a ele e se a licença da rede está ativa.
+:::
+
 ### Procedimento
 1. No Início, toque em **▶ Começar a aula**, escolha a turma e o tempo.
 2. Peça aos alunos que entrem no Portal: os menores mostram o **cartão** para a câmera; os maiores usam **código e PIN** ou a **conta Google** da escola.
@@ -1177,7 +1192,7 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 7. Se a escola liga a foto da carteirinha, confira em **📸 Entradas pela carteirinha** quem entrou sem senha (**👁️ Ver foto**). Rosto que não confere: **Não é este aluno**.
 8. Antes de encerrar, verifique a aprendizagem com **🧠 Quiz rápido** (3 a 10 perguntas bastam; procure antes em **📁 Meus quizzes**, **🤝 Da rede** e **🌎 Portal do Educador** para não gastar crédito de IA à toa; revise o gabarito e, se achar erro num quiz do acervo geral, use **⚠️ Achei erro**): lance, acompanhe quantos terminaram e toque em **🏁 Encerrar e ver relatório**. Pergunta com menos de 50% de acerto é a primeira a retomar na próxima aula; exporte o PDF se a coordenação pedir.
 9. Tablet com 🪫 (bateria baixa) na faixa do Controle da aula: peça para ligar na tomada ou no carrinho antes da próxima atividade.
-10. Ao chegar para a sua aula, se a Turma ao Vivo mostrar **🔒 Em aula com** outro professor e o horário dele já acabou, toque em **🔁 Assumir a turma** (fica registrado). Nunca conduza a aula de outro professor.
+10. Ao chegar para a sua aula, se a Turma ao Vivo mostrar **🔒 Em aula com** outro professor e o horário dele já acabou, toque em **🔁 Assumir a turma**: o colega recebe o pedido e aprova ou recusa (a direção assume direto). Tudo fica na Auditoria. Nunca conduza a aula de outro professor.
 11. No fim, toque em **⏹ Encerrar aula** e confirme em **⏹ Encerrar agora** (dá para encerrar antes do tempo, pela Turma ao Vivo ou pelo cartão do Início; ou deixe o tempo acabar): os aparelhos são liberados e saem da aula, e o quiz aberto é encerrado com o relatório salvo.
 
 ### Pontos de controle
