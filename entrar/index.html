@@ -1326,6 +1326,7 @@
   .tr-card .btn-mini{ margin:0 12px 12px }
 
   /* ===== Licenca e cadastro ===== */
+  .lic-aviso.gratis{ background:#eaf6ec;border-color:#b9dcc1;color:#1a5a24 }
   .lic-aviso{ display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#fff8e6;border:1px solid #f3d48a;color:#7a5200;border-radius:12px;padding:11px 14px;margin-bottom:16px;font-size:13.5px;font-weight:600 }
   .lic-aviso.urgente{ background:#fdecea;border-color:#f3b9b3;color:#9b2c20 }
   .lic-cta{ background:linear-gradient(135deg,var(--pde-azul),var(--pde-azul-2));color:#fff;text-decoration:none;padding:8px 16px;border-radius:9px;font-size:13px;font-weight:800;white-space:nowrap }
@@ -1949,7 +1950,7 @@
         <h4>Licença <span id="usrLicResumo"></span></h4>
         <div class="row2">
           <div class="field"><label for="usrLicTipo">Tipo</label>
-            <select id="usrLicTipo"><option value="institucional">Institucional (contrato do município)</option><option value="avulsa">Avulsa (venda direta)</option><option value="teste">Teste grátis</option><option value="cortesia">Cortesia</option></select></div>
+            <select id="usrLicTipo"><option value="institucional">Institucional (contrato do município)</option><option value="avulsa">Avulsa (venda direta)</option><option value="teste">Teste grátis</option><option value="cortesia">Cortesia</option><option value="gratuito">Gratuito (permanente)</option></select></div>
           <div class="field" id="usrLicPlanoBox"><label for="usrLicPlano">Plano</label>
             <select id="usrLicPlano"><option value="mensal">Mensal</option><option value="semestral">Semestral</option><option value="anual">Anual</option><option value="pacote">Pacote por escola</option><option value="personalizado">Personalizado</option><option value="teste">Teste grátis</option></select></div>
         </div>
@@ -1963,7 +1964,7 @@
             <div class="field"><label for="usrLicRef">Ref. do pagamento</label><input type="text" id="usrLicRef" placeholder="ID ou link da cobrança"></div>
           </div>
           <div class="field"><label for="usrLicConteudo">Recursos liberados (pacote)</label>
-            <select id="usrLicConteudo"><option value="basico">Básico</option><option value="intermediario">Intermediário</option><option value="completo">Completo</option></select></div>
+            <select id="usrLicConteudo"><option value="gratuito">Gratuito</option><option value="basico">Básico</option><option value="intermediario">Intermediário</option><option value="completo">Completo</option></select></div>
           <div class="field" id="usrLicPacoteBox"><label for="usrLicPacote">Escola / cliente do pacote</label><input type="text" id="usrLicPacote" placeholder="Ex: Colégio Aurora (10 licenças)"></div>
           <div class="usr-aviso" id="usrCadInfo" style="margin-top:4px"></div>
         </div>
@@ -2694,6 +2695,15 @@
       // a secretaria responde pelo município inteiro: basta o município; os demais precisam da escola
       if(lic.tipo === "institucional" && (perfil === "secretaria" ? !usuarioAtual.municipio_id : !usuarioAtual.escola_id)){ mostrarEspera(); return; }
       if(lic.tipo !== "institucional") ligarPagamentoOnline();
+      // teste ou licença avulsa vencida: o professor não perde o acesso, passa para o plano Gratuito (nov/2026)
+      if(lic.vencida && perfil === "professor" && ["teste","avulsa","cortesia"].includes(lic.tipo) && !usuarioAtual.demo){
+        $("conteudo").innerHTML = '<div class="panel espera"><div class="pico">\u{1F381}</div><h3>Preparando o seu plano Gratuito...</h3><p>'+(lic.tipo === "teste" ? "Seu teste completo terminou." : "Sua licença venceu.")+' Você não perde o acesso: continua no plano Gratuito, sem pagar nada.</p></div>';
+        import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js")
+          .then(({ getFunctions, httpsCallable }) => httpsCallable(getFunctions(app, "southamerica-east1"), "planoGratuito")({ acao:"ativar" }))
+          .then(() => location.reload())
+          .catch(e => { console.warn("gratuito:", e.code, e.message); mostrarExpirada(lic); });
+        return;
+      }
       if(lic.vencida){ mostrarExpirada(lic); return; }
       if(lic.tipo !== "institucional"){ menu = MENUS.avulso; usuarioAtual._avulso = true; }
       avisoDeLicenca(lic);
@@ -4224,7 +4234,7 @@
     const ac7 = new Set(ac.filter(a => a.dia >= d7).map(a => a.uid));
     const inst = profs.filter(u => sit(u) === "ativo").length;
     const pagantes = profs.filter(u => sit(u) === "avulso").length;
-    const emTeste = profs.filter(u => sit(u) === "teste").length;
+    const emTeste = profs.filter(u => sit(u) === "teste").length, noGratuito = profs.filter(u => sit(u) === "gratuito").length;
     const convertidos = auto.filter(u => ["avulsa"].includes(u.licenca_tipo)).length;
     const vencendo = profs.filter(u => venceEmBreve(u) && sit(u) !== "expirado").length;
     const vencidas = profs.filter(u => sit(u) === "expirado").length;
@@ -4239,7 +4249,7 @@
       tile("Acessaram hoje", temAcessos ? fmt(acHoje.size) : "-", temAcessos ? fmt(ac7.size)+" pessoas em 7 dias" : "aguardando regras do banco", "", temAcessos ? "acessos_hoje" : "") +
       '</div>';
     h += '<div class="pn-tiles pn-tiles-2">'+
-      tile("Institucionais ativos", fmt(inst), "", "", "sit|ativo") + tile("Assinantes avulsos", fmt(pagantes), "", "", "sit|avulso") + tile("Em teste grátis", fmt(emTeste), "", "", "sit|teste") +
+      tile("Institucionais ativos", fmt(inst), "", "", "sit|ativo") + tile("Assinantes avulsos", fmt(pagantes), "", "", "sit|avulso") + tile("Em teste grátis", fmt(emTeste), "", "", "sit|teste") + tile("No plano Gratuito", fmt(noGratuito), "", "", "sit|gratuito") +
       tile("Conversão do teste", pct(convertidos, auto.length), fmt(convertidos)+" de "+fmt(auto.length)+" autocadastros", "", "conversao") +
       tile("Vencendo em 30 dias", fmt(vencendo), fmt(vencidas)+" já vencidas", vencendo||vencidas ? "pn-alerta" : "", "vencendo") +
       tile("Aguardando aprovação", fmt(aguardando), "", aguardando ? "pn-alerta" : "", "aguardando") +
@@ -4416,7 +4426,7 @@
       online: () => pnPessoas("Online agora (ativos nos últimos 5 minutos)", us.filter(u => { const m = msDe(u.ultimo_acesso); return m && agora - m < 5*60000; })),
       acessos_hoje: () => acessos(ac.filter(a => a.dia === hoje), "Acessaram hoje"),
       acessos_7: () => acessos(ac.filter(a => a.dia >= d7), "Acessaram nos últimos 7 dias"),
-      sit: (s) => pnPessoas({ ativo:"Institucionais ativos", avulso:"Assinantes avulsos", teste:"Em teste grátis" }[s] || s, ordenar(profs.filter(u => sit(u) === s))),
+      sit: (s) => pnPessoas({ ativo:"Institucionais ativos", avulso:"Assinantes avulsos", teste:"Em teste grátis", gratuito:"No plano Gratuito" }[s] || s, ordenar(profs.filter(u => sit(u) === s))),
       conversao: () => ({ ...pnPessoas("Autocadastros (teste grátis) e conversão", ordenar(auto)), nota:"Convertido = licença avulsa paga. A coluna Situação mostra onde cada um está hoje." }),
       vencendo: () => pnPessoas("Licenças vencendo em 30 dias ou já vencidas", profs.filter(u => venceEmBreve(u) || sit(u) === "expirado").sort((a, b) => (msDe(a.licenca_fim) || 0) - (msDe(b.licenca_fim) || 0))),
       aguardando: () => pnPessoas("Aguardando aprovação ou sem vínculo", ordenar(profs.filter(u => ["pendente","semvinculo"].includes(sit(u))))),
@@ -7433,8 +7443,8 @@
   // ===================== LICENCA =====================
   const WHATS_NEWPC = "556798757275";   // robô do WhatsApp do Portal (o comercial recebe pelo próprio robô)
   const DIA = 86400000;
-  const ROTULO_PLANO = { teste:"Teste grátis", mensal:"Mensal", semestral:"Semestral", anual:"Anual", pacote:"Pacote por escola", personalizado:"Personalizado" };
-  const ROTULO_TIPO = { institucional:"Institucional (contrato do município)", avulsa:"Avulsa", teste:"Teste grátis", cortesia:"Cortesia" };
+  const ROTULO_PLANO = { gratuito:"Gratuito", teste:"Teste grátis", mensal:"Mensal", semestral:"Semestral", anual:"Anual", pacote:"Pacote por escola", personalizado:"Personalizado" };
+  const ROTULO_TIPO = { institucional:"Institucional (contrato do município)", avulsa:"Avulsa", teste:"Teste grátis", cortesia:"Cortesia", gratuito:"Gratuito" };
   function msDe(v){
     if(!v) return null;
     if(v.toMillis) return v.toMillis();
@@ -7454,7 +7464,7 @@
   function isoDe(ms){ if(!ms) return ""; const d = new Date(ms - 4*3600000); return d.toISOString().slice(0,10); }
   function somarMeses(iso, n){ const [y,m,d] = iso.split("-").map(Number); const dt = new Date(Date.UTC(y, m-1+n, d)); return dt.toISOString().slice(0,10); }
   function somarMesesDias(iso, dias){ const [y,m,d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m-1, d + dias)).toISOString().slice(0,10); }
-  const MESES_PLANO = { mensal:1, semestral:6, anual:12, pacote:12, teste:0 };
+  const MESES_PLANO = { mensal:1, semestral:6, anual:12, pacote:12, teste:0, gratuito:0 };
   function linkWhats(texto){ return "https://wa.me/"+WHATS_NEWPC+"?text="+encodeURIComponent(texto); }
   // pagamento online pelo Asaas (nov/2026): com o pagamento ligado para a conta, "Assinar" e "Renovar" abrem a compra direta
   // (assets/pde-pagar.js escuta data-pagar); sem ele, seguem para o WhatsApp da equipe como antes
@@ -7472,10 +7482,15 @@
   document.addEventListener("click", ev => { const a = ev.target.closest("[data-lic-cta]"); if(!a || !PAG_ONLINE || !window.PDEPagar) return; ev.preventDefault(); PDEPagar.abrir("licenca"); });
   function avisoDeLicenca(lic){
     const el = $("avisoLicenca"); el.innerHTML = "";
+    if(lic.tipo === "gratuito"){
+      el.innerHTML = '<div class="lic-aviso gratis"><span>\u{1F381} Você está no <b>plano Gratuito</b>: conteúdos, Lousa, provas impressas e 10 créditos de IA por mês, sem cobrança.</span>'+
+        '<a class="lic-cta" data-lic-cta target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Estou no plano Gratuito do Portal do Educador e quero conhecer o plano completo. Meu e-mail: "+(usuarioAtual.email||"")))+'">Conhecer o completo</a></div>';
+      return;
+    }
     if(lic.semFim || lic.dias === null) return;
     if(lic.tipo === "teste" || lic.dias <= 15){
       const txt = lic.tipo === "teste"
-        ? "Seu teste grátis termina em "+lic.dias+" dia(s), em "+dataDeMs(lic.fim)+"."
+        ? "Seu teste com tudo liberado termina em "+lic.dias+" dia(s), em "+dataDeMs(lic.fim)+". Depois você continua no plano Gratuito, sem pagar nada."
         : (lic.tipo === "institucional" ? "O contrato do seu município vence em "+lic.dias+" dia(s)." : "Sua licença vence em "+lic.dias+" dia(s), em "+dataDeMs(lic.fim)+".");
       const cta = lic.tipo === "institucional" ? "" :
         '<a class="lic-cta" data-lic-cta target="_blank" rel="noopener" href="'+escapeAttr(linkWhats("Olá! Quero "+(lic.tipo==="teste"?"assinar":"renovar")+" o Portal do Educador. Meu e-mail de acesso: "+(usuarioAtual.email||"")))+'">'+(lic.tipo==="teste" ? "Assinar agora" : "Renovar")+'</a>';
@@ -7787,7 +7802,7 @@
       return lic.vencida ? "expirado" : "ativo";
     }
     if(lic.vencida) return "expirado";
-    return lic.tipo === "teste" ? "teste" : "avulso";
+    return lic.tipo === "teste" ? "teste" : lic.tipo === "gratuito" ? "gratuito" : "avulso";
   }
   function venceEmBreve(u){
     if(u.perfil === "admin" || u.status !== "ativo") return false;
@@ -8116,7 +8131,7 @@
       lic: { tipo:u.licenca_tipo || "institucional", plano:u.licenca_plano || "mensal",
         ini: isoDe(msDe(u.licenca_inicio) || Date.now()), fim: isoDe(msDe(u.licenca_fim)),
         valor:u.licenca_valor || "", ref:u.licenca_ref || "", pacote:u.licenca_pacote || "",
-        conteudo:["basico","intermediario","completo"].includes(u.plano_avulso) ? u.plano_avulso : "completo" },
+        conteudo:["basico","intermediario","completo","gratuito"].includes(u.plano_avulso) ? u.plano_avulso : "completo" },
       licOriginal: JSON.stringify([u.licenca_tipo||"institucional", u.licenca_plano||"", isoDe(msDe(u.licenca_fim))]),
       cad: u
     };
@@ -8284,6 +8299,7 @@
       if(!inst){ dados.escola_id = null; }   // avulso nao enxerga turmas/alunos da rede
       const ext = [...ed.extras];
       if(!inst) dados.plano_avulso = L.conteudo;
+      if(L.tipo === "gratuito") Object.assign(dados, { plano_avulso:"gratuito", licenca_plano:"gratuito", licenca_fim:Timestamp.fromMillis(Date.UTC(2100, 0, 1, 4)) });
       dados.modulos_extra = ext.filter(v => !v.startsWith("rec:"));
       dados.recursos_extra = ext.filter(v => v.startsWith("rec:")).map(v => v.slice(4));
       if(JSON.stringify([L.tipo, inst ? "" : L.plano, inst ? "" : L.fim]) !== ed.licOriginal){ dados.licenca_alterada_em = serverTimestamp(); dados.licenca_alterada_por = usuarioAtual.uid; }
@@ -8717,7 +8733,9 @@
   // Educador em Rede (Básico+), Sala Conectada (Intermediário+), Turma ao Vivo (Completo)
   const RECURSOS_SALA = ["rede_colab", "sala_digital", "turma_ao_vivo"];
   const recursosDoPlano = n => n === "completo" ? RECURSOS_SALA.slice() : n === "intermediario" ? ["rede_colab", "sala_digital"] : ["rede_colab"];
-  const listaDoPacote = (n) => n === "basico" ? PLANO_BASICO : n === "intermediario" ? PLANO_INTERMEDIARIO : MODULOS.map(m => m.id);
+  // plano Gratuito do professor (nov/2026): conteúdos do Básico + Portal IA (10 créditos/mês) + Provas impressas (5 guardadas)
+  const PLANO_GRATUITO = PLANO_BASICO.concat(["portalia","provas"]);
+  const listaDoPacote = (n) => n === "gratuito" ? PLANO_GRATUITO : n === "basico" ? PLANO_BASICO : n === "intermediario" ? PLANO_INTERMEDIARIO : MODULOS.map(m => m.id);
   // nome do pacote pelo que está marcado (o completo inclui Prova online e Painel da Rede)
   function nomeDoPlano(prof, rec, sec){
     // "ia" (IA do Educador, retirada) e "portalia" (decidido pelo plano) não contam na comparação
@@ -13816,7 +13834,7 @@
     // professores com exceção de IA e licenças avulsas (as redes vêm da matriz)
     crA.profs = []; const vistos = new Set();
     const [qe, qa] = await Promise.all([getDocs(query(collection(db,"usuarios"), where("ia_extra","!=",null))).catch(e => { console.warn("ia_extra:", e.code); return null; }),
-      getDocs(query(collection(db,"usuarios"), where("licenca_tipo","in",["avulsa","cortesia","teste"]))).catch(e => { console.warn("avulsos:", e.code); return null; })]);
+      getDocs(query(collection(db,"usuarios"), where("licenca_tipo","in",["avulsa","cortesia","teste","gratuito"]))).catch(e => { console.warn("avulsos:", e.code); return null; })]);
     // só professor: equipe NEWPC, gestão e Secretaria que um dia foram teste ou avulso não entram (a licença deles não vale mais)
     [qe, qa].forEach(q => q && q.forEach(d => { if(vistos.has(d.id)) return; vistos.add(d.id); const x = d.data(); if(x.perfil && x.perfil !== "professor") return; crA.profs.push({ id:d.id, ...x }); }));
     crA.profs.sort((a,b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR"));
@@ -13852,7 +13870,7 @@
   }
   // professores fora de rede (avulso, cortesia, teste) e quem já tem carteira própria, todos com saldo e uso
   function crTabelaProfs(carteira, mes){
-    const L = new Map(), TIPO = { avulsa:"Avulso", cortesia:"Cortesia", teste:"Teste (7 dias)", institucional:"Rede" };
+    const L = new Map(), TIPO = { avulsa:"Avulso", cortesia:"Cortesia", teste:"Teste (7 dias)", gratuito:"Gratuito", institucional:"Rede" };
     crA.profs.forEach(u => L.set("prof_"+u.id, { conta:"prof_"+u.id, nome:u.nome || u.email || u.id, email:u.email || "", tipo:TIPO[u.licenca_tipo] || u.licenca_tipo || "-", fim:crMs(u.licenca_fim), status:u.status || "" }));
     crA.cart.filter(k => String(k.id).startsWith("prof_")).forEach(k => { if(!L.has(k.id)) L.set(k.id, { conta:k.id, nome:k.nome || k.id, email:"", tipo:"Carteira própria", fim:0, status:"" }); });
     const lista = [...L.values()].sort((a,b) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));

@@ -45,6 +45,7 @@ export function momentoDe(antes, depois) {
   const ta = a ? (a.licenca_tipo || 'institucional') : '', td = d.licenca_tipo || 'institucional';
   const ativo = d.status === 'ativo', eraAtivo = !!a && a.status === 'ativo';
   if (td === 'teste' && ta !== 'teste') return { momento: 'teste_inicio', chave: String(ms(d.licenca_fim) || 'x') };
+  if (td === 'gratuito' && ta !== 'gratuito' && d.status === 'ativo') return { momento: 'gratuito_inicio', chave: new Date().toISOString().slice(0, 7) };
   if (!ativo) return null;
   if (td === 'avulsa' && (ta !== 'avulsa' || !eraAtivo)) return { momento: 'compra', chave: String(ms(d.licenca_fim) || 'x') };
   if (td === 'avulsa' && ta === 'avulsa' && ms(d.licenca_fim) > ms(a.licenca_fim) + 864e5) return { momento: 'renovacao', chave: String(ms(d.licenca_fim)) };
@@ -71,16 +72,18 @@ export function mensagem(ev, u, ctx) {
   const planoRede = ctx.muni ? (ctx.muni.plano_nome || 'basico') : '';
   switch (ev.momento) {
     case 'teste_inicio': return { assunto: 'Bem-vindo(a) ao Portal do Educador: seu teste grátis começou',
-      html: moldura('Seu teste grátis começou', `${ola}<p>Que bom ter você no <b>Portal do Educador</b>. Seu teste grátis vai até <b>${fim}</b>, com acesso aos conteúdos e <b>créditos de demonstração do Portal IA</b>.</p>
+      html: moldura('Seu teste grátis começou', `${ola}<p>Que bom ter você no <b>Portal do Educador</b>. Até <b>${fim}</b> você usa tudo liberado, com <b>créditos de demonstração do Portal IA</b>. Depois, você <b>não perde o acesso</b>: continua no plano <b>Gratuito</b>, sem cartão e sem cobrança, com 10 créditos de IA por mês.</p>
 <p><b>Para aproveitar logo no primeiro dia:</b></p><ol style="padding-left:20px;margin:0 0 8px"><li>Abra o <b>Portal IA</b> e peça um plano de aula ou uma atividade com gabarito para a sua turma.</li><li>Veja as <b>Atividades prontas</b> e os <b>Jogos</b> para usar ainda esta semana.</li><li>Confira as <b>Datas comemorativas</b> do mês, com kits prontos.</li></ol>`, 'Entrar no Portal', ENTRAR) };
-    case 'teste_fim': return { assunto: 'Seu teste do Portal do Educador termina em 2 dias',
-      html: moldura('Faltam 2 dias do seu teste', `${ola}<p>Seu teste grátis termina em <b>${fim}</b>. Para continuar com seus materiais e o Portal IA, escolha um plano: <b>mensal, semestral ou anual</b>.</p><p>Responda este e-mail que a nossa equipe envia os valores e a forma de pagamento.</p>`, 'Entrar no Portal', ENTRAR) };
+    case 'teste_fim': return { assunto: 'Seu teste do Portal do Educador termina em 2 dias (e você continua no Gratuito)',
+      html: moldura('Faltam 2 dias do teste completo', `${ola}<p>Seu teste com tudo liberado termina em <b>${fim}</b>. Você <b>não perde o acesso</b>: depois dessa data continua no plano <b>Gratuito</b>, sem pagar nada, com os conteúdos, a Lousa, provas impressas e <b>10 créditos de IA por mês</b>.</p><p>Quer continuar com tudo (prova online, Formação Continuada e mais créditos)? Responda este e-mail que a nossa equipe envia os valores do plano completo.</p>`, 'Entrar no Portal', ENTRAR) };
+    case 'gratuito_inicio': return { assunto: 'Você está no plano Gratuito do Portal do Educador',
+      html: moldura('Seu plano Gratuito está ativo', `${ola}<p>Seu acesso ao <b>Portal do Educador</b> continua, agora no plano <b>Gratuito</b>. Ele não expira e não tem cobrança: nunca pedimos cartão.</p><p>Você tem os conteúdos do Portal (atividades, vídeos, jogos, datas comemorativas, biblioteca), a Lousa, provas impressas (até 5 guardadas) e <b>10 créditos de IA por mês</b>, renovados todo dia 1º.</p><p>Quer o Portal completo na sua escola, com prova online, Formação Continuada e créditos para todos? Responda este e-mail.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'compra': return { assunto: 'Sua licença do Portal do Educador está ativa',
       html: moldura('Licença ativa', `${ola}<p>Obrigado por escolher o <b>Portal do Educador</b>! Sua licença está ativa até <b>${fim}</b>, no plano <b>${esc(NOME_PLANO[plano] || plano)}</b>.</p><p>Ele inclui ${ITENS_PLANO[plano] || ITENS_PLANO.completo}.</p><p>Os créditos do plano renovam todo mês. Se precisar de mais, os pacotes extras acumulam no seu saldo e valem 12 meses.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'renovacao': return { assunto: 'Licença do Portal do Educador renovada',
       html: moldura('Licença renovada', `${ola}<p>Sua licença foi renovada e agora vale até <b>${fim}</b>. Obrigado por seguir com a gente!</p>`, 'Entrar no Portal', ENTRAR) };
     case 'vencendo': return { assunto: 'Sua licença do Portal do Educador vence em 7 dias',
-      html: moldura('Sua licença vence em 7 dias', `${ola}<p>Sua licença do Portal do Educador vence em <b>${fim}</b>. Para não perder o acesso aos seus materiais e ao Portal IA, responda este e-mail que enviamos a renovação.</p>`, 'Entrar no Portal', ENTRAR) };
+      html: moldura('Sua licença vence em 7 dias', `${ola}<p>Sua licença do Portal do Educador vence em <b>${fim}</b>. Você não perde o acesso: se não renovar, sua conta passa para o plano <b>Gratuito</b>, com seus materiais guardados e 10 créditos de IA por mês. Para continuar com tudo do seu plano, responda este e-mail que enviamos a renovação.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'plano': return { assunto: 'Seu plano do Portal do Educador mudou',
       html: moldura('Plano atualizado', `${ola}<p>Seu plano mudou de <b>${esc(NOME_PLANO[ev.de] || ev.de)}</b> para <b>${esc(NOME_PLANO[ev.para] || ev.para)}</b>.</p><p>Agora você tem ${ITENS_PLANO[ev.para] || ITENS_PLANO.completo}.</p>`, 'Ver o que mudou', ENTRAR) };
     case 'cortesia': return { assunto: 'Você ganhou acesso ao Portal do Educador',
@@ -89,6 +92,7 @@ export function mensagem(ev, u, ctx) {
       html: moldura(nomeMuni ? (R.publica ? 'Um presente da sua rede de ensino' : 'Um presente da sua escola') : 'Acesso liberado', `${ola}<p>${nomeMuni ? `${R.publica ? `${R.oferta.replace(R.orgao, '<b>' + esc(R.orgao) + '</b>')}` : `<b>${esc(R.orgao)}</b>`} oferece a você o <b>Portal do Educador</b>, em parceria com a NEWPC Tecnologia. É um investimento da sua ${R.publica ? 'rede' : 'escola'} no seu dia a dia em sala.` : 'Seu acesso ao <b>Portal do Educador</b> foi liberado pela sua rede de ensino.'}</p>
 ${ctx.escola ? `<p>Você está vinculado(a) à <b>${esc(ctx.escola)}</b>.</p>` : ''}${planoRede ? `<p>O plano da sua rede inclui ${ITENS_PLANO[planoRede] || ITENS_PLANO.basico}.</p>` : ''}
 ${ev.vinhaDe === 'avulsa' || ev.vinhaDe === 'teste' ? '<p>Como a sua rede agora oferece o Portal, você passa a usar o acesso institucional, sem custo para você. Seus materiais continuam no seu cadastro.</p>' : ''}
+<p style="background:#eaf6ec;border-radius:10px;padding:10px 12px"><b>Não é teste e não tem custo para você.</b> O acesso vale enquanto a sua ${R.publica ? 'rede' : 'escola'} mantiver o Portal, e nunca pediremos cartão.</p>
 <p><b>Primeiro passo:</b> entre com o mesmo e-mail e confira suas turmas em <b>Minhas Turmas</b>.</p>`, 'Entrar no Portal', ENTRAR) };
     default: return null;
   }

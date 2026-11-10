@@ -14,7 +14,8 @@ import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO, REGIAO_
 export const CREDITOS_PADRAO = {
   precos: { texto: 1, material: 2, aula: 6, ajuste: 1, imagem: 6, avancado: 24, video: 3 },   // aula: Aula IA da Lousa; avancado: Aula avançada (modelo Pro); video: Vídeo interativo (~R$ 0,30 de custo real em nov/2026)
   teto_padrao: 120,            // créditos da rede por professor por mês (0 = sem teto)
-  demo_teste: 10,             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
+  demo_teste: 10,
+  gratuito_mes: 10,           // plano Gratuito: créditos de IA por mês (renovam no dia 1º, não acumulam); 0 = desliga             // créditos de demonstração para quem se cadastra sozinho (teste de 7 dias); 0 = desliga
   // franquia mensal da rede (nov/2026): créditos por educador de rede por mês, incluídos na licença; o teto mensal por professor é o dobro.
   // Regras de acúmulo (08/11/2026): rede acumula até o fim do contrato; assinante avulso: a sobra passa 1 mês (no máximo 2 franquias juntas),
   // a programar junto com o pagamento automático; pacotes comprados valem 12 meses.
@@ -43,7 +44,7 @@ export const CREDITOS_PADRAO = {
 export const PLANOS_COM_IA = ['intermediario', 'completo', 'personalizado'];
 // avulso, cortesia e teste NUNCA usam a carteira da rede, mesmo com o município preenchido no cadastro:
 // na mesma cidade pode haver contrato com a prefeitura, com o estado etc. e professores que compram por conta própria.
-export const LICENCAS_FORA_DE_REDE = ['avulsa', 'cortesia', 'teste'];
+export const LICENCAS_FORA_DE_REDE = ['avulsa', 'cortesia', 'teste', 'gratuito'];
 export const daRede = eu => !!(eu && eu.municipio_id) && !LICENCAS_FORA_DE_REDE.includes(eu.licenca_tipo);
 const LINK_PAINEL = 'https://www.portaldoeducador.com.br/entrar/#creditos';
 
@@ -153,6 +154,7 @@ export async function reservarCreditos(db, ctx, acao, opc = {}) {
     const demo = ctx.eu && ctx.eu.licenca_tipo === 'teste';
     // details.semCredito: o navegador mostra a janela "Seus créditos de IA acabaram" com o botão de abastecer (regra única, nov/2026)
     const det = { semCredito: true, motivo: r.erro, comprar: '/apps/portal-ia/#comprar' };
+    if (ctx.eu && ctx.eu.licenca_tipo === 'gratuito' && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus 10 créditos de IA do plano Gratuito deste mês acabaram. Eles renovam no dia 1º. Se precisar de mais, compre créditos avulsos no Portal IA ou conheça o plano completo.', det);
     if (demo && (r.erro === 'plano' || r.erro === 'saldo')) throw new HttpsError('resource-exhausted', 'Seus créditos de demonstração do teste acabaram. Para continuar usando o Portal IA, fale com a gente no WhatsApp (67) 9875-7275 ou compre créditos avulsos no Portal IA.', det);
     const msg = { plano: (opc.rede === false ? 'Este uso não é pago pela sua rede e você não tem créditos avulsos suficientes.' : 'O Portal IA faz parte dos planos Intermediário e Completo da rede.') + avulso, imagem: 'Gerar imagens faz parte do plano Completo.' + avulso,
       teto: 'Você chegou ao limite mensal de créditos da rede. Ele renova no dia 1º.' + avulso, saldo: 'Os créditos da sua rede acabaram. A gestão da rede já foi avisada.' + avulso }[r.erro];

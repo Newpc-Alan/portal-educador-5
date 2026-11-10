@@ -12,6 +12,8 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10
 
 export const PLANO_BASICO = ["atividades","videos","jogos","ia","datas","colorir","historias","biblioteca","museus","dicas","apps"];
 export const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro"]);
+// plano Gratuito do professor (nov/2026): conteúdos do Básico + Portal IA (10 créditos/mês) + Provas impressas (5 guardadas)
+export const PLANO_GRATUITO = PLANO_BASICO.concat(["portalia","provas"]);
 const lista = (x) => Array.isArray(x) ? x : [];
 
 // true quando o professor pode usar o módulo (e o recurso extra, se pedido)
@@ -28,7 +30,7 @@ export function liberado(u, m, modulo, recurso){
     recs = new Set(lista(m && m.recursos).concat(rx));
   }else{
     const p = u.plano_avulso;                                  // sem campo: Completo
-    mods = p === "basico" ? new Set(PLANO_BASICO.concat(ex)) : p === "intermediario" ? new Set(PLANO_INTERMEDIARIO.concat(ex)) : null;
+    mods = p === "gratuito" ? new Set(PLANO_GRATUITO.concat(ex)) : p === "basico" ? new Set(PLANO_BASICO.concat(ex)) : p === "intermediario" ? new Set(PLANO_INTERMEDIARIO.concat(ex)) : null;
     recs = new Set(rx);
   }
   if(modulo && mods && !mods.has(modulo)){

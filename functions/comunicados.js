@@ -23,7 +23,7 @@ const PERFIS = { professor: 'Professores', gestor: 'Gestão da escola (direção
 // id do destinatário sem conta no Portal (pré-cadastro ou lista colada): o mesmo e-mail tem sempre o mesmo id, e o "não quero receber" vale para os dois
 const idEmail = e => 'em_' + createHash('sha256').update(e).digest('hex').slice(0, 28);
 const TAM_LOTE = 400;
-const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia'];
+const LICENCAS = ['institucional', 'avulsa', 'teste', 'cortesia', 'gratuito'];
 const msDe = v => v && v.toMillis ? v.toMillis() : (v && v._seconds ? v._seconds * 1000 : 0);
 const URL_SAIR = 'https://southamerica-east1-' + (process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'portal-educador-5') + '.cloudfunctions.net/descadastroEmail';
 const PADRAO = { host: 'smtp.mail.webnode.com', porta: 465, por_hora: 100, por_dia: 700, remetente: 'comunicados@portaldoeducador.com.br', nome: 'Portal do Educador' };

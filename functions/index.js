@@ -15,6 +15,7 @@ export { sincronizarAtividades } from './atividades.js';
 export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao, corrigirProvaOnline, revisaoNotaProva } from './provas-online.js';
 export { sugerirCorrecaoIA } from './correcao-ia.js';
 export { iaFeedback } from './ia-feedback.js';
+export { planoGratuito, gratuitoVencidos, gratuitoCreditosMes } from './gratuito.js';
 export { limparFotosProvas } from './fotos-provas.js';
 // Liga quando o secret NC_ENTREGA_CHAVE existir no Google (sem ele, o deploy de QUALQUER função falha):
 export { linkArquivoNc } from './arquivos-nc.js';
@@ -48,7 +49,7 @@ async function exigirLicenca(uid){
   const fim=ms(u.licenca_fim); if(!fim || fim<Date.now()) fail('Sua licença do Portal do Educador expirou.');
   // licença avulsa no pacote Básico não inclui a Formação (Intermediário e Completo incluem), salvo liberação exclusiva do admin
   const extraF=Array.isArray(u.modulos_extra) && u.modulos_extra.includes('formacao');
-  if(u.plano_avulso==='basico' && !extraF) fail('A Formação Continuada não faz parte do pacote da sua licença.');
+  if((u.plano_avulso==='basico' || u.plano_avulso==='gratuito') && !extraF) fail(u.plano_avulso==='gratuito' ? 'A Formação Continuada não faz parte do plano Gratuito. Leve o Portal para a sua escola ou assine o plano completo.' : 'A Formação Continuada não faz parte do pacote da sua licença.');
   return u;
 }
 const arr = snap => snap.docs.map(d=>({ ...d.data(), id:d.id }));

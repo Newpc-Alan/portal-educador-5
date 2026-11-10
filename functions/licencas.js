@@ -5,7 +5,7 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { FieldValue } from 'firebase-admin/firestore';
 
-export const LICENCAS_PROFESSOR = ['teste', 'avulsa', 'cortesia'];
+export const LICENCAS_PROFESSOR = ['teste', 'avulsa', 'cortesia', 'gratuito'];
 export const licencaIncoerente = u => !!u && !!u.perfil && u.perfil !== 'professor' && u.perfil !== 'aluno' && LICENCAS_PROFESSOR.includes(u.licenca_tipo);
 export const correcaoLicenca = () => ({ licenca_tipo: 'institucional', licenca_fim: null, licenca_plano: '', licenca_pacote: '',
   licenca_corrigida_em: FieldValue.serverTimestamp(), licenca_corrigida_motivo: 'perfil sem licença de professor' });

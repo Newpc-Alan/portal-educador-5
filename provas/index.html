@@ -3980,7 +3980,7 @@ onAuthStateChanged(auth, async (user) => {
   P.admin = u.perfil === "admin";
   try{ if(window.PDELara) PDELara.mostrar({ nome: P.prof, cargo: u.funcao || "", perfil: u.perfil, escola: u.escola_nome || "", dentro: document.getElementById("pde-painel") || undefined }); }catch(e){}   // Lara no canto
   // teste de 7 dias: até 5 provas guardadas em Minhas provas (vitrine do plano completo)
-  N.teste = u.perfil === "professor" && u.licenca_tipo === "teste";
+  N.teste = u.perfil === "professor" && (u.licenca_tipo === "teste" || u.licenca_tipo === "gratuito"); N.gratuito = u.licenca_tipo === "gratuito";
   if(["professor", "gestor"].includes(u.perfil)) montarChipIA(user.uid);
   $("pde-quem").textContent = "Conectado como " + (P.prof || user.email) + " · salva neste aparelho";
   if(u.municipio_id) P.muni = await ler("municipios", u.municipio_id);
@@ -4046,7 +4046,7 @@ async function limiteTeste(){
   if(!N.teste) return true;
   try{ await carregarLista(); }catch(e){}
   if((N.provas || []).length < PROVAS_TESTE) return true;
-  const r = await G().pdeDialog({ titulo:"Suas 5 provas grátis do teste já foram usadas", ico:"\u{1F4DD}",
+  const r = await G().pdeDialog({ titulo:N.gratuito ? "Você já tem 5 provas guardadas no plano Gratuito" : "Suas 5 provas grátis do teste já foram usadas", ico:"\u{1F4DD}",
     msg:"Gostou? No plano completo as provas são ilimitadas, com prova online, correção automática e notas direto no diário. Você ainda pode abrir, editar e imprimir as 5 provas que já guardou.",
     opcoes:[ { v:"zap", l:"Quero continuar", d:"fale com a gente no WhatsApp" }, { v:"nao", l:"Agora não", d:"" } ] });
   if(r === "zap") window.open("https://wa.me/556798757275?text=" + encodeURIComponent("Olá! Estou no teste do Portal do Educador, usei as 5 provas grátis e quero continuar."), "_blank", "noopener");
