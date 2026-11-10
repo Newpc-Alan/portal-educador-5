@@ -56,6 +56,7 @@
   <select id="rede" aria-label="Rede"><option value="">Carregando redes...</option></select>
   <input type="month" id="mes" aria-label="Mês de referência">
   <button class="bt" data-action="gerar">Gerar</button>
+  <span id="secoes" style="display:flex;gap:10px;flex-wrap:wrap;font-size:.9rem" hidden><label><input type="checkbox" id="sPortal"> Plataforma</label><label><input type="checkbox" id="sFormacao"> Formação</label><label><input type="checkbox" id="sEquip"> Equipamentos</label></span>
   <button class="bt" data-action="ia" id="btIA" disabled>✨ Escrever parecer com IA</button>
   <button class="bt" data-action="salvar" id="btSalvar" disabled>💾 Salvar versão</button>
   <button class="bt verde" data-action="imprimir" id="btPdf" disabled>🖨️ Imprimir / PDF</button>
@@ -103,53 +104,64 @@ async function gerar(){
   if(!mun || !mes){ toast("Escolha a rede e o mês.", true); return; }
   ["btIA", "btSalvar", "btPdf"].forEach(i => $(i).disabled = true);
   $("folha").innerHTML = '<div class="vazio">Juntando os dados do Portal...</div>';
-  try{ const r = await chamar({ municipio_id:mun, mes }); R.dados = r.dados; R.salvo = r.salvo; desenhar(r.salvo ? r.salvo.parecer : ""); ["btIA", "btSalvar", "btPdf"].forEach(i => $(i).disabled = false); }
+  try{ const r = await chamar({ municipio_id:mun, mes }); R.dados = r.dados; R.salvo = r.salvo;
+    // seções que entram: o que o contrato cobre (marcado pelo que existe na rede; dá para tirar ou pôr antes de imprimir)
+    const d = R.dados; $("sPortal").checked = (d.rede.modulos || []).length > 0; $("sFormacao").checked = d.formacao.cursistas > 0 || d.formacao.certificados_ano > 0; $("sEquip").checked = d.equipamentos.itens > 0;
+    $("secoes").hidden = false; desenhar(r.salvo ? r.salvo.parecer : ""); ["btIA", "btSalvar", "btPdf"].forEach(i => $(i).disabled = false); }
   catch(e){ $("folha").innerHTML = '<div class="vazio">Não consegui gerar: ' + esc(e.message || "erro") + '</div>'; }
 }
 async function escreverIA(){
   const b = $("btIA"); b.disabled = true; b.textContent = "✨ Escrevendo...";
-  try{ const r = await chamar({ municipio_id:R.dados.rede.id, mes:R.dados.periodo.mes, parecer_ia:true }); if(r.parecer){ $("parecer").textContent = r.parecer; toast("Parecer escrito. Revise antes de imprimir."); } else toast("A IA não respondeu agora. Tente de novo.", true); }
+  try{ const r = await chamar({ municipio_id:R.dados.rede.id, mes:R.dados.periodo.mes, parecer_ia:true, secoes:secoes() }); if(r.parecer){ $("parecer").textContent = r.parecer; toast("Parecer escrito. Revise antes de imprimir."); } else toast("A IA não respondeu agora. Tente de novo.", true); }
   catch(e){ toast(e.message || "Não foi possível.", true); }
   b.disabled = false; b.textContent = "✨ Escrever parecer com IA";
 }
 async function salvar(){
   const b = $("btSalvar"); b.disabled = true;
-  try{ await chamar({ acao:"salvar", municipio_id:R.dados.rede.id, mes:R.dados.periodo.mes, parecer:$("parecer").textContent.trim() }); R.salvo = { versoes:(R.salvo ? R.salvo.versoes : 0) + 1, emitido_em:Date.now() }; atualizarRodape(); toast("Versão salva no histórico."); }
+  try{ await chamar({ acao:"salvar", municipio_id:R.dados.rede.id, mes:R.dados.periodo.mes, parecer:$("parecer").textContent.trim(), secoes:secoes() }); R.salvo = { versoes:(R.salvo ? R.salvo.versoes : 0) + 1, emitido_em:Date.now() }; atualizarRodape(); toast("Versão salva no histórico."); }
   catch(e){ toast(e.message || "Não foi possível salvar.", true); }
   b.disabled = false;
 }
 function kpi(v, t){ return '<div class="kpi"><b>' + v + '</b><span>' + esc(t) + '</span></div>'; }
 function lista(l, vazio){ return l && l.length ? '<table class="lista">' + l.map(x => '<tr><td>' + esc(x.nome) + '</td><td>' + fmt(x.n) + '</td></tr>').join("") + '</table>' : '<p class="nota">' + esc(vazio) + '</p>'; }
+function secoes(){ return { portal:$("sPortal").checked, formacao:$("sFormacao").checked, equipamentos:$("sEquip").checked }; }
 function desenhar(parecer){
-  const d = R.dados, r = d.rede, p = d.periodo, c = d.cadastro, a = d.acesso, u = d.uso, f = d.formacao, e = d.equipamentos, dp = d.disponibilidade, pv = d.provas;
+  const d = R.dados, r = d.rede, p = d.periodo, c = d.cadastro, a = d.acesso, u = d.uso, f = d.formacao, e = d.equipamentos, dp = d.disponibilidade, pv = d.provas, S = secoes();
   const adesao = c.professores ? Math.round(100 * a.professores / c.professores) : null;
-  $("folha").innerHTML =
-    '<div class="cab"><img class="newpc" src="/assets/newpc-logo.png" alt="NEWPC Tecnologia"><span class="pde"><img src="/assets/pde-logo-128.png" alt="">Portal do Educador</span></div>' +
+  let n = 1; const h2 = t => '<h2>' + (++n) + '. ' + t + '</h2>';
+  const objeto = [S.portal ? "plataforma educacional Portal do Educador (licenças de uso para professores e gestão" + (r.modulos && r.modulos.length ? ", com os módulos: " + r.modulos.join(", ") : "") + ")" : "",
+    S.equipamentos ? "locação de equipamentos de tecnologia educacional com suporte técnico" : "", S.formacao ? "Formação Continuada dos educadores" : ""].filter(Boolean);
+  let h = '<div class="cab"><img class="newpc" src="/assets/newpc-logo.png" alt="NEWPC Tecnologia"><span class="pde"><img src="/assets/pde-logo-128.png" alt="">Portal do Educador</span></div>' +
     '<h1>Relatório de Execução Contratual</h1><p class="sub">Período de referência: <b>' + esc(p.nome) + '</b> (' + diaBR(p.inicio) + ' a ' + diaBR(p.fim) + ')' + (p.parcial ? ' · <b>mês em andamento, dados parciais</b>' : '') + '</p>' +
     '<h2>1. Identificação</h2><table>' +
       '<tr><th>Contratante</th><td>' + esc(r.tipo === "municipal" ? "Prefeitura Municipal de " + r.nome : r.nome) + (r.uf ? " · " + esc(r.uf) : "") + '</td></tr>' +
       '<tr><th>Contratada</th><td>NEWPC Tecnologia · CNPJ 20.892.343/0001-15 · Campo Grande/MS</td></tr>' +
       '<tr><th>Contrato</th><td>' + (r.contrato ? esc(r.contrato) : '<i>número não cadastrado</i>') + (r.vigencia_fim ? ' · vigência até ' + dataBR(r.vigencia_fim) : '') + '</td></tr>' +
-      '<tr><th>Objeto</th><td>Plataforma educacional Portal do Educador (licenças de uso para professores e gestão)' + (r.modulos && r.modulos.length ? ', com os módulos: ' + esc(r.modulos.join(", ")) : '') + ', suporte técnico e Formação Continuada.</td></tr>' +
-      '<tr><th>Base legal</th><td>Lei nº 14.133/2021, art. 117 (acompanhamento e fiscalização da execução contratual)</td></tr></table>' +
-    '<h2>2. Disponibilidade e acesso</h2><div class="kpis">' +
+      '<tr><th>Objeto</th><td>' + esc((t => t.charAt(0).toUpperCase() + t.slice(1))(objeto.length ? objeto.join("; ") : "conforme contrato")) + '.</td></tr>' +
+      '<tr><th>Base legal</th><td>Lei nº 14.133/2021, art. 117 (acompanhamento e fiscalização da execução contratual)</td></tr></table>';
+  if(S.equipamentos) h += h2("Equipamentos em operação") + '<div class="kpis">' + kpi(fmt(e.itens), "equipamentos com patrimônio e QR cadastrados") +
+      e.situacao.slice(0, 3).map(x => kpi(fmt(x.n), x.nome.toLowerCase())).join("") + '</div>' +
+      (e.tipos.length ? '<p class="nota">Por tipo: ' + e.tipos.map(t => fmt(t.n) + " " + esc(t.nome)).join(" · ") + '.</p>' : '') +
+      (e.escolas.length ? '<table class="lista" style="margin-top:6px"><tr><th style="width:auto">Local</th><th style="text-align:right">Equipamentos</th></tr>' + e.escolas.map(x => '<tr><td>' + esc(x.nome) + (x.man ? ' <small style="color:#9a3412">(' + fmt(x.man) + ' em manutenção)</small>' : '') + '</td><td>' + fmt(x.n) + '</td></tr>').join("") + '</table>' : '') +
+      h2("Suporte técnico") + '<div class="kpis">' + kpi(fmt(e.chamados_abertos), "chamados abertos no mês") + kpi(fmt(e.chamados_resolvidos), "chamados resolvidos no mês") +
+      kpi(e.horas_media == null ? "–" : fmt(e.horas_media) + " h", "tempo médio de solução") + kpi(fmt(e.em_aberto_fim), "em aberto no fim do período") + '</div>' +
+      '<p class="nota">Chamados registrados pelas escolas no Portal (QR do equipamento ou WhatsApp), com histórico de cada atendimento.</p>';
+  if(S.portal) h += h2("Plataforma: disponibilidade e acesso") + '<div class="kpis">' +
       kpi(dp.pct == null ? "–" : String(dp.pct).replace(".", ",") + "%", "plataforma disponível no mês" + (dp.verificacoes ? " (" + fmt(dp.verificacoes) + " verificações)" : "")) +
-      kpi(fmt(c.professores), "professores com licença ativa") + kpi(fmt(a.professores) + (adesao != null ? ' <small style="font-size:9pt">(' + adesao + '%)</small>' : ''), "professores que acessaram no mês") +
-      kpi(fmt(a.acessos), "acessos de professores · " + fmt(a.dias_com_uso) + " dias com uso") + '</div>' +
-      '<p class="nota">' + fmt(c.escolas) + ' escolas cadastradas' + (r.escolas_rede ? ' de ' + fmt(r.escolas_rede) + ' da rede (Censo Escolar)' : '') + ' · ' + fmt(c.gestao) + ' perfis de gestão (Secretaria e escolas). A disponibilidade é medida por verificação automática do site, das funções e do banco de dados.</p>' +
-    '<h2>3. Uso pedagógico comprovado</h2><table class="lista"><tr><td>Professores com uso real na semana de maior movimento</td><td>' + fmt(u.pico_semanal) + '</td></tr>' +
+      kpi(fmt(c.professores + c.convidados), "licenças disponibilizadas a professores") + kpi(fmt(c.professores), "professores com acesso ativado") +
+      kpi(fmt(a.professores) + (adesao != null ? ' <small style="font-size:9pt">(' + adesao + '%)</small>' : ''), "professores que acessaram no mês") + '</div>' +
+      '<p class="nota">' + fmt(c.convidados) + ' convite(s) enviados aguardam o primeiro acesso · ' + fmt(c.escolas) + ' escolas cadastradas' + (r.escolas_rede ? ' de ' + fmt(r.escolas_rede) + ' da rede (Censo Escolar)' : '') + ' · ' + fmt(c.gestao) + ' perfis de gestão. A disponibilidade é medida por verificação automática do site, das funções e do banco de dados.</p>' +
+      h2("Uso pedagógico registrado") + '<table class="lista"><tr><td>Acessos de professores no mês</td><td>' + fmt(a.acessos) + '</td></tr><tr><td>Professores com uso real na semana de maior movimento</td><td>' + fmt(u.pico_semanal) + '</td></tr>' +
       '<tr><td>Provas aplicadas online nas escolas da rede</td><td>' + fmt(pv.aplicadas) + '</td></tr></table>' +
-      '<p class="nota" style="margin-top:8px"><b>Ações de valor registradas</b> (' + fmt(u.semanas) + ' semana(s) do mês):</p>' + lista(u.acoes, "Sem ações registradas nas semanas do período.") +
-      '<p class="nota" style="margin-top:8px"><b>Recursos mais acessados</b>:</p>' + lista(a.recursos, "Sem registro de acesso no período.") +
-    '<h2>4. Formação Continuada</h2><div class="kpis">' + kpi(fmt(f.certificados_mes), "certificados emitidos no mês") + kpi(fmt(f.horas_mes) + " h", "carga horária certificada no mês") +
+      (u.acoes.length ? '<p class="nota" style="margin-top:8px"><b>Ações registradas</b> (' + fmt(u.semanas) + ' semana(s) do mês):</p>' + lista(u.acoes, "") : '') +
+      (a.recursos.length ? '<p class="nota" style="margin-top:8px"><b>Recursos mais acessados</b>:</p>' + lista(a.recursos, "") : '');
+  if(S.formacao) h += h2("Formação Continuada") + '<div class="kpis">' + kpi(fmt(f.certificados_mes), "certificados emitidos no mês") + kpi(fmt(f.horas_mes) + " h", "carga horária certificada no mês") +
       kpi(fmt(f.certificados_ano), "certificados no ano") + kpi(fmt(f.horas_ano) + " h", "carga horária certificada no ano") + '</div>' +
-      '<p class="nota">' + fmt(f.cursistas) + ' educadores da rede com cadastro na Formação Continuada · ' + fmt(f.concluintes_mes) + ' concluíram curso no mês.</p>' +
-    '<h2>5. Equipamentos e suporte técnico</h2><div class="kpis">' + kpi(fmt(e.itens), "equipamentos com patrimônio cadastrado") + kpi(fmt(e.chamados_abertos), "chamados abertos no mês") +
-      kpi(fmt(e.chamados_resolvidos), "chamados resolvidos no mês") + kpi(e.horas_media == null ? "–" : fmt(e.horas_media) + " h", "tempo médio de solução") + '</div>' +
-      (e.tipos.length ? '<p class="nota">Inventário: ' + e.tipos.map(t => fmt(t.n) + " " + esc(t.nome)).join(" · ") + '. Chamados em aberto no fim do período: ' + fmt(e.em_aberto_fim) + '.</p>' : '<p class="nota">Sem equipamentos cadastrados no inventário do Portal para esta rede.</p>') +
-    '<h2>6. Parecer técnico da contratada</h2><div class="parecer" id="parecer" contenteditable="true" spellcheck="true">' + esc(parecer || "") + '</div>' +
+      '<p class="nota">' + fmt(f.cursistas) + ' educadores da rede com cadastro na Formação Continuada · ' + fmt(f.concluintes_mes) + ' concluíram curso no mês.</p>';
+  h += h2("Parecer técnico da contratada") + '<div class="parecer" id="parecer" contenteditable="true" spellcheck="true">' + esc(parecer || "") + '</div>' +
     '<div class="assin"><div>Alan Valerio Pires Ramos<br>NEWPC Tecnologia · Contratada</div><div>Fiscal do contrato<br>Nome, matrícula e data</div></div>' +
     '<p class="rodape" id="rodape"></p>';
+  $("folha").innerHTML = h;
   atualizarRodape();
 }
 function atualizarRodape(){
@@ -157,6 +169,7 @@ function atualizarRodape(){
   el.textContent = "Dados extraídos automaticamente do Portal do Educador em " + new Date(R.dados.gerado_em).toLocaleString("pt-BR") + ". Registro de auditoria: " + R.dados.rede.id + "_" + R.dados.periodo.mes +
     (s && s.versoes ? " · versão " + s.versoes + (s.emitido_em ? " salva em " + new Date(s.emitido_em).toLocaleString("pt-BR") : "") : " · versão ainda não salva") + ". Nenhum dado pessoal de aluno consta deste relatório.";
 }
+document.addEventListener("change", e => { if(e.target.closest("#secoes") && R.dados){ const t = $("parecer") ? $("parecer").textContent : ""; desenhar(t); } });
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-action]"); if(!b) return; const a = b.dataset.action;
   if(a === "gerar") gerar(); else if(a === "ia") escreverIA(); else if(a === "salvar") salvar(); else if(a === "imprimir") window.print();

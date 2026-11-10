@@ -34,10 +34,16 @@ export async function montarExecucao(db, mun, mes) {
 
   // cadastro e acesso
   const [escS, usS] = await Promise.all([db.collection('escolas').where('municipio_id', '==', mun).select('nome', 'status').get(),
-    db.collection('usuarios').where('municipio_id', '==', mun).select('perfil', 'status', 'demo', 'escola_id').get()]);
+    db.collection('usuarios').where('municipio_id', '==', mun).select('perfil', 'status', 'demo', 'escola_id', 'email').get()]);
   const us = usS.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.status === 'ativo' && !u.demo);
   const profs = new Set(us.filter(u => u.perfil === 'professor').map(u => u.id));
   const gestao = us.filter(u => ['gestor', 'secretaria', 'secretaria_escolar'].includes(u.perfil)).length;
+  // convites enviados pela rede/NEWPC que ainda não viraram conta (licença disponibilizada, aguardando o primeiro acesso)
+  const convidados = await tenta(async () => {
+    const contas = new Set(usS.docs.map(d => String(d.get('email') || '').toLowerCase()).filter(Boolean));
+    let n = 0; (await db.collection('pre_cadastros').where('municipio_id', '==', mun).where('status', '==', 'ativo').select('email', 'perfil').get())
+      .forEach(d => { const u = d.data(), e = String(u.email || d.id).trim().toLowerCase(); if (u.perfil !== 'aluno' && !contas.has(e)) n++; });
+    return n; }, 0);
   const acesso = await tenta(async () => {
     const s = await db.collection('acessos_dia').where('municipio', '==', mu.nome || '').where('dia', '>=', P.diaIni).get();
     const quem = new Set(), dias = new Set(), mods = {}; let n = 0;
@@ -79,17 +85,25 @@ export async function montarExecucao(db, mun, mes) {
 
   // equipamentos e chamados técnicos
   const equip = await tenta(async () => {
-    const [it, ch] = await Promise.all([db.collection('rec_itens').where('municipio_id', '==', mun).select('tipo', 'status').get(),
+    const [it, ch] = await Promise.all([db.collection('rec_itens').where('municipio_id', '==', mun).select('tipo', 'situacao', 'ativo', 'escola_id').get(),
       db.collection('rec_chamados').where('municipio_id', '==', mun).select('status', 'criado_em', 'resolvido_em').get()]);
-    const tipos = {}; it.forEach(d => { const t = d.data().tipo || 'Outro'; tipos[t] = (tipos[t] || 0) + 1; });
+    // situação como no app Recursos da Escola: em uso, em manutenção, em estoque, baixado
+    const SIT = { em_uso: 'Em uso', manutencao: 'Em manutenção', estoque: 'Em estoque', baixado: 'Baixado' };
+    const tipos = {}, sit = {}, porEsc = {};
+    it.forEach(d => { const x = d.data(), t = x.tipo || 'Outro', st = x.situacao || (x.ativo === false ? 'baixado' : 'em_uso');
+      tipos[t] = (tipos[t] || 0) + 1; sit[st] = (sit[st] || 0) + 1;
+      const e = porEsc[x.escola_id || ''] = porEsc[x.escola_id || ''] || { n: 0, uso: 0, man: 0 }; e.n++; if (st === 'em_uso') e.uso++; if (st === 'manutencao') e.man++; });
+    const escNome = {}; escS.docs.forEach(d => { escNome[d.id] = d.data().nome || d.id; });
+    const escolas = Object.entries(porEsc).map(([id, e]) => ({ nome: id ? escNome[id] || 'Escola' : 'Estoque (ainda não entregue)', ...e })).sort((a, b) => b.n - a.n);
     let abertos = 0, resolvidos = 0, horas = 0, abertosAgora = 0;
     ch.forEach(d => { const x = d.data(), c = ms(x.criado_em), r = ms(x.resolvido_em);
       if (c >= P.ini && c <= P.fim) abertos++;
       if (r >= P.ini && r <= P.fim) { resolvidos++; if (c) horas += (r - c) / 36e5; }
       if (x.status !== 'resolvido' && c <= P.fim) abertosAgora++; });
-    return { itens: it.size, tipos: Object.entries(tipos).map(([nome, n]) => ({ nome, n })).sort((a, b) => b.n - a.n), chamados_abertos: abertos,
+    return { itens: it.size, tipos: Object.entries(tipos).map(([nome, n]) => ({ nome, n })).sort((a, b) => b.n - a.n),
+      situacao: Object.entries(sit).map(([k, n]) => ({ nome: SIT[k] || k, n })).sort((a, b) => b.n - a.n), escolas: escolas.slice(0, 40), chamados_abertos: abertos,
       chamados_resolvidos: resolvidos, horas_media: resolvidos ? Math.round(horas / resolvidos) : null, em_aberto_fim: abertosAgora };
-  }, { itens: 0, tipos: [], chamados_abertos: 0, chamados_resolvidos: 0, horas_media: null, em_aberto_fim: 0 });
+  }, { itens: 0, tipos: [], situacao: [], escolas: [], chamados_abertos: 0, chamados_resolvidos: 0, horas_media: null, em_aberto_fim: 0 });
 
   // disponibilidade da plataforma (verificação automática a cada 30 min, GitHub Actions)
   const disp = await tenta(async () => { const d = (await db.doc(`stats/disponibilidade_${mes.replace('-', '')}`).get()).data() || {};
@@ -100,16 +114,18 @@ export async function montarExecucao(db, mun, mes) {
       escolas_rede: (mu.rede && mu.rede.escolas) || null, alunos_rede: (mu.rede && mu.rede.alunos) || null, censo_ano: (mu.rede && mu.rede.ano) || null,
       modulos: (mu.modulos_professor || []).map(m => MODULOS[m] || m) },
     periodo: { mes, nome: P.nome, inicio: P.diaIni, fim: P.diaFim, parcial: ag < P.fim },
-    cadastro: { escolas: escS.size, professores: profs.size, gestao },
+    cadastro: { escolas: escS.size, professores: profs.size, gestao, convidados },
     acesso, uso, provas, formacao, equipamentos: equip, disponibilidade: disp, gerado_em: ag
   };
 }
 
 async function parecerIA(d) {
+  // seções fora do relatório não entram no texto
   const instrucao = 'Você redige, em português formal do Brasil, o PARECER TÉCNICO de um relatório mensal de execução contratual (Lei 14.133/2021, art. 117) ' +
     'da contratada NEWPC Tecnologia para o fiscal do contrato de uma rede pública de ensino. Use SOMENTE os números do JSON; não invente dado, percentual nem comparação. ' +
-    'Estrutura: 3 parágrafos curtos. 1) Disponibilidade e acesso: a plataforma esteve disponível e foi efetivamente usada (cite números). ' +
-    '2) Entregas do período: uso pedagógico real, Formação Continuada e suporte técnico (cite números; se um item estiver zerado, diga de forma neutra que não houve registro no período). ' +
+    'O JSON traz só as seções que fazem parte deste contrato (plataforma, Formação Continuada e/ou equipamentos); comente apenas o que estiver nele. ' +
+    'Estrutura: 3 parágrafos curtos. 1) O que foi disponibilizado e está em operação: plataforma (disponibilidade, licenças ativas e convites enviados) e/ou equipamentos (quantidade, situação, escolas atendidas), citando números. ' +
+    '2) Entregas do período: uso pedagógico, Formação Continuada e suporte técnico, conforme o JSON (cite números; se um item estiver zerado, diga de forma neutra que não houve registro no período). ' +
     '3) Conclusão: declare que os serviços foram prestados conforme o contrato no período e aponte, com tom propositivo, até 2 pontos de atenção para a rede (ex.: baixa adesão, chamados em aberto). ' +
     'Não use travessão. Não use adjetivos de marketing. Sem títulos, sem listas, sem assinatura. Máximo de 220 palavras.' + (d.periodo.parcial ? ' O mês ainda está em andamento: diga que os dados são parciais.' : '');
   for (const modelo of MODELOS) {
@@ -135,12 +151,17 @@ export const relatorioExecucao = onCall({ region: 'southamerica-east1', timeoutS
   const ref = db.doc(`relatorios_execucao/${mun}_${mes}`);
   if (d.acao === 'salvar') {   // grava a versão final (números + parecer revisado) no histórico
     const dados = await montarExecucao(db, mun, mes);
-    await ref.set({ municipio_id: mun, mes, dados, parecer: txt(d.parecer, 4000), emitido_por: eu.nome || eu.email || req.auth.uid, emitido_uid: req.auth.uid,
+    await ref.set({ municipio_id: mun, mes, dados, secoes: d.secoes && typeof d.secoes === 'object' ? { portal: d.secoes.portal !== false, formacao: d.secoes.formacao !== false, equipamentos: d.secoes.equipamentos !== false } : null, parecer: txt(d.parecer, 4000), emitido_por: eu.nome || eu.email || req.auth.uid, emitido_uid: req.auth.uid,
       emitido_em: FieldValue.serverTimestamp(), versoes: FieldValue.increment(1) }, { merge: true });
     return { ok: true };
   }
   const dados = await montarExecucao(db, mun, mes);
   const salvo = (await ref.get()).data();
-  const parecer = d.parecer_ia ? await parecerIA(dados) : '';
+  const sec = d.secoes && typeof d.secoes === 'object' ? d.secoes : {};
+  const paraIA = { ...dados };   // a IA só comenta o que vai no relatório (o contrato pode ser só de equipamentos)
+  if (sec.portal === false) { delete paraIA.acesso; delete paraIA.uso; delete paraIA.provas; delete paraIA.cadastro; }
+  if (sec.formacao === false) delete paraIA.formacao;
+  if (sec.equipamentos === false) delete paraIA.equipamentos;
+  const parecer = d.parecer_ia ? await parecerIA(paraIA) : '';
   return { dados, parecer, salvo: salvo ? { parecer: salvo.parecer || '', emitido_por: salvo.emitido_por || '', emitido_em: ms(salvo.emitido_em), versoes: salvo.versoes || 1 } : null };
 });
