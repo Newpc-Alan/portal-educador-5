@@ -1,0 +1,83 @@
+<!-- ============================================================================
+  Portal do Educador · Aviso de cookies com consentimento (LGPD) · nov/2026
+  Onde colar: Webnode › Configurações do site › Código HTML do cabeçalho (vale para todas as páginas).
+  O que faz: mostra o aviso na primeira visita e SÓ carrega o Pixel do Meta depois de "Aceitar".
+  "Rejeitar" não carrega nada. A escolha fica guardada por 12 meses neste navegador.
+  Para reabrir a escolha: coloque no rodapé um link com o atributo data-pde-cookies
+      <a href="#" data-pde-cookies>Preferências de cookies</a>
+  Evento extra numa página (ex.: "Bem-vindo(a)", depois do cadastro): cole ANTES deste bloco, só nessa página,
+      <script>window.PDE_PIXEL_EVENTOS = ["CompleteRegistration"];</script>
+  IMPORTANTE: apague o código antigo do Pixel (fbq('init', ...)) das páginas, senão ele dispara sem pedir.
+  Sem onclick no HTML: os botões são escutados por delegação.
+============================================================================= -->
+<style>
+  .pdec{position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483000;max-width:560px;margin:0 auto;background:#fff;color:#0f2c4a;
+    border-radius:18px;box-shadow:0 18px 50px -12px rgba(7,22,33,.45);padding:20px 22px;font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    border-top:5px solid #1a6b2a;animation:pdecEntra .35s ease-out}
+  .pdec[hidden]{display:none}
+  .pdec h2{margin:0 0 6px;font-size:18px;font-weight:800;color:#1a6b2a}
+  .pdec p{margin:0 0 10px;color:#33475b}
+  .pdec a{color:#1a6b2a;font-weight:700}
+  .pdec-acoes{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px}
+  .pdec button{font:inherit;font-weight:800;border-radius:999px;padding:11px 22px;min-height:44px;cursor:pointer}
+  .pdec .pdec-nao{background:#fff;color:#0f2c4a;border:2px solid #0f2c4a}
+  .pdec .pdec-sim{background:#1a6b2a;color:#fff;border:2px solid #1a6b2a}
+  .pdec button:focus-visible{outline:3px solid #8DC63F;outline-offset:2px}
+  @keyframes pdecEntra{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  @media (max-width:480px){.pdec{left:10px;right:10px;bottom:10px;padding:16px}.pdec-acoes button{flex:1 1 0}}
+  @media (prefers-reduced-motion:reduce){.pdec{animation:none}}
+</style>
+<script>
+(function () {
+  "use strict";
+  var PIXEL = "1081512231516752";                    // Dataset "Portal do Educador · Site"
+  var CHAVE = "pde_cookies", VALIDADE = 365 * 864e5;  // 12 meses
+  var POLITICA = "https://www.portaldoeducador.com.br/privacidade/";
+
+  function ler() { try { var v = JSON.parse(localStorage.getItem(CHAVE) || "null"); return v && Date.now() - v.em < VALIDADE ? v.escolha : null; } catch (e) { return null; } }
+  function gravar(escolha) { try { localStorage.setItem(CHAVE, JSON.stringify({ escolha: escolha, em: Date.now() })); } catch (e) {} }
+
+  // Pixel do Meta: só entra aqui, depois do "Aceitar"
+  var pixelOk = false;
+  function carregarPixel() {
+    if (pixelOk) return; pixelOk = true;
+    !function (f, b, e, v, n, t, s) { if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); };
+      if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = "2.0"; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v;
+      s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s); }(window, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
+    window.fbq("init", PIXEL);
+    window.fbq("track", "PageView");
+    (window.PDE_PIXEL_EVENTOS || []).forEach(function (ev) { window.fbq("track", ev); });
+  }
+
+  var caixa = null;
+  function mostrar() {
+    if (!caixa) {
+      caixa = document.createElement("div");
+      caixa.className = "pdec"; caixa.setAttribute("role", "dialog"); caixa.setAttribute("aria-labelledby", "pdecTit"); caixa.setAttribute("aria-live", "polite");
+      caixa.innerHTML = '<h2 id="pdecTit">Sua privacidade</h2>' +
+        '<p>Usamos cookies do Meta (Facebook e Instagram) para medir nossas campanhas e mostrar o Portal do Educador a quem tem interesse. ' +
+        'Eles só são ativados se você aceitar. Os cookies necessários para o site funcionar não dependem desta escolha.</p>' +
+        '<p><a href="' + POLITICA + '" target="_blank" rel="noopener">Política de Privacidade e cookies</a></p>' +
+        '<div class="pdec-acoes"><button type="button" class="pdec-nao" data-pdec="nao">Rejeitar</button><button type="button" class="pdec-sim" data-pdec="sim">Aceitar</button></div>';
+      document.body.appendChild(caixa);
+    }
+    caixa.hidden = false;
+  }
+  function esconder() { if (caixa) caixa.hidden = true; }
+
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-pdec], [data-pde-cookies]") : null; if (!b) return;
+    if (b.hasAttribute("data-pde-cookies")) { e.preventDefault(); mostrar(); return; }
+    var sim = b.getAttribute("data-pdec") === "sim";
+    gravar(sim ? "aceito" : "recusado"); esconder();
+    if (sim) carregarPixel();
+    // quem aceitou e depois rejeitou: o pixel já carregado só para de vez ao recarregar a página
+    else if (pixelOk) location.reload();
+  });
+
+  function iniciar() { var esc = ler(); if (esc === "aceito") carregarPixel(); else if (esc !== "recusado") mostrar(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
+  window.PDECookies = { abrir: mostrar };
+})();
+</script>
+<!-- fim · aviso de cookies Portal do Educador -->
