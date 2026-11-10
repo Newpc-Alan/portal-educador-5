@@ -249,6 +249,13 @@ async function telaAluno(id){
   const tref = doc(db, "provas_online", id, "po_tentativas", E.chave);
   E.unsub.push(onSnapshot(tref, s => { E.tent = s.exists() ? s.data() : null; reagirTentativa(); }, () => { E.tent = null; reagirTentativa(); }));
 }
+// painel: redesenha no segundo em que a prova abre e no que fecha (sem esperar outra mudança no banco)
+function agendarViradas(){
+  clearTimeout(E.viradaA); clearTimeout(E.viradaF);
+  const p = E.prova; if(!p) return; const t = agora(), ab = ms(p.abre_em), fe = ms(p.fecha_em);
+  if(ab > t && ab - t < 864e5) E.viradaA = setTimeout(() => desenharPainel(), ab - t + 300);
+  if(fe > t && fe - t < 864e5) E.viradaF = setTimeout(() => desenharPainel(), fe - t + 300);
+}
 function reagirTentativa(){
   const t = E.tent;
   if(!t){ if(!E.ativo) introAluno(); return; }
@@ -616,7 +623,7 @@ async function painel(id){
   try{ const s = await getDoc(doc(db, "provas_online", id)); if(!s.exists()) throw 0; E.prova = { id:s.id, ...s.data() }; }
   catch(e){ $("tela").innerHTML = '<div class="card vazio">Prova não encontrada.</div>'; return; }
   const p = E.prova; $("topoT").textContent = "Painel · " + p.titulo; $("lnkVoltar").href = "/prova/";
-  E.unsub.push(onSnapshot(doc(db, "provas_online", id), s => { if(s.exists()){ E.prova = { id:s.id, ...s.data() }; desenharPainel(); } }));
+  E.unsub.push(onSnapshot(doc(db, "provas_online", id), s => { if(s.exists()){ E.prova = { id:s.id, ...s.data() }; desenharPainel(); agendarViradas(); } }));
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_tentativas"), s => { PN.tent = {}; s.forEach(d => PN.tent[d.id] = d.data()); vigiarBloqueios(); desenharPainel(); }));
   E.unsub.push(onSnapshot(collection(db, "provas_online", id, "po_resultados"), s => { PN.res = {}; s.forEach(d => PN.res[d.id] = d.data()); desenharPainel(); }));
   // sala de espera: quem já entrou e quem tocou em "Estou pronto"
