@@ -84,13 +84,13 @@ import base64
 def _img(nome): return 'data:image/png;base64,' + base64.b64encode((D / 'marcas' / nome).read_bytes()).decode()
 def cabecalho():
     if os.environ.get('MARCAS') != '1': return '<div></div>'
-    return ('<div style="width:100%;padding:0 16mm;margin-top:5mm;display:flex;justify-content:space-between;align-items:center;font-family:Inter;font-size:7px;color:#62758a">'
+    return ('<div style="width:100%;padding:0 18mm;margin-top:1mm;display:flex;justify-content:space-between;align-items:center;font-family:Inter;font-size:7px;color:#62758a">'
             '<img src="' + _img('newpc-cabecalho.png') + '" style="height:5.2mm"><span>' + os.environ.get('CAB_TXT', '') + '</span></div>')
 def rodape():
     txt = os.environ.get('RODAPE', 'Manual do Portal do Educador 5.0 · NEWPC Tecnologia')
     if os.environ.get('MARCAS') != '1':
         return '<div style="width:100%;font-family:Inter;font-size:7.5px;color:#62758a;padding:0 16mm;display:flex;justify-content:space-between"><span>' + txt + '</span><span class="pageNumber"></span></div>'
-    return ('<div style="width:100%;font-family:Inter;font-size:7.5px;color:#62758a;padding:0 16mm;display:flex;justify-content:space-between;align-items:center">'
+    return ('<div style="width:100%;font-family:Inter;font-size:7.5px;color:#62758a;padding:0 18mm;display:flex;justify-content:space-between;align-items:center">'
             '<span style="display:flex;align-items:center;gap:2mm"><img src="' + _img('pde-rodape.png') + '" style="height:5mm;width:5mm;border-radius:50%">'
             '<b style="color:#0f2c4a;font-size:8px">Portal do Educador</b><span>&nbsp;·&nbsp;' + txt + '</span></span><span class="pageNumber"></span></div>')
 

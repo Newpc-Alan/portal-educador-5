@@ -114,4 +114,5 @@ Metas de prazo marcadas como **meta sugerida** são pontos de partida. Ajuste-as
 | 2.27 | 04/11/2026 | POP-PDE-20 (franquia mensal, créditos por educador, retirar pacote, fora de rede e demonstração do teste); POP-PDE-30 (máximo por dia e Reenviar falhas); novos POP-PDE-34 (pedido "Quero isso na minha escola"), 35 (Painel da TV na recepção) e 36 (convite de primeiro acesso) | NEWPC Tecnologia | |
 | 2.28 | 09/11/2026 | POP-PDE-20 (preços novos, franquia que acumula, grátis com uso justo, cortesia); novos POP-PDE-37 (pagamento online pelo Asaas), 38 (Fábrica de cursos), 39 (cortesia da diretoria), 40 (revisão de conteúdo gerado por IA) e 41 (rede de demonstração) | NEWPC Tecnologia | |
 | 2.29 | 10/11/2026 | POP-PDE-32: quadro **Quem pode** (professor, gestor, administrador, aluno e perfis sem acesso; secretária escolar e Secretaria de Educação não abrem nem conduzem aula) e troca de professor por pedido e aprovação | NEWPC Tecnologia | |
+| 2.32 | 10/11/2026 | Cabeçalho e rodapé alinhados às margens do texto | NEWPC Tecnologia | |
 | 2.31 | 10/11/2026 | Logotipo NEWPC no cabeçalho e Portal do Educador no rodapé de todas as páginas | NEWPC Tecnologia | |
