@@ -1176,7 +1176,9 @@ Conduzir a aula com os aparelhos dos alunos seguindo o professor (pausar telas, 
 | **Administrador NEWPC** | Qualquer turma | Qualquer aula | Assume e encerra direto (uso só em suporte, com pedido da escola) |
 | **Aluno** | Não | Não: só entra na aula aberta da própria turma e segue o professor | |
 | **Professor em teste, avulso ou cortesia** | Não: a Sala de aula gerenciada é da licença institucional da rede | | |
-| **Portaria, Secretaria de Educação** | Não abrem a aula | | |
+| **Secretária escolar** | Não: gera cartões e acessos dos alunos e cuida da grade, mas não entra em aula | | |
+| **Secretaria de Educação** | Não: acompanha pela presença, pelos relatórios e pelo Painel da Rede | | |
+| **Portaria** | Não | | |
 
 :::regra
 Quem libera o acesso é a configuração do cadastro, não o professor: perfil, escola e turmas vêm da importação da rede ou do Cadastro (administrador). Professor que não vê a turma: conferir em **Cadastro** se a turma está atribuída a ele e se a licença da rede está ativa.
