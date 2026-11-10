@@ -459,6 +459,26 @@
   .av-ap{ position:absolute;top:4px;right:6px;font-size:14px;line-height:1 } .av-mao{ position:absolute;top:4px;left:6px;font-size:16px;animation:avMao 1s ease-in-out infinite alternate }
   @keyframes avMao{ from{ transform:rotate(-12deg) } to{ transform:rotate(12deg) } }
   .av-al.pausa .av-av{ outline:3px dashed #0f2c4a;outline-offset:2px }
+  /* modo prova dentro da Turma ao Vivo (Maestro): a prova online da turma acompanhada na mesma tela */
+  .av-prova{ margin:12px 20px 0;border-radius:16px;background:linear-gradient(135deg,#0f2c4a,#173f66);color:#fff;padding:14px 16px;display:grid;gap:10px;box-shadow:0 8px 22px -12px rgba(15,44,74,.6) }
+  .av-prova[hidden]{ display:none }
+  .avp-top{ display:flex;flex-wrap:wrap;align-items:center;gap:10px }
+  .avp-top b{ font-size:17px } .avp-top small{ color:#b9d3ea;font-size:13px }
+  .avp-st{ background:#8DC63F;color:#10240a;border-radius:999px;padding:3px 10px;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.04em }
+  .avp-st.espera{ background:#f5a623 } .avp-st.fim{ background:#cfd8e2;color:#0f2c4a }
+  .avp-nums{ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px }
+  .avp-nums div{ background:rgba(255,255,255,.1);border-radius:12px;padding:8px 10px } .avp-nums b{ display:block;font-size:22px;line-height:1.1 } .avp-nums span{ font-size:12px;color:#cfe0ef }
+  .avp-nums .blo b{ color:#ffb3ab } .avp-nums .ent b{ color:#b8f08a }
+  .avp-acoes{ display:flex;flex-wrap:wrap;gap:8px;align-items:center }
+  .avp-acoes button, .avp-acoes a{ font:inherit;font-weight:800;border:0;border-radius:10px;padding:9px 14px;min-height:40px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px }
+  .avp-bt{ background:#fff;color:#0f2c4a } .avp-bt.ok{ background:#8DC63F;color:#10240a } .avp-bt.red{ background:#e05a4f;color:#fff } .avp-bt:disabled{ opacity:.6;cursor:wait }
+  .avp-lnk{ background:transparent;color:#cfe0ef;border:1px solid rgba(255,255,255,.3) !important }
+  .avp-pre{ display:grid;gap:6px;background:rgba(224,90,79,.18);border:1px solid rgba(224,90,79,.5);border-radius:12px;padding:8px 10px }
+  .avp-pre div{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px } .avp-pre div b{ margin-right:auto }
+  .avp-pre button{ font:inherit;font-size:13px;font-weight:800;border:0;border-radius:8px;padding:6px 10px;cursor:pointer;background:#fff;color:#0f2c4a }
+  .av-pv{ position:absolute;left:4px;top:4px;font-size:11px;font-weight:800;border-radius:999px;padding:1px 6px;background:#fff;color:#0f2c4a;box-shadow:0 1px 4px rgba(0,0,0,.25) }
+  .av-pv.blo{ background:#e05a4f;color:#fff } .av-pv.ent{ background:#1a6b2a;color:#fff } .av-pv.sala{ background:#f5a623;color:#2b1a00 }
+  @media (max-width:900px){ .avp-nums{ grid-template-columns:repeat(2,minmax(0,1fr)) } }
   .av-mae{ display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 20px 0;padding:10px 14px;border-radius:14px;background:#0f2c4a;color:#fff;font-size:14px }
   .av-mae b{ font-size:15px } .av-mae small{ opacity:.8 } .av-mae .av-esp{ flex:1 }
   .av-mae button{ font:inherit;font-weight:800;font-size:14px;border:0;border-radius:10px;padding:9px 12px;cursor:pointer;background:#fff;color:#0f2c4a }
@@ -8416,6 +8436,12 @@
     else if(AV_CONDUZ.includes(acao) && AV.tid && AV.ocupada){ toast("A turma está em aula com " + AV.ocupada.nome + ". Só quem conduz a aula comanda as telas.", true); }
     else if(acao === "av-mais"){ if(!AV.tid) return; el.disabled = true; chamarEntradaQr({ turma_id:AV.tid, acao:"prorrogar", minutos:10 }).then(r => { toast("Aula prorrogada até " + horaCurta(r.aberta_ate) + "."); qrAoVivo("ver"); }).catch(e => toast(e && e.message ? e.message : "Não deu para prorrogar agora.", true)).finally(() => { el.disabled = false; }); }
     else if(acao === "av-feitos"){ if(AV.tid) feitosParaTurma(AV.tid); }
+    else if(acao === "avp-iniciar") acaoProvaAv({ acao:"abrir_agora" }, el);
+    else if(acao === "avp-encerrar"){ AVP.enc = true; desenharProvaAv(); }
+    else if(acao === "avp-enc-nao"){ AVP.enc = false; desenharProvaAv(); }
+    else if(acao === "avp-enc-ok") acaoProvaAv({ acao:"encerrar", notas:el.dataset.arg }, el);
+    else if(acao === "avp-liberar") acaoProvaAv({ acao:"liberar", uid:el.dataset.arg, modo:"continuar" }, el);
+    else if(acao === "avp-tempo") acaoProvaAv({ acao:"tempo", uid:el.dataset.arg, min:10 }, el);
     else if(acao === "av-mae-al"){ MAV.sel = MAV.sel === el.dataset.arg ? "" : el.dataset.arg; desenharAoVivo(); }
     else if(acao === "av-mae-pausa"){ maePausarTodos(el.dataset.arg === "1", el); }
     else if(acao === "av-mae-um"){ maePausarAluno(el.dataset.arg, el.dataset.liga === "1"); }
@@ -10113,7 +10139,7 @@
   // comandos da aula: só quem conduz (com a turma em aula com outro professor, a tela fica só de leitura; o banco também barra)
   const AV_CONDUZ = ["av-mais", "av-term", "av-term-ler", "av-mae-pausa", "av-mae-um", "av-mae-mao", "av-mae-link", "av-mae-af", "av-mae-af-fim", "av-qz", "av-qz-fim", "av-qz-parcial", "av-acervo", "av-chat", "av-um-link", "av-hist-abrir"];
   const ON_MS = 50000;   // o aluno manda sinal a cada 20 s; sem sinal há 50 s = fora
-  function pararAoVivo(){ AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; (AVV.subs || []).forEach(u => { try{ u(); }catch(e){} }); AVV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
+  function pararAoVivo(){ pararProvaAv(); AV.subs.forEach(u => { try{ u(); }catch(e){} }); AV.subs = []; (AVV.subs || []).forEach(u => { try{ u(); }catch(e){} }); AVV.subs = []; clearInterval(AV.relogio); AV.relogio = null; pararMaestroAv(); }
   function fecharAoVivo(){ pararAoVivo(); const f = $("avFundo"); if(f) f.remove(); atualizarCartaoAula(); }
   const iniciais = n => String(n || "?").trim().split(/\s+/).filter(Boolean).slice(0, 2).map(x => x[0]).join("").toUpperCase();
   async function abrirAoVivo(tidPre){
@@ -10133,6 +10159,7 @@
         '<button type="button" class="av-ac" data-action="av-feitos"><span>📁</span>Enviar algo que já fiz</button>' +
         '<button type="button" class="av-ac" data-action="av-lousa"><span>🖼️</span>Abrir a Lousa</button>' +
         '<a class="av-ac" href="/provas/" target="_blank" rel="noopener"><span>📝</span>Aplicar prova online</a></div>' +
+      '<div class="av-prova" id="avProva" hidden></div>' +
       '<div class="av-mae" id="avMae" hidden></div>' +
       '<div class="av-corpo"><section class="av-sala"><h4 style="display:flex;align-items:center;flex-wrap:wrap;gap:6px">Na sala <small>atualiza sozinho</small><span class="av-leg-cor"><span><i style="background:#1a6b2a"></i>na aula</span><span><i style="background:#c62828"></i>saiu da página</span><span><i style="background:#cfd8e2"></i>fora do Portal</span></span></h4><div id="avAlunos" class="av-alunos">Carregando...</div><div id="avCart" class="av-cart" hidden></div></section>' +
         '<section class="av-env-sec"><div class="av-busca"><h4>🕘 Histórico de envios</h4><input id="avQ" type="search" placeholder="Buscar pelo tema" aria-label="Buscar nos conteúdos enviados">' +
@@ -10158,6 +10185,7 @@
       sn.forEach(d => { const a = d.data(); if(a.status !== "inativo" && a.situacao !== "transferido") AV.alunos.push({ id:d.id, nome:a.nome || "Aluno" }); });
       AV.alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); }catch(e){ console.warn("alunos:", e.code); }
     if(AV.tid !== tid) return;
+    vigiarProvaAv(tid);
     // a aula atual (aberta_em / aberta_ate): vermelho só vale para quem saiu durante ESTA aula
     AV.subs.push(onSnapshot(doc(db, "qr_aulas", tid), s => { const x = s.data() || {}; AV.aulaIni = msAv(x.aberta_em); AV.aulaFim = msAv(x.aberta_ate);
       // a aula tem dono (nov/2026): aberta por outro professor = só leitura aqui, com a opção de assumir a turma
@@ -10689,13 +10717,77 @@
         const tit = escapeAttr(a.nome) + (st === "on" ? " · na aula" : st === "fora" ? " · saiu da página (continua com a conta aberta)" : " · fora do Portal") +
           (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
         const af = aulaAberta() ? respostaDoAluno(a.id) : "";
-        const marcas = '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "") + (pausa ? "⏸️" : "") + "</span>" + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
+        const pv = provaDoAlunoAv(a.id);
+        const marcas = (pv ? '<span class="av-pv ' + pv.c + '" title="Prova online: ' + escapeAttr(pv.t) + '">' + pv.s + '</span>' : '') + '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "") + (pausa ? "⏸️" : "") + "</span>" + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
           (af ? '<span class="av-af" title="Pesquisa rápida">' + COR_AF[af] + "</span>" : "") + (nl ? '<span class="av-nl" title="Mensagens novas">💬' + nl + "</span>" : "") + (aulaAberta() && batAluno(a.id) ? '<span class="av-bat ' + (batAluno(a.id).c ? "carga" : batAluno(a.id).n <= 20 ? "baixa" : batAluno(a.id).n <= 40 ? "media" : "boa") + '" title="Bateria ' + batAluno(a.id).n + "%" + (batAluno(a.id).c ? " · carregando" : "") + '">' + (batAluno(a.id).c ? "⚡" : batAluno(a.id).n <= 20 ? "🪫" : "🔋") + batAluno(a.id).n + "%</span>" : "");
         const det = MAV.sel === a.id && aulaAberta() ? htmlDetMae(a) : "";
         return ('<button type="button" data-action="av-mae-al" data-arg="' + escapeAttr(a.id) + '"') + ' class="av-al' + (st ? " " + st : "") + (pausa ? " pausa" : "") + '" title="' + tit + '">' + marcas + '<span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></button>" + det; }).join("") + htmlOutrosMae();
     if(box.innerHTML !== html) box.innerHTML = html;
     desenharBarraMae();
     desenharMatsAoVivo();
+    desenharProvaAv();
+  }
+  /* ---------- Modo prova no Maestro (nov/2026): a prova online desta turma, acompanhada e comandada daqui ---------- */
+  const AVP = { lista:[], id:"", tent:{}, sala:{}, subs:[], enc:false };
+  function pararProvaAv(){ AVP.subs.forEach(u => { try{ u(); }catch(e){} }); AVP.subs = []; AVP.id = ""; AVP.tent = {}; AVP.sala = {}; AVP.lista = []; AVP.enc = false; const el = $("avProva"); if(el){ el.hidden = true; el.innerHTML = ""; } }
+  const provaAtivaAv = () => { const t = Date.now();
+    return AVP.lista.filter(p => p.status === "agendada" && (p.aguardando || (msAv(p.fecha_em) > t && msAv(p.abre_em) - t < 30 * 60000)))
+      .sort((a, b) => (b.aguardando ? 1 : 0) - (a.aguardando ? 1 : 0) || msAv(a.abre_em) - msAv(b.abre_em))[0] || null; };
+  function vigiarProvaAv(tid){
+    AV.subs.push(onSnapshot(query(collection(db, "provas_online"), where("professor_uid", "==", usuarioAtual.uid), where("turma_id", "==", tid)), sn => {
+      AVP.lista = []; sn.forEach(d => AVP.lista.push({ id:d.id, ...d.data() }));
+      const p = provaAtivaAv();
+      if((p ? p.id : "") !== AVP.id){
+        AVP.subs.forEach(u => { try{ u(); }catch(e){} }); AVP.subs = []; AVP.tent = {}; AVP.sala = {}; AVP.enc = false; AVP.id = p ? p.id : "";
+        if(p){
+          AVP.subs.push(onSnapshot(collection(db, "provas_online", p.id, "po_tentativas"), s2 => { AVP.tent = {}; s2.forEach(d => AVP.tent[d.id] = d.data()); desenharAoVivo(); }, e => console.warn("prova (tentativas):", e.code)));
+          AVP.subs.push(onSnapshot(collection(db, "provas_online", p.id, "po_sala"), s2 => { AVP.sala = {}; s2.forEach(d => AVP.sala[d.id] = d.data()); desenharAoVivo(); }, () => {}));
+        }
+      }
+      desenharAoVivo();
+    }, e => console.warn("prova online (maestro):", e.code)));
+  }
+  // selo no card do aluno: na sala de espera, fazendo (respondidas/total), bloqueado ou entregou
+  function provaDoAlunoAv(alunoId){
+    if(!AVP.id) return null; const p = AVP.lista.find(x => x.id === AVP.id); if(!p) return null;
+    const k = "m-" + alunoId, t = AVP.tent[k], nq = (p.questoes || []).length;
+    if(t && t.status === "entregue") return { c:"ent", s:"✅", t:"entregou" };
+    if(t && t.status === "bloqueada") return { c:"blo", s:"🔒", t:"bloqueada: saiu da prova" };
+    if(t && t.status === "em_andamento"){ const r = Object.keys(t.respostas || {}).length; return { c:"", s:"📝 " + r + "/" + nq, t:"fazendo: " + r + " de " + nq + " respondidas" }; }
+    if(AVP.sala[k]) return { c:"sala", s:AVP.sala[k].pronto ? "🟢" : "🚪", t:AVP.sala[k].pronto ? "pronto na sala de espera" : "entrou na sala de espera" };
+    return null;
+  }
+  function desenharProvaAv(){
+    const el = $("avProva"); if(!el) return;
+    const p = AVP.id ? AVP.lista.find(x => x.id === AVP.id) : null;
+    if(!p){ if(!el.hidden){ el.hidden = true; el.innerHTML = ""; } return; }
+    const t = Date.now(), ab = msAv(p.abre_em), fe = msAv(p.fecha_em), alunos = p.alunos || [], tot = alunos.length;
+    const T = Object.values(AVP.tent), fazendo = T.filter(x => x.status === "em_andamento").length, bloq = T.filter(x => x.status === "bloqueada"), ent = T.filter(x => x.status === "entregue").length;
+    const sala = Object.keys(AVP.sala).length, prontos = Object.values(AVP.sala).filter(x => x.pronto).length;
+    const hm = m => new Date(m).toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+    const espera = p.aguardando, contando = !espera && ab > t, aberta = !espera && t >= ab && t <= fe;
+    const st = espera ? ["Sala de espera", "espera"] : contando ? ["Abre em " + Math.max(0, Math.ceil((ab - t) / 1000)) + " s", "espera"] : aberta ? ["Em andamento até " + hm(fe), ""] : ["Horário encerrado", "fim"];
+    const nomeDe = uid => (alunos.find(a => a.uid === uid) || {}).nome || "Aluno";
+    const acoes = AVP.enc
+      ? '<button type="button" class="avp-bt ok" data-action="avp-enc-ok" data-arg="agora">Encerrar e mostrar a nota agora</button><button type="button" class="avp-bt" data-action="avp-enc-ok" data-arg="reter">Encerrar e guardar as notas</button><button type="button" class="avp-bt avp-lnk" data-action="avp-enc-nao">Cancelar</button>'
+      : (espera || contando ? (espera ? '<button type="button" class="avp-bt ok" data-action="avp-iniciar">▶️ Iniciar a prova (contagem de 10 s)</button>' : '') : '') +
+        (aberta || contando ? '<button type="button" class="avp-bt red" data-action="avp-encerrar">⏹️ Encerrar a prova</button>' : '') +
+        '<a class="avp-bt avp-lnk" href="/prova/?painel=' + encodeURIComponent(p.id) + '" target="_blank" rel="noopener">📊 Painel completo e auditoria ↗</a>';
+    const html = '<div class="avp-top"><span class="avp-st ' + st[1] + '">' + escapeHtml(st[0]) + '</span><b>📝 ' + escapeHtml(p.titulo || "Prova online") + '</b><small>' + escapeHtml([p.disciplina, p.turma_nome].filter(Boolean).join(" · ")) + '</small></div>' +
+      '<div class="avp-nums">' + (espera ? '<div><b>' + sala + '<small style="font-size:13px;color:#cfe0ef"> / ' + tot + '</small></b><span>entraram na sala · ' + prontos + ' prontos</span></div>' : '<div><b>' + (tot - fazendo - bloq.length - ent) + '</b><span>ainda não começaram</span></div>') +
+        '<div><b>' + fazendo + '</b><span>fazendo agora</span></div><div class="blo"><b>' + bloq.length + '</b><span>bloqueados</span></div><div class="ent"><b>' + ent + '</b><span>entregaram</span></div></div>' +
+      (bloq.length ? '<div class="avp-pre"><span style="font-weight:800;font-size:13px">🔒 Precisam de você</span>' + bloq.map(x => '<div><b>' + escapeHtml(String(x.nome || nomeDe(x.uid)).split(" ").slice(0, 2).join(" ")) + '</b>' +
+        '<button type="button" data-action="avp-liberar" data-arg="' + escapeAttr(x.uid) + '">🔓 Liberar (continua de onde parou)</button><button type="button" data-action="avp-tempo" data-arg="' + escapeAttr(x.uid) + '">+10 min</button></div>').join("") + '</div>' : '') +
+      '<div class="avp-acoes">' + acoes + '</div>';
+    if(el.hidden) el.hidden = false;
+    if(el.innerHTML !== html) el.innerHTML = html;
+  }
+  async function acaoProvaAv(dados, btn){
+    if(btn) btn.disabled = true;
+    try{ const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
+      await httpsCallable(getFunctions(app, "southamerica-east1"), "acaoProvaOnline", { timeout:60000 })({ id:AVP.id, ...dados }); toast("Feito."); }
+    catch(e){ toast(e.message || "Não foi possível.", true); }
+    finally{ if(btn) btn.disabled = false; AVP.enc = false; desenharProvaAv(); }
   }
   // item do histórico da aula ao vivo: conteúdo aberto nas telas (para a turma ou só para um aluno), quiz (com o aproveitamento) e pesquisa (com o resultado)
   function htmlHistAv(h, quando){
