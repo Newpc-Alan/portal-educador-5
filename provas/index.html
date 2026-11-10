@@ -4495,8 +4495,12 @@ async function olAplicar(){
     const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "publicarProvaOnline", { timeout:120000 })({
       titulo, disciplina:dados.header.mat || "", turma_id:$("ol-turma").value, finalidade:fin, periodo:per, periodos:dados.header.periodos, ano_letivo:dados.header.ano, modo, notas:$("ol-notas").value, tolerancia_min:tol, abre_em:abre, fecha_em:fecha, duracao_min:dur, embaralhar:$("ol-emb").checked, fotos:$("ol-fotos").checked, avisos:1,
       questoes:dados.questoes.map(q => ({ tipo:q.tipo, enun:q.enun, valor:q.valor, imgs:q.imgs, alts:q.alts, gab:q.gab, pont:q.pont, exp:q.exp, linhas:q.linhas, cols:q.cols, bncc:q.bncc })) })).data;
+    const maestro = "/entrar/#aovivo=" + encodeURIComponent($("ol-turma").value);
     $("ol-corpo").innerHTML = '<div style="text-align:center;padding:10px"><div style="font-size:2.6rem">✅</div><h3 style="margin:6px 0">'+(r.modo === "agora" ? "Prova na sala de espera" : "Prova agendada")+'</h3><p style="color:#62758a">'+(r.modo === "agora" ? r.alunos+' alunos já veem a prova no Início do tablet. Peça para entrarem e tocarem em “Estou pronto”. No painel ao vivo você vê quem está pronto e clica em <b>Iniciar</b>: contagem de 10 s e a prova abre para todos. ' : r.alunos+' alunos vão ver a prova no Portal do Aluno no horário marcado. ')+r.objetivas+' de '+r.questoes+' questões serão corrigidas sozinhas.</p>'+
-      '<a class="pde-btn pde-btn-primary" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Abrir o painel ao vivo ↗</a></div>';
+      '<a class="pde-btn pde-btn-primary" href="'+maestro+'">🎼 Acompanhar no Maestro</a> <a class="pde-btn pde-btn-ghost" href="/prova/?painel='+encodeURIComponent(r.id)+'" target="_blank" rel="noopener">Painel da prova ↗</a>'+
+      (r.modo === "agora" ? '<p id="ol-indo" style="color:#1a6b2a;font-weight:700;margin-top:10px">Abrindo o Maestro em 3 s...</p>' : '')+'</div>';
+    // aplicar agora: o professor vai direto para o Maestro (Turma ao Vivo), onde inicia e acompanha a prova
+    if(r.modo === "agora"){ let n = 3; const t = setInterval(() => { n--; const el = $("ol-indo"); if(el) el.textContent = "Abrindo o Maestro em " + n + " s..."; if(n <= 0){ clearInterval(t); location.assign(maestro); } }, 1000); }
   }catch(e){ G().toast(e.message || "Não foi possível aplicar.", "err"); btn.disabled = false; olModo(); }
   finally{ OL.enviando = false; }
 }
