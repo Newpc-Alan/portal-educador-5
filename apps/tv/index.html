@@ -140,6 +140,7 @@ button{cursor:pointer}
     <nav class="topo-acoes" aria-label="Seções">
       <select class="sel-escola" id="selMuni" aria-label="Município" hidden></select>
       <select class="sel-escola" id="selEscola" aria-label="Escola" hidden></select>
+      <a id="iaSaldoTopo" hidden></a>
       <button class="tb on" data-action="ir" data-arg="telas">📺 Telas</button>
       <button class="tb" data-action="ir" data-arg="playlists">🎞️ Playlists</button>
       <button class="tb" data-action="ir" data-arg="avisos" id="tbAvisos">📢 Comunicados</button>
@@ -160,6 +161,7 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { montarSaldoIA } from "/assets/js/pde-ia-saldo.js";
 
 const app = initializeApp(window.PDE_AMBIENTE.fb);
 const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
@@ -813,6 +815,8 @@ onAuthStateChanged(auth, async user => {
   E.user = user; E.u = u; E.admin = u.perfil === "admin" && !sim; E.perfil = sim || u.perfil;
   E.pessoal = !sim && u.perfil === "professor" && ["avulsa", "cortesia", "teste", "gratuito"].includes(u.licenca_tipo);
   
+  // créditos de IA no topo (o aviso e o cardápio com IA da TV são grátis; o selo mostra o saldo do Portal IA)
+  if(["professor", "gestor", "admin"].includes(u.perfil)) montarSaldoIA(app, $("iaSaldoTopo"), { escuro:true });
   $("quem").textContent = (u.nome || user.email) + " · " + ({ admin:"Administrador", secretaria:"Secretaria", gestor:"Gestão escolar", professor:"Professor(a)" }[E.perfil] || "");
   try{ await carregarEscolas(); }catch(e){ console.error(e); }
   $("tbCamp").hidden = !E.admin; $("tbAvisos").hidden = !!E.pessoal;
