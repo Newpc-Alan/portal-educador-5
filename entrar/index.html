@@ -632,7 +632,10 @@
   .ac-card.verde .ac-tx{ border-top-color:#1a6b2a } .ac-card.navy .ac-tx{ border-top-color:#0f2c4a }
   .ac-tx b{ display:block;font-size:16.5px;font-weight:800;line-height:1.25 }
   .ac-tx small{ display:block;font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.35 }
-  .ac-badge{ position:absolute;top:10px;left:10px;background:#d98a00;color:#fff;font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:20px;box-shadow:0 4px 10px -4px rgba(0,0,0,.4) }
+  .ac-badge{ position:absolute;top:10px;left:10px;background:#d32f2f;color:#fff;font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:20px;box-shadow:0 4px 10px -4px rgba(0,0,0,.4);animation:acPulso 2.4s ease-in-out infinite }
+  .ac-badge.ok{ background:#1a6b2a;animation:none }
+  @keyframes acPulso{ 0%,100%{ box-shadow:0 0 0 0 rgba(211,47,47,.55) } 50%{ box-shadow:0 0 0 7px rgba(211,47,47,0) } }
+  @media (prefers-reduced-motion:reduce){ .ac-badge{ animation:none } }
   .ac-card.trava{ cursor:default } .ac-card.trava .ac-img{ filter:grayscale(.9) brightness(.85) }
   .ac-card.trava .ac-tx{ border-top-color:#c3ccd6 } .ac-card.trava .ac-tx b{ color:#61758a }
   /* Maestro no Início: cartão pequeno, igual aos cartões do dia */
@@ -9235,7 +9238,7 @@
         pequenos.push(chipConheca({ id:a.mod === "painel" ? "painel" : a.mod, nome:a.titulo, desc:a.sub, img:corpoImg, motivo:"plano" }));
         return;
       }
-      const badge = dir.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(dir.badges[a.id])+'</span>' : "";
+      const badge = dir.badges[a.id] ? '<span class="ac-badge'+(/^(Aberta agora|Em dia)/.test(dir.badges[a.id]) ? " ok" : "")+'">'+escapeHtml(dir.badges[a.id])+'</span>' : "";
       const miolo = '<span class="ac-img" style="background-image:url(\''+corpoImg+'\')"></span><span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge;
       const card = a.acao ? '<button type="button" class="ac-card '+COR[a.cor]+'" data-action="'+a.acao+'" data-ac="'+a.id+'">'+miolo+'</button>'
         : '<a class="ac-card '+COR[a.cor]+'" href="'+a.href+'" data-action="ini-abrir" data-mod="'+(a.mod || "gestao")+'" data-ac="'+a.id+'">'+miolo+'</a>';
@@ -9440,7 +9443,7 @@
     ACOES_SEC.forEach(a => {
       const img = fotoAcao(a.foto);
       if(a.mod === "painel" && !sec.okPainel){ pequenos.push(chipConheca({ id:"painel", nome:a.titulo, desc:a.sub, img, motivo:"plano" })); return; }
-      const badge = sec.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(sec.badges[a.id])+'</span>' : "";
+      const badge = sec.badges[a.id] ? '<span class="ac-badge'+(/^(Aberta agora|Em dia)/.test(sec.badges[a.id]) ? " ok" : "")+'">'+escapeHtml(sec.badges[a.id])+'</span>' : "";
       grandes.push('<a class="ac-card '+COR[a.cor]+'" href="'+a.href+'" data-action="ini-abrir" data-mod="'+(a.mod || "gestao")+'" data-ac="'+a.id+'">'+
         '<span class="ac-img" style="background-image:url(\''+img+'\')"></span><span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge+'</a>');
     });
@@ -9730,7 +9733,7 @@
         pequenos.push(chipConheca({ id:(a.rec && !temRecurso(a.rec)) ? a.rec : (a.mod || a.id), nome:a.titulo, desc:a.sub, img:fotoAcao(a.foto), motivo:estado }));
         return;
       }
-      const badge = iniProf.badges[a.id] ? '<span class="ac-badge">'+escapeHtml(iniProf.badges[a.id])+'</span>' : "";
+      const badge = iniProf.badges[a.id] ? '<span class="ac-badge'+(/^(Aberta agora|Em dia)/.test(iniProf.badges[a.id]) ? " ok" : "")+'">'+escapeHtml(iniProf.badges[a.id])+'</span>' : "";
       const corpo = '<span class="ac-img" style="background-image:url(\''+fotoAcao(a.foto)+'\')"></span>'+
         '<span class="ac-tx"><b>'+escapeHtml(a.titulo)+'</b><small>'+escapeHtml(a.sub)+'</small></span>'+badge;
       const cls = 'ac-card '+a.cor;
@@ -9828,6 +9831,18 @@
         getDocs(query(collection(db,"provas_online",p.id,"po_resultados"), where("situacao","==","aguardando_correcao")))
           .then(r => ({ p, n:r.size })).catch(() => ({ p, n:0 }))));
       const com = CORRECAO_NO_AR ? cont.filter(x => x.n) : [];
+      // prova terminada, sem nada pendente, mas sem a conferência do professor: a nota ainda não pode ir para o Notas e Médias
+      const terminou = p => p.status === "encerrada" || (tsMs(p.fecha_em) && tsMs(p.fecha_em) < agora);
+      const semConf = cont.filter(x => !x.n && !x.p.correcao_finalizada && terminou(x.p));
+      const comRes = await Promise.all(semConf.map(x => getDocs(query(collection(db,"provas_online",x.p.id,"po_resultados"), limit(1))).then(r => r.size ? x.p : null).catch(() => null)));
+      const conferir = comRes.filter(Boolean);
+      if(conferir.length){
+        if(!iniProf.badges.respostas) iniProf.badges.respostas = conferir.length === 1 ? "1 prova para conferir" : conferir.length + " provas para conferir";
+        if(!iniProf.links.respostas) iniProf.links.respostas = painel(conferir[0]);
+        itens.push({ ordem:1, cor:"alerta", foto:"provas-online", titulo:conferir.length === 1 ? "Prova para conferir as notas" : conferir.length + " provas para conferir as notas",
+          det:"Confira e finalize: a nota só vai para o Notas e Médias depois da sua conferência. " + nomeP(conferir[0]) + (conferir.length > 1 ? " e mais " + (conferir.length - 1) + "." : "."),
+          btn:"Conferir notas", href:painel(conferir[0]), mod:"provas" });
+      }
       if(com.length){
         const tot = com.reduce((t, x) => t + x.n, 0);
         iniProf.badges.respostas = tot + " para corrigir";
