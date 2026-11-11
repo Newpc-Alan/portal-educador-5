@@ -2179,14 +2179,29 @@
   }
   // QR da carteirinha: BarcodeDetector do navegador ou jsQR
   const qrAl = { stream:null, ativo:false };
+  // Meta Quest 3/3S (navegador do óculos, Horizon OS 74+): a câmera "da frente" é a do avatar e não enxerga a sala.
+  // Com a permissão "Câmeras do headset" liberada no cadeado do endereço, aparecem as câmeras de passagem ("camera 1, facing back").
+  const EH_QUEST = /OculusBrowser|Quest/i.test(navigator.userAgent);
+  async function cameraDoQr(){
+    let st = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" }, audio:false });
+    if(!EH_QUEST) return st;
+    const passagem = l => /facing back|camera 2 [12]|camera [12]\b/i.test(l || "") && !/camera 0/i.test(l || "");
+    let devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput");
+    if(!devs.some(d => passagem(d.label))){ await new Promise(r => setTimeout(r, 700)); devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput"); }   // a lista chega atrasada
+    const cam = devs.find(d => passagem(d.label)), atual = (st.getVideoTracks()[0] || { getSettings:() => ({}) }).getSettings().deviceId;
+    if(!cam){ st.getTracks().forEach(t => t.stop()); const e = new Error("sem câmera de passagem"); e.name = "QuestSemCamera"; throw e; }
+    if(cam.deviceId !== atual){ st.getTracks().forEach(t => t.stop()); st = await navigator.mediaDevices.getUserMedia({ video:{ deviceId:{ exact:cam.deviceId }, width:{ ideal:1280 }, height:{ ideal:960 } }, audio:false }); }
+    return st;
+  }
   function pararQrAluno(){ qrAl.ativo = false; if(qrAl.stream){ qrAl.stream.getTracks().forEach(t => t.stop()); qrAl.stream = null; } const m = $("modalQrAluno"); if(m) m.remove(); }
   $("btnAlQr").addEventListener("click", async () => {
     pararQrAluno();
     const m = document.createElement("div"); m.className = "modal-bg show"; m.id = "modalQrAluno";
     m.innerHTML = '<div class="modal"><div class="mh"><h3>Mostre o QR da carteirinha</h3><p>Segure a carteirinha na frente da câmera.</p></div><div class="mb"><div class="qr-palco"><video id="qrAlVideo" playsinline muted></video></div><div class="msg" id="qrAlMsg"></div></div><div class="mf"><button class="btn btn-ghost" id="qrAlFechar" type="button">Cancelar</button></div></div>';
     document.body.appendChild(m); $("qrAlFechar").addEventListener("click", pararQrAluno);
-    try{ qrAl.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" }, audio:false }); }
+    try{ qrAl.stream = await cameraDoQr(); }
     catch(e){ console.warn("câmera:", e.name); $("qrAlMsg").className = "msg error";
+      if(e.name === "QuestSemCamera"){ $("qrAlMsg").textContent = "No óculos, libere as câmeras: toque no cadeado ao lado do endereço, ative “Câmeras do headset” (Headset cameras) e toque de novo em Ler o QR. A passagem (passthrough) precisa estar ligada."; return; }
       const noQuadro = window.top !== window.self;
       $("qrAlMsg").textContent = e.name === "NotAllowedError"
         ? (noQuadro ? "A câmera foi bloqueada aqui dentro. Toque em \u201cAbrir fora\u201d, no alto da tela, e permita a câmera." : "A câmera foi bloqueada. Toque no cadeado ao lado do endereço, permita a câmera e tente de novo.")
