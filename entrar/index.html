@@ -2209,13 +2209,24 @@
         : "Não foi possível ligar a câmera. Feche outros apps que usam a câmera e tente de novo.";
       return; }
     const v = $("qrAlVideo"); v.srcObject = qrAl.stream; await v.play().catch(() => {}); qrAl.ativo = true;
-    let det = null; try{ if("BarcodeDetector" in window) det = new window.BarcodeDetector({ formats:["qr_code"] }); }catch(e){}
+    // leitor: BarcodeDetector só quando o navegador diz que lê QR (no óculos ele pode existir e não ler nada); jsQR sempre como reserva
+    let det = null; try{ if("BarcodeDetector" in window){ const f = window.BarcodeDetector.getSupportedFormats ? await window.BarcodeDetector.getSupportedFormats() : ["qr_code"]; if(f.includes("qr_code")) det = new window.BarcodeDetector({ formats:["qr_code"] }); } }catch(e){ det = null; }
+    let volta = 0;
+    // jsQR no quadro inteiro e no centro ampliado (cartão pequeno na imagem, comum no óculos e em webcam)
+    const jsqr = () => {
+      if(!window.jsQR || !v.videoWidth) return "";
+      const W = v.videoWidth, H = v.videoHeight, ops = { inversionAttempts:"attemptBoth" };
+      const tenta = (sx, sy, sw, sh, w) => { const h = Math.round(w * sh / sw); cv.width = w; cv.height = h; cx.drawImage(v, sx, sy, sw, sh, 0, 0, w, h); const r = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, ops); return r && r.data ? r.data : ""; };
+      return (volta % 2 ? tenta(W * .25, H * .2, W * .5, H * .6, 720) : tenta(0, 0, W, H, Math.min(960, W))) || "";
+    };
+    try{ const tr = qrAl.stream.getVideoTracks()[0], st0 = tr.getSettings ? tr.getSettings() : {}; console.info("QR aluno:", tr.label, (st0.width || "?") + "x" + (st0.height || "?"), det ? "BarcodeDetector + jsQR" : "jsQR"); }catch(e){}
     const cv = document.createElement("canvas"), cx = cv.getContext("2d", { willReadFrequently:true });
     const ler = async () => {
       if(!qrAl.ativo) return; let txt = "";
       try{
-        if(det){ const r = await det.detect(v); if(r && r[0]) txt = r[0].rawValue; }
-        else if(window.jsQR && v.videoWidth){ const w = 480, h = Math.round(w * v.videoHeight / v.videoWidth) || 360; cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h); const r = window.jsQR(cx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts:"dontInvert" }); if(r && r.data) txt = r.data; }
+        volta++;
+        if(det){ try{ const r = await det.detect(v); if(r && r[0]) txt = r[0].rawValue; }catch(e){ det = null; } }
+        if(!txt) txt = jsqr();
       }catch(e){}
       if(txt && /#q=|^PDEQ:|^PDEA:/.test(txt)){   // cartão de acesso ou carteirinha da escola: entra direto (só com a aula da turma aberta) qrAl.ativo = false; $("qrAlMsg").className = "msg"; $("qrAlMsg").textContent = "Entrando...";
         const ok = await entrarComQr(txt, $("qrAlMsg"));
@@ -2227,7 +2238,8 @@
           pararQrAluno(); $("alCodigo").value = r.codigo; $("alPin").value = ""; $("alPin").focus(); showMsg("Carteirinha lida. Agora digite o seu PIN.", "success"); }
         catch(e){ $("qrAlMsg").className = "msg error"; $("qrAlMsg").textContent = e.message || "Não foi possível ler esta carteirinha."; setTimeout(() => { if($("modalQrAluno")){ qrAl.ativo = true; ler(); } }, 2500); }
         return; }
-      setTimeout(ler, det ? 250 : 350);
+      if(txt){ $("qrAlMsg").className = "msg error"; $("qrAlMsg").textContent = "Li um QR, mas não é o cartão de acesso do Portal. Use o cartão que o professor entregou."; }
+      setTimeout(ler, txt ? 1500 : 220);
     };
     ler();
   });
