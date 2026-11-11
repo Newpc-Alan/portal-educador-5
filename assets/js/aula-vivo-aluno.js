@@ -138,8 +138,10 @@ function abrir(url, nome, dentro){
   } else {
     const yt = String(url).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]{11})/);
     f.className = "al-cont";
-    f.innerHTML = '<div class="al-cont-topo"><b></b><a target="_blank" rel="noopener">Abrir fora</a><button type="button" data-al="fechar">✕ Fechar</button></div><iframe allow="autoplay; fullscreen; camera; microphone" allowfullscreen></iframe>';
-    f.querySelector("b").textContent = "📲 " + (nome || "Atividade do professor"); f.querySelector("a").href = url;
+    // Portal 360º VR: o quadro precisa da permissão de realidade virtual (xr-spatial-tracking), senão o óculos só mostra o 3D
+    const vr = /^https:\/\/portal360\.portaldoeducador\.com\.br\//.test(url);
+    f.innerHTML = '<div class="al-cont-topo"><b></b><a target="_blank" rel="noopener">' + (vr ? "🥽 Abrir em tela própria" : "Abrir fora") + '</a><button type="button" data-al="fechar">✕ Fechar</button></div><iframe allow="autoplay; fullscreen; camera; microphone; xr-spatial-tracking" allowfullscreen></iframe>';
+    f.querySelector("b").textContent = (vr ? "🥽 " : "📲 ") + (nome || "Atividade do professor") + (vr ? " · aperte o gatilho para entrar no VR" : ""); f.querySelector("a").href = url;
     f.querySelector("iframe").src = yt ? "https://www.youtube-nocookie.com/embed/" + yt[1] + "?autoplay=1&rel=0" : url;
   }
   document.body.appendChild(f); vibrar(120);

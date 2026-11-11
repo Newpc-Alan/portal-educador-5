@@ -11608,12 +11608,20 @@
   const batAluno = id => { const a = AVV.alunos[id]; const b = a && a.bateria; return b && Number.isInteger(b.n) && desdeAula(a.em) ? b : null; };
   const batBaixa = id => { const b = batAluno(id); return !!b && b.n <= 20 && !b.c; };
   // "Abrir nos aparelhos": soluções do Portal (jogos, vídeos, livros, colorir) pela busca geral, o que já foi enviado à turma e link externo
-  const ML_CAT = [["jogos", "🎮 Jogos"], ["videos", "🎬 Vídeos"], ["biblioteca", "📚 Livros e histórias"], ["colorir", "🎨 Colorir"]];
-  const ML_IC = { jogos:"🎮", videos:"🎬", biblioteca:"📚", colorir:"🎨" };
+  const ML_CAT = [["jogos", "🎮 Jogos"], ["videos", "🎬 Vídeos"], ["biblioteca", "📚 Livros e histórias"], ["colorir", "🎨 Colorir"], ["vr", "🥽 Realidade virtual"]];
+  const ML_IC = { jogos:"🎮", videos:"🎬", biblioteca:"📚", colorir:"🎨", vr:"🥽" };
+  // Portal 360º VR (nov/2026): no óculos abre direto na tela de entrada do VR (?vr=1: um gatilho em qualquer lugar entra no VR).
+  // O navegador exige um toque do aluno para entrar no VR; sem óculos, a mesma página abre em 3D.
+  const P360 = "https://portal360.portaldoeducador.com.br/apps/";
+  const ML_VR = [["sistema-solar", "Sistema Solar VR", "Planetas, órbitas, fases da Lua, estações e eclipses"], ["corpo-humano", "Corpo Humano Imersivo", "Os sistemas do corpo por dentro, com missões"],
+    ["celula", "Célula 3D VR", "Célula animal e vegetal abertas ao meio"], ["dna", "DNA Imersivo", "A dupla hélice e o jogo complete a fita"], ["terra", "Terra por Dentro", "Camadas, placas, vulcões e rochas"],
+    ["historia", "História VR · Egito Antigo", "Visita de estudo a um museu do Egito"], ["quimica", "Química VR", "Tabela periódica 3D e teste de chama"]]
+    .map(([id, t, d]) => ({ c:"vr", i:"vr-" + id, t, s:"Portal 360º VR · " + d, u:P360 + id + "/?vr=1", _t:bgNorm(t), _o:bgNorm(d + " realidade virtual oculos vr 360 3d"), _b:[] }));
   function urlPortalMae(x){
     if(x.c === "jogos") return /^https:\/\//.test(x.u || "") ? x.u : "";
     if(x.c === "videos"){ const y = /^yt:([\w-]{11})$/.exec(x.g || ""); return y ? "https://www.youtube.com/watch?v=" + y[1] : ""; }
     if(x.c === "biblioteca") return "https://www.portaldoeducador.com.br/biblioteca/?abrir=" + encodeURIComponent(x.i) + (x.m === "historias" ? "#historias" : "");
+    if(x.c === "vr") return x.u;
     if(x.c === "colorir") return x.app ? "https://www.portaldoeducador.com.br/colorir/" : x.col ? "https://www.portaldoeducador.com.br/colorir/?colecao=" + encodeURIComponent(x.col) : "https://www.portaldoeducador.com.br/colorir/?abrir=" + encodeURIComponent(x.i);
     return "";
   }
@@ -11632,7 +11640,7 @@
     f.innerHTML = '<div class="et-jan ml-jan" role="dialog" aria-modal="true" aria-labelledby="mlTit"><div class="et-topo"><h3 id="mlTit">' + (alvo ? "📲 Enviar só para " + escapeHtml(alvoNome || "o aluno") : "📲 Abrir para a turma") + '</h3><button type="button" data-ml="fechar">Fechar</button></div><div class="et-corpo">' +
       '<p class="et-d">' + (alvo ? "Abre na hora só na tela deste aluno (ex.: prova ou atividade adaptada). Os colegas não veem." : "Abre na hora na tela de todos os alunos da aula. Para deixar registrado na turma, use “Enviar link ou arquivo”.") + '</p>' +
       '<div class="ml-abas" role="tablist"><button type="button" data-ml="aba" data-arg="portal" aria-selected="true">🏫 Do Portal</button><button type="button" data-ml="aba" data-arg="enviados" aria-selected="false">📤 Histórico de envios (' + enviados.length + ')</button><button type="button" data-ml="aba" data-arg="link" aria-selected="false">🔗 Link externo</button></div>' +
-      '<div id="mlPortal"><input id="mlQ" type="search" class="md-busca" placeholder="Procure um jogo, vídeo, livro ou desenho para colorir" autocomplete="off"><div class="ml-cats">' + ML_CAT.map(([c, n]) => '<button type="button" data-ml="cat" data-arg="' + c + '"' + (c === "jogos" ? ' class="on"' : "") + ">" + n + "</button>").join("") + '</div><div id="mlRes" class="ml-res"><div class="et-d">Carregando o catálogo...</div></div></div>' +
+      '<div id="mlPortal"><input id="mlQ" type="search" class="md-busca" placeholder="Procure um jogo, vídeo, livro, desenho ou experiência VR" autocomplete="off"><div class="ml-cats">' + ML_CAT.map(([c, n]) => '<button type="button" data-ml="cat" data-arg="' + c + '"' + (c === "jogos" ? ' class="on"' : "") + ">" + n + "</button>").join("") + '</div><div id="mlRes" class="ml-res"><div class="et-d">Carregando o catálogo...</div></div></div>' +
       '<div id="mlEnv" hidden><div class="ml-res">' + (enviados.length ? enviados.map((m, i) => '<button type="button" class="ml-it" data-ml="env" data-i="' + i + '"><span>' + mtIcone(m) + '</span><b>' + escapeHtml(String(m.titulo || "Material").slice(0, 80)) + '</b><small>' + escapeHtml([m.tipo_nome || m.dominio || "", m.criado_em ? new Date(msAv(m.criado_em)).toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : ""].filter(Boolean).join(" · ")) + "</small></button>").join("") : '<div class="et-d">Nada enviado para esta turma ainda.</div>') + '</div></div>' +
       '<div id="mlLink" hidden><label>Link do site ou vídeo<input id="mlUrl" type="url" inputmode="url" placeholder="https://..." maxlength="2000"></label><label>Nome para os alunos <small>(opcional)</small><input id="mlNome" maxlength="80" placeholder="Ex.: Simulador de frações"></label>' +
       '<div class="et-acoes"><button type="button" class="btn btn-primary" data-ml="url">' + (alvo ? "Enviar só para este aluno" : "Abrir para a turma") + '</button></div></div>' +
@@ -11655,7 +11663,7 @@
     };
     // livros: só os que o aluno consegue abrir no aparelho (estantes Aprender brincando, Gibiteca e Histórias); os demais são do professor
     const alunoAbre = (x, comSc) => x.c !== "biblioteca" || x.m === "historias" || !comSc || ["aprender", "gibiteca"].includes(x.sc);
-    bgCarregarIndice().then(idx => { const comSc = idx.some(x => x.c === "biblioteca" && x.sc); ML.itens = idx.filter(x => ML_IC[x.c] && urlPortalMae(x) && alunoAbre(x, comSc)); desenhar(); }).catch(() => { $("mlRes").innerHTML = '<div class="et-d">Não foi possível carregar o catálogo agora.</div>'; });
+    bgCarregarIndice().then(idx => { const comSc = idx.some(x => x.c === "biblioteca" && x.sc); ML.itens = idx.filter(x => ML_IC[x.c] && urlPortalMae(x) && alunoAbre(x, comSc)).concat(ML_VR); desenhar(); }).catch(() => { ML.itens = ML_VR.slice(); desenhar(); if(!ML_VR.length) $("mlRes").innerHTML = '<div class="et-d">Não foi possível carregar o catálogo agora.</div>'; });
     let tm = null;
     $("mlQ").addEventListener("input", e => { clearTimeout(tm); tm = setTimeout(() => { ML.q = e.target.value.trim(); desenhar(); }, 200); });
     f.addEventListener("click", e => { const b = e.target.closest("[data-ml]"); if(!b) return; const k = b.dataset.ml;
@@ -11956,7 +11964,7 @@
     } else if(m.tipo_item === "link" && linkEmbutivel(m)){
       // sites que deixam abrir dentro de outra página (os do próprio Portal e os que a função conferiu ao enviar): abre aqui mesmo, em tela cheia
       box.classList.add("mt-box-site");
-      box.innerHTML = ori + '<iframe class="mt-siteif" src="' + escapeAttr(m.url) + '" title="' + escapeAttr(m.titulo || "Site") + '" allow="autoplay; fullscreen; clipboard-write; microphone; camera" allowfullscreen ' +
+      box.innerHTML = ori + '<iframe class="mt-siteif" src="' + escapeAttr(m.url) + '" title="' + escapeAttr(m.titulo || "Site") + '" allow="autoplay; fullscreen; clipboard-write; microphone; camera; xr-spatial-tracking" allowfullscreen ' +
         'sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads"></iframe>' +
         '<p class="mt-alt">Não carregou? <a href="' + escapeAttr(m.url) + '" target="_blank" rel="noopener noreferrer" data-action="mt-site" data-url="' + escapeAttr(m.url) + '">Abrir numa aba nova</a></p>';
     } else if(m.tipo_item === "link"){
