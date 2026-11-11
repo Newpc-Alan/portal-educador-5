@@ -161,6 +161,7 @@
   <a href="/entrar/" class="bt bt-topo" aria-label="Voltar ao Portal">←</a>
   <img src="/assets/pde-logo-64.png" alt="">
   <div class="t"><b id="tit">Vídeo interativo</b><small id="sub">Portal do Educador</small></div>
+  <a id="iaSaldoTopo" hidden></a>
   <div id="topoAcoes" style="display:flex;gap:8px;flex-wrap:wrap"></div>
 </header>
 <main id="area"><div class="card aviso"><div class="ico">⏳</div><h1>Abrindo…</h1></div></main>
@@ -171,6 +172,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, collection, query, where, getDocs, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { montarSaldoIA } from "/assets/js/pde-ia-saldo.js";
 
 const app = initializeApp(window.PDE_AMBIENTE.fb);
 const auth = getAuth(app), db = getFirestore(app), fns = getFunctions(app, "southamerica-east1");
@@ -187,7 +189,10 @@ const st = { conta:0, uid:"", acesso:null, v:null, id:"", editar:false, player:n
 
 function toast(t, err){ const el = $("toast"); el.textContent = t; el.className = "toast on" + (err ? " err" : ""); clearTimeout(toast.t); toast.t = setTimeout(() => el.className = "toast", 3200); }
 const msgErro = e => String(e && e.message || "Não foi possível agora.").replace(/^.*?: /, "");
-const chamar = (dados, ms) => httpsCallable(fns, "videoIa", { timeout: ms || 30000 })(dados).then(r => r.data);
+const chamar = (dados, ms) => httpsCallable(fns, "videoIa", { timeout: ms || 30000 })(dados).then(r => {
+  // gerou com a IA: o saldo do topo precisa ser lido de novo na próxima tela
+  if(dados && dados.acao === "gerar"){ try{ sessionStorage.removeItem("pde_ia_saldo"); }catch(e){} }
+  return r.data; });
 const mmss = t => { t = Math.max(0, Math.round(t || 0)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
 const lerTempo = s => { const m = /^\s*(\d{1,3})(?::([0-5]?\d))?\s*$/.exec(String(s || "")); if(!m) return NaN; return m[2] == null ? Number(m[1]) : Number(m[1]) * 60 + Number(m[2]); };
 const capa = id => "https://i.ytimg.com/vi/" + encodeURIComponent(id) + "/hqdefault.jpg";
@@ -211,6 +216,8 @@ onAuthStateChanged(auth, async user => {
   st.uid = user.uid;
   try{ st.acesso = await chamar({ acao:"acesso" }); }
   catch(e){ aviso("🔒", "Sem acesso", msgErro(e)); return; }
+  // quem pode criar vídeo com a IA (gasta crédito) vê o saldo no topo
+  if(st.acesso && st.acesso.gerar && !EMBED) montarSaldoIA(app, $("iaSaldoTopo"), { escuro:true });
   if(P.has("novo")) return telaNovo();
   if(P.get("catalogo")) return telaCatalogo(P.get("catalogo").replace(/[^\w-]/g, ""));
   if(P.get("id")) return telaVideo(P.get("id").replace(/[^\w-]/g, ""), P.has("editar") && !EMBED);

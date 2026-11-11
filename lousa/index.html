@@ -553,6 +553,7 @@
     <svg class="ico"><use href="#i-lousa"/></svg>
     <span class="nome"><b>Lousa Premium</b><small>Portal do Educador</small></span>
   </div>
+  <a id="iaSaldoTopo" hidden></a>
 
   <!-- Cores (preenchidas pelo motor) -->
   <div class="grupo">
@@ -5926,6 +5927,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   const DISC_IA = ["Língua Portuguesa","Matemática","Ciências","História","Geografia","Arte","Educação Física","Inglês","Ensino Religioso","Educação Infantil","Interdisciplinar"];
   // o topo da Lousa (no Portal) mostra os créditos de IA do professor
   function avisarCotaIA(){
+    // Lousa aberta sozinha: saldo de créditos na barra; dentro do Portal, quem mostra é a tela de fora
+    if(cotaIA && window.parent === window && window.PDEIaSaldo) window.PDEIaSaldo.pintar(cotaIA);
     if(!cotaIA || window.parent === window) return;
     try{ window.parent.postMessage({ tipo:"pde-lousa-cota", c:{ admin:!!cotaIA.admin, pode_usar:!!cotaIA.pode_usar, rede:cotaIA.rede || null, pessoal:cotaIA.pessoal || null } }, location.origin); }catch(e){}
   }
@@ -6515,6 +6518,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     try{
       const { getFunctions, httpsCallable } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js");
       cotaIA = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:20000 })({ acao:"cota" })).data;
+      if(window.parent === window && !(eu && eu.perfil === "aluno")){ try{ const m = await import("/assets/js/pde-ia-saldo.js"); await m.montarSaldoIA(app, document.getElementById("iaSaldoTopo"), { escuro:true, cota:cotaIA }); }catch(e){ console.warn("saldo IA:", e.message); } }
       avisarCotaIA();
     }catch(e){ console.warn("cota IA:", e.code); }
     const rec = (cotaIA && cotaIA.recursos) || {};
