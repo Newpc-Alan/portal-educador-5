@@ -518,6 +518,6 @@ export { pagamentos, asaasWebhook, asaasAdmin } from './asaas.js';
 export { relatorioExecucao } from './relatorio-execucao.js';
 export { coerenciaLicenca } from './licencas.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
-export { whatsappWebhook, whatsappResponder, whatsappTesteModelos, whatsappModelos, whatsappBoasVindas, whatsappTransferir, whatsappEquipe, whatsappRotina } from './whatsapp.js';
+export { whatsappWebhook, whatsappResponder, whatsappTesteModelos, whatsappModelos, whatsappBoasVindas, whatsappTransferir, whatsappEquipe, whatsappRotina, whatsappAlertaEquipe } from './whatsapp.js';
 export { painelTv, painelTvChave } from './painel-tv.js';
 export { quizParaAcervoGeral, avisoQuizGeral } from './quizzes-geral.js';

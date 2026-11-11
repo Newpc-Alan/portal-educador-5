@@ -18,7 +18,7 @@
 //   bot_conhecimento/{id}                 trechos dos manuais (titulo, texto) que o robô usa para responder
 import { onRequest, onCall, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onDocumentWritten, onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -443,6 +443,19 @@ async function alertaWhats(db, cfg, waId, quem, situacao) {
     }
   }));
 }
+// aviso de oportunidade comercial (nov/2026): qualquer função grava alertas_equipe/{id} { quem, situacao, detalhe }
+// e a equipe recebe no WhatsApp pessoal (mesmo aviso do atendimento) e por e-mail. Ex.: professor tentou comprar créditos
+// enquanto o pagamento online (Asaas) ainda não está liberado, para a NEWPC agir na hora.
+export const whatsappAlertaEquipe = onDocumentCreated({ document: 'alertas_equipe/{id}', region: REGIAO, secrets: [TOKEN, SMTP_SENHA], maxInstances: 3 }, async ev => {
+  const a = ev.data && ev.data.data(); if (!a) return;
+  const db = getFirestore(), quem = txt(a.quem || 'Um usuário do Portal', 80), sit = txt(a.situacao || 'precisa de atenção', 80);
+  try { await transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: destinos().join(','), subject: 'Ação rápida: ' + quem + ' · ' + sit,
+    html: '<p><b>' + esc(quem) + '</b> ' + esc(sit) + '.</p>' + (a.detalhe ? '<p>' + esc(txt(a.detalhe, 600)) + '</p>' : '') + '<p>Entre em contato o quanto antes.</p>' }); }
+  catch (e) { console.warn('alerta equipe: e-mail', e.message); }
+  const cfg = await config(db);
+  if (cfg.ligado && cfg.phone_number_id) await alertaWhats(db, cfg, '', quem, sit).catch(e => console.warn('alerta equipe: whatsapp', e.message));
+  await ev.data.ref.set({ enviado_em: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+});
 const quemDe = c => { const n = (c && (c.nome || c.nome_whatsapp)) || 'Um contato'; return n + (c && c.municipio_nome ? ' (' + c.municipio_nome + ')' : ''); };
 // passa a conversa para alguém do setor (rodízio); sem ninguém disponível, fica na fila do setor e a lista padrão é avisada
 async function encaminhar(db, cfg, ref, waId, setor, resumo, contexto) {

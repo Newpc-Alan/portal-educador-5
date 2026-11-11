@@ -229,6 +229,10 @@ export const creditosPedido = onCall({ region: 'southamerica-east1', maxInstance
   if (pend.size >= 3) throw new HttpsError('resource-exhausted', 'Já há 3 pedidos aguardando a NEWPC para esta conta.');
   const ref = await db.collection('recargas_pedidos').add({ tipo: rede ? 'rede' : 'avulso', conta, conta_nome: txt(nomeConta, 120), municipio_id, uid, solicitante: txt(u.nome || '', 80), email: txt(u.email || '', 120),
     pacote_id: pac.id, pacote_nome: pac.nome, creditos: pac.creditos, valor: pac.valor, obs: txt(d.obs, 500), status: 'pendente', em: FieldValue.serverTimestamp() });
+  // pedido feito: a equipe recebe no WhatsApp pessoal para agir na hora (whatsappAlertaEquipe)
+  await db.doc('alertas_equipe/pedido_' + ref.id).create({ tipo: 'pedido_credito', uid, quem: txt(u.nome || u.email || 'Professor', 60) + (rede ? ' (rede ' + txt(nomeConta, 30) + ')' : ''),
+    situacao: 'pediu ' + txt(pac.nome, 30) + ' (R$ ' + Number(pac.valor || 0).toFixed(2).replace('.', ',') + ')', detalhe: 'E-mail: ' + (u.email || '') + '. Pedido ' + ref.id + ' aguardando os dados de pagamento.',
+    em: FieldValue.serverTimestamp() }).catch(e => console.warn('creditos: alerta', e.message));
   return { ok: true, id: ref.id };
 });
 

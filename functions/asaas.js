@@ -72,6 +72,14 @@ export const pagamentos = onCall({ region: REGIAO, secrets: [ASAAS_CHAVE], timeo
     const pc = (await db.doc('config/pagamentos').get()).data() || {};
     const ativo = ambienteDaChave(ASAAS_CHAVE.value()) === 'producao' ? pc.ligado !== false
       : (u.perfil === 'admin' || (Array.isArray(pc.testadores) && pc.testadores.map(x => String(x).toLowerCase()).includes(String(u.email || '').toLowerCase())));
+    // professor tentou comprar créditos e o pagamento online ainda não está liberado: a equipe é avisada (1 vez por dia por pessoa)
+    if (d.interesse === 'credito' && !ativo && u.perfil !== 'admin') {
+      const dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+      const plano = ({ gratuito: 'Plano Gratuito', teste: 'teste grátis', avulsa: 'licença avulsa', cortesia: 'cortesia', institucional: 'rede' })[u.licenca_tipo] || String(u.licenca_tipo || '');
+      await db.doc(`alertas_equipe/compra_credito_${uid}_${dia}`).create({ tipo: 'compra_credito', uid, quem: String(u.nome || u.email || 'Professor').slice(0, 60) + (u.cidade ? ' (' + String(u.cidade).slice(0, 30) + ')' : ''),
+        situacao: 'quer comprar créditos de IA (' + plano + ')', detalhe: 'E-mail: ' + (u.email || '') + (u.telefone ? ' · Telefone: ' + u.telefone : '') + '. Abriu a compra de créditos no Portal IA, mas o pagamento online ainda não está liberado.',
+        em: FieldValue.serverTimestamp() }).catch(() => {});   // já avisado hoje
+    }
     const ped = await db.collection('fin_pedidos').where('uid', '==', uid).orderBy('criado_em', 'desc').limit(10).get().catch(() => ({ docs: [] }));
     return {
       ativo, ambiente: ambienteDaChave(ASAAS_CHAVE.value()),
