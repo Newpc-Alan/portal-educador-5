@@ -108,7 +108,22 @@ const VAZIAS = new Set('a o e de da do das dos em no na nos nas um uma para por 
 const SINONIMOS = { carteira: 'carteirinha cartao cracha', cracha: 'carteirinha cartao', qr: 'qrcode carteirinha cartao', qrcode: 'qr carteirinha',
   senha: 'entrar acesso link', login: 'entrar acesso', logar: 'entrar acesso', prova: 'avaliacao gerador', avaliacao: 'prova', nota: 'notas boletim media',
   chamada: 'frequencia presenca', presenca: 'frequencia chamada', falta: 'frequencia', boletim: 'notas', lousa: 'quadro', tablet: 'aparelho dispositivo',
-  chromebook: 'aparelho dispositivo', aula: 'turma', aluno: 'alunos', turma: 'turmas', imprimir: 'impressao pdf', baixar: 'download pdf' };
+  chromebook: 'aparelho dispositivo', aula: 'turma', aluno: 'alunos', turma: 'turmas', imprimir: 'impressao pdf', baixar: 'download pdf',
+  // nov/2026 (SENACOP): jeitos de falar de gestores, pregoeiros e professores → como a base chama
+  robo: 'inteligencia artificial', chatgpt: 'inteligencia artificial', gemini: 'inteligencia artificial', inteligencia: 'artificial diretrizes',
+  artificial: 'inteligencia diretrizes', governo: 'mec diretrizes', ministerio: 'mec diretrizes', mec: 'diretrizes cne inteligencia', cne: 'diretrizes mec',
+  portaria: 'diretrizes mec resolucao', resolucao: 'diretrizes mec cne', lei: 'diretrizes mec resolucao', norma: 'diretrizes mec', regra: 'diretrizes mec',
+  regras: 'diretrizes mec', homologou: 'diretrizes mec', parecer: 'diretrizes cne pareceres', conformidade: 'diretrizes seguem', legal: 'diretrizes mec',
+  permitido: 'diretrizes vedado', proibido: 'vedado diretrizes', pode: 'diretrizes', lgpd: 'dados privacidade', privacidade: 'dados lgpd', dado: 'dados',
+  colar: 'seguranca saidas bloqueada prova', cola: 'seguranca saidas bloqueada prova', fraude: 'seguranca saidas bloqueada', trapaca: 'seguranca saidas bloqueada',
+  copia: 'parecidas seguranca', vigiar: 'maestro seguranca', monitorar: 'maestro turma vivo', controlar: 'maestro sala gerenciada', camera: 'fotos biometrica facial',
+  reconhecimento: 'facial biometrica', biometria: 'biometrica facial', gratis: 'gratuito', gratuita: 'gratuito', graca: 'gratuito', free: 'gratuito',
+  pagar: 'gratuito plano assinar', preco: 'plano valores gratuito', custa: 'plano gratuito valores', teste: 'gratuito teste', expirou: 'gratuito licenca vencida',
+  venceu: 'gratuito licenca vencida', creditos: 'credito gratuito', credito: 'creditos', contestar: 'revisao nota', recurso: 'revisao nota', revisar: 'revisao',
+  corrigir: 'correcao corretor', correcao: 'corrigir corretor', redacao: 'dissertativas correcao', dissertativa: 'dissertativas correcao',
+  licitacao: 'rede contrato ata', pregao: 'rede contrato ata', ata: 'registro precos rede', contrato: 'rede contratante anexo', prefeitura: 'rede secretaria',
+  secretaria: 'secretaria rede painel', secretario: 'secretaria rede painel', infantil: 'educacao infantil anos iniciais', crianca: 'anos iniciais infantil',
+  criancas: 'anos iniciais infantil', video: 'videos interativo', videos: 'interativo', zap: 'whatsapp lara', whats: 'whatsapp lara' };
 // radical: corta o fim da palavra (carteiras → cartei, imprimir → imprim) para achar plural, diminutivo e conjugação
 const radical = w => w.length <= 5 ? w : w.slice(0, Math.max(5, Math.min(7, w.length - 3)));
 function buscar(lista, pergunta, n = 6) {
