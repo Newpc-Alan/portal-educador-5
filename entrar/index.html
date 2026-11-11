@@ -429,11 +429,11 @@
   .av-qr{ border:0;border-radius:12px;padding:11px 16px;font:inherit;font-size:15px;font-weight:800;cursor:pointer;min-height:42px;background:#e6edf3;color:#0f2c4a }
   .av-qr.fechado{ background:#fff3d6;color:#7a5200;box-shadow:inset 0 0 0 2px #f2c14e } .av-qr.aberto{ background:#1a6b2a;color:#fff } .av-qr:disabled{ opacity:.7;cursor:default }
   .av-env{ background:#8DC63F;color:#0f2c4a;border:0;border-radius:12px;padding:11px 18px;font:inherit;font-size:15px;font-weight:800;cursor:pointer }
-  .av-cred{ display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;border:1px solid rgba(141,198,63,.55);background:rgba(141,198,63,.12);border-radius:12px;padding:8px 12px;font-size:13.5px;white-space:nowrap }
-  .av-cred b{ font-size:15px } .av-cred:hover{ background:rgba(141,198,63,.22) }
+  .av-cred{ display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:999px;background:rgba(141,198,63,.18);border:1px solid #8DC63F;color:#fff;font-weight:700;font-size:13px;line-height:1.2;text-decoration:none;white-space:nowrap;box-shadow:none;min-height:0;letter-spacing:0 }
+  .av-cred:hover{ background:rgba(141,198,63,.32) }
   .av-cred-bar{ display:inline-block;width:46px;height:5px;border-radius:5px;background:rgba(255,255,255,.18);overflow:hidden } .av-cred-bar i{ display:block;height:100%;background:#8DC63F }
-  .av-cred.baixo{ border-color:rgba(255,152,0,.7);background:rgba(255,152,0,.14) } .av-cred.baixo .av-cred-bar i{ background:#ff9800 }
-  .av-cred.zero{ border-color:rgba(229,57,53,.75);background:rgba(229,57,53,.18) } .av-cred.zero .av-cred-bar i{ background:#e53935 }
+  .av-cred.baixo{ border-color:#f2b632;color:#ffd36b }
+  .av-cred.zero{ background:#C2362C;border-color:#C2362C;color:#fff }
   @media (max-width:760px){ .av-cred-bar{ display:none } }
   .av-x{ background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:12px;padding:10px 16px;font:inherit;cursor:pointer }
   .av-kpis{ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:16px 20px 0 }
@@ -1247,8 +1247,10 @@
   #lsBarra .ls-min kbd{ font-size:10.5px;background:rgba(255,255,255,.18);border-radius:5px;padding:2px 5px;margin-left:4px }
   #lsBarra .ls-ia{ height:38px;display:inline-flex;align-items:center;gap:4px;padding:0 12px;border-radius:10px;color:#fff;text-decoration:none;white-space:nowrap;font:600 13.5px 'Segoe UI',sans-serif;background:linear-gradient(135deg,rgba(141,198,63,.22),rgba(46,155,214,.22),rgba(123,92,255,.22));box-shadow:inset 0 0 0 1.5px rgba(141,198,63,.55) }
   #lsBarra .ls-ia[hidden]{ display:none }
-  #lsBarra .ls-ia.baixo{ box-shadow:inset 0 0 0 1.5px #f2b632;color:#ffd36b }
-  #lsBarra .ls-ia.zero{ box-shadow:inset 0 0 0 1.5px #e5484d;color:#ffb3b5 }
+  #lsBarra .ls-ia{ display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:999px;background:rgba(141,198,63,.18);border:1px solid #8DC63F;color:#fff;font-weight:700;font-size:13px;line-height:1.2;text-decoration:none;white-space:nowrap;box-shadow:none;min-height:0;letter-spacing:0 } #lsBarra .ls-ia:hover{ background:rgba(141,198,63,.32) }
+  #lsBarra .ls-ia.baixo{ border-color:#f2b632;color:#ffd36b }
+  #lsBarra .ls-ia[hidden], .av-cred[hidden]{ display:none !important }
+  #lsBarra .ls-ia.zero{ background:#C2362C;border-color:#C2362C;color:#fff }
   #lsBarra .ls-fim{ background:transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.25) }
   #lsBarra .ls-fim:hover{ background:#e5484d }
   #lsFrame{ flex:1;width:100%;border:0;background:#fff }
@@ -2777,13 +2779,13 @@
     const c = await cotaIA(forcar); if(!$("avCred")) return;
     if(!c){ el.hidden = true; return; }
     const nf = n => Number(n || 0).toLocaleString("pt-BR");
-    if(c.admin){ el.className = "av-cred"; el.innerHTML = "✨ IA <b>admin</b>"; el.title = "Conta de administrador: a IA da aula não desconta créditos."; el.hidden = false; return; }
+    if(c.admin){ el.className = "av-cred"; el.textContent = "✨ IA: uso livre"; el.title = "Conta de administrador: a IA da aula não desconta créditos."; el.hidden = false; return; }
     const rede = c.rede, pessoal = (c.pessoal && c.pessoal.saldo) || 0;
     // sem crédito nenhum: continua à vista, em vermelho, com o botão de comprar
     const disp = (rede ? rede.restante_mes : 0) + pessoal, ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1), pct = Math.round(disp / ref * 100);
     const est = !c.pode_usar || disp <= 0 ? "zero" : pct <= 20 ? "baixo" : "";
     el.className = "av-cred" + (est ? " " + est : "");
-    el.innerHTML = '✨ <b>' + nf(disp) + '</b> ' + (disp === 1 ? "crédito" : "créditos") + '<span class="av-cred-bar"><i style="width:' + Math.min(100, pct) + '%"></i></span>';
+    el.innerHTML = est === "zero" ? "✨ 0 créditos · <b>Comprar</b>" : '✨ <b>' + nf(disp) + '</b> ' + (disp === 1 ? "crédito" : "créditos") + " IA";
     el.title = (est === "zero" ? (c.motivo || "Os créditos acabaram.") + " " : "") + "Créditos de IA disponíveis para você" + (rede ? (rede.teto > 0 ? " (limite da rede: " + nf(rede.teto) + "/mês)" : "") : "") + ". O Termômetro da turma é gratuito.";
     el.hidden = false;
   }

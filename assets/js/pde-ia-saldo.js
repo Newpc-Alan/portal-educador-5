@@ -14,20 +14,15 @@ function estilo(){
   if(document.getElementById("pdeIaSaldoCss")) return;
   const st = document.createElement("style"); st.id = "pdeIaSaldoCss";
   st.textContent = `
-.pde-iasaldo{display:inline-flex;flex-direction:column;justify-content:center;gap:3px;min-width:118px;padding:5px 11px;border-radius:999px;text-decoration:none;font:700 12px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;white-space:nowrap;
-  background:#eef7f0;color:#1a6b2a;border:1.5px solid #9fd0aa;flex:none}
-.pde-iasaldo b{font-size:13px}
-.pde-iasaldo .pis-bar{display:block;height:3px;border-radius:3px;background:rgba(26,107,42,.18);overflow:hidden}
-.pde-iasaldo .pis-bar i{display:block;height:100%;background:#1a6b2a;border-radius:3px}
-.pde-iasaldo.baixo{background:#fff6e0;color:#8a5a00;border-color:#f0c66b}.pde-iasaldo.baixo .pis-bar i{background:#f29900}
-.pde-iasaldo.zero{background:#fdecec;color:#b3261e;border-color:#f1a8a3;animation:pisPulsa 2.2s ease-out infinite}.pde-iasaldo.zero .pis-bar i{background:#d32f2f}
-.pde-iasaldo.escuro{background:rgba(139,197,63,.14);color:#e9f6da;border-color:rgba(139,197,63,.55)}.pde-iasaldo.escuro .pis-bar{background:rgba(255,255,255,.15)}.pde-iasaldo.escuro .pis-bar i{background:#8BC53F}
-.pde-iasaldo.escuro.baixo{background:rgba(255,152,0,.16);color:#ffd28a;border-color:rgba(255,152,0,.6)}.pde-iasaldo.escuro.baixo .pis-bar i{background:#ff9800}
-.pde-iasaldo.escuro.zero{background:rgba(211,47,47,.2);color:#ffb4ae;border-color:rgba(239,83,80,.7)}.pde-iasaldo.escuro.zero .pis-bar i{background:#ef5350}
-.pde-iasaldo:hover{filter:brightness(1.05)}
-@keyframes pisPulsa{0%{box-shadow:0 0 0 0 rgba(211,47,47,.45)}70%{box-shadow:0 0 0 8px rgba(211,47,47,0)}100%{box-shadow:0 0 0 0 rgba(211,47,47,0)}}
-@media (prefers-reduced-motion:reduce){.pde-iasaldo.zero{animation:none}}
-@media (max-width:560px){.pde-iasaldo{min-width:0;padding:5px 9px}.pde-iasaldo .pis-l{display:none}}`;
+/* padrão único do selo de créditos de IA (igual ao de Provas e Avaliações) */
+.pde-iasaldo{display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:999px;background:rgba(141,198,63,.18);border:1px solid #8DC63F;color:#fff;font-weight:700;font-size:13px;line-height:1.2;text-decoration:none;white-space:nowrap;box-shadow:none;min-height:0;letter-spacing:0;font-family:inherit;flex:none}
+.pde-iasaldo[hidden]{display:none}
+.pde-iasaldo:hover{background:rgba(141,198,63,.32)}
+.pde-iasaldo.claro{color:#1a6b2a}
+.pde-iasaldo.baixo{border-color:#f2b632;color:#ffd36b}.pde-iasaldo.claro.baixo{color:#8a5a00}
+.pde-iasaldo.zero{background:#C2362C;border-color:#C2362C;color:#fff;animation:pisPulsa 1.8s ease-in-out infinite}
+@keyframes pisPulsa{50%{box-shadow:0 0 0 5px rgba(194,54,44,.25)}}
+@media (prefers-reduced-motion:reduce){.pde-iasaldo.zero{animation:none}}`;
   document.head.appendChild(st);
 }
 
@@ -44,8 +39,8 @@ async function cota(forcar){
 function pintar(c){
   const el = S.el; if(!el) return;
   if(!c){ el.hidden = true; return; }
-  const escuro = S.opc.escuro ? " escuro" : "";
-  if(c.admin){ el.className = "pde-iasaldo" + escuro; el.innerHTML = "<span>✨ IA <b>admin</b></span>"; el.title = "Conta de administrador: a IA não desconta créditos."; el.removeAttribute("href"); el.hidden = false; return; }
+  const escuro = S.opc.escuro === false ? " claro" : "";
+  if(c.admin){ el.className = "pde-iasaldo" + escuro; el.textContent = "✨ IA: uso livre"; el.title = "Conta de administrador: a IA não desconta créditos."; el.removeAttribute("href"); el.hidden = false; return; }
   const rede = c.rede, pessoal = (c.pessoal && c.pessoal.saldo) || 0;
   const disp = (rede ? rede.restante_mes : 0) + pessoal;
   const ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1), pct = Math.round(disp / ref * 100);
@@ -53,7 +48,7 @@ function pintar(c){
   const det = [rede ? nf(rede.restante_mes) + " da rede" + (rede.teto > 0 ? " (limite de " + nf(rede.teto) + "/mês)" : "") : "", pessoal ? nf(pessoal) + " seus" : ""].filter(Boolean).join(" + ");
   el.className = "pde-iasaldo" + escuro + (est ? " " + est : "");
   el.href = "/apps/portal-ia/#comprar"; el.target = "_blank"; el.rel = "noopener";
-  el.innerHTML = "<span>✨ <b>" + nf(disp) + "</b> <span class=\"pis-l\">" + (disp === 1 ? "crédito" : "créditos") + " de IA</span></span><span class=\"pis-bar\"><i style=\"width:" + Math.min(100, pct) + "%\"></i></span>";
+  el.innerHTML = est === "zero" ? "✨ 0 créditos · <b>Comprar</b>" : "✨ <b>" + nf(disp) + "</b> " + (disp === 1 ? "crédito" : "créditos") + " IA";
   el.title = (est === "zero" ? (c.motivo || "Seus créditos de IA acabaram.") + " Toque para comprar." : est === "baixo" ? "Seus créditos de IA estão acabando. Toque para recarregar." : "Créditos de IA disponíveis" + (det ? ": " + det : "") + ". Toque para comprar mais.");
   el.hidden = false;
 }
