@@ -67,6 +67,9 @@ button{cursor:pointer}
 
 .pl-grid{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start}
 .pl-lista{display:flex;flex-direction:column;gap:6px}
+.pl-grupo{font-size:12px;font-weight:800;color:var(--muted,#5b6b7b);text-transform:uppercase;letter-spacing:.04em;margin:12px 2px 6px}
+.pl-grupo:first-child{margin-top:0}
+.pl-vazio{font-size:13px;color:var(--muted,#5b6b7b);padding:6px 4px 10px}
 .pl-item{display:flex;align-items:center;gap:10px;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;text-align:left;width:100%}
 .pl-item.on{border-color:var(--azul-2);background:#eef6fc}
 .pl-item b{display:block;font-size:.88rem}.pl-item small{display:block;font-size:.74rem;color:var(--muted)}
@@ -287,8 +290,11 @@ function htmlFoto(on, lado){
 function opcoesPl(sel, vazio){ return (vazio ? '<option value="">' + vazio + "</option>" : "") + E.playlists.map(p => '<option value="' + esc(p.id) + '"' + (p.id === sel ? " selected" : "") + ">" + esc(p.nome) + "</option>").join(""); }
 async function garantirPlaylist(){
   if(E.playlists.length) return;
-  const r = await addDoc(collection(db, "tv_playlists"), { nome:"Principal", escola_id:E.escolaId, municipio_id:E.escola.municipio_id || "", itens:[], criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid });
-  E.playlists.push({ id:r.id, nome:"Principal", itens:[] });
+  // professor sem gestão cria a "Principal" como dele (a da escola só a gestão cria)
+  const dono = !E.pessoal && !eGestao() ? { dono:E.user.uid, dono_nome:String(E.u.nome || "").slice(0, 80) } : {};
+  const d = { nome:"Principal", escola_id:E.escolaId, municipio_id:E.escola.municipio_id || "", itens:[], criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid, ...dono };
+  const r = await addDoc(collection(db, "tv_playlists"), d);
+  E.playlists.push({ id:r.id, ...d });
 }
 async function modalConectar(){
   await garantirPlaylist();
@@ -383,21 +389,33 @@ async function removerTela(id){
 async function telaPlaylists(){
   if(!E.playlists) await carregarPlaylists();
   if(!E.telas) await carregarTelas().catch(() => { E.telas = []; });
-  if(!E.plSel || !E.playlists.some(p => p.id === E.plSel)) E.plSel = (E.playlists[0] || {}).id || "";
+  if(!E.plSel || !visiveisPl().some(p => p.id === E.plSel)){ const g = gruposPl().find(([, l]) => l.length); E.plSel = g ? g[1][0].id : ""; }
   const pl = E.playlists.find(p => p.id === E.plSel);
   $("tela").innerHTML = '<div class="pl-grid"><section class="card"><div class="cab"><h2 class="h2">🎞️ Playlists</h2><button class="btn btn-ok btn-sm" data-action="nova-pl">＋ Nova</button></div>' +
-    '<div class="pl-lista">' + (E.playlists.length ? E.playlists.map(p => {
+    '<div class="pl-lista">' + (visiveisPl().length ? gruposPl().map(([tit, l]) => (tit ? '<div class="pl-grupo">' + tit + "</div>" : "") + (l.length ? l.map(p => {
       const usos = E.telas.filter(t => t.playlist_id === p.id || TURNOS.some(([k]) => t.agenda && t.agenda[k] && t.agenda[k].playlist_id === p.id)).length;
-      return '<button class="pl-item' + (p.id === E.plSel ? " on" : "") + '" data-action="sel-pl" data-arg="' + esc(p.id) + '"><span style="font-size:22px">🎞️</span><span><b>' + esc(p.nome) + "</b><small>" + (p.itens || []).length + " item(ns)" + (usos ? " · em " + usos + " TV(s)" : "") + "</small></span></button>";
-    }).join("") : '<div class="vazio">Crie a primeira playlist.</div>') + "</div></section>" +
+      return '<button class="pl-item' + (p.id === E.plSel ? " on" : "") + '" data-action="sel-pl" data-arg="' + esc(p.id) + '"><span style="font-size:22px">' + (p.dono || E.pessoal ? "🎞️" : "🏫") + '</span><span><b>' + esc(p.nome) + "</b><small>" + (p.itens || []).length + " item(ns)" + (usos ? " · em " + usos + " TV(s)" : "") + (p.dono && p.dono !== E.user.uid && p.dono_nome ? " · de " + esc(String(p.dono_nome).split(" ")[0]) : "") + (!podeMexerPl(p) ? " · só ver" : "") + "</small></span></button>";
+    }).join("") : '<div class="pl-vazio">' + (tit && tit.indexOf("Minhas") >= 0 ? "Você ainda não tem playlist sua. Toque em ＋ Nova ou faça uma cópia de uma da escola." : "Nenhuma.") + "</div>")).join("") : '<div class="vazio">Crie a primeira playlist.</div>') + "</div></section>" +
     '<section class="card" id="plEd">' + (pl ? editorPl(pl) : '<div class="vazio">Escolha ou crie uma playlist.</div>') + "</section></div>";
+}
+function gruposPl(){
+  if(E.pessoal) return [["", E.playlists]];
+  const minhas = E.playlists.filter(p => p.dono === E.user.uid), escola = E.playlists.filter(p => !p.dono), outras = E.playlists.filter(p => p.dono && p.dono !== E.user.uid);
+  const g = [["📌 Minhas playlists", minhas], ["🏫 Da escola", escola]];
+  if(eGestao() && outras.length) g.push(["👩‍🏫 Dos professores", outras]);
+  return g;
 }
 function miniatura(it){
   if(it.tipo === "imagem") return '<div class="it-th" style="background-image:url(\'' + esc(String(it.url).replace(/'/g, "%27")) + '\')"></div>';
   if(it.tipo === "youtube") return '<div class="it-th" style="background-image:url(\'https://i.ytimg.com/vi/' + esc(it.url) + '/mqdefault.jpg\')"></div>';
   return '<div class="it-th">' + TIPOS[it.tipo][0] + "</div>";
 }
+// nov/2026: "Minhas playlists" (dono = professor) e "Da escola" (sem dono, só a gestão edita); o professor vê as da escola e faz cópia
+const eGestao = () => E.admin || ["gestor", "secretaria_escolar", "secretaria"].includes(E.perfil);
+const podeMexerPl = pl => !!pl && (E.pessoal || eGestao() || (!!pl.dono && pl.dono === E.user.uid));
+function visiveisPl(){ return E.pessoal || eGestao() ? E.playlists : E.playlists.filter(p => !p.dono || p.dono === E.user.uid); }
 function editorPl(pl){
+  if(!podeMexerPl(pl)) return editorSoVer(pl);
   const itens = pl.itens || [], total = itens.filter(i => i.ativo !== false).reduce((s, i) => s + (+i.duracao || 10), 0);
   return '<div class="cab"><div><h2 class="h2">' + esc(pl.nome) + ' <button class="btn-ic" data-action="renomear-pl" title="Renomear">✏️</button></h2><p class="sub">' + itens.length + " item(ns) · ciclo de " + Math.floor(total / 60) + " min " + (total % 60) + ' s · <span id="plSalvo">salvo</span></p></div>' +
     '<div class="acoes"><a class="btn btn-gh btn-sm" href="' + esc(TV_URL + "?previa=" + pl.id + "&o=h") + '" target="_blank" rel="noopener">👁 Prévia horizontal</a><a class="btn btn-gh btn-sm" href="' + esc(TV_URL + "?previa=" + pl.id + "&o=v") + '" target="_blank" rel="noopener">👁 Vertical</a><button class="btn btn-red btn-sm" data-action="excluir-pl">Excluir</button></div></div>' +
@@ -408,6 +426,22 @@ function editorPl(pl){
       '<button class="btn-ic" data-action="pausar-it" data-arg="' + i + '" title="' + (it.ativo === false ? "Voltar a exibir" : "Pausar sem apagar") + '">' + (it.ativo === false ? "▶" : "⏸") + '</button><button class="btn-ic" data-action="editar-it" data-arg="' + i + '" title="Editar">✏️</button><button class="btn-ic" data-action="apagar-it" data-arg="' + i + '" title="Apagar">🗑️</button></div></div>').join("")
       : '<div class="vazio">Playlist vazia. Adicione fotos, vídeos, avisos ou páginas abaixo.</div>') + "</div>" +
     (itens.length < MAX_ITENS ? formItem(null) : '<div class="alerta">Esta playlist chegou ao limite de ' + MAX_ITENS + " itens.</div>");
+}
+function editorSoVer(pl){
+  const itens = pl.itens || [];
+  return '<div class="cab"><div><h2 class="h2">🏫 ' + esc(pl.nome) + '</h2><p class="sub">Playlist da escola · ' + itens.length + ' item(ns) · só a gestão da escola edita</p></div>' +
+    '<div class="acoes"><a class="btn btn-gh btn-sm" href="' + esc(TV_URL + "?previa=" + pl.id + "&o=h") + '" target="_blank" rel="noopener">👁 Prévia horizontal</a><button class="btn btn-ok btn-sm" data-action="copiar-pl">📋 Fazer uma cópia para mim</button></div></div>' +
+    '<div class="itens">' + (itens.length ? itens.map((it, i) => '<div class="it' + (it.ativo === false ? " off" : "") + '"><span class="it-n">' + (i + 1) + "</span>" + miniatura(it) +
+      "<div><b>" + esc(it.titulo || TIPOS[it.tipo][1]) + "</b><small>" + TIPOS[it.tipo][0] + " " + TIPOS[it.tipo][1] + " · " + (+it.duracao || 10) + " s</small></div></div>").join("") : '<div class="vazio">Playlist vazia.</div>') + "</div>" +
+    '<div class="alerta" style="margin-top:12px">Quer usar esta playlist como base? Toque em <b>Fazer uma cópia para mim</b>: a cópia vai para <b>Minhas playlists</b> e você muda como quiser, sem alterar a da escola.</div>';
+}
+async function copiarPl(){
+  const pl = E.playlists.find(p => p.id === E.plSel); if(!pl) return;
+  const nome = (pl.nome + " (minha cópia)").slice(0, 50);
+  try{ const d = { nome, escola_id:E.escolaId, municipio_id:E.escola.municipio_id || "", itens:(pl.itens || []).map(i => ({ ...i })), dono:E.user.uid, dono_nome:String(E.u.nome || "").slice(0, 80),
+      criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid };
+    const r = await addDoc(collection(db, "tv_playlists"), d); E.playlists.push({ id:r.id, ...d }); E.plSel = r.id; telaPlaylists(); toast("Cópia criada em Minhas playlists."); }
+  catch(e){ toast("Não foi possível copiar (" + (e.code || "erro") + ").", true); }
 }
 function formItem(idx){
   const pl = E.playlists.find(p => p.id === E.plSel), it = idx === null ? null : pl.itens[idx];
@@ -494,13 +528,18 @@ async function apagarItem(i){
 function editarItem(i){ const box = $("fItem"); if(!box) return; box.outerHTML = formItem(i); $("fItem").scrollIntoView({ behavior:"smooth", block:"start" }); }
 async function novaPl(){
   abrirModal('<h3>Nova playlist</h3><div class="campo"><label for="fNomePl">Nome</label><input id="fNomePl" maxlength="50" placeholder="Ex.: Manhã, Festa Junina, Semana de provas"></div>' +
+    (!E.pessoal && eGestao() ? '<div class="campo"><label for="fDonoPl">De quem é</label><select id="fDonoPl"><option value="escola">🏫 Da escola (só a gestão edita)</option><option value="minha">📌 Minha</option></select></div>'
+      : !E.pessoal ? '<p class="sub">Vai para <b>Minhas playlists</b>: só você edita.</p>' : "") +
     '<div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="nova-pl-ok">Criar</button></div>');
   setTimeout(() => $("fNomePl").focus(), 40);
 }
 async function criarPl(){
   const nome = $("fNomePl").value.trim(); if(nome.length < 2){ toast("Dê um nome para a playlist.", true); return; }
-  try{ const r = await addDoc(collection(db, "tv_playlists"), { nome, escola_id:E.escolaId, municipio_id:E.escola.municipio_id || "", itens:[], criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid });
-    E.playlists.push({ id:r.id, nome, itens:[] }); E.plSel = r.id; fecharModal(); telaPlaylists(); }
+  const minha = !E.pessoal && (!eGestao() || ($("fDonoPl") && $("fDonoPl").value === "minha"));
+  try{ const d = { nome, escola_id:E.escolaId, municipio_id:E.escola.municipio_id || "", itens:[], criado_em:serverTimestamp(), atualizado_em:serverTimestamp(), atualizado_por:E.user.uid,
+      ...(minha ? { dono:E.user.uid, dono_nome:String(E.u.nome || "").slice(0, 80) } : {}) };
+    const r = await addDoc(collection(db, "tv_playlists"), d);
+    E.playlists.push({ id:r.id, ...d }); E.plSel = r.id; fecharModal(); telaPlaylists(); }
   catch(e){ toast("Não foi possível criar (" + (e.code || "erro") + ").", true); }
 }
 async function renomearPl(){
@@ -656,6 +695,7 @@ document.addEventListener("click", ev => {
   else if(a === "nova-pl-ok") criarPl();
   else if(a === "renomear-pl") renomearPl();
   else if(a === "excluir-pl") excluirPl();
+  else if(a === "copiar-pl") copiarPl();
   else if(a === "tipo-it"){ E.form = { tipoNovo:arg }; $("fItem").outerHTML = formItem(null); }
   else if(a === "salvar-it") salvarItem();
   else if(a === "cancelar-it"){ E.form = null; $("fItem").outerHTML = formItem(null); }

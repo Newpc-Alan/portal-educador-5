@@ -22,6 +22,9 @@ await env.withSecurityRulesDisabled(async (c) => {
   await s('usuarios/venc', { perfil: 'professor', status: 'ativo', licenca_tipo: 'avulsa', licenca_fim: Timestamp.fromMillis(Date.now() - 86400000), municipio_id: null, escola_id: null });
   await s(`tv_telas/${CH}`, { nome: 'TV', escola_id: 'e1', municipio_id: 'm1', playlist_id: 'p1', canal: 'c1' });
   await s('tv_playlists/p1', { nome: 'P', escola_id: 'e1', municipio_id: 'm1', itens: [] });
+  await s('tv_playlists/pProf', { nome: 'Minha', escola_id: 'e1', municipio_id: 'm1', itens: [], dono: 'prof', dono_nome: 'Prof' });
+  await s('usuarios/prof3', { perfil: 'professor', status: 'ativo', licenca_tipo: 'institucional', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
+  await s('usuarios/gestE1', { perfil: 'gestor', status: 'ativo', escola_id: 'e1', escolas_ids: ['e1'], municipio_id: 'm1' });
   await s('tv_canais/c1', { municipio_id: 'm1', avisos: [] });
   await s('tv_pareamentos/ABC234', { chave: CH2, criado_em: Timestamp.now() });
   await s('usuarios/prof/roteiros/r0', { titulo: 'x', texto: 'y', markers: [] });
@@ -35,7 +38,7 @@ async function t(nome, p) { try { await p; ok++; } catch (e) { falhas++; console
 const _ctx = {};
 const ctx = uid => _ctx[uid] || (_ctx[uid] = env.authenticatedContext(uid, { email: uid + '@x.com', email_verified: true }).firestore());
 const anon = env.unauthenticatedContext().firestore();
-const prof = ctx('prof'), prof2 = ctx('prof2'), gest = ctx('gest'), sec = ctx('sec'), alu = ctx('alu'), venc = ctx('venc');
+const prof = ctx('prof'), prof2 = ctx('prof2'), gest = ctx('gest'), sec = ctx('sec'), alu = ctx('alu'), venc = ctx('venc'), prof3 = ctx('prof3'), gestE1 = ctx('gestE1');
 
 // ---------- Folha Mágica
 const folha = { nome: 'Pauta', tipo: 'music', cfg: { type: 'music' }, criado_em: serverTimestamp(), atualizado_em: serverTimestamp() };
@@ -142,12 +145,20 @@ await t('aluno nao configura', assertFails(updateDoc(doc(alu, `tv_telas/${CH}`),
 
 // ---------- TV: playlists
 const pl = (esc, m, n = 1) => ({ nome: 'Manhã', escola_id: esc, municipio_id: m, itens: Array.from({ length: n }, (_, i) => ({ id: 'i' + i, tipo: 'texto', titulo: 'Aviso' })), criado_em: serverTimestamp(), atualizado_em: serverTimestamp(), atualizado_por: 'prof' });
-await t('professor cria playlist', assertSucceeds(addDoc(collection(prof, 'tv_playlists'), pl('e1', 'm1'))));
+await t('professor nao cria playlist da escola (sem dono)', assertFails(addDoc(collection(prof, 'tv_playlists'), pl('e1', 'm1'))));
+await t('professor cria playlist dele', assertSucceeds(addDoc(collection(prof, 'tv_playlists'), { ...pl('e1', 'm1'), dono: 'prof' })));
+await t('professor nao cria playlist em nome de outro', assertFails(addDoc(collection(prof, 'tv_playlists'), { ...pl('e1', 'm1'), dono: 'prof3' })));
 await t('playlist acima de 80 itens', assertFails(addDoc(collection(prof, 'tv_playlists'), pl('e1', 'm1', 81))));
 await t('playlist de outra escola', assertFails(addDoc(collection(prof, 'tv_playlists'), pl('e2', 'm1'))));
 await t('tv le playlist sem login', assertSucceeds(getDoc(doc(anon, 'tv_playlists/p1'))));
 await t('anonimo nao lista playlists', assertFails(getDocs(collection(anon, 'tv_playlists'))));
-await t('professor edita playlist', assertSucceeds(updateDoc(doc(prof, 'tv_playlists/p1'), { itens: [{ id: 'a', tipo: 'texto' }] })));
+await t('professor nao edita playlist da escola', assertFails(updateDoc(doc(prof, 'tv_playlists/p1'), { itens: [{ id: 'a', tipo: 'texto' }] })));
+await t('professor edita a playlist dele', assertSucceeds(updateDoc(doc(prof, 'tv_playlists/pProf'), { itens: [{ id: 'a', tipo: 'texto' }] })));
+await t('colega nao edita a playlist do professor', assertFails(updateDoc(doc(prof3, 'tv_playlists/pProf'), { itens: [] })));
+await t('professor nao troca o dono', assertFails(updateDoc(doc(prof, 'tv_playlists/pProf'), { dono: 'prof3' })));
+await t('gestor da escola edita playlist da escola', assertSucceeds(updateDoc(doc(gestE1, 'tv_playlists/p1'), { itens: [{ id: 'b', tipo: 'texto' }] })));
+await t('gestor da escola cria playlist da escola', assertSucceeds(addDoc(collection(gestE1, 'tv_playlists'), pl('e1', 'm1'))));
+await t('colega nao exclui a playlist do professor', assertFails(deleteDoc(doc(prof3, 'tv_playlists/pProf'))));
 await t('outro municipio nao edita playlist', assertFails(updateDoc(doc(prof2, 'tv_playlists/p1'), { itens: [] })));
 
 // ---------- TV: comunicados da secretaria

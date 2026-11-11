@@ -504,6 +504,12 @@ service cloud.firestore {
       return esc is string && esc == "u_" + request.auth.uid && ativo() && eu().perfil == "professor" && eu().get("licenca_tipo", "institucional") in ["avulsa", "cortesia", "teste", "gratuito"]
         && eu().get("licenca_fim", null) != null && eu().licenca_fim > request.time;
     }
+    function tvGestaoEscola(esc) {
+      return admin() || gestorDaEscola(esc) || secEscolar(esc) || (ativo() && eu().perfil == "secretaria" && muniDaEscola(esc) == eu().get("municipio_id", "-"));
+    }
+    function tvPodeMexerPl(pl) {
+      return tvGestaoEscola(pl.escola_id) || (pl.get("dono", "") != "" && pl.get("dono", "") == request.auth.uid);
+    }
     function tvLeitor(esc, m) {
       return tvPessoal(esc) || admin() || (ativo() && eu().perfil != "aluno" && (esc in minhasEscolas() || (eu().perfil == "secretaria" && m == eu().get("municipio_id", "-"))));
     }
@@ -525,13 +531,18 @@ service cloud.firestore {
       allow delete: if tvPessoal(resource.data.escola_id) || tvEquipeEscola(resource.data.escola_id);
     }
     match /tv_playlists/{id} {
+      // nov/2026: playlist "Da escola" (sem dono) só a gestão edita (gestor, secretaria escolar, Secretaria de Educação, admin);
+      // playlist do professor (dono = uid dele) só o dono edita, e a gestão também pode; o professor vê as da escola e faz cópia
       allow get: if true;
       allow list: if tvLeitor(resource.data.escola_id, resource.data.municipio_id);
-      allow create: if ((tvPessoal(novo().escola_id) && novo().municipio_id == "") || (tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id)))
+      allow create: if ((tvPessoal(novo().escola_id) && novo().municipio_id == "")
+          || (tvEquipeEscola(novo().escola_id) && novo().municipio_id == muniDaEscola(novo().escola_id)
+              && (novo().get("dono", "") == request.auth.uid || (novo().get("dono", "") == "" && tvGestaoEscola(novo().escola_id)))))
         && novo().itens is list && novo().itens.size() <= 80;
-      allow update: if ((tvPessoal(resource.data.escola_id) && novo().municipio_id == "") || (tvEquipeEscola(resource.data.escola_id) && novo().municipio_id == resource.data.municipio_id))
-        && novo().escola_id == resource.data.escola_id && novo().itens is list && novo().itens.size() <= 80;
-      allow delete: if tvPessoal(resource.data.escola_id) || tvEquipeEscola(resource.data.escola_id);
+      allow update: if ((tvPessoal(resource.data.escola_id) && novo().municipio_id == "")
+          || (tvEquipeEscola(resource.data.escola_id) && novo().municipio_id == resource.data.municipio_id && tvPodeMexerPl(resource.data)))
+        && novo().escola_id == resource.data.escola_id && novo().get("dono", "") == resource.data.get("dono", "") && novo().itens is list && novo().itens.size() <= 80;
+      allow delete: if tvPessoal(resource.data.escola_id) || (tvEquipeEscola(resource.data.escola_id) && tvPodeMexerPl(resource.data));
     }
     // ---------- Notas e Medias ----------
     // regra de calculo do municipio (bimestres, pesos, media minima, recuperacao, frequencia): a secretaria define, a rede le
