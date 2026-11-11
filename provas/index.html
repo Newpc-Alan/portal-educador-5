@@ -3902,10 +3902,12 @@ window.PDEPortalIA = { async chamar(dados){ const { getFunctions, httpsCallable 
 function chipIA(c){
   const el = $("pde-ia-chip"); if(!el) return;
   const rede = c && c.rede, pessoal = (c && c.pessoal && c.pessoal.saldo) || 0;
-  if(!c || c.admin || (!rede && !pessoal)){ el.hidden = true; return; }
+  // sempre à vista (nov/2026): administrador vê "uso livre"; sem crédito nenhum aparece vermelho, com o botão de comprar
+  if(!c){ el.hidden = true; return; }
+  if(c.admin){ el.className = "pde-btn pde-btn-ghost pde-btn-sm pde-ia-chip"; el.textContent = "✨ IA: uso livre"; el.title = "Administrador: a IA não desconta créditos."; el.hidden = false; return; }
   const nf = n => Number(n || 0).toLocaleString("pt-BR");
   const disp = (rede ? rede.restante_mes : 0) + pessoal, ref = Math.max(disp, (rede ? (rede.teto > 0 ? rede.teto : rede.saldo) : 0) + pessoal, 1);
-  const est = !c.pode_usar ? "zero" : disp / ref <= 0.2 ? "baixo" : "";
+  const est = !c.pode_usar || disp <= 0 ? "zero" : disp / ref <= 0.2 ? "baixo" : "";
   el.className = "pde-btn pde-btn-ghost pde-btn-sm pde-ia-chip" + (est ? " " + est : "");
   el.innerHTML = est === "zero" ? "✨ 0 créditos · <b>Comprar</b>" : "✨ <b>" + nf(disp) + "</b> " + (disp === 1 ? "crédito" : "créditos") + " IA";
   el.title = [rede ? nf(rede.restante_mes) + " da rede este mês" + (rede.teto > 0 ? " (limite de " + nf(rede.teto) + "/mês)" : "") : "", pessoal ? nf(pessoal) + " seus" : ""].filter(Boolean).join(" + ") + ". Clique para comprar mais.";
