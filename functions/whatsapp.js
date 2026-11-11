@@ -123,7 +123,26 @@ const SINONIMOS = { carteira: 'carteirinha cartao cracha', cracha: 'carteirinha 
   corrigir: 'correcao corretor', correcao: 'corrigir corretor', redacao: 'dissertativas correcao', dissertativa: 'dissertativas correcao',
   licitacao: 'rede contrato ata', pregao: 'rede contrato ata', ata: 'registro precos rede', contrato: 'rede contratante anexo', prefeitura: 'rede secretaria',
   secretaria: 'secretaria rede painel', secretario: 'secretaria rede painel', infantil: 'educacao infantil anos iniciais', crianca: 'anos iniciais infantil',
-  criancas: 'anos iniciais infantil', video: 'videos interativo', videos: 'interativo', zap: 'whatsapp lara', whats: 'whatsapp lara' };
+  criancas: 'anos iniciais infantil', video: 'videos interativo', videos: 'interativo', zap: 'whatsapp lara', whats: 'whatsapp lara',
+  // nov/2026: professor com pouca experiência em tecnologia (como ele fala → como o manual chama)
+  consigo: 'entrar acesso', consegui: 'entrar acesso', entra: 'entrar acesso', abre: 'entrar abrir', abrir: 'entrar', esqueci: 'senha link acesso',
+  codigo: 'pin cartao', numero: 'pin codigo', travou: 'atualizar pagina', travado: 'atualizar pagina', trava: 'atualizar pagina', carregando: 'atualizar pagina internet',
+  branca: 'atualizar pagina', sumiu: 'aparece', sumiram: 'aparece', aparece: 'aparecer', erro: 'aparece aviso', bug: 'aparece aviso', funciona: 'aparece atualizar',
+  site: 'portal entrar', aplicativo: 'portal app', app: 'portal aplicativo', programa: 'portal', sistema: 'portal', plataforma: 'portal', pagina: 'portal tela',
+  clicar: 'tocar botao', clico: 'tocar botao', aperto: 'tocar botao', apertar: 'tocar botao', botao: 'tocar', onde: 'tela inicio', fica: 'tela inicio',
+  computador: 'aparelho computador', notebook: 'aparelho computador', pc: 'computador', celular: 'aparelho celular', wifi: 'internet', net: 'internet',
+  gmail: 'conta google email', google: 'conta email', email: 'conta google', mail: 'conta google email', cadastro: 'cadastrar conta', cadastrar: 'cadastro',
+  matricular: 'ficha aluno turma', matricula: 'ficha aluno', alunos: 'ficha aluno turma', nomes: 'ficha aluno', lista: 'turma alunos frequencia',
+  diario: 'frequencia notas medias', caderneta: 'frequencia notas', planejamento: 'plano aula', planejar: 'plano aula', plano: 'aula atividade',
+  atividade: 'atividades portal', atividades: 'portal', folhinha: 'atividade imprimir', folha: 'atividade imprimir', xerox: 'imprimir impressao', copias: 'imprimir',
+  impressora: 'imprimir impressao', word: 'baixar word', salvar: 'guardar salvo', salvei: 'guardar salvo', perdi: 'guardar salvo', apaguei: 'excluir lixeira',
+  quadro: 'lousa', datashow: 'lousa tela', projetor: 'lousa tela', televisao: 'tv lousa', telao: 'lousa tv', tela: 'lousa', digital: 'lousa',
+  gabarito: 'corretor cartao resposta', cartao: 'cartoes', folharesposta: 'cartao resposta', boletim: 'notas boletim', media: 'notas medias', medias: 'notas',
+  faltas: 'frequencia', presente: 'frequencia', ausente: 'frequencia busca ativa', certificado: 'formacao continuada curso', curso: 'formacao continuada',
+  cursos: 'formacao continuada', capacitacao: 'formacao continuada', treinamento: 'formacao continuada', ajuda: 'suporte lara', suporte: 'chamado lara',
+  tecnico: 'chamado suporte', quebrou: 'chamado equipamento', quebrado: 'chamado equipamento', estragou: 'chamado equipamento', carregador: 'chamado equipamento',
+  bateria: 'aparelho carga', jogo: 'jogos', jogos: 'educacionais', desenho: 'colorir', pintar: 'colorir', historia: 'historias', livro: 'biblioteca',
+  musica: 'videos', filme: 'videos', bncc: 'habilidades', habilidade: 'bncc', sequencia: 'plano aula', projeto: 'atividade portal' };
 // radical: corta o fim da palavra (carteiras → cartei, imprimir → imprim) para achar plural, diminutivo e conjugação
 const radical = w => w.length <= 5 ? w : w.slice(0, Math.max(5, Math.min(7, w.length - 3)));
 function buscar(lista, pergunta, n = 6) {
@@ -261,6 +280,7 @@ async function responderComTrechos(trechos, pergunta, quem, hist, equipe = false
   const contexto = trechos.map((t, i) => '[' + (i + 1) + '] ' + t.titulo + '\n' + t.texto.slice(0, 2500)).join('\n\n');
   const instrucao = 'Você é a Lara, assistente virtual de suporte do Portal do Educador (plataforma para professores de escolas públicas). Fale no feminino, com simpatia e objetividade. ' +
     'Responda em português do Brasil, de forma curta e prática, em passos numerados quando for um procedimento, no máximo 12 linhas, sem markdown (use *negrito* só para nomes de botões). ' +
+    'Muitos professores têm pouca experiência com tecnologia: use palavras simples do dia a dia ("entrar" em vez de "logar", "tocar" em vez de "clicar"), diga onde fica cada botão na tela, um passo de cada vez, sem termos técnicos e sem pressa; se a pessoa parecer perdida, ofereça mandar o próximo passo ou chamar a equipe. ' +
     'Use SOMENTE as informações dos trechos do manual abaixo. Se a resposta não estiver nos trechos, responda exatamente: NAO_SEI. Não invente botões, telas nem prazos.' +
     (equipe ? ' Quem pergunta é da equipe NEWPC: os trechos podem vir dos POPs e do Manual da equipe. Quando a resposta vier de um POP, cite o código (ex.: POP-PDE-39) no fim.'
       : quem && quem.perfil ? ' Quem pergunta é ' + quem.perfil + '.' : '');
