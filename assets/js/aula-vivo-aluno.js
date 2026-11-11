@@ -101,6 +101,9 @@ function ligar(){
     if(d.quiz && d.quiz.id && (!S.qzR || S.qzR.id !== d.quiz.id || (!(s.metadata || {}).hasPendingWrites && d.quiz.fim && !S.qzR.fim))) { S.qzR = { id:d.quiz.id, r:Array.isArray(d.quiz.r) ? d.quiz.r.slice() : [], fim:!!d.quiz.fim }; quiz(); }
     botoes(); }, () => {}));
   bateria();
+  // tipo de aparelho (nov/2026): o painel do professor mostra 🥽 para quem está no óculos VR
+  const ua = navigator.userAgent, ap = /OculusBrowser|Quest/i.test(ua) ? "vr" : /CrOS/.test(ua) ? "chromebook" : /Android|iPad|iPhone|Tablet/i.test(ua) ? "movel" : "computador";
+  meu({ ap }).catch(() => {});
   S.unsub.push(onSnapshot(query(collection(S.db, "aula_vivo", S.tid, "chat"), where("aluno_id", "==", S.chave)), sn => {
     // só a conversa desta aula (a de outro professor, numa aula anterior, não aparece)
     const l = []; sn.forEach(x => { const m = x.data(); if(!S.aulaIni || !m.em || ms(m.em) >= S.aulaIni - 60000) l.push(m); }); l.sort((a, b) => ms(a.em) - ms(b.em)); S.chat = l;

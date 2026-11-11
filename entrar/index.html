@@ -10818,7 +10818,7 @@
           (on.length ? " · " + on.map(x => x.tipo + (x.aba ? ": " + x.aba : "")).join(" | ") : "");
         const af = aulaAberta() ? respostaDoAluno(a.id) : "";
         const pv = provaDoAlunoAv(a.id);
-        const marcas = (pv ? '<span class="av-pv ' + pv.c + '" title="Prova online: ' + escapeAttr(pv.t) + '">' + pv.s + '</span>' : '') + '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "") + (pausa ? "⏸️" : "") + "</span>" + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
+        const marcas = (pv ? '<span class="av-pv ' + pv.c + '" title="Prova online: ' + escapeAttr(pv.t) + '">' + pv.s + '</span>' : '') + '<span class="av-ap" aria-hidden="true">' + (on.some(x => x.chromebook) ? "💻" : "") + (aulaAberta() && vrAluno(a.id) ? '<span class="av-vr" title="Está no óculos VR">🥽</span>' : "") + (pausa ? "⏸️" : "") + "</span>" + (mao ? '<span class="av-mao" aria-label="mão levantada">✋</span>' : "") +
           (af ? '<span class="av-af" title="Pesquisa rápida">' + COR_AF[af] + "</span>" : "") + (nl ? '<span class="av-nl" title="Mensagens novas">💬' + nl + "</span>" : "") + (aulaAberta() && batAluno(a.id) ? '<span class="av-bat ' + (batAluno(a.id).c ? "carga" : batAluno(a.id).n <= 20 ? "baixa" : batAluno(a.id).n <= 40 ? "media" : "boa") + '" title="Bateria ' + batAluno(a.id).n + "%" + (batAluno(a.id).c ? " · carregando" : "") + '">' + (batAluno(a.id).c ? "⚡" : batAluno(a.id).n <= 20 ? "🪫" : "🔋") + batAluno(a.id).n + "%</span>" : "");
         const det = MAV.sel === a.id && aulaAberta() ? htmlDetMae(a) : "";
         return ('<button type="button" data-action="av-mae-al" data-arg="' + escapeAttr(a.id) + '"') + ' class="av-al' + (st ? " " + st : "") + (pausa ? " pausa" : "") + '" title="' + tit + '">' + marcas + '<span class="av-av">' + escapeHtml(iniciais(a.nome)) + '</span><span class="av-nm">' + escapeHtml(a.nome.split(" ").slice(0, 2).join(" ")) + "</span></button>" + det; }).join("") + htmlOutrosMae();
@@ -11091,6 +11091,7 @@
   function htmlDetMae(a){
     const ap = aparelhosDoAluno(a.id), pausa = pausadoAluno(a.id), mao = maoDoAluno(a.id), conversa = AVV.chat.filter(m => m.aluno_id === a.id);
     return '<div class="av-det"><b>' + escapeHtml(a.nome) + '</b>' +
+      (vrAluno(a.id) ? '<small class="av-bat-d">🥽 No óculos VR</small>' : "") +
       (batAluno(a.id) ? '<small class="av-bat-d">' + (batBaixa(a.id) ? "🪫" : "🔋") + " Bateria " + batAluno(a.id).n + "%" + (batAluno(a.id).c ? " · carregando ⚡" : "") + "</small>" : "") +
       ap.map(x => '<small>' + (x.chromebook ? "💻 " : "📱 ") + escapeHtml(x.tipo) + (x.on ? " · agora: " + escapeHtml(x.aba || "na aula") : " · desconectado") + "</small>").join("") +
       '<div class="av-det-ac">' +
@@ -11109,7 +11110,7 @@
   function desenharBarraMae(){
     const b = $("avMae"); if(!b) return;
     if(!aulaAberta()){ b.hidden = true; return; }
-    const lista = listaAv(), naSala = lista.filter(x => onlineAvTotal(x.id)).length;
+    const lista = listaAv(), naSala = lista.filter(x => onlineAvTotal(x.id)).length; const noVr = aulaAberta() ? lista.filter(x => vrAluno(x.id)).length : 0;
     const maos = lista.filter(x => maoDoAluno(x.id)), msgs = lista.reduce((n, x) => n + naoLidas(x.id), 0);
     const geral = !!AVV.doc.pausa, pq = pesquisaAtiva(), devs = MAV.mc ? Object.values(MAV.alunos).filter(x => x && agoraMae() - (x.ultimaAtividade || 0) < ON_MAE_MS).length : 0;
     let pqTxt = "";
@@ -11122,7 +11123,7 @@
     const html = '<div class="ca-linha"><b class="ca-tit">🎛️ Controle da aula</b>' +
       '<span class="ca-cont' + (maos.length ? " alerta" : "") + '" title="' + escapeAttr(maos.map(x => x.nome).join(", ")) + '">✋ ' + maos.length + (maos.length === 1 ? " mão levantada" : " mãos levantadas") + (maos.length ? ": " + escapeHtml(maos.slice(0, 3).map(x => x.nome.split(" ")[0]).join(", ")) + (maos.length > 3 ? "..." : "") : "") + '</span>' +
       '<span class="ca-cont' + (msgs ? " alerta" : "") + '">💬 ' + msgs + (msgs === 1 ? " mensagem nova" : " mensagens novas") + '</span>' +
-      '<span class="ca-cont">👥 ' + naSala + ' na sala</span>' + (devs ? '<span class="ca-cont" title="Aparelhos controlados pelo Portal Maestro">🎼 ' + devs + ' no Maestro</span>' : "") + (geral ? '<span class="ca-cont alerta">🔒 Telas pausadas</span>' : "") + (lista.filter(x => batBaixa(x.id)).length ? '<span class="ca-cont alerta" title="' + escapeAttr(lista.filter(x => batBaixa(x.id)).map(x => x.nome + " " + batAluno(x.id).n + "%").join(", ")) + '">🪫 ' + lista.filter(x => batBaixa(x.id)).length + " com bateria baixa</span>" : "") + '</div>' +
+      '<span class="ca-cont">👥 ' + naSala + ' na sala</span>' + (noVr ? '<span class="ca-cont" title="Alunos no óculos VR">🥽 ' + noVr + ' no óculos</span>' : "") + (devs ? '<span class="ca-cont" title="Aparelhos controlados pelo Portal Maestro">🎼 ' + devs + ' no Maestro</span>' : "") + (geral ? '<span class="ca-cont alerta">🔒 Telas pausadas</span>' : "") + (lista.filter(x => batBaixa(x.id)).length ? '<span class="ca-cont alerta" title="' + escapeAttr(lista.filter(x => batBaixa(x.id)).map(x => x.nome + " " + batAluno(x.id).n + "%").join(", ")) + '">🪫 ' + lista.filter(x => batBaixa(x.id)).length + " com bateria baixa</span>" : "") + '</div>' +
       '<div class="ca-bts">' +
       '<button type="button" class="av-ac cad ' + (geral ? "cad-fechado" : "cad-aberto") + '" data-action="av-mae-pausa" data-arg="' + (geral ? "0" : "1") + '" aria-pressed="' + geral + '">' + cadeado(geral) + '<div>' + (geral ? "Telas pausadas<i>toque para liberar</i>" : "Telas liberadas<i>toque para pausar</i>") + '</div></button>' +
       '<button type="button" class="av-ac" data-action="' + (pq ? "av-mae-af-fim" : "av-mae-af") + '"><span>📊</span>' + (pq ? "Encerrar pesquisa" : "Pesquisa rápida") + '</button>' +
@@ -11606,6 +11607,8 @@
   }
   // bateria (aparelho informa enquanto o aluno está com o Portal aberto; Chromebook e Android)
   const batAluno = id => { const a = AVV.alunos[id]; const b = a && a.bateria; return b && Number.isInteger(b.n) && desdeAula(a.em) ? b : null; };
+  // aparelho do aluno (nov/2026): 🥽 quando ele está no óculos VR
+  const vrAluno = id => { const a = AVV.alunos[id]; return !!(a && a.ap === "vr" && desdeAula(a.em)); };
   const batBaixa = id => { const b = batAluno(id); return !!b && b.n <= 20 && !b.c; };
   // "Abrir nos aparelhos": soluções do Portal (jogos, vídeos, livros, colorir) pela busca geral, o que já foi enviado à turma e link externo
   const ML_CAT = [["jogos", "🎮 Jogos"], ["videos", "🎬 Vídeos"], ["biblioteca", "📚 Livros e histórias"], ["colorir", "🎨 Colorir"], ["vr", "🥽 Realidade virtual"]];
