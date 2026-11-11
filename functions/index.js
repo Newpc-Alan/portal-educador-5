@@ -15,6 +15,7 @@ export { sincronizarAtividades } from './atividades.js';
 export { publicarProvaOnline, iniciarProvaOnline, entregarProvaOnline, acaoProvaOnline, fecharProvasOnline, aplicarRecuperacao, corrigirProvaOnline, revisaoNotaProva } from './provas-online.js';
 export { sugerirCorrecaoIA } from './correcao-ia.js';
 export { iaFeedback } from './ia-feedback.js';
+export { tvIA } from './tv-ia.js';
 export { planoGratuito, gratuitoVencidos, gratuitoCreditosMes } from './gratuito.js';
 export { limparFotosProvas } from './fotos-provas.js';
 // Liga quando o secret NC_ENTREGA_CHAVE existir no Google (sem ele, o deploy de QUALQUER função falha):

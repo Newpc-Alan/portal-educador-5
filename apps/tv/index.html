@@ -88,6 +88,9 @@ button{cursor:pointer}
 @keyframes g{to{transform:rotate(360deg)}}
 
 .tipos{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.ia-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#f3f8f4;border:1px dashed #1a6b2a;border-radius:12px;padding:8px 10px;margin-bottom:12px}
+.ia-bar span{font-weight:800;font-size:.8rem;color:#1a6b2a}
+.dias{display:flex;gap:6px;flex-wrap:wrap}.dias label{display:flex;align-items:center;gap:4px;border:1.5px solid var(--line);border-radius:999px;padding:5px 10px;font-size:.8rem;font-weight:700;cursor:pointer}
 .tipo{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font-size:.8rem;font-weight:700;color:var(--ink-2)}
 .tipo.on{background:var(--azul);border-color:var(--azul);color:#fff}
 .campos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -156,6 +159,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, collection, query, where, serverTimestamp, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref as stRef, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 
 const app = initializeApp(window.PDE_AMBIENTE.fb);
 const auth = getAuth(app), db = getFirestore(app), st = getStorage(app);
@@ -163,6 +167,10 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 function toast(msg, erro){ const t = $("toast"); t.textContent = msg; t.className = "toast show" + (erro ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => t.className = "toast", 3400); }
 const TV_URL = location.origin + "/tv/";
+const fnTvIA = d => httpsCallable(getFunctions(app, "southamerica-east1"), "tvIA", { timeout:95000 })(d).then(r => r.data);
+const DIAS = [[1,"Seg"],[2,"Ter"],[3,"Qua"],[4,"Qui"],[5,"Sex"],[6,"Sáb"],[0,"Dom"]];
+const NOME_DIA = { 0:"domingo", 1:"segunda", 2:"terça", 3:"quarta", 4:"quinta", 5:"sexta", 6:"sábado" };
+const textoDias = d => Array.isArray(d) && d.length ? (d.length === 1 ? "só " + NOME_DIA[d[0]] : d.map(x => NOME_DIA[x].slice(0, 3)).join(", ")) : "";
 const MAX_ITENS = 80;
 const TIPOS = { imagem:["🖼️","Foto"], video:["🎬","Vídeo"], youtube:["▶️","YouTube"], web:["🌐","Página web"], texto:["📝","Só texto"] };
 const ORI = { auto:"Automática", h:"Horizontal", v:"Vertical (totem)" };
@@ -421,7 +429,7 @@ function editorPl(pl){
     '<div class="acoes"><a class="btn btn-gh btn-sm" href="' + esc(TV_URL + "?previa=" + pl.id + "&o=h") + '" target="_blank" rel="noopener">👁 Prévia horizontal</a><a class="btn btn-gh btn-sm" href="' + esc(TV_URL + "?previa=" + pl.id + "&o=v") + '" target="_blank" rel="noopener">👁 Vertical</a><button class="btn btn-red btn-sm" data-action="excluir-pl">Excluir</button></div></div>' +
     '<div class="itens">' + (itens.length ? itens.map((it, i) =>
       '<div class="it' + (it.ativo === false ? " off" : "") + '"><span class="it-n">' + (i + 1) + "</span>" + miniatura(it) +
-      "<div><b>" + esc(it.titulo || TIPOS[it.tipo][1]) + "</b><small>" + TIPOS[it.tipo][0] + " " + TIPOS[it.tipo][1] + " · " + (+it.duracao || 10) + " s · " + (it.layout === "cheia" || it.tipo === "texto" || it.tipo === "web" ? "tela cheia" : "mídia + texto") + (it.ativo === false ? " · pausado" : "") + "</small></div>" +
+      "<div><b>" + esc(it.titulo || TIPOS[it.tipo][1]) + "</b><small>" + TIPOS[it.tipo][0] + " " + TIPOS[it.tipo][1] + " · " + (+it.duracao || 10) + " s · " + (it.layout === "cheia" || it.tipo === "texto" || it.tipo === "web" ? "tela cheia" : "mídia + texto") + (it.ativo === false ? " · pausado" : "") + (textoDias(it.dias) ? " · 📅 " + textoDias(it.dias) : "") + (it.com_ia ? " · ✨ IA" : "") + "</small></div>" +
       '<div class="it-ac"><button class="btn-ic" data-action="mover" data-arg="' + i + '" data-d="-1" title="Subir"' + (i ? "" : " disabled") + '>↑</button><button class="btn-ic" data-action="mover" data-arg="' + i + '" data-d="1" title="Descer"' + (i < itens.length - 1 ? "" : " disabled") + '>↓</button>' +
       '<button class="btn-ic" data-action="pausar-it" data-arg="' + i + '" title="' + (it.ativo === false ? "Voltar a exibir" : "Pausar sem apagar") + '">' + (it.ativo === false ? "▶" : "⏸") + '</button><button class="btn-ic" data-action="editar-it" data-arg="' + i + '" title="Editar">✏️</button><button class="btn-ic" data-action="apagar-it" data-arg="' + i + '" title="Apagar">🗑️</button></div></div>').join("")
       : '<div class="vazio">Playlist vazia. Adicione fotos, vídeos, avisos ou páginas abaixo.</div>') + "</div>" +
@@ -450,6 +458,7 @@ function formItem(idx){
   const v = k => esc(it ? it[k] ?? "" : "");
   const midia = tipo === "imagem" || tipo === "video";
   return '<div id="fItem" style="border-top:1px solid var(--line);padding-top:14px"><h3 class="h2" style="margin-bottom:10px">' + (it ? "✏️ Editar item " + (idx + 1) : "＋ Adicionar à playlist") + "</h3>" +
+    (it ? "" : '<div class="ia-bar"><span>✨ Com IA</span><button class="btn btn-gh btn-sm" data-action="ia-aviso">📝 Escrever aviso com IA</button><button class="btn btn-gh btn-sm" data-action="ia-cardapio">🍽️ Cardápio por foto</button></div>') +
     (it ? "" : '<div class="tipos">' + Object.entries(TIPOS).map(([k, [ic, n]]) => '<button class="tipo' + (k === tipo ? " on" : "") + '" data-action="tipo-it" data-arg="' + k + '">' + ic + " " + n + "</button>").join("") + "</div>") +
     (midia ? '<label class="envio" id="envio"><input type="file" id="fArq" accept="' + (tipo === "imagem" ? "image/jpeg,image/png,image/webp,image/gif" : "video/mp4,video/webm") + '">' +
         (it ? "Trocar o arquivo (opcional)" : tipo === "imagem" ? "📷 Toque para escolher a foto (JPG, PNG ou WebP)" : "🎬 Toque para escolher o vídeo (MP4 até 50 MB)") + '<div id="arqNome" class="sub"></div><div class="prog" hidden id="prog"><i></i></div></label>' +
@@ -462,6 +471,8 @@ function formItem(idx){
     (tipo !== "web" ? '<div class="campo cheio"><label for="fTxt">' + (tipo === "texto" ? "Texto do aviso" : "Texto ao lado da mídia (opcional)") + '</label><textarea id="fTxt" maxlength="500">' + v("texto") + "</textarea></div>" : "") +
     (midia || tipo === "youtube" ? '<div class="campo"><label for="fLay">Como aparece</label><select id="fLay"><option value="split"' + (!it || it.layout !== "cheia" ? " selected" : "") + '>Mídia + texto ao lado</option><option value="cheia"' + (it && it.layout === "cheia" ? " selected" : "") + ">Tela cheia</option></select></div>" : "") +
     (midia ? '<div class="campo"><label for="fAj">Enquadramento</label><select id="fAj"><option value="cobre">Preencher a tela (corta as bordas)</option><option value="contem"' + (it && it.ajuste === "contem" ? " selected" : "") + ">Mostrar inteira (com faixas)</option></select></div>" : "") + "</div>" +
+    '<div class="campo cheio"><label>Dias da semana em que aparece</label><div class="dias" id="fDias">' + DIAS.map(([n, r]) => '<label><input type="checkbox" value="' + n + '"' + (it && Array.isArray(it.dias) && it.dias.includes(n) ? " checked" : "") + "> " + r + "</label>").join("") + '</div><small>Nenhum marcado = aparece todos os dias.</small></div>' +
+    '<p class="sub" id="fIaNota"' + (it && it.com_ia ? "" : " hidden") + '>✨ Texto feito com apoio da IA. Confira antes de salvar: a responsabilidade pelo que vai para a TV é da escola.</p>' +
     '<div class="modal-acoes">' + (it ? '<button class="btn btn-gh" data-action="cancelar-it">Cancelar</button>' : "") + '<button class="btn btn-ok" data-action="salvar-it" id="btIt">' + (it ? "Salvar alterações" : "Adicionar à playlist") + "</button></div></div>";
 }
 function idYoutube(u){ const m = /(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/.exec(u || ""); return m ? m[1] : (/^[\w-]{11}$/.test(u || "") ? u : ""); }
@@ -491,6 +502,10 @@ async function salvarItem(){
     categoria:$("fCat").value.trim(), titulo:$("fTit").value.trim(), texto:$("fTxt") ? $("fTxt").value.trim() : "",
     duracao:Math.max(4, Math.min(600, parseInt($("fDur").value, 10) || 10)), layout:$("fLay") ? $("fLay").value : "cheia",
     ajuste:$("fAj") ? $("fAj").value : "cobre", ativo:f.idx !== null ? pl.itens[f.idx].ativo !== false : true, url:"", path:"" };
+  const dias = [...document.querySelectorAll("#fDias input:checked")].map(x => +x.value); if(dias.length && dias.length < 7) it.dias = dias;
+  const antigo = f.idx !== null ? pl.itens[f.idx] : null;
+  if(f.comIa || (antigo && antigo.com_ia)) it.com_ia = true;
+  if(antigo && antigo.origem) it.origem = antigo.origem;
   if(tipo === "texto"){ if(!it.titulo && !it.texto){ toast("Escreva o título ou o texto do aviso.", true); return; } }
   else if(tipo === "youtube"){ it.url = idYoutube(url); if(!it.url){ toast("Cole um link válido do YouTube.", true); return; } }
   else if(tipo === "web"){ if(!/^https:\/\/\S+\.\S+/.test(url)){ toast("Cole o endereço completo da página, começando com https://", true); return; } it.url = url; }
@@ -526,6 +541,70 @@ async function apagarItem(i){
   if(await gravarItens(pl, pl.itens.filter((_, k) => k !== i))){ if(x.path && !pl.itens.some(o => o.path === x.path)) deleteObject(stRef(st, x.path)).catch(() => {}); telaPlaylists(); toast("Item apagado."); }
 }
 function editarItem(i){ const box = $("fItem"); if(!box) return; box.outerHTML = formItem(i); $("fItem").scrollIntoView({ behavior:"smooth", block:"start" }); }
+/* ---------- IA na TV: aviso pronto e cardápio por foto (sempre revisados pela pessoa antes de ir para a TV) ---------- */
+const AVISO_IA = "Não escreva nome completo de aluno, telefone ou CPF. A IA só reescreve o recado; você confere antes de salvar.";
+function modalIaAviso(){
+  abrirModal('<h3>📝 Aviso com IA</h3><p class="sub">Escreva o recado do seu jeito, como mandaria no WhatsApp. A IA deixa curto e claro para ler de longe na TV.</p>' +
+    '<div class="campo"><label for="iaTxt">Recado</label><textarea id="iaTxt" maxlength="800" rows="5" placeholder="Ex.: reuniao de pais sexta dia 21 as 19h no patio, assunto boletim do 3 bimestre, trazer documento"></textarea><small>' + AVISO_IA + '</small></div>' +
+    '<div class="modal-acoes"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="ia-aviso-ok" id="btIa">✨ Montar aviso</button></div>');
+  setTimeout(() => $("iaTxt").focus(), 40);
+}
+async function gerarIaAviso(){
+  const t = $("iaTxt").value.trim(); if(t.length < 8){ toast("Escreva o recado com um pouco mais de detalhe.", true); return; }
+  $("btIa").disabled = true; $("btIa").textContent = "Montando...";
+  try{
+    const r = await fnTvIA({ acao:"aviso", texto:t });
+    fecharModal();
+    E.form = { tipoNovo:"texto" }; $("fItem").outerHTML = formItem(null); E.form.comIa = true;
+    $("fTit").value = ((r.emoji ? r.emoji + " " : "") + (r.titulo || "")).trim(); $("fTxt").value = r.texto || ""; if(r.categoria) $("fCat").value = r.categoria;
+    $("fIaNota").hidden = false; $("fItem").scrollIntoView({ behavior:"smooth", block:"start" });
+    toast("Aviso pronto. Confira e toque em Adicionar à playlist.");
+  }catch(e){ console.error(e); toast(e.message || "A IA não respondeu agora.", true); if($("btIa")){ $("btIa").disabled = false; $("btIa").textContent = "✨ Montar aviso"; } }
+}
+function modalIaCardapio(){
+  E.cardapio = null;
+  abrirModal('<h3>🍽️ Cardápio por foto</h3><p class="sub">Tire uma foto do cardápio da semana (de frente, com boa luz). A IA lê os pratos e cria um aviso para cada dia: na segunda a TV mostra só o cardápio de segunda, e assim por diante.</p>' +
+    '<label class="envio"><input type="file" id="iaFoto" accept="image/*" capture="environment">📷 Toque para tirar ou escolher a foto<div id="iaFotoNome" class="sub"></div></label>' +
+    '<small class="sub">A foto vai só para a leitura e não fica guardada.</small><div id="iaCard"></div>' +
+    '<div class="modal-acoes" id="iaCardAc"><button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="ia-cardapio-ok" id="btIa">✨ Ler cardápio</button></div>');
+  $("iaFoto").addEventListener("change", () => { const f = $("iaFoto").files[0]; $("iaFotoNome").textContent = f ? f.name : ""; });
+}
+async function fotoParaDados(file){
+  const bmp = await createImageBitmap(file), k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.82);
+}
+async function lerIaCardapio(){
+  const f = $("iaFoto").files[0]; if(!f){ toast("Tire ou escolha a foto do cardápio.", true); return; }
+  $("btIa").disabled = true; $("btIa").textContent = "Lendo a foto...";
+  try{
+    const r = await fnTvIA({ acao:"cardapio", imagem:await fotoParaDados(f) });
+    if(!r.ok){ toast(r.motivo || "Não consegui ler o cardápio.", true); $("btIa").disabled = false; $("btIa").textContent = "✨ Ler cardápio"; return; }
+    E.cardapio = r;
+    const pl = E.playlists.find(p => p.id === E.plSel), tem = (pl.itens || []).some(x => x.origem === "cardapio_ia");
+    $("iaCard").innerHTML = '<p class="sub" style="margin-top:12px">' + (r.semana ? "Semana: <b>" + esc(r.semana) + "</b> · " : "") + 'Confira e corrija o que a IA leu (um prato por linha). Desmarque o dia que não quiser.</p>' +
+      r.dias.map(d => '<div class="campo"><label><input type="checkbox" class="iaDia" value="' + d.dia + '" checked> 🍽️ ' + NOME_DIA[d.dia][0].toUpperCase() + NOME_DIA[d.dia].slice(1) + '</label><textarea class="iaItens" data-dia="' + d.dia + '" rows="' + Math.min(8, d.itens.length + (d.lanche ? 1 : 0)) + '">' + esc(d.itens.join("\n") + (d.lanche ? "\nLanche: " + d.lanche : "")) + "</textarea></div>").join("") +
+      (tem ? '<label class="sub"><input type="checkbox" id="iaTroca" checked> Tirar o cardápio anterior desta playlist (o que foi feito por foto)</label>' : "");
+    $("iaCardAc").innerHTML = '<button class="btn btn-gh" data-action="fechar">Cancelar</button><button class="btn btn-ok" data-action="ia-cardapio-add" id="btIa">Adicionar à playlist</button>';
+  }catch(e){ console.error(e); toast(e.message || "A IA não respondeu agora.", true); if($("btIa")){ $("btIa").disabled = false; $("btIa").textContent = "✨ Ler cardápio"; } }
+}
+async function adicionarCardapio(){
+  const pl = E.playlists.find(p => p.id === E.plSel); if(!pl || !E.cardapio) return;
+  const marcados = new Set([...document.querySelectorAll(".iaDia:checked")].map(x => +x.value));
+  const novos = [...document.querySelectorAll(".iaItens")].filter(t => marcados.has(+t.dataset.dia)).map(t => {
+    const dia = +t.dataset.dia, linhas = t.value.split("\n").map(x => x.trim()).filter(Boolean).slice(0, 10);
+    return linhas.length ? { id:"i" + Date.now().toString(36) + dia + Math.random().toString(36).slice(2, 5), tipo:"texto", categoria:"Merenda",
+      titulo:"🍽️ Cardápio de " + NOME_DIA[dia] + (dia >= 1 && dia <= 5 ? "-feira" : ""), texto:linhas.join("\n").slice(0, 500), duracao:15, layout:"cheia", ajuste:"cobre",
+      ativo:true, url:"", path:"", dias:[dia], origem:"cardapio_ia", com_ia:true } : null;
+  }).filter(Boolean);
+  if(!novos.length){ toast("Nenhum dia marcado.", true); return; }
+  const base = ($("iaTroca") && $("iaTroca").checked) ? (pl.itens || []).filter(x => x.origem !== "cardapio_ia") : [...(pl.itens || [])];
+  if(base.length + novos.length > MAX_ITENS){ toast("A playlist passaria do limite de " + MAX_ITENS + " itens.", true); return; }
+  $("btIa").disabled = true;
+  if(await gravarItens(pl, base.concat(novos))){ fecharModal(); E.cardapio = null; telaPlaylists(); toast(novos.length + " dia(s) de cardápio na playlist. Cada um aparece só no seu dia."); }
+  else $("btIa").disabled = false;
+}
 async function novaPl(){
   abrirModal('<h3>Nova playlist</h3><div class="campo"><label for="fNomePl">Nome</label><input id="fNomePl" maxlength="50" placeholder="Ex.: Manhã, Festa Junina, Semana de provas"></div>' +
     (!E.pessoal && eGestao() ? '<div class="campo"><label for="fDonoPl">De quem é</label><select id="fDonoPl"><option value="escola">🏫 Da escola (só a gestão edita)</option><option value="minha">📌 Minha</option></select></div>'
@@ -698,6 +777,11 @@ document.addEventListener("click", ev => {
   else if(a === "copiar-pl") copiarPl();
   else if(a === "tipo-it"){ E.form = { tipoNovo:arg }; $("fItem").outerHTML = formItem(null); }
   else if(a === "salvar-it") salvarItem();
+  else if(a === "ia-aviso") modalIaAviso();
+  else if(a === "ia-aviso-ok") gerarIaAviso();
+  else if(a === "ia-cardapio") modalIaCardapio();
+  else if(a === "ia-cardapio-ok") lerIaCardapio();
+  else if(a === "ia-cardapio-add") adicionarCardapio();
   else if(a === "cancelar-it"){ E.form = null; $("fItem").outerHTML = formItem(null); }
   else if(a === "mover") moverItem(+arg, +el.dataset.d);
   else if(a === "pausar-it") pausarItem(+arg);
