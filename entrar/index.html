@@ -11569,8 +11569,14 @@
     if(x.c === "jogos") return /^https:\/\//.test(x.u || "") ? x.u : "";
     if(x.c === "videos"){ const y = /^yt:([\w-]{11})$/.exec(x.g || ""); return y ? "https://www.youtube.com/watch?v=" + y[1] : ""; }
     if(x.c === "biblioteca") return "https://www.portaldoeducador.com.br/biblioteca/?abrir=" + encodeURIComponent(x.i) + (x.m === "historias" ? "#historias" : "");
-    if(x.c === "colorir") return "https://www.portaldoeducador.com.br/colorir/?abrir=" + encodeURIComponent(x.i);
+    if(x.c === "colorir") return x.app ? "https://www.portaldoeducador.com.br/colorir/" : x.col ? "https://www.portaldoeducador.com.br/colorir/?colecao=" + encodeURIComponent(x.col) : "https://www.portaldoeducador.com.br/colorir/?abrir=" + encodeURIComponent(x.i);
     return "";
+  }
+  // Colorir no "Abrir para a turma" (nov/2026): o professor manda o aplicativo (o aluno escolhe o desenho) ou uma coleção inteira, não um desenho de cada vez
+  function colorirAgrupado(l){
+    const cols = new Map(); l.forEach(x => { const k = x.s || "Desenhos"; if(!cols.has(k)) cols.set(k, { c:"colorir", col:k, t:k, s:"", n:0 }); cols.get(k).n++; });
+    const grupos = [...cols.values()].sort((a, b) => a.t.localeCompare(b.t, "pt-BR")).map(g => ({ ...g, s:"Coleção · " + g.n + " desenho" + (g.n > 1 ? "s" : "") + " · o aluno escolhe qual pintar" }));
+    return [{ c:"colorir", app:true, t:"Diversão para Colorir", s:"Abre o aplicativo: cada aluno escolhe o desenho que quer pintar" }].concat(grupos);
   }
   function janelaLinkMae(alvo, alvoNome){
     const velho = $("mlFundo"); if(velho) velho.remove();
@@ -11595,6 +11601,8 @@
       let l = ML.itens.filter(x => ML.q ? true : x.c === ML.cat);
       if(toks.length) l = l.map(x => ({ x, n:bgNota(x, toks, "") })).filter(o => o.n > 0).sort((a, b) => b.n - a.n).map(o => o.x);
       else l = l.slice().sort((a, b) => a.t.localeCompare(b.t, "pt-BR"));
+      if(!ML.q && ML.cat === "colorir") l = colorirAgrupado(l);
+      else if(ML.q){ const cor = l.filter(x => x.c === "colorir"); if(cor.length) l = l.filter(x => x.c !== "colorir").concat(colorirAgrupado(cor).slice(1)); }
       l = l.slice(0, 40);
       box.innerHTML = !l.length ? '<div class="et-d">Nada encontrado' + (ML.q ? ' para “' + escapeHtml(ML.q) + '”' : "") + '.</div>' :
         l.map((x, i) => '<button type="button" class="ml-it" data-ml="item" data-i="' + i + '"><span>' + (ML_IC[x.c] || "🔗") + '</span><b>' + escapeHtml(x.t) + '</b><small>' + escapeHtml(x.s || "") + "</small></button>").join("");
