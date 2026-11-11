@@ -11608,7 +11608,9 @@
         l.map((x, i) => '<button type="button" class="ml-it" data-ml="item" data-i="' + i + '"><span>' + (ML_IC[x.c] || "🔗") + '</span><b>' + escapeHtml(x.t) + '</b><small>' + escapeHtml(x.s || "") + "</small></button>").join("");
       ML.vis = l;
     };
-    bgCarregarIndice().then(idx => { ML.itens = idx.filter(x => ML_IC[x.c] && urlPortalMae(x)); desenhar(); }).catch(() => { $("mlRes").innerHTML = '<div class="et-d">Não foi possível carregar o catálogo agora.</div>'; });
+    // livros: só os que o aluno consegue abrir no aparelho (estantes Aprender brincando, Gibiteca e Histórias); os demais são do professor
+    const alunoAbre = (x, comSc) => x.c !== "biblioteca" || x.m === "historias" || !comSc || ["aprender", "gibiteca"].includes(x.sc);
+    bgCarregarIndice().then(idx => { const comSc = idx.some(x => x.c === "biblioteca" && x.sc); ML.itens = idx.filter(x => ML_IC[x.c] && urlPortalMae(x) && alunoAbre(x, comSc)); desenhar(); }).catch(() => { $("mlRes").innerHTML = '<div class="et-d">Não foi possível carregar o catálogo agora.</div>'; });
     let tm = null;
     $("mlQ").addEventListener("input", e => { clearTimeout(tm); tm = setTimeout(() => { ML.q = e.target.value.trim(); desenhar(); }, 200); });
     f.addEventListener("click", e => { const b = e.target.closest("[data-ml]"); if(!b) return; const k = b.dataset.ml;

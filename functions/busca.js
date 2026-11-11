@@ -17,7 +17,7 @@ const LIMITE_PARTE = 700 * 1024;   // folga abaixo de 1 MB por documento
 const corta = (s, n) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, n);
 const lista = v => (Array.isArray(v) ? v : []).map(x => corta(x, 30)).filter(Boolean);
 
-// uma linha compacta por conteúdo: c=coleção, i=id, t=título, s=linha de apoio, k=palavras extras, b=BNCC, m=módulo do plano, g=imagem
+// uma linha compacta por conteúdo: c=coleção, i=id, t=título, s=linha de apoio, k=palavras extras, b=BNCC, m=módulo do plano, g=imagem, sc=estante da biblioteca
 function linha(c, id, x) {
   const base = { c, i: id, t: corta(x.titulo || x.nome, 140) };
   if (!base.t) return null;
@@ -32,7 +32,7 @@ function linha(c, id, x) {
   } else if (c === 'biblioteca') {
     const hist = x.secao === 'historias';
     Object.assign(base, { s: corta(hist ? 'História educativa' : (x.autor || 'Livro'), 80), k: corta([x.autor, x.etapa, x.secao, hist ? 'historia' : 'livro'].join(' '), 160),
-      m: hist ? 'historias' : 'biblioteca', g: corta(x.capa_url, 300) });
+      m: hist ? 'historias' : 'biblioteca', g: corta(x.capa_url, 300), sc: corta(x.secao, 20) });   // sc: estante (o aluno só abre Aprender brincando, Gibiteca e Histórias)
   } else if (c === 'colorir') {
     Object.assign(base, { s: corta(x.colecao || 'Desenho para colorir', 80), k: corta([x.colecao, 'colorir desenho pintar'].join(' '), 120), m: 'colorir', g: corta(x.thumb_url, 300) });
   } else if (c === 'cursos') {
