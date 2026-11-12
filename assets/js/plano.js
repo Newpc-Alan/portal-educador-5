@@ -11,7 +11,8 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export const PLANO_BASICO = ["atividades","videos","jogos","ia","datas","colorir","historias","biblioteca","museus","dicas","apps"];
-export const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["formacao","portal360","maestro"]);
+// Intermediário (nov/2026): tudo do Gratuito (Portal IA e Provas) + Formação, Portal 360º VR e Maestro
+export const PLANO_INTERMEDIARIO = PLANO_BASICO.concat(["portalia","provas","formacao","portal360","maestro"]);
 // plano Gratuito do professor (nov/2026): conteúdos do Básico + Portal IA (10 créditos/mês) + Provas impressas (5 guardadas)
 export const PLANO_GRATUITO = PLANO_BASICO.concat(["portalia","provas"]);
 const lista = (x) => Array.isArray(x) ? x : [];

@@ -13,7 +13,8 @@ export const NOMES_IA = {
 // pacotes: Intermediário = recursos de texto; Completo = tudo
 export const IA_INTERMEDIARIO = ['portalia', 'provas_ia', 'lousa_ia', 'video_ia', 'video_interativo', 'aula_termometro', 'lousa_limpo'];
 export const GERAL_PADRAO = {
-  portalia: { ligado: true, avulso: true }, portalia_imagem: { ligado: true, avulso: true }, provas_ia: { ligado: true, avulso: true },
+  // portalia_imagem: avulso false (nov/2026): imagem com IA é do plano Completo (ou da rede que inclui), não de qualquer um com crédito
+  portalia: { ligado: true, avulso: true }, portalia_imagem: { ligado: true, avulso: false }, provas_ia: { ligado: true, avulso: true },
   lousa_ia: { ligado: true, avulso: false }, lousa_ia_ultra: { ligado: false, avulso: false },
   video_ia: { ligado: true, avulso: true }, video_interativo: { ligado: true, avulso: false },
   aula_termometro: { ligado: true, avulso: true },
@@ -51,7 +52,7 @@ export function iaDoUsuario(eu) {
   if (!eu) return new Set();
   if (Array.isArray(eu.ia_extra)) return normalizar(eu.ia_extra);
   const legado = (eu.recursos_extra || []).filter(r => r === 'lousa_ia' || r === 'lousa_ia_ultra');
-  return normalizar((eu.municipio_id ? [] : iaDoPlano(eu.plano_avulso)).concat(legado));
+  return normalizar((eu.municipio_id ? [] : iaDoPlano(eu.plano_avulso || 'completo')).concat(legado));   // sem plano gravado = Completo (teste, cortesia antiga)
 }
 // decide o acesso a um recurso. via: admin | rede (a carteira da rede paga) | usuario | avulso (créditos próprios)
 export function acessoIA(recurso, { admin, geral, rede, user }) {
