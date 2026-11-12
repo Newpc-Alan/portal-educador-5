@@ -166,6 +166,8 @@ export const MODELOS_WA = [
 export const MODELO_BOAS_VINDAS_WA = { nome: 'pde_boas_vindas', momento: 'cadastro', categoria: 'UTILITY', corpo: 'Olá, {{1}}! Recebemos o seu cadastro no Portal do Educador. Entre com o e-mail que você cadastrou e conheça tudo o que preparamos para a sua aula. Qualquer dúvida, é só responder esta mensagem.', exemplo: ['Maria'] };
 // aviso para a equipe de atendimento (Alan, Leonardo...): {{1}} quem, {{2}} a situação
 export const MODELO_ALERTA_WA = { nome: 'pde_alerta_atendimento', momento: 'equipe', categoria: 'UTILITY', corpo: 'Novo chamado no atendimento do Portal do Educador. Contato: {{1}}. Situação: {{2}}. Toque no botão para responder.', exemplo: ['Maria (São Gabriel do Oeste/MS)', 'precisa de um atendente (Suporte)'], rodape: 'Aviso para a equipe', botao: 'Abrir o atendimento', url: SITE + '/atendimento/' };
+// aniversário (nov/2026): {{1}} primeiro nome, {{2}} créditos de presente. Categoria MARKETING (a Meta não aceita parabéns como UTILITY).
+export const MODELO_ANIVERSARIO_WA = { nome: 'pde_aniversario', momento: 'aniversario', categoria: 'MARKETING', corpo: 'Feliz aniversário, {{1}}! 🎉 A equipe do Portal do Educador deseja um dia muito especial para você. De presente, deixamos {{2}} créditos de IA na sua conta, válidos por 30 dias. Toque no botão para aproveitar.', exemplo: ['Maria', '5'], botao: 'Abrir o Portal' };
 export const preencherWA = (corpo, vals) => corpo.replace(/\{\{(\d+)\}\}/g, (_, n) => String(vals[Number(n) - 1] ?? ''));
 export const URL_ENTRAR = ENTRAR;
 

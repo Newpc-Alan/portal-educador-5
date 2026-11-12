@@ -27,7 +27,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { transporte, destinos, escHtml as esc, SMTP_SENHA, SMTP_USUARIO } from './dicas.js';
 import { expiraAuditoria } from './auditoria.js';
 const msTs = x => x && x.toMillis ? x.toMillis() : 0;
-import { MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA, RODAPE_WA, preencherWA, URL_ENTRAR } from './comunicacoes.js';
+import { MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA, MODELO_ANIVERSARIO_WA, RODAPE_WA, preencherWA, URL_ENTRAR, moldura } from './comunicacoes.js';
+import { saldoDe } from './creditos.js';
 
 const REGIAO = 'southamerica-east1';
 const TOKEN = defineSecret('WHATSAPP_TOKEN');
@@ -443,6 +444,57 @@ async function alertaWhats(db, cfg, waId, quem, situacao) {
     }
   }));
 }
+// aniversário (nov/2026): todo dia às 8h10, professores e equipe (nunca aluno) que fazem aniversário recebem e-mail + WhatsApp
+// (modelo pde_aniversario) e um presente de créditos de IA (config/portal_ia.creditos.aniversario, padrão 5; 0 desliga o presente),
+// válidos por 30 dias e lançados como cortesia da diretoria. Uma vez por pessoa por ano (comunicacoes/{uid}_aniversario_{AAAA}).
+// Quem nasceu em 29/02 comemora em 28/02 nos anos que não são bissextos.
+export const aniversarios = onSchedule({ schedule: '10 8 * * *', region: REGIAO, timeZone: 'America/Campo_Grande', secrets: [TOKEN, SMTP_SENHA], timeoutSeconds: 540, maxInstances: 1 }, async () => {
+  const db = getFirestore(), hoje = new Date(Date.now() - 4 * 3600e3), ano = hoje.getUTCFullYear(), mmdd = hoje.toISOString().slice(5, 10);
+  const bissexto = (ano % 4 === 0 && ano % 100 !== 0) || ano % 400 === 0, dias = mmdd === '02-28' && !bissexto ? ['02-28', '02-29'] : [mmdd];
+  const raw = (await db.doc('config/portal_ia').get()).data() || {}, presente = Math.max(0, Math.min(50, Math.round(Number(((raw.creditos || {}).aniversario) ?? 5)) || 0));
+  const cfg = await config(db), waOk = cfg.ligado && cfg.phone_number_id;
+  const s = await db.collection('usuarios').where('status', '==', 'ativo').select('nome', 'email', 'whatsapp', 'nascimento', 'perfil', 'municipio_id', 'demo').get();
+  let n = 0;
+  for (const doc of s.docs) {
+    const u = doc.data(), uid = doc.id;
+    if (!/^\d{4}-\d\d-\d\d$/.test(u.nascimento || '') || !dias.includes(u.nascimento.slice(5)) || u.perfil === 'aluno' || u.demo === true || u.municipio_id === 'lab-muni' || String(u.email || '').endsWith('@portaldoeducador.com.br')) continue;
+    const marca = db.doc(`comunicacoes/${uid}_aniversario_${ano}`);
+    try { await marca.create({ uid, momento: 'aniversario', canal: 'email+whatsapp', status: 'enviando', em: FieldValue.serverTimestamp(), expira_em: Timestamp.fromMillis(Date.now() + 400 * 864e5) }); }
+    catch (e) { continue; }   // já foi este ano
+    const nome = txt(String(u.nome || 'professor(a)').trim().split(/\s+/)[0], 40), st = {};
+    // presente: créditos de IA por 30 dias, como cortesia da diretoria (entra no relatório de cortesias)
+    if (presente) {
+      try {
+        const ref = db.doc('creditos/prof_' + uid), val = Timestamp.fromMillis(Date.now() + 30 * 864e5);
+        await db.runTransaction(async t => {
+          const c = await t.get(ref), atual = c.exists ? c.data() : {};
+          const pac = (atual.pacotes || []).concat([{ id: 'niver' + ano, creditos: presente, restante: presente, validade: val, origem: 'cortesia', obs: 'Cortesia da diretoria · Presente de aniversário ' + ano, criado_em: Timestamp.now(), por: 'sistema' }]);
+          t.set(ref, { tipo: 'professor', ref_id: uid, nome: txt(u.nome || u.email, 120), pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, atualizado_em: FieldValue.serverTimestamp(), ...(c.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) }, { merge: true });
+          t.set(ref.collection('movimentos').doc(), { tipo: 'recarga', creditos: presente, validade: val, obs: 'Cortesia da diretoria · Presente de aniversário', cortesia: true, por: 'sistema', em: FieldValue.serverTimestamp() });
+        });
+        st.creditos = presente;
+      } catch (e) { console.warn('aniversário: créditos', uid, e.message); }
+    }
+    if (u.email) {
+      try {
+        await transporte().sendMail({ from: `"Portal do Educador" <${SMTP_USUARIO.value()}>`, to: u.email, subject: `Feliz aniversário, ${nome}! 🎉`,
+          html: moldura('Feliz aniversário!', `<p>Olá, ${esc(nome)}!</p><p>Hoje é o seu dia, e toda a equipe do Portal do Educador deseja um aniversário cheio de alegria, saúde e boas conquistas, dentro e fora da sala de aula.</p>` +
+            (st.creditos ? `<p style="background:#eaf6ec;border-radius:10px;padding:10px 12px">🎁 <b>Presente:</b> deixamos <b>${presente} créditos de IA</b> na sua conta, válidos por 30 dias. Use no Portal IA para preparar a próxima aula.</p>` : '') +
+            `<p>Obrigado por fazer a educação acontecer todos os dias.</p>`, 'Abrir o Portal', URL_ENTRAR) });
+        st.email = 'enviado';
+      } catch (e) { st.email = 'falhou'; console.warn('aniversário: e-mail', uid, e.message); }
+    }
+    if (waOk && u.whatsapp && st.creditos) {
+      const vs = variantes(u.whatsapp), para = vs.find(x => x.startsWith('55') && x.length === 13) || vs.find(x => x.startsWith('55'));
+      if (para) {
+        try { await enviar(cfg, para, { type: 'template', template: { name: MODELO_ANIVERSARIO_WA.nome, language: { code: 'pt_BR' }, components: [{ type: 'body', parameters: [{ type: 'text', text: nome }, { type: 'text', text: String(presente) }] }] } }); st.whatsapp = 'enviado'; }
+        catch (e) { st.whatsapp = 'falhou'; st.erro = txt(e.message, 200); }
+      }
+    }
+    await marca.set({ status: 'feito', ...st }, { merge: true }); n++;
+  }
+  if (n) console.log('aniversário: ' + n + ' parabéns enviados');
+});
 // aviso de oportunidade comercial (nov/2026): qualquer função grava alertas_equipe/{id} { quem, situacao, detalhe }
 // e a equipe recebe no WhatsApp pessoal (mesmo aviso do atendimento) e por e-mail. Ex.: professor tentou comprar créditos
 // enquanto o pagamento online (Asaas) ainda não está liberado, para a NEWPC agir na hora.
@@ -782,7 +834,7 @@ export const whatsappTesteModelos = onCall({ region: REGIAO, secrets: [TOKEN], m
     if (t > ult) { ult = t; waId = v; } }
   if (!waId || Date.now() - ult > 24 * 3600e3) throw new HttpsError('failed-precondition', 'Mande um "oi" deste WhatsApp para o número do Portal e toque de novo. Sem modelo aprovado, a Meta só deixa enviar até 24 h depois da sua última mensagem.');
   let n = 0;
-  for (const m of [MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA]) {
+  for (const m of [MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA, MODELO_ANIVERSARIO_WA]) {
     await enviar(cfg, waId, { type: 'interactive', interactive: { type: 'cta_url', header: { type: 'text', text: 'Portal do Educador' },
       body: { text: txt(preencherWA(m.corpo, m.exemplo), 1000) }, footer: { text: txt('Teste: ' + m.nome, 60) },
       action: { name: 'cta_url', parameters: { display_text: m.botao || 'Entrar no Portal', url: m.url || URL_ENTRAR } } } });
@@ -837,7 +889,7 @@ function corpoModelo(m) {
 }
 export const whatsappModelos = onCall({ region: REGIAO, secrets: [TOKEN], maxInstances: 2, timeoutSeconds: 120 }, async req => {
   const u = await souAdmin(req), db = getFirestore(), cfg = (await db.doc('wa_config/geral').get()).data() || {};
-  const waba = await wabaDe(db, cfg), todos = [MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA];
+  const waba = await wabaDe(db, cfg), todos = [MODELO_BOAS_VINDAS_WA, MODELO_ALERTA_WA, MODELO_ANIVERSARIO_WA];
   const lista = async () => {
     const r = await fetch(GRAPH + waba + '/message_templates?fields=name,status,category,rejected_reason&limit=200', { headers: { Authorization: 'Bearer ' + TOKEN.value() } });
     const j = await r.json().catch(() => ({}));
