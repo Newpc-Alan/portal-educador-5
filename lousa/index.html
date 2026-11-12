@@ -601,6 +601,7 @@
     <span class="ial-menu-wrap"><button class="ferr rod-btn rod-ial" data-action="ial-menu" aria-haspopup="true" aria-expanded="false" title="Ferramentas de IA da Lousa: Perguntar, Circular, Passar a limpo, Pintor, Mapa mental e Legendas"><span class="ial-emo" aria-hidden="true">🪄</span><span class="lbl-ap">Ferramentas IA</span></button>
       <div class="ial-menu" id="ialMenu" role="menu" hidden>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-perguntar"><span>💬</span><b>Perguntar</b><small>resposta num cartão no quadro · 1 crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-equacao"><span>🧮</span><b>Resolver equação</b><small>escreva a conta, circule e veja o resultado explicado passo a passo · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-circular"><span>⭕</span><b>Circular</b><small>circule uma conta ou palavra: explica, resolve, traduz · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-limpo"><span>✍️</span><b>Passar a limpo</b><small>selecione o que escreveu à mão: vira texto digitado e organizado · grátis</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-pintor"><span>🎨</span><b>Pintor IA</b><small>o rabisco selecionado vira ilustração · créditos de imagem</small></button>
@@ -2860,7 +2861,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a==="acervo-aulas" && window.PDENuvem && window.PDENuvem.acervo) window.PDENuvem.acervo();
       if(a==="ial-menu"){ ialMenu(); return; }
       if(a && a.indexOf("ial-") === 0) ialMenu(false);
-      if(a==="ial-circular"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { setFerramenta("circular"); msg("Circule com o dedo ou a caneta o que a IA deve olhar"); } }
+      if(a==="ial-circular"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { IAL.direto = ""; setFerramenta("circular"); msg("Circule com o dedo ou a caneta o que a IA deve olhar"); } }
+      // Resolver equação (nov/2026): o professor escreve a conta, circula e a resposta já vem resolvida e explicada (sem a janela de opções)
+      if(a==="ial-equacao"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { IAL.direto = "equacao"; setFerramenta("circular"); msg("Circule a equação ou a conta que você escreveu"); } }
       if(a==="ial-perguntar") ialPerguntar();
       if(a==="ial-pintor")    ialPintor();
       if(a==="ial-limpo")     ialLimpo();
@@ -4673,6 +4676,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var mult = Math.min(2, 1024 / Math.max(w, h)), url = canvas.toDataURL({ format:"jpeg", quality:.88, left:l, top:t, width:w, height:h, multiplier:mult });
     var inv = fabric.util.invertTransform(canvas.viewportTransform), p2 = fabric.util.transformPoint(new fabric.Point(l + w, t), inv);
     IAL.regiao = { dados:url.split(",")[1], x:p2.x + 16, y:p2.y };
+    if(IAL.direto === "equacao"){
+      IAL.direto = ""; var rg = IAL.regiao;
+      var fj = ialJanela("🧮 Resolvendo a equação", '<img class="ial-prev" src="' + url + '" alt="Equação circulada">', function(){}); ialEspera(fj, "Lendo, resolvendo e conferindo a conta...");
+      ialChamar({ modo:"circule", pedido:"equacao", pergunta:"", imagem:{ mime:"image/jpeg", dados:rg.dados } }).then(function(r){ ialFechar(); ialCartao(r, rg.x, rg.y); }, function(e){ ialErro(fj, e); });
+      return;
+    }
     ialJanela("⭕ O que fazer com o que você circulou?", '<img class="ial-prev" src="' + url + '" alt="Pedaço do quadro circulado">' +
       '<div class="ial-bts ial-opc"><button type="button" class="ial-b ial-prim" data-ial="explicar">💡 Explicar</button><button type="button" class="ial-b ial-prim" data-ial="resolver">🧮 Resolver passo a passo</button><button type="button" class="ial-b ial-prim" data-ial="traduzir">🌎 Traduzir</button></div>' +
       '<input id="ialLivre" maxlength="300" placeholder="Ou pergunte algo sobre isso..." autocomplete="off"><div class="ial-bts"><button type="button" class="ial-b" data-ial="livre" data-ial-padrao>Perguntar</button></div><p class="ial-d">1 crédito. A resposta aparece ao lado do que você circulou.</p>', function(bt, f){
