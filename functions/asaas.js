@@ -69,7 +69,8 @@ export const pagamentos = onCall({ region: REGIAO, secrets: [ASAAS_CHAVE], timeo
 
   if (d.acao === 'opcoes') {
     const cfg = (await db.doc('config/portal_ia').get()).data() || {};
-    const cli = (await db.doc(`fin_clientes/${uid}`).get()).data();
+    let cli = (await db.doc(`fin_clientes/${uid}`).get()).data();
+    if (cli && cli.ambiente && cli.ambiente !== ambienteDaChave(ASAAS_CHAVE.value())) cli = null;   // CPF é pedido de novo no ambiente novo
     // enquanto a chave for a de teste (sandbox), só o administrador e os testadores (config/pagamentos.testadores) veem a compra direta
     const pc = (await db.doc('config/pagamentos').get()).data() || {};
     const ativo = ambienteDaChave(ASAAS_CHAVE.value()) === 'producao' ? pc.ligado !== false
@@ -102,7 +103,9 @@ export const pagamentos = onCall({ region: REGIAO, secrets: [ASAAS_CHAVE], timeo
     const abertos = await db.collection('fin_pedidos').where('uid', '==', uid).where('status', '==', 'aguardando').limit(6).get();
     if (abertos.size >= 5) throw new HttpsError('resource-exhausted', 'Você já tem 5 cobranças aguardando pagamento. Pague ou espere vencerem para gerar outra.');
     // cliente no Asaas (uma vez por professor)
+    // cliente criado no sandbox não existe na produção (e vice-versa): cadastra de novo no ambiente da chave atual
     const cliRef = db.doc(`fin_clientes/${uid}`); let cli = (await cliRef.get()).data();
+    if (cli && cli.ambiente && cli.ambiente !== ambienteDaChave(ASAAS_CHAVE.value())) cli = null;
     if (!cli || !cli.asaas_id) {
       const cpf = String(d.cpf || '').replace(/\D/g, '');
       if (!cpfValido(cpf)) throw new HttpsError('invalid-argument', 'Informe um CPF válido para a cobrança.');
