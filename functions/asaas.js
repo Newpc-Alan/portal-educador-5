@@ -175,8 +175,18 @@ export const asaasWebhook = onRequest({ region: REGIAO, secrets: [ASAAS_CHAVE, A
     if (ev === 'PAYMENT_CONFIRMED' || ev === 'PAYMENT_RECEIVED') {
       const r = await liberar(db, pedRef, pag);
       if (r && r.ok) {
-        await emailAlerta(r.p.email, 'Pagamento confirmado · Portal do Educador', `<p>Olá, ${String(r.p.cliente || '').split(' ')[0]}.</p><p>Recebemos o pagamento de <b>${r.p.item}</b> (R$ ${r.bruto.toFixed(2).replace('.', ',')}). Já está liberado: <b>${r.detalhe}</b>.</p><p><a href="https://www.portaldoeducador.com.br/entrar/">Abrir o Portal do Educador</a></p>`).catch(e => console.warn('asaas e-mail professor', e.message));
-        await emailAlerta(AVISAR, `Venda confirmada: ${r.p.item}`, `<p><b>${r.p.cliente}</b> pagou <b>${r.p.item}</b> por ${r.forma}: R$ ${r.bruto.toFixed(2).replace('.', ',')}.</p><p>Liberado: ${r.detalhe}. A nota a emitir está no Financeiro.</p>`).catch(e => console.warn('asaas e-mail venda', e.message));
+        // recibo (nov/2026): venda avulsa (professor pessoa física, créditos e licença individual) recebe recibo automático,
+        // com o comprovante oficial do Asaas; prefeituras e órgãos públicos são faturados pela NEWPC, fora daqui.
+        const comp = /^https:\/\//.test(String(pag.transactionReceiptUrl || '')) ? String(pag.transactionReceiptUrl) : '';
+        const valor = 'R$ ' + r.bruto.toFixed(2).replace('.', ','), hoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' });
+        const linha = (a, b) => `<tr><td style="padding:6px 10px;color:#5b6b7b;width:38%">${a}</td><td style="padding:6px 10px"><b>${b}</b></td></tr>`;
+        await emailAlerta(r.p.email, 'Recibo · Portal do Educador · ' + r.p.item, `<p>Olá, ${String(r.p.cliente || '').split(' ')[0]}.</p><p>Recebemos o seu pagamento e já está liberado: <b>${r.detalhe}</b>.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" style="border:1px solid #dce4ed;border-radius:10px;border-collapse:separate;width:100%;max-width:520px;font-size:14px">
+<tr><td colspan="2" style="padding:10px;background:#0f2c4a;color:#fff;border-radius:10px 10px 0 0"><b>RECIBO Nº ${pedId.slice(-8).toUpperCase()}</b></td></tr>
+${linha('Recebemos de', String(r.p.cliente || '').replace(/[<>]/g, ''))}${linha('Referente a', String(r.p.item || '').replace(/[<>]/g, ''))}${linha('Valor', valor)}${linha('Forma de pagamento', r.forma)}${linha('Data', hoje)}${linha('Recebedor', 'Portal do Educador · uma solução NEWPC')}
+</table>` + (comp ? `<p><a href="${comp}">Ver o comprovante oficial do pagamento</a></p>` : '') + `<p style="font-size:12px;color:#5b6b7b">Este recibo vale como comprovação do pagamento. Guarde este e-mail.</p><p><a href="https://www.portaldoeducador.com.br/entrar/">Abrir o Portal do Educador</a></p>`).catch(e => console.warn('asaas e-mail professor', e.message));
+        await db.doc(`fin_pagamentos/${pedId}`).set({ recibo: 'enviado', recibo_em: FieldValue.serverTimestamp(), comprovante: comp }, { merge: true }).catch(() => {});
+        await emailAlerta(AVISAR, `Venda confirmada: ${r.p.item}`, `<p><b>${r.p.cliente}</b> pagou <b>${r.p.item}</b> por ${r.forma}: ${valor}.</p><p>Liberado: ${r.detalhe}. Recibo enviado automaticamente ao cliente (venda avulsa, pessoa física).</p>`).catch(e => console.warn('asaas e-mail venda', e.message));
       }
     } else if (ev === 'PAYMENT_OVERDUE') {
       await pedRef.set({ status: 'vencido', atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
