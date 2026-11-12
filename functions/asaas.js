@@ -18,8 +18,10 @@ const AVISAR = 'alan@newpc.com.br';
 
 // licenças avulsas à venda (valores propostos em nov/2026; ajustar aqui)
 export const LICENCAS = {
-  'intermediario-mensal': { nome: 'Licença Intermediário · 1 mês', plano: 'intermediario', meses: 1, valor: 59.9 },
-  'completo-mensal': { nome: 'Licença Completo · 1 mês', plano: 'completo', meses: 1, valor: 99.9 }
+  // creditos_mes: créditos de IA que entram a cada mês pago (decisão de 12/11/2026: igual à franquia das redes);
+  // valem até 1 mês depois do fim da licença (a sobra passa 1 mês, regra do assinante avulso)
+  'intermediario-mensal': { nome: 'Licença Intermediário · 1 mês', plano: 'intermediario', meses: 1, valor: 59.9, creditos_mes: 60 },
+  'completo-mensal': { nome: 'Licença Completo · 1 mês', plano: 'completo', meses: 1, valor: 99.9, creditos_mes: 120 }
 };
 
 const txt = (v, n) => String(v ?? '').trim().slice(0, n);
@@ -133,6 +135,7 @@ async function liberar(db, pedRef, pag) {
     const p = s.data(); if (p.status === 'pago') return { repetido: true };
     const uRef = db.doc(`usuarios/${p.uid}`), us = await t.get(uRef), u = us.data() || {};
     const cliD = (await t.get(db.doc(`fin_clientes/${p.uid}`))).data() || {};
+    const cRef = db.doc(`creditos/prof_${p.uid}`), cs = await t.get(cRef), c = cs.exists ? cs.data() : {};   // leituras antes das gravações
     let detalhe = '';
     if (p.tipo === 'licenca') {
       const agora = Date.now(), de = Math.max(agora, ms(u.licenca_tipo === 'avulsa' ? u.licenca_fim : 0));
@@ -141,8 +144,17 @@ async function liberar(db, pedRef, pag) {
         ...(u.licenca_tipo === 'avulsa' && ms(u.licenca_fim) > agora ? {} : { licenca_inicio: new Date(agora - 4 * 3600e3).toISOString().slice(0, 10) }),
         licenca_valor: p.valor.toFixed(2).replace('.', ','), licenca_ref: 'Asaas ' + (pag.id || ''), licenca_alterada_em: FieldValue.serverTimestamp(), licenca_alterada_por: 'asaas' });
       detalhe = `licença ${p.plano} até ${fim.toLocaleDateString('pt-BR')}`;
+      const lic = LICENCAS[p.produto] || Object.values(LICENCAS).find(l => l.plano === p.plano) || {}, cr = (lic.creditos_mes || 0) * (p.meses || 1);
+      if (cr > 0) {
+        const val = new Date(fim); val.setMonth(val.getMonth() + 1);
+        const pac = [...(c.pacotes || []).filter(x => ms(x.validade) > Date.now() - 400 * 864e5),
+          { id: 'lic' + Date.now().toString(36), creditos: cr, restante: cr, validade: Timestamp.fromDate(val), origem: 'licenca', obs: 'Créditos da licença ' + p.plano + ' · ' + (pag.id || ''), pedido_id: pedRef.id, criado_em: Timestamp.now() }];
+        t.set(cRef, { tipo: 'professor', ref_id: p.uid, nome: txt(u.nome || u.email, 120), pacotes: pac, saldo: saldoDe({ pacotes: pac }).saldo, alerta20: false, alerta5: false,
+          atualizado_em: FieldValue.serverTimestamp(), ...(cs.exists ? {} : { criado_em: FieldValue.serverTimestamp() }) }, { merge: true });
+        t.set(cRef.collection('movimentos').doc(), { tipo: 'recarga', creditos: cr, validade: Timestamp.fromDate(val), obs: 'Créditos da licença ' + p.plano, pedido_id: pedRef.id, por: 'asaas', em: FieldValue.serverTimestamp() });
+        detalhe += ` + ${cr} créditos de IA`;
+      }
     } else {
-      const cRef = db.doc(`creditos/prof_${p.uid}`), cs = await t.get(cRef), c = cs.exists ? cs.data() : {};
       const validade = new Date(); validade.setMonth(validade.getMonth() + 12);
       const pac = [...(c.pacotes || []).filter(x => ms(x.validade) > Date.now() - 400 * 864e5),
         { id: 'p' + Date.now().toString(36), creditos: p.creditos, restante: p.creditos, validade: Timestamp.fromDate(validade), origem: 'compra', obs: 'Compra pelo Asaas · ' + (pag.id || ''), pedido_id: pedRef.id, criado_em: Timestamp.now(), por: 'asaas' }];

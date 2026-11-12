@@ -32,7 +32,7 @@
     const pend = (dados.pedidos || []).filter(p => p.status === "aguardando" && p.link);
     const h = '<div class="pp-caixa" role="dialog" aria-modal="true" aria-labelledby="ppTit"><h2 id="ppTit">' + (filtro === "credito" ? "Comprar créditos de IA" : filtro === "licenca" ? "Assinar o Portal do Educador" : "Comprar") + '</h2>' +
       '<p class="pp-sub">Pagamento seguro pelo Asaas, por Pix, boleto ou cartão de crédito. Assim que o pagamento é confirmado, o Portal libera sozinho.</p>' +
-      (L.length ? '<div class="pp-tit">Licença</div>' + L.map(l => op(l, l.plano === "completo" ? "Tudo do Portal, com Portal IA e imagens" : "Portal IA, Formação Continuada, Portal 360º VR e mais", i++)).join("") : "") +
+      (L.length ? '<div class="pp-tit">Licença</div>' + L.map(l => op(l, l.plano === "completo" ? "Tudo do Portal, com Portal IA e imagens · 120 créditos de IA por mês" : "Portal IA, Formação Continuada, Portal 360º VR e mais · 60 créditos de IA por mês", i++)).join("") : "") +
       (C.length ? '<div class="pp-tit">Créditos de IA (valem 12 meses)</div>' + C.map(c => op(c, Number(c.creditos).toLocaleString("pt-BR") + " créditos para o Portal IA, a Lousa e as Provas", i++)).join("") : "") +
       (!L.length && !C.length ? '<p class="pp-msg">Nada disponível para compra na sua conta agora.</p>' : "") +
       (dados.temCpf ? '<p class="pp-nota">Cobrança no CPF ' + esc(dados.cpf) + '.</p>' : '<label class="pp-cpf">CPF de quem paga<input id="ppCpf" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" maxlength="14"></label><p class="pp-nota">O CPF é pedido pelo sistema de pagamento e vai só para ele.</p>') +
