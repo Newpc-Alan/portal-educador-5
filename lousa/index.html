@@ -601,7 +601,7 @@
     <span class="ial-menu-wrap"><button class="ferr rod-btn rod-ial" data-action="ial-menu" aria-haspopup="true" aria-expanded="false" title="Ferramentas de IA da Lousa: Perguntar, Circular, Passar a limpo, Pintor, Mapa mental e Legendas"><span class="ial-emo" aria-hidden="true">🪄</span><span class="lbl-ap">Ferramentas IA</span></button>
       <div class="ial-menu" id="ialMenu" role="menu" hidden>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-perguntar"><span>💬</span><b>Perguntar</b><small>resposta num cartão no quadro · 1 crédito</small></button>
-        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-equacao"><span>🧮</span><b>Resolver equação</b><small>escreva a conta, circule e veja o resultado explicado passo a passo · 1 crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-equacao"><span>🧮</span><b>Resolver equação</b><small>escreva a conta e circule: confere a leitura, organiza a fórmula e resolve explicando · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-circular"><span>⭕</span><b>Circular</b><small>circule uma conta ou palavra: explica, resolve, traduz · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-limpo"><span>✍️</span><b>Passar a limpo</b><small>selecione o que escreveu à mão: vira texto digitado e organizado · grátis</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-pintor"><span>🎨</span><b>Pintor IA</b><small>o rabisco selecionado vira ilustração · créditos de imagem</small></button>
@@ -4676,12 +4676,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var mult = Math.min(2, 1024 / Math.max(w, h)), url = canvas.toDataURL({ format:"jpeg", quality:.88, left:l, top:t, width:w, height:h, multiplier:mult });
     var inv = fabric.util.invertTransform(canvas.viewportTransform), p2 = fabric.util.transformPoint(new fabric.Point(l + w, t), inv);
     IAL.regiao = { dados:url.split(",")[1], x:p2.x + 16, y:p2.y };
-    if(IAL.direto === "equacao"){
-      IAL.direto = ""; var rg = IAL.regiao;
-      var fj = ialJanela("🧮 Resolvendo a equação", '<img class="ial-prev" src="' + url + '" alt="Equação circulada">', function(){}); ialEspera(fj, "Lendo, resolvendo e conferindo a conta...");
-      ialChamar({ modo:"circule", pedido:"equacao", pergunta:"", imagem:{ mime:"image/jpeg", dados:rg.dados } }).then(function(r){ ialFechar(); ialCartao(r, rg.x, rg.y); }, function(e){ ialErro(fj, e); });
-      return;
-    }
+    if(IAL.direto === "equacao"){ IAL.direto = ""; ialEquacao(url, l, t, w, h); return; }
     ialJanela("⭕ O que fazer com o que você circulou?", '<img class="ial-prev" src="' + url + '" alt="Pedaço do quadro circulado">' +
       '<div class="ial-bts ial-opc"><button type="button" class="ial-b ial-prim" data-ial="explicar">💡 Explicar</button><button type="button" class="ial-b ial-prim" data-ial="resolver">🧮 Resolver passo a passo</button><button type="button" class="ial-b ial-prim" data-ial="traduzir">🌎 Traduzir</button></div>' +
       '<input id="ialLivre" maxlength="300" placeholder="Ou pergunte algo sobre isso..." autocomplete="off"><div class="ial-bts"><button type="button" class="ial-b" data-ial="livre" data-ial-padrao>Perguntar</button></div><p class="ial-d">1 crédito. A resposta aparece ao lado do que você circulou.</p>', function(bt, f){
@@ -4690,6 +4685,51 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var reg = IAL.regiao; ialEspera(f, ped === "resolver" ? "Resolvendo e conferindo a conta..." : "Lendo o que você circulou...");
       ialChamar({ modo:"circule", pedido:ped, pergunta:perg.trim(), imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y); }, function(e){ ialErro(f, e); });
     });
+  }
+
+  // ---- Resolver equação (nov/2026): 1) a IA LÊ a conta escrita à mão (grátis); 2) o professor confere, corrige ou escolhe
+  // a leitura certa quando a letra deu dúvida; 3) pode organizar a fórmula no quadro (digitada, sem crédito) e/ou resolver (1 crédito).
+  function eqBonita(t){
+    return String(t || "").replace(/\s*\*\s*/g, " × ").replace(/sqrt\s*\(/gi, "√(").replace(/\^2(?!\d)/g, "²").replace(/\^3(?!\d)/g, "³")
+      .replace(/>=/g, "≥").replace(/<=/g, "≤").replace(/!=/g, "≠")
+      .replace(/\s*([=+≥≤≠<>])\s*/g, " $1 ").replace(/([\w)²³])\s*-\s*/g, "$1 − ").replace(/\s{2,}/g, " ").trim();
+  }
+  function ialEquacao(url, l, t, w, h){
+    var inv = fabric.util.invertTransform(canvas.viewportTransform), z = canvas.getZoom() || 1;
+    var dir = fabric.util.transformPoint(new fabric.Point(l + w, t), inv), baixo = fabric.util.transformPoint(new fabric.Point(l, t + h), inv);
+    var reg = { dados:IAL.regiao.dados, x:dir.x + 16, y:dir.y, bx:baixo.x, by:baixo.y + 10, alt:h / z };
+    var f = ialJanela("🧮 Resolver equação", '<img class="ial-prev" src="' + url + '" alt="Equação circulada">', function(bt, fj){
+      var inp = fj.querySelector("#eqTxt"), eq = inp ? inp.value.trim() : "";
+      if(bt.dataset.ial === "eq-alt"){ inp.value = bt.dataset.eq; inp.dispatchEvent(new Event("input")); inp.focus(); return; }
+      if(eq.length < 3){ if(inp) inp.focus(); return; }
+      if(bt.dataset.ial === "eq-organizar"){
+        var fs = Math.round(Math.max(26, Math.min(80, reg.alt * .55)));
+        var tb = new fabric.Textbox(eqBonita(eq), { left:reg.bx, top:reg.by, width:Math.max(fs * 8, eqBonita(eq).length * fs * .62), fontSize:fs, fill:"#12202e",
+          fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
+        canvas.add(tb); canvas.setActiveObject(tb); canvas.requestRenderAll(); snap();
+        reg.by += tb.height + 8;
+        msg("Fórmula organizada no quadro. Toque duas vezes para editar");
+        bt.disabled = true; bt.textContent = "✅ Organizada no quadro";
+        return;
+      }
+      if(bt.dataset.ial === "eq-resolver"){
+        ialEspera(fj, "Resolvendo e conferindo " + eqBonita(eq) + "...");
+        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y); }, function(e){ ialErro(fj, e); });
+      }
+    });
+    ialEspera(f, "Lendo a equação...");
+    ialChamar({ modo:"equacao_ler", imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){
+      var c = f.querySelector(".ial-corpo"); if(!c) return;
+      c.innerHTML = '<img class="ial-prev" src="' + url + '" alt="Equação circulada">' +
+        (r.duvida ? '<p class="ial-d" style="background:#fff6e0;border-radius:10px;padding:8px 10px;color:#7a4b00">⚠️ Fiquei em dúvida' + (r.motivo ? ": " + ialEsc(r.motivo) : "") + '. Confira a leitura ou escolha a certa:</p>' +
+          '<div class="ial-bts ial-opc">' + [r.equacao].concat(r.alternativas || []).map(function(a){ return '<button type="button" class="ial-b" data-ial="eq-alt" data-eq="' + ialEsc(a) + '">' + ialEsc(eqBonita(a)) + '</button>'; }).join("") + '</div>'
+          : '<p class="ial-d">Li assim. Se algo estiver diferente do que você escreveu, corrija antes de resolver:</p>') +
+        '<input id="eqTxt" maxlength="300" autocomplete="off" spellcheck="false" style="font-size:20px;font-family:Cambria Math,Cambria,Times New Roman,serif" value="' + ialEsc(r.equacao) + '">' +
+        '<p id="eqVer" style="font:600 28px Cambria Math,Cambria,Times New Roman,serif;text-align:center;margin:10px 0;color:#0f2c4a">' + ialEsc(eqBonita(r.equacao)) + '</p>' +
+        '<div class="ial-bts"><button type="button" class="ial-b" data-ial="eq-organizar">✍️ Organizar no quadro</button><button type="button" class="ial-b ial-prim" data-ial="eq-resolver" data-ial-padrao>🧮 Resolver passo a passo</button></div>' +
+        '<p class="ial-d">Ler e organizar são grátis. Resolver usa 1 crédito.</p>';
+      var inp = c.querySelector("#eqTxt"); inp.addEventListener("input", function(){ c.querySelector("#eqVer").textContent = eqBonita(inp.value); }); inp.focus();
+    }, function(e){ ialErro(f, e); });
   }
 
   // ---- Passar a limpo (nov/2026): a letra à mão selecionada vira texto digitado e organizado, no mesmo lugar e na mesma cor.

@@ -1050,17 +1050,44 @@ async function tratarPortalIa(req) {
      mapa: "Tópicos com IA" (mapa mental editável) · pintor: o rabisco do professor vira ilustração (créditos de imagem, Lousa Ultra)
      As legendas ao vivo não passam aqui: usam o reconhecimento de voz do próprio navegador, sem crédito. */
   if (d.acao === 'lousa_rapida') {
-    const modo = ['pergunta', 'circule', 'mapa', 'pintor', 'limpo'].includes(d.modo) ? d.modo : '';
+    const modo = ['pergunta', 'circule', 'mapa', 'pintor', 'limpo', 'equacao_ler'].includes(d.modo) ? d.modo : '';
     if (!modo) throw new HttpsError('invalid-argument', 'Ferramenta desconhecida.');
     const turma = txt(d.turma, 80), disciplina = txt(d.disciplina, 80), etapa = etapaDaTurma(turma);
     const publico = { infantil: 'crianças da Educação Infantil (frases curtíssimas, palavras simples)', iniciais: 'alunos dos anos iniciais do Fundamental (frases curtas, exemplos do dia a dia)',
       finais: 'alunos dos anos finais do Fundamental', medio: 'alunos do Ensino Médio (pode usar termos técnicos, explicados)' }[etapa] || 'alunos do Ensino Fundamental';
     // imagem do quadro (circule e pintor): JPEG ou PNG em base64, até ~1,5 MB
     const img = d.imagem && typeof d.imagem === 'object' ? { mime: /^image\/(png|jpeg)$/.test(d.imagem.mime) ? d.imagem.mime : '', dados: typeof d.imagem.dados === 'string' ? d.imagem.dados : '' } : null;
-    if ((modo === 'circule' || modo === 'pintor' || modo === 'limpo') && (!img || !img.mime || img.dados.length < 200 || img.dados.length > 2_000_000 || !/^[A-Za-z0-9+/=]+$/.test(img.dados.slice(0, 400))))
+    const eqTexto = modo === 'circule' && d.pedido === 'equacao' ? txt(d.equacao, 300) : '';   // equação já lida e confirmada pelo professor
+    if ((modo === 'circule' && !eqTexto || modo === 'pintor' || modo === 'limpo' || modo === 'equacao_ler') && (!img || !img.mime || img.dados.length < 200 || img.dados.length > 2_000_000 || !/^[A-Za-z0-9+/=]+$/.test(img.dados.slice(0, 400))))
       throw new HttpsError('invalid-argument', modo === 'limpo' ? 'Não deu para ler o que foi selecionado. Selecione de novo.' : 'Não deu para ler o pedaço do quadro. Circule de novo.');
     // Passar a limpo (nov/2026): a letra à mão selecionada vira texto digitado e organizado. Modelo leve, SEM crédito (a NEWPC absorve,
     // ~R$ 0,002 por uso), com limite diário por professor; o uso e o custo aparecem no painel de IA como "lousa_limpo".
+    // Resolver equação, passo 1 (nov/2026): só LÊ a equação escrita à mão (modelo leve, grátis, limite diário) para o professor
+    // confirmar ou corrigir antes de resolver; se a letra der dúvida, devolve as leituras possíveis.
+    if (modo === 'equacao_ler') {
+      const a = acessoIA('lousa_ia', ctx.ia);
+      if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso('lousa_ia', a.motivo));
+      const lim = Math.max(1, Number(ctx.cfgRaw && ctx.cfgRaw.limpo_dia) || 100), dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+      const limRef = db.doc(`ia_limite_diario/${uid}_${dia}`);
+      const n = await db.runTransaction(async t => { const x = await t.get(limRef), v = (x.exists ? x.data().equacao || 0 : 0) + 1;
+        if (v > lim && !ctx.admin) return -1; t.set(limRef, { uid, dia, equacao: v, em: FieldValue.serverTimestamp() }, { merge: true }); return v; });
+      if (n < 0) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de leituras de equação de hoje. Amanhã libera de novo.');
+      const ESQ = { type: 'OBJECT', properties: { legivel: { type: 'BOOLEAN' }, equacao: { type: 'STRING', description: 'A equação ou conta exatamente como escrita, em texto simples: use x, y, ^ para potência, sqrt() para raiz, / para fração, * para multiplicação só quando estiver escrito' },
+        duvida: { type: 'BOOLEAN', description: 'true se algum símbolo ficou ambíguo (ex.: 1 ou 7, x ou ×, 5 ou s, z ou 2)' }, alternativas: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Outras leituras possíveis, só se duvida = true; no máximo 3' },
+        motivo: { type: 'STRING', description: 'Se duvida, qual símbolo ficou ambíguo, em até 12 palavras' } }, required: ['legivel', 'equacao', 'duvida'] };
+      let r = null, erro = null, j = null;
+      try {
+        r = await gemini(chave, [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto], { systemInstruction: { parts: [{ text: 'Você lê equações e contas de matemática escritas à mão numa lousa digital escolar. Transcreva fielmente o que está escrito, sem resolver e sem corrigir. Se algum símbolo puder ser lido de mais de um jeito, marque duvida = true e dê as outras leituras. Responda só no JSON pedido.' }] },
+          contents: [{ role: 'user', parts: [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: 'Leia a equação.' }] }],
+          generationConfig: { responseMimeType: 'application/json', responseSchema: ESQ, maxOutputTokens: 800 } });
+        try { j = JSON.parse(r.partes.filter(p => !p.thought).map(p => p.text || '').join('')); } catch (e) { j = null; }
+      } catch (e) { erro = e; }
+      await registrarConsumo(db, ctx, erro || !j ? null : { acao: 'lousa_equacao_ler' }, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida });
+      if (erro || !j) { await limRef.set({ equacao: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+        throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo.'); }
+      if (!j.legivel || !txt(j.equacao, 300)) throw new HttpsError('failed-precondition', 'Não consegui ler uma equação no que foi circulado. Escreva maior e circule de novo.');
+      return { equacao: txt(j.equacao, 300), duvida: !!j.duvida, alternativas: (Array.isArray(j.alternativas) ? j.alternativas : []).map(x => txt(x, 300)).filter(Boolean).slice(0, 3), motivo: txt(j.motivo, 120) };
+    }
     if (modo === 'limpo') {
       const a = acessoIA('lousa_limpo', ctx.ia);
       if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso('lousa_limpo', a.motivo));
@@ -1121,7 +1148,7 @@ async function tratarPortalIa(req) {
         const acoes = { equacao: 'O que está circulado é uma equação ou conta de matemática escrita à mão. Leia com cuidado, resolva e confira substituindo o resultado. No título, escreva a equação lida; na resposta, comece pelo resultado final (ex.: "x = 4") e depois explique em linguagem simples para os alunos como chegou nele; nos passos, uma operação por passo, mostrando a conta (ex.: "2x + 3 = 11 → 2x = 8"); se a leitura da letra for duvidosa, diga qual leitura usou; se não tiver solução real, explique o porquê', explicar: 'Explique o que está circulado', resolver: 'Resolva o que está circulado, passo a passo, conferindo a conta', traduzir: 'Traduza o que está circulado para o português (ou do português para o inglês, se já estiver em português) e explique o sentido', livre: ped || 'Explique o que está circulado' };
         const acao = acoes[d.pedido] || acoes.explicar;
         sistema = base + ' A imagem é um pedaço do quadro que o professor circulou com a caneta (pode ter letra à mão, conta, figura ou texto). ' + acao + '. Título de até 6 palavras; resposta de até 70 palavras; passos curtos (até 6) quando for conta ou processo; uma dica curta para o professor. Se não der para entender a imagem, diga isso na resposta com gentileza. Responda só no JSON pedido.';
-        partes = [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: acao + (d.pedido === 'livre' && ped ? '' : '.') }];
+        partes = eqTexto ? [{ text: acao + '. A equação, já conferida pelo professor, é: ' + eqTexto }] : [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: acao + (d.pedido === 'livre' && ped ? '' : '.') }];
       }
     }
     let r = null, erro = null, j = null;
