@@ -109,6 +109,21 @@
   .acoes-perg{display:flex;gap:10px;justify-content:flex-end;margin-top:clamp(8px,1.6vh,20px);flex-wrap:wrap}
   .acoes-perg .bt{font-size:clamp(15px,1.6vw,20px);min-height:50px;padding:10px 22px}
   .fim h2{text-align:center}
+  /* nov/2026: a pergunta cabe inteira na tela, sem rolar (lousa e TV): tudo medido pela altura e contagem compacta */
+  #ov{padding:clamp(8px,2vh,24px) clamp(8px,2vw,28px)}
+  .perg{max-height:calc(100% - 4px);overflow:auto;display:flex;flex-direction:column;padding:clamp(10px,2.2vh,28px) clamp(12px,2.2vw,30px)}
+  .perg h2{font-size:clamp(16px,min(2.7vw,4.2vh),40px);margin-bottom:clamp(6px,1.4vh,16px)}
+  .perg .rot{margin-bottom:clamp(4px,1vh,10px);padding:3px 10px}
+  .ops{gap:clamp(5px,1vh,12px)}
+  .op{padding:clamp(6px,1.2vh,16px) clamp(10px,1.3vw,16px);font-size:clamp(14px,min(1.9vw,3vh),28px);line-height:1.2}
+  .op .l{width:clamp(26px,4.6vh,44px);height:clamp(26px,4.6vh,44px)}
+  .conta{margin:0 0 clamp(6px,1.2vh,12px);gap:10px}
+  .conta-anel{width:clamp(40px,6vh,64px);height:clamp(40px,6vh,64px);font-size:clamp(18px,2.8vh,30px)}
+  .conta-txt{font-size:clamp(14px,2.1vh,22px)}
+  .expl{padding:6px 12px;font-size:clamp(13px,min(1.5vw,2.4vh),22px)}
+  .acoes-perg{margin-top:clamp(6px,1.2vh,16px)}
+  .acoes-perg .bt{min-height:clamp(38px,6vh,50px);padding:6px 18px}
+  @media (max-height:520px){ .perg h2{font-size:clamp(14px,3.8vh,24px)} .op{font-size:clamp(13px,2.8vh,20px)} }
   /* avisar problema numa pergunta */
   .aviso-bt{margin-right:auto;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;padding:6px 4px;text-decoration:underline}
   .aviso-form{background:#fff8ec;border:1px solid #f3dcb0;border-radius:12px;padding:12px 14px;margin-top:10px;display:grid;gap:8px;font-size:15px}
@@ -325,7 +340,7 @@ async function telaVideo(id, editar){
   $("area").innerHTML = '<div class="layout'+(st.editar ? " editando" : "")+'"><div><div id="palco"><div id="yt"></div><div id="ov" hidden></div></div>'+
     '<div class="barra"><button type="button" class="bt bt-claro" data-action="tocar" id="btTocar" aria-label="Tocar ou pausar">▶</button><div class="trilha" id="trilha"><div class="fundo"></div><div class="feito" id="feito"></div></div>'+
     '<span class="tempo" id="tempo">0:00 / '+mmss(v.duracao_seg)+'</span><span class="placar" id="placar" hidden></span>'+
-    (st.editar ? '' : '<label class="pensar" title="Tempo para a turma pensar antes de liberar as respostas">⏳ Pensar <select id="selPensar" aria-label="Tempo para pensar">'+[[0,"sem"],[10,"10 s"],[15,"15 s"],[20,"20 s"],[30,"30 s"]].map(([n, t]) => '<option value="'+n+'"'+(n === tempoPensar() ? " selected" : "")+'>'+t+'</option>').join("")+'</select></label>')+'<button type="button" class="bt bt-azul" data-action="tela-cheia">⛶ Tela cheia</button></div></div>'+
+    (st.editar ? '' : '<label class="pensar" title="Tempo para a turma pensar antes de liberar as respostas">⏳ Pensar <select id="selPensar" aria-label="Tempo para pensar">'+[[0,"sem"],[5,"5 s"],[10,"10 s"],[15,"15 s"],[20,"20 s"],[30,"30 s"]].map(([n, t]) => '<option value="'+n+'"'+(n === tempoPensar() ? " selected" : "")+'>'+t+'</option>').join("")+'</select></label>')+'<button type="button" class="bt bt-azul" data-action="tela-cheia">⛶ Tela cheia</button></div></div>'+
     (st.editar ? '<div id="painel"></div>' : '')+'</div>';
   marcas();
   if(st.editar) desenharPainel();
@@ -385,12 +400,21 @@ function abrirPergunta(i){
     '<button type="button" class="bt bt-verde" data-action="continuar" id="btCont">Continuar o vídeo ▶</button></div></div>';
   ov.innerHTML = h; ov.hidden = false;
   ov.querySelector(".perg").scrollTop = 0;
+  caberPergunta();
   // tempo para pensar: as alternativas aparecem, mas só liberam depois da contagem (ou no "Liberar agora")
   const seg = x.tipo === "nota" ? 0 : tempoPensar();
   if(seg > 0) iniciarContagem(seg, x);
   else { const c = ov.querySelector(".op") || $("btCont"); if(c) c.focus({ preventScroll:true }); }
 }
-function tempoPensar(){ let n = 10; try{ const v = localStorage.getItem("pde_video_pensar"); if(v !== null) n = Number(v); }catch(e){} return [0,10,15,20,30].includes(n) ? n : 10; }
+// nov/2026: encolhe a pergunta até caber inteira na tela, sem barra de rolagem (texto longo, tela baixa)
+function caberPergunta(){
+  const p = document.querySelector("#ov .perg"); if(!p) return;
+  let k = 1; p.style.zoom = 1;
+  while(p.scrollHeight > p.clientHeight + 2 && k > .62){ k -= .06; p.style.zoom = k; }
+}
+window.addEventListener("resize", () => { clearTimeout(caberPergunta.t); caberPergunta.t = setTimeout(caberPergunta, 120); });
+document.addEventListener("fullscreenchange", () => setTimeout(caberPergunta, 150));
+function tempoPensar(){ let n = 5; try{ const v = localStorage.getItem("pde_video_pensar2"); if(v !== null) n = Number(v); }catch(e){} return [0,5,10,15,20,30].includes(n) ? n : 5; }   // nov/2026: padrão 5 s
 function iniciarContagem(seg, x){
   const ov = $("ov"), ops = [...ov.querySelectorAll(".op")], esp = ov.querySelector('[data-action="ver-esperada"]');
   ops.forEach(o => o.disabled = true); if(esp) esp.disabled = true;
@@ -406,6 +430,7 @@ function liberar(){
   const p = ov.querySelector(".perg"); if(!p) return; p.classList.remove("pensando");
   ov.querySelectorAll(".op, [data-action='ver-esperada']").forEach(o => { if(!o.classList.contains("certa") && !o.classList.contains("errada")) o.disabled = false; });
   const f = ov.querySelector(".op") || $("btCont"); if(f) f.focus({ preventScroll:true });
+  caberPergunta();
 }
 function responder(k){
   const i = st.aberta, x = st.v.interacoes[i]; if(i < 0) return;
@@ -413,7 +438,7 @@ function responder(k){
   ops.forEach((o, j) => { o.disabled = true; if(j === x.correta) o.classList.add("certa"); else if(j === k) o.classList.add("errada"); });
   const certo = k === x.correta; st.respondidas++; if(certo) st.acertos++;
   $("placar").hidden = false; $("placar").textContent = "✅ " + st.acertos + " de " + st.respondidas;
-  $("expl").innerHTML = '<div class="expl"><b>'+(certo ? "Isso mesmo! " : "Resposta certa: " + esc(x.tipo === "vf" ? x.opcoes[x.correta] : LETRAS[x.correta] + ") " + x.opcoes[x.correta]) + ". ")+'</b>'+esc(x.explicacao || "")+'</div>';
+  $("expl").innerHTML = '<div class="expl"><b>'+(certo ? "Isso mesmo! " : "Resposta certa: " + esc(x.tipo === "vf" ? x.opcoes[x.correta] : LETRAS[x.correta] + ") " + x.opcoes[x.correta]) + ". ")+'</b>'+esc(x.explicacao || "")+'</div>'; setTimeout(caberPergunta, 30);
   $("btCont").focus({ preventScroll:true });
 }
 // professor avisa problema numa pergunta do catálogo (a equipe do Portal revisa)
@@ -523,7 +548,7 @@ document.addEventListener("click", e => {
   else if(a === "avisar-enviar") enviarAviso(b);
   else if(a === "avisar-fechar"){ const bx = $("avisoBox"); if(bx) bx.innerHTML = ""; }
   else if(a === "aviso-resolver") resolverAviso(b);
-  else if(a === "ver-esperada"){ const x = st.v.interacoes[st.aberta]; $("expl").innerHTML = '<div class="expl"><b>Resposta esperada: </b>'+esc(x.explicacao)+'</div>'; b.remove(); }
+  else if(a === "ver-esperada"){ const x = st.v.interacoes[st.aberta]; setTimeout(caberPergunta, 30); $("expl").innerHTML = '<div class="expl"><b>Resposta esperada: </b>'+esc(x.explicacao)+'</div>'; b.remove(); }
   else if(a === "de-novo") deNovo();
   else if(a === "modo" || a === "apresentar"){ if(st.sujo && !confirm("Há mudanças não salvas. Sair da edição mesmo assim?")) return; location.href = "/video/?id=" + encodeURIComponent(st.id) + (a === "modo" && !st.editar ? "&editar" : ""); }
   else if(a === "agora"){ if(!st.pronto) return; const i = Number(b.dataset.i); st.v.interacoes[i].t = Math.round(st.player.getCurrentTime()); st.sujo = true; st.sel = i; ordenar(); toast("Pausa ajustada para " + mmss(st.v.interacoes[st.sel].t)); }
@@ -534,7 +559,7 @@ document.addEventListener("click", e => {
     chamar({ acao:"excluir", id:st.id }).then(() => { st.sujo = false; location.href = "/video/"; }).catch(e => toast(msgErro(e), true)); }
 });
 document.addEventListener("input", e => { const el = e.target.closest("[data-ed]"); if(el) editar(el); });
-document.addEventListener("change", e => { if(e.target.id === "selPensar"){ try{ localStorage.setItem("pde_video_pensar", e.target.value); }catch(er){} e.target.blur(); } });
+document.addEventListener("change", e => { if(e.target.id === "selPensar"){ try{ localStorage.setItem("pde_video_pensar2", e.target.value); }catch(er){} e.target.blur(); } });
 document.addEventListener("change", e => { const el = e.target.closest("[data-ed]"); if(el){ editar(el); if(el.dataset.ed === "t"){ const t = lerTempo(el.value); if(isNaN(t)) toast("Tempo no formato minuto:segundo, ex.: 1:25", true); else ordenar(); } } });
 // teclado na lousa ou no controle: espaço/enter continua; 1-4 ou A-D responde
 document.addEventListener("keydown", e => {

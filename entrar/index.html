@@ -974,6 +974,18 @@
   .vd-form textarea{ font:inherit;font-size:13.5px;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;resize:vertical }
   .vd-player{ position:relative;aspect-ratio:16/9;background:#000 }
   .vd-player iframe{ position:absolute;inset:0;width:100%;height:100%;border:0 }
+  /* nov/2026: controles do Portal sempre à vista, também em tela cheia (na lousa o professor não se perde para fechar) */
+  .vd-tela{ position:relative;background:#000;display:flex;flex-direction:column }
+  .vd-tela .vd-player{ flex:1 1 auto }
+  .vd-bar{ display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px;background:#0b1d33 }
+  .vd-bar button{ min-width:64px;min-height:52px;border-radius:14px;border:0;background:rgba(255,255,255,.12);color:#fff;font:700 18px/1 inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px }
+  .vd-bar button:hover{ background:rgba(255,255,255,.22) }
+  .vd-bar button.vd-pp{ background:#8DC63F;color:#0b1d33;min-width:92px }
+  .vd-bar button.vd-x{ background:#C2362C }
+  .vd-tela:fullscreen{ width:100vw;height:100vh }
+  .vd-tela:fullscreen .vd-player{ aspect-ratio:auto;height:auto }
+  .vd-tela:fullscreen .vd-bar{ padding:14px }
+  .vd-tela:fullscreen .vd-bar button{ min-height:64px;min-width:80px;font-size:22px }
   .vd-info{ padding:16px 20px 20px;display:flex;flex-direction:column;gap:10px }
   .vd-info h3{ font-size:18px;color:var(--ink) }
   .vd-info p{ font-size:14px;color:var(--muted) }
@@ -8602,6 +8614,7 @@
     else if(acao === "ntpop-ler"){ fecharPopupNoticia(); abrirNoticia(el.dataset.id); }
     else if(acao === "vd-fechar"){ fecharVideo(); }
     else if(acao === "vd-tela"){ telaCheiaVideo(); }
+    else if(acao === "vd-ctl"){ controleVideo(el.dataset.arg); }
     else if(acao === "vd-serie"){ vds.serie = el.dataset.serie; const s = $("vdSerie"); if(s) s.value = vds.serie; desenharVideos(); }
     else if(acao === "vdadm-buscar"){ buscarDadosVideo(); }
     else if(acao === "vdadm-salvar"){ salvarVideo(false); }
@@ -10065,7 +10078,12 @@
     const bg = document.createElement("div");
     bg.className = "modal-bg"; bg.id = "modalVideo";
     bg.innerHTML = '<div class="modal vd" role="dialog" aria-modal="true" aria-labelledby="vdTit">'+
-      '<div class="vd-player" id="vdPlayer"></div>'+
+      '<div class="vd-tela" id="vdTela"><div class="vd-player" id="vdPlayer"></div>'+
+      '<div class="vd-bar" role="toolbar" aria-label="Controles do vídeo"><button type="button" data-action="vd-ctl" data-arg="-10" title="Voltar 10 segundos">⏪ 10s</button>'+
+      '<button type="button" class="vd-pp" data-action="vd-ctl" data-arg="pp" id="vdPP" title="Tocar ou pausar">⏸ Pausar</button>'+
+      '<button type="button" data-action="vd-ctl" data-arg="10" title="Avançar 10 segundos">10s ⏩</button>'+
+      '<button type="button" data-action="vd-tela" id="vdTC" title="Tela cheia">⛶ Tela cheia</button>'+
+      '<button type="button" class="vd-x" data-action="vd-fechar" title="Fechar o vídeo">✕ Fechar</button></div></div>'+
       '<div class="vd-info"><h3 id="vdTit"></h3><div id="vdSelos"></div><p id="vdDesc"></p><div class="vd-reacao" id="vdReacao"></div>'+
       '<div class="imp-acoes"><button type="button" class="btn btn-primary" id="vdInter" data-action="vd-int-modal" hidden>\u{1F3AC} Versão interativa</button><button type="button" class="btn btn-primary" data-action="vd-tela">Tela cheia (lousa)</button>'+
       '<button type="button" class="btn btn-ghost" data-action="vd-fechar">Fechar</button></div></div></div>';
@@ -10076,7 +10094,10 @@
     const v = vds.itens.find(x => x.id === id) || vdAdm.itens.find(x => x.id === id); if(!v) return;
     montarModalVideo();
     const fr = document.createElement("iframe");
-    fr.src = "https://www.youtube-nocookie.com/embed/"+encodeURIComponent(v.youtube_id)+"?autoplay=1&rel=0&modestbranding=1&playsinline=1";
+    // fs=0: a tela cheia é a do Portal (com os botões); enablejsapi: os botões do Portal comandam o vídeo
+    fr.src = "https://www.youtube-nocookie.com/embed/"+encodeURIComponent(v.youtube_id)+"?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=0&enablejsapi=1&origin="+encodeURIComponent(location.origin);
+    vdCtl.t = 0; vdCtl.tocando = true; vdCtl.fr = fr; pintarPP();
+    fr.addEventListener("load", () => { try{ fr.contentWindow.postMessage(JSON.stringify({ event:"listening", id:"vd" }), "*"); }catch(e){} });
     fr.title = v.titulo || "Vídeo";
     fr.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
     fr.allowFullscreen = true;
@@ -13262,6 +13283,8 @@
 
   function fecharVideo(){
     const m = $("modalVideo"); if(!m) return;
+    if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    vdCtl.fr = null;
     $("vdPlayer").innerHTML = "";          // para o video
     m.classList.remove("show");
   }
@@ -13280,11 +13303,29 @@
   }
   function fecharVideoInterativo(){ const m = $("modalVidInt"); if(!m) return; $("vdiQuadro").innerHTML = ""; m.classList.remove("show"); }
   document.addEventListener("keydown", e => { if(e.key === "Escape" && $("modalVidInt") && $("modalVidInt").classList.contains("show")) fecharVideoInterativo(); });
-  function telaCheiaVideo(){
-    const p = $("vdPlayer"); if(!p) return;
-    const f = p.requestFullscreen || p.webkitRequestFullscreen;
-    if(f) f.call(p); else toast("Use o botão de tela cheia do próprio vídeo.");
+  // controles do Portal para o vídeo do YouTube (mensagens da API do player; sem biblioteca extra)
+  const vdCtl = { fr:null, t:0, tocando:true };
+  window.addEventListener("message", e => {
+    if(!/youtube(-nocookie)?\.com$/.test(new URL(e.origin || "http://x").hostname) || !vdCtl.fr || e.source !== vdCtl.fr.contentWindow) return;
+    let d = e.data; try{ if(typeof d === "string") d = JSON.parse(d); }catch(er){ return; }
+    const i = d && d.info; if(!i) return;
+    if(typeof i.currentTime === "number") vdCtl.t = i.currentTime;
+    if(typeof i.playerState === "number"){ vdCtl.tocando = i.playerState === 1 || i.playerState === 3; pintarPP(); }
+  });
+  function vdCmd(func, args){ try{ vdCtl.fr.contentWindow.postMessage(JSON.stringify({ event:"command", func, args:args || [] }), "*"); }catch(e){} }
+  function pintarPP(){ const b = $("vdPP"); if(b) b.textContent = vdCtl.tocando ? "⏸ Pausar" : "▶ Tocar"; }
+  function controleVideo(arg){
+    if(!vdCtl.fr) return;
+    if(arg === "pp"){ vdCmd(vdCtl.tocando ? "pauseVideo" : "playVideo"); vdCtl.tocando = !vdCtl.tocando; pintarPP(); return; }
+    const t = Math.max(0, vdCtl.t + Number(arg)); vdCtl.t = t; vdCmd("seekTo", [t, true]);
   }
+  function telaCheiaVideo(){
+    const p = $("vdTela"); if(!p) return;
+    if(document.fullscreenElement){ document.exitFullscreen().catch(() => {}); return; }
+    const f = p.requestFullscreen || p.webkitRequestFullscreen;
+    if(f) f.call(p); else toast("Este navegador não deixa abrir em tela cheia.");
+  }
+  document.addEventListener("fullscreenchange", () => { const b = $("vdTC"); if(b) b.textContent = document.fullscreenElement ? "⤢ Sair da tela cheia" : "⛶ Tela cheia"; });
   document.addEventListener("keydown", (e) => { if(e.key === "Escape" && $("modalVideo") && $("modalVideo").classList.contains("show")) fecharVideo(); });
   function registrarVideo(id){
     const u = usuarioAtual; if(!u || !auth.currentUser) return;
