@@ -169,7 +169,7 @@ export const pareceres = onCall({ region: REGIAO, secrets: [GEMINI, SMTP_SENHA],
     const sv = {}; salvos.forEach((s, i) => { if (s.exists) { const x = s.data(); sv[ids[i]] = { texto: x.texto || '', status: x.status || 'rascunho', obs: x.obs || [], livre: x.livre || '', aprovado_por_nome: x.aprovado_por_nome || '', editado: !!x.editado,
       com_ia: !!x.gerado_em, aprovado_em: ms(x.aprovado_em) }; } });
     return { periodo, periodos: per.n, obs: OBS, turma,
-      alunos: alunos.slice(0, 80).map(a => ({ id: a.id, nome: a.nome, apoio: a.apoio, ...dados[a.id], salvo: sv[a.id] || null })) };
+      alunos: alunos.slice(0, 80).map(a => ({ id: a.id, nome: a.nome, sexo: a.sexo, apoio: a.apoio, ...dados[a.id], salvo: sv[a.id] || null })) };
   }
 
   const aid = String(d.aluno_id || '');
