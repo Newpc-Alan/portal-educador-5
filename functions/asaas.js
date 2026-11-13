@@ -21,7 +21,11 @@ export const LICENCAS = {
   // creditos_mes: créditos de IA que entram a cada mês pago (decisão de 12/11/2026: igual à franquia das redes);
   // valem até 1 mês depois do fim da licença (a sobra passa 1 mês, regra do assinante avulso)
   'intermediario-mensal': { nome: 'Licença Intermediário · 1 mês', plano: 'intermediario', meses: 1, valor: 59.9, creditos_mes: 60 },
-  'completo-mensal': { nome: 'Licença Completo · 1 mês', plano: 'completo', meses: 1, valor: 99.9, creditos_mes: 120 }
+  'completo-mensal': { nome: 'Licença Completo · 1 mês', plano: 'completo', meses: 1, valor: 99.9, creditos_mes: 120 },
+  // 12 meses com 25% de desconto (decisão de 13/11/2026): à vista por Pix, boleto ou cartão, ou em até 12x no cartão (parcelas: 12).
+  // Os créditos dos 12 meses entram juntos no pagamento e valem até 1 mês depois do fim da licença.
+  'intermediario-anual': { nome: 'Licença Intermediário · 12 meses', plano: 'intermediario', meses: 12, valor: 539, creditos_mes: 60, parcelas: 12 },
+  'completo-anual': { nome: 'Licença Completo · 12 meses', plano: 'completo', meses: 12, valor: 899, creditos_mes: 120, parcelas: 12 }
 };
 
 const txt = (v, n) => String(v ?? '').trim().slice(0, n);
@@ -86,7 +90,7 @@ export const pagamentos = onCall({ region: REGIAO, secrets: [ASAAS_CHAVE], timeo
     const ped = await db.collection('fin_pedidos').where('uid', '==', uid).orderBy('criado_em', 'desc').limit(10).get().catch(() => ({ docs: [] }));
     return {
       ativo, ambiente: ambienteDaChave(ASAAS_CHAVE.value()),
-      licencas: u.licenca_tipo === 'institucional' ? [] : Object.entries(LICENCAS).map(([id, l]) => ({ id, nome: l.nome, valor: l.valor, plano: l.plano })),
+      licencas: u.licenca_tipo === 'institucional' ? [] : Object.entries(LICENCAS).map(([id, l]) => ({ id, nome: l.nome, valor: l.valor, plano: l.plano, meses: l.meses, parcelas: l.parcelas || 1, mensal: l.meses > 1 ? Object.values(LICENCAS).find(x => x.plano === l.plano && x.meses === 1)?.valor || 0 : 0 })),
       creditos: (cfgCreditos(cfg).pacotes_professor || []).map(p => ({ id: 'credito:' + p.id, nome: p.nome, creditos: p.creditos, valor: p.valor })),
       temCpf: !!(cli && cli.asaas_id), cpf: cli ? cli.cpf_mascarado || '' : '',
       pedidos: ped.docs.map(x => { const p = x.data(); return { id: x.id, item: p.item, valor: p.valor, status: p.status, link: p.status === 'aguardando' ? p.link : '', em: ms(p.criado_em) }; })
@@ -119,11 +123,15 @@ export const pagamentos = onCall({ region: REGIAO, secrets: [ASAAS_CHAVE], timeo
     const venc = new Date(Date.now() - 4 * 3600e3 + 3 * 864e5).toISOString().slice(0, 10);
     let pg;
     try {
-      pg = await asaas('/payments', { method: 'POST', body: { customer: cli.asaas_id, billingType: 'UNDEFINED', value: item.valor, dueDate: venc,
-        description: 'Portal do Educador · ' + item.nome, externalReference: pedRef.id } });
+      // parcelado (só nos planos de 12 meses): cobrança no cartão em N parcelas; senão o professor escolhe Pix, boleto ou cartão à vista
+      const parc = item.tipo === 'licenca' && d.parcelado === true && (item.parcelas || 1) > 1 ? item.parcelas : 0;
+      const corpo = parc ? { customer: cli.asaas_id, billingType: 'CREDIT_CARD', installmentCount: parc, totalValue: item.valor, dueDate: venc }
+        : { customer: cli.asaas_id, billingType: 'UNDEFINED', value: item.valor, dueDate: venc };
+      pg = await asaas('/payments', { method: 'POST', body: { ...corpo, description: 'Portal do Educador · ' + item.nome + (parc ? ' (' + parc + 'x no cartão)' : ''), externalReference: pedRef.id } });
+      if (parc) pg._parc = parc;
     } catch (e) { console.error('asaas cobrança', e.message); throw new HttpsError('unavailable', 'Não consegui gerar a cobrança agora: ' + e.message); }
     await pedRef.set({ uid, email: txt(u.email, 120), cliente: txt(u.nome || u.email, 120), tipo: item.tipo, produto: item.id, item: item.nome, valor: item.valor,
-      plano: item.plano || '', meses: item.meses || 0, creditos: item.creditos || 0, status: 'aguardando', link: pg.invoiceUrl || '', asaas_id: pg.id,
+      plano: item.plano || '', meses: item.meses || 0, creditos: item.creditos || 0, parcelas: pg._parc || 1, status: 'aguardando', link: pg.invoiceUrl || '', asaas_id: pg.id,
       vencimento: venc, ambiente: ambienteDaChave(ASAAS_CHAVE.value()), criado_em: FieldValue.serverTimestamp() });
     await db.collection('fin_auditoria').add({ acao: 'cobranca_criada', autor: 'sistema', detalhe: `Cobrança gerada: ${item.nome} · R$ ${item.valor.toFixed(2)} · ${txt(u.nome || u.email, 80)}`, em: FieldValue.serverTimestamp() });
     return { id: pedRef.id, link: pg.invoiceUrl };
@@ -143,7 +151,7 @@ async function liberar(db, pedRef, pag) {
     if (p.tipo === 'licenca') {
       const agora = Date.now(), de = Math.max(agora, ms(u.licenca_tipo === 'avulsa' ? u.licenca_fim : 0));
       const fim = new Date(de); fim.setMonth(fim.getMonth() + (p.meses || 1));
-      t.update(uRef, { licenca_tipo: 'avulsa', plano_avulso: p.plano, licenca_plano: 'mensal', licenca_fim: Timestamp.fromDate(fim),
+      t.update(uRef, { licenca_tipo: 'avulsa', plano_avulso: p.plano, licenca_plano: (p.meses || 1) >= 12 ? 'anual' : 'mensal', licenca_fim: Timestamp.fromDate(fim),
         ...(u.licenca_tipo === 'avulsa' && ms(u.licenca_fim) > agora ? {} : { licenca_inicio: new Date(agora - 4 * 3600e3).toISOString().slice(0, 10) }),
         licenca_valor: p.valor.toFixed(2).replace('.', ','), licenca_ref: 'Asaas ' + (pag.id || ''), licenca_alterada_em: FieldValue.serverTimestamp(), licenca_alterada_por: 'asaas' });
       detalhe = `licença ${p.plano} até ${fim.toLocaleDateString('pt-BR')}`;
@@ -166,8 +174,11 @@ async function liberar(db, pedRef, pag) {
       t.set(cRef.collection('movimentos').doc(), { tipo: 'recarga', creditos: p.creditos, validade: Timestamp.fromDate(validade), obs: 'Compra pelo Asaas', pedido_id: pedRef.id, por: 'asaas', em: FieldValue.serverTimestamp() });
       detalhe = `${p.creditos} créditos`;
     }
-    const bruto = Number(pag.value || p.valor) || 0, liquido = Number(pag.netValue || bruto) || 0;
-    const forma = { PIX: 'Pix', BOLETO: 'Boleto', CREDIT_CARD: 'Cartão de crédito', DEBIT_CARD: 'Cartão de débito' }[pag.billingType] || pag.billingType || '';
+    // parcelado: o Asaas avisa parcela a parcela (mesmo pedido); vale o total do pedido, e o líquido sai da proporção da parcela
+    const parcelado = !!pag.installment || (p.parcelas || 1) > 1;
+    const bruto = parcelado ? Number(p.valor) || 0 : Number(pag.value || p.valor) || 0;
+    const liquido = parcelado ? +(bruto * ((Number(pag.netValue) || 0) / (Number(pag.value) || 1) || 1)).toFixed(2) : Number(pag.netValue || bruto) || 0;
+    const forma = ({ PIX: 'Pix', BOLETO: 'Boleto', CREDIT_CARD: 'Cartão de crédito', DEBIT_CARD: 'Cartão de débito' }[pag.billingType] || pag.billingType || '') + (parcelado ? ' em ' + (p.parcelas || '') + 'x' : '');
     t.update(pedRef, { status: 'pago', pago_em: FieldValue.serverTimestamp(), forma, liberado: detalhe });
     t.set(db.doc(`fin_pagamentos/${pedRef.id}`), { pedido_id: pedRef.id, asaas_id: pag.id || '', uid: p.uid, cliente: p.cliente, item: p.item, forma, bruto, taxa: Math.max(0, +(bruto - liquido).toFixed(2)), liquido,
       status: 'confirmado', mes: new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 7), ambiente: p.ambiente || '', em: FieldValue.serverTimestamp() });
@@ -204,7 +215,8 @@ ${linha('Recebemos de', String(r.p.cliente || '').replace(/[<>]/g, ''))}${linha(
         await emailAlerta(AVISAR, `Venda confirmada: ${r.p.item}`, `<p><b>${r.p.cliente}</b> pagou <b>${r.p.item}</b> por ${r.forma}: ${valor}.</p><p>Liberado: ${r.detalhe}. Recibo enviado automaticamente ao cliente (venda avulsa, pessoa física).</p>`).catch(e => console.warn('asaas e-mail venda', e.message));
       }
     } else if (ev === 'PAYMENT_OVERDUE') {
-      await pedRef.set({ status: 'vencido', atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
+      const s0 = await pedRef.get();   // parcela atrasada de um pedido já pago não volta o pedido para vencido
+      if (s0.exists && s0.data().status !== 'pago') await pedRef.set({ status: 'vencido', atualizado_em: FieldValue.serverTimestamp() }, { merge: true });
     } else if (['PAYMENT_REFUNDED', 'PAYMENT_CHARGEBACK_REQUESTED', 'PAYMENT_DELETED'].includes(ev)) {
       const s = await pedRef.get();
       if (s.exists) {
