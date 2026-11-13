@@ -78,10 +78,9 @@ textarea.inp{min-height:130px;resize:vertical;line-height:1.45}
 .logo-box{display:flex;align-items:center;gap:12px;margin-top:6px;flex-wrap:wrap}
 .logo-box img{max-width:90px;max-height:60px;object-fit:contain;border:1px solid var(--line);border-radius:8px;padding:4px;background:#fff}
 .trava{font-size:.8rem;font-weight:700;color:#6b4500;background:#fff3d6;border-radius:8px;padding:6px 10px}
-.prem-ed{display:grid;gap:8px;margin-top:8px}
-.prem-ed details{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
-.prem-ed summary{font-weight:700;cursor:pointer}
-.prem-ed .inp{margin-top:6px}
+.txt-cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.txt-cab .h2{flex:1 1 auto;margin:0}
+.prem-ed{margin-top:10px;border-top:1px solid var(--line);padding-top:6px}
 .previa-col{position:sticky;top:12px}
 .palco{background:#e7edf3;border-radius:16px;padding:14px;overflow:hidden}
 .palco-in{position:relative;width:100%;aspect-ratio:297/210}
@@ -231,9 +230,10 @@ textarea.inp{min-height:130px;resize:vertical;line-height:1.45}
       </section>
 
       <section class="card">
-        <h2 class="h2"><span class="n">3</span>Textos dos certificados</h2>
-        <p class="sub">Os textos já vêm prontos. Ajuste o título e a frase de qualquer certificado: vale para todos que o recebem. Use {turma}, {ano} e, nas equipes, {evento}.</p>
-        <div class="prem-ed" id="premEd"></div>
+        <div class="txt-cab"><h2 class="h2"><span class="n">3</span>Textos</h2>
+          <button type="button" class="btn btn-gh" data-action="textos" id="btTextos" aria-expanded="false" aria-controls="premEd">✏️ Editar textos</button></div>
+        <p class="sub" style="margin-top:6px">Os textos já vêm prontos. Só abra se quiser mudar o título ou a frase de algum certificado.</p>
+        <div class="prem-ed" id="premEd" hidden></div>
       </section>
     </div>
 
@@ -421,6 +421,7 @@ function desenharLista(){
       '<select class="mais" data-mais="' + i + '" aria-label="Adicionar certificado"><option value="">+ certificado</option>' + opcoesPremio("") + "</select>" +
       (a.info ? '<span class="dado">' + esc(a.info) + "</span>" : "") + "</div></div>")).join("");
   prever();
+  if(!$("premEd").contains(document.activeElement)) desenharTextos();
 }
 
 /* ---------- turmas ---------- */
@@ -572,11 +573,24 @@ const CAMPOS = { cEscola:"escola", cLocal:"local", cAno:"ano", cA1n:"a1n", cA1c:
 function aplicarCfg(){
   Object.entries(CAMPOS).forEach(([id, k]) => { $(id).value = E.cfg[k] || ""; }); $("cCursiva").checked = !!E.cfg.cursiva;
   $("cores").innerHTML = Object.entries(CORES).map(([k, c]) => '<button type="button" class="cor' + (k === E.cfg.cor ? " on" : "") + '" data-action="cor" data-arg="' + k + '" style="background:linear-gradient(135deg,' + c[0] + " 50%," + c[3] + ' 50%)" aria-label="Cor ' + k + '"></button>').join("");
-  $("premEd").innerHTML = ORDEM().map(id => { const P = SET()[id], ov = E.cfg.textos[chT(id)] || {};
-    return '<details><summary>' + esc(gen(ov.t || P.t, "")) + '</summary><label class="campo" style="margin-top:6px">Título<input class="inp" data-ptit="' + id + '" maxlength="40" value="' + esc(ov.t || P.t) + '"></label>' +
-      '<label class="campo" style="margin-top:6px">Frase<textarea class="inp" style="min-height:70px" data-pfra="' + id + '" maxlength="180">' + esc(ov.f || P.f) + "</textarea></label>" +
-      '<p class="sub" style="margin-top:4px">{o|a|o(a)} muda com a pessoa: masculino | feminino | sem informação.</p></details>'; }).join("");
+  E.txtSel = ""; desenharTextos();
   desenharLogo();
+}
+// editor de textos compacto: um certificado por vez, os que estão em uso aparecem primeiro
+function emUso(){ const u = []; paginas().forEach(pg => { if(!u.includes(pg.p)) u.push(pg.p); }); return u; }
+function desenharTextos(){
+  const box = $("premEd"); if(box.hidden) return;
+  const C = SET(), uso = emUso().filter(id => C[id]), outros = ORDEM().filter(id => !uso.includes(id));
+  const pg = paginas()[E.prev];
+  if(!C[E.txtSel]) E.txtSel = (pg && C[pg.p] && pg.p) || uso[0] || PADRAO_MODO[E.modo];
+  const id = E.txtSel, P = C[id], ov = E.cfg.textos[chT(id)] || {}, mudou = !!(ov.t || ov.f);
+  const op = l => l.map(k => '<option value="' + k + '"' + (k === id ? " selected" : "") + ">" + esc(nomeP(k)) + "</option>").join("");
+  box.innerHTML = '<div class="linha"><label class="campo">Qual certificado<select class="sel" id="txtSel">' +
+      (uso.length ? '<optgroup label="Em uso agora">' + op(uso) + "</optgroup>" + (outros.length ? '<optgroup label="Outros">' + op(outros) + "</optgroup>" : "") : op(ORDEM())) + "</select></label></div>" +
+    '<div class="linha"><label class="campo" style="flex:1 1 100%">Título<input class="inp" data-ptit="' + id + '" maxlength="40" value="' + esc(ov.t || P.t) + '"></label></div>' +
+    '<div class="linha"><label class="campo" style="flex:1 1 100%">Frase<textarea class="inp" style="min-height:76px" data-pfra="' + id + '" maxlength="180">' + esc(ov.f || P.f) + "</textarea></label></div>" +
+    '<div class="linha" style="align-items:center"><span class="sub" style="flex:1 1 240px">Vale para todos que recebem este certificado. Pode usar {turma} e {ano}' + (E.modo === "grupo" ? " e {evento}" : "") + "; {o|a|o(a)} muda com a pessoa.</span>" +
+    (mudou ? '<button type="button" class="btn btn-gh" data-action="txt-original">↺ Texto original</button>' : "") + "</div>";
 }
 function lerCfg(){ Object.entries(CAMPOS).forEach(([id, k]) => { E.cfg[k] = $(id).value; }); E.cfg.cursiva = $("cCursiva").checked; guardarCfg(); prever(); }
 function guardarCfg(){ try{ localStorage.setItem("pde_cert_cfg_" + E.uid, JSON.stringify(E.cfg)); }catch(e){} }
@@ -613,6 +627,8 @@ document.addEventListener("click", ev => {
   const el = ev.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, i = +el.dataset.i;
   if(a === "fonte") fonte(el.dataset.arg);
+  else if(a === "textos"){ const b = $("premEd"), abrir = b.hidden; b.hidden = !abrir; el.setAttribute("aria-expanded", abrir ? "true" : "false"); el.textContent = abrir ? "Fechar textos" : "✏️ Editar textos"; if(abrir){ E.txtSel = ""; desenharTextos(); } }
+  else if(a === "txt-original"){ delete E.cfg.textos[chT(E.txtSel)]; guardarCfg(); desenharTextos(); desenharLista(); if(E.modo === "grupo") $("gPremio").innerHTML = opcoesPremio(E.grupo.p); }
   else if(a === "modo") trocarModo(el.dataset.arg);
   else if(a === "gformato"){ E.grupo.cada = el.dataset.arg === "cada"; $("gfUm").classList.toggle("on", !E.grupo.cada); $("gfCada").classList.toggle("on", E.grupo.cada); E.prev = 0; prever(); }
   else if(a === "usar-equipe") usarEquipe();
@@ -631,7 +647,8 @@ document.addEventListener("click", ev => {
 document.addEventListener("change", async ev => {
   const t = ev.target;
   if(t.id === "selTurma") abrirTurma(t.value);
-  else if(t.id === "gPremio"){ E.grupo.p = t.value; prever(); }
+  else if(t.id === "gPremio"){ E.grupo.p = t.value; prever(); desenharTextos(); }
+  else if(t.id === "txtSel"){ E.txtSel = t.value; desenharTextos(); const k = paginas().findIndex(pg => pg.p === t.value); if(k >= 0){ E.prev = k; prever(); } }
   else if(t.dataset.inc !== undefined){ E.alunos[+t.dataset.inc].inc = t.checked; t.closest(".al").classList.toggle("fora", !t.checked); prever(); }
   else if(t.dataset.mais !== undefined){ const al = E.alunos[+t.dataset.mais]; if(t.value && !al.premios.includes(t.value)) al.premios.push(t.value); guardarPremios(); desenharLista(); }
   else if(t.id === "logoArq" && t.files && t.files[0]){
@@ -653,7 +670,7 @@ document.addEventListener("input", ev => {
     clearTimeout(lerCfg.t2); lerCfg.t2 = setTimeout(() => { guardarCfg(); prever(); }, 300);
   }
 });
-document.addEventListener("focusout", ev => { if(ev.target.dataset && (ev.target.dataset.ptit !== undefined)){ desenharLista(); if(E.modo === "grupo") $("gPremio").innerHTML = opcoesPremio(E.grupo.p); } });
+document.addEventListener("focusout", ev => { if(ev.target.dataset && (ev.target.dataset.ptit !== undefined)) setTimeout(() => { desenharLista(); const o = $("txtSel") && $("txtSel").selectedOptions[0]; if(o) o.textContent = nomeP(E.txtSel); if(E.modo === "grupo") $("gPremio").innerHTML = opcoesPremio(E.grupo.p); }, 0); });
 
 /* ---------- entrada ---------- */
 onAuthStateChanged(auth, async user => {
