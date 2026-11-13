@@ -81,6 +81,23 @@
   body.embed main{padding:10px 12px 8px;max-width:none}
   body.embed #palco{width:min(100%, calc((100vh - 70px) * 16 / 9))}
   #palco:fullscreen{border-radius:0;aspect-ratio:auto;width:100vw;height:100vh}
+  /* nov/2026: tela cheia leva o vídeo E a barra (mesmo padrão do vídeo do Portal): controles discretos embaixo, sempre à vista */
+  .barra .ic{width:42px;height:42px;border-radius:50%;border:1px solid var(--linha);background:#fff;color:var(--azul);font-size:18px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0;flex:none}
+  .barra .ic:hover,.barra .ic:focus-visible{background:#eef3f8}
+  .barra .ic.pp{width:48px;height:48px;background:var(--lima);border-color:var(--lima);color:var(--azul);font-size:20px}
+  .barra .ic.sair{display:none;color:#ff9a92;border-color:transparent;background:transparent}
+  #tela:fullscreen{display:flex;flex-direction:column;background:#000;width:100vw;height:100vh}
+  #tela:fullscreen #palco{flex:1 1 0;min-height:0;width:100%;aspect-ratio:auto;border-radius:0;box-shadow:none;margin:0}
+  #tela:fullscreen .barra{margin:0;padding:6px 14px;background:#000;flex-wrap:nowrap;gap:8px}
+  #tela:fullscreen .barra .ic{width:52px;height:52px;font-size:22px;background:transparent;border-color:transparent;color:rgba(255,255,255,.85)}
+  #tela:fullscreen .barra .ic:hover{background:rgba(255,255,255,.14);color:#fff}
+  #tela:fullscreen .barra .ic.pp{width:58px;height:58px;background:rgba(141,198,63,.95);color:#0b1d33}
+  #tela:fullscreen .barra .ic.sair{display:grid;color:#ff9a92}
+  #tela:fullscreen .barra .ic.sair:hover{background:rgba(194,54,44,.35);color:#fff}
+  #tela:fullscreen .trilha .fundo{background:rgba(255,255,255,.25)}
+  #tela:fullscreen .tempo{color:rgba(255,255,255,.75)}
+  #tela:fullscreen .placar{background:transparent;color:#fff;border-color:rgba(255,255,255,.3)}
+  #tela:fullscreen .pensar{color:rgba(255,255,255,.8)}
   #yt,#yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
   .barra{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
   .trilha{position:relative;flex:1;min-width:200px;height:34px;cursor:pointer}
@@ -337,10 +354,10 @@ async function telaVideo(id, editar){
   topo(v.titulo, [v.serie, v.disciplina, (v.interacoes || []).length + " pausas"].filter(Boolean).join(" · "),
     (podeEditar ? '<button type="button" class="bt bt-topo" data-action="modo">'+(st.editar ? "▶ Apresentar" : "✏️ Editar perguntas")+'</button>' : '')+
     '<a class="bt bt-topo" href="/video/">Vídeos</a>');
-  $("area").innerHTML = '<div class="layout'+(st.editar ? " editando" : "")+'"><div><div id="palco"><div id="yt"></div><div id="ov" hidden></div></div>'+
-    '<div class="barra"><button type="button" class="bt bt-claro" data-action="tocar" id="btTocar" aria-label="Tocar ou pausar">▶</button><div class="trilha" id="trilha"><div class="fundo"></div><div class="feito" id="feito"></div></div>'+
+  $("area").innerHTML = '<div class="layout'+(st.editar ? " editando" : "")+'"><div id="tela"><div id="palco"><div id="yt"></div><div id="ov" hidden></div></div>'+
+    '<div class="barra"><button type="button" class="ic" data-action="pular" data-s="-10" title="Voltar 10 segundos" aria-label="Voltar 10 segundos">⏪</button><button type="button" class="ic pp" data-action="tocar" id="btTocar" title="Tocar ou pausar" aria-label="Tocar ou pausar">▶</button><button type="button" class="ic" data-action="pular" data-s="10" title="Avançar 10 segundos" aria-label="Avançar 10 segundos">⏩</button><div class="trilha" id="trilha"><div class="fundo"></div><div class="feito" id="feito"></div></div>'+
     '<span class="tempo" id="tempo">0:00 / '+mmss(v.duracao_seg)+'</span><span class="placar" id="placar" hidden></span>'+
-    (st.editar ? '' : '<label class="pensar" title="Tempo para a turma pensar antes de liberar as respostas">⏳ Pensar <select id="selPensar" aria-label="Tempo para pensar">'+[[0,"sem"],[5,"5 s"],[10,"10 s"],[15,"15 s"],[20,"20 s"],[30,"30 s"]].map(([n, t]) => '<option value="'+n+'"'+(n === tempoPensar() ? " selected" : "")+'>'+t+'</option>').join("")+'</select></label>')+'<button type="button" class="bt bt-azul" data-action="tela-cheia">⛶ Tela cheia</button></div></div>'+
+    (st.editar ? '' : '<label class="pensar" title="Tempo para a turma pensar antes de liberar as respostas">⏳ Pensar <select id="selPensar" aria-label="Tempo para pensar">'+[[0,"sem"],[5,"5 s"],[10,"10 s"],[15,"15 s"],[20,"20 s"],[30,"30 s"]].map(([n, t]) => '<option value="'+n+'"'+(n === tempoPensar() ? " selected" : "")+'>'+t+'</option>').join("")+'</select></label>')+'<button type="button" class="ic" data-action="tela-cheia" id="btTC" title="Tela cheia" aria-label="Tela cheia">⛶</button><button type="button" class="ic sair" data-action="tela-cheia" title="Sair da tela cheia" aria-label="Sair da tela cheia">✕</button></div></div>'+
     (st.editar ? '<div id="painel"></div>' : '')+'</div>';
   marcas();
   if(st.editar) desenharPainel();
@@ -413,7 +430,7 @@ function caberPergunta(){
   while(p.scrollHeight > p.clientHeight + 2 && k > .62){ k -= .06; p.style.zoom = k; }
 }
 window.addEventListener("resize", () => { clearTimeout(caberPergunta.t); caberPergunta.t = setTimeout(caberPergunta, 120); });
-document.addEventListener("fullscreenchange", () => setTimeout(caberPergunta, 150));
+document.addEventListener("fullscreenchange", () => { setTimeout(caberPergunta, 150); const b = $("btTC"); if(b){ const fs = !!document.fullscreenElement; b.textContent = fs ? "⤢" : "⛶"; b.title = fs ? "Sair da tela cheia" : "Tela cheia"; b.setAttribute("aria-label", b.title); } });
 function tempoPensar(){ let n = 5; try{ const v = localStorage.getItem("pde_video_pensar2"); if(v !== null) n = Number(v); }catch(e){} return [0,5,10,15,20,30].includes(n) ? n : 5; }   // nov/2026: padrão 5 s
 function iniciarContagem(seg, x){
   const ov = $("ov"), ops = [...ov.querySelectorAll(".op")], esp = ov.querySelector('[data-action="ver-esperada"]');
@@ -536,7 +553,8 @@ document.addEventListener("click", e => {
   else if(a === "gerar") gerar(b);
   else if(a === "gerar-cat") gerarCatalogo(b);
   else if(a === "tocar"){ if(!st.pronto) return; if(st.aberta >= 0 && st.aberta !== 99) return; st.player.getPlayerState() === 1 ? st.player.pauseVideo() : st.player.playVideo(); }
-  else if(a === "tela-cheia"){ const p = $("palco"); if(document.fullscreenElement) document.exitFullscreen(); else if(p.requestFullscreen) p.requestFullscreen().catch(() => {}); }
+  else if(a === "pular"){ if(!st.pronto || (st.aberta >= 0 && st.aberta !== 99)) return; const t = Math.max(0, Math.min(duracao() - 1, st.player.getCurrentTime() + Number(b.dataset.s))); st.player.seekTo(t, true); if(!st.editar) st.prev = t; }
+  else if(a === "tela-cheia"){ const p = $("tela"); if(document.fullscreenElement) document.exitFullscreen(); else if(p.requestFullscreen) p.requestFullscreen().catch(() => {}); }
   else if(a === "ir-marca"){ const i = Number(b.dataset.i), x = st.v.interacoes[i]; if(!x || !st.pronto) return;
     if(st.editar){ st.sel = i; st.player.seekTo(Math.max(0, x.t - 4), true); st.player.playVideo(); desenharItens(); marcas(); const it = document.querySelector('[data-item="'+i+'"]'); if(it) it.scrollIntoView({ block:"nearest", behavior:"smooth" }); }
     else { if(st.aberta >= 0) continuar(); st.feito.delete(i); st.player.seekTo(Math.max(0, x.t - 4), true); st.prev = Math.max(0, x.t - 4); st.player.playVideo(); } }
