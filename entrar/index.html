@@ -974,18 +974,20 @@
   .vd-form textarea{ font:inherit;font-size:13.5px;padding:10px 12px;border:1.5px solid var(--line);border-radius:9px;resize:vertical }
   .vd-player{ position:relative;aspect-ratio:16/9;background:#000 }
   .vd-player iframe{ position:absolute;inset:0;width:100%;height:100%;border:0 }
-  /* nov/2026: controles do Portal sempre à vista, também em tela cheia (na lousa o professor não se perde para fechar) */
+  /* nov/2026: controles do Portal, discretos, embaixo do vídeo; continuam à vista em tela cheia */
   .vd-tela{ position:relative;background:#000;display:flex;flex-direction:column }
-  .vd-tela .vd-player{ flex:1 1 auto }
-  .vd-bar{ display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px;background:#0b1d33 }
-  .vd-bar button{ min-width:64px;min-height:52px;border-radius:14px;border:0;background:rgba(255,255,255,.12);color:#fff;font:700 18px/1 inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px }
-  .vd-bar button:hover{ background:rgba(255,255,255,.22) }
-  .vd-bar button.vd-pp{ background:#8DC63F;color:#0b1d33;min-width:92px }
-  .vd-bar button.vd-x{ background:#C2362C }
+  .vd-bar{ display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 10px;background:#000;position:relative }
+  .vd-bar button{ width:44px;height:44px;border-radius:50%;border:0;background:transparent;color:rgba(255,255,255,.85);font-size:20px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0 }
+  .vd-bar button:hover, .vd-bar button:focus-visible{ background:rgba(255,255,255,.14);color:#fff }
+  .vd-bar button.vd-pp{ width:50px;height:50px;background:rgba(141,198,63,.95);color:#0b1d33;font-size:22px }
+  .vd-bar .vd-x{ position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#ff9a92 }
+  .vd-bar .vd-x:hover{ background:rgba(194,54,44,.35);color:#fff }
+  /* tela cheia: o vídeo ocupa tudo menos a faixa de controles */
   .vd-tela:fullscreen{ width:100vw;height:100vh }
-  .vd-tela:fullscreen .vd-player{ aspect-ratio:auto;height:auto }
-  .vd-tela:fullscreen .vd-bar{ padding:14px }
-  .vd-tela:fullscreen .vd-bar button{ min-height:64px;min-width:80px;font-size:22px }
+  .modal.vd .vd-tela:fullscreen .vd-player{ flex:1 1 0;min-height:0;aspect-ratio:auto;height:auto }
+  .vd-tela:fullscreen .vd-bar{ padding:8px 14px }
+  .vd-tela:fullscreen .vd-bar button{ width:56px;height:56px;font-size:24px }
+  .vd-tela:fullscreen .vd-bar button.vd-pp{ width:62px;height:62px }
   .vd-info{ padding:16px 20px 20px;display:flex;flex-direction:column;gap:10px }
   .vd-info h3{ font-size:18px;color:var(--ink) }
   .vd-info p{ font-size:14px;color:var(--muted) }
@@ -10079,11 +10081,11 @@
     bg.className = "modal-bg"; bg.id = "modalVideo";
     bg.innerHTML = '<div class="modal vd" role="dialog" aria-modal="true" aria-labelledby="vdTit">'+
       '<div class="vd-tela" id="vdTela"><div class="vd-player" id="vdPlayer"></div>'+
-      '<div class="vd-bar" role="toolbar" aria-label="Controles do vídeo"><button type="button" data-action="vd-ctl" data-arg="-10" title="Voltar 10 segundos">⏪ 10s</button>'+
-      '<button type="button" class="vd-pp" data-action="vd-ctl" data-arg="pp" id="vdPP" title="Tocar ou pausar">⏸ Pausar</button>'+
-      '<button type="button" data-action="vd-ctl" data-arg="10" title="Avançar 10 segundos">10s ⏩</button>'+
-      '<button type="button" data-action="vd-tela" id="vdTC" title="Tela cheia">⛶ Tela cheia</button>'+
-      '<button type="button" class="vd-x" data-action="vd-fechar" title="Fechar o vídeo">✕ Fechar</button></div></div>'+
+      '<div class="vd-bar" role="toolbar" aria-label="Controles do vídeo"><button type="button" data-action="vd-ctl" data-arg="-10" title="Voltar 10 segundos" aria-label="Voltar 10 segundos">⏪</button>'+
+      '<button type="button" class="vd-pp" data-action="vd-ctl" data-arg="pp" id="vdPP" title="Pausar" aria-label="Pausar">⏸</button>'+
+      '<button type="button" data-action="vd-ctl" data-arg="10" title="Avançar 10 segundos" aria-label="Avançar 10 segundos">⏩</button>'+
+      '<button type="button" data-action="vd-tela" id="vdTC" title="Tela cheia" aria-label="Tela cheia">⛶</button>'+
+      '<button type="button" class="vd-x" data-action="vd-fechar" title="Fechar o vídeo" aria-label="Fechar o vídeo">✕</button></div></div>'+
       '<div class="vd-info"><h3 id="vdTit"></h3><div id="vdSelos"></div><p id="vdDesc"></p><div class="vd-reacao" id="vdReacao"></div>'+
       '<div class="imp-acoes"><button type="button" class="btn btn-primary" id="vdInter" data-action="vd-int-modal" hidden>\u{1F3AC} Versão interativa</button><button type="button" class="btn btn-primary" data-action="vd-tela">Tela cheia (lousa)</button>'+
       '<button type="button" class="btn btn-ghost" data-action="vd-fechar">Fechar</button></div></div></div>';
@@ -13313,7 +13315,7 @@
     if(typeof i.playerState === "number"){ vdCtl.tocando = i.playerState === 1 || i.playerState === 3; pintarPP(); }
   });
   function vdCmd(func, args){ try{ vdCtl.fr.contentWindow.postMessage(JSON.stringify({ event:"command", func, args:args || [] }), "*"); }catch(e){} }
-  function pintarPP(){ const b = $("vdPP"); if(b) b.textContent = vdCtl.tocando ? "⏸ Pausar" : "▶ Tocar"; }
+  function pintarPP(){ const b = $("vdPP"); if(b){ b.textContent = vdCtl.tocando ? "⏸" : "▶"; b.title = vdCtl.tocando ? "Pausar" : "Tocar"; b.setAttribute("aria-label", b.title); } }
   function controleVideo(arg){
     if(!vdCtl.fr) return;
     if(arg === "pp"){ vdCmd(vdCtl.tocando ? "pauseVideo" : "playVideo"); vdCtl.tocando = !vdCtl.tocando; pintarPP(); return; }
@@ -13325,7 +13327,7 @@
     const f = p.requestFullscreen || p.webkitRequestFullscreen;
     if(f) f.call(p); else toast("Este navegador não deixa abrir em tela cheia.");
   }
-  document.addEventListener("fullscreenchange", () => { const b = $("vdTC"); if(b) b.textContent = document.fullscreenElement ? "⤢ Sair da tela cheia" : "⛶ Tela cheia"; });
+  document.addEventListener("fullscreenchange", () => { const b = $("vdTC"); if(b){ b.textContent = document.fullscreenElement ? "⤢" : "⛶"; b.title = document.fullscreenElement ? "Sair da tela cheia" : "Tela cheia"; b.setAttribute("aria-label", b.title); } });
   document.addEventListener("keydown", (e) => { if(e.key === "Escape" && $("modalVideo") && $("modalVideo").classList.contains("show")) fecharVideo(); });
   function registrarVideo(id){
     const u = usuarioAtual; if(!u || !auth.currentUser) return;
