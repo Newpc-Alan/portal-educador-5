@@ -4785,7 +4785,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(!EXB){ EXB = document.createElement("div"); EXB.id = "exBarra"; EXB.className = "ex-barra"; document.body.appendChild(EXB);
       EXB.addEventListener("pointerdown", function(e){ e.stopPropagation(); });
       EXB.addEventListener("click", function(e){ var b = e.target.closest("[data-ex]"); if(b) exAcao(b.dataset.ex, b); }); }
-    if(!alvo){ EXB.hidden = true; EXB.alvo = null; return; }
+    // some também quando a lousa é fechada ou escondida (Voltar ao Portal), não só quando a seleção muda
+    var cvv = canvas.upperCanvasEl.getBoundingClientRect();
+    if(alvo && (!cvv.width || !cvv.height || canvas.upperCanvasEl.offsetParent === null || document.hidden)) alvo = null;
+    if(!alvo){ EXB.hidden = true; EXB.alvo = null; clearInterval(EXB.vigia); EXB.vigia = 0; return; }
+    // enquanto estiver à vista, confere 2x por segundo se o cartão ainda está ali (troca de página, limpar, fechar a lousa)
+    if(!EXB.vigia) EXB.vigia = setInterval(exBarra, 500);
     if(EXB.alvo !== alvo){
       EXB.alvo = alvo;
       EXB.innerHTML = alvo.pdeResp ? '<button type="button" data-ex="resp"' + (alvo.pdeResp.feito ? " disabled" : "") + '>' + (alvo.pdeResp.feito ? "✅ Resposta no quadro" : "👀 Mostrar resposta") + '</button><button type="button" data-ex="novo">✏️ Outro exercício</button>'
