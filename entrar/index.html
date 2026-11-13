@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="/assets/js/ambiente.js"></script>
+<script src="/assets/js/pde-visita.js" defer></script>
 <script src="/assets/js/erros.js" defer></script>
 <script src="/assets/pde-ditado.js?v=1" defer></script>
 <script src="/assets/pde-credito.js?v=1" defer></script>
@@ -2042,6 +2043,7 @@
       { id:"inicio",     ico:"\u{1F3E0}", label:"Início (prévia)" },
       { id:"simulador",  ico:"\u{1F9EE}", label:"Simulador de preços" },
       { id:"financeiroLink", ico:"\u{1F4B0}", label:"Financeiro", soDonoFin:true },
+      { id:"visitantesLink", ico:"\u{1F463}", label:"Visitantes (sem cadastro)" },
       { grupo:"Redes e cadastros", ico:"\u{1F3DB}\u{FE0F}" },
       { id:"municipios", ico:"\u{1F3DB}\u{FE0F}", label:"Redes contratantes" },
       { id:"escolas",    ico:"\u{1F3EB}", label:"Escolas" },
@@ -2521,8 +2523,11 @@
       // volta para a página que pediu o login (ex.: a prova online), só dentro do próprio Portal
       const volta = new URLSearchParams(location.search).get("volta");
       if(volta && /^\/(?!\/)[\w\-./?=&%]*$/.test(volta) && usuarioAtual && !usuarioAtual.semCadastro && usuarioAtual.status === "ativo"){ location.replace(volta); return; }
+      // visitantes (nov/2026): quem já tem cadastro sai da lista de "visitou e não cadastrou"
+      try{ if(usuarioAtual && !usuarioAtual.semCadastro && window.PDEVisita && sessionStorage.getItem("pde_vconta") !== "1"){ PDEVisita.marcar("conta"); sessionStorage.setItem("pde_vconta", "1"); } }catch(e){}
       try{ abrirApp(); } finally { tirarSplash(); } }
     else{ $("appView").style.display="none"; $("loginView").style.display="flex"; usuarioAtual=null; usuarioReal=null; guardarVerComo(null);
+      try{ if(window.PDEVisita) PDEVisita.marcar("login"); }catch(e){}
       ["lsFab","lsOverlay"].forEach(id => { const el = $(id); if(el) el.remove(); });
       lousa.montada = false; lousa.carregada = false; document.documentElement.style.overflow = ""; }
   });
@@ -2947,6 +2952,7 @@
     if(item.id === "relatoriosLink"){ location.href = "/relatorios/"; return; }
     if(item.id === "gestaoLink"){ location.href = "/gestao/"; return; }
     if(item.id === "financeiroLink"){ location.href = "/financeiro/"; return; }
+    if(item.id === "visitantesLink"){ location.href = "/visitantes/"; return; }
     if(item.id === "portariaLink"){ location.href = "/apps/frequencia/#portaria"; return; }
     if(item.id === "apoioInicio"){
       // portaria e secretaria escolar: abre direto a tela de trabalho uma vez por sessão; ao voltar, mostra os atalhos
@@ -7586,6 +7592,7 @@
       '<p class="cad-rodape">Sua escola ou sua rede já contratou o Portal do Educador? Preencha normalmente: a equipe vincula você à sua rede.</p>'+
       '</div>';
     $("cadNome").value = usuarioAtual.nome || "";
+    try{ if(window.PDEVisita) PDEVisita.marcar("cadastro"); }catch(e){}
   }
   async function carregarMunicipiosIBGE(uf){
     const sel = $("cadMuni"), txt = $("cadMuniTxt");
@@ -7632,6 +7639,7 @@
       criado_em:serverTimestamp(), criado_por:user.uid, atualizado_em:serverTimestamp(), atualizado_por:user.uid };
     try{
       await setDoc(doc(db,"usuarios",user.uid), novo);
+      try{ if(window.PDEVisita) PDEVisita.marcar("fim", { uf, mun:muniNome, ibge:muniIbge }); }catch(e){}
       toast("Pronto! Seu teste de 7 dias está liberado.");
       await carregarUsuario(user); abrirApp();
     }catch(e){
@@ -7641,6 +7649,11 @@
   }
   document.addEventListener("change", (ev) => {
     if(ev.target.id === "cadUf" && ev.target.value) carregarMunicipiosIBGE(ev.target.value);
+    // visitantes: estado e município escolhidos no cadastro (mesmo que a pessoa desista depois)
+    if((ev.target.id === "cadMuni" || ev.target.id === "cadMuniTxt") && ev.target.value && window.PDEVisita){
+      const sel = $("cadMuni"), mun = ev.target.id === "cadMuni" ? (sel.selectedOptions[0] || {}).textContent : ev.target.value;
+      try{ PDEVisita.marcar("muni", { uf:$("cadUf").value, mun, ibge:ev.target.id === "cadMuni" ? sel.value : "" }); }catch(e){}
+    }
     if(ev.target.id === "cadInep") ev.target.value = ev.target.value.replace(/\D/g,"").slice(0,8);
   });
   document.addEventListener("input", (ev) => {

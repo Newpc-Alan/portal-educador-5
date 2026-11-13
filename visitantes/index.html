@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<script src="/assets/js/ambiente.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Visitantes · Portal do Educador</title>
+<meta name="theme-color" content="#0f2c4a">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* Visitantes (nov/2026): quem chega ao Portal e não se cadastra. Lê visitas_dia (contadores do dia) e visitantes (um por aparelho),
+   gravados pela função "visita" (functions/visitas.js). Sem IP, nome ou e-mail. Só o admin lê. */
+:root{ --azul:#0f2c4a; --azul2:#123a5e; --verde:#1a6b2a; --lima:#8DC63F; --bg:#EEF2F6; --ink:#0f2c4a; --muted:#4A5568; --line:#E3E9EF; --laranja:#9a3412; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg)}
+body{font-family:'Nunito Sans','Segoe UI',system-ui,sans-serif;color:var(--ink);font-size:15px;line-height:1.5}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none !important}
+h1,h2{font-family:'Rubik','Segoe UI',sans-serif}
+.topo{background:var(--azul);color:#F4F7F2;padding:16px 24px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.marca{display:flex;align-items:center;gap:12px}
+.marca img{width:44px;height:44px}
+.marca small{display:block;font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--lima)}
+.marca b{display:block;font-family:'Rubik',sans-serif;font-size:24px}
+.tb{border:1px solid #3c5a78;background:var(--azul2);color:#F4F7F2;border-radius:10px;padding:8px 14px;font-weight:700;text-decoration:none;min-height:40px;display:inline-flex;align-items:center}
+.app{max-width:1360px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:18px}
+.abas{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.aba{border:1px solid #CFDBE7;background:#fff;border-radius:12px;padding:10px 16px;font-weight:700;min-height:44px}
+.aba[aria-pressed="true"]{background:var(--azul);color:#F4F7F2;border-color:var(--azul)}
+.aviso{background:#FFF8DB;border:1px solid #F0D98A;border-radius:12px;padding:12px 16px;font-size:14px}
+.card{background:#fff;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 2px rgba(15,44,74,.08);min-width:0}
+.card h2{font-size:19px}
+.card p.sub{color:var(--muted);font-size:14px;margin-top:-6px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:#fff;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:2px;box-shadow:0 1px 2px rgba(15,44,74,.08)}
+.kpi span{font-size:13px;font-weight:700;color:var(--muted)}
+.kpi b{font-family:'Rubik',sans-serif;font-size:28px;font-weight:800}
+.kpi small{font-size:13px;color:#5b6b7b}
+.kpi.dest{background:var(--verde);color:#fff}.kpi.dest span,.kpi.dest small{color:#dff0d2}
+.duas{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+.barras{display:flex;flex-direction:column;gap:8px}
+.br{display:grid;grid-template-columns:minmax(120px,240px) 1fr 70px;gap:10px;align-items:center;font-size:14px}
+.br .tr{background:#EEF2F6;border-radius:8px;height:22px;overflow:hidden}
+.br .tr i{display:block;height:100%;background:linear-gradient(90deg,#2671AB,#8DC63F);border-radius:8px;min-width:2px}
+.br b{text-align:right;font-family:'Rubik',sans-serif}
+.br .rot{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.funil .br{grid-template-columns:minmax(160px,260px) 1fr 110px}
+.dias svg{width:100%;height:170px;display:block}
+.tab{overflow-x:auto}
+table{width:100%;min-width:640px;border-collapse:collapse;font-size:14px}
+th{background:#F1F5F1;text-align:left;padding:9px 10px}
+td{padding:9px 10px;border-top:1px solid var(--line)}
+.num{text-align:right}
+.vazio{color:var(--muted);font-size:15px;padding:18px;border:1px dashed #CFDBE7;border-radius:12px;text-align:center}
+.pill{display:inline-block;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#E6EEF6;color:#1f5a8a}
+.pill.q{background:#FBE3D6;color:var(--laranja)}
+@media (max-width:640px){ .br{grid-template-columns:110px 1fr 56px} .funil .br{grid-template-columns:120px 1fr 90px} }
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="marca"><img src="/assets/pde-logo-128.png" alt=""><div><small>Administração</small><b>Visitantes</b></div></div>
+  <a class="tb" href="/entrar/">← Voltar ao Portal</a>
+</header>
+<main class="app">
+  <div class="abas" role="group" aria-label="Período">
+    <button type="button" class="aba" data-action="periodo" data-arg="7" aria-pressed="false">7 dias</button>
+    <button type="button" class="aba" data-action="periodo" data-arg="30" aria-pressed="true">30 dias</button>
+    <button type="button" class="aba" data-action="periodo" data-arg="90" aria-pressed="false">90 dias</button>
+    <span id="status" style="color:var(--muted);font-size:14px;margin-left:6px">Carregando...</span>
+  </div>
+  <div class="aviso">Contagem anônima, sem IP, nome ou e-mail. A região vem do fuso horário do aparelho (MS, MT, RO e outros estados têm fuso próprio; o horário de Brasília reúne SP, RJ, MG, PR, SC, RS, GO, DF e outros). O município aparece quando a pessoa escolhe no cadastro, mesmo que desista. Começou a contar em 13/11/2026; cidade automática entra com a Cloudflare.</div>
+  <section class="kpis" id="kpis"></section>
+  <div class="duas">
+    <section class="card funil"><h2>Funil</h2><p class="sub">Até onde os visitantes chegam (cada pessoa conta uma vez por etapa)</p><div class="barras" id="funil"></div></section>
+    <section class="card dias"><h2>Visitantes por dia</h2><p class="sub">Aparelhos diferentes por dia</p><div id="dias"></div></section>
+  </div>
+  <div class="duas">
+    <section class="card"><h2>De onde vêm</h2><p class="sub">Origem da primeira visita (link com ?utm_source= ou site anterior)</p><div class="barras" id="origens"></div></section>
+    <section class="card"><h2>Região</h2><p class="sub">Pelo fuso horário do aparelho</p><div class="barras" id="regioes"></div></section>
+  </div>
+  <section class="card"><h2>Municípios que tentaram e não concluíram</h2><p class="sub">Quem escolheu estado e município no cadastro e parou: oportunidade de contato com a rede</p><div class="tab" id="municipios"></div></section>
+  <section class="card"><h2>Últimos visitantes sem cadastro</h2><p class="sub">Um por aparelho, mais recentes primeiro</p><div class="tab" id="ultimos"></div></section>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+const fb = initializeApp(window.PDE_AMBIENTE.fb);
+const auth = getAuth(fb), db = getFirestore(fb);
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const nf = n => Number(n || 0).toLocaleString("pt-BR");
+const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+const chave = s => String(s || "").slice(0, 40).normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase() || "x";
+const hojeBR = () => new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+const diaMenos = n => new Date(Date.now() - 4 * 3600e3 - n * 864e5).toISOString().slice(0, 10);
+const dataBR = t => { const m = t && t.toMillis ? t.toMillis() : 0; return m ? new Date(m).toLocaleString("pt-BR", { timeZone:"America/Campo_Grande", day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" }) : "-"; };
+const ORIGEM = { direto:"Direto (digitou ou favorito)", instagram:"Instagram", facebook:"Facebook", google:"Google", whatsapp:"WhatsApp", youtube:"YouTube", tiktok:"TikTok", linkedin:"LinkedIn", bing:"Bing", email:"E-mail", qrcode:"QR code", senacop:"SENACOP", outro:"Outro site" };
+const REGIOES = ["MS","MT","RO","AM","AC","RR","PA","TO","CE","PE","AL","BA","Horário de Brasília (SP, RJ, MG, PR, SC, RS, GO, DF, ES...)","Outro país (Américas)","Fora do Brasil","Desconhecida"];
+const ETAPA = { 1:"Só visitou", 2:"Viu o login", 3:"Entrou e viu o cadastro", 4:"Escolheu o município", 5:"Concluiu" };
+let DIAS = 30, DADOS = null;
+
+function barras(el, itens, total){
+  const max = Math.max(1, ...itens.map(x => x.n));
+  $(el).innerHTML = itens.length ? itens.map(x => '<div class="br"><span class="rot" title="' + esc(x.rot) + '">' + esc(x.rot) + '</span><span class="tr"><i style="width:' + (x.n / max * 100).toFixed(1) + '%"></i></span><b>' + nf(x.n) + (total ? ' <small style="color:var(--muted);font-weight:600">' + pct(x.n, total) + '%</small>' : "") + "</b></div>").join("") : '<div class="vazio">Ainda sem dados neste período.</div>';
+}
+function grafico(lista){
+  const W = 700, H = 170, n = lista.length, max = Math.max(1, ...lista.map(x => x.n)), bw = W / n;
+  const bars = lista.map((x, i) => { const h = x.n / max * (H - 30); return '<rect x="' + (i * bw + 1).toFixed(1) + '" y="' + (H - 18 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" fill="#2671AB"><title>' + x.dia.split("-").reverse().join("/") + ": " + x.n + "</title></rect>"; }).join("");
+  const rot = [0, Math.floor(n / 2), n - 1].map(i => '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="' + (H - 3) + '" font-size="11" text-anchor="middle" fill="#5b6b7b">' + lista[i].dia.slice(8) + "/" + lista[i].dia.slice(5, 7) + "</text>").join("");
+  $("dias").innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" role="img" aria-label="Visitantes por dia">' + bars + rot + '<text x="4" y="12" font-size="11" fill="#5b6b7b">máx. ' + max + "</text></svg>";
+}
+async function carregar(){
+  $("status").textContent = "Carregando...";
+  const desde = diaMenos(DIAS - 1);
+  try{
+    const [sd, sv] = await Promise.all([
+      getDocs(query(collection(db, "visitas_dia"), where("dia", ">=", desde))),
+      getDocs(query(collection(db, "visitantes"), orderBy("ultimo_em", "desc"), limit(1500)))
+    ]);
+    const porDia = {}; sd.forEach(d => { porDia[d.data().dia || d.id] = d.data(); });
+    const vis = []; sv.forEach(d => vis.push({ id:d.id, ...d.data() }));
+    DADOS = { porDia, vis }; desenhar();
+    $("status").textContent = "Atualizado " + new Date().toLocaleTimeString("pt-BR", { hour:"2-digit", minute:"2-digit" });
+  }catch(e){ console.warn(e); $("status").textContent = "Não consegui ler (" + (e.code || e.message) + ")."; }
+}
+function desenhar(){
+  const { porDia, vis } = DADOS, desde = diaMenos(DIAS - 1);
+  const soma = k => Object.values(porDia).reduce((s, d) => s + (d[k] || 0), 0);
+  const T = { vis:soma("vis"), novos:soma("novos"), login:soma("f_login"), cad:soma("f_cadastro"), muni:soma("f_muni"), fim:soma("f_fim") };
+  $("kpis").innerHTML = [
+    ["Visitantes", T.vis, "aparelhos diferentes por dia, somados"],
+    ["Novos", T.novos, "primeira vez no Portal"],
+    ["Abriram o login", T.login, pct(T.login, T.novos) + "% dos novos"],
+    ["Começaram o cadastro", T.cad, "entraram com Google"],
+    ["Concluíram", T.fim, pct(T.fim, T.novos) + "% dos novos", true]
+  ].map(k => '<div class="kpi' + (k[3] ? " dest" : "") + '"><span>' + k[0] + "</span><b>" + nf(k[1]) + "</b><small>" + esc(k[2]) + "</small></div>").join("");
+  barras("funil", [
+    { rot:"1 · Visitaram (novos)", n:T.novos }, { rot:"2 · Abriram o login", n:T.login }, { rot:"3 · Começaram o cadastro", n:T.cad },
+    { rot:"4 · Escolheram o município", n:T.muni }, { rot:"5 · Concluíram o cadastro", n:T.fim }], T.novos);
+  const lista = []; for(let i = DIAS - 1; i >= 0; i--){ const d = diaMenos(i); lista.push({ dia:d, n:(porDia[d] && porDia[d].vis) || 0 }); }
+  grafico(lista);
+  barras("origens", Object.keys(ORIGEM).map(k => ({ rot:ORIGEM[k], n:soma("o_" + k) })).filter(x => x.n).sort((a, b) => b.n - a.n), T.vis);
+  barras("regioes", REGIOES.map(r => ({ rot:r, n:soma("r_" + chave(r)) })).filter(x => x.n).sort((a, b) => b.n - a.n), T.vis);
+  // sem cadastro no período
+  const sem = vis.filter(v => !v.cadastrou && (v.ultimo_dia || "") >= desde);
+  const mun = {}; sem.filter(v => v.municipio).forEach(v => { const k = (v.uf || "?") + "|" + v.municipio, m = mun[k] || (mun[k] = { uf:v.uf || "?", nome:v.municipio, n:0, ult:null });
+    m.n++; if(!m.ult || (v.ultimo_em && v.ultimo_em.toMillis() > m.ult.toMillis())) m.ult = v.ultimo_em; });
+  const ml = Object.values(mun).sort((a, b) => b.n - a.n || (b.ult ? b.ult.toMillis() : 0) - (a.ult ? a.ult.toMillis() : 0));
+  $("municipios").innerHTML = ml.length ? '<table><thead><tr><th>Município</th><th>UF</th><th class="num">Pessoas que pararam</th><th>Última tentativa</th></tr></thead><tbody>' +
+    ml.map(m => "<tr><td><b>" + esc(m.nome) + "</b></td><td>" + esc(m.uf) + '</td><td class="num">' + nf(m.n) + "</td><td>" + dataBR(m.ult) + "</td></tr>").join("") + "</tbody></table>"
+    : '<div class="vazio">Ninguém parou depois de escolher o município neste período.</div>';
+  $("ultimos").innerHTML = sem.length ? '<table><thead><tr><th>Última visita</th><th>Até onde chegou</th><th>Origem</th><th>Região</th><th>Município</th><th>Aparelho</th><th class="num">Dias</th></tr></thead><tbody>' +
+    sem.slice(0, 200).map(v => "<tr><td>" + dataBR(v.ultimo_em) + '</td><td><span class="pill' + ((v.etapa_max || 0) >= 3 ? " q" : "") + '">' + esc(ETAPA[v.etapa_max] || "-") + "</span></td><td>" + esc(ORIGEM[v.origem] || v.origem || "-") +
+      "</td><td>" + esc(String(v.regiao || "-").replace(/ \(.*/, "")) + "</td><td>" + esc([v.municipio, v.uf].filter(Boolean).join("/") || "-") + "</td><td>" + esc(v.dispositivo || "-") + '</td><td class="num">' + nf(v.dias || 1) + "</td></tr>").join("") + "</tbody></table>"
+    : '<div class="vazio">Sem visitantes sem cadastro neste período.</div>';
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest('[data-action="periodo"]'); if(!b) return;
+  DIAS = +b.dataset.arg; document.querySelectorAll('[data-action="periodo"]').forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+  carregar();
+});
+onAuthStateChanged(auth, async user => {
+  if(!user){ location.replace("/entrar/?volta=/visitantes/"); return; }
+  let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
+  if(!u || u.perfil !== "admin" || u.status !== "ativo"){ document.querySelector(".app").innerHTML = '<div class="aviso">Esta página é só da administração do Portal.</div>'; return; }
+  carregar();
+});
+</script>
+</body>
+</html>
