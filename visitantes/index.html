@@ -58,6 +58,19 @@ td{padding:9px 10px;border-top:1px solid var(--line)}
 .vazio{color:var(--muted);font-size:15px;padding:18px;border:1px dashed #CFDBE7;border-radius:12px;text-align:center}
 .pill{display:inline-block;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;background:#E6EEF6;color:#1f5a8a}
 .pill.q{background:#FBE3D6;color:var(--laranja)}
+/* auditoria: clicar num número, barra ou dia abre a lista das visitas por trás dele */
+.br[data-f]{cursor:pointer;border-radius:8px;padding:2px 4px;margin:-2px -4px}
+.br[data-f]:hover,.br[data-f]:focus-visible{background:#F1F5F9;outline:none}
+.kpi[data-f]{cursor:pointer}.kpi[data-f]:hover{box-shadow:0 0 0 2px #2671AB}
+.dias rect[data-f]{cursor:pointer}.dias rect[data-f]:hover{fill:#8DC63F}
+tr[data-f]{cursor:pointer}tr[data-f]:hover td{background:#F7FAFC}
+.aud-fundo{position:fixed;inset:0;background:rgba(7,22,33,.55);z-index:50;display:flex;justify-content:flex-end}
+.aud{background:#fff;width:min(980px,100%);height:100%;display:flex;flex-direction:column;box-shadow:-10px 0 30px rgba(0,0,0,.25)}
+.aud-cab{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.aud-cab h2{flex:1 1 auto;font-size:19px}
+.aud-cab small{display:block;font-family:'Nunito Sans',sans-serif;font-size:13px;color:var(--muted);font-weight:600}
+.aud-corpo{overflow:auto;padding:12px 20px 30px;flex:1}
+.bt2{border:1px solid #CFDBE7;background:#fff;border-radius:10px;padding:8px 14px;font-weight:700;min-height:40px}
 @media (max-width:640px){ .br{grid-template-columns:110px 1fr 56px} .funil .br{grid-template-columns:120px 1fr 90px} }
 </style>
 </head>
@@ -107,11 +120,11 @@ let DIAS = 30, DADOS = null;
 
 function barras(el, itens, total){
   const max = Math.max(1, ...itens.map(x => x.n));
-  $(el).innerHTML = itens.length ? itens.map(x => '<div class="br"><span class="rot" title="' + esc(x.rot) + '">' + esc(x.rot) + '</span><span class="tr"><i style="width:' + (x.n / max * 100).toFixed(1) + '%"></i></span><b>' + nf(x.n) + (total ? ' <small style="color:var(--muted);font-weight:600">' + pct(x.n, total) + '%</small>' : "") + "</b></div>").join("") : '<div class="vazio">Ainda sem dados neste período.</div>';
+  $(el).innerHTML = itens.length ? itens.map(x => '<div class="br"' + (x.f ? ' data-f="' + esc(x.f) + '" role="button" tabindex="0" title="Ver as visitas"' : "") + '><span class="rot" title="' + esc(x.rot) + '">' + esc(x.rot) + '</span><span class="tr"><i style="width:' + (x.n / max * 100).toFixed(1) + '%"></i></span><b>' + nf(x.n) + (total ? ' <small style="color:var(--muted);font-weight:600">' + pct(x.n, total) + '%</small>' : "") + "</b></div>").join("") : '<div class="vazio">Ainda sem dados neste período.</div>';
 }
 function grafico(lista){
   const W = 700, H = 170, n = lista.length, max = Math.max(1, ...lista.map(x => x.n)), bw = W / n;
-  const bars = lista.map((x, i) => { const h = x.n / max * (H - 30); return '<rect x="' + (i * bw + 1).toFixed(1) + '" y="' + (H - 18 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" fill="#2671AB"><title>' + x.dia.split("-").reverse().join("/") + ": " + x.n + "</title></rect>"; }).join("");
+  const bars = lista.map((x, i) => { const h = x.n / max * (H - 30); return '<rect data-f="dia:' + x.dia + '" x="' + (i * bw + 1).toFixed(1) + '" y="' + (H - 18 - h).toFixed(1) + '" width="' + Math.max(1, bw - 2).toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" fill="#2671AB"><title>' + x.dia.split("-").reverse().join("/") + ": " + x.n + "</title></rect>"; }).join("");
   const rot = [0, Math.floor(n / 2), n - 1].map(i => '<text x="' + (i * bw + bw / 2).toFixed(1) + '" y="' + (H - 3) + '" font-size="11" text-anchor="middle" fill="#5b6b7b">' + lista[i].dia.slice(8) + "/" + lista[i].dia.slice(5, 7) + "</text>").join("");
   $("dias").innerHTML = '<svg viewBox="0 0 ' + W + " " + H + '" preserveAspectRatio="none" role="img" aria-label="Visitantes por dia">' + bars + rot + '<text x="4" y="12" font-size="11" fill="#5b6b7b">máx. ' + max + "</text></svg>";
 }
@@ -139,28 +152,70 @@ function desenhar(){
     ["Abriram o login", T.login, pct(T.login, T.novos) + "% dos novos"],
     ["Começaram o cadastro", T.cad, "entraram com Google"],
     ["Concluíram", T.fim, pct(T.fim, T.novos) + "% dos novos", true]
-  ].map(k => '<div class="kpi' + (k[3] ? " dest" : "") + '"><span>' + k[0] + "</span><b>" + nf(k[1]) + "</b><small>" + esc(k[2]) + "</small></div>").join("");
+  ].map((k, i) => '<div class="kpi' + (k[3] ? " dest" : "") + '" data-f="' + ["todos", "novos", "etapa:login", "etapa:cadastro", "etapa:fim"][i] + '" role="button" tabindex="0" title="Ver as visitas"><span>' + k[0] + "</span><b>" + nf(k[1]) + "</b><small>" + esc(k[2]) + "</small></div>").join("");
   barras("funil", [
-    { rot:"1 · Visitaram (novos)", n:T.novos }, { rot:"2 · Abriram o login", n:T.login }, { rot:"3 · Começaram o cadastro", n:T.cad },
-    { rot:"4 · Escolheram o município", n:T.muni }, { rot:"5 · Concluíram o cadastro", n:T.fim }], T.novos);
+    { rot:"1 · Visitaram (novos)", n:T.novos, f:"novos" }, { rot:"2 · Abriram o login", n:T.login, f:"etapa:login" }, { rot:"3 · Começaram o cadastro", n:T.cad, f:"etapa:cadastro" },
+    { rot:"4 · Escolheram o município", n:T.muni, f:"etapa:muni" }, { rot:"5 · Concluíram o cadastro", n:T.fim, f:"etapa:fim" }], T.novos);
   const lista = []; for(let i = DIAS - 1; i >= 0; i--){ const d = diaMenos(i); lista.push({ dia:d, n:(porDia[d] && porDia[d].vis) || 0 }); }
   grafico(lista);
-  barras("origens", Object.keys(ORIGEM).map(k => ({ rot:ORIGEM[k], n:soma("o_" + k) })).filter(x => x.n).sort((a, b) => b.n - a.n), T.vis);
-  barras("regioes", REGIOES.map(r => ({ rot:r, n:soma("r_" + chave(r)) })).filter(x => x.n).sort((a, b) => b.n - a.n), T.vis);
+  barras("origens", Object.keys(ORIGEM).map(k => ({ rot:ORIGEM[k], n:soma("o_" + k), f:"origem:" + k })).filter(x => x.n).sort((a, b) => b.n - a.n), T.vis);
+  barras("regioes", REGIOES.map(r => ({ rot:r, n:soma("r_" + chave(r)), f:"regiao:" + r })).filter(x => x.n).sort((a, b) => b.n - a.n), T.vis);
   // sem cadastro no período
   const sem = vis.filter(v => !v.cadastrou && (v.ultimo_dia || "") >= desde);
   const mun = {}; sem.filter(v => v.municipio).forEach(v => { const k = (v.uf || "?") + "|" + v.municipio, m = mun[k] || (mun[k] = { uf:v.uf || "?", nome:v.municipio, n:0, ult:null });
     m.n++; if(!m.ult || (v.ultimo_em && v.ultimo_em.toMillis() > m.ult.toMillis())) m.ult = v.ultimo_em; });
   const ml = Object.values(mun).sort((a, b) => b.n - a.n || (b.ult ? b.ult.toMillis() : 0) - (a.ult ? a.ult.toMillis() : 0));
   $("municipios").innerHTML = ml.length ? '<table><thead><tr><th>Município</th><th>UF</th><th class="num">Pessoas que pararam</th><th>Última tentativa</th></tr></thead><tbody>' +
-    ml.map(m => "<tr><td><b>" + esc(m.nome) + "</b></td><td>" + esc(m.uf) + '</td><td class="num">' + nf(m.n) + "</td><td>" + dataBR(m.ult) + "</td></tr>").join("") + "</tbody></table>"
+    ml.map(m => '<tr data-f="' + esc("mun:" + m.uf + "|" + m.nome) + '" title="Ver as visitas"><td><b>' + esc(m.nome) + "</b></td><td>" + esc(m.uf) + '</td><td class="num">' + nf(m.n) + "</td><td>" + dataBR(m.ult) + "</td></tr>").join("") + "</tbody></table>"
     : '<div class="vazio">Ninguém parou depois de escolher o município neste período.</div>';
   $("ultimos").innerHTML = sem.length ? '<table><thead><tr><th>Última visita</th><th>Até onde chegou</th><th>Origem</th><th>Região</th><th>Município</th><th>Aparelho</th></tr></thead><tbody>' +
     sem.slice(0, 200).map(v => "<tr><td>" + dataBR(v.ultimo_em) + '</td><td><span class="pill' + ((v.etapa_max || 0) >= 3 ? " q" : "") + '">' + esc(ETAPA[v.etapa_max] || "-") + "</span></td><td>" + esc(ORIGEM[v.origem] || v.origem || "-") +
       "</td><td>" + esc(String(v.regiao || "-").replace(/ \(.*/, "")) + "</td><td>" + esc([v.municipio, v.uf].filter(Boolean).join("/") || "-") + "</td><td>" + esc(v.dispositivo || "-") + "</td></tr>").join("") + "</tbody></table>"
     : '<div class="vazio">Sem visitantes sem cadastro neste período.</div>';
 }
+// ---------- auditoria: a lista de visitas por trás de cada número ----------
+let AUD = [];
+function filtrar(f){
+  const desde = diaMenos(DIAS - 1), [tipo, ...r] = f.split(":"), val = r.join(":");
+  const noPer = v => (v.ultimo_dia || "") >= desde || (v.primeiro_dia || "") >= desde;
+  const base = DADOS.vis.filter(noPer);
+  const T = { todos:["Todas as visitas", () => true], novos:["Visitas novas", v => (v.primeiro_dia || "") >= desde] };
+  if(T[tipo]) return { titulo:T[tipo][0], lista:base.filter(T[tipo][1]) };
+  if(tipo === "etapa") return { titulo:{ login:"Abriram o login", cadastro:"Começaram o cadastro", muni:"Escolheram o município", fim:"Concluíram o cadastro" }[val] || val, lista:base.filter(v => v.etapas && v.etapas[val]) };
+  if(tipo === "origem") return { titulo:"Origem: " + (ORIGEM[val] || val), lista:base.filter(v => (v.origem || "direto") === val) };
+  if(tipo === "regiao") return { titulo:"Região: " + val.replace(/ \(.*/, ""), lista:base.filter(v => v.regiao === val) };
+  if(tipo === "dia") return { titulo:"Visitas de " + val.split("-").reverse().join("/"), lista:DADOS.vis.filter(v => v.primeiro_dia === val || v.ultimo_dia === val) };
+  if(tipo === "mun"){ const [uf, nome] = val.split("|"); return { titulo:"Município: " + nome + "/" + uf, lista:base.filter(v => (v.uf || "?") === uf && v.municipio === nome) }; }
+  return { titulo:"Visitas", lista:[] };
+}
+function abrirAud(f){
+  const { titulo, lista } = filtrar(f); AUD = lista;
+  let el = $("audFundo");
+  if(!el){ el = document.createElement("div"); el.id = "audFundo"; el.className = "aud-fundo"; document.body.appendChild(el);
+    el.addEventListener("click", e => { if(e.target === el || e.target.closest('[data-action="aud-fechar"]')) el.hidden = true; if(e.target.closest('[data-action="aud-csv"]')) csv(); }); }
+  const etapas = v => ["login", "cadastro", "muni", "fim", "conta"].filter(k => v.etapas && v.etapas[k]).map(k => ({ login:"login", cadastro:"cadastro", muni:"município", fim:"concluiu", conta:"já tinha conta" })[k]).join(" → ") || "só visitou";
+  el.innerHTML = '<div class="aud" role="dialog" aria-modal="true" aria-label="' + esc(titulo) + '"><div class="aud-cab"><h2>' + esc(titulo) + "<small>" + nf(lista.length) + (lista.length === 1 ? " visita" : " visitas") + " · últimos " + DIAS + ' dias · uma linha por visita (aba aberta)</small></h2>' +
+    '<button type="button" class="bt2" data-action="aud-csv">⬇ Planilha (CSV)</button><button type="button" class="bt2" data-action="aud-fechar">✕ Fechar</button></div><div class="aud-corpo">' +
+    (lista.length ? '<div class="tab"><table><thead><tr><th>Primeira</th><th>Última</th><th>Caminho no funil</th><th>Origem</th><th>Região</th><th>Município</th><th>Aparelho</th><th>Entrou por</th><th>Código</th></tr></thead><tbody>' +
+      lista.map(v => "<tr><td>" + dataBR(v.primeiro_em) + "</td><td>" + dataBR(v.ultimo_em) + "</td><td>" + (v.cadastrou ? '<span class="pill">' : '<span class="pill q">') + esc(etapas(v)) + "</span></td><td>" + esc(ORIGEM[v.origem] || v.origem || "-") + "</td><td>" + esc(String(v.regiao || "-").replace(/ \(.*/, "")) +
+        "</td><td>" + esc([v.municipio, v.uf].filter(Boolean).join("/") || "-") + "</td><td>" + esc(v.dispositivo || "-") + "</td><td>" + esc(v.pagina || "-") + '</td><td><code style="font-size:12px">' + esc(String(v.id).slice(0, 8)) + "</code></td></tr>").join("") + "</tbody></table></div>"
+      : '<div class="vazio">Nenhuma visita registrada para este número no período.</div>') +
+    '<p style="color:var(--muted);font-size:13px;margin-top:12px">A lista mostra as 1.500 visitas mais recentes. Os totais dos gráficos vêm dos contadores do dia e podem ser um pouco maiores que esta lista em períodos longos.</p></div></div>';
+  el.hidden = false; el.querySelector('[data-action="aud-fechar"]').focus();
+}
+function csv(){
+  const cel = x => '"' + String(x ?? "").replace(/"/g, '""') + '"';
+  const linhas = [["primeira", "ultima", "etapas", "cadastrou", "origem", "regiao", "municipio", "uf", "aparelho", "pagina", "codigo"]].concat(AUD.map(v => [dataBR(v.primeiro_em), dataBR(v.ultimo_em),
+    Object.keys(v.etapas || {}).join(" "), v.cadastrou ? "sim" : "nao", v.origem || "", v.regiao || "", v.municipio || "", v.uf || "", v.dispositivo || "", v.pagina || "", String(v.id).slice(0, 8)]));
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["\ufeff" + linhas.map(l => l.map(cel).join(";")).join("\n")], { type:"text/csv" }));
+  a.download = "visitantes-" + hojeBR() + ".csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && $("audFundo") && !$("audFundo").hidden){ $("audFundo").hidden = true; return; }
+  if((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("[data-f]")){ e.preventDefault(); abrirAud(e.target.dataset.f); }
+});
 document.addEventListener("click", e => {
+  const f = e.target.closest("[data-f]"); if(f && DADOS && !e.target.closest("#audFundo")){ abrirAud(f.getAttribute("data-f")); return; }
   const b = e.target.closest('[data-action="periodo"]'); if(!b) return;
   DIAS = +b.dataset.arg; document.querySelectorAll('[data-action="periodo"]').forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
   carregar();
