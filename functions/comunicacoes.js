@@ -23,6 +23,11 @@ const ITENS_PLANO = {
   completo: 'tudo do Intermediário, mais imagens no Portal IA e todos os recursos de sala de aula',
   personalizado: 'os recursos combinados com a sua instituição'
 };
+// plano do professor (licença avulsa, nov/2026): Formação e Portal 360º VR só no Completo
+const ITENS_PF = {
+  intermediario: 'tudo do Gratuito, mais o Portal IA em texto (plano de aula, atividade, prova com gabarito e parecer) e 60 créditos de IA por mês',
+  completo: 'tudo do Intermediário, mais imagens no Portal IA, 120 créditos de IA por mês, a Formação Continuada com certificado e o Portal 360º VR'
+};
 const ms = x => x && x.toMillis ? x.toMillis() : (x instanceof Date ? x.getTime() : (typeof x === 'string' && x ? Date.parse(x) || 0 : 0));
 const dataBR = m => m ? new Date(m).toLocaleDateString('pt-BR', { timeZone: 'America/Campo_Grande' }) : '';
 const primeiro = n => esc(String(n || '').trim().split(/\s+/)[0] || 'professor(a)');
@@ -79,13 +84,13 @@ export function mensagem(ev, u, ctx) {
     case 'gratuito_inicio': return { assunto: 'Você está no plano Gratuito do Portal do Educador',
       html: moldura('Seu plano Gratuito está ativo', `${ola}<p>Seu acesso ao <b>Portal do Educador</b> continua, agora no plano <b>Gratuito</b>. Ele não expira e não tem cobrança: nunca pedimos cartão.</p><p>Você tem os conteúdos do Portal (atividades, vídeos, jogos, datas comemorativas, biblioteca), a Lousa, provas impressas (até 5 guardadas) e <b>10 créditos de IA por mês</b>, renovados todo dia 1º.</p><p>Quer o Portal completo na sua escola, com prova online, Formação Continuada e créditos para todos? Responda este e-mail.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'compra': return { assunto: 'Sua licença do Portal do Educador está ativa',
-      html: moldura('Licença ativa', `${ola}<p>Obrigado por escolher o <b>Portal do Educador</b>! Sua licença está ativa até <b>${fim}</b>, no plano <b>${esc(NOME_PLANO[plano] || plano)}</b>.</p><p>Ele inclui ${ITENS_PLANO[plano] || ITENS_PLANO.completo}.</p><p>Os créditos do plano renovam todo mês. Se precisar de mais, os pacotes extras acumulam no seu saldo e valem 12 meses.</p>`, 'Entrar no Portal', ENTRAR) };
+      html: moldura('Licença ativa', `${ola}<p>Obrigado por escolher o <b>Portal do Educador</b>! Sua licença está ativa até <b>${fim}</b>, no plano <b>${esc(NOME_PLANO[plano] || plano)}</b>.</p><p>Ele inclui ${ITENS_PF[plano] || ITENS_PLANO[plano] || ITENS_PF.completo}.</p><p>Os créditos do plano renovam todo mês. Se precisar de mais, os pacotes extras acumulam no seu saldo e valem 12 meses.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'renovacao': return { assunto: 'Licença do Portal do Educador renovada',
       html: moldura('Licença renovada', `${ola}<p>Sua licença foi renovada e agora vale até <b>${fim}</b>. Obrigado por seguir com a gente!</p>`, 'Entrar no Portal', ENTRAR) };
     case 'vencendo': return { assunto: 'Sua licença do Portal do Educador vence em 7 dias',
       html: moldura('Sua licença vence em 7 dias', `${ola}<p>Sua licença do Portal do Educador vence em <b>${fim}</b>. Você não perde o acesso: se não renovar, sua conta passa para o plano <b>Gratuito</b>, com seus materiais guardados e 10 créditos de IA por mês. Para continuar com tudo do seu plano, responda este e-mail que enviamos a renovação.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'plano': return { assunto: 'Seu plano do Portal do Educador mudou',
-      html: moldura('Plano atualizado', `${ola}<p>Seu plano mudou de <b>${esc(NOME_PLANO[ev.de] || ev.de)}</b> para <b>${esc(NOME_PLANO[ev.para] || ev.para)}</b>.</p><p>Agora você tem ${ITENS_PLANO[ev.para] || ITENS_PLANO.completo}.</p>`, 'Ver o que mudou', ENTRAR) };
+      html: moldura('Plano atualizado', `${ola}<p>Seu plano mudou de <b>${esc(NOME_PLANO[ev.de] || ev.de)}</b> para <b>${esc(NOME_PLANO[ev.para] || ev.para)}</b>.</p><p>Agora você tem ${ITENS_PF[ev.para] || ITENS_PLANO[ev.para] || ITENS_PF.completo}.</p>`, 'Ver o que mudou', ENTRAR) };
     case 'cortesia': return { assunto: 'Você ganhou acesso ao Portal do Educador',
       html: moldura('Acesso liberado', `${ola}<p>A NEWPC Tecnologia liberou para você um acesso de cortesia ao <b>Portal do Educador</b>${fim ? ', válido até <b>' + fim + '</b>' : ''}.</p>`, 'Entrar no Portal', ENTRAR) };
     case 'rede': return { assunto: nomeMuni ? `O Portal do Educador chegou para você: ${R.tipo === 'municipal' ? 'Prefeitura de ' + ctx.muni.nome : R.orgao}` : 'Seu acesso ao Portal do Educador foi liberado',

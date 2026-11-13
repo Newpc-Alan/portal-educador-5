@@ -48,9 +48,9 @@ async function exigirLicenca(uid){
     return u;
   }
   const fim=ms(u.licenca_fim); if(!fim || fim<Date.now()) fail('Sua licença do Portal do Educador expirou.');
-  // licença avulsa no pacote Básico não inclui a Formação (Intermediário e Completo incluem), salvo liberação exclusiva do admin
+  // licença avulsa: a Formação é só do Completo (nov/2026; Gratuito, Básico e Intermediário não incluem), salvo liberação exclusiva do admin
   const extraF=Array.isArray(u.modulos_extra) && u.modulos_extra.includes('formacao');
-  if((u.plano_avulso==='basico' || u.plano_avulso==='gratuito') && !extraF) fail(u.plano_avulso==='gratuito' ? 'A Formação Continuada não faz parte do plano Gratuito. Leve o Portal para a sua escola ou assine o plano completo.' : 'A Formação Continuada não faz parte do pacote da sua licença.');
+  if(['basico','gratuito','intermediario'].includes(u.plano_avulso) && !extraF) fail(u.plano_avulso==='gratuito' ? 'A Formação Continuada não faz parte do plano Gratuito. Leve o Portal para a sua escola ou assine o plano completo.' : 'A Formação Continuada faz parte do plano Completo. Mude para o Completo ou leve o Portal para a sua escola.');
   return u;
 }
 const arr = snap => snap.docs.map(d=>({ ...d.data(), id:d.id }));
