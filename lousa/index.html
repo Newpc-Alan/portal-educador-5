@@ -1999,7 +1999,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(typeof agendarSalvar === "function") agendarSalvar();
   }
 
-  function irParaPagina(idx){
+  function irParaPagina(idx, depois){
     if(idx < 0 || idx >= paginas.length) return;
     // livro (PDF importado para folhear): entre páginas vizinhas do mesmo livro, a página vira como papel
     var de = paginas[pagAtual], para = paginas[idx], virar = null;
@@ -2022,6 +2022,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       setFerramenta(estado.ferramenta);
       if(virar) imgsProntas(paginas[pagAtual]).then(function(){ desenharFundo(); canvas.renderAll(); requestAnimationFrame(function(){ livroVirar(virar); }); });
       livroUi();
+      if(typeof depois === "function") depois();
     });
     attPagInfo();
   }
@@ -2118,6 +2119,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     e.preventDefault(); irParaPagina(pagAtual + dir);
   });
 
+  // página nova e limpa logo depois da atual, e o que vem depois roda já nela (explicação e exercícios da IA)
+  function novaPaginaLimpa(depois){
+    paginas[pagAtual] = estadoPaginaAtual();
+    paginas.splice(pagAtual + 1, 0, { json:JSON.stringify({ version:"5.3.0", objects:[] }), fundo:selFundo.value });
+    irParaPagina(pagAtual + 1, depois);
+  }
+  function areaVisivel(){
+    var inv = fabric.util.invertTransform(canvas.viewportTransform), a = fabric.util.transformPoint(new fabric.Point(0, 0), inv), b = fabric.util.transformPoint(new fabric.Point(canvas.getWidth(), canvas.getHeight()), inv);
+    return { x:a.x, y:a.y, w:b.x - a.x, h:b.y - a.y, z:canvas.getZoom() || 1 };
+  }
   function novaPagina(){
     paginas[pagAtual] = estadoPaginaAtual();
     paginas.splice(pagAtual+1, 0, {json: JSON.stringify({version:"5.3.0",objects:[]}), fundo: selFundo.value});
@@ -4610,8 +4621,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   // cartão de resposta no quadro: grupo (fundo + título + texto), movível e apagável como qualquer objeto
   // o cartão sempre aparece inteiro na parte visível da lousa: sem espaço à direita do que foi circulado, vai para baixo dele
   // (alt) ou encosta na borda; nunca fica escondido no canto
-  function ialCartao(r, x, y, alt){
+  function ialCartao(r, x, y, alt, opc){
     var z = canvas.getZoom(), L = Math.max(320, Math.min(520, 460 / z)), fs = Math.max(16, Math.round(21 / Math.max(.6, z)));
+    // em página própria (Resolver problema): o problema no alto e a explicação grande, centralizada, para ler de longe
+    if(opc && opc.pagina){
+      var A = areaVisivel(), mg = 40 / A.z, topo = A.y + mg;
+      L = Math.max(480, Math.min(A.w * .78, 1500)); fs = Math.max(20, Math.min(34, Math.round(L / 46)));
+      x = A.x + (A.w - L) / 2;
+      if(opc.problema){
+        var pb = new fabric.Textbox("Problema: " + opc.problema, { left:x, top:topo, width:L, fontSize:Math.round(fs * 1.15), fontWeight:"700", fill:"#0f2c4a", lineHeight:1.2, fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
+        canvas.add(pb); topo += pb.height + fs * 1.1;
+      }
+      y = topo; alt = null;
+    }
     var corpo = r.resposta || "";
     if(r.passos && r.passos.length) corpo += "\n\n" + r.passos.map(function(p, i){ return (i + 1) + ". " + p; }).join("\n");
     var tit = new fabric.Textbox("✨ " + (r.titulo || "Resposta da IA"), { left:16, top:14, width:L - 32, fontSize:Math.round(fs * 1.1), fontWeight:"800", fill:"#0f2c4a", fontFamily:"Nunito, Segoe UI, sans-serif" });
@@ -4623,11 +4645,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var inv = fabric.util.invertTransform(canvas.viewportTransform), m = 12 / z;
     var vA = fabric.util.transformPoint(new fabric.Point(0, 0), inv), vB = fabric.util.transformPoint(new fabric.Point(canvas.getWidth(), canvas.getHeight()), inv);
     var gw = g.width, gh = g.height, nx = x, ny = y;
-    if(nx + gw > vB.x - m){
+    if(opc && opc.pagina){ /* página própria: já está centralizado no alto */ }
+    else if(nx + gw > vB.x - m){
       if(alt && alt.y + gh < vB.y - m){ nx = alt.x; ny = alt.y; }   // embaixo do que foi circulado
       nx = Math.max(vA.x + m, Math.min(nx, vB.x - gw - m));
     }
-    if(ny + gh > vB.y - m) ny = Math.max(vA.y + m, vB.y - gh - m);
+    if(!(opc && opc.pagina) && ny + gh > vB.y - m) ny = Math.max(vA.y + m, vB.y - gh - m);
     if(nx !== x || ny !== y){ g.set({ left:nx, top:ny }); g.setCoords(); }
     canvas.add(g); canvas.setActiveObject(g); canvas.requestRenderAll(); snap();
     return g;
@@ -4728,10 +4751,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }
       if(bt.dataset.ial === "eq-resolver"){
         ialEspera(fj, "Resolvendo e conferindo " + eqBonita(eq) + "...");
-        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); var g = ialCartao(r, reg.x, reg.y, { x:reg.bx, y:reg.by });
-          // o cartão guarda o problema e onde os exercícios vão entrar (embaixo do que o professor escreveu, ou do cartão, se ele foi para baixo)
-          var yEx = g.top >= reg.by - 2 ? g.top + g.height + 24 : reg.by;
-          g.pdeExerc = { problema:eq, x:reg.bx, y:yEx, y0:yEx, fs:Math.round(Math.max(26, Math.min(64, reg.alt * .5))), ja:[] }; exBarra(); }, function(e){ ialErro(fj, e); });
+        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar();
+          // a explicação vai para uma página nova e limpa, logo depois da página do problema
+          novaPaginaLimpa(function(){
+            var g = ialCartao(r, 0, 0, null, { pagina:true, problema:eqBonita(eq) });
+            g.pdeExerc = { problema:eq, ja:[] }; exBarra();
+            msg("Explicação na página " + (pagAtual + 1) + ". A página do problema continua na anterior");
+          }); }, function(e){ ialErro(fj, e); });
       }
     });
     ialEspera(f, "Lendo o problema...");
@@ -4766,33 +4792,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         : '<button type="button" data-ex="novo" class="ex-prim">✏️ Exercício na lousa</button><small>um parecido para a turma fixar · grátis</small>';
     }
     var r = alvo.getBoundingRect(), cv = canvas.upperCanvasEl.getBoundingClientRect();
-    EXB.style.left = Math.round(cv.left + r.left) + "px"; EXB.style.top = Math.round(cv.top + r.top + r.height + 8) + "px"; EXB.hidden = false;
+    EXB.style.left = Math.round(cv.left + r.left) + "px"; EXB.style.top = Math.round(Math.min(cv.top + r.top + r.height + 8, innerHeight - 140)) + "px"; EXB.hidden = false;   // sempre à vista
   }
   function exAcao(qual, bt){
     var o = EXB && EXB.alvo; if(!o) return;
     if(qual === "resp"){
       var R = o.pdeResp; if(R.feito) return;
-      var fs = Math.round(Math.max(18, (o.fontSize || 32) * .62));
+      var fs = Math.round(Math.max(18, (o.fontSize || 32) * .72));
       var t = new fabric.Textbox("✔ " + R.resposta + (R.passos && R.passos.length ? "\n" + R.passos.map(function(p, i){ return (i + 1) + ". " + p; }).join("\n") : ""),
         { left:o.left, top:o.top + o.height * (o.scaleY || 1) + 8, width:Math.max(o.width * (o.scaleX || 1), fs * 16), fontSize:fs, fill:"#1a6b2a", lineHeight:1.25, fontFamily:"Cambria Math, Cambria, Segoe UI, sans-serif", pdeIA:true });
       canvas.add(t); R.feito = true; R.alt = t.height + 8;
-      // o próximo exercício entra embaixo da resposta, nunca por cima dela
-      if(R.base) R.base.y = Math.max(R.base.y, t.top + t.height + R.base.fs * 1.4);
       canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra(); msg("Resposta no quadro. Toque duas vezes para editar"); return;
     }
     // novo exercício: a partir do cartão (base) ou de outro exercício (mesma base)
     var base = o.pdeExerc || (o.pdeResp && o.pdeResp.base); if(!base) return;
     bt.disabled = true; bt.textContent = "Criando um exercício parecido...";
     window.PDENuvem.iaRapida({ modo:"exercicio", problema:base.problema, ja:base.ja }).then(function(r){
-      var tx = "✏️ Agora é com vocês:  " + eqBonita(r.enunciado), larg = Math.max(base.fs * 12, Math.min(base.fs * 26, tx.length * base.fs * .55));
-      // embaixo de tudo o que já está nessa coluna (exercícios e respostas anteriores), com folga
-      var fundo = base.y; canvas.getObjects().forEach(function(ob){ if(ob.pdeIA && ob.type === "textbox" && Math.abs(ob.left - base.x) < base.fs * 2 && ob.top >= base.y0 - 2) fundo = Math.max(fundo, ob.top + ob.height * (ob.scaleY || 1) + base.fs * 1.4); });
-      var t = new fabric.Textbox(tx, { left:base.x, top:fundo, width:larg, fontSize:base.fs, fill:"#0f2c4a", lineHeight:1.2, fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
-      t.pdeResp = { resposta:r.resposta, passos:r.passos || [], base:base };
-      base.ja.push(r.enunciado); base.y = t.top + t.height + base.fs * 1.6;   // o próximo entra embaixo, com espaço para a resposta
-      canvas.add(t); canvas.setActiveObject(t); canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra();
-      var vt = canvas.viewportTransform, embaixo = t.top * vt[3] + vt[5] + 40 > canvas.getHeight();
-      msg(embaixo ? "Exercício no quadro, mais embaixo: arraste a lousa para cima para ver" : "Exercício no quadro. Quando a turma terminar, toque em Mostrar resposta");
+      base.ja.push(r.enunciado);
+      // cada exercício numa página nova e limpa, grande, para a turma copiar
+      novaPaginaLimpa(function(){
+        var A = areaVisivel(), fs = Math.max(28, Math.min(56, Math.round(A.w / 40))), mg = 50 / A.z;
+        var t = new fabric.Textbox("✏️ Agora é com vocês:\n" + eqBonita(r.enunciado), { left:A.x + A.w * .07, top:A.y + mg, width:A.w * .86, fontSize:fs, fill:"#0f2c4a", lineHeight:1.25,
+          fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
+        t.pdeResp = { resposta:r.resposta, passos:r.passos || [], base:base };
+        canvas.add(t); canvas.setActiveObject(t); canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra();
+        msg("Exercício " + base.ja.length + " na página " + (pagAtual + 1) + ". Quando a turma terminar, toque em Mostrar resposta");
+      });
     }, function(e){ bt.disabled = false; bt.textContent = "✏️ Tentar de novo"; msg((e && e.message) || "A IA não respondeu agora. Tente de novo"); });
   }
   canvas.on("selection:created", exBarra); canvas.on("selection:updated", exBarra); canvas.on("selection:cleared", exBarra);
