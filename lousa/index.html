@@ -4718,7 +4718,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         ialEspera(fj, "Resolvendo e conferindo " + eqBonita(eq) + "...");
         ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); var g = ialCartao(r, reg.x, reg.y);
           // o cartão guarda o problema e onde os exercícios vão entrar (embaixo do que o professor escreveu)
-          g.pdeExerc = { problema:eq, x:reg.bx, y:reg.by, fs:Math.round(Math.max(26, Math.min(64, reg.alt * .5))), ja:[] }; exBarra(); }, function(e){ ialErro(fj, e); });
+          g.pdeExerc = { problema:eq, x:reg.bx, y:reg.by, y0:reg.by, fs:Math.round(Math.max(26, Math.min(64, reg.alt * .5))), ja:[] }; exBarra(); }, function(e){ ialErro(fj, e); });
       }
     });
     ialEspera(f, "Lendo o problema...");
@@ -4762,18 +4762,24 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var fs = Math.round(Math.max(18, (o.fontSize || 32) * .62));
       var t = new fabric.Textbox("✔ " + R.resposta + (R.passos && R.passos.length ? "\n" + R.passos.map(function(p, i){ return (i + 1) + ". " + p; }).join("\n") : ""),
         { left:o.left, top:o.top + o.height * (o.scaleY || 1) + 8, width:Math.max(o.width * (o.scaleX || 1), fs * 16), fontSize:fs, fill:"#1a6b2a", lineHeight:1.25, fontFamily:"Cambria Math, Cambria, Segoe UI, sans-serif", pdeIA:true });
-      canvas.add(t); R.feito = true; R.alt = t.height + 8; canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra(); msg("Resposta no quadro. Toque duas vezes para editar"); return;
+      canvas.add(t); R.feito = true; R.alt = t.height + 8;
+      // o próximo exercício entra embaixo da resposta, nunca por cima dela
+      if(R.base) R.base.y = Math.max(R.base.y, t.top + t.height + R.base.fs * 1.4);
+      canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra(); msg("Resposta no quadro. Toque duas vezes para editar"); return;
     }
     // novo exercício: a partir do cartão (base) ou de outro exercício (mesma base)
     var base = o.pdeExerc || (o.pdeResp && o.pdeResp.base); if(!base) return;
     bt.disabled = true; bt.textContent = "Criando um exercício parecido...";
     window.PDENuvem.iaRapida({ modo:"exercicio", problema:base.problema, ja:base.ja }).then(function(r){
       var tx = "✏️ Agora é com vocês:  " + eqBonita(r.enunciado), larg = Math.max(base.fs * 12, Math.min(base.fs * 26, tx.length * base.fs * .55));
-      var t = new fabric.Textbox(tx, { left:base.x, top:base.y, width:larg, fontSize:base.fs, fill:"#0f2c4a", lineHeight:1.2, fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
+      // embaixo de tudo o que já está nessa coluna (exercícios e respostas anteriores), com folga
+      var fundo = base.y; canvas.getObjects().forEach(function(ob){ if(ob.pdeIA && ob.type === "textbox" && Math.abs(ob.left - base.x) < base.fs * 2 && ob.top >= base.y0 - 2) fundo = Math.max(fundo, ob.top + ob.height * (ob.scaleY || 1) + base.fs * 1.4); });
+      var t = new fabric.Textbox(tx, { left:base.x, top:fundo, width:larg, fontSize:base.fs, fill:"#0f2c4a", lineHeight:1.2, fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
       t.pdeResp = { resposta:r.resposta, passos:r.passos || [], base:base };
-      base.ja.push(r.enunciado); base.y += t.height + base.fs * 1.6;   // o próximo entra embaixo, com espaço para a resposta
+      base.ja.push(r.enunciado); base.y = t.top + t.height + base.fs * 1.6;   // o próximo entra embaixo, com espaço para a resposta
       canvas.add(t); canvas.setActiveObject(t); canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra();
-      msg("Exercício no quadro. Quando a turma terminar, toque em Mostrar resposta");
+      var vt = canvas.viewportTransform, embaixo = t.top * vt[3] + vt[5] + 40 > canvas.getHeight();
+      msg(embaixo ? "Exercício no quadro, mais embaixo: arraste a lousa para cima para ver" : "Exercício no quadro. Quando a turma terminar, toque em Mostrar resposta");
     }, function(e){ bt.disabled = false; bt.textContent = "✏️ Tentar de novo"; msg((e && e.message) || "A IA não respondeu agora. Tente de novo"); });
   }
   canvas.on("selection:created", exBarra); canvas.on("selection:updated", exBarra); canvas.on("selection:cleared", exBarra);
