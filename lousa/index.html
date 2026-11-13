@@ -4608,7 +4608,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var c = f && f.querySelector(".ial-corpo"); if(c) c.innerHTML = '<p class="ial-erro">' + ialEsc(t) + '</p><div class="ial-bts"><button type="button" class="ial-b" data-ial="fechar">Fechar</button></div>'; else msg(t);
   }
   // cartão de resposta no quadro: grupo (fundo + título + texto), movível e apagável como qualquer objeto
-  function ialCartao(r, x, y){
+  // o cartão sempre aparece inteiro na parte visível da lousa: sem espaço à direita do que foi circulado, vai para baixo dele
+  // (alt) ou encosta na borda; nunca fica escondido no canto
+  function ialCartao(r, x, y, alt){
     var z = canvas.getZoom(), L = Math.max(320, Math.min(520, 460 / z)), fs = Math.max(16, Math.round(21 / Math.max(.6, z)));
     var corpo = r.resposta || "";
     if(r.passos && r.passos.length) corpo += "\n\n" + r.passos.map(function(p, i){ return (i + 1) + ". " + p; }).join("\n");
@@ -4618,6 +4620,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if(r.dica){ var dc = new fabric.Textbox("💡 " + r.dica, { left:16, top:h, width:L - 32, fontSize:Math.round(fs * .78), fontStyle:"italic", fill:"#5b6b7b", fontFamily:"Segoe UI, sans-serif" }); objs.push(dc); h = dc.top + dc.height + 14; }
     var fundo = new fabric.Rect({ left:0, top:0, width:L, height:h, rx:16, ry:16, fill:"#fffdf4", stroke:"#2671AB", strokeWidth:3, shadow:"rgba(15,44,74,.22) 0 8px 22px" });
     var g = new fabric.Group([fundo].concat(objs), { left:x, top:y, pdeIA:true });
+    var inv = fabric.util.invertTransform(canvas.viewportTransform), m = 12 / z;
+    var vA = fabric.util.transformPoint(new fabric.Point(0, 0), inv), vB = fabric.util.transformPoint(new fabric.Point(canvas.getWidth(), canvas.getHeight()), inv);
+    var gw = g.width, gh = g.height, nx = x, ny = y;
+    if(nx + gw > vB.x - m){
+      if(alt && alt.y + gh < vB.y - m){ nx = alt.x; ny = alt.y; }   // embaixo do que foi circulado
+      nx = Math.max(vA.x + m, Math.min(nx, vB.x - gw - m));
+    }
+    if(ny + gh > vB.y - m) ny = Math.max(vA.y + m, vB.y - gh - m);
+    if(nx !== x || ny !== y){ g.set({ left:nx, top:ny }); g.setCoords(); }
     canvas.add(g); canvas.setActiveObject(g); canvas.requestRenderAll(); snap();
     return g;
   }
@@ -4675,7 +4686,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     canvas.discardActiveObject(); canvas.renderAll();
     var mult = Math.min(2, 1024 / Math.max(w, h)), url = canvas.toDataURL({ format:"jpeg", quality:.88, left:l, top:t, width:w, height:h, multiplier:mult });
     var inv = fabric.util.invertTransform(canvas.viewportTransform), p2 = fabric.util.transformPoint(new fabric.Point(l + w, t), inv);
-    IAL.regiao = { dados:url.split(",")[1], x:p2.x + 16, y:p2.y };
+    var p3 = fabric.util.transformPoint(new fabric.Point(l, t + h), inv);
+    IAL.regiao = { dados:url.split(",")[1], x:p2.x + 16, y:p2.y, bx:p3.x, by:p3.y + 12 };
     if(IAL.direto === "equacao"){ IAL.direto = ""; ialEquacao(url, l, t, w, h); return; }
     ialJanela("⭕ O que fazer com o que você circulou?", '<img class="ial-prev" src="' + url + '" alt="Pedaço do quadro circulado">' +
       '<div class="ial-bts ial-opc"><button type="button" class="ial-b ial-prim" data-ial="explicar">💡 Explicar</button><button type="button" class="ial-b ial-prim" data-ial="resolver">🧮 Resolver passo a passo</button><button type="button" class="ial-b ial-prim" data-ial="traduzir">🌎 Traduzir</button></div>' +
@@ -4683,7 +4695,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var ped = bt.dataset.ial, perg = (f.querySelector("#ialLivre") || {}).value || "";
       if(ped === "livre" && perg.trim().length < 3){ f.querySelector("#ialLivre").focus(); return; }
       var reg = IAL.regiao; ialEspera(f, ped === "resolver" ? "Resolvendo e conferindo a conta..." : "Lendo o que você circulou...");
-      ialChamar({ modo:"circule", pedido:ped, pergunta:perg.trim(), imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y); }, function(e){ ialErro(f, e); });
+      ialChamar({ modo:"circule", pedido:ped, pergunta:perg.trim(), imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y, { x:reg.bx, y:reg.by }); }, function(e){ ialErro(f, e); });
     });
   }
 
@@ -4716,9 +4728,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }
       if(bt.dataset.ial === "eq-resolver"){
         ialEspera(fj, "Resolvendo e conferindo " + eqBonita(eq) + "...");
-        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); var g = ialCartao(r, reg.x, reg.y);
-          // o cartão guarda o problema e onde os exercícios vão entrar (embaixo do que o professor escreveu)
-          g.pdeExerc = { problema:eq, x:reg.bx, y:reg.by, y0:reg.by, fs:Math.round(Math.max(26, Math.min(64, reg.alt * .5))), ja:[] }; exBarra(); }, function(e){ ialErro(fj, e); });
+        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); var g = ialCartao(r, reg.x, reg.y, { x:reg.bx, y:reg.by });
+          // o cartão guarda o problema e onde os exercícios vão entrar (embaixo do que o professor escreveu, ou do cartão, se ele foi para baixo)
+          var yEx = g.top >= reg.by - 2 ? g.top + g.height + 24 : reg.by;
+          g.pdeExerc = { problema:eq, x:reg.bx, y:yEx, y0:yEx, fs:Math.round(Math.max(26, Math.min(64, reg.alt * .5))), ja:[] }; exBarra(); }, function(e){ ialErro(fj, e); });
       }
     });
     ialEspera(f, "Lendo o problema...");
