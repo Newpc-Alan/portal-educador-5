@@ -9,7 +9,7 @@ const db = getFirestore();
 const ms = v => v && v.toMillis ? v.toMillis() : (typeof v === 'number' ? v : Date.parse(v || '') || 0);
 const desde = Timestamp.fromMillis(Date.now() - 864e5);
 const s1 = await db.collection('usuarios').where('criado_em', '>=', desde).get();
-const s2 = await db.collection('usuarios').where('email', '==', 'alanramospg@gmail.com').get();   // conta de teste do Alan (13/11)
+const s2 = await db.collection('usuarios').where('email', '>=', 'alanramos').where('email', '<', 'alanramot').get();   // conta de teste do Alan (13/11)
 const s = { docs: [...new Map([...s1.docs, ...s2.docs].map(d => [d.id, d])).values()] };
 const cfg = (await db.doc('config/portal_ia').get()).data() || {};
 console.log('::notice::config creditos: demo_teste=' + JSON.stringify((cfg.creditos || {}).demo_teste ?? cfg.demo_teste) + ' gratuito_mes=' + JSON.stringify((cfg.creditos || {}).gratuito_mes));
@@ -17,5 +17,5 @@ for (const d of s.docs) {
   const u = d.data(); if (u.perfil === 'aluno') continue;
   const c = (await db.doc('creditos/prof_' + d.id).get()).data() || {};
   console.log('::notice::' + String(u.nome || '?').split(' ')[0] + ' @' + String(u.email || '').split('@')[1] + ' · perfil ' + u.perfil + ' · licenca ' + u.licenca_tipo + '/' + (u.licenca_plano || '') + ' · plano_avulso ' + (u.plano_avulso || '-') +
-    ' · fim ' + new Date(ms(u.licenca_fim)).toISOString().slice(0, 10) + ' · municipio ' + (u.municipio_id ? 'sim' : 'não') + ' · criado ' + new Date(ms(u.criado_em)).toISOString().slice(0, 10) + ' · origem ' + (u.origem || '-') + ' · saldo ' + (c.saldo ?? '-') + ' · pacotes ' + JSON.stringify((c.pacotes || []).map(p => ({ o: p.origem, n: p.creditos, r: p.restante, v: new Date(ms(p.validade)).toISOString().slice(0, 10) }))));
+    ' · fim ' + new Date(ms(u.licenca_fim)).toISOString().slice(0, 10) + ' · municipio ' + (u.municipio_id || 'não') + ' · email ' + String(u.email || '').replace(/^(.{6}).*@/, '$1…@') + ' · criado ' + new Date(ms(u.criado_em)).toISOString().slice(0, 10) + ' · origem ' + (u.origem || '-') + ' · saldo ' + (c.saldo ?? '-') + ' · pacotes ' + JSON.stringify((c.pacotes || []).map(p => ({ o: p.origem, n: p.creditos, r: p.restante, v: new Date(ms(p.validade)).toISOString().slice(0, 10) }))));
 }
