@@ -1050,14 +1050,14 @@ async function tratarPortalIa(req) {
      mapa: "Tópicos com IA" (mapa mental editável) · pintor: o rabisco do professor vira ilustração (créditos de imagem, Lousa Ultra)
      As legendas ao vivo não passam aqui: usam o reconhecimento de voz do próprio navegador, sem crédito. */
   if (d.acao === 'lousa_rapida') {
-    const modo = ['pergunta', 'circule', 'mapa', 'pintor', 'limpo', 'equacao_ler'].includes(d.modo) ? d.modo : '';
+    const modo = ['pergunta', 'circule', 'mapa', 'pintor', 'limpo', 'equacao_ler', 'exercicio'].includes(d.modo) ? d.modo : '';
     if (!modo) throw new HttpsError('invalid-argument', 'Ferramenta desconhecida.');
     const turma = txt(d.turma, 80), disciplina = txt(d.disciplina, 80), etapa = etapaDaTurma(turma);
     const publico = { infantil: 'crianças da Educação Infantil (frases curtíssimas, palavras simples)', iniciais: 'alunos dos anos iniciais do Fundamental (frases curtas, exemplos do dia a dia)',
       finais: 'alunos dos anos finais do Fundamental', medio: 'alunos do Ensino Médio (pode usar termos técnicos, explicados)' }[etapa] || 'alunos do Ensino Fundamental';
     // imagem do quadro (circule e pintor): JPEG ou PNG em base64, até ~1,5 MB
     const img = d.imagem && typeof d.imagem === 'object' ? { mime: /^image\/(png|jpeg)$/.test(d.imagem.mime) ? d.imagem.mime : '', dados: typeof d.imagem.dados === 'string' ? d.imagem.dados : '' } : null;
-    const eqTexto = modo === 'circule' && d.pedido === 'equacao' ? txt(d.equacao, 300) : '';   // equação já lida e confirmada pelo professor
+    const eqTexto = modo === 'circule' && d.pedido === 'equacao' ? txt(d.equacao, 600) : '';   // problema já lido e confirmado pelo professor
     if ((modo === 'circule' && !eqTexto || modo === 'pintor' || modo === 'limpo' || modo === 'equacao_ler') && (!img || !img.mime || img.dados.length < 200 || img.dados.length > 2_000_000 || !/^[A-Za-z0-9+/=]+$/.test(img.dados.slice(0, 400))))
       throw new HttpsError('invalid-argument', modo === 'limpo' ? 'Não deu para ler o que foi selecionado. Selecione de novo.' : 'Não deu para ler o pedaço do quadro. Circule de novo.');
     // Passar a limpo (nov/2026): a letra à mão selecionada vira texto digitado e organizado. Modelo leve, SEM crédito (a NEWPC absorve,
@@ -1071,22 +1071,54 @@ async function tratarPortalIa(req) {
       const limRef = db.doc(`ia_limite_diario/${uid}_${dia}`);
       const n = await db.runTransaction(async t => { const x = await t.get(limRef), v = (x.exists ? x.data().equacao || 0 : 0) + 1;
         if (v > lim && !ctx.admin) return -1; t.set(limRef, { uid, dia, equacao: v, em: FieldValue.serverTimestamp() }, { merge: true }); return v; });
-      if (n < 0) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de leituras de equação de hoje. Amanhã libera de novo.');
-      const ESQ = { type: 'OBJECT', properties: { legivel: { type: 'BOOLEAN' }, equacao: { type: 'STRING', description: 'A equação ou conta exatamente como escrita, em texto simples: use x, y, ^ para potência, sqrt() para raiz, / para fração, * para multiplicação só quando estiver escrito' },
+      if (n < 0) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de leituras de problemas de hoje. Amanhã libera de novo.');
+      const ESQ = { type: 'OBJECT', properties: { legivel: { type: 'BOOLEAN' }, equacao: { type: 'STRING', description: 'O problema exatamente como escrito, em texto simples. Equação ou conta: use x, y, ^ para potência, sqrt() para raiz, / para fração, * para multiplicação só quando estiver escrito. Enunciado (situação-problema): o texto inteiro, numa linha só' },
         duvida: { type: 'BOOLEAN', description: 'true se algum símbolo ficou ambíguo (ex.: 1 ou 7, x ou ×, 5 ou s, z ou 2)' }, alternativas: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Outras leituras possíveis, só se duvida = true; no máximo 3' },
         motivo: { type: 'STRING', description: 'Se duvida, qual símbolo ficou ambíguo, em até 12 palavras' } }, required: ['legivel', 'equacao', 'duvida'] };
       let r = null, erro = null, j = null;
       try {
-        r = await gemini(chave, [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto], { systemInstruction: { parts: [{ text: 'Você lê equações e contas de matemática escritas à mão numa lousa digital escolar. Transcreva fielmente o que está escrito, sem resolver e sem corrigir. Se algum símbolo puder ser lido de mais de um jeito, marque duvida = true e dê as outras leituras. Responda só no JSON pedido.' }] },
-          contents: [{ role: 'user', parts: [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: 'Leia a equação.' }] }],
+        r = await gemini(chave, [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto], { systemInstruction: { parts: [{ text: 'Você lê problemas de matemática escritos à mão ou impressos numa lousa digital escolar: equações, contas, expressões, frações, porcentagens, geometria ou um enunciado (situação-problema). Transcreva fielmente o que está escrito, sem resolver e sem corrigir. Se algum símbolo puder ser lido de mais de um jeito, marque duvida = true e dê as outras leituras. Responda só no JSON pedido.' }] },
+          contents: [{ role: 'user', parts: [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: 'Leia o problema.' }] }],
           generationConfig: { responseMimeType: 'application/json', responseSchema: ESQ, maxOutputTokens: 800 } });
         try { j = JSON.parse(r.partes.filter(p => !p.thought).map(p => p.text || '').join('')); } catch (e) { j = null; }
       } catch (e) { erro = e; }
       await registrarConsumo(db, ctx, erro || !j ? null : { acao: 'lousa_equacao_ler' }, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida });
       if (erro || !j) { await limRef.set({ equacao: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
         throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo.'); }
-      if (!j.legivel || !txt(j.equacao, 300)) throw new HttpsError('failed-precondition', 'Não consegui ler uma equação no que foi circulado. Escreva maior e circule de novo.');
-      return { equacao: txt(j.equacao, 300), duvida: !!j.duvida, alternativas: (Array.isArray(j.alternativas) ? j.alternativas : []).map(x => txt(x, 300)).filter(Boolean).slice(0, 3), motivo: txt(j.motivo, 120) };
+      if (!j.legivel || !txt(j.equacao, 600)) throw new HttpsError('failed-precondition', 'Não consegui ler um problema de matemática no que foi circulado. Escreva maior e circule de novo.');
+      return { equacao: txt(j.equacao, 600), duvida: !!j.duvida, alternativas: (Array.isArray(j.alternativas) ? j.alternativas : []).map(x => txt(x, 600)).filter(Boolean).slice(0, 3), motivo: txt(j.motivo, 120) };
+    }
+    // Exercício na lousa (nov/2026): depois de resolver um problema, cria UM parecido (mesmo tipo e dificuldade, outros números) para a turma
+    // fixar. Modelo leve, grátis, com limite diário; a resposta volta junto e só aparece no quadro quando o professor pedir.
+    if (modo === 'exercicio') {
+      const a = acessoIA('lousa_ia', ctx.ia);
+      if (!a.ok) throw new HttpsError('failed-precondition', mensagemAcesso('lousa_ia', a.motivo));
+      const prob = txt(d.problema, 600), ja = (Array.isArray(d.ja) ? d.ja : []).map(x => txt(x, 300)).filter(Boolean).slice(0, 6);
+      if (prob.length < 3) throw new HttpsError('invalid-argument', 'Resolva um problema antes de pedir o exercício.');
+      const lim = Math.max(1, Number(ctx.cfgRaw && ctx.cfgRaw.limpo_dia) || 100), dia = new Date(Date.now() - 4 * 3600e3).toISOString().slice(0, 10);
+      const limRef = db.doc(`ia_limite_diario/${uid}_${dia}`);
+      const n = await db.runTransaction(async t => { const x = await t.get(limRef), v = (x.exists ? x.data().exercicio || 0 : 0) + 1;
+        if (v > lim && !ctx.admin) return -1; t.set(limRef, { uid, dia, exercicio: v, em: FieldValue.serverTimestamp() }, { merge: true }); return v; });
+      if (n < 0) throw new HttpsError('resource-exhausted', 'Você chegou ao limite de exercícios de hoje. Amanhã libera de novo.');
+      const ESQ = { type: 'OBJECT', properties: {
+        enunciado: { type: 'STRING', description: 'O novo exercício em texto simples (equação: use ^ para potência, sqrt() para raiz, / para fração; situação-problema: até 45 palavras)' },
+        resposta: { type: 'STRING', description: 'Só o resultado final, curto (ex.: "x = 2 ou x = 6", "R$ 45,00")' },
+        passos: { type: 'ARRAY', items: { type: 'STRING' }, description: 'Até 5 passos curtos da resolução, uma operação por passo' } }, required: ['enunciado', 'resposta'] };
+      let r = null, erro = null, j = null;
+      try {
+        r = await gemini(chave, [ctx.cfg.modelo_rapido, ctx.cfg.modelo_texto], { systemInstruction: { parts: [{ text: 'Você é um professor de matemática da rede pública brasileira. Público: ' + publico + '. ' +
+          'A partir do problema que a turma acabou de resolver, crie UM exercício parecido para os alunos praticarem sozinhos: o MESMO tipo e a MESMA dificuldade, com números diferentes ' +
+          '(e outro contexto do dia a dia, se for situação-problema). Equação no mesmo formato (se o original é do 2º grau com raízes inteiras, o novo também tem raízes inteiras). ' +
+          'Resultado limpo, que dê para resolver no caderno. Não repita os números do original nem dos exercícios já dados. Confira a resposta substituindo antes de responder. Português do Brasil, sem markdown. Responda só no JSON pedido.' }] },
+          contents: [{ role: 'user', parts: [{ text: 'Problema resolvido em sala: ' + prob + (ja.length ? '\nExercícios já dados (não repita): ' + ja.join(' | ') : '') }] }],
+          generationConfig: { responseMimeType: 'application/json', responseSchema: ESQ, maxOutputTokens: 1500 } });
+        try { j = JSON.parse(r.partes.filter(p => !p.thought).map(p => p.text || '').join('')); } catch (e) { j = null; }
+      } catch (e) { erro = e; }
+      await registrarConsumo(db, ctx, erro || !j ? null : { acao: 'lousa_exercicio' }, { modelo: r && r.modelo, entrada: r && r.entrada, saida: r && r.saida });
+      if (erro || !j || !txt(j.enunciado, 400)) { await limRef.set({ exercicio: FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+        throw erro instanceof HttpsError ? erro : new HttpsError('unavailable', 'A IA não respondeu agora. Tente de novo.'); }
+      const lp = (t, k) => txt(String(t || '').replace(/[*#_`]+/g, ''), k);
+      return { enunciado: lp(j.enunciado, 400), resposta: lp(j.resposta, 160), passos: (Array.isArray(j.passos) ? j.passos : []).slice(0, 5).map(x => lp(x, 160)).filter(Boolean) };
     }
     if (modo === 'limpo') {
       const a = acessoIA('lousa_limpo', ctx.ia);
@@ -1145,10 +1177,10 @@ async function tratarPortalIa(req) {
         sistema = base + ' Responda à pergunta feita em sala: título de até 6 palavras, resposta de até 60 palavras, até 4 passos curtos quando ajudar, e uma dica curta para o professor continuar a conversa com a turma. Responda só no JSON pedido.';
         partes = [{ text: 'Pergunta: ' + ped }];
       } else {
-        const acoes = { equacao: 'O que está circulado é uma equação ou conta de matemática escrita à mão. Leia com cuidado, resolva e confira substituindo o resultado. No título, escreva a equação lida; na resposta, comece pelo resultado final (ex.: "x = 4") e depois explique em linguagem simples para os alunos como chegou nele; nos passos, uma operação por passo, mostrando a conta (ex.: "2x + 3 = 11 → 2x = 8"); se a leitura da letra for duvidosa, diga qual leitura usou; se não tiver solução real, explique o porquê', explicar: 'Explique o que está circulado', resolver: 'Resolva o que está circulado, passo a passo, conferindo a conta', traduzir: 'Traduza o que está circulado para o português (ou do português para o inglês, se já estiver em português) e explique o sentido', livre: ped || 'Explique o que está circulado' };
+        const acoes = { equacao: 'É um problema de matemática da aula (equação, conta, expressão, fração, porcentagem, geometria ou situação-problema com enunciado). Leia com cuidado, resolva e confira o resultado (numa equação, substituindo). No título, escreva a equação lida, ou um resumo do problema em até 6 palavras se for enunciado; na resposta, comece pelo resultado final (ex.: "x = 4", "Cada um paga R$ 12,50") e depois explique em linguagem simples para os alunos como chegou nele; nos passos, uma operação por passo, mostrando a conta (ex.: "2x + 3 = 11 → 2x = 8"); se a leitura da letra for duvidosa, diga qual leitura usou; se não tiver solução real, explique o porquê', explicar: 'Explique o que está circulado', resolver: 'Resolva o que está circulado, passo a passo, conferindo a conta', traduzir: 'Traduza o que está circulado para o português (ou do português para o inglês, se já estiver em português) e explique o sentido', livre: ped || 'Explique o que está circulado' };
         const acao = acoes[d.pedido] || acoes.explicar;
         sistema = base + ' A imagem é um pedaço do quadro que o professor circulou com a caneta (pode ter letra à mão, conta, figura ou texto). ' + acao + '. Título de até 6 palavras; resposta de até 70 palavras; passos curtos (até 6) quando for conta ou processo; uma dica curta para o professor. Se não der para entender a imagem, diga isso na resposta com gentileza. Responda só no JSON pedido.';
-        partes = eqTexto ? [{ text: acao + '. A equação, já conferida pelo professor, é: ' + eqTexto }] : [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: acao + (d.pedido === 'livre' && ped ? '' : '.') }];
+        partes = eqTexto ? [{ text: acao + '. O problema, já conferido pelo professor, é: ' + eqTexto }] : [{ inlineData: { mimeType: img.mime, data: img.dados } }, { text: acao + (d.pedido === 'livre' && ped ? '' : '.') }];
       }
     }
     let r = null, erro = null, j = null;

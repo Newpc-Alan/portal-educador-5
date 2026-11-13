@@ -601,7 +601,7 @@
     <span class="ial-menu-wrap"><button class="ferr rod-btn rod-ial" data-action="ial-menu" aria-haspopup="true" aria-expanded="false" title="Ferramentas de IA da Lousa: Perguntar, Circular, Passar a limpo, Pintor, Mapa mental e Legendas"><span class="ial-emo" aria-hidden="true">🪄</span><span class="lbl-ap">Ferramentas IA</span></button>
       <div class="ial-menu" id="ialMenu" role="menu" hidden>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-perguntar"><span>💬</span><b>Perguntar</b><small>resposta num cartão no quadro · 1 crédito</small></button>
-        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-equacao"><span>🧮</span><b>Resolver equação</b><small>escreva a conta e circule: confere a leitura, organiza a fórmula e resolve explicando · 1 crédito</small></button>
+        <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-equacao"><span>🧮</span><b>Resolver problema de matemática</b><small>equação, conta ou enunciado: circule, confira a leitura e resolva explicando · 1 crédito · exercício parecido grátis</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-circular"><span>⭕</span><b>Circular</b><small>circule uma conta ou palavra: explica, resolve, traduz · 1 crédito</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-limpo"><span>✍️</span><b>Passar a limpo</b><small>selecione o que escreveu à mão: vira texto digitado e organizado · grátis</small></button>
         <button type="button" role="menuitem" class="ial-mi so-ial" data-action="ial-pintor"><span>🎨</span><b>Pintor IA</b><small>o rabisco selecionado vira ilustração · créditos de imagem</small></button>
@@ -2863,7 +2863,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       if(a && a.indexOf("ial-") === 0) ialMenu(false);
       if(a==="ial-circular"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { IAL.direto = ""; setFerramenta("circular"); msg("Circule com o dedo ou a caneta o que a IA deve olhar"); } }
       // Resolver equação (nov/2026): o professor escreve a conta, circula e a resposta já vem resolvida e explicada (sem a janela de opções)
-      if(a==="ial-equacao"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { IAL.direto = "equacao"; setFerramenta("circular"); msg("Circule a equação ou a conta que você escreveu"); } }
+      if(a==="ial-equacao"){ if(!ialPronta()){ msg("Entre no Portal para usar a IA na Lousa"); } else { IAL.direto = "equacao"; setFerramenta("circular"); msg("Circule a equação, a conta ou o enunciado do problema"); } }
       if(a==="ial-perguntar") ialPerguntar();
       if(a==="ial-pintor")    ialPintor();
       if(a==="ial-limpo")     ialLimpo();
@@ -4689,7 +4689,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   // ---- Resolver equação (nov/2026): 1) a IA LÊ a conta escrita à mão (grátis); 2) o professor confere, corrige ou escolhe
   // a leitura certa quando a letra deu dúvida; 3) pode organizar a fórmula no quadro (digitada, sem crédito) e/ou resolver (1 crédito).
+  // enunciado com palavras fica como está; só equação e conta ganham os símbolos bonitos
   function eqBonita(t){
+    if(/[a-zà-ú]{4,}/i.test(String(t || "").replace(/sqrt/gi, ""))) return String(t || "").trim();
     return String(t || "").replace(/\s*\*\s*/g, " × ").replace(/sqrt\s*\(/gi, "√(").replace(/\^2(?!\d)/g, "²").replace(/\^3(?!\d)/g, "³")
       .replace(/>=/g, "≥").replace(/<=/g, "≤").replace(/!=/g, "≠")
       .replace(/\s*([=+≥≤≠<>])\s*/g, " $1 ").replace(/([\w)²³])\s*-\s*/g, "$1 − ").replace(/\s{2,}/g, " ").trim();
@@ -4698,7 +4700,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var inv = fabric.util.invertTransform(canvas.viewportTransform), z = canvas.getZoom() || 1;
     var dir = fabric.util.transformPoint(new fabric.Point(l + w, t), inv), baixo = fabric.util.transformPoint(new fabric.Point(l, t + h), inv);
     var reg = { dados:IAL.regiao.dados, x:dir.x + 16, y:dir.y, bx:baixo.x, by:baixo.y + 10, alt:h / z };
-    var f = ialJanela("🧮 Resolver equação", '<img class="ial-prev" src="' + url + '" alt="Equação circulada">', function(bt, fj){
+    var f = ialJanela("🧮 Resolver problema de matemática", '<img class="ial-prev" src="' + url + '" alt="Problema circulado">', function(bt, fj){
       var inp = fj.querySelector("#eqTxt"), eq = inp ? inp.value.trim() : "";
       if(bt.dataset.ial === "eq-alt"){ inp.value = bt.dataset.eq; inp.dispatchEvent(new Event("input")); inp.focus(); return; }
       if(eq.length < 3){ if(inp) inp.focus(); return; }
@@ -4714,23 +4716,68 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       }
       if(bt.dataset.ial === "eq-resolver"){
         ialEspera(fj, "Resolvendo e conferindo " + eqBonita(eq) + "...");
-        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); ialCartao(r, reg.x, reg.y); }, function(e){ ialErro(fj, e); });
+        ialChamar({ modo:"circule", pedido:"equacao", equacao:eq }).then(function(r){ ialFechar(); var g = ialCartao(r, reg.x, reg.y);
+          // o cartão guarda o problema e onde os exercícios vão entrar (embaixo do que o professor escreveu)
+          g.pdeExerc = { problema:eq, x:reg.bx, y:reg.by, fs:Math.round(Math.max(26, Math.min(64, reg.alt * .5))), ja:[] }; exBarra(); }, function(e){ ialErro(fj, e); });
       }
     });
-    ialEspera(f, "Lendo a equação...");
+    ialEspera(f, "Lendo o problema...");
     ialChamar({ modo:"equacao_ler", imagem:{ mime:"image/jpeg", dados:reg.dados } }).then(function(r){
       var c = f.querySelector(".ial-corpo"); if(!c) return;
-      c.innerHTML = '<img class="ial-prev" src="' + url + '" alt="Equação circulada">' +
+      c.innerHTML = '<img class="ial-prev" src="' + url + '" alt="Problema circulado">' +
         (r.duvida ? '<p class="ial-d" style="background:#fff6e0;border-radius:10px;padding:8px 10px;color:#7a4b00">⚠️ Fiquei em dúvida' + (r.motivo ? ": " + ialEsc(r.motivo) : "") + '. Confira a leitura ou escolha a certa:</p>' +
           '<div class="ial-bts ial-opc">' + [r.equacao].concat(r.alternativas || []).map(function(a){ return '<button type="button" class="ial-b" data-ial="eq-alt" data-eq="' + ialEsc(a) + '">' + ialEsc(eqBonita(a)) + '</button>'; }).join("") + '</div>'
           : '<p class="ial-d">Li assim. Se algo estiver diferente do que você escreveu, corrija antes de resolver:</p>') +
-        '<input id="eqTxt" maxlength="300" autocomplete="off" spellcheck="false" style="font-size:20px;font-family:Cambria Math,Cambria,Times New Roman,serif" value="' + ialEsc(r.equacao) + '">' +
+        '<textarea id="eqTxt" maxlength="600" rows="' + (r.equacao.length > 60 ? 3 : 1) + '" autocomplete="off" spellcheck="false" style="font-size:20px;font-family:Cambria Math,Cambria,Times New Roman,serif;width:100%;resize:vertical">' + ialEsc(r.equacao) + '</textarea>' +
         '<p id="eqVer" style="font:600 28px Cambria Math,Cambria,Times New Roman,serif;text-align:center;margin:10px 0;color:#0f2c4a">' + ialEsc(eqBonita(r.equacao)) + '</p>' +
         '<div class="ial-bts"><button type="button" class="ial-b" data-ial="eq-organizar">✍️ Organizar no quadro</button><button type="button" class="ial-b ial-prim" data-ial="eq-resolver" data-ial-padrao>🧮 Resolver passo a passo</button></div>' +
         '<p class="ial-d">Ler e organizar são grátis. Resolver usa 1 crédito.</p>';
-      var inp = c.querySelector("#eqTxt"); inp.addEventListener("input", function(){ c.querySelector("#eqVer").textContent = eqBonita(inp.value); }); inp.focus();
+      var inp = c.querySelector("#eqTxt"), ver = c.querySelector("#eqVer"), pinta = function(){ ver.textContent = eqBonita(inp.value); ver.hidden = eqBonita(inp.value) === inp.value.trim() && /[a-zà-ú]{4,}/i.test(inp.value); };
+      inp.addEventListener("input", pinta); pinta(); inp.focus();
     }, function(e){ ialErro(f, e); });
   }
+
+  // ---- Exercício na lousa (nov/2026): com o cartão da resolução selecionado, um botão logo abaixo dele cria um exercício
+  // parecido (mesmo tipo, outros números) embaixo do que o professor escreveu, para a turma fixar. Grátis (modelo leve).
+  // Com o exercício selecionado: "Mostrar resposta" (a resposta só vai ao quadro quando o professor quiser) e "Outro exercício".
+  var EXB = null;
+  function exBarra(){
+    var o = canvas.getActiveObject(), alvo = o && (o.pdeExerc || o.pdeResp) ? o : null;
+    if(!EXB){ EXB = document.createElement("div"); EXB.id = "exBarra"; EXB.className = "ex-barra"; document.body.appendChild(EXB);
+      EXB.addEventListener("pointerdown", function(e){ e.stopPropagation(); });
+      EXB.addEventListener("click", function(e){ var b = e.target.closest("[data-ex]"); if(b) exAcao(b.dataset.ex, b); }); }
+    if(!alvo){ EXB.hidden = true; EXB.alvo = null; return; }
+    if(EXB.alvo !== alvo){
+      EXB.alvo = alvo;
+      EXB.innerHTML = alvo.pdeResp ? '<button type="button" data-ex="resp"' + (alvo.pdeResp.feito ? " disabled" : "") + '>' + (alvo.pdeResp.feito ? "✅ Resposta no quadro" : "👀 Mostrar resposta") + '</button><button type="button" data-ex="novo">✏️ Outro exercício</button>'
+        : '<button type="button" data-ex="novo" class="ex-prim">✏️ Exercício na lousa</button><small>um parecido para a turma fixar · grátis</small>';
+    }
+    var r = alvo.getBoundingRect(), cv = canvas.upperCanvasEl.getBoundingClientRect();
+    EXB.style.left = Math.round(cv.left + r.left) + "px"; EXB.style.top = Math.round(cv.top + r.top + r.height + 8) + "px"; EXB.hidden = false;
+  }
+  function exAcao(qual, bt){
+    var o = EXB && EXB.alvo; if(!o) return;
+    if(qual === "resp"){
+      var R = o.pdeResp; if(R.feito) return;
+      var fs = Math.round(Math.max(18, (o.fontSize || 32) * .62));
+      var t = new fabric.Textbox("✔ " + R.resposta + (R.passos && R.passos.length ? "\n" + R.passos.map(function(p, i){ return (i + 1) + ". " + p; }).join("\n") : ""),
+        { left:o.left, top:o.top + o.height * (o.scaleY || 1) + 8, width:Math.max(o.width * (o.scaleX || 1), fs * 16), fontSize:fs, fill:"#1a6b2a", lineHeight:1.25, fontFamily:"Cambria Math, Cambria, Segoe UI, sans-serif", pdeIA:true });
+      canvas.add(t); R.feito = true; R.alt = t.height + 8; canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra(); msg("Resposta no quadro. Toque duas vezes para editar"); return;
+    }
+    // novo exercício: a partir do cartão (base) ou de outro exercício (mesma base)
+    var base = o.pdeExerc || (o.pdeResp && o.pdeResp.base); if(!base) return;
+    bt.disabled = true; bt.textContent = "Criando um exercício parecido...";
+    window.PDENuvem.iaRapida({ modo:"exercicio", problema:base.problema, ja:base.ja }).then(function(r){
+      var tx = "✏️ Agora é com vocês:  " + eqBonita(r.enunciado), larg = Math.max(base.fs * 12, Math.min(base.fs * 26, tx.length * base.fs * .55));
+      var t = new fabric.Textbox(tx, { left:base.x, top:base.y, width:larg, fontSize:base.fs, fill:"#0f2c4a", lineHeight:1.2, fontFamily:"Cambria Math, Cambria, Times New Roman, serif", pdeIA:true });
+      t.pdeResp = { resposta:r.resposta, passos:r.passos || [], base:base };
+      base.ja.push(r.enunciado); base.y += t.height + base.fs * 1.6;   // o próximo entra embaixo, com espaço para a resposta
+      canvas.add(t); canvas.setActiveObject(t); canvas.requestRenderAll(); snap(); EXB.alvo = null; exBarra();
+      msg("Exercício no quadro. Quando a turma terminar, toque em Mostrar resposta");
+    }, function(e){ bt.disabled = false; bt.textContent = "✏️ Tentar de novo"; msg((e && e.message) || "A IA não respondeu agora. Tente de novo"); });
+  }
+  canvas.on("selection:created", exBarra); canvas.on("selection:updated", exBarra); canvas.on("selection:cleared", exBarra);
+  canvas.on("object:moving", exBarra); canvas.on("after:render", function(){ if(EXB && !EXB.hidden) exBarra(); });
 
   // ---- Passar a limpo (nov/2026): a letra à mão selecionada vira texto digitado e organizado, no mesmo lugar e na mesma cor.
   // Grátis para o professor (modelo leve, limite diário no servidor). Desfazer traz a letra à mão de volta.
@@ -5275,6 +5322,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .ial-mod small{font-size:11.5px;color:#5b6b7b;line-height:1.25;text-align:center}
   .ial-mod[aria-pressed="true"]{border-color:#1a6b2a;background:#eef7ee;box-shadow:0 0 0 2px #1a6b2a33}
   @media (max-width:560px){ .ial-mods{grid-template-columns:repeat(2,1fr)} }
+  .ex-barra{position:fixed;z-index:60;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;border:1px solid #cdd6df;border-radius:14px;padding:6px;box-shadow:0 8px 22px rgba(15,44,74,.22)}
+  .ex-barra button{border:1px solid #cdd6df;background:#fff;border-radius:10px;padding:9px 14px;font:700 15px "Segoe UI",sans-serif;cursor:pointer;color:#0f2c4a;min-height:44px}
+  .ex-barra button.ex-prim{background:#1a6b2a;border-color:#1a6b2a;color:#fff}
+  .ex-barra button:disabled{opacity:.7;cursor:default}
+  .ex-barra small{font:600 12px "Segoe UI",sans-serif;color:#5b6b7b;padding-right:6px}
   .ial-b{border:1px solid #cdd6df;background:#fff;border-radius:10px;padding:10px 14px;font:700 14px "Segoe UI",sans-serif;cursor:pointer;color:#0f2c4a}
   .ial-b[aria-pressed="true"]{background:#0f2c4a;color:#fff;border-color:#0f2c4a}
   .ial-prim{background:#1a6b2a;color:#fff;border-color:#1a6b2a}
@@ -6490,12 +6542,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     const disc = (document.getElementById("iaDisc") || {}).value || "", sel = document.getElementById("iaTurmaSel"), inp = document.getElementById("iaTurma");
     const turma = (inp && !inp.hidden && inp.value) || (sel && sel.selectedIndex > 0 ? sel.options[sel.selectedIndex].text : "") || "";
     try{
-      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:dados.modo === "pintor" ? 180000 : 90000 })({ acao:"lousa_rapida", disciplina:disc, turma, ...dados }).catch(e => { if(window.PDECredito && dados.modo !== "limpo") PDECredito.ver(e); throw e; })).data;
+      const r = (await httpsCallable(getFunctions(app, "southamerica-east1"), "portalIa", { timeout:dados.modo === "pintor" ? 180000 : 90000 })({ acao:"lousa_rapida", disciplina:disc, turma, ...dados }).catch(e => { if(window.PDECredito && !["limpo", "equacao_ler", "exercicio"].includes(dados.modo)) PDECredito.ver(e); throw e; })).data;
       if(r && r.cota){ cotaIA = r.cota; try{ avisarCotaIA(); }catch(e){} }
       return r;
     }catch(e){
       console.warn("IA da Lousa:", e.code, e.message);
-      throw new Error(e.code === "functions/resource-exhausted" && dados.modo === "limpo" ? e.message : e.code === "functions/resource-exhausted" ? "Seus créditos de IA acabaram. Peça recarga ou aguarde a renovação." :
+      throw new Error(e.code === "functions/resource-exhausted" && ["limpo", "equacao_ler", "exercicio"].includes(dados.modo) ? e.message : e.code === "functions/resource-exhausted" ? "Seus créditos de IA acabaram. Peça recarga ou aguarde a renovação." :
         e.code === "functions/failed-precondition" || e.code === "functions/invalid-argument" || e.code === "functions/internal" ? e.message : "A IA não respondeu agora. Tente de novo em instantes.");
     }
   };
