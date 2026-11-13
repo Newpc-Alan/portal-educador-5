@@ -16,6 +16,7 @@ console.log('::notice::config creditos: demo_teste=' + JSON.stringify((cfg.credi
 for (const d of s.docs) {
   const u = d.data(); if (u.perfil === 'aluno') continue;
   const c = (await db.doc('creditos/prof_' + d.id).get()).data() || {};
+  if (u.municipio_id) { const m = (await db.doc('municipios/' + u.municipio_id).get()).data() || {}; console.log('::notice::rede: ' + (m.nome || '?') + '/' + (m.uf || '') + ' · plano ' + (m.plano_nome || '-') + ' · status ' + (m.status || '-') + ' · escola ' + (u.escola_id ? 'sim' : 'não') + ' · criado_por ' + (u.criado_por === d.id ? 'ele mesmo' : 'outra pessoa')); }
   console.log('::notice::' + String(u.nome || '?').split(' ')[0] + ' @' + String(u.email || '').split('@')[1] + ' · perfil ' + u.perfil + ' · licenca ' + u.licenca_tipo + '/' + (u.licenca_plano || '') + ' · plano_avulso ' + (u.plano_avulso || '-') +
     ' · fim ' + new Date(ms(u.licenca_fim)).toISOString().slice(0, 10) + ' · municipio ' + (u.municipio_id || 'não') + ' · email ' + String(u.email || '').replace(/^(.{6}).*@/, '$1…@') + ' · criado ' + new Date(ms(u.criado_em)).toISOString().slice(0, 10) + ' · origem ' + (u.origem || '-') + ' · saldo ' + (c.saldo ?? '-') + ' · pacotes ' + JSON.stringify((c.pacotes || []).map(p => ({ o: p.origem, n: p.creditos, r: p.restante, v: new Date(ms(p.validade)).toISOString().slice(0, 10) }))));
 }
