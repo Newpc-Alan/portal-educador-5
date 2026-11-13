@@ -47,6 +47,12 @@ textarea.inp{min-height:130px;resize:vertical;line-height:1.45}
 .btn-grande{font-size:1rem;min-height:54px;padding:12px 22px;width:100%}
 .aviso{border-radius:12px;padding:10px 13px;font-size:.86rem;line-height:1.45;margin-top:10px}
 .aviso.azul{background:#e8f2fb;color:#1f5f91}.aviso.amarelo{background:#fff3d6;color:#6b4500}.aviso.verde{background:#e9f5dc;color:#2f5a0a}
+.modos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.modo{border:1.5px solid #cfdbe7;background:#fff;border-radius:14px;padding:10px 12px;text-align:left;display:flex;gap:10px;align-items:center;min-height:56px}
+.modo span{font-size:1.5rem;flex:none}.modo b{display:block;font-size:.9rem;line-height:1.2}.modo small{display:block;font-size:.74rem;color:var(--muted);line-height:1.25}
+.modo.on{border-color:var(--verde);background:#eef7e8;box-shadow:0 0 0 3px rgba(26,107,42,.12)}
+@media (max-width:640px){ .modos{grid-template-columns:1fr} }
+.al-cargo{flex:1 1 140px;min-width:0;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:.84rem}
 .lista{display:grid;gap:8px;margin-top:12px;max-height:560px;overflow:auto;padding-right:4px}
 .al{border:1.5px solid var(--line);border-radius:12px;padding:9px 11px;display:grid;gap:6px;background:#fff}
 .al.on{border-color:var(--azul);box-shadow:0 0 0 3px rgba(38,113,171,.12)}
@@ -115,6 +121,13 @@ textarea.inp{min-height:130px;resize:vertical;line-height:1.45}
 .cert .ass small{font-size:3.2mm;font-weight:600;color:#4a5784;line-height:1.2}
 .cert .selo{position:absolute;right:17mm;top:15mm;width:30mm;height:30mm;z-index:3}
 .cert .lema{position:absolute;left:16mm;top:15mm;font-family:'Dancing Script',cursive;font-weight:700;font-size:6.2mm;line-height:1.05;color:var(--c1);transform:rotate(-8deg);width:46mm;text-align:center;z-index:3}
+.cert .membros{margin-top:3mm;font-size:4.1mm;font-weight:700;line-height:1.45;color:#2b3a6e;max-width:168mm;columns:2;column-gap:10mm;text-align:left}
+.cert .membros.poucos{columns:1;text-align:center}
+.cert .membros.muitos{font-size:3.4mm;columns:3;column-gap:7mm}
+.cert .membros b{display:block;column-span:all;text-align:center;font-size:3.6mm;letter-spacing:.06em;text-transform:uppercase;color:var(--c1);margin-bottom:1mm}
+.cert .louro{position:absolute;bottom:22mm;width:44mm;height:120mm;z-index:2}
+.cert .louro.esq{left:16mm}.cert .louro.dir{right:16mm;transform:scaleX(-1)}
+.cert.adulto .miolo{left:52mm;right:52mm}
 .cert .rodape{position:absolute;left:0;right:0;bottom:3.2mm;text-align:center;font-size:2.8mm;font-weight:700;color:#7d8aa8;z-index:4;letter-spacing:.02em}
 
 /* impressão: só os certificados, um por página A4 paisagem */
@@ -138,12 +151,32 @@ textarea.inp{min-height:130px;resize:vertical;line-height:1.45}
     <a class="tb" href="/entrar/">← Voltar ao Portal</a>
   </header>
 
+  <div class="modos" role="tablist" aria-label="Tipo de certificado">
+    <button type="button" class="modo on" data-action="modo" data-arg="alunos"><span>🎓</span><div><b>Alunos</b><small>Um ou mais por aluno</small></div></button>
+    <button type="button" class="modo" data-action="modo" data-arg="grupo"><span>👥</span><div><b>Equipe ou turma</b><small>Gincana, feira, turma destaque</small></div></button>
+    <button type="button" class="modo" data-action="modo" data-arg="escola"><span>🏫</span><div><b>Equipe da escola</b><small>Professores e servidores</small></div></button>
+  </div>
   <div class="grade">
     <div>
       <section class="card">
-        <h2 class="h2"><span class="n">1</span>Quem recebe</h2>
-        <p class="sub">Escolha a turma do Portal ou cole a lista de nomes. Cada aluno pode receber um ou mais certificados.</p>
-        <div class="abas" role="tablist">
+        <h2 class="h2"><span class="n">1</span><span id="titQuem">Quem recebe</span></h2>
+        <p class="sub" id="subQuem">Escolha a turma do Portal ou cole a lista de nomes. Cada aluno pode receber um ou mais certificados.</p>
+        <div id="boxGrupo" hidden>
+          <div class="linha"><label class="campo">Nome da equipe ou da turma<input class="inp" id="gNome" maxlength="50" placeholder="Ex.: Os Cientistas, Turma do 4º ano C"></label></div>
+          <div class="linha"><label class="campo">Conquista<select class="sel" id="gPremio"></select></label>
+            <label class="campo">Evento, como vai no texto<input class="inp" id="gEvento" maxlength="70" placeholder="Ex.: na Gincana da Primavera 2026"></label></div>
+          <div class="abas" role="radiogroup" aria-label="Formato">
+            <button type="button" class="aba on" data-action="gformato" data-arg="um" id="gfUm">Um certificado para a equipe, com os nomes</button>
+            <button type="button" class="aba" data-action="gformato" data-arg="cada" id="gfCada">Um para cada integrante</button>
+          </div>
+          <p class="sub" style="margin-top:10px;font-weight:700">Integrantes</p>
+        </div>
+        <div id="boxEscola" hidden>
+          <div class="linha"><label class="campo">Um por linha: nome; cargo<textarea class="inp" id="txtEquipe" placeholder="Maria Aparecida Lopes; Professora do 4º ano C&#10;José Carlos Silva; Merendeiro&#10;Ana Paula Rocha; Coordenadora Pedagógica"></textarea></label></div>
+          <div class="linha"><button type="button" class="btn btn-gh" data-action="usar-equipe">Usar estes nomes</button>
+            <button type="button" class="btn btn-gh" data-action="trazer-equipe" id="btTrazer" hidden>Trazer a equipe da escola</button></div>
+        </div>
+        <div class="abas" role="tablist" id="abasFonte">
           <button type="button" class="aba on" data-action="fonte" data-arg="turma" id="abaTurma">Turma do Portal</button>
           <button type="button" class="aba" data-action="fonte" data-arg="colar" id="abaColar">Colar nomes</button>
         </div>
@@ -199,7 +232,7 @@ textarea.inp{min-height:130px;resize:vertical;line-height:1.45}
 
       <section class="card">
         <h2 class="h2"><span class="n">3</span>Textos dos certificados</h2>
-        <p class="sub">Os textos já vêm prontos. Ajuste o título e a frase de qualquer certificado: vale para todos os alunos que o recebem. Use {turma} e {ano} se quiser.</p>
+        <p class="sub">Os textos já vêm prontos. Ajuste o título e a frase de qualquer certificado: vale para todos que o recebem. Use {turma}, {ano} e, nas equipes, {evento}.</p>
         <div class="prem-ed" id="premEd"></div>
       </section>
     </div>
@@ -255,24 +288,56 @@ const PREMIOS = {
   merito:{ t:"Honra ao mérito", f:"pela dedicação, pelo mérito e pelos resultados alcançados durante o ano letivo de {ano}.", a:["adolescente-trofeu"] },
   livre:{ t:"Destaque da turma", f:"pelo carinho, pela dedicação e por tudo o que conquistou em {ano}.", a:["trofeu-menino","escritor-menina"] }
 };
-const ORDEM = Object.keys(PREMIOS);
+// equipe de alunos (um certificado do grupo ou um por integrante)
+const PREMIOS_GRUPO = {
+  campea:{ t:"Equipe campeã", f:"pelo 1º lugar {evento}, com garra, união e espírito de equipe.", a:["trofeu-menino","medalha-menina"] },
+  segundo:{ t:"2º lugar", f:"pelo 2º lugar {evento}, com união e dedicação.", a:["medalha-menina","amizade-dupla"] },
+  terceiro:{ t:"3º lugar", f:"pelo 3º lugar {evento}, com esforço e trabalho em equipe.", a:["amizade-dupla","medalha-menina"] },
+  feira:{ t:"Destaque na Feira de Ciências", f:"pelo projeto apresentado {evento}, com curiosidade, pesquisa e trabalho em equipe.", a:["ciencia-menina","globo-menino"] },
+  turma:{ t:"Turma destaque", f:"pela união, pelo compromisso e pelas conquistas ao longo do ano letivo de {ano}.", a:["amizade-dupla","trofeu-menino"] },
+  projeto:{ t:"Projeto destaque", f:"pela criatividade, pela pesquisa e pela dedicação {evento}.", a:["globo-menino","escritor-menina"] },
+  participacao:{ t:"Participação", f:"pela participação, pela alegria e pelo trabalho em equipe {evento}.", a:["amizade-dupla","escritor-menino"] }
+};
+// equipe da escola (adultos: sem personagens, com ramos de louro)
+const PREMIOS_ESC = {
+  gratidao:{ t:"Gratidão", f:"pela dedicação, pelo carinho e por tudo o que fez pelos nossos alunos durante o ano letivo de {ano}. Muito obrigado!" },
+  professor:{ t:"Professor{|a|(a)} destaque", f:"pelo compromisso com a aprendizagem, pela criatividade e pelo exemplo em sala de aula em {ano}." },
+  servidor:{ t:"Servidor{|a|(a)} destaque", f:"pela dedicação, pela responsabilidade e pelo cuidado com cada detalhe da nossa escola em {ano}." },
+  parceria:{ t:"Parceria e dedicação", f:"pela parceria, pelo trabalho em equipe e pela alegria em servir à nossa comunidade escolar em {ano}." },
+  inovacao:{ t:"Inovação em sala de aula", f:"pelo uso criativo da tecnologia e de novas metodologias a favor da aprendizagem em {ano}." },
+  merito:{ t:"Honra ao mérito", f:"pela dedicação, pelo mérito e pelos resultados alcançados durante o ano letivo de {ano}." }
+};
+const CONJ = { alunos:PREMIOS, grupo:PREMIOS_GRUPO, escola:PREMIOS_ESC };
+const SET = () => CONJ[E.modo] || PREMIOS, ORDEM = () => Object.keys(SET());
+const PADRAO_MODO = { alunos:"participacao", grupo:"campea", escola:"gratidao" };
+// os textos editados ficam por tipo (os dos alunos mantêm a chave antiga)
+const chT = id => E.modo === "alunos" ? id : E.modo + ":" + id;
 const CORES = { azul:["#1f3fa3","#2f6fe0","#bcd2ff","#f2c230"], verde:["#1a6b2a","#3f9b3a","#c8e6b5","#f2c230"], marinho:["#0f2c4a","#2671AB","#b9d4ee","#8DC63F"],
   lilas:["#5b2a9c","#8a4fd6","#dccbf6","#f5c542"], laranja:["#b4470f","#ef7d22","#ffd8b5","#2f6fe0"], rosa:["#a8215e","#e04a8c","#ffd0e3","#f2c230"] };
 const PADRAO = { cor:"azul", escola:"", local:"", ano:String(ANO), a1n:"", a1c:"Professor(a)", a2n:"", a2c:"Direção", cursiva:true, lema:"Grandes conquistas começam com pequenos passos!", textos:{} };
 
 const E = { u:null, uid:"", escola:null, muni:null, gratuito:false, logoData:"", logoProprio:false, turmas:[], turma:null, fonte:"turma", turmaNome:"",
-  alunos:[], cfg:{ ...PADRAO }, prev:0, dados:null };
+  alunos:[], cfg:{ ...PADRAO }, prev:0, dados:null, modo:"alunos", grupo:{ nome:"", evento:"", p:"campea", cada:false }, memo:{} };
 
 /* ---------- gênero e textos ---------- */
 const gen = (s, g) => String(s).replace(/\{([^|}]*)\|([^|}]*)\|([^}]*)\}/g, (_, m, f, n) => g === "M" ? m : g === "F" ? f : n);
 function textoDe(pid, a){
-  const P = PREMIOS[pid] || PREMIOS.participacao, ov = E.cfg.textos[pid] || {};
-  const turma = (E.fonte === "turma" ? (E.turma && E.turma.nome) : E.turmaNome) || "ano escolar";
-  const sub = s => gen(s, a.sexo).replace(/\{ano\}/g, E.cfg.ano || ANO).replace(/\{turma\}/g, turma);
-  return { titulo:sub(ov.t || P.t), frase:sub(ov.f || P.f), artes:P.a };
+  const C = SET(), P = C[pid] || C[PADRAO_MODO[E.modo]], ov = E.cfg.textos[chT(pid)] || {};
+  const turma = turmaAtual() || "ano escolar", evento = E.grupo.evento.trim() || "nas atividades de " + (E.cfg.ano || ANO);
+  const sub = s => gen(s, a.sexo).replace(/\{ano\}/g, E.cfg.ano || ANO).replace(/\{turma\}/g, turma).replace(/\{evento\}/g, evento);
+  return { titulo:sub(ov.t || P.t), frase:sub(ov.f || P.f), artes:P.a || [] };
 }
-/* fila de páginas: um certificado por prêmio de cada aluno incluído */
-const paginas = () => E.alunos.filter(a => a.inc && a.nome.trim()).flatMap(a => (a.premios.length ? a.premios : ["participacao"]).map(p => ({ a, p })));
+const turmaAtual = () => E.modo === "escola" ? "" : E.fonte === "turma" ? (E.turma && E.turma.nome) || "" : E.turmaNome;
+/* fila de páginas: alunos e equipe da escola = um por prêmio de cada pessoa; equipe = um só (com os nomes) ou um por integrante */
+function paginas(){
+  const inc = E.alunos.filter(a => a.inc && a.nome.trim());
+  if(E.modo === "grupo"){
+    if(!inc.length) return [];
+    if(E.grupo.cada) return inc.map(a => ({ tipo:"mem", a, p:E.grupo.p }));
+    return [{ tipo:"grp", a:{ nome:E.grupo.nome.trim() || "Nome da equipe", sexo:"" }, p:E.grupo.p, membros:inc.map(a => a.nome.trim()) }];
+  }
+  return inc.flatMap(a => (a.premios.length ? a.premios : [PADRAO_MODO[E.modo]]).map(p => ({ tipo:"ind", a, p })));
+}
 
 /* ---------- desenho do certificado ---------- */
 function fundoSvg(c){
@@ -294,18 +359,28 @@ function seloSvg(c){
   return '<svg class="selo" viewBox="0 0 100 100" aria-hidden="true">' + raios + '<circle cx="50" cy="50" r="38" fill="#f7cf45" stroke="#c48d10" stroke-width="2"/><circle cx="50" cy="50" r="31" fill="none" stroke="#fff3c4" stroke-width="1.5" stroke-dasharray="2 2.5"/>' +
     '<path d="M50 30l5.9 12 13.2 1.9-9.6 9.3 2.3 13.1L50 60.1l-11.8 6.2 2.3-13.1-9.6-9.3 13.2-1.9z" fill="' + c[0] + '"/></svg>';
 }
+function louroSvg(c, lado){
+  let f = ""; for(let i = 0; i < 9; i++){ const y = 112 - i * 12, x = 30 - Math.sin(i / 8 * Math.PI) * 12;
+    f += '<ellipse cx="' + (x - 7).toFixed(1) + '" cy="' + y + '" rx="7" ry="3.2" transform="rotate(-35 ' + (x - 7).toFixed(1) + " " + y + ')" fill="' + (i % 2 ? c[1] : c[0]) + '"/>' +
+      '<ellipse cx="' + (x + 6).toFixed(1) + '" cy="' + (y - 5) + '" rx="6.5" ry="3" transform="rotate(35 ' + (x + 6).toFixed(1) + " " + (y - 5) + ')" fill="' + (i % 2 ? c[0] : c[1]) + '" opacity=".85"/>'; }
+  return '<svg class="louro ' + lado + '" viewBox="0 0 50 125" aria-hidden="true"><path d="M30 122C14 96 14 40 32 6" fill="none" stroke="' + c[0] + '" stroke-width="1.6" stroke-linecap="round"/>' + f + "</svg>";
+}
 function certHtml(pg){
-  const c = CORES[E.cfg.cor] || CORES.azul, a = pg.a, T = textoDe(pg.p, a);
-  const turma = E.fonte === "turma" ? (E.turma && E.turma.nome) || "" : E.turmaNome;
-  const artes = T.artes.length > 1 ? '<img class="arte esq" src="' + ART(T.artes[0]) + '" alt=""><img class="arte dir" src="' + ART(T.artes[1]) + '" alt="">' : '<img class="arte so" src="' + ART(T.artes[0]) + '" alt="">';
+  const c = CORES[E.cfg.cor] || CORES.azul, a = pg.a, T = textoDe(pg.p, a), adulto = E.modo === "escola";
+  const turma = turmaAtual();
+  const artes = adulto ? louroSvg(c, "esq") + louroSvg(c, "dir") : T.artes.length > 1 ? '<img class="arte esq" src="' + ART(T.artes[0]) + '" alt=""><img class="arte dir" src="' + ART(T.artes[1]) + '" alt="">' : '<img class="arte so" src="' + ART(T.artes[0]) + '" alt="">';
   const assin = [[E.cfg.a1n, E.cfg.a1c], [E.cfg.a2n, E.cfg.a2c]].filter(x => x[0].trim());
-  const conf = gen("Conferido {ao|à|a} alun{o|a|o(a)}", a.sexo);
-  return '<div class="cert" style="--c1:' + c[0] + ';--c2:' + c[1] + ';--c3:' + c[2] + ';--ouro:' + c[3] + '">' + fundoSvg(c) + '<div class="moldura"></div>' +
+  const conf = pg.tipo === "grp" ? "Conferido à equipe" : adulto ? "Conferido a" : gen("Conferido {ao|à|a} alun{o|a|o(a)}", a.sexo);
+  const equipe = E.grupo.nome.trim();
+  const linha2 = pg.tipo === "mem" ? (equipe ? "integrante da equipe " + equipe : "") + (turma ? (equipe ? " · " : "do ") + turma : "")
+    : adulto ? (a.cargo || "").trim() : turma ? "do " + turma : "";
+  const membros = pg.tipo === "grp" ? '<div class="membros' + (pg.membros.length <= 4 ? " poucos" : pg.membros.length > 18 ? " muitos" : "") + '"><b>Integrantes</b>' + pg.membros.map(n => esc(n)).join("<br>") + "</div>" : "";
+  return '<div class="cert' + (adulto ? " adulto" : "") + '" style="--c1:' + c[0] + ';--c2:' + c[1] + ';--c3:' + c[2] + ';--ouro:' + c[3] + '">' + fundoSvg(c) + '<div class="moldura"></div>' +
     (E.cfg.lema.trim() ? '<div class="lema">' + esc(E.cfg.lema) + "</div>" : "") + seloSvg(c) + artes +
     '<div class="miolo"><div class="esc">' + (E.logoData && !E.gratuito ? '<img src="' + E.logoData + '" alt="">' : "") + (E.cfg.escola.trim() ? "<span>" + esc(E.cfg.escola) + "</span>" : "") + "</div>" +
     '<div class="tit">CERTIFICADO</div><div class="premio' + (T.titulo.length > 26 ? " longo" : "") + '">' + esc(T.titulo) + "</div>" +
-    '<div class="conf">' + esc(conf) + '</div><div class="nome' + (a.nome.length > 26 ? " longo" : "") + '">' + esc(a.nome.trim()) + "</div>" +
-    (turma ? '<div class="turma">do ' + esc(turma) + "</div>" : "") + '<div class="frase">' + esc(T.frase) + "</div>" +
+    '<div class="conf">' + esc(conf) + '</div><div class="nome' + (a.nome.length > 26 || (pg.membros && pg.membros.length > 8) ? " longo" : "") + '">' + esc(a.nome.trim()) + "</div>" +
+    (linha2 ? '<div class="turma">' + esc(linha2) + "</div>" : "") + '<div class="frase">' + esc(T.frase) + "</div>" + membros +
     (E.cfg.local.trim() ? '<div class="local">' + esc(E.cfg.local) + "</div>" : "") +
     '<div class="ass">' + assin.map(x => "<div><i>" + (E.cfg.cursiva ? esc(x[0]) : "") + "</i><hr><b>" + esc(x[0]) + "</b><small>" + esc(x[1]) + "</small></div>").join("") + "</div></div>" +
     (E.gratuito ? '<div class="rodape">Feito com o Portal do Educador · portaldoeducador.com.br</div>' : "") + "</div>";
@@ -316,10 +391,11 @@ function prever(){
   const pgs = paginas(), el = $("palco");
   $("btImprimir").disabled = !pgs.length;
   $("btImprimir").textContent = pgs.length ? "🖨️ Imprimir ou salvar em PDF (" + pgs.length + (pgs.length === 1 ? " certificado)" : " certificados)") : "🖨️ Imprimir ou salvar em PDF";
-  if(!pgs.length){ el.innerHTML = certHtml({ a:{ nome:"Nome do aluno", sexo:"" }, p:"participacao" }); $("prevInfo").textContent = "Exemplo"; ajustar(); return; }
+  if(!pgs.length){ el.innerHTML = certHtml(E.modo === "grupo" ? { tipo:"grp", a:{ nome:E.grupo.nome.trim() || "Nome da equipe", sexo:"" }, p:E.grupo.p, membros:["Integrante 1", "Integrante 2", "Integrante 3"] }
+    : { tipo:"ind", a:{ nome:E.modo === "escola" ? "Nome do servidor" : "Nome do aluno", sexo:"", cargo:E.modo === "escola" ? "Cargo" : "" }, p:PADRAO_MODO[E.modo] }); $("prevInfo").textContent = "Exemplo"; ajustar(); return; }
   E.prev = Math.max(0, Math.min(E.prev, pgs.length - 1));
   el.innerHTML = certHtml(pgs[E.prev]);
-  $("prevInfo").textContent = (E.prev + 1) + " de " + pgs.length + " · " + pgs[E.prev].a.nome.split(" ")[0];
+  $("prevInfo").textContent = (E.prev + 1) + " de " + pgs.length + " · " + (pgs[E.prev].tipo === "grp" ? "certificado da equipe" : pgs[E.prev].a.nome.split(" ")[0]);
   ajustar();
   document.querySelectorAll(".al").forEach(x => x.classList.toggle("on", +x.dataset.i === E.alunos.indexOf(pgs[E.prev].a)));
 }
@@ -327,21 +403,23 @@ function ajustar(){ const p = $("palco"), c = p.querySelector(".cert"); if(!c) r
 window.addEventListener("resize", () => { clearTimeout(ajustar.t); ajustar.t = setTimeout(ajustar, 100); });
 
 /* ---------- lista de alunos ---------- */
-const nomeP = id => gen((E.cfg.textos[id] && E.cfg.textos[id].t) || PREMIOS[id].t, "");
-function opcoesPremio(sel){ return ORDEM.map(id => '<option value="' + id + '"' + (id === sel ? " selected" : "") + ">" + esc(nomeP(id)) + "</option>").join(""); }
+const nomeP = id => gen((E.cfg.textos[chT(id)] && E.cfg.textos[chT(id)].t) || SET()[id].t, "");
+function opcoesPremio(sel){ return ORDEM().map(id => '<option value="' + id + '"' + (id === sel ? " selected" : "") + ">" + esc(nomeP(id)) + "</option>").join(""); }
 function desenharLista(){
-  $("boxAcoes").hidden = !E.alunos.length;
-  $("linhaSugerir").hidden = E.fonte !== "turma";
-  $("selTodos").innerHTML = opcoesPremio(E.etapa === "infantil" ? "infantil" : "participacao");
+  const grupo = E.modo === "grupo", escola = E.modo === "escola";
+  $("boxAcoes").hidden = !E.alunos.length || grupo;
+  $("linhaSugerir").hidden = E.fonte !== "turma" || E.modo !== "alunos";
+  $("selTodos").innerHTML = opcoesPremio(E.modo === "alunos" && E.etapa === "infantil" ? "infantil" : PADRAO_MODO[E.modo]);
   if(!E.alunos.length){ $("lista").innerHTML = ""; prever(); return; }
   $("lista").innerHTML = E.alunos.map((a, i) => '<div class="al' + (a.inc ? "" : " fora") + '" data-i="' + i + '"><div class="al-cab">' +
       '<input type="checkbox" data-inc="' + i + '"' + (a.inc ? " checked" : "") + ' aria-label="Incluir">' +
       '<input class="al-nome" data-nome="' + i + '" value="' + esc(a.nome) + '" maxlength="60" aria-label="Nome no certificado">' +
+      (escola ? '<input class="al-cargo" data-cargo="' + i + '" value="' + esc(a.cargo || "") + '" maxlength="60" placeholder="Cargo" aria-label="Cargo">' : "") +
       '<span class="gen" role="group" aria-label="Como tratar">' + [["M", "o"], ["F", "a"], ["", "o(a)"]].map(([k, t]) => '<button type="button" data-action="gen" data-i="' + i + '" data-arg="' + k + '" class="' + (a.sexo === k ? "on" : "") + '">' + t + "</button>").join("") + "</span>" +
-      '<button type="button" class="ver" data-action="ver" data-i="' + i + '">ver</button></div>' +
+      '<button type="button" class="ver" data-action="ver" data-i="' + i + '">ver</button></div>' + (grupo ? "</div>" :
       '<div class="chips">' + a.premios.map((p, k) => '<span class="chip' + (a.sug && a.sug.includes(p) ? " sug" : "") + '">' + esc(gen(textoDe(p, a).titulo, a.sexo)) + '<button type="button" data-action="tirar" data-i="' + i + '" data-k="' + k + '" aria-label="Tirar">×</button></span>').join("") +
       '<select class="mais" data-mais="' + i + '" aria-label="Adicionar certificado"><option value="">+ certificado</option>' + opcoesPremio("") + "</select>" +
-      (a.info ? '<span class="dado">' + esc(a.info) + "</span>" : "") + "</div></div>").join("");
+      (a.info ? '<span class="dado">' + esc(a.info) + "</span>" : "") + "</div></div>")).join("");
   prever();
 }
 
@@ -355,7 +433,7 @@ async function carregarTurmas(){
   }catch(e){ console.warn("turmas:", e.code); }
   const minhas = new Set((E.u.turmas_ids || []).map(String)), ehMinha = t => minhas.has(t.id) || t.criado_por === E.uid || (Array.isArray(t.grade) && t.grade.some(g => g.professor_uid === E.uid));
   E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
-  if(!E.turmas.length){ fonte("colar"); $("abaTurma").hidden = true; return; }
+  if(!E.turmas.length){ if(E.modo !== "escola") fonte("colar"); $("abaTurma").hidden = true; return; }
   $("selTurma").innerHTML = '<option value="">Escolha a turma...</option>' + E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (ids.length > 1 ? " · " + esc(t.escola_nome || "") : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("");
 }
 const etapaDe = t => { const x = String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -378,13 +456,14 @@ async function abrirTurma(id){
   }
   let salvo = {}; try{ salvo = JSON.parse(localStorage.getItem("pde_cert_t_" + E.uid + "_" + id) || "{}"); }catch(e){}
   const base = E.etapa === "infantil" ? "infantil" : "participacao";
-  E.alunos = lista.map(a => ({ ...a, inc:true, premios:(salvo[a.id] || [base]).filter(p => PREMIOS[p]), sug:null, info:"" }));
+  // na equipe, a turma inteira aparece e o professor marca quem faz parte
+  E.alunos = lista.map(a => ({ ...a, inc:E.modo !== "grupo", premios:E.modo === "grupo" ? [] : (salvo[a.id] || [base]).filter(p => PREMIOS[p]), sug:null, info:"" }));
   if(!E.alunos.length) $("lista").innerHTML = '<div class="aviso amarelo">Esta turma ainda não tem alunos cadastrados. Use "Colar nomes".</div>';
   E.prev = 0; desenharLista();
   if(!E.alunos.length) $("lista").innerHTML = '<div class="aviso amarelo">Esta turma ainda não tem alunos cadastrados. Use "Colar nomes".</div>';
 }
 function guardarPremios(){
-  if(E.fonte !== "turma" || !E.turma) return;
+  if(E.fonte !== "turma" || !E.turma || E.modo !== "alunos") return;
   const m = {}; E.alunos.forEach(a => { m[a.id] = a.premios; });   // só o id do aluno e os prêmios, sem nome
   try{ localStorage.setItem("pde_cert_t_" + E.uid + "_" + E.turma.id, JSON.stringify(m)); }catch(e){}
 }
@@ -436,15 +515,56 @@ function usarNomes(){
   if(!nomes.length){ toast("Cole ao menos um nome.", true); return; }
   E.turmaNome = $("txtTurma").value.trim();
   E.etapa = etapaDe(E.turmaNome);
-  const base = E.etapa === "infantil" ? "infantil" : "participacao";
-  E.alunos = nomes.map((n, i) => ({ id:"c" + i, nome:n, sexo:"", inc:true, premios:[base], sug:null, info:"" }));
+  const base = E.modo === "grupo" ? null : E.etapa === "infantil" ? "infantil" : "participacao";
+  E.alunos = nomes.map((n, i) => ({ id:"c" + i, nome:n, sexo:"", inc:true, premios:base ? [base] : [], sug:null, info:"" }));
   E.prev = 0; desenharLista(); toast(nomes.length + (nomes.length === 1 ? " nome pronto." : " nomes prontos."));
 }
 function fonte(f){
   E.fonte = f; $("abaTurma").classList.toggle("on", f === "turma"); $("abaColar").classList.toggle("on", f === "colar");
   $("boxTurma").hidden = f !== "turma"; $("boxColar").hidden = f !== "colar";
-  E.alunos = []; E.turma = null; $("avisoSug").innerHTML = ""; if(f === "turma") $("selTurma").value = "";
+  E.alunos = []; E.turma = null; E.turmaNome = ""; $("avisoSug").innerHTML = ""; if(f === "turma") $("selTurma").value = "";
   desenharLista();
+}
+
+/* ---------- tipo de certificado ---------- */
+function trocarModo(m){
+  if(m === E.modo) return;
+  E.memo[E.modo] = { alunos:E.alunos, fonte:E.fonte, turma:E.turma, turmaNome:E.turmaNome, prev:E.prev };   // cada tipo guarda a própria lista
+  E.modo = m;
+  document.querySelectorAll(".modo").forEach(b => b.classList.toggle("on", b.dataset.arg === m));
+  const M = E.memo[m] || { alunos:[], fonte:E.turmas.length ? "turma" : "colar", turma:null, turmaNome:"", prev:0 };
+  Object.assign(E, { alunos:M.alunos, fonte:M.fonte, turma:M.turma, turmaNome:M.turmaNome, prev:M.prev });
+  $("boxGrupo").hidden = m !== "grupo"; $("boxEscola").hidden = m !== "escola";
+  $("abasFonte").hidden = m === "escola"; $("boxTurma").hidden = m === "escola" || E.fonte !== "turma"; $("boxColar").hidden = m === "escola" || E.fonte !== "colar";
+  $("abaTurma").classList.toggle("on", E.fonte === "turma"); $("abaColar").classList.toggle("on", E.fonte === "colar");
+  if(m !== "escola" && E.fonte === "turma") $("selTurma").value = E.turma ? E.turma.id : "";
+  $("titQuem").textContent = m === "grupo" ? "A equipe" : m === "escola" ? "Equipe da escola" : "Quem recebe";
+  $("subQuem").textContent = m === "grupo" ? "Dê um nome à equipe, escolha a conquista e marque os integrantes. Sai um certificado da equipe com todos os nomes, ou um para cada integrante."
+    : m === "escola" ? "Professores, merendeiras, apoio, secretaria e gestão: cole os nomes com o cargo, um por linha." + (podeTrazer() ? " Ou traga a equipe já cadastrada no Portal." : "")
+    : "Escolha a turma do Portal ou cole a lista de nomes. Cada aluno pode receber um ou mais certificados.";
+  if(m === "grupo") $("gPremio").innerHTML = opcoesPremio(E.grupo.p);
+  $("btTrazer").hidden = !podeTrazer();
+  $("avisoSug").innerHTML = ""; aplicarCfg(); desenharLista();
+}
+const podeTrazer = () => E.u && ["gestor", "admin", "secretaria", "secretaria_escolar"].includes(E.u.perfil) && !!E.u.escola_id;
+function usarEquipe(){
+  const linhas = $("txtEquipe").value.split(/\r?\n/).map(s => s.replace(/^\s*\d+[\s.)-]+/, "").trim()).filter(s => s.length >= 2).slice(0, 150);
+  if(!linhas.length){ toast("Cole ao menos um nome.", true); return; }
+  E.alunos = linhas.map((l, i) => { const [n, ...c] = l.split(/\s*[;\t]\s*|\s+-\s+/); return { id:"s" + i, nome:n.replace(/\s+/g, " ").trim(), cargo:c.join(" ").trim(), sexo:"", inc:true, premios:["gratidao"], sug:null, info:"" }; });
+  E.prev = 0; desenharLista(); toast(E.alunos.length + (E.alunos.length === 1 ? " pessoa pronta." : " pessoas prontas."));
+}
+async function trazerEquipe(){
+  const bt = $("btTrazer"); bt.disabled = true;
+  try{
+    const s = await getDocs(query(collection(db, "usuarios"), where("escola_id", "==", E.u.escola_id), limit(300)));
+    const CARGO = { professor:"Professor(a)", gestor:"Gestão escolar", secretaria_escolar:"Secretaria escolar", coordenador:"Coordenação pedagógica" };
+    const L = []; s.forEach(d => { const x = d.data(); if(x.status !== "ativo" || x.perfil === "aluno" || x.perfil === "admin" || x.demo || !x.nome) return;
+      L.push({ id:d.id, nome:String(x.nome).trim(), cargo:x.funcao || CARGO[x.perfil] || "", sexo:x.sexo === "F" || x.sexo === "M" ? x.sexo : "", inc:true, premios:[x.perfil === "professor" ? "gratidao" : "gratidao"], sug:null, info:"" }); });
+    if(!L.length){ toast("Nenhuma pessoa da equipe encontrada nesta escola. Cole os nomes.", true); return; }
+    E.alunos = L.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); E.prev = 0; desenharLista();
+    toast(L.length + " pessoas da equipe. Confira os cargos: dá para editar ali mesmo.");
+  }catch(e){ console.warn("equipe:", e.code); toast("Não consegui trazer a equipe com o seu acesso. Cole os nomes com o cargo.", true); }
+  finally{ bt.disabled = false; }
 }
 
 /* ---------- aparência, textos e logo ---------- */
@@ -452,10 +572,10 @@ const CAMPOS = { cEscola:"escola", cLocal:"local", cAno:"ano", cA1n:"a1n", cA1c:
 function aplicarCfg(){
   Object.entries(CAMPOS).forEach(([id, k]) => { $(id).value = E.cfg[k] || ""; }); $("cCursiva").checked = !!E.cfg.cursiva;
   $("cores").innerHTML = Object.entries(CORES).map(([k, c]) => '<button type="button" class="cor' + (k === E.cfg.cor ? " on" : "") + '" data-action="cor" data-arg="' + k + '" style="background:linear-gradient(135deg,' + c[0] + " 50%," + c[3] + ' 50%)" aria-label="Cor ' + k + '"></button>').join("");
-  $("premEd").innerHTML = ORDEM.map(id => { const P = PREMIOS[id], ov = E.cfg.textos[id] || {};
+  $("premEd").innerHTML = ORDEM().map(id => { const P = SET()[id], ov = E.cfg.textos[chT(id)] || {};
     return '<details><summary>' + esc(gen(ov.t || P.t, "")) + '</summary><label class="campo" style="margin-top:6px">Título<input class="inp" data-ptit="' + id + '" maxlength="40" value="' + esc(ov.t || P.t) + '"></label>' +
       '<label class="campo" style="margin-top:6px">Frase<textarea class="inp" style="min-height:70px" data-pfra="' + id + '" maxlength="180">' + esc(ov.f || P.f) + "</textarea></label>" +
-      '<p class="sub" style="margin-top:4px">{o|a|o(a)} muda com o aluno: masculino | feminino | sem informação.</p></details>'; }).join("");
+      '<p class="sub" style="margin-top:4px">{o|a|o(a)} muda com a pessoa: masculino | feminino | sem informação.</p></details>'; }).join("");
   desenharLogo();
 }
 function lerCfg(){ Object.entries(CAMPOS).forEach(([id, k]) => { E.cfg[k] = $(id).value; }); E.cfg.cursiva = $("cCursiva").checked; guardarCfg(); prever(); }
@@ -493,6 +613,10 @@ document.addEventListener("click", ev => {
   const el = ev.target.closest("[data-action]"); if(!el) return;
   const a = el.dataset.action, i = +el.dataset.i;
   if(a === "fonte") fonte(el.dataset.arg);
+  else if(a === "modo") trocarModo(el.dataset.arg);
+  else if(a === "gformato"){ E.grupo.cada = el.dataset.arg === "cada"; $("gfUm").classList.toggle("on", !E.grupo.cada); $("gfCada").classList.toggle("on", E.grupo.cada); E.prev = 0; prever(); }
+  else if(a === "usar-equipe") usarEquipe();
+  else if(a === "trazer-equipe") trazerEquipe();
   else if(a === "usar-nomes") usarNomes();
   else if(a === "sugerir") sugerir();
   else if(a === "aplicar-todos"){ const p = $("selTodos").value; E.alunos.forEach(x => { x.premios = [p]; x.sug = null; }); guardarPremios(); desenharLista(); }
@@ -507,6 +631,7 @@ document.addEventListener("click", ev => {
 document.addEventListener("change", async ev => {
   const t = ev.target;
   if(t.id === "selTurma") abrirTurma(t.value);
+  else if(t.id === "gPremio"){ E.grupo.p = t.value; prever(); }
   else if(t.dataset.inc !== undefined){ E.alunos[+t.dataset.inc].inc = t.checked; t.closest(".al").classList.toggle("fora", !t.checked); prever(); }
   else if(t.dataset.mais !== undefined){ const al = E.alunos[+t.dataset.mais]; if(t.value && !al.premios.includes(t.value)) al.premios.push(t.value); guardarPremios(); desenharLista(); }
   else if(t.id === "logoArq" && t.files && t.files[0]){
@@ -519,14 +644,16 @@ document.addEventListener("change", async ev => {
 document.addEventListener("input", ev => {
   const t = ev.target;
   if(t.dataset.nome !== undefined){ E.alunos[+t.dataset.nome].nome = t.value; clearTimeout(prever.t); prever.t = setTimeout(prever, 250); }
+  else if(t.dataset.cargo !== undefined){ E.alunos[+t.dataset.cargo].cargo = t.value; clearTimeout(prever.t); prever.t = setTimeout(prever, 250); }
+  else if(t.id === "gNome" || t.id === "gEvento"){ E.grupo[t.id === "gNome" ? "nome" : "evento"] = t.value; clearTimeout(prever.t); prever.t = setTimeout(prever, 250); }
   else if(t.matches("[data-cfg]")){ clearTimeout(lerCfg.t); lerCfg.t = setTimeout(lerCfg, 250); }
   else if(t.dataset.ptit !== undefined || t.dataset.pfra !== undefined){
-    const id = t.dataset.ptit || t.dataset.pfra, ov = E.cfg.textos[id] = E.cfg.textos[id] || {};
-    if(t.dataset.ptit) ov.t = t.value.trim() || PREMIOS[id].t; else ov.f = t.value.trim() || PREMIOS[id].f;
+    const id = t.dataset.ptit || t.dataset.pfra, ov = E.cfg.textos[chT(id)] = E.cfg.textos[chT(id)] || {};
+    if(t.dataset.ptit) ov.t = t.value.trim() || SET()[id].t; else ov.f = t.value.trim() || SET()[id].f;
     clearTimeout(lerCfg.t2); lerCfg.t2 = setTimeout(() => { guardarCfg(); prever(); }, 300);
   }
 });
-document.addEventListener("focusout", ev => { if(ev.target.dataset && (ev.target.dataset.ptit !== undefined)) desenharLista(); });
+document.addEventListener("focusout", ev => { if(ev.target.dataset && (ev.target.dataset.ptit !== undefined)){ desenharLista(); if(E.modo === "grupo") $("gPremio").innerHTML = opcoesPremio(E.grupo.p); } });
 
 /* ---------- entrada ---------- */
 onAuthStateChanged(auth, async user => {
@@ -550,6 +677,7 @@ onAuthStateChanged(auth, async user => {
   if(E.gratuito) $("avisoPlano").innerHTML = '<div class="aviso azul">No plano Gratuito o certificado sai completo, com um rodapé discreto do Portal. Nos planos pagos sai com o logo da escola e sem rodapé.</div>';
   aplicarCfg(); desenharLista();
   carregarTurmas();
+  const h = (location.hash || "").slice(1); if(h === "equipe" || h === "grupo") trocarModo("grupo"); else if(h === "escola") trocarModo("escola");
 });
 </script>
 <script type="module" src="/assets/js/plano.js" data-plano-modulo="apps" data-plano-nome="Certificados da Turma"></script>
