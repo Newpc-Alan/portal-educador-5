@@ -77,14 +77,14 @@ td{padding:9px 10px;border-top:1px solid var(--line)}
   <section class="kpis" id="kpis"></section>
   <div class="duas">
     <section class="card funil"><h2>Funil</h2><p class="sub">Até onde os visitantes chegam (cada pessoa conta uma vez por etapa)</p><div class="barras" id="funil"></div></section>
-    <section class="card dias"><h2>Visitantes por dia</h2><p class="sub">Aparelhos diferentes por dia</p><div id="dias"></div></section>
+    <section class="card dias"><h2>Visitas por dia</h2><p class="sub">Visitas sem conta aberta</p><div id="dias"></div></section>
   </div>
   <div class="duas">
     <section class="card"><h2>De onde vêm</h2><p class="sub">Origem da primeira visita (link com ?utm_source= ou site anterior)</p><div class="barras" id="origens"></div></section>
     <section class="card"><h2>Região</h2><p class="sub">Pelo fuso horário do aparelho</p><div class="barras" id="regioes"></div></section>
   </div>
   <section class="card"><h2>Municípios que tentaram e não concluíram</h2><p class="sub">Quem escolheu estado e município no cadastro e parou: oportunidade de contato com a rede</p><div class="tab" id="municipios"></div></section>
-  <section class="card"><h2>Últimos visitantes sem cadastro</h2><p class="sub">Um por aparelho, mais recentes primeiro</p><div class="tab" id="ultimos"></div></section>
+  <section class="card"><h2>Últimas visitas sem cadastro</h2><p class="sub">Uma por visita (aba aberta), mais recentes primeiro</p><div class="tab" id="ultimos"></div></section>
 </main>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -134,8 +134,8 @@ function desenhar(){
   const soma = k => Object.values(porDia).reduce((s, d) => s + (d[k] || 0), 0);
   const T = { vis:soma("vis"), novos:soma("novos"), login:soma("f_login"), cad:soma("f_cadastro"), muni:soma("f_muni"), fim:soma("f_fim") };
   $("kpis").innerHTML = [
-    ["Visitantes", T.vis, "aparelhos diferentes por dia, somados"],
-    ["Novos", T.novos, "primeira vez no Portal"],
+    ["Visitas", T.vis, "visitas sem conta aberta"],
+    ["Visitas novas", T.novos, "contadas uma vez cada"],
     ["Abriram o login", T.login, pct(T.login, T.novos) + "% dos novos"],
     ["Começaram o cadastro", T.cad, "entraram com Google"],
     ["Concluíram", T.fim, pct(T.fim, T.novos) + "% dos novos", true]
@@ -155,9 +155,9 @@ function desenhar(){
   $("municipios").innerHTML = ml.length ? '<table><thead><tr><th>Município</th><th>UF</th><th class="num">Pessoas que pararam</th><th>Última tentativa</th></tr></thead><tbody>' +
     ml.map(m => "<tr><td><b>" + esc(m.nome) + "</b></td><td>" + esc(m.uf) + '</td><td class="num">' + nf(m.n) + "</td><td>" + dataBR(m.ult) + "</td></tr>").join("") + "</tbody></table>"
     : '<div class="vazio">Ninguém parou depois de escolher o município neste período.</div>';
-  $("ultimos").innerHTML = sem.length ? '<table><thead><tr><th>Última visita</th><th>Até onde chegou</th><th>Origem</th><th>Região</th><th>Município</th><th>Aparelho</th><th class="num">Dias</th></tr></thead><tbody>' +
+  $("ultimos").innerHTML = sem.length ? '<table><thead><tr><th>Última visita</th><th>Até onde chegou</th><th>Origem</th><th>Região</th><th>Município</th><th>Aparelho</th></tr></thead><tbody>' +
     sem.slice(0, 200).map(v => "<tr><td>" + dataBR(v.ultimo_em) + '</td><td><span class="pill' + ((v.etapa_max || 0) >= 3 ? " q" : "") + '">' + esc(ETAPA[v.etapa_max] || "-") + "</span></td><td>" + esc(ORIGEM[v.origem] || v.origem || "-") +
-      "</td><td>" + esc(String(v.regiao || "-").replace(/ \(.*/, "")) + "</td><td>" + esc([v.municipio, v.uf].filter(Boolean).join("/") || "-") + "</td><td>" + esc(v.dispositivo || "-") + '</td><td class="num">' + nf(v.dias || 1) + "</td></tr>").join("") + "</tbody></table>"
+      "</td><td>" + esc(String(v.regiao || "-").replace(/ \(.*/, "")) + "</td><td>" + esc([v.municipio, v.uf].filter(Boolean).join("/") || "-") + "</td><td>" + esc(v.dispositivo || "-") + "</td></tr>").join("") + "</tbody></table>"
     : '<div class="vazio">Sem visitantes sem cadastro neste período.</div>';
 }
 document.addEventListener("click", e => {

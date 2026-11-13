@@ -1,5 +1,5 @@
 // Contador de visitantes do Portal (nov/2026): mostra no admin (/visitantes/) de onde vêm e até onde chegam os que não se cadastram.
-// Anônimo: um código aleatório no aparelho (pde_vid), a origem (Instagram, Google, WhatsApp...), o fuso horário e, quando a pessoa
+// Anônimo: um código aleatório que vale só enquanto a aba está aberta (sessionStorage, some ao fechar), a origem (Instagram, Google, WhatsApp...), o fuso horário e, quando a pessoa
 // escolhe no cadastro, o estado e o município. Sem IP, nome, e-mail ou cookie de terceiros. Respeita "Não rastrear" do navegador.
 // Uso: <script src="/assets/js/pde-visita.js" defer></script>  ·  window.PDEVisita.marcar("login" | "cadastro" | "muni" | "fim" | "conta", { uf, mun, ibge })
 (function(){
@@ -8,11 +8,11 @@
   var URL_ = "https://southamerica-east1-" + proj + ".cloudfunctions.net/visita";
   var dnt = navigator.doNotTrack === "1" || window.doNotTrack === "1";
   function vid(){
-    var v = ""; try{ v = localStorage.getItem("pde_vid") || ""; }catch(e){}
+    var v = ""; try{ v = sessionStorage.getItem("pde_vid") || ""; }catch(e){}
     if(!/^[a-z0-9]{12,32}$/.test(v)){
       v = ""; var a = new Uint8Array(12); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach(function(_, i){ a[i] = Math.random() * 256; });
       a.forEach(function(b){ v += (b % 36).toString(36); }); v += Date.now().toString(36).slice(-4);
-      try{ localStorage.setItem("pde_vid", v); }catch(e){}
+      try{ sessionStorage.setItem("pde_vid", v); }catch(e){}
     }
     return v;
   }
