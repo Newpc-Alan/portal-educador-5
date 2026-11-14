@@ -214,7 +214,7 @@ function desenhar(t, r, alunos, B){
   const jogos = {}; Object.values(A).forEach(x => Object.entries(x.jogos || {}).forEach(([j, n]) => { jogos[j] = (jogos[j] || 0) + n; }));
   let h = '<div class="kpis"><div class="kpi"><b>' + jogaram.length + " de " + alunos.length + '</b><span>alunos jogaram no período</span></div><div class="kpi"><b>' + rod + '</b><span>rodadas concluídas</span></div>' +
     '<div class="kpi"><b class="' + (tot ? faixa(pct(c, tot)) : "") + '">' + (tot ? pct(c, tot) + "%" : "–") + '</b><span>acerto de primeira da turma</span></div><div class="kpi"><b>' + habs.length + "</b><span>habilidades treinadas</span></div></div>";
-  if(!rod && !L.n){
+  if(!rod && !L.n && !(r.lousaTurma && r.lousaTurma.n)){
     h += '<div class="carta vazio" style="margin-top:14px"><b>Ainda não há resultados nesta turma</b>Os resultados aparecem quando os alunos entram com a conta deles e jogam: Tabuada, Que Horas São?, Fração Mágica, Corpo Humano, Sistema Solar, Explorando Habitats, Trilha do Conhecimento ou Mouse e Teclado.</div>';
     $("conteudo").innerHTML = h; return;
   }
@@ -228,9 +228,15 @@ function desenhar(t, r, alunos, B){
     h += '<section class="carta" style="margin-top:14px"><h2>Jogos usados</h2><p class="sub">Rodadas concluídas pelos alunos da turma.</p><div class="rol"><table style="min-width:300px"><thead><tr><th>Jogo</th><th class="n">Rodadas</th></tr></thead><tbody>' +
       Object.entries(jogos).sort((a, b) => b[1] - a[1]).map(([j, n]) => "<tr><td>" + esc(JOGOS[j] || j) + '</td><td class="n">' + n + "</td></tr>").join("") + "</tbody></table></div></section>";
   }
+  const LT = r.lousaTurma || { n:0, habs:{} };
+  if(LT.n){
+    const lt = Object.entries(LT.habs || {}).sort((a, b) => pct(a[1].c, a[1].t) - pct(b[1].c, b[1].t));
+    h += '<section class="carta" style="margin-top:14px"><h2>Na lousa, com esta turma</h2><p class="sub">' + LT.n + " rodada" + (LT.n > 1 ? "s" : "") + ' no modo Turma em que o professor marcou esta turma. É o resultado da turma respondendo junta, não de cada aluno.</p><div class="rol"><table><thead><tr><th>Habilidade</th><th>O que é</th><th>Acerto de primeira</th><th class="n">Perguntas</th></tr></thead><tbody>' +
+      lt.map(([k, v]) => { const x = habTxt(k, B); return '<tr><td class="cod">' + esc(k) + (x.comp ? '<br><span class="sub" style="font-weight:500">' + esc(x.comp) + "</span>" : "") + "</td><td>" + esc(x.texto || "") + "</td><td>" + barra(v.c, v.t) + '</td><td class="n">' + v.t + "</td></tr>"; }).join("") + "</tbody></table></div></section>";
+  }
   if(L.n){
     const lh = Object.entries(L.habs || {}).sort((a, b) => pct(a[1].c, a[1].t) - pct(b[1].c, b[1].t));
-    h += '<section class="carta" style="margin-top:14px"><h2>Na lousa, com a sua conta</h2><p class="sub">' + L.n + " rodada" + (L.n > 1 ? "s" : "") + ' que você conduziu no período (modo Turma ou testes seus). Não é separado por turma: vale para todas as suas turmas.</p><div class="rol"><table><thead><tr><th>Habilidade</th><th>O que é</th><th>Acerto de primeira</th><th class="n">Perguntas</th></tr></thead><tbody>' +
+    h += '<section class="carta" style="margin-top:14px"><h2>Na lousa, com a sua conta</h2><p class="sub">' + L.n + " rodada" + (L.n > 1 ? "s" : "") + ' que você conduziu no período sem marcar a turma (modo Turma ou testes seus). Para entrar no painel de uma turma, escolha a turma na tela inicial do jogo, no modo Turma.</p><div class="rol"><table><thead><tr><th>Habilidade</th><th>O que é</th><th>Acerto de primeira</th><th class="n">Perguntas</th></tr></thead><tbody>' +
       lh.map(([k, v]) => { const x = habTxt(k, B); return '<tr><td class="cod">' + esc(k) + "</td><td>" + esc(x.texto || "") + "</td><td>" + barra(v.c, v.t) + '</td><td class="n">' + v.t + "</td></tr>"; }).join("") + "</tbody></table></div></section>";
   }
   $("conteudo").innerHTML = h;

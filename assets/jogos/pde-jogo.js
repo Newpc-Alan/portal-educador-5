@@ -64,9 +64,16 @@ function firebase(){
     const [a, au, fn] = await Promise.all([import(V + "firebase-app.js"), import(V + "firebase-auth.js"), import(V + "firebase-functions.js")]);
     const app = a.getApps().length ? a.getApp() : a.initializeApp(cfg), auth = au.getAuth(app);
     const user = await new Promise(r => { const off = au.onAuthStateChanged(auth, u => { off(); r(u); }, () => r(null)); setTimeout(() => r(auth.currentUser), 4000); });
-    return user ? { chamar:fn.httpsCallable(fn.getFunctions(app, "southamerica-east1"), "jogoResultado", { timeout:20000 }) } : null;
+    const F = fn.getFunctions(app, "southamerica-east1");
+    return user ? { chamar:fn.httpsCallable(F, "jogoResultado", { timeout:20000 }), turmas:fn.httpsCallable(F, "jogoTurmas", { timeout:20000 }) } : null;
   })().catch(e => { console.warn("jogo: sem registro", e && e.message); return null; });
   return fbPronto;
+}
+// turmas do professor (só para o modo Turma, na lousa): pede uma vez e guarda enquanto a página estiver aberta
+let turmasProf = null, turmaSala = "";
+function minhasTurmas(){
+  if(!turmasProf) turmasProf = firebase().then(f => f ? f.turmas({}).then(r => (r.data && r.data.turmas) || []) : []).catch(() => []);
+  return turmasProf;
 }
 async function registrar(dados){
   try{ const f = await firebase(); if(!f) return false; await f.chamar(dados); return true; }catch(e){ console.warn("jogo: registro", e && (e.code || e.message)); return false; }
@@ -100,9 +107,16 @@ function criar(J){
     tela.innerHTML = '<div class="pj-ini"><section class="pj-ini-a"><span class="pj-selo">' + esc(J.selo || "Jogo do Portal do Educador") + '</span><div class="emoji" aria-hidden="true">' + esc(J.emoji || "🎮") + "</div><h2>" + esc(J.titulo) + "</h2><p>" + esc(J.descricao || "") + "</p>" +
       '<div class="pj-habs" title="Habilidades da BNCC trabalhadas">' + (hs => hs.slice(0, 6).map(h => "<span>" + esc(h) + "</span>").join("") + (hs.length > 6 ? "<span>+" + (hs.length - 6) + " habilidades</span>" : ""))(Object.keys(J.habilidades || {})) + "</div></section>" +
       '<section class="pj-ini-b"><div><div class="pj-rot">Como vamos jogar</div><div class="pj-chips" style="margin-top:.4rem">' + modos.map(m => chip("modo", m[0], m[1], m[2], CFG.modo === m[0])).join("") + "</div></div>" +
+      (CFG.modo === "turma" ? '<div id="pjTurmaBox" hidden><div class="pj-rot">Qual turma está na sala?</div><select class="pj-sel" id="pjTurma" aria-label="Qual turma está na sala"></select><small class="pj-mini">Assim o resultado entra no Painel dos Jogos da turma certa.</small></div>' : "") +
       (NIVEIS.length > 1 ? '<div><div class="pj-rot">Por onde começar</div><div class="pj-chips" style="margin-top:.4rem">' + chip("trilha", "1", "✨ Trilha", "o jogo ajusta o nível", CFG.trilha) + NIVEIS.map((n, i) => chip("nivel", i, (i + 1) + " · " + n.nome, n.sub || "", !CFG.trilha && CFG.nivel === i)).join("") + "</div></div>" : "") +
       (J.opcoes || []).map(o => '<div><div class="pj-rot">' + esc(o.rotulo) + '</div><div class="pj-chips' + (o.num ? " num" : "") + '" style="margin-top:.4rem">' + o.itens.map(it => chip("o:" + o.id, it.v, it.t, it.s || "", o.multi ? (CFG.opc[o.id] || []).map(String).includes(String(it.v)) : String(CFG.opc[o.id]) === String(it.v))).join("") + "</div></div>").join("") +
       '<button type="button" class="pj-bt largo" data-a="jogar">▶ Jogar</button></section></div>';
+    // só aparece para professor ou gestor com turmas; aluno e visitante não veem nada
+    if(CFG.modo === "turma") minhasTurmas().then(l => { const box = $("#pjTurmaBox", raiz), sel = $("#pjTurma", raiz); if(!box || !l.length) return;
+      // a escolha vale só enquanto a página estiver aberta: a lousa é de vários professores, e lembrar a turma de ontem gravaria na turma errada
+      if(!l.some(t => t.id === turmaSala)) turmaSala = "";
+      sel.innerHTML = '<option value="">Escolha a turma (opcional)</option>' + l.map(t => '<option value="' + esc(t.id) + '"' + (t.id === turmaSala ? " selected" : "") + ">" + esc(t.nome) + (t.minha ? " ★" : "") + "</option>").join("");
+      sel.onchange = () => { turmaSala = sel.value; }; box.hidden = false; });
   }
   function tocarChip(b){
     const g = b.dataset.g, v = b.dataset.v;
@@ -244,7 +258,7 @@ function criar(J){
       '<p class="pj-nota" id="pjNota"></p></section></div>';
     const guardadas = erradas.map(x => Object.assign({}, x)); raiz._erradas = guardadas;
     SOM.fim(); if(est >= 2) confete();
-    registrar({ jogo:J.id, modo:E.modo, nivel:E.nivelMax + 1, niveis:NIVEIS.length, duracao:dur, acertos:cer, total:tot, habs:Object.entries(E.habs).map(([h, v]) => ({ h, c:v.c, t:v.t })).slice(0, 12) })
+    registrar({ jogo:J.id, modo:E.modo, turma_id:E.modo === "turma" ? turmaSala : "", nivel:E.nivelMax + 1, niveis:NIVEIS.length, duracao:dur, acertos:cer, total:tot, habs:Object.entries(E.habs).map(([h, v]) => ({ h, c:v.c, t:v.t })).slice(0, 12) })
       .then(ok => { const n = $("#pjNota", raiz); if(n) n.textContent = ok ? "Resultado guardado para o professor acompanhar (por habilidade, sem expor nomes)." : ""; });
   }
 

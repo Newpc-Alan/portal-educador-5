@@ -21,10 +21,16 @@ export const jogoResultado = onCall({ region: 'southamerica-east1', memory: '256
   const n = await db.runTransaction(async tx => { const x = await tx.get(lim), v = (x.exists ? x.data().n || 0 : 0) + 1; if (v > 80) return -1; tx.set(lim, { uid, dia, n: v }, { merge: true }); return v; });
   if (n < 0) return { ok: false };
   const aluno = u.perfil === 'aluno';
+  // na lousa (modo Turma), o professor diz qual turma está na sala: vale só turma de uma escola dele
+  let turmaLousa = '', escolaLousa = '';
+  if (!aluno && d.modo === 'turma' && /^[A-Za-z0-9_-]{6,64}$/.test(String(d.turma_id || ''))) {
+    const tr = (await db.doc(`turmas/${d.turma_id}`).get()).data(), minhas = [...new Set([...(Array.isArray(u.escolas_ids) ? u.escolas_ids : []), u.escola_id].filter(Boolean))];
+    if (tr && (u.perfil === 'admin' || minhas.includes(tr.escola_id))) { turmaLousa = String(d.turma_id); escolaLousa = String(tr.escola_id || ''); }
+  }
   await db.collection('jogo_resultados').add({
     jogo, dia, em: FieldValue.serverTimestamp(), modo: ['solo', 'dupla', 'turma'].includes(d.modo) ? d.modo : 'solo',
     perfil: aluno ? 'aluno' : 'equipe', uid, aluno_id: aluno ? String((req.auth.token && req.auth.token.aluno_id) || u.aluno_id || '') : '',
-    turma_id: aluno ? String(u.turma_id || '') : '', escola_id: String(u.escola_id || ''), municipio_id: String(u.municipio_id || ''),
+    turma_id: aluno ? String(u.turma_id || '') : turmaLousa, escola_id: escolaLousa || String(u.escola_id || ''), municipio_id: String(u.municipio_id || ''),
     nivel: n0(d.nivel, 20), niveis: n0(d.niveis, 20), duracao_s: n0(d.duracao, 7200), acertos, total, habs
   });
   return { ok: true };
@@ -55,10 +61,12 @@ export const jogoPainel = onCall({ region: 'southamerica-east1', memory: '512MiB
     db.collection('jogo_resultados').where('turma_id', '==', String(d.turma_id)).limit(5000).get(),
     db.collection('jogo_resultados').where('uid', '==', uid).limit(1500).get()
   ]);
-  const alunos = {}, lousa = novo();
-  sa.forEach(x => { const r = x.data(); if (r.dia < de || r.perfil !== 'aluno' || !r.aluno_id) return; junta(alunos[r.aluno_id] || (alunos[r.aluno_id] = novo()), r); });
-  sl.forEach(x => { const r = x.data(); if (r.dia < de || r.perfil !== 'equipe') return; junta(lousa, r); });
-  return { ok: true, dias, de, turma: { id: String(d.turma_id), nome: t(tr.nome, 80) }, alunos, lousa };
+  const alunos = {}, lousa = novo(), lousaTurma = novo();
+  sa.forEach(x => { const r = x.data(); if (r.dia < de) return;
+    if (r.perfil === 'equipe') return junta(lousaTurma, r);                     // rodadas na lousa em que o professor marcou esta turma
+    if (r.perfil !== 'aluno' || !r.aluno_id) return; junta(alunos[r.aluno_id] || (alunos[r.aluno_id] = novo()), r); });
+  sl.forEach(x => { const r = x.data(); if (r.dia < de || r.perfil !== 'equipe' || r.turma_id) return; junta(lousa, r); });   // as suas, sem turma marcada
+  return { ok: true, dias, de, turma: { id: String(d.turma_id), nome: t(tr.nome, 80) }, alunos, lousa, lousaTurma };
 });
 
 // Visão da rede (nov/2026): o mesmo painel, somado por ESCOLA, para a Secretaria de Educação. Só totais e percentuais, sem
@@ -109,4 +117,17 @@ export const jogoPainelRede = onCall({ region: 'southamerica-east1', memory: '1G
     rede: { n: rede.n, lousa: rede.lousa, c: rede.c, t: rede.t, jogos: rede.jogos, porDia: rede.porDia, habs: Object.fromEntries(Object.entries(rede.habs).map(([h, v]) => [h, { c: v.c, t: v.t, escolas: v.escolas.size }])) } };
   cacheRede.set(chave, { em: Date.now(), dados });
   return dados;
+});
+
+// Turmas do professor, para ele dizer no jogo (modo Turma, na lousa) qual turma está na sala. Só id e nome; aluno não recebe nada.
+export const jogoTurmas = onCall({ region: 'southamerica-east1', memory: '256MiB', maxInstances: 5, timeoutSeconds: 20 }, async req => {
+  if (!req.auth) return { turmas: [] };
+  const db = getFirestore(), uid = req.auth.uid, u = (await db.doc(`usuarios/${uid}`).get()).data();
+  if (!u || u.status !== 'ativo' || !['professor', 'gestor'].includes(u.perfil)) return { turmas: [] };
+  const ids = escolasDe(u).slice(0, 10); if (!ids.length) return { turmas: [] };
+  const s = await db.collection('turmas').where('escola_id', 'in', ids).limit(300).get(), minhas = new Set((Array.isArray(u.turmas_ids) ? u.turmas_ids : []).map(String));
+  const l = []; s.forEach(x => { const r = x.data(); if (r.status === 'inativa') return;
+    l.push({ id: x.id, nome: String(r.nome || 'Turma').slice(0, 60), minha: minhas.has(x.id) || r.criado_por === uid || (Array.isArray(r.grade) && r.grade.some(g => g && g.professor_uid === uid)) }); });
+  l.sort((a, b) => (b.minha - a.minha) || a.nome.localeCompare(b.nome, 'pt-BR', { numeric: true }));
+  return { turmas: l.slice(0, 120) };
 });
