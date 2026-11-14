@@ -10,7 +10,7 @@ const db = getFirestore(), M = 'demo-rede';
 const APAGAR = process.argv.includes('--apagar') || /gravar/.test(process.argv[1] || '');
 
 const POR_MUNI = ['escolas', 'usuarios', 'turmas', 'alunos', 'freq_resumo', 'freq_chamadas', 'avaliacoes', 'respostas', 'rec_itens', 'rec_chamados', 'tv_telas', 'tv_canais',
-  'busca_ativa', 'relatorios', 'termometro_registros', 'users', 'provas_online', 'cal_escola', 'notas_escola', 'comunicados_familia', 'avisos_familia', 'trabalhos_rede', 'acervo_rede'];
+  'busca_ativa', 'relatorios', 'termometro_registros', 'users', 'provas_online', 'cal_escola', 'notas_escola', 'comunicados_familia', 'avisos_familia', 'trabalhos_rede', 'acervo_rede', 'jogo_resultados'];
 const POR_ESCOLA = ['turmas', 'alunos', 'freq_chamadas', 'freq_resumo', 'avaliacoes', 'provas_online', 'notas_escola', 'cal_escola'];
 const SO_DEMO = ['acessos_dia', 'certificados', 'formacao_lembretes', 'portal_ia_uso'];
 
