@@ -54,8 +54,26 @@ td.n{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .aviso{ background:#eef4fb; border:1px solid #cfe0f3; border-radius:12px; padding:12px 14px; font-size:14px; }
 .vazio{ text-align:center; padding:28px 12px; color:var(--suave); }
 .vazio b{ display:block; font-size:17px; color:var(--azul); margin-bottom:6px; }
+.papel, .rodape{ display:none; }
+.previa{ display:flex; align-items:center; gap:10px; font-size:13px; color:var(--suave); }
+.previa img{ height:34px; max-width:120px; object-fit:contain; background:#fff; border:1px solid var(--linha); border-radius:6px; padding:2px; }
 [hidden]{ display:none !important; }
-@media print{ .topo a, .filtros, .np{ display:none !important; } body{ background:#fff; font-size:12px; } .carta, .kpi{ border-color:#bbb; break-inside:avoid; } main{ padding:0; max-width:none; } .topo{ background:#fff; color:#000; padding:0 0 8px; } }
+@media print{
+  @page{ size:A4; margin:14mm 12mm 16mm; }
+  .topo{ display:none !important; }
+  .papel{ display:flex; align-items:center; gap:14px; border-bottom:3px solid var(--azul); padding-bottom:10px; margin-bottom:4px; }
+  .papel img{ height:72px; max-width:150px; object-fit:contain; }
+  .pp-txt{ display:flex; flex-direction:column; gap:1px; }
+  .pp-txt b{ font-size:15px; color:var(--azul); text-transform:uppercase; letter-spacing:.03em; }
+  .pp-txt span{ font-size:11px; color:#444; }
+  .pp-txt strong{ font-size:17px; color:#000; margin-top:4px; }
+  .rodape{ display:block; border-top:1px solid #bbb; margin-top:10px; padding-top:6px; font-size:10px; color:#555; }
+  *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  th{ color:#333; } .kpi b{ font-size:20px; } h2{ font-size:14px; }
+  .rol{ overflow:visible; } table{ min-width:0 !important; font-size:10.5px; } th, td{ padding:5px 4px; } th{ white-space:normal; font-size:9px; } td.n, .cod, .selo{ white-space:nowrap; }
+  .bar{ min-width:86px; gap:5px; } .bar b{ width:32px; } .selo{ font-size:9.5px; padding:1px 5px; }
+  .kpis{ grid-template-columns:repeat(6, 1fr); gap:6px; } .kpi{ padding:8px; } .kpi span{ font-size:10px; } .carta{ padding:10px 12px; } tr{ break-inside:avoid; }
+  .topo a, .filtros, .np{ display:none !important; } body{ background:#fff; font-size:12px; } .carta, .kpi{ border-color:#bbb; break-inside:avoid; } main{ padding:0; max-width:none; } .topo{ background:#fff; color:#000; padding:0 0 8px; } }
 </style>
 </head>
 <body>
@@ -64,6 +82,10 @@ td.n{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
   <h1>Painel dos Jogos <small id="quem"></small></h1>
 </header>
 <main>
+  <div class="papel" id="papel" aria-hidden="true">
+    <img id="ppLogo" alt="" hidden>
+    <div class="pp-txt"><b id="ppOrgao"></b><span id="ppSub"></span><strong id="ppTitulo"></strong><span id="ppPeriodo"></span></div>
+  </div>
   <nav class="visoes np" id="visoes" hidden>
     <button type="button" data-v="turma" aria-pressed="true">Por turma</button>
     <button type="button" data-v="rede" aria-pressed="false">Por escola (rede)</button>
@@ -74,7 +96,9 @@ td.n{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     <label style="flex:0 1 190px">Período<select class="inp" id="selDias"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option></select></label>
     <button type="button" class="bt sec" data-a="imprimir">🖨️ Imprimir ou salvar em PDF</button>
   </section>
+  <div class="previa np" id="previa"></div>
   <div id="conteudo"><div class="carta vazio"><b>Escolha uma turma</b>O painel mostra o que os alunos treinaram nos jogos do Portal, por habilidade da BNCC.</div></div>
+  <div class="rodape" id="ppRodape" aria-hidden="true"></div>
   <p class="sub np">Como ler: o percentual é o <b>acerto de primeira</b>, sem dica. Abaixo de 60% (com pelo menos 4 perguntas respondidas) o painel sugere reforço. O resultado só é guardado quando o aluno joga <b>com a conta dele</b> nos jogos do motor novo.</p>
 </main>
 <script type="module">
@@ -89,7 +113,23 @@ const app = initializeApp(window.PDE_AMBIENTE.fb), auth = getAuth(app), db = get
 const fnPainel = httpsCallable(getFunctions(app, "southamerica-east1"), "jogoPainel", { timeout:60000 });
 const $ = id => document.getElementById(id), esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 const fnRede = httpsCallable(getFunctions(app, "southamerica-east1"), "jogoPainelRede", { timeout:120000 });
-const E = { u:null, uid:"", turmas:[], bncc:null, pedido:0, visao:"turma" };
+const E = { u:null, uid:"", turmas:[], bncc:null, pedido:0, visao:"turma", muni:null, escolas:{} };
+// identidade da rede no PDF: logotipo e nome do município (ou da escola, na visão por turma). Vem do cadastro da rede no Portal.
+const PERIODO = { 7:"Últimos 7 dias", 30:"Últimos 30 dias", 90:"Últimos 90 dias", 365:"Último ano" };
+async function logoData(url){
+  if(!/^https:\/\//.test(url || "")) return "";
+  try{ const r = await fetch(url, { mode:"cors" }); if(!r.ok) throw new Error(r.status); const b = await r.blob();
+    return await new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = no; f.readAsDataURL(b); }); }
+  catch(e){ console.warn("logo:", e.message); return url; }   // sem CORS: usa o endereço direto, que também imprime
+}
+async function identidade(x){   // x = { orgao, sub, titulo, de, logo }
+  $("ppOrgao").textContent = x.orgao || "Portal do Educador"; $("ppSub").textContent = x.sub || ""; $("ppTitulo").textContent = x.titulo;
+  $("ppPeriodo").textContent = (PERIODO[+$("selDias").value] || "") + (x.de ? " (desde " + data(x.de) + "/" + x.de.slice(0, 4) + ")" : "") + " · emitido em " + new Date().toLocaleDateString("pt-BR") + " por " + (E.u.nome || "");
+  $("ppRodape").textContent = "Fonte: jogos do Portal do Educador, resultado por habilidade da BNCC. Percentual = acerto de primeira, sem dica." + (x.demo ? " REDE DE DEMONSTRAÇÃO: dados simulados." : "") + " · Portal do Educador, uma solução NEWPC Tecnologia.";
+  const im = $("ppLogo"), src = await logoData(x.logo); im.hidden = !src; if(src) im.src = src;
+  const pv = document.getElementById("previa"); if(pv) pv.innerHTML = (src ? '<img src="' + esc(src) + '" alt="">' : "") + "<span>O PDF sai com o cabeçalho de <b>" + esc(x.orgao || "Portal do Educador") + "</b>" + (src ? " e o logotipo acima." : ". Para sair com o logotipo, cadastre a imagem da rede ou da escola no Portal.") + "</span>";
+}
+async function cadastro(col, id){ if(!id) return null; const k = col + "/" + id; if(E.escolas[k] !== undefined) return E.escolas[k]; try{ const s = await getDoc(doc(db, col, id)); E.escolas[k] = s.exists() ? s.data() : null; }catch(e){ E.escolas[k] = null; } return E.escolas[k]; }
 const JOGOS = { "tabuada":"Tabuada", "que-horas-sao":"Que Horas São?", "fracao-magica":"Fração Mágica", "corpo-humano":"Corpo Humano", "sistema-solar":"Sistema Solar", "explorando-habitats":"Explorando Habitats", "trilha-do-conhecimento":"Trilha do Conhecimento", "mouse-e-teclado":"Mouse e Teclado" };
 const PROPRIAS = { "MT-CLICAR":"Mouse: apontar e clicar", "MT-PRECISO":"Mouse: clique com precisão", "MT-DUPLO":"Mouse: clique duplo", "MT-ARRASTAR":"Mouse: arrastar e soltar", "MT-LETRAS":"Teclado: localizar letras", "MT-PALAVRAS":"Teclado: digitar palavras", "GERAL":"Desafios gerais" };
 const MIN = 4, CORTE = 60;
@@ -123,6 +163,9 @@ async function abrirRede(){
   catch(e){ if(meu !== E.pedido) return; console.warn("rede:", e.code, e.message); C.innerHTML = '<div class="carta vazio"><b>Não foi possível carregar</b>' + esc(e.message || "Tente de novo em instantes.") + "</div>"; }
 }
 function desenharRede(r, B){
+  const rede = r.municipio.tipo_rede === "estadual" ? "Rede Estadual de Ensino" : "Rede Municipal de Ensino";
+  identidade({ orgao:r.municipio.demo ? r.municipio.nome : "Prefeitura de " + (r.municipio.nome || "") + (r.municipio.uf ? "/" + r.municipio.uf : ""), sub:r.municipio.demo ? "" : "Secretaria de Educação · " + rede,
+    titulo:"Jogos pedagógicos: uso e aprendizagem por escola", de:r.de, logo:r.municipio.logo_url, demo:r.municipio.demo });
   const R = r.rede, es = r.escolas.slice().sort((a, b) => b.n + b.lousa - (a.n + a.lousa) || a.nome.localeCompare(b.nome, "pt-BR")), ativas = es.filter(e => e.n + e.lousa > 0), alunos = es.reduce((s, e) => s + e.alunos, 0);
   const habs = Object.entries(R.habs).sort((a, b) => pct(a[1].c, a[1].t) - pct(b[1].c, b[1].t));
   let h = '<div class="kpis"><div class="kpi"><b>' + ativas.length + " de " + es.length + '</b><span>escolas usaram os jogos</span></div><div class="kpi"><b>' + alunos + '</b><span>alunos jogaram com a própria conta</span></div><div class="kpi"><b>' + R.n + '</b><span>rodadas de alunos</span></div>' +
@@ -160,6 +203,8 @@ async function abrir(){
     C.innerHTML = '<div class="carta vazio"><b>Não foi possível carregar</b>' + esc(e.message || "Tente de novo em instantes.") + "</div>"; }
 }
 function desenhar(t, r, alunos, B){
+  Promise.all([cadastro("escolas", t.escola_id), cadastro("municipios", t.municipio_id || E.u.municipio_id)]).then(([es, mu]) => identidade({ orgao:(es && es.nome) || t.escola_nome || "Escola", sub:mu && mu.nome ? (mu.demo ? mu.nome : "Rede de Ensino de " + mu.nome + (mu.uf ? "/" + mu.uf : "")) : "",
+    titulo:"Jogos pedagógicos: resultado da turma " + (t.nome || ""), de:r.de, logo:(es && es.logo_url) || (mu && mu.logo_url) || "", demo:!!(mu && mu.demo) }));
   const A = r.alunos || {}, L = r.lousa || { n:0, habs:{} }, jogaram = alunos.filter(a => A[a.id] && A[a.id].n);
   const rod = Object.values(A).reduce((s, x) => s + x.n, 0), c = Object.values(A).reduce((s, x) => s + x.c, 0), tot = Object.values(A).reduce((s, x) => s + x.t, 0);
   // por habilidade: soma da turma e quantos alunos estão abaixo do corte
@@ -191,7 +236,7 @@ function desenhar(t, r, alunos, B){
   $("conteudo").innerHTML = h;
 }
 document.addEventListener("change", e => { if(e.target.id === "selTurma") abrir(); else if(e.target.id === "selMuni") abrirRede(); else if(e.target.id === "selDias"){ if(E.visao === "rede") abrirRede(); else abrir(); } });
-document.addEventListener("click", e => { const v = e.target.closest("[data-v]"); if(v) return trocarVisao(v.dataset.v); const b = e.target.closest("[data-a]"); if(b && b.dataset.a === "imprimir") window.print(); });
+document.addEventListener("click", e => { const v = e.target.closest("[data-v]"); if(v) return trocarVisao(v.dataset.v); const b = e.target.closest("[data-a]"); if(b && b.dataset.a === "imprimir"){ const im = $("ppLogo"); (im.hidden || !im.src ? Promise.resolve() : im.decode().catch(() => {})).then(() => window.print()); } });
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}

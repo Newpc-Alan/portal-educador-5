@@ -103,7 +103,7 @@ export const jogoPainelRede = onCall({ region: 'southamerica-east1', memory: '1G
   const ids = Object.keys(escolas);
   for (let i = 0; i < ids.length; i += 20) await Promise.all(ids.slice(i, i + 20).map(async id => {
     try { escolas[id].matriculados = (await db.collection('alunos').where('escola_id', '==', id).count().get()).data().count; } catch (e) { /* sem contagem: a coluna fica em branco */ } }));
-  const dados = { ok: true, dias, de, municipio: { id: m, nome: String(mu.nome || '').slice(0, 80), uf: String(mu.uf || '').slice(0, 2) }, cortado: sr.size >= TETO,
+  const dados = { ok: true, dias, de, municipio: { id: m, nome: String(mu.nome || '').slice(0, 80), uf: String(mu.uf || '').slice(0, 2), logo_url: /^https:\/\//.test(String(mu.logo_url || '')) ? String(mu.logo_url).slice(0, 600) : '', tipo_rede: mu.tipo_rede === 'estadual' ? 'estadual' : 'municipal', demo: mu.demo === true }, cortado: sr.size >= TETO,
     escolas: ids.map(id => { const E = escolas[id]; return { id, nome: E.nome, n: E.n, lousa: E.lousa, c: E.c, t: E.t, alunos: E.alunos.size, turmas: E.turmas.size, matriculados: E.matriculados, ultimo: E.ultimo,
       fracas: Object.entries(E.habs).filter(([, v]) => v.t >= 20 && v.c / v.t < .6).sort((a, b) => a[1].c / a[1].t - b[1].c / b[1].t).slice(0, 3).map(([h, v]) => ({ h, p: Math.round(v.c / v.t * 100) })) }; }),
     rede: { n: rede.n, lousa: rede.lousa, c: rede.c, t: rede.t, jogos: rede.jogos, porDia: rede.porDia, habs: Object.fromEntries(Object.entries(rede.habs).map(([h, v]) => [h, { c: v.c, t: v.t, escolas: v.escolas.size }])) } };
