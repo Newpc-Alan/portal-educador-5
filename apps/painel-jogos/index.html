@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<script src="/assets/js/ambiente.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel dos Jogos · Portal do Educador</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0f2c4a">
+<link rel="icon" href="/assets/pde-logo-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{ --azul:#0f2c4a; --verde:#1a6b2a; --fundo:#f3f6fa; --carta:#fff; --tinta:#16263a; --suave:#5b6b7c; --linha:#dde5ee; --bom:#1a6b2a; --medio:#b7791f; --baixo:#c92a2a; }
+*{ box-sizing:border-box; margin:0; }
+body{ font-family:Inter, "Segoe UI", system-ui, sans-serif; background:var(--fundo); color:var(--tinta); font-size:15px; line-height:1.45; }
+button, select{ font:inherit; }
+.topo{ background:var(--azul); color:#fff; padding:14px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.topo a{ color:#fff; text-decoration:none; font-weight:600; background:rgba(255,255,255,.14); padding:8px 12px; border-radius:10px; }
+.topo h1{ font-size:18px; font-weight:700; flex:1 1 200px; }
+.topo small{ opacity:.8; font-size:13px; }
+main{ max-width:1100px; margin:0 auto; padding:16px; display:flex; flex-direction:column; gap:14px; }
+.carta{ background:var(--carta); border:1px solid var(--linha); border-radius:14px; padding:16px; }
+.filtros{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+.filtros label{ display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--suave); flex:1 1 220px; }
+.inp{ border:1.5px solid var(--linha); border-radius:10px; padding:10px 12px; background:#fff; min-height:44px; color:var(--tinta); text-transform:none; letter-spacing:0; font-weight:500; font-size:15px; }
+.bt{ border:0; border-radius:10px; padding:10px 16px; font-weight:700; cursor:pointer; background:var(--verde); color:#fff; min-height:44px; }
+.bt.sec{ background:#e8eef5; color:var(--azul); }
+.kpis{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+.kpi{ background:var(--carta); border:1px solid var(--linha); border-radius:14px; padding:14px; }
+.kpi b{ display:block; font-size:28px; font-weight:700; color:var(--azul); line-height:1.1; }
+.kpi span{ font-size:13px; color:var(--suave); font-weight:500; }
+h2{ font-size:16px; font-weight:700; color:var(--azul); margin-bottom:4px; }
+.sub{ font-size:13px; color:var(--suave); margin-bottom:10px; }
+.rol{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; min-width:520px; }
+th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--suave); padding:8px 8px; border-bottom:2px solid var(--linha); white-space:nowrap; }
+td{ padding:9px 8px; border-bottom:1px solid var(--linha); vertical-align:top; }
+td.n{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.cod{ font-weight:700; white-space:nowrap; color:var(--azul); }
+.bar{ display:flex; align-items:center; gap:8px; min-width:150px; }
+.bar i{ flex:1; height:10px; background:#e8eef5; border-radius:6px; overflow:hidden; display:block; }
+.bar i u{ display:block; height:100%; border-radius:6px; }
+.bar b{ width:44px; text-align:right; font-variant-numeric:tabular-nums; }
+.bom{ color:var(--bom); } .medio{ color:var(--medio); } .baixo{ color:var(--baixo); }
+.f-bom{ background:var(--bom); } .f-medio{ background:var(--medio); } .f-baixo{ background:var(--baixo); }
+.selo{ display:inline-block; font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px; background:#fdecec; color:var(--baixo); margin:1px 3px 1px 0; white-space:nowrap; }
+.selo.ok{ background:#e6f4e9; color:var(--bom); }
+.aviso{ background:#eef4fb; border:1px solid #cfe0f3; border-radius:12px; padding:12px 14px; font-size:14px; }
+.vazio{ text-align:center; padding:28px 12px; color:var(--suave); }
+.vazio b{ display:block; font-size:17px; color:var(--azul); margin-bottom:6px; }
+[hidden]{ display:none !important; }
+@media print{ .topo a, .filtros, .np{ display:none !important; } body{ background:#fff; font-size:12px; } .carta, .kpi{ border-color:#bbb; break-inside:avoid; } main{ padding:0; max-width:none; } .topo{ background:#fff; color:#000; padding:0 0 8px; } }
+</style>
+</head>
+<body>
+<header class="topo">
+  <a href="/entrar/" aria-label="Voltar ao Portal">← Portal</a>
+  <h1>Painel dos Jogos <small id="quem"></small></h1>
+</header>
+<main>
+  <section class="carta filtros">
+    <label>Turma<select class="inp" id="selTurma"><option value="">Carregando...</option></select></label>
+    <label style="flex:0 1 190px">Período<select class="inp" id="selDias"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option></select></label>
+    <button type="button" class="bt sec" data-a="imprimir">🖨️ Imprimir ou salvar em PDF</button>
+  </section>
+  <div id="conteudo"><div class="carta vazio"><b>Escolha uma turma</b>O painel mostra o que os alunos treinaram nos jogos do Portal, por habilidade da BNCC.</div></div>
+  <p class="sub np">Como ler: o percentual é o <b>acerto de primeira</b>, sem dica. Abaixo de 60% (com pelo menos 4 perguntas respondidas) o painel sugere reforço. O resultado só é guardado quando o aluno joga <b>com a conta dele</b> nos jogos do motor novo.</p>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, getDocs, collection, query, where, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+// Painel dos Jogos (nov/2026): o professor vê, por turma, o que foi treinado nos jogos do Motor de Jogos, por habilidade e por aluno.
+// Os números vêm da função jogoPainel (só códigos); os nomes vêm do cadastro da turma, que o professor já pode ler. Nada vai para IA.
+const app = initializeApp(window.PDE_AMBIENTE.fb), auth = getAuth(app), db = getFirestore(app);
+const fnPainel = httpsCallable(getFunctions(app, "southamerica-east1"), "jogoPainel", { timeout:60000 });
+const $ = id => document.getElementById(id), esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+const E = { u:null, uid:"", turmas:[], bncc:null, pedido:0 };
+const JOGOS = { "tabuada":"Tabuada", "que-horas-sao":"Que Horas São?", "fracao-magica":"Fração Mágica", "corpo-humano":"Corpo Humano", "sistema-solar":"Sistema Solar", "explorando-habitats":"Explorando Habitats", "trilha-do-conhecimento":"Trilha do Conhecimento", "mouse-e-teclado":"Mouse e Teclado" };
+const PROPRIAS = { "MT-CLICAR":"Mouse: apontar e clicar", "MT-PRECISO":"Mouse: clique com precisão", "MT-DUPLO":"Mouse: clique duplo", "MT-ARRASTAR":"Mouse: arrastar e soltar", "MT-LETRAS":"Teclado: localizar letras", "MT-PALAVRAS":"Teclado: digitar palavras", "GERAL":"Desafios gerais" };
+const MIN = 4, CORTE = 60;
+const pct = (c, t) => t ? Math.round(c / t * 100) : 0, faixa = p => p >= 80 ? "bom" : p >= CORTE ? "medio" : "baixo";
+const barra = (c, t) => { const p = pct(c, t), f = faixa(p); return '<div class="bar"><i><u class="f-' + f + '" style="width:' + p + '%"></u></i><b class="' + f + '">' + p + "%</b></div>"; };
+const data = d => d ? d.slice(8, 10) + "/" + d.slice(5, 7) : "";
+async function bncc(){
+  if(E.bncc) return E.bncc; E.bncc = {};
+  try{ const j = await (await fetch("/assets/bncc/bncc.json")).json(); j.itens.forEach(i => { E.bncc[i[0]] = { comp:i[3], texto:i[6] }; }); }catch(e){ console.warn("bncc:", e.message); }
+  return E.bncc;
+}
+const habTxt = (h, B) => PROPRIAS[h] ? { comp:"Computação (prática)", texto:PROPRIAS[h] } : B[h] || { comp:"", texto:"" };
+
+async function carregarTurmas(){
+  const ids = (E.u.escolas_ids && E.u.escolas_ids.length ? E.u.escolas_ids : [E.u.escola_id]).filter(Boolean).slice(0, 10);
+  try{
+    const s = E.u.perfil === "admin" ? await getDocs(query(collection(db, "turmas"), limit(300))) : ids.length ? await getDocs(query(collection(db, "turmas"), where("escola_id", "in", ids))) : null;
+    if(s) s.forEach(d => { const t = d.data(); if(t.status !== "inativa") E.turmas.push({ id:d.id, ...t }); });
+  }catch(e){ console.warn("turmas:", e.code); }
+  const minhas = new Set((E.u.turmas_ids || []).map(String)), ehMinha = t => minhas.has(t.id) || t.criado_por === E.uid || (Array.isArray(t.grade) && t.grade.some(g => g.professor_uid === E.uid));
+  E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
+  $("selTurma").innerHTML = E.turmas.length ? '<option value="">Escolha a turma...</option>' + E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (ids.length > 1 && t.escola_nome ? " · " + esc(t.escola_nome) : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("") : '<option value="">Nenhuma turma cadastrada</option>';
+  if(!E.turmas.length) $("conteudo").innerHTML = '<div class="carta vazio"><b>Nenhuma turma encontrada</b>Cadastre a turma e os alunos no Portal para acompanhar os jogos por aqui.</div>';
+}
+async function abrir(){
+  const id = $("selTurma").value, t = E.turmas.find(x => x.id === id), C = $("conteudo"), meu = ++E.pedido;
+  if(!t){ C.innerHTML = '<div class="carta vazio"><b>Escolha uma turma</b>O painel mostra o que os alunos treinaram nos jogos do Portal, por habilidade da BNCC.</div>'; return; }
+  C.innerHTML = '<div class="carta vazio">Carregando os resultados...</div>';
+  let r = null, alunos = [];
+  try{
+    const [pr, sa, B] = await Promise.all([fnPainel({ turma_id:id, dias:+$("selDias").value }), getDocs(query(collection(db, "alunos"), where("turma_id", "==", id), where("escola_id", "==", t.escola_id))), bncc()]);
+    r = pr.data; sa.forEach(d => { const a = d.data(); if(a.nome && a.status !== "inativo") alunos.push({ id:d.id, nome:String(a.nome_social || a.nome).trim() }); });
+    alunos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+    if(meu !== E.pedido) return;
+    desenhar(t, r, alunos, B);
+  }catch(e){ if(meu !== E.pedido) return; console.warn("painel:", e.code, e.message);
+    C.innerHTML = '<div class="carta vazio"><b>Não foi possível carregar</b>' + esc(e.message || "Tente de novo em instantes.") + "</div>"; }
+}
+function desenhar(t, r, alunos, B){
+  const A = r.alunos || {}, L = r.lousa || { n:0, habs:{} }, jogaram = alunos.filter(a => A[a.id] && A[a.id].n);
+  const rod = Object.values(A).reduce((s, x) => s + x.n, 0), c = Object.values(A).reduce((s, x) => s + x.c, 0), tot = Object.values(A).reduce((s, x) => s + x.t, 0);
+  // por habilidade: soma da turma e quantos alunos estão abaixo do corte
+  const H = {};
+  Object.entries(A).forEach(([aid, x]) => Object.entries(x.habs || {}).forEach(([h, v]) => { const o = H[h] || (H[h] = { c:0, t:0, al:0, baixo:0 }); o.c += v.c; o.t += v.t; o.al++; if(v.t >= MIN && pct(v.c, v.t) < CORTE) o.baixo++; }));
+  const habs = Object.entries(H).sort((a, b) => pct(a[1].c, a[1].t) - pct(b[1].c, b[1].t));
+  const jogos = {}; Object.values(A).forEach(x => Object.entries(x.jogos || {}).forEach(([j, n]) => { jogos[j] = (jogos[j] || 0) + n; }));
+  let h = '<div class="kpis"><div class="kpi"><b>' + jogaram.length + " de " + alunos.length + '</b><span>alunos jogaram no período</span></div><div class="kpi"><b>' + rod + '</b><span>rodadas concluídas</span></div>' +
+    '<div class="kpi"><b class="' + (tot ? faixa(pct(c, tot)) : "") + '">' + (tot ? pct(c, tot) + "%" : "–") + '</b><span>acerto de primeira da turma</span></div><div class="kpi"><b>' + habs.length + "</b><span>habilidades treinadas</span></div></div>";
+  if(!rod && !L.n){
+    h += '<div class="carta vazio" style="margin-top:14px"><b>Ainda não há resultados nesta turma</b>Os resultados aparecem quando os alunos entram com a conta deles e jogam: Tabuada, Que Horas São?, Fração Mágica, Corpo Humano, Sistema Solar, Explorando Habitats, Trilha do Conhecimento ou Mouse e Teclado.</div>';
+    $("conteudo").innerHTML = h; return;
+  }
+  if(habs.length){
+    h += '<section class="carta" style="margin-top:14px"><h2>Por habilidade</h2><p class="sub">Da que mais precisa de atenção para a mais consolidada. ' + esc(t.nome || "") + ", desde " + data(r.de) + '.</p><div class="rol"><table><thead><tr><th>Habilidade</th><th>O que é</th><th>Acerto de primeira</th><th class="n">Perguntas</th><th class="n">Alunos</th><th class="n">Precisam de reforço</th></tr></thead><tbody>' +
+      habs.map(([k, v]) => { const x = habTxt(k, B); return '<tr><td class="cod">' + esc(k) + (x.comp ? '<br><span class="sub" style="font-weight:500">' + esc(x.comp) + "</span>" : "") + "</td><td>" + esc(x.texto || "") + "</td><td>" + barra(v.c, v.t) + '</td><td class="n">' + v.t + '</td><td class="n">' + v.al + '</td><td class="n">' + (v.baixo ? '<span class="selo">' + v.baixo + "</span>" : '<span class="selo ok">0</span>') + "</td></tr>"; }).join("") + "</tbody></table></div></section>";
+    h += '<section class="carta" style="margin-top:14px"><h2>Por aluno</h2><p class="sub">Quem jogou, quanto acertou de primeira e em quais habilidades precisa de reforço.</p><div class="rol"><table><thead><tr><th>Aluno</th><th class="n">Rodadas</th><th>Acerto de primeira</th><th>Reforçar</th><th class="n">Último dia</th></tr></thead><tbody>' +
+      alunos.map(a => { const x = A[a.id]; if(!x || !x.n) return "<tr><td>" + esc(a.nome) + '</td><td class="n">0</td><td colspan="3" class="sub" style="margin:0">ainda não jogou no período</td></tr>';
+        const fr = Object.entries(x.habs || {}).filter(([, v]) => v.t >= MIN && pct(v.c, v.t) < CORTE).sort((p, q) => pct(p[1].c, p[1].t) - pct(q[1].c, q[1].t));
+        return "<tr><td>" + esc(a.nome) + '</td><td class="n">' + x.n + "</td><td>" + barra(x.c, x.t) + "</td><td>" + (fr.length ? fr.map(([k, v]) => '<span class="selo" title="' + esc(habTxt(k, B).texto) + '">' + esc(k) + " " + pct(v.c, v.t) + "%</span>").join("") : '<span class="selo ok">sem alerta</span>') + '</td><td class="n">' + data(x.ultimo) + "</td></tr>"; }).join("") + "</tbody></table></div></section>";
+    h += '<section class="carta" style="margin-top:14px"><h2>Jogos usados</h2><p class="sub">Rodadas concluídas pelos alunos da turma.</p><div class="rol"><table style="min-width:300px"><thead><tr><th>Jogo</th><th class="n">Rodadas</th></tr></thead><tbody>' +
+      Object.entries(jogos).sort((a, b) => b[1] - a[1]).map(([j, n]) => "<tr><td>" + esc(JOGOS[j] || j) + '</td><td class="n">' + n + "</td></tr>").join("") + "</tbody></table></div></section>";
+  }
+  if(L.n){
+    const lh = Object.entries(L.habs || {}).sort((a, b) => pct(a[1].c, a[1].t) - pct(b[1].c, b[1].t));
+    h += '<section class="carta" style="margin-top:14px"><h2>Na lousa, com a sua conta</h2><p class="sub">' + L.n + " rodada" + (L.n > 1 ? "s" : "") + ' que você conduziu no período (modo Turma ou testes seus). Não é separado por turma: vale para todas as suas turmas.</p><div class="rol"><table><thead><tr><th>Habilidade</th><th>O que é</th><th>Acerto de primeira</th><th class="n">Perguntas</th></tr></thead><tbody>' +
+      lh.map(([k, v]) => { const x = habTxt(k, B); return '<tr><td class="cod">' + esc(k) + "</td><td>" + esc(x.texto || "") + "</td><td>" + barra(v.c, v.t) + '</td><td class="n">' + v.t + "</td></tr>"; }).join("") + "</tbody></table></div></section>";
+  }
+  $("conteudo").innerHTML = h;
+}
+document.addEventListener("change", e => { if(e.target.id === "selTurma" || e.target.id === "selDias") abrir(); });
+document.addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(b && b.dataset.a === "imprimir") window.print(); });
+onAuthStateChanged(auth, async user => {
+  if(!user){ location.replace("/entrar/"); return; }
+  let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
+  if(!u || u.status !== "ativo" || !["professor", "gestor", "admin"].includes(u.perfil)){ location.replace("/entrar/"); return; }
+  E.u = u; E.uid = user.uid; $("quem").textContent = "· " + (u.nome || user.email || "");
+  await carregarTurmas();
+});
+</script>
+</body>
+</html>
