@@ -311,7 +311,7 @@ function criar(J){
   return { abertura, comecar };
 }
 // Jogos de conteúdo (Ciências, História...): banco fixo de perguntas revisadas, por nível.
-//   niveis = [{ hab, itens:[[pergunta, certa, [3 erradas], dica, explicacao, emoji?, habilidade própria?], ...] }, ...]
+//   niveis = [{ hab, arte?: "/assets/jogos/artes/x.webp", itens:[[pergunta, certa, [3 erradas], dica, explicacao, emoji?, habilidade própria?], ...] }, ...]
 // Devolve a função gerar(ctx): percorre todas as perguntas do nível antes de repetir alguma.
 function banco(niveis){
   const sacos = niveis.map(() => []);
@@ -320,7 +320,10 @@ function banco(niveis){
     if(!sacos[n].length) sacos[n] = embaralha(N.itens.map((_, i) => i));
     const i = sacos[n].pop(), q = N.itens[i];
     return { chave:"b" + n + "." + i, hab:q[6] || N.hab, rotulo:q[0], pergunta:q[0], texto:true, fala:q[0], tipo:"escolha", resposta:q[1], alternativas:[q[1]].concat(q[2]),
-      apoio:q[5] ? el => { el.innerHTML = '<div class="pj-emoji" aria-hidden="true">' + esc(q[5]) + "</div>"; } : null,
+      // com ilustração do nível (arte), ela ambienta o tema e o emoji da pergunta vira um selo no canto; se a imagem falhar, fica só o emoji
+      apoio:N.arte ? el => { el.innerHTML = '<div class="pj-arte"><img src="' + esc(N.arte) + '" alt="" decoding="async">' + (q[5] ? '<span aria-hidden="true">' + esc(q[5]) + "</span>" : "") + "</div>";
+          el.querySelector("img").onerror = () => { el.innerHTML = q[5] ? '<div class="pj-emoji" aria-hidden="true">' + esc(q[5]) + "</div>" : ""; }; }
+        : q[5] ? el => { el.innerHTML = '<div class="pj-emoji" aria-hidden="true">' + esc(q[5]) + "</div>"; } : null,
       dica:q[3], explicacao:() => esc(q[4]) + " Resposta: <b>" + esc(q[1]) + "</b>.", fechamento:q[4] };
   };
 }
