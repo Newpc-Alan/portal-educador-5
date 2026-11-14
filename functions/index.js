@@ -516,6 +516,7 @@ export { leadEscola } from './leads.js';
 export { pareceres } from './pareceres.js';
 export { pagamentos, asaasWebhook, asaasAdmin } from './asaas.js';
 export { visita } from './visitas.js';
+export { jogoResultado } from './jogos.js';
 export { relatorioExecucao } from './relatorio-execucao.js';
 export { coerenciaLicenca } from './licencas.js';
 export { auditarBanco, auditarBancoSub, registrarEntrada } from './auditoria.js';
