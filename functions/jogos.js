@@ -60,3 +60,53 @@ export const jogoPainel = onCall({ region: 'southamerica-east1', memory: '512MiB
   sl.forEach(x => { const r = x.data(); if (r.dia < de || r.perfil !== 'equipe') return; junta(lousa, r); });
   return { ok: true, dias, de, turma: { id: String(d.turma_id), nome: t(tr.nome, 80) }, alunos, lousa };
 });
+
+// Visão da rede (nov/2026): o mesmo painel, somado por ESCOLA, para a Secretaria de Educação. Só totais e percentuais, sem
+// nome nem código de aluno. Quem vê: perfil "secretaria" (o próprio município, com o módulo Painel no plano), o gestor
+// (só as escolas dele) e o administrador (qualquer município). Mesma regra do Painel da Rede (painelSecretaria).
+const cacheRede = new Map(); // município|dias|escolas -> { em, dados } (10 minutos)
+export const jogoPainelRede = onCall({ region: 'southamerica-east1', memory: '1GiB', maxInstances: 5, timeoutSeconds: 120 }, async req => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Entre na sua conta.');
+  const db = getFirestore(), d = req.data || {};
+  const u = (await db.doc(`usuarios/${req.auth.uid}`).get()).data();
+  if (!u || u.status !== 'ativo') throw new HttpsError('permission-denied', 'Acesso não liberado.');
+  let m = '', soEscolas = null;
+  if (u.perfil === 'admin') m = String(d.municipio_id || u.municipio_id || '');
+  else if (u.perfil === 'secretaria') m = String(u.municipio_id || '');
+  else if (u.perfil === 'gestor') { m = String(u.municipio_id || ''); soEscolas = escolasDe(u).slice(0, 10); if (!soEscolas.length) throw new HttpsError('failed-precondition', 'Seu cadastro de gestor ainda não está ligado a uma escola.'); }
+  else throw new HttpsError('permission-denied', 'A visão da rede é da Secretaria de Educação e dos gestores das escolas.');
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(m)) throw new HttpsError('failed-precondition', 'Seu cadastro não está ligado a uma rede de ensino.');
+  const mu = (await db.doc(`municipios/${m}`).get()).data() || {};
+  if (u.perfil === 'secretaria' && !(Array.isArray(mu.modulos_secretaria) && mu.modulos_secretaria.includes('painel'))) throw new HttpsError('permission-denied', 'O painel ainda não faz parte do plano da sua rede. Fale com a equipe NEWPC.');
+  const dias = [7, 30, 90, 365].includes(+d.dias) ? +d.dias : 30, de = new Date(Date.now() - 4 * 3600e3 - dias * 864e5).toISOString().slice(0, 10);
+  const chave = [m, dias, (soEscolas || []).join(',')].join('|'), guardado = cacheRede.get(chave);
+  if (guardado && Date.now() - guardado.em < 600e3) return guardado.dados;
+  const TETO = 20000;
+  const [se, sr] = await Promise.all([
+    db.collection('escolas').where('municipio_id', '==', m).limit(400).get(),
+    db.collection('jogo_resultados').where('municipio_id', '==', m).where('dia', '>=', de).limit(TETO).get()
+  ]);
+  const escolas = {};
+  se.forEach(x => { const e = x.data(); if (e.status === 'inativa' || (soEscolas && !soEscolas.includes(x.id))) return;
+    escolas[x.id] = { nome: String(e.nome || 'Escola').slice(0, 90), n: 0, lousa: 0, c: 0, t: 0, alunos: new Set(), turmas: new Set(), ultimo: '', habs: {}, matriculados: null }; });
+  const rede = { n: 0, lousa: 0, c: 0, t: 0, habs: {}, jogos: {}, porDia: {} };
+  sr.forEach(x => { const r = x.data(), E = escolas[r.escola_id]; if (!E) return;
+    const aluno = r.perfil === 'aluno';
+    if (aluno) { E.n++; rede.n++; E.c += r.acertos || 0; E.t += r.total || 0; rede.c += r.acertos || 0; rede.t += r.total || 0; if (r.aluno_id) E.alunos.add(r.aluno_id); if (r.turma_id) E.turmas.add(r.turma_id); }
+    else { E.lousa++; rede.lousa++; }
+    if (!E.ultimo || r.dia > E.ultimo) E.ultimo = r.dia;
+    rede.jogos[r.jogo] = (rede.jogos[r.jogo] || 0) + 1; rede.porDia[r.dia] = (rede.porDia[r.dia] || 0) + 1;
+    (Array.isArray(r.habs) ? r.habs : []).forEach(h => { if (!h || !h.h) return;
+      const a = rede.habs[h.h] || (rede.habs[h.h] = { c: 0, t: 0, escolas: new Set() }); a.c += h.c || 0; a.t += h.t || 0; a.escolas.add(r.escola_id);
+      if (aluno) { const b = E.habs[h.h] || (E.habs[h.h] = { c: 0, t: 0 }); b.c += h.c || 0; b.t += h.t || 0; } }); });
+  // alunos cadastrados por escola (contagem no servidor, sem ler os cadastros), para mostrar quantos da escola já jogaram
+  const ids = Object.keys(escolas);
+  for (let i = 0; i < ids.length; i += 20) await Promise.all(ids.slice(i, i + 20).map(async id => {
+    try { escolas[id].matriculados = (await db.collection('alunos').where('escola_id', '==', id).count().get()).data().count; } catch (e) { /* sem contagem: a coluna fica em branco */ } }));
+  const dados = { ok: true, dias, de, municipio: { id: m, nome: String(mu.nome || '').slice(0, 80), uf: String(mu.uf || '').slice(0, 2) }, cortado: sr.size >= TETO,
+    escolas: ids.map(id => { const E = escolas[id]; return { id, nome: E.nome, n: E.n, lousa: E.lousa, c: E.c, t: E.t, alunos: E.alunos.size, turmas: E.turmas.size, matriculados: E.matriculados, ultimo: E.ultimo,
+      fracas: Object.entries(E.habs).filter(([, v]) => v.t >= 20 && v.c / v.t < .6).sort((a, b) => a[1].c / a[1].t - b[1].c / b[1].t).slice(0, 3).map(([h, v]) => ({ h, p: Math.round(v.c / v.t * 100) })) }; }),
+    rede: { n: rede.n, lousa: rede.lousa, c: rede.c, t: rede.t, jogos: rede.jogos, porDia: rede.porDia, habs: Object.fromEntries(Object.entries(rede.habs).map(([h, v]) => [h, { c: v.c, t: v.t, escolas: v.escolas.size }])) } };
+  cacheRede.set(chave, { em: Date.now(), dados });
+  return dados;
+});

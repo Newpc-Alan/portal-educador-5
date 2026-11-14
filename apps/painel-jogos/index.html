@@ -26,6 +26,11 @@ main{ max-width:1100px; margin:0 auto; padding:16px; display:flex; flex-directio
 .inp{ border:1.5px solid var(--linha); border-radius:10px; padding:10px 12px; background:#fff; min-height:44px; color:var(--tinta); text-transform:none; letter-spacing:0; font-weight:500; font-size:15px; }
 .bt{ border:0; border-radius:10px; padding:10px 16px; font-weight:700; cursor:pointer; background:var(--verde); color:#fff; min-height:44px; }
 .bt.sec{ background:#e8eef5; color:var(--azul); }
+.visoes{ display:flex; gap:8px; }
+.visoes button{ border:1.5px solid var(--linha); background:#fff; color:var(--azul); font-weight:700; padding:10px 16px; border-radius:10px; cursor:pointer; min-height:44px; }
+.visoes button[aria-pressed="true"]{ background:var(--azul); color:#fff; border-color:var(--azul); }
+.dias{ display:flex; align-items:flex-end; gap:2px; height:70px; }
+.dias i{ flex:1; background:#2671AB; border-radius:3px 3px 0 0; min-height:2px; display:block; }
 .kpis{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
 .kpi{ background:var(--carta); border:1px solid var(--linha); border-radius:14px; padding:14px; }
 .kpi b{ display:block; font-size:28px; font-weight:700; color:var(--azul); line-height:1.1; }
@@ -59,8 +64,13 @@ td.n{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
   <h1>Painel dos Jogos <small id="quem"></small></h1>
 </header>
 <main>
+  <nav class="visoes np" id="visoes" hidden>
+    <button type="button" data-v="turma" aria-pressed="true">Por turma</button>
+    <button type="button" data-v="rede" aria-pressed="false">Por escola (rede)</button>
+  </nav>
   <section class="carta filtros">
-    <label>Turma<select class="inp" id="selTurma"><option value="">Carregando...</option></select></label>
+    <label id="lbTurma">Turma<select class="inp" id="selTurma"><option value="">Carregando...</option></select></label>
+    <label id="lbMuni" hidden>Rede (município)<select class="inp" id="selMuni"><option value="">Escolha a rede...</option></select></label>
     <label style="flex:0 1 190px">Período<select class="inp" id="selDias"><option value="7">Últimos 7 dias</option><option value="30" selected>Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="365">Último ano</option></select></label>
     <button type="button" class="bt sec" data-a="imprimir">🖨️ Imprimir ou salvar em PDF</button>
   </section>
@@ -73,11 +83,13 @@ import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/
 import { getFirestore, doc, getDoc, getDocs, collection, query, where, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
 // Painel dos Jogos (nov/2026): o professor vê, por turma, o que foi treinado nos jogos do Motor de Jogos, por habilidade e por aluno.
-// Os números vêm da função jogoPainel (só códigos); os nomes vêm do cadastro da turma, que o professor já pode ler. Nada vai para IA.
+// A Secretaria vê a visão da rede (jogoPainelRede): totais por escola, sem nome nem código de aluno.
+// Na visão por turma, os números vêm da função jogoPainel (só códigos); os nomes vêm do cadastro da turma, que o professor já pode ler. Nada vai para IA.
 const app = initializeApp(window.PDE_AMBIENTE.fb), auth = getAuth(app), db = getFirestore(app);
 const fnPainel = httpsCallable(getFunctions(app, "southamerica-east1"), "jogoPainel", { timeout:60000 });
 const $ = id => document.getElementById(id), esc = t => String(t ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-const E = { u:null, uid:"", turmas:[], bncc:null, pedido:0 };
+const fnRede = httpsCallable(getFunctions(app, "southamerica-east1"), "jogoPainelRede", { timeout:120000 });
+const E = { u:null, uid:"", turmas:[], bncc:null, pedido:0, visao:"turma" };
 const JOGOS = { "tabuada":"Tabuada", "que-horas-sao":"Que Horas São?", "fracao-magica":"Fração Mágica", "corpo-humano":"Corpo Humano", "sistema-solar":"Sistema Solar", "explorando-habitats":"Explorando Habitats", "trilha-do-conhecimento":"Trilha do Conhecimento", "mouse-e-teclado":"Mouse e Teclado" };
 const PROPRIAS = { "MT-CLICAR":"Mouse: apontar e clicar", "MT-PRECISO":"Mouse: clique com precisão", "MT-DUPLO":"Mouse: clique duplo", "MT-ARRASTAR":"Mouse: arrastar e soltar", "MT-LETRAS":"Teclado: localizar letras", "MT-PALAVRAS":"Teclado: digitar palavras", "GERAL":"Desafios gerais" };
 const MIN = 4, CORTE = 60;
@@ -100,7 +112,38 @@ async function carregarTurmas(){
   const minhas = new Set((E.u.turmas_ids || []).map(String)), ehMinha = t => minhas.has(t.id) || t.criado_por === E.uid || (Array.isArray(t.grade) && t.grade.some(g => g.professor_uid === E.uid));
   E.turmas.sort((a, b) => (ehMinha(b) - ehMinha(a)) || String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR", { numeric:true }));
   $("selTurma").innerHTML = E.turmas.length ? '<option value="">Escolha a turma...</option>' + E.turmas.map(t => '<option value="' + esc(t.id) + '">' + esc(t.nome || "Turma") + (ids.length > 1 && t.escola_nome ? " · " + esc(t.escola_nome) : "") + (ehMinha(t) ? " ★" : "") + "</option>").join("") : '<option value="">Nenhuma turma cadastrada</option>';
-  if(!E.turmas.length) $("conteudo").innerHTML = '<div class="carta vazio"><b>Nenhuma turma encontrada</b>Cadastre a turma e os alunos no Portal para acompanhar os jogos por aqui.</div>';
+  if(!E.turmas.length && E.visao === "turma") $("conteudo").innerHTML = '<div class="carta vazio"><b>Nenhuma turma encontrada</b>Cadastre a turma e os alunos no Portal para acompanhar os jogos por aqui.</div>';
+}
+// ----- visão da rede: uma linha por escola, só totais (sem nome nem código de aluno) -----
+async function abrirRede(){
+  const C = $("conteudo"), meu = ++E.pedido, muni = E.u.perfil === "admin" ? $("selMuni").value : "";
+  if(E.u.perfil === "admin" && !muni){ C.innerHTML = '<div class="carta vazio"><b>Escolha a rede</b>A visão da rede soma os resultados dos jogos por escola.</div>'; return; }
+  C.innerHTML = '<div class="carta vazio">Somando os resultados das escolas...</div>';
+  try{ const [pr, B] = await Promise.all([fnRede({ dias:+$("selDias").value, municipio_id:muni }), bncc()]); if(meu !== E.pedido) return; desenharRede(pr.data, B); }
+  catch(e){ if(meu !== E.pedido) return; console.warn("rede:", e.code, e.message); C.innerHTML = '<div class="carta vazio"><b>Não foi possível carregar</b>' + esc(e.message || "Tente de novo em instantes.") + "</div>"; }
+}
+function desenharRede(r, B){
+  const R = r.rede, es = r.escolas.slice().sort((a, b) => b.n + b.lousa - (a.n + a.lousa) || a.nome.localeCompare(b.nome, "pt-BR")), ativas = es.filter(e => e.n + e.lousa > 0), alunos = es.reduce((s, e) => s + e.alunos, 0);
+  const habs = Object.entries(R.habs).sort((a, b) => pct(a[1].c, a[1].t) - pct(b[1].c, b[1].t));
+  let h = '<div class="kpis"><div class="kpi"><b>' + ativas.length + " de " + es.length + '</b><span>escolas usaram os jogos</span></div><div class="kpi"><b>' + alunos + '</b><span>alunos jogaram com a própria conta</span></div><div class="kpi"><b>' + R.n + '</b><span>rodadas de alunos</span></div>' +
+    '<div class="kpi"><b>' + R.lousa + '</b><span>rodadas na lousa (professor)</span></div><div class="kpi"><b class="' + (R.t ? faixa(pct(R.c, R.t)) : "") + '">' + (R.t ? pct(R.c, R.t) + "%" : "–") + '</b><span>acerto de primeira da rede</span></div><div class="kpi"><b>' + habs.length + "</b><span>habilidades treinadas</span></div></div>";
+  if(r.cortado) h += '<div class="aviso" style="margin-top:14px">O período tem mais de 20.000 rodadas: os números mostram só uma parte. Escolha um período menor.</div>';
+  if(!es.length){ $("conteudo").innerHTML = h + '<div class="carta vazio" style="margin-top:14px"><b>Nenhuma escola cadastrada nesta rede</b></div>'; return; }
+  const dias = Object.entries(R.porDia).sort(), mx = Math.max(1, ...dias.map(x => x[1]));
+  if(dias.length > 1) h += '<section class="carta" style="margin-top:14px"><h2>Uso por dia</h2><p class="sub">Rodadas concluídas na rede (alunos e lousa), de ' + data(dias[0][0]) + " a " + data(dias[dias.length - 1][0]) + '.</p><div class="dias" role="img" aria-label="Rodadas por dia">' + dias.map(([d, n]) => '<i style="height:' + Math.round(n / mx * 100) + '%" title="' + data(d) + ": " + n + '"></i>').join("") + "</div></section>";
+  h += '<section class="carta" style="margin-top:14px"><h2>Por escola</h2><p class="sub">' + esc(r.municipio.nome || "Rede") + (r.municipio.uf ? "/" + esc(r.municipio.uf) : "") + ", desde " + data(r.de) + '. Escolas sem uso aparecem no fim: são as que precisam de visita ou formação.</p><div class="rol"><table><thead><tr><th>Escola</th><th class="n">Alunos que jogaram</th><th class="n">Turmas</th><th class="n">Rodadas</th><th class="n">Na lousa</th><th>Acerto de primeira</th><th>Reforçar</th><th class="n">Último uso</th></tr></thead><tbody>' +
+    es.map(e => "<tr><td><b>" + esc(e.nome) + '</b></td><td class="n">' + e.alunos + (e.matriculados ? " de " + e.matriculados : "") + '</td><td class="n">' + e.turmas + '</td><td class="n">' + e.n + '</td><td class="n">' + e.lousa + "</td><td>" + (e.t ? barra(e.c, e.t) : '<span class="sub" style="margin:0">sem dados</span>') + "</td><td>" +
+      (e.fracas.length ? e.fracas.map(x => '<span class="selo" title="' + esc(habTxt(x.h, B).texto) + '">' + esc(x.h) + " " + x.p + "%</span>").join("") : e.n ? '<span class="selo ok">sem alerta</span>' : "") + '</td><td class="n">' + (e.ultimo ? data(e.ultimo) : '<span class="selo">sem uso</span>') + "</td></tr>").join("") + "</tbody></table></div></section>";
+  if(habs.length) h += '<section class="carta" style="margin-top:14px"><h2>Habilidades na rede</h2><p class="sub">Da que mais precisa de atenção para a mais consolidada. Orienta a pauta de formação e o reforço.</p><div class="rol"><table><thead><tr><th>Habilidade</th><th>O que é</th><th>Acerto de primeira</th><th class="n">Perguntas</th><th class="n">Escolas</th></tr></thead><tbody>' +
+    habs.map(([k, v]) => { const x = habTxt(k, B); return '<tr><td class="cod">' + esc(k) + (x.comp ? '<br><span class="sub" style="font-weight:500">' + esc(x.comp) + "</span>" : "") + "</td><td>" + esc(x.texto || "") + "</td><td>" + barra(v.c, v.t) + '</td><td class="n">' + v.t + '</td><td class="n">' + v.escolas + "</td></tr>"; }).join("") + "</tbody></table></div></section>";
+  const jg = Object.entries(R.jogos).sort((a, b) => b[1] - a[1]);
+  if(jg.length) h += '<section class="carta" style="margin-top:14px"><h2>Jogos mais usados</h2><div class="rol"><table style="min-width:300px"><thead><tr><th>Jogo</th><th class="n">Rodadas</th></tr></thead><tbody>' + jg.map(([j, n]) => "<tr><td>" + esc(JOGOS[j] || j) + '</td><td class="n">' + n + "</td></tr>").join("") + "</tbody></table></div></section>";
+  $("conteudo").innerHTML = h + '<p class="sub" style="margin-top:10px">A visão da rede mostra só totais por escola. Nome e resultado individual de aluno ficam restritos ao professor e à gestão da escola.</p>';
+}
+function trocarVisao(v){
+  E.visao = v; document.querySelectorAll("[data-v]").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === v ? "true" : "false"));
+  $("lbTurma").hidden = v !== "turma"; $("lbMuni").hidden = !(v === "rede" && E.u.perfil === "admin");
+  if(v === "rede") abrirRede(); else abrir();
 }
 async function abrir(){
   const id = $("selTurma").value, t = E.turmas.find(x => x.id === id), C = $("conteudo"), meu = ++E.pedido;
@@ -147,13 +190,19 @@ function desenhar(t, r, alunos, B){
   }
   $("conteudo").innerHTML = h;
 }
-document.addEventListener("change", e => { if(e.target.id === "selTurma" || e.target.id === "selDias") abrir(); });
-document.addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(b && b.dataset.a === "imprimir") window.print(); });
+document.addEventListener("change", e => { if(e.target.id === "selTurma") abrir(); else if(e.target.id === "selMuni") abrirRede(); else if(e.target.id === "selDias"){ if(E.visao === "rede") abrirRede(); else abrir(); } });
+document.addEventListener("click", e => { const v = e.target.closest("[data-v]"); if(v) return trocarVisao(v.dataset.v); const b = e.target.closest("[data-a]"); if(b && b.dataset.a === "imprimir") window.print(); });
 onAuthStateChanged(auth, async user => {
   if(!user){ location.replace("/entrar/"); return; }
   let u = null; try{ const s = await getDoc(doc(db, "usuarios", user.uid)); u = s.exists() ? s.data() : null; }catch(e){}
-  if(!u || u.status !== "ativo" || !["professor", "gestor", "admin"].includes(u.perfil)){ location.replace("/entrar/"); return; }
+  if(!u || u.status !== "ativo" || !["professor", "gestor", "admin", "secretaria"].includes(u.perfil)){ location.replace("/entrar/"); return; }
   E.u = u; E.uid = user.uid; $("quem").textContent = "· " + (u.nome || user.email || "");
+  // secretaria: só a visão da rede (sem nomes). Gestor e administrador: as duas. Professor: só a turma.
+  if(u.perfil === "secretaria"){ trocarVisao("rede"); return; }
+  if(u.perfil === "gestor" || u.perfil === "admin") $("visoes").hidden = false;
+  if(u.perfil === "admin"){ try{ const sm = await getDocs(query(collection(db, "municipios"), limit(400))), l = []; sm.forEach(d => l.push({ id:d.id, nome:(d.data().nome || d.id) + (d.data().uf ? "/" + d.data().uf : "") }));
+    l.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")); $("selMuni").innerHTML = '<option value="">Escolha a rede...</option>' + l.map(x => '<option value="' + esc(x.id) + '">' + esc(x.nome) + "</option>").join(""); }catch(e){ console.warn("municipios:", e.code); } }
+  if((location.hash || "") === "#rede" && u.perfil !== "professor"){ trocarVisao("rede"); carregarTurmas(); return; }
   await carregarTurmas();
 });
 </script>
