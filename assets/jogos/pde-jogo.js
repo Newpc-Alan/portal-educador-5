@@ -8,7 +8,7 @@
 //   · resultado por habilidade da BNCC, "treinar o que errei" e registro para o professor (callable jogoResultado, sem nome).
 // Uso: PDEJogo.criar({ id, titulo, emoji, descricao, tema:[cor1,cor2], habilidades:{COD:"texto"}, niveis:[{nome,hab}],
 //        opcoes:[{id,rotulo,itens:[{v,t,s}],multi,num}], rodada:10, ajuda:[...], gerar(ctx) → desafio })
-// desafio = { chave, hab, pergunta | desenhar(el), texto:true?, fala, tipo:"teclado"|"escolha", resposta, alternativas?, apoio(el)?, dica, explicacao, rotulo }
+// desafio = { chave, hab, pergunta | desenhar(el), texto:true?, fala, tipo:"teclado"|"escolha"|"livre" (com montar(el, api) e tecla(e, api)?), resposta, alternativas?, apoio(el)?, dica, explicacao, rotulo }
 (function(){
 "use strict";
 const $ = (s, r) => (r || document).querySelector(s);
@@ -161,7 +161,11 @@ function criar(J){
   function resposta(){
     const it = E.item, box = $("#pjResp", raiz), escolha = it.tipo === "escolha" || E.modo === "turma";
     const placar = E.jog === 2 ? '<div class="pj-placar"><span class="' + (E.vez === 0 ? "vez" : "") + '">Jogador 1: ' + E.placar[0] + '</span><span class="j2 ' + (E.vez === 1 ? "vez" : "") + '">Jogador 2: ' + E.placar[1] + "</span></div>" : "";
-    if(escolha){
+    if(it.tipo === "livre"){
+      // prática livre (mouse, teclado, arrastar): o jogo monta a própria área e avisa o motor a cada acerto ou erro
+      box.innerHTML = placar + '<div class="pj-livre" id="pjLivre"></div>';
+      it.montar($("#pjLivre", raiz), apiLivre());
+    }else if(escolha){
       E.alts = alternativas(it);
       box.innerHTML = placar + '<div class="pj-opc' + (E.alts.some(a => String(a).length > 6) ? " texto" : "") + '">' + E.alts.map((a, i) => '<button type="button" data-alt="' + i + '">' + esc(a) + "</button>").join("") + "</div>" +
         (E.modo === "turma" ? '<div class="pj-seguir"><button type="button" class="pj-bt sec" data-a="mostrar">👀 Mostrar a resposta</button></div>' : "");
@@ -170,6 +174,8 @@ function criar(J){
         '<button type="button" class="apaga" data-n="x" aria-label="Apagar">⌫</button><button type="button" data-n="0">0</button><button type="button" class="ok" data-n="ok" aria-label="Confirmar">✓</button></div>';
     }
   }
+  const ERRO_LIVRE = "\u0000";
+  function apiLivre(){ return { certo:() => conferir(E.item.resposta), errado:() => conferir(ERRO_LIVRE), travado:() => !!E.travado, som:SOM }; }
   function digitar(n){
     if(E.travado) return;
     if(n === "ok") return E.digit ? conferir(E.digit) : null;
@@ -283,6 +289,7 @@ function criar(J){
     if(e.key === "Escape"){ const f = document.querySelector(".pj-fundo"); if(f) f.remove(); return; }
     if(!E || document.querySelector(".pj-fundo")) return;
     if(E.travado){ if(e.key === "Enter" || e.key === " "){ const b = $('[data-a="seguir"]', raiz); if(b){ e.preventDefault(); b.click(); } } return; }
+    if(E.item && E.item.tipo === "livre"){ if(E.item.tecla) E.item.tecla(e, apiLivre()); return; }
     if($(".pj-tecl", raiz)){ if(/^[0-9]$/.test(e.key)) digitar(e.key); else if(e.key === "Backspace") digitar("x"); else if(e.key === "Enter") digitar("ok"); }
     else if(/^[1-4]$/.test(e.key)){ const b = raiz.querySelectorAll("[data-alt]")[+e.key - 1]; if(b && !b.disabled) b.click(); }
   });
