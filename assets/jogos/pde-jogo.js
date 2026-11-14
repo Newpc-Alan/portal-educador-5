@@ -98,7 +98,7 @@ function criar(J){
     const modos = [["solo", "🙂 Sozinho", "no seu ritmo"], ["dupla", "🧑‍🤝‍🧑 Dupla", "um de cada vez"], ["turma", "🖥️ Turma", "todos juntos na lousa"]];
     const chip = (grupo, v, t, s, on, num) => '<button type="button" class="pj-chip" data-g="' + grupo + '" data-v="' + esc(v) + '" aria-pressed="' + (on ? "true" : "false") + '">' + esc(t) + (s ? "<small>" + esc(s) + "</small>" : "") + "</button>";
     tela.innerHTML = '<div class="pj-ini"><section class="pj-ini-a"><span class="pj-selo">' + esc(J.selo || "Jogo do Portal do Educador") + '</span><div class="emoji" aria-hidden="true">' + esc(J.emoji || "🎮") + "</div><h2>" + esc(J.titulo) + "</h2><p>" + esc(J.descricao || "") + "</p>" +
-      '<div class="pj-habs" title="Habilidades da BNCC trabalhadas">' + Object.keys(J.habilidades || {}).map(h => "<span>" + esc(h) + "</span>").join("") + "</div></section>" +
+      '<div class="pj-habs" title="Habilidades da BNCC trabalhadas">' + (hs => hs.slice(0, 6).map(h => "<span>" + esc(h) + "</span>").join("") + (hs.length > 6 ? "<span>+" + (hs.length - 6) + " habilidades</span>" : ""))(Object.keys(J.habilidades || {})) + "</div></section>" +
       '<section class="pj-ini-b"><div><div class="pj-rot">Como vamos jogar</div><div class="pj-chips" style="margin-top:.4rem">' + modos.map(m => chip("modo", m[0], m[1], m[2], CFG.modo === m[0])).join("") + "</div></div>" +
       (NIVEIS.length > 1 ? '<div><div class="pj-rot">Por onde começar</div><div class="pj-chips" style="margin-top:.4rem">' + chip("trilha", "1", "✨ Trilha", "o jogo ajusta o nível", CFG.trilha) + NIVEIS.map((n, i) => chip("nivel", i, (i + 1) + " · " + n.nome, n.sub || "", !CFG.trilha && CFG.nivel === i)).join("") + "</div></div>" : "") +
       (J.opcoes || []).map(o => '<div><div class="pj-rot">' + esc(o.rotulo) + '</div><div class="pj-chips' + (o.num ? " num" : "") + '" style="margin-top:.4rem">' + o.itens.map(it => chip("o:" + o.id, it.v, it.t, it.s || "", o.multi ? (CFG.opc[o.id] || []).map(String).includes(String(it.v)) : String(CFG.opc[o.id]) === String(it.v))).join("") + "</div></div>").join("") +
@@ -290,7 +290,7 @@ function criar(J){
   return { abertura, comecar };
 }
 // Jogos de conteúdo (Ciências, História...): banco fixo de perguntas revisadas, por nível.
-//   niveis = [{ hab, itens:[[pergunta, certa, [3 erradas], dica, explicacao, emoji?], ...] }, ...]
+//   niveis = [{ hab, itens:[[pergunta, certa, [3 erradas], dica, explicacao, emoji?, habilidade própria?], ...] }, ...]
 // Devolve a função gerar(ctx): percorre todas as perguntas do nível antes de repetir alguma.
 function banco(niveis){
   const sacos = niveis.map(() => []);
@@ -298,7 +298,7 @@ function banco(niveis){
     const n = Math.min(c.nivel, niveis.length - 1), N = niveis[n];
     if(!sacos[n].length) sacos[n] = embaralha(N.itens.map((_, i) => i));
     const i = sacos[n].pop(), q = N.itens[i];
-    return { chave:"b" + n + "." + i, hab:N.hab, rotulo:q[0], pergunta:q[0], texto:true, fala:q[0], tipo:"escolha", resposta:q[1], alternativas:[q[1]].concat(q[2]),
+    return { chave:"b" + n + "." + i, hab:q[6] || N.hab, rotulo:q[0], pergunta:q[0], texto:true, fala:q[0], tipo:"escolha", resposta:q[1], alternativas:[q[1]].concat(q[2]),
       apoio:q[5] ? el => { el.innerHTML = '<div class="pj-emoji" aria-hidden="true">' + esc(q[5]) + "</div>"; } : null,
       dica:q[3], explicacao:() => esc(q[4]) + " Resposta: <b>" + esc(q[1]) + "</b>.", fechamento:q[4] };
   };
